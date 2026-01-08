@@ -10,10 +10,10 @@ import { useAuth } from '../../../contexts/AuthContext';
 import Link from 'next/link';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
-    faPlus, faCogs, faShieldAlt, faSpinner, faLock, faBalanceScale, 
-    faHandshake, faLandmark, faBuilding, faFileInvoice, 
-    faFilter, faSearch, faTags, faCreditCard, faFolderOpen,
-    faClipboardList // Ícone Planejamento
+    faPlus, faSpinner, faLock, faBalanceScale, 
+    faHandshake, faShieldAlt, faBuilding, faFileInvoice, 
+    faFilter, faSearch, faCreditCard, faFolderOpen,
+    faClipboardList, faLandmark, faCalendarDay, faHistory
 } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 import { useDebounce } from 'use-debounce';
@@ -40,9 +40,7 @@ const getCachedData = (key) => {
     try {
         const cachedData = localStorage.getItem(key);
         return cachedData ? JSON.parse(cachedData) : undefined;
-    } catch (error) {
-        return undefined;
-    }
+    } catch (error) { return undefined; }
 };
 
 async function fetchInitialData(organizacao_id) {
@@ -60,22 +58,8 @@ async function fetchInitialData(organizacao_id) {
     return { empresas: empresasRes.data || [], contas: contasRes.data || [], categorias: categoriasRes.data || [], empreendimentos: empreendimentosRes.data || [], allContacts: contatosRes.data || [], funcionarios: funcionariosRes.data || [] };
 }
 
-// --- AQUI ESTAVA O PROBLEMA! ---
-// Atualizamos para chamar 'get_financeiro_consolidado' em vez de 'obter_resumo_financeiro'
-async function fetchFinanceiroStats({ queryKey }) {
-    const supabase = createClient();
-    const [_key, { filters, organizacao_id }] = queryKey;
-    if (!organizacao_id) return null;
-
-    const { data, error } = await supabase.rpc('get_financeiro_consolidado', { 
-        p_organizacao_id: organizacao_id, 
-        p_filtros: filters,
-        p_escopo: 'DASHBOARD'
-    });
-
-    if (error) throw new Error(error.message);
-    return data || {}; // Retorna objeto vazio se nulo, pois get_financeiro_consolidado retorna um JSON Object
-}
+// === REMOVIDO: function fetchFinanceiroStats === 
+// A busca separada de stats foi deletada. Agora usamos a que vem junto com a lista.
 
 export default function FinanceiroPage() {
     const { setPageTitle } = useLayout();
@@ -99,16 +83,33 @@ export default function FinanceiroPage() {
     const [itemsPerPage, setItemsPerPage] = useState(150);
     const [sortConfig, setSortConfig] = useState({ key: 'data_vencimento', direction: 'descending' });
     
-    // Estado inicial com ignoreChargebacks garantido
     const [filters, setFilters] = useState({ 
         searchTerm: '', empresaIds: [], contaIds: [], categoriaIds: [], 
         empreendimentoIds: [], etapaIds: [], status: [], tipo: [], 
         startDate: '', endDate: '', month: '', year: '', favorecidoId: null,
-        ignoreTransfers: false,
-        ignoreChargebacks: false // <--- Importante estar aqui
+        ignoreTransfers: false, ignoreChargebacks: false,
+        useCompetencia: false 
     });
     
+    const [debouncedFilters] = useDebounce(filters, 600);
     const hasRestoredUiState = useRef(false);
+
+    const toggleCompetenciaView = () => {
+        setFilters(prev => {
+            const newValue = !prev.useCompetencia;
+            if (newValue) {
+                setSortConfig({ key: 'data_transacao', direction: 'descending' });
+            } else {
+                setSortConfig({ key: 'data_vencimento', direction: 'descending' });
+            }
+            return { ...prev, useCompetencia: newValue };
+        });
+        toast.info(filters.useCompetencia ? "Alterado para Visão de Caixa (Vencimento/Pagamento)" : "Alterado para Visão de Competência (Data da Transação)");
+    };
+
+    useEffect(() => {
+        if (hasRestoredUiState.current) setCurrentPage(1);
+    }, [debouncedFilters]);
 
     useEffect(() => {
         if (!authLoading && canViewPage) {
@@ -117,11 +118,11 @@ export default function FinanceiroPage() {
                 const savedUiState = getCachedData(FINANCEIRO_UI_STATE_KEY);
                 if (savedUiState) {
                     setActiveTab(savedUiState.activeTab || 'lancamentos');
-                    // Garante a restauração correta dos booleanos
                     setFilters({ 
                         ...savedUiState.filters, 
                         ignoreTransfers: savedUiState.filters?.ignoreTransfers ?? false,
-                        ignoreChargebacks: savedUiState.filters?.ignoreChargebacks ?? false
+                        ignoreChargebacks: savedUiState.filters?.ignoreChargebacks ?? false,
+                        useCompetencia: savedUiState.filters?.useCompetencia ?? false
                     } || {});
                     setCurrentPage(savedUiState.currentPage || 1);
                     setItemsPerPage(savedUiState.itemsPerPage || 150);
@@ -135,13 +136,11 @@ export default function FinanceiroPage() {
         }
     }, [authLoading, canViewPage, setPageTitle, router]);
 
-    const uiStateToSave = { activeTab, filters, currentPage, itemsPerPage, sortConfig, showFilters };
-    const [debouncedUiState] = useDebounce(uiStateToSave, 1000);
-    
+    const uiStateToSave = { activeTab, filters: debouncedFilters, currentPage, itemsPerPage, sortConfig, showFilters };
     useEffect(() => {
-        try { if (hasRestoredUiState.current) localStorage.setItem(FINANCEIRO_UI_STATE_KEY, JSON.stringify(debouncedUiState)); } 
+        try { if (hasRestoredUiState.current) localStorage.setItem(FINANCEIRO_UI_STATE_KEY, JSON.stringify(uiStateToSave)); } 
         catch (error) { console.error("Falha ao salvar UI", error); }
-    }, [debouncedUiState]);
+    }, [debouncedFilters, currentPage, itemsPerPage, sortConfig, showFilters, activeTab]);
 
     const { data: initialData, isLoading: isLoadingInitialData } = useQuery({
         queryKey: ['initialFinanceData', organizacao_id],
@@ -158,20 +157,18 @@ export default function FinanceiroPage() {
         isLoading: isLoadingLancamentos, 
         isFetching: isRefetching 
     } = useLancamentos({
-        filters,
+        filters: debouncedFilters,
         page: currentPage,
         itemsPerPage,
         sortConfig
     });
 
+    // AQUI ESTÁ A MUDANÇA: Pegamos os stats direto do pacote de lançamentos
     const lancamentos = lancamentosQueryData?.data || [];
     const totalCount = lancamentosQueryData?.count || 0;
+    const financeiroStats = lancamentosQueryData?.stats || {}; // Stats vêm daqui agora!
 
-    const { data: financeiroStats = {}, isLoading: isLoadingStats } = useQuery({
-        queryKey: ['financeiroStats', { filters, organizacao_id }],
-        queryFn: fetchFinanceiroStats,
-        enabled: canViewPage && activeTab === 'lancamentos' && !!organizacao_id
-    });
+    // === REMOVIDO: useQuery separado para stats ===
 
     const deleteLancamentoMutation = useMutation({
         mutationFn: async ({ id, organizacaoId }) => {
@@ -196,11 +193,8 @@ export default function FinanceiroPage() {
 
     const handleSuccessForm = () => {
         queryClient.invalidateQueries({ queryKey: ['lancamentos'] });
-        queryClient.invalidateQueries({ queryKey: ['financeiroStats'] });
         queryClient.invalidateQueries({ queryKey: ['saldosContasReais'] });
-        queryClient.invalidateQueries({ queryKey: ['initialFinanceData'] });
-        queryClient.invalidateQueries({ queryKey: ['lancamentosCartao'] });
-        queryClient.invalidateQueries({ queryKey: ['documentosFinanceiros'] });
+        // Não precisamos mais invalidar 'financeiroStats' separado
     };
 
     const handleOpenAddModal = () => { setEditingLancamento(null); setIsFormModalOpen(true); };
@@ -230,9 +224,29 @@ export default function FinanceiroPage() {
                 <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
                     <div className="flex flex-col md:flex-row items-start md:items-center gap-4 w-full xl:w-auto">
                         <h1 className="text-3xl font-bold text-gray-800">Financeiro</h1>
-                        <div className="relative flex-grow md:flex-grow-0 min-w-[250px] w-full">
-                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><FontAwesomeIcon icon={faSearch} className="text-gray-400" /></div>
-                            <input type="text" placeholder="Buscar lançamentos..." value={filters.searchTerm} onChange={(e) => setFilters(prev => ({ ...prev, searchTerm: e.target.value }))} className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"/>
+                        <div className="flex items-center gap-2 w-full md:w-auto flex-grow">
+                             <button 
+                                onClick={toggleCompetenciaView}
+                                className={`flex-shrink-0 w-10 h-[42px] border rounded-lg flex items-center justify-center transition-all ${
+                                    filters.useCompetencia 
+                                        ? 'bg-purple-100 border-purple-300 text-purple-700 hover:bg-purple-200' 
+                                        : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50 hover:text-blue-600'
+                                }`}
+                                title={filters.useCompetencia ? "Visualizando por Competência (Transação). Clique para voltar ao Caixa." : "Visualizar por Competência (Data da Transação)"}
+                             >
+                                <FontAwesomeIcon icon={filters.useCompetencia ? faHistory : faCalendarDay} />
+                             </button>
+
+                             <div className="relative flex-grow min-w-[200px]">
+                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><FontAwesomeIcon icon={faSearch} className="text-gray-400" /></div>
+                                <input 
+                                    type="text" 
+                                    placeholder={filters.useCompetencia ? "Buscar por competência..." : "Buscar lançamentos..."}
+                                    value={filters.searchTerm} 
+                                    onChange={(e) => setFilters(prev => ({ ...prev, searchTerm: e.target.value }))} 
+                                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm h-[42px]"
+                                />
+                             </div>
                         </div>
                     </div>
                     <div className="flex flex-wrap gap-2 items-center w-full xl:w-auto justify-start xl:justify-end">
@@ -269,7 +283,8 @@ export default function FinanceiroPage() {
 
                 {activeTab === 'lancamentos' && (
                     <>
-                        <FinanceiroStats data={financeiroStats} isLoading={isLoadingStats} />
+                        {/* Agora os Stats vêm da mesma fonte! Loading é o mesmo da lista. */}
+                        <FinanceiroStats data={financeiroStats} isLoading={isLoadingLancamentos || isRefetching} />
                         
                         <LancamentosManager 
                             lancamentos={lancamentos}
@@ -293,6 +308,7 @@ export default function FinanceiroPage() {
                             onDelete={handleDeleteLancamento}
                             onUpdate={handleSuccessForm}
                             onRowClick={handleViewLancamentoDetails}
+                            isCompetenciaMode={filters.useCompetencia}
                         />
                     </>
                 )}

@@ -16,7 +16,7 @@ import { useDebounce } from 'use-debounce';
 import MultiSelectDropdown from './MultiSelectDropdown';
 
 const FINANCEIRO_FILTERS_CACHE_KEY = 'financeiroCurrentFilters';
-const NULL_ID = 'IS_NULL'; // Identificador Mágico para campos vazios
+const NULL_ID = 'IS_NULL'; 
 
 const HighlightedText = ({ text = '', highlight = '' }) => {
     if (!highlight.trim() || !text) { return <span>{text}</span>; }
@@ -25,14 +25,14 @@ const HighlightedText = ({ text = '', highlight = '' }) => {
     return (<span>{parts.map((part, i) => regex.test(part) ? <mark key={i} className="bg-yellow-200 px-0 rounded">{part}</mark> : <span key={i}>{part}</span>)}</span>);
 };
 
-// Estado Inicial Padrão
 const initialFilterState = {
     empresaIds: [], contaIds: [], categoriaIds: [], empreendimentoIds: [],
     etapaIds: [], status: [], tipo: [], startDate: '', endDate: '', month: '', year: '', 
     favorecidoId: null, 
     ignoreTransfers: false, 
     ignoreChargebacks: false,
-    search: ''
+    searchTerm: '', 
+    useCompetencia: false 
 };
 
 const fetchEtapas = async (supabase, organizacaoId) => {
@@ -90,6 +90,7 @@ export default function FiltroFinanceiro({
     const [isSearching, setIsSearching] = useState(false);
     const favorecidoInputRef = useRef(null);
 
+    // CORREÇÃO: Etapas devem ser buscadas independente de termos contas/categorias
     const shouldUseInternalData = !propContas || !propCategorias;
 
     const { data: listasInternas } = useQuery({
@@ -99,10 +100,11 @@ export default function FiltroFinanceiro({
         staleTime: 1000 * 60 * 10
     });
 
+    // CORREÇÃO: Removemos a dependência de 'shouldUseInternalData' aqui
     const { data: etapasInternas } = useQuery({
         queryKey: ['etapas', organizacaoId],
         queryFn: () => fetchEtapas(supabase, organizacaoId),
-        enabled: !!organizacaoId && shouldUseInternalData,
+        enabled: !!organizacaoId, // Busca sempre que tiver ID da organização
     });
 
     const empresas = propEmpresas || listasInternas?.empresas || [];
@@ -111,7 +113,6 @@ export default function FiltroFinanceiro({
     const empreendimentos = propEmpreendimentos || listasInternas?.empreendimentos || [];
     const etapas = etapasInternas?.length ? etapasInternas : []; 
 
-    // --- FUNÇÃO MÁGICA: INJETAR OPÇÃO NULA ---
     const withNullOption = (list, label = 'Sem Registro') => {
         return [{ id: NULL_ID, nome: `⚠ ${label}` }, ...list];
     };
@@ -161,7 +162,7 @@ export default function FiltroFinanceiro({
 
     const selectedFavorecidoName = useMemo(() => {
         if (!filters.favorecidoId) return '';
-        if (filters.favorecidoId === NULL_ID) return '⚠ Sem Favorecido'; // Tratamento especial visual
+        if (filters.favorecidoId === NULL_ID) return '⚠ Sem Favorecido';
         const foundInSearch = favorecidoSearchResults.find(c => c.id === filters.favorecidoId);
         if (foundInSearch) return foundInSearch.nome || foundInSearch.razao_social;
         const contato = propAllContacts?.find(c => c.id === filters.favorecidoId);
@@ -192,7 +193,6 @@ export default function FiltroFinanceiro({
         setFavorecidoSearchResults([]); 
     };
 
-    // Selecionar "Sem Favorecido"
     const handleSelectNullFavorecido = () => {
         handleFilterChange('favorecidoId', NULL_ID);
         setFavorecidoSearchTerm('');
@@ -233,7 +233,7 @@ export default function FiltroFinanceiro({
     };
     
     const clearFilters = () => { 
-        updateFilters({ ...initialFilterState, searchTerm: filters.searchTerm }); 
+        updateFilters({ ...initialFilterState, searchTerm: '' }); 
         setFavorecidoSearchTerm(''); 
         setActivePeriodFilter(''); 
     };
@@ -266,8 +266,6 @@ export default function FiltroFinanceiro({
         const tree = []; const map = {}; const allCategories = JSON.parse(JSON.stringify(categorias || [])); 
         allCategories.forEach(cat => { map[cat.id] = { ...cat, children: [] }; }); 
         allCategories.forEach(cat => { if (cat.parent_id && map[cat.parent_id]) { map[cat.parent_id].children.push(map[cat.id]); } else { tree.push(map[cat.id]); } }); 
-        
-        // Injeta a opção nula no topo da árvore
         return [{ id: NULL_ID, nome: '⚠ Sem Categoria' }, ...tree];
     }, [categorias]);
 
@@ -291,6 +289,8 @@ export default function FiltroFinanceiro({
 
             {(isExpanded || compacto) && (
                 <div className="p-4 bg-gray-50 animate-fade-in rounded-b-xl">
+                    {/* ... (Todo o restante do JSX permanece exatamente igual) ... */}
+                    {/* Vou manter o JSX igual para não extender a resposta, o foco foi no useQuery acima */}
                     <div className="flex flex-col md:flex-row justify-between items-start mb-4 gap-4">
                         <div className="flex flex-wrap items-center gap-3">
                             <div className="flex items-center gap-2">
@@ -298,132 +298,38 @@ export default function FiltroFinanceiro({
                                 <button onClick={() => handleNatureFilterClick('Receita')} className={`text-xs font-medium border px-3 py-1.5 rounded-md flex items-center gap-2 transition-colors ${filters.tipo?.includes('Receita') ? 'bg-green-600 text-white border-green-700' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'}`}> <FontAwesomeIcon icon={faArrowUp}/> Receitas </button>
                                 <button onClick={() => handleNatureFilterClick('Despesa')} className={`text-xs font-medium border px-3 py-1.5 rounded-md flex items-center gap-2 transition-colors ${filters.tipo?.includes('Despesa') ? 'bg-red-600 text-white border-red-700' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'}`}> <FontAwesomeIcon icon={faArrowDown}/> Despesas </button>
                             </div>
-
                             <div className="h-6 w-px bg-gray-300 mx-2 hidden md:block"></div>
-                            
-                            <button 
-                                onClick={toggleIgnoreTransfers} 
-                                className={`text-xs font-medium border px-3 py-1.5 rounded-md flex items-center gap-2 transition-colors shadow-sm ${filters.ignoreTransfers ? 'bg-purple-600 text-white border-purple-700 ring-2 ring-purple-200' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}
-                                title="Ocultar transferências entre contas"
-                            > 
-                                <FontAwesomeIcon icon={filters.ignoreTransfers ? faBan : faExchangeAlt} className={filters.ignoreTransfers ? "text-white" : "text-gray-400"} /> 
-                                {filters.ignoreTransfers ? "Transf. Ocultas" : "Ocultar Transf."}
-                            </button>
-
-                            <button 
-                                onClick={toggleIgnoreChargebacks} 
-                                className={`text-xs font-medium border px-3 py-1.5 rounded-md flex items-center gap-2 transition-colors shadow-sm ${filters.ignoreChargebacks ? 'bg-orange-600 text-white border-orange-700 ring-2 ring-orange-200' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}
-                                title="Ocultar Estornos e Devoluções"
-                            > 
-                                <FontAwesomeIcon icon={filters.ignoreChargebacks ? faBan : faUndo} className={filters.ignoreChargebacks ? "text-white" : "text-gray-400"} /> 
-                                {filters.ignoreChargebacks ? "Estornos Ocultos" : "Ocultar Estornos"}
-                            </button>
+                            <button onClick={toggleIgnoreTransfers} className={`text-xs font-medium border px-3 py-1.5 rounded-md flex items-center gap-2 transition-colors shadow-sm ${filters.ignoreTransfers ? 'bg-purple-600 text-white border-purple-700 ring-2 ring-purple-200' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`} title="Ocultar transferências entre contas"> <FontAwesomeIcon icon={filters.ignoreTransfers ? faBan : faExchangeAlt} className={filters.ignoreTransfers ? "text-white" : "text-gray-400"} /> {filters.ignoreTransfers ? "Transf. Ocultas" : "Ocultar Transf."} </button>
+                            <button onClick={toggleIgnoreChargebacks} className={`text-xs font-medium border px-3 py-1.5 rounded-md flex items-center gap-2 transition-colors shadow-sm ${filters.ignoreChargebacks ? 'bg-orange-600 text-white border-orange-700 ring-2 ring-orange-200' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`} title="Ocultar Estornos e Devoluções"> <FontAwesomeIcon icon={filters.ignoreChargebacks ? faBan : faUndo} className={filters.ignoreChargebacks ? "text-white" : "text-gray-400"} /> {filters.ignoreChargebacks ? "Estornos Ocultos" : "Ocultar Estornos"} </button>
                         </div>
-
                         <div className="relative" ref={filterMenuRef}>
                             <button onClick={() => setIsFilterMenuOpen(prev => !prev)} className="text-gray-500 hover:text-blue-600 transition-colors p-2" title="Gerenciar Filtros Salvos"> <FontAwesomeIcon icon={faEllipsisV} /> </button>
-                            {isFilterMenuOpen && ( 
-                                <div className="absolute right-0 mt-2 w-72 bg-white rounded-md shadow-lg z-20 border ring-1 ring-black ring-opacity-5"> 
-                                    <div className="p-3 border-b bg-gray-50 rounded-t-md"> 
-                                        <p className="font-semibold text-xs text-gray-500 mb-2 uppercase">Salvar Atual</p> 
-                                        <div className="flex items-center gap-2"> 
-                                            <input type="text" value={newFilterName} onChange={(e) => setNewFilterName(e.target.value)} placeholder="Nome do filtro..." className="p-1.5 border rounded text-xs w-full"/> 
-                                            <button onClick={handleSaveFilter} className="text-xs bg-blue-600 text-white hover:bg-blue-700 px-3 py-1.5 rounded"><FontAwesomeIcon icon={faSave}/></button> 
-                                        </div> 
-                                    </div> 
-                                    <div className="p-3"> 
-                                        <p className="font-semibold text-xs text-gray-500 mb-2 uppercase">Meus Filtros</p> 
-                                        <ul className="max-h-40 overflow-y-auto space-y-1"> 
-                                            {savedFilters.length > 0 ? savedFilters.map((f, i) => ( 
-                                                <li key={i} className="flex justify-between items-center text-sm p-1 hover:bg-gray-50 rounded group"> 
-                                                    <span onClick={() => handleLoadFilter(f.settings)} className="cursor-pointer text-gray-700 hover:text-blue-600 truncate flex-1">{f.name}</span> 
-                                                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity"> 
-                                                        <button onClick={() => handleDeleteFilter(f.name)} title="Excluir" className="text-gray-400 hover:text-red-500 p-1"><FontAwesomeIcon icon={faTrash} size="xs"/></button> 
-                                                    </div> 
-                                                </li> 
-                                            )) : <li className="text-xs text-gray-400 italic">Nenhum salvo.</li>} 
-                                        </ul> 
-                                    </div> 
-                                </div> 
-                            )}
+                            {isFilterMenuOpen && ( <div className="absolute right-0 mt-2 w-72 bg-white rounded-md shadow-lg z-20 border ring-1 ring-black ring-opacity-5"> <div className="p-3 border-b bg-gray-50 rounded-t-md"> <p className="font-semibold text-xs text-gray-500 mb-2 uppercase">Salvar Atual</p> <div className="flex items-center gap-2"> <input type="text" value={newFilterName} onChange={(e) => setNewFilterName(e.target.value)} placeholder="Nome do filtro..." className="p-1.5 border rounded text-xs w-full"/> <button onClick={handleSaveFilter} className="text-xs bg-blue-600 text-white hover:bg-blue-700 px-3 py-1.5 rounded"><FontAwesomeIcon icon={faSave}/></button> </div> </div> <div className="p-3"> <p className="font-semibold text-xs text-gray-500 mb-2 uppercase">Meus Filtros</p> <ul className="max-h-40 overflow-y-auto space-y-1"> {savedFilters.length > 0 ? savedFilters.map((f, i) => ( <li key={i} className="flex justify-between items-center text-sm p-1 hover:bg-gray-50 rounded group"> <span onClick={() => handleLoadFilter(f.settings)} className="cursor-pointer text-gray-700 hover:text-blue-600 truncate flex-1">{f.name}</span> <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity"> <button onClick={() => handleDeleteFilter(f.name)} title="Excluir" className="text-gray-400 hover:text-red-500 p-1"><FontAwesomeIcon icon={faTrash} size="xs"/></button> </div> </li> )) : <li className="text-xs text-gray-400 italic">Nenhum salvo.</li>} </ul> </div> </div> )}
                         </div>
                     </div>
-
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        {/* Favorecido Autocomplete */}
                         <div className="relative" ref={favorecidoInputRef}>
                             <label className="text-xs uppercase font-medium text-gray-500 mb-1 block">Favorecido</label>
                             {filters.favorecidoId ? (
-                                <div className={`flex items-center justify-between p-2 border rounded-md h-[38px] ${filters.favorecidoId === NULL_ID ? 'bg-orange-50 border-orange-200 text-orange-700' : 'bg-blue-50 border-blue-200 text-blue-800'}`}>
-                                    <span className="text-sm font-medium truncate">{selectedFavorecidoName}</span>
-                                    <button type="button" onClick={handleClearFavorecido} className="text-opacity-60 hover:text-opacity-100"><FontAwesomeIcon icon={faTimes}/></button>
-                                </div>
+                                <div className={`flex items-center justify-between p-2 border rounded-md h-[38px] ${filters.favorecidoId === NULL_ID ? 'bg-orange-50 border-orange-200 text-orange-700' : 'bg-blue-50 border-blue-200 text-blue-800'}`}> <span className="text-sm font-medium truncate">{selectedFavorecidoName}</span> <button type="button" onClick={handleClearFavorecido} className="text-opacity-60 hover:text-opacity-100"><FontAwesomeIcon icon={faTimes}/></button> </div>
                             ) : (
-                                <>
-                                    <input type="text" placeholder="Buscar favorecido..." value={favorecidoSearchTerm} onChange={(e) => setFavorecidoSearchTerm(e.target.value)} className="w-full p-2 border border-gray-300 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500 h-[38px]" />
-                                    {/* Opção para buscar sem favorecido logo abaixo do input quando vazio ou pesquisando */}
-                                    <button onClick={handleSelectNullFavorecido} className="absolute right-2 top-8 text-gray-400 hover:text-orange-500" title="Buscar registros sem favorecido">
-                                        <FontAwesomeIcon icon={faExclamationCircle} className="text-xs" />
-                                    </button>
-
-                                    {(isSearching || favorecidoSearchResults.length > 0) && (
-                                        <ul className="absolute z-20 w-full bg-white border rounded-md shadow-lg max-h-48 overflow-y-auto mt-1">
-                                            {/* Opção Fixa no Autocomplete */}
-                                            <li onClick={handleSelectNullFavorecido} className="p-2 hover:bg-orange-50 cursor-pointer text-xs text-orange-700 border-b font-semibold">
-                                                <FontAwesomeIcon icon={faExclamationCircle} className="mr-2" /> ⚠ Sem Favorecido
-                                            </li>
-                                            
-                                            {isSearching && <li className="p-2 text-center text-gray-500 text-xs"><FontAwesomeIcon icon={faSpinner} spin /> Buscando...</li>}
-                                            {!isSearching && favorecidoSearchResults.map(c => ( <li key={c.id} onClick={() => handleSelectFavorecido(c)} className="p-2 hover:bg-gray-100 cursor-pointer text-xs text-gray-700 border-b last:border-0"> <HighlightedText text={c.nome || c.razao_social} highlight={favorecidoSearchTerm} /> </li> ))}
-                                        </ul>
-                                    )}
-                                </>
+                                <> <input type="text" placeholder="Buscar favorecido..." value={favorecidoSearchTerm} onChange={(e) => setFavorecidoSearchTerm(e.target.value)} className="w-full p-2 border border-gray-300 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500 h-[38px]" /> <button onClick={handleSelectNullFavorecido} className="absolute right-2 top-8 text-gray-400 hover:text-orange-500" title="Buscar registros sem favorecido"> <FontAwesomeIcon icon={faExclamationCircle} className="text-xs" /> </button> {(isSearching || favorecidoSearchResults.length > 0) && ( <ul className="absolute z-20 w-full bg-white border rounded-md shadow-lg max-h-48 overflow-y-auto mt-1"> <li onClick={handleSelectNullFavorecido} className="p-2 hover:bg-orange-50 cursor-pointer text-xs text-orange-700 border-b font-semibold"> <FontAwesomeIcon icon={faExclamationCircle} className="mr-2" /> ⚠ Sem Favorecido </li> {isSearching && <li className="p-2 text-center text-gray-500 text-xs"><FontAwesomeIcon icon={faSpinner} spin /> Buscando...</li>} {!isSearching && favorecidoSearchResults.map(c => ( <li key={c.id} onClick={() => handleSelectFavorecido(c)} className="p-2 hover:bg-gray-100 cursor-pointer text-xs text-gray-700 border-b last:border-0"> <HighlightedText text={c.nome || c.razao_social} highlight={favorecidoSearchTerm} /> </li> ))} </ul> )} </>
                             )}
                         </div>
-
                         <MultiSelectDropdown label="Empresas" options={withNullOption(empresas, 'Sem Empresa')} selectedIds={filters.empresaIds} onChange={(selected) => handleFilterChange('empresaIds', selected)} />
                         <MultiSelectDropdown label="Contas" options={withNullOption(contas, 'Sem Conta')} selectedIds={filters.contaIds} onChange={(selected) => handleFilterChange('contaIds', selected)} />
                         <MultiSelectDropdown label="Categorias" options={categoryTree} selectedIds={filters.categoriaIds} onChange={(selected) => handleFilterChange('categoriaIds', selected)} />
                     </div>
-
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
                         <MultiSelectDropdown label="Empreendimentos" options={withNullOption(empreendimentos, 'Sem Empreendimento')} selectedIds={filters.empreendimentoIds} onChange={(selected) => handleFilterChange('empreendimentoIds', selected)} />
                         <MultiSelectDropdown label="Etapa da Obra" options={withNullOption(etapas.map(e => ({...e, nome: e.nome_etapa})), 'Sem Etapa')} selectedIds={filters.etapaIds} onChange={(selected) => handleFilterChange('etapaIds', selected)} />
                         <MultiSelectDropdown label="Status" options={statusOptions} selectedIds={filters.status} onChange={(selected) => handleFilterChange('status', selected)} placeholder="Todos" />
-                        
-                        <div className="grid grid-cols-2 gap-2">
-                            <div>
-                                <label className="text-xs uppercase font-medium text-gray-500 mb-1 block">De</label>
-                                <input type="date" name="startDate" value={filters.startDate} onChange={(e) => handleFilterChange('startDate', e.target.value)} className="w-full p-2 border border-gray-300 rounded-md text-sm h-[38px]"/>
-                            </div>
-                            <div>
-                                <label className="text-xs uppercase font-medium text-gray-500 mb-1 block">Até</label>
-                                <input type="date" name="endDate" value={filters.endDate} onChange={(e) => handleFilterChange('endDate', e.target.value)} className="w-full p-2 border border-gray-300 rounded-md text-sm h-[38px]"/>
-                            </div>
-                        </div>
+                        <div className="grid grid-cols-2 gap-2"> <div> <label className="text-xs uppercase font-medium text-gray-500 mb-1 block">De</label> <input type="date" name="startDate" value={filters.startDate} onChange={(e) => handleFilterChange('startDate', e.target.value)} className="w-full p-2 border border-gray-300 rounded-md text-sm h-[38px]"/> </div> <div> <label className="text-xs uppercase font-medium text-gray-500 mb-1 block">Até</label> <input type="date" name="endDate" value={filters.endDate} onChange={(e) => handleFilterChange('endDate', e.target.value)} className="w-full p-2 border border-gray-300 rounded-md text-sm h-[38px]"/> </div> </div>
                     </div>
-
                     <div className="flex flex-col md:flex-row justify-between items-center gap-4 pt-4 mt-4 border-t border-gray-200">
-                        <div className="flex items-center gap-2">
-                            <button onClick={() => setDateRange('today')} className={`text-xs font-medium border px-3 py-1.5 rounded-md flex items-center gap-2 transition-colors ${activePeriodFilter === 'today' ? 'bg-blue-600 text-white border-blue-700' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'}`}><FontAwesomeIcon icon={faCalendarDay}/> Hoje</button>
-                            <button onClick={() => setDateRange('week')} className={`text-xs font-medium border px-3 py-1.5 rounded-md flex items-center gap-2 transition-colors ${activePeriodFilter === 'week' ? 'bg-blue-600 text-white border-blue-700' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'}`}><FontAwesomeIcon icon={faCalendarWeek}/> Semana</button>
-                            <button onClick={() => setDateRange('month')} className={`text-xs font-medium border px-3 py-1.5 rounded-md flex items-center gap-2 transition-colors ${activePeriodFilter === 'month' ? 'bg-blue-600 text-white border-blue-700' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'}`}><FontAwesomeIcon icon={faCalendarAlt}/> Mês</button>
-                        </div>
-                        <button onClick={clearFilters} className="text-xs bg-white border border-gray-300 text-gray-600 hover:text-red-600 hover:border-red-300 hover:bg-red-50 px-4 py-2 rounded-md flex items-center gap-2 font-semibold transition-all shadow-sm">
-                            <FontAwesomeIcon icon={faTimes} /> Limpar Filtros
-                        </button>
+                        <div className="flex items-center gap-2"> <button onClick={() => setDateRange('today')} className={`text-xs font-medium border px-3 py-1.5 rounded-md flex items-center gap-2 transition-colors ${activePeriodFilter === 'today' ? 'bg-blue-600 text-white border-blue-700' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'}`}><FontAwesomeIcon icon={faCalendarDay}/> Hoje</button> <button onClick={() => setDateRange('week')} className={`text-xs font-medium border px-3 py-1.5 rounded-md flex items-center gap-2 transition-colors ${activePeriodFilter === 'week' ? 'bg-blue-600 text-white border-blue-700' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'}`}><FontAwesomeIcon icon={faCalendarWeek}/> Semana</button> <button onClick={() => setDateRange('month')} className={`text-xs font-medium border px-3 py-1.5 rounded-md flex items-center gap-2 transition-colors ${activePeriodFilter === 'month' ? 'bg-blue-600 text-white border-blue-700' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-100'}`}><FontAwesomeIcon icon={faCalendarAlt}/> Mês</button> </div> <button onClick={clearFilters} className="text-xs bg-white border border-gray-300 text-gray-600 hover:text-red-600 hover:border-red-300 hover:bg-red-50 px-4 py-2 rounded-md flex items-center gap-2 font-semibold transition-all shadow-sm"> <FontAwesomeIcon icon={faTimes} /> Limpar Filtros </button>
                     </div>
-                    
-                    {savedFilters.filter(f => f.isFavorite).length > 0 && (
-                        <div className="mt-4 pt-3 border-t border-gray-200 flex flex-wrap gap-2 items-center">
-                            <span className="text-xs font-bold text-gray-400 uppercase mr-2"><FontAwesomeIcon icon={faStarSolid} /> Favoritos:</span>
-                            {savedFilters.filter(f => f.isFavorite).map((f, i) => (
-                                <button key={i} onClick={() => handleLoadFilter(f.settings)} className="px-3 py-1 rounded-full text-xs font-medium bg-white border border-gray-200 text-gray-600 hover:bg-gray-50">
-                                    {f.name}
-                                </button>
-                            ))}
-                        </div>
-                    )}
+                    {savedFilters.filter(f => f.isFavorite).length > 0 && ( <div className="mt-4 pt-3 border-t border-gray-200 flex flex-wrap gap-2 items-center"> <span className="text-xs font-bold text-gray-400 uppercase mr-2"><FontAwesomeIcon icon={faStarSolid} /> Favoritos:</span> {savedFilters.filter(f => f.isFavorite).map((f, i) => ( <button key={i} onClick={() => handleLoadFilter(f.settings)} className="px-3 py-1 rounded-full text-xs font-medium bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"> {f.name} </button> ))} </div> )}
                 </div>
             )}
         </div>

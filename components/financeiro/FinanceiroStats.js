@@ -1,24 +1,10 @@
 "use client";
 
-import { useMemo } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowUp, faArrowDown, faWallet, faExclamationCircle, faSpinner } from '@fortawesome/free-solid-svg-icons';
 
 export default function FinanceiroStats({ data = {}, isLoading }) {
-    // Agora pegamos os dados prontos do objeto 'kpis' que vem do SQL
-    // Se não tiver dados, assume 0 para tudo.
-    const stats = useMemo(() => {
-        const kpis = data?.kpis || {};
-        return {
-            receitaTotal: Number(kpis.receitaTotal) || 0,
-            receitaRecebida: Number(kpis.receitaRealizada) || 0,
-            despesaTotal: Number(kpis.despesaTotal) || 0,
-            despesaPaga: Number(kpis.despesaRealizada) || 0,
-            saldoGeral: Number(kpis.saldoGeral) || 0,
-            saldoRealizado: Number(kpis.saldoRealizado) || 0
-        };
-    }, [data]);
-
+    // Se estiver carregando, mostra o esqueleto
     if (isLoading) {
         return (
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6 animate-pulse">
@@ -27,72 +13,77 @@ export default function FinanceiroStats({ data = {}, isLoading }) {
         );
     }
 
+    // Extrai os valores diretamente do objeto que veio do banco (via page.js)
+    // Usamos '0' como fallback para segurança
+    const {
+        totalReceitas = 0,
+        totalDespesas = 0,
+        resultado = 0,
+        totalPendente = 0,
+        totalPago = 0
+    } = data;
+
     const formatMoney = (val) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
 
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             {/* Card Receitas */}
-            <div className="bg-white p-4 rounded-lg shadow-sm border-l-4 border-green-500 transition-all hover:shadow-md">
+            <div className="bg-white p-4 rounded-lg shadow-sm border-l-4 border-green-500 transition-all hover:shadow-md group">
                 <div className="flex justify-between items-start">
                     <div>
-                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Receitas</p>
-                        <h3 className="text-2xl font-bold text-green-600">{formatMoney(stats.receitaTotal)}</h3>
+                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Total Receitas</p>
+                        <h3 className="text-2xl font-bold text-green-600">{formatMoney(totalReceitas)}</h3>
                     </div>
-                    <div className="bg-green-100 p-2 rounded-full text-green-600">
+                    <div className="bg-green-100 p-2 rounded-full text-green-600 group-hover:bg-green-200 transition-colors">
                         <FontAwesomeIcon icon={faArrowUp} />
                     </div>
                 </div>
-                <div className="mt-2 text-xs text-gray-500 flex justify-between">
-                    <span>Recebido: <span className="font-semibold text-green-700">{formatMoney(stats.receitaRecebida)}</span></span>
-                </div>
+                {/* Opcional: Se quiser mostrar detalhes extras aqui, pode adicionar depois */}
             </div>
 
             {/* Card Despesas */}
-            <div className="bg-white p-4 rounded-lg shadow-sm border-l-4 border-red-500 transition-all hover:shadow-md">
+            <div className="bg-white p-4 rounded-lg shadow-sm border-l-4 border-red-500 transition-all hover:shadow-md group">
                 <div className="flex justify-between items-start">
                     <div>
-                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Despesas</p>
-                        <h3 className="text-2xl font-bold text-red-600">{formatMoney(stats.despesaTotal)}</h3>
+                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Total Despesas</p>
+                        <h3 className="text-2xl font-bold text-red-600">{formatMoney(totalDespesas)}</h3>
                     </div>
-                    <div className="bg-red-100 p-2 rounded-full text-red-600">
+                    <div className="bg-red-100 p-2 rounded-full text-red-600 group-hover:bg-red-200 transition-colors">
                         <FontAwesomeIcon icon={faArrowDown} />
                     </div>
                 </div>
-                <div className="mt-2 text-xs text-gray-500 flex justify-between">
-                    <span>Pago: <span className="font-semibold text-red-700">{formatMoney(stats.despesaPaga)}</span></span>
-                </div>
             </div>
 
-            {/* Card Saldo Previsto (Tudo) */}
-            <div className="bg-white p-4 rounded-lg shadow-sm border-l-4 border-blue-500 transition-all hover:shadow-md">
+            {/* Card Saldo (Receitas - Despesas) */}
+            <div className={`bg-white p-4 rounded-lg shadow-sm border-l-4 ${resultado >= 0 ? 'border-blue-500' : 'border-red-500'} transition-all hover:shadow-md group`}>
                 <div className="flex justify-between items-start">
                     <div>
-                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Saldo (Previsto)</p>
-                        <h3 className={`text-2xl font-bold ${stats.saldoGeral >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
-                            {formatMoney(stats.saldoGeral)}
+                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Saldo do Período</p>
+                        <h3 className={`text-2xl font-bold ${resultado >= 0 ? 'text-blue-600' : 'text-red-600'}`}>
+                            {formatMoney(resultado)}
                         </h3>
                     </div>
-                    <div className="bg-blue-100 p-2 rounded-full text-blue-600">
+                    <div className={`p-2 rounded-full ${resultado >= 0 ? 'bg-blue-100 text-blue-600' : 'bg-red-100 text-red-600'} group-hover:opacity-80 transition-opacity`}>
                         <FontAwesomeIcon icon={faWallet} />
                     </div>
                 </div>
-                <p className="mt-2 text-xs text-gray-400">Receitas - Despesas (Todas)</p>
+                <p className="mt-2 text-xs text-gray-400">Receitas - Despesas (Filtro Atual)</p>
             </div>
 
-            {/* Card Saldo Real (Caixa) */}
-            <div className={`bg-white p-4 rounded-lg shadow-sm border-l-4 ${stats.saldoRealizado >= 0 ? 'border-gray-600' : 'border-orange-500'} transition-all hover:shadow-md`}>
+            {/* Card Caixa Realizado (O que foi efetivamente Pago/Recebido) */}
+            <div className={`bg-white p-4 rounded-lg shadow-sm border-l-4 ${totalPago >= 0 ? 'border-gray-600' : 'border-orange-500'} transition-all hover:shadow-md group`}>
                 <div className="flex justify-between items-start">
                     <div>
-                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Saldo em Caixa (Real)</p>
-                        <h3 className={`text-2xl font-bold ${stats.saldoRealizado >= 0 ? 'text-gray-700' : 'text-orange-600'}`}>
-                            {formatMoney(stats.saldoRealizado)}
+                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Saldo Realizado (Caixa)</p>
+                        <h3 className={`text-2xl font-bold ${totalPago >= 0 ? 'text-gray-700' : 'text-orange-600'}`}>
+                            {formatMoney(totalPago)}
                         </h3>
                     </div>
-                    <div className="bg-gray-100 p-2 rounded-full text-gray-600">
+                    <div className="bg-gray-100 p-2 rounded-full text-gray-600 group-hover:bg-gray-200 transition-colors">
                         <FontAwesomeIcon icon={faExclamationCircle} />
                     </div>
                 </div>
-                <p className="mt-2 text-xs text-gray-400">Efetivamente Pago/Recebido</p>
+                <p className="mt-2 text-xs text-gray-400">Entradas - Saídas (Efetivadas)</p>
             </div>
         </div>
     );

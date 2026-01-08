@@ -5,50 +5,72 @@ import { format, eachDayOfInterval, isSameDay, parseISO } from 'date-fns';
 
 export function useRelatorioFinanceiro(filtros) {
   const supabase = createClient();
-  // Recebemos os filtros explícitos e os unificamos no JSON
-  const { startDate, endDate, organizacaoId, contaIds, categoriaIds } = filtros;
+  
+  // Recebemos os filtros vindos da página
+  const { 
+      startDate, endDate, organizacaoId, 
+      contaIds, categoriaIds, empresaIds, empreendimentoIds, 
+      status, ignoreTransfers, ignoreChargebacks, useCompetencia 
+  } = filtros;
 
-  // Montagem do JSON padrão para a Mega Função
+  // Montagem do JSON exatamente como a 'financeiro_montar_where' espera
   const filtrosJson = {
       startDate: startDate ? format(startDate, 'yyyy-MM-dd') : null,
       endDate: endDate ? format(endDate, 'yyyy-MM-dd') : null,
+      
+      // Arrays de IDs (Garantindo que sejam arrays)
       contaIds: contaIds || [],
       categoriaIds: categoriaIds || [],
-      status: ['Pago', 'Conciliado'], // Dashboard padrão vê o realizado
-      ignoreTransfers: true // Dashboard padrão ignora transferências
+      empresaIds: empresaIds || [],
+      empreendimentoIds: empreendimentoIds || [],
+      
+      // Se não vier status definido no filtro, padronizamos para 'Pago' (Realizado) no dashboard,
+      // mas se o usuário filtrou algo específico, respeitamos.
+      status: status && status.length > 0 ? status : ['Pago', 'Conciliado'],
+      
+      // Flags
+      ignoreTransfers: ignoreTransfers ?? true, // Padrão: Ignorar transferências no relatório
+      ignoreChargebacks: ignoreChargebacks ?? true,
+      useCompetencia: useCompetencia ?? false
   };
 
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ['dashboard-financeiro-consolidado', organizacaoId, filtrosJson],
+    queryKey: ['relatorio-financeiro-v2', organizacaoId, filtrosJson],
     queryFn: async () => {
       if (!organizacaoId) return null;
 
-      const { data, error } = await supabase.rpc('get_financeiro_consolidado', {
+      // Chamamos a NOVA função de relatório
+      const { data, error } = await supabase.rpc('get_relatorio_financeiro', {
         p_organizacao_id: organizacaoId,
-        p_filtros: filtrosJson,
-        p_escopo: 'DASHBOARD'
+        p_filtros: filtrosJson
       });
 
       if (error) throw error;
       return data;
     },
-    staleTime: 1000 * 60 * 5, 
+    staleTime: 1000 * 60 * 5, // Cache de 5 minutos
     enabled: !!organizacaoId && !!startDate && !!endDate
   });
 
-  // Preenchimento de dias vazios (Lógica visual do Front)
+  // Preenchimento de dias vazios para o gráfico ficar bonito (sem buracos)
   let graficoFluxoCompleto = [];
   if (data?.graficoFluxo && startDate && endDate) {
-    const todosDias = eachDayOfInterval({ start: startDate, end: endDate });
-    graficoFluxoCompleto = todosDias.map(dia => {
-      const dadosBanco = data.graficoFluxo.find(d => isSameDay(parseISO(d.data_ordem), dia));
-      return {
-        name: format(dia, 'dd/MM'),
-        data_ordem: dia,
-        Receita: dadosBanco ? dadosBanco.Receita : 0,
-        Despesa: dadosBanco ? dadosBanco.Despesa : 0
-      };
-    });
+    try {
+        const todosDias = eachDayOfInterval({ start: startDate, end: endDate });
+        graficoFluxoCompleto = todosDias.map(dia => {
+          const diaStr = format(dia, 'yyyy-MM-dd');
+          // Encontra se tem dados naquele dia
+          const dadosBanco = data.graficoFluxo.find(d => d.data_ordem === diaStr);
+          return {
+            name: format(dia, 'dd/MM'),
+            data_ordem: diaStr,
+            Receita: dadosBanco ? Number(dadosBanco.Receita) : 0,
+            Despesa: dadosBanco ? Number(dadosBanco.Despesa) : 0
+          };
+        });
+    } catch (e) {
+        console.error("Erro ao processar datas do gráfico", e);
+    }
   }
 
   return {

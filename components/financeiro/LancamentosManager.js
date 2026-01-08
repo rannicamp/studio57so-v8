@@ -7,13 +7,16 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
     faSpinner, faTimes, faPenToSquare, faTrash, faSort, faSortUp, faSortDown, faLayerGroup, 
     faChevronLeft, faChevronRight, faRobot, faCheckCircle, faDollarSign, 
-    faExchangeAlt, faCopy, faReceipt, faLink, faArrowUp, faArrowDown, faBalanceScale, faChevronDown
+    faExchangeAlt, faCopy, faReceipt, faLink, faArrowUp, faArrowDown, faBalanceScale, faChevronDown,
+    faHistory
 } from '@fortawesome/free-solid-svg-icons';
 import { createClient } from '../../utils/supabase/client';
 import { useAuth } from '../../contexts/AuthContext';
-import KpiCard from '../KpiCard';
 import ReciboModal from './ReciboModal';
 import { toast } from 'sonner';
+
+// ... (HighlightedText, AnalysisModal, SortableHeader, BatchUpdateModal mantidos iguais - omitidos para brevidade, mas você deve manter o código que já tinha)
+// Vou focar apenas no componente principal e na lógica de renderização
 
 const HighlightedText = ({ text = '', highlight = '' }) => {
     if (!highlight.trim() || !text) { return <span>{text}</span>; }
@@ -22,6 +25,12 @@ const HighlightedText = ({ text = '', highlight = '' }) => {
     return (<span>{parts.map((part, i) => regex.test(part) ? <mark key={i} className="bg-yellow-200 px-0 rounded">{part}</mark> : <span key={i}>{part}</span>)}</span>);
 };
 
+const SortableHeader = ({ label, sortKey, sortConfig, requestSort, className = '' }) => {
+    const getIcon = () => { if (sortConfig.key !== sortKey) return faSort; return sortConfig.direction === 'ascending' ? faSortUp : faSortDown; };
+    return ( <th className={`px-4 py-3 text-left text-xs font-bold uppercase tracking-wider ${className}`}><button onClick={() => requestSort(sortKey)} className="flex items-center gap-2 hover:text-gray-900"><span className="uppercase">{label}</span><FontAwesomeIcon icon={getIcon()} className="text-gray-400" /></button></th> );
+};
+
+// ... (Outros subcomponentes BatchUpdateModal, AnalysisModal, etc. permanecem iguais)
 const AnalysisModal = ({ isOpen, onClose, analysisText, isLoading }) => {
     if (!isOpen) return null;
     return (
@@ -35,11 +44,6 @@ const AnalysisModal = ({ isOpen, onClose, analysisText, isLoading }) => {
     );
 };
 
-const SortableHeader = ({ label, sortKey, sortConfig, requestSort, className = '' }) => {
-    const getIcon = () => { if (sortConfig.key !== sortKey) return faSort; return sortConfig.direction === 'ascending' ? faSortUp : faSortDown; };
-    return ( <th className={`px-4 py-3 text-left text-xs font-bold uppercase tracking-wider ${className}`}><button onClick={() => requestSort(sortKey)} className="flex items-center gap-2 hover:text-gray-900"><span className="uppercase">{label}</span><FontAwesomeIcon icon={getIcon()} className="text-gray-400" /></button></th> );
-};
-
 const BatchUpdateModal = ({ isOpen, onClose, onConfirm, fields, allData }) => {
     const [selectedField, setSelectedField] = useState(''); const [selectedValue, setSelectedValue] = useState(''); if (!isOpen) return null; const currentField = fields.find(f => f.key === selectedField);
     return ( <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"> <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-lg"> <h3 className="text-xl font-bold mb-4">Alterar Campo em Lote</h3> <div className="space-y-4"> <div> <label className="block text-sm font-medium">1. Campo para alterar</label> <select value={selectedField} onChange={(e) => { setSelectedField(e.target.value); setSelectedValue(''); }} className="mt-1 w-full p-2 border rounded-md"> <option value="">Selecione um campo...</option> {fields.map(f => <option key={f.key} value={f.key}>{f.label}</option>)} </select> </div> {selectedField && currentField && ( <div> <label className="block text-sm font-medium">2. Novo valor para &quot;{currentField.label}&quot;</label> {currentField.type === 'select' ? ( <select value={selectedValue} onChange={(e) => setSelectedValue(e.target.value)} className="mt-1 w-full p-2 border rounded-md"> <option value="">Selecione um valor...</option> {allData[currentField.optionsKey]?.map(opt => <option key={opt.id} value={opt.id}>{opt.nome || opt.razao_social || opt.nome_etapa || opt.full_name}</option>)} </select> ) : ( <input type={currentField.type || 'text'} value={selectedValue} onChange={(e) => setSelectedValue(e.target.value)} className="mt-1 w-full p-2 border rounded-md" /> )} </div> )} </div> <div className="flex justify-end gap-4 pt-6 mt-4 border-t"> <button onClick={onClose} className="bg-gray-200 px-4 py-2 rounded-md">Cancelar</button> <button onClick={() => onConfirm(selectedField, selectedValue)} disabled={!selectedField || !selectedValue} className="bg-blue-600 text-white px-4 py-2 rounded-md disabled:bg-gray-400">Confirmar Alteração</button> </div> </div> </div> );
@@ -49,7 +53,7 @@ export default function LancamentosManager({
     lancamentos, allLancamentosKpi, loading, contas, categorias, empreendimentos, empresas, funcionarios, allContacts,
     onEdit, onUpdate, filters, setFilters, sortConfig, setSortConfig,
     currentPage, setCurrentPage, itemsPerPage, setItemsPerPage, totalCount,
-    onRowClick
+    onRowClick, isCompetenciaMode // Recebendo a prop nova
 }) {
     const supabase = createClient();
     const queryClient = useQueryClient();
@@ -69,36 +73,26 @@ export default function LancamentosManager({
 
     const onActionSuccess = () => { queryClient.invalidateQueries({queryKey: ['lancamentos']}); if (onUpdate) onUpdate(); };
 
+    // ... (Manter Mutações: updateStatusMutation, duplicateMutation, etc. IGUAIS)
     const updateStatusMutation = useMutation({ mutationFn: async ({ lancamentoId, newStatus }) => { const updateData = { status: newStatus }; if (newStatus === 'Pago') { updateData.data_pagamento = new Date().toISOString(); } const { error } = await supabase.from('lancamentos').update(updateData).eq('id', lancamentoId); if (error) throw new Error(error.message); }, onSuccess: onActionSuccess });
     const duplicateMutation = useMutation({ mutationFn: async (item) => { const { id, created_at, conta, categoria, empreendimento, empresa, favorecido, anexos, ...lancamentoParaDuplicar } = item; lancamentoParaDuplicar.descricao = `(Cópia) ${lancamentoParaDuplicar.descricao}`; lancamentoParaDuplicar.status = 'Pendente'; lancamentoParaDuplicar.data_pagamento = null; lancamentoParaDuplicar.conciliado = false; const { error } = await supabase.from('lancamentos').insert([lancamentoParaDuplicar]); if (error) throw new Error(error.message); }, onSuccess: onActionSuccess });
     const deleteSingleMutation = useMutation({ mutationFn: async (id) => { const { error } = await supabase.from('lancamentos').delete().eq('id', id); if (error) throw error; }, onSuccess: () => { onActionSuccess(); }, onError: (error) => toast.error(`Erro: ${error.message}`) });
     const deleteFutureMutation = useMutation({ mutationFn: async ({ parcela_grupo, data_vencimento }) => { if (!user?.organizacao_id) throw new Error("Organização não identificada."); const { error } = await supabase.rpc('delete_lancamentos_futuros_do_grupo', { p_grupo_id: parcela_grupo, p_data_referencia: data_vencimento, p_organizacao_id: user.organizacao_id }); if (error) throw error; }, onSuccess: () => { onActionSuccess(); }, onError: (error) => toast.error(`Erro ao excluir futuros: ${error.message}`) });
+    
+    // Toast de Deleção
     const DeletionToast = ({ toastId, onSingleDelete, onFutureDelete }) => ( <div className="w-full"> <p className="font-semibold">Este lançamento faz parte de uma série.</p> <p className="text-sm text-gray-600 mb-3">O que você gostaria de fazer?</p> <div className="flex gap-2"> <button onClick={() => { toast.dismiss(toastId); onSingleDelete(); }} className="w-full text-sm font-semibold px-3 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-md"> Excluir somente este </button> <button onClick={() => { toast.dismiss(toastId); onFutureDelete(); }} className="w-full text-sm font-semibold px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md"> Excluir este e os futuros </button> </div> </div> );
     const handleDelete = (item) => { if (!item.parcela_grupo) { toast("Excluir Lançamento", { description: `Tem certeza que deseja excluir "${item.descricao}"?`, action: { label: "Excluir", onClick: () => toast.promise(deleteSingleMutation.mutateAsync(item.id), { loading: 'Excluindo...', success: 'Lançamento excluído!', error: (err) => `Erro: ${err.message}`, }), }, cancel: { label: "Cancelar" }, }); return; } toast.custom((t) => ( <DeletionToast toastId={t} onSingleDelete={() => toast.promise(deleteSingleMutation.mutateAsync(item.id), { loading: 'Excluindo...', success: 'Lançamento excluído!', error: (err) => `Erro: ${err.message}`, })} onFutureDelete={() => toast.promise(deleteFutureMutation.mutateAsync(item), { loading: 'Excluindo lançamentos futuros...', success: 'Lançamentos futuros excluídos!', error: (err) => `Erro: ${err.message}`, })} /> ), { duration: 10000 }); };
+    
     const bulkDeleteMutation = useMutation({ mutationFn: async (ids) => { const { error } = await supabase.from('lancamentos').delete().in('id', ids); if (error) throw new Error(error.message); return ids.length; }, onSuccess: () => { setSelectedIds(new Set()); onActionSuccess(); }, });
     const bulkUpdateMutation = useMutation({ mutationFn: async ({ ids, updateObject }) => { const { error } = await supabase.from('lancamentos').update(updateObject).in('id', ids); if (error) throw new Error(error.message); return ids.length; }, onSuccess: onActionSuccess, });
+    
     const handleStatusUpdate = (lancamentoId, newStatus) => { setEditingCell(null); toast.promise(updateStatusMutation.mutateAsync({ lancamentoId, newStatus }), { loading: 'Atualizando status...', success: 'Status atualizado!', error: (err) => `Erro: ${err.message}`, }); };
     const handleDuplicate = (item) => { toast.promise( new Promise((resolve, reject) => { if (window.confirm(`Tem certeza que deseja duplicar o lançamento: "${item.descricao}"?`)) { duplicateMutation.mutateAsync(item).then(resolve).catch(reject); } else { reject('Ação cancelada pelo usuário.'); } }), { loading: 'Duplicando lançamento...', success: 'Lançamento duplicado com sucesso!', error: (err) => (err === 'Ação cancelada pelo usuário.' ? err : `Erro ao duplicar: ${err.message}`), }); };
     const handleBulkDelete = () => { if (selectedIds.size === 0) return; toast.promise( new Promise((resolve, reject) => { if (window.confirm(`Tem certeza que deseja EXCLUIR ${selectedIds.size} lançamento(s)? Esta ação não pode ser desfeita.`)) { bulkDeleteMutation.mutateAsync(Array.from(selectedIds)).then(resolve).catch(reject); } else { reject('Ação cancelada pelo usuário.'); } }), { loading: 'Excluindo lançamentos...', success: (count) => `${count} lançamento(s) excluído(s) com sucesso!`, error: (err) => (err === 'Ação cancelada pelo usuário.' ? err : `Erro ao excluir: ${err.message}`), }); setIsBatchActionsOpen(false); };
     const handleBatchUpdateField = (field, value) => { setIsBatchUpdateModalOpen(false); if(!field || !value) { toast.warning("Por favor, selecione um campo e um valor."); return; } const updateObject = { [field]: value }; if(field === 'status' && value === 'Pago'){ updateObject.data_pagamento = new Date().toISOString(); } toast.promise( new Promise((resolve, reject) => { if (window.confirm(`Tem certeza que deseja aplicar esta alteração a ${selectedIds.size} lançamento(s)?`)) { bulkUpdateMutation.mutateAsync({ ids: Array.from(selectedIds), updateObject }).then(resolve).catch(reject); } else { reject('Ação cancelada pelo usuário.'); } }), { loading: 'Atualizando lançamentos em lote...', success: (count) => `${count} lançamento(s) atualizado(s) com sucesso!`, error: (err) => (err === 'Ação cancelada pelo usuário.' ? err : `Erro ao atualizar: ${err.message}`), }); };
     const handleOpenRecibo = (lancamento) => { setLancamentoParaRecibo(lancamento); setIsReciboModalOpen(true); };
 
-    // KPI Data (Mantido para compatibilidade, mas o Pai agora usa FinanceiroStats)
-    const kpiData = useMemo(() => {
-        let totalReceitas = 0, totalDespesas = 0;
-        (allLancamentosKpi || []).forEach(l => {
-            const nomeCategoria = l.categoria?.nome || '';
-            const isTransferencia = !!l.transferencia_id || nomeCategoria.includes('Transferência');
-            const isEstorno = nomeCategoria.includes('Estorno');
-            if (isTransferencia || isEstorno) return;
-            const valor = l.valor || 0;
-            if (l.tipo === 'Receita') totalReceitas += valor;
-            else if (l.tipo === 'Despesa') totalDespesas += valor;
-        });
-        const resultado = totalReceitas - totalDespesas;
-        return { totalReceitas, totalDespesas, resultado };
-    }, [allLancamentosKpi]);
-
+    // KPI Data e Handlers
     const handleItemsPerPageChange = () => { let value = Number(itemsPerPageInput); if (isNaN(value) || value < 1) value = 1; if (value > 999) value = 999; setItemsPerPageInput(value); setItemsPerPage(value); setCurrentPage(1); };
     useEffect(() => { setSelectedIds(new Set()); }, [lancamentos]);
     
@@ -132,8 +126,6 @@ export default function LancamentosManager({
             <AnalysisModal isOpen={isAnalysisModalOpen} onClose={() => setIsAnalysisModalOpen(false)} analysisText={analysisResult} isLoading={isAnalyzing} />
             <BatchUpdateModal isOpen={isBatchUpdateModalOpen} onClose={() => setIsBatchUpdateModalOpen(false)} onConfirm={handleBatchUpdateField} fields={batchUpdateFields} allData={allDataForBatchModal} />
             <ReciboModal isOpen={isReciboModalOpen} onClose={() => setIsReciboModalOpen(false)} lancamento={lancamentoParaRecibo} />
-            
-            {/* Cards de KPI removidos visualmente daqui pois estão no componente pai, mas o código foi mantido seguro */}
             
             <div className="flex justify-between items-center bg-white p-4 border rounded-lg shadow-sm">
                 <span className="text-sm text-gray-700"> Mostrando <strong>{lancamentos.length}</strong> de <strong>{totalCount}</strong> lançamentos </span>
@@ -169,9 +161,15 @@ export default function LancamentosManager({
                            <thead className="bg-gray-50">
                                <tr>
                                     <th className="p-4 w-4"><input type="checkbox" onChange={handleSelectAll} checked={lancamentos.length > 0 && selectedIds.size === lancamentos.length} /></th>
-                                    <SortableHeader label="Data" sortKey="data_vencimento" sortConfig={sortConfig} requestSort={requestSort} />
+                                    {/* CABEÇALHO DINÂMICO */}
+                                    <SortableHeader 
+                                        label={isCompetenciaMode ? "Data (Comp.)" : "Data (Caixa)"} 
+                                        sortKey={isCompetenciaMode ? "data_transacao" : "data_vencimento"} 
+                                        sortConfig={sortConfig} 
+                                        requestSort={requestSort} 
+                                        className={isCompetenciaMode ? "text-purple-700 bg-purple-50" : ""}
+                                    />
                                     <th className="px-4 py-3 text-left text-xs font-bold uppercase w-1/3">Descrição</th>
-                                    {/* NOVA COLUNA FAVORECIDO */}
                                     <th className="px-4 py-3 text-left text-xs font-bold uppercase">Favorecido</th>
                                     <th className="px-4 py-3 text-left text-xs font-bold uppercase">Conta</th>
                                     <th className="px-4 py-3 text-left text-xs font-bold uppercase">Empresa</th>
@@ -190,12 +188,29 @@ export default function LancamentosManager({
                                     const nomeEmpresa = item.conta?.empresa?.nome_fantasia || item.conta?.empresa?.razao_social || 'N/A';
                                     const nomeFavorecido = item.favorecido?.nome || item.favorecido?.razao_social || '-';
                                     
-                                    let displayDate = item.data_transacao, dateLabel = 'Data da Transação', dateClass = '';
-                                    if (statusInfo.text === 'Paga' && item.data_pagamento) {
-                                        displayDate = item.data_pagamento; dateLabel = 'Data do Pagamento';
-                                    } else if ((statusInfo.text === 'A Pagar' || statusInfo.text === 'Atrasada') && item.data_vencimento) {
-                                        displayDate = item.data_vencimento; dateLabel = 'Data de Vencimento';
-                                        if (statusInfo.text === 'Atrasada') dateClass = 'text-red-600 font-bold';
+                                    // --- LÓGICA DE EXIBIÇÃO DE DATA ---
+                                    let displayDate;
+                                    let dateLabel;
+                                    let dateClass = '';
+
+                                    if (isCompetenciaMode) {
+                                        // MODO COMPETÊNCIA: Foca na origem (transação)
+                                        displayDate = item.data_transacao;
+                                        dateLabel = 'Data de Competência (Transação)';
+                                        dateClass = 'text-gray-700'; // Cor neutra para histórico
+                                    } else {
+                                        // MODO CAIXA: Lógica de Vencimento/Pagamento
+                                        if (item.data_pagamento) {
+                                            displayDate = item.data_pagamento;
+                                            dateLabel = 'Data do Pagamento';
+                                        } else if (item.data_vencimento) {
+                                            displayDate = item.data_vencimento;
+                                            dateLabel = 'Data de Vencimento';
+                                            if (statusInfo.text === 'Atrasada') dateClass = 'text-red-600 font-bold';
+                                        } else {
+                                            displayDate = item.data_transacao;
+                                            dateLabel = 'Data da Transação (Sem vencimento)';
+                                        }
                                     }
                                     
                                     const formattedDescription = item.descricao.replace(/\s\((\d+)\/\d+\)$/, ' #$1');
@@ -203,13 +218,18 @@ export default function LancamentosManager({
                                     return (
                                         <tr key={item.id} onClick={() => onRowClick(item)} className={`cursor-pointer ${selectedIds.has(item.id) ? 'bg-blue-100' : ''} ${isTransfer ? 'bg-yellow-50' : 'hover:bg-gray-50'}`}>
                                              <td className="p-4" onClick={(e) => e.stopPropagation()}><input type="checkbox" checked={selectedIds.has(item.id)} onChange={() => handleSelectOne(item.id)} /></td>
-                                             <td className={`px-4 py-2 whitespace-nowrap ${dateClass}`} title={dateLabel}>{formatDate(displayDate)}</td>
+                                             
+                                             {/* Célula de Data Dinâmica */}
+                                             <td className={`px-4 py-2 whitespace-nowrap ${dateClass}`} title={dateLabel}>
+                                                 {formatDate(displayDate)}
+                                                 {isCompetenciaMode && <span className="ml-1 text-[10px] text-gray-400 block">Comp.</span>}
+                                             </td>
+
                                              <td className="px-4 py-2 font-medium flex items-center gap-2">
                                                 {item.parcela_grupo && <FontAwesomeIcon icon={faLink} className="text-gray-400" title="Este lançamento faz parte de uma série" />}
                                                 {item.transferencia_id && <FontAwesomeIcon icon={faExchangeAlt} className="text-gray-400" title="Transferência" />}
                                                 <span>{formattedDescription}</span>
                                              </td>
-                                             {/* DADO FAVORECIDO */}
                                              <td className="px-4 py-2 text-gray-600 truncate max-w-[150px]" title={nomeFavorecido}>{nomeFavorecido}</td>
                                              <td className="px-4 py-2 text-gray-600">{item.conta?.nome || 'N/A'}</td>
                                              <td className="px-4 py-2 text-gray-600 uppercase">{nomeEmpresa}</td>

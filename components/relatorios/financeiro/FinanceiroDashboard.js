@@ -4,7 +4,7 @@
 import React, { useState, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRelatorioFinanceiro } from '@/hooks/financeiro/useRelatorioFinanceiro';
-import FiltroFinanceiro from '@/components/financeiro/FiltroFinanceiro'; // Importamos seu componente!
+import FiltroFinanceiro from '@/components/financeiro/FiltroFinanceiro';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   PieChart, Pie, Cell 
@@ -15,7 +15,7 @@ import {
 import { ptBR } from 'date-fns/locale';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
-  faArrowUp, faArrowDown, faWallet, faSpinner, faExclamationTriangle, faSync, 
+  faArrowUp, faArrowDown, faWallet, faSpinner, faExclamationTriangle,
   faChevronLeft, faChevronRight, faCalendarAlt, faFilter 
 } from '@fortawesome/free-solid-svg-icons';
 
@@ -24,25 +24,24 @@ const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'
 export default function FinanceiroDashboard() {
   const { user } = useAuth();
   
-  // 1. Estado do Período (Nosso Carrossel)
+  // 1. Estado do Período
   const [dataBase, setDataBase] = useState(new Date());
 
-  // 2. Estado dos Filtros Avançados (Vindos do FiltroFinanceiro)
+  // 2. Estado dos Filtros Avançados
   const [filtrosAvancados, setFiltrosAvancados] = useState({
-    contas: [],
-    categorias: [],
-    status: [] // Opcional, se quiser filtrar status também
+    empresaIds: [],
+    contaIds: [],
+    categoriaIds: [],
+    empreendimentoIds: [],
+    status: [],
+    useCompetencia: false
   });
 
-  // Mostra/Esconde a barra de filtros
   const [mostrarFiltros, setMostrarFiltros] = useState(false);
 
-  // Gera o menu de meses
   const menuMeses = useMemo(() => {
     const meses = [];
-    for (let i = -2; i <= 2; i++) {
-      meses.push(addMonths(dataBase, i));
-    }
+    for (let i = -2; i <= 2; i++) { meses.push(addMonths(dataBase, i)); }
     return meses;
   }, [dataBase]);
 
@@ -52,33 +51,25 @@ export default function FinanceiroDashboard() {
       startDate: startOfMonth(dataBase),
       endDate: endOfMonth(dataBase),
       organizacaoId: user?.organizacao_id,
-      contaIds: filtrosAvancados.contas,        // Passa IDs das contas
-      categoriaIds: filtrosAvancados.categorias // Passa IDs das categorias
+      ...filtrosAvancados // Espalha todos os filtros (contaIds, categoriaIds, etc)
     };
   }, [dataBase, user?.organizacao_id, filtrosAvancados]);
 
-  // Hook busca os dados
+  // Busca os dados usando a nova lógica
   const { kpis, graficoFluxo, graficoPizza, isLoading, error, refetch } = useRelatorioFinanceiro(filtrosHook);
 
-  // Navegação
   const navegarMes = (mes) => setDataBase(mes);
   const proximoMes = () => setDataBase(addMonths(dataBase, 1));
   const anteriorMes = () => setDataBase(subMonths(dataBase, 1));
   const irParaHoje = () => setDataBase(new Date());
 
-  // Função chamada quando o usuário muda algo no FiltroFinanceiro
+  // Atualização correta dos filtros vindos do componente filho
   const handleFiltroChange = (novosFiltros) => {
+    // O FiltroFinanceiro retorna o objeto completo, então podemos mesclar ou substituir
     setFiltrosAvancados(prev => ({
       ...prev,
-      contas: novosFiltros.conta_id ? [novosFiltros.conta_id] : [], // Adapte conforme seu Filtro retorna array ou único
-      categorias: novosFiltros.categoria_id ? [novosFiltros.categoria_id] : [],
-      // Se o seu FiltroFinanceiro retornar arrays, use direto: novosFiltros.contas
+      ...novosFiltros
     }));
-    
-    // Nota: Analisando seu componente FiltroFinanceiro original, ele geralmente retorna 
-    // um objeto com { conta_id, categoria_id, ... }. 
-    // Vou assumir aqui que ele passa esses valores.
-    // Se o FiltroFinanceiro for complexo, basta garantir que 'filtrosAvancados' receba os IDs.
   };
 
   if (error) return (
@@ -92,7 +83,7 @@ export default function FinanceiroDashboard() {
   return (
     <div className="space-y-6 animate-fade-in pb-10">
       
-      {/* === 1. HEADER E NAVEGAÇÃO === */}
+      {/* === HEADER E NAVEGAÇÃO === */}
       <div className="flex flex-col gap-4">
         <div className="flex flex-col md:flex-row justify-between items-end md:items-center gap-4 px-2">
             <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
@@ -108,7 +99,7 @@ export default function FinanceiroDashboard() {
                     }`}
                 >
                     <FontAwesomeIcon icon={faFilter} />
-                    Filtros Avançados
+                    Filtros
                 </button>
                 <button 
                     onClick={irParaHoje}
@@ -119,15 +110,16 @@ export default function FinanceiroDashboard() {
             </div>
         </div>
 
-        {/* ÁREA DE FILTROS (Expansível) */}
+        {/* ÁREA DE FILTROS */}
         {mostrarFiltros && (
             <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 animate-slide-down">
-                {/* Aqui entra seu componente existente! 
-                    Passamos ocultarData={true} para não conflitar com o carrossel se o componente suportar */}
                 <FiltroFinanceiro 
                     onFilterChange={handleFiltroChange} 
                     filtrosAtuais={filtrosAvancados}
-                    compacto={true} // Se tiver essa prop para ficar menor
+                    compacto={true}
+                    // Importante: Passamos listas vazias se quiser que ele busque internamente, 
+                    // ou podemos passar as listas se o pai tiver. 
+                    // Como este componente é standalone, ele buscará suas próprias listas.
                 />
             </div>
         )}
@@ -162,7 +154,7 @@ export default function FinanceiroDashboard() {
       {isLoading ? (
         <div className="flex flex-col items-center justify-center h-64 text-gray-400">
             <FontAwesomeIcon icon={faSpinner} spin className="text-3xl mb-3 text-blue-500" />
-            <p>Processando dados...</p>
+            <p>Calculando indicadores...</p>
         </div>
       ) : (
         <>
@@ -170,7 +162,7 @@ export default function FinanceiroDashboard() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <KpiCard titulo="Receitas" valor={kpis?.receita} icon={faArrowUp} corIcone="text-emerald-500" bgIcone="bg-emerald-50" />
                 <KpiCard titulo="Despesas" valor={kpis?.despesa} icon={faArrowDown} corIcone="text-red-500" bgIcone="bg-red-50" />
-                <KpiCard titulo="Saldo" valor={kpis?.saldo} icon={faWallet} corIcone={kpis?.saldo >= 0 ? "text-blue-500" : "text-orange-500"} bgIcone={kpis?.saldo >= 0 ? "bg-blue-50" : "bg-orange-50"} destaque />
+                <KpiCard titulo="Resultado" valor={kpis?.saldo} icon={faWallet} corIcone={kpis?.saldo >= 0 ? "text-blue-500" : "text-orange-500"} bgIcone={kpis?.saldo >= 0 ? "bg-blue-50" : "bg-orange-50"} destaque />
             </div>
 
             {/* GRÁFICOS */}
