@@ -11,7 +11,7 @@ import { faSpinner, faLayerGroup } from '@fortawesome/free-solid-svg-icons';
 
 // Componentes
 import SmartKpiCard from '@/components/painel/SmartKpiCard';
-import SmartChartCard from '@/components/painel/SmartChartCard'; // <--- IMPORTAMOS O NOVO COMPONENTE
+import SmartChartCard from '@/components/painel/SmartChartCard'; 
 import KpiPlaceholder from '@/components/painel/KpiPlaceholder';
 import KpiBuilderModal from '@/components/painel/KpiBuilderModal';
 import FinanceiroDashboard from '@/components/relatorios/financeiro/FinanceiroDashboard';
@@ -132,6 +132,7 @@ export default function RelatorioFinanceiroPage() {
   // --- AÇÕES ---
   const handleNovoKpi = () => { setKpiParaEditar(null); setIsModalOpen(true); };
   const handleEditKpi = (kpi) => { setKpiParaEditar(kpi); setIsModalOpen(true); };
+  
   const handleDeleteKpi = async (kpi) => {
     if(!confirm(`Excluir "${kpi.titulo}"?`)) return;
     try {
@@ -139,6 +140,33 @@ export default function RelatorioFinanceiroPage() {
         toast.success("Removido.");
         queryClient.invalidateQueries(['meus_kpis']);
     } catch (error) { toast.error("Erro ao excluir."); }
+  };
+
+  // --- NOVA FUNÇÃO: DUPLICAR ---
+  const handleDuplicateKpi = async (kpiOriginal) => {
+      try {
+          // Remove ID e dados de auditoria para criar um novo registro limpo
+          const { id, created_at, ...dadosKpi } = kpiOriginal;
+          
+          const novoKpi = {
+              ...dadosKpi,
+              titulo: `${dadosKpi.titulo} (Cópia)`,
+              // Mantém na mesma organização
+              organizacao_id: user.organizacao_id
+          };
+
+          const { error } = await supabase
+              .from('kpis_personalizados')
+              .insert(novoKpi);
+
+          if (error) throw error;
+
+          toast.success("Indicador duplicado com sucesso!");
+          queryClient.invalidateQueries(['meus_kpis']);
+      } catch (error) {
+          console.error("Erro ao duplicar:", error);
+          toast.error("Erro ao duplicar indicador.");
+      }
   };
 
   return (
@@ -168,9 +196,6 @@ export default function RelatorioFinanceiroPage() {
                             {grupoNome}
                         </h3>
                         
-                        {/* AQUI MUDOU: O grid agora é 'auto-fill' com min-width maior 
-                           para acomodar gráficos que precisam de mais espaço 
-                        */}
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                             {kpisAgrupados.grupos[grupoNome].map((kpi) => {
                                 // Decide se o card deve ocupar 1 coluna (card) ou 2 (gráfico)
@@ -187,12 +212,12 @@ export default function RelatorioFinanceiroPage() {
                                         onDrop={(e) => handleDrop(e, kpi)}
                                         className={`cursor-move transition-all duration-200 hover:-translate-y-1 ${colSpan}`}
                                     >
-                                        {/* A MÁGICA: DECIDE QUAL COMPONENTE USAR */}
                                         {isGrafico ? (
                                             <SmartChartCard 
                                                 kpi={kpi}
                                                 onEdit={() => handleEditKpi(kpi)}
                                                 onDelete={() => handleDeleteKpi(kpi)}
+                                                onDuplicate={() => handleDuplicateKpi(kpi)} // Passando a função
                                             />
                                         ) : (
                                             <SmartKpiCard 
@@ -205,6 +230,7 @@ export default function RelatorioFinanceiroPage() {
                                                 }}
                                                 onEdit={() => handleEditKpi(kpi)}
                                                 onDelete={() => handleDeleteKpi(kpi)}
+                                                onDuplicate={() => handleDuplicateKpi(kpi)} // Passando a função aqui também
                                             />
                                         )}
                                     </div>
@@ -245,7 +271,8 @@ export default function RelatorioFinanceiroPage() {
         kpiToEdit={kpiParaEditar}
         onSaveSuccess={() => {
             queryClient.invalidateQueries(['meus_kpis']);
-            queryClient.invalidateQueries({ queryKey: ['kpi_value_smart_v7'] });
+            // Invalida caches antigos para garantir dados frescos
+            queryClient.invalidateQueries({ queryKey: ['kpi_value_smart_v13'] });
         }}
       />
     </div>

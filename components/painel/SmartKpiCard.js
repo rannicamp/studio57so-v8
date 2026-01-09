@@ -5,17 +5,17 @@ import { useQuery } from '@tanstack/react-query';
 import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner, faExclamationCircle, faEdit, faTrash, faCalculator } from '@fortawesome/free-solid-svg-icons';
+import { faSpinner, faExclamationCircle, faEdit, faTrash, faCalculator, faCopy } from '@fortawesome/free-solid-svg-icons';
 import * as IconsSolid from '@fortawesome/free-solid-svg-icons';
 
-export default function SmartKpiCard({ kpi, onEdit, onDelete }) {
+export default function SmartKpiCard({ kpi, onEdit, onDelete, onDuplicate }) {
   const supabase = createClient();
   const { user } = useAuth();
   
   const tipo = kpi?.filtros?._config_tipo || 'filtro';
 
   const { data: resultado, isLoading, isError } = useQuery({
-    queryKey: ['kpi_value_smart_v12', kpi.id, kpi.filtros, tipo], // Mudei a versão da key para forçar atualização
+    queryKey: ['kpi_value_smart_v13', kpi.id, kpi.filtros, tipo], // Mudei a key para v13 para garantir refresh
     queryFn: async () => {
       // === O TRADUTOR UNIVERSAL ===
       const normalizarFiltros = (filtrosCrus) => {
@@ -36,7 +36,6 @@ export default function SmartKpiCard({ kpi, onEdit, onDelete }) {
       if (tipo === 'filtro') {
         const filtrosProntos = normalizarFiltros(kpi.filtros || {});
 
-        // CORREÇÃO AQUI: Removemos 'p_escopo'. Agora só enviamos o que o banco pede.
         const { data, error } = await supabase.rpc('get_financeiro_consolidado', {
           p_organizacao_id: user?.organizacao_id,
           p_filtros: filtrosProntos
@@ -71,7 +70,6 @@ export default function SmartKpiCard({ kpi, onEdit, onDelete }) {
                 if (filho.filtros?._config_tipo === 'formula') { valoresFilhos[filho.id] = 0; return; }
                 const filtrosFilhoProntos = normalizarFiltros(filho.filtros || {});
                 
-                // CORREÇÃO AQUI TAMBÉM
                 const { data } = await supabase.rpc('get_financeiro_consolidado', {
                     p_organizacao_id: user?.organizacao_id,
                     p_filtros: filtrosFilhoProntos
@@ -112,8 +110,33 @@ export default function SmartKpiCard({ kpi, onEdit, onDelete }) {
   return (
     <div className={`group relative bg-white p-6 rounded-2xl shadow-sm border transition-all duration-300 hover:shadow-md ${tipo === 'formula' ? 'border-purple-100 bg-purple-50/10' : 'border-gray-100'}`}>
       <div className="absolute top-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-        {onEdit && <button onClick={() => onEdit(kpi)} className="text-gray-400 hover:text-blue-500 p-1"><FontAwesomeIcon icon={faEdit} size="sm" /></button>}
-        {onDelete && <button onClick={() => onDelete(kpi)} className="text-gray-400 hover:text-red-500 p-1"><FontAwesomeIcon icon={faTrash} size="sm" /></button>}
+        {onDuplicate && (
+            <button 
+                onClick={(e) => { e.stopPropagation(); onDuplicate(kpi); }} 
+                className="text-gray-400 hover:text-green-500 p-1"
+                title="Duplicar KPI"
+            >
+                <FontAwesomeIcon icon={faCopy} size="sm" />
+            </button>
+        )}
+        {onEdit && (
+            <button 
+                onClick={(e) => { e.stopPropagation(); onEdit(kpi); }} 
+                className="text-gray-400 hover:text-blue-500 p-1"
+                title="Editar KPI"
+            >
+                <FontAwesomeIcon icon={faEdit} size="sm" />
+            </button>
+        )}
+        {onDelete && (
+            <button 
+                onClick={(e) => { e.stopPropagation(); onDelete(kpi); }} 
+                className="text-gray-400 hover:text-red-500 p-1"
+                title="Excluir KPI"
+            >
+                <FontAwesomeIcon icon={faTrash} size="sm" />
+            </button>
+        )}
       </div>
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-gray-500 text-xs font-bold uppercase tracking-wider truncate max-w-[80%] flex items-center gap-1">
