@@ -15,7 +15,7 @@ export default function SmartKpiCard({ kpi, onEdit, onDelete, onDuplicate }) {
   const tipo = kpi?.filtros?._config_tipo || 'filtro';
 
   const { data: resultado, isLoading, isError } = useQuery({
-    queryKey: ['kpi_value_smart_v13', kpi.id, kpi.filtros, tipo], // Mudei a key para v13 para garantir refresh
+    queryKey: ['kpi_value_smart_v13', kpi.id, kpi.filtros, tipo], 
     queryFn: async () => {
       // === O TRADUTOR UNIVERSAL ===
       const normalizarFiltros = (filtrosCrus) => {
@@ -156,7 +156,10 @@ export default function SmartKpiCard({ kpi, onEdit, onDelete, onDuplicate }) {
           <p className="text-3xl font-extrabold tracking-tight text-gray-800">{formatValue(resultado)}</p>
         )}
       </div>
-      <p className="text-xs text-gray-400 mt-2 truncate">{tipo === 'formula' ? 'Cálculo Automático' : 'Baseado em filtros inteligentes'}</p>
+      {/* CORREÇÃO AQUI: Usa a descrição do usuário ou o fallback */}
+      <p className="text-xs text-gray-400 mt-2 truncate">
+        {kpi.descricao || (tipo === 'formula' ? 'Cálculo Automático' : 'Baseado em filtros inteligentes')}
+      </p>
     </div>
   );
 }

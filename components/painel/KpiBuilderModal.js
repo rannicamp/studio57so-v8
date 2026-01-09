@@ -9,7 +9,7 @@ import {
   faTimes, faSave, faCheck, faChartPie, faArrowUp, faArrowDown, 
   faWallet, faMoneyBillWave, faPiggyBank, faCoins, faSpinner, faPen, 
   faCalculator, faDatabase, faPercentage, faLayerGroup, 
-  faChartLine, faChartBar, faSquare, faCalendarAlt
+  faChartLine, faChartBar, faSquare, faCalendarAlt, faAlignLeft
 } from '@fortawesome/free-solid-svg-icons';
 import FiltroFinanceiro from '@/components/financeiro/FiltroFinanceiro';
 import { toast } from 'sonner';
@@ -42,15 +42,16 @@ export default function KpiBuilderModal({ isOpen, onClose, onSaveSuccess, kpiToE
   // --- ESTADOS ---
   const [abaAtiva, setAbaAtiva] = useState('filtro');
   const [titulo, setTitulo] = useState('');
+  const [descricao, setDescricao] = useState(''); // Novo estado para descrição
   const [grupo, setGrupo] = useState('');
   
   // Visual
   const [iconeSelecionado, setIconeSelecionado] = useState('faWallet');
   const [corSelecionada, setCorSelecionada] = useState('#3B82F6');
   
-  // NOVOS ESTADOS: Configuração do Gráfico
-  const [tipoVisualizacao, setTipoVisualizacao] = useState('card'); // 'card', 'grafico_linha', 'grafico_barra'
-  const [agrupamentoTempo, setAgrupamentoTempo] = useState('mes'); // 'dia', 'mes', 'ano'
+  // Configuração do Gráfico
+  const [tipoVisualizacao, setTipoVisualizacao] = useState('card');
+  const [agrupamentoTempo, setAgrupamentoTempo] = useState('mes');
 
   const [salvando, setSalvando] = useState(false);
 
@@ -116,9 +117,9 @@ export default function KpiBuilderModal({ isOpen, onClose, onSaveSuccess, kpiToE
     if (isOpen && !isLoadingKpis) {
         if (kpiToEdit) {
             setTitulo(kpiToEdit.titulo);
+            setDescricao(kpiToEdit.descricao || ''); // Carrega a descrição
             setGrupo(kpiToEdit.grupo || '');
             
-            // Carrega configurações novas
             setTipoVisualizacao(kpiToEdit.tipo_visualizacao || 'card');
             setAgrupamentoTempo(kpiToEdit.agrupamento_tempo || 'mes');
 
@@ -139,6 +140,7 @@ export default function KpiBuilderModal({ isOpen, onClose, onSaveSuccess, kpiToE
         } else {
             // Reset
             setTitulo('');
+            setDescricao('');
             setGrupo('');
             setTipoVisualizacao('card');
             setAgrupamentoTempo('mes');
@@ -195,6 +197,7 @@ export default function KpiBuilderModal({ isOpen, onClose, onSaveSuccess, kpiToE
 
       const payload = {
           titulo: titulo,
+          descricao: descricao.trim().substring(0, 60), // Salva a descrição (limite segurança)
           grupo: grupoFinal,
           tipo_visualizacao: tipoVisualizacao,
           agrupamento_tempo: agrupamentoTempo,
@@ -318,6 +321,22 @@ export default function KpiBuilderModal({ isOpen, onClose, onSaveSuccess, kpiToE
                                 {gruposDisponiveis.map((g, idx) => <option key={idx} value={g} />)}
                             </datalist>
                         </div>
+                    </div>
+
+                    {/* Descrição Curta */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            <FontAwesomeIcon icon={faAlignLeft} className="mr-1 text-gray-400"/> 
+                            Descrição Curta <span className="text-xs text-gray-400 font-normal">({descricao.length}/60 car.)</span>
+                        </label>
+                        <input 
+                            type="text" 
+                            value={descricao} 
+                            onChange={(e) => setDescricao(e.target.value)} 
+                            maxLength={60}
+                            placeholder="Ex: Total de vendas recebidas este mês. Aparece no rodapé do card." 
+                            className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none" 
+                        />
                     </div>
 
                     {/* SELEÇÃO DE FORMATO: CARD vs GRÁFICO */}
@@ -470,10 +489,10 @@ export default function KpiBuilderModal({ isOpen, onClose, onSaveSuccess, kpiToE
             </div>
         )}
 
-        <div className="p-6 border-t border-gray-100 bg-gray-50 rounded-b-2xl flex justify-end gap-3 z-20 relative">
-          <button onClick={onClose} className="px-6 py-2.5 text-gray-600 font-medium hover:bg-gray-200 rounded-xl transition-colors">Cancelar</button>
-          <button onClick={handleSave} disabled={salvando || isLoadingKpis} className={`px-8 py-2.5 text-white font-bold rounded-xl shadow-md transition-all flex items-center gap-2 disabled:opacity-50 ${abaAtiva === 'formula' ? 'bg-purple-600 hover:bg-purple-700' : 'bg-blue-600 hover:bg-blue-700'}`}>
-            {salvando ? <><FontAwesomeIcon icon={faSpinner} spin /> Salvando...</> : <><FontAwesomeIcon icon={kpiToEdit ? faPen : faSave} /> {kpiToEdit ? 'Atualizar' : 'Criar'}</>}
+        <div className="p-6 border-t border-gray-100 flex justify-end gap-3 bg-gray-50 rounded-b-2xl">
+          <button onClick={onClose} className="px-5 py-2.5 text-gray-600 font-medium hover:bg-gray-200 rounded-xl transition-colors">Cancelar</button>
+          <button onClick={handleSave} disabled={salvando} className="px-5 py-2.5 bg-blue-600 text-white font-medium rounded-xl hover:bg-blue-700 shadow-md shadow-blue-200 disabled:opacity-50 transition-all transform hover:scale-105 flex items-center gap-2">
+            {salvando ? <><FontAwesomeIcon icon={faSpinner} spin /> Salvando...</> : <><FontAwesomeIcon icon={faSave} /> Salvar Indicador</>}
           </button>
         </div>
       </div>

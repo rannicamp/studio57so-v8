@@ -1,4 +1,3 @@
-// app/(main)/relatorios/financeiro/page.js
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -142,16 +141,14 @@ export default function RelatorioFinanceiroPage() {
     } catch (error) { toast.error("Erro ao excluir."); }
   };
 
-  // --- NOVA FUNÇÃO: DUPLICAR ---
+  // --- FUNÇÃO DUPLICAR ---
   const handleDuplicateKpi = async (kpiOriginal) => {
       try {
-          // Remove ID e dados de auditoria para criar um novo registro limpo
           const { id, created_at, ...dadosKpi } = kpiOriginal;
           
           const novoKpi = {
               ...dadosKpi,
               titulo: `${dadosKpi.titulo} (Cópia)`,
-              // Mantém na mesma organização
               organizacao_id: user.organizacao_id
           };
 
@@ -161,11 +158,11 @@ export default function RelatorioFinanceiroPage() {
 
           if (error) throw error;
 
-          toast.success("Indicador duplicado com sucesso!");
+          toast.success("Duplicado com sucesso!");
           queryClient.invalidateQueries(['meus_kpis']);
       } catch (error) {
           console.error("Erro ao duplicar:", error);
-          toast.error("Erro ao duplicar indicador.");
+          toast.error("Erro ao duplicar.");
       }
   };
 
@@ -198,7 +195,6 @@ export default function RelatorioFinanceiroPage() {
                         
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                             {kpisAgrupados.grupos[grupoNome].map((kpi) => {
-                                // Decide se o card deve ocupar 1 coluna (card) ou 2 (gráfico)
                                 const isGrafico = kpi.tipo_visualizacao?.startsWith('grafico');
                                 const colSpan = isGrafico ? 'lg:col-span-2' : 'lg:col-span-1';
 
@@ -217,20 +213,21 @@ export default function RelatorioFinanceiroPage() {
                                                 kpi={kpi}
                                                 onEdit={() => handleEditKpi(kpi)}
                                                 onDelete={() => handleDeleteKpi(kpi)}
-                                                onDuplicate={() => handleDuplicateKpi(kpi)} // Passando a função
+                                                onDuplicate={() => handleDuplicateKpi(kpi)}
                                             />
                                         ) : (
                                             <SmartKpiCard 
                                                 kpi={{
                                                     id: kpi.id,
                                                     titulo: kpi.titulo,
+                                                    descricao: kpi.descricao, // <--- AQUI ESTAVA FALTANDO!
                                                     icone: kpi.filtros?._meta_visual?.icone || kpi.icone || 'faChartPie',
                                                     cor: kpi.filtros?._meta_visual?.cor || '#3B82F6',
                                                     filtros: kpi.filtros
                                                 }}
                                                 onEdit={() => handleEditKpi(kpi)}
                                                 onDelete={() => handleDeleteKpi(kpi)}
-                                                onDuplicate={() => handleDuplicateKpi(kpi)} // Passando a função aqui também
+                                                onDuplicate={() => handleDuplicateKpi(kpi)}
                                             />
                                         )}
                                     </div>
@@ -271,7 +268,6 @@ export default function RelatorioFinanceiroPage() {
         kpiToEdit={kpiParaEditar}
         onSaveSuccess={() => {
             queryClient.invalidateQueries(['meus_kpis']);
-            // Invalida caches antigos para garantir dados frescos
             queryClient.invalidateQueries({ queryKey: ['kpi_value_smart_v13'] });
         }}
       />
