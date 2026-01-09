@@ -15,58 +15,31 @@ export default function SmartKpiCard({ kpi, onEdit, onDelete }) {
   const tipo = kpi?.filtros?._config_tipo || 'filtro';
 
   const { data: resultado, isLoading, isError } = useQuery({
-    queryKey: ['kpi_value_smart_v11', kpi.id, kpi.filtros, tipo], 
+    queryKey: ['kpi_value_smart_v12', kpi.id, kpi.filtros, tipo], // Mudei a versão da key para forçar atualização
     queryFn: async () => {
-      // === O TRADUTOR UNIVERSAL (CORREÇÃO CRÍTICA) ===
+      // === O TRADUTOR UNIVERSAL ===
       const normalizarFiltros = (filtrosCrus) => {
           return {
-              // Verifica AMBOS os formatos (Novo || Antigo || Nulo)
               startDate: filtrosCrus.startDate || filtrosCrus.data_inicio || null,
               endDate: filtrosCrus.endDate || filtrosCrus.data_fim || null,
-
-              // Tratamento de Arrays (Garante que sempre seja array de IDs)
-              categoriaIds: Array.isArray(filtrosCrus.categoriaIds) 
-                  ? filtrosCrus.categoriaIds 
-                  : (Array.isArray(filtrosCrus.categorias) ? filtrosCrus.categorias.map(c => c?.id || c) : []),
-              
-              contaIds: Array.isArray(filtrosCrus.contaIds)
-                  ? filtrosCrus.contaIds
-                  : (Array.isArray(filtrosCrus.contas) ? filtrosCrus.contas.map(c => c?.id || c) : []),
-              
-              empresaIds: Array.isArray(filtrosCrus.empresaIds)
-                  ? filtrosCrus.empresaIds
-                  : (Array.isArray(filtrosCrus.empresas) ? filtrosCrus.empresas.map(c => c?.id || c) : []),
-                  
-              empreendimentoIds: Array.isArray(filtrosCrus.empreendimentoIds)
-                  ? filtrosCrus.empreendimentoIds
-                  : (Array.isArray(filtrosCrus.empreendimentos) ? filtrosCrus.empreendimentos.map(c => c?.id || c) : []),
-
-              etapaIds: filtrosCrus.etapaIds || [],
-
-              // Status e Tipo
-              status: Array.isArray(filtrosCrus.status) 
-                  ? filtrosCrus.status.filter(s => s !== 'todos') 
-                  : (filtrosCrus.status === 'todos' ? [] : [filtrosCrus.status].filter(Boolean)),
-                  
-              tipo: Array.isArray(filtrosCrus.tipo) 
-                  ? filtrosCrus.tipo 
-                  : (filtrosCrus.tipo === 'todos' ? [] : [filtrosCrus.tipo].filter(Boolean)),
-
-              // Flags
+              categoriaIds: Array.isArray(filtrosCrus.categoriaIds) ? filtrosCrus.categoriaIds : [],
+              contaIds: Array.isArray(filtrosCrus.contaIds) ? filtrosCrus.contaIds : [],
+              empresaIds: Array.isArray(filtrosCrus.empresaIds) ? filtrosCrus.empresaIds : [],
+              empreendimentoIds: Array.isArray(filtrosCrus.empreendimentoIds) ? filtrosCrus.empreendimentoIds : [],
+              status: Array.isArray(filtrosCrus.status) ? filtrosCrus.status.filter(s => s !== 'todos') : [],
+              tipo: Array.isArray(filtrosCrus.tipo) ? filtrosCrus.tipo : [],
               ignoreTransfers: filtrosCrus.ignoreTransfers ?? true,
-              ignoreChargebacks: filtrosCrus.ignoreChargebacks ?? true,
               useCompetencia: filtrosCrus.useCompetencia ?? false
           };
       };
 
-      // MODO 1: KPI SIMPLES
       if (tipo === 'filtro') {
         const filtrosProntos = normalizarFiltros(kpi.filtros || {});
 
+        // CORREÇÃO AQUI: Removemos 'p_escopo'. Agora só enviamos o que o banco pede.
         const { data, error } = await supabase.rpc('get_financeiro_consolidado', {
           p_organizacao_id: user?.organizacao_id,
-          p_filtros: filtrosProntos,
-          p_escopo: 'KPI'
+          p_filtros: filtrosProntos
         });
 
         if (error) {
@@ -77,7 +50,6 @@ export default function SmartKpiCard({ kpi, onEdit, onDelete }) {
         return Number(data?.resultado || 0);
       }
 
-      // MODO 2: KPI COMPOSTO (Fórmula)
       if (tipo === 'formula') {
         const expressao = kpi.filtros?.formula_expressao || '';
         if (!expressao) return 0;
@@ -98,10 +70,11 @@ export default function SmartKpiCard({ kpi, onEdit, onDelete }) {
             await Promise.all((kpisFilhos || []).map(async (filho) => {
                 if (filho.filtros?._config_tipo === 'formula') { valoresFilhos[filho.id] = 0; return; }
                 const filtrosFilhoProntos = normalizarFiltros(filho.filtros || {});
+                
+                // CORREÇÃO AQUI TAMBÉM
                 const { data } = await supabase.rpc('get_financeiro_consolidado', {
                     p_organizacao_id: user?.organizacao_id,
-                    p_filtros: filtrosFilhoProntos,
-                    p_escopo: 'KPI'
+                    p_filtros: filtrosFilhoProntos
                 });
                 valoresFilhos[filho.id] = Number(data?.resultado || 0);
             }));

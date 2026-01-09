@@ -6,7 +6,7 @@ import {
     faTimes, faSave, faStar as faStarSolid, faEllipsisV,
     faCalendarDay, faCalendarWeek, faCalendarAlt, 
     faArrowUp, faArrowDown, faTrash, faSpinner, faBan, faExchangeAlt,
-    faFilter, faChevronDown, faChevronUp, faUndo, faExclamationCircle
+    faFilter, faChevronDown, faChevronUp, faUndo, faExclamationCircle, faSearch
 } from '@fortawesome/free-solid-svg-icons';
 import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -90,7 +90,7 @@ export default function FiltroFinanceiro({
     const [isSearching, setIsSearching] = useState(false);
     const favorecidoInputRef = useRef(null);
 
-    // CORREÇÃO: Etapas devem ser buscadas independente de termos contas/categorias
+    // Etapas devem ser buscadas independente de termos contas/categorias
     const shouldUseInternalData = !propContas || !propCategorias;
 
     const { data: listasInternas } = useQuery({
@@ -100,11 +100,10 @@ export default function FiltroFinanceiro({
         staleTime: 1000 * 60 * 10
     });
 
-    // CORREÇÃO: Removemos a dependência de 'shouldUseInternalData' aqui
     const { data: etapasInternas } = useQuery({
         queryKey: ['etapas', organizacaoId],
         queryFn: () => fetchEtapas(supabase, organizacaoId),
-        enabled: !!organizacaoId, // Busca sempre que tiver ID da organização
+        enabled: !!organizacaoId, 
     });
 
     const empresas = propEmpresas || listasInternas?.empresas || [];
@@ -216,8 +215,17 @@ export default function FiltroFinanceiro({
     };
 
     const handleNatureFilterClick = (nature) => { 
-        const currentTipo = filters.tipo || []; 
-        const newTipo = currentTipo.includes(nature) ? currentTipo.filter(t => t !== nature) : [...currentTipo, nature]; 
+        const currentTipo = Array.isArray(filters.tipo) ? filters.tipo : []; 
+        let newTipo;
+        
+        if (currentTipo.includes(nature)) {
+            // Se já está selecionado, remove (desmarca)
+            newTipo = currentTipo.filter(t => t !== nature);
+        } else {
+            // Se não está selecionado, adiciona
+            newTipo = [...currentTipo, nature];
+        }
+        
         updateFilters({ ...filters, tipo: newTipo });
     };
 
@@ -289,8 +297,30 @@ export default function FiltroFinanceiro({
 
             {(isExpanded || compacto) && (
                 <div className="p-4 bg-gray-50 animate-fade-in rounded-b-xl">
-                    {/* ... (Todo o restante do JSX permanece exatamente igual) ... */}
-                    {/* Vou manter o JSX igual para não extender a resposta, o foco foi no useQuery acima */}
+                    
+                    {/* Campo de Busca por Texto Integrado */}
+                    <div className="mb-4">
+                        <label className="text-xs uppercase font-medium text-gray-500 mb-1 block">Busca por Texto</label>
+                        <div className="relative">
+                            <input
+                                type="text"
+                                value={filters.searchTerm || ''}
+                                onChange={(e) => handleFilterChange('searchTerm', e.target.value)}
+                                placeholder="Buscar por descrição, observação, n° documento..."
+                                className="w-full p-2 pl-9 border border-gray-300 rounded-md text-sm focus:ring-blue-500 focus:border-blue-500 h-[38px]"
+                            />
+                            <FontAwesomeIcon icon={faSearch} className="absolute left-3 top-3 text-gray-400 text-sm" />
+                            {filters.searchTerm && (
+                                <button 
+                                    onClick={() => handleFilterChange('searchTerm', '')}
+                                    className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
+                                >
+                                    <FontAwesomeIcon icon={faTimes} />
+                                </button>
+                            )}
+                        </div>
+                    </div>
+
                     <div className="flex flex-col md:flex-row justify-between items-start mb-4 gap-4">
                         <div className="flex flex-wrap items-center gap-3">
                             <div className="flex items-center gap-2">

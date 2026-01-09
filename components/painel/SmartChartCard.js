@@ -30,7 +30,7 @@ export default function SmartChartCard({ kpi, onEdit, onDelete }) {
 
   // --- 1. BUSCA DE DADOS VIA RPC (O SEGREDO DA SOMA CORRETA) ---
   const { data: dadosBrutos = [], isLoading, error } = useQuery({
-    queryKey: ['chart_data_v6', kpi?.id, filtros, user?.organizacao_id],
+    queryKey: ['chart_data_v7', kpi?.id, filtros, user?.organizacao_id], // Bump version to v7
     queryFn: async () => {
       if (!user?.organizacao_id) return [];
 
@@ -78,32 +78,24 @@ export default function SmartChartCard({ kpi, onEdit, onDelete }) {
   const { dadosFormatados, indexAtual, resumoTipo } = useMemo(() => {
     if (!dadosBrutos?.length) return { dadosFormatados: [], indexAtual: -1, resumoTipo: 'Misto' };
 
-    const temReceita = dadosBrutos.some(d => d.tipo === 'Receita');
-    const temDespesa = dadosBrutos.some(d => d.tipo === 'Despesa');
+    // CORREÇÃO: O RPC agora retorna 'receita' e 'despesa' já somados por dia
+    // Não precisamos verificar se 'temReceita' ou 'temDespesa' baseado no item.tipo
+    // A lógica simplifica porque o dado já vem mastigado.
     
-    let tipoCalculo = 'saldo'; 
     let labelLegenda = 'Saldo';
     const filtroTipo = Array.isArray(filtros.tipo) ? filtros.tipo[0] : filtros.tipo;
 
-    if ((filtros.tipo && filtroTipo === 'Receita') || (temReceita && !temDespesa)) {
-        tipoCalculo = 'receita_pura';
+    // Detecta o modo de exibição baseado no filtro
+    if (filtros.tipo && (filtroTipo === 'Receita' || (Array.isArray(filtros.tipo) && filtros.tipo.includes('Receita') && !filtros.tipo.includes('Despesa')))) {
         labelLegenda = 'Receita';
-    } else if ((filtros.tipo && filtroTipo === 'Despesa') || (!temReceita && temDespesa)) {
-        tipoCalculo = 'despesa_pura';
+    } else if (filtros.tipo && (filtroTipo === 'Despesa' || (Array.isArray(filtros.tipo) && filtros.tipo.includes('Despesa') && !filtros.tipo.includes('Receita')))) {
         labelLegenda = 'Despesa';
     }
 
     const agrupado = dadosBrutos.reduce((acc, item) => {
-      // Mesma lógica de data da lista
-      let dataParaUso = item.data_transacao;
+      // CORREÇÃO CRUCIAL: Usamos 'data_ref' que vem do SQL novo
+      const dataParaUso = item.data_ref; 
       
-      if (filtros.useCompetencia) {
-          dataParaUso = item.data_transacao;
-      } else {
-          if (item.data_pagamento) dataParaUso = item.data_pagamento;
-          else if (item.data_vencimento) dataParaUso = item.data_vencimento;
-      }
-
       if (!dataParaUso) return acc;
 
       const [anoStr, mesStr, diaStr] = dataParaUso.split('T')[0].split('-');
@@ -129,15 +121,17 @@ export default function SmartChartCard({ kpi, onEdit, onDelete }) {
         } catch (err) { acc[chave].label = chave; }
       }
 
-      const valorItem = Number(item.valor || 0);
+      // O SQL retorna { data_ref, receita, despesa }
+      const receitaItem = Number(item.receita || 0);
+      const despesaItem = Number(item.despesa || 0);
       
-      if (tipoCalculo === 'receita_pura') {
-          if (item.tipo === 'Receita') acc[chave].valor += valorItem;
-      } else if (tipoCalculo === 'despesa_pura') {
-          if (item.tipo === 'Despesa') acc[chave].valor += valorItem; 
+      if (labelLegenda === 'Receita') {
+          acc[chave].valor += receitaItem;
+      } else if (labelLegenda === 'Despesa') {
+          acc[chave].valor += despesaItem; 
       } else {
-          if (item.tipo === 'Despesa') acc[chave].valor -= valorItem;
-          else acc[chave].valor += valorItem;
+          // Saldo
+          acc[chave].valor += (receitaItem - despesaItem);
       }
       return acc;
     }, {});

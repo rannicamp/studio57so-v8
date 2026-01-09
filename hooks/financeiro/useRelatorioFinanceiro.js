@@ -1,84 +1,123 @@
 // hooks/financeiro/useRelatorioFinanceiro.js
 import { useQuery } from '@tanstack/react-query';
 import { createClient } from '@/utils/supabase/client';
-import { format, eachDayOfInterval, isSameDay, parseISO } from 'date-fns';
+import { format, eachDayOfInterval, isValid } from 'date-fns';
 
 export function useRelatorioFinanceiro(filtros) {
   const supabase = createClient();
   
-  // Recebemos os filtros vindos da página
-  const { 
-      startDate, endDate, organizacaoId, 
-      contaIds, categoriaIds, empresaIds, empreendimentoIds, 
-      status, ignoreTransfers, ignoreChargebacks, useCompetencia 
-  } = filtros;
-
-  // Montagem do JSON exatamente como a 'financeiro_montar_where' espera
+  // 1. Normalização dos Filtros (Garante que o SQL entenda tudo)
   const filtrosJson = {
-      startDate: startDate ? format(startDate, 'yyyy-MM-dd') : null,
-      endDate: endDate ? format(endDate, 'yyyy-MM-dd') : null,
+      // Datas formatadas como string simples (YYYY-MM-DD) para evitar confusão de fuso horário
+      startDate: filtros?.startDate && isValid(new Date(filtros.startDate)) 
+          ? format(new Date(filtros.startDate), 'yyyy-MM-dd') 
+          : null,
+      endDate: filtros?.endDate && isValid(new Date(filtros.endDate)) 
+          ? format(new Date(filtros.endDate), 'yyyy-MM-dd') 
+          : null,
       
-      // Arrays de IDs (Garantindo que sejam arrays)
-      contaIds: contaIds || [],
-      categoriaIds: categoriaIds || [],
-      empresaIds: empresaIds || [],
-      empreendimentoIds: empreendimentoIds || [],
+      // Garante arrays para evitar erros de "in" no SQL
+      contaIds: Array.isArray(filtros?.contaIds) ? filtros.contaIds : [],
+      categoriaIds: Array.isArray(filtros?.categoriaIds) ? filtros.categoriaIds : [],
+      empresaIds: Array.isArray(filtros?.empresaIds) ? filtros.empresaIds : [],
+      empreendimentoIds: Array.isArray(filtros?.empreendimentoIds) ? filtros.empreendimentoIds : [],
       
-      // Se não vier status definido no filtro, padronizamos para 'Pago' (Realizado) no dashboard,
-      // mas se o usuário filtrou algo específico, respeitamos.
-      status: status && status.length > 0 ? status : ['Pago', 'Conciliado'],
+      // Status padrão se não houver seleção
+      status: filtros?.status && filtros.status.length > 0 ? filtros.status : ['Pago', 'Conciliado'], 
       
-      // Flags
-      ignoreTransfers: ignoreTransfers ?? true, // Padrão: Ignorar transferências no relatório
-      ignoreChargebacks: ignoreChargebacks ?? true,
-      useCompetencia: useCompetencia ?? false
+      // Configurações extras
+      ignoreTransfers: filtros.ignoreTransfers ?? true,
+      ignoreChargebacks: filtros.ignoreChargebacks ?? true,
+      useCompetencia: filtros.useCompetencia ?? false,
+      searchTerm: filtros.searchTerm || ''
   };
 
-  const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ['relatorio-financeiro-v2', organizacaoId, filtrosJson],
+  // 2. Busca KPIs (Cards do Topo)
+  const { data: kpis, isLoading: kpiLoading, refetch: refetchKpis } = useQuery({
+    queryKey: ['kpis-financeiro-v5', filtros.organizacaoId, filtrosJson],
     queryFn: async () => {
-      if (!organizacaoId) return null;
-
-      // Chamamos a NOVA função de relatório
-      const { data, error } = await supabase.rpc('get_relatorio_financeiro', {
-        p_organizacao_id: organizacaoId,
+      if (!filtros.organizacaoId) return { totalReceitas: 0, totalDespesas: 0, resultado: 0 };
+      
+      const { data, error } = await supabase.rpc('get_financeiro_consolidado', {
+        p_organizacao_id: filtros.organizacaoId,
         p_filtros: filtrosJson
       });
-
+      
       if (error) throw error;
-      return data;
+      return data || { totalReceitas: 0, totalDespesas: 0, resultado: 0 };
     },
-    staleTime: 1000 * 60 * 5, // Cache de 5 minutos
-    enabled: !!organizacaoId && !!startDate && !!endDate
+    enabled: !!filtros.organizacaoId
   });
 
-  // Preenchimento de dias vazios para o gráfico ficar bonito (sem buracos)
+  // 3. Busca Gráfico de Fluxo (Barras)
+  const { data: fluxoData, isLoading: fluxoLoading } = useQuery({
+    queryKey: ['grafico-fluxo-v5', filtros.organizacaoId, filtrosJson],
+    queryFn: async () => {
+      if (!filtros.organizacaoId) return [];
+      // Chama a função específica de gráfico que você atualizou no SQL
+      const { data, error } = await supabase.rpc('get_dados_grafico_kpi', {
+        p_organizacao_id: filtros.organizacaoId,
+        p_filtros: filtrosJson
+      });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!filtros.organizacaoId
+  });
+
+  // 4. Busca Gráfico de Pizza (Categorias)
+  const { data: pizzaData, isLoading: pizzaLoading } = useQuery({
+    queryKey: ['grafico-pizza-v5', filtros.organizacaoId, filtrosJson],
+    queryFn: async () => {
+      if (!filtros.organizacaoId) return [];
+      const { data, error } = await supabase.rpc('get_financeiro_grafico_pizza', {
+        p_organizacao_id: filtros.organizacaoId,
+        p_filtros: filtrosJson
+      });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!filtros.organizacaoId
+  });
+
+  // 5. Processamento dos Dados do Gráfico (Preenche dias vazios)
   let graficoFluxoCompleto = [];
-  if (data?.graficoFluxo && startDate && endDate) {
+  if (fluxoData && filtrosJson.startDate && filtrosJson.endDate) {
     try {
-        const todosDias = eachDayOfInterval({ start: startDate, end: endDate });
-        graficoFluxoCompleto = todosDias.map(dia => {
-          const diaStr = format(dia, 'yyyy-MM-dd');
-          // Encontra se tem dados naquele dia
-          const dadosBanco = data.graficoFluxo.find(d => d.data_ordem === diaStr);
-          return {
-            name: format(dia, 'dd/MM'),
-            data_ordem: diaStr,
-            Receita: dadosBanco ? Number(dadosBanco.Receita) : 0,
-            Despesa: dadosBanco ? Number(dadosBanco.Despesa) : 0
-          };
-        });
+        // Força o horário T00:00:00 para garantir que a geração de dias não pule nada por fuso
+        const start = new Date(filtrosJson.startDate + 'T00:00:00');
+        const end = new Date(filtrosJson.endDate + 'T00:00:00');
+        
+        if (isValid(start) && isValid(end)) {
+            const todosDias = eachDayOfInterval({ start, end });
+            graficoFluxoCompleto = todosDias.map(dia => {
+              const diaStr = format(dia, 'yyyy-MM-dd');
+              
+              // AQUI ESTAVA O ERRO: O SQL novo retorna 'data_ref', não 'data_ordem'
+              const dadosDoDia = fluxoData.find(d => d.data_ref === diaStr);
+              
+              return {
+                name: format(dia, 'dd/MM'),
+                data_ref: diaStr, // Mantemos coerência
+                Receita: dadosDoDia ? Number(dadosDoDia.receita) : 0,
+                Despesa: dadosDoDia ? Number(dadosDoDia.despesa) : 0
+              };
+            });
+        }
     } catch (e) {
         console.error("Erro ao processar datas do gráfico", e);
     }
   }
 
   return {
-    kpis: data?.kpis || { receita: 0, despesa: 0, saldo: 0 },
+    kpis: {
+        receita: Number(kpis?.totalReceitas || 0),
+        despesa: Number(kpis?.totalDespesas || 0),
+        saldo: Number(kpis?.resultado || 0)
+    },
     graficoFluxo: graficoFluxoCompleto,
-    graficoPizza: data?.graficoPizza || [],
-    isLoading,
-    error,
-    refetch
+    graficoPizza: pizzaData || [],
+    isLoading: kpiLoading || fluxoLoading || pizzaLoading,
+    refetch: () => { refetchKpis(); } // Função para recarregar manualmente se precisar
   };
 }
