@@ -1,4 +1,3 @@
-// app/(main)/financeiro/conciliacao/page.js
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -12,11 +11,41 @@ import Papa from 'papaparse';
 import { toast } from 'sonner';
 import { startOfMonth, endOfMonth, format } from 'date-fns';
 
-// --- IMPORTAÇÕES SEGURAS (Caminhos Relativos) ---
-// Isso resolve o erro "Element type is invalid"
+// --- IMPORTAÇÕES ---
 import ExtratoUploader from '../../../../components/financeiro/conciliacao/ExtratoUploader';
 import ConciliacaoWorkbench from '../../../../components/financeiro/conciliacao/ConciliacaoWorkbench';
 import LancamentoFormModal from '../../../../components/financeiro/LancamentoFormModal'; 
+
+// --- FUNÇÃO DE LIMPEZA DE DATA BLINDADA ---
+const normalizarData = (dataRaw) => {
+    if (!dataRaw) return format(new Date(), 'yyyy-MM-dd');
+
+    const str = dataRaw.trim();
+    
+    // 1. Já está no formato certo? (YYYY-MM-DD)
+    if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+
+    // 2. Formato Brasileiro com barras ou traços (DD/MM/AAAA ou DD-MM-YY)
+    // Captura: Dia (p1), Separador, Mês (p2), Separador, Ano (p3 - 2 ou 4 digitos)
+    const matchBR = str.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})$/);
+    
+    if (matchBR) {
+        const dia = matchBR[1].padStart(2, '0');
+        const mes = matchBR[2].padStart(2, '0');
+        let ano = matchBR[3];
+
+        // Se o ano for curto (ex: 25), assume século 2000 (2025)
+        if (ano.length === 2) {
+            ano = `20${ano}`;
+        }
+        
+        return `${ano}-${mes}-${dia}`;
+    }
+
+    // Se nada funcionar, retorna a data de hoje para não quebrar, mas avisa no console
+    console.warn("Data não reconhecida:", dataRaw);
+    return format(new Date(), 'yyyy-MM-dd');
+};
 
 // --- PARSERS ---
 const parseOFX = (ofxString) => {
@@ -46,7 +75,12 @@ const parseOFX = (ofxString) => {
 };
 
 const parseCSV = (csvString) => {
-    const results = Papa.parse(csvString, { header: true, skipEmptyLines: true });
+    const results = Papa.parse(csvString, { 
+        header: true, 
+        skipEmptyLines: true,
+        transformHeader: h => h.trim() 
+    });
+
     return results.data.map((row, index) => {
         const keys = Object.keys(row);
         const dateKey = keys.find(k => /data|date|dt|dia/i.test(k));
@@ -70,17 +104,13 @@ const parseCSV = (csvString) => {
             valor = parseFloat(valorRaw);
         }
 
-        let data = row[dateKey];
-        if (data && data.includes('/')) {
-            const parts = data.split('/');
-            if (parts.length === 3) {
-                data = `${parts[2]}-${parts[1]}-${parts[0]}`;
-            }
-        }
+        // Normaliza a data AQUI usando a nova função
+        const dataRaw = row[dateKey];
+        const dataFormatada = normalizarData(dataRaw);
 
         return {
             id: `csv-${index}-${Math.random().toString(36).substr(2, 9)}`,
-            data: data,
+            data: dataFormatada, 
             descricao: row[descKey] || 'Sem descrição',
             valor: Math.abs(valor),
             tipo: valor < 0 ? 'DEBIT' : 'CREDIT', 
@@ -92,23 +122,23 @@ const parseCSV = (csvString) => {
 export default function ConciliacaoPage() {
     const supabase = createClient();
     const { user } = useAuth();
-    const queryClient = useQueryClient();
     
-    // Estados Persistentes
+    // Estados
     const [contaSelecionada, setContaSelecionada] = useState(null);
     const [extratoItems, setExtratoItems] = useState([]);
     
-    // Estados de Filtro de Data
+    // Filtros
     const [dataInicio, setDataInicio] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
     const [dataFim, setDataFim] = useState(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
     
     const [isLoaded, setIsLoaded] = useState(false); 
 
-    // Estado para Edição
+    // Edição/Criação
     const [lancamentoParaEditar, setLancamentoParaEditar] = useState(null);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [itemEmCriacao, setItemEmCriacao] = useState(null);
 
-    // 1. Carregar TUDO do Cache
+    // Carregar Cache
     useEffect(() => {
         try {
             const savedConta = sessionStorage.getItem('conciliacao_conta');
@@ -125,7 +155,7 @@ export default function ConciliacaoPage() {
         finally { setIsLoaded(true); }
     }, []);
 
-    // 2. Salvar Cache
+    // Salvar Cache
     useEffect(() => {
         if (!isLoaded) return;
         if (contaSelecionada) sessionStorage.setItem('conciliacao_conta', JSON.stringify(contaSelecionada));
@@ -177,7 +207,6 @@ export default function ConciliacaoPage() {
                 .order('data_transacao', { ascending: false });
 
             const { data } = await query;
-                
             const isCartaoCredito = contaSelecionada.tipo?.toLowerCase().includes('cartão') || contaSelecionada.tipo?.toLowerCase().includes('crédito');
 
             return data?.map(d => {
@@ -208,9 +237,6 @@ export default function ConciliacaoPage() {
     const handleFileLoaded = ({ content, extension }) => {
         try {
             let parsed = [];
-            
-            // O ExtratoUploader já converte PDF para CSV via IA, 
-            // então 'extension' virá como 'csv' se vier da IA.
             if (extension === 'ofx') parsed = parseOFX(content);
             else if (extension === 'csv') parsed = parseCSV(content);
             else throw new Error("Formato não suportado.");
@@ -219,9 +245,7 @@ export default function ConciliacaoPage() {
             
             setExtratoItems(parsed);
 
-            const datasOrdenadas = parsed
-                .map(p => p.data)
-                .sort((a, b) => a.localeCompare(b)); 
+            const datasOrdenadas = parsed.map(p => p.data).sort((a, b) => a.localeCompare(b)); 
             
             if (datasOrdenadas.length > 0) {
                 const menorData = datasOrdenadas[0];
@@ -243,7 +267,11 @@ export default function ConciliacaoPage() {
         try {
             const { error } = await supabase
                 .from('lancamentos')
-                .update({ status: 'Conciliado', conciliado: true })
+                .update({ 
+                    status: 'Conciliado', 
+                    conciliado: true,
+                    data_pagamento: contaSelecionada.tipo === 'Cartão de Crédito' ? null : banco.data 
+                })
                 .eq('id', sistema.id);
 
             if (error) throw error;
@@ -254,8 +282,34 @@ export default function ConciliacaoPage() {
         }
     };
 
+    // --- CRIAÇÃO CORRIGIDA ---
     const handleCriarLancamento = (itemBanco) => {
-        toast.info(`Em breve: Criar ${itemBanco.descricao}`);
+        // A data já vem normalizada pelo parseCSV (AAAA-MM-DD), mas por garantia chamamos de novo
+        const dataExtrato = normalizarData(itemBanco.data);
+
+        const novoLancamento = {
+            conta_id: contaSelecionada?.id,
+            descricao: itemBanco.descricao,
+            valor: Math.abs(itemBanco.valor),
+            tipo: (itemBanco.tipo === 'CREDIT' || itemBanco.valor > 0) ? 'Receita' : 'Despesa',
+            
+            // 1. Data de Transação = Data Exata do Extrato
+            data_transacao: dataExtrato, 
+            
+            // 2. Data de Vencimento = Data Extrato (Modal calcula se for cartão)
+            data_vencimento: dataExtrato, 
+            
+            // 3. Pagamento vazio
+            data_pagamento: "", 
+
+            status: 'Pendente', 
+            conciliado: true,
+            id_transacao_externa: itemBanco.id
+        };
+
+        setItemEmCriacao(itemBanco);
+        setLancamentoParaEditar(novoLancamento);
+        setIsEditModalOpen(true);
     };
 
     const handleLimparSessao = () => {
@@ -274,7 +328,19 @@ export default function ConciliacaoPage() {
     const handleSaveEdicao = () => {
         setIsEditModalOpen(false);
         setLancamentoParaEditar(null);
+        
+        if (itemEmCriacao) {
+            setExtratoItems(prev => prev.filter(i => i.id !== itemEmCriacao.id));
+            setItemEmCriacao(null);
+            toast.success("Lançamento criado e conciliado!");
+        }
+        
         refetchSistema(); 
+    };
+
+    const handleCloseModal = () => {
+        setIsEditModalOpen(false);
+        setItemEmCriacao(null);
     };
 
     if (!isLoaded) return null; 
@@ -370,7 +436,7 @@ export default function ConciliacaoPage() {
             
             <LancamentoFormModal
                 isOpen={isEditModalOpen}
-                onClose={() => setIsEditModalOpen(false)}
+                onClose={handleCloseModal}
                 initialData={lancamentoParaEditar}
                 onSuccess={handleSaveEdicao}
                 empresas={empresas}

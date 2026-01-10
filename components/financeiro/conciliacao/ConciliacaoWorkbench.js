@@ -4,7 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
   faLink, faPlus, faSearch, faSort, faSortUp, faSortDown, 
-  faPen, faCheckCircle, faMagic, faSpinner, faTimes 
+  faPen, faCheckCircle, faMagic, faSpinner, faTimes, faCheckDouble 
 } from '@fortawesome/free-solid-svg-icons';
 import { format, isValid, parseISO } from 'date-fns';
 import { toast } from 'sonner';
@@ -48,9 +48,7 @@ const TransactionItem = ({ item, isSelected, onClick, type, onEdit, matchIndex, 
       containerClasses = 'bg-blue-600 text-white border-blue-600 shadow-md transform scale-[1.01] z-30';
   } else if (matchIndex !== null && matchIndex !== undefined) {
       const colorStyle = MATCH_COLORS[matchIndex % MATCH_COLORS.length];
-      // Se o par deste item estiver com mouse em cima, destaca este também!
       const hoverEffect = isHoveredMatch ? 'ring-2 ring-offset-1 ring-purple-400 scale-[1.02]' : '';
-      
       containerClasses = `${colorStyle.bg} ${colorStyle.border} ${colorStyle.text} border-l-4 z-10 relative ${hoverEffect}`;
       
       badge = (
@@ -107,20 +105,15 @@ export default function ConciliacaoWorkbench({ extratoItems = [], sistemaItems =
   const [searchTerm, setSearchTerm] = useState('');
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [aiMatches, setAiMatches] = useState([]);
-  const [hoveredMatchIndex, setHoveredMatchIndex] = useState(null); // Para destacar o par
+  const [hoveredMatchIndex, setHoveredMatchIndex] = useState(null);
 
   const [bancoSort, setBancoSort] = useState({ key: 'data', direction: 'desc' });
   const [sistemaSort, setSistemaSort] = useState({ key: 'data', direction: 'desc' });
-
-  // --- CORREÇÃO: Comparação de IDs como String para evitar erro (123 !== "123") ---
   
   const handleRejectAiMatch = (extratoId, sistemaId) => {
       setAiMatches(prev => prev.filter(m => !(String(m.extratoId) === String(extratoId) && String(m.sistemaId) === String(sistemaId))));
-      
-      // Se o item rejeitado estava selecionado, deseleciona
       if (selectedBanco && String(selectedBanco.id) === String(extratoId)) setSelectedBanco(null);
       if (selectedSistema && String(selectedSistema.id) === String(sistemaId)) setSelectedSistema(null);
-      
       toast.info("Sugestão removida.");
   };
 
@@ -181,12 +174,51 @@ export default function ConciliacaoWorkbench({ extratoItems = [], sistemaItems =
     return [...sortList(pendentesComMatch, sistemaSort), ...sortList(pendentesSemMatch, sistemaSort), ...sortList(conciliados, sistemaSort)];
   }, [sistemaItems, searchTerm, sistemaSort, aiMatches]);
 
+  // --- AÇÕES DE MATCH ---
+
   const handleMatch = async () => {
     if (selectedBanco && selectedSistema) {
       await onConciliar(selectedBanco, selectedSistema);
-      // Remove da lista de sugestões (ID String Check)
       setAiMatches(prev => prev.filter(m => !(String(m.extratoId) === String(selectedBanco.id) && String(m.sistemaId) === String(selectedSistema.id))));
       setSelectedBanco(null); setSelectedSistema(null);
+    }
+  };
+
+  // --- NOVA FUNÇÃO: CONCILIAR TODOS (AI) ---
+  const handleConciliarTodos = async () => {
+    if (aiMatches.length === 0) return;
+
+    // Confirmação simples
+    if (!confirm(`Deseja confirmar e conciliar automaticamente ${aiMatches.length} pares sugeridos pela IA?`)) return;
+
+    setIsAiLoading(true);
+    let count = 0;
+
+    try {
+        // Percorre todos os matches da IA
+        for (const match of aiMatches) {
+            // Encontra os objetos reais usando os IDs (conversão segura para string)
+            const banco = extratoItems.find(e => String(e.id) === String(match.extratoId));
+            const sistema = sistemaItems.find(s => String(s.id) === String(match.sistemaId));
+
+            if (banco && sistema) {
+                // Chama a função de conciliação do pai
+                await onConciliar(banco, sistema);
+                count++;
+            }
+        }
+        
+        // Limpa tudo após o sucesso
+        setAiMatches([]);
+        setSelectedBanco(null);
+        setSelectedSistema(null);
+        toast.success(`${count} lançamentos conciliados com sucesso!`);
+
+    } catch (error) {
+        console.error("Erro ao conciliar em lote", error);
+        toast.error("Houve um erro durante a conciliação em lote.");
+    } finally {
+        setIsAiLoading(false);
     }
   };
 
@@ -212,7 +244,7 @@ export default function ConciliacaoWorkbench({ extratoItems = [], sistemaItems =
         const { matches } = await response.json();
         if (matches && matches.length > 0) {
             setAiMatches(matches); 
-            toast.success(`IA: Encontrei ${matches.length} pares! Usei cores para identificá-los.`);
+            toast.success(`IA: Encontrei ${matches.length} pares! Verifique e clique em 'Conciliar Todos' para confirmar.`);
         } else {
             toast.info("A IA não encontrou correspondências óbvias.");
         }
@@ -250,7 +282,7 @@ export default function ConciliacaoWorkbench({ extratoItems = [], sistemaItems =
                     <TransactionItem key={item.id} item={item} type="banco" 
                         isSelected={selectedBanco?.id === item.id}
                         matchIndex={matchIndex !== -1 ? matchIndex : null}
-                        isHoveredMatch={matchIndex !== -1 && hoveredMatchIndex === matchIndex} // Efeito Hover
+                        isHoveredMatch={matchIndex !== -1 && hoveredMatchIndex === matchIndex}
                         onHoverMatch={(isHovering) => setHoveredMatchIndex(isHovering ? matchIndex : null)}
                         onRejectMatch={() => matchData && handleRejectAiMatch(matchData.extratoId, matchData.sistemaId)}
                         onClick={toggleSelectionBanco} 
@@ -260,11 +292,28 @@ export default function ConciliacaoWorkbench({ extratoItems = [], sistemaItems =
           </div>
         </div>
 
-        {/* Centro */}
-        <div className="w-14 bg-gray-50 border-r border-gray-200 flex flex-col items-center justify-center gap-6 z-20 shadow-sm">
-           <button onClick={handleMatch} disabled={!selectedBanco || !selectedSistema} className={`w-10 h-10 rounded-full flex items-center justify-center shadow-lg transition-all transform duration-200 ${selectedBanco && selectedSistema ? 'bg-green-500 text-white cursor-pointer hover:scale-110 hover:bg-green-600' : 'bg-gray-200 text-gray-400 cursor-not-allowed opacity-50'}`}><FontAwesomeIcon icon={faLink} /></button>
-           <div className="h-8 w-px bg-gray-300"></div>
-           <button disabled={!selectedBanco} onClick={() => onCriarLancamento(selectedBanco)} className={`w-10 h-10 rounded-full flex items-center justify-center shadow-md transition-all ${selectedBanco ? 'bg-white text-blue-600 hover:text-blue-700 hover:bg-blue-50 border border-blue-100' : 'bg-gray-100 text-gray-300 cursor-not-allowed'}`}><FontAwesomeIcon icon={faPlus} /></button>
+        {/* Centro: Ações */}
+        <div className="w-14 bg-gray-50 border-r border-gray-200 flex flex-col items-center justify-center gap-4 py-4 z-20 shadow-sm">
+           
+           {/* Botão Individual */}
+           <button onClick={handleMatch} disabled={!selectedBanco || !selectedSistema} className={`w-10 h-10 rounded-full flex items-center justify-center shadow-lg transition-all transform duration-200 ${selectedBanco && selectedSistema ? 'bg-green-500 text-white cursor-pointer hover:scale-110 hover:bg-green-600' : 'bg-gray-200 text-gray-400 cursor-not-allowed opacity-50'}`} title="Conciliar Selecionados"><FontAwesomeIcon icon={faLink} /></button>
+           
+           {/* Botão Conciliar Todos (IA) - Só aparece se houver matches */}
+           {aiMatches.length > 0 && (
+             <button 
+                onClick={handleConciliarTodos} 
+                disabled={isAiLoading}
+                className={`w-10 h-10 rounded-full flex items-center justify-center shadow-lg transition-all transform duration-200 animate-bounce-short bg-purple-600 text-white hover:bg-purple-700 hover:scale-110 border-2 border-purple-200`}
+                title={`Conciliar TODOS os ${aiMatches.length} pares sugeridos`}
+             >
+                {isAiLoading ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faCheckDouble} />}
+             </button>
+           )}
+
+           <div className="h-8 w-px bg-gray-300 my-2"></div>
+           
+           {/* Botão Criar */}
+           <button disabled={!selectedBanco} onClick={() => onCriarLancamento(selectedBanco)} className={`w-10 h-10 rounded-full flex items-center justify-center shadow-md transition-all ${selectedBanco ? 'bg-white text-blue-600 hover:text-blue-700 hover:bg-blue-50 border border-blue-100' : 'bg-gray-100 text-gray-300 cursor-not-allowed'}`} title="Criar Novo"><FontAwesomeIcon icon={faPlus} /></button>
         </div>
 
         {/* Direita: Sistema */}
@@ -293,7 +342,7 @@ export default function ConciliacaoWorkbench({ extratoItems = [], sistemaItems =
                    <TransactionItem key={item.id} item={item} type="sistema" 
                       isSelected={selectedSistema?.id === item.id}
                       matchIndex={matchIndex !== -1 ? matchIndex : null}
-                      isHoveredMatch={matchIndex !== -1 && hoveredMatchIndex === matchIndex} // Efeito Hover
+                      isHoveredMatch={matchIndex !== -1 && hoveredMatchIndex === matchIndex}
                       onHoverMatch={(isHovering) => setHoveredMatchIndex(isHovering ? matchIndex : null)}
                       onRejectMatch={() => matchData && handleRejectAiMatch(matchData.extratoId, matchData.sistemaId)}
                       onClick={toggleSelectionSistema}
