@@ -1,7 +1,7 @@
 // components/financeiro/conciliacao/ConciliacaoWorkbench.js
 "use client";
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
   faLink, faPlus, faSearch, faSort, faSortUp, faSortDown, 
@@ -80,7 +80,6 @@ const TransactionItem = ({ item, isSelected, onClick, type, onEdit, matchIndex, 
       onClick={() => onClick(item)}
       onMouseEnter={onHoverMatch ? () => onHoverMatch(true) : undefined}
       onMouseLeave={onHoverMatch ? () => onHoverMatch(false) : undefined}
-      // ADICIONADO: h-12 para forçar altura fixa e min-w-0 nos filhos para garantir truncate
       className={`relative group grid grid-cols-[80px_1fr_100px] gap-2 items-center p-2 rounded-lg border mb-2 cursor-pointer text-xs h-12 ${containerClasses}`}
     >
       {badge}
@@ -185,6 +184,30 @@ export default function ConciliacaoWorkbench({ extratoItems = [], sistemaItems =
       setSelectedBanco(null); setSelectedSistema(null);
     }
   };
+
+  // --- ATALHO DE TECLADO (NOVIDADE!) ---
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Verifica se a tecla é ESPAÇO
+      if (e.code === 'Space' || e.key === ' ') {
+        // Ignora se o foco estiver em um campo de texto (para não atrapalhar a digitação)
+        const activeTag = document.activeElement?.tagName;
+        if (activeTag === 'INPUT' || activeTag === 'TEXTAREA' || activeTag === 'SELECT') {
+            return;
+        }
+
+        // Se houver itens selecionados em ambos os lados, dispara o Match
+        if (selectedBanco && selectedSistema) {
+          e.preventDefault(); // Previne o scroll da página, que é o padrão do Espaço
+          handleMatch();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedBanco, selectedSistema, handleMatch]);
+
 
   // --- NOVA FUNÇÃO: CONCILIAR TODOS (AI) ---
   const handleConciliarTodos = async () => {
@@ -298,7 +321,14 @@ export default function ConciliacaoWorkbench({ extratoItems = [], sistemaItems =
         <div className="w-14 bg-gray-50 border-r border-gray-200 flex flex-col items-center justify-center gap-4 py-4 z-20 shadow-sm">
            
            {/* Botão Individual */}
-           <button onClick={handleMatch} disabled={!selectedBanco || !selectedSistema} className={`w-10 h-10 rounded-full flex items-center justify-center shadow-lg transition-all transform duration-200 ${selectedBanco && selectedSistema ? 'bg-green-500 text-white cursor-pointer hover:scale-110 hover:bg-green-600' : 'bg-gray-200 text-gray-400 cursor-not-allowed opacity-50'}`} title="Conciliar Selecionados"><FontAwesomeIcon icon={faLink} /></button>
+           <button 
+                onClick={handleMatch} 
+                disabled={!selectedBanco || !selectedSistema} 
+                className={`w-10 h-10 rounded-full flex items-center justify-center shadow-lg transition-all transform duration-200 ${selectedBanco && selectedSistema ? 'bg-green-500 text-white cursor-pointer hover:scale-110 hover:bg-green-600' : 'bg-gray-200 text-gray-400 cursor-not-allowed opacity-50'}`} 
+                title="Conciliar Selecionados (Espaço)"
+            >
+                <FontAwesomeIcon icon={faLink} />
+            </button>
            
            {/* Botão Conciliar Todos (IA) - Só aparece se houver matches */}
            {aiMatches.length > 0 && (
