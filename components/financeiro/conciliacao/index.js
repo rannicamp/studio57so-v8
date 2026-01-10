@@ -45,7 +45,7 @@ const fetchLancamentosSistema = async (supabase, contaId, organizacaoId, startDa
     return data;
 };
 
-// --- COMPONENTE TOOLBAR (MOVIDO PARA FORA PARA EVITAR RE-RENDER) ---
+// --- COMPONENTE TOOLBAR ---
 const ListToolbar = ({ 
     title, 
     count, 
@@ -294,8 +294,37 @@ export default function ConciliacaoManager({ contas }) {
         };
 
         try {
-            if (inputMode === 'ofx' && file) transacoes = parseOfx(await file.text());
-            else if (inputMode === 'csv' && pastedText) transacoes = parseCsv(pastedText);
+            if (inputMode === 'ofx' && file) {
+                transacoes = parseOfx(await file.text());
+            } 
+            else if (inputMode === 'csv' && pastedText) {
+                transacoes = parseCsv(pastedText);
+            }
+            // --- INTEGRAÇÃO COM PDF VIA API (NOVO) ---
+            else if (inputMode === 'pdf' && file) {
+                const formData = new FormData();
+                formData.append('file', file);
+
+                const response = await fetch('/api/extract-pdf', {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Erro ao processar PDF.');
+                }
+
+                const data = await response.json();
+                
+                // A IA retorna CSV; usamos o parseCsv para converter em objetos
+                if (data.csv) {
+                    transacoes = parseCsv(data.csv);
+                    toast.success("PDF processado pela IA com sucesso!");
+                } else {
+                    throw new Error("A IA não retornou dados válidos.");
+                }
+            }
             
             if(!transacoes.length) throw new Error("Nenhuma transação encontrada.");
             
@@ -307,7 +336,10 @@ export default function ConciliacaoManager({ contas }) {
             setExtLocalFilter({ startDate: min, endDate: max });
             setConciliationState({ extrato: transacoes, sistema: [], matches: [], dateFilter: { startDate: min, endDate: max } });
             
-        } catch (e) { toast.error(e.message); setIsProcessing(false); }
+        } catch (e) { 
+            toast.error(e.message); 
+            setIsProcessing(false); 
+        }
     };
 
     // --- ACTIONS ---
