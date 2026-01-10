@@ -1,3 +1,4 @@
+// components/financeiro/conciliacao/ExtratoUploader.js
 "use client";
 
 import React, { useRef, useState } from 'react';
@@ -22,6 +23,21 @@ export default function ExtratoUploader({ onFileLoaded }) {
     setIsDragging(false);
     const files = e.dataTransfer.files;
     if (files.length) processFile(files[0]);
+  };
+
+  // --- Função Mágica de Reparo de Texto ---
+  // Se lermos um arquivo UTF-8 como ISO-8859-1, ele gera caracteres como 'Ã£'.
+  // Essa função detecta isso e corrige, garantindo que funcione para ambos os casos.
+  const repararTexto = (texto) => {
+      if (!texto) return '';
+      try {
+          // Tenta decodificar o "Mojibake" (UTF-8 lido como Latin1)
+          // Se o texto parecer "quebrado" (ex: Ã¡, Ã£), isso conserta.
+          return decodeURIComponent(escape(texto));
+      } catch (e) {
+          // Se der erro, é porque o texto já estava certo (era ISO-8859-1 puro)
+          return texto;
+      }
   };
 
   const processFile = async (file) => {
@@ -78,14 +94,23 @@ export default function ExtratoUploader({ onFileLoaded }) {
 
     // --- FLUXO 2: OFX / CSV (Leitura Local) ---
     const reader = new FileReader();
+    
     reader.onload = (e) => {
-      const content = e.target.result;
+      // 1. Pegamos o conteúdo bruto lido como ISO-8859-1
+      const rawContent = e.target.result;
+      
+      // 2. Passamos pelo reparador para garantir que acentos fiquem certos
+      const content = repararTexto(rawContent);
+
       setTimeout(() => {
         setIsLoading(false);
         onFileLoaded({ name: file.name, content, extension });
       }, 500);
     };
-    reader.readAsText(file);
+
+    // CORREÇÃO AQUI: Forçamos a leitura como ISO-8859-1 (padrão dos bancos brasileiros)
+    // Isso evita que 'DÉBITO' vire 'D?BITO' ou 'DBITO'.
+    reader.readAsText(file, 'ISO-8859-1');
   };
 
   const handleProcessText = () => {

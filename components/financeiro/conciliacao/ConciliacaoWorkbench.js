@@ -1,3 +1,4 @@
+// components/financeiro/conciliacao/ConciliacaoWorkbench.js
 "use client";
 
 import React, { useState, useMemo } from 'react';
@@ -79,11 +80,12 @@ const TransactionItem = ({ item, isSelected, onClick, type, onEdit, matchIndex, 
       onClick={() => onClick(item)}
       onMouseEnter={onHoverMatch ? () => onHoverMatch(true) : undefined}
       onMouseLeave={onHoverMatch ? () => onHoverMatch(false) : undefined}
-      className={`relative group grid grid-cols-[80px_1fr_100px] gap-2 items-center p-2 rounded-lg border mb-2 cursor-pointer text-xs ${containerClasses}`}
+      // ADICIONADO: h-12 para forçar altura fixa e min-w-0 nos filhos para garantir truncate
+      className={`relative group grid grid-cols-[80px_1fr_100px] gap-2 items-center p-2 rounded-lg border mb-2 cursor-pointer text-xs h-12 ${containerClasses}`}
     >
       {badge}
       <div className={`font-mono text-[11px] ${isSelected ? 'text-blue-100' : 'text-gray-500'}`}>{dataFormatada}</div>
-      <div className="flex items-center gap-2 overflow-hidden">
+      <div className="flex items-center gap-2 overflow-hidden min-w-0">
         {isConciliado && <FontAwesomeIcon icon={faCheckCircle} className="text-green-500 text-[10px]" />}
         <span className={`truncate font-medium ${isConciliado ? 'line-through' : ''}`} title={item.descricao}>{item.descricao}</span>
         {type === 'sistema' && onEdit && !isConciliado && (
@@ -92,7 +94,7 @@ const TransactionItem = ({ item, isSelected, onClick, type, onEdit, matchIndex, 
             </button>
         )}
       </div>
-      <div className={`text-right font-bold ${isSelected ? 'text-white' : (isConciliado ? 'text-gray-400' : colorClass)}`}>
+      <div className={`text-right font-bold truncate ${isSelected ? 'text-white' : (isConciliado ? 'text-gray-400' : colorClass)}`}>
         {Number(item.valor).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
       </div>
     </div>

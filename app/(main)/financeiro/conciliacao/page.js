@@ -1,3 +1,4 @@
+// app/(main)/financeiro/conciliacao/page.js
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -26,7 +27,6 @@ const normalizarData = (dataRaw) => {
     if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
 
     // 2. Formato Brasileiro com barras ou traços (DD/MM/AAAA ou DD-MM-YY)
-    // Captura: Dia (p1), Separador, Mês (p2), Separador, Ano (p3 - 2 ou 4 digitos)
     const matchBR = str.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})$/);
     
     if (matchBR) {
@@ -42,7 +42,6 @@ const normalizarData = (dataRaw) => {
         return `${ano}-${mes}-${dia}`;
     }
 
-    // Se nada funcionar, retorna a data de hoje para não quebrar, mas avisa no console
     console.warn("Data não reconhecida:", dataRaw);
     return format(new Date(), 'yyyy-MM-dd');
 };
@@ -104,7 +103,6 @@ const parseCSV = (csvString) => {
             valor = parseFloat(valorRaw);
         }
 
-        // Normaliza a data AQUI usando a nova função
         const dataRaw = row[dateKey];
         const dataFormatada = normalizarData(dataRaw);
 
@@ -193,36 +191,55 @@ export default function ConciliacaoPage() {
         enabled: !!user?.organizacao_id
     });
 
+    // --- QUERY PRINCIPAL INTELIGENTE ---
     const { data: sistemaItems = [], refetch: refetchSistema } = useQuery({
         queryKey: ['lancamentos_sistema', contaSelecionada?.id, dataInicio, dataFim],
         queryFn: async () => {
             if(!contaSelecionada) return [];
             
+            const isCartao = contaSelecionada.tipo === 'Cartão de Crédito';
+            
+            // 1. Definição da Coluna de Busca
+            // Se for Cartão -> Busca por Transação (Data da compra)
+            // Se for Outros -> Busca por Vencimento (Fluxo normal) 
+            // *Nota: Poderíamos buscar por pagamento também, mas vencimento cobre o planejado e o realizado geralmente cai no mesmo mês.
+            const colunaBusca = isCartao ? 'data_transacao' : 'data_vencimento';
+
             let query = supabase
                 .from('lancamentos')
                 .select('*') 
                 .eq('conta_id', contaSelecionada.id)
-                .gte('data_transacao', dataInicio)
-                .lte('data_transacao', dataFim)
-                .order('data_transacao', { ascending: false });
+                .gte(colunaBusca, dataInicio)
+                .lte(colunaBusca, dataFim)
+                .order(colunaBusca, { ascending: false });
 
             const { data } = await query;
-            const isCartaoCredito = contaSelecionada.tipo?.toLowerCase().includes('cartão') || contaSelecionada.tipo?.toLowerCase().includes('crédito');
 
+            // 2. Definição da Data Visual (Sua Regra de Ouro)
             return data?.map(d => {
-                let dataVisual;
-                if (isCartaoCredito) {
+                let dataVisual = null;
+
+                if (isCartao) {
+                    // REGRA 1: Cartão sempre usa data da transação
                     dataVisual = d.data_transacao;
                 } else {
-                    if (d.status === 'Pago' || d.status === 'Conciliado') dataVisual = d.data_pagamento;
-                    else dataVisual = d.data_vencimento;
+                    // REGRA 2: Outros tipos de conta
+                    if ((d.status === 'Pago' || d.status === 'Conciliado') && d.data_pagamento) {
+                        dataVisual = d.data_pagamento; // 1º Pagamento
+                    } else if (d.data_vencimento) {
+                        dataVisual = d.data_vencimento; // 2º Vencimento
+                    } else {
+                        dataVisual = d.data_transacao; // 3º Transação
+                    }
                 }
+
+                // Fallback
                 if (!dataVisual) dataVisual = d.data_transacao;
 
                 return {
                     ...d,
                     id: d.id,
-                    data: dataVisual,
+                    data: dataVisual, // DATA CORRETA APLICADA
                     descricao: d.descricao,
                     valor: d.valor,
                     tipo: d.tipo, 
@@ -270,6 +287,7 @@ export default function ConciliacaoPage() {
                 .update({ 
                     status: 'Conciliado', 
                     conciliado: true,
+                    // Se for cartão, não mexe na data de pagamento (pois paga na fatura)
                     data_pagamento: contaSelecionada.tipo === 'Cartão de Crédito' ? null : banco.data 
                 })
                 .eq('id', sistema.id);
@@ -282,10 +300,13 @@ export default function ConciliacaoPage() {
         }
     };
 
-    // --- CRIAÇÃO CORRIGIDA ---
+    // --- CRIAÇÃO COM DATA ESPERTA ---
     const handleCriarLancamento = (itemBanco) => {
-        // A data já vem normalizada pelo parseCSV (AAAA-MM-DD), mas por garantia chamamos de novo
         const dataExtrato = normalizarData(itemBanco.data);
+
+        // Se for cartão, a data do extrato é a data da transação.
+        // Se for conta corrente, a data do extrato é o efetivo pagamento.
+        const isCartao = contaSelecionada?.tipo === 'Cartão de Crédito';
 
         const novoLancamento = {
             conta_id: contaSelecionada?.id,
@@ -293,16 +314,13 @@ export default function ConciliacaoPage() {
             valor: Math.abs(itemBanco.valor),
             tipo: (itemBanco.tipo === 'CREDIT' || itemBanco.valor > 0) ? 'Receita' : 'Despesa',
             
-            // 1. Data de Transação = Data Exata do Extrato
             data_transacao: dataExtrato, 
-            
-            // 2. Data de Vencimento = Data Extrato (Modal calcula se for cartão)
             data_vencimento: dataExtrato, 
             
-            // 3. Pagamento vazio
-            data_pagamento: "", 
-
-            status: 'Pendente', 
+            // Se for cartão, não preenche pagamento agora. Se for conta, já nasce pago na data do extrato.
+            data_pagamento: isCartao ? null : dataExtrato,
+            
+            status: isCartao ? 'Pendente' : 'Conciliado', // Cartão nasce pendente (fatura). Conta nasce conciliado.
             conciliado: true,
             id_transacao_externa: itemBanco.id
         };

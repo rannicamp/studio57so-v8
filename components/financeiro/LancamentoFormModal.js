@@ -61,7 +61,7 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
     const queryClient = useQueryClient();
     const { user, organizacao_id: organizacaoId } = useAuth();
     
-    // Verifica se é edição real (tem ID)
+    // Verifica se é edição real (tem ID). Se não tem ID, é criação (novo ou via extrato/duplicação)
     const isEditing = Boolean(initialData?.id);
     
     // Estado Inicial Completo
@@ -137,7 +137,6 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
     // --- Lógica de Data Inteligente (Cartão) ---
     useEffect(() => {
         // Só executa se não estiver editando um lançamento existente para não alterar histórico
-        // Mas DEVE executar na duplicação (que é tratado como novo no final)
         if (isEditing || !dropdownData?.contas || !formData.conta_id || !formData.data_transacao) return;
 
         const contaSelecionada = dropdownData.contas.find(c => c.id == formData.conta_id);
@@ -386,35 +385,40 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
     useEffect(() => {
         if (isOpen) {
             if (initialData) {
-                // CORREÇÃO CRÍTICA PARA DUPLICAÇÃO
-                // Se for uma duplicação (initialData sem ID vindo do botão duplicar, ou tratamos como novo)
-                // Usamos a data de HOJE para evitar problemas com datas antigas
-                const isDuplicating = !initialData.id; 
                 const today = new Date().toISOString().split('T')[0];
+
+                // Prioridades de Data:
+                // 1. data_transacao explícita (vem da edição ou mapeado do extrato)
+                // 2. data (comum em objetos de extrato bruto)
+                // 3. today (fallback)
+                const dataTransacaoEfetiva = initialData.data_transacao || initialData.data;
+                const dataTransacaoFinal = dataTransacaoEfetiva 
+                    ? new Date(dataTransacaoEfetiva).toISOString().split('T')[0] 
+                    : today;
+                
+                // Vencimento: se não vier, assume a mesma data da transação
+                const dataVencimentoFinal = initialData.data_vencimento
+                    ? new Date(initialData.data_vencimento).toISOString().split('T')[0]
+                    : dataTransacaoFinal;
 
                 const dataToLoad = { 
                     ...initialData, 
-                    // Se for edição, mantém o ID. Se for duplicação, remove.
+                    // Se for edição, mantém o ID. Se for criação (extrato/duplicate), limpa.
                     id: initialData.id || null,
                     observacoes: initialData.observacao || '',
                     valor: initialData.valor ? String(initialData.valor).replace(',', '.') : '', 
                     
-                    // LÓGICA DE DATAS: Se estiver editando, usa a data original. Se estiver duplicando, usa HOJE.
-                    data_transacao: isEditing 
-                        ? (initialData.data_transacao ? new Date(initialData.data_transacao).toISOString().split('T')[0] : today)
-                        : today,
-                    
-                    data_vencimento: isEditing
-                        ? (initialData.data_vencimento ? new Date(initialData.data_vencimento).toISOString().split('T')[0] : today)
-                        : today,
+                    data_transacao: dataTransacaoFinal,
+                    data_vencimento: dataVencimentoFinal,
 
                     data_pagamento: initialData.data_pagamento ? new Date(initialData.data_pagamento).toISOString().split('T')[0] : null,
                     
-                    // Se estiver duplicando, não carrega anexos antigos como novos, apenas referência visual se necessário ou limpa
+                    // Se estiver criando novo (mesmo via extrato), não vincula anexos antigos como se fossem novos uploads
                     anexos_preexistentes: isEditing ? (initialData.anexos || []) : [],
                     anexos: [],
                 };
                 setFormData({ ...getInitialState(), ...dataToLoad });
+                
                 if(initialData.favorecido) {
                     setFavorecidoSearchTerm(initialData.favorecido.nome || initialData.favorecido.razao_social);
                 }
