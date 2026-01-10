@@ -12,9 +12,11 @@ import Papa from 'papaparse';
 import { toast } from 'sonner';
 import { startOfMonth, endOfMonth, format } from 'date-fns';
 
-import ExtratoUploader from '@/components/financeiro/conciliacao/ExtratoUploader';
-import ConciliacaoWorkbench from '@/components/financeiro/conciliacao/ConciliacaoWorkbench';
-import LancamentoFormModal from '@/components/financeiro/LancamentoFormModal'; 
+// --- IMPORTAÇÕES SEGURAS (Caminhos Relativos) ---
+// Isso resolve o erro "Element type is invalid"
+import ExtratoUploader from '../../../../components/financeiro/conciliacao/ExtratoUploader';
+import ConciliacaoWorkbench from '../../../../components/financeiro/conciliacao/ConciliacaoWorkbench';
+import LancamentoFormModal from '../../../../components/financeiro/LancamentoFormModal'; 
 
 // --- PARSERS ---
 const parseOFX = (ofxString) => {
@@ -96,7 +98,7 @@ export default function ConciliacaoPage() {
     const [contaSelecionada, setContaSelecionada] = useState(null);
     const [extratoItems, setExtratoItems] = useState([]);
     
-    // Estados de Filtro de Data (Padrão: Mês Atual)
+    // Estados de Filtro de Data
     const [dataInicio, setDataInicio] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
     const [dataFim, setDataFim] = useState(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
     
@@ -106,7 +108,7 @@ export default function ConciliacaoPage() {
     const [lancamentoParaEditar, setLancamentoParaEditar] = useState(null);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
-    // 1. Carregar TUDO do Cache ao Iniciar (Conta, Extrato e DATAS)
+    // 1. Carregar TUDO do Cache
     useEffect(() => {
         try {
             const savedConta = sessionStorage.getItem('conciliacao_conta');
@@ -116,8 +118,6 @@ export default function ConciliacaoPage() {
             
             if (savedConta) setContaSelecionada(JSON.parse(savedConta));
             if (savedExtrato) setExtratoItems(JSON.parse(savedExtrato));
-            
-            // Aqui carregamos as datas salvas, se existirem
             if (savedDataInicio) setDataInicio(savedDataInicio);
             if (savedDataFim) setDataFim(savedDataFim);
 
@@ -125,21 +125,19 @@ export default function ConciliacaoPage() {
         finally { setIsLoaded(true); }
     }, []);
 
-    // 2. Salvar CONTA no Cache
+    // 2. Salvar Cache
     useEffect(() => {
         if (!isLoaded) return;
         if (contaSelecionada) sessionStorage.setItem('conciliacao_conta', JSON.stringify(contaSelecionada));
         else sessionStorage.removeItem('conciliacao_conta');
     }, [contaSelecionada, isLoaded]);
 
-    // 3. Salvar EXTRATO no Cache
     useEffect(() => {
         if (!isLoaded) return;
         if (extratoItems.length > 0) sessionStorage.setItem('conciliacao_extrato', JSON.stringify(extratoItems));
         else sessionStorage.removeItem('conciliacao_extrato');
     }, [extratoItems, isLoaded]);
 
-    // 4. Salvar DATAS no Cache (NOVO)
     useEffect(() => {
         if (!isLoaded) return;
         sessionStorage.setItem('conciliacao_dataInicio', dataInicio);
@@ -210,6 +208,9 @@ export default function ConciliacaoPage() {
     const handleFileLoaded = ({ content, extension }) => {
         try {
             let parsed = [];
+            
+            // O ExtratoUploader já converte PDF para CSV via IA, 
+            // então 'extension' virá como 'csv' se vier da IA.
             if (extension === 'ofx') parsed = parseOFX(content);
             else if (extension === 'csv') parsed = parseCSV(content);
             else throw new Error("Formato não suportado.");
@@ -218,7 +219,6 @@ export default function ConciliacaoPage() {
             
             setExtratoItems(parsed);
 
-            // INTELIGÊNCIA DE DATA
             const datasOrdenadas = parsed
                 .map(p => p.data)
                 .sort((a, b) => a.localeCompare(b)); 
@@ -226,11 +226,8 @@ export default function ConciliacaoPage() {
             if (datasOrdenadas.length > 0) {
                 const menorData = datasOrdenadas[0];
                 const maiorData = datasOrdenadas[datasOrdenadas.length - 1];
-                
-                // Atualiza estados (que acionarão o useEffect para salvar no cache)
                 setDataInicio(menorData);
                 setDataFim(maiorData);
-                
                 toast.success(`${parsed.length} linhas! Período ajustado.`);
             } else {
                 toast.success(`${parsed.length} transações carregadas!`);
@@ -262,13 +259,9 @@ export default function ConciliacaoPage() {
     };
 
     const handleLimparSessao = () => {
-        if(confirm("Deseja limpar o extrato importado e resetar os filtros?")) {
+        if(confirm("Deseja limpar o extrato importado?")) {
             setExtratoItems([]);
             sessionStorage.removeItem('conciliacao_extrato');
-            // Opcional: Resetar datas para o mês atual ao limpar tudo?
-            // Se preferir manter as datas mesmo limpando, remova as duas linhas abaixo.
-            setDataInicio(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
-            setDataFim(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
             toast.success("Limpo.");
         }
     }
@@ -288,8 +281,6 @@ export default function ConciliacaoPage() {
 
     return (
         <div className="h-full flex flex-col p-4 md:p-6 space-y-6">
-            
-            {/* HEADER */}
             <div className="flex flex-col gap-4">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
@@ -325,7 +316,6 @@ export default function ConciliacaoPage() {
                     </div>
                 </div>
 
-                {/* BARRA DE FILTRO DE DATA */}
                 {contaSelecionada && (
                     <div className="flex items-center gap-4 bg-gray-50 p-3 rounded-xl border border-gray-100 animate-fade-in transition-all">
                         <span className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2">
@@ -353,7 +343,6 @@ export default function ConciliacaoPage() {
                 )}
             </div>
 
-            {/* CONTEÚDO PRINCIPAL */}
             {!contaSelecionada ? (
                 <div className="flex-1 flex flex-col items-center justify-center bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200 text-gray-400">
                     <FontAwesomeIcon icon={faBank} className="text-4xl mb-4 opacity-50" />
