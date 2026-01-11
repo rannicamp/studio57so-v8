@@ -1,219 +1,183 @@
 // app/api/financeiro/auditoria-ia/route.js
 import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 
-// Configuração do Gemini
 const apiKey = process.env.GEMINI_API_KEY;
 const genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null;
-
-// Modelo 2.0 Flash (Padrão Studio 57)
 const MODEL_NAME = "gemini-2.0-flash"; 
-
-// Função auxiliar para esperar (delay)
-const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 export async function POST(request) {
   try {
-    // 1. Verificações de Segurança e Auth
-    if (!genAI) {
-      return NextResponse.json({ error: "Chave GEMINI_API_KEY não configurada." }, { status: 500 });
-    }
+    // 1. Configurações Iniciais
+    if (!genAI) return NextResponse.json({ error: "Chave GEMINI não configurada." }, { status: 500 });
 
     const supabase = await createClient(); 
-    
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     
     if (authError || !user) {
-      return NextResponse.json({ error: "Usuário não autenticado." }, { status: 401 });
+        return NextResponse.json({ error: "Usuário não autenticado." }, { status: 401 });
     }
+
+    // --- CORREÇÃO PRINCIPAL: BUSCA SEGURA DA ORGANIZAÇÃO ---
+    // Não confiamos apenas no metadata, vamos na fonte (tabela usuarios)
+    const { data: userProfile, error: userError } = await supabase
+        .from('usuarios')
+        .select('organizacao_id')
+        .eq('id', user.id)
+        .single();
+
+    if (userError || !userProfile?.organizacao_id) {
+        console.error("Erro ao buscar organização do usuário:", userError);
+        return NextResponse.json({ error: "Usuário sem organização vinculada." }, { status: 400 });
+    }
+
+    const usuarioOrganizacaoId = userProfile.organizacao_id;
+    // -------------------------------------------------------
 
     const { lancamentoId } = await request.json();
-    if (!lancamentoId) {
-      return NextResponse.json({ error: "ID do lançamento é obrigatório." }, { status: 400 });
-    }
 
-    // 2. Buscar dados do lançamento e seus anexos
+    // 2. Busca Lançamento e Anexos
     const { data: lancamento, error: lancamentoError } = await supabase
       .from('lancamentos')
-      .select(`
-        *,
-        anexos:lancamentos_anexos(*)
-      `)
+      .select('*, anexos:lancamentos_anexos(*)')
       .eq('id', lancamentoId)
+      // Garante que o lançamento pertence à mesma organização por segurança
+      .eq('organizacao_id', usuarioOrganizacaoId) 
       .single();
 
     if (lancamentoError || !lancamento) {
-      return NextResponse.json({ error: "Lançamento não encontrado." }, { status: 404 });
+        return NextResponse.json({ error: "Lançamento não encontrado ou acesso negado." }, { status: 404 });
     }
 
-    if (!lancamento.anexos || lancamento.anexos.length === 0) {
-      return NextResponse.json({ 
-        message: "Lançamento sem anexos para auditar.",
-        status: "Erro",
-        detalhes: "Nenhum documento anexado."
-      });
+    if (!lancamento.anexos?.length) {
+        return NextResponse.json({ message: "Sem anexos para auditar.", status: "Erro" });
     }
 
-    // 3. Preparar os arquivos para o Gemini (Vision)
+    // 3. Preparação do Prompt para o Gemini
     const promptParts = [];
     const filesToAudit = [];
-
-    // Contexto de data para ajudar a IA
-    const hoje = new Date();
-    const dataContexto = `${hoje.getFullYear()}-${hoje.getMonth() + 1}-${hoje.getDate()}`;
-
+    
     promptParts.push({
       text: `
-        Você é um Auditor Financeiro Sênior da Studio 57.
-        Sua tarefa é analisar a imagem/documento anexo e extrair o VALOR TOTAL FINAL da transação.
-        DATA DE HOJE PARA CONTEXTO: ${dataContexto}
+        Você é um Auditor Contábil Sênior. Analise os documentos visuais anexos.
         
-        Regras de Ouro:
-        1. Procure por "Total", "Valor Total", "Total a Pagar", "Líquido".
-        2. Se houver taxas de entrega ou descontos, considere o valor FINAL efetivamente pago.
-        3. Se houver múltiplos documentos, some os totais de cada um.
-        4. Retorne APENAS um objeto JSON puro, sem markdown, neste formato:
-           {
-             "valor_encontrado": 150.50,
-             "confianca": 95,
-             "moeda": "BRL",
-             "data_documento": "2023-10-25" (se encontrar),
-             "analise_textual": "Encontrei um recibo de Uber no valor de 25,90 e uma nota fiscal de restaurante de 124,60. A soma é 150,50."
-           }
+        DADOS ESPERADOS DO SISTEMA:
+        - Valor: R$ ${lancamento.valor}
+        - Data: ${lancamento.data_transacao}
+        - Descrição: ${lancamento.descricao}
+
+        ### REGRAS DE OURO PARA MÚLTIPLOS ARQUIVOS:
+        1. **Redundância:** Se houver um BOLETO e um COMPROVANTE do mesmo pagamento, o valor NÃO SOMA. Considere apenas o valor efetivamente pago no comprovante.
+        2. **Soma:** Se houver várias NOTAS FISCAIS ou RECIBOS diferentes (datas, números ou fornecedores diferentes), SOME os valores.
+        3. **Divergência:** Se o valor do documento for diferente do sistema (mesmo que centavos), explique o motivo na análise.
+
+        Retorne um JSON seguindo estritamente o schema fornecido.
       `
     });
 
+    // Download e processamento dos anexos
     for (const anexo of lancamento.anexos) {
-      const { data: fileBlob, error: downloadError } = await supabase
-        .storage
-        .from('documentos-financeiro')
-        .download(anexo.caminho_arquivo);
-
-      if (downloadError) {
-        console.error(`Erro ao baixar anexo ${anexo.nome_arquivo}:`, downloadError);
-        continue; 
+      const { data: fileBlob, error } = await supabase.storage.from('documentos-financeiro').download(anexo.caminho_arquivo);
+      
+      if (error) {
+          console.error(`Erro download anexo ${anexo.id}:`, error);
+          continue;
       }
-
-      const arrayBuffer = await fileBlob.arrayBuffer();
-      const buffer = Buffer.from(arrayBuffer);
-      const base64Data = buffer.toString('base64');
-      let mimeType = fileBlob.type;
       
-      promptParts.push({
-        inlineData: {
-          mimeType: mimeType,
-          data: base64Data
-        }
+      const buffer = Buffer.from(await fileBlob.arrayBuffer());
+      promptParts.push({ 
+          inlineData: { 
+              mimeType: fileBlob.type, 
+              data: buffer.toString('base64') 
+          } 
       });
-      
       filesToAudit.push(anexo.caminho_arquivo);
     }
 
     if (filesToAudit.length === 0) {
-        return NextResponse.json({ error: "Falha ao baixar os anexos do Storage." }, { status: 500 });
+        return NextResponse.json({ error: "Nenhum arquivo pôde ser lido." }, { status: 500 });
     }
 
-    // 4. Enviar para o Gemini COM RETRY (Lógica de Re-tentativa para erro 429)
-    const model = genAI.getGenerativeModel({ model: MODEL_NAME });
-    
-    let result;
-    let tentativas = 0;
-    const maxTentativas = 3;
+    // 4. Configuração do Schema de Resposta (JSON Estruturado)
+    const generationConfig = {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: SchemaType.OBJECT,
+          properties: {
+            valor_encontrado: { type: SchemaType.NUMBER, description: "Valor total identificado nos documentos." },
+            confianca: { type: SchemaType.NUMBER, description: "Nível de confiança (0-100)." },
+            analise_textual: { type: SchemaType.STRING, description: "Explicação detalhada do raciocínio da auditoria." },
+            divergencia_encontrada: { type: SchemaType.BOOLEAN }
+          },
+          required: ["valor_encontrado", "confianca", "analise_textual", "divergencia_encontrada"],
+        },
+    };
 
-    while (tentativas < maxTentativas) {
-        try {
-            result = await model.generateContent(promptParts);
-            break; // Se funcionou, sai do loop
-        } catch (genError) {
-            tentativas++;
-            // Se for erro de quota (429) e ainda tivermos tentativas
-            if (genError.message?.includes('429') && tentativas < maxTentativas) {
-                console.warn(`[Gemini 429] Cota excedida. Tentativa ${tentativas}/${maxTentativas}. Aguardando 5s...`);
-                await sleep(5000); // Espera 5 segundos antes de tentar de novo
-            } else {
-                throw genError; // Se for outro erro ou acabou as tentativas, explode o erro
-            }
-        }
-    }
-
-    const response = await result.response;
-    const textResponse = response.text();
-
-    const jsonString = textResponse.replace(/```json/g, '').replace(/```/g, '').trim();
+    // 5. Chamada à IA
+    const model = genAI.getGenerativeModel({ model: MODEL_NAME, generationConfig });
+    const result = await model.generateContent(promptParts);
+    const textResponse = result.response.text();
     
     let dadosIa;
     try {
-        dadosIa = JSON.parse(jsonString);
+        dadosIa = JSON.parse(textResponse);
     } catch (e) {
-        console.error("Erro ao fazer parse do JSON da IA:", textResponse);
-        // Tenta recuperar se a IA mandou texto antes do JSON
-        const match = jsonString.match(/\{[\s\S]*\}/);
-        if (match) {
-             dadosIa = JSON.parse(match[0]);
-        } else {
-             throw new Error("A IA não retornou um JSON válido.");
-        }
+        console.error("Erro ao parsear JSON da IA:", textResponse);
+        return NextResponse.json({ error: "A IA retornou um formato inválido." }, { status: 500 });
     }
 
-    // 5. Comparação e Veredito
+    // 6. Lógica de Comparação e Status
     const valorSistema = parseFloat(lancamento.valor);
     const valorIa = parseFloat(dadosIa.valor_encontrado);
     const diferenca = Math.abs(valorSistema - valorIa);
-    const TOLERANCIA = 0.05; 
+    const TOLERANCIA = 0.05; // 5 centavos
+
+    let statusAuditoria = 'Aprovado';
     
-    let statusAuditoria = 'Erro';
     if (isNaN(valorIa)) {
         statusAuditoria = 'Erro';
-        dadosIa.analise_textual = "A IA não conseguiu identificar um valor numérico válido.";
-    } else if (diferenca <= TOLERANCIA) {
-        statusAuditoria = 'Aprovado';
-    } else {
+    } else if (diferenca > TOLERANCIA) {
         statusAuditoria = 'Divergente';
     }
 
-    // 6. Persistência
+    // 7. Gravação no Banco (Agora com ID da Organização Seguro)
+    const logData = {
+        lancamento_id: lancamentoId,
+        organizacao_id: usuarioOrganizacaoId, // <--- Aqui está a correção garantida!
+        status_auditoria: statusAuditoria,
+        valor_identificado: valorIa,
+        valor_lancamento: valorSistema,
+        diferenca: diferenca,
+        confianca_ia: dadosIa.confianca,
+        analise_ia: dadosIa.analise_textual, 
+        caminhos_arquivos: filesToAudit,
+        modelo_ia: MODEL_NAME
+    };
+
     const { error: logError } = await supabase
         .from('auditoria_ia_logs')
-        .insert({
-            lancamento_id: lancamentoId,
-            organizacao_id: user.organizacao_id,
-            status_auditoria: statusAuditoria,
-            valor_identificado: valorIa,
-            valor_lancamento: valorSistema,
-            diferenca: diferenca,
-            confianca_ia: dadosIa.confianca,
-            analise_ia: dadosIa.analise_textual,
-            caminhos_arquivos: filesToAudit, 
-            modelo_ia: MODEL_NAME
-        });
+        .insert(logData);
 
-    if (logError) console.error("Erro ao salvar log de auditoria:", logError);
+    if (logError) {
+        console.error("ERRO AO SALVAR LOG:", logError);
+        return NextResponse.json({ error: "Erro de banco de dados: " + logError.message }, { status: 500 });
+    }
 
+    // 8. Atualiza o Status do Lançamento
     await supabase
         .from('lancamentos')
         .update({ status_auditoria_ia: statusAuditoria })
         .eq('id', lancamentoId);
 
-    return NextResponse.json({
-        success: true,
-        status: statusAuditoria,
-        analise: dadosIa,
-        diferenca: diferenca
+    return NextResponse.json({ 
+        success: true, 
+        status: statusAuditoria, 
+        analise: dadosIa 
     });
 
   } catch (error) {
-    console.error("Erro Crítico na Auditoria IA:", error);
-    
-    // Tratamento de erro amigável
-    let msg = error.message || "Erro interno na auditoria.";
-    
-    if (msg.includes("429") || msg.includes("Too Many Requests")) {
-        msg = "Limite de uso da IA atingido (Quota). Aguarde alguns segundos e tente novamente.";
-    } else if (msg.includes("404") || msg.includes("not found")) {
-        msg = `Modelo '${MODEL_NAME}' não encontrado. Verifique a chave de API ou a região.`;
-    }
-
-    return NextResponse.json({ error: msg }, { status: 500 });
+    console.error("Erro Crítico Route:", error);
+    return NextResponse.json({ error: error.message || "Erro interno no servidor." }, { status: 500 });
   }
 }
