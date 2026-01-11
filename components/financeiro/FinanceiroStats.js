@@ -1,46 +1,23 @@
+// components/financeiro/FinanceiroStats.js
 "use client";
 
 import { useMemo } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faArrowUp, faArrowDown, faWallet, faExclamationCircle, faSpinner } from '@fortawesome/free-solid-svg-icons';
-import { useFinanceiroStats } from '@/hooks/financeiro/useFinanceiroStats';
+import { faArrowUp, faArrowDown, faWallet, faExclamationCircle } from '@fortawesome/free-solid-svg-icons';
 
-export default function FinanceiroStats({ filters }) {
-    // Agora 'data' é um array contendo UM objeto com os totais, ou o próprio objeto
-    const { data, isLoading } = useFinanceiroStats({ filters });
-
+export default function FinanceiroStats({ data, isLoading }) {
+    
     const stats = useMemo(() => {
-        // Pega o objeto de dados (seja array ou objeto direto)
-        const dados = Array.isArray(data) ? data[0] : data;
+        // Se não vier dados ou vier array vazio, usa objeto vazio
+        const dados = (Array.isArray(data) ? data[0] : data) || {};
 
-        if (!dados) return {
-            receitaTotal: 0,
-            receitaRecebida: 0, // A função SQL nova não separa "Recebido" de "Total" explicitamente nos campos antigos, mas retorna totalPago
-            despesaTotal: 0,
-            despesaPaga: 0,
-            saldoGeral: 0,
-            saldoRealizado: 0
-        };
-
-        // Mapeando os campos do 'get_financeiro_consolidado' para o visual
-        // O RPC retorna: totalReceitas, totalDespesas, resultado, totalPago, totalPendente
-        
-        // NOTA: Para ter "Receita Recebida" e "Despesa Paga" separados, 
-        // precisaríamos que o RPC retornasse isso detalhado.
-        // O RPC atual retorna 'totalPago' que é o SALDO pago (Receita Paga - Despesa Paga).
-        
-        // Se precisarmos de precisão absoluta nos cards separados, o ideal é atualizar o RPC
-        // mas vamos usar o que temos para manter a consistência com o relatório.
-        
         return {
+            // As chaves aqui devem bater com o retorno da função RPC 'get_lancamentos_avancado'
+            // Chaves esperadas: totalReceitas, totalDespesas, resultado, totalPago
             receitaTotal: Number(dados.totalReceitas || 0),
-            // Assumindo que no dashboard queremos ver o Total Previsto vs Realizado
-            // Se o RPC não der o detalhe, usamos o total por enquanto
-            receitaRecebida: 0, // Ajuste futuro no RPC se necessário
             despesaTotal: Number(dados.totalDespesas || 0),
-            despesaPaga: 0, // Ajuste futuro
-            saldoGeral: Number(dados.resultado || 0), // (Receitas - Despesas totais)
-            saldoRealizado: Number(dados.totalPago || 0) // (Receitas Pagas - Despesas Pagas)
+            saldoGeral: Number(dados.resultado || 0), // (Receita - Despesa)
+            saldoRealizado: Number(dados.totalPago || 0) // Caixa Realizado (Efetivamente Pago)
         };
     }, [data]);
 
@@ -82,7 +59,7 @@ export default function FinanceiroStats({ filters }) {
                 </div>
             </div>
 
-            {/* Saldo Previsto */}
+            {/* Saldo Previsto (Resultado) */}
             <div className="bg-white p-4 rounded-lg shadow-sm border-l-4 border-blue-500 hover:shadow-md transition-shadow">
                 <div className="flex justify-between items-start">
                     <div>
@@ -98,7 +75,7 @@ export default function FinanceiroStats({ filters }) {
                 <p className="mt-2 text-xs text-gray-400 border-t pt-2 border-gray-100">Previsto (Tudo)</p>
             </div>
 
-            {/* Saldo Realizado */}
+            {/* Saldo Realizado (Caixa) */}
             <div className={`bg-white p-4 rounded-lg shadow-sm border-l-4 hover:shadow-md transition-shadow ${stats.saldoRealizado >= 0 ? 'border-gray-600' : 'border-orange-500'}`}>
                 <div className="flex justify-between items-start">
                     <div>
