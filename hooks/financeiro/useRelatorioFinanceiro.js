@@ -2,57 +2,26 @@
 import { useQuery } from '@tanstack/react-query';
 import { createClient } from '@/utils/supabase/client';
 import { format, eachDayOfInterval, isValid } from 'date-fns';
+import { formatarFiltrosParaBanco } from '@/utils/financeiro/formatarFiltros'; // <--- O Segredo da Consistência!
 
 export function useRelatorioFinanceiro(filtros) {
   const supabase = createClient();
   
   // ============================================================================
-  // 🔧 PREPARAÇÃO LOCAL DOS DADOS
+  // 🔐 O PORTEIRO ÚNICO (Fonte da Verdade)
   // ============================================================================
-  // Criamos o objeto para o banco AQUI DENTRO, sem depender de arquivos externos.
-  
-  const filtrosParaBanco = {
-      ...filtros, // Mantém o que já veio
-
-      // 1. Tratamento de Datas (Garante YYYY-MM-DD para não quebrar gráfico)
-      startDate: filtros?.startDate && isValid(new Date(filtros.startDate)) 
-          ? format(new Date(filtros.startDate), 'yyyy-MM-dd') 
-          : null,
-      endDate: filtros?.endDate && isValid(new Date(filtros.endDate)) 
-          ? format(new Date(filtros.endDate), 'yyyy-MM-dd') 
-          : null,
-      
-      // 2. TIPO (Receita/Despesa)
-      tipo: Array.isArray(filtros?.tipo) 
-            ? filtros.tipo 
-            : (filtros?.tipo ? [filtros.tipo] : []),
-
-      // 3. Blindagem de Arrays (Para o RPC não reclamar de null)
-      contaIds: Array.isArray(filtros?.contaIds) ? filtros.contaIds : [],
-      categoriaIds: Array.isArray(filtros?.categoriaIds) ? filtros.categoriaIds : [],
-      empresaIds: Array.isArray(filtros?.empresaIds) ? filtros.empresaIds : [],
-      empreendimentoIds: Array.isArray(filtros?.empreendimentoIds) ? filtros.empreendimentoIds : [],
-      etapaIds: Array.isArray(filtros?.etapaIds) ? filtros.etapaIds : [],
-      
-      // 4. Status (Padrão seguro se vazio)
-      status: (filtros?.status && filtros.status.length > 0) 
-              ? filtros.status 
-              : ['Pago', 'Conciliado'], 
-
-      // 5. Favorecido
-      favorecidoId: (filtros?.favorecidoId && filtros.favorecidoId !== 'null') 
-              ? filtros.favorecidoId 
-              : null,
-      searchTerm: filtros?.searchTerm || ''
-  };
+  // Agora o relatório usa EXATAMENTE a mesma regra de limpeza que a lista.
+  // Se mudarmos a regra lá no 'utils', muda aqui automaticamente.
+  const filtrosParaBanco = formatarFiltrosParaBanco(filtros);
 
   // ============================================================================
   // 📡 CHAMADAS AO BANCO (RPC)
   // ============================================================================
 
-  // 1. KPIs
+  // 1. KPIs (Somas Totais)
+  // Usa a mesma função que alimenta o topo da lista de lançamentos
   const { data: kpis, isLoading: kpiLoading, refetch: refetchKpis } = useQuery({
-    queryKey: ['kpis-financeiro-final', filtros.organizacaoId, filtrosParaBanco],
+    queryKey: ['kpis-financeiro-relatorio', filtros.organizacaoId, filtrosParaBanco],
     queryFn: async () => {
       if (!filtros.organizacaoId) return { totalReceitas: 0, totalDespesas: 0, resultado: 0 };
       
@@ -62,17 +31,18 @@ export function useRelatorioFinanceiro(filtros) {
       });
       
       if (error) {
-        console.error("Erro KPI:", error);
+        console.error("Erro KPI Relatório:", error);
         return { totalReceitas: 0, totalDespesas: 0, resultado: 0 };
       }
       return data || { totalReceitas: 0, totalDespesas: 0, resultado: 0 };
     },
-    enabled: !!filtros.organizacaoId
+    enabled: !!filtros.organizacaoId,
+    staleTime: 60000 // Cache de 1 minuto para ficar rapidinho
   });
 
-  // 2. Gráfico de Fluxo
+  // 2. Gráfico de Fluxo (Linha do Tempo)
   const { data: fluxoData, isLoading: fluxoLoading } = useQuery({
-    queryKey: ['grafico-fluxo-final', filtros.organizacaoId, filtrosParaBanco],
+    queryKey: ['grafico-fluxo-relatorio', filtros.organizacaoId, filtrosParaBanco],
     queryFn: async () => {
       if (!filtros.organizacaoId) return [];
       const { data, error } = await supabase.rpc('get_dados_grafico_kpi', {
@@ -82,12 +52,13 @@ export function useRelatorioFinanceiro(filtros) {
       if (error) return [];
       return data || [];
     },
-    enabled: !!filtros.organizacaoId
+    enabled: !!filtros.organizacaoId,
+    staleTime: 60000
   });
 
-  // 3. Gráfico de Pizza
+  // 3. Gráfico de Pizza (Categorias)
   const { data: pizzaData, isLoading: pizzaLoading } = useQuery({
-    queryKey: ['grafico-pizza-final', filtros.organizacaoId, filtrosParaBanco],
+    queryKey: ['grafico-pizza-relatorio', filtros.organizacaoId, filtrosParaBanco],
     queryFn: async () => {
       if (!filtros.organizacaoId) return [];
       const { data, error } = await supabase.rpc('get_financeiro_grafico_pizza', {
@@ -97,12 +68,15 @@ export function useRelatorioFinanceiro(filtros) {
       if (error) return [];
       return data || [];
     },
-    enabled: !!filtros.organizacaoId
+    enabled: !!filtros.organizacaoId,
+    staleTime: 60000
   });
 
   // ============================================================================
-  // 🎨 TRATAMENTO VISUAL
+  // 🎨 TRATAMENTO VISUAL (Preencher dias vazios no gráfico)
   // ============================================================================
+  // Essa parte é puramente estética para o gráfico não ficar "buraco",
+  // mas os dados brutos já vieram consistentes do banco.
   let graficoFluxoCompleto = [];
   if (fluxoData && filtrosParaBanco.startDate && filtrosParaBanco.endDate) {
     try {
@@ -124,7 +98,22 @@ export function useRelatorioFinanceiro(filtros) {
         }
     } catch (e) {
         console.error("Erro datas gráfico", e);
+        // Fallback: se der erro na data, mostra só o que veio do banco
+        graficoFluxoCompleto = fluxoData.map(d => ({
+            name: d.data_ref, 
+            data_ref: d.data_ref,
+            Receita: Number(d.receita),
+            Despesa: Number(d.despesa)
+        }));
     }
+  } else {
+      // Se não tiver filtro de data específico (ex: ver tudo), usa os dados brutos
+      graficoFluxoCompleto = (fluxoData || []).map(d => ({
+          name: d.data_ref, // Pode formatar se quiser
+          data_ref: d.data_ref,
+          Receita: Number(d.receita),
+          Despesa: Number(d.despesa)
+      }));
   }
 
   return {

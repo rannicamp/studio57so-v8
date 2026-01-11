@@ -3,6 +3,8 @@
 
 import React, { useState, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useQuery } from '@tanstack/react-query'; // Importante para buscar os dados
+import { createClient } from '@/utils/supabase/client'; // Importante para o banco
 import { useRelatorioFinanceiro } from '@/hooks/financeiro/useRelatorioFinanceiro';
 import FiltroFinanceiro from '@/components/financeiro/FiltroFinanceiro';
 import { 
@@ -10,7 +12,7 @@ import {
   PieChart, Pie, Cell 
 } from 'recharts';
 import { 
-  startOfMonth, endOfMonth, format, addMonths, subMonths, isSameMonth 
+  startOfMonth, endOfMonth, format, addMonths, subMonths, isSameMonth, isValid 
 } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -21,10 +23,33 @@ import {
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
 
+// Função para buscar dados auxiliares (Categorias, Contas, etc.)
+async function fetchAuxiliaryData(organizacao_id) {
+    const supabase = createClient();
+    if (!organizacao_id) return { empresas: [], contas: [], categorias: [], empreendimentos: [], allContacts: [] };
+    
+    const [empresasRes, contasRes, categoriasRes, empreendimentosRes, contatosRes] = await Promise.all([
+        supabase.from('cadastro_empresa').select('*').eq('organizacao_id', organizacao_id).order('nome_fantasia'),
+        supabase.from('contas_financeiras').select('*').eq('organizacao_id', organizacao_id).order('nome'),
+        supabase.from('categorias_financeiras').select('*').eq('organizacao_id', organizacao_id).order('nome'),
+        supabase.from('empreendimentos').select('*').eq('organizacao_id', organizacao_id).order('nome'),
+        supabase.from('contatos').select('id, nome, razao_social').eq('organizacao_id', organizacao_id).order('nome')
+    ]);
+
+    return { 
+        empresas: empresasRes.data || [], 
+        contas: contasRes.data || [], 
+        categorias: categoriasRes.data || [], 
+        empreendimentos: empreendimentosRes.data || [], 
+        allContacts: contatosRes.data || [] 
+    };
+}
+
 export default function FinanceiroDashboard() {
   const { user } = useAuth();
+  const organizacaoId = user?.organizacao_id;
   
-  // 1. Estado do Período
+  // 1. Estado do Período (Carrossel)
   const [dataBase, setDataBase] = useState(new Date());
 
   // 2. Estado dos Filtros Avançados
@@ -33,11 +58,24 @@ export default function FinanceiroDashboard() {
     contaIds: [],
     categoriaIds: [],
     empreendimentoIds: [],
-    status: [],
+    status: [], // Vazio = Traz tudo (Pago, Pendente, Atrasado)
+    tipo: [],
+    favorecidoId: null,
+    searchTerm: '',
+    startDate: '', // Se preenchido aqui, sobrescreve o carrossel
+    endDate: '',
     useCompetencia: false
   });
 
   const [mostrarFiltros, setMostrarFiltros] = useState(false);
+
+  // 3. Busca Dados Auxiliares (Para preencher os dropdowns do filtro)
+  const { data: auxData } = useQuery({
+      queryKey: ['financeiro_aux_data_dashboard', organizacaoId],
+      queryFn: () => fetchAuxiliaryData(organizacaoId),
+      enabled: !!organizacaoId,
+      staleTime: 300000 // Cache de 5 minutos
+  });
 
   const menuMeses = useMemo(() => {
     const meses = [];
@@ -45,31 +83,39 @@ export default function FinanceiroDashboard() {
     return meses;
   }, [dataBase]);
 
-  // Prepara os filtros para o Hook
+  // 4. Prepara os filtros para o Hook (Lógica de Prioridade)
   const filtrosHook = useMemo(() => {
-    return {
-      startDate: startOfMonth(dataBase),
-      endDate: endOfMonth(dataBase),
-      organizacaoId: user?.organizacao_id,
-      ...filtrosAvancados // Espalha todos os filtros (contaIds, categoriaIds, etc)
-    };
-  }, [dataBase, user?.organizacao_id, filtrosAvancados]);
+    // Se o usuário selecionou datas específicas no filtro avançado, respeitamos elas.
+    // Se não, usamos o mês do carrossel.
+    const temDataEspecifica = filtrosAvancados.startDate && filtrosAvancados.endDate;
 
-  // Busca os dados usando a nova lógica
+    return {
+      organizacaoId: organizacaoId,
+      ...filtrosAvancados, // Espalha todos os filtros base
+      
+      // Datas: Filtro Específico > Mês do Carrossel
+      startDate: temDataEspecifica ? filtrosAvancados.startDate : startOfMonth(dataBase),
+      endDate: temDataEspecifica ? filtrosAvancados.endDate : endOfMonth(dataBase),
+    };
+  }, [dataBase, organizacaoId, filtrosAvancados]);
+
+  // 5. Busca os dados do Relatório (KPIs e Gráficos)
   const { kpis, graficoFluxo, graficoPizza, isLoading, error, refetch } = useRelatorioFinanceiro(filtrosHook);
 
-  const navegarMes = (mes) => setDataBase(mes);
-  const proximoMes = () => setDataBase(addMonths(dataBase, 1));
-  const anteriorMes = () => setDataBase(subMonths(dataBase, 1));
-  const irParaHoje = () => setDataBase(new Date());
-
-  // Atualização correta dos filtros vindos do componente filho
-  const handleFiltroChange = (novosFiltros) => {
-    // O FiltroFinanceiro retorna o objeto completo, então podemos mesclar ou substituir
-    setFiltrosAvancados(prev => ({
-      ...prev,
-      ...novosFiltros
-    }));
+  const navegarMes = (mes) => {
+      setDataBase(mes);
+      // Opcional: Limpar datas manuais ao navegar no carrossel para evitar confusão
+      // setFiltrosAvancados(prev => ({...prev, startDate: '', endDate: ''}));
+  };
+  
+  const proximoMes = () => navegarMes(addMonths(dataBase, 1));
+  const anteriorMes = () => navegarMes(subMonths(dataBase, 1));
+  
+  const irParaHoje = () => {
+      const hoje = new Date();
+      setDataBase(hoje);
+      // Limpa datas manuais para focar no "Hoje/Mês Atual"
+      setFiltrosAvancados(prev => ({...prev, startDate: '', endDate: ''}));
   };
 
   if (error) return (
@@ -99,7 +145,7 @@ export default function FinanceiroDashboard() {
                     }`}
                 >
                     <FontAwesomeIcon icon={faFilter} />
-                    Filtros
+                    Filtros {filtrosAvancados.status.length > 0 ? '(Ativos)' : ''}
                 </button>
                 <button 
                     onClick={irParaHoje}
@@ -110,45 +156,59 @@ export default function FinanceiroDashboard() {
             </div>
         </div>
 
-        {/* ÁREA DE FILTROS */}
+        {/* ÁREA DE FILTROS - AGORA CONECTADA CORRETAMENTE */}
         {mostrarFiltros && (
             <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 animate-slide-down">
                 <FiltroFinanceiro 
-                    onFilterChange={handleFiltroChange} 
-                    filtrosAtuais={filtrosAvancados}
-                    compacto={true}
-                    // Importante: Passamos listas vazias se quiser que ele busque internamente, 
-                    // ou podemos passar as listas se o pai tiver. 
-                    // Como este componente é standalone, ele buscará suas próprias listas.
+                    filters={filtrosAvancados} 
+                    setFilters={setFiltrosAvancados}
+                    empresas={auxData?.empresas || []}
+                    contas={auxData?.contas || []}
+                    categorias={auxData?.categorias || []}
+                    empreendimentos={auxData?.empreendimentos || []}
+                    allContacts={auxData?.allContacts || []}
                 />
             </div>
         )}
 
-        {/* CARROSSEL DE MESES */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-1 flex items-center justify-between">
-            <button onClick={anteriorMes} className="w-10 h-10 flex items-center justify-center text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg">
-                <FontAwesomeIcon icon={faChevronLeft} />
-            </button>
-            <div className="flex-1 flex justify-around items-center overflow-hidden gap-1">
-                {menuMeses.map((mes, index) => {
-                    const isSelected = isSameMonth(mes, dataBase);
-                    const hiddenOnMobile = index === 0 || index === 4 ? 'hidden sm:block' : ''; 
-                    return (
-                        <button
-                            key={mes.toString()}
-                            onClick={() => navegarMes(mes)}
-                            className={`${hiddenOnMobile} flex flex-col items-center justify-center px-4 py-2 rounded-lg transition-all ${isSelected ? 'bg-blue-50 text-blue-700 scale-105 border border-blue-100' : 'text-gray-400 hover:text-gray-600'}`}
-                        >
-                            <span className="text-xs font-semibold uppercase">{format(mes, 'yyyy', { locale: ptBR })}</span>
-                            <span className="text-sm font-bold capitalize">{format(mes, 'MMMM', { locale: ptBR })}</span>
-                        </button>
-                    );
-                })}
+        {/* CARROSSEL DE MESES (Só mostra se NÃO houver data manual selecionada) */}
+        {(!filtrosAvancados.startDate || !filtrosAvancados.endDate) ? (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-1 flex items-center justify-between">
+                <button onClick={anteriorMes} className="w-10 h-10 flex items-center justify-center text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg">
+                    <FontAwesomeIcon icon={faChevronLeft} />
+                </button>
+                <div className="flex-1 flex justify-around items-center overflow-hidden gap-1">
+                    {menuMeses.map((mes, index) => {
+                        const isSelected = isSameMonth(mes, dataBase);
+                        const hiddenOnMobile = index === 0 || index === 4 ? 'hidden sm:block' : ''; 
+                        return (
+                            <button
+                                key={mes.toString()}
+                                onClick={() => navegarMes(mes)}
+                                className={`${hiddenOnMobile} flex flex-col items-center justify-center px-4 py-2 rounded-lg transition-all ${isSelected ? 'bg-blue-50 text-blue-700 scale-105 border border-blue-100' : 'text-gray-400 hover:text-gray-600'}`}
+                            >
+                                <span className="text-xs font-semibold uppercase">{format(mes, 'yyyy', { locale: ptBR })}</span>
+                                <span className="text-sm font-bold capitalize">{format(mes, 'MMMM', { locale: ptBR })}</span>
+                            </button>
+                        );
+                    })}
+                </div>
+                <button onClick={proximoMes} className="w-10 h-10 flex items-center justify-center text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg">
+                    <FontAwesomeIcon icon={faChevronRight} />
+                </button>
             </div>
-            <button onClick={proximoMes} className="w-10 h-10 flex items-center justify-center text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg">
-                <FontAwesomeIcon icon={faChevronRight} />
-            </button>
-        </div>
+        ) : (
+            <div className="bg-blue-50 border border-blue-100 p-3 rounded-lg text-center text-blue-700 text-sm font-medium flex justify-center items-center gap-2">
+                <FontAwesomeIcon icon={faCalendarAlt} />
+                Visualizando Período Personalizado
+                <button 
+                    onClick={() => setFiltrosAvancados(prev => ({...prev, startDate: '', endDate: ''}))}
+                    className="ml-2 underline hover:text-blue-900"
+                >
+                    (Voltar para Mensal)
+                </button>
+            </div>
+        )}
       </div>
 
       {isLoading ? (

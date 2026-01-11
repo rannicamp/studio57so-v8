@@ -1,3 +1,4 @@
+// components/painel/SmartChartCard.js
 "use client";
 
 import React, { useMemo, useRef, useEffect, useState } from 'react';
@@ -13,6 +14,7 @@ import { format, isSameMonth, isSameDay, isSameYear } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faExclamationTriangle, faPen, faTrash } from '@fortawesome/free-solid-svg-icons';
+import { formatarFiltrosParaBanco } from '@/utils/financeiro/formatarFiltros'; // <--- O SEGREDO
 
 const LARGURA_ITEM_PX = 60; 
 
@@ -28,38 +30,15 @@ export default function SmartChartCard({ kpi, onEdit, onDelete }) {
 
   useEffect(() => { setIsMounted(true); }, []);
 
-  // --- 1. BUSCA DE DADOS VIA RPC (O SEGREDO DA SOMA CORRETA) ---
+  // --- 1. BUSCA DE DADOS VIA RPC ---
   const { data: dadosBrutos = [], isLoading, error } = useQuery({
-    queryKey: ['chart_data_v7', kpi?.id, filtros, user?.organizacao_id], // Bump version to v7
+    queryKey: ['chart_data_v8', kpi?.id, filtros, user?.organizacao_id], 
     queryFn: async () => {
       if (!user?.organizacao_id) return [];
 
-      // Prepara os filtros para o formato que o SQL espera
-      const filtrosNormalizados = {
-          startDate: filtros.startDate || filtros.data_inicio || null,
-          endDate: filtros.endDate || filtros.data_fim || null,
-          
-          status: Array.isArray(filtros.status) 
-            ? filtros.status.filter(s => s !== 'todos') 
-            : (filtros.status === 'todos' ? [] : [filtros.status].filter(Boolean)),
-            
-          tipo: Array.isArray(filtros.tipo) 
-            ? filtros.tipo 
-            : (filtros.tipo === 'todos' ? [] : [filtros.tipo].filter(Boolean)),
-          
-          categoriaIds: Array.isArray(filtros.categoriaIds) ? filtros.categoriaIds : (Array.isArray(filtros.categorias) ? filtros.categorias.map(c => c?.id || c) : []),
-          contaIds: Array.isArray(filtros.contaIds) ? filtros.contaIds : (Array.isArray(filtros.contas) ? filtros.contas.map(c => c?.id || c) : []),
-          empresaIds: Array.isArray(filtros.empresaIds) ? filtros.empresaIds : (Array.isArray(filtros.empresas) ? filtros.empresas.map(c => c?.id || c) : []),
-          empreendimentoIds: Array.isArray(filtros.empreendimentoIds) ? filtros.empreendimentoIds : (Array.isArray(filtros.empreendimentos) ? filtros.empreendimentos.map(c => c?.id || c) : []),
-          
-          ignoreTransfers: filtros.ignoreTransfers ?? true,
-          ignoreChargebacks: filtros.ignoreChargebacks ?? true,
-          useCompetencia: filtros.useCompetencia ?? false
-      };
-
-      // Limpeza
-      if (!filtrosNormalizados.status[0]) delete filtrosNormalizados.status;
-      if (!filtrosNormalizados.tipo[0]) delete filtrosNormalizados.tipo;
+      // === AGORA USAMOS O PADRÃO OFICIAL ===
+      // Isso garante que o gráfico veja os mesmos dados que a lista e os KPIs
+      const filtrosNormalizados = formatarFiltrosParaBanco(filtros);
 
       // CHAMA A FUNÇÃO SQL QUE SABE FAZER RECURSÃO DE CATEGORIAS
       const { data, error } = await supabase.rpc('get_dados_grafico_kpi', {
@@ -78,14 +57,9 @@ export default function SmartChartCard({ kpi, onEdit, onDelete }) {
   const { dadosFormatados, indexAtual, resumoTipo } = useMemo(() => {
     if (!dadosBrutos?.length) return { dadosFormatados: [], indexAtual: -1, resumoTipo: 'Misto' };
 
-    // CORREÇÃO: O RPC agora retorna 'receita' e 'despesa' já somados por dia
-    // Não precisamos verificar se 'temReceita' ou 'temDespesa' baseado no item.tipo
-    // A lógica simplifica porque o dado já vem mastigado.
-    
     let labelLegenda = 'Saldo';
     const filtroTipo = Array.isArray(filtros.tipo) ? filtros.tipo[0] : filtros.tipo;
 
-    // Detecta o modo de exibição baseado no filtro
     if (filtros.tipo && (filtroTipo === 'Receita' || (Array.isArray(filtros.tipo) && filtros.tipo.includes('Receita') && !filtros.tipo.includes('Despesa')))) {
         labelLegenda = 'Receita';
     } else if (filtros.tipo && (filtroTipo === 'Despesa' || (Array.isArray(filtros.tipo) && filtros.tipo.includes('Despesa') && !filtros.tipo.includes('Receita')))) {
@@ -93,7 +67,6 @@ export default function SmartChartCard({ kpi, onEdit, onDelete }) {
     }
 
     const agrupado = dadosBrutos.reduce((acc, item) => {
-      // CORREÇÃO CRUCIAL: Usamos 'data_ref' que vem do SQL novo
       const dataParaUso = item.data_ref; 
       
       if (!dataParaUso) return acc;
@@ -121,7 +94,6 @@ export default function SmartChartCard({ kpi, onEdit, onDelete }) {
         } catch (err) { acc[chave].label = chave; }
       }
 
-      // O SQL retorna { data_ref, receita, despesa }
       const receitaItem = Number(item.receita || 0);
       const despesaItem = Number(item.despesa || 0);
       
@@ -130,7 +102,6 @@ export default function SmartChartCard({ kpi, onEdit, onDelete }) {
       } else if (labelLegenda === 'Despesa') {
           acc[chave].valor += despesaItem; 
       } else {
-          // Saldo
           acc[chave].valor += (receitaItem - despesaItem);
       }
       return acc;

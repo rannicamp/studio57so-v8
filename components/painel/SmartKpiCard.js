@@ -1,3 +1,4 @@
+// components/painel/SmartKpiCard.js
 "use client";
 
 import React from 'react';
@@ -5,8 +6,9 @@ import { useQuery } from '@tanstack/react-query';
 import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner, faExclamationCircle, faEdit, faTrash, faCalculator, faCopy } from '@fortawesome/free-solid-svg-icons';
+import { faSpinner, faExclamationCircle, faEdit, faTrash, faCalculator, faCopy, faChartPie } from '@fortawesome/free-solid-svg-icons';
 import * as IconsSolid from '@fortawesome/free-solid-svg-icons';
+import { formatarFiltrosParaBanco } from '@/utils/financeiro/formatarFiltros'; // <--- O SEGREDO DA CONSISTÊNCIA
 
 export default function SmartKpiCard({ kpi, onEdit, onDelete, onDuplicate }) {
   const supabase = createClient();
@@ -15,26 +17,13 @@ export default function SmartKpiCard({ kpi, onEdit, onDelete, onDuplicate }) {
   const tipo = kpi?.filtros?._config_tipo || 'filtro';
 
   const { data: resultado, isLoading, isError } = useQuery({
-    queryKey: ['kpi_value_smart_v13', kpi.id, kpi.filtros, tipo], 
+    queryKey: ['kpi_value_smart_v14', kpi.id, kpi.filtros, tipo], // v14 para forçar atualização
     queryFn: async () => {
-      // === O TRADUTOR UNIVERSAL ===
-      const normalizarFiltros = (filtrosCrus) => {
-          return {
-              startDate: filtrosCrus.startDate || filtrosCrus.data_inicio || null,
-              endDate: filtrosCrus.endDate || filtrosCrus.data_fim || null,
-              categoriaIds: Array.isArray(filtrosCrus.categoriaIds) ? filtrosCrus.categoriaIds : [],
-              contaIds: Array.isArray(filtrosCrus.contaIds) ? filtrosCrus.contaIds : [],
-              empresaIds: Array.isArray(filtrosCrus.empresaIds) ? filtrosCrus.empresaIds : [],
-              empreendimentoIds: Array.isArray(filtrosCrus.empreendimentoIds) ? filtrosCrus.empreendimentoIds : [],
-              status: Array.isArray(filtrosCrus.status) ? filtrosCrus.status.filter(s => s !== 'todos') : [],
-              tipo: Array.isArray(filtrosCrus.tipo) ? filtrosCrus.tipo : [],
-              ignoreTransfers: filtrosCrus.ignoreTransfers ?? true,
-              useCompetencia: filtrosCrus.useCompetencia ?? false
-          };
-      };
-
+      // === AGORA USAMOS O PADRÃO OFICIAL ===
+      // Nada de inventar moda aqui dentro. Usamos a mesma lógica da Lista Financeira.
+      
       if (tipo === 'filtro') {
-        const filtrosProntos = normalizarFiltros(kpi.filtros || {});
+        const filtrosProntos = formatarFiltrosParaBanco(kpi.filtros || {});
 
         const { data, error } = await supabase.rpc('get_financeiro_consolidado', {
           p_organizacao_id: user?.organizacao_id,
@@ -67,8 +56,10 @@ export default function SmartKpiCard({ kpi, onEdit, onDelete, onDuplicate }) {
             
             const valoresFilhos = {};
             await Promise.all((kpisFilhos || []).map(async (filho) => {
+                // KPIs filhos também precisam passar pelo porteiro!
                 if (filho.filtros?._config_tipo === 'formula') { valoresFilhos[filho.id] = 0; return; }
-                const filtrosFilhoProntos = normalizarFiltros(filho.filtros || {});
+                
+                const filtrosFilhoProntos = formatarFiltrosParaBanco(filho.filtros || {});
                 
                 const { data } = await supabase.rpc('get_financeiro_consolidado', {
                     p_organizacao_id: user?.organizacao_id,
@@ -96,7 +87,7 @@ export default function SmartKpiCard({ kpi, onEdit, onDelete, onDuplicate }) {
     staleTime: 1000 * 60 
   });
 
-  const IconComponent = IconsSolid[kpi.icone] || IconsSolid.faChartPie;
+  const IconComponent = IconsSolid[kpi.icone] || faChartPie;
   const formato = kpi.filtros?.formula_formato || 'moeda';
   const cor = kpi.cor || kpi.filtros?._meta_visual?.cor || '#3B82F6';
 
@@ -156,7 +147,6 @@ export default function SmartKpiCard({ kpi, onEdit, onDelete, onDuplicate }) {
           <p className="text-3xl font-extrabold tracking-tight text-gray-800">{formatValue(resultado)}</p>
         )}
       </div>
-      {/* CORREÇÃO AQUI: Usa a descrição do usuário ou o fallback */}
       <p className="text-xs text-gray-400 mt-2 truncate">
         {kpi.descricao || (tipo === 'formula' ? 'Cálculo Automático' : 'Baseado em filtros inteligentes')}
       </p>
