@@ -6,9 +6,15 @@ import { format, eachDayOfInterval, isValid } from 'date-fns';
 export function useRelatorioFinanceiro(filtros) {
   const supabase = createClient();
   
-  // 1. Normalização dos Filtros (Garante que o SQL entenda tudo)
-  const filtrosJson = {
-      // Datas formatadas como string simples (YYYY-MM-DD) para evitar confusão de fuso horário
+  // ============================================================================
+  // 🔧 PREPARAÇÃO LOCAL DOS DADOS
+  // ============================================================================
+  // Criamos o objeto para o banco AQUI DENTRO, sem depender de arquivos externos.
+  
+  const filtrosParaBanco = {
+      ...filtros, // Mantém o que já veio
+
+      // 1. Tratamento de Datas (Garante YYYY-MM-DD para não quebrar gráfico)
       startDate: filtros?.startDate && isValid(new Date(filtros.startDate)) 
           ? format(new Date(filtros.startDate), 'yyyy-MM-dd') 
           : null,
@@ -16,96 +22,108 @@ export function useRelatorioFinanceiro(filtros) {
           ? format(new Date(filtros.endDate), 'yyyy-MM-dd') 
           : null,
       
-      // Garante arrays para evitar erros de "in" no SQL
+      // 2. TIPO (Receita/Despesa)
+      tipo: Array.isArray(filtros?.tipo) 
+            ? filtros.tipo 
+            : (filtros?.tipo ? [filtros.tipo] : []),
+
+      // 3. Blindagem de Arrays (Para o RPC não reclamar de null)
       contaIds: Array.isArray(filtros?.contaIds) ? filtros.contaIds : [],
       categoriaIds: Array.isArray(filtros?.categoriaIds) ? filtros.categoriaIds : [],
       empresaIds: Array.isArray(filtros?.empresaIds) ? filtros.empresaIds : [],
       empreendimentoIds: Array.isArray(filtros?.empreendimentoIds) ? filtros.empreendimentoIds : [],
+      etapaIds: Array.isArray(filtros?.etapaIds) ? filtros.etapaIds : [],
       
-      // Status padrão se não houver seleção
-      status: filtros?.status && filtros.status.length > 0 ? filtros.status : ['Pago', 'Conciliado'], 
-      
-      // Configurações extras
-      ignoreTransfers: filtros.ignoreTransfers ?? true,
-      ignoreChargebacks: filtros.ignoreChargebacks ?? true,
-      useCompetencia: filtros.useCompetencia ?? false,
-      searchTerm: filtros.searchTerm || ''
+      // 4. Status (Padrão seguro se vazio)
+      status: (filtros?.status && filtros.status.length > 0) 
+              ? filtros.status 
+              : ['Pago', 'Conciliado'], 
+
+      // 5. Favorecido
+      favorecidoId: (filtros?.favorecidoId && filtros.favorecidoId !== 'null') 
+              ? filtros.favorecidoId 
+              : null,
+      searchTerm: filtros?.searchTerm || ''
   };
 
-  // 2. Busca KPIs (Cards do Topo)
+  // ============================================================================
+  // 📡 CHAMADAS AO BANCO (RPC)
+  // ============================================================================
+
+  // 1. KPIs
   const { data: kpis, isLoading: kpiLoading, refetch: refetchKpis } = useQuery({
-    queryKey: ['kpis-financeiro-v5', filtros.organizacaoId, filtrosJson],
+    queryKey: ['kpis-financeiro-final', filtros.organizacaoId, filtrosParaBanco],
     queryFn: async () => {
       if (!filtros.organizacaoId) return { totalReceitas: 0, totalDespesas: 0, resultado: 0 };
       
       const { data, error } = await supabase.rpc('get_financeiro_consolidado', {
         p_organizacao_id: filtros.organizacaoId,
-        p_filtros: filtrosJson
+        p_filtros: filtrosParaBanco
       });
       
-      if (error) throw error;
+      if (error) {
+        console.error("Erro KPI:", error);
+        return { totalReceitas: 0, totalDespesas: 0, resultado: 0 };
+      }
       return data || { totalReceitas: 0, totalDespesas: 0, resultado: 0 };
     },
     enabled: !!filtros.organizacaoId
   });
 
-  // 3. Busca Gráfico de Fluxo (Barras)
+  // 2. Gráfico de Fluxo
   const { data: fluxoData, isLoading: fluxoLoading } = useQuery({
-    queryKey: ['grafico-fluxo-v5', filtros.organizacaoId, filtrosJson],
+    queryKey: ['grafico-fluxo-final', filtros.organizacaoId, filtrosParaBanco],
     queryFn: async () => {
       if (!filtros.organizacaoId) return [];
-      // Chama a função específica de gráfico que você atualizou no SQL
       const { data, error } = await supabase.rpc('get_dados_grafico_kpi', {
         p_organizacao_id: filtros.organizacaoId,
-        p_filtros: filtrosJson
+        p_filtros: filtrosParaBanco
       });
-      if (error) throw error;
+      if (error) return [];
       return data || [];
     },
     enabled: !!filtros.organizacaoId
   });
 
-  // 4. Busca Gráfico de Pizza (Categorias)
+  // 3. Gráfico de Pizza
   const { data: pizzaData, isLoading: pizzaLoading } = useQuery({
-    queryKey: ['grafico-pizza-v5', filtros.organizacaoId, filtrosJson],
+    queryKey: ['grafico-pizza-final', filtros.organizacaoId, filtrosParaBanco],
     queryFn: async () => {
       if (!filtros.organizacaoId) return [];
       const { data, error } = await supabase.rpc('get_financeiro_grafico_pizza', {
         p_organizacao_id: filtros.organizacaoId,
-        p_filtros: filtrosJson
+        p_filtros: filtrosParaBanco
       });
-      if (error) throw error;
+      if (error) return [];
       return data || [];
     },
     enabled: !!filtros.organizacaoId
   });
 
-  // 5. Processamento dos Dados do Gráfico (Preenche dias vazios)
+  // ============================================================================
+  // 🎨 TRATAMENTO VISUAL
+  // ============================================================================
   let graficoFluxoCompleto = [];
-  if (fluxoData && filtrosJson.startDate && filtrosJson.endDate) {
+  if (fluxoData && filtrosParaBanco.startDate && filtrosParaBanco.endDate) {
     try {
-        // Força o horário T00:00:00 para garantir que a geração de dias não pule nada por fuso
-        const start = new Date(filtrosJson.startDate + 'T00:00:00');
-        const end = new Date(filtrosJson.endDate + 'T00:00:00');
+        const start = new Date(filtrosParaBanco.startDate + 'T00:00:00');
+        const end = new Date(filtrosParaBanco.endDate + 'T00:00:00');
         
         if (isValid(start) && isValid(end)) {
             const todosDias = eachDayOfInterval({ start, end });
             graficoFluxoCompleto = todosDias.map(dia => {
               const diaStr = format(dia, 'yyyy-MM-dd');
-              
-              // AQUI ESTAVA O ERRO: O SQL novo retorna 'data_ref', não 'data_ordem'
               const dadosDoDia = fluxoData.find(d => d.data_ref === diaStr);
-              
               return {
                 name: format(dia, 'dd/MM'),
-                data_ref: diaStr, // Mantemos coerência
+                data_ref: diaStr,
                 Receita: dadosDoDia ? Number(dadosDoDia.receita) : 0,
                 Despesa: dadosDoDia ? Number(dadosDoDia.despesa) : 0
               };
             });
         }
     } catch (e) {
-        console.error("Erro ao processar datas do gráfico", e);
+        console.error("Erro datas gráfico", e);
     }
   }
 
@@ -118,6 +136,6 @@ export function useRelatorioFinanceiro(filtros) {
     graficoFluxo: graficoFluxoCompleto,
     graficoPizza: pizzaData || [],
     isLoading: kpiLoading || fluxoLoading || pizzaLoading,
-    refetch: () => { refetchKpis(); } // Função para recarregar manualmente se precisar
+    refetch: () => { refetchKpis(); }
   };
 }

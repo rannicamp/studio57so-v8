@@ -8,16 +8,28 @@ import { faArrowUp, faArrowDown, faWallet, faExclamationCircle } from '@fortawes
 export default function FinanceiroStats({ data, isLoading }) {
     
     const stats = useMemo(() => {
-        // Se não vier dados ou vier array vazio, usa objeto vazio
-        const dados = (Array.isArray(data) ? data[0] : data) || {};
+        // ESTRATÉGIA DE BUSCA DE DADOS:
+        
+        // 1. Prioridade: O Hook retornou um objeto que contem a propriedade 'stats'?
+        // (É assim que o useLancamentos atual funciona)
+        if (data && data.stats) {
+            return {
+                receitaTotal: Number(data.stats.totalReceitas || 0),
+                despesaTotal: Number(data.stats.totalDespesas || 0),
+                saldoGeral: Number(data.stats.resultado || 0),
+                saldoRealizado: Number(data.stats.totalPago || 0)
+            };
+        }
+
+        // 2. Fallback: O dado veio direto ou dentro de um array (Legado)
+        // Se não achar .stats, tenta ler da raiz
+        const source = (Array.isArray(data) ? data[0] : data) || {};
 
         return {
-            // As chaves aqui devem bater com o retorno da função RPC 'get_lancamentos_avancado'
-            // Chaves esperadas: totalReceitas, totalDespesas, resultado, totalPago
-            receitaTotal: Number(dados.totalReceitas || 0),
-            despesaTotal: Number(dados.totalDespesas || 0),
-            saldoGeral: Number(dados.resultado || 0), // (Receita - Despesa)
-            saldoRealizado: Number(dados.totalPago || 0) // Caixa Realizado (Efetivamente Pago)
+            receitaTotal: Number(source.totalReceitas || 0),
+            despesaTotal: Number(source.totalDespesas || 0),
+            saldoGeral: Number(source.resultado || 0), // (Receita - Despesa)
+            saldoRealizado: Number(source.totalPago || 0) // Caixa Realizado
         };
     }, [data]);
 
