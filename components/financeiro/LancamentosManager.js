@@ -8,16 +8,14 @@ import {
     faSpinner, faTimes, faPenToSquare, faTrash, faSort, faSortUp, faSortDown, faLayerGroup, 
     faChevronLeft, faChevronRight, faRobot, faCheckCircle, faDollarSign, 
     faExchangeAlt, faCopy, faReceipt, faLink, faArrowUp, faArrowDown, faBalanceScale, faChevronDown,
-    faHistory
+    faHistory, faExclamationTriangle
 } from '@fortawesome/free-solid-svg-icons';
 import { createClient } from '../../utils/supabase/client';
 import { useAuth } from '../../contexts/AuthContext';
 import ReciboModal from './ReciboModal';
 import { toast } from 'sonner';
 
-// ... (HighlightedText, AnalysisModal, SortableHeader, BatchUpdateModal mantidos iguais - omitidos para brevidade, mas você deve manter o código que já tinha)
-// Vou focar apenas no componente principal e na lógica de renderização
-
+// ... (Manter HighlightedText e SortableHeader iguais) ...
 const HighlightedText = ({ text = '', highlight = '' }) => {
     if (!highlight.trim() || !text) { return <span>{text}</span>; }
     const regex = new RegExp(`(${highlight.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
@@ -30,7 +28,6 @@ const SortableHeader = ({ label, sortKey, sortConfig, requestSort, className = '
     return ( <th className={`px-4 py-3 text-left text-xs font-bold uppercase tracking-wider ${className}`}><button onClick={() => requestSort(sortKey)} className="flex items-center gap-2 hover:text-gray-900"><span className="uppercase">{label}</span><FontAwesomeIcon icon={getIcon()} className="text-gray-400" /></button></th> );
 };
 
-// ... (Outros subcomponentes BatchUpdateModal, AnalysisModal, etc. permanecem iguais)
 const AnalysisModal = ({ isOpen, onClose, analysisText, isLoading }) => {
     if (!isOpen) return null;
     return (
@@ -53,7 +50,7 @@ export default function LancamentosManager({
     lancamentos, allLancamentosKpi, loading, contas, categorias, empreendimentos, empresas, funcionarios, allContacts,
     onEdit, onUpdate, filters, setFilters, sortConfig, setSortConfig,
     currentPage, setCurrentPage, itemsPerPage, setItemsPerPage, totalCount,
-    onRowClick, isCompetenciaMode // Recebendo a prop nova
+    onRowClick, isCompetenciaMode 
 }) {
     const supabase = createClient();
     const queryClient = useQueryClient();
@@ -73,13 +70,11 @@ export default function LancamentosManager({
 
     const onActionSuccess = () => { queryClient.invalidateQueries({queryKey: ['lancamentos']}); if (onUpdate) onUpdate(); };
 
-    // ... (Manter Mutações: updateStatusMutation, duplicateMutation, etc. IGUAIS)
     const updateStatusMutation = useMutation({ mutationFn: async ({ lancamentoId, newStatus }) => { const updateData = { status: newStatus }; if (newStatus === 'Pago') { updateData.data_pagamento = new Date().toISOString(); } const { error } = await supabase.from('lancamentos').update(updateData).eq('id', lancamentoId); if (error) throw new Error(error.message); }, onSuccess: onActionSuccess });
     const duplicateMutation = useMutation({ mutationFn: async (item) => { const { id, created_at, conta, categoria, empreendimento, empresa, favorecido, anexos, ...lancamentoParaDuplicar } = item; lancamentoParaDuplicar.descricao = `(Cópia) ${lancamentoParaDuplicar.descricao}`; lancamentoParaDuplicar.status = 'Pendente'; lancamentoParaDuplicar.data_pagamento = null; lancamentoParaDuplicar.conciliado = false; const { error } = await supabase.from('lancamentos').insert([lancamentoParaDuplicar]); if (error) throw new Error(error.message); }, onSuccess: onActionSuccess });
     const deleteSingleMutation = useMutation({ mutationFn: async (id) => { const { error } = await supabase.from('lancamentos').delete().eq('id', id); if (error) throw error; }, onSuccess: () => { onActionSuccess(); }, onError: (error) => toast.error(`Erro: ${error.message}`) });
     const deleteFutureMutation = useMutation({ mutationFn: async ({ parcela_grupo, data_vencimento }) => { if (!user?.organizacao_id) throw new Error("Organização não identificada."); const { error } = await supabase.rpc('delete_lancamentos_futuros_do_grupo', { p_grupo_id: parcela_grupo, p_data_referencia: data_vencimento, p_organizacao_id: user.organizacao_id }); if (error) throw error; }, onSuccess: () => { onActionSuccess(); }, onError: (error) => toast.error(`Erro ao excluir futuros: ${error.message}`) });
     
-    // Toast de Deleção
     const DeletionToast = ({ toastId, onSingleDelete, onFutureDelete }) => ( <div className="w-full"> <p className="font-semibold">Este lançamento faz parte de uma série.</p> <p className="text-sm text-gray-600 mb-3">O que você gostaria de fazer?</p> <div className="flex gap-2"> <button onClick={() => { toast.dismiss(toastId); onSingleDelete(); }} className="w-full text-sm font-semibold px-3 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-md"> Excluir somente este </button> <button onClick={() => { toast.dismiss(toastId); onFutureDelete(); }} className="w-full text-sm font-semibold px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md"> Excluir este e os futuros </button> </div> </div> );
     const handleDelete = (item) => { if (!item.parcela_grupo) { toast("Excluir Lançamento", { description: `Tem certeza que deseja excluir "${item.descricao}"?`, action: { label: "Excluir", onClick: () => toast.promise(deleteSingleMutation.mutateAsync(item.id), { loading: 'Excluindo...', success: 'Lançamento excluído!', error: (err) => `Erro: ${err.message}`, }), }, cancel: { label: "Cancelar" }, }); return; } toast.custom((t) => ( <DeletionToast toastId={t} onSingleDelete={() => toast.promise(deleteSingleMutation.mutateAsync(item.id), { loading: 'Excluindo...', success: 'Lançamento excluído!', error: (err) => `Erro: ${err.message}`, })} onFutureDelete={() => toast.promise(deleteFutureMutation.mutateAsync(item), { loading: 'Excluindo lançamentos futuros...', success: 'Lançamentos futuros excluídos!', error: (err) => `Erro: ${err.message}`, })} /> ), { duration: 10000 }); };
     
@@ -92,7 +87,6 @@ export default function LancamentosManager({
     const handleBatchUpdateField = (field, value) => { setIsBatchUpdateModalOpen(false); if(!field || !value) { toast.warning("Por favor, selecione um campo e um valor."); return; } const updateObject = { [field]: value }; if(field === 'status' && value === 'Pago'){ updateObject.data_pagamento = new Date().toISOString(); } toast.promise( new Promise((resolve, reject) => { if (window.confirm(`Tem certeza que deseja aplicar esta alteração a ${selectedIds.size} lançamento(s)?`)) { bulkUpdateMutation.mutateAsync({ ids: Array.from(selectedIds), updateObject }).then(resolve).catch(reject); } else { reject('Ação cancelada pelo usuário.'); } }), { loading: 'Atualizando lançamentos em lote...', success: (count) => `${count} lançamento(s) atualizado(s) com sucesso!`, error: (err) => (err === 'Ação cancelada pelo usuário.' ? err : `Erro ao atualizar: ${err.message}`), }); };
     const handleOpenRecibo = (lancamento) => { setLancamentoParaRecibo(lancamento); setIsReciboModalOpen(true); };
 
-    // KPI Data e Handlers
     const handleItemsPerPageChange = () => { let value = Number(itemsPerPageInput); if (isNaN(value) || value < 1) value = 1; if (value > 999) value = 999; setItemsPerPageInput(value); setItemsPerPage(value); setCurrentPage(1); };
     useEffect(() => { setSelectedIds(new Set()); }, [lancamentos]);
     
@@ -161,7 +155,7 @@ export default function LancamentosManager({
                            <thead className="bg-gray-50">
                                <tr>
                                     <th className="p-4 w-4"><input type="checkbox" onChange={handleSelectAll} checked={lancamentos.length > 0 && selectedIds.size === lancamentos.length} /></th>
-                                    {/* CABEÇALHO DINÂMICO */}
+                                    
                                     <SortableHeader 
                                         label={isCompetenciaMode ? "Data (Comp.)" : "Data (Caixa)"} 
                                         sortKey={isCompetenciaMode ? "data_transacao" : "data_vencimento"} 
@@ -185,6 +179,7 @@ export default function LancamentosManager({
                                     const statusInfo = getPaymentStatus(item);
                                     const isPending = item.status === 'Pendente' && !item.conciliado;
                                     const isTransfer = !!item.transferencia_id;
+                                    const isDivergent = item.status_auditoria_ia === 'Divergente' || item.status_auditoria_ia === 'Erro';
                                     const nomeEmpresa = item.conta?.empresa?.nome_fantasia || item.conta?.empresa?.razao_social || 'N/A';
                                     const nomeFavorecido = item.favorecido?.nome || item.favorecido?.razao_social || '-';
                                     
@@ -194,12 +189,10 @@ export default function LancamentosManager({
                                     let dateClass = '';
 
                                     if (isCompetenciaMode) {
-                                        // MODO COMPETÊNCIA: Foca na origem (transação)
                                         displayDate = item.data_transacao;
                                         dateLabel = 'Data de Competência (Transação)';
-                                        dateClass = 'text-gray-700'; // Cor neutra para histórico
+                                        dateClass = 'text-gray-700'; 
                                     } else {
-                                        // MODO CAIXA: Lógica de Vencimento/Pagamento
                                         if (item.data_pagamento) {
                                             displayDate = item.data_pagamento;
                                             dateLabel = 'Data do Pagamento';
@@ -216,19 +209,26 @@ export default function LancamentosManager({
                                     const formattedDescription = item.descricao.replace(/\s\((\d+)\/\d+\)$/, ' #$1');
 
                                     return (
-                                        <tr key={item.id} onClick={() => onRowClick(item)} className={`cursor-pointer ${selectedIds.has(item.id) ? 'bg-blue-100' : ''} ${isTransfer ? 'bg-yellow-50' : 'hover:bg-gray-50'}`}>
+                                        <tr key={item.id} onClick={() => onRowClick(item)} 
+                                            className={`cursor-pointer border-b transition-colors 
+                                                ${selectedIds.has(item.id) ? 'bg-blue-100' : 
+                                                  isDivergent ? 'bg-orange-100 hover:bg-orange-200' : 
+                                                  isTransfer ? 'bg-yellow-50 hover:bg-yellow-100' : 
+                                                  'hover:bg-gray-50'
+                                                }`}
+                                        >
                                              <td className="p-4" onClick={(e) => e.stopPropagation()}><input type="checkbox" checked={selectedIds.has(item.id)} onChange={() => handleSelectOne(item.id)} /></td>
                                              
-                                             {/* Célula de Data Dinâmica */}
                                              <td className={`px-4 py-2 whitespace-nowrap ${dateClass}`} title={dateLabel}>
                                                  {formatDate(displayDate)}
                                                  {isCompetenciaMode && <span className="ml-1 text-[10px] text-gray-400 block">Comp.</span>}
                                              </td>
 
                                              <td className="px-4 py-2 font-medium flex items-center gap-2">
-                                                {item.parcela_grupo && <FontAwesomeIcon icon={faLink} className="text-gray-400" title="Este lançamento faz parte de uma série" />}
-                                                {item.transferencia_id && <FontAwesomeIcon icon={faExchangeAlt} className="text-gray-400" title="Transferência" />}
-                                                <span>{formattedDescription}</span>
+                                                 {isDivergent && <FontAwesomeIcon icon={faExclamationTriangle} className="text-orange-600" title="Divergência na Auditoria IA" />}
+                                                 {item.parcela_grupo && <FontAwesomeIcon icon={faLink} className="text-gray-400" title="Este lançamento faz parte de uma série" />}
+                                                 {item.transferencia_id && <FontAwesomeIcon icon={faExchangeAlt} className="text-gray-400" title="Transferência" />}
+                                                 <span>{formattedDescription}</span>
                                              </td>
                                              <td className="px-4 py-2 text-gray-600 truncate max-w-[150px]" title={nomeFavorecido}>{nomeFavorecido}</td>
                                              <td className="px-4 py-2 text-gray-600">{item.conta?.nome || 'N/A'}</td>
@@ -257,7 +257,7 @@ export default function LancamentosManager({
                                                      <button onClick={() => handleDelete(item)} className="text-red-500 hover:text-red-700" title="Excluir"><FontAwesomeIcon icon={faTrash} /></button>
                                                  </div>
                                              </td>
-                                        </tr>
+                                     </tr>
                                     );
                                 }) : (
                                      <tr><td colSpan="11" className="text-center py-10 text-gray-500 uppercase">Nenhum lançamento encontrado. Tente limpar os filtros.</td></tr>
