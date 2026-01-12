@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { useAuditoriaKanban } from '../../hooks/financeiro/useAuditoriaKanban'; // <--- Hook novo
+import { useAuditoriaKanban } from '../../hooks/financeiro/useAuditoriaKanban';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
     faRobot, faCheckCircle, faExclamationTriangle, 
@@ -11,11 +11,21 @@ import {
 import { toast } from 'sonner';
 import LancamentoDetalhesSidebar from './LancamentoDetalhesSidebar';
 
+// --- HELPER: FORMATADOR VISUAL ABSOLUTO ---
+// Pega "2024-01-09" e retorna "09/01/2024" ignorando fusos horários
+const formatarDataVisual = (dataString) => {
+    if (!dataString) return 'S/ Data';
+    // Se vier ISO completa (2024-01-09T00:00...), pega só a primeira parte
+    const apenasData = dataString.split('T')[0]; 
+    const [ano, mes, dia] = apenasData.split('-');
+    return `${dia}/${mes}/${ano}`;
+};
+
 // --- CARD ---
 const KanbanCard = ({ item, onClick, colorBorder, showAuditButton, showReauditButton, isAuditing, onAudit }) => {
     
-    // Agora usamos a data calculada pelo SQL atualizado
-    const dataExibicao = item.data_efetiva || item.data_transacao;
+    // Escolhe a data vinda do banco (String YYYY-MM-DD)
+    const dataBruta = item.data_efetiva || item.data_transacao;
 
     return (
         <div 
@@ -23,9 +33,10 @@ const KanbanCard = ({ item, onClick, colorBorder, showAuditButton, showReauditBu
             className={`bg-white p-3 rounded-lg shadow-sm border-l-4 ${colorBorder} cursor-pointer hover:shadow-md transition-all group relative mb-2 animate-in fade-in slide-in-from-bottom-2 duration-300`}
         >
             <div className="flex justify-between items-start mb-1">
-                <div className="flex items-center gap-1 text-[10px] font-mono text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded" title="Data Efetiva (Lei de Fernanda)">
+                <div className="flex items-center gap-1 text-[10px] font-mono text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded" title="Data Efetiva">
                     <FontAwesomeIcon icon={faCalendarDay} className="text-gray-400" />
-                    {new Date(dataExibicao).toLocaleDateString('pt-BR', { timeZone: 'UTC' })}
+                    {/* AQUI APLICAMOS A CORREÇÃO VISUAL */}
+                    {formatarDataVisual(dataBruta)}
                 </div>
                 <span className="font-bold text-xs text-gray-700">
                     {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.valor)}
@@ -73,15 +84,12 @@ const KanbanCard = ({ item, onClick, colorBorder, showAuditButton, showReauditBu
 
 // --- COMPONENTE PRINCIPAL ---
 export default function AuditoriaKanban({ filters }) {
-    // Usando o Hook Padronizado
     const { data: kanbanData, isLoading, updateLocalKanban } = useAuditoriaKanban({ filters });
     
-    // Estados locais de UI
     const [selectedLancamento, setSelectedLancamento] = useState(null);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [auditandoId, setAuditandoId] = useState(null);
 
-    // Controles da Fila (Bulk Action)
     const [isBulkProcessing, setIsBulkProcessing] = useState(false);
     const [isPaused, setIsPaused] = useState(false);
     const [queueStats, setQueueStats] = useState({ total: 0, pending: 0, processed: 0 });
@@ -89,7 +97,7 @@ export default function AuditoriaKanban({ filters }) {
     const processingRef = useRef(false);
     const pausedRef = useRef(false);
 
-    // --- LÓGICA DE PROCESSAMENTO DA FILA (Mantida para IA) ---
+    // --- LÓGICA DE FILA (Mantida) ---
     const processQueue = useCallback(async () => {
         const storedQueue = JSON.parse(localStorage.getItem('audit_queue') || '[]');
         
@@ -123,7 +131,7 @@ export default function AuditoriaKanban({ filters }) {
             const result = await response.json();
 
             if (response.ok) {
-                updateLocalKanban(nextId, result.status); // Atualiza via Hook
+                updateLocalKanban(nextId, result.status);
             } else {
                 console.error("Erro ao auditar:", result);
             }
@@ -155,7 +163,6 @@ export default function AuditoriaKanban({ filters }) {
         }
     }, [updateLocalKanban]);
 
-    // Recupera estado da fila ao recarregar página
     useEffect(() => {
         const wasRunning = localStorage.getItem('audit_is_running');
         const queue = JSON.parse(localStorage.getItem('audit_queue') || '[]');
@@ -231,7 +238,7 @@ export default function AuditoriaKanban({ filters }) {
         setTimeout(() => setSelectedLancamento(null), 300);
     };
 
-    if (isLoading) return <div className="p-10 text-center flex flex-col items-center justify-center h-64"><FontAwesomeIcon icon={faSpinner} spin size="2x" className="text-indigo-500 mb-2" /><p className="text-gray-500">Carregando dados da auditoria...</p></div>;
+    if (isLoading) return <div className="p-10 text-center flex flex-col items-center justify-center h-64"><FontAwesomeIcon icon={faSpinner} spin size="2x" className="text-indigo-500 mb-2" /><p className="text-gray-500">Carregando auditoria...</p></div>;
     if (!kanbanData) return null;
 
     return (
