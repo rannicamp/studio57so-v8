@@ -4,6 +4,22 @@ const nextConfig = {
   // Desativa mapas de fonte em produção para build mais rápido
   productionBrowserSourceMaps: false,
 
+  // --- 🆕 AQUI ESTÁ A PROTEÇÃO QUE FALTAVA ---
+  experimental: {
+    serverActions: {
+      // Lista de domínios permitidos para enviar dados (Server Actions)
+      allowedOrigins: [
+        'studio57.arq.br',
+        'www.studio57.arq.br',
+        'studio57.netlify.app',
+        'localhost:3000'
+      ],
+      // Aumenta o limite para formulários grandes
+      bodySizeLimit: '2mb',
+    },
+  },
+  // -------------------------------------------
+
   // --- A CORREÇÃO DO ERRO DO PDF.JS ESTÁ AQUI ---
   webpack: (config) => {
     // Diz ao webpack para ignorar dependências de node que quebram o PDF.js no navegador
