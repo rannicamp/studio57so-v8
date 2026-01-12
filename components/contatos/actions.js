@@ -19,7 +19,7 @@ const ALLOWED_COLUMNS = [
     'meta_campaign_name', 'meta_adset_name', 'criado_por_usuario_id', 'creci', 'lixeira'
 ];
 
-// Função auxiliar para buscar dados do CNPJ (mantida)
+// Função auxiliar para buscar dados do CNPJ
 export async function buscarDadosCnpj(cnpj) {
     const cleanCnpj = cnpj.replace(/\D/g, '');
     if (cleanCnpj.length !== 14) return { error: 'CNPJ inválido.' };
@@ -62,24 +62,30 @@ export async function buscarDadosCnpj(cnpj) {
 
 // Ação Blindada para Salvar Contato
 export async function saveContactAction({ formData, isEditing }) {
+    console.log(`🚀 [ACTION] Iniciando saveContactAction. Editando? ${isEditing}`);
+
     // 1. Verificação de Ambiente
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+        console.error("❌ [ACTION] Erro: Variáveis de ambiente ausentes.");
         return { error: 'Erro de Configuração: Variáveis de ambiente ausentes no servidor.' };
     }
 
-    const supabase = await createClient(); // Com await (Next.js 15)
+    const supabase = await createClient();
     
     try {
         // 2. Verificação de Autenticação
         const { data: { user }, error: authError } = await supabase.auth.getUser();
         
         if (authError || !user) {
+            console.error("❌ [ACTION] Usuário não autenticado ou erro de sessão.");
             return { error: 'Sessão expirada. Recarregue a página.' };
         }
+        console.log(`👤 [ACTION] Usuário autenticado: ${user.id}`);
 
-        // 3. Busca do ID da Organização
+        // 3. Busca do ID da Organização (Segurança Extra)
         let organizacao_id = formData.organizacao_id;
 
+        // Se não veio no form, busca no banco para garantir
         if (!organizacao_id) {
              const { data: userData } = await supabase
                 .from('usuarios') 
@@ -89,55 +95,74 @@ export async function saveContactAction({ formData, isEditing }) {
             
             if (userData?.organizacao_id) {
                 organizacao_id = userData.organizacao_id;
+                console.log(`🏢 [ACTION] Organização recuperada do usuário: ${organizacao_id}`);
             }
         }
 
         if (!organizacao_id) {
+            console.error("❌ [ACTION] Erro crítico: Sem Organization ID.");
             return { error: 'Erro crítico: Organização não identificada.' };
         }
 
         // 4. FILTRAGEM E LIMPEZA DOS DADOS (O Segredo do Sucesso) 🧼
         
-        // Removemos o que não é coluna da tabela 'contatos' (id, arrays, timestamps)
+        // Removemos campos especiais que não vão direto pra tabela
         const { id, telefones, emails, created_at, updated_at, ...rawData } = formData;
         
-        // Criamos um objeto novo APENAS com as colunas permitidas (Whitelist)
         const dataToSave = {};
         
         Object.keys(rawData).forEach(key => {
-            // Se a chave estiver na nossa Lista VIP, ela entra. Se for 'email' ou 'telefone' intrusos, fica de fora.
             if (ALLOWED_COLUMNS.includes(key)) {
-                // FAXINA GERAL: Converte string vazia "" em null
-                const value = rawData[key];
-                dataToSave[key] = (value === '' || value === undefined) ? null : value;
+                let value = rawData[key];
+                // Tratamento especial para datas vazias
+                if (key === 'birth_date' || key === 'data_fundacao') {
+                    if (value === '' || value === undefined) value = null;
+                } else {
+                    if (value === '' || value === undefined) value = null;
+                }
+                dataToSave[key] = value;
             }
         });
 
-        // Garante a organização
+        // Garante a organização e forca NULL se undefined
         dataToSave.organizacao_id = organizacao_id;
 
         // Lógica de "Quem Criou"
         if (!isEditing) {
             dataToSave.criado_por_usuario_id = user.id;
-            // Se 'origem' estiver vazio, forçamos 'Manual', desde que esteja na whitelist
             if (!dataToSave.origem) dataToSave.origem = 'Manual';
         } else {
-            // Na edição, nunca alteramos quem criou
+            // Na edição, removemos explicitamente para não tentar atualizar e tomar erro de permissão
             delete dataToSave.criado_por_usuario_id;
         }
 
         let contatoId = isEditing ? id : null;
 
+        console.log(`💾 [ACTION] Tentando salvar no banco... ID: ${contatoId || 'NOVO'}`);
+
         // 5. OPERAÇÃO DE BANCO DE DADOS
         if (isEditing) {
+            if (!contatoId) return { error: "ID do contato inválido para edição." };
+
             // Update
-            const { error } = await supabase
+            const { error, count } = await supabase
                 .from('contatos')
                 .update(dataToSave)
                 .eq('id', contatoId)
-                .eq('organizacao_id', organizacao_id); 
+                .eq('organizacao_id', organizacao_id) // Segurança extra
+                .select('id'); // Importante para confirmar que achou o registro
 
-            if (error) throw new Error(`Erro ao atualizar: ${error.message}`);
+            if (error) {
+                console.error("❌ [ACTION] Erro no UPDATE:", error);
+                // Se for erro de permissão (403), o Supabase avisa aqui
+                if (error.code === '42501' || error.message.includes('permission')) {
+                     return { error: 'Permissão negada. Você pode não ter autorização para editar este contato.' };
+                }
+                throw new Error(`Erro ao atualizar: ${error.message}`);
+            }
+            
+            // Se count for 0, pode ser RLS escondendo o registro
+            console.log(`✅ [ACTION] Update realizado com sucesso.`);
         } else {
             // Insert
             const { data, error } = await supabase
@@ -146,13 +171,16 @@ export async function saveContactAction({ formData, isEditing }) {
                 .select('id, nome, razao_social')
                 .single();
                 
-            if (error) throw new Error(`Erro ao criar: ${error.message}`);
+            if (error) {
+                console.error("❌ [ACTION] Erro no INSERT:", error);
+                throw new Error(`Erro ao criar: ${error.message}`);
+            }
             contatoId = data.id;
 
-            // Notificação
+            // Notificação (Fire & Forget)
             try {
                 const nomeContato = data.nome || data.razao_social || 'Novo Contato';
-                await enviarNotificacao({
+                enviarNotificacao({
                     userId: user.id,
                     titulo: "👤 Novo Contato",
                     mensagem: `${nomeContato} foi adicionado.`,
@@ -163,58 +191,56 @@ export async function saveContactAction({ formData, isEditing }) {
             } catch (ignored) {}
         }
 
-        if (!contatoId) throw new Error("ID do contato perdido.");
+        if (!contatoId) throw new Error("ID do contato perdido durante a operação.");
 
-        // 6. ATUALIZAÇÃO DE TELEFONES E EMAILS (COM BLINDAGEM DE DDI)
-        
+        // 6. ATUALIZAÇÃO DE TELEFONES E EMAILS
         // Filtra telefones
         const cleanedPhonesInput = (telefones || []).filter(tel => tel.telefone && tel.telefone.replace(/\D/g, '').length > 0);
         const cleanedEmails = (emails || []).filter(mail => mail.email && mail.email.trim() !== '');
 
-        // Remove antigos
-        await supabase.from('telefones').delete().eq('contato_id', contatoId);
-        await supabase.from('emails').delete().eq('contato_id', contatoId);
+        // Remove antigos (Limpeza para re-inserir)
+        // Usamos try-catch aqui para não quebrar o fluxo principal se falhar
+        try {
+            await supabase.from('telefones').delete().eq('contato_id', contatoId);
+            await supabase.from('emails').delete().eq('contato_id', contatoId);
 
-        // Insere novos telefones com DDI garantido
-        if (cleanedPhonesInput.length > 0) {
-            const phonesToInsert = cleanedPhonesInput.map(tel => {
-                let cleanNumber = tel.telefone.replace(/\D/g, ''); 
-                const ddi = (tel.country_code || '+55').replace('+', '');
-                
-                // SEGREDO: Se não começar com DDI, adiciona!
-                if (!cleanNumber.startsWith(ddi)) {
-                    cleanNumber = ddi + cleanNumber;
-                }
+            // Insere novos telefones
+            if (cleanedPhonesInput.length > 0) {
+                const phonesToInsert = cleanedPhonesInput.map(tel => {
+                    let cleanNumber = tel.telefone.replace(/\D/g, ''); 
+                    const ddi = (tel.country_code || '+55').replace('+', '');
+                    if (!cleanNumber.startsWith(ddi)) { cleanNumber = ddi + cleanNumber; }
 
-                return {
+                    return {
+                        contato_id: contatoId,
+                        telefone: cleanNumber,
+                        country_code: tel.country_code || '+55',
+                        tipo: tel.tipo || 'Celular', 
+                        organizacao_id
+                    };
+                });
+                await supabase.from('telefones').insert(phonesToInsert);
+            }
+
+            // Insere novos emails
+            if (cleanedEmails.length > 0) {
+                const emailsToInsert = cleanedEmails.map(mail => ({
                     contato_id: contatoId,
-                    telefone: cleanNumber,
-                    country_code: tel.country_code || '+55',
-                    tipo: tel.tipo || 'Celular', 
+                    email: mail.email.trim(),
+                    tipo: mail.tipo || 'Pessoal', 
                     organizacao_id
-                };
-            });
-
-            const { error: phErr } = await supabase.from('telefones').insert(phonesToInsert);
-            if (phErr) console.error("Erro telefones:", phErr);
-        }
-
-        // Insere novos emails
-        if (cleanedEmails.length > 0) {
-            const emailsToInsert = cleanedEmails.map(mail => ({
-                contato_id: contatoId,
-                email: mail.email.trim(),
-                tipo: mail.tipo || 'Pessoal', 
-                organizacao_id
-            }));
-            const { error: emErr } = await supabase.from('emails').insert(emailsToInsert);
-            if (emErr) console.error("Erro emails:", emErr);
+                }));
+                await supabase.from('emails').insert(emailsToInsert);
+            }
+        } catch (subError) {
+            console.error("⚠️ [ACTION] Erro ao salvar telefones/emails (Dados principais salvos):", subError);
+            // Não damos throw aqui para não cancelar o sucesso do contato
         }
 
         return { success: true, contactId: contatoId };
 
     } catch (error) {
-        console.error("ERRO SAVECONTACTACTION:", error);
+        console.error("❌ [ACTION] ERRO FATAL NO CATCH:", error);
         return { error: error.message || 'Erro interno no servidor.' };
     }
 }

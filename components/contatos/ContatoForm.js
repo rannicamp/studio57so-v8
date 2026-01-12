@@ -8,13 +8,13 @@ import { useRouter } from 'next/navigation';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { IMaskInput } from 'react-imask';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'; 
-import { faSpinner, faTrashAlt, faPlusCircle, faTimes, faFingerprint } from '@fortawesome/free-solid-svg-icons';
+import { faSpinner, faTrashAlt, faPlusCircle, faTimes, faFingerprint, faSave } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 
-// Importamos a Server Action completa agora
+// Importamos a Server Action
 import { buscarDadosCnpj, saveContactAction } from './actions';
 
-// -- COMPONENTES AUXILIARES --
+// -- COMPONENTES AUXILIARES (Mantidos iguais) --
 const SearchableField = ({ label, selectedName, onClear, children }) => (
     <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
@@ -38,7 +38,7 @@ const HighlightedText = ({ text = '', highlight = '' }) => {
     return (<span>{parts.map((part, i) => regex.test(part) ? <mark key={i} className="bg-yellow-200 px-0 rounded">{part}</mark> : <span key={i}>{part}</span>)}</span>);
 };
 
-// --- CONFIGURAÇÃO DE MÁSCARAS INTELIGENTES ---
+// Configuração de países
 const countries = [
     { name: "Brasil", code: "BR", dial_code: "+55", mask: "(00) 0000-0000[0]" },
     { name: "Estados Unidos", code: "US", dial_code: "+1", mask: "(000) 000-0000" },
@@ -130,18 +130,14 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
     useEffect(() => {
         const initializeData = async () => {
             if (isEditing && contactToEdit) {
-                
-                // --- INTELIGÊNCIA DE CORREÇÃO DE TELEFONES NA LEITURA ---
+                // Prepara telefones para exibição (remove DDI se estiver duplicado visualmente)
                 const phonesData = (contactToEdit.telefones || []).map(tel => {
                     let rawPhone = tel.telefone ? String(tel.telefone).replace(/\D/g, '') : '';
                     let countryCode = tel.country_code || '+55';
                     
-                    // Se detectar padrão EUA em número marcado como BR
                     if (countryCode === '+55' && rawPhone.length === 11 && rawPhone.startsWith('1') && rawPhone[2] !== '9') {
                          countryCode = '+1'; 
                     }
-
-                    // Remove DDI para exibir na máscara corretamente
                     if (countryCode === '+1' && rawPhone.startsWith('1')) rawPhone = rawPhone.substring(1);
                     else if (countryCode === '+55' && rawPhone.startsWith('55')) rawPhone = rawPhone.substring(2);
 
@@ -151,11 +147,12 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
                 const emailsData = contactToEdit.emails || [{ email: '' }];
                 
                 if (contactToEdit.conjuge_id && !selectedConjugeName) {
+                    // Busca nome do conjuge se só tivermos o ID
                     const { data: conjugeData } = await supabase
                         .from('contatos')
                         .select('nome, razao_social')
                         .eq('id', contactToEdit.conjuge_id)
-                        .single();
+                        .maybeSingle(); // maybeSingle evita erro 406 se nao achar
                     if(conjugeData) setSelectedConjugeName(conjugeData.nome || conjugeData.razao_social);
                 }
 
@@ -192,7 +189,7 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
         enabled: !!currentOrgId
     });
     
-    // --- FUNÇÃO DE SALVAR (AGORA VIA SERVER ACTION) ---
+    // --- FUNÇÃO DE SALVAR BLINDADA ---
     const handleSave = async (e) => {
         e.preventDefault();
         
@@ -202,23 +199,31 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
         }
 
         setIsSaving(true);
-        const toastId = toast.loading("Salvando dados...");
+        const toastId = toast.loading(isEditing ? "Atualizando..." : "Salvando...");
 
         try {
-            // Chamada direta para a Server Action Blindada
+            // LIMPEZA PRÉ-ENVIO: Cria uma cópia limpa do formData para enviar
+            // Isso remove objetos complexos (como 'conjuge: {...}') que podem estar aninhados e causar erro na serialização
+            const payload = JSON.parse(JSON.stringify(formData));
+            
+            // Removemos campos que sabemos que são objetos e o servidor não precisa (ele só precisa dos IDs)
+            delete payload.conjuge; 
+            delete payload.empresa;
+            
+            // Chamada para a Server Action
             const result = await saveContactAction({ 
-                formData, 
+                formData: payload, 
                 isEditing 
             });
 
             if (result.error) {
+                // Se a action retornou erro (mesmo com status 200), lançamos aqui
                 throw new Error(result.error);
             }
 
             toast.dismiss(toastId);
             toast.success(`Contato ${isEditing ? 'atualizado' : 'cadastrado'} com sucesso!`);
             
-            // Invalida caches para atualizar a lista
             queryClient.invalidateQueries({ queryKey: ['contatosMainLista'] });
             if (isEditing) queryClient.invalidateQueries({ queryKey: ['contactDetails', formData.id] });
 
@@ -227,9 +232,16 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
             else router.push('/contatos');
 
         } catch (error) {
-            console.error("Erro ao salvar:", error);
+            console.error("Erro detalhado ao salvar:", error);
             toast.dismiss(toastId);
-            toast.error(`Erro ao salvar: ${error.message}`);
+            
+            // Tratamento amigável de erro de permissão
+            let msg = error.message;
+            if (msg.includes('unexpected response') || msg.includes('403')) {
+                msg = "Permissão negada ou erro de conexão. Tente recarregar a página.";
+            }
+            
+            toast.error(`Não foi possível salvar: ${msg}`);
         } finally {
             setIsSaving(false);
         }
@@ -240,24 +252,22 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
         setFormData(prev => ({ ...prev, [name]: value }));
     };
     
+    // ... RESTO DO CÓDIGO PERMANECE IGUAL (handleSearchConjuge, handleDynamicInputChange, etc) ...
+    // Vou resumir aqui para não ficar gigante, mas você deve manter o restante das funções abaixo
+    
     const handleSearchConjuge = useCallback(async (term) => {
         setConjugeSearchTerm(term);
         if (term.length < 2 || !currentOrgId) {
-            setConjugeSearchResults([]);
-            return;
+            setConjugeSearchResults([]); return;
         }
-        const { data } = await supabase.rpc('buscar_contatos_geral', { 
-            p_search_term: term, 
-            p_organizacao_id: currentOrgId 
-        });
+        const { data } = await supabase.rpc('buscar_contatos_geral', { p_search_term: term, p_organizacao_id: currentOrgId });
         setConjugeSearchResults(data || []);
     }, [supabase, currentOrgId]);
 
     const handleSelectConjuge = (conjuge) => {
         setFormData(prev => ({ ...prev, conjuge_id: conjuge.id }));
         setSelectedConjugeName(conjuge.nome || conjuge.razao_social);
-        setConjugeSearchTerm('');
-        setConjugeSearchResults([]);
+        setConjugeSearchTerm(''); setConjugeSearchResults([]);
     };
 
     const handleClearConjuge = () => {
@@ -275,9 +285,7 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
 
     const handleRemoveDynamicInput = (listName, index) => {
         if (formData[listName].length === 1) {
-            const clearedItem = listName === 'telefones' 
-                ? { telefone: '', country_code: '+55' } 
-                : { email: '' };
+            const clearedItem = listName === 'telefones' ? { telefone: '', country_code: '+55' } : { email: '' };
             setFormData(prev => ({ ...prev, [listName]: [clearedItem] }));
         } else {
             setFormData(prev => ({ ...prev, [listName]: prev[listName].filter((_, i) => i !== index) }));
@@ -291,22 +299,9 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
             try {
                 const response = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
                 const data = await response.json();
-                if (data.erro) {
-                    toast.warning("Endereço não encontrado para o CEP informado.");
-                } else {
-                    setFormData(prev => ({
-                        ...prev,
-                        address_street: data.logradouro,
-                        neighborhood: data.bairro,
-                        city: data.localidade,
-                        state: data.uf,
-                    }));
-                }
-            } catch (error) {
-                toast.error("Erro ao buscar CEP.");
-            } finally {
-                setIsApiLoading(false);
-            }
+                if (data.erro) toast.warning("Endereço não encontrado para o CEP informado.");
+                else setFormData(prev => ({ ...prev, address_street: data.logradouro, neighborhood: data.bairro, city: data.localidade, state: data.uf, }));
+            } catch (error) { toast.error("Erro ao buscar CEP."); } finally { setIsApiLoading(false); }
         }
     }, []);
     
@@ -318,28 +313,19 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
     const handleCnpjLookup = useCallback(async (unmaskedCnpj) => {
         setIsApiLoading(true);
         const promise = buscarDadosCnpj(unmaskedCnpj);
-        
         toast.promise(promise, {
             loading: 'Buscando dados do CNPJ...',
             success: (result) => {
-                if (result.error) {
-                    throw new Error(result.error);
-                }
+                if (result.error) throw new Error(result.error);
                 const { api_telefone, api_email, ...formDataToUpdate } = result.data;
                 setFormData(prev => {
                     const newTelefones = [...prev.telefones];
-                    if (api_telefone && (!newTelefones[0] || !newTelefones[0].telefone)) {
-                        newTelefones[0] = { telefone: api_telefone, country_code: '+55' };
-                    }
+                    if (api_telefone && (!newTelefones[0] || !newTelefones[0].telefone)) newTelefones[0] = { telefone: api_telefone, country_code: '+55' };
                     const newEmails = [...prev.emails];
-                    if (api_email && (!newEmails[0] || !newEmails[0].email)) {
-                        newEmails[0] = { email: api_email };
-                    }
+                    if (api_email && (!newEmails[0] || !newEmails[0].email)) newEmails[0] = { email: api_email };
                     return { ...prev, ...formDataToUpdate, telefones: newTelefones, emails: newEmails };
                 });
-                if (result.data.cep) {
-                    fetchAddressFromCep(result.data.cep);
-                }
+                if (result.data.cep) fetchAddressFromCep(result.data.cep);
                 return 'Dados do CNPJ preenchidos com sucesso!';
             },
             error: (err) => err.message,
@@ -347,6 +333,7 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
         });
     }, [fetchAddressFromCep]);
     
+    // RENDERIZAÇÃO
     return (
         <form onSubmit={handleSave} className="space-y-6 p-6 bg-white rounded-lg shadow-md">
             <div className="flex justify-between items-center mb-6">
@@ -516,8 +503,9 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
 
             <div className="mt-8 flex justify-end gap-4">
                 <button type="button" onClick={() => onClose ? onClose() : router.push('/contatos')} className="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300"> Cancelar </button>
-                <button type="submit" disabled={isSaving || isApiLoading} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400 flex items-center gap-2">
-                    {isSaving ? <FontAwesomeIcon icon={faSpinner} spin /> : 'Salvar Contato'}
+                <button type="submit" disabled={isSaving || isApiLoading} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400 flex items-center gap-2 font-semibold">
+                    {isSaving ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faSave} />}
+                    {isEditing ? 'Atualizar Contato' : 'Salvar Contato'}
                 </button>
             </div>
         </form>
