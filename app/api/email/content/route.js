@@ -38,12 +38,12 @@ export async function GET(request) {
 
         // SE ACHOU NO CACHE, RETORNA IMEDIATAMENTE!
         if (!cacheError && cacheData?.conteudo_cache) {
-            console.log(`🚀 E-mail ${uid} carregado do Cache DB!`);
+            // console.log(`🚀 E-mail ${uid} carregado do Cache DB!`);
             return NextResponse.json(cacheData.conteudo_cache);
         }
 
         // --- SE NÃO ACHOU, VAI NO IMAP (Busca Lenta 🐢) ---
-        console.log(`🐢 E-mail ${uid} não está no cache. Buscando no IMAP...`);
+        // console.log(`🐢 E-mail ${uid} não está no cache. Buscando no IMAP...`);
 
         // 2. Busca as credenciais
         let queryConfig = supabase.from('email_configuracoes').select('*').eq('user_id', user.id);
@@ -75,9 +75,11 @@ export async function GET(request) {
         await connection.openBox(folderName, { readOnly: false }); 
 
         const searchCriteria = [['UID', uid]];
+        
+        // --- AQUI ESTAVA O X9! 🕵️‍♂️ ---
         const fetchOptions = {
             bodies: [''], // Pega o corpo inteiro (RAW)
-            markSeen: true // Já marca como lido no servidor se abriu o conteúdo
+            markSeen: false // <--- MUDAMOS PARA FALSE! Não marca como lido ao baixar
         };
 
         const messages = await connection.search(searchCriteria, fetchOptions);
@@ -126,15 +128,13 @@ export async function GET(request) {
                 subject: parsed.subject || '(Sem Assunto)',
                 from_text: parsed.from?.text || '',
                 date: parsed.date || new Date(),
-                is_read: true, 
-                conteudo_cache: emailData, // <--- AQUI VAI O OURO
+                is_read: false, // <--- TAMBÉM NÃO MARCA COMO LIDO NO BANCO AINDA
+                conteudo_cache: emailData, 
                 updated_at: new Date().toISOString()
             }, { onConflict: 'account_id, folder_path, uid' });
 
         if (updateError) {
             console.error('Erro ao salvar cache:', updateError);
-        } else {
-            console.log(`💾 E-mail ${uid} salvo no cache com sucesso!`);
         }
 
         return NextResponse.json(emailData);
