@@ -10,7 +10,7 @@ import EmailViewPanel from '@/components/email/EmailViewPanel';
 import EmailComposeModal from '@/components/email/EmailComposeModal'; 
 import EmailSidebar from '@/components/email/EmailSidebar'; 
 import EmailCreateFolderModal from '@/components/email/EmailCreateFolderModal'; 
-import { faInbox } from '@fortawesome/free-solid-svg-icons'; 
+import { faInbox, faExclamationTriangle } from '@fortawesome/free-solid-svg-icons'; 
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { useDebounce } from 'use-debounce';
 import { toast } from 'sonner';
@@ -44,10 +44,15 @@ function EmailInboxContent({ onChangeTab, canViewWhatsapp }) {
     const [isCreateFolderOpen, setIsCreateFolderOpen] = useState(false);
     const [rulePrefill, setRulePrefill] = useState(null);
     
+    // --- ESTADOS DE PROTEÇÃO CONTRA LOOP (ADICIONADOS PELO DEVONILDO) ---
+    const [autoSync, setAutoSync] = useState(true); 
+    const [syncErrorCount, setSyncErrorCount] = useState(0);
+    const [isSyncing, setIsSyncing] = useState(false);
+
     const [debouncedSearchTerm] = useDebounce(searchTerm, 600);
     const hasRestoredUiState = useRef(false);
     
-    // --- LÓGICA DE DEEP LINK (CORRIGIDA) ---
+    // --- LÓGICA DE DEEP LINK ---
     useEffect(() => {
         const emailId = searchParams.get('email_id');
         if (emailId) {
@@ -61,18 +66,13 @@ function EmailInboxContent({ onChangeTab, canViewWhatsapp }) {
                     .single();
 
                 if (data && !error) {
-                    // 1. Define o e-mail selecionado
                     setSelectedEmail(data);
-                    
-                    // 2. Define a pasta e O CONTEXTO DA CONTA (Isso que faltava!)
                     setSelectedEmailFolder({ 
                         path: data.folder_path, 
                         name: data.folder_path.split('/').pop(), 
                         display_name: data.folder_path,
-                        accountId: data.account_id // <--- A MÁGICA ESTÁ AQUI 🎩✨
+                        accountId: data.account_id 
                     });
-                    
-                    // 3. Limpa a URL
                     router.replace('/caixa-de-entrada', { scroll: false });
                 }
             };
@@ -114,32 +114,68 @@ function EmailInboxContent({ onChangeTab, canViewWhatsapp }) {
         });
     }, [queryClient]);
 
-    useEffect(() => {
-        const syncEmails = async () => {
-            try {
-                const res = await fetch('/api/email/sync', { method: 'POST' });
-                const data = await res.json();
-                if (data.newEmails > 0) {
-                    queryClient.invalidateQueries({ queryKey: ['emailMessages'] });
-                    queryClient.invalidateQueries({ queryKey: ['emailFolders'] });
-                    queryClient.invalidateQueries({ queryKey: ['emailFolderCounts'] });
-                    queryClient.invalidateQueries({ queryKey: ['notificacoes'] });
-                }
-            } catch (error) { console.error("Erro silencioso no sync:", error); }
-        };
-        syncEmails();
-        const intervalId = setInterval(syncEmails, 60000);
-        return () => clearInterval(intervalId);
-    }, [queryClient]);
+    // --- FUNÇÃO DE SYNC BLINDADA (EVITA O LOOP INFINITO) ---
+    const runSyncSafe = useCallback(async () => {
+        // Se a proteção estiver ativa ou já estiver rodando, não faz nada
+        if (!autoSync || isSyncing) return;
 
+        // Se errou muitas vezes seguidas, desliga o automático
+        if (syncErrorCount > 3) {
+            console.warn("🛑 Sync automático desligado por segurança (muitos erros seguidos).");
+            setAutoSync(false);
+            return;
+        }
+
+        setIsSyncing(true);
+        try {
+            const res = await fetch('/api/email/sync', { method: 'POST' });
+            
+            // PROTEÇÃO CRÍTICA: Se der 401 (Não autorizado), para tudo imediatamente
+            if (res.status === 401) {
+                console.error("🚨 Sessão expirada (401) no Sync. Parando automação.");
+                setAutoSync(false);
+                setSyncErrorCount(10); // Força parada
+                return;
+            }
+
+            const data = await res.json();
+            
+            // Sucesso: zera contadores de erro
+            setSyncErrorCount(0);
+
+            if (data.newEmails > 0 || data.totalNew > 0) {
+                queryClient.invalidateQueries({ queryKey: ['emailMessages'] });
+                queryClient.invalidateQueries({ queryKey: ['emailFolders'] });
+                queryClient.invalidateQueries({ queryKey: ['emailFolderCounts'] });
+                queryClient.invalidateQueries({ queryKey: ['notificacoes'] });
+            }
+        } catch (error) {
+            console.error("Erro no sync:", error);
+            setSyncErrorCount(prev => prev + 1);
+        } finally {
+            setIsSyncing(false);
+        }
+    }, [autoSync, isSyncing, syncErrorCount, queryClient]);
+
+    // --- INTERVALO DE SYNC (AGORA USA A FUNÇÃO SEGURA) ---
+    useEffect(() => {
+        runSyncSafe(); // Roda ao montar
+        const intervalId = setInterval(runSyncSafe, 60000); // A cada 1 min
+        return () => clearInterval(intervalId);
+    }, [runSyncSafe]);
+
+    // --- REGRAS AUTOMÁTICAS ---
     useEffect(() => {
         const isInbox = selectedEmailFolder?.name?.toUpperCase() === 'INBOX' || 
                         selectedEmailFolder?.displayName === 'Caixa de Entrada';
 
         if (!selectedEmailFolder || isInbox) {
             const runRules = async () => {
+                if (!autoSync) return; // Não roda regras se o sync estiver pausado por erro
                 try {
                     const res = await fetch('/api/email/rules/apply', { method: 'POST' });
+                    if (res.status === 401) return; // Ignora se 401
+
                     const data = await res.json();
                     if (data.moved > 0) {
                         toast.success(`Automação: ${data.moved} e-mails movidos.`);
@@ -149,13 +185,14 @@ function EmailInboxContent({ onChangeTab, canViewWhatsapp }) {
                             queryClient.invalidateQueries({ queryKey: ['emailFolderCounts'] });
                         }, 1500); 
                     }
-                } catch (err) { console.error("Erro silencioso regras:", err); }
+                } catch (err) { console.error("Erro regras:", err); }
             };
+            
             runRules();
             const intervalId = setInterval(runRules, 30000);
             return () => clearInterval(intervalId);
         }
-    }, [selectedEmailFolder, queryClient]);
+    }, [selectedEmailFolder, queryClient, autoSync]);
 
     const handleSelectEmail = (email) => setSelectedEmail(email);
     
@@ -191,6 +228,13 @@ function EmailInboxContent({ onChangeTab, canViewWhatsapp }) {
         queryClient.invalidateQueries({ queryKey: ['emailMessages'] });
         queryClient.invalidateQueries({ queryKey: ['emailFolders'] });
         queryClient.invalidateQueries({ queryKey: ['emailFolderCounts'] });
+    };
+
+    // Função de reset manual caso o usuário queira tentar conectar de novo
+    const handleRetrySync = () => {
+        setSyncErrorCount(0);
+        setAutoSync(true);
+        runSyncSafe();
     };
 
     const hasSelection = selectedEmailFolder;
@@ -263,6 +307,20 @@ function EmailInboxContent({ onChangeTab, canViewWhatsapp }) {
                         onCreateRule={handleOpenRules}
                         onCreateFolder={handleOpenCreateFolder} 
                     />
+                </div>
+            )}
+
+            {/* AVISO DE ERRO DE CONEXÃO (Proteção Visual) */}
+            {!autoSync && syncErrorCount > 3 && (
+                <div className="absolute bottom-4 right-4 bg-red-100 text-red-600 px-4 py-2 rounded-lg shadow-lg text-xs flex items-center gap-2 z-50 animate-bounce">
+                    <FontAwesomeIcon icon={faExclamationTriangle} />
+                    <span>Conexão instável. Sync pausado.</span>
+                    <button 
+                        onClick={handleRetrySync} 
+                        className="underline font-bold ml-2 hover:text-red-800"
+                    >
+                        Tentar reconectar
+                    </button>
                 </div>
             )}
         </div>

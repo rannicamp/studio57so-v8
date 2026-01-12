@@ -30,16 +30,6 @@ function isSystemFolder(name) {
     ].some(sys => n.includes(sys));
 }
 
-// Helper seguro para pegar status da caixa (contagem de não lidos)
-const getBoxStatus = (connection, boxName) => {
-    return new Promise((resolve) => {
-        connection.imap.status(boxName, (err, box) => {
-            if (err) resolve(null);
-            else resolve(box);
-        });
-    });
-};
-
 export async function GET(request) {
   // AWAIT OBRIGATÓRIO (Next.js 15)
   const supabase = await createClient();
@@ -64,7 +54,32 @@ export async function GET(request) {
 
     if (!config) return NextResponse.json({ folders: [], counts: {} });
 
-    // Configuração da conexão IMAP
+    // --- AÇÃO 1: APENAS CONTAGEM (VIA BANCO DE DADOS - ULTRA RÁPIDO ⚡) ---
+    // Aqui substituímos a lógica lenta do IMAP pela função SQL
+    if (action === 'getAllCounts') {
+        // Chama a função RPC que criamos no Supabase
+        const { data: countsData, error } = await supabase.rpc('get_unread_counts', {
+            p_account_id: config.id
+        });
+
+        if (error) {
+            console.error('Erro ao buscar contagens do DB:', error);
+            // Se der erro no banco, retorna vazio para não travar a UI
+            return NextResponse.json({ counts: {} });
+        }
+
+        // Transforma o array [{path: 'INBOX', count: 5}] em objeto {'INBOX': 5}
+        const counts = {};
+        countsData?.forEach(item => {
+            counts[item.path] = item.count;
+        });
+
+        return NextResponse.json({ counts });
+    }
+
+    // --- AÇÃO 2: LISTAGEM ESTRUTURAL COMPLETA (Via IMAP para garantir a árvore correta) ---
+    // Mantida a lógica original robusta para recursividade e nomes
+    
     const imapConfig = {
       imap: {
         user: config.imap_user || config.email,
@@ -78,68 +93,7 @@ export async function GET(request) {
     };
 
     connection = await imapSimple.connect(imapConfig);
-
-    // --- AÇÃO 1: APENAS CONTAGEM (usado para atualizar badges) ---
-    if (action === 'getAllCounts') {
-        const boxes = await connection.getBoxes();
-        const counts = {};
-        const pathsToFetch = [];
-        const seenPaths = new Set();
-        
-        // Função recursiva para coletar caminhos válidos para contagem
-        const collect = (list, parentPath = '') => {
-            for (const [key, value] of Object.entries(list)) {
-                const delimiter = value.delimiter || '/'; 
-                const fullPath = parentPath ? parentPath + delimiter + key : key;
-                
-                // Se for pasta container do Google, processa filhos mas ignora o pai
-                if (key === '[Gmail]' || key === '[Google Mail]') { 
-                    if (value.children) collect(value.children, fullPath);
-                    continue;
-                }
-                
-                if (seenPaths.has(fullPath)) {
-                    if (value.children) collect(value.children, fullPath);
-                    continue;
-                }
-                seenPaths.add(fullPath);
-
-                const attribs = value.attribs || [];
-                const isNoselect = attribs.some(a => typeof a === 'string' && a.toUpperCase().includes('NOSELECT'));
-                
-                // Só conta mensagens em pastas selecionáveis
-                if (!isNoselect) {
-                    pathsToFetch.push(fullPath);
-                }
-                
-                if (value.children) {
-                    collect(value.children, fullPath);
-                }
-            }
-        };
-        collect(boxes);
-
-        // Busca status em paralelo para performance
-        const promises = pathsToFetch.map(async (path) => {
-            try {
-                const status = await getBoxStatus(connection, path);
-                return { path, count: status ? (status.unseen || 0) : -1 };
-            } catch (e) {
-                return { path, count: -1 };
-            }
-        });
-
-        const results = await Promise.allSettled(promises);
-        results.forEach(result => {
-            if (result.status === 'fulfilled') {
-                counts[result.value.path] = result.value.count;
-            }
-        });
-
-        return NextResponse.json({ counts });
-    }
-
-    // --- AÇÃO 2: LISTAGEM ESTRUTURAL COMPLETA (usado no Menu Mover e Sidebar) ---
+    
     const boxes = await connection.getBoxes();
     const folderList = [];
     const seenPaths = new Set();
@@ -187,7 +141,7 @@ export async function GET(request) {
                 path: fullPath, // Esse é o ID real da pasta para o comando MOVE
                 delimiter: delimiter,
                 level: visualLevel,
-                unseen: 0,
+                unseen: 0, // Será preenchido depois pelo getAllCounts via banco
                 canSelect: canSelect,
                 accountId: config.id
             });
@@ -223,8 +177,8 @@ export async function GET(request) {
     return NextResponse.json({ folders: folderList });
 
   } catch (error) {
-    console.error('IMAP Error:', error);
-    return NextResponse.json({ error: 'Erro ao conectar no e-mail' }, { status: 500 });
+    console.error('Folder API Error:', error);
+    return NextResponse.json({ error: 'Erro ao processar pastas' }, { status: 500 });
   } finally {
     if (connection) {
         try { connection.end(); } catch(e) {}
