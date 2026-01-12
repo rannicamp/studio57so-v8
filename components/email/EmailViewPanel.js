@@ -79,13 +79,21 @@ export default function EmailViewPanel({ emailSummary, folder, onClose, onCreate
         onError: () => toast.error('Erro ao realizar ação.')
     });
 
+    // --- LÓGICA DE MARCAR COMO LIDO (CORRIGIDA PELO DEVONILDO) ---
     useEffect(() => {
+        // Capturamos os dados ATUAIS para usar no cleanup (desmontagem)
         const currentEmailId = emailSummary?.id;
         const currentFolder = folderIdentifier;
-        const isAlreadyRead = emailSummary?.flags?.includes('\\Seen');
+        const currentAccountId = accountId;
+        
+        // Verifica se JÁ estava lido no momento que abriu (baseado no resumo da lista)
+        const isAlreadyRead = emailSummary?.flags?.includes('\\Seen') || emailSummary?.is_read;
 
         return () => {
+            // A mágica acontece aqui: quando o componente desmontar ou o ID mudar
+            // só disparamos se tivermos um ID e se ele NÃO estava lido quando abrimos.
             if (currentEmailId && !isAlreadyRead) {
+                // console.log("👀 Saindo do e-mail, marcando como lido:", currentEmailId);
                 fetch('/api/email/actions', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -93,16 +101,21 @@ export default function EmailViewPanel({ emailSummary, folder, onClose, onCreate
                         action: 'markAsRead', 
                         folder: currentFolder, 
                         uid: currentEmailId,
-                        accountId: accountId
+                        accountId: currentAccountId
                     }),
-                    keepalive: true 
+                    keepalive: true // Garante que o request termine mesmo se a tela fechar
                 }).then(() => { 
+                    // Atualiza contadores e lista em background
                     queryClient.invalidateQueries({ queryKey: ['emailMessages'] }); 
                     queryClient.invalidateQueries({ queryKey: ['emailFolders'] }); 
+                    queryClient.invalidateQueries({ queryKey: ['emailFolderCounts'] });
                 }).catch(err => console.error('Erro ao marcar lido na saída:', err));
             }
         };
-    }, [emailSummary?.id, folderIdentifier, emailSummary?.flags, accountId, queryClient]); 
+        // ATENÇÃO SEU LINDO: Removi 'emailSummary?.flags' das dependências.
+        // Agora o efeito só reinicia se o ID do e-mail mudar ou a pasta mudar.
+        // Isso impede que atualizações automáticas disparem o "lido" enquanto você lê.
+    }, [emailSummary?.id, folderIdentifier, accountId, queryClient]); 
 
     const handleCreateActivity = () => {
         if (!fullEmail) return;

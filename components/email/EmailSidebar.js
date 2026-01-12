@@ -3,20 +3,32 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { createPortal } from 'react-dom';
+import { createClient } from '@/utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
     faSearch, faEnvelope, faInbox, faPaperPlane, faTrash, faBan, 
     faFolder, faPlus, faCog, faSpinner, 
     faChevronRight, faChevronDown, faUserCircle, faEllipsisV, 
-    faCheckDouble, faEraser
+    faCheckDouble, faEraser, faSync
 } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 import { toast } from 'sonner';
-import EmailAutoSync from './EmailAutoSync'; // Importando o Robô
+import EmailAutoSync from './EmailAutoSync'; 
 
-const FOLDER_EXPANSION_KEY = 'email_expanded_folders_vhostinger_fixed';
+const FOLDER_EXPANSION_KEY = 'email_expanded_folders_final_v1';
 
-// --- MENU CONTEXTUAL ---
+// --- A MÁGICA: O NORMALIZADOR ---
+// Isso faz o sistema entender que "INBOX.Trabalho" é igual a "INBOX/TRABALHO"
+const normalizeKey = (key) => {
+    if (!key) return '';
+    return key.toString()
+        .toUpperCase()
+        .trim()
+        .replace(/\./g, '/')   // Troca ponto por barra (Correção Hostinger)
+        .replace(/\\/g, '/')   // Troca contra-barra
+        .replace(/\/+/g, '/'); // Remove duplicadas
+};
+
 const FolderContextMenu = ({ position, folder, onClose, onAction, isSystemFolder }) => {
     if (!position) return null;
     return createPortal(
@@ -46,52 +58,86 @@ const FolderContextMenu = ({ position, folder, onClose, onAction, isSystemFolder
     );
 };
 
-// --- ÁRVORE DE PASTAS ---
 const AccountFolderTree = ({ account, selectedFolder, onSelectFolder, expandedPaths, toggleExpand, onCreateFolder }) => {
+    const supabase = createClient();
     const queryClient = useQueryClient();
     const [menuState, setMenuState] = useState({ isOpen: false, position: null, folder: null });
-    const [mergedCounts, setMergedCounts] = useState({});
+    
+    // Estado local para garantir atualização imediata
+    const [countsMap, setCountsMap] = useState({});
 
-    // 1. ESTRUTURA
-    const { data: folderData, isLoading, isError } = useQuery({
+    // 1. Busca Pastas
+    const { data: folderData, isLoading } = useQuery({
         queryKey: ['emailFolders', account.id],
         queryFn: async () => {
             const res = await fetch(`/api/email/folders?accountId=${account.id}`);
             if (!res.ok) throw new Error('Erro ao buscar pastas');
             return res.json();
         },
-        staleTime: 1000 * 60 * 60 // Cache de estrutura longo (1h), só muda se criar pasta
+        staleTime: 1000 * 60 * 60 
     });
 
     const folderList = folderData?.folders || [];
 
-    // 2. CONTAGEM (O Robô força a atualização disso aqui)
-    const { data: countsData } = useQuery({
+    // 2. Busca Contagens
+    const { data: countsData, refetch: refetchCounts } = useQuery({
         queryKey: ['emailFolderCounts', account.id],
         queryFn: async () => {
             const res = await fetch(`/api/email/folders?accountId=${account.id}&action=getAllCounts`);
             if (!res.ok) return { counts: {} };
             return res.json();
         },
-        enabled: !!folderList.length, 
-        // Polling curto para reagir rápido ao Robô
-        refetchInterval: 5000, 
-        refetchOnWindowFocus: true
+        refetchInterval: 10000, 
     });
 
+    // 3. Atualiza o Mapa de Contagens (Com Normalização)
     useEffect(() => {
         if (countsData?.counts) {
-            setMergedCounts(prev => {
-                const next = { ...prev };
-                Object.entries(countsData.counts).forEach(([path, count]) => {
-                    if (count !== null && count >= 0) {
-                        next[path] = count;
-                    }
-                });
-                return next;
+            const newMap = {};
+            Object.entries(countsData.counts).forEach(([path, count]) => {
+                newMap[path] = count; // Chave original
+                newMap[normalizeKey(path)] = count; // Chave normalizada
+                
+                // Hack para Inbox sempre funcionar
+                if (normalizeKey(path).includes('INBOX')) {
+                    newMap['INBOX'] = count;
+                }
             });
+            setCountsMap(newMap);
         }
     }, [countsData]);
+
+    // 4. Realtime (Websockets)
+    useEffect(() => {
+        if (!account?.id) return;
+        
+        const channel = supabase
+            .channel(`folder-counts-${account.id}`)
+            .on(
+                'postgres_changes',
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: 'email_folders_cache',
+                    filter: `account_id=eq.${account.id}`
+                },
+                (payload) => {
+                    if (payload.new) {
+                        const path = payload.new.path;
+                        const count = payload.new.unseen_count;
+                        
+                        setCountsMap(prev => ({
+                            ...prev,
+                            [path]: count,
+                            [normalizeKey(path)]: count
+                        }));
+                    }
+                }
+            )
+            .subscribe();
+
+        return () => { supabase.removeChannel(channel); };
+    }, [account.id, supabase]);
 
     const folderActionMutation = useMutation({
         mutationFn: async ({ action, folderPath }) => {
@@ -104,29 +150,23 @@ const AccountFolderTree = ({ account, selectedFolder, onSelectFolder, expandedPa
             return res.json();
         },
         onSuccess: () => {
-            toast.success("Ação realizada!");
+            toast.success("Feito!");
             queryClient.invalidateQueries(['emailFolders', account.id]);
-            queryClient.invalidateQueries(['emailFolderCounts', account.id]);
+            refetchCounts();
             setMenuState({ isOpen: false, position: null, folder: null });
-        },
-        onError: () => toast.error("Erro ao executar ação")
+        }
     });
 
     const openMenu = (e, folder) => {
         e.stopPropagation();
         e.preventDefault();
         const rect = e.currentTarget.getBoundingClientRect();
-        setMenuState({
-            isOpen: true,
-            folder: folder,
-            position: { top: rect.bottom + 5, left: rect.left }
-        });
+        setMenuState({ isOpen: true, folder, position: { top: rect.bottom + 5, left: rect.left } });
     };
 
     const handleAction = (e, action, folderPath) => {
         setMenuState({ ...menuState, isOpen: false });
         if (action === 'delete' && !confirm('Tem certeza?')) return;
-        if (action === 'empty' && !confirm('Apagar tudo?')) return;
         folderActionMutation.mutate({ action, folderPath });
     };
 
@@ -137,9 +177,11 @@ const AccountFolderTree = ({ account, selectedFolder, onSelectFolder, expandedPa
         const allPaths = new Set(folderList.map(f => f.path));
 
         folderList.forEach(folder => {
-            const separator = folder.delimiter || '/';
+            // Detecção inteligente de separador
+            const separator = folder.delimiter || (folder.path.includes('/') ? '/' : '.');
             const lastIndex = folder.path.lastIndexOf(separator);
             const parentPath = lastIndex > -1 ? folder.path.substring(0, lastIndex) : null;
+            
             const parentExists = parentPath && allPaths.has(parentPath);
 
             if (folder.level === 0 || !parentExists) {
@@ -154,9 +196,11 @@ const AccountFolderTree = ({ account, selectedFolder, onSelectFolder, expandedPa
         
         const sortList = (list) => list.sort((a, b) => {
             const getPriority = (f) => {
-                const byName = specialOrder.findIndex(key => f.name.toUpperCase().includes(key));
+                const n = normalizeKey(f.name);
+                const d = normalizeKey(f.displayName);
+                const byName = specialOrder.findIndex(key => n.includes(key));
                 if (byName !== -1) return byName;
-                return specialOrder.findIndex(key => f.displayName.toUpperCase().includes(key));
+                return specialOrder.findIndex(key => d.includes(key));
             };
             const indexA = getPriority(a);
             const indexB = getPriority(b);
@@ -186,84 +230,80 @@ const AccountFolderTree = ({ account, selectedFolder, onSelectFolder, expandedPa
     }, [folderList, expandedPaths, account.id]);
 
     const getFolderIcon = (name, path) => {
-        const n = name?.toLowerCase() || '';
-        const p = path?.toLowerCase() || '';
-        
-        if (n.includes('inbox') || n.includes('entrada')) return faInbox;
-        if (n.includes('sent') || p.includes('enviad') || p.includes('sent')) return faPaperPlane;
-        if (n.includes('trash') || p.includes('lixeira') || p.includes('trash') || p.includes('deleted')) return faTrash;
-        if (n.includes('spam') || p.includes('junk')) return faBan;
-        if (n.includes('draft') || p.includes('rascunho')) return faEnvelope;
+        const n = normalizeKey(name);
+        if (n.includes('INBOX') || n.includes('ENTRADA')) return faInbox;
+        if (n.includes('SENT') || n.includes('ENVIAD')) return faPaperPlane;
+        if (n.includes('TRASH') || n.includes('LIXEIRA') || n.includes('DELETED')) return faTrash;
+        if (n.includes('SPAM') || n.includes('JUNK')) return faBan;
+        if (n.includes('DRAFT') || n.includes('RASCUNHO')) return faEnvelope;
         return faFolder; 
     };
 
-    if (isLoading) return <div className="py-4 px-6 text-xs text-gray-400 flex justify-center"><FontAwesomeIcon icon={faSpinner} spin className="mr-2"/> Carregando...</div>;
-    if (isError) return <div className="py-2 px-6 text-xs text-red-400">Falha ao carregar</div>;
+    if (isLoading) return <div className="py-4 text-center text-gray-300"><FontAwesomeIcon icon={faSpinner} spin /></div>;
 
     return (
-        <>
-            <div className="pb-2">
-                {processedFolders.map((folder) => {
-                    const uniqueKey = `${account.id}-${folder.path}`;
-                    const isExpanded = expandedPaths.has(uniqueKey);
-                    const isSelected = selectedFolder?.path === folder.path && selectedFolder?.accountId === account.id;
-                    const isInbox = folder.displayName === 'Caixa de Entrada' || folder.name.toUpperCase() === 'INBOX';
-                    
-                    const unreadCount = mergedCounts[folder.path] || 0;
+        <div className="pb-2">
+            {processedFolders.map((folder) => {
+                const uniqueKey = `${account.id}-${folder.path}`;
+                const isExpanded = expandedPaths.has(uniqueKey);
+                const isSelected = selectedFolder?.path === folder.path && selectedFolder?.accountId === account.id;
+                const isInbox = normalizeKey(folder.name).includes('INBOX');
 
-                    return (
+                // --- A BUSCA PELO NÚMERO ---
+                let unreadCount = countsMap[folder.path]; // Exato
+                if (unreadCount === undefined) unreadCount = countsMap[normalizeKey(folder.path)]; // Normalizado
+                if (unreadCount === undefined) unreadCount = countsMap[folder.name]; // Nome simples
+                
+                unreadCount = unreadCount || 0;
+
+                return (
+                    <div 
+                        key={uniqueKey}
+                        className={`
+                            w-full text-left hover:bg-gray-50 flex items-center text-sm transition-colors cursor-pointer group select-none relative
+                            ${isSelected ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'}
+                        `}
+                        onClick={() => onSelectFolder({ ...folder, accountId: account.id })}
+                        style={{ paddingLeft: `${16 + (folder.level * 12)}px`, paddingRight: '8px' }} 
+                    >
+                        {isSelected && <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-600 rounded-r"></div>}
+                        
                         <div 
-                            key={uniqueKey}
-                            className={`
-                                w-full text-left hover:bg-gray-50 flex items-center text-sm transition-colors cursor-pointer group select-none relative
-                                ${isSelected ? 'bg-blue-50 text-blue-700 font-medium' : 'text-gray-700'}
-                            `}
-                            onClick={() => onSelectFolder({ ...folder, accountId: account.id })}
-                            style={{ paddingLeft: `${16 + (folder.level * 12)}px`, paddingRight: '8px' }} 
+                            className="h-9 w-6 flex items-center justify-center shrink-0 hover:text-blue-600 text-gray-400 mr-1"
+                            onClick={(e) => { e.stopPropagation(); if(folder.hasChildren) toggleExpand(uniqueKey); }}
                         >
-                            {isSelected && <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-600 rounded-r"></div>}
-                            
-                            <div 
-                                className="h-9 w-6 flex items-center justify-center shrink-0 hover:text-blue-600 text-gray-400 mr-1"
-                                onClick={(e) => { e.stopPropagation(); if(folder.hasChildren) toggleExpand(uniqueKey); }}
-                            >
-                                {folder.hasChildren && <FontAwesomeIcon icon={isExpanded ? faChevronDown : faChevronRight} className="text-[10px]" />}
-                            </div>
-                            
-                            <div className="flex items-center gap-2 flex-grow py-2.5 overflow-hidden">
-                                <FontAwesomeIcon icon={getFolderIcon(folder.name, folder.path)} className={`${isSelected ? 'text-blue-500' : 'text-gray-400'} w-4`} />
-                                <span className="truncate flex-grow" title={folder.displayName}>{folder.displayName}</span>
-                                
-                                {unreadCount > 0 && (
-                                    <span className={`
-                                        text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0 min-w-[20px] text-center ml-1 animate-fade-in
-                                        ${isInbox ? 'bg-red-500 text-white shadow-sm' : 'bg-gray-200 text-gray-600'}
-                                    `}>
-                                        {unreadCount}
-                                    </span>
-                                )}
-
-                                <button 
-                                    onClick={(e) => openMenu(e, folder)}
-                                    className="w-6 h-6 rounded-full hover:bg-gray-200 flex items-center justify-center text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-                                >
-                                    <FontAwesomeIcon icon={faEllipsisV} className="text-[10px]" />
-                                </button>
-                            </div>
+                            {folder.hasChildren && <FontAwesomeIcon icon={isExpanded ? faChevronDown : faChevronRight} className="text-[10px]" />}
                         </div>
-                    );
-                })}
-            </div>
+                        
+                        <div className="flex items-center gap-2 flex-grow py-2.5 overflow-hidden">
+                            <FontAwesomeIcon icon={getFolderIcon(folder.name, folder.path)} className={`${isSelected ? 'text-blue-500' : 'text-gray-400'} w-4`} />
+                            <span className="truncate flex-grow" title={folder.path}>{folder.displayName}</span>
+                            
+                            {unreadCount > 0 && (
+                                <span className={`
+                                    text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0 min-w-[20px] text-center ml-1 animate-fade-in
+                                    ${isInbox ? 'bg-red-500 text-white shadow-sm' : 'bg-gray-200 text-gray-600'}
+                                `}>
+                                    {unreadCount > 99 ? '99+' : unreadCount}
+                                </span>
+                            )}
+
+                            <button onClick={(e) => openMenu(e, folder)} className="w-6 h-6 rounded-full hover:bg-gray-200 flex items-center justify-center text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                                <FontAwesomeIcon icon={faEllipsisV} className="text-[10px]" />
+                            </button>
+                        </div>
+                    </div>
+                );
+            })}
             {menuState.isOpen && (
                 <FolderContextMenu 
-                    position={menuState.position} 
-                    folder={menuState.folder} 
-                    onClose={() => setMenuState({ isOpen: false, position: null, folder: null })}
-                    onAction={handleAction}
-                    isSystemFolder={['INBOX', 'SENT', 'TRASH', 'JUNK', 'SPAM'].some(s => menuState.folder.name.toUpperCase().includes(s))}
+                    position={menuState.position} folder={menuState.folder} 
+                    onClose={() => setMenuState({ isOpen: false, position: null, folder: null })} 
+                    onAction={handleAction} 
+                    isSystemFolder={normalizeKey(menuState.folder.name).includes('INBOX')}
                 />
             )}
-        </>
+        </div>
     );
 };
 
@@ -273,24 +313,18 @@ export default function EmailSidebar({
 }) {
     const [expandedPaths, setExpandedPaths] = useState(new Set());
     const [isHydrated, setIsHydrated] = useState(false);
+    const queryClient = useQueryClient();
 
     useEffect(() => {
         if (typeof window !== 'undefined') {
             const saved = localStorage.getItem(FOLDER_EXPANSION_KEY);
-            if (saved) {
-                try {
-                    const parsed = JSON.parse(saved);
-                    setExpandedPaths(new Set(parsed));
-                } catch (e) { }
-            }
+            if (saved) { try { setExpandedPaths(new Set(JSON.parse(saved))); } catch (e) { } }
             setIsHydrated(true);
         }
     }, []);
 
     useEffect(() => {
-        if (isHydrated && typeof window !== 'undefined') {
-            localStorage.setItem(FOLDER_EXPANSION_KEY, JSON.stringify(Array.from(expandedPaths)));
-        }
+        if (isHydrated && typeof window !== 'undefined') localStorage.setItem(FOLDER_EXPANSION_KEY, JSON.stringify(Array.from(expandedPaths)));
     }, [expandedPaths, isHydrated]);
 
     const toggleExpand = (uniqueKey) => {
@@ -298,6 +332,16 @@ export default function EmailSidebar({
         if (newSet.has(uniqueKey)) newSet.delete(uniqueKey);
         else newSet.add(uniqueKey);
         setExpandedPaths(newSet);
+    };
+
+    const handleForceSync = async () => {
+        const toastId = toast.loading('Atualizando...');
+        try {
+            await fetch('/api/email/sync', { method: 'POST' });
+            queryClient.invalidateQueries({ queryKey: ['emailFolders'] });
+            queryClient.invalidateQueries({ queryKey: ['emailFolderCounts'] });
+            toast.success('Pronto!', { id: toastId });
+        } catch (e) { toast.error('Erro', { id: toastId }); }
     };
 
     const { data: accountsData, isLoading: loadingAccounts } = useQuery({
@@ -316,19 +360,13 @@ export default function EmailSidebar({
         <div className={`flex flex-col border-r bg-white h-full overflow-hidden min-h-0 ${className} relative`}>
             <div className="flex border-b bg-gray-50 shrink-0">
                 {canViewWhatsapp && (
-                    <button onClick={() => onChangeTab('whatsapp')} className="flex-1 py-4 text-sm font-medium flex justify-center items-center gap-2 border-b-2 transition-colors border-transparent text-gray-500 hover:bg-gray-100">
-                        <FontAwesomeIcon icon={faWhatsapp} className="text-lg" /> WhatsApp
-                    </button>
+                    <button onClick={() => onChangeTab('whatsapp')} className="flex-1 py-4 text-sm font-medium flex justify-center items-center gap-2 border-b-2 transition-colors border-transparent text-gray-500 hover:bg-gray-100"><FontAwesomeIcon icon={faWhatsapp} className="text-lg" /> WhatsApp</button>
                 )}
-                <button className="flex-1 py-4 text-sm font-medium flex justify-center items-center gap-2 border-b-2 transition-colors border-blue-600 text-blue-600 bg-white">
-                    <FontAwesomeIcon icon={faEnvelope} className="text-lg" /> E-mail
-                </button>
+                <button className="flex-1 py-4 text-sm font-medium flex justify-center items-center gap-2 border-b-2 transition-colors border-blue-600 text-blue-600 bg-white"><FontAwesomeIcon icon={faEnvelope} className="text-lg" /> E-mail</button>
             </div>
 
             <div className="p-4 pb-0">
-                <button onClick={onCompose} className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-md flex items-center justify-center gap-2 text-sm font-bold transition-transform active:scale-95">
-                    <FontAwesomeIcon icon={faPlus} /> Escrever E-mail
-                </button>
+                <button onClick={onCompose} className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-md flex items-center justify-center gap-2 text-sm font-bold transition-transform active:scale-95"><FontAwesomeIcon icon={faPlus} /> Escrever E-mail</button>
             </div>
 
             <div className="h-16 border-b flex flex-col justify-center px-4 bg-white shrink-0 z-10">
@@ -342,21 +380,16 @@ export default function EmailSidebar({
                 <div className="p-3 bg-blue-50/50 text-xs font-bold text-blue-800 flex justify-between items-center tracking-wide border-b border-blue-100">
                     <span>MINHAS CONTAS</span>
                     <div className="flex gap-1">
+                        <button onClick={handleForceSync} title="Forçar Atualização" className="hover:text-blue-600 transition-colors p-1 rounded hover:bg-blue-100"><FontAwesomeIcon icon={faSync} /></button>
                         <button onClick={onCreateFolder} title="Nova Pasta" className="hover:text-blue-600 transition-colors p-1 rounded hover:bg-blue-100"><FontAwesomeIcon icon={faPlus} /></button>
                         <button onClick={onConfig} title="Gerenciar Contas" className="hover:text-blue-600 transition-colors p-1 rounded hover:bg-blue-100"><FontAwesomeIcon icon={faCog} /></button>
                     </div>
                 </div>
 
                 {loadingAccounts ? (
-                    <div className="flex flex-col items-center justify-center h-40 text-gray-400">
-                        <FontAwesomeIcon icon={faSpinner} spin className="text-2xl mb-2 text-blue-500" />
-                        <p className="text-xs">Sincronizando...</p>
-                    </div>
+                    <div className="flex flex-col items-center justify-center h-40 text-gray-400"><FontAwesomeIcon icon={faSpinner} spin className="text-2xl mb-2 text-blue-500" /><p className="text-xs">Sincronizando...</p></div>
                 ) : accounts.length === 0 ? (
-                    <div className="p-6 text-center text-gray-500">
-                        <p className="text-sm font-medium text-gray-700 mb-2">Nenhuma conta conectada</p>
-                        <button onClick={onConfig} className="text-xs bg-blue-600 text-white px-4 py-2 rounded-md">Conectar Agora</button>
-                    </div>
+                    <div className="p-6 text-center text-gray-500"><p className="text-sm font-medium text-gray-700 mb-2">Nenhuma conta conectada</p><button onClick={onConfig} className="text-xs bg-blue-600 text-white px-4 py-2 rounded-md">Conectar Agora</button></div>
                 ) : (
                     <div className="divide-y divide-gray-100">
                         {accounts.map(acc => (
@@ -365,22 +398,12 @@ export default function EmailSidebar({
                                     <FontAwesomeIcon icon={faUserCircle} className="text-gray-400" />
                                     <span className="truncate">{acc.conta_apelido || acc.email}</span>
                                 </div>
-                                <AccountFolderTree 
-                                    account={acc}
-                                    selectedFolder={selectedFolder}
-                                    onSelectFolder={onSelectFolder}
-                                    expandedPaths={expandedPaths}
-                                    toggleExpand={toggleExpand}
-                                    onCreateFolder={onCreateFolder}
-                                />
+                                <AccountFolderTree account={acc} selectedFolder={selectedFolder} onSelectFolder={onSelectFolder} expandedPaths={expandedPaths} toggleExpand={toggleExpand} onCreateFolder={onCreateFolder} />
                             </div>
                         ))}
                     </div>
                 )}
             </div>
-
-            {/* --- ROBÔ VISUALIZÁVEL --- */}
-            {/* Agora ele fica fixo no rodapé da barra lateral */}
             <EmailAutoSync intervalMinutes={1} />
         </div>
     );
