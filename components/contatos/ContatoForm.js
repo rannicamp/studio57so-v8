@@ -1,4 +1,3 @@
-// components/contatos/ContatoForm.js
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
@@ -10,11 +9,10 @@ import { IMaskInput } from 'react-imask';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'; 
 import { faSpinner, faTrashAlt, faPlusCircle, faTimes, faFingerprint, faSave } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
+// Mantemos apenas a busca de CNPJ do server action, que não costuma dar erro
+import { buscarDadosCnpj } from './actions';
 
-// Importamos a Server Action
-import { buscarDadosCnpj, saveContactAction } from './actions';
-
-// -- COMPONENTES AUXILIARES (Mantidos iguais) --
+// -- COMPONENTES AUXILIARES --
 const SearchableField = ({ label, selectedName, onClear, children }) => (
     <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
@@ -38,7 +36,6 @@ const HighlightedText = ({ text = '', highlight = '' }) => {
     return (<span>{parts.map((part, i) => regex.test(part) ? <mark key={i} className="bg-yellow-200 px-0 rounded">{part}</mark> : <span key={i}>{part}</span>)}</span>);
 };
 
-// Configuração de países
 const countries = [
     { name: "Brasil", code: "BR", dial_code: "+55", mask: "(00) 0000-0000[0]" },
     { name: "Estados Unidos", code: "US", dial_code: "+1", mask: "(000) 000-0000" },
@@ -93,6 +90,18 @@ const DynamicInputRow = ({ item, index, onUpdate, onRemove, isPhone, countries }
     );
 };
 
+// --- LISTA VIP (Whitelist para limpeza) ---
+const ALLOWED_COLUMNS = [
+    'empresa_id', 'nome', 'cargo', 'address_street', 'address_number', 'address_complement',
+    'cep', 'city', 'state', 'neighborhood', 'tipo_contato', 'foto_url', 'razao_social',
+    'nome_fantasia', 'cnpj', 'inscricao_estadual', 'inscricao_municipal', 'responsavel_legal',
+    'cpf', 'rg', 'birth_date', 'estado_civil', 'contract_role', 'admission_date',
+    'demission_date', 'status', 'base_salary', 'total_salary', 'daily_value', 'payment_method',
+    'pix_key', 'bank_details', 'observations', 'numero_ponto', 'nacionalidade',
+    'personalidade_juridica', 'data_fundacao', 'tipo_servico_produto', 'pessoa_contato',
+    'objetivo', 'is_awaiting_name_response', 'origem', 'organizacao_id', 'conjuge_id', 
+    'regime_bens', 'criado_por_usuario_id', 'creci', 'lixeira'
+];
 
 // FORMULÁRIO PRINCIPAL
 export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, organizacaoId }) {
@@ -130,29 +139,19 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
     useEffect(() => {
         const initializeData = async () => {
             if (isEditing && contactToEdit) {
-                // Prepara telefones para exibição (remove DDI se estiver duplicado visualmente)
+                // Prepara telefones para exibição
                 const phonesData = (contactToEdit.telefones || []).map(tel => {
                     let rawPhone = tel.telefone ? String(tel.telefone).replace(/\D/g, '') : '';
                     let countryCode = tel.country_code || '+55';
-                    
-                    if (countryCode === '+55' && rawPhone.length === 11 && rawPhone.startsWith('1') && rawPhone[2] !== '9') {
-                         countryCode = '+1'; 
-                    }
-                    if (countryCode === '+1' && rawPhone.startsWith('1')) rawPhone = rawPhone.substring(1);
-                    else if (countryCode === '+55' && rawPhone.startsWith('55')) rawPhone = rawPhone.substring(2);
-
+                    // Lógica simples de exibição
+                    if (countryCode === '+55' && rawPhone.startsWith('55')) rawPhone = rawPhone.substring(2);
                     return { ...tel, telefone: rawPhone, country_code: countryCode };
                 });
 
                 const emailsData = contactToEdit.emails || [{ email: '' }];
                 
                 if (contactToEdit.conjuge_id && !selectedConjugeName) {
-                    // Busca nome do conjuge se só tivermos o ID
-                    const { data: conjugeData } = await supabase
-                        .from('contatos')
-                        .select('nome, razao_social')
-                        .eq('id', contactToEdit.conjuge_id)
-                        .maybeSingle(); // maybeSingle evita erro 406 se nao achar
+                    const { data: conjugeData } = await supabase.from('contatos').select('nome, razao_social').eq('id', contactToEdit.conjuge_id).maybeSingle(); 
                     if(conjugeData) setSelectedConjugeName(conjugeData.nome || conjugeData.razao_social);
                 }
 
@@ -168,7 +167,6 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
                 setSelectedConjugeName('');
             }
         };
-        
         initializeData();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isEditing, contactToEdit?.id, currentOrgId]); 
@@ -178,23 +176,18 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
         queryKey: ['companiesList', currentOrgId],
         queryFn: async () => {
             if (!currentOrgId) return [];
-            const { data, error } = await supabase
-                .from('cadastro_empresa')
-                .select('id, razao_social')
-                .eq('organizacao_id', currentOrgId) 
-                .order('razao_social');
-            if (error) throw new Error(error.message);
+            const { data } = await supabase.from('cadastro_empresa').select('id, razao_social').eq('organizacao_id', currentOrgId).order('razao_social');
             return data || [];
         },
         enabled: !!currentOrgId
     });
     
-    // --- FUNÇÃO DE SALVAR BLINDADA ---
+    // --- FUNÇÃO DE SALVAR MODO DIRETO (CLIENT-SIDE) ---
     const handleSave = async (e) => {
         e.preventDefault();
         
-        if (!currentOrgId) {
-            toast.error("Erro: Organização não identificada.");
+        if (!currentOrgId || !user) {
+            toast.error("Erro: Sessão inválida. Recarregue a página.");
             return;
         }
 
@@ -202,23 +195,86 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
         const toastId = toast.loading(isEditing ? "Atualizando..." : "Salvando...");
 
         try {
-            // LIMPEZA PRÉ-ENVIO: Cria uma cópia limpa do formData para enviar
-            // Isso remove objetos complexos (como 'conjuge: {...}') que podem estar aninhados e causar erro na serialização
-            const payload = JSON.parse(JSON.stringify(formData));
-            
-            // Removemos campos que sabemos que são objetos e o servidor não precisa (ele só precisa dos IDs)
-            delete payload.conjuge; 
-            delete payload.empresa;
-            
-            // Chamada para a Server Action
-            const result = await saveContactAction({ 
-                formData: payload, 
-                isEditing 
+            // 1. Prepara dados do CONTATO
+            const dataToSave = {};
+            Object.keys(formData).forEach(key => {
+                if (ALLOWED_COLUMNS.includes(key)) {
+                    let value = formData[key];
+                    if (key === 'birth_date' || key === 'data_fundacao') {
+                        if (value === '' || value === undefined) value = null;
+                    } else {
+                        if (value === '' || value === undefined) value = null;
+                    }
+                    dataToSave[key] = value;
+                }
             });
+            
+            dataToSave.organizacao_id = currentOrgId;
+            if (!isEditing) {
+                dataToSave.criado_por_usuario_id = user.id;
+                if (!dataToSave.origem) dataToSave.origem = 'Manual';
+            }
 
-            if (result.error) {
-                // Se a action retornou erro (mesmo com status 200), lançamos aqui
-                throw new Error(result.error);
+            let contatoId = isEditing ? formData.id : null;
+
+            // 2. Salva o CONTATO
+            if (isEditing) {
+                const { error: updateError } = await supabase
+                    .from('contatos')
+                    .update(dataToSave)
+                    .eq('id', contatoId);
+                if (updateError) throw updateError;
+            } else {
+                const { data: insertData, error: insertError } = await supabase
+                    .from('contatos')
+                    .insert(dataToSave)
+                    .select('id')
+                    .single();
+                if (insertError) throw insertError;
+                contatoId = insertData.id;
+            }
+
+            // 3. Prepara e Salva TELEFONES
+            const cleanPhones = (formData.telefones || [])
+                .filter(tel => tel.telefone && tel.telefone.replace(/\D/g, '').length > 0)
+                .map(tel => {
+                    let cleanNumber = tel.telefone.replace(/\D/g, '');
+                    const ddi = (tel.country_code || '+55').replace('+', '');
+                    if (!cleanNumber.startsWith(ddi)) cleanNumber = ddi + cleanNumber;
+                    return {
+                        contato_id: contatoId,
+                        telefone: cleanNumber,
+                        country_code: tel.country_code || '+55',
+                        tipo: tel.tipo || 'Celular',
+                        organizacao_id: currentOrgId
+                    };
+                });
+
+            // Remove todos antigos e insere novos (Estratégia Limpa)
+            if (isEditing) {
+                await supabase.from('telefones').delete().eq('contato_id', contatoId);
+            }
+            if (cleanPhones.length > 0) {
+                const { error: phoneError } = await supabase.from('telefones').insert(cleanPhones);
+                if (phoneError) console.error("Erro ao salvar telefones:", phoneError);
+            }
+
+            // 4. Prepara e Salva EMAILS
+            const cleanEmails = (formData.emails || [])
+                .filter(mail => mail.email && mail.email.trim() !== '')
+                .map(mail => ({
+                    contato_id: contatoId,
+                    email: mail.email.trim(),
+                    tipo: mail.tipo || 'Pessoal',
+                    organizacao_id: currentOrgId
+                }));
+
+            if (isEditing) {
+                await supabase.from('emails').delete().eq('contato_id', contatoId);
+            }
+            if (cleanEmails.length > 0) {
+                const { error: emailError } = await supabase.from('emails').insert(cleanEmails);
+                if (emailError) console.error("Erro ao salvar emails:", emailError);
             }
 
             toast.dismiss(toastId);
@@ -227,21 +283,16 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
             queryClient.invalidateQueries({ queryKey: ['contatosMainLista'] });
             if (isEditing) queryClient.invalidateQueries({ queryKey: ['contactDetails', formData.id] });
 
-            if (onSaveSuccess) onSaveSuccess(result.contactId);
+            if (onSaveSuccess) onSaveSuccess(contatoId);
             if (onClose) onClose();
             else router.push('/contatos');
 
         } catch (error) {
-            console.error("Erro detalhado ao salvar:", error);
+            console.error("Erro fatal ao salvar:", error);
             toast.dismiss(toastId);
-            
-            // Tratamento amigável de erro de permissão
             let msg = error.message;
-            if (msg.includes('unexpected response') || msg.includes('403')) {
-                msg = "Permissão negada ou erro de conexão. Tente recarregar a página.";
-            }
-            
-            toast.error(`Não foi possível salvar: ${msg}`);
+            if (msg.includes('policy')) msg = "Erro de permissão no banco de dados. Verifique o SQL.";
+            toast.error(`Erro ao salvar: ${msg}`);
         } finally {
             setIsSaving(false);
         }
@@ -252,8 +303,8 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
         setFormData(prev => ({ ...prev, [name]: value }));
     };
     
-    // ... RESTO DO CÓDIGO PERMANECE IGUAL (handleSearchConjuge, handleDynamicInputChange, etc) ...
-    // Vou resumir aqui para não ficar gigante, mas você deve manter o restante das funções abaixo
+    // ... MANTER AS OUTRAS FUNÇÕES IGUAIS (handleSearchConjuge, etc) ...
+    // Estou recolocando as funções essenciais para garantir que nada quebre
     
     const handleSearchConjuge = useCallback(async (term) => {
         setConjugeSearchTerm(term);
@@ -312,6 +363,7 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
 
     const handleCnpjLookup = useCallback(async (unmaskedCnpj) => {
         setIsApiLoading(true);
+        // Usa a server action IMPORTADA apenas para o CNPJ (que é seguro)
         const promise = buscarDadosCnpj(unmaskedCnpj);
         toast.promise(promise, {
             loading: 'Buscando dados do CNPJ...',
@@ -333,7 +385,6 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
         });
     }, [fetchAddressFromCep]);
     
-    // RENDERIZAÇÃO
     return (
         <form onSubmit={handleSave} className="space-y-6 p-6 bg-white rounded-lg shadow-md">
             <div className="flex justify-between items-center mb-6">
