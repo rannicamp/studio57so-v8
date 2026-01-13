@@ -112,6 +112,24 @@ CREATE TABLE public.app_logs (
   payload jsonb,
   CONSTRAINT app_logs_pkey PRIMARY KEY (id)
 );
+CREATE TABLE public.auditoria_ia_logs (
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  lancamento_id bigint NOT NULL,
+  organizacao_id bigint NOT NULL,
+  status_auditoria text NOT NULL CHECK (status_auditoria = ANY (ARRAY['Pendente'::text, 'Aprovado'::text, 'Divergente'::text, 'Erro'::text])),
+  valor_identificado numeric,
+  valor_lancamento numeric,
+  diferenca numeric,
+  confianca_ia numeric,
+  analise_ia text,
+  caminhos_arquivos ARRAY,
+  modelo_ia text DEFAULT 'gemini-1.5-flash'::text,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT auditoria_ia_logs_pkey PRIMARY KEY (id),
+  CONSTRAINT fk_auditoria_lancamento FOREIGN KEY (lancamento_id) REFERENCES public.lancamentos(id),
+  CONSTRAINT fk_auditoria_organizacao FOREIGN KEY (organizacao_id) REFERENCES public.organizacoes(id)
+);
 CREATE TABLE public.automacoes (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   nome text NOT NULL,
@@ -701,6 +719,9 @@ CREATE TABLE public.email_messages_cache (
   is_read boolean DEFAULT false,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
+  conteudo_cache jsonb,
+  cc_text text,
+  bcc_text text,
   CONSTRAINT email_messages_cache_pkey PRIMARY KEY (id),
   CONSTRAINT email_messages_cache_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.email_configuracoes(id)
 );
@@ -1064,6 +1085,9 @@ CREATE TABLE public.kpis_personalizados (
   operacao text,
   tabela_fonte text,
   coluna_alvo text,
+  ordem integer DEFAULT 999,
+  tipo_visualizacao text DEFAULT 'card'::text,
+  agrupamento_tempo text DEFAULT 'mes'::text,
   CONSTRAINT kpis_personalizados_pkey PRIMARY KEY (id),
   CONSTRAINT kpis_personalizados_usuario_id_fkey FOREIGN KEY (usuario_id) REFERENCES public.usuarios(id),
   CONSTRAINT kpis_personalizados_organizacao_id_fkey FOREIGN KEY (organizacao_id) REFERENCES public.organizacoes(id)
@@ -1100,6 +1124,7 @@ CREATE TABLE public.lancamentos (
   frequencia text,
   recorrencia_data_fim date,
   pluggy_transaction_id text UNIQUE,
+  status_auditoria_ia text DEFAULT 'Nao Auditado'::text CHECK (status_auditoria_ia = ANY (ARRAY['Nao Auditado'::text, 'Pendente'::text, 'Aprovado'::text, 'Divergente'::text, 'Erro'::text])),
   CONSTRAINT lancamentos_pkey PRIMARY KEY (id),
   CONSTRAINT lancamentos_conta_id_fkey FOREIGN KEY (conta_id) REFERENCES public.contas_financeiras(id),
   CONSTRAINT lancamentos_categoria_id_fkey FOREIGN KEY (categoria_id) REFERENCES public.categorias_financeiras(id),
@@ -1773,6 +1798,9 @@ CREATE TABLE public.whatsapp_conversations (
   organizacao_id bigint,
   last_message_id bigint,
   unread_count integer DEFAULT 0,
+  last_direction text DEFAULT 'inbound'::text,
+  last_status text DEFAULT 'delivered'::text,
+  last_message_direction text DEFAULT 'inbound'::text,
   CONSTRAINT whatsapp_conversations_pkey PRIMARY KEY (id),
   CONSTRAINT whatsapp_conversations_organizacao_id_fkey FOREIGN KEY (organizacao_id) REFERENCES public.organizacoes(id),
   CONSTRAINT whatsapp_conversations_last_message_id_fkey FOREIGN KEY (last_message_id) REFERENCES public.whatsapp_messages(id),
@@ -1807,6 +1835,7 @@ CREATE TABLE public.whatsapp_messages (
   media_url text,
   broadcast_id bigint,
   nome_remetente text,
+  error_message text,
   CONSTRAINT whatsapp_messages_pkey PRIMARY KEY (id),
   CONSTRAINT whatsapp_messages_contato_id_fkey FOREIGN KEY (contato_id) REFERENCES public.contatos(id),
   CONSTRAINT whatsapp_messages_organizacao_id_fkey FOREIGN KEY (organizacao_id) REFERENCES public.organizacoes(id),

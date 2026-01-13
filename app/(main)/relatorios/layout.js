@@ -1,5 +1,4 @@
-// app/(main)/relatorios/layout.js
-"use client";
+'use client';
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -9,7 +8,8 @@ import {
   faUsers, 
   faHardHat, 
   faMoneyBillWave, 
-  faBoxOpen 
+  faBoxOpen,
+  faChartLine // <--- Adicionei o ícone aqui
 } from '@fortawesome/free-solid-svg-icons';
 
 export default function RelatoriosLayout({ children }) {
@@ -20,7 +20,8 @@ export default function RelatoriosLayout({ children }) {
 
   const navItems = [
     { label: 'RH & Pessoas', path: '/relatorios/rh', icon: faUsers },
-    // Futuros módulos (deixe comentado ou ativo se quiser mostrar "em breve")
+    // Adicionei o Comercial aqui, ao lado do Financeiro
+    { label: 'Comercial', path: '/relatorios/comercial', icon: faChartLine },
     { label: 'Financeiro', path: '/relatorios/financeiro', icon: faMoneyBillWave },
     { label: 'Obras', path: '/relatorios/obras', icon: faHardHat },
     { label: 'Almoxarifado', path: '/relatorios/estoque', icon: faBoxOpen },
