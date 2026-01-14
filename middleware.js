@@ -32,12 +32,14 @@ export async function middleware(req) {
     '/empreendimentosstudio',
     '/refugiobraunas',
     '/residencialalfa',
-    '/studiosbeta',
+    '/studiosbeta', // Mantive o que estava
+    '/betasuites',  // Adicionei por garantia (pasta que criamos antes)
+    '/migracao',    // <--- ADICIONADO: Nova página do Plano de Transição
     '/sobre-nos',
     '/api/meta/webhook',
     '/api/whatsapp/webhook',
-    '/api/notifications/push', // <--- ADICIONADO: O Webhook precisa ser público!
-    '/api/teste-manual' // <--- ADICIONADO: Para aquele teste que fizemos (opcional)
+    '/api/notifications/push', 
+    '/api/teste-manual' 
   ]
 
   // Prefixos que NÃO exigem login (ex: todas as rotas dentro de /api/auth/*)
