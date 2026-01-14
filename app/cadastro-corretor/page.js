@@ -1,32 +1,30 @@
 // app/cadastro-corretor/page.js
 'use client'
 
-import { useState, useEffect } from 'react'
+// MUDANÇA 1: Usamos apenas useState (memória temporária)
+import { useState, useEffect } from 'react' 
 import { registerRealtor } from './actions'
 import { getLatestTerms } from './terms-actions'
-import { usePersistentState } from '@/hooks/usePersistentState' 
+// O import do usePersistentState foi removido por segurança
 import { toast } from 'sonner'
 import Link from 'next/link'
 import Image from 'next/image'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { 
   faSpinner, 
-  faIdCard, 
-  faLock, 
-  faUser, 
-  faEnvelope, 
   faCheckCircle, 
   faBuildingUser,
   faFileContract,
-  faXmark
+  faXmark,
+  faEraser // Ícone novo para o botão de limpar
 } from '@fortawesome/free-solid-svg-icons'
 
 // ID DA ORGANIZAÇÃO DEFINIDO AQUI
 const ORGANIZACAO_ID = 2;
 
 export default function CadastroCorretorPage() {
-  // 1. DADOS QUE FICAM SALVOS (PERSISTENTES)
-  const [formData, setFormData] = usePersistentState('cadastro_corretor_form_v1', {
+  // MUDANÇA 2: Estado simples. Atualizou a página? Limpou tudo!
+  const [formData, setFormData] = useState({
     nome: '',
     email: '',
     creci: '',
@@ -43,7 +41,7 @@ export default function CadastroCorretorPage() {
     termId: null
   })
 
-  // 2. DADOS SENSÍVEIS (NÃO SALVOS NO CACHE POR SEGURANÇA)
+  // DADOS SENSÍVEIS (Senha já era temporária, continua assim)
   const [securityData, setSecurityData] = useState({
     password: '',
     confirmPassword: ''
@@ -57,27 +55,22 @@ export default function CadastroCorretorPage() {
 
   const logoUrl = "https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empresa-anexos/4/LOGO-P_1765565958716.PNG";
 
-  // Carregar os termos ao iniciar a página
+  // Carregar os termos ao iniciar a página (Busca nova a cada F5)
   useEffect(() => {
     async function loadTerms() {
         try {
             const term = await getLatestTerms(ORGANIZACAO_ID);
             if (term) {
                 setTermContent(term.conteudo);
-                // Atualiza o ID no form apenas se for diferente ou nulo
-                setFormData(prev => {
-                    if (prev.termId === term.id) return prev;
-                    return { ...prev, termId: term.id };
-                });
+                setFormData(prev => ({ ...prev, termId: term.id }));
             }
         } catch (error) {
             console.error("Erro silencioso ao carregar termos:", error);
         }
     }
     loadTerms();
-  }, [setFormData]) 
+  }, []) // Array vazio = roda apenas uma vez quando a página abre
 
-  // Função Unificada de Mudança 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target
     const val = type === 'checkbox' ? checked : value
@@ -89,7 +82,20 @@ export default function CadastroCorretorPage() {
     }
   }
 
-  // Busca de CEP 
+  // Função para limpar manualmente (Botão extra de segurança)
+  const handleClear = () => {
+      if(confirm('Deseja limpar todos os campos?')) {
+          setFormData(prev => ({
+              nome: '', email: '', creci: '', cpf: '', estado_civil: '',
+              cep: '', address_street: '', address_number: '', address_complement: '',
+              neighborhood: '', city: '', state: '', acceptedTerms: false, 
+              termId: prev.termId // Mantém só o ID do termo
+          }));
+          setSecurityData({ password: '', confirmPassword: '' });
+          toast.info('Formulário limpo.');
+      }
+  }
+
   const handleCepBlur = async (e) => {
     const cep = e.target.value.replace(/\D/g, '');
     if (cep.length !== 8) return;
@@ -121,38 +127,32 @@ export default function CadastroCorretorPage() {
     e.preventDefault()
     setIsLoading(true)
 
-    // --- REDE DE SEGURANÇA: GARANTIR O TERM ID ---
+    // REDE DE SEGURANÇA: GARANTIR O TERM ID
     let currentTermId = formData.termId;
 
     if (!currentTermId) {
-        console.log("TermId ausente. Tentando recuperar emergencialmente...");
         try {
             const term = await getLatestTerms(ORGANIZACAO_ID);
             if (term && term.id) {
                 currentTermId = term.id;
-                // Atualiza o estado para persistir na próxima
-                setFormData(prev => ({ ...prev, termId: term.id }));
             } else {
-                toast.error('Erro de conexão: Não foi possível carregar os Termos de Uso. Verifique sua internet e tente novamente.');
+                toast.error('Erro de conexão: Não foi possível carregar os Termos. Verifique sua internet.');
                 setIsLoading(false);
                 return;
             }
         } catch (err) {
-            toast.error('Erro crítico ao validar termos. Tente recarregar a página.');
+            toast.error('Erro crítico ao validar termos. Recarregue a página.');
             setIsLoading(false);
             return;
         }
     }
-    // ----------------------------------------------
 
-    // Unifica os dados para envio, garantindo que o termId atualizado vá junto
     const payload = {
         ...formData,
-        termId: currentTermId, // Usa o ID garantido
+        termId: currentTermId,
         ...securityData
     }
 
-    // Validações locais
     if (payload.password !== payload.confirmPassword) {
       toast.error('Senhas não conferem')
       setIsLoading(false)
@@ -165,7 +165,6 @@ export default function CadastroCorretorPage() {
         return
     }
 
-    // Envio ao Server Action
     const result = await registerRealtor(payload)
 
     setIsLoading(false)
@@ -174,20 +173,20 @@ export default function CadastroCorretorPage() {
       toast.error('Erro no Cadastro', { description: result.error })
     } else if (result?.success) {
       setSuccess(true)
-      toast.success('Cadastro realizado!', { description: 'Verifique seu e-mail para confirmar a conta.' })
+      toast.success('Cadastro realizado!', { description: 'Verifique seu e-mail.' })
       
-      // Reset limpo
+      // Limpeza completa após sucesso
       setFormData({
         nome: '', email: '', creci: '', cpf: '', estado_civil: '',
         cep: '', address_street: '', address_number: '', address_complement: '',
         neighborhood: '', city: '', state: '', acceptedTerms: false, termId: currentTermId
       });
+      setSecurityData({ password: '', confirmPassword: '' });
     } else {
       toast.error('Erro Inesperado')
     }
   }
 
-  // --- MODAL DE TERMOS ---
   const TermsModal = () => {
     if (!showModal) return null;
     return (
@@ -217,7 +216,7 @@ export default function CadastroCorretorPage() {
                             setShowModal(false); 
                             toast.success("Termos aceitos!"); 
                         }} 
-                        disabled={!termContent} // Trava se não carregou
+                        disabled={!termContent}
                         className="px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-md text-sm font-medium shadow-sm disabled:bg-gray-400 disabled:cursor-not-allowed"
                     >
                         Li e Aceito
@@ -228,7 +227,6 @@ export default function CadastroCorretorPage() {
     )
   }
   
-  // TELA DE SUCESSO
   if (success) {
     return (
         <div className="flex min-h-screen flex-col items-center justify-center bg-gray-50 p-4">
@@ -243,7 +241,6 @@ export default function CadastroCorretorPage() {
     )
   }
 
-  // FORMULÁRIO
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-50 px-4 py-12 relative">
       <TermsModal />
@@ -256,7 +253,6 @@ export default function CadastroCorretorPage() {
 
         <form className="space-y-4" onSubmit={handleSubmit}>
           
-          {/* DADOS PESSOAIS */}
           <div className="bg-gray-50 p-4 rounded-md border border-gray-100 mb-4">
             <h3 className="text-sm font-semibold text-gray-700 mb-3 border-b pb-1">Dados Pessoais</h3>
             <div className="space-y-4">
@@ -299,7 +295,6 @@ export default function CadastroCorretorPage() {
             </div>
           </div>
 
-          {/* ENDEREÇO */}
           <div className="bg-gray-50 p-4 rounded-md border border-gray-100 mb-4">
             <h3 className="text-sm font-semibold text-gray-700 mb-3 border-b pb-1">Endereço Completo</h3>
             <div className="space-y-4">
@@ -345,7 +340,6 @@ export default function CadastroCorretorPage() {
             </div>
           </div>
 
-          {/* SEGURANÇA */}
           <div className="bg-gray-50 p-4 rounded-md border border-gray-100 mb-4">
              <h3 className="text-sm font-semibold text-gray-700 mb-3 border-b pb-1">Segurança</h3>
              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -363,9 +357,13 @@ export default function CadastroCorretorPage() {
             </div>
           </div>
 
-          <div className="pt-2">
+          <div className="pt-2 flex flex-col gap-3">
             <button type="submit" disabled={isLoading} className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-blue-300 disabled:cursor-not-allowed transition-all">
               {isLoading ? (<><FontAwesomeIcon icon={faSpinner} spin className="mr-2" /> Processando cadastro...</>) : 'Finalizar Cadastro'}
+            </button>
+            {/* Botão de Limpeza Manual */}
+            <button type="button" onClick={handleClear} disabled={isLoading} className="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-600 bg-white hover:bg-gray-50 focus:outline-none transition-all">
+               <FontAwesomeIcon icon={faEraser} className="mr-2" /> Limpar Formulário
             </button>
           </div>
         </form>
