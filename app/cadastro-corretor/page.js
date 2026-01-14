@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react'
 import { registerRealtor } from './actions'
 import { getLatestTerms } from './terms-actions'
-import { usePersistentState } from '@/hooks/usePersistentState' // <--- O Mágico da Persistência
+import { usePersistentState } from '@/hooks/usePersistentState' 
 import { toast } from 'sonner'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -57,37 +57,39 @@ export default function CadastroCorretorPage() {
 
   const logoUrl = "https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empresa-anexos/4/LOGO-P_1765565958716.PNG";
 
-  // Carregar os termos (e atualizar o ID no form persistente se necessário)
+  // Carregar os termos ao iniciar a página
   useEffect(() => {
     async function loadTerms() {
-        const term = await getLatestTerms(ORGANIZACAO_ID);
-        if (term) {
-            // Só atualiza se o ID for diferente para não resetar o form à toa
-            setFormData(prev => {
-                if (prev.termId === term.id) return prev;
-                return { ...prev, termId: term.id };
-            });
-            setTermContent(term.conteudo);
+        try {
+            const term = await getLatestTerms(ORGANIZACAO_ID);
+            if (term) {
+                setTermContent(term.conteudo);
+                // Atualiza o ID no form apenas se for diferente ou nulo
+                setFormData(prev => {
+                    if (prev.termId === term.id) return prev;
+                    return { ...prev, termId: term.id };
+                });
+            }
+        } catch (error) {
+            console.error("Erro silencioso ao carregar termos:", error);
         }
     }
     loadTerms();
-  }, [setFormData]) // Dependência do hook de persistência
+  }, [setFormData]) 
 
-  // Função Unificada de Mudança (Gerencia os dois estados)
+  // Função Unificada de Mudança 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target
     const val = type === 'checkbox' ? checked : value
 
-    // Se for senha, atualiza o estado seguro (temporário)
     if (name === 'password' || name === 'confirmPassword') {
         setSecurityData(prev => ({ ...prev, [name]: val }))
     } else {
-        // Se for dado comum, atualiza o estado persistente (localStorage)
         setFormData(prev => ({ ...prev, [name]: val }))
     }
   }
 
-  // Busca de CEP (Atualiza o estado persistente)
+  // Busca de CEP 
   const handleCepBlur = async (e) => {
     const cep = e.target.value.replace(/\D/g, '');
     if (cep.length !== 8) return;
@@ -119,13 +121,38 @@ export default function CadastroCorretorPage() {
     e.preventDefault()
     setIsLoading(true)
 
-    // Unifica os dados para envio
+    // --- REDE DE SEGURANÇA: GARANTIR O TERM ID ---
+    let currentTermId = formData.termId;
+
+    if (!currentTermId) {
+        console.log("TermId ausente. Tentando recuperar emergencialmente...");
+        try {
+            const term = await getLatestTerms(ORGANIZACAO_ID);
+            if (term && term.id) {
+                currentTermId = term.id;
+                // Atualiza o estado para persistir na próxima
+                setFormData(prev => ({ ...prev, termId: term.id }));
+            } else {
+                toast.error('Erro de conexão: Não foi possível carregar os Termos de Uso. Verifique sua internet e tente novamente.');
+                setIsLoading(false);
+                return;
+            }
+        } catch (err) {
+            toast.error('Erro crítico ao validar termos. Tente recarregar a página.');
+            setIsLoading(false);
+            return;
+        }
+    }
+    // ----------------------------------------------
+
+    // Unifica os dados para envio, garantindo que o termId atualizado vá junto
     const payload = {
         ...formData,
+        termId: currentTermId, // Usa o ID garantido
         ...securityData
     }
 
-    // Validações
+    // Validações locais
     if (payload.password !== payload.confirmPassword) {
       toast.error('Senhas não conferem')
       setIsLoading(false)
@@ -138,6 +165,7 @@ export default function CadastroCorretorPage() {
         return
     }
 
+    // Envio ao Server Action
     const result = await registerRealtor(payload)
 
     setIsLoading(false)
@@ -148,14 +176,11 @@ export default function CadastroCorretorPage() {
       setSuccess(true)
       toast.success('Cadastro realizado!', { description: 'Verifique seu e-mail para confirmar a conta.' })
       
-      // Limpa o cache após sucesso (opcional, mas recomendado)
-      // Como o usePersistentState não tem um "clear" exposto direto aqui, 
-      // podemos resetar manualmente ou deixar para a próxima sessão.
-      // Geralmente deixamos assim ou resetamos os campos:
+      // Reset limpo
       setFormData({
         nome: '', email: '', creci: '', cpf: '', estado_civil: '',
         cep: '', address_street: '', address_number: '', address_complement: '',
-        neighborhood: '', city: '', state: '', acceptedTerms: false, termId: payload.termId
+        neighborhood: '', city: '', state: '', acceptedTerms: false, termId: currentTermId
       });
     } else {
       toast.error('Erro Inesperado')
@@ -175,11 +200,28 @@ export default function CadastroCorretorPage() {
                     <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600"><FontAwesomeIcon icon={faXmark} className="text-xl" /></button>
                 </div>
                 <div className="p-6 overflow-y-auto custom-scrollbar">
-                    {termContent ? <div className="prose prose-sm max-w-none text-gray-600" dangerouslySetInnerHTML={{ __html: termContent }} /> : <p className="text-center text-gray-500">Carregando termos...</p>}
+                    {termContent ? (
+                        <div className="prose prose-sm max-w-none text-gray-600" dangerouslySetInnerHTML={{ __html: termContent }} />
+                    ) : (
+                        <div className="flex flex-col items-center justify-center py-8">
+                             <FontAwesomeIcon icon={faSpinner} spin className="text-blue-600 text-2xl mb-2" />
+                             <p className="text-gray-500">Carregando termos...</p>
+                        </div>
+                    )}
                 </div>
                 <div className="p-4 border-t border-gray-100 flex justify-end gap-3 bg-gray-50 rounded-b-lg">
                     <button onClick={() => setShowModal(false)} className="px-4 py-2 text-gray-600 hover:bg-gray-200 rounded-md text-sm font-medium">Fechar</button>
-                    <button onClick={() => { setFormData(prev => ({ ...prev, acceptedTerms: true })); setShowModal(false); toast.success("Termos aceitos!"); }} className="px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-md text-sm font-medium shadow-sm">Li e Aceito</button>
+                    <button 
+                        onClick={() => { 
+                            setFormData(prev => ({ ...prev, acceptedTerms: true })); 
+                            setShowModal(false); 
+                            toast.success("Termos aceitos!"); 
+                        }} 
+                        disabled={!termContent} // Trava se não carregou
+                        className="px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-md text-sm font-medium shadow-sm disabled:bg-gray-400 disabled:cursor-not-allowed"
+                    >
+                        Li e Aceito
+                    </button>
                 </div>
             </div>
         </div>
@@ -303,7 +345,7 @@ export default function CadastroCorretorPage() {
             </div>
           </div>
 
-          {/* SEGURANÇA (NÃO PERSISTE NO CACHE) */}
+          {/* SEGURANÇA */}
           <div className="bg-gray-50 p-4 rounded-md border border-gray-100 mb-4">
              <h3 className="text-sm font-semibold text-gray-700 mb-3 border-b pb-1">Segurança</h3>
              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -323,7 +365,7 @@ export default function CadastroCorretorPage() {
 
           <div className="pt-2">
             <button type="submit" disabled={isLoading} className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-blue-300 disabled:cursor-not-allowed transition-all">
-              {isLoading ? (<><FontAwesomeIcon icon={faSpinner} spin className="mr-2" /> Criando conta...</>) : 'Finalizar Cadastro'}
+              {isLoading ? (<><FontAwesomeIcon icon={faSpinner} spin className="mr-2" /> Processando cadastro...</>) : 'Finalizar Cadastro'}
             </button>
           </div>
         </form>
