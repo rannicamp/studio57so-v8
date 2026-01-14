@@ -209,7 +209,6 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
                 conta_id: formData.conta_id,
                 tipo: formData.tipo,
                 pedido_compra_id: formData.pedido_compra_id,
-                // Correção aqui: garantindo que as datas vão corretamente
                 data_transacao: formData.data_transacao,
                 data_vencimento: formData.data_vencimento, 
             };
@@ -386,24 +385,17 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
         if (isOpen) {
             if (initialData) {
                 const today = new Date().toISOString().split('T')[0];
-
-                // Prioridades de Data:
-                // 1. data_transacao explícita (vem da edição ou mapeado do extrato)
-                // 2. data (comum em objetos de extrato bruto)
-                // 3. today (fallback)
                 const dataTransacaoEfetiva = initialData.data_transacao || initialData.data;
                 const dataTransacaoFinal = dataTransacaoEfetiva 
                     ? new Date(dataTransacaoEfetiva).toISOString().split('T')[0] 
                     : today;
                 
-                // Vencimento: se não vier, assume a mesma data da transação
                 const dataVencimentoFinal = initialData.data_vencimento
                     ? new Date(initialData.data_vencimento).toISOString().split('T')[0]
                     : dataTransacaoFinal;
 
                 const dataToLoad = { 
                     ...initialData, 
-                    // Se for edição, mantém o ID. Se for criação (extrato/duplicate), limpa.
                     id: initialData.id || null,
                     observacoes: initialData.observacao || '',
                     valor: initialData.valor ? String(initialData.valor).replace(',', '.') : '', 
@@ -413,7 +405,6 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
 
                     data_pagamento: initialData.data_pagamento ? new Date(initialData.data_pagamento).toISOString().split('T')[0] : null,
                     
-                    // Se estiver criando novo (mesmo via extrato), não vincula anexos antigos como se fossem novos uploads
                     anexos_preexistentes: isEditing ? (initialData.anexos || []) : [],
                     anexos: [],
                 };
@@ -470,9 +461,7 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
         }
 
         // Lógica automática: Se mudar data_transacao em modo simples, sugere mesma data para vencimento
-        // Mas apenas se o vencimento for igual a anterior (usuário não modificou manualmente)
         if (name === 'data_transacao' && formData.form_type === 'simples') {
-             // Se o usuário ainda não mexeu no vencimento (ou se era igual à transacao antiga), atualiza
              if (formData.data_vencimento === formData.data_transacao) {
                  newFormData.data_vencimento = value;
              }
@@ -605,9 +594,57 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
                     <div className="space-y-4 pt-4 border-t">
                         <input type="text" name="descricao" value={formData.descricao || ''} onChange={handleChange} required placeholder="Descrição do Lançamento *" className="w-full p-2 border rounded-md" />
                         
-                        {formData.form_type === 'parcelado' && !isEditing && ( <fieldset className="p-3 border rounded-lg bg-gray-50 animate-fade-in"> <legend className="font-semibold text-sm">Detalhes do Parcelamento</legend> <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2"> <div> <label className="block text-sm font-medium">Valor Total *</label> <IMaskInput mask="R$ num" blocks={{ num: { mask: Number, thousandsSeparator: '.', scale: 2, padFractionalZeros: true, radix: ',', mapToRadix: ['.'] }}} unmask={true} name="valor" value={String(formData.valor || '')} onAccept={(unmaskedValue) => handleValorChange(unmaskedValue)} required className="w-full p-2 border rounded-md"/> </div> <div> <label className="block text-sm font-medium">Nº de Parcelas *</label> <input type="number" min="2" name="numero_parcelas" value={formData.numero_parcelas} onChange={handleChange} required className="w-full p-2 border rounded-md"/> </div> <div> <label className="block text-sm font-medium">1º Vencimento *</label> <input type="date" name="data_primeiro_vencimento" value={formData.data_primeiro_vencimento} onChange={handleChange} required className="w-full p-2 border rounded-md"/> </div> </div> </fieldset> )}
-                        {formData.form_type === 'recorrente' && !isEditing && ( <fieldset className="p-3 border rounded-lg bg-gray-50 animate-fade-in"> <legend className="font-semibold text-sm">Detalhes da Recorrência</legend> <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2"> <div> <label className="block text-sm font-medium">Valor da Parcela *</label> <IMaskInput mask="R$ num" blocks={{ num: { mask: Number, thousandsSeparator: '.', scale: 2, padFractionalZeros: true, radix: ',', mapToRadix: ['.'] }}} unmask={true} name="valor" value={String(formData.valor || '')} onAccept={(unmaskedValue) => handleValorChange(unmaskedValue)} required className="w-full p-2 border rounded-md"/> </div> <div> <label className="block text-sm font-medium">Data Início *</label> <input type="date" name="recorrencia_data_inicio" value={formData.recorrencia_data_inicio} onChange={handleChange} required className="w-full p-2 border rounded-md"/> </div> <div> <label className="block text-sm font-medium">Data Fim (Opcional)</label> <input type="date" name="recorrencia_data_fim" value={formData.recorrencia_data_fim || ''} onChange={handleChange} className="w-full p-2 border rounded-md"/> </div> </div> </fieldset> )}
+                        {/* CONFIGURAÇÃO PARA PARCELADO */}
+                        {formData.form_type === 'parcelado' && !isEditing && ( 
+                            <fieldset className="p-3 border rounded-lg bg-gray-50 animate-fade-in"> 
+                                <legend className="font-semibold text-sm">Detalhes do Parcelamento</legend> 
+                                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-2"> 
+                                    <div> 
+                                        <label className="block text-sm font-medium">Valor Total *</label> 
+                                        <IMaskInput mask="R$ num" blocks={{ num: { mask: Number, thousandsSeparator: '.', scale: 2, padFractionalZeros: true, radix: ',', mapToRadix: ['.'] }}} unmask={true} name="valor" value={String(formData.valor || '')} onAccept={(unmaskedValue) => handleValorChange(unmaskedValue)} required className="w-full p-2 border rounded-md"/> 
+                                    </div> 
+                                    <div> 
+                                        <label className="block text-sm font-medium">Data da Compra *</label> 
+                                        <input type="date" name="data_transacao" value={formData.data_transacao || ''} onChange={handleChange} required className="w-full p-2 border rounded-md"/> 
+                                    </div> 
+                                    <div> 
+                                        <label className="block text-sm font-medium">Nº de Parcelas *</label> 
+                                        <input type="number" min="2" name="numero_parcelas" value={formData.numero_parcelas} onChange={handleChange} required className="w-full p-2 border rounded-md"/> 
+                                    </div> 
+                                    <div> 
+                                        <label className="block text-sm font-medium">1º Vencimento *</label> 
+                                        <input type="date" name="data_primeiro_vencimento" value={formData.data_primeiro_vencimento} onChange={handleChange} required className="w-full p-2 border rounded-md"/> 
+                                    </div> 
+                                </div> 
+                            </fieldset> 
+                        )}
+
+                        {/* CONFIGURAÇÃO PARA RECORRENTE */}
+                        {formData.form_type === 'recorrente' && !isEditing && ( 
+                            <fieldset className="p-3 border rounded-lg bg-gray-50 animate-fade-in"> 
+                                <legend className="font-semibold text-sm">Detalhes da Recorrência</legend> 
+                                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-2"> 
+                                    <div> 
+                                        <label className="block text-sm font-medium">Valor da Parcela *</label> 
+                                        <IMaskInput mask="R$ num" blocks={{ num: { mask: Number, thousandsSeparator: '.', scale: 2, padFractionalZeros: true, radix: ',', mapToRadix: ['.'] }}} unmask={true} name="valor" value={String(formData.valor || '')} onAccept={(unmaskedValue) => handleValorChange(unmaskedValue)} required className="w-full p-2 border rounded-md"/> 
+                                    </div> 
+                                    <div> 
+                                        <label className="block text-sm font-medium">Data do Contrato</label> 
+                                        <input type="date" name="data_transacao" value={formData.data_transacao || ''} onChange={handleChange} required className="w-full p-2 border rounded-md"/> 
+                                    </div>
+                                    <div> 
+                                        <label className="block text-sm font-medium">Data Início *</label> 
+                                        <input type="date" name="recorrencia_data_inicio" value={formData.recorrencia_data_inicio} onChange={handleChange} required className="w-full p-2 border rounded-md"/> 
+                                    </div> 
+                                    <div> 
+                                        <label className="block text-sm font-medium">Data Fim (Opcional)</label> 
+                                        <input type="date" name="recorrencia_data_fim" value={formData.recorrencia_data_fim || ''} onChange={handleChange} className="w-full p-2 border rounded-md"/> 
+                                    </div> 
+                                </div> 
+                            </fieldset> 
+                        )}
                         
+                        {/* CONFIGURAÇÃO PARA SIMPLES E TRANSFERÊNCIA */}
                         {(formData.form_type === 'simples' || formData.form_type === 'transferencia' || isEditing) && ( 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4"> 
                                 <div> 
