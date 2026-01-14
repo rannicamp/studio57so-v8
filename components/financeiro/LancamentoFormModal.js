@@ -134,13 +134,14 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
         staleTime: 5 * 60 * 1000,
     });
     
-    // --- Lógica de Data Inteligente (Cartão) ---
+    // --- Lógica de Data Inteligente (Cartão e Parcelado) ---
     useEffect(() => {
-        // Só executa se não estiver editando um lançamento existente para não alterar histórico
+        // Só executa se não estiver editando um lançamento existente
         if (isEditing || !dropdownData?.contas || !formData.conta_id || !formData.data_transacao) return;
 
         const contaSelecionada = dropdownData.contas.find(c => c.id == formData.conta_id);
 
+        // Se for cartão de crédito com datas configuradas
         if (contaSelecionada?.tipo === 'Cartão de Crédito' && contaSelecionada.dia_fechamento_fatura && contaSelecionada.dia_pagamento_fatura) {
             
             const dataCompra = new Date(formData.data_transacao + 'T12:00:00Z');
@@ -155,21 +156,31 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
                 dataVencimentoCalculada.setMonth(dataVencimentoCalculada.getMonth() + 1);
             }
 
-            // Ajusta o dia
+            // Ajusta o dia para o dia de vencimento da fatura
             dataVencimentoCalculada.setDate(diaVencimento);
 
-            // Se o dia de vencimento for menor que o fechamento (ex: fecha 25, vence 05), pula mais um mês
+            // Correção extra: Se o dia de vencimento for menor que o fechamento (ex: fecha 25, vence 05), 
+            // significa que o vencimento é no mês seguinte ao fechamento.
             if (diaVencimento < diaFechamento) {
                  dataVencimentoCalculada.setMonth(dataVencimentoCalculada.getMonth() + 1);
             }
 
             const novaDataVencimento = dataVencimentoCalculada.toISOString().split('T')[0];
 
-            if (formData.data_vencimento !== novaDataVencimento) {
-                setFormData(prev => ({ ...prev, data_vencimento: novaDataVencimento }));
+            // APLICAÇÃO DA DATA CALCULADA
+            if (formData.form_type === 'parcelado') {
+                // Para parcelado, atualiza a data do 1º vencimento
+                if (formData.data_primeiro_vencimento !== novaDataVencimento) {
+                    setFormData(prev => ({ ...prev, data_primeiro_vencimento: novaDataVencimento }));
+                }
+            } else if (formData.form_type === 'simples') {
+                // Para simples, atualiza a data de vencimento normal
+                if (formData.data_vencimento !== novaDataVencimento) {
+                    setFormData(prev => ({ ...prev, data_vencimento: novaDataVencimento }));
+                }
             }
         } 
-    }, [formData.conta_id, formData.data_transacao, dropdownData, isEditing, formData.form_type]);
+    }, [formData.conta_id, formData.data_transacao, formData.form_type, dropdownData, isEditing]);
 
 
     const sanitizeFileName = (fileName) => {
@@ -461,8 +472,12 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
         }
 
         // Lógica automática: Se mudar data_transacao em modo simples, sugere mesma data para vencimento
+        // MAS apenas se não for cartão de crédito (que já tem logica própria no useEffect)
         if (name === 'data_transacao' && formData.form_type === 'simples') {
-             if (formData.data_vencimento === formData.data_transacao) {
+             const contaSelecionada = dropdownData?.contas?.find(c => c.id == formData.conta_id);
+             const isCartao = contaSelecionada?.tipo === 'Cartão de Crédito';
+             
+             if (!isCartao && formData.data_vencimento === formData.data_transacao) {
                  newFormData.data_vencimento = value;
              }
         }
@@ -613,7 +628,8 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
                                     </div> 
                                     <div> 
                                         <label className="block text-sm font-medium">1º Vencimento *</label> 
-                                        <input type="date" name="data_primeiro_vencimento" value={formData.data_primeiro_vencimento} onChange={handleChange} required className="w-full p-2 border rounded-md"/> 
+                                        <input type="date" name="data_primeiro_vencimento" value={formData.data_primeiro_vencimento} onChange={handleChange} required className="w-full p-2 border rounded-md bg-yellow-50"/> 
+                                        <p className="text-[10px] text-gray-500 mt-0.5">Calculado se for cartão.</p>
                                     </div> 
                                 </div> 
                             </fieldset> 
