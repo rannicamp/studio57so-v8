@@ -163,7 +163,7 @@ export default function PlanoMigracaoPage() {
                                     </li>
                                     <li className="flex items-start text-sm text-gray-300">
                                         <FontAwesomeIcon icon={faCheck} className="text-orange-500 mt-1 mr-3 w-4" />
-                                        Alta liquidez (Studios).
+                                        Alta liquidez (Suítes).
                                     </li>
                                     <li className="flex items-start text-sm text-gray-300">
                                         <FontAwesomeIcon icon={faCheck} className="text-orange-500 mt-1 mr-3 w-4" />

@@ -1,3 +1,4 @@
+// components/whatsapp/ContactProfile.js
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
@@ -8,7 +9,7 @@ import {
     faStickyNote, faTasks, faSpinner, faPlus, faPhone, 
     faEnvelope, faIdCard, faGlobe, faPen, faTrash, faCheckCircle, 
     faBullhorn, faUserTie, faCalculator, faExternalLinkAlt,
-    faHistory, faTimes, faBriefcase, faSave, faFunnelDollar
+    faHistory, faTimes, faBriefcase, faSave, faFunnelDollar, faMoneyBillWave
 } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
@@ -21,6 +22,11 @@ import ContatoForm from '@/components/contatos/ContatoForm';
 import ContatoCardCRM from '@/components/crm/ContatoCardCRM';
 
 // --- COMPONENTES AUXILIARES ---
+
+const formatCurrency = (value) => {
+    if (value === null || value === undefined) return null;
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+};
 
 const EditableField = ({ label, value, name, onChange, icon }) => (
     <div className="mb-3">
@@ -133,7 +139,6 @@ const fetchContactProfileData = async (supabase, contatoId, organizacaoId) => {
         .eq('contato_id', contatoId)
         .maybeSingle();
     
-    // Injetamos o contato dentro do funilEntryData para o CardCRM usar (ele espera essa estrutura)
     if (funilEntryData) {
         funilEntryData.contatos = contactDetails; 
     }
@@ -153,7 +158,7 @@ const fetchContactProfileData = async (supabase, contatoId, organizacaoId) => {
 
     return { 
         contactDetails: contactDetails || {}, 
-        funilEntry: funilEntryData, // Objeto completo para o CardCRM
+        funilEntry: funilEntryData,
         funilEntryId, 
         notes: notes || [], 
         activities: activities || [], 
@@ -185,7 +190,6 @@ export default function ContactProfile({ contact }) {
         enabled: !!contact && !!organizacaoId,
     });
     
-    // Dados para o Card CRM (Colunas e Produtos)
     const { data: allColumns = [] } = useQuery({
         queryKey: ['colunasFunil', organizacaoId],
         queryFn: async () => {
@@ -218,7 +222,8 @@ export default function ContactProfile({ contact }) {
                 cpf: displayContact.cpf || '',
                 cnpj: displayContact.cnpj || '',
                 origem: displayContact.origem || '',
-                cargo: displayContact.cargo || '' 
+                cargo: displayContact.cargo || '',
+                renda_familiar: displayContact.renda_familiar ? formatCurrency(displayContact.renda_familiar) : '' 
             });
         }
     }, [contact?.contato_id, profileData]);
@@ -227,9 +232,28 @@ export default function ContactProfile({ contact }) {
 
     const saveContactMutation = useMutation({
         mutationFn: async (updatedData) => {
-            const { nome, razao_social, cpf, cnpj, origem, telefone, email, cargo } = updatedData;
-            const { error } = await supabase.from('contatos').update({ nome, razao_social, cpf, cnpj, origem, cargo }).eq('id', contact.contato_id);
+            const { nome, razao_social, cpf, cnpj, origem, telefone, email, cargo, renda_familiar } = updatedData;
+            
+            // Limpa a Renda Familiar (converte string formatada "R$ 1.000,00" para number)
+            let rendaFinal = null;
+            if (renda_familiar) {
+                const strVal = String(renda_familiar);
+                // Remove tudo que não é número ou virgula (para decimal) e traço
+                const cleanStr = strVal.replace(/[^\d,.-]/g, '');
+                // Troca vírgula por ponto para o banco
+                if (cleanStr.includes(',')) {
+                    rendaFinal = parseFloat(cleanStr.replace(/\./g, '').replace(',', '.'));
+                } else {
+                    rendaFinal = parseFloat(cleanStr);
+                }
+            }
+
+            const { error } = await supabase.from('contatos').update({ 
+                nome, razao_social, cpf, cnpj, origem, cargo, 
+                renda_familiar: rendaFinal 
+            }).eq('id', contact.contato_id);
             if (error) throw error;
+
             if (telefone) await supabase.from('telefones').upsert({ contato_id: contact.contato_id, telefone, tipo: 'Principal', organizacao_id: organizacaoId }, { onConflict: 'contato_id, telefone' });
             if (email) await supabase.from('emails').upsert({ contato_id: contact.contato_id, email, tipo: 'Principal', organizacao_id: organizacaoId }, { onConflict: 'contato_id, email' });
         },
@@ -346,12 +370,20 @@ export default function ContactProfile({ contact }) {
                 </div>
                 <h3 className="text-lg font-bold text-gray-900 text-center leading-tight">{displayContact.nome}</h3>
                 <p className="text-sm text-gray-500 mt-1">{displayContact.telefone || displayContact.phone_number}</p>
-                {displayContact.cargo && <p className="text-xs text-gray-400 font-medium mt-1 uppercase tracking-wide">{displayContact.cargo}</p>}
+                
+                {/* --- CAMPO RENDA FAMILIAR NO CABEÇALHO --- */}
+                {displayContact.renda_familiar && (
+                     <div className="mt-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-green-100 text-green-800 border border-green-200 shadow-sm">
+                        <FontAwesomeIcon icon={faMoneyBillWave} className="mr-1.5" />
+                        {formatCurrency(displayContact.renda_familiar)}
+                    </div>
+                )}
+
+                {displayContact.cargo && <p className="text-xs text-gray-400 font-medium mt-2 uppercase tracking-wide">{displayContact.cargo}</p>}
             </div>
 
             <main className="flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar">
                 
-                {/* --- CARD DO FUNIL (NOVO) --- */}
                 {funilEntry && (
                     <section className="animate-in fade-in slide-in-from-top-4 duration-300">
                         <h4 className="font-semibold text-gray-700 mb-2 flex items-center gap-2 text-sm uppercase tracking-wide">
@@ -361,8 +393,8 @@ export default function ContactProfile({ contact }) {
                             funilEntry={funilEntry}
                             allColumns={allColumns}
                             availableProducts={availableProducts}
-                            onDragStart={() => {}} // Não aplicável na sidebar
-                            onCardClick={() => {}} // Não aplicável
+                            onDragStart={() => {}}
+                            onCardClick={() => {}}
                             onMoveToColumn={(cardId, colId) => moveCardMutation.mutate({ cardId, newColumnId: colId })}
                             onAssociateProduct={(cardId, prodId) => associateProductMutation.mutate({ cardId, productId: prodId })}
                             onDissociateProduct={(itemId) => dissociateProductMutation.mutate(itemId)}
@@ -408,6 +440,9 @@ export default function ContactProfile({ contact }) {
                             <>
                                 <EditableField label="Nome/Razão Social" value={editData.nome || editData.razao_social} name={displayContact.personalidade_juridica === 'Pessoa Física' ? 'nome' : 'razao_social'} onChange={(e) => setEditData({ ...editData, [e.target.name]: e.target.value })} icon={faIdCard} />
                                 <EditableField label="Profissão" value={editData.cargo} name="cargo" onChange={(e) => setEditData({ ...editData, cargo: e.target.value })} icon={faBriefcase} />
+                                {/* CAMPO EDITÁVEL DE RENDA */}
+                                <EditableField label="Renda Familiar" value={editData.renda_familiar} name="renda_familiar" onChange={(e) => setEditData({ ...editData, renda_familiar: e.target.value })} icon={faMoneyBillWave} />
+                                
                                 <EditableField label="Telefone" value={editData.telefone} name="telefone" onChange={(e) => setEditData({ ...editData, telefone: e.target.value })} icon={faPhone} />
                                 <EditableField label="Email" value={editData.email} name="email" onChange={(e) => setEditData({ ...editData, email: e.target.value })} icon={faEnvelope} />
                                 <EditableField label="CPF/CNPJ" value={editData.cpf || editData.cnpj} name={displayContact.personalidade_juridica === 'Pessoa Física' ? 'cpf' : 'cnpj'} onChange={(e) => setEditData({ ...editData, [e.target.name]: e.target.value })} icon={faIdCard} />
@@ -416,10 +451,12 @@ export default function ContactProfile({ contact }) {
                         ) : (
                             <>
                                 <InfoField label="Profissão" value={displayContact.cargo} icon={faBriefcase} />
+                                {/* CAMPO VISUAL DE RENDA */}
+                                <InfoField label="Renda Familiar" value={formatCurrency(displayContact.renda_familiar)} icon={faMoneyBillWave} />
+                                
                                 <InfoField label="Email" value={displayContact.email} icon={faEnvelope} />
                                 <InfoField label="CPF/CNPJ" value={displayContact.cpf || displayContact.cnpj} icon={faIdCard} />
                                 <InfoField label="Origem" value={displayContact.origem} icon={faGlobe} />
-                                {/* Removemos a linha "Corretor" daqui, pois agora aparece no Card do CRM */}
                             </>
                         )}
                     </div>
@@ -481,7 +518,6 @@ export default function ContactProfile({ contact }) {
                     </div>
                 </section>
 
-                {/* Seção de Simulações e Atividades mantidas igual */}
                 <section>
                     <h4 className="font-semibold text-gray-700 mb-2 flex items-center gap-2 text-sm uppercase tracking-wide"><FontAwesomeIcon icon={faCalculator} /> Simulações</h4>
                     <div className="space-y-2 max-h-48 overflow-y-auto border rounded-lg p-2 bg-gray-50 custom-scrollbar">

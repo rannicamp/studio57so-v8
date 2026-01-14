@@ -1,4 +1,4 @@
-// app/(main)/contatos/page.js
+// Caminho: app/(main)/contatos/page.js
 'use client'
 
 export const dynamic = 'force-dynamic'
@@ -30,6 +30,7 @@ import ContatoImporter from '@/components/contatos/ContatoImporter'
 import MergeModal from '@/components/contatos/MergeModal'
 import DuplicateContactsManager from '@/components/contatos/DuplicateContactsManager'
 import PadronizacaoManager from '@/components/contatos/PadronizacaoManager'
+import ContatoDetalhesSidebar from '@/components/contatos/ContatoDetalhesSidebar' // <--- IMPORTADO AQUI
 import { saveContactAction } from '@/components/contatos/actions';
 
 // CHAVE ÚNICA PARA O LOCALSTORAGE
@@ -49,7 +50,6 @@ const getCachedUiState = () => {
 // --- BUSCA ADMIN TURBINADA ---
 async function fetchContatosMain(organizacaoId, searchTerm, typeFilter) {
   if (!organizacaoId) return [];
-  // CORREÇÃO: createClient síncrono para uso dentro de funções chamadas pelo cliente (useQuery)
   const supabase = createClient()
   
   let query = supabase.from('contatos').select(`*, telefones(telefone), emails(email)`)
@@ -75,7 +75,7 @@ async function fetchContatosMain(organizacaoId, searchTerm, typeFilter) {
       }
   } else {
       if (typeFilter && typeFilter !== 'Todos') {
-          query = query.eq('tipo_contato', typeFilter);
+           query = query.eq('tipo_contato', typeFilter);
       }
   }
   
@@ -105,7 +105,6 @@ export default function ContatosMain() {
   const organizacaoId = user?.organizacao_id
   const userId = user?.id
   
-  // CORREÇÃO: Removido 'await' (Componente de Cliente)
   const supabase = createClient()
 
   useEffect(() => {
@@ -120,6 +119,9 @@ export default function ContatosMain() {
   const [isStandardizeModalOpen, setIsStandardizeModalOpen] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
   
+  // --- NOVO ESTADO PARA A SIDEBAR DE DETALHES ---
+  const [sidebarContactId, setSidebarContactId] = useState(null)
+
   // --- ESTADOS COM PERSISTÊNCIA ---
   const cachedState = getCachedUiState();
   
@@ -424,7 +426,9 @@ export default function ContatosMain() {
                      {cliente.foto_url ? (<Image src={cliente.foto_url} alt={`Foto ${cliente.nome_display}`} width={40} height={40} className="rounded-full object-cover w-10 h-10" unoptimized />
                      ) : (<FontAwesomeIcon icon={cliente.personalidade_juridica === 'Pessoa Jurídica' ? faBuilding : faUserCircle} className={`w-10 h-10 rounded-full p-2 flex-shrink-0 ${ cliente.personalidade_juridica === 'Pessoa Jurídica' ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600' }`} /> )}
                    </td>
-                  <td className="py-3 px-4 font-medium text-gray-900 cursor-pointer" onClick={() => handleOpenModal(cliente)}>{cliente.nome_display}</td>
+                  {/* MUDANÇA AQUI: Ao clicar no nome, define o ID do sidebar em vez de abrir o modal de edição */}
+                  <td className="py-3 px-4 font-medium text-gray-900 cursor-pointer hover:text-blue-600 transition-colors" onClick={() => setSidebarContactId(cliente.id)}>{cliente.nome_display}</td>
+                  
                   <td className="py-3 px-4 text-sm text-gray-600">{cliente.telefone || '---'}</td>
                   <td className="py-3 px-4 text-sm text-gray-600">{cliente.email || '---'}</td>
                   <td className="py-3 px-4 text-sm text-gray-500">{cliente.tipo_contato || 'Contato'}</td>
@@ -506,6 +510,12 @@ export default function ContatosMain() {
       )}
 
       <MergeModal isOpen={isMergeModalOpen} onClose={() => setIsMergeModalOpen(false)} contactsToMerge={contactsToMerge} onMergeComplete={handleMergeComplete} />
+      
+      {/* --- SIDEBAR DE DETALHES (RENDERIZADA NO FINAL) --- */}
+      <ContatoDetalhesSidebar 
+        contactId={sidebarContactId} 
+        onClose={() => setSidebarContactId(null)} 
+      />
     </div>
   )
 }

@@ -1,3 +1,4 @@
+// Caminho: app/(admin)/contatos/components/ContatoForm.js
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
@@ -7,9 +8,8 @@ import { useRouter } from 'next/navigation';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { IMaskInput } from 'react-imask';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'; 
-import { faSpinner, faTrashAlt, faPlusCircle, faTimes, faFingerprint, faSave } from '@fortawesome/free-solid-svg-icons';
+import { faSpinner, faTrashAlt, faPlusCircle, faTimes, faFingerprint, faSave, faMoneyBillWave } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
-// Mantemos apenas a busca de CNPJ do server action, que não costuma dar erro
 import { buscarDadosCnpj } from './actions';
 
 // -- COMPONENTES AUXILIARES --
@@ -91,6 +91,7 @@ const DynamicInputRow = ({ item, index, onUpdate, onRemove, isPhone, countries }
 };
 
 // --- LISTA VIP (Whitelist para limpeza) ---
+// ADICIONADO: 'renda_familiar'
 const ALLOWED_COLUMNS = [
     'empresa_id', 'nome', 'cargo', 'address_street', 'address_number', 'address_complement',
     'cep', 'city', 'state', 'neighborhood', 'tipo_contato', 'foto_url', 'razao_social',
@@ -100,7 +101,7 @@ const ALLOWED_COLUMNS = [
     'pix_key', 'bank_details', 'observations', 'numero_ponto', 'nacionalidade',
     'personalidade_juridica', 'data_fundacao', 'tipo_servico_produto', 'pessoa_contato',
     'objetivo', 'is_awaiting_name_response', 'origem', 'organizacao_id', 'conjuge_id', 
-    'regime_bens', 'criado_por_usuario_id', 'creci', 'lixeira'
+    'regime_bens', 'criado_por_usuario_id', 'creci', 'lixeira', 'renda_familiar'
 ];
 
 // FORMULÁRIO PRINCIPAL
@@ -113,6 +114,12 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
     
     const currentOrgId = organizacaoId || user?.organizacao_id;
 
+    // Helper para formatar moeda na inicialização
+    const formatCurrencyInitial = (value) => {
+        if (!value) return '';
+        return new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
+    };
+
     const getInitialState = () => ({
         nome: '', razao_social: '', nome_fantasia: '', cnpj: '', cpf: '', rg: '',
         birth_date: '', estado_civil: '', nacionalidade: '', personalidade_juridica: 'Pessoa Física',
@@ -122,7 +129,7 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
         neighborhood: '', observations: '',
         telefones: [{ telefone: '', country_code: '+55' }],
         emails: [{ email: '' }],
-        regime_bens: '', conjuge_id: null,
+        regime_bens: '', conjuge_id: null, renda_familiar: '', // ADICIONADO
         inscricao_estadual: '',
         inscricao_municipal: '',
         responsavel_legal: '',
@@ -143,7 +150,6 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
                 const phonesData = (contactToEdit.telefones || []).map(tel => {
                     let rawPhone = tel.telefone ? String(tel.telefone).replace(/\D/g, '') : '';
                     let countryCode = tel.country_code || '+55';
-                    // Lógica simples de exibição
                     if (countryCode === '+55' && rawPhone.startsWith('55')) rawPhone = rawPhone.substring(2);
                     return { ...tel, telefone: rawPhone, country_code: countryCode };
                 });
@@ -158,6 +164,7 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
                 setFormData({
                     ...getInitialState(),
                     ...contactToEdit, 
+                    renda_familiar: formatCurrencyInitial(contactToEdit.renda_familiar), // Formata ao carregar
                     organizacao_id: currentOrgId, 
                     telefones: phonesData.length > 0 ? phonesData : [{ telefone: '', country_code: '+55' }],
                     emails: emailsData.length > 0 ? emailsData : [{ email: '' }],
@@ -200,11 +207,23 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
             Object.keys(formData).forEach(key => {
                 if (ALLOWED_COLUMNS.includes(key)) {
                     let value = formData[key];
-                    if (key === 'birth_date' || key === 'data_fundacao') {
-                        if (value === '' || value === undefined) value = null;
-                    } else {
-                        if (value === '' || value === undefined) value = null;
+                    
+                    // Tratamento de datas vazias
+                    if ((key === 'birth_date' || key === 'data_fundacao') && (value === '' || value === undefined)) {
+                        value = null;
+                    } 
+                    
+                    // Tratamento da RENDA FAMILIAR (converte string formatada para number)
+                    if (key === 'renda_familiar') {
+                        if (value && typeof value === 'string') {
+                            // Remove pontos de milhar e troca vírgula por ponto
+                            value = parseFloat(value.replace(/\./g, '').replace(',', '.'));
+                        } else if (value === '') {
+                            value = null;
+                        }
                     }
+
+                    if (value === '' || value === undefined) value = null;
                     dataToSave[key] = value;
                 }
             });
@@ -250,7 +269,6 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
                     };
                 });
 
-            // Remove todos antigos e insere novos (Estratégia Limpa)
             if (isEditing) {
                 await supabase.from('telefones').delete().eq('contato_id', contatoId);
             }
@@ -303,9 +321,7 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
         setFormData(prev => ({ ...prev, [name]: value }));
     };
     
-    // ... MANTER AS OUTRAS FUNÇÕES IGUAIS (handleSearchConjuge, etc) ...
-    // Estou recolocando as funções essenciais para garantir que nada quebre
-    
+    // Funções de Cônjuge, CEP e CNPJ
     const handleSearchConjuge = useCallback(async (term) => {
         setConjugeSearchTerm(term);
         if (term.length < 2 || !currentOrgId) {
@@ -363,7 +379,6 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
 
     const handleCnpjLookup = useCallback(async (unmaskedCnpj) => {
         setIsApiLoading(true);
-        // Usa a server action IMPORTADA apenas para o CNPJ (que é seguro)
         const promise = buscarDadosCnpj(unmaskedCnpj);
         toast.promise(promise, {
             loading: 'Buscando dados do CNPJ...',
@@ -460,7 +475,7 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
             
             {formData.personalidade_juridica === 'Pessoa Física' && (
                 <fieldset className="border p-4 rounded-md">
-                    <legend className="text-lg font-semibold text-gray-700">Dados Civis e Cônjuge</legend>
+                    <legend className="text-lg font-semibold text-gray-700">Dados Civis e Financeiros</legend>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                         <div>
                             <label className="block text-sm font-medium">Estado Civil</label>
@@ -473,6 +488,34 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
                                 <option>União Estável</option>
                             </select>
                         </div>
+                        
+                        {/* NOVO CAMPO: RENDA FAMILIAR */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
+                                <FontAwesomeIcon icon={faMoneyBillWave} className="text-green-600" />
+                                Renda Familiar
+                            </label>
+                            <IMaskInput
+                                mask="R$ num"
+                                blocks={{
+                                    num: {
+                                        mask: Number,
+                                        thousandsSeparator: '.',
+                                        radix: ',',
+                                        scale: 2,
+                                        padFractionalZeros: true,
+                                        normalizeZeros: true,
+                                        mapToRadix: ['.']
+                                    }
+                                }}
+                                value={formData.renda_familiar || ''}
+                                unmask={false} // Mantém formatação no estado para visualização
+                                onAccept={(value) => setFormData(prev => ({ ...prev, renda_familiar: value }))}
+                                placeholder="R$ 0,00"
+                                className="w-full p-2 border rounded-md"
+                            />
+                        </div>
+
                         {['Casado(a)', 'União Estável'].includes(formData.estado_civil) && (
                            <div>
                                 <label className="block text-sm font-medium">Regime de Bens</label>

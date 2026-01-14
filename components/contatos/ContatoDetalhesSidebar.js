@@ -8,13 +8,12 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { 
     faUser, faBuilding, faEnvelope, faPhone, faMapMarkerAlt, faCalendarAlt, 
-    faEdit, faSpinner, faPlus, faTrash, faIdCard, faBriefcase
+    faEdit, faSpinner, faPlus, faTrash, faIdCard, faBriefcase, faMoneyBillWave
 } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { IMaskInput } from 'react-imask';
-// MUDANÇA APLICADA AQUI: Corrigido o caminho de importação
 import { formatPhoneNumber } from '@/utils/formatters';
 
 // FUNÇÕES AUXILIARES
@@ -23,8 +22,13 @@ const formatDateString = (dateStr) => {
     try {
         return format(parseISO(dateStr), "dd 'de' MMMM 'de' yyyy", { locale: ptBR });
     } catch (error) {
-        return dateStr; // Retorna a string original se a data for inválida
+        return dateStr;
     }
+};
+
+const formatCurrency = (value) => {
+    if (value === null || value === undefined) return null;
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 };
 
 const InfoRow = ({ icon, label, value }) => (
@@ -216,12 +220,20 @@ export default function ContatoDetalhesSidebar({ contactId, onClose }) {
                     {contato && (
                         <div className="space-y-6">
                             <div className="flex items-center">
-                                <div className="w-16 h-16 rounded-full bg-blue-500 flex items-center justify-center text-white text-2xl font-bold">
+                                <div className="w-16 h-16 rounded-full bg-blue-500 flex items-center justify-center text-white text-2xl font-bold shadow-md">
                                     {isPessoaFisica ? contato.nome?.charAt(0) : contato.razao_social?.charAt(0)}
                                 </div>
                                 <div className="ml-4">
-                                    <h3 className="text-2xl font-bold text-gray-900">{isPessoaFisica ? contato.nome : contato.razao_social}</h3>
+                                    <h3 className="text-2xl font-bold text-gray-900 leading-tight">{isPessoaFisica ? contato.nome : contato.razao_social}</h3>
                                     <p className="text-sm text-gray-500">{isPessoaFisica ? contato.cargo : contato.nome_fantasia}</p>
+                                    
+                                    {/* MUDANÇA AQUI: Renda familiar logo abaixo do nome */}
+                                    {contato.renda_familiar && (
+                                        <div className="mt-1 inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-green-100 text-green-800">
+                                            <FontAwesomeIcon icon={faMoneyBillWave} className="mr-1" />
+                                            {formatCurrency(contato.renda_familiar)}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                             
