@@ -1,7 +1,8 @@
+// components/contatos/actions.js
 'use server';
 
 import { createClient } from '@/utils/supabase/server';
-import { enviarNotificacao } from '@/utils/notificacoes';
+// A importação de 'enviarNotificacao' foi removida pois o Banco de Dados agora gerencia isso.
 
 // --- LISTA VIP (Whitelist) ---
 // Só deixamos passar para o banco o que realmente existe na tabela 'contatos'
@@ -177,18 +178,8 @@ export async function saveContactAction({ formData, isEditing }) {
             }
             contatoId = data.id;
 
-            // Notificação (Fire & Forget)
-            try {
-                const nomeContato = data.nome || data.razao_social || 'Novo Contato';
-                enviarNotificacao({
-                    userId: user.id,
-                    titulo: "👤 Novo Contato",
-                    mensagem: `${nomeContato} foi adicionado.`,
-                    link: `/contatos/editar/${contatoId}`,
-                    organizacaoId: organizacao_id,
-                    canal: 'comercial'
-                });
-            } catch (ignored) {}
+            // A NOTIFICAÇÃO MANUAL FOI REMOVIDA DAQUI.
+            // A TRIGGER DO BANCO JÁ VAI DETECTAR O INSERT E NOTIFICAR.
         }
 
         if (!contatoId) throw new Error("ID do contato perdido durante a operação.");

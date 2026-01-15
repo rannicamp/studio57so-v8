@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
-  faArrowDown, faMobileAlt, faColumns, faSave, faSpinner, faMagic, faLink
+  faArrowDown, faMobileAlt, faColumns, faSave, faSpinner, faMagic, faLink, faPlus, faTrash
 } from '@fortawesome/free-solid-svg-icons';
 // Importação do novo gerenciador
 import VariableManagerModal from './VariableManagerModal';
@@ -11,24 +11,54 @@ import { AVAILABLE_ICONS } from './constants';
 // Importação do hook de persistência
 import { usePersistentState } from '@/hooks/usePersistentState';
 
+// --- LISTA DE OPERADORES NOVOS ---
+const OPERADORES = [
+    { value: 'igual', label: '=' },
+    { value: 'diferente', label: '!=' },
+    { value: 'contem', label: 'Contém' },
+    { value: 'nao_contem', label: 'Não Contém' },
+    { value: 'maior', label: '>' },
+    { value: 'menor', label: '<' },
+    { value: 'vazio', label: 'Vazio' },
+    { value: 'nao_vazio', label: 'Preenchido' },
+    { value: 'mudou', label: 'Mudou' }
+];
+
 export default function RegraForm({ initialData, tabelas, campos, funcoes, variaveisVirtuais, onSubmit, isSaving, onCancel }) {
   
-  // Valor padrão caso não tenha persistência nem dados iniciais
+  // Valor padrão
   const defaultValues = {
     nome_regra: '', tabela_alvo: '', evento: 'INSERT',
+    // Mantemos compatibilidade com legado
     coluna_monitorada: '', valor_gatilho: '',
     funcoes_ids: [], enviar_para_dono: false, enviar_push: true,
     titulo_template: 'Nova notificação', mensagem_template: '{conteudo}', link_template: '/', 
-    ativo: true, icone: 'fa-bell'
+    ativo: true, icone: 'fa-bell',
+    // NOVA LISTA DE FILTROS
+    regras_avancadas: [] 
   };
 
   // Usa 'notif_formData' para lembrar o que estava sendo digitado (Persistência)
   const [formData, setFormData] = usePersistentState('notif_formData', initialData || defaultValues);
 
-  // Sincroniza se o initialData mudar (ex: usuário clicou em editar outra regra enquanto o form estava montado)
+  // Sincroniza se o initialData mudar (Converte regra antiga para lista nova)
   useEffect(() => {
       if (initialData) {
-          setFormData(initialData);
+          let dadosProntos = { ...initialData };
+          
+          // Se tiver filtro antigo (coluna_monitorada) mas não o novo array, converte para exibir na lista
+          if (dadosProntos.coluna_monitorada && (!dadosProntos.regras_avancadas || dadosProntos.regras_avancadas.length === 0)) {
+              dadosProntos.regras_avancadas = [{
+                  campo: dadosProntos.coluna_monitorada,
+                  operador: 'igual',
+                  valor: dadosProntos.valor_gatilho || ''
+              }];
+          }
+          
+          // Garante que o array existe
+          if (!dadosProntos.regras_avancadas) dadosProntos.regras_avancadas = [];
+
+          setFormData(dadosProntos);
       }
   }, [initialData, setFormData]);
 
@@ -36,13 +66,31 @@ export default function RegraForm({ initialData, tabelas, campos, funcoes, varia
   const [searchTerm, setSearchTerm] = useState('');
   const [showLinkerModal, setShowLinkerModal] = useState(false);
 
-  // Calcula todas as variáveis disponíveis para a tabela selecionada
+  // --- LÓGICA DE ADICIONAR/REMOVER FILTROS ---
+  const addCondition = () => {
+      const novas = [...(formData.regras_avancadas || [])];
+      novas.push({ campo: '', operador: 'igual', valor: '' });
+      setFormData(prev => ({ ...prev, regras_avancadas: novas }));
+  };
+
+  const removeCondition = (index) => {
+      const novas = [...(formData.regras_avancadas || [])];
+      novas.splice(index, 1);
+      setFormData(prev => ({ ...prev, regras_avancadas: novas }));
+  };
+
+  const updateCondition = (index, field, value) => {
+      const novas = [...(formData.regras_avancadas || [])];
+      novas[index] = { ...novas[index], [field]: value };
+      setFormData(prev => ({ ...prev, regras_avancadas: novas }));
+  };
+
+  // --- CÁLCULO DE VARIÁVEIS (Mantido Original) ---
   const todasVariaveis = useMemo(() => {
     if (!formData.tabela_alvo) return [];
     
     let variaveis = [];
     
-    // A. Colunas Físicas do Banco
     if (tabelas && campos) {
         const tabelaObj = tabelas.find(t => t.nome_tabela === formData.tabela_alvo);
         if (tabelaObj) {
@@ -52,7 +100,6 @@ export default function RegraForm({ initialData, tabelas, campos, funcoes, varia
         }
     }
 
-    // B. Variáveis Virtuais (Criadas pelo Linkador)
     if (variaveisVirtuais) {
         const virtuaisDaTabela = variaveisVirtuais.filter(v => v.tabela_gatilho === formData.tabela_alvo);
         virtuaisDaTabela.forEach(v => {
@@ -65,7 +112,6 @@ export default function RegraForm({ initialData, tabelas, campos, funcoes, varia
         });
     }
 
-    // C. Variáveis Mágicas (Hardcoded/Legado)
     if (formData.tabela_alvo === 'whatsapp_messages') {
         variaveis.push({ id: 'nome_remetente', nome: 'nome_remetente', desc: 'Automático', tipo: 'magic' });
         variaveis.push({ id: 'content', nome: 'content', desc: 'Mensagem', tipo: 'magic' });
@@ -74,7 +120,6 @@ export default function RegraForm({ initialData, tabelas, campos, funcoes, varia
     return variaveis;
   }, [formData.tabela_alvo, tabelas, campos, variaveisVirtuais]);
 
-  // Filtra a lista com base no que o usuário digitou após o '{'
   const variaveisFiltradas = useMemo(() => {
     if (!searchTerm) return todasVariaveis;
     return todasVariaveis.filter(v => 
@@ -82,16 +127,13 @@ export default function RegraForm({ initialData, tabelas, campos, funcoes, varia
     );
   }, [todasVariaveis, searchTerm]);
 
-  // Manipulador de mudança nos inputs
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
     
-    // --- LÓGICA DE DETECÇÃO DO AUTOCOMPLETE ---
     if (name === 'titulo_template' || name === 'mensagem_template') {
         const lastOpenBrace = value.lastIndexOf('{');
         const lastCloseBrace = value.lastIndexOf('}');
 
-        // Se a última chave aberta for DEPOIS da última fechada, estamos digitando uma variável
         if (lastOpenBrace > -1 && lastOpenBrace > lastCloseBrace) {
             const termoDigitado = value.slice(lastOpenBrace + 1); 
             setSearchTerm(termoDigitado);
@@ -105,28 +147,21 @@ export default function RegraForm({ initialData, tabelas, campos, funcoes, varia
     setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
   };
 
-  // Insere a variável selecionada no texto
   const insertVariable = (variableName) => {
     if (!showSuggestions.field) return;
 
     setFormData(prev => {
         const fieldName = showSuggestions.field;
         const currentValue = prev[fieldName];
-        
-        // Encontra onde está o último '{' que iniciou essa busca
         const lastOpenBrace = currentValue.lastIndexOf('{');
-        
-        // Pega tudo antes do '{' e descarta o que foi digitado parcialmente após ele
         const prefix = currentValue.slice(0, lastOpenBrace);
         
-        // Monta o novo texto: Prefixo + {Variavel} + Espaço
         return {
             ...prev,
             [fieldName]: `${prefix}{${variableName}} ` 
         };
     });
     
-    // Limpa estado e foca
     setShowSuggestions({ visible: false, field: null });
     setSearchTerm('');
   };
@@ -134,6 +169,19 @@ export default function RegraForm({ initialData, tabelas, campos, funcoes, varia
   const handleMultiSelect = (e) => {
     const options = Array.from(e.target.selectedOptions, option => parseInt(option.value));
     setFormData(prev => ({ ...prev, funcoes_ids: options }));
+  };
+
+  // Preparação final para envio: limpa campos legados se usar lista nova
+  const handleFinalSubmit = () => {
+      const payload = { ...formData };
+      
+      // Se usar filtros novos, anula os antigos para o banco não se confundir
+      if (payload.regras_avancadas && payload.regras_avancadas.length > 0) {
+          payload.coluna_monitorada = null;
+          payload.valor_gatilho = null;
+      }
+      
+      onSubmit(payload);
   };
 
   return (
@@ -201,20 +249,77 @@ export default function RegraForm({ initialData, tabelas, campos, funcoes, varia
                         </div>
                     </div>
 
+                    {/* --- AQUI ESTÁ A MELHORIA: FILTROS MÚLTIPLOS --- */}
                     <div className="mt-4 pt-3 border-t border-blue-200/50">
-                        <p className="text-[10px] font-bold text-blue-400 mb-2 uppercase">Filtro (Opcional)</p>
-                        <div className="flex gap-2">
-                            <div className="w-1/2 relative">
-                                <select name="coluna_monitorada" value={formData.coluna_monitorada || ''} onChange={handleChange} className="w-full p-2 border border-blue-200 rounded-lg text-xs bg-white appearance-none">
-                                    <option value="">-- Qualquer Coluna --</option>
-                                    {todasVariaveis.filter(v => v.tipo === 'coluna').map(c => <option key={c.id} value={c.nome}>{c.nome}</option>)}
-                                </select>
-                                <div className="absolute right-2 top-2.5 text-blue-300 pointer-events-none text-xs"><FontAwesomeIcon icon={faColumns} /></div>
-                            </div>
-                            <div className="flex items-center text-blue-300 font-bold">=</div>
-                            <input name="valor_gatilho" value={formData.valor_gatilho || ''} onChange={handleChange} className="w-1/2 p-2 border border-blue-200 rounded-lg text-xs" placeholder="Valor (ex: Concluído)" />
+                        <div className="flex justify-between items-center mb-2">
+                            <p className="text-[10px] font-bold text-blue-400 uppercase">
+                                <FontAwesomeIcon icon={faColumns} className="mr-1"/> 
+                                Filtros / Condições
+                            </p>
+                            <button type="button" onClick={addCondition} className="text-[10px] bg-white text-blue-600 px-2 py-1 rounded border border-blue-200 hover:bg-blue-100 transition-colors shadow-sm">
+                                <FontAwesomeIcon icon={faPlus} className="mr-1"/> Adicionar
+                            </button>
+                        </div>
+
+                        <div className="space-y-2">
+                            {/* Renderiza a lista de regras */}
+                            {formData.regras_avancadas && formData.regras_avancadas.map((cond, idx) => (
+                                <div key={idx} className="flex gap-2 items-center animate-in slide-in-from-left-1">
+                                    {/* Select de Campo */}
+                                    <div className="w-1/3">
+                                        <select 
+                                            value={cond.campo} 
+                                            onChange={(e) => updateCondition(idx, 'campo', e.target.value)} 
+                                            className="w-full p-2 border border-blue-200 rounded-lg text-xs bg-white focus:ring-1 focus:ring-blue-400 outline-none"
+                                        >
+                                            <option value="">Selecione...</option>
+                                            {todasVariaveis.filter(v => v.tipo === 'coluna').map(c => <option key={c.id} value={c.nome}>{c.nome}</option>)}
+                                        </select>
+                                    </div>
+
+                                    {/* Select de Operador */}
+                                    <div className="w-1/4">
+                                        <select 
+                                            value={cond.operador} 
+                                            onChange={(e) => updateCondition(idx, 'operador', e.target.value)} 
+                                            className="w-full p-2 border border-blue-200 rounded-lg text-xs bg-blue-50 font-bold text-blue-700 text-center focus:ring-1 focus:ring-blue-400 outline-none"
+                                        >
+                                            {OPERADORES.map(op => <option key={op.value} value={op.value}>{op.label}</option>)}
+                                        </select>
+                                    </div>
+
+                                    {/* Input de Valor */}
+                                    <div className="flex-1">
+                                        {!['vazio', 'nao_vazio', 'mudou'].includes(cond.operador) ? (
+                                            <input 
+                                                value={cond.valor} 
+                                                onChange={(e) => updateCondition(idx, 'valor', e.target.value)} 
+                                                className="w-full p-2 border border-blue-200 rounded-lg text-xs focus:ring-1 focus:ring-blue-400 outline-none" 
+                                                placeholder="Valor..." 
+                                            />
+                                        ) : (
+                                            <div className="w-full p-2 border border-transparent text-xs text-gray-400 italic bg-gray-50 rounded">
+                                                (Automático)
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Botão de Excluir Linha */}
+                                    <button type="button" onClick={() => removeCondition(idx)} className="text-red-400 hover:text-red-600 p-2 hover:bg-red-50 rounded transition-colors">
+                                        <FontAwesomeIcon icon={faTrash} />
+                                    </button>
+                                </div>
+                            ))}
+
+                            {(!formData.regras_avancadas || formData.regras_avancadas.length === 0) && (
+                                <div className="text-center p-2 border border-dashed border-blue-200 rounded text-xs text-blue-400 italic bg-white/50">
+                                    Nenhum filtro definido (Dispara sempre que o evento ocorrer)
+                                </div>
+                            )}
                         </div>
                     </div>
+                    {/* --- FIM DA MELHORIA --- */}
+
                 </div>
             </div>
 
@@ -222,7 +327,7 @@ export default function RegraForm({ initialData, tabelas, campos, funcoes, varia
                 <div className="bg-white border rounded-full p-1 text-gray-300 shadow-sm"><FontAwesomeIcon icon={faArrowDown} /></div>
             </div>
 
-            {/* SESSÃO 2: AÇÃO (NOTIFICAR) */}
+            {/* SESSÃO 2: AÇÃO (MANTIDA 100% IGUAL) */}
             <div className="bg-orange-50 p-5 rounded-xl border border-orange-100 shadow-sm relative">
                 <div className="absolute inset-0 overflow-hidden rounded-xl pointer-events-none">
                     <div className="absolute top-0 right-0 w-16 h-16 bg-orange-100 rounded-bl-full -mr-8 -mt-8"></div>
@@ -255,7 +360,7 @@ export default function RegraForm({ initialData, tabelas, campos, funcoes, varia
                         {/* CAMPO MENSAGEM */}
                         <textarea required name="mensagem_template" value={formData.mensagem_template} onChange={handleChange} rows="2" className="w-full p-2 border border-orange-200 rounded-lg text-sm placeholder-orange-300" placeholder="Mensagem... (Digite { para variáveis)" autoComplete="off" />
                         
-                        {/* LISTA SUSPENSA (DROPDOWN) DE VARIÁVEIS - FILTRADA */}
+                        {/* AUTOCOMPLETE DE VARIÁVEIS */}
                         {showSuggestions.visible && (
                             <div className="absolute z-50 left-0 right-0 bg-white border border-gray-200 shadow-xl rounded-lg max-h-48 overflow-y-auto animate-fade-in mt-1">
                                 <div className="bg-gray-50 px-3 py-1 text-[10px] text-gray-500 font-bold border-b flex justify-between items-center sticky top-0">
@@ -294,7 +399,6 @@ export default function RegraForm({ initialData, tabelas, campos, funcoes, varia
                                 Digite <strong>{'{'}</strong> para inserir variáveis.
                             </p>
                             
-                            {/* BOTÃO DO GERENCIADOR DE VARIÁVEIS */}
                             <button 
                                 type="button" 
                                 onClick={() => setShowLinkerModal(true)}
@@ -328,7 +432,7 @@ export default function RegraForm({ initialData, tabelas, campos, funcoes, varia
         <button type="button" onClick={onCancel} className="px-6 py-2.5 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors">
             Cancelar
         </button>
-        <button type="button" onClick={() => onSubmit(formData)} disabled={isSaving || !formData.nome_regra || !formData.tabela_alvo} className="px-8 py-2.5 text-sm font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700 shadow-md flex items-center gap-2 disabled:opacity-50 transition-all transform active:scale-95">
+        <button type="button" onClick={handleFinalSubmit} disabled={isSaving || !formData.nome_regra || !formData.tabela_alvo} className="px-8 py-2.5 text-sm font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700 shadow-md flex items-center gap-2 disabled:opacity-50 transition-all transform active:scale-95">
             {isSaving ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faSave} />}
             Salvar
         </button>

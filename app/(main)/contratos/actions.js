@@ -3,7 +3,6 @@
 
 import { createClient } from '@/utils/supabase/server';
 import { revalidatePath } from 'next/cache';
-import { enviarNotificacao } from '@/utils/notificacoes';
 
 // --- FUNÇÃO 1: CRIAR CONTRATO ---
 export async function createNewContrato(empreendimentoId, tipoDocumento) {
@@ -37,14 +36,8 @@ export async function createNewContrato(empreendimentoId, tipoDocumento) {
         return { error: `Falha ao criar documento: ${error.message}` };
     }
 
-    await enviarNotificacao({
-        userId: user.id,
-        titulo: `Novo Documento Iniciado 📄`,
-        mensagem: `Um novo ${tipoDocumento} foi criado como Rascunho.`,
-        link: `/contratos/${newContrato.id}`,
-        organizacaoId: userProfile.organizacao_id,
-        canal: 'contratos'
-    });
+    // A NOTIFICAÇÃO MANUAL FOI REMOVIDA DAQUI.
+    // A TRIGGER DO BANCO JÁ VAI DETECTAR O INSERT E NOTIFICAR.
 
     return { success: true, newContractId: newContrato.id };
 }
@@ -68,6 +61,7 @@ export async function updateContratoStatus(contratoId, newStatus) {
     }
 
     // 2. Atualiza o status do CONTRATO
+    // A TRIGGER DO BANCO VAI DETECTAR ESSE UPDATE E APLICAR AS REGRAS.
     const { error: updateError } = await supabase
         .from('contratos')
         .update({ status_contrato: newStatus })
@@ -77,7 +71,7 @@ export async function updateContratoStatus(contratoId, newStatus) {
         return { error: `Erro no Banco de Dados: ${updateError.message}` };
     }
 
-    // 3. LÓGICA DE PRODUTOS (MÁQUINA DE ESTADOS CORRIGIDA)
+    // 3. LÓGICA DE PRODUTOS (MÁQUINA DE ESTADOS)
     try {
         const { data: produtosVinculados } = await supabase
             .from('contrato_produtos')
@@ -103,7 +97,7 @@ export async function updateContratoStatus(contratoId, newStatus) {
                 }
             }
             
-            // CASO B: EM ANDAMENTO (Reserva Temporária) [CORREÇÃO AQUI]
+            // CASO B: EM ANDAMENTO (Reserva Temporária)
             // Se estiver negociando ou assinando, a unidade deve ficar PRESA (Reservada)
             else if (['Rascunho', 'Em assinatura', 'Em negociação'].includes(newStatus)) {
                 novoStatusProduto = 'Reservado';
