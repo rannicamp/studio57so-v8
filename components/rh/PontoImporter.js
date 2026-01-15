@@ -1,15 +1,15 @@
 // components/rh/PontoImporter.js
 "use client";
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { createClient } from '../../utils/supabase/client';
 import { useAuth } from '../../contexts/AuthContext';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner, faUpload, faCheckCircle, faExclamationTriangle, faBug, faFileAlt, faInfoCircle } from '@fortawesome/free-solid-svg-icons';
+import { faSpinner, faUpload, faCheckCircle, faExclamationTriangle, faFileAlt, faFolderOpen, faBug } from '@fortawesome/free-solid-svg-icons';
 
-// Componente de Status compactado para Mobile
+// Componente de Status
 const StatusIndicator = ({ status, message }) => {
     if (status === 'success') {
         return <span className="text-green-600 flex items-center justify-center sm:justify-start gap-1 text-[10px] sm:text-xs"><FontAwesomeIcon icon={faCheckCircle} /> <span className="hidden sm:inline">Ok</span></span>;
@@ -25,7 +25,6 @@ const formatDbStringToBr = (dbString) => {
     const [datePart, timePart] = dbString.split(' ');
     if (!datePart) return '-';
     const [year, month, day] = datePart.split('-');
-    // No mobile, mostra data curta: 25/06 14:00
     return `${day}/${month} ${timePart?.slice(0,5)}`;
 };
 
@@ -34,86 +33,103 @@ export default function PontoImporter({ employees, onImport }) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const organizacaoId = user?.organizacao_id;
+  
+  const fileInputRef = useRef(null);
 
   const [file, setFile] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processedRecords, setProcessedRecords] = useState([]);
   const [summary, setSummary] = useState({ ready: 0, errors: 0 });
-  const [debugInfo, setDebugInfo] = useState('');
+  const [debugLog, setDebugLog] = useState([]); // Log visual para mobile
 
-  // Mapa de funcionários para busca rápida
+  // Mapa de funcionários
   const employeeMap = new Map(employees.map(emp => [emp.numero_ponto, { id: emp.id, name: emp.full_name }]));
+
+  const addLog = (msg) => {
+      console.log(msg);
+      setDebugLog(prev => [...prev, `${new Date().toLocaleTimeString()} - ${msg}`]);
+  };
 
   const readFileContent = (file) => {
       return new Promise((resolve, reject) => {
           const reader = new FileReader();
-          reader.onload = (e) => resolve(e.target.result);
-          reader.onerror = (e) => reject(new Error("Erro na leitura física."));
-          reader.readAsText(file); // Tenta ler como texto, não importa a extensão
+          
+          reader.onload = (e) => {
+              addLog("Leitura física concluída (onload)");
+              resolve(e.target.result);
+          };
+          
+          reader.onerror = (e) => {
+              addLog("Erro no FileReader: " + e.target.error);
+              reject(new Error("Falha ao ler bits do arquivo."));
+          };
+
+          addLog(`Iniciando leitura: ${file.name} (${file.size} bytes)`);
+          // Tenta ler como ISO-8859-1 (Latin1) que é comum em relógios de ponto antigos
+          // Se der erro de caracteres estranhos, o navegador mobile costuma lidar melhor com ISO do que UTF-8 forçado
+          reader.readAsText(file, 'ISO-8859-1'); 
       });
   };
 
   const handleFileChange = async (event) => {
     const selectedFile = event.target.files[0];
-    event.target.value = ''; // Reset para permitir selecionar o mesmo arquivo se errar
+    event.target.value = ''; 
 
-    if (!selectedFile) return;
-
-    // Validação suave de tipo para avisar o usuário, mas não bloquear
-    // (Muitos TXT no Android vêm sem type ou como octet-stream)
-    if (selectedFile.type && !selectedFile.type.includes('text') && !selectedFile.name.endsWith('.txt')) {
-        toast.warning("O arquivo selecionado pode não ser de texto. Tentando ler mesmo assim...");
+    if (!selectedFile) {
+        addLog("Nenhum arquivo selecionado no input.");
+        return;
     }
 
     setFile(selectedFile);
     setIsProcessing(true);
     setProcessedRecords([]); 
     setSummary({ ready: 0, errors: 0 });
+    setDebugLog([]); // Limpa log anterior
     
-    let logs = `📱 Mobile Debug:\nArquivo: ${selectedFile.name}\nTipo: ${selectedFile.type || 'n/a'}\n`;
-    setDebugInfo(logs);
+    toast.info("Arquivo recebido. Processando...");
+    addLog(`Arquivo selecionado: ${selectedFile.name}`);
+    addLog(`Tipo MIME: ${selectedFile.type || 'Desconhecido'}`);
 
     try {
         const content = await readFileContent(selectedFile);
         
-        if (!content || content.trim().length === 0) {
-            throw new Error("Arquivo vazio ou formato ilegível.");
+        if (!content || content.length === 0) {
+            throw new Error("O arquivo está vazio (0 bytes lidos).");
         }
 
-        // Normaliza quebras de linha
-        const lines = content.split(/\r\n|\n/).filter(line => line.trim() !== '');
-        logs += `Linhas lidas: ${lines.length}\n`;
+        // Mostra as primeiras 100 letras para ver se é lixo ou texto
+        addLog(`Preview Conteúdo: ${content.substring(0, 50).replace(/\n/g, '\\n')}...`);
+
+        const lines = content.split(/\r\n|\n|\r/).filter(line => line.trim() !== '');
+        addLog(`Linhas brutas encontradas: ${lines.length}`);
         
         const recordsFromFile = [];
         let parseMode = 'TAB';
 
-        // --- LÓGICA DE DETECÇÃO INTELIGENTE ---
+        // Tenta descobrir se é TAB ou ESPAÇO
         const sampleLine = lines.find(l => l.match(/\d/)); 
-        
         if (sampleLine) {
             if (sampleLine.includes('\t')) {
                 parseMode = 'TAB';
-                logs += `Modo: TAB (Padrão)\n`;
+                addLog("Modo detectado: TAB");
             } else {
                 parseMode = 'SPACE';
-                logs += `Modo: Espaços (Fallback Mobile)\n`;
+                addLog("Modo detectado: ESPAÇOS");
             }
         }
-        setDebugInfo(logs);
 
         lines.forEach((line, index) => {
-            // Ignora linhas de cabeçalho puro texto (se não tiver número na linha, pula)
-            if (index < 5 && !line.match(/\d/)) return;
+            // Ignora cabeçalho (primeiras linhas sem numeros)
+            if (index < 10 && !line.match(/\d/)) return;
 
             let parts;
             if (parseMode === 'TAB') {
                 parts = line.split('\t');
             } else {
-                // Separa por qualquer sequência de espaços em branco
                 parts = line.trim().split(/\s+/);
             }
 
-            // Precisamos de pelo menos 3 pedaços de informação
+            // Validação mínima: Tem que ter numero do ponto e data/hora
             if (parts.length < 3) return;
             
             const numeroPonto = parseInt(parts[0], 10);
@@ -122,7 +138,6 @@ export default function PontoImporter({ employees, onImport }) {
             let datePart = null;
             let timePart = null;
 
-            // Procura padrões de data (XX/XX/XXXX) e hora (XX:XX) nas partes da linha
             for (let part of parts) {
                 if (part.includes('/') && part.length >= 5) datePart = part;
                 else if (part.includes(':') && part.length >= 4) timePart = part;
@@ -130,11 +145,11 @@ export default function PontoImporter({ employees, onImport }) {
 
             if (datePart && timePart) {
                 const [day, month, year] = datePart.split('/');
-                // Corrige ano de 2 dígitos se necessário (ex: 24 -> 2024)
                 const fullYear = year.length === 2 ? `20${year}` : year; 
                 const data_hora_texto = `${fullYear}-${month}-${day} ${timePart}`;
                 
                 const employeeInfo = employeeMap.get(numeroPonto);
+                
                 recordsFromFile.push({
                     numero_ponto: numeroPonto,
                     employee_name: employeeInfo?.name,
@@ -142,12 +157,19 @@ export default function PontoImporter({ employees, onImport }) {
                     data_hora_texto: data_hora_texto,
                     original_line: index + 1,
                     status: employeeInfo ? 'success' : 'error',
-                    error_message: employeeInfo ? null : `Func. #${numeroPonto} não achado`
+                    error_message: employeeInfo ? null : `Func. #${numeroPonto} desconhecido`
                 });
             }
         });
 
-        // Agrupa por dia para determinar Entrada/Saída
+        addLog(`Registros extraídos: ${recordsFromFile.length}`);
+
+        if (recordsFromFile.length === 0) {
+            toast.warning("Arquivo lido, mas nenhum dado de ponto foi identificado.");
+            addLog("ALERTA: Nenhuma linha válida encontrada. Verifique o formato.");
+        }
+
+        // Agrupamento
         const grouped = recordsFromFile.reduce((acc, r) => {
             if(r.status !== 'success') return acc;
             const key = `${r.funcionario_id}-${r.data_hora_texto.split(' ')[0]}`;
@@ -157,7 +179,7 @@ export default function PontoImporter({ employees, onImport }) {
         }, {});
 
         const finalRecords = [];
-        const tipos = ['Entrada', 'Almoço Ini', 'Almoço Fim', 'Saída']; // Nomes curtos para mobile
+        const tipos = ['Entrada', 'Almoço Ini', 'Almoço Fim', 'Saída'];
         
         for (const key in grouped) {
             const dayRecs = grouped[key].sort((a, b) => a.data_hora_texto.localeCompare(b.data_hora_texto));
@@ -175,15 +197,13 @@ export default function PontoImporter({ employees, onImport }) {
         const readyCount = display.filter(r => r.status === 'success').length;
         setSummary({ ready: readyCount, errors: display.length - readyCount });
 
-        if (display.length === 0) {
-            toast.warning("Arquivo lido, mas nenhum registro válido encontrado.");
-        } else {
-            toast.success("Dados lidos! Confira abaixo.");
+        if (display.length > 0) {
+            toast.success(`Sucesso! ${display.length} registros encontrados.`);
         }
 
     } catch (error) {
-        setDebugInfo(prev => prev + `Erro Crítico: ${error.message}`);
-        toast.error("Erro ao ler arquivo. Verifique se é um arquivo de texto.");
+        addLog(`ERRO FATAL: ${error.message}`);
+        toast.error("Falha ao ler arquivo. Veja o log abaixo.");
     } finally {
         setIsProcessing(false);
     }
@@ -201,11 +221,11 @@ export default function PontoImporter({ employees, onImport }) {
             funcionario_id: r.funcionario_id,
             data_hora: r.data_hora_texto,
             tipo_registro: r.tipo_registro,
-            observacao: 'Mobile Import',
+            observacao: 'Import via Mobile',
             organizacao_id: organizacaoId, 
         }));
 
-        const batchSize = 20;
+        const batchSize = 50;
         for (let i = 0; i < payload.length; i += batchSize) {
             const { error } = await supabase.rpc('importar_registros_ponto_se_vazio', { 
                 novos_registros: payload.slice(i, i + batchSize) 
@@ -214,18 +234,22 @@ export default function PontoImporter({ employees, onImport }) {
         }
     },
     onSuccess: () => {
-        toast.success("Importação Concluída!");
+        toast.success("Dados salvos no banco com sucesso!");
         queryClient.invalidateQueries({ queryKey: ['registros_ponto'] });
         setProcessedRecords([]);
         setFile(null);
         if(onImport) onImport();
     },
-    onError: (e) => toast.error(`Erro: ${e.message}`)
+    onError: (e) => toast.error(`Erro ao salvar: ${e.message}`)
   });
+
+  const triggerFileSelect = (e) => {
+      if (e) e.preventDefault();
+      fileInputRef.current?.click();
+  };
 
   return (
     <div className="w-full max-w-full space-y-4">
-      {/* CARD DE IMPORTAÇÃO */}
       <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-100 w-full">
         <div className="flex items-center justify-between mb-3">
             <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
@@ -235,51 +259,55 @@ export default function PontoImporter({ employees, onImport }) {
             {isProcessing && <span className="text-xs font-bold text-blue-600 animate-pulse">Lendo...</span>}
         </div>
         
-        <div className="flex flex-col gap-2 mb-3">
-            <p className="text-xs text-gray-500">Selecione o arquivo (.txt) do seu dispositivo.</p>
-            {employees.length === 0 && (
-                <p className="text-xs text-red-500 bg-red-50 p-2 rounded flex items-center gap-1">
-                    <FontAwesomeIcon icon={faExclamationTriangle} /> 
-                    Atenção: Nenhum funcionário cadastrado. A importação falhará.
-                </p>
-            )}
-        </div>
-        
-        {/* INPUT DE ARQUIVO MOBILE-FRIENDLY */}
-        <label className={`flex flex-col items-center justify-center w-full h-24 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${isProcessing ? 'bg-gray-50 border-gray-300' : 'bg-blue-50 border-blue-200 hover:bg-blue-100'} active:bg-blue-200`}>
-            <div className="flex flex-col items-center justify-center pt-5 pb-6">
+        <label 
+            htmlFor="mobile-ponto-upload-debug"
+            className={`flex flex-col items-center justify-center w-full h-28 border-2 border-dashed rounded-lg cursor-pointer transition-all duration-200
+                ${isProcessing ? 'bg-gray-50 border-gray-300 opacity-50' : 'bg-blue-50 border-blue-300 hover:bg-blue-100 active:bg-blue-200'}
+            `}
+        >
+            <div className="flex flex-col items-center justify-center pt-5 pb-6 pointer-events-none">
                 {isProcessing ? (
-                    <FontAwesomeIcon icon={faSpinner} spin className="text-blue-500 text-2xl mb-2" />
+                    <FontAwesomeIcon icon={faSpinner} spin className="text-blue-500 text-3xl mb-2" />
                 ) : (
-                    <FontAwesomeIcon icon={faFileAlt} className="text-blue-400 text-2xl mb-2" />
+                    <FontAwesomeIcon icon={faFolderOpen} className="text-blue-500 text-3xl mb-2" />
                 )}
-                <p className="text-xs text-gray-600 text-center px-2 font-medium">
-                    {file ? file.name : 'Toque para selecionar arquivo'}
+                <p className="text-sm text-gray-700 text-center px-4 font-bold">
+                    {file ? file.name : 'Toque aqui para selecionar'}
                 </p>
             </div>
-            
-            {/* CORREÇÃO PARA MOBILE: 
-                Usar accept="* / *" força o Android a mostrar todas as opções (Arquivos, Downloads, Drive).
-                Se usarmos ".txt", alguns Androids desabilitam a seleção.
-            */}
-            <input 
-                type="file" 
-                className="hidden" 
-                accept="*/*" 
-                onChange={handleFileChange} 
-                disabled={isProcessing} 
-            />
         </label>
 
-        {/* LOG DEBUG */}
-        {debugInfo && processedRecords.length === 0 && !isProcessing && (
-            <div className="mt-3 p-2 bg-gray-900 text-green-400 text-[10px] font-mono rounded max-h-32 overflow-y-auto">
-                <pre>{debugInfo}</pre>
+        {/* INPUT PELADO (Sem accept para compatibilidade máxima) */}
+        <input 
+            id="mobile-ponto-upload-debug"
+            ref={fileInputRef}
+            type="file" 
+            className="hidden" 
+            onChange={handleFileChange} 
+            disabled={isProcessing} 
+        />
+
+        <div className="mt-2 text-center">
+            <button type="button" onClick={triggerFileSelect} className="text-xs text-blue-600 underline p-2">
+                Problemas? Clique aqui (Modo Alternativo)
+            </button>
+        </div>
+
+        {/* ÁREA DE DIAGNÓSTICO (Raio-X) */}
+        {debugLog.length > 0 && (
+            <div className="mt-4 p-3 bg-gray-900 rounded-md border border-gray-700">
+                <h4 className="text-xs font-bold text-white mb-2 flex items-center gap-2">
+                    <FontAwesomeIcon icon={faBug} /> Diagnóstico do Sistema
+                </h4>
+                <div className="h-32 overflow-y-auto font-mono text-[10px] text-green-400 space-y-1">
+                    {debugLog.map((log, i) => (
+                        <div key={i} className="border-b border-gray-800 pb-1">{log}</div>
+                    ))}
+                </div>
             </div>
         )}
       </div>
       
-      {/* ÁREA DE RESULTADOS */}
       {processedRecords.length > 0 && (
         <div className="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden animate-in fade-in slide-in-from-bottom-4">
           <div className="p-3 bg-gray-50 border-b border-gray-100 flex justify-between items-center">
