@@ -1,7 +1,5 @@
-// app/api/meta/webhook/route.js
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { enviarNotificacao } from '@/utils/notificacoes'; // <--- Usamos sua central
 
 // Cliente Admin para operações de background
 const getSupabaseAdmin = () => {
@@ -69,26 +67,6 @@ async function ensureFunilAndFirstColumn(supabase, organizacaoId) {
         primeiraColuna = newColuna;
     }
     return primeiraColuna.id;
-}
-
-async function getEquipeComercial(supabase, organizacaoId) {
-    // Busca IDs de Funções Comerciais/Chefia
-    const { data: funcoes } = await supabase.from('funcoes')
-        .select('id')
-        .in('nome_funcao', ['Proprietário', 'Proprietario', 'Comercial', 'Vendedor', 'Corretor'])
-        .eq('organizacao_id', organizacaoId); 
-    
-    if (!funcoes?.length) return [];
-    const funcoesIds = funcoes.map(f => f.id);
-    
-    // Busca usuários ativos com essas funções
-    const { data: users } = await supabase.from('usuarios')
-        .select('id')
-        .in('funcao_id', funcoesIds)
-        .eq('is_active', true)
-        .eq('organizacao_id', organizacaoId);
-        
-    return users || [];
 }
 
 // --- ROTAS ---
@@ -181,32 +159,11 @@ export async function POST(request) {
         }
         
         // Coloca no Funil
+        // A Trigger do banco vai detectar este INSERT e enviar a notificação automaticamente!
         const colunaId = await ensureFunilAndFirstColumn(supabase, organizacaoId);
         await supabase.from('contatos_no_funil').insert({ contato_id: newContact.id, coluna_id: colunaId, organizacao_id: organizacaoId });
         
-        // --- CENTRAL DE NOTIFICAÇÕES (INTEGRAÇÃO FEITA) ---
-        try {
-            const equipe = await getEquipeComercial(supabase, organizacaoId);
-            
-            if (equipe.length > 0) {
-                const promises = equipe.map(user => 
-                    enviarNotificacao({
-                        userId: user.id,
-                        titulo: '🚀 Novo Lead Chegou!',
-                        mensagem: `${nomeLead} veio por ${adName || 'Meta Ads'}.`,
-                        link: '/crm',
-                        tipo: 'sucesso',
-                        organizacao_id: organizacaoId,
-                        canal: 'comercial', // Respeita preferência do usuário
-                        supabaseClient: supabase // <--- PASSA O PODER DE ADMIN
-                    })
-                );
-                await Promise.all(promises);
-                console.log(`LOG: Notificações enviadas para ${equipe.length} usuários.`);
-            }
-        } catch (notifErr) { 
-            console.error('Erro notificações:', notifErr); 
-        }
+        console.log(`LOG: Novo Lead processado via Webhook. ID: ${newContact.id}`);
 
         return new NextResponse(JSON.stringify({ status: 'success' }), { status: 200 });
 
