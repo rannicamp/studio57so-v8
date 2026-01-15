@@ -1,7 +1,7 @@
 // app/(main)/financeiro/conciliacao/page.js
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -17,36 +17,34 @@ import ExtratoUploader from '../../../../components/financeiro/conciliacao/Extra
 import ConciliacaoWorkbench from '../../../../components/financeiro/conciliacao/ConciliacaoWorkbench';
 import LancamentoFormModal from '../../../../components/financeiro/LancamentoFormModal'; 
 
-// --- FUNÇÃO DE LIMPEZA DE DATA BLINDADA ---
+// --- HELPER: GERAÇÃO DE ID ÚNICO (ASSINATURA DIGITAL) ---
+// Isso garante que CSVs e OFXs ruins (Caixa 000000) tenham IDs únicos e persistentes
+const gerarHashTransacao = (data, valor, descricao) => {
+    // Remove espaços extras e deixa minúsculo para padronizar
+    const descLimpa = descricao ? descricao.trim().toLowerCase().replace(/\s+/g, '-') : 'sem-desc';
+    const valStr = parseFloat(valor).toFixed(2);
+    // Ex: 2025-07-25_-44.70_tarifa-manutencao
+    return `${data}_${valStr}_${descLimpa}`;
+};
+
+// --- HELPER: DATAS ---
 const normalizarData = (dataRaw) => {
     if (!dataRaw) return format(new Date(), 'yyyy-MM-dd');
-
     const str = dataRaw.trim();
-    
-    // 1. Já está no formato certo? (YYYY-MM-DD)
     if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
-
-    // 2. Formato Brasileiro com barras ou traços (DD/MM/AAAA ou DD-MM-YY)
     const matchBR = str.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})$/);
-    
     if (matchBR) {
         const dia = matchBR[1].padStart(2, '0');
         const mes = matchBR[2].padStart(2, '0');
         let ano = matchBR[3];
-
-        // Se o ano for curto (ex: 25), assume século 2000 (2025)
-        if (ano.length === 2) {
-            ano = `20${ano}`;
-        }
-        
+        if (ano.length === 2) ano = `20${ano}`;
         return `${ano}-${mes}-${dia}`;
     }
-
-    console.warn("Data não reconhecida:", dataRaw);
     return format(new Date(), 'yyyy-MM-dd');
 };
 
-// --- PARSERS ---
+// --- PARSERS COM LÓGICA DE FITID ---
+
 const parseOFX = (ofxString) => {
     const transactions = [];
     const lines = ofxString.split('\n');
@@ -64,9 +62,27 @@ const parseOFX = (ofxString) => {
         }
         if(line.includes('<TRNAMT>')) currentTrx.valor = Math.abs(parseFloat(line.split('>')[1].split('<')[0]));
         if(line.includes('<MEMO>')) currentTrx.descricao = line.split('>')[1].split('<')[0];
+        
+        // --- LÓGICA DO FITID ---
+        if(line.includes('<FITID>')) {
+            const rawFitId = line.split('>')[1].split('<')[0].trim();
+            currentTrx.fitidRaw = rawFitId;
+        }
+
         if(line.includes('</STMTTRN>')) {
-            currentTrx.id = Math.random().toString(36).substr(2, 9);
+            // Definição do ID Final (O Pulo do Gato)
+            // Se tiver FITID válido (diferente de 0 e vazio), usa ele.
+            // Se não, gera a assinatura digital (Data + Valor + Desc).
+            let finalId;
+            if (currentTrx.fitidRaw && currentTrx.fitidRaw !== '0' && !/^0+$/.test(currentTrx.fitidRaw)) {
+                finalId = currentTrx.fitidRaw;
+            } else {
+                finalId = gerarHashTransacao(currentTrx.data, currentTrx.tipo === 'DEBIT' ? -currentTrx.valor : currentTrx.valor, currentTrx.descricao);
+            }
+
+            currentTrx.id = finalId; // Esse ID será usado para comparar com o banco
             currentTrx.conciliado = false;
+            
             if(currentTrx.valor) transactions.push(currentTrx);
         }
     });
@@ -75,12 +91,10 @@ const parseOFX = (ofxString) => {
 
 const parseCSV = (csvString) => {
     const results = Papa.parse(csvString, { 
-        header: true, 
-        skipEmptyLines: true,
-        transformHeader: h => h.trim() 
+        header: true, skipEmptyLines: true, transformHeader: h => h.trim() 
     });
 
-    return results.data.map((row, index) => {
+    return results.data.map((row) => {
         const keys = Object.keys(row);
         const dateKey = keys.find(k => /data|date|dt|dia/i.test(k));
         const descKey = keys.find(k => /descri|memo|hist|texto/i.test(k));
@@ -90,28 +104,34 @@ const parseCSV = (csvString) => {
 
         let valorRaw = row[valueKey];
         let valor = 0;
+        let valorOriginal = 0; // Para o hash
+
         if (typeof valorRaw === 'string') {
             valorRaw = valorRaw.replace('R$', '').trim();
             if (valorRaw.includes(',') && !valorRaw.includes('.')) {
-                valor = parseFloat(valorRaw.replace(',', '.'));
+                valorOriginal = parseFloat(valorRaw.replace(',', '.'));
             } else if (valorRaw.includes('.') && valorRaw.includes(',')) {
-                valor = parseFloat(valorRaw.replace(/\./g, '').replace(',', '.'));
+                valorOriginal = parseFloat(valorRaw.replace(/\./g, '').replace(',', '.'));
             } else {
-                valor = parseFloat(valorRaw);
+                valorOriginal = parseFloat(valorRaw);
             }
         } else {
-            valor = parseFloat(valorRaw);
+            valorOriginal = parseFloat(valorRaw);
         }
+        valor = Math.abs(valorOriginal);
 
-        const dataRaw = row[dateKey];
-        const dataFormatada = normalizarData(dataRaw);
+        const dataFormatada = normalizarData(row[dateKey]);
+        const descricao = row[descKey] || 'Sem descrição';
+
+        // GERA ID DETERMINÍSTICO PARA CSV TAMBÉM
+        const finalId = gerarHashTransacao(dataFormatada, valorOriginal, descricao);
 
         return {
-            id: `csv-${index}-${Math.random().toString(36).substr(2, 9)}`,
+            id: finalId,
             data: dataFormatada, 
-            descricao: row[descKey] || 'Sem descrição',
-            valor: Math.abs(valor),
-            tipo: valor < 0 ? 'DEBIT' : 'CREDIT', 
+            descricao: descricao,
+            valor: valor,
+            tipo: valorOriginal < 0 ? 'DEBIT' : 'CREDIT', 
             conciliado: false
         };
     }).filter(item => item !== null && !isNaN(item.valor));
@@ -120,10 +140,11 @@ const parseCSV = (csvString) => {
 export default function ConciliacaoPage() {
     const supabase = createClient();
     const { user } = useAuth();
+    const queryClient = useQueryClient();
     
     // Estados
     const [contaSelecionada, setContaSelecionada] = useState(null);
-    const [extratoItems, setExtratoItems] = useState([]);
+    const [extratoItems, setExtratoItems] = useState([]); // Itens do arquivo importado
     
     // Filtros
     const [dataInicio, setDataInicio] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
@@ -136,7 +157,7 @@ export default function ConciliacaoPage() {
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [itemEmCriacao, setItemEmCriacao] = useState(null);
 
-    // Carregar Cache
+    // Carregar Cache Inicial
     useEffect(() => {
         try {
             const savedConta = sessionStorage.getItem('conciliacao_conta');
@@ -153,7 +174,7 @@ export default function ConciliacaoPage() {
         finally { setIsLoaded(true); }
     }, []);
 
-    // Salvar Cache
+    // Persistência de Cache
     useEffect(() => {
         if (!isLoaded) return;
         if (contaSelecionada) sessionStorage.setItem('conciliacao_conta', JSON.stringify(contaSelecionada));
@@ -172,7 +193,6 @@ export default function ConciliacaoPage() {
         sessionStorage.setItem('conciliacao_dataFim', dataFim);
     }, [dataInicio, dataFim, isLoaded]);
 
-    // Queries
     const { data: contas = [] } = useQuery({
         queryKey: ['contas_conciliacao', user?.organizacao_id],
         queryFn: async () => {
@@ -191,23 +211,19 @@ export default function ConciliacaoPage() {
         enabled: !!user?.organizacao_id
     });
 
-    // --- QUERY PRINCIPAL INTELIGENTE ---
+    // --- QUERY PRINCIPAL DO SISTEMA ---
     const { data: sistemaItems = [], refetch: refetchSistema } = useQuery({
         queryKey: ['lancamentos_sistema', contaSelecionada?.id, dataInicio, dataFim],
         queryFn: async () => {
             if(!contaSelecionada) return [];
             
             const isCartao = contaSelecionada.tipo === 'Cartão de Crédito';
-            
-            // 1. Definição da Coluna de Busca
-            // Se for Cartão -> Busca por Transação (Data da compra)
-            // Se for Outros -> Busca por Vencimento (Fluxo normal) 
-            // *Nota: Poderíamos buscar por pagamento também, mas vencimento cobre o planejado e o realizado geralmente cai no mesmo mês.
             const colunaBusca = isCartao ? 'data_transacao' : 'data_vencimento';
 
+            // AGORA SELECIONAMOS O FITID TAMBÉM
             let query = supabase
                 .from('lancamentos')
-                .select('*') 
+                .select('*, fitid') 
                 .eq('conta_id', contaSelecionada.id)
                 .gte(colunaBusca, dataInicio)
                 .lte(colunaBusca, dataFim)
@@ -215,31 +231,25 @@ export default function ConciliacaoPage() {
 
             const { data } = await query;
 
-            // 2. Definição da Data Visual (Sua Regra de Ouro)
             return data?.map(d => {
                 let dataVisual = null;
-
                 if (isCartao) {
-                    // REGRA 1: Cartão sempre usa data da transação
                     dataVisual = d.data_transacao;
                 } else {
-                    // REGRA 2: Outros tipos de conta
                     if ((d.status === 'Pago' || d.status === 'Conciliado') && d.data_pagamento) {
-                        dataVisual = d.data_pagamento; // 1º Pagamento
+                        dataVisual = d.data_pagamento;
                     } else if (d.data_vencimento) {
-                        dataVisual = d.data_vencimento; // 2º Vencimento
+                        dataVisual = d.data_vencimento;
                     } else {
-                        dataVisual = d.data_transacao; // 3º Transação
+                        dataVisual = d.data_transacao;
                     }
                 }
-
-                // Fallback
                 if (!dataVisual) dataVisual = d.data_transacao;
 
                 return {
                     ...d,
                     id: d.id,
-                    data: dataVisual, // DATA CORRETA APLICADA
+                    data: dataVisual,
                     descricao: d.descricao,
                     valor: d.valor,
                     tipo: d.tipo, 
@@ -250,7 +260,41 @@ export default function ConciliacaoPage() {
         enabled: !!contaSelecionada && !!dataInicio && !!dataFim
     });
 
-    // Actions
+    // --- A MÁGICA: AUTO-CONCILIAÇÃO VISUAL (MEMÓRIA) ---
+    // Sempre que o extrato ou os dados do sistema mudam, verificamos duplicidade pelo FITID
+    useEffect(() => {
+        if (extratoItems.length > 0 && sistemaItems.length > 0) {
+            // Cria um conjunto de FITIDs que JÁ existem no banco
+            const fitidsNoBanco = new Set(
+                sistemaItems
+                    .filter(item => item.fitid) // Pega só quem tem fitid
+                    .map(item => String(item.fitid)) // Garante que é string
+            );
+
+            // Verifica se precisamos atualizar o estado visual do extrato
+            let houveMudanca = false;
+            
+            const extratoAtualizado = extratoItems.map(itemExtrato => {
+                // Se o ID desse item do extrato já estiver no banco...
+                if (fitidsNoBanco.has(String(itemExtrato.id))) {
+                    if (!itemExtrato.conciliado) {
+                        houveMudanca = true;
+                        // ...Marcamos ele como conciliado automaticamente!
+                        return { ...itemExtrato, conciliado: true };
+                    }
+                }
+                return itemExtrato;
+            });
+
+            if (houveMudanca) {
+                setExtratoItems(extratoAtualizado);
+                toast.success("Itens já existentes foram marcados automaticamente.");
+            }
+        }
+    }, [sistemaItems, extratoItems]); // Roda quando carrega o sistema ou muda o extrato
+
+    // --- ACTIONS ---
+
     const handleFileLoaded = ({ content, extension }) => {
         try {
             let parsed = [];
@@ -260,16 +304,16 @@ export default function ConciliacaoPage() {
 
             if(parsed.length === 0) throw new Error("Nenhuma transação válida encontrada.");
             
+            // Ao carregar, eles vêm como não conciliados. O useEffect acima vai tratar a "Memória".
             setExtratoItems(parsed);
 
             const datasOrdenadas = parsed.map(p => p.data).sort((a, b) => a.localeCompare(b)); 
-            
             if (datasOrdenadas.length > 0) {
                 const menorData = datasOrdenadas[0];
                 const maiorData = datasOrdenadas[datasOrdenadas.length - 1];
                 setDataInicio(menorData);
                 setDataFim(maiorData);
-                toast.success(`${parsed.length} linhas! Período ajustado.`);
+                toast.success(`${parsed.length} linhas carregadas!`);
             } else {
                 toast.success(`${parsed.length} transações carregadas!`);
             }
@@ -280,15 +324,19 @@ export default function ConciliacaoPage() {
     };
 
     const handleConciliar = async (banco, sistema) => {
+        // Remove visualmente do extrato (opcional, ou marca como feito)
+        // Aqui optamos por remover da lista de pendentes da tela
         setExtratoItems(prev => prev.filter(i => i.id !== banco.id));
+        
         try {
             const { error } = await supabase
                 .from('lancamentos')
                 .update({ 
                     status: 'Conciliado', 
                     conciliado: true,
-                    // Se for cartão, não mexe na data de pagamento (pois paga na fatura)
-                    data_pagamento: contaSelecionada.tipo === 'Cartão de Crédito' ? null : banco.data 
+                    data_pagamento: contaSelecionada.tipo === 'Cartão de Crédito' ? null : banco.data,
+                    // GRAVANDO O FITID NO BANCO
+                    fitid: banco.id 
                 })
                 .eq('id', sistema.id);
 
@@ -296,16 +344,13 @@ export default function ConciliacaoPage() {
             toast.success("Conciliado!");
             refetchSistema();
         } catch (error) {
+            console.error(error);
             toast.error("Erro ao salvar.");
         }
     };
 
-    // --- CRIAÇÃO COM DATA ESPERTA ---
     const handleCriarLancamento = (itemBanco) => {
         const dataExtrato = normalizarData(itemBanco.data);
-
-        // Se for cartão, a data do extrato é a data da transação.
-        // Se for conta corrente, a data do extrato é o efetivo pagamento.
         const isCartao = contaSelecionada?.tipo === 'Cartão de Crédito';
 
         const novoLancamento = {
@@ -313,16 +358,14 @@ export default function ConciliacaoPage() {
             descricao: itemBanco.descricao,
             valor: Math.abs(itemBanco.valor),
             tipo: (itemBanco.tipo === 'CREDIT' || itemBanco.valor > 0) ? 'Receita' : 'Despesa',
-            
             data_transacao: dataExtrato, 
             data_vencimento: dataExtrato, 
-            
-            // Se for cartão, não preenche pagamento agora. Se for conta, já nasce pago na data do extrato.
             data_pagamento: isCartao ? null : dataExtrato,
-            
-            status: isCartao ? 'Pendente' : 'Conciliado', // Cartão nasce pendente (fatura). Conta nasce conciliado.
+            status: isCartao ? 'Pendente' : 'Conciliado', 
             conciliado: true,
-            id_transacao_externa: itemBanco.id
+            // GRAVANDO O FITID NO BANCO (CRIAÇÃO)
+            fitid: itemBanco.id, 
+            auditoria_verificado: true
         };
 
         setItemEmCriacao(itemBanco);
@@ -346,13 +389,11 @@ export default function ConciliacaoPage() {
     const handleSaveEdicao = () => {
         setIsEditModalOpen(false);
         setLancamentoParaEditar(null);
-        
         if (itemEmCriacao) {
             setExtratoItems(prev => prev.filter(i => i.id !== itemEmCriacao.id));
             setItemEmCriacao(null);
             toast.success("Lançamento criado e conciliado!");
         }
-        
         refetchSistema(); 
     };
 
