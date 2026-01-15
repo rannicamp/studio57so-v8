@@ -1,3 +1,4 @@
+// components/rh/PontoImporter.js
 "use client";
 
 import { useState } from 'react';
@@ -48,7 +49,7 @@ export default function PontoImporter({ employees, onImport }) {
           const reader = new FileReader();
           reader.onload = (e) => resolve(e.target.result);
           reader.onerror = (e) => reject(new Error("Erro na leitura física."));
-          reader.readAsText(file);
+          reader.readAsText(file); // Tenta ler como texto, não importa a extensão
       });
   };
 
@@ -58,9 +59,15 @@ export default function PontoImporter({ employees, onImport }) {
 
     if (!selectedFile) return;
 
+    // Validação suave de tipo para avisar o usuário, mas não bloquear
+    // (Muitos TXT no Android vêm sem type ou como octet-stream)
+    if (selectedFile.type && !selectedFile.type.includes('text') && !selectedFile.name.endsWith('.txt')) {
+        toast.warning("O arquivo selecionado pode não ser de texto. Tentando ler mesmo assim...");
+    }
+
     setFile(selectedFile);
     setIsProcessing(true);
-    setProcessedRecords([]); // Limpa resultados anteriores para evitar flash de layout
+    setProcessedRecords([]); 
     setSummary({ ready: 0, errors: 0 });
     
     let logs = `📱 Mobile Debug:\nArquivo: ${selectedFile.name}\nTipo: ${selectedFile.type || 'n/a'}\n`;
@@ -70,7 +77,7 @@ export default function PontoImporter({ employees, onImport }) {
         const content = await readFileContent(selectedFile);
         
         if (!content || content.trim().length === 0) {
-            throw new Error("Arquivo vazio.");
+            throw new Error("Arquivo vazio ou formato ilegível.");
         }
 
         // Normaliza quebras de linha
@@ -81,7 +88,6 @@ export default function PontoImporter({ employees, onImport }) {
         let parseMode = 'TAB';
 
         // --- LÓGICA DE DETECÇÃO INTELIGENTE ---
-        // Pega uma linha de amostra que tenha números (pula cabeçalhos de texto)
         const sampleLine = lines.find(l => l.match(/\d/)); 
         
         if (sampleLine) {
@@ -177,7 +183,7 @@ export default function PontoImporter({ employees, onImport }) {
 
     } catch (error) {
         setDebugInfo(prev => prev + `Erro Crítico: ${error.message}`);
-        toast.error("Erro ao ler arquivo.");
+        toast.error("Erro ao ler arquivo. Verifique se é um arquivo de texto.");
     } finally {
         setIsProcessing(false);
     }
@@ -199,7 +205,6 @@ export default function PontoImporter({ employees, onImport }) {
             organizacao_id: organizacaoId, 
         }));
 
-        // Processa em lotes pequenos para não travar celular
         const batchSize = 20;
         for (let i = 0; i < payload.length; i += batchSize) {
             const { error } = await supabase.rpc('importar_registros_ponto_se_vazio', { 
@@ -241,7 +246,7 @@ export default function PontoImporter({ employees, onImport }) {
         </div>
         
         {/* INPUT DE ARQUIVO MOBILE-FRIENDLY */}
-        <label className={`flex flex-col items-center justify-center w-full h-24 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${isProcessing ? 'bg-gray-50 border-gray-300' : 'bg-blue-50 border-blue-200 hover:bg-blue-100'}`}>
+        <label className={`flex flex-col items-center justify-center w-full h-24 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${isProcessing ? 'bg-gray-50 border-gray-300' : 'bg-blue-50 border-blue-200 hover:bg-blue-100'} active:bg-blue-200`}>
             <div className="flex flex-col items-center justify-center pt-5 pb-6">
                 {isProcessing ? (
                     <FontAwesomeIcon icon={faSpinner} spin className="text-blue-500 text-2xl mb-2" />
@@ -252,17 +257,21 @@ export default function PontoImporter({ employees, onImport }) {
                     {file ? file.name : 'Toque para selecionar arquivo'}
                 </p>
             </div>
-            {/* CORREÇÃO AQUI: Mudamos accept="*" para .txt e text/plain */}
+            
+            {/* CORREÇÃO PARA MOBILE: 
+                Usar accept="* / *" força o Android a mostrar todas as opções (Arquivos, Downloads, Drive).
+                Se usarmos ".txt", alguns Androids desabilitam a seleção.
+            */}
             <input 
                 type="file" 
                 className="hidden" 
-                accept=".txt, text/plain" 
+                accept="*/*" 
                 onChange={handleFileChange} 
                 disabled={isProcessing} 
             />
         </label>
 
-        {/* LOG DEBUG (Só aparece se tiver erro ou se quiser ver o que rolou) */}
+        {/* LOG DEBUG */}
         {debugInfo && processedRecords.length === 0 && !isProcessing && (
             <div className="mt-3 p-2 bg-gray-900 text-green-400 text-[10px] font-mono rounded max-h-32 overflow-y-auto">
                 <pre>{debugInfo}</pre>
@@ -270,11 +279,9 @@ export default function PontoImporter({ employees, onImport }) {
         )}
       </div>
       
-      {/* ÁREA DE RESULTADOS - COM SCROLL HORIZONTAL (A SOLUÇÃO DO LAYOUT) */}
+      {/* ÁREA DE RESULTADOS */}
       {processedRecords.length > 0 && (
         <div className="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden animate-in fade-in slide-in-from-bottom-4">
-          
-          {/* Header do Resultado */}
           <div className="p-3 bg-gray-50 border-b border-gray-100 flex justify-between items-center">
             <span className="text-sm font-bold text-gray-700">Pré-visualização</span>
             <div className="text-xs space-x-2">
@@ -283,7 +290,6 @@ export default function PontoImporter({ employees, onImport }) {
             </div>
           </div>
 
-          {/* TABELA COM SCROLL INDEPENDENTE */}
           <div className="w-full overflow-x-auto bg-white max-h-80 overflow-y-auto">
             <table className="min-w-full divide-y divide-gray-100 whitespace-nowrap">
               <thead className="bg-gray-50 sticky top-0 z-10">
@@ -311,7 +317,6 @@ export default function PontoImporter({ employees, onImport }) {
             </table>
           </div>
           
-          {/* BOTÃO DE AÇÃO FIXO */}
           <div className="p-3 border-t border-gray-100 bg-gray-50">
             <button
               onClick={handleImportConfirm}

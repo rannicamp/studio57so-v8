@@ -3,95 +3,84 @@ import { createClient } from '@/utils/supabase/server';
 import imapSimple from 'imap-simple';
 import { simpleParser } from 'mailparser';
 
-// Configuração Next.js
+// Configuração Next.js - Dinâmico
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60; 
 
 // --- CONFIGURAÇÃO ---
-const SYNC_DAYS = 5; // Olha apenas os últimos 5 dias (janela de e-mails novos)
-const MAX_BODY_SIZE = 100000; // 100KB limite texto
+const MAX_BODY_SIZE = 100000; // 100KB limite para texto
 
 async function syncFolder(connection, dbConfigId, folderName, supabase) {
     try {
         await connection.openBox(folderName);
         
-        // 1. DATA DE CORTE: Define o que é "Novo"
-        const dateLimit = new Date();
-        dateLimit.setDate(dateLimit.getDate() - SYNC_DAYS);
+        // 1. DEFINIR DATA: APENAS HOJE 📅
+        // Pega a data atual do servidor
+        const today = new Date();
         
-        // Formata a data para o padrão IMAP (ex: "May 20, 2024")
+        // Formatação manual para padrão IMAP (ex: "Jan 15, 2026")
         const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-        const day = dateLimit.getDate();
-        const month = months[dateLimit.getMonth()];
-        const year = dateLimit.getFullYear();
-        const imapDate = `${month} ${day}, ${year}`;
+        const imapDateStr = `${months[today.getMonth()]} ${today.getDate()}, ${today.getFullYear()}`;
 
-        console.log(`🔎 [${folderName}] Buscando e-mails desde: ${imapDate}`);
+        console.log(`🔎 [${folderName}] Buscando APENAS e-mails de HOJE (${imapDateStr})...`);
 
-        // 2. BUSCA APENAS RECENTES (O Segredo da Performance 🚀)
-        // Usamos 'SINCE' para o servidor filtrar para nós. Não trazemos lixo antigo.
-        const searchCriteria = [['SINCE', imapDate]];
+        // 2. BUSCA NO SERVIDOR
+        // SINCE + Data de Hoje = Apenas e-mails a partir da 00:00 de hoje
+        const searchCriteria = [['SINCE', imapDateStr]];
         const fetchOptions = { bodies: ['HEADER.FIELDS (MESSAGE-ID)'], struct: true, markSeen: false };
         
-        // Primeiro pegamos a lista leve dos recentes para comparar
         const recentMessages = await connection.search(searchCriteria, fetchOptions);
         
         if (recentMessages.length === 0) {
-            console.log(`✅ [${folderName}] Nenhum e-mail recente encontrado.`);
+            console.log(`✅ [${folderName}] Nenhum e-mail chegou hoje.`);
             return { new: 0, pending: 0 };
         }
 
         const imapMap = new Map();
         recentMessages.forEach(msg => imapMap.set(msg.attributes.uid, msg));
 
-        // 3. Verifica o que JÁ TEMOS no Banco (nessa janela de tempo)
-        // Precisamos saber quais desses recentes nós JÁ baixamos para não baixar de novo
+        // 3. O QUE JÁ TEMOS NO BANCO?
+        // Verifica apenas os UIDs encontrados hoje
+        const recentUids = Array.from(imapMap.keys());
+        
         const { data: existingDbMessages } = await supabase
             .from('email_messages_cache')
-            .select('uid')
+            .select('uid, is_read')
             .eq('account_id', dbConfigId)
             .eq('folder_path', folderName)
-            .gte('date', dateLimit.toISOString()); // Otimização: Só compara com recentes do banco
+            .in('uid', recentUids);
 
-        const existingUids = new Set(existingDbMessages?.map(m => m.uid));
+        const dbMap = new Map();
+        existingDbMessages?.forEach(msg => dbMap.set(msg.uid, msg));
 
-        // 4. FILTRAR: Quem falta baixar?
-        const uidsToDownload = [];
-        imapMap.forEach((msg, uid) => {
-            if (!existingUids.has(uid)) {
-                uidsToDownload.push(uid);
-            }
-        });
-
-        // Atualiza status de LIDO/NÃO LIDO dos que já existem
-        // (Isso é rápido e mantém a visualização correta)
-        const uidsToUpdateStatus = [];
+        // 4. ATUALIZA STATUS (Se leu no celular hoje, marca lido no sistema)
+        const uidsToUpdateRead = [];
         recentMessages.forEach(msg => {
-            if (existingUids.has(msg.attributes.uid)) {
-                 // Lógica simples: Se no IMAP tá lido, garante que no banco tá lido
-                 if (msg.attributes.flags && msg.attributes.flags.includes('\\Seen')) {
-                     uidsToUpdateStatus.push(msg.attributes.uid);
-                 }
+            if (dbMap.has(msg.attributes.uid)) {
+                const isSeenImap = msg.attributes.flags && msg.attributes.flags.includes('\\Seen');
+                const isReadDb = dbMap.get(msg.attributes.uid).is_read;
+                
+                if (isSeenImap && !isReadDb) {
+                    uidsToUpdateRead.push(msg.attributes.uid);
+                }
             }
         });
 
-        if (uidsToUpdateStatus.length > 0) {
-             // Atualiza status em lote (max 50 por vez pra ser seguro)
-             const batch = uidsToUpdateStatus.slice(0, 50);
-             await supabase.from('email_messages_cache')
+        if (uidsToUpdateRead.length > 0) {
+            await supabase.from('email_messages_cache')
                 .update({ is_read: true })
                 .eq('account_id', dbConfigId)
-                .in('uid', batch);
+                .in('uid', uidsToUpdateRead);
         }
 
-        // 5. BAIXAR CONTEÚDO (Apenas dos Novos que faltam)
-        if (uidsToDownload.length > 0) {
-            console.log(`📥 [${folderName}] Baixando conteúdo de ${uidsToDownload.length} novos e-mails...`);
-            
-            // Baixa em lotes pequenos para garantir
-            const downloadBatch = uidsToDownload.slice(0, 10); // 10 por vez é seguro e rápido para recentes
+        // 5. BAIXAR CONTEÚDO (Apenas o que falta de hoje)
+        const uidsToDownload = recentUids.filter(uid => !dbMap.has(uid));
 
-            const fullMessages = await connection.search([['UID', downloadBatch]], {
+        if (uidsToDownload.length > 0) {
+            console.log(`📥 [${folderName}] Baixando ${uidsToDownload.length} e-mails de hoje...`);
+            
+            // Como são só os de hoje, baixamos tudo de uma vez (corpo completo)
+            const fullMessages = await connection.search([['UID', uidsToDownload]], {
                 bodies: [''], 
                 markSeen: false
             });
@@ -158,7 +147,7 @@ async function syncFolder(connection, dbConfigId, folderName, supabase) {
                 }
             }
             
-            return { new: recordsToInsert.length, pending: Math.max(0, uidsToDownload.length - 10) };
+            return { new: recordsToInsert.length, pending: 0 };
         }
         
         return { new: 0, pending: 0 };
@@ -195,13 +184,9 @@ export async function POST(request) {
                     },
                 });
 
-                const folders = ['INBOX']; 
-                
-                for (const folder of folders) {
-                    const res = await syncFolder(connection, config.id, folder, supabase);
-                    if (res && res.new) stats.totalNew += res.new;
-                    if (res && res.pending) stats.totalPending += res.pending;
-                }
+                // Foca apenas na entrada
+                const res = await syncFolder(connection, config.id, 'INBOX', supabase);
+                if (res && res.new) stats.totalNew += res.new;
 
             } catch (err) {
                 console.error(`Erro conta ${config.email}:`, err);
