@@ -252,11 +252,11 @@ export default function PontoImporter({ employees, onImport }) {
                     {file ? file.name : 'Toque para selecionar arquivo'}
                 </p>
             </div>
-            {/* CORREÇÃO AQUI: Mudamos accept="*" para accept=".txt,text/plain" */}
+            {/* CORREÇÃO AQUI: Mudamos accept="*" para .txt e text/plain */}
             <input 
                 type="file" 
                 className="hidden" 
-                accept=".txt,text/plain" 
+                accept=".txt, text/plain" 
                 onChange={handleFileChange} 
                 disabled={isProcessing} 
             />
