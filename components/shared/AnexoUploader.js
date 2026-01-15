@@ -84,7 +84,14 @@ export default function AnexoUploader({ parentId, storageBucket, tableName, allo
                 <input type="text" placeholder="Descrição (opcional)" value={descricao} onChange={(e) => setDescricao(e.target.value)} className="p-2 border rounded-md w-full" />
             </div>
             <div onDragEnter={handleDragEnter} onDragLeave={handleDragLeave} onDragOver={handleDragOver} onDrop={handleDrop} onClick={() => fileInputRef.current?.click()} className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${isDraggingOver ? 'border-blue-500 bg-blue-50' : 'border-gray-300 bg-gray-50'}`}>
-                <input ref={fileInputRef} type="file" className="hidden" onChange={(e) => handleFileSelect(e.target.files[0])} />
+                {/* CORREÇÃO AQUI: Adicionado accept="*" para mobile */}
+                <input 
+                    ref={fileInputRef} 
+                    type="file" 
+                    className="hidden" 
+                    onChange={(e) => handleFileSelect(e.target.files[0])}
+                    accept="image/*,video/*,audio/*,application/*,text/*" 
+                />
                 <FontAwesomeIcon icon={faCloudUploadAlt} className="text-4xl text-gray-400 mb-3" />
                 {file ? (<div><p className="font-semibold text-gray-700">{file.name}</p><p className="text-sm text-gray-500">{(file.size / 1024).toFixed(2)} KB</p></div>) : (<p className="text-gray-500">Arraste e solte, ou <span className="text-blue-600 font-semibold">clique para selecionar</span>.</p>)}
             </div>
