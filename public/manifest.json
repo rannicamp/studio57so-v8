@@ -1,12 +1,13 @@
 {
-  "name": "Studio 57 - Sistema de Gestão",
+  "name": "Studio 57 - Gestão",
   "short_name": "Studio 57",
-  "description": "Sistema de Gestão Integrada do Studio 57.",
+  "description": "Sistema de Gestão e RH Studio 57",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#0288d1",
-  "gcm_sender_id": "103953800507",
+  "theme_color": "#2563eb",
+  "orientation": "portrait-primary",
+  "scope": "/",
   "icons": [
     {
       "src": "/icons/icon-192x192.png",
@@ -19,6 +20,15 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
+    }
+  ],
+  "categories": ["business", "productivity", "utilities"],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "Importar Ponto",
+      "url": "/recursos-humanos",
+      "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }]
     }
   ]
 }
