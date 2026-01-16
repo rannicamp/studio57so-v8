@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { createClient } from '../utils/supabase/client';
+import { createClient } from '../../utils/supabase/client';
 import { toast } from 'sonner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
@@ -13,7 +13,7 @@ import {
     faCheckCircle 
 } from '@fortawesome/free-solid-svg-icons';
 import PedidoItemModal from './PedidoItemModal';
-import LancamentoFormModal from './financeiro/LancamentoFormModal';
+import LancamentoFormModal from '../financeiro/LancamentoFormModal';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 // 1. IMPORTAÇÃO DA NOTIFICAÇÃO 🔔
