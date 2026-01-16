@@ -85,24 +85,22 @@ function MainLayoutContent({ children }) {
     const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
     const closeSidebar = () => setIsSidebarOpen(false);
     
-    if (authLoading || !user) return <div className="flex items-center justify-center h-screen bg-gray-100">Carregando...</div>;
+    if (authLoading || !user) return <div className="flex items-center justify-center h-screen bg-white">Carregando...</div>;
 
     // --- LÓGICA DE LAYOUT ---
     
     // 1. Layout para CAIXA DE ENTRADA (Tela Cheia, Sem Scroll Geral)
     if (isCaixaDeEntrada) {
         return (
-            <div className="flex flex-col h-screen w-full bg-gray-100 overflow-hidden">
+            // MUDANÇA AQUI: bg-gray-100 -> bg-white
+            <div className="flex flex-col h-screen w-full bg-white overflow-hidden">
                 {/* Header Fixo (z-40) */}
                 <Header toggleSidebar={toggleSidebar} />
 
                 {/* Sidebar Overlay (z-50) */}
                 <Sidebar isOpen={isSidebarOpen} closeSidebar={closeSidebar} isAdmin={isProprietario} />
 
-                {/* Conteúdo Principal 
-                    CORREÇÃO: Usamos padding-top (pt) para compensar o header fixo.
-                    Removemos qualquer margin-bottom.
-                */}
+                {/* Conteúdo Principal */}
                 <main className={`flex-1 w-full relative overflow-hidden flex flex-col ${isCotacoesBarVisible ? 'pt-[89px]' : 'pt-[65px]'}`}>
                     {children}
                 </main>
@@ -131,11 +129,11 @@ function MainLayoutContent({ children }) {
     })();
 
     // Se for Top/Bottom, o header precisa de margem 0. Se for lateral, também.
-    // Mantemos a prop para compatibilidade futura.
     const headerMargins = { left: '', right: '', top: '', bottom: '' };
 
     return (
-        <div className="min-h-screen bg-gray-50 flex flex-col">
+        // MUDANÇA AQUI: bg-gray-50 -> bg-white (A mágica do Clean ✨)
+        <div className="min-h-screen bg-white flex flex-col">
             <Header toggleSidebar={toggleSidebar} headerPositionClass={headerMargins[sidebarPosition]} />
 
             <Sidebar isOpen={isSidebarOpen} closeSidebar={closeSidebar} isAdmin={isProprietario} />
