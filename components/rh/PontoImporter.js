@@ -1,31 +1,29 @@
 // components/rh/PontoImporter.js
 "use client";
 
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { createClient } from '../../utils/supabase/client';
 import { useAuth } from '../../contexts/AuthContext';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner, faUpload, faCheckCircle, faExclamationTriangle, faFileAlt, faFolderOpen, faBug } from '@fortawesome/free-solid-svg-icons';
+import { faSpinner, faUpload, faCheckCircle, faExclamationTriangle, faBug } from '@fortawesome/free-solid-svg-icons';
 
-// Componente de Status
 const StatusIndicator = ({ status, message }) => {
     if (status === 'success') {
-        return <span className="text-green-600 flex items-center justify-center sm:justify-start gap-1 text-[10px] sm:text-xs"><FontAwesomeIcon icon={faCheckCircle} /> <span className="hidden sm:inline">Ok</span></span>;
+        return <span className="text-green-600 flex items-center gap-1 text-xs"><FontAwesomeIcon icon={faCheckCircle} /> Pronto</span>;
     }
     if (status === 'error') {
-        return <span className="text-red-600 flex items-center justify-center sm:justify-start gap-1 text-[10px] sm:text-xs" title={message}><FontAwesomeIcon icon={faExclamationTriangle} /> <span className="hidden sm:inline">Erro</span></span>;
+        return <span className="text-red-600 flex items-center gap-1 text-xs" title={message}><FontAwesomeIcon icon={faExclamationTriangle} /> Erro</span>;
     }
     return null;
 };
 
 const formatDbStringToBr = (dbString) => {
-    if (!dbString) return '-';
+    if (!dbString) return 'N/A';
     const [datePart, timePart] = dbString.split(' ');
-    if (!datePart) return '-';
     const [year, month, day] = datePart.split('-');
-    return `${day}/${month} ${timePart?.slice(0,5)}`;
+    return `${day}/${month}/${year} ${timePart}`;
 };
 
 export default function PontoImporter({ employees, onImport }) {
@@ -33,310 +31,258 @@ export default function PontoImporter({ employees, onImport }) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const organizacaoId = user?.organizacao_id;
-  
-  const fileInputRef = useRef(null);
 
   const [file, setFile] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processedRecords, setProcessedRecords] = useState([]);
   const [summary, setSummary] = useState({ ready: 0, errors: 0 });
-  const [debugLog, setDebugLog] = useState([]); // Log visual para mobile
+  
+  // ESTADO NOVO: Diagnóstico para sabermos o que o celular está enxergando
+  const [debugInfo, setDebugInfo] = useState('');
 
-  // Mapa de funcionários
   const employeeMap = new Map(employees.map(emp => [emp.numero_ponto, { id: emp.id, name: emp.full_name }]));
 
-  const addLog = (msg) => {
-      console.log(msg);
-      setDebugLog(prev => [...prev, `${new Date().toLocaleTimeString()} - ${msg}`]);
-  };
-
+  // Função auxiliar BLINDADA para ler arquivo
   const readFileContent = (file) => {
       return new Promise((resolve, reject) => {
           const reader = new FileReader();
-          
-          reader.onload = (e) => {
-              addLog("Leitura física concluída (onload)");
-              resolve(e.target.result);
-          };
-          
-          reader.onerror = (e) => {
-              addLog("Erro no FileReader: " + e.target.error);
-              reject(new Error("Falha ao ler bits do arquivo."));
-          };
-
-          addLog(`Iniciando leitura: ${file.name} (${file.size} bytes)`);
-          // Tenta ler como ISO-8859-1 (Latin1) que é comum em relógios de ponto antigos
-          // Se der erro de caracteres estranhos, o navegador mobile costuma lidar melhor com ISO do que UTF-8 forçado
-          reader.readAsText(file, 'ISO-8859-1'); 
+          reader.onload = (e) => resolve(e.target.result);
+          reader.onerror = (e) => reject(new Error("Falha na leitura física do arquivo."));
+          // Tenta ler como texto. Se o celular salvar com encoding estranho, o FileReader costuma lidar bem.
+          reader.readAsText(file); 
       });
   };
 
   const handleFileChange = async (event) => {
     const selectedFile = event.target.files[0];
-    event.target.value = ''; 
+    
+    // Zera o valor do input para permitir selecionar o mesmo arquivo novamente se precisar
+    event.target.value = '';
 
     if (!selectedFile) {
-        addLog("Nenhum arquivo selecionado no input.");
+        setDebugInfo('Nenhum arquivo foi retornado pelo seletor do dispositivo.');
         return;
     }
 
+    // REGISTRA O DIAGNÓSTICO
+    setDebugInfo(`Arquivo detectado:\nNome: ${selectedFile.name}\nTipo (Mime): ${selectedFile.type || 'Desconhecido'}\nTamanho: ${selectedFile.size} bytes`);
+
     setFile(selectedFile);
     setIsProcessing(true);
-    setProcessedRecords([]); 
+    setProcessedRecords([]);
     setSummary({ ready: 0, errors: 0 });
-    setDebugLog([]); // Limpa log anterior
-    
-    toast.info("Arquivo recebido. Processando...");
-    addLog(`Arquivo selecionado: ${selectedFile.name}`);
-    addLog(`Tipo MIME: ${selectedFile.type || 'Desconhecido'}`);
+    toast.info('Lendo arquivo...');
 
     try {
         const content = await readFileContent(selectedFile);
         
-        if (!content || content.length === 0) {
-            throw new Error("O arquivo está vazio (0 bytes lidos).");
+        // Verifica se leu algo
+        if (!content) {
+            throw new Error("O conteúdo do arquivo está vazio ou ilegível.");
         }
 
-        // Mostra as primeiras 100 letras para ver se é lixo ou texto
-        addLog(`Preview Conteúdo: ${content.substring(0, 50).replace(/\n/g, '\\n')}...`);
-
-        const lines = content.split(/\r\n|\n|\r/).filter(line => line.trim() !== '');
-        addLog(`Linhas brutas encontradas: ${lines.length}`);
+        const lines = content.split(/\r\n|\n/).filter(line => line.trim() !== '' && line.includes('\t'));
         
-        const recordsFromFile = [];
-        let parseMode = 'TAB';
+        setDebugInfo(prev => prev + `\nLinhas brutas encontradas: ${lines.length}`);
 
-        // Tenta descobrir se é TAB ou ESPAÇO
-        const sampleLine = lines.find(l => l.match(/\d/)); 
-        if (sampleLine) {
-            if (sampleLine.includes('\t')) {
-                parseMode = 'TAB';
-                addLog("Modo detectado: TAB");
-            } else {
-                parseMode = 'SPACE';
-                addLog("Modo detectado: ESPAÇOS");
-            }
+        if (lines.length === 0) {
+             // Tenta detectar se o separador não é TAB
+             if (content.includes(';') || content.includes(',')) {
+                 throw new Error("O arquivo parece usar ';' ou ',' em vez de TAB (tabulação). Verifique o formato.");
+             }
+             throw new Error("Nenhuma linha válida com TAB encontrada.");
         }
 
-        lines.forEach((line, index) => {
-            // Ignora cabeçalho (primeiras linhas sem numeros)
-            if (index < 10 && !line.match(/\d/)) return;
-
-            let parts;
-            if (parseMode === 'TAB') {
-                parts = line.split('\t');
-            } else {
-                parts = line.trim().split(/\s+/);
-            }
-
-            // Validação mínima: Tem que ter numero do ponto e data/hora
-            if (parts.length < 3) return;
+        const recordsFromFile = [];
+        
+        // Começamos do 1 para pular o cabeçalho
+        lines.slice(1).forEach((line, index) => {
+            const parts = line.split('\t');
+            if (parts.length < 4) return;
             
             const numeroPonto = parseInt(parts[0], 10);
-            if (isNaN(numeroPonto)) return;
+            const dateTimeString = parts[3].trim();
+            const [datePart, timePart] = dateTimeString.split(/\s+/);
 
-            let datePart = null;
-            let timePart = null;
-
-            for (let part of parts) {
-                if (part.includes('/') && part.length >= 5) datePart = part;
-                else if (part.includes(':') && part.length >= 4) timePart = part;
-            }
-
-            if (datePart && timePart) {
+            if (datePart && timePart && datePart.includes('/')) {
                 const [day, month, year] = datePart.split('/');
-                const fullYear = year.length === 2 ? `20${year}` : year; 
-                const data_hora_texto = `${fullYear}-${month}-${day} ${timePart}`;
+                
+                // Formatamos a data como string YYYY-MM-DD HH:MM:SS
+                const data_hora_texto = `${year}-${month}-${day} ${timePart}`;
                 
                 const employeeInfo = employeeMap.get(numeroPonto);
-                
                 recordsFromFile.push({
                     numero_ponto: numeroPonto,
                     employee_name: employeeInfo?.name,
                     funcionario_id: employeeInfo?.id,
                     data_hora_texto: data_hora_texto,
-                    original_line: index + 1,
+                    original_line: index + 2,
                     status: employeeInfo ? 'success' : 'error',
-                    error_message: employeeInfo ? null : `Func. #${numeroPonto} desconhecido`
+                    error_message: employeeInfo ? null : `Funcionário com Nº de Ponto "${numeroPonto}" não encontrado.`
                 });
             }
         });
 
-        addLog(`Registros extraídos: ${recordsFromFile.length}`);
+        setDebugInfo(prev => prev + `\nRegistros identificados: ${recordsFromFile.length}`);
 
-        if (recordsFromFile.length === 0) {
-            toast.warning("Arquivo lido, mas nenhum dado de ponto foi identificado.");
-            addLog("ALERTA: Nenhuma linha válida encontrada. Verifique o formato.");
-        }
-
-        // Agrupamento
-        const grouped = recordsFromFile.reduce((acc, r) => {
-            if(r.status !== 'success') return acc;
-            const key = `${r.funcionario_id}-${r.data_hora_texto.split(' ')[0]}`;
+        const groupedByEmployeeAndDay = recordsFromFile.reduce((acc, record) => {
+            if(record.status !== 'success') return acc;
+            const dayKey = record.data_hora_texto.split(' ')[0];
+            const key = `${record.funcionario_id}-${dayKey}`;
             if (!acc[key]) acc[key] = [];
-            acc[key].push(r);
+            acc[key].push(record);
             return acc;
         }, {});
 
         const finalRecords = [];
-        const tipos = ['Entrada', 'Almoço Ini', 'Almoço Fim', 'Saída'];
-        
-        for (const key in grouped) {
-            const dayRecs = grouped[key].sort((a, b) => a.data_hora_texto.localeCompare(b.data_hora_texto));
-            dayRecs.slice(0, 4).forEach((rec, idx) => {
-                finalRecords.push({ ...rec, tipo_registro: tipos[idx] });
+        const tipos = ['Entrada', 'Inicio_Intervalo', 'Fim_Intervalo', 'Saida'];
+        for (const key in groupedByEmployeeAndDay) {
+            const dayRecords = groupedByEmployeeAndDay[key].sort((a, b) => a.data_hora_texto.localeCompare(b.data_hora_texto));
+            const recordsToProcess = dayRecords.slice(0, 4);
+
+            recordsToProcess.forEach((record, index) => {
+                finalRecords.push({ ...record, tipo_registro: tipos[index] });
             });
         }
 
-        const display = [
-            ...finalRecords, 
+        const allDisplayRecords = [
+            ...finalRecords,
             ...recordsFromFile.filter(r => r.status === 'error')
         ].sort((a,b) => a.original_line - b.original_line);
 
-        setProcessedRecords(display);
-        const readyCount = display.filter(r => r.status === 'success').length;
-        setSummary({ ready: readyCount, errors: display.length - readyCount });
+        setProcessedRecords(allDisplayRecords);
+        const readyCount = allDisplayRecords.filter(r => r.status === 'success').length;
+        const errorCount = allDisplayRecords.length - readyCount;
+        setSummary({ ready: readyCount, errors: errorCount });
 
-        if (display.length > 0) {
-            toast.success(`Sucesso! ${display.length} registros encontrados.`);
+        if (allDisplayRecords.length > 0) {
+            toast.success(`Processado! ${readyCount} prontos, ${errorCount} erros.`);
+        } else {
+            toast.warning("Nenhum registro de ponto válido encontrado no arquivo.");
         }
 
     } catch (error) {
-        addLog(`ERRO FATAL: ${error.message}`);
-        toast.error("Falha ao ler arquivo. Veja o log abaixo.");
+        console.error("Erro ao processar:", error);
+        setDebugInfo(prev => prev + `\nERRO FATAL: ${error.message}`);
+        toast.error(`Erro: ${error.message}`);
     } finally {
         setIsProcessing(false);
     }
   };
 
-  const handleImportConfirm = () => {
-    const validos = processedRecords.filter(r => r.status === 'success');
-    if(validos.length === 0) return;
-    importMutation.mutate(validos);
-  };
-
   const importMutation = useMutation({
     mutationFn: async (records) => {
-        const payload = records.map(r => ({
-            funcionario_id: r.funcionario_id,
-            data_hora: r.data_hora_texto,
-            tipo_registro: r.tipo_registro,
-            observacao: 'Import via Mobile',
+        if (!organizacaoId) throw new Error("Organização não identificada.");
+
+        const recordsForDb = records.map(rec => ({
+            funcionario_id: rec.funcionario_id,
+            data_hora: rec.data_hora_texto,
+            tipo_registro: rec.tipo_registro,
+            observacao: 'Importado via arquivo TXT (Mobile/Web)',
             organizacao_id: organizacaoId, 
         }));
 
         const batchSize = 50;
-        for (let i = 0; i < payload.length; i += batchSize) {
-            const { error } = await supabase.rpc('importar_registros_ponto_se_vazio', { 
-                novos_registros: payload.slice(i, i + batchSize) 
+        let processedCount = 0;
+
+        for (let i = 0; i < recordsForDb.length; i += batchSize) {
+            const batch = recordsForDb.slice(i, i + batchSize);
+            
+            const { error } = await supabase.rpc('importar_registros_ponto_se_vazio', {
+                novos_registros: batch
             });
-            if (error) throw error;
+
+            if (error) {
+                console.error(`Erro no lote iniciando em ${i}:`, error);
+                throw error;
+            }
+            
+            processedCount += batch.length;
         }
+
+        return processedCount;
     },
-    onSuccess: () => {
-        toast.success("Dados salvos no banco com sucesso!");
+    onSuccess: (count) => {
         queryClient.invalidateQueries({ queryKey: ['registros_ponto'] });
-        setProcessedRecords([]);
         setFile(null);
-        if(onImport) onImport();
+        setProcessedRecords([]);
+        setSummary({ ready: 0, errors: 0 });
+        if (onImport) onImport();
     },
-    onError: (e) => toast.error(`Erro ao salvar: ${e.message}`)
   });
 
-  const triggerFileSelect = (e) => {
-      if (e) e.preventDefault();
-      fileInputRef.current?.click();
+  const handleImport = () => {
+    const recordsToInsert = processedRecords.filter(r => r.status === 'success');
+    if (recordsToInsert.length === 0) {
+      toast.error('Nenhum registro válido para importar.');
+      return;
+    }
+
+    toast.promise(importMutation.mutateAsync(recordsToInsert), {
+        loading: `Importando ${recordsToInsert.length} registros...`,
+        success: (count) => `${count} registros salvos!`,
+        error: (err) => `Erro ao importar: ${err.message}`,
+    });
   };
 
   return (
-    <div className="w-full max-w-full space-y-4">
-      <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-100 w-full">
-        <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-                <FontAwesomeIcon icon={faUpload} className="text-blue-500"/> 
-                Importar Arquivo
-            </h2>
-            {isProcessing && <span className="text-xs font-bold text-blue-600 animate-pulse">Lendo...</span>}
-        </div>
+    <div className="space-y-6">
+      <div className="bg-white p-6 rounded-lg shadow-md">
+        <h2 className="text-2xl font-bold text-gray-800 mb-4">Importar Ponto (.txt)</h2>
+        <p className="text-sm text-gray-600 mb-4">
+          Selecione o arquivo. 
+          <br/>
+          <span className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded">
+             <FontAwesomeIcon icon={faBug} className="mr-1"/> 
+             Modo de Compatibilidade Mobile Ativo
+          </span>
+        </p>
         
-        <label 
-            htmlFor="mobile-ponto-upload-debug"
-            className={`flex flex-col items-center justify-center w-full h-28 border-2 border-dashed rounded-lg cursor-pointer transition-all duration-200
-                ${isProcessing ? 'bg-gray-50 border-gray-300 opacity-50' : 'bg-blue-50 border-blue-300 hover:bg-blue-100 active:bg-blue-200'}
-            `}
-        >
-            <div className="flex flex-col items-center justify-center pt-5 pb-6 pointer-events-none">
-                {isProcessing ? (
-                    <FontAwesomeIcon icon={faSpinner} spin className="text-blue-500 text-3xl mb-2" />
-                ) : (
-                    <FontAwesomeIcon icon={faFolderOpen} className="text-blue-500 text-3xl mb-2" />
-                )}
-                <p className="text-sm text-gray-700 text-center px-4 font-bold">
-                    {file ? file.name : 'Toque aqui para selecionar'}
-                </p>
-            </div>
-        </label>
-
-        {/* INPUT PELADO (Sem accept para compatibilidade máxima) */}
-        <input 
-            id="mobile-ponto-upload-debug"
-            ref={fileInputRef}
-            type="file" 
-            className="hidden" 
-            onChange={handleFileChange} 
-            disabled={isProcessing} 
+        {/* ALTERAÇÃO IMPORTANTE: accept="*" libera a seleção no Android/iOS */}
+        <input
+          type="file"
+          accept="*" 
+          onChange={handleFileChange}
+          disabled={isProcessing || importMutation.isPending}
+          className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:bg-blue-50 hover:file:bg-blue-100 disabled:opacity-50 cursor-pointer"
         />
 
-        <div className="mt-2 text-center">
-            <button type="button" onClick={triggerFileSelect} className="text-xs text-blue-600 underline p-2">
-                Problemas? Clique aqui (Modo Alternativo)
-            </button>
-        </div>
-
-        {/* ÁREA DE DIAGNÓSTICO (Raio-X) */}
-        {debugLog.length > 0 && (
-            <div className="mt-4 p-3 bg-gray-900 rounded-md border border-gray-700">
-                <h4 className="text-xs font-bold text-white mb-2 flex items-center gap-2">
-                    <FontAwesomeIcon icon={faBug} /> Diagnóstico do Sistema
-                </h4>
-                <div className="h-32 overflow-y-auto font-mono text-[10px] text-green-400 space-y-1">
-                    {debugLog.map((log, i) => (
-                        <div key={i} className="border-b border-gray-800 pb-1">{log}</div>
-                    ))}
-                </div>
+        {/* ÁREA DE DIAGNÓSTICO PARA VOCÊ VER NO CELULAR */}
+        {debugInfo && (
+            <div className="mt-4 p-3 bg-gray-800 text-green-400 text-xs font-mono rounded overflow-x-auto whitespace-pre-wrap border border-gray-600">
+                <strong>DIAGNÓSTICO TÉCNICO:</strong>
+                <br/>
+                {debugInfo}
             </div>
         )}
+
       </div>
       
       {processedRecords.length > 0 && (
-        <div className="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden animate-in fade-in slide-in-from-bottom-4">
-          <div className="p-3 bg-gray-50 border-b border-gray-100 flex justify-between items-center">
-            <span className="text-sm font-bold text-gray-700">Pré-visualização</span>
-            <div className="text-xs space-x-2">
-                <span className="text-green-600 font-bold">{summary.ready} ok</span>
-                {summary.errors > 0 && <span className="text-red-500 font-bold">{summary.errors} erros</span>}
-            </div>
+        <div className="bg-white p-6 rounded-lg shadow-md animate-in slide-in-from-bottom-2">
+          <h3 className="text-xl font-bold text-gray-800 mb-2">Pré-visualização</h3>
+          <div className="flex justify-between items-center text-sm mb-4">
+            <p className="text-green-600 font-semibold">{summary.ready} registros prontos.</p>
+            <p className="text-red-600 font-semibold">{summary.errors} registros com erros.</p>
           </div>
 
-          <div className="w-full overflow-x-auto bg-white max-h-80 overflow-y-auto">
-            <table className="min-w-full divide-y divide-gray-100 whitespace-nowrap">
-              <thead className="bg-gray-50 sticky top-0 z-10">
+          <div className="max-h-96 overflow-y-auto border rounded-md custom-scrollbar">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50 sticky top-0">
                 <tr>
-                  <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider">Func.</th>
-                  <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider">Data</th>
-                  <th className="px-3 py-2 text-left text-[10px] font-bold text-gray-500 uppercase tracking-wider">Reg.</th>
-                  <th className="px-3 py-2 text-center text-[10px] font-bold text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium uppercase">Funcionário</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium uppercase">Data/Hora</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium uppercase">Registro</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium uppercase">Status</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="bg-white divide-y divide-gray-200">
                 {processedRecords.map((rec, index) => (
-                  <tr key={index} className={rec.status === 'error' ? 'bg-red-50/50' : 'hover:bg-gray-50'}>
-                    <td className="px-3 py-2 text-xs text-gray-700">
-                        {rec.employee_name ? rec.employee_name.split(' ')[0] : <span className="text-gray-400">#{rec.numero_ponto}</span>}
-                    </td>
-                    <td className="px-3 py-2 text-xs text-gray-600">{formatDbStringToBr(rec.data_hora_texto)}</td>
-                    <td className="px-3 py-2 text-xs text-gray-600 font-medium">{rec.tipo_registro || '-'}</td>
-                    <td className="px-3 py-2 text-center">
+                  <tr key={index} className={rec.status === 'error' ? 'bg-red-50' : 'hover:bg-gray-50'}>
+                    <td className="px-4 py-2 whitespace-nowrap text-sm">{rec.employee_name || <span className="text-gray-400 italic">Desconhecido</span>}</td>
+                    <td className="px-4 py-2 whitespace-nowrap text-sm">{formatDbStringToBr(rec.data_hora_texto)}</td>
+                    <td className="px-4 py-2 whitespace-nowrap text-sm">{rec.tipo_registro || '-'}</td>
+                    <td className="px-4 py-2 whitespace-nowrap text-sm">
                         <StatusIndicator status={rec.status} message={rec.error_message} />
                     </td>
                   </tr>
@@ -344,15 +290,14 @@ export default function PontoImporter({ employees, onImport }) {
               </tbody>
             </table>
           </div>
-          
-          <div className="p-3 border-t border-gray-100 bg-gray-50">
+          <div className="mt-6 text-right">
             <button
-              onClick={handleImportConfirm}
-              disabled={importMutation.isPending || summary.ready === 0}
-              className="w-full bg-green-600 text-white py-3 rounded-lg shadow hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-bold text-sm transition-transform active:scale-95"
+              onClick={handleImport}
+              disabled={isProcessing || importMutation.isPending || summary.ready === 0}
+              className="bg-green-600 text-white px-6 py-3 rounded-md shadow-sm hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2 w-full md:w-auto ml-auto font-bold"
             >
-              {importMutation.isPending ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faCheckCircle} />}
-              {importMutation.isPending ? 'Salvando...' : `Confirmar Importação (${summary.ready})`}
+              {importMutation.isPending ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faUpload} />}
+              {importMutation.isPending ? 'Importando...' : `Confirmar Importação (${summary.ready})`}
             </button>
           </div>
         </div>

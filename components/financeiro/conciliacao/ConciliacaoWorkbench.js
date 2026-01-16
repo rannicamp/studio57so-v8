@@ -44,6 +44,7 @@ const TransactionItem = ({ item, isSelected, onClick, type, onEdit, matchIndex, 
   let badge = null;
 
   if (isConciliado) {
+      // Visual de item já conciliado (mais apagadinho)
       containerClasses = 'bg-gray-50 border-gray-100 opacity-60 hover:opacity-100';
   } else if (isSelected) {
       containerClasses = 'bg-blue-600 text-white border-blue-600 shadow-md transform scale-[1.01] z-30';
@@ -119,6 +120,9 @@ export default function ConciliacaoWorkbench({ extratoItems = [], sistemaItems =
   };
 
   const toggleSelectionBanco = (item) => {
+    // Se já estiver conciliado, não faz nada (apenas visualização)
+    if (item.conciliado) return;
+
     const novoBanco = (selectedBanco?.id === item.id ? null : item);
     setSelectedBanco(novoBanco);
     if (novoBanco) {
@@ -131,6 +135,9 @@ export default function ConciliacaoWorkbench({ extratoItems = [], sistemaItems =
   };
 
   const toggleSelectionSistema = (item) => {
+    // Se já estiver conciliado, não faz nada
+    if (item.conciliado) return;
+
     const novoSistema = (selectedSistema?.id === item.id ? null : item);
     setSelectedSistema(novoSistema);
     if (novoSistema) {
@@ -157,15 +164,27 @@ export default function ConciliacaoWorkbench({ extratoItems = [], sistemaItems =
     });
   };
 
+  // --- LÓGICA DE EXIBIÇÃO DO EXTRATO (Atualizada para mostrar conciliados) ---
   const processedExtrato = useMemo(() => {
-    let filtered = extratoItems.filter(i => !i.conciliado && (i.descricao.toLowerCase().includes(searchTerm.toLowerCase()) || i.valor.toString().includes(searchTerm)));
-    const withMatch = filtered.filter(i => aiMatches.some(m => String(m.extratoId) === String(i.id)));
-    const noMatch = filtered.filter(i => !aiMatches.some(m => String(m.extratoId) === String(i.id)));
-    return [...sortList(withMatch, bancoSort), ...sortList(noMatch, bancoSort)];
+    // Filtro de busca
+    let filtered = extratoItems.filter(i => (i.descricao.toLowerCase().includes(searchTerm.toLowerCase()) || i.valor.toString().includes(searchTerm)));
+    
+    // Separa pendentes e conciliados
+    const pendentes = filtered.filter(i => !i.conciliado);
+    const conciliados = filtered.filter(i => i.conciliado);
+
+    // Separa pendentes com e sem Match da IA
+    const pendentesComMatch = pendentes.filter(i => aiMatches.some(m => String(m.extratoId) === String(i.id)));
+    const pendentesSemMatch = pendentes.filter(i => !aiMatches.some(m => String(m.extratoId) === String(i.id)));
+
+    // Retorna: Matches Primeiro -> Pendentes -> Conciliados (no final)
+    return [...sortList(pendentesComMatch, bancoSort), ...sortList(pendentesSemMatch, bancoSort), ...sortList(conciliados, bancoSort)];
   }, [extratoItems, searchTerm, bancoSort, aiMatches]);
 
+  // --- LÓGICA DE EXIBIÇÃO DO SISTEMA ---
   const processedSistema = useMemo(() => {
     let filtered = sistemaItems.filter(i => (i.descricao.toLowerCase().includes(searchTerm.toLowerCase()) || i.valor.toString().includes(searchTerm)));
+    
     const pendentes = filtered.filter(i => !i.conciliado);
     const conciliados = filtered.filter(i => i.conciliado);
     
@@ -175,7 +194,7 @@ export default function ConciliacaoWorkbench({ extratoItems = [], sistemaItems =
     return [...sortList(pendentesComMatch, sistemaSort), ...sortList(pendentesSemMatch, sistemaSort), ...sortList(conciliados, sistemaSort)];
   }, [sistemaItems, searchTerm, sistemaSort, aiMatches]);
 
-  // --- AÇÕES DE MATCH ---
+  // --- AÇÕES ---
 
   const handleMatch = async () => {
     if (selectedBanco && selectedSistema) {
@@ -185,60 +204,41 @@ export default function ConciliacaoWorkbench({ extratoItems = [], sistemaItems =
     }
   };
 
-  // --- ATALHO DE TECLADO (NOVIDADE!) ---
+  // Atalho Teclado
   useEffect(() => {
     const handleKeyDown = (e) => {
-      // Verifica se a tecla é ESPAÇO
       if (e.code === 'Space' || e.key === ' ') {
-        // Ignora se o foco estiver em um campo de texto (para não atrapalhar a digitação)
         const activeTag = document.activeElement?.tagName;
-        if (activeTag === 'INPUT' || activeTag === 'TEXTAREA' || activeTag === 'SELECT') {
-            return;
-        }
-
-        // Se houver itens selecionados em ambos os lados, dispara o Match
+        if (activeTag === 'INPUT' || activeTag === 'TEXTAREA' || activeTag === 'SELECT') return;
         if (selectedBanco && selectedSistema) {
-          e.preventDefault(); // Previne o scroll da página, que é o padrão do Espaço
+          e.preventDefault(); 
           handleMatch();
         }
       }
     };
-
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedBanco, selectedSistema, handleMatch]);
 
-
-  // --- NOVA FUNÇÃO: CONCILIAR TODOS (AI) ---
   const handleConciliarTodos = async () => {
     if (aiMatches.length === 0) return;
-
-    // Confirmação simples
     if (!confirm(`Deseja confirmar e conciliar automaticamente ${aiMatches.length} pares sugeridos pela IA?`)) return;
 
     setIsAiLoading(true);
     let count = 0;
-
     try {
-        // Percorre todos os matches da IA
         for (const match of aiMatches) {
-            // Encontra os objetos reais usando os IDs (conversão segura para string)
             const banco = extratoItems.find(e => String(e.id) === String(match.extratoId));
             const sistema = sistemaItems.find(s => String(s.id) === String(match.sistemaId));
-
             if (banco && sistema) {
-                // Chama a função de conciliação do pai
                 await onConciliar(banco, sistema);
                 count++;
             }
         }
-        
-        // Limpa tudo após o sucesso
         setAiMatches([]);
         setSelectedBanco(null);
         setSelectedSistema(null);
         toast.success(`${count} lançamentos conciliados com sucesso!`);
-
     } catch (error) {
         console.error("Erro ao conciliar em lote", error);
         toast.error("Houve um erro durante a conciliação em lote.");
@@ -320,7 +320,6 @@ export default function ConciliacaoWorkbench({ extratoItems = [], sistemaItems =
         {/* Centro: Ações */}
         <div className="w-14 bg-gray-50 border-r border-gray-200 flex flex-col items-center justify-center gap-4 py-4 z-20 shadow-sm">
            
-           {/* Botão Individual */}
            <button 
                 onClick={handleMatch} 
                 disabled={!selectedBanco || !selectedSistema} 
@@ -330,7 +329,6 @@ export default function ConciliacaoWorkbench({ extratoItems = [], sistemaItems =
                 <FontAwesomeIcon icon={faLink} />
             </button>
            
-           {/* Botão Conciliar Todos (IA) - Só aparece se houver matches */}
            {aiMatches.length > 0 && (
              <button 
                 onClick={handleConciliarTodos} 
@@ -344,7 +342,6 @@ export default function ConciliacaoWorkbench({ extratoItems = [], sistemaItems =
 
            <div className="h-8 w-px bg-gray-300 my-2"></div>
            
-           {/* Botão Criar */}
            <button disabled={!selectedBanco} onClick={() => onCriarLancamento(selectedBanco)} className={`w-10 h-10 rounded-full flex items-center justify-center shadow-md transition-all ${selectedBanco ? 'bg-white text-blue-600 hover:text-blue-700 hover:bg-blue-50 border border-blue-100' : 'bg-gray-100 text-gray-300 cursor-not-allowed'}`} title="Criar Novo"><FontAwesomeIcon icon={faPlus} /></button>
         </div>
 
