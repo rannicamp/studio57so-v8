@@ -1,4 +1,3 @@
-// components/financeiro/LancamentoDetalhesSidebar.js
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -8,8 +7,9 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
     faTimes, faStickyNote, faBuilding, faFileInvoice, faCalendarAlt, faDollarSign, 
     faTags, faUser, faLandmark, faFileLines, faEye, faSpinner, 
-    faArrowUp, faArrowDown, faCheckCircle, faExclamationTriangle, faRobot, faCheck, faClock, faPen, faSave,
+    faArrowUp, faArrowDown, faCheckCircle, faExclamationTriangle, faCheck, faClock, faPen, faSave,
     faExpand, faCompress
+    // faRobot foi removido daqui! 🗑️
 } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 
@@ -46,7 +46,7 @@ const InfoField = ({ label, value, icon, valueClassName = '' }) => (
     </div>
 );
 
-// Componente de Anexos (Agora com callback para abrir preview)
+// Componente de Anexos
 const AnexosSection = ({ anexos, onPreview }) => {
     if (!anexos || anexos.length === 0) return <InfoField label="Anexos" value="Nenhum anexo." icon={faFileLines} />;
 
@@ -78,14 +78,13 @@ const AnexosSection = ({ anexos, onPreview }) => {
     );
 };
 
-// --- PAINEL DE VISUALIZAÇÃO DE ARQUIVO (A GAVETA EXTRA) ---
+// --- PAINEL DE VISUALIZAÇÃO DE ARQUIVO ---
 const FilePreviewPanel = ({ fileUrl, fileName, fileType, onClose }) => {
     if (!fileUrl) return null;
 
     return (
         <div 
             className="fixed top-0 right-[500px] h-full bg-gray-900 shadow-2xl z-40 flex flex-col border-r border-gray-700 transform transition-all duration-300 ease-in-out w-full md:w-[calc(100%-500px)] lg:w-[800px]"
-            // O estilo acima garante que ele "empurre" ou sobreponha o conteúdo à esquerda do sidebar
         >
             <div className="flex justify-between items-center p-3 bg-gray-800 text-white border-b border-gray-700 shadow-md">
                 <h3 className="text-sm font-semibold truncate flex items-center gap-2">
@@ -133,8 +132,8 @@ export default function LancamentoDetalhesSidebar({ open, onClose, lancamento })
     const [editValue, setEditValue] = useState('');
     const [isSavingValue, setIsSavingValue] = useState(false);
 
-    // Estado do Preview (Gaveta Lateral)
-    const [previewFile, setPreviewFile] = useState(null); // { url, name, type }
+    // Estado do Preview
+    const [previewFile, setPreviewFile] = useState(null);
 
     // --- 1. CARREGAMENTO INICIAL ---
     useEffect(() => {
@@ -142,7 +141,7 @@ export default function LancamentoDetalhesSidebar({ open, onClose, lancamento })
             fetchAuditLog();
             fetchUserProfile();
             setEditValue(lancamento.valor);
-            setPreviewFile(null); // Reseta o preview ao abrir um novo
+            setPreviewFile(null);
         } else {
             setAuditLog(null);
             setIsEditingValue(false);
@@ -247,13 +246,11 @@ export default function LancamentoDetalhesSidebar({ open, onClose, lancamento })
 
     return (
         <>
-            {/* O Fundo Escuro para focar */}
             <div 
                 className={`fixed inset-0 bg-black/30 backdrop-blur-sm z-40 transition-opacity duration-300 ${open ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
                 onClick={onClose}
             ></div>
 
-            {/* O Painel de Preview (A GAVETA DA ESQUERDA) */}
             {previewFile && (
                 <FilePreviewPanel 
                     fileUrl={previewFile.url} 
@@ -263,7 +260,6 @@ export default function LancamentoDetalhesSidebar({ open, onClose, lancamento })
                 />
             )}
 
-            {/* O Sidebar Principal (A GAVETA DA DIREITA) */}
             <div 
                 className="fixed top-0 right-0 h-full w-full md:w-[500px] bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-in-out flex flex-col border-l border-gray-200"
                 style={{ transform: open ? 'translateX(0)' : 'translateX(100%)' }}
@@ -279,11 +275,25 @@ export default function LancamentoDetalhesSidebar({ open, onClose, lancamento })
                 
                 <main className="flex-1 overflow-y-auto p-5 space-y-6">
                     
-                    {/* Auditoria IA */}
+                    {/* Auditoria IA (AGORA COM SEU ÍCONE PERSONALIZADO) */}
                     <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 shadow-sm relative overflow-hidden">
-                        <div className="absolute top-0 right-0 p-2 opacity-10 pointer-events-none"><FontAwesomeIcon icon={faRobot} size="4x" /></div>
+                        {/* 1. Ícone de Fundo (Marca d'água) */}
+                        <div className="absolute top-0 right-0 p-2 opacity-10 pointer-events-none">
+                            <img 
+                                src="/icons/ia.png" 
+                                alt="IA Background" 
+                                className="w-16 h-16 object-contain grayscale"
+                            />
+                        </div>
+
+                        {/* 2. Ícone do Título */}
                         <h4 className="text-sm font-bold text-slate-700 flex items-center gap-2 mb-3 relative z-10">
-                            <FontAwesomeIcon icon={faRobot} className="text-indigo-500"/> Auditoria IA
+                            <img 
+                                src="/icons/ia.png" 
+                                alt="IA Icon" 
+                                className="w-5 h-5 object-contain"
+                            />
+                            Auditoria IA
                         </h4>
 
                         {loadingLog ? (
