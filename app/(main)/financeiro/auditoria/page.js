@@ -38,7 +38,7 @@ export default function AuditoriaPage() {
     };
 
     return (
-        <div className="container mx-auto p-4 max-w-7xl space-y-4">
+        <div className="w-full p-4 max-w-7xl space-y-4">
             {/* Cabeçalho com Controles */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
                 

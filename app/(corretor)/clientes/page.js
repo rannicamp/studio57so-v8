@@ -203,7 +203,7 @@ export default function ClientesCorretor() {
   const isPageLoading = isLoading || isUserLoading;
 
   return (
-    <div className="container mx-auto p-4 space-y-6">
+    <div className="w-full p-4 space-y-6">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-3xl font-bold text-gray-800">Meus Clientes e Leads</h2>
         <button onClick={() => handleOpenModal(null)} disabled={isPageLoading} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow flex items-center transition duration-200 disabled:bg-gray-400">

@@ -4,6 +4,8 @@
 import { useState, useMemo, useEffect } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+// 1. IMPORTAÇÃO DO CONTEXTO DE LAYOUT (Faltava isso!)
+import { useLayout } from '@/contexts/LayoutContext'; 
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -75,8 +77,17 @@ export default function ContratosPage() {
     const supabase = createClient();
     const queryClient = useQueryClient();
     const { user } = useAuth();
+    
+    // 2. USO DO HOOK DE LAYOUT (Para mudar o título)
+    const { setPageTitle } = useLayout(); 
+    
     const organizacaoId = user?.organizacao_id;
     const router = useRouter();
+
+    // 3. EFEITO PARA DEFINIR O TÍTULO (O crachá da página)
+    useEffect(() => {
+        setPageTitle('Gestão de Contratos');
+    }, [setPageTitle]);
 
     // --- ESTADOS COM PERSISTÊNCIA ---
     const cachedState = getCachedUiState();
@@ -151,8 +162,7 @@ export default function ContratosPage() {
         queryFn: async () => {
              if (!organizacaoId) return [];
             
-            // CORREÇÃO 1: Adicionado !inner para garantir que o filtro de busca funcione na tabela contratos
-            // Se o usuário buscar por nome do cliente, contratos sem esse cliente não devem aparecer.
+            // CORREÇÃO: Adicionado !inner para garantir que o filtro de busca funcione na tabela contratos
             let query = supabase
                 .from('contratos')
                 .select(`
@@ -171,8 +181,7 @@ export default function ContratosPage() {
                 if (isNumeric) {
                      query = query.eq('numero_contrato', debouncedFilters.searchTerm);
                 } else {
-                     // CORREÇÃO 2: Removido o prefixo 'contato.' de dentro da string do .or()
-                     // Quando usamos { foreignTable: 'contato' }, as colunas devem ser referenciadas diretamente.
+                     // CORREÇÃO: Removido o prefixo 'contato.' de dentro da string do .or()
                      query = query.or(`nome.ilike.%${debouncedFilters.searchTerm}%,razao_social.ilike.%${debouncedFilters.searchTerm}%`, { foreignTable: 'contato' });
                 }
             }
@@ -185,8 +194,6 @@ export default function ContratosPage() {
             
             if (sortConfig.key) {
                 if (sortConfig.key === 'contato_nome') {
-                     // Ordenação por coluna relacionada é complexa no supabase-js v2 direto,
-                     // geralmente ordena-se por created_at ou faz-se no front, mas aqui mantivemos created_at como fallback ou lógica original
                      query = query.order('created_at', { ascending: false });
                 } else {
                      query = query.order(sortConfig.key, { ascending: sortConfig.direction === 'ascending' });

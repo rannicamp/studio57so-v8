@@ -18,7 +18,7 @@ export default function ConfiguracoesRHPage() {
     }, [setPageTitle]);
 
     return (
-        <div className="container mx-auto p-6 space-y-6 animate-in fade-in duration-500">
+        <div className="w-full p-6 space-y-6 animate-in fade-in duration-500">
             {/* Navegação de Abas */}
             <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg w-fit shadow-inner">
                 <button

@@ -138,7 +138,7 @@ export default function ConfiguracoesPage() {
     ];
 
     return (
-        <div className="container mx-auto p-6 animate-in fade-in duration-500">
+        <div className="w-full p-6 animate-in fade-in duration-500">
             <h1 className="text-3xl font-bold mb-8 text-gray-800">Configurações</h1>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {configOptions.map((option, index) => (

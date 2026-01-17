@@ -196,7 +196,7 @@ export default function ResidencialAlfaPage() {
             </section>
             
             <section className="bg-gray-50 py-16 md:py-20">
-                <div className="container mx-auto px-4 text-center">
+                <div className="w-full px-4 text-center">
                     <div className="max-w-2xl mx-auto bg-white p-8 rounded-lg shadow-md">
                         <h2 className="text-xl md:text-2xl font-semibold uppercase tracking-wider text-gray-500 mb-4" style={{ letterSpacing: '0.05em' }}>
                             Transforme seu dinheiro em Renda Passiva
@@ -223,7 +223,7 @@ export default function ResidencialAlfaPage() {
             </section>
             
             <section className="bg-white py-16 md:py-24">
-                <div className="container mx-auto px-4">
+                <div className="w-full px-4">
                     <h2 className="text-3xl md:text-4xl font-bold text-center mb-4 text-gray-900">
                         O que nossos clientes dizem
                     </h2>
@@ -293,7 +293,7 @@ export default function ResidencialAlfaPage() {
             {view === 'investidor' && (
                 <>
                     <section className="py-16 md:py-24 bg-white">
-                        <div className="container mx-auto px-4">
+                        <div className="w-full px-4">
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                                 <div className="p-6 bg-gray-100 rounded-lg shadow-sm text-center">
                                     <div className="mb-4 inline-block text-primary"><IconeLocalizacao /></div>
@@ -315,7 +315,7 @@ export default function ResidencialAlfaPage() {
                     </section>
 
                     <section className="bg-white pb-16 md:pb-24">
-                        <div className="container mx-auto px-4">
+                        <div className="w-full px-4">
                             <div className="mt-0">
                                 <h3 className="text-2xl md:text-3xl font-bold text-gray-800 text-center mb-12">
                                     Mapa de Proximidades
@@ -437,7 +437,7 @@ export default function ResidencialAlfaPage() {
                     </section>
 
                     <section className="bg-white pt-16 md:pt-24 pb-16 md:pb-24">
-                        <div className="container mx-auto px-4 text-center">
+                        <div className="w-full px-4 text-center">
                             <h2 className="text-3xl md:text-4xl font-bold mb-4 text-gray-900">Localização Privilegiada</h2>
                             <p className="max-w-2xl mx-auto mb-8 text-gray-600">
                                 Encontre o Residencial Alfa no coração do Alto Esplanada, um bairro que combina tranquilidade e acesso rápido aos principais pontos da cidade.
@@ -461,7 +461,7 @@ export default function ResidencialAlfaPage() {
             {view === 'morador' && (
                 <>
                     <section className="py-16 md:py-24">
-                        <div className="container mx-auto px-4 grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+                        <div className="w-full px-4 grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
                             <div>
                                 <h2 className="text-3xl md:text-4xl font-bold mb-4 text-gray-900" style={{ letterSpacing: '0.02em' }}>Um Novo Conceito de Viver Bem</h2>
                                 <p className="mb-4 text-gray-700" style={{ letterSpacing: '0.03em' }}>
@@ -477,7 +477,7 @@ export default function ResidencialAlfaPage() {
                         </div>
                     </section>
                     <section className="bg-gray-50 py-16 md:py-24">
-                        <div className="container mx-auto px-4 text-center">
+                        <div className="w-full px-4 text-center">
                             <h2 className="text-3xl md:text-4xl font-bold mb-12 text-gray-900" style={{ letterSpacing: '0.02em' }}>Diferenciais que Transformam seu Dia a Dia</h2>
                             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8">
                                 <div className="p-6 bg-white rounded-lg shadow-lg text-center">
@@ -502,7 +502,7 @@ export default function ResidencialAlfaPage() {
             )}
             
             <section className="py-16 md:py-24">
-                <div className="container mx-auto px-4 grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+                <div className="w-full px-4 grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
                     <div className="md:order-2">
                         <h2 className="text-3xl md:text-4xl font-bold mb-4 text-gray-900" style={{ letterSpacing: '0.02em' }}>Projetado para seu Conforto</h2>
                         <p className="mb-8 text-gray-700" style={{ letterSpacing: '0.03em' }}>
@@ -555,7 +555,7 @@ export default function ResidencialAlfaPage() {
             </section>
             
             <section className="bg-gray-50 py-16 md:py-24">
-                <div className="container mx-auto px-4">
+                <div className="w-full px-4">
                     <h2 className="text-3xl md:text-4xl font-bold text-center mb-12 text-gray-900">
                         Galeria de Imagens
                     </h2>
@@ -598,7 +598,7 @@ export default function ResidencialAlfaPage() {
             </section>
             
             <section className="bg-gray-50 py-16 md:py-20">
-                <div className="container mx-auto px-4 text-center">
+                <div className="w-full px-4 text-center">
                     <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-4">Gostou do que viu?</h2>
                     <p className="text-gray-600 max-w-2xl mx-auto mb-8">Cadastre-se para receber em primeira mão o book completo com imagens, plantas e a tabela de vendas do Residencial Alfa.</p>
                     <button 
@@ -611,7 +611,7 @@ export default function ResidencialAlfaPage() {
             </section>
             
             <footer className="bg-black text-white py-6">
-                <div className="container mx-auto px-4 text-center text-gray-400" style={{ letterSpacing: '0.03em' }}>
+                <div className="w-full px-4 text-center text-gray-400" style={{ letterSpacing: '0.03em' }}>
                     <p>© {new Date().getFullYear()} Studio 57. Todos os direitos reservados.</p>
                     <p className="text-sm mt-1">Residencial Alfa - Registro de Incorporação: Nº 24.920/R-08</p>
                 </div>

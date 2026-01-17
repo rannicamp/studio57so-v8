@@ -35,7 +35,7 @@ export default function PlanoMigracaoPage() {
             
             {/* --- HEADER STUDIO 57 REFORMULADO --- */}
             <header className="bg-black text-white py-10 border-b border-gray-800">
-                <div className="container mx-auto px-4">
+                <div className="w-full px-4">
                     {/* Flex Container: Em mobile fica coluna, em Desktop fica lado a lado (row) */}
                     <div className="flex flex-col md:flex-row items-center justify-center gap-6 md:gap-10">
                         
@@ -70,7 +70,7 @@ export default function PlanoMigracaoPage() {
 
             {/* --- CONTEÚDO PRINCIPAL --- */}
             <main className="flex-grow py-16 px-4">
-                <div className="container mx-auto max-w-7xl">
+                <div className="w-full max-w-7xl">
                     
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-stretch">
                         
@@ -231,7 +231,7 @@ export default function PlanoMigracaoPage() {
 
             {/* --- FOOTER STUDIO 57 --- */}
             <footer className="bg-black text-gray-500 py-10 border-t border-gray-800 text-center text-sm">
-                <div className="container mx-auto px-4">
+                <div className="w-full px-4">
                     <p className="mb-4">© {new Date().getFullYear()} Studio 57 Arquitetura e Incorporação</p>
                     <div className="flex justify-center items-center space-x-2">
                         <FontAwesomeIcon icon={faWhatsapp} className="text-green-500" />

@@ -331,7 +331,7 @@ export default function ContatosMain() {
   const isPageLoading = isLoading || isUserLoading;
 
   return (
-    <div className="container mx-auto p-4 space-y-6">
+    <div className="w-full p-4 space-y-6">
       <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-6 gap-4">
         <div className="flex items-center gap-3">
             <h2 className="text-3xl font-bold text-gray-800">Contatos</h2>

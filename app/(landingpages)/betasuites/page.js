@@ -214,7 +214,7 @@ export default function BetaSuitesPage() {
                 {/* Background sutil para dar profundidade (opcional, pode tirar se quiser preto puro) */}
                 <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-white/5 via-black to-black pointer-events-none"></div>
                 
-                <div className="container mx-auto px-4 text-center relative z-10">
+                <div className="w-full px-4 text-center relative z-10">
                     {/* CONTAINER PRINCIPAL: Vidro Fumê */}
                     <div className="max-w-3xl mx-auto bg-white/5 backdrop-blur-md p-8 rounded-2xl shadow-2xl border border-white/10">
                         
@@ -262,7 +262,7 @@ export default function BetaSuitesPage() {
             
             {/* --- CARACTERÍSTICAS (Efeito Vidro) --- */}
             <section className="py-16 md:py-24 bg-black">
-                <div className="container mx-auto px-4">
+                <div className="w-full px-4">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                         {/* Cards translúcidos */}
                         <div className="p-8 bg-white/5 backdrop-blur-sm rounded-xl text-center hover:bg-white/10 transition-all duration-300 border border-white/10 shadow-lg">
@@ -286,7 +286,7 @@ export default function BetaSuitesPage() {
 
             {/* --- LOCALIZAÇÃO (Efeito Vidro) --- */}
             <section className="bg-black pb-16 md:pb-24 pt-16">
-                <div className="container mx-auto px-4">
+                <div className="w-full px-4">
                     <div className="mt-0">
                         <h3 className="text-2xl md:text-3xl font-bold text-white text-center mb-12">
                             Localização Estratégica
@@ -338,7 +338,7 @@ export default function BetaSuitesPage() {
 
             {/* --- MAPA --- */}
             <section className="bg-black pt-16 md:pt-24 pb-16 md:pb-24">
-                <div className="container mx-auto px-4 text-center">
+                <div className="w-full px-4 text-center">
                     <h2 className="text-3xl md:text-4xl font-bold mb-4 text-white">Mapa</h2>
                     <p className="max-w-2xl mx-auto mb-8 text-gray-400">
                         Explore a região do Alto Esplanada.
@@ -359,7 +359,7 @@ export default function BetaSuitesPage() {
             
             {/* --- LAYOUTS INTELIGENTES (Efeito Vidro) --- */}
             <section className="py-16 md:py-24 bg-black">
-                <div className="container mx-auto px-4 grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+                <div className="w-full px-4 grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
                     <div className="md:order-2">
                         <h2 className="text-3xl md:text-4xl font-bold mb-4 text-white">Layouts Inteligentes</h2>
                         <p className="mb-8 text-gray-300">
@@ -443,7 +443,7 @@ export default function BetaSuitesPage() {
             
             {/* --- GALERIA COMPLETA --- */}
             <section className="bg-black py-16 md:py-24 text-white">
-                <div className="container mx-auto px-4">
+                <div className="w-full px-4">
                     <h2 className="text-3xl md:text-4xl font-bold text-center mb-12">
                         Galeria de Imagens
                     </h2>
@@ -488,7 +488,7 @@ export default function BetaSuitesPage() {
             {/* --- CTA FINAL --- */}
             <section className="bg-black py-16 md:py-20 relative overflow-hidden border-t border-white/10">
                 <div className="absolute inset-0 bg-orange-900/5 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-orange-900/10 via-black to-black pointer-events-none"></div>
-                <div className="container mx-auto px-4 text-center relative z-10">
+                <div className="w-full px-4 text-center relative z-10">
                     <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">Garanta condições de Pré-Lançamento</h2>
                     <p className="text-gray-300 max-w-2xl mx-auto mb-10 text-lg">Cadastre-se para receber a tabela de vendas exclusiva e o book completo do Beta Suítes.</p>
                     <button 
@@ -502,7 +502,7 @@ export default function BetaSuitesPage() {
             
             {/* --- FOOTER --- */}
             <footer className="bg-black text-white py-12 border-t border-white/10">
-                <div className="container mx-auto px-4 text-center">
+                <div className="w-full px-4 text-center">
                     <div className="mb-6">
                          <Image
                             src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/1/IMG_1759092334426.PNG" 

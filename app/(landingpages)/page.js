@@ -79,7 +79,7 @@ export default function HomePage() {
       </section>
 
       <section className="py-16 md:py-24 bg-gray-50">
-        <div className="container mx-auto px-6">
+        <div className="w-full px-6">
             <div className="text-center mb-12">
                 <h2 className="text-3xl md:text-4xl font-bold text-gray-900">Nossos Empreendimentos</h2>
             </div>
@@ -128,7 +128,7 @@ export default function HomePage() {
       </section>
 
       <section className="py-16 md:py-24 bg-white">
-        <div className="container mx-auto px-6 text-center">
+        <div className="w-full px-6 text-center">
           <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">Nossos Pilares</h2>
           <p className="max-w-3xl mx-auto text-gray-600 mb-12">Da concepção à entrega, oferecemos soluções completas e integradas.</p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">

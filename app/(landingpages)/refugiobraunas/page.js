@@ -139,7 +139,7 @@ export default function RefugioBraunasPage() {
 
       {/* O restante do código da página... */}
       <section className="bg-gray-50 py-16 md:py-20">
-        <div className="container mx-auto px-4 text-center">
+        <div className="w-full px-4 text-center">
           <div className="max-w-3xl mx-auto bg-white p-8 rounded-lg shadow-md">
             <h2 className="text-xl md:text-2xl font-semibold uppercase tracking-wider text-gray-500 mb-4">
               Invista no seu refúgio
@@ -167,7 +167,7 @@ export default function RefugioBraunasPage() {
       </section>
       {view === 'investidor' && (
         <section className="py-16 md:py-24 bg-white">
-          <div className="container mx-auto px-4">
+          <div className="w-full px-4">
             <h2 className="text-3xl md:text-4xl font-bold text-center mb-12 text-gray-900">
               Uma Oportunidade Única de Investimento
             </h2>
@@ -217,7 +217,7 @@ export default function RefugioBraunasPage() {
       )}
       {view === 'morador' && (
         <section className="bg-gray-50 py-16 md:py-24">
-          <div className="container mx-auto px-4 text-center">
+          <div className="w-full px-4 text-center">
             <h2 className="text-3xl md:text-4xl font-bold mb-12 text-gray-900">
               Diferenciais que Transformam seu Dia a Dia
             </h2>
@@ -268,7 +268,7 @@ export default function RefugioBraunasPage() {
         </section>
       )}
       <section className="py-16 md:py-24">
-        <div className="container mx-auto px-4 grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+        <div className="w-full px-4 grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
           <div className="md:order-2">
             <h2 className="text-3xl md:text-4xl font-bold mb-4 text-gray-900">
               Seu Espaço, Suas Regras
@@ -334,7 +334,7 @@ export default function RefugioBraunasPage() {
         </div>
       </section>
       <section className="bg-gray-50 pt-16 md:pt-24 pb-16 md:pb-24">
-        <div className="container mx-auto px-4">
+        <div className="w-full px-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
             <div>
               <h3 className="text-2xl md:text-3xl font-bold text-gray-800 text-center md:text-left mb-12">
@@ -436,7 +436,7 @@ export default function RefugioBraunasPage() {
               />
             </div>
           </div>
-          <div className="container mx-auto px-4 text-center mt-16">
+          <div className="w-full px-4 text-center mt-16">
             <h2 className="text-3xl md:text-4xl font-bold mb-4 text-gray-900">
               Localização Privilegiada
             </h2>
@@ -460,7 +460,7 @@ export default function RefugioBraunasPage() {
         </div>
       </section>
       <section className="bg-white py-16 md:py-20">
-        <div className="container mx-auto px-4 text-center">
+        <div className="w-full px-4 text-center">
           <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-4">
             Pronto para construir seu sonho?
           </h2>
@@ -478,7 +478,7 @@ export default function RefugioBraunasPage() {
         </div>
       </section>
       <footer className="bg-black text-white py-6">
-        <div className="container mx-auto px-4 text-center text-gray-400">
+        <div className="w-full px-4 text-center text-gray-400">
           <p>© {new Date().getFullYear()} Studio 57. Todos os direitos reservados.</p>
           <p className="text-sm mt-1">
             Refúgio Braúnas - Lotes com matrícula individualizada.

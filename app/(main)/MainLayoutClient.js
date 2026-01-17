@@ -92,7 +92,6 @@ function MainLayoutContent({ children }) {
     // 1. Layout para CAIXA DE ENTRADA (Tela Cheia, Sem Scroll Geral)
     if (isCaixaDeEntrada) {
         return (
-            // MUDANÇA AQUI: bg-gray-100 -> bg-white
             <div className="flex flex-col h-screen w-full bg-white overflow-hidden">
                 {/* Header Fixo (z-40) */}
                 <Header toggleSidebar={toggleSidebar} />
@@ -132,17 +131,19 @@ function MainLayoutContent({ children }) {
     const headerMargins = { left: '', right: '', top: '', bottom: '' };
 
     return (
-        // MUDANÇA AQUI: bg-gray-50 -> bg-white (A mágica do Clean ✨)
         <div className="min-h-screen bg-white flex flex-col">
             <Header toggleSidebar={toggleSidebar} headerPositionClass={headerMargins[sidebarPosition]} />
 
             <Sidebar isOpen={isSidebarOpen} closeSidebar={closeSidebar} isAdmin={isProprietario} />
 
             <main 
-                className="flex-grow p-6 transition-all duration-300"
+                // MUDANÇA 1: Reduzi o padding de p-6 para p-4 para ganhar mais espaço
+                className="flex-grow p-4 transition-all duration-300"
                 style={mainStyles}
             >
-                <div className="max-w-[1600px] mx-auto w-full">
+                {/* MUDANÇA 2: Removi 'max-w-[1600px] mx-auto' e coloquei 'w-full' */}
+                {/* Agora o sistema vai esticar até o limite da tela */}
+                <div className="w-full">
                     {children}
                 </div>
             </main>

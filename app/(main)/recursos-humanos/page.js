@@ -128,7 +128,7 @@ export default function RecursosHumanosPage() {
     }
     
     return (
-        <div className="space-y-6 container mx-auto p-4 md:p-6 animate-in fade-in duration-500">
+        <div className="space-y-6 w-full p-4 md:p-6 animate-in fade-in duration-500">
             
             {/* --- MODAL UNIFICADO (CRIAÇÃO/EDIÇÃO) --- */}
             {isFuncionarioModalOpen && (

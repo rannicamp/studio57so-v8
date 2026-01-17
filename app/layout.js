@@ -1,4 +1,6 @@
-﻿import { Inter } from 'next/font/google';
+﻿//app\layout.js
+
+import { Inter } from 'next/font/google';
 import './globals.css';
 import { Toaster } from 'sonner';
 import Script from 'next/script';

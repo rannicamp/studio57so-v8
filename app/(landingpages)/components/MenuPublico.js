@@ -10,7 +10,7 @@ export default function MenuPublico() {
 
   return (
     <header className="bg-white shadow-md sticky top-0 z-50">
-      <nav className="container mx-auto px-6 py-3 flex justify-between items-center">
+      <nav className="w-full px-6 py-3 flex justify-between items-center">
         <Link href="/">
             <Image 
               src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/1/IMG_1759092416467.png" 

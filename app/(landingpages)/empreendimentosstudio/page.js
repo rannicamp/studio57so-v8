@@ -10,7 +10,7 @@ import Image from 'next/image';
 export default function EmpreendimentosPage() {
   return (
     <div className="bg-white py-16 md:py-24">
-      <div className="container mx-auto px-6">
+      <div className="w-full px-6">
         <div className="text-center mb-12">
             <h1 className="text-4xl md:text-5xl font-bold text-gray-900">Nossos Empreendimentos</h1>
             <p className="text-lg text-gray-600 mt-4 max-w-2xl mx-auto">Conheça os projetos que refletem nosso compromisso com a inovação, qualidade e rentabilidade.</p>
