@@ -21,9 +21,9 @@ export default function UploadFotosRdo() {
   const [files, setFiles] = useState([]);
   const [isUploading, setIsUploading] = useState(false);
 
-  // CONFIGURAÇÃO SIMPLES
+  // CONFIGURAÇÃO
   const BUCKET_NAME = 'teste';
-  const FOLDER_NAME = 'arquivos'; // Pasta para organizar
+  const FOLDER_NAME = 'arquivos';
 
   useEffect(() => {
     loadFiles();
@@ -31,7 +31,6 @@ export default function UploadFotosRdo() {
 
   const loadFiles = async () => {
     try {
-      // Lista arquivos da pasta
       const { data, error } = await supabase.storage
         .from(BUCKET_NAME)
         .list(FOLDER_NAME, {
@@ -43,7 +42,6 @@ export default function UploadFotosRdo() {
       if (error) throw error;
 
       if (data) {
-        // Gera URLs para visualização
         const processed = await Promise.all(data.map(async (f) => {
             if (f.name === '.emptyFolderPlaceholder') return null;
             
@@ -53,7 +51,7 @@ export default function UploadFotosRdo() {
                 .createSignedUrl(fullPath, 3600);
 
             return {
-                id: f.id, // ID interno do storage
+                id: f.id, 
                 name: f.name,
                 caminho_arquivo: fullPath,
                 tamanho_arquivo: f.metadata?.size || 0,
@@ -65,29 +63,48 @@ export default function UploadFotosRdo() {
       }
     } catch (e) { 
       console.error(e); 
-      // toast.error("Erro ao listar arquivos."); // Opcional
     }
   };
 
+  // FUNÇÃO AUXILIAR PARA DESCOBRIR O TIPO REAL
+  const getMimeType = (fileName, currentType) => {
+      // Se o sistema já deu um tipo válido, usa ele
+      if (currentType && currentType !== '') return currentType;
+      
+      // Se não, adivinha pela extensão (correção para Android)
+      const lowerName = fileName.toLowerCase();
+      if (lowerName.endsWith('.pdf')) return 'application/pdf';
+      if (lowerName.endsWith('.txt')) return 'text/plain';
+      if (lowerName.endsWith('.doc')) return 'application/msword';
+      if (lowerName.endsWith('.docx')) return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+      
+      return 'application/octet-stream'; // Genérico em último caso
+  };
+
   const handleUpload = async (e) => {
-    // Evita comportamentos estranhos do navegador
+    // Previne comportamento padrão
     if (e.preventDefault) e.preventDefault();
 
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file) {
+        // Se o usuário cancelar a seleção, não faz nada
+        return;
+    }
 
     setIsUploading(true);
-    toast.info("Processando arquivo...");
+    // Toast para confirmar que o Android entregou o arquivo
+    toast.info(`Iniciando upload de: ${file.name}`);
     
     try {
         let finalFile = file;
+        
+        // Garante que temos um tipo de arquivo, mesmo que o Android não mande
+        const realMimeType = getMimeType(file.name, file.type);
+        const isImage = realMimeType.startsWith('image/');
 
-        // VERIFICAÇÃO SEGURA: Se não tiver tipo, assume que NÃO é imagem
-        // Isso evita o crash no Android quando o PDF vem sem metadata
-        const fileType = file.type || ''; 
-        const isImage = fileType.startsWith('image/');
+        console.log("Arquivo detectado:", file.name, "Tipo Real:", realMimeType);
 
-        // OTIMIZAÇÃO (Apenas para Imagens)
+        // LÓGICA DE IMAGEM (Mantida pois funciona)
         if (isImage) {
             try {
                 const imageCompression = (await import('browser-image-compression')).default;
@@ -98,41 +115,49 @@ export default function UploadFotosRdo() {
             }
         }
 
-        // Nome limpo e seguro
+        // PREPARAÇÃO DO NOME E OPÇÕES
         const cleanName = file.name.replace(/[^a-zA-Z0-9.]/g, '_');
         const path = `${FOLDER_NAME}/${Date.now()}_${cleanName}`;
         
-        // UPLOAD DIRETO
-        const { error: upErr } = await supabase.storage
-            .from(BUCKET_NAME)
-            .upload(path, finalFile);
-            
-        if (upErr) throw upErr;
+        // OPÇÕES DE UPLOAD EXPLÍCITAS
+        // Aqui está o "pulo do gato": forçamos o contentType
+        const uploadOptions = {
+            cacheControl: '3600',
+            upsert: false,
+            contentType: realMimeType 
+        };
 
-        toast.success("Arquivo salvo com sucesso!");
-        loadFiles(); // Atualiza a lista visualmente
+        // UPLOAD
+        const { data, error: upErr } = await supabase.storage
+            .from(BUCKET_NAME)
+            .upload(path, finalFile, uploadOptions);
+            
+        if (upErr) {
+            console.error("Erro Supabase:", upErr);
+            throw upErr;
+        }
+
+        toast.success("Arquivo enviado!");
+        loadFiles(); 
         
     } catch (err) {
-        console.error(err);
-        toast.error(`Erro: ${err.message}`);
+        console.error("Erro Geral:", err);
+        // Mostra o erro na tela para você saber o que foi
+        toast.error(`Falha: ${err.message || err.error_description || "Erro desconhecido"}`);
     } finally {
         setIsUploading(false);
-        // Limpa o input para permitir selecionar o mesmo arquivo novamente se falhar
         e.target.value = ""; 
     }
   };
 
   const handleRemove = async (path) => {
       if(!confirm("Excluir arquivo?")) return;
-      
       try {
         const { error } = await supabase.storage.from(BUCKET_NAME).remove([path]);
         if (error) throw error;
-        
         setFiles(prev => prev.filter(f => f.caminho_arquivo !== path));
         toast.success("Excluído.");
       } catch (error) {
-        console.error(error);
         toast.error("Erro ao excluir.");
       }
   };
@@ -144,10 +169,9 @@ export default function UploadFotosRdo() {
         <span>Armazenamento: <strong>{BUCKET_NAME}/{FOLDER_NAME}</strong></span>
       </div>
 
-      {/* BOTÕES DE AÇÃO */}
       <div className="grid grid-cols-2 gap-3 mb-6">
         
-        {/* BOTÃO 1: FOTOS (Galeria) */}
+        {/* BOTÃO FOTOS */}
         <label className={`
             flex flex-col items-center justify-center p-4 border-2 border-dashed border-blue-200 bg-blue-50 rounded-xl cursor-pointer active:bg-blue-100 transition-all
             ${isUploading ? 'opacity-50 pointer-events-none' : ''}
@@ -163,7 +187,7 @@ export default function UploadFotosRdo() {
             />
         </label>
 
-        {/* BOTÃO 2: DOCUMENTOS (Lista Simples) */}
+        {/* BOTÃO ARQUIVOS */}
         <label className={`
             flex flex-col items-center justify-center p-4 border-2 border-dashed border-red-200 bg-red-50 rounded-xl cursor-pointer active:bg-red-100 transition-all
             ${isUploading ? 'opacity-50 pointer-events-none' : ''}
@@ -173,15 +197,12 @@ export default function UploadFotosRdo() {
             ) : (
                 <FontAwesomeIcon icon={faFileLines} className="text-2xl text-red-600 mb-1" />
             )}
-            <span className="text-xs font-bold text-red-700">ARQUIVOS</span>
+            <span className="text-xs font-bold text-red-700">PDF / TXT</span>
             
-            {/* CORREÇÃO AQUI: 
-                Adicionei as extensões (.pdf, .doc) explicitamente. 
-                Isso ajuda o Android a não se perder e evita o reload da página.
-            */}
+            {/* Input genérico para evitar filtros agressivos do Android */}
             <input 
                 type="file" 
-                accept=".pdf, .txt, .doc, .docx, application/pdf, application/msword"
+                accept="*"
                 onChange={handleUpload} 
                 disabled={isUploading}
                 className="hidden" 
@@ -199,7 +220,6 @@ export default function UploadFotosRdo() {
 
             return (
                 <div key={f.id || f.name} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-100 shadow-sm">
-                    {/* Miniatura */}
                     <div className="w-12 h-12 flex-shrink-0 bg-white rounded overflow-hidden flex items-center justify-center border">
                         {isPdf ? <FontAwesomeIcon icon={faFilePdf} className="text-red-500 text-xl" /> :
                          isTxt ? <FontAwesomeIcon icon={faFileAlt} className="text-gray-500 text-xl" /> :
@@ -208,7 +228,6 @@ export default function UploadFotosRdo() {
                         }
                     </div>
                     
-                    {/* Info */}
                     <div className="flex-1 min-w-0">
                         <p className="text-sm font-bold text-gray-700 truncate">{f.name}</p>
                         <p className="text-[10px] text-gray-400">
@@ -222,7 +241,6 @@ export default function UploadFotosRdo() {
                         )}
                     </div>
 
-                    {/* Excluir */}
                     <button 
                         onClick={() => handleRemove(f.caminho_arquivo)}
                         className="p-2 text-red-500 hover:bg-red-50 rounded-full"
