@@ -8,14 +8,20 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        'primary': '#45301f', // Nova cor adicionada aqui!
+        'primary': '#45301f',
         blue: {
           500: '#3b82f6',
           600: '#2563eb', 
           700: '#1d4ed8',
         },
         gray: {
-          50: '#f9fafb',
+          // 👇 AQUI ESTÁ A MÁGICA! 
+          // Substituímos o cinza clarinho (#f9fafb) por BRANCO PURO (#ffffff).
+          // Agora todo 'bg-gray-50' será visualmente branco.
+          50: '#ffffff', 
+          
+          // Mantemos os outros tons para bordas e textos
+          100: '#f3f4f6', // (Opcional: mantive o padrão, ou mude para #ffffff se quiser matar o 100 também)
           200: '#e5e7eb',
           300: '#d1d5db',
           500: '#6b7280',

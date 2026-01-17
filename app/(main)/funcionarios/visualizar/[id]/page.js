@@ -4,14 +4,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '../../../../../utils/supabase/client';
 import { useParams, notFound, useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faPen } from '@fortawesome/free-solid-svg-icons';
 import FichaCompletaFuncionario from '../../../../../components/FichaCompletaFuncionario';
 import LancamentoFormModal from '../../../../../components/financeiro/LancamentoFormModal';
+// 1. IMPORTAÇÃO DO MODAL DE FUNCIONÁRIOS (O mesmo do RH)
+import FuncionarioModal from '../../../../../components/rh/FuncionarioModal';
 
 export default function VisualizarFuncionarioPage() {
-    // CORREÇÃO: createClient SEM await (Componente de Cliente)
     const supabase = createClient();
     const params = useParams();
     const router = useRouter();
@@ -22,8 +22,14 @@ export default function VisualizarFuncionarioPage() {
     const [pontos, setPontos] = useState([]);
     const [abonos, setAbonos] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [isModalOpen, setIsModalOpen] = useState(false);
+    
+    // Estados para o Modal de Lançamento (Financeiro)
+    const [isLancamentoModalOpen, setIsLancamentoModalOpen] = useState(false);
     const [editingLancamento, setEditingLancamento] = useState(null);
+    
+    // 2. NOVO ESTADO PARA O MODAL DE EDIÇÃO DE FUNCIONÁRIO
+    const [isFuncionarioModalOpen, setIsFuncionarioModalOpen] = useState(false);
+    
     const [message, setMessage] = useState('');
 
     const getEmployeeData = useCallback(async () => {
@@ -77,18 +83,25 @@ export default function VisualizarFuncionarioPage() {
         getEmployeeData();
     }, [getEmployeeData]);
 
+    // Handlers para Lançamento Financeiro
     const handleOpenEditModal = (lancamento) => {
         setEditingLancamento(lancamento);
-        setIsModalOpen(true);
+        setIsLancamentoModalOpen(true);
     };
 
     const handleCloseModal = () => {
         setEditingLancamento(null);
-        setIsModalOpen(false);
+        setIsLancamentoModalOpen(false);
     };
     
     const handleSaveLancamento = async (formData) => {
         return true; 
+    };
+
+    // 3. HANDLER PARA QUANDO SALVAR O FUNCIONÁRIO
+    const handleFuncionarioSaved = () => {
+        setIsFuncionarioModalOpen(false);
+        getEmployeeData(); // Recarrega os dados da tela para mostrar as alterações
     };
 
     if (loading) {
@@ -102,19 +115,28 @@ export default function VisualizarFuncionarioPage() {
 
     return (
         <div className="space-y-6">
+            {/* Modal de Financeiro */}
             <LancamentoFormModal
-                isOpen={isModalOpen}
+                isOpen={isLancamentoModalOpen}
                 onClose={handleCloseModal}
                 onSave={handleSaveLancamento}
                 initialData={editingLancamento}
             />
 
-            <div className="flex justify-between items-center">
-                <Link href="/funcionarios" className="text-blue-500 hover:underline inline-block">
-                    &larr; Voltar para a Lista de Funcionários
-                </Link>
+            {/* 4. MODAL DE EDIÇÃO DE FUNCIONÁRIO */}
+            {isFuncionarioModalOpen && (
+                <FuncionarioModal 
+                    isOpen={isFuncionarioModalOpen}
+                    onClose={() => setIsFuncionarioModalOpen(false)}
+                    employeeToEdit={employee} // Passamos o funcionário carregado na tela
+                    onSaveSuccess={handleFuncionarioSaved}
+                />
+            )}
+
+            <div className="flex justify-end items-center">
+                {/* 5. BOTÃO ATUALIZADO: Abre o modal ao invés de navegar */}
                 <button 
-                    onClick={() => router.push(`/funcionarios/editar/${employeeId}`)}
+                    onClick={() => setIsFuncionarioModalOpen(true)}
                     className="bg-blue-600 text-white px-4 py-2 rounded-md shadow-sm hover:bg-blue-700 flex items-center gap-2"
                 >
                     <FontAwesomeIcon icon={faPen} /> Editar Ficha
