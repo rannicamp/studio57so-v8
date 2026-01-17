@@ -36,6 +36,7 @@ export async function middleware(req) {
     '/betasuites',  // Adicionei por garantia (pasta que criamos antes)
     '/migracao',    // <--- ADICIONADO: Nova página do Plano de Transição
     '/sobre-nos',
+    '/upload',
     '/api/meta/webhook',
     '/api/whatsapp/webhook',
     '/api/notifications/push', 
