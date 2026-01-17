@@ -70,18 +70,24 @@ export default function UploadFotosRdo() {
   };
 
   const handleUpload = async (e) => {
+    // Evita comportamentos estranhos do navegador
+    if (e.preventDefault) e.preventDefault();
+
     const file = e.target.files?.[0];
     if (!file) return;
 
     setIsUploading(true);
-    toast.info("Enviando...");
+    toast.info("Processando arquivo...");
     
     try {
         let finalFile = file;
-        const isImage = file.type.startsWith('image/');
+
+        // VERIFICAÇÃO SEGURA: Se não tiver tipo, assume que NÃO é imagem
+        // Isso evita o crash no Android quando o PDF vem sem metadata
+        const fileType = file.type || ''; 
+        const isImage = fileType.startsWith('image/');
 
         // OTIMIZAÇÃO (Apenas para Imagens)
-        // Isso ajuda a não estourar a memória com fotos de 50MB
         if (isImage) {
             try {
                 const imageCompression = (await import('browser-image-compression')).default;
@@ -92,18 +98,18 @@ export default function UploadFotosRdo() {
             }
         }
 
-        // Nome limpo
+        // Nome limpo e seguro
         const cleanName = file.name.replace(/[^a-zA-Z0-9.]/g, '_');
         const path = `${FOLDER_NAME}/${Date.now()}_${cleanName}`;
         
-        // UPLOAD DIRETO (Sem Banco de Dados)
+        // UPLOAD DIRETO
         const { error: upErr } = await supabase.storage
             .from(BUCKET_NAME)
             .upload(path, finalFile);
             
         if (upErr) throw upErr;
 
-        toast.success("Arquivo salvo!");
+        toast.success("Arquivo salvo com sucesso!");
         loadFiles(); // Atualiza a lista visualmente
         
     } catch (err) {
@@ -111,6 +117,7 @@ export default function UploadFotosRdo() {
         toast.error(`Erro: ${err.message}`);
     } finally {
         setIsUploading(false);
+        // Limpa o input para permitir selecionar o mesmo arquivo novamente se falhar
         e.target.value = ""; 
     }
   };
@@ -168,10 +175,13 @@ export default function UploadFotosRdo() {
             )}
             <span className="text-xs font-bold text-red-700">ARQUIVOS</span>
             
-            {/* Input Específico para forçar seletor leve do Android */}
+            {/* CORREÇÃO AQUI: 
+                Adicionei as extensões (.pdf, .doc) explicitamente. 
+                Isso ajuda o Android a não se perder e evita o reload da página.
+            */}
             <input 
                 type="file" 
-                accept="application/pdf, text/plain, application/msword, application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                accept=".pdf, .txt, .doc, .docx, application/pdf, application/msword"
                 onChange={handleUpload} 
                 disabled={isUploading}
                 className="hidden" 
