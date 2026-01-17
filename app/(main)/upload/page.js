@@ -1,26 +1,30 @@
 // app/(main)/upload/page.js
 "use client";
 
-import { useAuth } from '@/contexts/AuthContext';
 import UploadFotosRdo from '@/components/UploadFotosRdo';
+import Link from 'next/link';
 
-export default function TesteUploadPage() {
-  const { user } = useAuth();
-
-  // Se não estiver logado, evita erro, mas tenta mostrar algo
-  if (!user) return <div className="p-10 text-center">Carregando usuário...</div>;
-
+export default function PaginaUploadSimples() {
   return (
     <div className="min-h-screen bg-gray-100 p-4 md:p-8">
       <div className="max-w-md mx-auto">
-        <h1 className="text-2xl font-bold text-gray-800 mb-6 text-center">Ambiente de Teste (Bucket 'teste')</h1>
         
-        {/* Carrega o componente sem precisar de RDO ID */}
-        <UploadFotosRdo organizacaoId={user.organizacao_id} />
-        
-        <div className="mt-8 text-center">
-             <a href="/painel" className="text-sm text-blue-600 underline">Voltar ao Painel</a>
+        <div className="mb-6 text-center">
+            <h1 className="text-2xl font-bold text-gray-800">
+                Upload de Arquivos
+            </h1>
+            <p className="text-sm text-gray-500">Sistema de Teste</p>
         </div>
+
+        {/* Carrega o componente sem passar nenhum parâmetro */}
+        <UploadFotosRdo />
+
+        <div className="mt-8 text-center">
+             <Link href="/painel" className="text-sm text-blue-600 underline">
+                Voltar ao Painel
+             </Link>
+        </div>
+
       </div>
     </div>
   );

@@ -12,37 +12,60 @@ import {
   faFilePdf, 
   faFileAlt, 
   faDownload,
-  faFileLines
+  faFileLines,
+  faCloud
 } from '@fortawesome/free-solid-svg-icons';
 
-// NOTA: Removemos o import global do 'browser-image-compression' para economizar memória inicial.
-// Ele será carregado sob demanda apenas quando necessário.
-
-export default function UploadFotosRdo({ rdoId, organizacaoId }) {
+export default function UploadFotosRdo() {
   const supabase = createClient();
   const [files, setFiles] = useState([]);
   const [isUploading, setIsUploading] = useState(false);
 
+  // CONFIGURAÇÃO SIMPLES
+  const BUCKET_NAME = 'teste';
+  const FOLDER_NAME = 'arquivos'; // Pasta para organizar
+
   useEffect(() => {
-    if (rdoId) loadFiles();
-  }, [rdoId]);
+    loadFiles();
+  }, []);
 
   const loadFiles = async () => {
     try {
-      const { data } = await supabase
-        .from('rdo_fotos_uploads')
-        .select('*')
-        .eq('diario_obra_id', rdoId);
-        
+      // Lista arquivos da pasta
+      const { data, error } = await supabase.storage
+        .from(BUCKET_NAME)
+        .list(FOLDER_NAME, {
+          limit: 100,
+          offset: 0,
+          sortBy: { column: 'created_at', order: 'desc' },
+        });
+
+      if (error) throw error;
+
       if (data) {
-        const processed = await Promise.all(data.map(async f => ({
-            ...f,
-            signedUrl: (await supabase.storage.from('rdo-fotos').createSignedUrl(f.caminho_arquivo, 3600)).data?.signedUrl
-        })));
-        setFiles(processed);
+        // Gera URLs para visualização
+        const processed = await Promise.all(data.map(async (f) => {
+            if (f.name === '.emptyFolderPlaceholder') return null;
+            
+            const fullPath = `${FOLDER_NAME}/${f.name}`;
+            const { data: urlData } = await supabase.storage
+                .from(BUCKET_NAME)
+                .createSignedUrl(fullPath, 3600);
+
+            return {
+                id: f.id, // ID interno do storage
+                name: f.name,
+                caminho_arquivo: fullPath,
+                tamanho_arquivo: f.metadata?.size || 0,
+                created_at: f.created_at,
+                signedUrl: urlData?.signedUrl
+            };
+        }));
+        setFiles(processed.filter(Boolean));
       }
     } catch (e) { 
       console.error(e); 
+      // toast.error("Erro ao listar arquivos."); // Opcional
     }
   };
 
@@ -51,56 +74,37 @@ export default function UploadFotosRdo({ rdoId, organizacaoId }) {
     if (!file) return;
 
     setIsUploading(true);
-    toast.info("Lendo arquivo...");
+    toast.info("Enviando...");
     
     try {
         let finalFile = file;
         const isImage = file.type.startsWith('image/');
-        
-        // 1. OTIMIZAÇÃO DE MEMÓRIA (Importação Dinâmica)
-        // Só carrega a biblioteca pesada se for realmente uma imagem
+
+        // OTIMIZAÇÃO (Apenas para Imagens)
+        // Isso ajuda a não estourar a memória com fotos de 50MB
         if (isImage) {
             try {
-                toast.loading("Otimizando imagem...", { id: "compression" });
-                // Importa a biblioteca apenas agora
                 const imageCompression = (await import('browser-image-compression')).default;
-                
-                const options = { 
-                    maxSizeMB: 1, 
-                    maxWidthOrHeight: 1920, 
-                    useWebWorker: true 
-                };
+                const options = { maxSizeMB: 1, maxWidthOrHeight: 1920, useWebWorker: true };
                 finalFile = await imageCompression(file, options);
-                toast.dismiss("compression");
             } catch (err) {
-                console.warn("Compressão falhou, enviando original", err);
-                toast.dismiss("compression");
+                console.warn("Sem compressão:", err);
             }
         }
 
-        // 2. Upload
+        // Nome limpo
         const cleanName = file.name.replace(/[^a-zA-Z0-9.]/g, '_');
-        const path = `${rdoId}/${Date.now()}_${cleanName}`;
+        const path = `${FOLDER_NAME}/${Date.now()}_${cleanName}`;
         
+        // UPLOAD DIRETO (Sem Banco de Dados)
         const { error: upErr } = await supabase.storage
-            .from('rdo-fotos')
+            .from(BUCKET_NAME)
             .upload(path, finalFile);
             
         if (upErr) throw upErr;
 
-        // 3. Salva no Banco
-        const { error: dbErr } = await supabase.from('rdo_fotos_uploads').insert({
-            diario_obra_id: rdoId, 
-            organizacao_id: organizacaoId,
-            caminho_arquivo: path,
-            tamanho_arquivo: finalFile.size,
-            descricao: isImage ? "Foto Mobile" : file.name
-        });
-        
-        if (dbErr) throw dbErr;
-
-        toast.success("Sucesso!");
-        loadFiles();
+        toast.success("Arquivo salvo!");
+        loadFiles(); // Atualiza a lista visualmente
         
     } catch (err) {
         console.error(err);
@@ -111,25 +115,32 @@ export default function UploadFotosRdo({ rdoId, organizacaoId }) {
     }
   };
 
-  const handleRemove = async (id, path) => {
-      if(!confirm("Excluir?")) return;
+  const handleRemove = async (path) => {
+      if(!confirm("Excluir arquivo?")) return;
+      
       try {
-        await supabase.storage.from('rdo-fotos').remove([path]);
-        await supabase.from('rdo_fotos_uploads').delete().eq('id', id);
-        setFiles(prev => prev.filter(f => f.id !== id));
+        const { error } = await supabase.storage.from(BUCKET_NAME).remove([path]);
+        if (error) throw error;
+        
+        setFiles(prev => prev.filter(f => f.caminho_arquivo !== path));
         toast.success("Excluído.");
       } catch (error) {
+        console.error(error);
         toast.error("Erro ao excluir.");
       }
   };
 
   return (
     <div className="bg-white p-4 rounded-xl shadow border border-gray-200">
-      
-      {/* SEÇÃO DE BOTÕES DIVIDIDOS (ESTRATÉGIA PARA NÃO TRAVAR O ANDROID) */}
+      <div className="flex items-center gap-2 mb-4 text-gray-500 text-sm">
+        <FontAwesomeIcon icon={faCloud} />
+        <span>Armazenamento: <strong>{BUCKET_NAME}/{FOLDER_NAME}</strong></span>
+      </div>
+
+      {/* BOTÕES DE AÇÃO */}
       <div className="grid grid-cols-2 gap-3 mb-6">
         
-        {/* BOTÃO 1: FOTOS (Usa galeria visual) */}
+        {/* BOTÃO 1: FOTOS (Galeria) */}
         <label className={`
             flex flex-col items-center justify-center p-4 border-2 border-dashed border-blue-200 bg-blue-50 rounded-xl cursor-pointer active:bg-blue-100 transition-all
             ${isUploading ? 'opacity-50 pointer-events-none' : ''}
@@ -145,8 +156,7 @@ export default function UploadFotosRdo({ rdoId, organizacaoId }) {
             />
         </label>
 
-        {/* BOTÃO 2: DOCUMENTOS (Usa lista leve) */}
-        {/* AQUI ESTÁ O TRUQUE: Listamos tipos específicos para evitar que o Android tente carregar vídeos e trave */}
+        {/* BOTÃO 2: DOCUMENTOS (Lista Simples) */}
         <label className={`
             flex flex-col items-center justify-center p-4 border-2 border-dashed border-red-200 bg-red-50 rounded-xl cursor-pointer active:bg-red-100 transition-all
             ${isUploading ? 'opacity-50 pointer-events-none' : ''}
@@ -156,13 +166,12 @@ export default function UploadFotosRdo({ rdoId, organizacaoId }) {
             ) : (
                 <FontAwesomeIcon icon={faFileLines} className="text-2xl text-red-600 mb-1" />
             )}
-            <span className="text-xs font-bold text-red-700">DOCUMENTOS</span>
-            <span className="text-[9px] text-red-500">(PDF, DOC, TXT)</span>
+            <span className="text-xs font-bold text-red-700">ARQUIVOS</span>
             
+            {/* Input Específico para forçar seletor leve do Android */}
             <input 
                 type="file" 
-                // EVITA O */* PARA NÃO CARREGAR VÍDEOS NA MEMÓRIA
-                accept="application/pdf, text/plain, application/msword, application/vnd.openxmlformats-officedocument.wordprocessingml.document, application/vnd.ms-excel, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                accept="application/pdf, text/plain, application/msword, application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                 onChange={handleUpload} 
                 disabled={isUploading}
                 className="hidden" 
@@ -173,14 +182,14 @@ export default function UploadFotosRdo({ rdoId, organizacaoId }) {
 
       {/* LISTA DE ARQUIVOS */}
       <div className="space-y-3">
-        {files.map(f => {
-            const isPdf = f.caminho_arquivo?.toLowerCase().includes('.pdf');
-            const isTxt = f.caminho_arquivo?.toLowerCase().includes('.txt');
-            const isDoc = !isPdf && !isTxt && !f.caminho_arquivo?.match(/\.(jpg|jpeg|png|webp|gif)$/i);
+        {files.map((f) => {
+            const isPdf = f.name.toLowerCase().includes('.pdf');
+            const isTxt = f.name.toLowerCase().includes('.txt');
+            const isDoc = !isPdf && !isTxt && !f.name.match(/\.(jpg|jpeg|png|webp|gif)$/i);
 
             return (
-                <div key={f.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-100 shadow-sm">
-                    {/* Ícones conforme o tipo */}
+                <div key={f.id || f.name} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-100 shadow-sm">
+                    {/* Miniatura */}
                     <div className="w-12 h-12 flex-shrink-0 bg-white rounded overflow-hidden flex items-center justify-center border">
                         {isPdf ? <FontAwesomeIcon icon={faFilePdf} className="text-red-500 text-xl" /> :
                          isTxt ? <FontAwesomeIcon icon={faFileAlt} className="text-gray-500 text-xl" /> :
@@ -189,21 +198,36 @@ export default function UploadFotosRdo({ rdoId, organizacaoId }) {
                         }
                     </div>
                     
+                    {/* Info */}
                     <div className="flex-1 min-w-0">
-                        <p className="text-xs font-bold text-gray-700 truncate">{f.descricao || f.caminho_arquivo.split('/').pop()}</p>
-                        { (isPdf || isTxt || isDoc) && (
+                        <p className="text-sm font-bold text-gray-700 truncate">{f.name}</p>
+                        <p className="text-[10px] text-gray-400">
+                            {new Date(f.created_at).toLocaleDateString('pt-BR')}
+                        </p>
+                        
+                        {(isPdf || isTxt || isDoc) && (
                             <a href={f.signedUrl} target="_blank" className="text-[10px] text-blue-600 font-bold mt-1 inline-block">
-                                <FontAwesomeIcon icon={faDownload} className="mr-1"/> Baixar
+                                <FontAwesomeIcon icon={faDownload} className="mr-1"/> Abrir
                             </a>
                         )}
                     </div>
 
-                    <button onClick={() => handleRemove(f.id, f.caminho_arquivo)} className="p-2 text-red-500">
+                    {/* Excluir */}
+                    <button 
+                        onClick={() => handleRemove(f.caminho_arquivo)}
+                        className="p-2 text-red-500 hover:bg-red-50 rounded-full"
+                    >
                         <FontAwesomeIcon icon={faTrash} />
                     </button>
                 </div>
             );
         })}
+
+        {files.length === 0 && !isUploading && (
+            <div className="text-center py-8 text-gray-400">
+                <p>Pasta vazia.</p>
+            </div>
+        )}
       </div>
     </div>
   );
