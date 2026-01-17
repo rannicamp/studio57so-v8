@@ -21,7 +21,6 @@ export default function UploadFotosRdo() {
   const [files, setFiles] = useState([]);
   const [isUploading, setIsUploading] = useState(false);
 
-  // CONFIGURAÇÃO
   const BUCKET_NAME = 'teste';
   const FOLDER_NAME = 'arquivos';
 
@@ -44,7 +43,6 @@ export default function UploadFotosRdo() {
       if (data) {
         const processed = await Promise.all(data.map(async (f) => {
             if (f.name === '.emptyFolderPlaceholder') return null;
-            
             const fullPath = `${FOLDER_NAME}/${f.name}`;
             const { data: urlData } = await supabase.storage
                 .from(BUCKET_NAME)
@@ -66,95 +64,77 @@ export default function UploadFotosRdo() {
     }
   };
 
-  // FUNÇÃO AUXILIAR PARA DESCOBRIR O TIPO REAL
-  const getMimeType = (fileName, currentType) => {
-      // Se o sistema já deu um tipo válido, usa ele
-      if (currentType && currentType !== '') return currentType;
-      
-      // Se não, adivinha pela extensão (correção para Android)
-      const lowerName = fileName.toLowerCase();
-      if (lowerName.endsWith('.pdf')) return 'application/pdf';
-      if (lowerName.endsWith('.txt')) return 'text/plain';
-      if (lowerName.endsWith('.doc')) return 'application/msword';
-      if (lowerName.endsWith('.docx')) return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-      
-      return 'application/octet-stream'; // Genérico em último caso
-  };
-
+  // FUNÇÃO DE UPLOAD ROBUSTA
   const handleUpload = async (e) => {
-    // Previne comportamento padrão
-    if (e.preventDefault) e.preventDefault();
-
+    // 1. Log imediato para ver se o evento disparou
+    console.log("Evento de upload disparado!"); 
+    
     const file = e.target.files?.[0];
     if (!file) {
-        // Se o usuário cancelar a seleção, não faz nada
+        console.log("Nenhum arquivo selecionado ou seleção cancelada.");
         return;
     }
 
     setIsUploading(true);
-    // Toast para confirmar que o Android entregou o arquivo
-    toast.info(`Iniciando upload de: ${file.name}`);
+    // 2. Alert visual para garantir que o código JS pegou o arquivo
+    // alert("Arquivo capturado: " + file.name); // Descomente se precisar debugar muito fundo
+
+    toast.info(`Processando: ${file.name}`);
     
     try {
         let finalFile = file;
         
-        // Garante que temos um tipo de arquivo, mesmo que o Android não mande
-        const realMimeType = getMimeType(file.name, file.type);
-        const isImage = realMimeType.startsWith('image/');
+        // Identificação de tipo segura
+        const fileType = file.type || ''; 
+        const isImage = fileType.startsWith('image/') || file.name.match(/\.(jpg|jpeg|png|webp)$/i);
 
-        console.log("Arquivo detectado:", file.name, "Tipo Real:", realMimeType);
-
-        // LÓGICA DE IMAGEM (Mantida pois funciona)
         if (isImage) {
             try {
                 const imageCompression = (await import('browser-image-compression')).default;
                 const options = { maxSizeMB: 1, maxWidthOrHeight: 1920, useWebWorker: true };
                 finalFile = await imageCompression(file, options);
             } catch (err) {
-                console.warn("Sem compressão:", err);
+                console.warn("Erro compressão imagem:", err);
             }
         }
 
-        // PREPARAÇÃO DO NOME E OPÇÕES
         const cleanName = file.name.replace(/[^a-zA-Z0-9.]/g, '_');
         const path = `${FOLDER_NAME}/${Date.now()}_${cleanName}`;
         
-        // OPÇÕES DE UPLOAD EXPLÍCITAS
-        // Aqui está o "pulo do gato": forçamos o contentType
-        const uploadOptions = {
-            cacheControl: '3600',
-            upsert: false,
-            contentType: realMimeType 
-        };
-
-        // UPLOAD
-        const { data, error: upErr } = await supabase.storage
-            .from(BUCKET_NAME)
-            .upload(path, finalFile, uploadOptions);
-            
-        if (upErr) {
-            console.error("Erro Supabase:", upErr);
-            throw upErr;
+        // Determina o Content-Type manualmente se falhar
+        let contentType = file.type;
+        if (!contentType || contentType === "") {
+             if (file.name.endsWith('.pdf')) contentType = 'application/pdf';
+             else if (file.name.endsWith('.txt')) contentType = 'text/plain';
+             else contentType = 'application/octet-stream';
         }
 
-        toast.success("Arquivo enviado!");
+        const { error: upErr } = await supabase.storage
+            .from(BUCKET_NAME)
+            .upload(path, finalFile, {
+                contentType: contentType,
+                upsert: false
+            });
+            
+        if (upErr) throw upErr;
+
+        toast.success("Sucesso!");
         loadFiles(); 
         
     } catch (err) {
-        console.error("Erro Geral:", err);
-        // Mostra o erro na tela para você saber o que foi
-        toast.error(`Falha: ${err.message || err.error_description || "Erro desconhecido"}`);
+        console.error("Erro no upload:", err);
+        toast.error(`Erro: ${err.message}`);
     } finally {
         setIsUploading(false);
+        // Limpa o input com segurança
         e.target.value = ""; 
     }
   };
 
   const handleRemove = async (path) => {
-      if(!confirm("Excluir arquivo?")) return;
+      if(!confirm("Excluir?")) return;
       try {
-        const { error } = await supabase.storage.from(BUCKET_NAME).remove([path]);
-        if (error) throw error;
+        await supabase.storage.from(BUCKET_NAME).remove([path]);
         setFiles(prev => prev.filter(f => f.caminho_arquivo !== path));
         toast.success("Excluído.");
       } catch (error) {
@@ -164,14 +144,35 @@ export default function UploadFotosRdo() {
 
   return (
     <div className="bg-white p-4 rounded-xl shadow border border-gray-200">
+      
+      {/* --- ÁREA DE DIAGNÓSTICO (BOTÃO NATIVO) --- */}
+      <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <p className="text-xs font-bold text-yellow-800 mb-2">TESTE DO ANDROID (Botão Nativo):</p>
+          <p className="text-xs text-yellow-700 mb-3">Tente enviar o PDF por este botão cinza abaixo. Se funcionar, o problema era o design.</p>
+          
+          {/* ESTE É O SEGREDO: Um input visível, sem CSS 'hidden' */}
+          <input 
+            type="file" 
+            onChange={handleUpload}
+            disabled={isUploading}
+            className="block w-full text-sm text-slate-500
+              file:mr-4 file:py-2 file:px-4
+              file:rounded-full file:border-0
+              file:text-sm file:font-semibold
+              file:bg-violet-50 file:text-violet-700
+              hover:file:bg-violet-100"
+          />
+      </div>
+      {/* ------------------------------------------ */}
+
       <div className="flex items-center gap-2 mb-4 text-gray-500 text-sm">
         <FontAwesomeIcon icon={faCloud} />
-        <span>Armazenamento: <strong>{BUCKET_NAME}/{FOLDER_NAME}</strong></span>
+        <span>Bucket: <strong>{BUCKET_NAME}</strong></span>
       </div>
 
       <div className="grid grid-cols-2 gap-3 mb-6">
         
-        {/* BOTÃO FOTOS */}
+        {/* BOTÃO FOTOS (Design Original - Mantido) */}
         <label className={`
             flex flex-col items-center justify-center p-4 border-2 border-dashed border-blue-200 bg-blue-50 rounded-xl cursor-pointer active:bg-blue-100 transition-all
             ${isUploading ? 'opacity-50 pointer-events-none' : ''}
@@ -187,7 +188,7 @@ export default function UploadFotosRdo() {
             />
         </label>
 
-        {/* BOTÃO ARQUIVOS */}
+        {/* BOTÃO ARQUIVOS (Design Original - Mantido para comparação) */}
         <label className={`
             flex flex-col items-center justify-center p-4 border-2 border-dashed border-red-200 bg-red-50 rounded-xl cursor-pointer active:bg-red-100 transition-all
             ${isUploading ? 'opacity-50 pointer-events-none' : ''}
@@ -197,12 +198,9 @@ export default function UploadFotosRdo() {
             ) : (
                 <FontAwesomeIcon icon={faFileLines} className="text-2xl text-red-600 mb-1" />
             )}
-            <span className="text-xs font-bold text-red-700">PDF / TXT</span>
-            
-            {/* Input genérico para evitar filtros agressivos do Android */}
+            <span className="text-xs font-bold text-red-700">DESIGN</span>
             <input 
                 type="file" 
-                accept="*"
                 onChange={handleUpload} 
                 disabled={isUploading}
                 className="hidden" 
@@ -211,12 +209,11 @@ export default function UploadFotosRdo() {
 
       </div>
 
-      {/* LISTA DE ARQUIVOS */}
       <div className="space-y-3">
         {files.map((f) => {
             const isPdf = f.name.toLowerCase().includes('.pdf');
             const isTxt = f.name.toLowerCase().includes('.txt');
-            const isDoc = !isPdf && !isTxt && !f.name.match(/\.(jpg|jpeg|png|webp|gif)$/i);
+            const isDoc = !isPdf && !isTxt && !f.name.match(/\.(jpg|jpeg|png|webp)$/i);
 
             return (
                 <div key={f.id || f.name} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-100 shadow-sm">
@@ -230,9 +227,6 @@ export default function UploadFotosRdo() {
                     
                     <div className="flex-1 min-w-0">
                         <p className="text-sm font-bold text-gray-700 truncate">{f.name}</p>
-                        <p className="text-[10px] text-gray-400">
-                            {new Date(f.created_at).toLocaleDateString('pt-BR')}
-                        </p>
                         
                         {(isPdf || isTxt || isDoc) && (
                             <a href={f.signedUrl} target="_blank" className="text-[10px] text-blue-600 font-bold mt-1 inline-block">
@@ -250,12 +244,6 @@ export default function UploadFotosRdo() {
                 </div>
             );
         })}
-
-        {files.length === 0 && !isUploading && (
-            <div className="text-center py-8 text-gray-400">
-                <p>Pasta vazia.</p>
-            </div>
-        )}
       </div>
     </div>
   );
