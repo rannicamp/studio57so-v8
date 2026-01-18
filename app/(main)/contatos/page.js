@@ -30,7 +30,7 @@ import ContatoImporter from '@/components/contatos/ContatoImporter'
 import MergeModal from '@/components/contatos/MergeModal'
 import DuplicateContactsManager from '@/components/contatos/DuplicateContactsManager'
 import PadronizacaoManager from '@/components/contatos/PadronizacaoManager'
-import ContatoDetalhesSidebar from '@/components/contatos/ContatoDetalhesSidebar' // <--- IMPORTADO AQUI
+import ContatoDetalhesSidebar from '@/components/contatos/ContatoDetalhesSidebar'
 import { saveContactAction } from '@/components/contatos/actions';
 
 // CHAVE ÚNICA PARA O LOCALSTORAGE
@@ -132,6 +132,24 @@ export default function ContatosMain() {
 
   const [contatoParaEditar, setContatoParaEditar] = useState(null)
   const [debouncedSearchTerm] = useDebounce(searchTerm, 500)
+
+  // --- NOVO: ESTADO PARA OPÇÕES DO FILTRO ---
+  const [filterOptions, setFilterOptions] = useState(['Lead', 'Cliente', 'Fornecedor', 'Parceiro', 'Corretor', 'Candidato']);
+
+  // --- NOVO: BUSCAR OPÇÕES DO FILTRO NO BANCO ---
+  useEffect(() => {
+      const fetchFilterOptions = async () => {
+          try {
+              const { data, error } = await supabase.rpc('get_tipo_contato_options');
+              if (!error && data && data.length > 0) {
+                  setFilterOptions(data);
+              }
+          } catch (err) {
+              console.error("Erro ao carregar filtros:", err);
+          }
+      };
+      fetchFilterOptions();
+  }, [supabase]);
 
   const hasRestoredUiState = useRef(true); 
   const isInitialMount = useRef(true);
@@ -347,17 +365,16 @@ export default function ContatosMain() {
         
         <div className="flex flex-wrap gap-2 items-center">
             <div className="relative">
+                {/* AQUI ESTÁ O FILTRO DINÂMICO AGORA */}
                 <select
                     value={typeFilter}
                     onChange={(e) => setTypeFilter(e.target.value)}
                     className="appearance-none bg-white border border-gray-300 text-gray-700 py-2 px-4 pr-8 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer font-medium hover:bg-gray-50 transition-colors"
                 >
                     <option value="Todos">Todos os Tipos</option>
-                    <option value="Lead">Leads</option>
-                    <option value="Cliente">Clientes</option>
-                    <option value="Fornecedor">Fornecedores</option>
-                    <option value="Parceiro">Parceiros</option>
-                    <option value="Corretor">Corretores</option>
+                    {filterOptions.map(option => (
+                        <option key={option} value={option}>{option}</option>
+                    ))}
                 </select>
                 <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500">
                     <FontAwesomeIcon icon={faFilter} className="w-3 h-3" />
@@ -426,7 +443,6 @@ export default function ContatosMain() {
                      {cliente.foto_url ? (<Image src={cliente.foto_url} alt={`Foto ${cliente.nome_display}`} width={40} height={40} className="rounded-full object-cover w-10 h-10" unoptimized />
                      ) : (<FontAwesomeIcon icon={cliente.personalidade_juridica === 'Pessoa Jurídica' ? faBuilding : faUserCircle} className={`w-10 h-10 rounded-full p-2 flex-shrink-0 ${ cliente.personalidade_juridica === 'Pessoa Jurídica' ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600' }`} /> )}
                    </td>
-                  {/* MUDANÇA AQUI: Ao clicar no nome, define o ID do sidebar em vez de abrir o modal de edição */}
                   <td className="py-3 px-4 font-medium text-gray-900 cursor-pointer hover:text-blue-600 transition-colors" onClick={() => setSidebarContactId(cliente.id)}>{cliente.nome_display}</td>
                   
                   <td className="py-3 px-4 text-sm text-gray-600">{cliente.telefone || '---'}</td>
@@ -452,7 +468,7 @@ export default function ContatosMain() {
         <div className="text-center py-10 bg-gray-50 rounded-lg"><FontAwesomeIcon icon={searchTerm ? faSearch : faAddressBook} className="text-5xl text-gray-300 mb-4" /><h3 className="text-lg font-semibold text-gray-700">{searchTerm ? 'Nenhum resultado' : 'Nenhum contato'}</h3><p className="text-gray-500 text-sm mt-1">{searchTerm ? 'Ajuste sua busca.' : 'Cadastre um novo contato.'}</p></div>
       )}
 
-      {/* MODAIS (Mantidos exatamente como no original) */}
+      {/* MODAIS */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex justify-center items-center p-4">
           <div className="bg-white p-0 rounded-lg shadow-2xl w-full max-w-5xl h-[95vh] flex flex-col">
