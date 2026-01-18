@@ -7,20 +7,13 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
     faChevronDown, faSort, faSortUp, faSortDown, 
     faUsers, faUserCheck, faUserSlash, faExclamationTriangle, 
-    faEye, faUserCircle, faBuilding, faMapMarkedAlt, faPen, faBriefcase
+    faEye, faUserCircle, faBuilding, faMapMarkedAlt, faPen, faBriefcase,
+    faUserTie, 
+    faUserPlus 
 } from '@fortawesome/free-solid-svg-icons';
 import KpiCard from '../KpiCard';
 
-const calculateScore = (employee) => {
-    // ... (lógica de score mantida, sem alterações)
-    if (!employee) return 0;
-    let score = 0;
-    const weights = { fields: { full_name: 10, cpf: 10 }, document: 10 }; // Simplificado para exemplo
-    // ... (lógica real completa continua valendo)
-    return 100; // Placeholder para não quebrar, use sua função original
-};
-
-const EmployeeTable = ({ employees, onDismissClick, onEditClick, requestSort, sortConfig }) => {
+const EmployeeTable = ({ employees, onDismissClick, onEditClick, requestSort, sortConfig, isCandidateList = false }) => {
   const getSortIcon = (key) => {
     if (!sortConfig || sortConfig.key !== key) return <FontAwesomeIcon icon={faSort} className="text-gray-400 ml-2" />;
     return sortConfig.direction === 'ascending' ? <FontAwesomeIcon icon={faSortUp} className="ml-2" /> : <FontAwesomeIcon icon={faSortDown} className="ml-2" />;
@@ -41,7 +34,7 @@ const EmployeeTable = ({ employees, onDismissClick, onEditClick, requestSort, so
         <thead className="bg-gray-50">
           <tr>
             <SortableHeader sortKey="full_name">Nome</SortableHeader>
-            <SortableHeader sortKey="cargos.nome">Cargo</SortableHeader> 
+            <SortableHeader sortKey="cargos.nome">{isCandidateList ? 'Cargo Pretendido' : 'Cargo'}</SortableHeader> 
             <SortableHeader sortKey="cadastro_empresa.razao_social">Empresa</SortableHeader>
             <SortableHeader sortKey="empreendimentos.nome">Empreendimento</SortableHeader>
             <th scope="col" className="relative px-6 py-3"><span className="sr-only">Ações</span></th>
@@ -63,17 +56,17 @@ const EmployeeTable = ({ employees, onDismissClick, onEditClick, requestSort, so
                   </div>
                   <div className="ml-4">
                     <div className="text-sm font-medium text-gray-900">{employee.full_name}</div>
+                    {isCandidateList && <span className="text-xs text-blue-500 font-semibold bg-blue-50 px-1 rounded">Candidato</span>}
                   </div>
                 </div>
               </td>
 
-              {/* Coluna Cargo (CORRIGIDA) */}
+              {/* Coluna Cargo */}
               <td className="px-6 py-4 whitespace-nowrap">
                  <div className="flex items-center gap-2 text-sm text-gray-700">
                     <FontAwesomeIcon icon={faBriefcase} className="text-gray-400 text-xs" />
                     <span className="font-medium">
-                        {/* Tenta pegar do objeto cargos (novo), senão do campo legado, senão avisa */}
-                        {employee.cargos?.nome || employee.contract_role || <span className="text-red-400 italic">Não definido</span>}
+                        {employee.cargos?.nome || employee.contract_role || <span className="text-gray-400 italic">--</span>}
                     </span>
                  </div>
               </td>
@@ -82,7 +75,7 @@ const EmployeeTable = ({ employees, onDismissClick, onEditClick, requestSort, so
               <td className="px-6 py-4 whitespace-nowrap">
                 <div className="flex items-center gap-2 text-sm text-gray-700">
                     <FontAwesomeIcon icon={faBuilding} className="text-gray-400 text-xs" />
-                    {employee.cadastro_empresa?.razao_social || <span className="text-gray-400 italic">Não vinculado</span>}
+                    {employee.cadastro_empresa?.razao_social || <span className="text-gray-400 italic">--</span>}
                 </div>
               </td>
 
@@ -90,25 +83,48 @@ const EmployeeTable = ({ employees, onDismissClick, onEditClick, requestSort, so
               <td className="px-6 py-4 whitespace-nowrap">
                 <div className="flex items-center gap-2 text-sm text-gray-700">
                     <FontAwesomeIcon icon={faMapMarkedAlt} className="text-gray-400 text-xs" />
-                    {employee.empreendimentos?.nome || <span className="text-gray-400 italic">Não alocado</span>}
+                    {employee.empreendimentos?.nome || <span className="text-gray-400 italic">--</span>}
                 </div>
               </td>
 
               {/* Ações */}
               <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-3">
-                <Link href={`/funcionarios/visualizar/${employee.id}`} className="text-gray-500 hover:text-blue-600 inline-flex items-center gap-1" title="Ver Ficha Completa">
-                    <FontAwesomeIcon icon={faEye} />
-                </Link>
-                
-                <button 
-                    onClick={() => onEditClick(employee)} 
-                    className="text-blue-600 hover:text-blue-800 font-semibold inline-flex items-center gap-1"
-                >
-                    <FontAwesomeIcon icon={faPen} /> Editar
-                </button>
+                {isCandidateList ? (
+                    // AÇÕES PARA CANDIDATO
+                    <>
+                        <Link 
+                            // Redireciona para o cadastro de funcionário passando o ID do contato para pré-popular
+                            href={`/funcionarios/cadastro?candidate_id=${employee.original_id || employee.id}`} 
+                            className="bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded shadow-sm inline-flex items-center gap-1 transition-colors"
+                            title="Transformar em Funcionário"
+                        >
+                            <FontAwesomeIcon icon={faUserPlus} /> Contratar
+                        </Link>
+                        <Link 
+                            href={`/contatos/editar/${employee.original_id || employee.id}`} 
+                            className="text-blue-600 hover:text-blue-800 font-semibold inline-flex items-center gap-1"
+                        >
+                            <FontAwesomeIcon icon={faPen} /> Editar
+                        </Link>
+                    </>
+                ) : (
+                    // AÇÕES PARA FUNCIONÁRIO
+                    <>
+                        <Link href={`/funcionarios/visualizar/${employee.id}`} className="text-gray-500 hover:text-blue-600 inline-flex items-center gap-1" title="Ver Ficha Completa">
+                            <FontAwesomeIcon icon={faEye} />
+                        </Link>
+                        
+                        <button 
+                            onClick={() => onEditClick(employee)} 
+                            className="text-blue-600 hover:text-blue-800 font-semibold inline-flex items-center gap-1"
+                        >
+                            <FontAwesomeIcon icon={faPen} /> Editar
+                        </button>
 
-                {employee.status !== 'Demitido' && (
-                  <button onClick={() => onDismissClick(employee)} className="text-red-600 hover:text-red-800 font-semibold ml-2">Demitir</button>
+                        {employee.status !== 'Demitido' && (
+                        <button onClick={() => onDismissClick(employee)} className="text-red-600 hover:text-red-800 font-semibold ml-2">Demitir</button>
+                        )}
+                    </>
                 )}
               </td>
             </tr>
@@ -122,38 +138,65 @@ const EmployeeTable = ({ employees, onDismissClick, onEditClick, requestSort, so
 export default function EmployeeList({ initialEmployees, onEditFuncionario }) { 
   const supabase = createClient();
   const [employees, setEmployees] = useState(initialEmployees);
+  const [candidates, setCandidates] = useState([]);
   
+  // States de Visibilidade das Abas
+  const [isActivesVisible, setIsActivesVisible] = useState(true);
+  const [isCandidatesVisible, setIsCandidatesVisible] = useState(false);
+  const [isDismissedVisible, setIsDismissedVisible] = useState(false);
+  
+  const [message, setMessage] = useState('');
+  const [sortConfig, setSortConfig] = useState({ key: 'full_name', direction: 'ascending' });
+
   useEffect(() => {
     setEmployees(initialEmployees);
   }, [initialEmployees]);
 
-  const [message, setMessage] = useState('');
-  const [isActivesVisible, setIsActivesVisible] = useState(true);
-  const [isDismissedVisible, setIsDismissedVisible] = useState(false);
-  const [sortConfig, setSortConfig] = useState({ key: 'full_name', direction: 'ascending' });
+  // Busca Candidatos na montagem do componente
+  useEffect(() => {
+      const fetchCandidates = async () => {
+          const { data, error } = await supabase
+            .from('contatos')
+            .select('*')
+            .eq('tipo_contato', 'Candidato')
+            .eq('lixeira', false);
 
-  // Lógica KPI simplificada para brevidade no exemplo (use a sua original se tiver métricas complexas)
+          if (!error && data) {
+              const mappedCandidates = data.map(c => ({
+                  id: c.id,
+                  original_id: c.id,
+                  full_name: c.nome || c.razao_social,
+                  foto_url: c.foto_url,
+                  contract_role: c.cargo,
+                  status: 'Candidato',
+                  cadastro_empresa: null, 
+                  empreendimentos: null
+              }));
+              setCandidates(mappedCandidates);
+          }
+      };
+      fetchCandidates();
+  }, []);
+
   const kpiData = useMemo(() => {
       const ativos = employees.filter(e => e.status !== 'Demitido');
       return {
-          total: employees.length,
+          total: employees.length + candidates.length,
           ativos: ativos.length,
-          pendencias: 0, // Placeholder
+          candidatos: candidates.length,
           demitidos: employees.filter(e => e.status === 'Demitido').length
       };
-  }, [employees]);
+  }, [employees, candidates]);
   
-  const sortedEmployees = useMemo(() => {
-    let sortableItems = [...employees];
+  // Função genérica de ordenação
+  const sortData = (data) => {
+    let sortableItems = [...data];
     if (sortConfig.key) {
       sortableItems.sort((a, b) => {
-        // Função auxiliar robusta para pegar valor aninhado
         const getValue = (obj, path) => path.split('.').reduce((acc, part) => acc && acc[part], obj);
-
         let valA, valB;
 
         if (sortConfig.key === 'cargos.nome') {
-            // Lógica especial para cargo: Novo > Legado > Vazio
             valA = a.cargos?.nome || a.contract_role || '';
             valB = b.cargos?.nome || b.contract_role || '';
         } else {
@@ -171,7 +214,10 @@ export default function EmployeeList({ initialEmployees, onEditFuncionario }) {
       });
     }
     return sortableItems;
-  }, [employees, sortConfig]);
+  };
+
+  const sortedEmployees = useMemo(() => sortData(employees), [employees, sortConfig]);
+  const sortedCandidates = useMemo(() => sortData(candidates), [candidates, sortConfig]);
 
   const activeEmployees = useMemo(() => sortedEmployees.filter(emp => emp.status !== 'Demitido'), [sortedEmployees]);
   const dismissedEmployees = useMemo(() => sortedEmployees.filter(emp => emp.status === 'Demitido'), [sortedEmployees]);
@@ -197,15 +243,48 @@ export default function EmployeeList({ initialEmployees, onEditFuncionario }) {
   
   return (
     <div>
+      {/* KPIS */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6 px-1">
-        <KpiCard title="Total na Lista" value={kpiData.total} icon={faUsers} color="blue" />
-        <KpiCard title="Ativos Encontrados" value={kpiData.ativos} icon={faUserCheck} color="green" />
-        <KpiCard title="Cadastros Pendentes" value={kpiData.pendencias} icon={faExclamationTriangle} color="yellow" />
+        <KpiCard title="Ativos" value={kpiData.ativos} icon={faUserCheck} color="green" />
+        <KpiCard title="Banco de Talentos" value={kpiData.candidatos} icon={faUserTie} color="purple" />
+        <KpiCard title="Total Cadastros" value={kpiData.total} icon={faUsers} color="blue" />
         <KpiCard title="Demitidos" value={kpiData.demitidos} icon={faUserSlash} color="red" />
       </div>
 
       {message && <div className={`mb-4 p-3 rounded-md text-sm text-center font-semibold animate-pulse ${message.includes('Erro') ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>{message}</div>}
 
+      {/* 1. SEÇÃO CANDIDATOS (NOVO) */}
+      <div className="bg-white rounded-lg border border-purple-200 shadow-sm mb-6 overflow-hidden">
+        <button onClick={() => setIsCandidatesVisible(!isCandidatesVisible)} className="w-full flex justify-between items-center p-4 bg-purple-50 hover:bg-purple-100 transition-colors border-b border-purple-100">
+          <span className="font-bold text-lg text-purple-800 flex items-center gap-2">
+             <FontAwesomeIcon icon={faUserTie} className="text-purple-600" /> 
+             Banco de Talentos / Candidatos ({sortedCandidates.length})
+          </span>
+          <FontAwesomeIcon icon={faChevronDown} className={`transform transition-transform duration-200 text-purple-400 ${isCandidatesVisible ? 'rotate-180' : ''}`} />
+        </button>
+        
+        {isCandidatesVisible && (
+          <div className="overflow-x-auto transition-all duration-300">
+            {sortedCandidates.length > 0 ? (
+                <EmployeeTable 
+                    employees={sortedCandidates} 
+                    onDismissClick={() => {}} 
+                    onEditClick={() => {}} 
+                    requestSort={requestSort} 
+                    sortConfig={sortConfig} 
+                    isCandidateList={true} 
+                />
+            ) : (
+                <div className="p-8 text-center text-gray-500 bg-white">
+                    {/* AQUI ESTAVA O ERRO - SUBSTITUÍDOS > POR &gt; */}
+                    <p>Nenhum candidato encontrado. Cadastre em Contatos &gt; Novo &gt; Tipo: Candidato.</p>
+                </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* 2. SEÇÃO ATIVOS */}
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm mb-6 overflow-hidden">
         <button onClick={() => setIsActivesVisible(!isActivesVisible)} className="w-full flex justify-between items-center p-4 bg-gray-50 hover:bg-gray-100 transition-colors border-b border-gray-200">
           <span className="font-bold text-lg text-gray-800 flex items-center gap-2">
@@ -227,13 +306,14 @@ export default function EmployeeList({ initialEmployees, onEditFuncionario }) {
                 />
             ) : (
                 <div className="p-8 text-center text-gray-500 bg-white">
-                    <p>Nenhum funcionário ativo corresponde aos filtros.</p>
+                    <p>Nenhum funcionário ativo encontrado.</p>
                 </div>
             )}
           </div>
         )}
       </div>
 
+      {/* 3. SEÇÃO DEMITIDOS */}
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
         <button onClick={() => setIsDismissedVisible(!isDismissedVisible)} className="w-full flex justify-between items-center p-4 bg-gray-50 hover:bg-gray-100 transition-colors border-b border-gray-200">
           <span className="font-bold text-lg text-gray-800 flex items-center gap-2">

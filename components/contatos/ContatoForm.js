@@ -91,7 +91,6 @@ const DynamicInputRow = ({ item, index, onUpdate, onRemove, isPhone, countries }
 };
 
 // --- LISTA VIP (Whitelist para limpeza) ---
-// ADICIONADO: 'renda_familiar'
 const ALLOWED_COLUMNS = [
     'empresa_id', 'nome', 'cargo', 'address_street', 'address_number', 'address_complement',
     'cep', 'city', 'state', 'neighborhood', 'tipo_contato', 'foto_url', 'razao_social',
@@ -129,7 +128,7 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
         neighborhood: '', observations: '',
         telefones: [{ telefone: '', country_code: '+55' }],
         emails: [{ email: '' }],
-        regime_bens: '', conjuge_id: null, renda_familiar: '', // ADICIONADO
+        regime_bens: '', conjuge_id: null, renda_familiar: '',
         inscricao_estadual: '',
         inscricao_municipal: '',
         responsavel_legal: '',
@@ -142,6 +141,25 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
     const [conjugeSearchTerm, setConjugeSearchTerm] = useState('');
     const [conjugeSearchResults, setConjugeSearchResults] = useState([]);
     const [selectedConjugeName, setSelectedConjugeName] = useState('');
+    
+    // --- NOVO: Estado para armazenar as opções vindas do banco ---
+    // Começa com um fallback básico caso a API falhe, incluindo 'Candidato'
+    const [tipoContatoOptions, setTipoContatoOptions] = useState(['Lead', 'Cliente', 'Fornecedor', 'Parceiro', 'Corretor', 'Candidato']);
+
+    // Buscar Tipos de Contato do Banco (Automático)
+    useEffect(() => {
+        const fetchTiposContato = async () => {
+            try {
+                const { data, error } = await supabase.rpc('get_tipo_contato_options');
+                if (!error && data && data.length > 0) {
+                    setTipoContatoOptions(data);
+                }
+            } catch (err) {
+                console.error("Erro ao buscar tipos de contato, usando padrão.", err);
+            }
+        };
+        fetchTiposContato();
+    }, [supabase]);
 
     useEffect(() => {
         const initializeData = async () => {
@@ -164,7 +182,7 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
                 setFormData({
                     ...getInitialState(),
                     ...contactToEdit, 
-                    renda_familiar: formatCurrencyInitial(contactToEdit.renda_familiar), // Formata ao carregar
+                    renda_familiar: formatCurrencyInitial(contactToEdit.renda_familiar),
                     organizacao_id: currentOrgId, 
                     telefones: phonesData.length > 0 ? phonesData : [{ telefone: '', country_code: '+55' }],
                     emails: emailsData.length > 0 ? emailsData : [{ email: '' }],
@@ -213,10 +231,9 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
                         value = null;
                     } 
                     
-                    // Tratamento da RENDA FAMILIAR (converte string formatada para number)
+                    // Tratamento da RENDA FAMILIAR
                     if (key === 'renda_familiar') {
                         if (value && typeof value === 'string') {
-                            // Remove pontos de milhar e troca vírgula por ponto
                             value = parseFloat(value.replace(/\./g, '').replace(',', '.'));
                         } else if (value === '') {
                             value = null;
@@ -556,11 +573,10 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
                     <div>
                         <label className="block text-sm font-medium">Tipo de Contato</label>
                         <select name="tipo_contato" value={formData.tipo_contato || 'Lead'} onChange={handleChange} className="w-full p-2 border rounded-md">
-                            <option value="Lead">Lead</option>
-                            <option value="Cliente">Cliente</option>
-                            <option value="Fornecedor">Fornecedor</option>
-                            <option value="Parceiro">Parceiro</option>
-                            <option value="Corretor">Corretor</option>
+                            {/* AQUI ESTÁ A MÁGICA DO CARREGAMENTO DINÂMICO */}
+                            {tipoContatoOptions.map(tipo => (
+                                <option key={tipo} value={tipo}>{tipo}</option>
+                            ))}
                         </select>
                     </div>
                 </div>
