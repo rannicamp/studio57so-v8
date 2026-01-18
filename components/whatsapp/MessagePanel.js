@@ -9,14 +9,54 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
     faPaperPlane, faSpinner, faUserCircle, faPaperclip, faFileLines,
     faMicrophone, faStop, faVideo, faFileAlt, faCheck, faCheckDouble, 
-    faPlayCircle, faArrowLeft, faEllipsisVertical, faSearch, faExclamationCircle
+    faPlayCircle, faArrowLeft, faEllipsisVertical, faSearch, faExclamationCircle,
+    faCloudUploadAlt, faTimes
 } from '@fortawesome/free-solid-svg-icons';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import TemplateMessageModal from './TemplateMessageModal';
 import FilePreviewModal from './FilePreviewModal';
 import ChatMediaViewer from './ChatMediaViewer';
-import { usePersistentState } from '@/hooks/usePersistentState'; // Hook de persistência
+import { usePersistentState } from '@/hooks/usePersistentState';
+
+// --- UPPY IMPORTS ---
+import Uppy from '@uppy/core';
+import DashboardPlugin from '@uppy/dashboard';
+import GoldenRetriever from '@uppy/golden-retriever';
+
+// CSS DO UPPY
+const UPPY_CSS_URL = "https://releases.transloadit.com/uppy/v5.2.1/uppy.min.css";
+
+// --- TRADUÇÃO PT-BR COMPLETA (Igual ao PontoImporter) ---
+const pt_BR = {
+  strings: {
+    addMore: 'Adicionar mais',
+    addMoreFiles: 'Adicionar mais arquivos',
+    browse: 'selecione', // AQUI ESTÁ A MÁGICA DO "BROWSE"
+    browseFiles: 'selecionar arquivos',
+    cancel: 'Cancelar',
+    cancelUpload: 'Cancelar envio',
+    complete: 'Concluído',
+    dashboardTitle: 'Enviar Arquivo',
+    dropPasteFiles: 'Arraste arquivos aqui ou %{browse}',
+    editFile: 'Adicionar Legenda', // Mudei de "Editar" para "Adicionar Legenda" para ficar claro
+    editing: 'Editando %{file}',
+    fileProgress: 'Progresso: velocidade e tempo restante',
+    myDevice: 'Meu Dispositivo',
+    removeFile: 'Remover arquivo',
+    save: 'Salvar Legenda', // Botão de salvar a legenda
+    saveChanges: 'Salvar alterações',
+    uploadXFiles: {
+      0: 'Enviar %{smart_count} arquivo',
+      1: 'Enviar %{smart_count} arquivo'
+    },
+    uploading: 'Enviando...',
+    xFilesSelected: {
+      0: '%{smart_count} selecionado',
+      1: '%{smart_count} selecionado'
+    },
+  }
+};
 
 const getAttachmentType = (fileType) => {
     if (fileType.startsWith('image/')) return 'image';
@@ -29,13 +69,17 @@ const sanitizeFileName = (fileName) => {
     return fileName.normalize('NFD').replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, '_').replace(/[^a-zA-Z0-9._-]/g, '');
 };
 
+const cleanPhoneNumber = (phone) => {
+    if (!phone) return null;
+    return phone.replace(/[^0-9]/g, '');
+};
+
 export default function MessagePanel({ contact, onBack }) {
     const queryClient = useQueryClient();
     
-    // Rascunho Persistente
     const [newMessage, setNewMessage] = usePersistentState(`whatsapp_draft_${contact?.contato_id}`, '');
     
-    // Estados Voláteis
+    // Estados Originais
     const [selectedFile, setSelectedFile] = useState(null);
     const [isFilePreviewOpen, setIsFilePreviewOpen] = useState(false);
     const [viewerMedia, setViewerMedia] = useState(null);
@@ -44,21 +88,96 @@ export default function MessagePanel({ contact, onBack }) {
     const [recordingTime, setRecordingTime] = useState(0);
     const [isProcessingAudio, setIsProcessingAudio] = useState(false);
     
+    // --- ESTADOS DO UPPY ---
+    const [isUploaderOpen, setIsUploaderOpen] = useState(false);
+    const dashboardContainerRef = useRef(null);
+
     const audioContextRef = useRef(null);
     const processorRef = useRef(null);
     const mediaStreamRef = useRef(null);
     const audioDataRef = useRef([]);
     const recordingInterval = useRef(null);
     const messagesEndRef = useRef(null);
-    const fileInputRef = useRef(null);
+    
     const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
     const [recipientPhone, setRecipientPhone] = useState(null);
+    const recipientPhoneRef = useRef(recipientPhone);
 
     const supabase = createClient();
     const { user } = useAuth();
     const organizacaoId = user?.organizacao_id;
 
-    // Carrega lamejs (MP3)
+    // --- 1. LÓGICA DE REABERTURA AUTOMÁTICA (ANTI-CRASH) ---
+    useEffect(() => {
+        // Verifica se o modal estava aberto antes do refresh/crash
+        if (typeof window !== 'undefined') {
+            const wasOpen = localStorage.getItem('whatsappUploaderOpen');
+            if (wasOpen === 'true') {
+                setIsUploaderOpen(true);
+            }
+        }
+    }, []);
+
+    // Função auxiliar para abrir o modal e salvar estado
+    const openUploader = () => {
+        setIsUploaderOpen(true);
+        if (typeof window !== 'undefined') localStorage.setItem('whatsappUploaderOpen', 'true');
+    };
+
+    // Função auxiliar para fechar o modal e limpar estado
+    const closeUploader = () => {
+        setIsUploaderOpen(false);
+        if (typeof window !== 'undefined') localStorage.removeItem('whatsappUploaderOpen');
+    };
+
+    // --- 2. CONFIGURAÇÃO DO UPPY ---
+    const [uppy] = useState(() => {
+        if (typeof window === 'undefined') return null;
+    
+        const uppyInstance = new Uppy({
+          id: 'whatsapp-uploader-v4-ptbr', // ID Novo para limpar cache de tradução
+          locale: pt_BR, // INJEÇÃO DA TRADUÇÃO NO NÚCLEO
+          autoProceed: false,
+          debug: true,
+          restrictions: {
+            maxFileSize: 64 * 1024 * 1024, 
+            maxNumberOfFiles: 1, 
+            allowedFileTypes: ['image/*', 'video/*', '.pdf', '.doc', '.docx', '.txt', '.xls', '.xlsx']
+          },
+          meta: { caption: '' }
+        });
+    
+        uppyInstance.use(GoldenRetriever, { serviceWorker: false, indexedDB: true });
+        return uppyInstance;
+    });
+
+    // --- 3. CONFIGURAÇÃO DO DASHBOARD VISUAL ---
+    useEffect(() => {
+        if (!uppy || !dashboardContainerRef.current) return;
+    
+        if (!uppy.getPlugin('Dashboard')) {
+          uppy.use(DashboardPlugin, {
+            id: 'Dashboard',
+            target: dashboardContainerRef.current,
+            inline: true,
+            width: '100%',
+            height: 380, // Um pouco maior para caber tudo
+            showProgressDetails: true,
+            hideUploadButton: false,
+            // Nota de rodapé orientando sobre a legenda
+            note: "Para adicionar legenda, clique no ícone de lápis na imagem.",
+            
+            metaFields: [
+              { 
+                id: 'caption', 
+                name: 'Legenda da Mensagem', 
+                placeholder: 'Digite aqui a legenda para enviar junto...' 
+              }
+            ]
+          });
+        }
+    }, [uppy, isUploaderOpen]);
+
     useEffect(() => {
         if (typeof window !== 'undefined' && !window.lamejs) {
             const script = document.createElement('script');
@@ -75,7 +194,6 @@ export default function MessagePanel({ contact, onBack }) {
         refetchInterval: 5000,
     });
 
-    // --- NOVO: Mutação para Marcar como Lida ---
     const markReadMutation = useMutation({
         mutationFn: async () => {
              if (!contact?.contato_id) return;
@@ -86,28 +204,18 @@ export default function MessagePanel({ contact, onBack }) {
             });
         },
         onSuccess: () => {
-            // Atualiza a lista lateral para sumir a bolinha verde imediatamente
             queryClient.invalidateQueries({ queryKey: ['conversations', organizacaoId] });
-            // Atualiza as mensagens locais (opcional, mas garante consistência)
             queryClient.invalidateQueries({ queryKey: ['messages', organizacaoId, contact?.contato_id] });
         }
     });
 
-    // --- NOVO: Efeito para disparar a marcação de leitura ---
     useEffect(() => {
         if (contact?.contato_id && messages) {
-            // Verifica se existe alguma mensagem recebida (inbound) que ainda não foi lida
             const hasUnread = messages.some(m => m.direction === 'inbound' && m.is_read === false);
-            
-            if (hasUnread) {
-                markReadMutation.mutate();
-            }
+            if (hasUnread) { markReadMutation.mutate(); }
         }
-        // Executa sempre que mudar o contato ou a lista de mensagens atualizar
     }, [contact?.contato_id, messages]);
 
-
-    // Define telefone de destino
     useEffect(() => {
         if (messages && messages.length > 0) {
             const inboundMsg = messages.find(m => m.direction === 'inbound');
@@ -124,12 +232,14 @@ export default function MessagePanel({ contact, onBack }) {
         }
     }, [messages, contact]);
 
-    // Scroll Automático
+    useEffect(() => {
+        recipientPhoneRef.current = recipientPhone;
+    }, [recipientPhone]);
+
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
     
-    // Realtime Updates
     useEffect(() => {
         if (!contact || !organizacaoId) return;
         const channel = supabase.channel(`whatsapp_messages_org_${organizacaoId}`)
@@ -155,7 +265,9 @@ export default function MessagePanel({ contact, onBack }) {
             const response = await fetch('/api/whatsapp/send', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
-                    to: recipientPhone, type: 'text', text: messageContent,
+                    to: cleanPhoneNumber(recipientPhone), 
+                    type: 'text', 
+                    text: messageContent,
                     contact_id: contact.contato_id
                 }),
             });
@@ -164,19 +276,15 @@ export default function MessagePanel({ contact, onBack }) {
             return data;
         },
         onSuccess: () => {
-            setNewMessage(''); // Limpa rascunho
+            setNewMessage('');
             queryClient.invalidateQueries({ queryKey: ['messages', organizacaoId, contact?.contato_id] });
         },
         ...mutationOptions,
     });
 
-    // MUTAÇÃO DE TEMPLATE ATUALIZADA (Suporta Imagem e Texto Completo)
     const sendTemplateMutation = useMutation({
         mutationFn: async ({ templateName, language, variables, fullText, components }) => {
             if (!recipientPhone) throw new Error("Número do destinatário não encontrado.");
-            
-            // Se o modal mandou componentes prontos (com imagem), usa eles.
-            // Se não, monta o padrão (só variáveis de texto).
             const payloadComponents = components || (
                 variables.length > 0 ? [{ type: 'body', parameters: variables.map(v => ({ type: 'text', text: v })) }] : []
             );
@@ -184,13 +292,12 @@ export default function MessagePanel({ contact, onBack }) {
             const response = await fetch('/api/whatsapp/send', {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
-                    to: recipientPhone, 
+                    to: cleanPhoneNumber(recipientPhone), 
                     type: 'template', 
-                    templateName, 
-                    languageCode: language, 
-                    components: payloadComponents, // IMPORTANTE: Usa o novo payload
-                    contact_id: contact.contato_id,
-                    custom_content: fullText // Texto para o histórico
+                    templateName, languageCode: language, 
+                    components: payloadComponents, 
+                    contact_id: contact.contato_id, 
+                    custom_content: fullText 
                 }),
             });
             const data = await response.json();
@@ -205,48 +312,131 @@ export default function MessagePanel({ contact, onBack }) {
         ...mutationOptions,
     });
 
+    // --- CONECTOR UPPY -> ENVIO BLINDADO ---
+    useEffect(() => {
+        if (!uppy) return;
+    
+        const uploaderFunction = async (fileIDs) => {
+          if (fileIDs.length === 0) return Promise.resolve();
+    
+          const promises = fileIDs.map(async (id) => {
+            const file = uppy.getFile(id);
+            const caption = file.meta.caption || ''; 
+
+            const rawPhone = recipientPhoneRef.current || contact?.phone_number || contact?.telefone;
+            const targetPhone = cleanPhoneNumber(rawPhone);
+
+            if (!targetPhone) {
+                const errorMsg = "Número de telefone inválido.";
+                toast.error(errorMsg);
+                uppy.emit('upload-error', file, { message: errorMsg });
+                throw new Error(errorMsg);
+            }
+    
+            try {
+              uppy.emit('upload-progress', file, { uploader: uppy, bytesUploaded: 0, bytesTotal: file.data.size });
+    
+              const cleanName = sanitizeFileName(file.name);
+              const fileExt = cleanName.split('.').pop();
+              const uniqueName = `${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${fileExt}`;
+              const date = new Date();
+              const filePath = `chat/${contact.contato_id}/${date.getFullYear()}/${String(date.getMonth() + 1).padStart(2, '0')}/${uniqueName}`;
+              
+              const { error: uploadError } = await supabase.storage.from('whatsapp-media').upload(filePath, file.data, { contentType: file.type });
+              if (uploadError) throw new Error(`Erro no upload Storage: ${uploadError.message}`);
+
+              uppy.emit('upload-progress', file, { uploader: uppy, bytesUploaded: file.data.size, bytesTotal: file.data.size });
+              
+              const { data: urlData } = supabase.storage.from('whatsapp-media').getPublicUrl(filePath);
+              
+              const response = await fetch('/api/whatsapp/send', {
+                  method: 'POST', 
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ 
+                      to: targetPhone, 
+                      type: getAttachmentType(file.type), 
+                      link: urlData.publicUrl, 
+                      filename: cleanName, 
+                      caption: caption || '',
+                      contact_id: contact.contato_id
+                  }),
+              });
+              
+              const apiResult = await response.json();
+              if (!response.ok) throw new Error(apiResult.error || 'A Meta recusou o arquivo.');
+
+              await fetch('/api/whatsapp/save-attachment', {
+                  method: 'POST', headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                      contato_id: contact.contato_id, 
+                      message_id: apiResult.data?.messages?.[0]?.id, 
+                      storage_path: filePath, 
+                      public_url: urlData.publicUrl, 
+                      file_name: cleanName,
+                      file_type: file.type, 
+                      file_size: file.size, 
+                      organizacao_id: organizacaoId
+                  })
+              });
+    
+              uppy.emit('upload-success', file, { uploadURL: urlData.publicUrl, status: 200, body: apiResult });
+              toast.success("Arquivo enviado!");
+              uppy.removeFile(id);
+              
+              // Fecha o modal e limpa a flag de crash recovery
+              closeUploader();
+              queryClient.invalidateQueries({ queryKey: ['messages', organizacaoId, contact?.contato_id] });
+    
+            } catch (err) {
+              console.error("Erro no envio:", err);
+              uppy.emit('upload-error', file, err);
+              toast.error("Erro: " + err.message);
+              throw err;
+            }
+          });
+    
+          return Promise.all(promises);
+        };
+    
+        uppy.addUploader(uploaderFunction);
+    }, [uppy, contact, organizacaoId]); 
+
+    // Lógica de Áudio (Mantida)
     const sendAttachmentMutation = useMutation({
         mutationFn: async ({ file, caption }) => {
-            if (!recipientPhone) throw new Error("Número do destinatário não encontrado.");
-            if (file.size === 0) throw new Error("Arquivo vazio/corrompido.");
-
-            const loadingToastId = toast.loading("Enviando mídia...");
-            try {
-                const cleanName = sanitizeFileName(file.name);
-                const fileExt = cleanName.split('.').pop();
-                const uniqueName = `${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${fileExt}`;
-                const date = new Date();
-                const filePath = `chat/${contact.contato_id}/${date.getFullYear()}/${String(date.getMonth() + 1).padStart(2, '0')}/${uniqueName}`;
-                
-                const { error: uploadError } = await supabase.storage.from('whatsapp-media').upload(filePath, file, { contentType: file.type });
-                if (uploadError) throw new Error(`Erro no upload: ${uploadError.message}`);
-                
-                const { data: urlData } = supabase.storage.from('whatsapp-media').getPublicUrl(filePath);
-                
-                const response = await fetch('/api/whatsapp/send', {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        to: recipientPhone, type: getAttachmentType(file.type), link: urlData.publicUrl, filename: cleanName, caption: caption || '',
-                        contact_id: contact.contato_id
-                    }),
-                });
-                const apiResult = await response.json();
-                if (!response.ok) throw new Error(apiResult.error || 'A Meta recusou o arquivo.');
-
-                await fetch('/api/whatsapp/save-attachment', {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contato_id: contact.contato_id, message_id: apiResult.data?.messages?.[0]?.id,
-                        storage_path: filePath, public_url: urlData.publicUrl, file_name: cleanName,
-                        file_type: file.type, file_size: file.size, organizacao_id: organizacaoId
-                    })
-                });
-                toast.success("Mídia enviada!", { id: loadingToastId });
-                return apiResult;
-            } catch (err) {
-                toast.error(`Erro envio: ${err.message}`, { id: loadingToastId });
-                throw err;
-            }
+             const rawPhone = recipientPhoneRef.current || contact?.phone_number || contact?.telefone;
+             const targetPhone = cleanPhoneNumber(rawPhone);
+             if (!targetPhone) throw new Error("Número do destinatário não encontrado.");
+             
+             const cleanName = sanitizeFileName(file.name);
+             const uniqueName = `audio_${Date.now()}.mp3`;
+             const date = new Date();
+             const filePath = `chat/${contact.contato_id}/${date.getFullYear()}/${String(date.getMonth() + 1).padStart(2, '0')}/${uniqueName}`;
+             
+             const { error: uploadError } = await supabase.storage.from('whatsapp-media').upload(filePath, file, { contentType: file.type });
+             if (uploadError) throw new Error(`Erro upload audio: ${uploadError.message}`);
+             
+             const { data: urlData } = supabase.storage.from('whatsapp-media').getPublicUrl(filePath);
+             
+             const response = await fetch('/api/whatsapp/send', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    to: targetPhone, type: 'audio', link: urlData.publicUrl, filename: cleanName, caption: '',
+                    contact_id: contact.contato_id
+                }),
+            });
+            const apiResult = await response.json();
+            if (!response.ok) throw new Error(apiResult.error);
+            
+             await fetch('/api/whatsapp/save-attachment', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contato_id: contact.contato_id, message_id: apiResult.data?.messages?.[0]?.id,
+                    storage_path: filePath, public_url: urlData.publicUrl, file_name: cleanName,
+                    file_type: file.type, file_size: file.size, organizacao_id: organizacaoId
+                })
+            });
+            return apiResult;
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['messages', organizacaoId, contact?.contato_id] });
@@ -255,47 +445,29 @@ export default function MessagePanel({ contact, onBack }) {
 
     const startRecording = async () => {
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({ 
-                audio: { echoCancellation: false, noiseSuppression: true, autoGainControl: false } 
-            });
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: true, autoGainControl: false } });
             mediaStreamRef.current = stream;
-            
             const AudioContext = window.AudioContext || window.webkitAudioContext;
             const audioContext = new AudioContext();
             audioContextRef.current = audioContext;
-
             const source = audioContext.createMediaStreamSource(stream);
             const processor = audioContext.createScriptProcessor(4096, 1, 1);
             processorRef.current = processor;
-            
             audioDataRef.current = [];
-
-            processor.onaudioprocess = (e) => {
-                audioDataRef.current.push(new Float32Array(e.inputBuffer.getChannelData(0)));
-            };
-
-            source.connect(processor);
-            processor.connect(audioContext.destination);
-            
-            setIsRecording(true);
-            setRecordingTime(0);
-            recordingInterval.current = setInterval(() => setRecordingTime(prev => prev + 1), 1000);
-        } catch (err) { 
-            toast.error("Erro mic: " + err.message); 
-        }
+            processor.onaudioprocess = (e) => { audioDataRef.current.push(new Float32Array(e.inputBuffer.getChannelData(0))); };
+            source.connect(processor); processor.connect(audioContext.destination);
+            setIsRecording(true); setRecordingTime(0); recordingInterval.current = setInterval(() => setRecordingTime(prev => prev + 1), 1000);
+        } catch (err) { toast.error("Erro mic: " + err.message); }
     };
 
     const stopRecording = async () => {
         if (!isRecording) return;
-        setIsRecording(false);
-        setIsProcessingAudio(true);
+        setIsRecording(false); setIsProcessingAudio(true);
         if (recordingInterval.current) clearInterval(recordingInterval.current);
         if (processorRef.current) { processorRef.current.disconnect(); processorRef.current = null; }
         if (mediaStreamRef.current) { mediaStreamRef.current.getTracks().forEach(t => t.stop()); mediaStreamRef.current = null; }
-        
         const finalSampleRate = audioContextRef.current?.sampleRate || 44100;
         if (audioContextRef.current) { await audioContextRef.current.close(); audioContextRef.current = null; }
-        
         try { await convertAndSendMp3(audioDataRef.current, finalSampleRate); } 
         catch (error) { toast.error("Erro conversão: " + error.message); } 
         finally { setIsProcessingAudio(false); audioDataRef.current = []; }
@@ -304,7 +476,6 @@ export default function MessagePanel({ contact, onBack }) {
     const convertAndSendMp3 = async (buffers, sampleRate) => {
         if (!buffers || !buffers.length) return;
         if (!window.lamejs) throw new Error("Aguarde o carregamento do conversor.");
-        
         const mp3Encoder = new window.lamejs.Mp3Encoder(1, sampleRate, 192);
         const mp3Data = [];
         let totalLength = 0;
@@ -324,13 +495,11 @@ export default function MessagePanel({ contact, onBack }) {
         }
         const mp3buf = mp3Encoder.flush();
         if (mp3buf.length > 0) mp3Data.push(mp3buf);
-        
         const mp3File = new File([new Blob(mp3Data, { type: 'audio/mpeg' })], `audio_${Date.now()}.mp3`, { type: 'audio/mpeg' });
         sendAttachmentMutation.mutate({ file: mp3File, caption: '' });
     };
 
     const handleSendMessage = (e) => { e.preventDefault(); if (newMessage.trim()) sendMessageMutation.mutate(newMessage); };
-    const handleFileSelect = (e) => { const f = e.target.files[0]; if (f) { setSelectedFile(f); setIsFilePreviewOpen(true); } e.target.value = null; };
     const formatTime = (s) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
 
     if (!contact) return <div className="flex flex-col items-center justify-center h-full bg-[#efeae2] border-l border-gray-300"><div className="text-center"><FontAwesomeIcon icon={faUserCircle} className="text-gray-300 text-6xl mb-4" /><h2 className="text-xl text-gray-500 font-light">Selecione uma conversa</h2></div></div>;
@@ -341,15 +510,40 @@ export default function MessagePanel({ contact, onBack }) {
             <TemplateMessageModal 
                 isOpen={isTemplateModalOpen} 
                 onClose={() => setIsTemplateModalOpen(false)} 
-                // ATUALIZADO: Recebe texto completo (txt) e componentes (comp)
                 onSendTemplate={(t, l, v, txt, comp) => sendTemplateMutation.mutate({ templateName: t, language: l, variables: v, fullText: txt, components: comp })} 
                 contactName={contact?.nome} 
             />
+            {/* FilePreviewModal mantido apenas se precisar abrir arquivos antigos, mas não para envio novo */}
             <FilePreviewModal isOpen={isFilePreviewOpen} onClose={() => setIsFilePreviewOpen(false)} file={selectedFile} onSend={(f, c) => sendAttachmentMutation.mutate({ file: f, caption: c })} />
             <ChatMediaViewer isOpen={isViewerOpen} onClose={() => setIsViewerOpen(false)} mediaUrl={viewerMedia?.url} mediaType={viewerMedia?.type} fileName={viewerMedia?.name} />
+            <link href={UPPY_CSS_URL} rel="stylesheet" />
+
+            {/* --- MODAL DE UPLOAD (UPPY) --- */}
+            {isUploaderOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+                <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
+                    <div className="flex justify-between items-center p-4 border-b bg-gray-50">
+                    <h3 className="font-bold text-gray-700 flex items-center gap-2">
+                        <FontAwesomeIcon icon={faCloudUploadAlt} className="text-blue-500" />
+                        Enviar Arquivo
+                    </h3>
+                    {/* Botão Fechar chama closeUploader para limpar flag */}
+                    <button onClick={closeUploader} className="text-gray-400 hover:text-red-500 transition-colors p-2">
+                        <FontAwesomeIcon icon={faTimes} size="lg" />
+                    </button>
+                    </div>
+                    <div className="p-2 bg-white flex-grow overflow-y-auto">
+                    <div ref={dashboardContainerRef} />
+                    </div>
+                    <div className="p-3 bg-blue-50 text-xs text-blue-700 text-center border-t border-blue-100">
+                    💡 Dica: Clique em <b>"Adicionar Legenda"</b> (ícone de lápis) para escrever uma mensagem junto com o arquivo.
+                    </div>
+                </div>
+                </div>
+            )}
 
             <div className="flex flex-col h-full bg-[#efeae2] relative">
-                
+                {/* Header (Mantido Original) */}
                 <div className="bg-[#f0f2f5] px-4 py-2 border-b border-gray-300 flex items-center justify-between shadow-sm z-10 sticky top-0 h-16">
                     <div className="flex items-center gap-3 w-full">
                         {onBack && (
@@ -371,6 +565,7 @@ export default function MessagePanel({ contact, onBack }) {
                     </div>
                 </div>
 
+                {/* Lista de Mensagens (Mantida Original) */}
                 <div className="flex-grow p-4 overflow-y-auto space-y-2 custom-scrollbar" style={{ backgroundImage: 'url("https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png")', backgroundRepeat: 'repeat' }}>
                     {messages?.map(msg => {
                         const isMe = msg.direction === 'outbound';
@@ -400,8 +595,9 @@ export default function MessagePanel({ contact, onBack }) {
                 </div>
 
                 <div className="bg-[#f0f2f5] px-4 py-2 flex items-center gap-2 z-20">
-                    <input type="file" ref={fileInputRef} onChange={handleFileSelect} className="hidden" />
-                    <button onClick={() => fileInputRef.current.click()} className="text-gray-500 hover:text-gray-700 p-2" disabled={sendAttachmentMutation.isPending || isProcessingAudio}><FontAwesomeIcon icon={faPaperclip} size="lg" /></button>
+                    {/* Botão Anexo modificado para abrir Uppy via openUploader */}
+                    <button onClick={openUploader} className="text-gray-500 hover:text-gray-700 p-2" disabled={sendAttachmentMutation.isPending || isProcessingAudio}><FontAwesomeIcon icon={faPaperclip} size="lg" /></button>
+                    
                     {!isRecording && !isProcessingAudio && <button onClick={() => setIsTemplateModalOpen(true)} className="text-gray-500 hover:text-gray-700 p-2"><FontAwesomeIcon icon={faFileLines} size="lg" /></button>}
                     <div className="flex-grow bg-white rounded-lg border border-white flex items-center py-2 px-4 shadow-sm focus-within:ring-1 focus-within:ring-[#00a884] transition-all">
                         {isRecording ? <div className="flex-grow flex items-center text-red-500 font-medium animate-pulse"><span><FontAwesomeIcon icon={faMicrophone} className="mr-2" /> Gravando... {formatTime(recordingTime)}</span></div> : isProcessingAudio ? <div className="flex-grow flex items-center gap-2 text-gray-500 font-medium"><FontAwesomeIcon icon={faSpinner} spin /> Processando áudio...</div> : <textarea value={newMessage} onChange={(e) => setNewMessage(e.target.value)} onKeyDown={(e) => { if(e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(e); } }} placeholder="Digite uma mensagem" className="w-full bg-transparent border-none focus:ring-0 resize-none text-gray-700 max-h-24 custom-scrollbar p-0 placeholder-gray-400" rows={1} style={{ minHeight: '24px' }} />}
