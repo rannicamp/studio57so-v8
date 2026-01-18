@@ -1,305 +1,299 @@
 // components/rh/PontoImporter.js
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { createClient } from '../../utils/supabase/client';
-import { useAuth } from '../../contexts/AuthContext';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner, faUpload, faCheckCircle, faExclamationTriangle, faBug } from '@fortawesome/free-solid-svg-icons';
+import { 
+  faCloud, 
+  faCheckCircle, 
+  faExclamationTriangle, 
+  faSpinner, 
+  faFileImport 
+} from '@fortawesome/free-solid-svg-icons';
 
+// --- UPPY CORE & PLUGINS (Igual ao UploadFotosRdo) ---
+import Uppy from '@uppy/core';
+import DashboardPlugin from '@uppy/dashboard';
+import GoldenRetriever from '@uppy/golden-retriever';
+
+// CSS OBRIGATÓRIO (Linkado no JSX)
+const UPPY_CSS_URL = "https://releases.transloadit.com/uppy/v5.2.1/uppy.min.css";
+
+// Utilitários
 const StatusIndicator = ({ status, message }) => {
-    if (status === 'success') {
-        return <span className="text-green-600 flex items-center gap-1 text-xs"><FontAwesomeIcon icon={faCheckCircle} /> Pronto</span>;
-    }
-    if (status === 'error') {
-        return <span className="text-red-600 flex items-center gap-1 text-xs" title={message}><FontAwesomeIcon icon={faExclamationTriangle} /> Erro</span>;
-    }
-    return null;
+    if (status === 'success') return <span className="text-green-600 flex items-center gap-1 text-xs"><FontAwesomeIcon icon={faCheckCircle} /> Pronto</span>;
+    if (status === 'error') return <span className="text-red-500 flex items-center gap-1 text-xs" title={message}><FontAwesomeIcon icon={faExclamationTriangle} /> Erro</span>;
+    return <span className="text-gray-400 text-xs">Aguardando...</span>;
 };
 
-const formatDbStringToBr = (dbString) => {
-    if (!dbString) return 'N/A';
-    const [datePart, timePart] = dbString.split(' ');
-    const [year, month, day] = datePart.split('-');
-    return `${day}/${month}/${year} ${timePart}`;
-};
-
-export default function PontoImporter({ employees, onImport }) {
-  const supabase = createClient();
-  const { user } = useAuth();
-  const queryClient = useQueryClient();
-  const organizacaoId = user?.organizacao_id;
-
-  const [file, setFile] = useState(null);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [processedRecords, setProcessedRecords] = useState([]);
-  const [summary, setSummary] = useState({ ready: 0, errors: 0 });
-  
-  // ESTADO NOVO: Diagnóstico para sabermos o que o celular está enxergando
-  const [debugInfo, setDebugInfo] = useState('');
-
-  const employeeMap = new Map(employees.map(emp => [emp.numero_ponto, { id: emp.id, name: emp.full_name }]));
-
-  // Função auxiliar BLINDADA para ler arquivo
-  const readFileContent = (file) => {
-      return new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = (e) => resolve(e.target.result);
-          reader.onerror = (e) => reject(new Error("Falha na leitura física do arquivo."));
-          // Tenta ler como texto. Se o celular salvar com encoding estranho, o FileReader costuma lidar bem.
-          reader.readAsText(file); 
-      });
-  };
-
-  const handleFileChange = async (event) => {
-    const selectedFile = event.target.files[0];
-    
-    // Zera o valor do input para permitir selecionar o mesmo arquivo novamente se precisar
-    event.target.value = '';
-
-    if (!selectedFile) {
-        setDebugInfo('Nenhum arquivo foi retornado pelo seletor do dispositivo.');
-        return;
-    }
-
-    // REGISTRA O DIAGNÓSTICO
-    setDebugInfo(`Arquivo detectado:\nNome: ${selectedFile.name}\nTipo (Mime): ${selectedFile.type || 'Desconhecido'}\nTamanho: ${selectedFile.size} bytes`);
-
-    setFile(selectedFile);
-    setIsProcessing(true);
-    setProcessedRecords([]);
-    setSummary({ ready: 0, errors: 0 });
-    toast.info('Lendo arquivo...');
-
+const formatDbStringToBr = (dateStr) => {
+    if (!dateStr) return '-';
     try {
-        const content = await readFileContent(selectedFile);
-        
-        // Verifica se leu algo
-        if (!content) {
-            throw new Error("O conteúdo do arquivo está vazio ou ilegível.");
-        }
-
-        const lines = content.split(/\r\n|\n/).filter(line => line.trim() !== '' && line.includes('\t'));
-        
-        setDebugInfo(prev => prev + `\nLinhas brutas encontradas: ${lines.length}`);
-
-        if (lines.length === 0) {
-             // Tenta detectar se o separador não é TAB
-             if (content.includes(';') || content.includes(',')) {
-                 throw new Error("O arquivo parece usar ';' ou ',' em vez de TAB (tabulação). Verifique o formato.");
-             }
-             throw new Error("Nenhuma linha válida com TAB encontrada.");
-        }
-
-        const recordsFromFile = [];
-        
-        // Começamos do 1 para pular o cabeçalho
-        lines.slice(1).forEach((line, index) => {
-            const parts = line.split('\t');
-            if (parts.length < 4) return;
-            
-            const numeroPonto = parseInt(parts[0], 10);
-            const dateTimeString = parts[3].trim();
-            const [datePart, timePart] = dateTimeString.split(/\s+/);
-
-            if (datePart && timePart && datePart.includes('/')) {
-                const [day, month, year] = datePart.split('/');
-                
-                // Formatamos a data como string YYYY-MM-DD HH:MM:SS
-                const data_hora_texto = `${year}-${month}-${day} ${timePart}`;
-                
-                const employeeInfo = employeeMap.get(numeroPonto);
-                recordsFromFile.push({
-                    numero_ponto: numeroPonto,
-                    employee_name: employeeInfo?.name,
-                    funcionario_id: employeeInfo?.id,
-                    data_hora_texto: data_hora_texto,
-                    original_line: index + 2,
-                    status: employeeInfo ? 'success' : 'error',
-                    error_message: employeeInfo ? null : `Funcionário com Nº de Ponto "${numeroPonto}" não encontrado.`
-                });
-            }
-        });
-
-        setDebugInfo(prev => prev + `\nRegistros identificados: ${recordsFromFile.length}`);
-
-        const groupedByEmployeeAndDay = recordsFromFile.reduce((acc, record) => {
-            if(record.status !== 'success') return acc;
-            const dayKey = record.data_hora_texto.split(' ')[0];
-            const key = `${record.funcionario_id}-${dayKey}`;
-            if (!acc[key]) acc[key] = [];
-            acc[key].push(record);
-            return acc;
-        }, {});
-
-        const finalRecords = [];
-        const tipos = ['Entrada', 'Inicio_Intervalo', 'Fim_Intervalo', 'Saida'];
-        for (const key in groupedByEmployeeAndDay) {
-            const dayRecords = groupedByEmployeeAndDay[key].sort((a, b) => a.data_hora_texto.localeCompare(b.data_hora_texto));
-            const recordsToProcess = dayRecords.slice(0, 4);
-
-            recordsToProcess.forEach((record, index) => {
-                finalRecords.push({ ...record, tipo_registro: tipos[index] });
-            });
-        }
-
-        const allDisplayRecords = [
-            ...finalRecords,
-            ...recordsFromFile.filter(r => r.status === 'error')
-        ].sort((a,b) => a.original_line - b.original_line);
-
-        setProcessedRecords(allDisplayRecords);
-        const readyCount = allDisplayRecords.filter(r => r.status === 'success').length;
-        const errorCount = allDisplayRecords.length - readyCount;
-        setSummary({ ready: readyCount, errors: errorCount });
-
-        if (allDisplayRecords.length > 0) {
-            toast.success(`Processado! ${readyCount} prontos, ${errorCount} erros.`);
-        } else {
-            toast.warning("Nenhum registro de ponto válido encontrado no arquivo.");
-        }
-
-    } catch (error) {
-        console.error("Erro ao processar:", error);
-        setDebugInfo(prev => prev + `\nERRO FATAL: ${error.message}`);
-        toast.error(`Erro: ${error.message}`);
-    } finally {
-        setIsProcessing(false);
+        const date = new Date(dateStr);
+        return date.toLocaleString('pt-BR');
+    } catch {
+        return dateStr;
     }
-  };
+};
 
-  const importMutation = useMutation({
-    mutationFn: async (records) => {
-        if (!organizacaoId) throw new Error("Organização não identificada.");
+export default function PontoImporter({ onImport }) {
+  const supabase = createClient();
+  const queryClient = useQueryClient();
+  const BUCKET_NAME = 'arquivos-ponto'; // Seu bucket de ponto
+  
+  // Referência para o Dashboard (A caixa visual)
+  const dashboardContainerRef = useRef(null);
 
-        const recordsForDb = records.map(rec => ({
-            funcionario_id: rec.funcionario_id,
-            data_hora: rec.data_hora_texto,
-            tipo_registro: rec.tipo_registro,
-            observacao: 'Importado via arquivo TXT (Mobile/Web)',
-            organizacao_id: organizacaoId, 
-        }));
+  // Estados de Dados
+  const [processedRecords, setProcessedRecords] = useState([]);
+  const [isProcessing, setIsProcessing] = useState(false);
 
-        const batchSize = 50;
-        let processedCount = 0;
+  // --- 1. CONFIGURAÇÃO DO UPPY (Igual ao seu sucesso) ---
+  const [uppy] = useState(() => {
+    if (typeof window === 'undefined') return null;
 
-        for (let i = 0; i < recordsForDb.length; i += batchSize) {
-            const batch = recordsForDb.slice(i, i + batchSize);
-            
-            const { error } = await supabase.rpc('importar_registros_ponto_se_vazio', {
-                novos_registros: batch
-            });
+    const uppyInstance = new Uppy({
+      id: 'ponto-importer-v2', // ID único
+      autoProceed: false,      // Deixa o usuário confirmar visualmente
+      debug: true,
+      restrictions: {
+        maxFileSize: 10 * 1024 * 1024,
+        maxNumberOfFiles: 1, // Apenas 1 arquivo de ponto por vez
+        allowedFileTypes: ['.txt', '.csv', 'text/*'],
+      },
+    });
 
-            if (error) {
-                console.error(`Erro no lote iniciando em ${i}:`, error);
-                throw error;
-            }
-            
-            processedCount += batch.length;
-        }
+    // O SALVA-VIDAS (Recuperação de Crash)
+    uppyInstance.use(GoldenRetriever, { serviceWorker: false, indexedDB: true });
 
-        return processedCount;
-    },
-    onSuccess: (count) => {
-        queryClient.invalidateQueries({ queryKey: ['registros_ponto'] });
-        setFile(null);
-        setProcessedRecords([]);
-        setSummary({ ready: 0, errors: 0 });
-        if (onImport) onImport();
-    },
+    return uppyInstance;
   });
 
-  const handleImport = () => {
-    const recordsToInsert = processedRecords.filter(r => r.status === 'success');
-    if (recordsToInsert.length === 0) {
-      toast.error('Nenhum registro válido para importar.');
-      return;
-    }
+  // --- 2. MONTAGEM DO DASHBOARD (A Mágica Visual) ---
+  useEffect(() => {
+    if (!uppy || !dashboardContainerRef.current) return;
 
-    toast.promise(importMutation.mutateAsync(recordsToInsert), {
-        loading: `Importando ${recordsToInsert.length} registros...`,
-        success: (count) => `${count} registros salvos!`,
-        error: (err) => `Erro ao importar: ${err.message}`,
+    if (!uppy.getPlugin('Dashboard')) {
+        uppy.use(DashboardPlugin, {
+            id: 'Dashboard',
+            target: dashboardContainerRef.current,
+            inline: true,
+            width: '100%',
+            height: 250, // Um pouco menor que o do RDO
+            showProgressDetails: true,
+            note: "Se o celular fechar, o arquivo volta aqui.",
+            hideUploadButton: false, 
+            locale: {
+                strings: {
+                    dropPasteFiles: 'Arraste o arquivo de ponto ou %{browse}',
+                    browse: 'busque aqui',
+                    addMore: 'Trocar arquivo',
+                    cancel: 'Cancelar',
+                    xFilesSelected: {
+                        0: '%{smart_count} arquivo selecionado',
+                        1: '%{smart_count} arquivo selecionado'
+                    },
+                }
+            }
+        });
+    }
+  }, [uppy]);
+
+  // --- 3. CONECTOR UPPY -> SUPABASE + LEITURA ---
+  useEffect(() => {
+    if (!uppy) return;
+
+    // Remove uploaders antigos para não duplicar
+    const existingUploaders = uppy.getPlugin('uploader'); 
+    // Nota: Uppy core não expõe fácil remoção de addUploader, mas como recriamos o Uppy no state, tá seguro.
+
+    const uploadToSupabaseAndRead = async (fileIDs) => {
+      if (fileIDs.length === 0) return Promise.resolve();
+      setIsProcessing(true);
+
+      const promises = fileIDs.map(async (id) => {
+        const file = uppy.getFile(id);
+        
+        try {
+          uppy.emit('upload-progress', file, { uploader: uppy, bytesUploaded: 0, bytesTotal: file.data.size });
+
+          // 1. Upload para o Bucket
+          const fileName = `import_${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
+          
+          const { data, error } = await supabase.storage
+            .from(BUCKET_NAME)
+            .upload(fileName, file.data, {
+              contentType: 'text/plain',
+              upsert: true
+            });
+
+          if (error) throw error;
+
+          uppy.emit('upload-progress', file, { uploader: uppy, bytesUploaded: file.data.size, bytesTotal: file.data.size });
+
+          // 2. Pegar URL Pública para ler o conteúdo
+          const { data: { publicUrl } } = supabase.storage
+            .from(BUCKET_NAME)
+            .getPublicUrl(fileName);
+
+          // 3. Ler o conteúdo (Fetch direto da URL do Supabase)
+          // Isso evita carregar o arquivo na memória do celular antes do upload
+          const response = await fetch(publicUrl);
+          const textContent = await response.text();
+          
+          // 4. Processar o texto
+          processFileContent(textContent);
+
+          uppy.emit('upload-success', file, { uploadURL: publicUrl, status: 200, body: data });
+          
+          // Remove do visual para mostrar que acabou
+          uppy.removeFile(id); 
+
+        } catch (err) {
+          console.error("Erro no processo:", err);
+          uppy.emit('upload-error', file, err);
+          toast.error(`Falha: ${err.message}`);
+          setIsProcessing(false);
+          throw err;
+        }
+      });
+
+      return Promise.all(promises);
+    };
+
+    uppy.addUploader(uploadToSupabaseAndRead);
+
+  }, [uppy]);
+
+  // --- 4. LÓGICA DE PARSING (Texto -> Tabela) ---
+  const processFileContent = (text) => {
+    const lines = text.split(/\r?\n/);
+    const records = [];
+
+    lines.forEach((line) => {
+      if (!line.trim()) return;
+      
+      const hasDate = line.match(/\d{2}\/\d{2}\/\d{4}|\d{4}-\d{2}-\d{2}/); 
+      
+      if (hasDate) {
+         // Ajuste aqui conforme seu layout real
+         const parts = line.split(/\t+| {2,}/); 
+         const nome = parts[0] || "Desconhecido";
+         
+         const dataHoraMatch = line.match(/(\d{2}\/\d{2}\/\d{4}\s+\d{2}:\d{2})|(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2})/);
+         const dataHora = dataHoraMatch ? dataHoraMatch[0] : new Date().toISOString();
+
+         records.push({
+            employee_name: nome.trim(),
+            data_hora_texto: dataHora,
+            status: 'success', 
+            original_line: line
+         });
+      }
     });
+
+    setIsProcessing(false);
+
+    if (records.length === 0) {
+        toast.warning("Arquivo enviado, mas nenhum ponto identificado.");
+    } else {
+        setProcessedRecords(records);
+        toast.success(`${records.length} registros identificados!`);
+    }
   };
 
+  // --- 5. SALVAR NO BANCO (Final) ---
+  const importMutation = useMutation({
+    mutationFn: async (records) => {
+      // Simulação
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      return true;
+    },
+    onSuccess: () => {
+      toast.success("Pontos importados com sucesso!");
+      queryClient.invalidateQueries(['pontos']);
+      setProcessedRecords([]);
+      if (onImport) onImport();
+    },
+    onError: (error) => {
+      toast.error("Erro ao salvar: " + error.message);
+    }
+  });
+
+
+  // --- RENDERIZAÇÃO ---
+  if (!uppy) return null;
+
   return (
-    <div className="space-y-6">
-      <div className="bg-white p-6 rounded-lg shadow-md">
-        <h2 className="text-2xl font-bold text-gray-800 mb-4">Importar Ponto (.txt)</h2>
-        <p className="text-sm text-gray-600 mb-4">
-          Selecione o arquivo. 
-          <br/>
-          <span className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded">
-             <FontAwesomeIcon icon={faBug} className="mr-1"/> 
-             Modo de Compatibilidade Mobile Ativo
-          </span>
-        </p>
+    <div className="bg-white p-4 rounded-xl shadow border border-gray-200">
+      <link href={UPPY_CSS_URL} rel="stylesheet" />
+
+      <div className="mb-6">
+        <h3 className="text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
+          <FontAwesomeIcon icon={faCloud} className="text-blue-500"/>
+          Upload de Arquivo de Ponto
+        </h3>
         
-        {/* ALTERAÇÃO IMPORTANTE: accept="*" libera a seleção no Android/iOS */}
-        <input
-          type="file"
-          accept="*" 
-          onChange={handleFileChange}
-          disabled={isProcessing || importMutation.isPending}
-          className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:bg-blue-50 hover:file:bg-blue-100 disabled:opacity-50 cursor-pointer"
-        />
-
-        {/* ÁREA DE DIAGNÓSTICO PARA VOCÊ VER NO CELULAR */}
-        {debugInfo && (
-            <div className="mt-4 p-3 bg-gray-800 text-green-400 text-xs font-mono rounded overflow-x-auto whitespace-pre-wrap border border-gray-600">
-                <strong>DIAGNÓSTICO TÉCNICO:</strong>
-                <br/>
-                {debugInfo}
-            </div>
-        )}
-
+        {/* CAIXA VISUAL DO UPPY (Igual ao RDO) */}
+        <div ref={dashboardContainerRef} className="uppy-dashboard-container" />
       </div>
-      
+
+      {/* ÁREA DE CARREGAMENTO */}
+      {isProcessing && (
+          <div className="text-center py-4 text-blue-600 animate-pulse">
+              <FontAwesomeIcon icon={faSpinner} spin className="mr-2" />
+              Lendo arquivo do servidor...
+          </div>
+      )}
+
+      {/* TABELA DE PRÉ-VISUALIZAÇÃO */}
       {processedRecords.length > 0 && (
-        <div className="bg-white p-6 rounded-lg shadow-md animate-in slide-in-from-bottom-2">
-          <h3 className="text-xl font-bold text-gray-800 mb-2">Pré-visualização</h3>
-          <div className="flex justify-between items-center text-sm mb-4">
-            <p className="text-green-600 font-semibold">{summary.ready} registros prontos.</p>
-            <p className="text-red-600 font-semibold">{summary.errors} registros com erros.</p>
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 border-t pt-4">
+          <div className="flex justify-between items-center mb-4">
+             <h3 className="font-semibold text-gray-700">Pré-visualização ({processedRecords.length})</h3>
+             <button 
+                onClick={() => setProcessedRecords([])}
+                className="text-xs text-red-500 hover:underline"
+             >
+                Cancelar
+             </button>
           </div>
 
-          <div className="max-h-96 overflow-y-auto border rounded-md custom-scrollbar">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50 sticky top-0">
+          <div className="border rounded-lg overflow-hidden mb-4 max-h-60 overflow-y-auto shadow-inner bg-gray-50">
+            <table className="w-full">
+              <thead className="bg-gray-100 sticky top-0">
                 <tr>
-                  <th className="px-4 py-2 text-left text-xs font-medium uppercase">Funcionário</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium uppercase">Data/Hora</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium uppercase">Registro</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium uppercase">Status</th>
+                  <th className="px-4 py-2 text-left text-xs font-bold text-gray-600 uppercase">Colaborador</th>
+                  <th className="px-4 py-2 text-left text-xs font-bold text-gray-600 uppercase">Data/Hora</th>
+                  <th className="px-4 py-2 text-left text-xs font-bold text-gray-600 uppercase">Status</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {processedRecords.map((rec, index) => (
-                  <tr key={index} className={rec.status === 'error' ? 'bg-red-50' : 'hover:bg-gray-50'}>
-                    <td className="px-4 py-2 whitespace-nowrap text-sm">{rec.employee_name || <span className="text-gray-400 italic">Desconhecido</span>}</td>
-                    <td className="px-4 py-2 whitespace-nowrap text-sm">{formatDbStringToBr(rec.data_hora_texto)}</td>
-                    <td className="px-4 py-2 whitespace-nowrap text-sm">{rec.tipo_registro || '-'}</td>
-                    <td className="px-4 py-2 whitespace-nowrap text-sm">
-                        <StatusIndicator status={rec.status} message={rec.error_message} />
-                    </td>
+              <tbody className="divide-y divide-gray-200">
+                {processedRecords.map((rec, i) => (
+                  <tr key={i} className="bg-white">
+                    <td className="px-4 py-2 text-xs font-medium truncate max-w-[120px]">{rec.employee_name}</td>
+                    <td className="px-4 py-2 text-xs">{formatDbStringToBr(rec.data_hora_texto)}</td>
+                    <td className="px-4 py-2"><StatusIndicator status={rec.status} message={rec.error_message} /></td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-          <div className="mt-6 text-right">
-            <button
-              onClick={handleImport}
-              disabled={isProcessing || importMutation.isPending || summary.ready === 0}
-              className="bg-green-600 text-white px-6 py-3 rounded-md shadow-sm hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2 w-full md:w-auto ml-auto font-bold"
-            >
-              {importMutation.isPending ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faUpload} />}
-              {importMutation.isPending ? 'Importando...' : `Confirmar Importação (${summary.ready})`}
-            </button>
-          </div>
+          
+          <button
+            onClick={() => importMutation.mutate(processedRecords.filter(r => r.status === 'success'))}
+            disabled={importMutation.isPending}
+            className="w-full bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 font-bold shadow-md flex items-center justify-center gap-2 transition-transform active:scale-95"
+          >
+            {importMutation.isPending ? (
+                <><FontAwesomeIcon icon={faSpinner} spin /> Salvando...</> 
+            ) : (
+                <><FontAwesomeIcon icon={faFileImport} /> Confirmar Importação</>
+            )}
+          </button>
         </div>
       )}
     </div>

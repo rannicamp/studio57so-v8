@@ -1,42 +1,155 @@
 // components/UploadFotosRdo.js
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { createClient } from '../utils/supabase/client';
 import { toast } from 'sonner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
-  faCamera, 
   faTrash, 
-  faSpinner, 
   faFilePdf, 
   faFileAlt, 
-  faDownload,
+  faDownload, 
   faFileLines,
-  faCloud
+  faCloud 
 } from '@fortawesome/free-solid-svg-icons';
+
+// --- UPPY CORE & PLUGINS (SEM O PACOTE REACT) ---
+import Uppy from '@uppy/core';
+import DashboardPlugin from '@uppy/dashboard'; // Importamos o Plugin direto, não o componente
+import GoldenRetriever from '@uppy/golden-retriever';
+import Webcam from '@uppy/webcam';
 
 export default function UploadFotosRdo() {
   const supabase = createClient();
-  const [files, setFiles] = useState([]);
-  const [isUploading, setIsUploading] = useState(false);
-
   const BUCKET_NAME = 'teste';
   const FOLDER_NAME = 'arquivos';
 
-  useEffect(() => {
-    loadFiles();
-  }, []);
+  // Referência para onde o Uppy vai desenhar a tela
+  const dashboardContainerRef = useRef(null);
 
+  // Lista de arquivos já salvos
+  const [existingFiles, setExistingFiles] = useState([]);
+  
+  // Instância do Uppy
+  const [uppy] = useState(() => {
+    if (typeof window === 'undefined') return null;
+
+    const uppyInstance = new Uppy({
+      id: 'rdo-uploader-v1', // ID fixo para recuperação
+      autoProceed: false,
+      debug: true,
+      restrictions: {
+        maxFileSize: 10 * 1024 * 1024,
+        maxNumberOfFiles: 5,
+        allowedFileTypes: ['.pdf', 'image/*', '.txt', '.doc', '.docx'],
+      },
+    });
+
+    // 1. O SALVA-VIDAS (Recuperação de Crash)
+    uppyInstance.use(GoldenRetriever, {
+      serviceWorker: false,
+      indexedDB: true,
+    });
+
+    // 2. Webcam
+    uppyInstance.use(Webcam);
+
+    return uppyInstance;
+  });
+
+  // --- MONTAGEM MANUAL DA INTERFACE (Bypass do erro do React) ---
+  useEffect(() => {
+    if (!uppy || !dashboardContainerRef.current) return;
+
+    // Se o plugin já existe, não adiciona de novo
+    if (!uppy.getPlugin('Dashboard')) {
+        uppy.use(DashboardPlugin, {
+            id: 'Dashboard',
+            target: dashboardContainerRef.current, // Desenha DENTRO da nossa div
+            inline: true,
+            width: '100%',
+            height: 300,
+            showProgressDetails: true,
+            note: "Se o navegador reiniciar, seu arquivo reaparecerá aqui.",
+            doneButtonHandler: () => loadFiles(),
+            locale: {
+                strings: {
+                    dropPasteFiles: 'Arraste arquivos ou %{browse}',
+                    browse: 'busque aqui',
+                    myDevice: 'Meu Dispositivo',
+                    addMore: 'Adicionar mais',
+                    cancel: 'Cancelar',
+                }
+            }
+        });
+    }
+
+    // Cleanup (opcional, mas boa prática)
+    return () => {
+        // Não removemos o plugin aqui para não perder o estado se o componente remontar rápido
+    };
+  }, [uppy]);
+
+
+  // --- CONECTOR UPPY -> SUPABASE ---
+  useEffect(() => {
+    if (!uppy) return;
+
+    const uploadToSupabase = async (fileIDs) => {
+      if (fileIDs.length === 0) return Promise.resolve();
+
+      const promises = fileIDs.map(async (id) => {
+        const file = uppy.getFile(id);
+        
+        try {
+          uppy.emit('upload-progress', file, { 
+            uploader: uppy, 
+            bytesUploaded: 0, 
+            bytesTotal: file.data.size 
+          });
+
+          const cleanName = file.name.replace(/[^a-zA-Z0-9.]/g, '_');
+          const path = `${FOLDER_NAME}/${Date.now()}_${cleanName}`;
+          
+          let contentType = file.type;
+          if (!contentType && file.name.endsWith('.pdf')) contentType = 'application/pdf';
+
+          const { data, error } = await supabase.storage
+            .from(BUCKET_NAME)
+            .upload(path, file.data, {
+              contentType: contentType,
+              upsert: false
+            });
+
+          if (error) throw error;
+
+          uppy.emit('upload-success', file, { uploadURL: path, status: 200, body: data });
+          uppy.removeFile(id);
+
+        } catch (err) {
+          console.error("Erro Supabase:", err);
+          uppy.emit('upload-error', file, err);
+          toast.error(`Falha ao enviar ${file.name}`);
+          throw err;
+        }
+      });
+
+      return Promise.all(promises);
+    };
+
+    uppy.addUploader(uploadToSupabase);
+    loadFiles();
+
+  }, [uppy]); 
+
+
+  // --- FUNÇÕES DE LISTAGEM ---
   const loadFiles = async () => {
     try {
       const { data, error } = await supabase.storage
         .from(BUCKET_NAME)
-        .list(FOLDER_NAME, {
-          limit: 100,
-          offset: 0,
-          sortBy: { column: 'created_at', order: 'desc' },
-        });
+        .list(FOLDER_NAME, { limit: 100, sortBy: { column: 'created_at', order: 'desc' } });
 
       if (error) throw error;
 
@@ -49,201 +162,79 @@ export default function UploadFotosRdo() {
                 .createSignedUrl(fullPath, 3600);
 
             return {
-                id: f.id, 
-                name: f.name,
-                caminho_arquivo: fullPath,
-                tamanho_arquivo: f.metadata?.size || 0,
-                created_at: f.created_at,
-                signedUrl: urlData?.signedUrl
+                id: f.id, name: f.name, caminho_arquivo: fullPath,
+                created_at: f.created_at, signedUrl: urlData?.signedUrl
             };
         }));
-        setFiles(processed.filter(Boolean));
+        setExistingFiles(processed.filter(Boolean));
       }
-    } catch (e) { 
-      console.error(e); 
-    }
-  };
-
-  // FUNÇÃO DE UPLOAD ROBUSTA
-  const handleUpload = async (e) => {
-    // 1. Log imediato para ver se o evento disparou
-    console.log("Evento de upload disparado!"); 
-    
-    const file = e.target.files?.[0];
-    if (!file) {
-        console.log("Nenhum arquivo selecionado ou seleção cancelada.");
-        return;
-    }
-
-    setIsUploading(true);
-    // 2. Alert visual para garantir que o código JS pegou o arquivo
-    // alert("Arquivo capturado: " + file.name); // Descomente se precisar debugar muito fundo
-
-    toast.info(`Processando: ${file.name}`);
-    
-    try {
-        let finalFile = file;
-        
-        // Identificação de tipo segura
-        const fileType = file.type || ''; 
-        const isImage = fileType.startsWith('image/') || file.name.match(/\.(jpg|jpeg|png|webp)$/i);
-
-        if (isImage) {
-            try {
-                const imageCompression = (await import('browser-image-compression')).default;
-                const options = { maxSizeMB: 1, maxWidthOrHeight: 1920, useWebWorker: true };
-                finalFile = await imageCompression(file, options);
-            } catch (err) {
-                console.warn("Erro compressão imagem:", err);
-            }
-        }
-
-        const cleanName = file.name.replace(/[^a-zA-Z0-9.]/g, '_');
-        const path = `${FOLDER_NAME}/${Date.now()}_${cleanName}`;
-        
-        // Determina o Content-Type manualmente se falhar
-        let contentType = file.type;
-        if (!contentType || contentType === "") {
-             if (file.name.endsWith('.pdf')) contentType = 'application/pdf';
-             else if (file.name.endsWith('.txt')) contentType = 'text/plain';
-             else contentType = 'application/octet-stream';
-        }
-
-        const { error: upErr } = await supabase.storage
-            .from(BUCKET_NAME)
-            .upload(path, finalFile, {
-                contentType: contentType,
-                upsert: false
-            });
-            
-        if (upErr) throw upErr;
-
-        toast.success("Sucesso!");
-        loadFiles(); 
-        
-    } catch (err) {
-        console.error("Erro no upload:", err);
-        toast.error(`Erro: ${err.message}`);
-    } finally {
-        setIsUploading(false);
-        // Limpa o input com segurança
-        e.target.value = ""; 
-    }
+    } catch (e) { console.error(e); }
   };
 
   const handleRemove = async (path) => {
-      if(!confirm("Excluir?")) return;
+      if(!confirm("Excluir arquivo permanentemente?")) return;
       try {
         await supabase.storage.from(BUCKET_NAME).remove([path]);
-        setFiles(prev => prev.filter(f => f.caminho_arquivo !== path));
-        toast.success("Excluído.");
-      } catch (error) {
-        toast.error("Erro ao excluir.");
-      }
+        setExistingFiles(prev => prev.filter(f => f.caminho_arquivo !== path));
+        toast.success("Excluído com sucesso.");
+      } catch (error) { toast.error("Erro ao excluir."); }
   };
+
+  if (!uppy) return null; 
 
   return (
     <div className="bg-white p-4 rounded-xl shadow border border-gray-200">
       
-      {/* --- ÁREA DE DIAGNÓSTICO (BOTÃO NATIVO) --- */}
-      <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-          <p className="text-xs font-bold text-yellow-800 mb-2">TESTE DO ANDROID (Botão Nativo):</p>
-          <p className="text-xs text-yellow-700 mb-3">Tente enviar o PDF por este botão cinza abaixo. Se funcionar, o problema era o design.</p>
-          
-          {/* ESTE É O SEGREDO: Um input visível, sem CSS 'hidden' */}
-          <input 
-            type="file" 
-            onChange={handleUpload}
-            disabled={isUploading}
-            className="block w-full text-sm text-slate-500
-              file:mr-4 file:py-2 file:px-4
-              file:rounded-full file:border-0
-              file:text-sm file:font-semibold
-              file:bg-violet-50 file:text-violet-700
-              hover:file:bg-violet-100"
-          />
-      </div>
-      {/* ------------------------------------------ */}
+      {/* CSS DO UPPY VIA CDN (Evita erros de build) */}
+      <link href="https://releases.transloadit.com/uppy/v5.2.1/uppy.min.css" rel="stylesheet" />
 
-      <div className="flex items-center gap-2 mb-4 text-gray-500 text-sm">
-        <FontAwesomeIcon icon={faCloud} />
-        <span>Bucket: <strong>{BUCKET_NAME}</strong></span>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3 mb-6">
+      {/* 1. ÁREA DE UPLOAD (Aqui a mágica acontece) */}
+      <div className="mb-8">
+        <h3 className="text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
+          <FontAwesomeIcon icon={faCloud} className="text-blue-500"/>
+          Novo Upload (Anti-Crash)
+        </h3>
         
-        {/* BOTÃO FOTOS (Design Original - Mantido) */}
-        <label className={`
-            flex flex-col items-center justify-center p-4 border-2 border-dashed border-blue-200 bg-blue-50 rounded-xl cursor-pointer active:bg-blue-100 transition-all
-            ${isUploading ? 'opacity-50 pointer-events-none' : ''}
-        `}>
-            <FontAwesomeIcon icon={faCamera} className="text-2xl text-blue-600 mb-1" />
-            <span className="text-xs font-bold text-blue-700">FOTOS</span>
-            <input 
-                type="file" 
-                accept="image/*" 
-                onChange={handleUpload} 
-                disabled={isUploading}
-                className="hidden" 
-            />
-        </label>
-
-        {/* BOTÃO ARQUIVOS (Design Original - Mantido para comparação) */}
-        <label className={`
-            flex flex-col items-center justify-center p-4 border-2 border-dashed border-red-200 bg-red-50 rounded-xl cursor-pointer active:bg-red-100 transition-all
-            ${isUploading ? 'opacity-50 pointer-events-none' : ''}
-        `}>
-            {isUploading ? (
-                <FontAwesomeIcon icon={faSpinner} spin className="text-2xl text-red-600 mb-1" />
-            ) : (
-                <FontAwesomeIcon icon={faFileLines} className="text-2xl text-red-600 mb-1" />
-            )}
-            <span className="text-xs font-bold text-red-700">DESIGN</span>
-            <input 
-                type="file" 
-                onChange={handleUpload} 
-                disabled={isUploading}
-                className="hidden" 
-            />
-        </label>
-
+        {/* Usamos uma DIV simples com REF. O Uppy desenha aqui dentro. */}
+        <div ref={dashboardContainerRef} className="uppy-dashboard-container" />
+        
       </div>
 
-      <div className="space-y-3">
-        {files.map((f) => {
-            const isPdf = f.name.toLowerCase().includes('.pdf');
-            const isTxt = f.name.toLowerCase().includes('.txt');
-            const isDoc = !isPdf && !isTxt && !f.name.match(/\.(jpg|jpeg|png|webp)$/i);
+      {/* 2. LISTA DE ARQUIVOS */}
+      <div className="border-t pt-6">
+        <h3 className="text-sm font-bold text-gray-700 mb-4">Arquivos na Nuvem</h3>
+        <div className="space-y-3">
+          {existingFiles.map((f) => {
+              const isPdf = f.name.toLowerCase().includes('.pdf');
+              const isTxt = f.name.toLowerCase().includes('.txt');
+              const isDoc = !isPdf && !isTxt && !f.name.match(/\.(jpg|jpeg|png|webp|gif)$/i);
 
-            return (
-                <div key={f.id || f.name} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-100 shadow-sm">
-                    <div className="w-12 h-12 flex-shrink-0 bg-white rounded overflow-hidden flex items-center justify-center border">
-                        {isPdf ? <FontAwesomeIcon icon={faFilePdf} className="text-red-500 text-xl" /> :
-                         isTxt ? <FontAwesomeIcon icon={faFileAlt} className="text-gray-500 text-xl" /> :
-                         isDoc ? <FontAwesomeIcon icon={faFileLines} className="text-blue-500 text-xl" /> :
-                         <img src={f.signedUrl} className="w-full h-full object-cover" />
-                        }
-                    </div>
-                    
-                    <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold text-gray-700 truncate">{f.name}</p>
-                        
-                        {(isPdf || isTxt || isDoc) && (
-                            <a href={f.signedUrl} target="_blank" className="text-[10px] text-blue-600 font-bold mt-1 inline-block">
-                                <FontAwesomeIcon icon={faDownload} className="mr-1"/> Abrir
-                            </a>
-                        )}
-                    </div>
-
-                    <button 
-                        onClick={() => handleRemove(f.caminho_arquivo)}
-                        className="p-2 text-red-500 hover:bg-red-50 rounded-full"
-                    >
-                        <FontAwesomeIcon icon={faTrash} />
-                    </button>
-                </div>
-            );
-        })}
+              return (
+                  <div key={f.id || f.name} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-100 shadow-sm">
+                      <div className="w-12 h-12 flex-shrink-0 bg-white rounded overflow-hidden flex items-center justify-center border">
+                          {isPdf ? <FontAwesomeIcon icon={faFilePdf} className="text-red-500 text-xl" /> :
+                           isTxt ? <FontAwesomeIcon icon={faFileAlt} className="text-gray-500 text-xl" /> :
+                           isDoc ? <FontAwesomeIcon icon={faFileLines} className="text-blue-500 text-xl" /> :
+                           <img src={f.signedUrl} className="w-full h-full object-cover" alt="preview" />
+                          }
+                      </div>
+                      <div className="flex-1 min-w-0">
+                          <p className="text-sm font-bold text-gray-700 truncate">{f.name}</p>
+                          <p className="text-xs text-gray-400">{new Date(f.created_at).toLocaleDateString('pt-BR')}</p>
+                          {(isPdf || isTxt || isDoc) && (
+                              <a href={f.signedUrl} target="_blank" rel="noopener noreferrer" className="text-[10px] text-blue-600 font-bold mt-1 inline-block">
+                                  <FontAwesomeIcon icon={faDownload} className="mr-1"/> Abrir
+                              </a>
+                          )}
+                      </div>
+                      <button onClick={() => handleRemove(f.caminho_arquivo)} className="p-2 text-red-500 hover:bg-red-50 rounded-full">
+                          <FontAwesomeIcon icon={faTrash} />
+                      </button>
+                  </div>
+              );
+          })}
+          {existingFiles.length === 0 && <div className="text-center py-4 text-gray-400 text-sm">Nenhum arquivo salvo ainda.</div>}
+        </div>
       </div>
     </div>
   );

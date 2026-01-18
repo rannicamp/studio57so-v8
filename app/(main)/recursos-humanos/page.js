@@ -28,7 +28,7 @@ import GerenciamentoPonto from '../../../components/rh/GerenciamentoPonto';
 import FuncionarioModal from '../../../components/rh/FuncionarioModal';
 
 // --- CONFIGURAÇÃO DE PERSISTÊNCIA ---
-const RH_UI_STATE_KEY = 'STUDIO57_RH_UI_STATE_V3'; // Atualizei versão para V3
+const RH_UI_STATE_KEY = 'STUDIO57_RH_UI_STATE_V3'; 
 
 const getCachedUiState = () => {
     if (typeof window === 'undefined') return null;
@@ -56,10 +56,19 @@ export default function RecursosHumanosPage() {
     
     const [debouncedSearchTerm] = useDebounce(searchTerm, 500);
 
-    // --- ESTADOS LOCAIS COM PERSISTÊNCIA DO MODAL ---
-    const [isImporterOpen, setIsImporterOpen] = useState(false);
+    // --- ESTADOS LOCAIS COM PERSISTÊNCIA DO MODAL DE IMPORTAÇÃO (CORREÇÃO AQUI) ---
+    // Agora o estado inicial verifica SE existe um crash/recovery pendente
+    const [isImporterOpen, setIsImporterOpen] = useState(() => {
+        if (typeof window !== 'undefined') {
+            // Prioridade 1: Verifica se o Importador deixou um bilhete avisando que estava trabalhando (Crash Recovery)
+            const recoveryFlag = localStorage.getItem('pontoImporterOpen');
+            if (recoveryFlag === 'true') return true;
+        }
+        // Prioridade 2: Estado salvo da UI anterior
+        return cachedState?.isImporterOpen || false;
+    });
     
-    // Recupera se o modal estava aberto e qual funcionário estava sendo editado
+    // Recupera se o modal de funcionário estava aberto
     const [isFuncionarioModalOpen, setIsFuncionarioModalOpen] = useState(cachedState?.isFuncionarioModalOpen || false);
     const [funcionarioParaEditar, setFuncionarioParaEditar] = useState(cachedState?.funcionarioParaEditar || null);
 
@@ -82,7 +91,7 @@ export default function RecursosHumanosPage() {
         }
     }, [podeVerFuncionarios, podeVerPonto, activeTab]);
 
-    // Persistência Automática (Agora salva TUDO, inclusive o modal)
+    // Persistência Automática (Agora inclui isImporterOpen)
     useEffect(() => {
         if (typeof window !== 'undefined') {
             const stateToSave = {
@@ -90,13 +99,13 @@ export default function RecursosHumanosPage() {
                 searchTerm,
                 showFilters,
                 filters,
-                // Salva o estado do modal para persistir na troca de aba/refresh
                 isFuncionarioModalOpen,
-                funcionarioParaEditar
+                funcionarioParaEditar,
+                isImporterOpen // <--- Adicionado para persistir navegação
             };
             localStorage.setItem(RH_UI_STATE_KEY, JSON.stringify(stateToSave));
         }
-    }, [activeTab, searchTerm, showFilters, filters, isFuncionarioModalOpen, funcionarioParaEditar]);
+    }, [activeTab, searchTerm, showFilters, filters, isFuncionarioModalOpen, funcionarioParaEditar, isImporterOpen]);
 
     // --- MANIPULADORES DO MODAL DE FUNCIONÁRIOS ---
     
@@ -108,7 +117,6 @@ export default function RecursosHumanosPage() {
     const handleCloseFuncionarioModal = () => {
         setIsFuncionarioModalOpen(false);
         setFuncionarioParaEditar(null);
-        // Limpa também o cache específico do formulário (handled dentro do componente Form, mas garantimos aqui a limpeza do estado pai)
         localStorage.removeItem('RH_FUNC_FORM_DRAFT'); 
     };
 

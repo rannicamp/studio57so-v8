@@ -1,0 +1,87 @@
+PROTOCOLO DE UPLOAD ANTI-CRASH (PADRÃO STUDIO 57)
+Objetivo: Implementar upload de arquivos em PWA/Mobile prevenindo o fechamento do navegador (OOM Kill) no Android. Stack: Next.js 15+, Supabase, Uppy.
+
+1. Dependências Obrigatórias
+Instalar:
+
+Bash
+
+npm install @uppy/core @uppy/dashboard @uppy/golden-retriever @uppy/webcam
+Obs: NÃO usar componentes visuais do @uppy/react (ex: <Dashboard />).
+
+2. Regra de CSS (Via CDN)
+Para evitar erros de build ("Module not found"), NUNCA importar CSS via JS. Use sempre esta tag dentro do JSX:
+
+JavaScript
+
+<link href="https://releases.transloadit.com/uppy/v5.2.1/uppy.min.css" rel="stylesheet" />
+3. Template de Código (Copiar e Aplicar)
+A IA deve seguir estritamente esta estrutura de montagem manual para bypassar erros do React:
+
+JavaScript
+
+"use client";
+import { useState, useEffect, useRef } from 'react';
+import { createClient } from '../utils/supabase/client'; // Ajuste seu caminho
+import Uppy from '@uppy/core';
+import DashboardPlugin from '@uppy/dashboard';
+import GoldenRetriever from '@uppy/golden-retriever';
+import Webcam from '@uppy/webcam';
+
+export default function UploadComponent() {
+  const supabase = createClient();
+  const dashboardRef = useRef(null); // Alvo de renderização
+  
+  // ID ÚNICO é obrigatório para a recuperação funcionar
+  const UPPY_ID = 'upload-tela-especifica-v1'; 
+
+  const [uppy] = useState(() => {
+    if (typeof window === 'undefined') return null;
+    
+    const instance = new Uppy({
+      id: UPPY_ID,
+      autoProceed: false,
+      restrictions: { maxFileSize: 20 * 1024 * 1024, maxNumberOfFiles: 5 }
+    });
+
+    // PLUGIN CRÍTICO: Salva arquivo no IndexedDB antes do crash
+    instance.use(GoldenRetriever, { serviceWorker: false, indexedDB: true });
+    instance.use(Webcam);
+    return instance;
+  });
+
+  useEffect(() => {
+    if (!uppy || !dashboardRef.current) return;
+    
+    // Montagem Manual (Evita erro do React 19/Next 15)
+    if (!uppy.getPlugin('Dashboard')) {
+      uppy.use(DashboardPlugin, {
+        target: dashboardRef.current,
+        inline: true,
+        width: '100%',
+        height: 300,
+        showProgressDetails: true,
+        note: "Se o navegador reiniciar, o arquivo reaparece aqui.",
+        locale: { strings: { dropPasteFiles: 'Arraste ou %{browse}', browse: 'busque aqui' } }
+      });
+    }
+  }, [uppy]);
+
+  useEffect(() => {
+    if (!uppy) return;
+    uppy.addUploader(async (fileIDs) => {
+      // Lógica de envio para o Supabase aqui...
+      // Após sucesso: uppy.removeFile(id);
+      return Promise.resolve();
+    });
+  }, [uppy]);
+
+  if (!uppy) return null;
+
+  return (
+    <div className="bg-white p-4 rounded shadow">
+      <link href="https://releases.transloadit.com/uppy/v5.2.1/uppy.min.css" rel="stylesheet" />
+      <div ref={dashboardRef} /> {/* O Uppy renderiza aqui dentro */}
+    </div>
+  );
+}

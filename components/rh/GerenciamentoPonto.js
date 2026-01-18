@@ -7,8 +7,7 @@ import { useQuery } from '@tanstack/react-query';
 import { createClient } from '../../utils/supabase/client';
 import { toast } from 'sonner'; 
 
-// --- CORREÇÃO AQUI ---
-// Antes estava '../FolhaPonto', agora é './FolhaPonto' porque eles moram juntos na pasta 'rh'
+// Componentes Filhos
 import FolhaPonto from './FolhaPonto';
 import PontoImporter from './PontoImporter';
 
@@ -61,6 +60,38 @@ export default function GerenciamentoPonto({ searchTerm = '', isImporterOpen, on
     const canCreate = hasPermission('ponto', 'pode_criar');
     const canEdit = hasPermission('ponto', 'pode_editar');
     
+    // --- LÓGICA DE PERSISTÊNCIA DO MODAL (A Mágica da Recuperação) ---
+    // Criamos um estado local para controlar o modal independentemente do Pai
+    const [localModalOpen, setLocalModalOpen] = useState(isImporterOpen);
+
+    // 1. Sincroniza com o Pai (Se o Pai mandar abrir, a gente abre)
+    useEffect(() => {
+        setLocalModalOpen(isImporterOpen);
+    }, [isImporterOpen]);
+
+    // 2. Recuperação de Crash (Se o LocalStorage mandar abrir, a gente abre mesmo se o Pai disser não)
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const shouldRecover = localStorage.getItem('pontoImporterOpen');
+            // Se tiver a flag 'true' E o modal estiver fechado, força a abertura
+            if (shouldRecover === 'true') {
+                console.log("🔄 Recuperando sessão de importação...");
+                setLocalModalOpen(true);
+            }
+        }
+    }, []);
+
+    // Função interna para fechar, garantindo que tudo fique sincronizado
+    const handleCloseModal = () => {
+        setLocalModalOpen(false);
+        // Remove a flag de segurança para não reabrir sozinho depois
+        if (typeof window !== 'undefined') localStorage.removeItem('pontoImporterOpen');
+        onCloseImporter(); // Avisa o Pai
+    };
+
+    // --- FIM DA LÓGICA DE RECUPERAÇÃO ---
+
+
     // Busca de dados eficiente
     const { data: employees = [], isLoading, error, refetch: refetchEmployees } = useQuery({ 
         queryKey: ['employeesPonto', organizacao_id], 
@@ -110,7 +141,7 @@ export default function GerenciamentoPonto({ searchTerm = '', isImporterOpen, on
     };
 
     const handleSuccessfulImport = () => {
-        onCloseImporter();
+        handleCloseModal(); // Fecha usando nossa função inteligente
         refetchEmployees(); // Atualiza lista caso a importação crie vínculos
         toast.success("Importação concluída com sucesso!");
         
@@ -138,8 +169,8 @@ export default function GerenciamentoPonto({ searchTerm = '', isImporterOpen, on
     return (
         <div className="space-y-6 animate-in fade-in duration-500">
             
-            {/* Modal de Importação */}
-            <ImporterModal isOpen={isImporterOpen} onClose={onCloseImporter}>
+            {/* Modal de Importação - Agora controlado por localModalOpen */}
+            <ImporterModal isOpen={localModalOpen} onClose={handleCloseModal}>
                 <PontoImporter employees={employees} onImport={handleSuccessfulImport} />
             </ImporterModal>
 
