@@ -14,6 +14,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
     faUsers, 
     faClock, 
+    faBriefcase, // <--- Novo ícone para Terceirizados
     faSearch, 
     faFilter, 
     faPlus, 
@@ -25,6 +26,7 @@ import {
 // Componentes Filhos
 import GerenciamentoFuncionarios from '../../../components/rh/GerenciamentoFuncionarios';
 import GerenciamentoPonto from '../../../components/rh/GerenciamentoPonto';
+import GerenciamentoTerceirizados from '../../../components/rh/GerenciamentoTerceirizados'; // <--- Novo Componente
 import FuncionarioModal from '../../../components/rh/FuncionarioModal';
 
 // --- CONFIGURAÇÃO DE PERSISTÊNCIA ---
@@ -56,25 +58,24 @@ export default function RecursosHumanosPage() {
     
     const [debouncedSearchTerm] = useDebounce(searchTerm, 500);
 
-    // --- ESTADOS LOCAIS COM PERSISTÊNCIA DO MODAL DE IMPORTAÇÃO (CORREÇÃO AQUI) ---
-    // Agora o estado inicial verifica SE existe um crash/recovery pendente
+    // --- ESTADOS LOCAIS COM PERSISTÊNCIA DO MODAL DE IMPORTAÇÃO ---
     const [isImporterOpen, setIsImporterOpen] = useState(() => {
         if (typeof window !== 'undefined') {
-            // Prioridade 1: Verifica se o Importador deixou um bilhete avisando que estava trabalhando (Crash Recovery)
             const recoveryFlag = localStorage.getItem('pontoImporterOpen');
             if (recoveryFlag === 'true') return true;
         }
-        // Prioridade 2: Estado salvo da UI anterior
         return cachedState?.isImporterOpen || false;
     });
     
-    // Recupera se o modal de funcionário estava aberto
     const [isFuncionarioModalOpen, setIsFuncionarioModalOpen] = useState(cachedState?.isFuncionarioModalOpen || false);
     const [funcionarioParaEditar, setFuncionarioParaEditar] = useState(cachedState?.funcionarioParaEditar || null);
 
     // Permissões
     const podeVerFuncionarios = permissions.funcionarios?.pode_ver;
     const podeVerPonto = permissions.ponto?.pode_ver;
+    // Vamos assumir que quem vê funcionários também pode ver terceirizados por enquanto
+    const podeVerTerceirizados = permissions.funcionarios?.pode_ver; 
+
     const canCreateFuncionario = permissions.funcionarios?.pode_criar;
     const canCreatePonto = permissions.ponto?.pode_criar;
 
@@ -91,7 +92,7 @@ export default function RecursosHumanosPage() {
         }
     }, [podeVerFuncionarios, podeVerPonto, activeTab]);
 
-    // Persistência Automática (Agora inclui isImporterOpen)
+    // Persistência Automática
     useEffect(() => {
         if (typeof window !== 'undefined') {
             const stateToSave = {
@@ -101,7 +102,7 @@ export default function RecursosHumanosPage() {
                 filters,
                 isFuncionarioModalOpen,
                 funcionarioParaEditar,
-                isImporterOpen // <--- Adicionado para persistir navegação
+                isImporterOpen 
             };
             localStorage.setItem(RH_UI_STATE_KEY, JSON.stringify(stateToSave));
         }
@@ -125,6 +126,13 @@ export default function RecursosHumanosPage() {
         queryClient.invalidateQueries({ queryKey: ['funcionarios', user?.organizacao_id] });
     };
 
+    // Placeholder para busca baseada na aba
+    const getSearchPlaceholder = () => {
+        if (activeTab === 'funcionarios') return "Buscar por nome, cargo, CPF...";
+        if (activeTab === 'terceirizados') return "Buscar fornecedor ou contrato...";
+        return "Filtrar funcionário...";
+    };
+
     // Bloqueio de Acesso
     if (!podeVerFuncionarios && !podeVerPonto) {
         return (
@@ -138,7 +146,7 @@ export default function RecursosHumanosPage() {
     return (
         <div className="space-y-6 w-full p-4 md:p-6 animate-in fade-in duration-500">
             
-            {/* --- MODAL UNIFICADO (CRIAÇÃO/EDIÇÃO) --- */}
+            {/* --- MODAL UNIFICADO (CRIAÇÃO/EDIÇÃO FUNCIONÁRIOS) --- */}
             {isFuncionarioModalOpen && (
                 <FuncionarioModal 
                     isOpen={isFuncionarioModalOpen}
@@ -154,14 +162,16 @@ export default function RecursosHumanosPage() {
                 {/* Lado Esquerdo: Navegação */}
                 <div className="flex flex-col gap-4">
                     <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-                        {activeTab === 'funcionarios' ? 'Gestão de Funcionários' : 'Controle de Ponto'}
+                        {activeTab === 'funcionarios' && 'Gestão de Funcionários'}
+                        {activeTab === 'terceirizados' && 'Gestão de Terceirizados'}
+                        {activeTab === 'ponto' && 'Controle de Ponto'}
                     </h2>
                     
-                    <div className="flex bg-gray-100 p-1 rounded-lg w-fit shadow-inner">
+                    <div className="flex bg-gray-100 p-1 rounded-lg w-fit shadow-inner overflow-x-auto">
                         {podeVerFuncionarios && (
                             <button
                                 onClick={() => setActiveTab('funcionarios')}
-                                className={`px-5 py-2 text-sm font-semibold rounded-md transition-all duration-200 ${
+                                className={`px-5 py-2 text-sm font-semibold rounded-md transition-all duration-200 whitespace-nowrap ${
                                     activeTab === 'funcionarios' 
                                     ? 'bg-white text-blue-600 shadow-sm transform scale-105' 
                                     : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200/50'
@@ -171,10 +181,23 @@ export default function RecursosHumanosPage() {
                                 Funcionários
                             </button>
                         )}
+                        {podeVerTerceirizados && (
+                            <button
+                                onClick={() => setActiveTab('terceirizados')}
+                                className={`px-5 py-2 text-sm font-semibold rounded-md transition-all duration-200 whitespace-nowrap ${
+                                    activeTab === 'terceirizados' 
+                                    ? 'bg-white text-blue-600 shadow-sm transform scale-105' 
+                                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200/50'
+                                }`}
+                            >
+                                <FontAwesomeIcon icon={faBriefcase} className="mr-2" />
+                                Terceirizados
+                            </button>
+                        )}
                         {podeVerPonto && (
                             <button
                                 onClick={() => setActiveTab('ponto')}
-                                className={`px-5 py-2 text-sm font-semibold rounded-md transition-all duration-200 ${
+                                className={`px-5 py-2 text-sm font-semibold rounded-md transition-all duration-200 whitespace-nowrap ${
                                     activeTab === 'ponto' 
                                     ? 'bg-white text-blue-600 shadow-sm transform scale-105' 
                                     : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200/50'
@@ -197,7 +220,7 @@ export default function RecursosHumanosPage() {
                         </div>
                         <input 
                             type="text" 
-                            placeholder={activeTab === 'funcionarios' ? "Buscar por nome, cargo, CPF..." : "Filtrar funcionário..."}
+                            placeholder={getSearchPlaceholder()}
                             value={searchTerm} 
                             onChange={(e) => setSearchTerm(e.target.value)}
                             className="w-full pl-10 pr-10 py-2.5 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm transition-all"
@@ -229,7 +252,7 @@ export default function RecursosHumanosPage() {
 
                     <div className="h-8 w-px bg-gray-300 mx-1 hidden xl:block"></div>
 
-                    {/* AÇÃO 1: Novo Funcionário */}
+                    {/* AÇÃO 1: Novo Funcionário (Apenas na aba Funcionários) */}
                     {activeTab === 'funcionarios' && canCreateFuncionario && (
                         <button 
                             onClick={() => handleOpenFuncionarioModal(null)} 
@@ -239,7 +262,7 @@ export default function RecursosHumanosPage() {
                         </button>
                     )}
 
-                    {/* AÇÃO 2: Importar Ponto */}
+                    {/* AÇÃO 2: Importar Ponto (Apenas na aba Ponto) */}
                     {activeTab === 'ponto' && canCreatePonto && (
                         <button 
                             onClick={() => setIsImporterOpen(true)}
@@ -260,6 +283,12 @@ export default function RecursosHumanosPage() {
                         filters={filters}               
                         onFilterChange={(key, value) => setFilters(prev => ({ ...prev, [key]: value }))}
                         onEditFuncionario={handleOpenFuncionarioModal}
+                    />
+                )}
+                {activeTab === 'terceirizados' && podeVerTerceirizados && (
+                    <GerenciamentoTerceirizados 
+                        searchTerm={debouncedSearchTerm}
+                        showFilters={showFilters}
                     />
                 )}
                 {activeTab === 'ponto' && podeVerPonto && (
