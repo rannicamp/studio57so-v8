@@ -8,7 +8,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowLeft, faBuilding, faSpinner } from '@fortawesome/free-solid-svg-icons';
 
-// --- IMPORTAÇÕES ATUALIZADAS PARA A NOVA PASTA ---
+// --- IMPORTAÇÕES DOS MÓDULOS ---
 import ContratoGeral from '@/components/rh/contratos/ContratoGeral';
 import ContratoDocumentos from '@/components/rh/contratos/ContratoDocumentos';
 import ContratoFinanceiro from '@/components/rh/contratos/ContratoFinanceiro';
@@ -20,10 +20,31 @@ export default function DetalhesContratoPage() {
     const { user } = useAuth();
     
     const [loading, setLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState('geral');
     const [contrato, setContrato] = useState(null);
+    
+    // --- LÓGICA DE PERSISTÊNCIA DA ABA ---
+    const STORAGE_KEY = `STUDIO57_TAB_CONTRATO_${id}`;
+    
+    // Inicia com 'geral', mas o useEffect abaixo vai corrigir se tiver histórico
+    const [activeTab, setActiveTab] = useState('geral');
 
-    // Carregamento Inicial
+    // 1. Restaurar aba salva ao carregar a página
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const savedTab = localStorage.getItem(STORAGE_KEY);
+            if (savedTab) {
+                setActiveTab(savedTab);
+            }
+        }
+    }, [id, STORAGE_KEY]);
+
+    // 2. Função para trocar a aba e salvar na memória
+    const handleTabChange = (tabName) => {
+        setActiveTab(tabName);
+        localStorage.setItem(STORAGE_KEY, tabName);
+    };
+
+    // --- CARREGAMENTO DE DADOS ---
     useEffect(() => {
         if (id && user?.organizacao_id) {
             fetchContrato();
@@ -108,12 +129,12 @@ export default function DetalhesContratoPage() {
                     </div>
                 </div>
 
-                {/* Abas */}
+                {/* Abas com Persistência */}
                 <div className="flex border-b border-gray-200 mb-6">
                     {['geral', 'documentos', 'financeiro'].map(tab => (
                         <button
                             key={tab}
-                            onClick={() => setActiveTab(tab)}
+                            onClick={() => handleTabChange(tab)} // Usa a nova função de troca
                             className={`px-6 py-3 font-medium text-sm border-b-2 transition-colors capitalize ${
                                 activeTab === tab ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'
                             }`}
