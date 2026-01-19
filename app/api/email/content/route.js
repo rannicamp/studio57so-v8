@@ -4,58 +4,44 @@ import imapSimple from 'imap-simple';
 import { simpleParser } from 'mailparser';
 
 export async function GET(request) {
-    // 1. OBRIGATÓRIO NO NEXT 15: await no cliente
     const supabase = await createClient();
-    
     const { searchParams } = new URL(request.url);
     const uid = searchParams.get('uid');
     const folderName = searchParams.get('folder');
-    const accountId = searchParams.get('accountId'); // ID da configuração no banco
+    const accountId = searchParams.get('accountId');
 
     if (!uid || !folderName) {
-        return NextResponse.json({ error: 'Parâmetros inválidos' }, { status: 400 });
+        return NextResponse.json({ error: 'Dados inválidos' }, { status: 400 });
     }
 
     try {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
 
-        // --- ESTRATÉGIA DE CACHE (Carregamento Mágico) 🎩 ---
-        
-        // 1. Tenta buscar no banco primeiro (Super Rápido ⚡)
+        // 1. TENTA CACHE DO BANCO (Se já clicou antes, carrega rápido)
         let queryCache = supabase
             .from('email_messages_cache')
             .select('conteudo_cache')
             .eq('uid', uid)
             .eq('folder_path', folderName);
+            
+        if (accountId) queryCache = queryCache.eq('account_id', accountId);
 
-        // Se veio o accountId, usa para garantir que é a conta certa
-        if (accountId && accountId !== 'undefined') {
-            queryCache = queryCache.eq('account_id', accountId);
-        }
+        const { data: cacheData } = await queryCache.single();
 
-        const { data: cacheData, error: cacheError } = await queryCache.single();
-
-        // SE ACHOU NO CACHE, RETORNA IMEDIATAMENTE!
-        if (!cacheError && cacheData?.conteudo_cache) {
-            // console.log(`🚀 E-mail ${uid} carregado do Cache DB!`);
+        // Se já temos o conteúdo completo cacheado, retorna ele
+        if (cacheData?.conteudo_cache && cacheData.conteudo_cache.html) {
             return NextResponse.json(cacheData.conteudo_cache);
         }
 
-        // --- SE NÃO ACHOU, VAI NO IMAP (Busca Lenta 🐢) ---
-        // console.log(`🐢 E-mail ${uid} não está no cache. Buscando no IMAP...`);
-
-        // 2. Busca as credenciais
+        // 2. SE NÃO TEM (Primeiro clique), VAI NO IMAP
         let queryConfig = supabase.from('email_configuracoes').select('*').eq('user_id', user.id);
-        
-        if (accountId && accountId !== 'undefined') {
-            queryConfig = queryConfig.eq('id', accountId);
-        }
+        if (accountId) queryConfig = queryConfig.eq('id', accountId);
         
         const { data: configs } = await queryConfig;
         const config = configs?.[0];
 
-        if (!config) return NextResponse.json({ error: 'Conta de e-mail não encontrada' }, { status: 404 });
+        if (!config) return NextResponse.json({ error: 'Configuração não encontrada' }, { status: 404 });
 
         const imapConfig = {
             imap: {
@@ -70,74 +56,74 @@ export async function GET(request) {
         };
 
         const connection = await imapSimple.connect(imapConfig);
-        
-        // Abre a caixa
-        await connection.openBox(folderName, { readOnly: false }); 
+        await connection.openBox(folderName, { readOnly: true }); // ReadOnly para não marcar lido sem querer
 
         const searchCriteria = [['UID', uid]];
-        
-        // --- AQUI ESTAVA O X9! 🕵️‍♂️ ---
-        const fetchOptions = {
-            bodies: [''], // Pega o corpo inteiro (RAW)
-            markSeen: false // <--- MUDAMOS PARA FALSE! Não marca como lido ao baixar
-        };
+        const fetchOptions = { bodies: [''], markSeen: false }; // Pega corpo completo
 
         const messages = await connection.search(searchCriteria, fetchOptions);
-
         if (messages.length === 0) {
             connection.end();
             return NextResponse.json({ error: 'E-mail não encontrado no servidor' }, { status: 404 });
         }
 
-        const message = messages[0];
-        const allParts = message.parts.find(part => part.which === '');
-        const source = allParts?.body;
-
-        // 3. Processa o e-mail
+        const source = messages[0].parts.find(part => part.which === '')?.body;
+        
+        // Parseia o e-mail bruto
         const parsed = await simpleParser(source);
 
-        const emailData = {
+        // 3. SANITIZAÇÃO DE DADOS (CRÍTICO PARA PERFORMANCE)
+        // Prepara os dados para salvar no banco SEM O CONTEÚDO DOS ANEXOS
+        const attachmentsMeta = parsed.attachments.map(att => ({
+            filename: att.filename,
+            contentType: att.contentType,
+            size: att.size,
+            // NÃO SALVAMOS O BUFFER NO BANCO (Isso matava seu Supabase)
+            content: null 
+        }));
+
+        const emailDataForDb = {
             id: uid,
             subject: parsed.subject,
             from: parsed.from?.text,
             to: parsed.to?.text,
             cc: parsed.cc?.text,
             date: parsed.date,
-            html: parsed.html || false, // O HTML completo
-            text: parsed.textAsHtml || parsed.text, 
+            html: parsed.html || parsed.textAsHtml || '', // Garante HTML
+            text: parsed.text || '',
+            attachments: attachmentsMeta // Metadados leves
+        };
+
+        // 4. ATUALIZA O CACHE NO BANCO
+        // Agora salvamos o corpo para a próxima vez ser rápida, mas sem o peso dos arquivos
+        await supabase
+            .from('email_messages_cache')
+            .update({
+                conteudo_cache: emailDataForDb, // Salva JSON leve
+                html_body: emailDataForDb.html ? emailDataForDb.html.substring(0, 100000) : null, // Opcional: limita tamanho
+                has_attachments: parsed.attachments.length > 0,
+                updated_at: new Date().toISOString()
+            })
+            .eq('uid', uid)
+            .eq('folder_path', folderName)
+            .eq('account_id', config.id);
+
+        connection.end();
+
+        // 5. RESPOSTA PARA O FRONTEND (COM ANEXOS)
+        // Para o usuário ver AGORA, mandamos os anexos em memória (sem salvar no banco)
+        const responseData = {
+            ...emailDataForDb,
             attachments: parsed.attachments.map(att => ({
                 filename: att.filename,
                 contentType: att.contentType,
                 size: att.size,
-                // Nota: O conteúdo do anexo vai como buffer base64 para o front renderizar
+                // Aqui mandamos o conteúdo para o navegador baixar se quiser
                 content: att.content 
             }))
         };
 
-        connection.end();
-
-        // --- SALVA NO CACHE PARA A PRÓXIMA VEZ ---
-        // Atualiza a linha existente ou cria uma nova
-        const { error: updateError } = await supabase
-            .from('email_messages_cache')
-            .upsert({
-                account_id: config.id,
-                uid: uid,
-                folder_path: folderName,
-                // Garante dados básicos caso não existam (ex: se o sync não rodou ainda)
-                subject: parsed.subject || '(Sem Assunto)',
-                from_text: parsed.from?.text || '',
-                date: parsed.date || new Date(),
-                is_read: false, // <--- TAMBÉM NÃO MARCA COMO LIDO NO BANCO AINDA
-                conteudo_cache: emailData, 
-                updated_at: new Date().toISOString()
-            }, { onConflict: 'account_id, folder_path, uid' });
-
-        if (updateError) {
-            console.error('Erro ao salvar cache:', updateError);
-        }
-
-        return NextResponse.json(emailData);
+        return NextResponse.json(responseData);
 
     } catch (error) {
         console.error('Erro ao baixar conteúdo:', error);
