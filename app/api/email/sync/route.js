@@ -2,9 +2,8 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import imapSimple from 'imap-simple';
 
-// Configuração Next.js
 export const dynamic = 'force-dynamic';
-export const maxDuration = 60; // Permite rodar por até 60s
+export const maxDuration = 300; 
 
 export async function POST(request) {
     const supabase = await createClient();
@@ -24,9 +23,9 @@ export async function POST(request) {
             return NextResponse.json({ message: 'Nenhuma conta configurada.', totalNew: 0 });
         }
 
-        let totalNewEmails = 0;
+        let totalSynced = 0;
 
-        // 2. Itera sobre as contas
+        // 2. Loop por conta
         for (const config of accounts) {
             try {
                 const imapConfig = {
@@ -36,119 +35,142 @@ export async function POST(request) {
                         host: config.imap_host,
                         port: config.imap_port || 993,
                         tls: true,
-                        authTimeout: 15000,
+                        authTimeout: 20000,
                         tlsOptions: { rejectUnauthorized: false }
                     },
                 };
 
                 connection = await imapSimple.connect(imapConfig);
-                await connection.openBox('INBOX', { readOnly: true }); // Apenas leitura para sync
+                
+                // 3. Descobre TODAS as pastas
+                const boxes = await connection.getBoxes();
+                const allFolders = getAllFolderPaths(boxes);
 
-                // --- ESTRATÉGIA HÍBRIDA ---
-                // Buscamos e-mails que NÃO temos no banco ou os mais recentes.
-                // Para garantir que a lista antiga apareça, vamos pegar uma janela maior,
-                // mas pedindo APENAS CABEÇALHOS (Super Leve).
-                
-                // Pega o maior UID que já temos para saber onde paramos
-                const lastUid = Number(config.last_sync_uid) || 1;
-                
-                // Busca UIDs maiores que o último syncado (Novos)
-                const searchCriteria = [['UID', `${lastUid}:*`]];
-                
-                const fetchOptions = {
-                    // O SEGREDO ESTÁ AQUI: NÃO PEDIMOS 'BODY' NEM 'TEXT'
-                    bodies: ['HEADER.FIELDS (FROM TO SUBJECT DATE MESSAGE-ID)'],
-                    struct: true,
-                    markSeen: false 
-                };
-
-                const messages = await connection.search(searchCriteria, fetchOptions);
-                
-                if (messages.length === 0) {
-                    connection.end();
-                    continue;
+                // Prioriza INBOX
+                const inboxIndex = allFolders.findIndex(f => f.toUpperCase() === 'INBOX');
+                if (inboxIndex > 0) {
+                    allFolders.unshift(allFolders.splice(inboxIndex, 1)[0]);
                 }
 
-                let maxUid = lastUid;
-                const batchSize = 50; // Processa em lotes para não estourar memória
-                
-                for (let i = 0; i < messages.length; i += batchSize) {
-                    const batch = messages.slice(i, i + batchSize);
-                    const upsertData = [];
+                // 4. Varre pasta por pasta
+                for (const folderPath of allFolders) {
+                    try {
+                        await connection.openBox(folderPath, { readOnly: true });
 
-                    for (const message of batch) {
-                        const uid = message.attributes.uid;
-                        if (uid > maxUid) maxUid = uid;
-
-                        // Pega o cabeçalho
-                        const part = message.parts.find(p => p.which && p.which.includes('HEADER'));
-                        const headers = part?.body || {};
-
-                        // Tratamento de dados básico
-                        const subject = headers.subject ? headers.subject[0] : '(Sem Assunto)';
-                        const from = headers.from ? headers.from[0] : '';
-                        const date = headers.date ? new Date(headers.date[0]) : new Date();
-
-                        // Prepara objeto LEVE para o banco
-                        upsertData.push({
-                            account_id: config.id,
-                            uid: uid,
-                            folder_path: 'INBOX',
-                            subject: decodeHeader(subject).substring(0, 200), // Limita tamanho
-                            from_text: decodeHeader(from).substring(0, 100),
-                            date: date,
-                            is_read: false, // Assume não lido inicialmente ou atualiza depois
-                            // CAMPOS PESADOS COMO NULL (SISTEMA HÍBRIDO)
-                            conteudo_cache: null, 
-                            html_body: null,
-                            text_body: null,
-                            has_attachments: false, // Será verificado ao abrir
-                            updated_at: new Date().toISOString()
-                        });
-                    }
-
-                    // Salva no banco (Upsert para não duplicar)
-                    if (upsertData.length > 0) {
-                        const { error } = await supabase
+                        // Pergunta ao banco: "Qual o maior UID que eu já tenho desta pasta?"
+                        const { data: maxUidData } = await supabase
                             .from('email_messages_cache')
-                            .upsert(upsertData, { 
-                                onConflict: 'account_id, folder_path, uid',
-                                ignoreDuplicates: true // Se já existe, não mexe (preserva se já tiver corpo baixado)
-                            });
-                        
-                        if (error) console.error('Erro sync batch:', error);
-                        else totalNewEmails += upsertData.length;
-                    }
-                }
+                            .select('uid')
+                            .eq('account_id', config.id)
+                            .eq('folder_path', folderPath)
+                            .order('uid', { ascending: false })
+                            .limit(1)
+                            .single();
 
-                // Atualiza o ponteiro do último sync na configuração
-                if (maxUid > lastUid) {
-                    await supabase.from('email_configuracoes')
-                        .update({ last_sync_uid: maxUid })
-                        .eq('id', config.id);
+                        const lastUid = maxUidData?.uid || 0;
+                        
+                        // Busca no IMAP
+                        const searchCriteria = [['UID', `${lastUid + 1}:*`]];
+                        
+                        const fetchOptions = {
+                            bodies: ['HEADER.FIELDS (FROM TO SUBJECT DATE MESSAGE-ID)'],
+                            struct: true,
+                            markSeen: false 
+                        };
+
+                        const messages = await connection.search(searchCriteria, fetchOptions);
+                        
+                        if (messages.length === 0) continue;
+
+                        const batchSize = 100;
+                        for (let i = 0; i < messages.length; i += batchSize) {
+                            const batch = messages.slice(i, i + batchSize);
+                            const upsertData = [];
+
+                            for (const message of batch) {
+                                const part = message.parts.find(p => p.which && p.which.includes('HEADER'));
+                                const headers = part?.body || {};
+
+                                const subject = headers.subject ? headers.subject[0] : '(Sem Assunto)';
+                                const from = headers.from ? headers.from[0] : '';
+                                const date = headers.date ? new Date(headers.date[0]) : new Date();
+
+                                // --- CORREÇÃO AQUI: Verifica as flags reais do servidor ---
+                                const flags = message.attributes.flags || [];
+                                // Verifica se tem a flag \Seen (Lido). Usamos toUpperCase para garantir.
+                                const isRead = flags.some(f => f.toString().toUpperCase().includes('SEEN'));
+
+                                upsertData.push({
+                                    account_id: config.id,
+                                    uid: message.attributes.uid,
+                                    folder_path: folderPath,
+                                    subject: decodeHeader(subject).substring(0, 200),
+                                    from_text: decodeHeader(from).substring(0, 100),
+                                    date: date,
+                                    is_read: isRead, // <--- Agora usa o valor real!
+                                    conteudo_cache: null, 
+                                    html_body: null,
+                                    text_body: null,
+                                    has_attachments: false, 
+                                    updated_at: new Date().toISOString()
+                                });
+                            }
+
+                            if (upsertData.length > 0) {
+                                // O Upsert mantém ignoreDuplicates: true para ser rápido em novos
+                                // Mas como você vai limpar a tabela, ele vai inserir tudo certo agora.
+                                await supabase
+                                    .from('email_messages_cache')
+                                    .upsert(upsertData, { 
+                                        onConflict: 'account_id, folder_path, uid',
+                                        ignoreDuplicates: true 
+                                    });
+                                totalSynced += upsertData.length;
+                            }
+                        }
+
+                    } catch (folderError) {
+                        console.error(`Erro ao sincronizar pasta ${folderPath}:`, folderError.message);
+                    }
                 }
 
                 connection.end();
 
             } catch (err) {
-                console.error(`Erro sync conta ${config.email}:`, err);
+                console.error(`Erro conta ${config.email}:`, err);
                 if (connection) try { connection.end(); } catch {}
             }
         }
 
         return NextResponse.json({ 
             success: true, 
-            message: 'Sync Híbrido concluído', 
-            totalNew: totalNewEmails 
+            message: `Sync completo. ${totalSynced} itens processados.`, 
+            totalNew: totalSynced 
         });
 
     } catch (error) {
-        console.error('Erro geral sync:', error);
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }
 
-// Função auxiliar para decodificar caracteres especiais de e-mail (UTF-8, etc)
+// Funções auxiliares (mantidas iguais)
+function getAllFolderPaths(boxes, parentPath = '') {
+    let paths = [];
+    for (const [key, value] of Object.entries(boxes)) {
+        const delimiter = value.delimiter || '/';
+        const fullPath = parentPath ? parentPath + delimiter + key : key;
+        
+        if (!value.attribs || !value.attribs.some(a => typeof a === 'string' && a.toLowerCase().includes('noselect'))) {
+             paths.push(fullPath);
+        }
+
+        if (value.children) {
+            paths = paths.concat(getAllFolderPaths(value.children, fullPath));
+        }
+    }
+    return paths;
+}
+
 function decodeHeader(str) {
     if (!str) return '';
     return str.replace(/=\?([\w-]+)\?([BbQq])\?([^\?]*)\?=/g, (match, charset, encoding, content) => {
