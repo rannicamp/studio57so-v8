@@ -1,4 +1,4 @@
-// components/PedidoForm.js
+// components/pedidos/PedidoForm.js
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -10,15 +10,13 @@ import {
     faSpinner, faTrash, faPlus, faPencilAlt, faPaperclip, faUpload, faDownload, 
     faSort, faSortUp, faSortDown, faPen, faDollarSign, faBroom, 
     faHandHoldingDollar, faAlignLeft, faCheck, 
-    faCheckCircle 
+    faCheckCircle, faClock
 } from '@fortawesome/free-solid-svg-icons';
 import PedidoItemModal from './PedidoItemModal';
 import LancamentoFormModal from '../financeiro/LancamentoFormModal';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-// 1. IMPORTAÇÃO DA NOTIFICAÇÃO 🔔
 import { notificarGrupo } from '@/utils/notificacoes';
-
 
 const formatDuration = (milliseconds) => {
     if (milliseconds < 0 || isNaN(milliseconds)) return '0 dias';
@@ -33,6 +31,7 @@ const formatDuration = (milliseconds) => {
 const fetchPedidoData = async (supabase, pedidoId, organizacaoId) => {
     if (!pedidoId || !organizacaoId) throw new Error("ID do Pedido ou da Organização não encontrado.");
 
+    // CORREÇÃO AQUI: Trocamos 'pedidos_compra_status_historico' pela tabela nova 'pedidos_compra_historico_fases'
     const { data: pedidoData, error: pedidoError } = await supabase
         .from('pedidos_compra')
         .select(`
@@ -43,7 +42,10 @@ const fetchPedidoData = async (supabase, pedidoId, organizacaoId) => {
                 fornecedor:fornecedor_id(id, nome, razao_social, nome_fantasia), 
                 etapa:etapa_id(nome_etapa)
             ), 
-            historico:pedidos_compra_status_historico(*), 
+            historico:pedidos_compra_historico_fases(
+                data_movimentacao,
+                fase_nova:fase_nova_id(nome)
+            ),
             anexos:pedidos_compra_anexos(*),
             lancamentos:lancamentos(id) 
         `)
@@ -112,12 +114,25 @@ export default function PedidoForm({ pedidoId }) {
     useEffect(() => {
         if (pedido) {
             setPedidoHeader(pedido);
-            if (pedido.historico) {
-                const h = pedido.historico.sort((a,b) => new Date(a.data_mudanca) - new Date(b.data_mudanca));
+            // CORREÇÃO KPI: Ajustado para ler a estrutura da nova tabela de histórico
+            if (pedido.historico && pedido.historico.length > 0) {
+                const h = [...pedido.historico].sort((a,b) => new Date(a.data_movimentacao) - new Date(b.data_movimentacao));
                 const inicio = new Date(pedido.created_at);
-                const cotacao = h.find(item => item.status_novo === 'Em Cotação')?.data_mudanca;
-                const entrega = h.find(item => item.status_novo === 'Entregue')?.data_mudanca;
-                setKpis({ tempoAteCotacao: cotacao ? formatDuration(new Date(cotacao) - inicio) : 'Pendente', tempoAteEntrega: entrega ? formatDuration(new Date(entrega) - inicio) : 'Pendente' });
+                
+                // Procura a primeira vez que entrou em 'Em Cotação' e 'Entregue'
+                // Nota: Usamos o operador ?. para evitar erro se fase_nova for nulo
+                const cotacaoItem = h.find(item => item.fase_nova?.nome === 'Em Cotação');
+                const entregaItem = h.find(item => item.fase_nova?.nome === 'Entregue');
+
+                const dataCotacao = cotacaoItem ? new Date(cotacaoItem.data_movimentacao) : null;
+                const dataEntrega = entregaItem ? new Date(entregaItem.data_movimentacao) : null;
+
+                setKpis({ 
+                    tempoAteCotacao: dataCotacao ? formatDuration(dataCotacao - inicio) : 'Pendente', 
+                    tempoAteEntrega: dataEntrega ? formatDuration(dataEntrega - inicio) : 'Pendente' 
+                });
+            } else {
+                 setKpis({ tempoAteCotacao: 'Pendente', tempoAteEntrega: 'Pendente' });
             }
         }
     }, [pedido]);
@@ -255,15 +270,13 @@ export default function PedidoForm({ pedidoId }) {
             setIsItemModalOpen(false);
             setEditingItem(null);
 
-            // 2. DISPARO DA NOTIFICAÇÃO 📢
-            // Se for um novo item, avisamos a equipe de compras
             if (!isEditing) {
                 await notificarGrupo({
-                    permissao: 'pedidos', // Quem vê pedidos (equipe de compras) recebe
+                    permissao: 'pedidos',
                     titulo: '📦 Nova Solicitação de Material',
                     mensagem: `${user?.nome || 'Alguém'} adicionou "${itemDesc}" ao Pedido #${pedidoId}.`,
                     link: `/pedidos/${pedidoId}`,
-                    tipo: 'alerta', // Ícone de alerta (ou poderia ser obras/financeiro)
+                    tipo: 'alerta',
                     organizacaoId
                 });
             }
@@ -289,7 +302,15 @@ export default function PedidoForm({ pedidoId }) {
     const handleHeaderFieldSave = async (field) => { updateHeaderMutation.mutate({ [field]: pedidoHeader[field] }); };
     const handleAddAnexo = async () => { if (!newAnexoFile) { toast.error('Por favor, selecione um arquivo.'); return; } addAnexoMutation.mutate(newAnexoFile); };
     const handleRemoveAnexo = (anexo) => { toast.warning(`Tem certeza que deseja remover o anexo "${anexo.nome_arquivo}"?`, { action: { label: "Remover", onClick: () => removeAnexoMutation.mutate(anexo) }, cancel: { label: "Cancelar" } }); };
-    const handleDownloadAnexo = async (caminho) => { /* ... (lógica original mantida) ... */ };
+    const handleDownloadAnexo = async (caminho) => { 
+        try {
+            const { data, error } = await supabase.storage.from('pedidos-anexos').createSignedUrl(caminho, 60);
+            if (error) throw error;
+            window.open(data.signedUrl, '_blank');
+        } catch (error) {
+            toast.error("Erro ao baixar anexo.");
+        }
+    };
     const handleSaveItem = (itemData) => { saveItemMutation.mutate(itemData); };
     const handleRemoveItem = (itemId) => { toast.warning("Tem certeza que deseja remover este item?", { action: { label: "Remover", onClick: () => removeItemMutation.mutate(itemId) }, cancel: { label: "Cancelar" } }); };
     const handleEmptyItemList = () => { toast.warning('ATENÇÃO: Deseja REMOVER TODOS OS ITENS? Esta ação é irreversível!', { action: { label: "Esvaziar Lista", onClick: () => emptyItemListMutation.mutate() }, cancel: { label: "Cancelar" } }); };
@@ -376,8 +397,25 @@ export default function PedidoForm({ pedidoId }) {
             <LancamentoFormModal isOpen={isLancamentoModalOpen} onClose={() => setIsLancamentoModalOpen(false)} onSuccess={() => { toast.success("Planejamento de pagamento registrado com sucesso no financeiro!"); queryClient.invalidateQueries({ queryKey: ['pedido', pedidoId, organizacaoId] }) }} initialData={lancamentoInitialData} />
             <div className="bg-white p-6 rounded-lg shadow space-y-6">
                 <div className="border-b pb-4">
-                    <div className="flex items-center gap-2 mb-2"> <FontAwesomeIcon icon={faPen} className="text-gray-400" /> <input type="text" value={pedidoHeader.titulo || ''} onChange={(e) => handleHeaderFieldChange('titulo', e.target.value)} onBlur={() => handleHeaderFieldSave('titulo')} placeholder="Adicione um título para este pedido..." className="text-2xl font-bold w-full p-1 rounded-md focus:ring-2 focus:ring-blue-200" /> </div>
-                    <h2 className="text-gray-600">Solicitação de Compra #{pedido.id}</h2>
+                    <div className="flex justify-between items-start">
+                        <div className="flex-1 mr-4">
+                            <div className="flex items-center gap-2 mb-2"> <FontAwesomeIcon icon={faPen} className="text-gray-400" /> <input type="text" value={pedidoHeader.titulo || ''} onChange={(e) => handleHeaderFieldChange('titulo', e.target.value)} onBlur={() => handleHeaderFieldSave('titulo')} placeholder="Adicione um título para este pedido..." className="text-2xl font-bold w-full p-1 rounded-md focus:ring-2 focus:ring-blue-200" /> </div>
+                            <h2 className="text-gray-600">Solicitação de Compra #{pedido.id}</h2>
+                        </div>
+                        {kpis && (
+                            <div className="flex gap-4 text-xs text-gray-500 bg-gray-50 p-2 rounded border">
+                                <div className="text-center">
+                                    <p className="font-semibold text-gray-700">Cotação</p>
+                                    <p className="flex items-center gap-1 justify-center"><FontAwesomeIcon icon={faClock}/> {kpis.tempoAteCotacao}</p>
+                                </div>
+                                <div className="w-px bg-gray-300"></div>
+                                <div className="text-center">
+                                    <p className="font-semibold text-gray-700">Entrega</p>
+                                    <p className="flex items-center gap-1 justify-center"><FontAwesomeIcon icon={faClock}/> {kpis.tempoAteEntrega}</p>
+                                </div>
+                            </div>
+                        )}
+                    </div>
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
                         <div><p><strong>Empreendimento:</strong> {pedido.empreendimentos.nome}</p></div>
                         <div><p><strong>Status:</strong> <span className="font-semibold text-blue-600">{pedido.status}</span></p></div>
