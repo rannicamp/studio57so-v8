@@ -85,7 +85,23 @@ export default function ComprasKanban({
 
     const duplicatePedidoMutation = useMutation({
         mutationFn: async (pedidoOriginal) => {
-            const { id, created_at, updated_at, data_solicitacao, status, fase_id, ...rest } = pedidoOriginal;
+            // CORREÇÃO: Removemos propriedades relacionais (objetos/arrays) que não são colunas diretas
+            const { 
+                id, 
+                created_at, 
+                updated_at, 
+                data_solicitacao, 
+                status, 
+                fase_id, 
+                // Removemos estes campos extras para evitar o erro "Column not found":
+                anexos,
+                itens,
+                solicitante,
+                empreendimentos,
+                historico,
+                lancamentos,
+                ...rest 
+            } = pedidoOriginal;
             
             // Pega a primeira fase (Solicitação) para a cópia
             const faseInicial = fases[0];
@@ -105,7 +121,16 @@ export default function ComprasKanban({
 
             if (pedidoOriginal.itens && pedidoOriginal.itens.length > 0) {
                 const itensParaCopiar = pedidoOriginal.itens.map(item => {
-                    const { id, pedido_compra_id, created_at, ...itemRest } = item;
+                    // Também removemos relacionamentos dos itens antes de copiar
+                    const { 
+                        id, 
+                        pedido_compra_id, 
+                        created_at, 
+                        fornecedor, // remove objeto fornecedor
+                        etapa,      // remove objeto etapa
+                        ...itemRest 
+                    } = item;
+                    
                     return { ...itemRest, pedido_compra_id: pedidoCriado.id, organizacao_id: user.organizacao_id };
                 });
                 await supabase.from('pedidos_compra_itens').insert(itensParaCopiar);
