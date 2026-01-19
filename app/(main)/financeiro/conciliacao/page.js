@@ -18,12 +18,9 @@ import ConciliacaoWorkbench from '../../../../components/financeiro/conciliacao/
 import LancamentoFormModal from '../../../../components/financeiro/LancamentoFormModal'; 
 
 // --- HELPER: GERAÇÃO DE ID ÚNICO (ASSINATURA DIGITAL) ---
-// Isso garante que CSVs e OFXs ruins (Caixa 000000) tenham IDs únicos e persistentes
 const gerarHashTransacao = (data, valor, descricao) => {
-    // Remove espaços extras e deixa minúsculo para padronizar
     const descLimpa = descricao ? descricao.trim().toLowerCase().replace(/\s+/g, '-') : 'sem-desc';
     const valStr = parseFloat(valor).toFixed(2);
-    // Ex: 2025-07-25_-44.70_tarifa-manutencao
     return `${data}_${valStr}_${descLimpa}`;
 };
 
@@ -43,49 +40,70 @@ const normalizarData = (dataRaw) => {
     return format(new Date(), 'yyyy-MM-dd');
 };
 
-// --- PARSERS COM LÓGICA DE FITID ---
-
+// --- PARSER OFX CORRIGIDO PARA CAIXA (Regex Robusto) ---
 const parseOFX = (ofxString) => {
     const transactions = [];
-    const lines = ofxString.split('\n');
-    let currentTrx = {};
     
-    lines.forEach(line => {
-        if(line.includes('<STMTTRN>')) currentTrx = {};
-        if(line.includes('<TRNTYPE>')) currentTrx.tipo = line.split('>')[1].split('<')[0] === 'CREDIT' ? 'CREDIT' : 'DEBIT';
-        if(line.includes('<DTPOSTED>')) {
-            const rawDate = line.split('>')[1].split('<')[0];
-            const year = rawDate.substring(0,4);
-            const month = rawDate.substring(4,6);
-            const day = rawDate.substring(6,8);
-            currentTrx.data = `${year}-${month}-${day}`;
-        }
-        if(line.includes('<TRNAMT>')) currentTrx.valor = Math.abs(parseFloat(line.split('>')[1].split('<')[0]));
-        if(line.includes('<MEMO>')) currentTrx.descricao = line.split('>')[1].split('<')[0];
-        
-        // --- LÓGICA DO FITID ---
-        if(line.includes('<FITID>')) {
-            const rawFitId = line.split('>')[1].split('<')[0].trim();
-            currentTrx.fitidRaw = rawFitId;
+    // 1. Limpeza: Ignora o cabeçalho textual da Caixa (antes de <OFX>)
+    const startIndex = ofxString.indexOf('<OFX>');
+    const content = startIndex !== -1 ? ofxString.substring(startIndex) : ofxString;
+
+    // 2. Regex para capturar cada bloco <STMTTRN>...</STMTTRN>
+    // [\s\S]*? pega tudo, inclusive quebras de linha, até fechar a tag
+    const regexTransaction = /<STMTTRN>([\s\S]*?)<\/STMTTRN>/gi;
+    
+    let match;
+    while ((match = regexTransaction.exec(content)) !== null) {
+        const block = match[1]; // O conteúdo dentro da transação
+
+        // Helper para extrair valor de uma tag específica dentro do bloco
+        const getValue = (tag) => {
+            const rx = new RegExp(`<${tag}>([^<]*)`, 'i');
+            const m = rx.exec(block);
+            return m ? m[1].trim() : null;
+        };
+
+        const tipoRaw = getValue('TRNTYPE');
+        const dtPosted = getValue('DTPOSTED');
+        const valorRaw = getValue('TRNAMT');
+        const fitid = getValue('FITID');
+        const memo = getValue('MEMO') || getValue('NAME');
+
+        // Tratamento da Data (YYYYMMDD...)
+        let dataFinal = null;
+        if (dtPosted && dtPosted.length >= 8) {
+            const y = dtPosted.substring(0, 4);
+            const m = dtPosted.substring(4, 6);
+            const d = dtPosted.substring(6, 8);
+            dataFinal = `${y}-${m}-${d}`;
         }
 
-        if(line.includes('</STMTTRN>')) {
-            // Definição do ID Final (O Pulo do Gato)
-            // Se tiver FITID válido (diferente de 0 e vazio), usa ele.
-            // Se não, gera a assinatura digital (Data + Valor + Desc).
-            let finalId;
-            if (currentTrx.fitidRaw && currentTrx.fitidRaw !== '0' && !/^0+$/.test(currentTrx.fitidRaw)) {
-                finalId = currentTrx.fitidRaw;
-            } else {
-                finalId = gerarHashTransacao(currentTrx.data, currentTrx.tipo === 'DEBIT' ? -currentTrx.valor : currentTrx.valor, currentTrx.descricao);
-            }
+        // Tratamento do Valor
+        const valor = valorRaw ? Math.abs(parseFloat(valorRaw)) : 0;
+        const tipo = (tipoRaw === 'CREDIT') ? 'CREDIT' : 'DEBIT';
 
-            currentTrx.id = finalId; // Esse ID será usado para comparar com o banco
-            currentTrx.conciliado = false;
-            
-            if(currentTrx.valor) transactions.push(currentTrx);
+        // Lógica do ID (FITID ou Hash)
+        let finalId;
+        if (fitid && fitid !== '0' && !/^0+$/.test(fitid)) {
+            finalId = fitid;
+        } else {
+            // Se o FITID for inválido (comum na Caixa), gera hash
+            finalId = gerarHashTransacao(dataFinal, tipo === 'DEBIT' ? -valor : valor, memo);
         }
-    });
+
+        if (dataFinal && !isNaN(valor)) {
+            transactions.push({
+                id: finalId,
+                fitidRaw: fitid,
+                data: dataFinal,
+                valor: valor,
+                descricao: memo || 'Sem descrição',
+                tipo: tipo,
+                conciliado: false
+            });
+        }
+    }
+    
     return transactions;
 };
 
@@ -104,7 +122,7 @@ const parseCSV = (csvString) => {
 
         let valorRaw = row[valueKey];
         let valor = 0;
-        let valorOriginal = 0; // Para o hash
+        let valorOriginal = 0;
 
         if (typeof valorRaw === 'string') {
             valorRaw = valorRaw.replace('R$', '').trim();
@@ -122,8 +140,6 @@ const parseCSV = (csvString) => {
 
         const dataFormatada = normalizarData(row[dateKey]);
         const descricao = row[descKey] || 'Sem descrição';
-
-        // GERA ID DETERMINÍSTICO PARA CSV TAMBÉM
         const finalId = gerarHashTransacao(dataFormatada, valorOriginal, descricao);
 
         return {
@@ -144,7 +160,7 @@ export default function ConciliacaoPage() {
     
     // Estados
     const [contaSelecionada, setContaSelecionada] = useState(null);
-    const [extratoItems, setExtratoItems] = useState([]); // Itens do arquivo importado
+    const [extratoItems, setExtratoItems] = useState([]); 
     
     // Filtros
     const [dataInicio, setDataInicio] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
@@ -220,7 +236,6 @@ export default function ConciliacaoPage() {
             const isCartao = contaSelecionada.tipo === 'Cartão de Crédito';
             const colunaBusca = isCartao ? 'data_transacao' : 'data_vencimento';
 
-            // AGORA SELECIONAMOS O FITID TAMBÉM
             let query = supabase
                 .from('lancamentos')
                 .select('*, fitid') 
@@ -260,26 +275,21 @@ export default function ConciliacaoPage() {
         enabled: !!contaSelecionada && !!dataInicio && !!dataFim
     });
 
-    // --- A MÁGICA: AUTO-CONCILIAÇÃO VISUAL (MEMÓRIA) ---
-    // Sempre que o extrato ou os dados do sistema mudam, verificamos duplicidade pelo FITID
+    // --- AUTO-CONCILIAÇÃO VISUAL ---
     useEffect(() => {
         if (extratoItems.length > 0 && sistemaItems.length > 0) {
-            // Cria um conjunto de FITIDs que JÁ existem no banco
             const fitidsNoBanco = new Set(
                 sistemaItems
-                    .filter(item => item.fitid) // Pega só quem tem fitid
-                    .map(item => String(item.fitid)) // Garante que é string
+                    .filter(item => item.fitid)
+                    .map(item => String(item.fitid))
             );
 
-            // Verifica se precisamos atualizar o estado visual do extrato
             let houveMudanca = false;
             
             const extratoAtualizado = extratoItems.map(itemExtrato => {
-                // Se o ID desse item do extrato já estiver no banco...
                 if (fitidsNoBanco.has(String(itemExtrato.id))) {
                     if (!itemExtrato.conciliado) {
                         houveMudanca = true;
-                        // ...Marcamos ele como conciliado automaticamente!
                         return { ...itemExtrato, conciliado: true };
                     }
                 }
@@ -291,20 +301,20 @@ export default function ConciliacaoPage() {
                 toast.success("Itens já existentes foram marcados automaticamente.");
             }
         }
-    }, [sistemaItems, extratoItems]); // Roda quando carrega o sistema ou muda o extrato
+    }, [sistemaItems, extratoItems]);
 
     // --- ACTIONS ---
 
     const handleFileLoaded = ({ content, extension }) => {
         try {
             let parsed = [];
+            // O ExtratoUploader já trata a codificação (UTF8/ISO) e manda o 'content' limpo
             if (extension === 'ofx') parsed = parseOFX(content);
             else if (extension === 'csv') parsed = parseCSV(content);
             else throw new Error("Formato não suportado.");
 
             if(parsed.length === 0) throw new Error("Nenhuma transação válida encontrada.");
             
-            // Ao carregar, eles vêm como não conciliados. O useEffect acima vai tratar a "Memória".
             setExtratoItems(parsed);
 
             const datasOrdenadas = parsed.map(p => p.data).sort((a, b) => a.localeCompare(b)); 
@@ -324,8 +334,6 @@ export default function ConciliacaoPage() {
     };
 
     const handleConciliar = async (banco, sistema) => {
-        // Remove visualmente do extrato (opcional, ou marca como feito)
-        // Aqui optamos por remover da lista de pendentes da tela
         setExtratoItems(prev => prev.filter(i => i.id !== banco.id));
         
         try {
@@ -335,7 +343,6 @@ export default function ConciliacaoPage() {
                     status: 'Conciliado', 
                     conciliado: true,
                     data_pagamento: contaSelecionada.tipo === 'Cartão de Crédito' ? null : banco.data,
-                    // GRAVANDO O FITID NO BANCO
                     fitid: banco.id 
                 })
                 .eq('id', sistema.id);
@@ -363,7 +370,6 @@ export default function ConciliacaoPage() {
             data_pagamento: isCartao ? null : dataExtrato,
             status: isCartao ? 'Pendente' : 'Conciliado', 
             conciliado: true,
-            // GRAVANDO O FITID NO BANCO (CRIAÇÃO)
             fitid: itemBanco.id, 
             auditoria_verificado: true
         };
