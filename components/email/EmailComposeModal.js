@@ -1,18 +1,19 @@
 'use client'
 
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react'; // Adicionado useCallback
 import { createPortal } from 'react-dom'; 
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faTimes, faPaperPlane, faSpinner, faPaperclip, faTrashAlt, faFile, faUser, faBuilding, faExclamationTriangle, faCheck, faChevronDown } from '@fortawesome/free-solid-svg-icons';
+import { faTimes, faPaperPlane, faSpinner, faTrashAlt, faFile, faUser, faBuilding, faChevronDown, faCheck } from '@fortawesome/free-solid-svg-icons';
 import EmailEditor from './EmailEditor';
+import EmailAttachmentUpload from './EmailAttachmentUpload'; 
 import { toast } from 'sonner';
 import { useDebounce } from 'use-debounce';
 import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuery } from '@tanstack/react-query';
-import { usePersistentState } from '@/hooks/usePersistentState'; // Importando nosso hook mágico
+import { usePersistentState } from '@/hooks/usePersistentState';
 
-// Função auxiliar para formatar bytes (KB, MB)
+// Função auxiliar para formatar bytes
 const formatBytes = (bytes, decimals = 2) => {
     if (!+bytes) return '0 Bytes';
     const k = 1024;
@@ -28,60 +29,37 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null,
     const organizacaoId = user?.organizacao_id;
 
     const [loading, setLoading] = useState(false);
-    const [uploading, setUploading] = useState(false); 
-    const fileInputRef = useRef(null);
     const [mounted, setMounted] = useState(false);
     
-    // --- PERSISTÊNCIA: Substituímos useState por usePersistentState ---
-    // A chave 'studio57_email_draft_temp' garante que recuperamos o rascunho
+    // --- PERSISTÊNCIA ---
     const [formData, setFormData] = usePersistentState('studio57_email_draft_temp', {
         to: '', cc: '', bcc: '', subject: '', body: '', 
         replyToMessageId: null, attachments: [], accountId: '' 
     });
-
-    const MAX_SIZE_BYTES = 25 * 1024 * 1024; // 25MB
-    
-    const totalSize = useMemo(() => {
-        return formData.attachments.reduce((acc, curr) => acc + (curr.size || 0), 0);
-    }, [formData.attachments]);
-
-    const isOverLimit = totalSize > MAX_SIZE_BYTES;
-    const sizePercentage = Math.min((totalSize / MAX_SIZE_BYTES) * 100, 100);
-
-    let progressColor = 'bg-blue-500';
-    if (sizePercentage > 80) progressColor = 'bg-orange-500';
-    if (isOverLimit) progressColor = 'bg-red-600';
 
     useEffect(() => {
         setMounted(true);
         return () => setMounted(false);
     }, []);
 
-    // --- BUSCAR TODAS AS CONTAS DE E-MAIL ---
+    // --- BUSCAR CONTAS DE E-MAIL ---
     const { data: emailAccounts, isLoading: isLoadingAccounts } = useQuery({
         queryKey: ['emailConfigList', user?.id],
         queryFn: async () => {
-            const { data } = await supabase
-                .from('email_configuracoes')
-                .select('*') // Busca TODAS as contas, não só uma
-                .eq('user_id', user.id);
+            const { data } = await supabase.from('email_configuracoes').select('*').eq('user_id', user.id);
             return data || [];
         },
         enabled: !!user && isOpen, 
         staleTime: 1000 * 60 * 5 
     });
 
-    // Seleciona a conta padrão se não houver nenhuma selecionada no rascunho
     useEffect(() => {
         if (emailAccounts && emailAccounts.length > 0 && !formData.accountId) {
             setFormData(prev => ({ ...prev, accountId: emailAccounts[0].id }));
         }
     }, [emailAccounts, formData.accountId, setFormData]);
 
-    // Encontra a configuração da conta selecionada atualmente para pegar a assinatura correta
-    const selectedAccountConfig = useMemo(() => {
-        return emailAccounts?.find(acc => acc.id === formData.accountId);
-    }, [emailAccounts, formData.accountId]);
+    const selectedAccountConfig = useMemo(() => emailAccounts?.find(acc => acc.id === formData.accountId), [emailAccounts, formData.accountId]);
 
     const buildSignature = (config) => {
         if (!config || !config.assinatura_texto) return '';
@@ -90,46 +68,25 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null,
         const fotoUrl = user?.avatar_url; 
 
         if (incluirFoto && fotoUrl) {
-            return `
-                <br><br>
-                <div style="display: flex; align-items: flex-start; gap: 16px; font-family: sans-serif; border-top: 1px solid #eee; padding-top: 16px; margin-top: 16px;">
-                    <img src="${fotoUrl}" alt="Foto" style="width: 64px; height: 64px; border-radius: 50%; object-fit: cover; flex-shrink: 0;" />
-                    <div>${textoAssinatura}</div>
-                </div>
-            `;
+            return `<br><br><div style="display: flex; align-items: flex-start; gap: 16px; font-family: sans-serif; border-top: 1px solid #eee; padding-top: 16px; margin-top: 16px;"><img src="${fotoUrl}" alt="Foto" style="width: 64px; height: 64px; border-radius: 50%; object-fit: cover; flex-shrink: 0;" /><div>${textoAssinatura}</div></div>`;
         }
-        return `
-            <br><br>
-            <div style="border-top: 1px solid #eee; padding-top: 16px; margin-top: 16px; font-family: sans-serif;">
-                ${textoAssinatura}
-            </div>
-        `;
+        return `<br><br><div style="border-top: 1px solid #eee; padding-top: 16px; margin-top: 16px; font-family: sans-serif;">${textoAssinatura}</div>`;
     };
 
-    // --- AUTOCOMPLETE (MANTIDO) ---
+    // --- AUTOCOMPLETE ---
     const [suggestions, setSuggestions] = useState([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
     const [isSearching, setIsSearching] = useState(false);
-    
-    const getLastTerm = (text) => {
-        if (!text) return '';
-        const parts = text.split(',');
-        return parts[parts.length - 1].trim();
-    };
-
+    const getLastTerm = (text) => text ? text.split(',').pop().trim() : '';
     const searchTerm = getLastTerm(formData.to);
     const [debouncedSearchTerm] = useDebounce(searchTerm, 300);
 
     useEffect(() => {
         const fetchContacts = async () => {
-            if (!debouncedSearchTerm || debouncedSearchTerm.length < 2) {
+            if (!debouncedSearchTerm || debouncedSearchTerm.length < 2 || (debouncedSearchTerm.includes('@') && debouncedSearchTerm.includes('.'))) {
                 setSuggestions([]); setShowSuggestions(false); return;
             }
-            if (debouncedSearchTerm.includes('@') && debouncedSearchTerm.includes('.')) {
-                 setSuggestions([]); setShowSuggestions(false); return;
-            }
             if (!organizacaoId) return;
-
             setIsSearching(true);
             try {
                 const queryNome = supabase.from('contatos').select('id, nome, razao_social, nome_fantasia, emails(email)').eq('organizacao_id', organizacaoId).or(`nome.ilike.%${debouncedSearchTerm}%,razao_social.ilike.%${debouncedSearchTerm}%,nome_fantasia.ilike.%${debouncedSearchTerm}%`).limit(5);
@@ -144,10 +101,11 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null,
                         seenEmails.add(email);
                     }
                 };
-                if (resNome.data) resNome.data.forEach(c => c.emails?.forEach(e => processItem(c.id, c.nome || c.razao_social || c.nome_fantasia, e.email, !!c.razao_social)));
-                if (resEmail.data) resEmail.data.forEach(e => e.contatos && processItem(e.contatos.id, e.contatos.nome || e.contatos.razao_social || e.contatos.nome_fantasia, e.email, !!e.contatos.razao_social));
-                if (combinedResults.length > 0) { setSuggestions(combinedResults); setShowSuggestions(true); } 
-                else { setSuggestions([]); setShowSuggestions(false); }
+                resNome.data?.forEach(c => c.emails?.forEach(e => processItem(c.id, c.nome || c.razao_social || c.nome_fantasia, e.email, !!c.razao_social)));
+                resEmail.data?.forEach(e => e.contatos && processItem(e.contatos.id, e.contatos.nome || e.contatos.razao_social || e.contatos.nome_fantasia, e.email, !!e.contatos.razao_social));
+                
+                setSuggestions(combinedResults);
+                setShowSuggestions(combinedResults.length > 0);
             } catch (err) { console.error(err); } finally { setIsSearching(false); }
         };
         fetchContacts();
@@ -158,136 +116,64 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null,
         setFormData(prev => ({ ...prev, to: parts.join(',').replace(/^,/, '').trim() + ', ' }));
         setSuggestions([]); setShowSuggestions(false);
     };
+
     useEffect(() => {
         const handleClickOutside = () => setShowSuggestions(false);
         if (showSuggestions) document.addEventListener('click', handleClickOutside);
         return () => document.removeEventListener('click', handleClickOutside);
     }, [showSuggestions]);
 
-    // --- POPULAR DADOS (Inicialização) ---
-    // Executa apenas quando initialData muda (ex: clicar em Responder). 
-    // Se abrir vazio, o usePersistentState já cuida de manter o rascunho.
+    // --- POPULAR DADOS INICIAIS ---
     useEffect(() => {
         if (isOpen && initialData && selectedAccountConfig) {
-            // Só sobrescrevemos se for uma ação explícita de Responder/Encaminhar
-            // Se for apenas abrir o modal 'Nova Mensagem', respeitamos o rascunho salvo
             const signature = buildSignature(selectedAccountConfig);
-            const shouldUseSig = selectedAccountConfig?.assinatura_usar_respostas !== false; 
-            const sigHtml = shouldUseSig ? `<p></p>${signature}` : ''; 
+            const sigHtml = selectedAccountConfig?.assinatura_usar_respostas !== false ? `<p></p>${signature}` : ''; 
             const initialBody = `${sigHtml}${initialData.body || ''}`;
             
             setFormData({
                 to: initialData.to || '', cc: initialData.cc || '', bcc: '', subject: initialData.subject || '',
-                body: initialBody,
-                replyToMessageId: initialData.messageId || null,
-                attachments: [],
-                accountId: formData.accountId // Mantém a conta que já estava ou a padrão
+                body: initialBody, replyToMessageId: initialData.messageId || null, attachments: [], accountId: formData.accountId 
             });
-            setSuggestions([]);
-        } 
-        // Lógica para adicionar assinatura no rascunho vazio se ainda não tiver
-        else if (isOpen && selectedAccountConfig && !formData.body && !initialData) {
-             const signature = buildSignature(selectedAccountConfig);
-             const shouldUseSig = selectedAccountConfig?.assinatura_usar_novos !== false;
-             if (shouldUseSig) {
-                 setFormData(prev => ({ ...prev, body: `<p></p>${signature}` }));
-             }
+        } else if (isOpen && selectedAccountConfig && !formData.body && !initialData && selectedAccountConfig?.assinatura_usar_novos !== false) {
+             setFormData(prev => ({ ...prev, body: `<p></p>${buildSignature(selectedAccountConfig)}` }));
         }
-    }, [isOpen, initialData, selectedAccountConfig]); // Removemos setFormData das dependências para evitar loop
+    }, [isOpen, initialData, selectedAccountConfig]);
 
-    const handleAttachmentClick = () => fileInputRef.current?.click();
-
-    // --- UPLOAD (SUPABASE STORAGE) ---
-    const handleFileChange = async (e) => {
-        const files = Array.from(e.target.files);
-        if (files.length === 0) return;
-        
-        setUploading(true);
-        let tempTotalSize = totalSize;
-        const uploadedAttachments = [];
-
-        for (const file of files) {
-            if (tempTotalSize + file.size > MAX_SIZE_BYTES) {
-                toast.error(`"${file.name}" excede o limite restante.`);
-                continue;
-            }
-
-            try {
-                const fileName = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-                
-                const { data, error } = await supabase.storage
-                    .from('anexos-email') 
-                    .upload(fileName, file);
-
-                if (error) throw error;
-
-                const { data: { publicUrl } } = supabase.storage
-                    .from('anexos-email')
-                    .getPublicUrl(fileName);
-
-                uploadedAttachments.push({ 
-                    filename: file.name, 
-                    path: publicUrl, 
-                    size: file.size 
-                });
-
-                tempTotalSize += file.size;
-
-            } catch (err) { 
-                console.error("Erro upload:", err); 
-                toast.error(`Erro ao anexar ${file.name}: ${err.message}`);
-            }
-        }
-        
-        setFormData(prev => ({ ...prev, attachments: [...prev.attachments, ...uploadedAttachments] }));
-        e.target.value = ''; 
-        setUploading(false);
-    };
+    // --- CALLBACK ESTÁVEL PARA UPLOAD (SOLUÇÃO DO BUG DE DUPLICAÇÃO) ---
+    // Usamos useCallback para que essa função não mude a cada letra digitada
+    const handleAttachmentsComplete = useCallback((newFiles) => {
+        const formattedAttachments = newFiles.map(f => ({
+            filename: f.name,
+            path: f.url,
+            size: typeof f.size === 'number' ? f.size : 0 
+        }));
+        setFormData(prev => ({ ...prev, attachments: [...prev.attachments, ...formattedAttachments] }));
+    }, [setFormData]); // setFormData é estável pelo hook usePersistentState
 
     const removeAttachment = (index) => {
         setFormData(prev => ({ ...prev, attachments: prev.attachments.filter((_, i) => i !== index) }));
     };
 
-    // --- LIMPAR RASCUNHO (Descartar) ---
     const handleDiscard = () => {
         if (confirm('Tem certeza que deseja descartar este rascunho?')) {
-            setFormData({
-                to: '', cc: '', bcc: '', subject: '', body: '', 
-                replyToMessageId: null, attachments: [], accountId: formData.accountId
-            });
+            setFormData({ to: '', cc: '', bcc: '', subject: '', body: '', replyToMessageId: null, attachments: [], accountId: formData.accountId });
             onClose();
         }
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        
-        if (isOverLimit) {
-            toast.error("Limite de 25MB excedido.");
-            return;
-        }
-
-        if (!formData.accountId) {
-            toast.error("Selecione uma conta para enviar.");
-            return;
-        }
+        if (!formData.accountId) { toast.error("Selecione uma conta para enviar."); return; }
 
         setLoading(true);
         try {
             const finalTo = formData.to.trim().replace(/,$/, '');
-            
             const res = await fetch('/api/email/send', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
-                    ...formData, 
-                    to: finalTo, 
-                    html: formData.body,
-                    // Garante que enviamos apenas o necessário
-                    attachments: formData.attachments.map(a => ({
-                        filename: a.filename,
-                        path: a.path 
-                    }))
+                    ...formData, to: finalTo, html: formData.body,
+                    attachments: formData.attachments.map(a => ({ filename: a.filename, path: a.path }))
                 })
             });
             
@@ -295,34 +181,23 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null,
             if (!res.ok) throw new Error(data.error || 'Erro ao enviar');
             
             toast.success('E-mail enviado!');
-            
-            // LIMPA O RASCUNHO APÓS SUCESSO
-            setFormData({
-                to: '', cc: '', bcc: '', subject: '', body: '', 
-                replyToMessageId: null, attachments: [], accountId: formData.accountId
-            });
-
+            setFormData({ to: '', cc: '', bcc: '', subject: '', body: '', replyToMessageId: null, attachments: [], accountId: formData.accountId });
             if (onEmailSent) onEmailSent();
             onClose();
-        } catch (error) { 
-            console.error(error);
-            toast.error(error.message);
-        } 
-        finally { setLoading(false); }
+        } catch (error) { toast.error(error.message); } finally { setLoading(false); }
     };
 
     if (!mounted || !isOpen) return null;
 
     return createPortal(
         <div className="fixed inset-0 bg-black/50 z-[99999] flex items-center justify-center p-4 backdrop-blur-sm" style={{ pointerEvents: 'auto' }}>
-            <div className="bg-white w-full max-w-4xl rounded-xl shadow-2xl flex flex-col h-[85vh] animate-fade-in-up">
+            <div className="bg-white w-full max-w-4xl rounded-xl shadow-2xl flex flex-col h-[90vh] animate-fade-in-up">
                 
+                {/* Header */}
                 <div className="flex justify-between items-center px-6 py-4 border-b bg-gray-50 rounded-t-xl shrink-0">
                     <h2 className="font-bold text-gray-800 text-lg">
-                        {initialData?.type === 'reply' ? 'Responder' : 
-                         initialData?.type === 'forward' ? 'Encaminhar' : 'Nova Mensagem'}
+                        {initialData?.type === 'reply' ? 'Responder' : initialData?.type === 'forward' ? 'Encaminhar' : 'Nova Mensagem'}
                     </h2>
-                    {/* Botão de Fechar apenas fecha o modal, mas MANTÉM os dados salvos */}
                     <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors" title="Fechar e manter rascunho">
                         <FontAwesomeIcon icon={faTimes} className="text-xl" />
                     </button>
@@ -330,9 +205,8 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null,
 
                 <form onSubmit={handleSubmit} className="flex flex-col flex-grow overflow-hidden">
                     <div className="p-6 flex flex-col h-full gap-4 overflow-y-auto custom-scrollbar">
-                        
                         <div className="grid gap-4 relative">
-                            {/* --- SELEÇÃO DE CONTA (DE:) --- */}
+                            {/* De: */}
                             <div className="flex items-center gap-2 border-b border-gray-100 pb-2">
                                 <label className="w-16 text-sm font-semibold text-gray-500 text-right">De:</label>
                                 <div className="flex-grow relative">
@@ -340,15 +214,9 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null,
                                         <div className="text-xs text-gray-400">Carregando contas...</div>
                                     ) : (
                                         <div className="relative w-full md:w-1/2">
-                                            <select 
-                                                value={formData.accountId} 
-                                                onChange={e => setFormData({...formData, accountId: e.target.value})}
-                                                className="w-full outline-none text-sm text-gray-800 bg-transparent py-1 pr-8 appearance-none font-medium cursor-pointer hover:bg-gray-50 rounded"
-                                            >
+                                            <select value={formData.accountId} onChange={e => setFormData({...formData, accountId: e.target.value})} className="w-full outline-none text-sm text-gray-800 bg-transparent py-1 pr-8 appearance-none font-medium cursor-pointer hover:bg-gray-50 rounded">
                                                 {emailAccounts?.map(acc => (
-                                                    <option key={acc.id} value={acc.id}>
-                                                        {acc.nome_remetente ? `${acc.nome_remetente} <${acc.email}>` : acc.email}
-                                                    </option>
+                                                    <option key={acc.id} value={acc.id}>{acc.nome_remetente ? `${acc.nome_remetente} <${acc.email}>` : acc.email}</option>
                                                 ))}
                                             </select>
                                             <FontAwesomeIcon icon={faChevronDown} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 text-xs pointer-events-none" />
@@ -356,7 +224,7 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null,
                                     )}
                                 </div>
                             </div>
-
+                            {/* Para: */}
                             <div className="flex items-center gap-2 border-b border-gray-100 pb-2 relative">
                                 <label className="w-16 text-sm font-semibold text-gray-500 text-right">Para:</label>
                                 <div className="flex-grow relative">
@@ -384,64 +252,44 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null,
                             </div>
                         </div>
 
-                        {/* ÁREA DE ANEXOS */}
-                        <div className="flex flex-col gap-2">
-                            {totalSize > 0 && (
-                                <div className="flex flex-col gap-1 px-2 py-2 bg-gray-50 rounded-lg border border-gray-100">
-                                    <div className="flex justify-between items-center text-xs font-semibold mb-1">
-                                        <span className={isOverLimit ? "text-red-600" : "text-gray-600"}>
-                                            Total: {formatBytes(totalSize)} / 25 MB
-                                        </span>
-                                        {isOverLimit && <span className="text-red-600 flex items-center gap-1"><FontAwesomeIcon icon={faExclamationTriangle} /> Limite excedido!</span>}
-                                    </div>
-                                    <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
-                                        <div className={`h-full transition-all duration-300 ${progressColor}`} style={{ width: `${sizePercentage}%` }}></div>
-                                    </div>
-                                </div>
-                            )}
+                        <div className="space-y-3">
+                            {/* COMPONENTE DE UPLOAD LIMPO */}
+                            <div className="border border-dashed border-gray-300 rounded-lg p-2 bg-gray-50">
+                                <EmailAttachmentUpload onUploadComplete={handleAttachmentsComplete} />
+                            </div>
 
-                            {uploading && (
-                                <div className="text-xs text-blue-600 flex items-center gap-2 animate-pulse pl-2">
-                                    <FontAwesomeIcon icon={faSpinner} spin /> Enviando arquivo para nuvem...
-                                </div>
-                            )}
-                            
+                            {/* LISTA DE ARQUIVOS (A ÚNICA QUE APARECE) */}
                             {formData.attachments.length > 0 && (
-                                <div className="flex flex-wrap gap-2 py-2">
+                                <div className="flex flex-wrap gap-2 animate-fade-in">
                                     {formData.attachments.map((att, index) => (
-                                        <div key={index} className="flex items-center gap-2 bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-xs font-medium border border-blue-100 shadow-sm animate-fade-in">
+                                        <div key={index} className="flex items-center gap-2 bg-blue-50 text-blue-700 px-3 py-1.5 rounded-md text-xs font-medium border border-blue-100 shadow-sm">
                                             <FontAwesomeIcon icon={faCheck} className="text-green-500" />
                                             <FontAwesomeIcon icon={faFile} />
-                                            <span className="max-w-[150px] truncate" title={att.filename}>{att.filename}</span>
-                                            <span className="text-blue-400 text-[10px]">({formatBytes(att.size)})</span>
-                                            <button type="button" onClick={() => removeAttachment(index)} className="ml-1 text-blue-400 hover:text-red-500"><FontAwesomeIcon icon={faTimes} /></button>
+                                            <span className="max-w-[200px] truncate" title={att.filename}>{att.filename}</span>
+                                            {att.size > 0 && <span className="text-blue-400 text-[10px] ml-1">({formatBytes(att.size)})</span>}
+                                            <button type="button" onClick={() => removeAttachment(index)} className="ml-2 text-gray-400 hover:text-red-500 p-1">
+                                                <FontAwesomeIcon icon={faTimes} />
+                                            </button>
                                         </div>
                                     ))}
                                 </div>
                             )}
                         </div>
 
-                        <div className="flex-grow min-h-[300px]">
+                        <div className="flex-grow min-h-[300px] border rounded-lg overflow-hidden">
                             <EmailEditor value={formData.body} onChange={(html) => setFormData({...formData, body: html})} />
                         </div>
                     </div>
 
                     <div className="px-6 py-4 border-t bg-gray-50 rounded-b-xl flex justify-between items-center shrink-0">
-                        <div className="flex gap-4">
-                            <input type="file" multiple ref={fileInputRef} onChange={handleFileChange} className="hidden" />
-                            
-                            <button type="button" onClick={handleAttachmentClick} disabled={uploading || loading || isOverLimit} className="text-gray-500 hover:text-blue-600 text-sm flex items-center gap-2 px-2 py-1 rounded hover:bg-gray-100 disabled:opacity-50">
-                                <FontAwesomeIcon icon={faPaperclip} /> <span className="hidden sm:inline">Anexar</span>
-                            </button>
-                            
-                            {/* Descartar agora limpa o rascunho explicitamente */}
-                            <button type="button" onClick={handleDiscard} className="text-gray-500 hover:text-red-500 text-sm px-2 py-1 rounded hover:bg-gray-100"><FontAwesomeIcon icon={faTrashAlt} className="mr-1" /> Descartar</button>
-                        </div>
+                        <button type="button" onClick={handleDiscard} className="text-gray-500 hover:text-red-500 text-sm px-2 py-1 rounded hover:bg-gray-100 transition-colors">
+                            <FontAwesomeIcon icon={faTrashAlt} className="mr-1" /> Descartar
+                        </button>
                         <div className="flex gap-3">
-                            {/* Cancelar agora é um "Fechar" seguro */}
-                            <button type="button" onClick={onClose} className="px-4 py-2 text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 text-sm font-medium">Cancelar (Salvar Rascunho)</button>
-                            
-                            <button type="submit" disabled={loading || uploading || isOverLimit} className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-md flex items-center gap-2 text-sm font-bold transition-transform active:scale-95 disabled:opacity-70 disabled:bg-gray-400">
+                            <button type="button" onClick={onClose} className="px-4 py-2 text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-100 text-sm font-medium transition-colors">
+                                Salvar Rascunho
+                            </button>
+                            <button type="submit" disabled={loading} className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-md flex items-center gap-2 text-sm font-bold transition-transform active:scale-95 disabled:opacity-70 disabled:bg-gray-400">
                                 {loading ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faPaperPlane} />} Enviar
                             </button>
                         </div>
