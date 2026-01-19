@@ -18,10 +18,10 @@ export async function GET(request) {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
 
-        // 1. TENTA CACHE DO BANCO (Se já clicou antes, carrega rápido)
+        // 1. TENTA CACHE DO BANCO
         let queryCache = supabase
             .from('email_messages_cache')
-            .select('conteudo_cache')
+            .select('conteudo_cache, is_read') // Adicionei is_read para verificar
             .eq('uid', uid)
             .eq('folder_path', folderName);
             
@@ -29,12 +29,20 @@ export async function GET(request) {
 
         const { data: cacheData } = await queryCache.single();
 
-        // Se já temos o conteúdo completo cacheado, retorna ele
+        // Se já tem conteúdo E já está marcado como lido, retorna rápido
         if (cacheData?.conteudo_cache && cacheData.conteudo_cache.html) {
+             // Pequena segurança: Se no banco diz que não leu, mas o usuário abriu agora, atualizamos o status de leitura
+             if (cacheData.is_read === false) {
+                 await supabase.from('email_messages_cache')
+                    .update({ is_read: true })
+                    .eq('uid', uid)
+                    .eq('folder_path', folderName)
+                    .eq('account_id', accountId);
+             }
             return NextResponse.json(cacheData.conteudo_cache);
         }
 
-        // 2. SE NÃO TEM (Primeiro clique), VAI NO IMAP
+        // 2. BUSCA NO IMAP (Se não tem cache ou é a primeira leitura)
         let queryConfig = supabase.from('email_configuracoes').select('*').eq('user_id', user.id);
         if (accountId) queryConfig = queryConfig.eq('id', accountId);
         
@@ -56,29 +64,32 @@ export async function GET(request) {
         };
 
         const connection = await imapSimple.connect(imapConfig);
-        await connection.openBox(folderName, { readOnly: true }); // ReadOnly para não marcar lido sem querer
+        await connection.openBox(folderName, { readOnly: false }); // MUDANÇA: readOnly false para permitir marcar como lido
 
         const searchCriteria = [['UID', uid]];
-        const fetchOptions = { bodies: [''], markSeen: false }; // Pega corpo completo
+        
+        // --- MUDANÇA CRUCIAL AQUI ---
+        // Ao baixar o conteúdo, marcamos como VISTO (Seen/Lido) no servidor de e-mail
+        const fetchOptions = { 
+            bodies: [''], 
+            markSeen: true 
+        }; 
 
         const messages = await connection.search(searchCriteria, fetchOptions);
+        
         if (messages.length === 0) {
             connection.end();
-            return NextResponse.json({ error: 'E-mail não encontrado no servidor' }, { status: 404 });
+            return NextResponse.json({ error: 'E-mail não encontrado' }, { status: 404 });
         }
 
         const source = messages[0].parts.find(part => part.which === '')?.body;
-        
-        // Parseia o e-mail bruto
         const parsed = await simpleParser(source);
 
-        // 3. SANITIZAÇÃO DE DADOS (CRÍTICO PARA PERFORMANCE)
-        // Prepara os dados para salvar no banco SEM O CONTEÚDO DOS ANEXOS
+        // Sanitização de anexos (Mantendo a lógica leve do plano anterior)
         const attachmentsMeta = parsed.attachments.map(att => ({
             filename: att.filename,
             contentType: att.contentType,
             size: att.size,
-            // NÃO SALVAMOS O BUFFER NO BANCO (Isso matava seu Supabase)
             content: null 
         }));
 
@@ -89,19 +100,19 @@ export async function GET(request) {
             to: parsed.to?.text,
             cc: parsed.cc?.text,
             date: parsed.date,
-            html: parsed.html || parsed.textAsHtml || '', // Garante HTML
+            html: parsed.html || parsed.textAsHtml || '', 
             text: parsed.text || '',
-            attachments: attachmentsMeta // Metadados leves
+            attachments: attachmentsMeta
         };
 
-        // 4. ATUALIZA O CACHE NO BANCO
-        // Agora salvamos o corpo para a próxima vez ser rápida, mas sem o peso dos arquivos
+        // 3. ATUALIZA O CACHE E O STATUS DE LEITURA
         await supabase
             .from('email_messages_cache')
             .update({
-                conteudo_cache: emailDataForDb, // Salva JSON leve
-                html_body: emailDataForDb.html ? emailDataForDb.html.substring(0, 100000) : null, // Opcional: limita tamanho
+                conteudo_cache: emailDataForDb,
+                html_body: emailDataForDb.html ? emailDataForDb.html.substring(0, 100000) : null,
                 has_attachments: parsed.attachments.length > 0,
+                is_read: true, // <--- MUDANÇA: Força o status LIDO no banco
                 updated_at: new Date().toISOString()
             })
             .eq('uid', uid)
@@ -110,15 +121,12 @@ export async function GET(request) {
 
         connection.end();
 
-        // 5. RESPOSTA PARA O FRONTEND (COM ANEXOS)
-        // Para o usuário ver AGORA, mandamos os anexos em memória (sem salvar no banco)
         const responseData = {
             ...emailDataForDb,
             attachments: parsed.attachments.map(att => ({
                 filename: att.filename,
                 contentType: att.contentType,
                 size: att.size,
-                // Aqui mandamos o conteúdo para o navegador baixar se quiser
                 content: att.content 
             }))
         };
