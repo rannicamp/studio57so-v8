@@ -28,11 +28,11 @@ import {
 // Importando a Server Action
 import { salvarLead } from './actions';
 
-// Importando o modal de Zoom (verifique se o caminho está correto na sua pasta components)
+// Importando o modal de Zoom
 import ZoomableImageModal from '../../../components/ZoomableImageModal';
 
 const roboto = Roboto({
-  weight: ['100', '400', '500', '700', '900'],
+  weight: ['100', '300', '400', '500', '700', '900'],
   subsets: ['latin'],
   display: 'swap',
   variable: '--font-roboto',
@@ -45,7 +45,7 @@ const montserrat = Montserrat({
   variable: '--font-montserrat',
 });
 
-// --- Componentes de Ícones (Do Design Antigo) ---
+// --- Componentes de Ícones ---
 const IconeLocalizacao = () => (
   <FontAwesomeIcon icon={faTreeCity} className="w-8 h-8" />
 );
@@ -68,7 +68,6 @@ const IconeSeguranca = () => (
 const primaryColor = '#2c5234';
 
 export default function RefugioBraunasClient() {
-  // Lógica de Estado do Design Antigo
   const [view, setView] = useState('investidor');
   const [selectedImage, setSelectedImage] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -86,7 +85,7 @@ export default function RefugioBraunasClient() {
     <div
       className={`${roboto.variable} ${montserrat.variable} font-sans bg-white text-gray-800`}
     >
-      {/* --- ESTILOS GLOBAIS (Restaurados) --- */}
+      {/* --- ESTILOS GLOBAIS --- */}
       <style jsx global>{`
         :root {
           --font-roboto: ${roboto.variable};
@@ -140,17 +139,20 @@ export default function RefugioBraunasClient() {
             className="w-full max-w-xs md:max-w-md object-contain mb-8"
             priority
           />
+          
+          {/* MUDANÇA AQUI: Reduzido para text-2xl (mobile) e text-4xl (desktop) */}
           <h1
-            className={`font-sans text-4xl md:text-6xl font-extrabold uppercase tracking-wider text-shadow-lg`}
+            className={`font-sans text-2xl md:text-4xl font-thin uppercase tracking-widest text-shadow-lg`}
           >
             Seu Refúgio
           </h1>
+          
           <p
-            className={`font-sans text-lg md:text-2xl mt-4 text-shadow font-thin tracking-wider`}
+            className={`font-sans text-lg md:text-xl mt-6 text-shadow font-thin tracking-wider opacity-90`}
           >
             A 10 minutos do centro de Governador Valadares
           </p>
-          <div className="bg-black/30 backdrop-blur-sm rounded-full p-1 flex items-center mt-8">
+          <div className="bg-black/30 backdrop-blur-sm rounded-full p-1 flex items-center mt-10">
             <button
               onClick={() => setView('investidor')}
               className={`px-6 py-2 rounded-full text-sm font-bold transition-colors duration-300 ${
@@ -548,7 +550,7 @@ export default function RefugioBraunasClient() {
         onClose={closeModal}
       />
 
-      {/* Modal de Lead (Restaurado com Framer Motion) */}
+      {/* Modal de Lead */}
       <AnimatePresence>
         {isModalOpen && (
           <motion.div
