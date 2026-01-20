@@ -89,18 +89,28 @@ const InfoField = ({ label, value, icon, highlight = false }) => (
     </div>
 );
 
+// --- ATUALIZADO: Filtra 'objetivo' para não duplicar ---
 const MetaFormData = ({ data }) => {
     if (!data || typeof data !== 'object' || Object.keys(data).length === 0) return null;
     const filteredData = { ...data };
+    
+    // Remove campos padrão
     delete filteredData.full_name;
     delete filteredData.email;
     delete filteredData.phone_number;
+
+    // Remove campos de OBJETIVO (pois já estão na qualificação)
+    Object.keys(filteredData).forEach(key => {
+        if (key.toLowerCase().includes('objetivo')) {
+            delete filteredData[key];
+        }
+    });
     
     if (Object.keys(filteredData).length === 0) return null;
 
     return (
         <section className="mb-6">
-            <h4 className="font-semibold text-gray-700 mb-3 flex items-center gap-2 text-sm uppercase tracking-wide"><FontAwesomeIcon icon={faBullhorn} /> Dados do Formulário</h4>
+            <h4 className="font-semibold text-gray-700 mb-3 flex items-center gap-2 text-sm uppercase tracking-wide"><FontAwesomeIcon icon={faBullhorn} /> Dados do Formulário (Meta)</h4>
             <div className="space-y-3 p-3 bg-gray-50 border rounded-md">
                 {Object.entries(filteredData).map(([key, value]) => (
                     <div key={key}>

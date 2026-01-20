@@ -34,7 +34,7 @@
     "browser-image-compression": "^2.0.2",
     "date-fns": "^4.1.0",
     "extenso": "^2.1.0",
-    "framer-motion": "^12.23.6",
+    "framer-motion": "^12.27.5",
     "googleapis": "^155.0.0",
     "html2pdf.js": "^0.12.1",
     "imap-simple": "^5.1.0",
