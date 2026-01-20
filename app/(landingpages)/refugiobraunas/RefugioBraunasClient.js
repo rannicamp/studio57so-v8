@@ -68,7 +68,7 @@ const IconeSeguranca = () => (
 const primaryColor = '#2c5234';
 
 export default function RefugioBraunasClient() {
-  const [view, setView] = useState('investidor');
+  // REMOVIDO: const [view, setView] = useState('investidor');
   const [selectedImage, setSelectedImage] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -140,7 +140,6 @@ export default function RefugioBraunasClient() {
             priority
           />
           
-          {/* MUDANÇA AQUI: Reduzido para text-2xl (mobile) e text-4xl (desktop) */}
           <h1
             className={`font-sans text-2xl md:text-4xl font-thin uppercase tracking-widest text-shadow-lg`}
           >
@@ -152,28 +151,21 @@ export default function RefugioBraunasClient() {
           >
             A 10 minutos do centro de Governador Valadares
           </p>
-          <div className="bg-black/30 backdrop-blur-sm rounded-full p-1 flex items-center mt-10">
+          
+          {/* Botão Único de CTA */}
+          <div className="mt-10">
             <button
-              onClick={() => setView('investidor')}
-              className={`px-6 py-2 rounded-full text-sm font-bold transition-colors duration-300 ${
-                view === 'investidor' ? 'bg-primary text-white' : 'text-white'
-              }`}
+                onClick={openLeadModal}
+                className="bg-primary/90 hover:bg-primary text-white font-bold py-3 px-8 rounded-full transition-all duration-300 shadow-lg backdrop-blur-sm border border-white/20"
             >
-              Sou Investidor
-            </button>
-            <button
-              onClick={() => setView('morador')}
-              className={`px-6 py-2 rounded-full text-sm font-bold transition-colors duration-300 ${
-                view === 'morador' ? 'bg-primary text-white' : 'text-white'
-              }`}
-            >
-              Quero Morar
+                <FontAwesomeIcon icon={faMountainSun} className="mr-2" />
+                QUERO CONHECER
             </button>
           </div>
         </div>
       </section>
 
-      {/* Intro Section */}
+      {/* Intro Section (Preço e Book) */}
       <section className="bg-gray-50 py-16 md:py-20">
         <div className="container mx-auto px-4 text-center">
           <div className="max-w-3xl mx-auto bg-white p-8 rounded-lg shadow-md">
@@ -202,113 +194,109 @@ export default function RefugioBraunasClient() {
         </div>
       </section>
 
-      {/* Condicional: Visão do Investidor */}
-      {view === 'investidor' && (
-        <section className="py-16 md:py-24 bg-white">
-          <div className="container mx-auto px-4">
-            <h2 className="text-3xl md:text-4xl font-bold text-center mb-12 text-gray-900">
-              Uma Oportunidade Única de Investimento
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              <div className="p-6 bg-gray-100 rounded-lg shadow-sm text-center">
-                <div className="mb-4 inline-block text-primary">
-                  <IconeRentabilidade />
-                </div>
-                <h3 className="text-xl font-bold mb-2 text-gray-900">
-                  O Melhor Custo-Benefício
-                </h3>
-                <p className="text-gray-600">
-                  Com lotes a partir de R$ 350/m², o Refúgio Braúnas oferece uma
-                  oportunidade incomparável em Governador Valadares,
-                  posicionando você para uma valorização expressiva.
-                </p>
+      {/* Seção 1: Investimento e Valorização (Antiga View Investidor) */}
+      <section className="py-16 md:py-24 bg-white">
+        <div className="container mx-auto px-4">
+          <h2 className="text-3xl md:text-4xl font-bold text-center mb-12 text-gray-900">
+            Uma Oportunidade Única de Investimento
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="p-6 bg-gray-100 rounded-lg shadow-sm text-center">
+              <div className="mb-4 inline-block text-primary">
+                <IconeRentabilidade />
               </div>
-              <div className="p-6 bg-gray-100 rounded-lg shadow-sm text-center">
-                <div className="mb-4 inline-block text-primary">
-                  <IconeValorizacao />
-                </div>
-                <h3 className="text-xl font-bold mb-2 text-gray-900">
-                  Potencial de Valorização
-                </h3>
-                <p className="text-gray-600">
-                  Investir em um lote com custo por m² tão competitivo em uma
-                  área de expansão garante um potencial de valorização único e
-                  um retorno sólido sobre seu investimento.
-                </p>
+              <h3 className="text-xl font-bold mb-2 text-gray-900">
+                O Melhor Custo-Benefício
+              </h3>
+              <p className="text-gray-600">
+                Com lotes a partir de R$ 350/m², o Refúgio Braúnas oferece uma
+                oportunidade incomparável em Governador Valadares,
+                posicionando você para uma valorização expressiva.
+              </p>
+            </div>
+            <div className="p-6 bg-gray-100 rounded-lg shadow-sm text-center">
+              <div className="mb-4 inline-block text-primary">
+                <IconeValorizacao />
               </div>
-              <div className="p-6 bg-gray-100 rounded-lg shadow-sm text-center">
-                <div className="mb-4 inline-block text-primary">
-                  <IconeLocalizacao />
-                </div>
-                <h3 className="text-xl font-bold mb-2 text-gray-900">
-                  Qualidade de Vida como Ativo
-                </h3>
-                <p className="text-gray-600">
-                  A crescente busca por espaço e natureza, a 10 minutos do
-                  centro, torna os lotes no Refúgio Braúnas um ativo altamente
-                  desejado para aluguel por temporada ou revenda.
-                </p>
+              <h3 className="text-xl font-bold mb-2 text-gray-900">
+                Potencial de Valorização
+              </h3>
+              <p className="text-gray-600">
+                Investir em um lote com custo por m² tão competitivo em uma
+                área de expansão garante um potencial de valorização único e
+                um retorno sólido sobre seu investimento.
+              </p>
+            </div>
+            <div className="p-6 bg-gray-100 rounded-lg shadow-sm text-center">
+              <div className="mb-4 inline-block text-primary">
+                <IconeLocalizacao />
               </div>
+              <h3 className="text-xl font-bold mb-2 text-gray-900">
+                Qualidade de Vida como Ativo
+              </h3>
+              <p className="text-gray-600">
+                A crescente busca por espaço e natureza, a 10 minutos do
+                centro, torna os lotes no Refúgio Braúnas um ativo altamente
+                desejado para aluguel por temporada ou revenda.
+              </p>
             </div>
           </div>
-        </section>
-      )}
+        </div>
+      </section>
 
-      {/* Condicional: Visão do Morador */}
-      {view === 'morador' && (
-        <section className="bg-gray-50 py-16 md:py-24">
-          <div className="container mx-auto px-4 text-center">
-            <h2 className="text-3xl md:text-4xl font-bold mb-12 text-gray-900">
-              Diferenciais que Transformam seu Dia a Dia
-            </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8">
-              <div className="p-6 bg-white rounded-lg shadow-lg text-center">
-                <div className="mb-4 inline-block text-primary">
-                  <FontAwesomeIcon
-                    icon={faBuildingColumns}
-                    className="w-8 h-8"
-                  />
-                </div>
-                <h3 className="text-xl font-bold mb-2 text-gray-900">
-                  Financiamento Facilitado
-                </h3>
-                <p className="text-gray-600">
-                  Realize o sonho da casa de campo com a segurança e as vantagens
-                  do financiamento Caixa na modalidade aquisição de lote e
-                  construção.
-                </p>
+      {/* Seção 2: Moradia e Qualidade de Vida (Antiga View Morador) */}
+      <section className="bg-gray-50 py-16 md:py-24">
+        <div className="container mx-auto px-4 text-center">
+          <h2 className="text-3xl md:text-4xl font-bold mb-12 text-gray-900">
+            Diferenciais que Transformam seu Dia a Dia
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8">
+            <div className="p-6 bg-white rounded-lg shadow-lg text-center">
+              <div className="mb-4 inline-block text-primary">
+                <FontAwesomeIcon
+                  icon={faBuildingColumns}
+                  className="w-8 h-8"
+                />
               </div>
-              <div className="p-6 bg-white rounded-lg shadow-lg text-center">
-                <div className="mb-4 inline-block text-primary">
-                  <IconeCasa />
-                </div>
-                <h3 className="text-xl font-bold mb-2 text-gray-900">
-                  Projetos Personalizados
-                </h3>
-                <p className="text-gray-600">
-                  Oferecemos suporte completo no desenvolvimento do seu projeto
-                  arquitetônico, otimizado para o processo de financiamento.
-                </p>
+              <h3 className="text-xl font-bold mb-2 text-gray-900">
+                Financiamento Facilitado
+              </h3>
+              <p className="text-gray-600">
+                Realize o sonho da casa de campo com a segurança e as vantagens
+                do financiamento Caixa na modalidade aquisição de lote e
+                construção.
+              </p>
+            </div>
+            <div className="p-6 bg-white rounded-lg shadow-lg text-center">
+              <div className="mb-4 inline-block text-primary">
+                <IconeCasa />
               </div>
-              <div className="p-6 bg-white rounded-lg shadow-lg text-center">
-                <div className="mb-4 inline-block text-primary">
-                  <IconeCoracao />
-                </div>
-                <h3 className="text-xl font-bold mb-2 text-gray-900">
-                  Espaço e Conveniência
-                </h3>
-                <p className="text-gray-600">
-                  Desfrute da amplitude de um lote de 1.000m² sem abrir mão da
-                  conveniência de estar a apenas 10 minutos do coração da
-                  cidade.
-                </p>
+              <h3 className="text-xl font-bold mb-2 text-gray-900">
+                Projetos Personalizados
+              </h3>
+              <p className="text-gray-600">
+                Oferecemos suporte completo no desenvolvimento do seu projeto
+                arquitetônico, otimizado para o processo de financiamento.
+              </p>
+            </div>
+            <div className="p-6 bg-white rounded-lg shadow-lg text-center">
+              <div className="mb-4 inline-block text-primary">
+                <IconeCoracao />
               </div>
+              <h3 className="text-xl font-bold mb-2 text-gray-900">
+                Espaço e Conveniência
+              </h3>
+              <p className="text-gray-600">
+                Desfrute da amplitude de um lote de 1.000m² sem abrir mão da
+                conveniência de estar a apenas 10 minutos do coração da
+                cidade.
+              </p>
             </div>
           </div>
-        </section>
-      )}
+        </div>
+      </section>
 
-      {/* Seção Comum: Detalhes e Mapa */}
+      {/* Seção Comum: Detalhes e Mapa do Empreendimento */}
       <section className="py-16 md:py-24">
         <div className="container mx-auto px-4 grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
           <div className="md:order-2">
