@@ -10,7 +10,7 @@ import {
     faFileInvoiceDollar, faFileSignature, faSpinner,
     faFileLines, faHandshake, faDollarSign,
     faCheckCircle, faCalendarCheck, faBuilding,
-    faFileContract, faLock, faCogs 
+    faFileContract, faLock, faCogs, faMoneyCheckDollar
 } from '@fortawesome/free-solid-svg-icons';
 
 import DetalhesVendaContrato from './DetalhesVendaContrato';
@@ -19,6 +19,7 @@ import CronogramaFinanceiro from './CronogramaFinanceiro';
 import PlanoPagamentoContrato from './PlanoPagamentoContrato';
 import KpiCard from '../KpiCard';
 import GeradorContrato from './GeradorContrato';
+import ExtratoFinanceiroCliente from './ExtratoFinanceiroCliente'; // <--- NOVO IMPORT
 
 // Chave para persistência da aba ativa
 const CONTRATO_TAB_KEY = 'STUDIO57_CONTRATO_ACTIVE_TAB';
@@ -143,6 +144,10 @@ export default function FichaContrato({
     const refreshContratoData = () => {
         queryClient.invalidateQueries({ queryKey: ['contrato', initialContratoData.id, organizacaoId] }); 
         queryClient.invalidateQueries({ queryKey: ['modelosContratoFicha', contrato?.empreendimento_id, organizacaoId]});
+        // Invalida também o financeiro se houver alteração
+        if (contrato?.contato_id) {
+            queryClient.invalidateQueries({ queryKey: ['extratoFinanceiroCliente', contrato.contato_id, organizacaoId] });
+        }
     };
     
     const descontoConcedido = useMemo(() => {
@@ -191,8 +196,8 @@ export default function FichaContrato({
     
     const TabButton = ({ tabId, label, icon, disabled = false }) => {
         let finalDisabled = disabled;
-        if (tabId === 'cronograma') {
-            finalDisabled = false; // Cronograma deve estar habilitado para visualização/impressão
+        if (tabId === 'cronograma' || tabId === 'financeiro') {
+            finalDisabled = false; 
         }
         const isDisabled = finalDisabled && !isClienteDefined;
 
@@ -201,7 +206,7 @@ export default function FichaContrato({
                 onClick={() => !isDisabled && setActiveTab(tabId)}
                 disabled={isDisabled}
                 title={isDisabled ? "Defina um cliente na aba 'Resumo da Venda' para habilitar" : ""}
-                className={`flex items-center gap-2 py-3 px-4 font-medium text-sm border-b-2 transition-all duration-200 outline-none
+                className={`flex items-center gap-2 py-3 px-4 font-medium text-sm border-b-2 transition-all duration-200 outline-none whitespace-nowrap
                     ${activeTab === tabId ? 'border-blue-500 text-blue-600 bg-blue-50/50' : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'}
                     ${isDisabled ? 'opacity-50 cursor-not-allowed hover:bg-transparent' : ''}`
                 }
@@ -268,17 +273,19 @@ export default function FichaContrato({
             </div>
 
             {/* ÁREA PRINCIPAL DAS ABAS */}
-            {/* CORREÇÃO: Removemos 'print:hidden' daqui para que o conteúdo (contrato) seja impresso */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden print:shadow-none print:border-none">
                 
                 {/* Menu de Navegação - Escondido na Impressão */}
                 <div className="print:hidden border-b border-gray-200 bg-gray-50/50">
-                    <nav className="flex gap-1 overflow-x-auto px-2 pt-2">
+                    <nav className="flex gap-1 overflow-x-auto px-2 pt-2 scrollbar-hide">
                         <TabButton tabId="resumo" label="Resumo da Venda" icon={faHandshake} />
                         
                         {contrato.tipo_documento === 'CONTRATO' && (
                             <TabButton tabId="cronograma" label="Plano e Cronograma" icon={faFileInvoiceDollar} /> 
                         )}
+
+                        {/* NOVA ABA: Financeiro / Faturamento */}
+                        <TabButton tabId="financeiro" label="Financeiro" icon={faMoneyCheckDollar} />
                         
                         <TabButton tabId="gerador" label="Gerar Documento" icon={faFileContract} disabled={false} />
                         <TabButton tabId="documentos" label="Anexos e Documentos" icon={faFileLines} disabled={false} />
@@ -308,6 +315,13 @@ export default function FichaContrato({
                                     onUpdate={refreshContratoData}
                                 />
                             </div>
+                        </div>
+                    )}
+
+                    {/* CONTEÚDO DA NOVA ABA FINANCEIRO */}
+                    {activeTab === 'financeiro' && isClienteDefined && (
+                        <div className="animate-fade-in print:hidden">
+                            <ExtratoFinanceiroCliente contatoId={contrato.contato_id} />
                         </div>
                     )}
 
