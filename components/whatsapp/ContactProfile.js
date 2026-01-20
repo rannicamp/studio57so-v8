@@ -9,7 +9,8 @@ import {
     faStickyNote, faTasks, faSpinner, faPlus, faPhone, 
     faEnvelope, faIdCard, faGlobe, faPen, faTrash, faCheckCircle, 
     faBullhorn, faUserTie, faCalculator, faExternalLinkAlt,
-    faHistory, faTimes, faBriefcase, faSave, faFunnelDollar, faMoneyBillWave
+    faHistory, faTimes, faBriefcase, faSave, faFunnelDollar, faMoneyBillWave,
+    faPiggyBank, faBullseye, faCheck, faTimesCircle
 } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
@@ -24,8 +25,30 @@ import ContatoCardCRM from '@/components/crm/ContatoCardCRM';
 // --- COMPONENTES AUXILIARES ---
 
 const formatCurrency = (value) => {
-    if (value === null || value === undefined) return null;
+    if (value === null || value === undefined || value === '') return null;
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+};
+
+// Componente de Badge Sim/Não
+const BooleanBadge = ({ label, value, icon, trueColor = "bg-green-100 text-green-800", falseColor = "bg-gray-100 text-gray-600" }) => {
+    if (value === null || value === undefined) return (
+        <div className="flex flex-col">
+            <span className="text-xs text-gray-400 mb-1 flex items-center gap-1"><FontAwesomeIcon icon={icon} className="w-3 h-3"/> {label}</span>
+            <span className="text-xs italic text-gray-400">Não inf.</span>
+        </div>
+    );
+
+    const isTrue = String(value) === 'true' || value === true;
+
+    return (
+        <div className="flex flex-col">
+            <span className="text-xs text-gray-500 mb-1 flex items-center gap-1"><FontAwesomeIcon icon={icon} className="w-3 h-3"/> {label}</span>
+            <span className={`text-xs font-bold px-2 py-1 rounded-full border w-fit flex items-center gap-1 ${isTrue ? `${trueColor} border-green-200` : `${falseColor} border-gray-200`}`}>
+                {isTrue ? <FontAwesomeIcon icon={faCheck} size="xs"/> : <FontAwesomeIcon icon={faTimesCircle} size="xs"/>}
+                {isTrue ? "Sim" : "Não"}
+            </span>
+        </div>
+    );
 };
 
 const EditableField = ({ label, value, name, onChange, icon }) => (
@@ -41,10 +64,28 @@ const EditableField = ({ label, value, name, onChange, icon }) => (
     </div>
 );
 
-const InfoField = ({ label, value, icon }) => (
+const EditableSelectBoolean = ({ label, value, name, onChange, icon }) => (
+    <div className="mb-3">
+        <label className="text-xs font-medium text-gray-500 flex items-center gap-2"><FontAwesomeIcon icon={icon} className="w-3 h-3"/>{label}</label>
+        <select 
+            name={name} 
+            value={value === null || value === undefined ? "" : String(value)} 
+            onChange={onChange}
+            className="mt-1 text-sm text-gray-900 w-full p-1 border-b-2 border-gray-200 focus:outline-none focus:border-[#00a884] bg-transparent transition-colors"
+        >
+            <option value="">Selecione...</option>
+            <option value="true">Sim</option>
+            <option value="false">Não</option>
+        </select>
+    </div>
+);
+
+const InfoField = ({ label, value, icon, highlight = false }) => (
     <div className="mb-3">
         <dt className="text-xs font-medium text-gray-500 flex items-center gap-2"><FontAwesomeIcon icon={icon} className="w-3 h-3"/>{label}</dt>
-        <dd className="mt-1 text-sm text-gray-900 break-words font-medium">{value || <span className="text-gray-400 italic font-normal">Não informado</span>}</dd>
+        <dd className={`mt-1 text-sm break-words ${highlight ? 'font-bold text-gray-800' : 'font-medium text-gray-900'}`}>
+            {value || <span className="text-gray-400 italic font-normal">Não informado</span>}
+        </dd>
     </div>
 );
 
@@ -223,7 +264,10 @@ export default function ContactProfile({ contact }) {
                 cnpj: displayContact.cnpj || '',
                 origem: displayContact.origem || '',
                 cargo: displayContact.cargo || '',
-                renda_familiar: displayContact.renda_familiar ? formatCurrency(displayContact.renda_familiar) : '' 
+                renda_familiar: displayContact.renda_familiar ? formatCurrency(displayContact.renda_familiar) : '',
+                fgts: displayContact.fgts,
+                mais_de_3_anos_clt: displayContact.mais_de_3_anos_clt,
+                objetivo: displayContact.objetivo || ''
             });
         }
     }, [contact?.contato_id, profileData]);
@@ -232,7 +276,7 @@ export default function ContactProfile({ contact }) {
 
     const saveContactMutation = useMutation({
         mutationFn: async (updatedData) => {
-            const { nome, razao_social, cpf, cnpj, origem, telefone, email, cargo, renda_familiar } = updatedData;
+            const { nome, razao_social, cpf, cnpj, origem, telefone, email, cargo, renda_familiar, fgts, mais_de_3_anos_clt, objetivo } = updatedData;
             
             // Limpa a Renda Familiar (converte string formatada "R$ 1.000,00" para number)
             let rendaFinal = null;
@@ -247,10 +291,15 @@ export default function ContactProfile({ contact }) {
                     rendaFinal = parseFloat(cleanStr);
                 }
             }
+            
+            // Tratamento Booleans Select
+            const parseBoolean = (val) => val === 'true' || val === true ? true : (val === 'false' || val === false ? false : null);
 
             const { error } = await supabase.from('contatos').update({ 
-                nome, razao_social, cpf, cnpj, origem, cargo, 
-                renda_familiar: rendaFinal 
+                nome, razao_social, cpf, cnpj, origem, cargo, objetivo,
+                renda_familiar: rendaFinal,
+                fgts: parseBoolean(fgts),
+                mais_de_3_anos_clt: parseBoolean(mais_de_3_anos_clt)
             }).eq('id', contact.contato_id);
             if (error) throw error;
 
@@ -411,12 +460,15 @@ export default function ContactProfile({ contact }) {
                     </section>
                 )}
 
-                {/* Seção de Dados Cadastrais */}
+                {/* --- NOVA SEÇÃO: QUALIFICAÇÃO FINANCEIRA --- */}
                 <section>
                     <div className="flex justify-between items-center mb-3">
-                        <h4 className="font-semibold text-gray-700 text-sm uppercase tracking-wide">Dados Cadastrais</h4>
-                        
-                        {isEditing ? (
+                         <h4 className="font-semibold text-gray-700 text-sm uppercase tracking-wide flex items-center gap-2">
+                             <FontAwesomeIcon icon={faCalculator} /> Qualificação
+                         </h4>
+                         
+                         {/* BOTÕES DE AÇÃO GLOBAIS (Edit/Save) */}
+                         {isEditing ? (
                             <div className="flex items-center gap-2">
                                 <button onClick={() => setIsEditing(false)} className="text-xs text-gray-500 hover:text-gray-700">Cancelar</button>
                                 <button onClick={() => saveContactMutation.mutate(editData)} disabled={saveContactMutation.isPending} className="text-xs bg-[#00a884] text-white px-2 py-1 rounded hover:bg-[#008f6f]">
@@ -435,14 +487,41 @@ export default function ContactProfile({ contact }) {
                         )}
                     </div>
 
+                    <div className={`grid grid-cols-2 gap-3 ${isEditing ? '' : 'bg-blue-50/50 p-3 rounded-lg border border-blue-100'}`}>
+                         {isEditing ? (
+                             <>
+                                <div className="col-span-2">
+                                    <EditableField label="Objetivo" value={editData.objetivo} name="objetivo" onChange={(e) => setEditData({ ...editData, objetivo: e.target.value })} icon={faBullseye} />
+                                </div>
+                                <div className="col-span-2">
+                                    <EditableField label="Renda Familiar" value={editData.renda_familiar} name="renda_familiar" onChange={(e) => setEditData({ ...editData, renda_familiar: e.target.value })} icon={faMoneyBillWave} />
+                                </div>
+                                <EditableSelectBoolean label="Possui FGTS?" value={editData.fgts} name="fgts" onChange={(e) => setEditData({ ...editData, fgts: e.target.value })} icon={faPiggyBank} />
+                                <EditableSelectBoolean label="+3 Anos CLT?" value={editData.mais_de_3_anos_clt} name="mais_de_3_anos_clt" onChange={(e) => setEditData({ ...editData, mais_de_3_anos_clt: e.target.value })} icon={faBriefcase} />
+                             </>
+                         ) : (
+                             <>
+                                <div className="col-span-2">
+                                    <InfoField label="Objetivo" value={displayContact.objetivo} icon={faBullseye} highlight={true} />
+                                </div>
+                                <div className="col-span-2">
+                                     <InfoField label="Renda Familiar" value={formatCurrency(displayContact.renda_familiar)} icon={faMoneyBillWave} highlight={true} />
+                                </div>
+                                <BooleanBadge label="Possui FGTS?" value={displayContact.fgts} icon={faPiggyBank} />
+                                <BooleanBadge label="+3 Anos CLT?" value={displayContact.mais_de_3_anos_clt} icon={faBriefcase} trueColor="bg-blue-100 text-blue-800" />
+                             </>
+                         )}
+                    </div>
+                </section>
+
+                {/* Seção de Dados Cadastrais (Reduzida para evitar duplicação visual, mas mantendo campos chave) */}
+                <section>
+                    <h4 className="font-semibold text-gray-700 mb-3 text-sm uppercase tracking-wide">Dados Pessoais</h4>
                     <div className={`grid grid-cols-1 gap-y-1 ${isEditing ? '' : 'bg-gray-50 p-3 rounded-lg border'}`}>
                         {isEditing ? (
                             <>
                                 <EditableField label="Nome/Razão Social" value={editData.nome || editData.razao_social} name={displayContact.personalidade_juridica === 'Pessoa Física' ? 'nome' : 'razao_social'} onChange={(e) => setEditData({ ...editData, [e.target.name]: e.target.value })} icon={faIdCard} />
                                 <EditableField label="Profissão" value={editData.cargo} name="cargo" onChange={(e) => setEditData({ ...editData, cargo: e.target.value })} icon={faBriefcase} />
-                                {/* CAMPO EDITÁVEL DE RENDA */}
-                                <EditableField label="Renda Familiar" value={editData.renda_familiar} name="renda_familiar" onChange={(e) => setEditData({ ...editData, renda_familiar: e.target.value })} icon={faMoneyBillWave} />
-                                
                                 <EditableField label="Telefone" value={editData.telefone} name="telefone" onChange={(e) => setEditData({ ...editData, telefone: e.target.value })} icon={faPhone} />
                                 <EditableField label="Email" value={editData.email} name="email" onChange={(e) => setEditData({ ...editData, email: e.target.value })} icon={faEnvelope} />
                                 <EditableField label="CPF/CNPJ" value={editData.cpf || editData.cnpj} name={displayContact.personalidade_juridica === 'Pessoa Física' ? 'cpf' : 'cnpj'} onChange={(e) => setEditData({ ...editData, [e.target.name]: e.target.value })} icon={faIdCard} />
@@ -451,9 +530,6 @@ export default function ContactProfile({ contact }) {
                         ) : (
                             <>
                                 <InfoField label="Profissão" value={displayContact.cargo} icon={faBriefcase} />
-                                {/* CAMPO VISUAL DE RENDA */}
-                                <InfoField label="Renda Familiar" value={formatCurrency(displayContact.renda_familiar)} icon={faMoneyBillWave} />
-                                
                                 <InfoField label="Email" value={displayContact.email} icon={faEnvelope} />
                                 <InfoField label="CPF/CNPJ" value={displayContact.cpf || displayContact.cnpj} icon={faIdCard} />
                                 <InfoField label="Origem" value={displayContact.origem} icon={faGlobe} />

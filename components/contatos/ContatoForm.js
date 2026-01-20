@@ -8,7 +8,7 @@ import { useRouter } from 'next/navigation';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { IMaskInput } from 'react-imask';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'; 
-import { faSpinner, faTrashAlt, faPlusCircle, faTimes, faFingerprint, faSave, faMoneyBillWave } from '@fortawesome/free-solid-svg-icons';
+import { faSpinner, faTrashAlt, faPlusCircle, faTimes, faFingerprint, faSave, faMoneyBillWave, faPiggyBank, faBriefcase, faBullseye } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 import { buscarDadosCnpj } from './actions';
 
@@ -100,7 +100,8 @@ const ALLOWED_COLUMNS = [
     'pix_key', 'bank_details', 'observations', 'numero_ponto', 'nacionalidade',
     'personalidade_juridica', 'data_fundacao', 'tipo_servico_produto', 'pessoa_contato',
     'objetivo', 'is_awaiting_name_response', 'origem', 'organizacao_id', 'conjuge_id', 
-    'regime_bens', 'criado_por_usuario_id', 'creci', 'lixeira', 'renda_familiar'
+    'regime_bens', 'criado_por_usuario_id', 'creci', 'lixeira', 'renda_familiar', 'fgts',
+    'mais_de_3_anos_clt'
 ];
 
 // FORMULÁRIO PRINCIPAL
@@ -125,10 +126,11 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
         data_fundacao: '', tipo_servico_produto: '', pessoa_contato: '', cargo: '',
         empresa_id: null, tipo_contato: 'Lead', origem: 'Manual', address_street: '',
         address_number: '', address_complement: '', cep: '', city: '', state: '',
-        neighborhood: '', observations: '',
+        neighborhood: '', observations: '', objetivo: '',
         telefones: [{ telefone: '', country_code: '+55' }],
         emails: [{ email: '' }],
-        regime_bens: '', conjuge_id: null, renda_familiar: '',
+        regime_bens: '', conjuge_id: null, renda_familiar: '', fgts: null,
+        mais_de_3_anos_clt: null,
         inscricao_estadual: '',
         inscricao_municipal: '',
         responsavel_legal: '',
@@ -143,7 +145,6 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
     const [selectedConjugeName, setSelectedConjugeName] = useState('');
     
     // --- NOVO: Estado para armazenar as opções vindas do banco ---
-    // Começa com um fallback básico caso a API falhe, incluindo 'Candidato'
     const [tipoContatoOptions, setTipoContatoOptions] = useState(['Lead', 'Cliente', 'Fornecedor', 'Parceiro', 'Corretor', 'Candidato']);
 
     // Buscar Tipos de Contato do Banco (Automático)
@@ -179,9 +180,27 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
                     if(conjugeData) setSelectedConjugeName(conjugeData.nome || conjugeData.razao_social);
                 }
 
+                // --- LÓGICA MÁGICA DE SINCRONIZAÇÃO META -> OBJETIVO ---
+                let objetivoFinal = contactToEdit.objetivo || '';
+                
+                // Se o objetivo estiver vazio, mas tivermos dados do Meta, tentamos puxar de lá
+                if (!objetivoFinal && contactToEdit.meta_form_data && typeof contactToEdit.meta_form_data === 'object') {
+                    // Procura por qualquer chave que contenha a palavra "objetivo" (ex: "objetivo?", "qual_seu_objetivo", etc)
+                    const keys = Object.keys(contactToEdit.meta_form_data);
+                    const keyObjetivo = keys.find(k => k.toLowerCase().includes('objetivo'));
+                    
+                    if (keyObjetivo) {
+                        objetivoFinal = contactToEdit.meta_form_data[keyObjetivo];
+                        // Remove quebras de linha estranhas se houver
+                        if (typeof objetivoFinal === 'string') objetivoFinal = objetivoFinal.trim();
+                    }
+                }
+                // -----------------------------------------------------
+
                 setFormData({
                     ...getInitialState(),
                     ...contactToEdit, 
+                    objetivo: objetivoFinal, // Usa o valor calculado/resgatado
                     renda_familiar: formatCurrencyInitial(contactToEdit.renda_familiar),
                     organizacao_id: currentOrgId, 
                     telefones: phonesData.length > 0 ? phonesData : [{ telefone: '', country_code: '+55' }],
@@ -460,6 +479,20 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
                             <div><label className="block text-sm font-medium">Nome Completo</label><input name="nome" value={formData.nome || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /></div>
                             <div><label className="block text-sm font-medium">CPF</label><IMaskInput mask="000.000.000-00" name="cpf" value={formData.cpf || ''} onAccept={(value) => setFormData(prev => ({ ...prev, cpf: value }))} className="w-full p-2 border rounded-md" /></div>
                             <div><label className="block text-sm font-medium">RG</label><input name="rg" value={formData.rg || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /></div>
+                            
+                            {/* ESTADO CIVIL */}
+                            <div>
+                                <label className="block text-sm font-medium">Estado Civil</label>
+                                <select name="estado_civil" value={formData.estado_civil || ''} onChange={handleChange} className="w-full p-2 border rounded-md">
+                                    <option value="">Selecione...</option>
+                                    <option>Solteiro(a)</option>
+                                    <option>Casado(a)</option>
+                                    <option>Divorciado(a)</option>
+                                    <option>Viúvo(a)</option>
+                                    <option>União Estável</option>
+                                </select>
+                            </div>
+
                             <div><label className="block text-sm font-medium">Data de Nascimento</label><input type="date" name="birth_date" value={formData.birth_date || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /></div>
                             <div><label className="block text-sm font-medium">Nacionalidade</label><input name="nacionalidade" value={formData.nacionalidade || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /></div>
                             <div><label className="block text-sm font-medium">Cargo</label><input name="cargo" value={formData.cargo || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /></div>
@@ -492,21 +525,10 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
             
             {formData.personalidade_juridica === 'Pessoa Física' && (
                 <fieldset className="border p-4 rounded-md">
-                    <legend className="text-lg font-semibold text-gray-700">Dados Civis e Financeiros</legend>
+                    <legend className="text-lg font-semibold text-gray-700">Qualificação</legend>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                        <div>
-                            <label className="block text-sm font-medium">Estado Civil</label>
-                            <select name="estado_civil" value={formData.estado_civil || ''} onChange={handleChange} className="w-full p-2 border rounded-md">
-                                <option value="">Selecione...</option>
-                                <option>Solteiro(a)</option>
-                                <option>Casado(a)</option>
-                                <option>Divorciado(a)</option>
-                                <option>Viúvo(a)</option>
-                                <option>União Estável</option>
-                            </select>
-                        </div>
                         
-                        {/* NOVO CAMPO: RENDA FAMILIAR */}
+                        {/* CAMPO RENDA FAMILIAR */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
                                 <FontAwesomeIcon icon={faMoneyBillWave} className="text-green-600" />
@@ -526,11 +548,75 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
                                     }
                                 }}
                                 value={formData.renda_familiar || ''}
-                                unmask={false} // Mantém formatação no estado para visualização
+                                unmask={false} 
                                 onAccept={(value) => setFormData(prev => ({ ...prev, renda_familiar: value }))}
                                 placeholder="R$ 0,00"
                                 className="w-full p-2 border rounded-md"
                             />
+                        </div>
+
+                        {/* CAMPO: FGTS */}
+                        <div>
+                             <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
+                                <FontAwesomeIcon icon={faPiggyBank} className="text-blue-600" />
+                                Possui FGTS?
+                            </label>
+                            <select 
+                                name="fgts" 
+                                value={formData.fgts === null || formData.fgts === undefined ? "" : String(formData.fgts)}
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    setFormData(prev => ({ ...prev, fgts: val === "" ? null : val === "true" }));
+                                }} 
+                                className="w-full p-2 border rounded-md"
+                            >
+                                <option value="">Selecione...</option>
+                                <option value="true">Sim</option>
+                                <option value="false">Não</option>
+                            </select>
+                        </div>
+
+                         {/* CAMPO: +3 ANOS DE CLT */}
+                         <div>
+                            <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
+                                <FontAwesomeIcon icon={faBriefcase} className="text-gray-600" />
+                                +3 Anos de CLT?
+                            </label>
+                            <select 
+                                name="mais_de_3_anos_clt" 
+                                value={formData.mais_de_3_anos_clt === null || formData.mais_de_3_anos_clt === undefined ? "" : String(formData.mais_de_3_anos_clt)}
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    setFormData(prev => ({ ...prev, mais_de_3_anos_clt: val === "" ? null : val === "true" }));
+                                }} 
+                                className="w-full p-2 border rounded-md"
+                            >
+                                <option value="">Selecione...</option>
+                                <option value="true">Sim</option>
+                                <option value="false">Não</option>
+                            </select>
+                        </div>
+
+                         {/* CAMPO: OBJETIVO (COM AUTO-PREENCHIMENTO) */}
+                         <div className="md:col-span-2">
+                            <label className="block text-sm font-medium flex items-center gap-2">
+                                <FontAwesomeIcon icon={faBullseye} className="text-red-500" />
+                                Objetivo
+                            </label>
+                            <textarea 
+                                name="objetivo" 
+                                value={formData.objetivo || ''} 
+                                onChange={handleChange} 
+                                rows="2" 
+                                placeholder="Descreva o objetivo principal deste contato..."
+                                className="w-full p-2 border rounded-md bg-yellow-50 focus:bg-white transition-colors"
+                            ></textarea>
+                            {/* Dica visual se veio do Meta */}
+                            {(!contactToEdit?.objetivo && formData.objetivo && contactToEdit?.meta_form_data) && (
+                                <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+                                    <FontAwesomeIcon icon={faFingerprint} /> Preenchido automaticamente via Meta Ads
+                                </p>
+                            )}
                         </div>
 
                         {['Casado(a)', 'União Estável'].includes(formData.estado_civil) && (
@@ -573,7 +659,6 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
                     <div>
                         <label className="block text-sm font-medium">Tipo de Contato</label>
                         <select name="tipo_contato" value={formData.tipo_contato || 'Lead'} onChange={handleChange} className="w-full p-2 border rounded-md">
-                            {/* AQUI ESTÁ A MÁGICA DO CARREGAMENTO DINÂMICO */}
                             {tipoContatoOptions.map(tipo => (
                                 <option key={tipo} value={tipo}>{tipo}</option>
                             ))}
@@ -607,7 +692,11 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
                 <legend className="text-lg font-semibold text-gray-700">Informações Adicionais</legend>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                     <div><label className="block text-sm font-medium">Empresa Associada</label><select name="empresa_id" value={formData.empresa_id || ''} onChange={handleChange} className="w-full p-2 border rounded-md"><option value="">Nenhuma</option>{(companies || []).map(company => (<option key={company.id} value={company.id}>{company.razao_social}</option>))}</select></div>
-                    <div><label className="block text-sm font-medium">Observações</label><textarea name="observations" value={formData.observations || ''} onChange={handleChange} rows="3" className="w-full p-2 border rounded-md"></textarea></div>
+                    
+                    <div className="md:col-span-2">
+                        <label className="block text-sm font-medium">Observações</label>
+                        <textarea name="observations" value={formData.observations || ''} onChange={handleChange} rows="3" className="w-full p-2 border rounded-md"></textarea>
+                    </div>
                 </div>
             </fieldset>
 
