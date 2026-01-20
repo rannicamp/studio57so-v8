@@ -8,7 +8,7 @@ import { useRouter } from 'next/navigation';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { IMaskInput } from 'react-imask';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'; 
-import { faSpinner, faTrashAlt, faPlusCircle, faTimes, faFingerprint, faSave, faMoneyBillWave, faPiggyBank, faBriefcase, faBullseye } from '@fortawesome/free-solid-svg-icons';
+import { faSpinner, faTrashAlt, faPlusCircle, faTimes, faFingerprint, faSave, faMoneyBillWave, faPiggyBank, faBriefcase } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 import { buscarDadosCnpj } from './actions';
 
@@ -180,27 +180,9 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
                     if(conjugeData) setSelectedConjugeName(conjugeData.nome || conjugeData.razao_social);
                 }
 
-                // --- LÓGICA MÁGICA DE SINCRONIZAÇÃO META -> OBJETIVO ---
-                let objetivoFinal = contactToEdit.objetivo || '';
-                
-                // Se o objetivo estiver vazio, mas tivermos dados do Meta, tentamos puxar de lá
-                if (!objetivoFinal && contactToEdit.meta_form_data && typeof contactToEdit.meta_form_data === 'object') {
-                    // Procura por qualquer chave que contenha a palavra "objetivo" (ex: "objetivo?", "qual_seu_objetivo", etc)
-                    const keys = Object.keys(contactToEdit.meta_form_data);
-                    const keyObjetivo = keys.find(k => k.toLowerCase().includes('objetivo'));
-                    
-                    if (keyObjetivo) {
-                        objetivoFinal = contactToEdit.meta_form_data[keyObjetivo];
-                        // Remove quebras de linha estranhas se houver
-                        if (typeof objetivoFinal === 'string') objetivoFinal = objetivoFinal.trim();
-                    }
-                }
-                // -----------------------------------------------------
-
                 setFormData({
                     ...getInitialState(),
                     ...contactToEdit, 
-                    objetivo: objetivoFinal, // Usa o valor calculado/resgatado
                     renda_familiar: formatCurrencyInitial(contactToEdit.renda_familiar),
                     organizacao_id: currentOrgId, 
                     telefones: phonesData.length > 0 ? phonesData : [{ telefone: '', country_code: '+55' }],
@@ -597,26 +579,17 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
                             </select>
                         </div>
 
-                         {/* CAMPO: OBJETIVO (COM AUTO-PREENCHIMENTO) */}
+                         {/* CAMPO: OBJETIVO */}
                          <div className="md:col-span-2">
-                            <label className="block text-sm font-medium flex items-center gap-2">
-                                <FontAwesomeIcon icon={faBullseye} className="text-red-500" />
-                                Objetivo
-                            </label>
+                            <label className="block text-sm font-medium">Objetivo</label>
                             <textarea 
                                 name="objetivo" 
                                 value={formData.objetivo || ''} 
                                 onChange={handleChange} 
                                 rows="2" 
                                 placeholder="Descreva o objetivo principal deste contato..."
-                                className="w-full p-2 border rounded-md bg-yellow-50 focus:bg-white transition-colors"
+                                className="w-full p-2 border rounded-md"
                             ></textarea>
-                            {/* Dica visual se veio do Meta */}
-                            {(!contactToEdit?.objetivo && formData.objetivo && contactToEdit?.meta_form_data) && (
-                                <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
-                                    <FontAwesomeIcon icon={faFingerprint} /> Preenchido automaticamente via Meta Ads
-                                </p>
-                            )}
                         </div>
 
                         {['Casado(a)', 'União Estável'].includes(formData.estado_civil) && (
