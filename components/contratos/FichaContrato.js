@@ -10,7 +10,7 @@ import {
     faFileInvoiceDollar, faFileSignature, faSpinner,
     faFileLines, faHandshake, faDollarSign,
     faCheckCircle, faCalendarCheck, faBuilding,
-    faFileContract, faLock, faCogs, faMoneyCheckDollar
+    faFileContract, faLock, faCogs, faMoneyCheckDollar // Adicionei o ícone aqui
 } from '@fortawesome/free-solid-svg-icons';
 
 import DetalhesVendaContrato from './DetalhesVendaContrato';
@@ -19,7 +19,7 @@ import CronogramaFinanceiro from './CronogramaFinanceiro';
 import PlanoPagamentoContrato from './PlanoPagamentoContrato';
 import KpiCard from '../KpiCard';
 import GeradorContrato from './GeradorContrato';
-import ExtratoFinanceiroCliente from './ExtratoFinanceiroCliente'; // <--- NOVO IMPORT
+import ExtratoFinanceiroCliente from './ExtratoFinanceiroCliente'; // Importação do novo componente
 
 // Chave para persistência da aba ativa
 const CONTRATO_TAB_KEY = 'STUDIO57_CONTRATO_ACTIVE_TAB';
@@ -196,6 +196,7 @@ export default function FichaContrato({
     
     const TabButton = ({ tabId, label, icon, disabled = false }) => {
         let finalDisabled = disabled;
+        // Habilita a aba Financeiro junto com a Cronograma
         if (tabId === 'cronograma' || tabId === 'financeiro') {
             finalDisabled = false; 
         }
@@ -320,8 +321,8 @@ export default function FichaContrato({
 
                     {/* CONTEÚDO DA NOVA ABA FINANCEIRO */}
                     {activeTab === 'financeiro' && isClienteDefined && (
-                        <div className="animate-fade-in print:hidden">
-                            <ExtratoFinanceiroCliente contatoId={contrato.contato_id} />
+                        <div className="animate-fade-in">
+                            <ExtratoFinanceiroCliente contatoId={contrato.contato_id} contrato={contrato} />
                         </div>
                     )}
 
