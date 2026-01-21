@@ -30,7 +30,9 @@ export async function middleware(req) {
     '/register',
     '/cadastro-corretor',
     '/upload', // Rota de upload isolada
-    '/api/teste-manual'
+    '/api/teste-manual',
+    '/sitemap.xml', // <--- ADICIONADO: Libera o mapa para o Google
+    '/robots.txt'   // <--- ADICIONADO: Libera as instruções para robôs
   ]
 
   // B. PREFIXOS (Libera a rota E TUDO que vier depois dela "filhos")
