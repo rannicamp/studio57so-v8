@@ -1,4 +1,4 @@
-// components/crm/FunilKanban.js
+// Caminho: components/crm/FunilKanban.js
 "use client";
 
 import React, { useMemo, useState, useRef, useEffect } from 'react';
@@ -9,6 +9,9 @@ import { useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { enviarNotificacao } from '@/utils/notificacoes';
 import { useAuth } from '@/contexts/AuthContext';
+
+// --- IMPORTAÇÃO DO CAPI (NOVO) ---
+import { verificarDisparoCapi } from '@/app/(main)/crm/capiActions';
 
 const AddColumn = ({ onCreate }) => {
     const [isCreating, setIsCreating] = useState(false);
@@ -76,7 +79,7 @@ export default function FunilKanban({
     userRole,
     onDeleteAllCardsInColumn,
     onDeleteCard,
-    onStartWhatsApp // <--- A ÚNICA ADIÇÃO: Recebendo a função do Pai
+    onStartWhatsApp
 }) {
     const { user } = useAuth();
     const [editingColumnId, setEditingColumnId] = useState(null);
@@ -86,7 +89,6 @@ export default function FunilKanban({
     const sortMenuRef = useRef(null);
     const [deletingColumnId, setDeletingColumnId] = useState(null);
     
-    // Novo estado para controlar o efeito visual de "Drag Over"
     const [dragOverColumnId, setDragOverColumnId] = useState(null);
     
     const scrollContainerRef = useRef(null);
@@ -142,7 +144,6 @@ export default function FunilKanban({
         }
     };
 
-    // Atualizado para controlar o estado visual
     const handleDragOver = (e, colunaId) => { 
         e.preventDefault(); 
         if (draggedItem && draggedItem.type === 'card' && draggedItem.item.coluna_id !== colunaId) {
@@ -150,7 +151,6 @@ export default function FunilKanban({
         }
     };
 
-    // Limpa o estado visual quando sai da coluna
     const handleDragLeave = (e) => {
         e.preventDefault();
         setDragOverColumnId(null);
@@ -159,7 +159,7 @@ export default function FunilKanban({
     const handleDrop = async (e, targetColumn) => {
         e.preventDefault();
         e.stopPropagation();
-        setDragOverColumnId(null); // Limpa o visual
+        setDragOverColumnId(null);
 
         if (!draggedItem) return;
         
@@ -177,8 +177,14 @@ export default function FunilKanban({
         
         // Lógica de Cards (Leads)
         if (draggedItem.type === 'card' && draggedItem.item.coluna_id !== targetColumn.id) {
+            // 1. Atualiza visualmente e no banco (Função Original)
             await onStatusChange(draggedItem.item.id, targetColumn.id);
+
+            // 2. --- DISPARO DO CAPI (Meta/Facebook) ---
+            // Chamamos a Server Action em background (sem await) para não travar a UI
+            verificarDisparoCapi(draggedItem.item.id, targetColumn.id);
             
+            // 3. Notificação Interna do Sistema
             const nomeContato = draggedItem.item.contatos?.nome || draggedItem.item.contatos?.razao_social || 'Contato';
             const nomeOrigem = statusColumns.find(c => c.id === draggedItem.item.coluna_id)?.nome || '?';
             
@@ -216,7 +222,11 @@ export default function FunilKanban({
         });
     };
     
-    const handleMoveCardFromDropdown = (contatoNoFunilId, newColumnId) => { onStatusChange(contatoNoFunilId, newColumnId); };
+    const handleMoveCardFromDropdown = (contatoNoFunilId, newColumnId) => { 
+        onStatusChange(contatoNoFunilId, newColumnId);
+        // Também aciona o CAPI pelo dropdown
+        verificarDisparoCapi(contatoNoFunilId, newColumnId);
+    };
     
     const handleSortChange = (colunaId, sortValue) => {
         if (!sortValue) {
@@ -342,7 +352,7 @@ export default function FunilKanban({
                                 onCardClick={onCardClick}
                                 onAddActivity={onAddActivity}
                                 onDeleteCard={onDeleteCard}
-                                onStartWhatsApp={onStartWhatsApp} // <--- PASSANDO PARA O CARD (ÚNICA MUDANÇA)
+                                onStartWhatsApp={onStartWhatsApp}
                             />
                         ))}
                     </div>
