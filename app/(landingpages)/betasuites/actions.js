@@ -1,15 +1,11 @@
 // Caminho: app/(landingpages)/betasuites/actions.js
 'use server';
 
-// Importamos a nossa "Central de Inteligência" (que já tem Pixel, CAPI e Banco de Dados prontos)
+// Importamos a inteligência central
 import { processarLeadUniversal } from '../_actions/leadActions';
 
 export async function salvarLeadBeta(formData) {
-  // Chamamos a função universal passando:
-  // 1. Os dados do formulário
-  // 2. A página de obrigado específica do Beta
-  // 3. O nome da Origem para aparecer no CRM e no Facebook
-  
+  // Envia para a central e redireciona para o obrigado do Beta
   await processarLeadUniversal(
     formData, 
     '/betasuites/obrigado', 
