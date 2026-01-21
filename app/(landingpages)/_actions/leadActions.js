@@ -3,10 +3,11 @@
 
 import { createClient } from '../../../utils/supabase/server';
 import { redirect } from 'next/navigation';
+// Importamos o nosso carteiro do Facebook
+import { sendMetaEvent } from '../../../utils/metaCapi';
 
 /**
- * Função Universal para Salvar Leads.
- * AGORA BLINDADA: Evita duplicatas e move leads antigos para o topo.
+ * Função Universal para Salvar Leads + API de Conversões do Facebook
  */
 export async function processarLeadUniversal(formData, redirectUrl, origemPadrao) {
   const supabase = await createClient();
@@ -15,14 +16,12 @@ export async function processarLeadUniversal(formData, redirectUrl, origemPadrao
   const nome = formData.get('nome');
   const email = formData.get('email');
   const rawPhone = formData.get('telefone');
-  // Usa a origem do formulário OU a padrão passada na chamada
   const origem = formData.get('origem') || origemPadrao || 'Landing Page - Genérica';
 
   // Limpeza do Telefone (Padrão +55)
   let telefone = null;
   if (rawPhone) {
-    let limpo = rawPhone.replace(/\D/g, ''); // Remove tudo que não é número
-    // Se tiver 10 ou 11 dígitos (ex: 33999998888), adiciona o 55
+    let limpo = rawPhone.replace(/\D/g, ''); 
     if (limpo.length >= 10 && limpo.length <= 11) {
       limpo = '55' + limpo; 
     }
@@ -41,10 +40,8 @@ export async function processarLeadUniversal(formData, redirectUrl, origemPadrao
     const organizacaoId = orgData.id;
 
     // 3. INVESTIGAÇÃO (Deduplicação)
-    // Vamos descobrir se esse lead já existe antes de tentar criar
     let contatoId = null;
 
-    // Tenta achar por telefone
     if (telefone) {
       const { data: telData } = await supabase
         .from('telefones')
@@ -55,7 +52,6 @@ export async function processarLeadUniversal(formData, redirectUrl, origemPadrao
       if (telData) contatoId = telData.contato_id;
     }
 
-    // Se não achou por telefone, tenta por email
     if (!contatoId && email) {
       const { data: mailData } = await supabase
         .from('emails')
@@ -68,7 +64,7 @@ export async function processarLeadUniversal(formData, redirectUrl, origemPadrao
 
     // 4. TOMADA DE DECISÃO: CRIAR OU ATUALIZAR
     if (!contatoId) {
-      // --- CENÁRIO: É um NOVO Lead ---
+      // --- NOVO LEAD ---
       console.log(`[LeadActions] Novo Lead detectado: ${nome}`);
       
       const { data: novoContato, error: contatoError } = await supabase
@@ -86,7 +82,6 @@ export async function processarLeadUniversal(formData, redirectUrl, origemPadrao
       if (contatoError) throw new Error(`Erro ao salvar contato: ${contatoError.message}`);
       contatoId = novoContato.id;
 
-      // Salva Telefone
       if (telefone) {
         await supabase.from('telefones').insert({ 
           contato_id: contatoId, 
@@ -96,7 +91,6 @@ export async function processarLeadUniversal(formData, redirectUrl, origemPadrao
         });
       }
 
-      // Salva Email
       if (email) {
         await supabase.from('emails').insert({ 
           contato_id: contatoId, 
@@ -106,18 +100,34 @@ export async function processarLeadUniversal(formData, redirectUrl, origemPadrao
         });
       }
 
+      // 🔥 DISPARO DO PIXEL (CAPI) - EVENTO DE "LEAD" 🔥
+      // Avisamos o Facebook que um novo cadastro foi feito
+      await sendMetaEvent('Lead', {
+        email: email,
+        telefone: telefone,
+        primeiro_nome: nome ? nome.split(' ')[0] : undefined,
+        sobrenome: nome ? nome.split(' ').slice(1).join(' ') : undefined
+      }, {
+        content_name: origem, // Ex: "Modal - Book Refúgio Braúnas"
+        status: 'Novo'
+      });
+
     } else {
-      // --- CENÁRIO: É um Lead RECORRENTE ---
-      console.log(`[LeadActions] Lead recorrente identificado (ID: ${contatoId}). Atualizando...`);
-      // Opcional: Atualizar origem ou data de interação aqui se quiser
+      console.log(`[LeadActions] Lead recorrente identificado (ID: ${contatoId}).`);
+      
+      // Opcional: Avisar o Facebook mesmo se for recorrente (Remarketing)
+      await sendMetaEvent('Contact', {
+        email: email,
+        telefone: telefone,
+      }, {
+        content_name: origem
+      });
     }
 
-    // 5. GESTÃO DO FUNIL (A Mágica do Card) 🎩✨
-    // Garante funil e coluna
+    // 5. GESTÃO DO FUNIL
     const funilId = await ensureFunilExists(supabase, organizacaoId);
     const colunaId = await ensureFirstColumnExists(supabase, funilId, organizacaoId);
 
-    // Verifica se já existe Card para este contato
     const { data: cardExistente } = await supabase
       .from('contatos_no_funil')
       .select('id, coluna_id')
@@ -125,38 +135,32 @@ export async function processarLeadUniversal(formData, redirectUrl, origemPadrao
       .single();
 
     if (cardExistente) {
-      // REGRA: Se já tem card, move de volta para o início ("Novos Leads")
       if (cardExistente.coluna_id !== colunaId) {
-        console.log('[LeadActions] Movendo card existente para o topo do funil.');
         await supabase
           .from('contatos_no_funil')
           .update({ 
             coluna_id: colunaId, 
-            updated_at: new Date() // Atualiza data para subir na ordem
+            updated_at: new Date() 
           })
           .eq('id', cardExistente.id);
       }
     } else {
-      // REGRA: Se não tem card, cria um novo
-      console.log('[LeadActions] Criando novo card no funil.');
       await supabase.from('contatos_no_funil').insert({
         contato_id: contatoId,
         coluna_id: colunaId,
         organizacao_id: organizacaoId,
-        numero_card: 1 // Placeholder, o ideal seria calcular o próximo
+        numero_card: 1 
       });
     }
 
   } catch (error) {
     console.error('[LeadActions] Erro crítico:', error.message);
-    // Mantemos o fluxo para redirecionar o usuário mesmo se der erro no log interno
   }
 
-  // 6. Redirecionamento Final
   redirect(redirectUrl);
 }
 
-// --- FUNÇÕES AUXILIARES (Separadas para ficar limpo) ---
+// --- FUNÇÕES AUXILIARES ---
 
 async function ensureFunilExists(supabase, organizacaoId) {
   let { data: funil } = await supabase
