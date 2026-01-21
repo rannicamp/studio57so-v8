@@ -1,11 +1,15 @@
 // Caminho: app/(landingpages)/page.js
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faCube, faPuzzlePiece, faBuilding, faLock } from '@fortawesome/free-solid-svg-icons';
+import { faCube, faPuzzlePiece, faBuilding, faLock, faTimes, faListCheck } from '@fortawesome/free-solid-svg-icons';
 import { Montserrat } from 'next/font/google';
+
+// Importa o formulário existente para usar no Modal
+import FormularioDeContatoRefugio from './refugiobraunas/FormularioDeContatoRefugio';
 
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Pagination, Navigation } from 'swiper/modules';
@@ -29,6 +33,7 @@ const empreendimentosData = [
     logoUrl: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/1/IMG_1759008548201.png',
     descricao: 'Apartamentos de 49 e 58m² no Alto Esplanada. Alta rentabilidade e valorização garantida.',
     link: '/residencialalfa',
+    action: 'link'
   },
   {
     id: 2,
@@ -39,20 +44,24 @@ const empreendimentosData = [
     logoUrl: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/LOGO-P_1764944035362.png',
     descricao: 'Suítes de 23 a 32m² no Alto Esplanada. Investimento inteligente com foco em renda passiva.',
     link: '/betasuites',
+    action: 'link'
   },
   {
     id: 3,
     nome: 'Refúgio Braúnas',
-    status: 'EM BREVE',
-    statusColor: 'bg-gray-500',
+    status: 'LISTA DE ESPERA', // Estratégia de Hype
+    statusColor: 'bg-amber-600', // Laranja para chamar atenção
     imagemUrl: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/6/IMG_1760619077139.png',
     logoUrl: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/6/LOGO-P_1760619039077.png',
-    descricao: 'Lotes de 1.000m² a 10 minutos do centro. O espaço ideal para sua chácara dos sonhos.',
+    descricao: 'Lotes de 1.000m² a 10 minutos do centro. Cadastre-se agora para receber o aviso de lançamento.',
     link: null,
+    action: 'modal' // Gatilho para abrir o modal
   },
 ];
 
 export default function HomePage() {
+  // Estado para controlar a visibilidade do Modal
+  const [isRefugioModalOpen, setIsRefugioModalOpen] = useState(false);
   
   const renderCard = (empreendimento) => (
     <div className="bg-white rounded-lg shadow-lg overflow-hidden flex flex-col h-full transform transition hover:scale-105 duration-300 group relative">
@@ -66,7 +75,7 @@ export default function HomePage() {
                 alt={`Imagem do ${empreendimento.nome}`}
                 layout="fill"
                 objectFit="cover"
-                className={`transition-transform duration-700 group-hover:scale-110 ${!empreendimento.link ? 'grayscale-[0.5]' : ''}`}
+                className={`transition-transform duration-700 group-hover:scale-110 ${empreendimento.status === 'EM BREVE' ? 'grayscale-[0.5]' : ''}`}
             />
             <div className="absolute inset-0 bg-black/30 group-hover:bg-black/40 transition-colors duration-300"></div>
             
@@ -84,16 +93,25 @@ export default function HomePage() {
         </div>
 
         <div className="p-6 flex flex-col flex-grow text-center">
-            <span className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 block">
+            <span className={`text-xs font-bold uppercase tracking-widest mb-2 block ${empreendimento.statusColor.replace('bg-', 'text-')}`}>
                 {empreendimento.status}
             </span>
             
             <p className="text-gray-600 mt-1 mb-4 flex-grow text-sm">{empreendimento.descricao}</p>
             
-            {empreendimento.link ? (
-                <Link href={empreendimento.link} className="inline-block mt-auto bg-gray-900 text-white font-bold py-3 px-6 rounded-full hover:bg-gray-700 transition-colors text-center uppercase text-sm tracking-wide">
+            {/* LÓGICA DO BOTÃO: LINK vs MODAL vs TRAVADO */}
+            {empreendimento.action === 'link' ? (
+                <Link href={empreendimento.link} className="inline-block mt-auto bg-gray-900 text-white font-bold py-3 px-6 rounded-full hover:bg-gray-700 transition-colors text-center uppercase text-sm tracking-wide shadow-lg hover:shadow-xl">
                     Saiba Mais
                 </Link>
+            ) : empreendimento.action === 'modal' ? (
+                <button 
+                  onClick={() => setIsRefugioModalOpen(true)}
+                  className="inline-block mt-auto bg-amber-600 text-white font-bold py-3 px-6 rounded-full hover:bg-amber-700 transition-colors text-center uppercase text-sm tracking-wide shadow-lg hover:shadow-amber-500/30 animate-pulse-slow"
+                >
+                    <FontAwesomeIcon icon={faListCheck} className="mr-2" />
+                    Quero ser avisado
+                </button>
             ) : (
                 <button disabled className="inline-block mt-auto bg-gray-300 text-gray-500 font-bold py-3 px-6 rounded-full cursor-not-allowed text-center uppercase text-sm tracking-wide border border-gray-200">
                     <FontAwesomeIcon icon={faLock} className="mr-2" />
@@ -113,6 +131,13 @@ export default function HomePage() {
         }
         .empreendimento-swiper .swiper-pagination-bullet-active {
             background-color: #45301f !important;
+        }
+        @keyframes pulse-slow {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: .95; transform: scale(1.02); }
+        }
+        .animate-pulse-slow {
+          animation: pulse-slow 3s infinite;
         }
       `}</style>
       
@@ -137,7 +162,6 @@ export default function HomePage() {
                     className="w-full h-auto object-contain mb-4"
                     priority
                 />
-                {/* MUDANÇA AQUI: text-black */}
                 <h1 className={`${montserrat.className} text-base md:text-lg font-light uppercase tracking-widest text-black text-center drop-shadow-md`}>
                     excelência em cada detalhe
                 </h1>
@@ -197,6 +221,34 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* --- MODAL DA LISTA DE ESPERA (Refúgio Braúnas) --- */}
+      {isRefugioModalOpen && (
+        <div 
+            className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm transition-opacity duration-300"
+            onClick={() => setIsRefugioModalOpen(false)} // Fecha ao clicar fora
+        >
+            <div 
+                className="relative w-full max-w-lg bg-gray-900 rounded-2xl shadow-2xl overflow-hidden border border-gray-700 animate-fade-in-up"
+                onClick={(e) => e.stopPropagation()} // Impede fechar ao clicar dentro
+            >
+                {/* Cabeçalho do Modal com Botão Fechar */}
+                <div className="absolute top-4 right-4 z-10">
+                    <button 
+                        onClick={() => setIsRefugioModalOpen(false)}
+                        className="text-gray-400 hover:text-white bg-black/50 hover:bg-black/80 rounded-full w-8 h-8 flex items-center justify-center transition-all"
+                    >
+                        <FontAwesomeIcon icon={faTimes} />
+                    </button>
+                </div>
+
+                {/* Conteúdo: O seu formulário existente */}
+                <div className="p-1 sm:p-4">
+                    <FormularioDeContatoRefugio />
+                </div>
+            </div>
+        </div>
+      )}
     </>
   );
 }

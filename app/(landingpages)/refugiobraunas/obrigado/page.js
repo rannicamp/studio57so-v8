@@ -1,22 +1,34 @@
 // Caminho do arquivo: app/(landingpages)/refugiobraunas/obrigado/page.js
 import Link from 'next/link';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faCheckCircle } from '@fortawesome/free-solid-svg-icons';
 
 export default function PaginaObrigado() {
+  // O Verde da identidade visual do Refúgio Braúnas
   const primaryColor = '#2c5234';
 
   return (
-    <div className="h-screen bg-gray-800 flex flex-col items-center justify-center text-white text-center p-4">
-      <h1 className="text-5xl font-bold mb-4">Obrigado!</h1>
-      {/* ===== TEXTO ALTERADO AQUI ===== */}
-      <p className="text-xl max-w-2xl mb-8">
-        Recebemos suas informações com sucesso. Em breve, um consultor entrará em contato com mais informações.
+    <div 
+        className="h-screen flex flex-col items-center justify-center text-white text-center p-4"
+        style={{ backgroundColor: primaryColor }} // Fundo Verde
+    >
+      <div className="animate-bounce mb-6">
+        <FontAwesomeIcon icon={faCheckCircle} className="text-6xl text-green-300/80" />
+      </div>
+
+      <h1 className="text-4xl md:text-5xl font-bold mb-4 drop-shadow-md">Obrigado!</h1>
+      
+      <p className="text-lg md:text-xl max-w-2xl mb-12 text-green-50 font-light">
+        Recebemos suas informações com sucesso. Assim que estiver disponível enviaremos uma mensagem para você.
       </p>
-      <Link href="/refugiobraunas">
+
+      {/* Botão Branco para contrastar com o fundo Verde */}
+      <Link href="/">
         <div
-            className="text-white py-3 px-8 rounded-md font-bold text-lg hover:opacity-90 transition-colors cursor-pointer"
-            style={{ backgroundColor: primaryColor }}
+            className="bg-white hover:bg-green-50 py-4 px-10 rounded-full font-bold text-lg hover:scale-105 transition-all shadow-xl cursor-pointer uppercase tracking-wider"
+            style={{ color: primaryColor }}
         >
-          Voltar para a página
+          Voltar para o Início
         </div>
       </Link>
     </div>
