@@ -2,15 +2,15 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/middleware'
 
 export async function middleware(req) {
-  // Cria o cliente Supabase para o contexto do Next.js (lê cookies, etc)
+  // Cria o cliente Supabase para o contexto do Next.js
   const { supabase, response } = createClient(req)
 
-  // Atualiza a sessão (segurança padrão do Supabase no Next.js)
+  // Atualiza a sessão
   const {
     data: { session },
   } = await supabase.auth.getSession()
 
-  // Busca os dados do usuário para verificar a função (role)
+  // Busca os dados do usuário
   const {
     data: { user },
   } = await supabase.auth.getUser()
@@ -21,7 +21,7 @@ export async function middleware(req) {
   // 1. CONFIGURAÇÃO DE ROTAS PÚBLICAS
   // =================================================================
   
-  // Caminhos exatos que NÃO exigem login
+  // A. Caminhos EXATOS (Só libera se for exatamente isso)
   const publicExactPaths = [
     '/',
     '/login',
@@ -29,31 +29,43 @@ export async function middleware(req) {
     '/atualizar-senha',
     '/register',
     '/cadastro-corretor',
+    '/upload', // Rota de upload isolada
+    '/api/teste-manual'
+  ]
+
+  // B. PREFIXOS (Libera a rota E TUDO que vier depois dela "filhos")
+  // DICA DO TIO DEVONILDO: Coloque suas Landing Pages AQUI!
+  // Assim, /betasuites/obrigado funciona automaticamente.
+  const publicPrefixPaths = [
+    // --- Landing Pages (Adicione novos projetos aqui) ---
     '/empreendimentosstudio',
     '/refugiobraunas',
     '/residencialalfa',
-    '/studiosbeta', // Mantive o que estava
-    '/betasuites',  // Adicionei por garantia (pasta que criamos antes)
-    '/migracao',    // <--- ADICIONADO: Nova página do Plano de Transição
+    '/studiosbeta',
+    '/betasuites',
+    '/migracao',
     '/sobre-nos',
-    '/upload',
-    '/api/meta/webhook',
-    '/api/whatsapp/webhook',
-    '/api/notifications/push', 
-    '/api/teste-manual' 
-  ]
-
-  // Prefixos que NÃO exigem login (ex: todas as rotas dentro de /api/auth/*)
-  const publicPrefixPaths = [
+    
+    // --- Funcionalidades Públicas ---
     '/cadastrocliente', 
-    '/simulador-financiamento', 
+    '/simulador-financiamento',
+    
+    // --- APIs e Webhooks ---
     '/api/auth',
-    '/api/cron', 
+    '/api/meta',      // Libera todos os webhooks da Meta
+    '/api/whatsapp',  // Libera todos os webhooks do Whats
+    '/api/notifications',
+    '/api/cron'
   ]
 
-  // Verifica se a rota atual é pública
+  // =================================================================
+  // LÓGICA DE VERIFICAÇÃO
+  // =================================================================
+
+  // 1. É um caminho exato?
   let isPublicPath = publicExactPaths.includes(url.pathname)
 
+  // 2. Se não for exato, verifica se começa com algum prefixo permitido
   if (!isPublicPath) {
     isPublicPath = publicPrefixPaths.some((path) =>
       url.pathname.startsWith(path)
@@ -64,7 +76,6 @@ export async function middleware(req) {
   // 2. BLOQUEIO DE SEGURANÇA (Se não for público e não tiver sessão)
   // =================================================================
   if (!session && !isPublicPath) {
-    // Redireciona para login, mas salva a URL que ele tentou acessar para voltar depois (opcional)
     const redirectUrl = new URL('/login', req.url);
     return NextResponse.redirect(redirectUrl);
   }
@@ -74,7 +85,7 @@ export async function middleware(req) {
   // =================================================================
   if (session && user) {
     // Lista de páginas de Autenticação (onde usuário logado não deve ficar)
-    const isAuthPage = ['/login', '/', '/recuperar-senha'].includes(url.pathname);
+    const isAuthPage = ['/login', '/', '/recuperar-senha', '/register'].includes(url.pathname);
 
     // Se usuário logado tentar entrar no login, mandamos para o painel dele
     if (isAuthPage) {
@@ -94,7 +105,7 @@ export async function middleware(req) {
         return NextResponse.redirect(new URL('/painel', req.url))
     }
     
-    // Verificação de permissão para rotas protegidas (exceto troca de senha)
+    // Verificação de permissão para rotas protegidas
     if (!isPublicPath && url.pathname !== '/atualizar-senha') {
         const { data: profile } = await supabase
             .from('usuarios')
@@ -105,7 +116,6 @@ export async function middleware(req) {
         const funcao_id = profile?.funcao_id
 
         // A. Proteção das Rotas de Corretor
-        // Se a rota começa com portal, clientes ou tabela, e NÃO é corretor -> Chuta pro Painel
         const isCorretorPath = url.pathname.startsWith('/portal-') || url.pathname.startsWith('/clientes') || url.pathname.startsWith('/tabela-de-vendas')
         
         if (isCorretorPath && funcao_id !== 20) {
@@ -113,7 +123,6 @@ export async function middleware(req) {
         }
 
         // B. Proteção do Painel Administrativo
-        // Se a rota NÃO é de corretor, NÃO é pública, NÃO é login, e O USUÁRIO É CORRETOR -> Chuta pro Portal
         const isMainPanelPath = !isCorretorPath && !isPublicPath && url.pathname !== '/login'
         
         if (isMainPanelPath && funcao_id === 20) {
@@ -127,18 +136,6 @@ export async function middleware(req) {
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - images/ (public images)
-     * - icons/ (public icons)
-     * - sounds/ (public sounds)
-     * - sw.js (service worker)
-     * - manifest.json (PWA manifest)
-     * - workbox- (workbox scripts)
-     */
     '/((?!_next/static|_next/image|favicon.ico|images/|icons/|sounds/|sw.js|manifest.json|workbox-).*)',
   ],
 }
