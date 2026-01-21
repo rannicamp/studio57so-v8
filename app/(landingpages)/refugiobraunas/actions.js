@@ -4,8 +4,7 @@
 import { processarLeadUniversal } from '../_actions/leadActions';
 
 export async function salvarLead(formData) {
-  // Configuração específica do Refúgio:
-  // Redireciona para /refugiobraunas/obrigado
-  // A origem vem do próprio formData (input hidden no form), então não passamos o terceiro argumento fixo.
-  await processarLeadUniversal(formData, '/refugiobraunas/obrigado');
+  // Passamos o 3º argumento como garantia (fallback),
+  // assim fica igualzinho ao padrão do Alfa e evita erros se o input hidden falhar.
+  await processarLeadUniversal(formData, '/refugiobraunas/obrigado', 'Landing Page - Refúgio Braúnas');
 }

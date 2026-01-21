@@ -1,7 +1,7 @@
 // Caminho: app/(landingpages)/refugiobraunas/FormularioDeContatoRefugio.js
 'use client';
 
-import { salvarLead } from './actions'; // Importando a action do Braúnas
+import { salvarLead } from './actions';
 import { useFormStatus } from 'react-dom';
 import { useState } from 'react';
 import { IMaskInput } from 'react-imask';
@@ -15,6 +15,7 @@ function SubmitButton() {
     <button 
       type="submit" 
       disabled={pending} 
+      // MUDANÇA: Cores Verdes (green-700 / green-800)
       className="w-full bg-green-700 text-white font-bold py-4 px-6 rounded-lg hover:bg-green-800 disabled:opacity-70 transition-all duration-300 shadow-lg uppercase tracking-wider flex items-center justify-center"
     >
       {pending ? (
@@ -34,39 +35,39 @@ function SubmitButton() {
   );
 }
 
+// --- COMPONENTE PRINCIPAL (MODAL) ---
 export default function FormularioDeContatoRefugio({ onClose }) {
   const [country, setCountry] = useState('BR');
+  
   const mask = country === 'BR' ? '(00) 0000[0]-0000' : '(000) 000-0000';
-  const countryCode = country === 'BR' ? '+55' : '+1';
+  const countryCodeValue = country === 'BR' ? '+55' : '+1';
 
   const handleSubmit = (event) => {
     event.preventDefault();
     const formData = new FormData(event.target);
-    const unmaskedPhone = (formData.get('telefone') || '').replace(/\D/g, '');
-    const fullPhone = `${countryCode}${unmaskedPhone}`;
-    formData.set('telefone', fullPhone);
-    // Chama a Server Action do Braúnas
     salvarLead(formData);
   };
 
   return (
+    // ESTRUTURA IDENTICA AO ALFA (Modal Fixo)
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto">
-      <div className="relative bg-white text-gray-800 rounded-2xl shadow-2xl p-8 max-w-lg w-full m-auto animate-fadeIn border-2 border-green-700">
+      
+      {/* Box Principal com Borda Verde no Topo */}
+      <div className="relative bg-white text-gray-800 rounded-2xl shadow-2xl p-8 max-w-lg w-full m-auto animate-fadeIn border-t-4 border-green-700">
         
-        {/* Botão Fechar (se o modal for usado em popup) */}
-        {onClose && (
-            <button 
-                onClick={onClose} 
-                className="absolute top-4 right-4 text-gray-400 hover:text-red-500 transition-colors"
-                aria-label="Fechar"
-            >
-                <FontAwesomeIcon icon={faTimes} size="lg" />
-            </button>
-        )}
+        {/* Botão Fechar */}
+        <button 
+            onClick={onClose} 
+            // MUDANÇA: Hover text-green-700
+            className="absolute top-4 right-4 text-gray-400 hover:text-green-700 transition-colors bg-gray-100 hover:bg-green-50 rounded-full p-2"
+            aria-label="Fechar"
+        >
+            <FontAwesomeIcon icon={faTimes} size="lg" />
+        </button>
 
         <div className="text-center mb-8">
-            <h2 className="text-3xl font-bold mb-3 text-green-800 font-heading">
-                Fale Conosco
+            <h2 className="text-3xl font-bold mb-2 text-gray-800">
+                Fale com um Consultor
             </h2>
             <p className="text-gray-600">
                 Preencha os dados abaixo para receber o book completo do <strong>Refúgio Braúnas</strong>.
@@ -74,6 +75,11 @@ export default function FormularioDeContatoRefugio({ onClose }) {
         </div>
         
         <form onSubmit={handleSubmit} className="space-y-6">
+          
+          <input type="hidden" name="origem" value="Landing Page - Refúgio Braúnas" />
+          <input type="hidden" name="country_code" value={countryCodeValue} />
+
+          {/* Nome */}
           <div>
             <label htmlFor="nome" className="block text-gray-700 text-sm font-bold mb-2">Nome Completo</label>
             <input 
@@ -82,10 +88,12 @@ export default function FormularioDeContatoRefugio({ onClose }) {
                 name="nome" 
                 required 
                 placeholder="Seu nome"
-                className="w-full bg-gray-100 border border-gray-300 text-gray-900 rounded-lg py-3 px-4 focus:outline-none focus:ring-2 focus:ring-green-500 transition-all" 
+                // MUDANÇA: Focus ring-green-500
+                className="w-full bg-gray-50 border border-gray-300 text-gray-900 rounded-lg py-3 px-4 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all" 
             />
           </div>
           
+          {/* Telefone Internacional */}
           <div>
             <label htmlFor="telefone" className="block text-gray-700 text-sm font-bold mb-2">WhatsApp</label>
             <div className="flex items-center">
@@ -93,11 +101,15 @@ export default function FormularioDeContatoRefugio({ onClose }) {
                   <select 
                     onChange={(e) => setCountry(e.target.value)} 
                     value={country} 
-                    className="appearance-none bg-gray-100 border border-gray-300 border-r-0 rounded-l-lg py-3 pl-4 pr-8 text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500 cursor-pointer h-[50px]"
+                    // MUDANÇA: Focus ring-green-500
+                    className="appearance-none bg-gray-50 border border-gray-300 border-r-0 rounded-l-lg py-3 pl-4 pr-8 text-gray-900 focus:outline-none focus:ring-2 focus:ring-green-500 cursor-pointer h-[50px]"
                   >
                     <option value="BR">🇧🇷 +55</option>
                     <option value="US">🇺🇸 +1</option>
                   </select>
+                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500">
+                    <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/></svg>
+                  </div>
               </div>
               
               <IMaskInput
@@ -106,14 +118,16 @@ export default function FormularioDeContatoRefugio({ onClose }) {
                 name="telefone"
                 required
                 placeholder={country === 'BR' ? '(99) 99999-9999' : '(555) 555-5555'}
-                className="w-full bg-gray-100 border border-gray-300 border-l-0 text-gray-900 rounded-r-lg py-3 px-4 focus:outline-none focus:ring-2 focus:ring-green-500 h-[50px]"
+                // MUDANÇA: Focus ring-green-500
+                className="w-full bg-gray-50 border border-gray-300 border-l-0 text-gray-900 rounded-r-lg py-3 px-4 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all h-[50px]"
               />
             </div>
           </div>
 
-          <p className="text-xs text-center text-gray-500 mt-4">
+          <p className="text-xs text-center text-gray-500 mt-4 flex items-center justify-center">
+            {/* MUDANÇA: Ícone text-green-600 */}
             <FontAwesomeIcon icon={faCheck} className="mr-1 text-green-600" />
-            Seus dados estão seguros conosco.
+            Seus dados estão protegidos.
           </p>
           
           <SubmitButton />

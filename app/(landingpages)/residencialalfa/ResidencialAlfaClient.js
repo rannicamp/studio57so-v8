@@ -3,7 +3,7 @@
 
 import { useState } from 'react';
 import Image from 'next/image';
-import { Roboto, Montserrat } from 'next/font/google'; // Adicionei Montserrat para títulos se precisar
+import { Roboto, Montserrat } from 'next/font/google'; 
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -11,7 +11,7 @@ import {
     faRulerCombined, faBed, faBath, faCouch, faElevator, faCar,
     faHospital, faGraduationCap, faCity, faCartShopping, faUtensils, faLocationDot,
     faSchool, faHouseMedical, faUsers, faLandmark, faXmark, faQuoteLeft,
-    faSwimmingPool, faChartLine, faSackDollar // Adicionei alguns ícones que vi no uso
+    faSwimmingPool, faChartLine, faSackDollar 
 } from '@fortawesome/free-solid-svg-icons';
 
 // Importações do Swiper
@@ -24,12 +24,11 @@ import 'swiper/css/effect-coverflow';
 import 'swiper/css/pagination';
 import 'swiper/css/navigation';
 
-// Importando a Server Action
-import { salvarLead } from './actions';
+// --- MUDANÇA IMPORTANTE: IMPORTAMOS O FORMULÁRIO PADRONIZADO ---
+import FormularioDeContato from './FormularioDeContato';
 
-// Configuração de Fontes (Atualizada para o Padrão Elegante)
 const roboto = Roboto({
-    weight: ['100', '300', '400', '500', '700', '900'], // Adicionei 100 e 300
+    weight: ['100', '300', '400', '500', '700', '900'],
     subsets: ['latin'],
     display: 'swap',
     variable: '--font-roboto',
@@ -51,7 +50,6 @@ const galleryImages = [
     { id: 12, src: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/1/IMG_1759019528512.png', alt: 'Segundo quarto decorado' },
 ];
 
-// --- DADOS DOS DEPOIMENTOS ---
 const testimonialsData = [
     {
         id: 1,
@@ -74,14 +72,12 @@ const testimonialsData = [
 const floorPlanImage = "https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/materiais-alfa/planta%20humanizada%20aps.png";
 const primaryColor = '#45301f'; 
 
-// --- Componentes de Ícones ---
 const IconeLocalizacao = () => <FontAwesomeIcon icon={faLocationDot} className="w-8 h-8" />;
 const IconeValorizacao = () => <FontAwesomeIcon icon={faChartLine} className="w-8 h-8" />;
 const IconeRentabilidade = () => <FontAwesomeIcon icon={faSackDollar} className="w-8 h-8" />;
-const IconeCasa = () => <FontAwesomeIcon icon={faCity} className="w-8 h-8" />; // Ajustado para City ou similar
+const IconeCasa = () => <FontAwesomeIcon icon={faCity} className="w-8 h-8" />;
 const IconeCoracao = () => <FontAwesomeIcon icon={faUsers} className="w-8 h-8" />;
 const IconePiscina = () => <FontAwesomeIcon icon={faSwimmingPool} className="w-8 h-8" />;
-
 
 export default function ResidencialAlfaClient() {
     const [view, setView] = useState('investidor'); 
@@ -121,7 +117,6 @@ export default function ResidencialAlfaClient() {
                 .text-primary {
                     color: ${primaryColor};
                 }
-                /* Swiper Overrides */
                 .swiper-button-next,
                 .swiper-button-prev {
                     color: #ffffff !important;
@@ -179,6 +174,7 @@ export default function ResidencialAlfaClient() {
                 }
             `}</style>
             
+            {/* HERO SECTION */}
             <section className="relative min-h-screen flex items-center justify-center bg-black text-white overflow-hidden">
                 <div
                     className="absolute inset-0 bg-no-repeat bg-right-bottom z-0"
@@ -189,7 +185,6 @@ export default function ResidencialAlfaClient() {
                 ></div>
                 <div className="absolute inset-0 bg-black opacity-30 z-10"></div>
                 
-                {/* Tati Image - Ajuste de Z-Index para não cobrir o texto se ficar mobile */}
                 <div className="absolute bottom-0 left-0 w-[45%] max-w-xs sm:max-w-sm md:w-1/3 md:max-w-md z-20 pointer-events-none">
                     <Image
                         src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/materiais-alfa/tatisemfundo.png"
@@ -211,14 +206,12 @@ export default function ResidencialAlfaClient() {
                         priority
                     />
 
-                    {/* --- APLICAÇÃO DO PADRÃO CHIQUE (SUSSURRADO) --- */}
                     <h1 className="font-sans text-2xl md:text-4xl font-thin uppercase tracking-widest text-shadow-lg mb-2">
                         Alto Esplanada
                     </h1>
                     <p className="font-sans text-lg md:text-xl text-shadow font-thin tracking-wider opacity-90 mb-8">
                         Investimento inteligente em Governador Valadares
                     </p>
-                    {/* ----------------------------------------------- */}
 
                     <div className="bg-black/30 backdrop-blur-sm rounded-full p-1 flex items-center">
                         <button
@@ -237,8 +230,7 @@ export default function ResidencialAlfaClient() {
                 </div>
             </section>
             
-            {/* O restante do conteúdo permanece idêntico, apenas renderizado pelo React */}
-            
+            {/* SEÇÃO RENTABILIDADE */}
             <section className="bg-gray-50 py-16 md:py-20">
                 <div className="w-full px-4 text-center container mx-auto">
                     <div className="max-w-3xl mx-auto bg-white p-8 rounded-lg shadow-md">
@@ -267,6 +259,7 @@ export default function ResidencialAlfaClient() {
                 </div>
             </section>
             
+            {/* DEPOIMENTOS */}
             <section className="bg-white py-16 md:py-24">
                 <div className="w-full px-4 container mx-auto">
                     <h2 className="text-3xl md:text-4xl font-bold text-center mb-4 text-gray-900">
@@ -334,6 +327,7 @@ export default function ResidencialAlfaClient() {
                 </div>
             </section>
             
+            {/* CONTEÚDO CONDICIONAL */}
             {view === 'investidor' && (
                 <>
                     <section className="py-16 md:py-24 bg-white">
@@ -364,7 +358,6 @@ export default function ResidencialAlfaClient() {
                                 <h3 className="text-2xl md:text-3xl font-bold text-gray-800 text-center mb-12">
                                     Mapa de Proximidades
                                 </h3>
-                                {/* Mapa Simplificado/Lista (Mantido do original) */}
                                 <div className="relative max-w-sm mx-auto">
                                     <div className="absolute left-2.5 top-2 bottom-2 w-0.5 bg-gray-300"></div>
                                     
@@ -379,7 +372,6 @@ export default function ResidencialAlfaClient() {
                                         </div>
                                     </div>
 
-                                    {/* Itens do Mapa - Exemplo resumido para não ficar gigante, mas mantendo a estrutura */}
                                     {[
                                         {icon: faSchool, title: 'Maple Bear', time: '1 min'},
                                         {icon: faHouseMedical, title: 'Casa Unimed', time: '2 min'},
@@ -478,6 +470,7 @@ export default function ResidencialAlfaClient() {
                 </>
             )}
             
+            {/* PLANTAS */}
             <section className="py-16 md:py-24 bg-white">
                 <div className="w-full px-4 grid grid-cols-1 md:grid-cols-2 gap-12 items-center container mx-auto">
                     <div className="md:order-2">
@@ -531,6 +524,7 @@ export default function ResidencialAlfaClient() {
                 </div>
             </section>
             
+            {/* GALERIA */}
             <section className="bg-gray-50 py-16 md:py-24">
                 <div className="w-full px-4 container mx-auto">
                     <h2 className="text-3xl md:text-4xl font-bold text-center mb-12 text-gray-900">
@@ -574,6 +568,7 @@ export default function ResidencialAlfaClient() {
                 </div>
             </section>
             
+            {/* CTA FINAL */}
             <section className="bg-gray-50 py-16 md:py-20">
                 <div className="w-full px-4 text-center container mx-auto">
                     <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-4">Gostou do que viu?</h2>
@@ -594,7 +589,9 @@ export default function ResidencialAlfaClient() {
                 </div>
             </footer>
             
-            {/* MODAIS (Zoom e Lead) */}
+            {/* --- MODAIS --- */}
+            
+            {/* Modal de Zoom de Imagem */}
             {selectedImage && (
                  <div
                  className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"
@@ -622,47 +619,18 @@ export default function ResidencialAlfaClient() {
              </div>
             )}
             
+            {/* Modal do Formulário - AGORA USANDO O COMPONENTE OFICIAL */}
             <AnimatePresence>
                 {isModalOpen && (
                     <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 overflow-y-auto"
-                        onClick={closeLeadModal}
+                        // O FormularioDeContato já tem o "fixed inset-0", 
+                        // mas aqui controlamos a entrada/saída dele no DOM
                     >
-                        <motion.div
-                            initial={{ scale: 0.9, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            exit={{ scale: 0.9, opacity: 0 }}
-                            className="bg-white p-8 rounded-lg shadow-2xl space-y-5 max-w-lg w-full relative"
-                            onClick={(e) => e.stopPropagation()}
-                        >
-                            <button 
-                                onClick={closeLeadModal}
-                                className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
-                            >
-                                <FontAwesomeIcon icon={faXmark} size="lg" />
-                            </button>
-                            
-                            <h3 className="text-2xl font-bold text-center text-gray-800">Receba o material completo</h3>
-                            <p className="text-center text-gray-600">Preencha os dados abaixo para receber o book e a tabela de vendas.</p>
-                            
-                            <form action={salvarLead} className="space-y-4">
-                                <input type="hidden" name="origem" value="Modal - Book Residencial Alfa" />
-                                <div>
-                                    <label htmlFor="modal-nome" className="block text-sm font-medium text-gray-700">Nome completo</label>
-                                    <input type="text" name="nome" id="modal-nome" required className="mt-1 block w-full px-4 py-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"/>
-                                </div>
-                                <div>
-                                    <label htmlFor="modal-telefone" className="block text-sm font-medium text-gray-700">Telefone (WhatsApp)</label>
-                                    <input type="tel" name="telefone" id="modal-telefone" required className="mt-1 block w-full px-4 py-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"/>
-                                </div>
-                                <button type="submit" className="w-full bg-primary text-white py-3 rounded-md font-bold text-lg hover:opacity-90 transition-transform transform hover:scale-105">
-                                    QUERO RECEBER O MATERIAL
-                                </button>
-                            </form>
-                        </motion.div>
+                        {/* Passamos onClose para o formulário poder fechar a si mesmo */}
+                        <FormularioDeContato onClose={closeLeadModal} />
                     </motion.div>
                 )}
             </AnimatePresence>

@@ -25,8 +25,9 @@ import {
   faXmark,
 } from '@fortawesome/free-solid-svg-icons';
 
-// Importando a Server Action
-import { salvarLead } from './actions';
+// --- MUDANÇA: REMOVEMOS A IMPORTAÇÃO DO salvarLead (JÁ ESTÁ NO COMPONENTE) ---
+// --- MUDANÇA: IMPORTAMOS O FORMULÁRIO PADRONIZADO ---
+import FormularioDeContatoRefugio from './FormularioDeContatoRefugio';
 
 // Importando o modal de Zoom
 import ZoomableImageModal from '../../../components/ZoomableImageModal';
@@ -68,7 +69,6 @@ const IconeSeguranca = () => (
 const primaryColor = '#2c5234';
 
 export default function RefugioBraunasClient() {
-  // REMOVIDO: const [view, setView] = useState('investidor');
   const [selectedImage, setSelectedImage] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -194,7 +194,7 @@ export default function RefugioBraunasClient() {
         </div>
       </section>
 
-      {/* Seção 1: Investimento e Valorização (Antiga View Investidor) */}
+      {/* Seção 1: Investimento e Valorização */}
       <section className="py-16 md:py-24 bg-white">
         <div className="container mx-auto px-4">
           <h2 className="text-3xl md:text-4xl font-bold text-center mb-12 text-gray-900">
@@ -244,7 +244,7 @@ export default function RefugioBraunasClient() {
         </div>
       </section>
 
-      {/* Seção 2: Moradia e Qualidade de Vida (Antiga View Morador) */}
+      {/* Seção 2: Moradia e Qualidade de Vida */}
       <section className="bg-gray-50 py-16 md:py-24">
         <div className="container mx-auto px-4 text-center">
           <h2 className="text-3xl md:text-4xl font-bold mb-12 text-gray-900">
@@ -538,7 +538,7 @@ export default function RefugioBraunasClient() {
         onClose={closeModal}
       />
 
-      {/* Modal de Lead */}
+      {/* Modal de Lead - AGORA COM O FORMULÁRIO PADRÃO SEM EMAIL E COM MÁSCARA */}
       <AnimatePresence>
         {isModalOpen && (
           <motion.div
@@ -552,83 +552,19 @@ export default function RefugioBraunasClient() {
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white p-8 rounded-lg shadow-2xl space-y-5 max-w-lg w-full relative"
+              className="bg-white rounded-lg shadow-2xl max-w-lg w-full relative overflow-hidden"
               onClick={(e) => e.stopPropagation()}
             >
               <button
                 onClick={closeLeadModal}
-                className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+                className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 z-10"
               >
                 <FontAwesomeIcon icon={faXmark} size="lg" />
               </button>
-
-              <h3 className="text-2xl font-bold text-center text-gray-800">
-                Receba o material completo
-              </h3>
-              <p className="text-center text-gray-600">
-                Preencha os dados abaixo para receber o book e a tabela de
-                vendas.
-              </p>
-
-              {/* Formulário chamando a Server Action */}
-              <form action={salvarLead} className="space-y-4">
-                <input
-                  type="hidden"
-                  name="origem"
-                  value="Modal - Book Refúgio Braúnas"
-                />
-                <div>
-                  <label
-                    htmlFor="modal-nome"
-                    className="block text-sm font-medium text-gray-700"
-                  >
-                    Nome completo
-                  </label>
-                  <input
-                    type="text"
-                    name="nome"
-                    id="modal-nome"
-                    required
-                    className="mt-1 block w-full px-4 py-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
-                  />
-                </div>
-                <div>
-                  <label
-                    htmlFor="modal-email"
-                    className="block text-sm font-medium text-gray-700"
-                  >
-                    Seu melhor e-mail
-                  </label>
-                  <input
-                    type="email"
-                    name="email"
-                    id="modal-email"
-                    required
-                    className="mt-1 block w-full px-4 py-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
-                  />
-                </div>
-                <div>
-                  <label
-                    htmlFor="modal-telefone"
-                    className="block text-sm font-medium text-gray-700"
-                  >
-                    Telefone (WhatsApp)
-                  </label>
-                  <input
-                    type="tel"
-                    name="telefone"
-                    id="modal-telefone"
-                    required
-                    className="mt-1 block w-full px-4 py-3 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-primary focus:border-primary"
-                  />
-                </div>
-                <button
-                  type="submit"
-                  className="w-full bg-primary text-white py-3 rounded-md font-bold text-lg hover:opacity-90 transition-transform transform hover:scale-105"
-                >
-                  QUERO RECEBER O MATERIAL
-                </button>
-              </form>
+              
+              {/* CHAMADA DO COMPONENTE PADRONIZADO AQUI */}
+              <FormularioDeContatoRefugio />
+              
             </motion.div>
           </motion.div>
         )}
