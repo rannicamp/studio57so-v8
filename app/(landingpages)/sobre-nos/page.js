@@ -56,11 +56,11 @@ export default function SobreNosPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-12 md:gap-20">
                 
-                {/* --- LADO ESQUERDO: RANNIERE --- */}
+                {/* --- LADO ESQUERDO: RANNIERE (FOTO FINAL) --- */}
                 <div className="flex flex-col">
                     <div className="relative w-full h-[500px] mb-8 overflow-hidden">
                         <Image 
-                            src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empresa-anexos/4/IMG_1769086421229.png" 
+                            src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empresa-anexos/4/IMG_1769106573052.png" 
                             alt="Ranniere Campos" 
                             fill
                             className="object-cover object-top transition-transform duration-700 hover:scale-105" 
@@ -90,11 +90,11 @@ export default function SobreNosPage() {
                     </div>
                 </div>
 
-                {/* --- LADO DIREITO: IGOR --- */}
+                {/* --- LADO DIREITO: IGOR (NOVA FOTO) --- */}
                 <div className="flex flex-col">
                     <div className="relative w-full h-[500px] mb-8 overflow-hidden">
                         <Image 
-                            src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empresa-anexos/4/IMG_1769102385641.png" 
+                            src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empresa-anexos/4/IMG_1769107378867.png" 
                             alt="Igor Monte Alto" 
                             fill
                             className="object-cover object-top transition-transform duration-700 hover:scale-105" 
