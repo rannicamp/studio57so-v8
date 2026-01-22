@@ -8,15 +8,14 @@ import {
   faChartLine, 
   faMoneyBillWave, 
   faUsers, 
-  faChartPie,
-  faSitemap // Importei um icone extra para o titulo geral se precisar, mas mantive o seu
+  faChartPie 
 } from '@fortawesome/free-solid-svg-icons';
 
 export default function DashboardGeralPage() {
   
-  // Lista de Relatórios Disponíveis
+  // Lista de Relatórios Disponíveis (Adaptado para FontAwesome)
   const relatorios = [
-    // --- NOVO: Radar Studio (Destaque) ---
+    // --- NOVO: Radar Studio (Destaque no topo) ---
     {
       titulo: "Radar Studio",
       descricao: "Monitoramento de visitas, dispositivos e origem do tráfego em tempo real.",
@@ -30,7 +29,7 @@ export default function DashboardGeralPage() {
       titulo: "Comercial & Marketing",
       descricao: "Funil de vendas, conversão de Ads e performance de contratos.",
       href: "/relatorios/comercial",
-      icon: faChartLine, 
+      icon: faChartLine, // Ícone de Gráfico de Linha
       cor: "text-blue-600",
       bg: "bg-blue-50",
       border: "border-blue-100"
@@ -39,7 +38,7 @@ export default function DashboardGeralPage() {
       titulo: "Financeiro",
       descricao: "Fluxo de caixa, DRE, conciliação e auditoria.",
       href: "/relatorios/financeiro",
-      icon: faMoneyBillWave,
+      icon: faMoneyBillWave, // Ícone de Dinheiro
       cor: "text-emerald-600",
       bg: "bg-emerald-50",
       border: "border-emerald-100"
@@ -48,7 +47,7 @@ export default function DashboardGeralPage() {
       titulo: "Recursos Humanos",
       descricao: "Folha de ponto, custos de equipe e turnover.",
       href: "/relatorios/rh",
-      icon: faUsers,
+      icon: faUsers, // Ícone de Usuários/Equipe
       cor: "text-purple-600",
       bg: "bg-purple-50",
       border: "border-purple-100"
@@ -104,7 +103,7 @@ export default function DashboardGeralPage() {
               ))}
             </div>
 
-            {/* Área de Dashboard Unificado */}
+            {/* Área de Dashboard Unificado (Placeholder para o futuro) */}
             <div className="bg-slate-50 rounded-2xl p-8 border border-slate-200 border-dashed text-center">
               <h3 className="text-slate-400 font-medium mb-1">Dashboard Executivo Unificado</h3>
               <p className="text-xs text-slate-400">
