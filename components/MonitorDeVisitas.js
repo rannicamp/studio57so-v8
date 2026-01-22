@@ -1,20 +1,21 @@
 // Caminho: components/MonitorDeVisitas.js
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, Suspense } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { registrarVisita } from '@/app/_actions/monitorActions';
 
-export default function MonitorDeVisitas() {
-  const pathname = usePathname(); // Pega a página atual (ex: /residencialalfa)
-  const searchParams = useSearchParams(); // Pega se veio de anúncio (ex: ?utm_source=instagram)
+// 1. Criamos um componente interno que faz o trabalho "perigoso" de ler a URL
+function MonitorLogico() {
+  const pathname = usePathname();
+  const searchParams = useSearchParams(); 
 
   useEffect(() => {
-    // Detecta se é Celular ou PC de forma simples
+    // Detecta se é Celular ou PC
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
     const tipoDispositivo = isMobile ? 'Celular' : 'Computador';
 
-    // Pega a origem (Referrer) - De onde o cara veio antes de entrar aqui
+    // Pega a origem (Referrer)
     let origem = document.referrer;
     if (!origem) origem = 'Acesso Direto';
     if (origem.includes('google')) origem = 'Google';
@@ -32,10 +33,20 @@ export default function MonitorDeVisitas() {
       dispositivo: tipoDispositivo
     };
 
-    // Manda registrar (sem travar o site, roda em segundo plano)
+    // Manda registrar
     registrarVisita(dadosDaVisita);
 
-  }, [pathname, searchParams]); // Roda sempre que a página ou parâmetros mudarem
+  }, [pathname, searchParams]);
 
-  return null; // Esse componente não mostra nada na tela, é invisível
+  return null;
+}
+
+// 2. O componente principal apenas "encapsula" a lógica no Suspense
+// Isso acalma o Next.js 15 e evita o erro de build
+export default function MonitorDeVisitas() {
+  return (
+    <Suspense fallback={null}>
+      <MonitorLogico />
+    </Suspense>
+  );
 }

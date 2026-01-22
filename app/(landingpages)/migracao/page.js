@@ -4,13 +4,15 @@
 import Image from 'next/image';
 import { Montserrat } from 'next/font/google';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+// Correção aqui: Mantivemos apenas os ícones sólidos nesta importação
 import { 
     faBuildingColumns, 
     faRightLeft, 
     faHandHoldingDollar, 
-    faCheck, 
-    faWhatsapp 
+    faCheck 
 } from '@fortawesome/free-solid-svg-icons';
+// Correção aqui: Importamos o WhatsApp do pacote de marcas (brands)
+import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 
 // Fontes
 const montserrat = Montserrat({
