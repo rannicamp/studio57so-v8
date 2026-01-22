@@ -5,7 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Montserrat, Roboto } from 'next/font/google';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faHardHat, faPenRuler, faHandshake } from '@fortawesome/free-solid-svg-icons';
+import { faHandshake } from '@fortawesome/free-solid-svg-icons';
 
 // Fontes
 const montserrat = Montserrat({ subsets: ['latin'], weight: ['300', '400', '700', '900'] });
@@ -15,7 +15,7 @@ export default function SobreNosPage() {
   return (
     <div className={`${roboto.variable} ${montserrat.className} bg-white text-gray-800`}>
       
-      {/* --- HERO SECTION: CLEAN & MINIMALISTA --- */}
+      {/* --- HERO SECTION: MARCA --- */}
       <section className="relative pt-32 pb-20 md:pt-48 md:pb-32 flex flex-col items-center justify-center bg-white text-center px-6">
         
         {/* LOGO DA MARCA */}
@@ -29,7 +29,7 @@ export default function SobreNosPage() {
             />
         </div>
 
-        {/* Título Principal - Roboto Fino */}
+        {/* Título Principal */}
         <h1 className="font-roboto font-light text-4xl md:text-6xl text-gray-900 uppercase tracking-widest mb-8">
             A Nossa Verdade
         </h1>
@@ -45,32 +45,35 @@ export default function SobreNosPage() {
 
       </section>
 
-      {/* --- ATO 1: A ORIGEM --- */}
-      <section className="py-20 md:py-32 border-t border-gray-100">
+      {/* --- PRÓLOGO: CAMINHOS PARALELOS (LADO A LADO) --- */}
+      <section className="py-20 md:py-32 border-t border-gray-100 bg-gray-50">
         <div className="container mx-auto px-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
-                
-                {/* Imagem Ranniere (Esquerda) */}
-                <div className="w-full">
-                     <Image 
-                        src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empresa-anexos/4/IMG_1769086421229.png" 
-                        alt="Ranniere Campos" 
-                        width={0}
-                        height={0}
-                        sizes="100vw"
-                        className="w-full h-auto transition-all duration-700" 
-                     />
-                </div>
+            
+            <div className="text-center mb-16">
+                <span className="text-sm font-bold tracking-[0.3em] text-orange-600 uppercase">Prólogo</span>
+                <h2 className="text-3xl md:text-4xl font-light text-gray-900 mt-4">Caminhos Paralelos</h2>
+            </div>
 
-                {/* Texto (Direita) */}
-                <div className="flex flex-col justify-center h-full">
-                    <div className="flex items-center space-x-4 mb-6">
-                        <span className="text-6xl font-thin text-gray-200 font-roboto">01</span>
-                        <h2 className="text-3xl font-bold text-gray-900 uppercase">A Origem</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-12 md:gap-20">
+                
+                {/* --- LADO ESQUERDO: RANNIERE --- */}
+                <div className="flex flex-col">
+                    <div className="relative w-full h-[500px] mb-8 overflow-hidden">
+                        <Image 
+                            src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empresa-anexos/4/IMG_1769086421229.png" 
+                            alt="Ranniere Campos" 
+                            fill
+                            className="object-cover object-top transition-transform duration-700 hover:scale-105" 
+                        />
                     </div>
-                    <h3 className="text-xl font-light text-orange-600 mb-6 italic font-roboto">
+                    
+                    <h2 className="text-2xl font-bold text-gray-900 uppercase mb-2">Ranniere Campos</h2>
+                    <p className="text-sm text-orange-600 font-bold uppercase tracking-wider mb-6">A Visão Tecnológica</p>
+
+                    <h3 className="text-xl font-light text-gray-500 mb-6 italic font-roboto border-l-2 border-orange-500 pl-4">
                         "Não foi visão de futuro. Foi vontade de ganhar tempo."
                     </h3>
+                    
                     <div className="space-y-6 text-lg text-gray-600 leading-relaxed font-roboto font-light text-justify">
                         <p>
                             Muita gente conta que começou a usar tecnologia porque teve uma 'visão mística' do futuro. A minha verdade é mais simples: em 2009, no terceiro período da faculdade, um professor me contou um segredo. Ele disse: 
@@ -86,17 +89,48 @@ export default function SobreNosPage() {
                         </p>
                     </div>
                 </div>
-                
+
+                {/* --- LADO DIREITO: IGOR --- */}
+                <div className="flex flex-col">
+                    <div className="relative w-full h-[500px] mb-8 overflow-hidden">
+                        <Image 
+                            src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empresa-anexos/4/IMG_1769102385641.png" 
+                            alt="Igor Monte Alto" 
+                            fill
+                            className="object-cover object-top transition-transform duration-700 hover:scale-105" 
+                        />
+                    </div>
+
+                    <h2 className="text-2xl font-bold text-gray-900 uppercase mb-2">Igor Monte Alto</h2>
+                    <p className="text-sm text-orange-600 font-bold uppercase tracking-wider mb-6">A Gestão e o Ensino</p>
+
+                    <h3 className="text-xl font-light text-gray-500 mb-6 italic font-roboto border-l-2 border-orange-500 pl-4">
+                        "Do projeto público ao pé no chão."
+                    </h3>
+
+                    <div className="space-y-6 text-lg text-gray-600 leading-relaxed font-roboto font-light text-justify">
+                        <p>
+                            Após uma temporada atuando como arquiteto em Belo Horizonte, retornei a Governador Valadares em 2012 para trabalhar em projetos de infraestrutura urbana e, logo depois, na docência na Univale. Conciliar a complexidade pública com a sala de aula me deu rigor técnico.
+                        </p>
+                        <p>
+                            Porém, em 2020, o cenário mudou. A burocracia pública me cansava e eu queria empreender com velocidade, longe da morosidade dos processos antigos.
+                        </p>
+                        <p>
+                            Meus planos eram fechar a empresa antiga para abrir um novo negócio, com novas ideias. Eu tinha a gestão e a experiência de campo, mas buscava inovação. Precisava de algo que unisse a <strong>técnica da engenharia com a alma da arquitetura.</strong>
+                        </p>
+                    </div>
+                </div>
+
             </div>
         </div>
       </section>
 
-      {/* --- ATO 2: A IDENTIDADE --- */}
-      <section className="py-20 md:py-32 bg-gray-50 border-t border-gray-100">
+      {/* --- ATO 1: A FUSÃO (Número 01) --- */}
+      <section className="py-20 md:py-32 border-t border-gray-100">
         <div className="container mx-auto px-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
                 
-                {/* Imagem Sócios (Esquerda) */}
+                {/* Imagem Sócios */}
                 <div className="w-full">
                      <Image 
                         src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empresa-anexos/4/IMG_1769088852146.png" 
@@ -108,11 +142,11 @@ export default function SobreNosPage() {
                      />
                 </div>
 
-                {/* Texto (Direita) */}
+                {/* Texto */}
                 <div className="flex flex-col justify-center h-full">
                     <div className="flex items-center space-x-4 mb-6">
-                        <span className="text-6xl font-thin text-gray-300 font-roboto">02</span>
-                        <h2 className="text-3xl font-bold text-gray-900 uppercase">A Identidade</h2>
+                        <span className="text-6xl font-thin text-gray-200 font-roboto">01</span>
+                        <h2 className="text-3xl font-bold text-gray-900 uppercase">A Fusão</h2>
                     </div>
                     <h3 className="text-xl font-light text-orange-600 mb-6 italic font-roboto">
                         "Por que 57? A matemática da criação."
@@ -129,11 +163,11 @@ export default function SobreNosPage() {
                         </p>
                         <ul className="space-y-4 bg-white p-6 rounded-sm border-l-2 border-orange-500 shadow-sm">
                             <li className="flex items-start">
-                                <FontAwesomeIcon icon={faPenRuler} className="mt-1 mr-3 text-gray-400" />
+                                <FontAwesomeIcon icon={faHandshake} className="mt-1 mr-3 text-gray-400" />
                                 <span>A frustração: ver projetos incríveis serem executados sem o devido cuidado.</span>
                             </li>
                             <li className="flex items-start">
-                                <FontAwesomeIcon icon={faHardHat} className="mt-1 mr-3 text-orange-500" />
+                                <FontAwesomeIcon icon={faHandshake} className="mt-1 mr-3 text-orange-500" />
                                 <span className="font-bold text-gray-900">O sonho: parar de apenas desenhar o sonho dos outros e começar a construir o nosso.</span>
                             </li>
                         </ul>
@@ -147,14 +181,14 @@ export default function SobreNosPage() {
         </div>
       </section>
 
-      {/* --- ATO 3: A INCORPORAÇÃO --- */}
-      <section className="py-20 md:py-32 border-t border-gray-100">
+      {/* --- ATO 2: A RETOMADA (Número 02) --- */}
+      <section className="py-20 md:py-32 border-t border-gray-100 bg-gray-50">
         <div className="container mx-auto px-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
-                {/* Texto (Esquerda) */}
+                {/* Texto */}
                 <div className="order-2 md:order-1 flex flex-col justify-center h-full">
                     <div className="flex items-center space-x-4 mb-6">
-                        <span className="text-6xl font-thin text-gray-200 font-roboto">03</span>
+                        <span className="text-6xl font-thin text-gray-200 font-roboto">02</span>
                         <h2 className="text-3xl font-bold text-gray-900 uppercase">A Retomada</h2>
                     </div>
                     <h3 className="text-xl font-light text-orange-600 mb-6 italic font-roboto">
@@ -185,7 +219,7 @@ export default function SobreNosPage() {
                     </div>
                 </div>
                 
-                {/* Imagem Sócios (Direita - NOVA FOTO) */}
+                {/* Imagem */}
                 <div className="order-1 md:order-2 w-full">
                      <Image 
                         src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empresa-anexos/4/IMG_1769093097228.png" 
@@ -218,11 +252,11 @@ export default function SobreNosPage() {
                     Ver Empreendimentos
                 </Link>
                 <Link 
-                    href="https://wa.me/5533998192119" 
+                    href="https://wa.me/5533998192119?text=Olá! Vim pela página Sobre Nós do site e gostaria de conversar." 
                     target="_blank"
-                    className="bg-white border-2 border-black hover:bg-black hover:text-white text-black font-bold py-4 px-10 rounded-full transition-all"
+                    className="bg-white border-2 border-black hover:bg-black hover:text-white text-black font-bold py-4 px-10 rounded-full transition-all uppercase"
                 >
-                    Falar com Ranniere
+                    Fale com a gente
                 </Link>
             </div>
         </div>
