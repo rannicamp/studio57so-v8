@@ -9,7 +9,7 @@ import {
   faHardHat, 
   faMoneyBillWave, 
   faBoxOpen,
-  faChartLine // <--- Adicionei o ícone aqui
+  faChartLine
 } from '@fortawesome/free-solid-svg-icons';
 
 export default function RelatoriosLayout({ children }) {
@@ -19,8 +19,9 @@ export default function RelatoriosLayout({ children }) {
   const isActive = (path) => pathname.includes(path);
 
   const navItems = [
+    // --- NOVO: Radar Studio no topo ---
+    { label: 'Radar Studio', path: '/relatorios/radar', icon: faChartPie },
     { label: 'RH & Pessoas', path: '/relatorios/rh', icon: faUsers },
-    // Adicionei o Comercial aqui, ao lado do Financeiro
     { label: 'Comercial', path: '/relatorios/comercial', icon: faChartLine },
     { label: 'Financeiro', path: '/relatorios/financeiro', icon: faMoneyBillWave },
     { label: 'Obras', path: '/relatorios/obras', icon: faHardHat },

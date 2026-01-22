@@ -3,11 +3,14 @@
 import Script from 'next/script';
 import { Toaster } from 'sonner';
 import MenuPublico from './components/MenuPublico';
+// --- NOVO: Importando o nosso Analista Pessoal ---
+import MonitorDeVisitas from '@/components/MonitorDeVisitas'; 
+
 import { Roboto } from 'next/font/google';
 import { config } from '@fortawesome/fontawesome-svg-core';
 import '@fortawesome/fontawesome-svg-core/styles.css';
 
-// Impede o FontAwesome de adicionar CSS automaticamente (nós já importamos acima)
+// Impede o FontAwesome de adicionar CSS automaticamente
 config.autoAddCss = false;
 
 const roboto = Roboto({
@@ -27,12 +30,14 @@ export const metadata = {
 
 export default function PublicLayout({ children }) {
   return (
-    // CORREÇÃO: Substituímos <html> e <body> por uma <div> container.
-    // Isso evita o erro de "Hydration Mismatch" (Boneca Russa).
+    // Mantivemos a div container pois este é um layout aninhado (child layout)
     <div className={`${roboto.className} min-h-screen flex flex-col bg-gray-50 text-gray-800`}>
       
+      {/* --- NOSSO MONITOR PRÓPRIO (ANALYTICS) --- */}
+      {/* Ele roda invisível registrando quem entra */}
+      <MonitorDeVisitas />
+
       {/* --- GOOGLE ANALYTICS --- */}
-      {/* O Next.js gerencia a injeção desses scripts automaticamente no <head> ou final do <body> */}
       <Script 
         strategy="afterInteractive" 
         src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`} 
@@ -71,9 +76,7 @@ export default function PublicLayout({ children }) {
         />
       </noscript>
       
-      {/* NOTA: Se o layout raiz (app/layout.js) já tiver o Toaster, 
-          você pode remover este daqui para evitar duplicidade de avisos.
-          Mas mantive conforme solicitado para garantir a configuração 'print:hidden'. */}
+      {/* Notificações (Toaster) */}
       <Toaster 
           richColors 
           position="top-right" 
@@ -85,7 +88,7 @@ export default function PublicLayout({ children }) {
       {/* MENU SUPERIOR */}
       <MenuPublico />
       
-      {/* CONTEÚDO PRINCIPAL (Cresce para empurrar o footer) */}
+      {/* CONTEÚDO PRINCIPAL */}
       <main className="flex-grow">
         {children}
       </main>
