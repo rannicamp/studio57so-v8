@@ -150,7 +150,7 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
             ] = await Promise.all([
                 supabase.from('feriados').select('data_feriado, tipo').eq('organizacao_id', organizacaoId),
                 
-                // --- CORREÇÃO AQUI: Ordenação por created_at ASC para a edição mais recente prevalecer visualmente ---
+                // Ordenação por created_at ASC para a edição mais recente prevalecer visualmente
                 supabase
                     .from('pontos')
                     .select('*, editado_por_usuario_id:usuarios(nome, sobrenome)')
@@ -158,7 +158,6 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
                     .gte('data_hora', `${firstDayOfMonth}T00:00:00`)
                     .lte('data_hora', `${lastDayOfMonth}T23:59:59`)
                     .order('created_at', { ascending: true }),
-                // ---------------------------------------------------------------------------------------------------
 
                 supabase.from('abonos').select('*, criado_por_usuario_id:usuarios(nome, sobrenome)').eq('funcionario_id', employeeId).gte('data_abono', firstDayOfMonth).lte('data_abono', lastDayOfMonth),
                 supabase.from('historico_salarial').select('*').eq('funcionario_id', employeeId).order('data_inicio_vigencia', { ascending: true }),
@@ -186,14 +185,11 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
             const processedAbonos = {}; (abonosDoMes || []).forEach(abono => { processedAbonos[abono.data_abono] = abono; }); setAbonosData(processedAbonos);
             const processedData = {};
             
-            // O loop abaixo vai processar todos os registros.
-            // Como ordenamos por created_at ASC, o último registro (mais recente) de cada tipo/dia
-            // vai sobrescrever os anteriores no objeto processedData, garantindo a visualização correta.
             (pontosData || []).forEach(ponto => {
                 if (!ponto.data_hora) return;
                 const utcDate = new Date(ponto.data_hora.replace(' ', 'T') + 'Z');
-                const dateStr = [utcDate.getUTCMonth() + 1, utcDate.getUTCDate(), utcDate.getUTCFullYear()]; // Formatando para gerar chave consistente, mas aqui no original estava usando string manual.
-                // CORREÇÃO SEGURA: Usar o mesmo padrão de data string usado no resto do código: YYYY-MM-DD
+                
+                // Usar o mesmo padrão de data string usado no resto do código: YYYY-MM-DD
                 const safeDateStr = [utcDate.getUTCFullYear(), String(utcDate.getUTCMonth() + 1).padStart(2, '0'), String(utcDate.getUTCDate()).padStart(2, '0')].join('-');
                 
                 if (!processedData[safeDateStr]) { processedData[safeDateStr] = { dateString: safeDateStr, observacoes: [] }; }
@@ -248,7 +244,7 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
         const dailyBalances = {};
         let total = 0;
         if (!month || !employee || isProcessing) return { dailyBalances, total };
-        const [year, monthNum] = month.split('-').map(Number);
+        const [year, monthNum] = month.split('-');
         const today = new Date(); today.setHours(0,0,0,0);
         const lastDayOfMonth = new Date(Date.UTC(year, monthNum, 0));
         const firstDayOfMonth = new Date(Date.UTC(year, monthNum - 1, 1));
@@ -428,6 +424,7 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
 
     const handleCellEdit = (date, field) => { if (isProcessing || !canEdit || isMonthClosed) return; setEditingCell({ date, field }); };
     
+    // --- FUNÇÃO CORRIGIDA PARA PERMITIR OBSERVAÇÕES SEM ENTRADA ---
     const handleSaveEdit = async (e, date, field) => { 
         e.preventDefault();
         const value = e.target.elements[0].value;
@@ -450,12 +447,35 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
                     : await supabase.from('abonos').upsert(abonoRecord, { onConflict: 'funcionario_id, data_abono' });
                 if (error) throw error;
             } else if (field === 'observacao') {
-                const { data: pontoEntrada } = await supabase.from('pontos').select('id').eq('funcionario_id', employeeId).eq('tipo_registro', 'Entrada').like('data_hora', `${date}%`).limit(1).single();
-                if (pontoEntrada) {
-                    const { error } = await supabase.from('pontos').update({ observacao: value }).eq('id', pontoEntrada.id);
+                // 1. Tenta achar QUALQUER registro desse dia para atualizar a observação
+                const { data: registrosDoDia } = await supabase
+                    .from('pontos')
+                    .select('id, observacao')
+                    .eq('funcionario_id', employeeId)
+                    .like('data_hora', `${date}%`)
+                    .limit(1);
+
+                if (registrosDoDia && registrosDoDia.length > 0) {
+                    // Se já existe batida, atualiza
+                    const { error } = await supabase
+                        .from('pontos')
+                        .update({ observacao: value })
+                        .eq('id', registrosDoDia[0].id);
                     if (error) throw error;
                 } else {
-                    throw new Error('Não há registro de entrada para adicionar observação.');
+                    // 2. Se NÃO existe registro (dia vazio), CRIA um registro de observação
+                    if (value && value.trim() !== '') {
+                        const { error } = await supabase.from('pontos').insert({
+                            funcionario_id: employeeId,
+                            data_hora: `${date}T00:00:00`,
+                            tipo_registro: 'Observacao', 
+                            observacao: value,
+                            editado_manualmente: true,
+                            editado_por_usuario_id: currentUser.id,
+                            organizacao_id: employee.organizacao_id
+                        });
+                        if (error) throw error;
+                    }
                 }
             } else {
                 const tipo_registro = { 'entrada': 'Entrada', 'inicio_intervalo': 'Inicio_Intervalo', 'fim_intervalo': 'Fim_Intervalo', 'saida': 'Saida' }[field];
@@ -475,8 +495,6 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
                         organizacao_id: employee.organizacao_id 
                     };
                     
-                    // SEMPRE INSERE NOVO REGISTRO PARA GARANTIR AUDITORIA (Ao invés de update)
-                    // Como a tela agora carrega ordenado por created_at, o novo registro prevalecerá.
                     ({ error } = await supabase.from('pontos').insert(recordData));
                 }
                 if (error) throw error;
