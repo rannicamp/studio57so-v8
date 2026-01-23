@@ -11,7 +11,7 @@ import {
     faRulerCombined, faBed, faBath, faCouch, faElevator, faCar,
     faHospital, faGraduationCap, faCity, faCartShopping, faUtensils, faLocationDot,
     faSchool, faHouseMedical, faUsers, faLandmark, faXmark, faQuoteLeft,
-    faSwimmingPool, faChartLine, faSackDollar 
+    faSwimmingPool, faChartLine, faSackDollar, faCheck
 } from '@fortawesome/free-solid-svg-icons';
 
 // Importações do Swiper
@@ -24,8 +24,9 @@ import 'swiper/css/effect-coverflow';
 import 'swiper/css/pagination';
 import 'swiper/css/navigation';
 
-// --- MUDANÇA IMPORTANTE: IMPORTAMOS O FORMULÁRIO PADRONIZADO ---
+// Import dos Formulários
 import FormularioDeContato from './FormularioDeContato';
+import FormularioCaixa from './FormularioCaixa';
 
 const roboto = Roboto({
     weight: ['100', '300', '400', '500', '700', '900'],
@@ -83,13 +84,21 @@ export default function ResidencialAlfaClient() {
     const [view, setView] = useState('investidor'); 
     const [selectedImage, setSelectedImage] = useState(null);
     const [expandedTestimonial, setExpandedTestimonial] = useState(null);
-    const [isModalOpen, setIsModalOpen] = useState(false);
+    
+    // Estados para os Modais
+    const [isLeadModalOpen, setIsLeadModalOpen] = useState(false); // Modal Padrão (Book)
+    const [isCaixaModalOpen, setIsCaixaModalOpen] = useState(false); // Modal Caixa (Simulação)
 
     const openModal = (imageUrl) => setSelectedImage(imageUrl);
     const closeModal = () => setSelectedImage(null);
     
-    const openLeadModal = () => setIsModalOpen(true);
-    const closeLeadModal = () => setIsModalOpen(false);
+    // Funções para abrir/fechar Modal Padrão
+    const openLeadModal = () => setIsLeadModalOpen(true);
+    const closeLeadModal = () => setIsLeadModalOpen(false);
+
+    // Funções para abrir/fechar Modal Caixa
+    const openCaixaModal = () => setIsCaixaModalOpen(true);
+    const closeCaixaModal = () => setIsCaixaModalOpen(false);
 
     const handleToggleTestimonial = (id) => {
         setExpandedTestimonial(expandedTestimonial === id ? null : id);
@@ -185,17 +194,6 @@ export default function ResidencialAlfaClient() {
                 ></div>
                 <div className="absolute inset-0 bg-black opacity-30 z-10"></div>
                 
-                <div className="absolute bottom-0 left-0 w-[45%] max-w-xs sm:max-w-sm md:w-1/3 md:max-w-md z-20 pointer-events-none">
-                    <Image
-                        src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/materiais-alfa/tatisemfundo.png"
-                        alt="Tati, especialista do Residencial Alfa"
-                        width={600}
-                        height={900}
-                        className="w-full h-auto"
-                        priority
-                    />
-                </div>
-
                 <div className="relative z-30 flex flex-col items-center text-center p-4 w-full pt-16 sm:pt-0">
                     <Image
                         src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/1/IMG_1759008548201.png"
@@ -225,6 +223,64 @@ export default function ResidencialAlfaClient() {
                             className={`px-6 py-2 rounded-full text-sm font-bold transition-colors duration-300 ${view === 'morador' ? 'bg-primary text-white' : 'text-white'}`}
                         >
                             Quero Morar
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            {/* --- SEÇÃO CAIXA (BOTÃO ABRE MODAL CAIXA) --- */}
+            <section className="relative py-16 md:py-24 flex items-center justify-center text-white overflow-hidden">
+                {/* Background Image (Azul Caixa) */}
+                <div
+                    className="absolute inset-0 bg-center bg-cover z-0"
+                    style={{
+                        backgroundImage: "url('https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/1/IMG_1769174467802.png')",
+                    }}
+                ></div>
+                
+                {/* Conteúdo */}
+                <div className="relative z-10 container mx-auto px-6 text-center">
+                    <div className="mb-8 flex justify-center">
+                        <Image
+                            src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/1/IMG_1769174760534.png"
+                            alt="Logo Caixa Econômica Federal"
+                            width={220}
+                            height={90}
+                            className="object-contain h-16 md:h-20"
+                        />
+                    </div>
+
+                    <h2 className="text-3xl md:text-5xl font-bold mb-6 text-white text-shadow">
+                        Financiamento Facilitado
+                    </h2>
+
+                    <p className="text-xl md:text-2xl font-light max-w-3xl mx-auto mb-10 leading-relaxed text-white">
+                        Realize o sonho do seu imóvel próprio com as melhores condições do mercado.
+                    </p>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto">
+                        <div className="bg-white/10 backdrop-blur-md p-8 rounded-2xl border border-white/20 hover:bg-white/20 transition-all duration-300 group">
+                            <p className="text-5xl font-bold mb-2 text-white group-hover:scale-110 transition-transform">20%</p>
+                            <p className="text-sm font-bold uppercase tracking-widest text-white/90">de Entrada</p>
+                        </div>
+                        <div className="bg-white/10 backdrop-blur-md p-8 rounded-2xl border border-white/20 hover:bg-white/20 transition-all duration-300 group">
+                            <p className="text-5xl font-bold mb-2 text-white group-hover:scale-110 transition-transform">420</p>
+                            <p className="text-sm font-bold uppercase tracking-widest text-white/90">Meses para Pagar</p>
+                        </div>
+                        <div className="bg-white/10 backdrop-blur-md p-8 rounded-2xl border border-white/20 hover:bg-white/20 transition-all duration-300 group">
+                            <p className="text-5xl font-bold mb-2 text-white group-hover:scale-110 transition-transform">FGTS</p>
+                            <p className="text-sm font-bold uppercase tracking-widest text-white/90">Utilize seu Saldo</p>
+                        </div>
+                    </div>
+
+                    <div className="mt-12">
+                        {/* AQUI ESTÁ O BOTÃO QUE ABRE O MODAL CAIXA */}
+                        <button
+                            onClick={openCaixaModal}
+                            className="bg-white text-blue-800 font-bold py-4 px-10 rounded-full hover:bg-gray-100 transition-all shadow-xl transform hover:scale-105 uppercase tracking-wide border-2 border-transparent hover:border-white"
+                        >
+                            <FontAwesomeIcon icon={faCheck} className="mr-2" />
+                            Simular Meu Financiamento
                         </button>
                     </div>
                 </div>
@@ -568,7 +624,7 @@ export default function ResidencialAlfaClient() {
                 </div>
             </section>
             
-            {/* CTA FINAL */}
+            {/* CTA FINAL (BOTÃO ABRE MODAL PADRÃO) */}
             <section className="bg-gray-50 py-16 md:py-20">
                 <div className="w-full px-4 text-center container mx-auto">
                     <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-4">Gostou do que viu?</h2>
@@ -619,18 +675,28 @@ export default function ResidencialAlfaClient() {
              </div>
             )}
             
-            {/* Modal do Formulário - AGORA USANDO O COMPONENTE OFICIAL */}
+            {/* Modal do Formulário PADRÃO (Book) */}
             <AnimatePresence>
-                {isModalOpen && (
+                {isLeadModalOpen && (
                     <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        // O FormularioDeContato já tem o "fixed inset-0", 
-                        // mas aqui controlamos a entrada/saída dele no DOM
                     >
-                        {/* Passamos onClose para o formulário poder fechar a si mesmo */}
                         <FormularioDeContato onClose={closeLeadModal} />
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* Modal do Formulário CAIXA (Simulação) */}
+            <AnimatePresence>
+                {isCaixaModalOpen && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                    >
+                        <FormularioCaixa onClose={closeCaixaModal} />
                     </motion.div>
                 )}
             </AnimatePresence>

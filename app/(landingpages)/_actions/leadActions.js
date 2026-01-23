@@ -8,7 +8,7 @@ import { sendMetaEvent } from '../../../utils/metaCapi';
 
 /**
  * Função Universal para Salvar Leads + API de Conversões do Facebook
- * PADRÃO NOVO: Suporte a múltiplos países (BR/US)
+ * VERSÃO FINAL: Grava dados financeiros nas colunas específicas do banco
  */
 export async function processarLeadUniversal(formData, redirectUrl, origemPadrao) {
   
@@ -24,31 +24,47 @@ export async function processarLeadUniversal(formData, redirectUrl, origemPadrao
     }
   );
 
-  // 2. Coleta de Dados
+  // 2. Coleta de Dados Básicos
   const nome = formData.get('nome');
   const email = formData.get('email');
   const origem = formData.get('origem') || origemPadrao || 'Landing Page - Genérica';
   
+  // --- TRATAMENTO DE DADOS FINANCEIROS (CAIXA) ---
+  const rawRenda = formData.get('renda');
+  let rendaFamiliar = null;
+  let fgts = false;
+  let maisDe3AnosClt = false;
+  let isFinancialForm = false; // Flag para saber se atualizamos esses dados
+
+  // Se o campo 'renda' veio no formulário, tratamos como um Lead Financeiro
+  if (rawRenda) {
+      isFinancialForm = true;
+      
+      // Formata Renda: "5.000,00" -> 5000.00 (Formato aceito pelo numeric do Postgres)
+      const cleanRenda = rawRenda.toString().replace(/\./g, '').replace(',', '.');
+      const parsedRenda = parseFloat(cleanRenda);
+      if (!isNaN(parsedRenda)) {
+          rendaFamiliar = parsedRenda;
+      }
+
+      // Checkboxes: Se vierem no formData, é true.
+      fgts = formData.get('fgts') ? true : false;
+      maisDe3AnosClt = formData.get('tempo_trabalho') ? true : false;
+  }
+  
   // --- LÓGICA DE TELEFONE INTERNACIONAL ---
   const rawPhone = formData.get('telefone');
-  const rawCountryCode = formData.get('country_code') || '+55'; // Padrão +55 se não vier nada
+  const rawCountryCode = formData.get('country_code') || '+55';
 
-  // Limpeza (Remove tudo que não for número)
+  // Limpeza
   const cleanPhone = rawPhone ? rawPhone.replace(/\D/g, '') : '';
-  
-  // Limpeza do Código do País (Garante formato "+55")
   let cleanCountryCode = rawCountryCode.trim();
   if (!cleanCountryCode.startsWith('+')) {
     cleanCountryCode = '+' + cleanCountryCode.replace(/\D/g, '');
   }
 
-  // Montagem do Número Completo para o Banco (Regra: DDI + DDD + Numero, sem o +)
-  // Ex BR: 55 + 33 + 999999999 = 5533999999999
-  // Ex US: 1 + 555 + 1234567 = 15551234567
   let telefoneCompleto = null;
-  
   if (cleanPhone) {
-    // Removemos o "+" do código do país para concatenar
     const ddiSemMais = cleanCountryCode.replace('+', '');
     telefoneCompleto = ddiSemMais + cleanPhone;
   }
@@ -71,7 +87,7 @@ export async function processarLeadUniversal(formData, redirectUrl, origemPadrao
       const { data: telData } = await supabase
         .from('telefones')
         .select('contato_id')
-        .eq('telefone', telefoneCompleto) // Busca pelo número completo formatado
+        .eq('telefone', telefoneCompleto)
         .limit(1)
         .single();
       if (telData) contatoId = telData.contato_id;
@@ -87,33 +103,42 @@ export async function processarLeadUniversal(formData, redirectUrl, origemPadrao
       if (mailData) contatoId = mailData.contato_id;
     }
 
-    // 5. TOMADA DE DECISÃO
+    // 5. TOMADA DE DECISÃO (Insert ou Update)
     if (!contatoId) {
       // --- NOVO LEAD ---
-      console.log(`[LeadActions] Novo Lead: ${nome} (${cleanCountryCode} ${cleanPhone})`);
+      console.log(`[LeadActions] Novo Lead: ${nome}`);
       
-      const { data: novoContato, error: contatoError } = await supabase
-        .from('contatos')
-        .insert({
+      const insertData = {
           nome: nome,
           origem: origem,
           tipo_contato: 'Lead',
           personalidade_juridica: 'Pessoa Física',
           organizacao_id: organizacaoId,
           status: 'Ativo'
-        })
+      };
+
+      // Se for formulário financeiro, adiciona os dados nas colunas específicas
+      if (isFinancialForm) {
+          insertData.renda_familiar = rendaFamiliar;
+          insertData.fgts = fgts;
+          insertData.mais_de_3_anos_clt = maisDe3AnosClt;
+      }
+      
+      const { data: novoContato, error: contatoError } = await supabase
+        .from('contatos')
+        .insert(insertData)
         .select('id')
         .single();
 
       if (contatoError) throw new Error(`Erro ao salvar contato: ${contatoError.message}`);
       contatoId = novoContato.id;
 
-      // Salva Telefone com Country Code separado
+      // Salva Telefone
       if (telefoneCompleto) {
         await supabase.from('telefones').insert({ 
           contato_id: contatoId, 
-          telefone: telefoneCompleto, // Número cheio para WhatsApp
-          country_code: cleanCountryCode, // +55 ou +1 separado para estatística
+          telefone: telefoneCompleto, 
+          country_code: cleanCountryCode,
           tipo: 'Celular', 
           organizacao_id: organizacaoId
         });
@@ -128,19 +153,37 @@ export async function processarLeadUniversal(formData, redirectUrl, origemPadrao
         });
       }
 
-      // 🔥 Pixel Meta
       await sendMetaEvent('Lead', {
         email: email,
-        telefone: telefoneCompleto, // Envia o número completo para matching
+        telefone: telefoneCompleto,
         primeiro_nome: nome ? nome.split(' ')[0] : undefined,
         sobrenome: nome ? nome.split(' ').slice(1).join(' ') : undefined
       }, {
         content_name: origem, 
-        status: 'Novo'
+        status: 'Novo',
+        currency: 'BRL',
+        value: rendaFamiliar || 0 // Envia a renda como valor para o pixel (opcional, ajuda o algoritmo)
       });
 
     } else {
-      console.log(`[LeadActions] Lead recorrente (ID: ${contatoId}).`);
+      // --- LEAD RECORRENTE (Update) ---
+      console.log(`[LeadActions] Lead recorrente (ID: ${contatoId}). Atualizando dados.`);
+      
+      const updateData = { updated_at: new Date() };
+
+      // Só atualizamos os campos financeiros se eles vieram nesse formulário
+      // Isso evita zerar dados se o cliente preencher um formulário simples depois
+      if (isFinancialForm) {
+          updateData.renda_familiar = rendaFamiliar;
+          updateData.fgts = fgts;
+          updateData.mais_de_3_anos_clt = maisDe3AnosClt;
+      }
+
+      await supabase
+        .from('contatos')
+        .update(updateData)
+        .eq('id', contatoId);
+
       await sendMetaEvent('Contact', {
         email: email,
         telefone: telefoneCompleto,
@@ -149,7 +192,7 @@ export async function processarLeadUniversal(formData, redirectUrl, origemPadrao
       });
     }
 
-    // 6. GESTÃO DO FUNIL (ID Fixo)
+    // 6. GESTÃO DO FUNIL (Mantida)
     const funilId = await ensureFunilExists(supabase, organizacaoId);
     const colunaId = await getEntradaColumnId(supabase, funilId, organizacaoId);
 
@@ -182,7 +225,7 @@ export async function processarLeadUniversal(formData, redirectUrl, origemPadrao
   redirect(redirectUrl);
 }
 
-// --- FUNÇÕES AUXILIARES (Mantidas da versão anterior) ---
+// --- FUNÇÕES AUXILIARES ---
 async function ensureFunilExists(supabase, organizacaoId) {
   const FUNIL_ID_FIXO = 'c0dd9026-6ede-4789-a77e-ec0e7fe8fa66';
   let { data: funil } = await supabase.from('funis').select('id').eq('id', FUNIL_ID_FIXO).single();
