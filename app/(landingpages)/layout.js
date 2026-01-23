@@ -5,6 +5,7 @@ import { Toaster } from 'sonner';
 import MenuPublico from './components/MenuPublico';
 // --- NOVO: Importando o nosso Analista Pessoal ---
 import MonitorDeVisitas from '@/components/radar/MonitorDeVisitas';
+import CookieBanner from '@/components/CookieBanner';
 
 import { Roboto } from 'next/font/google';
 import { config } from '@fortawesome/fontawesome-svg-core';
