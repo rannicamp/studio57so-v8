@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X } from 'lucide-react'; // Se não tiver lucide, pode remover o icone ou usar texto 'X'
+// REMOVIDO: import { X } from 'lucide-react'; (Isso causava o erro)
 
 export default function CookieBanner() {
   const [visivel, setVisivel] = useState(false);
@@ -44,7 +44,7 @@ export default function CookieBanner() {
               Entendi e Aceito
             </button>
             
-            {/* Botão Fechar (Opcional, age como aceitar ou apenas fechar) */}
+            {/* Botão Fechar */}
             <button 
               onClick={() => setVisivel(false)}
               className="p-2 text-gray-400 hover:text-white transition-colors"
