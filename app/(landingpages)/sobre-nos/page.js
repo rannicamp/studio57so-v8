@@ -5,7 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Montserrat, Roboto } from 'next/font/google';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faHandshake } from '@fortawesome/free-solid-svg-icons';
+import { faHandshake, faPenRuler, faHardHat } from '@fortawesome/free-solid-svg-icons';
 
 // Fontes
 const montserrat = Montserrat({ subsets: ['latin'], weight: ['300', '400', '700', '900'] });
@@ -90,7 +90,7 @@ export default function SobreNosPage() {
                     </div>
                 </div>
 
-                {/* --- LADO DIREITO: IGOR (NOVA FOTO) --- */}
+                {/* --- LADO DIREITO: IGOR (FOTO FINAL ATUALIZADA) --- */}
                 <div className="flex flex-col">
                     <div className="relative w-full h-[500px] mb-8 overflow-hidden">
                         <Image 
@@ -125,7 +125,7 @@ export default function SobreNosPage() {
         </div>
       </section>
 
-      {/* --- ATO 1: A FUSÃO (Número 01) --- */}
+      {/* --- ATO 1: A FUSÃO (TEXTO PLURALIZADO) --- */}
       <section className="py-20 md:py-32 border-t border-gray-100">
         <div className="container mx-auto px-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
@@ -153,21 +153,21 @@ export default function SobreNosPage() {
                     </h3>
                     <div className="space-y-6 text-lg text-gray-600 leading-relaxed font-roboto font-light text-justify">
                         <p>
-                            Em 2017, eu sabia que precisava de uma identidade. Eu e a Larissa Ventura decidimos unir forças, mas 'Campos & Ventura' soava como mais um escritório de advocacia, e nós éramos criativos. 
+                            Em 2017, sabíamos que precisávamos de uma identidade. Eu e a Larissa Ventura decidimos unir forças, mas 'Campos & Ventura' soava como mais um escritório de advocacia, e nós éramos criativos.
                         </p>
                         <p>
                             Olhamos para nossas idades na época. Somamos os números. O resultado foi <strong>57</strong>. Decidimos que seríamos um <strong>Studio</strong> — um laboratório de ideias. Assim nasceu o Studio 57.
                         </p>
                         <p>
-                            Mas faltava uma peça chave. Meses depois, reencontrei o <strong>Igor Monte Alto</strong> numa mesa de bar. Ali, entre uma conversa e outra, percebemos que compartilhávamos uma frustração e um sonho.
+                            Mas faltava uma peça chave. Meses depois, reencontramos o <strong>Igor Monte Alto</strong> numa mesa de bar. Ali, entre uma conversa e outra, percebemos que compartilhávamos uma frustração e um sonho.
                         </p>
                         <ul className="space-y-4 bg-white p-6 rounded-sm border-l-2 border-orange-500 shadow-sm">
                             <li className="flex items-start">
-                                <FontAwesomeIcon icon={faHandshake} className="mt-1 mr-3 text-gray-400" />
+                                <FontAwesomeIcon icon={faPenRuler} className="mt-1 mr-3 text-gray-400" />
                                 <span>A frustração: ver projetos incríveis serem executados sem o devido cuidado.</span>
                             </li>
                             <li className="flex items-start">
-                                <FontAwesomeIcon icon={faHandshake} className="mt-1 mr-3 text-orange-500" />
+                                <FontAwesomeIcon icon={faHardHat} className="mt-1 mr-3 text-orange-500" />
                                 <span className="font-bold text-gray-900">O sonho: parar de apenas desenhar o sonho dos outros e começar a construir o nosso.</span>
                             </li>
                         </ul>
@@ -181,7 +181,7 @@ export default function SobreNosPage() {
         </div>
       </section>
 
-      {/* --- ATO 2: A RETOMADA (Número 02) --- */}
+      {/* --- ATO 2: A RETOMADA --- */}
       <section className="py-20 md:py-32 border-t border-gray-100 bg-gray-50">
         <div className="container mx-auto px-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
