@@ -117,6 +117,7 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
     // Helper para formatar moeda na inicialização
     const formatCurrencyInitial = (value) => {
         if (!value) return '';
+        // Converte o número vindo do banco (ex: 1500.50) para string formatada (1.500,50)
         return new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
     };
 
@@ -183,7 +184,7 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
                 setFormData({
                     ...getInitialState(),
                     ...contactToEdit, 
-                    renda_familiar: formatCurrencyInitial(contactToEdit.renda_familiar),
+                    renda_familiar: formatCurrencyInitial(contactToEdit.renda_familiar), // Formata ao carregar
                     organizacao_id: currentOrgId, 
                     telefones: phonesData.length > 0 ? phonesData : [{ telefone: '', country_code: '+55' }],
                     emails: emailsData.length > 0 ? emailsData : [{ email: '' }],
@@ -232,10 +233,19 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
                         value = null;
                     } 
                     
-                    // Tratamento da RENDA FAMILIAR
+                    // CORREÇÃO AQUI: Tratamento da RENDA FAMILIAR
                     if (key === 'renda_familiar') {
                         if (value && typeof value === 'string') {
-                            value = parseFloat(value.replace(/\./g, '').replace(',', '.'));
+                            // 1. Remove tudo que NÃO for número ou vírgula (tira R$, pontos de milhar, espaços)
+                            const cleanString = value.replace(/[^\d,]/g, '');
+                            // 2. Troca a vírgula por ponto para o formato americano (DB)
+                            const numberString = cleanString.replace(',', '.');
+                            // 3. Converte para float
+                            value = parseFloat(numberString);
+                            
+                            // Segurança extra: se der NaN, manda null
+                            if (isNaN(value)) value = null;
+
                         } else if (value === '') {
                             value = null;
                         }
