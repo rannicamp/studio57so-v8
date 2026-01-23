@@ -288,18 +288,21 @@ export default function ContactProfile({ contact }) {
         mutationFn: async (updatedData) => {
             const { nome, razao_social, cpf, cnpj, origem, telefone, email, cargo, renda_familiar, fgts, mais_de_3_anos_clt, objetivo } = updatedData;
             
-            // Limpa a Renda Familiar (converte string formatada "R$ 1.000,00" para number)
+            // CORREÇÃO AQUI: Limpeza da Renda Familiar (IGUAL AO CONTATO FORM)
             let rendaFinal = null;
             if (renda_familiar) {
+                // Garante que é string para manipular
                 const strVal = String(renda_familiar);
-                // Remove tudo que não é número ou virgula (para decimal) e traço
-                const cleanStr = strVal.replace(/[^\d,.-]/g, '');
-                // Troca vírgula por ponto para o banco
-                if (cleanStr.includes(',')) {
-                    rendaFinal = parseFloat(cleanStr.replace(/\./g, '').replace(',', '.'));
-                } else {
-                    rendaFinal = parseFloat(cleanStr);
-                }
+                // 1. Remove tudo que NÃO for número ou vírgula
+                const cleanString = strVal.replace(/[^\d,]/g, '');
+                // 2. Troca vírgula por ponto (padrão americano do banco)
+                const numberString = cleanString.replace(',', '.');
+                // 3. Converte
+                rendaFinal = parseFloat(numberString);
+                
+                if (isNaN(rendaFinal)) rendaFinal = null;
+            } else if (renda_familiar === '') {
+                rendaFinal = null;
             }
             
             // Tratamento Booleans Select
@@ -509,7 +512,7 @@ export default function ContactProfile({ contact }) {
                                 <EditableSelectBoolean label="Possui FGTS?" value={editData.fgts} name="fgts" onChange={(e) => setEditData({ ...editData, fgts: e.target.value })} icon={faPiggyBank} />
                                 <EditableSelectBoolean label="+3 Anos CLT?" value={editData.mais_de_3_anos_clt} name="mais_de_3_anos_clt" onChange={(e) => setEditData({ ...editData, mais_de_3_anos_clt: e.target.value })} icon={faBriefcase} />
                              </>
-                         ) : (
+                          ) : (
                              <>
                                 <div className="col-span-2">
                                     <InfoField label="Objetivo" value={displayContact.objetivo} icon={faBullseye} highlight={true} />
@@ -520,7 +523,7 @@ export default function ContactProfile({ contact }) {
                                 <BooleanBadge label="Possui FGTS?" value={displayContact.fgts} icon={faPiggyBank} />
                                 <BooleanBadge label="+3 Anos CLT?" value={displayContact.mais_de_3_anos_clt} icon={faBriefcase} trueColor="bg-blue-100 text-blue-800" />
                              </>
-                         )}
+                          )}
                     </div>
                 </section>
 
