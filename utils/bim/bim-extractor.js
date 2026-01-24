@@ -1,100 +1,92 @@
-// Caminho: utils/bim-extractor.js
-import { createClient } from './supabase/client';
+// Caminho: utils/bim/bim-extractor.js
+import { createClient } from '../supabase/client'; 
 
 const supabase = createClient();
 
-/**
- * Extrai todas as propriedades de todos os elementos do modelo e salva no Supabase.
- * @param {Object} viewer - A instância do Autodesk Viewer.
- * @param {Number|String} projetoBimId - O ID do projeto na tabela 'projetos_bim'.
- * @param {Number} organizacaoId - O ID da organização.
- * @param {Function} onProgress - Callback para atualizar a barra de progresso (0 a 100).
- */
 export async function extrairDadosDoModelo(viewer, projetoBimId, organizacaoId, onProgress) {
-    if (!viewer || !viewer.model) throw new Error("Modelo não carregado.");
+    if (!viewer || !viewer.model) throw new Error("Modelo não carregado no visualizador.");
 
     const model = viewer.model;
     const tree = model.getInstanceTree();
+    
+    if (!tree) throw new Error("Árvore do modelo ainda não carregada. Aguarde o processamento total.");
+
     const leafIds = [];
 
-    // 1. Coletar apenas os "Nós Folha" (Elementos que têm geometria real)
-    // Ignoramos nós de grupo/família para não duplicar dados.
+    // 1. Coletar IDs dos elementos reais (folhas)
     tree.enumNodeChildren(tree.getRootId(), (dbId) => {
-        // Se não tiver filhos, é uma folha (elemento físico)
         if (tree.getChildCount(dbId) === 0) {
             leafIds.push(dbId);
         }
-    }, true); // true = recursivo
+    }, true);
 
     const totalItems = leafIds.length;
+    if (totalItems === 0) throw new Error("Nenhum elemento encontrado.");
+
     let processed = 0;
-    const CHUNK_SIZE = 500; // Processa de 500 em 500 para não travar a aba
-
-    console.log(`[BIM MINER] Iniciando extração de ${totalItems} elementos...`);
-
-    // 2. Processar em Lotes (Batching)
+    const CHUNK_SIZE = 100; 
+    
     for (let i = 0; i < totalItems; i += CHUNK_SIZE) {
         const chunkIds = leafIds.slice(i, i + CHUNK_SIZE);
         
-        // Pede ao Viewer as propriedades deste lote
-        const properties = await new Promise((resolve, reject) => {
-            model.getBulkProperties(chunkIds, null, resolve, reject);
-        });
+        const dbRows = await new Promise((resolve) => {
+            model.getBulkProperties(chunkIds, {}, (results) => {
+                const rows = results.map(item => {
+                    const propsObj = {};
+                    let categoria = 'Outros';
+                    let familia = '';
+                    let tipo = '';
+                    let nivel = 'Não definido';
+                    const externalId = item.externalId || `ext-${item.dbId}`;
 
-        // 3. Transformar dados para o formato do Supabase
-        const dbRows = properties.map(propData => {
-            // Encontra o ExternalId (Guid) e Nome
-            const externalId = propData.externalId;
-            const name = propData.name;
-            
-            // Transforma o array de props [{displayName: 'Area', displayValue: 10}] 
-            // em um Objeto JSON limpo { Area: 10, Volume: 5 }
-            const propsObj = {};
-            let categoria = 'Indefinido';
-            let familia = '';
-            let tipo = '';
-            let nivel = '';
+                    item.properties.forEach(p => {
+                        propsObj[p.displayName] = p.displayValue;
+                        
+                        // Mapeamento usando os nomes das colunas da sua tabela public.elementos_bim
+                        if (p.attributeName === 'Category') categoria = p.displayValue;
+                        if (p.attributeName === 'Family' || p.displayName === 'Família') familia = p.displayValue;
+                        if (p.attributeName === 'Type' || p.displayName === 'Tipo') tipo = p.displayValue;
+                        if (p.attributeName === 'Level' || p.displayName === 'Nível') nivel = p.displayValue;
+                    });
 
-            propData.properties.forEach(p => {
-                // Remove caracteres estranhos das chaves para o JSONB
-                const key = p.displayName.replace(/[.]/g, '_'); 
-                propsObj[key] = p.displayValue;
+                    if (!familia && item.name) familia = item.name.split('[')[0].trim();
 
-                // Captura campos chaves para colunas específicas
-                if (p.displayName === 'Categoria' || p.attributeName === 'Category') categoria = p.displayValue;
-                if (p.displayName === 'Família' || p.attributeName === 'Family') familia = p.displayValue;
-                if (p.displayName === 'Tipo' || p.attributeName === 'Type') tipo = p.displayValue;
-                if (p.displayName === 'Nível' || p.attributeName === 'Level') nivel = p.displayValue;
+                    return {
+                        organizacao_id: organizacaoId,
+                        projeto_bim_id: projetoBimId,
+                        external_id: externalId,
+                        categoria: categoria,
+                        familia: familia,
+                        tipo: tipo,
+                        nivel: nivel,
+                        propriedades: propsObj,
+                        status_execucao: 'nao_iniciado',
+                        // AJUSTE AQUI: Nomes exatos das colunas do seu SQL
+                        criado_em: new Date(),
+                        atualizado_em: new Date()
+                    };
+                });
+                resolve(rows);
             });
-
-            return {
-                organizacao_id: organizacaoId,
-                projeto_bim_id: projetoBimId,
-                external_id: externalId,
-                categoria: categoria,
-                familia: familia || name.split('[')[0].trim(), // Tenta extrair família do nome se vazio
-                tipo: tipo,
-                nivel: nivel,
-                propriedades: propsObj, // O JSON completo
-                status_execucao: 'nao_iniciado',
-                updated_at: new Date()
-            };
         });
 
-        // 4. Enviar para o Supabase (Upsert = Inserir ou Atualizar se já existir)
-        const { error } = await supabase
-            .from('elementos_bim')
-            .upsert(dbRows, { onConflict: 'projeto_bim_id, external_id' }); // Chave composta única
+        if (dbRows.length > 0) {
+            // Upsert blindado com a Unique Constraint que você criou
+            const { error: upsertError } = await supabase
+                .from('elementos_bim')
+                .upsert(dbRows, { 
+                    onConflict: 'projeto_bim_id, external_id'
+                });
 
-        if (error) {
-            console.error(`Erro no lote ${i}:`, error);
-            // Não paramos o processo, apenas logamos o erro do lote
+            if (upsertError) {
+                console.error("[STUDIO 57 ERROR]", upsertError);
+                throw new Error(`Erro no banco: ${upsertError.message}`);
+            }
         }
 
         processed += chunkIds.length;
         if (onProgress) onProgress(Math.round((processed / totalItems) * 100));
     }
 
-    console.log("[BIM MINER] Extração concluída com sucesso!");
     return true;
 }
