@@ -6,8 +6,15 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '../../utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
-    faInfoCircle, faTableList, faSpinner, faTimes, 
-    faEye, faEyeSlash, faPencilAlt, faCheck 
+    faInfoCircle, 
+    faTableList, 
+    faSpinner, 
+    faTimes, 
+    faEye, 
+    faEyeSlash, 
+    faPencilAlt, 
+    faCheck,
+    faCube // <--- O IMPORT QUE FALTAVA, SEU LINDO!
 } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 
@@ -17,8 +24,8 @@ export default function BimProperties({ elementExternalId, projetoBimId, onClose
 
     // ESTADOS
     const [showEmpty, setShowEmpty] = useState(false);
-    const [editingKey, setEditingKey] = useState(null); // Qual campo está sendo editado?
-    const [tempValue, setTempValue] = useState(''); // Valor temporário enquanto digita
+    const [editingKey, setEditingKey] = useState(null);
+    const [tempValue, setTempValue] = useState('');
 
     // 1. BUSCA DADOS DO ELEMENTO
     const { data: elemento, isLoading } = useQuery({
@@ -40,7 +47,6 @@ export default function BimProperties({ elementExternalId, projetoBimId, onClose
 
     // 2. FUNÇÃO DE SALVAMENTO AUTOMÁTICO
     const autoSave = async (key, newValue) => {
-        // Se o valor não mudou, nem gasta banco
         if (elemento.propriedades[key] === newValue) {
             setEditingKey(null);
             return;
@@ -64,7 +70,6 @@ export default function BimProperties({ elementExternalId, projetoBimId, onClose
 
             toast.success(`"${key}" atualizado!`);
             
-            // Atualiza o cache local para o visual refletir a mudança
             queryClient.setQueryData(['bimElementProperties', elementExternalId, projetoBimId], (old) => ({
                 ...old,
                 propriedades: novasPropriedades
@@ -79,7 +84,10 @@ export default function BimProperties({ elementExternalId, projetoBimId, onClose
     };
 
     const handleKeyDown = (e, key) => {
-        if (e.key === 'Enter') autoSave(key, tempValue);
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            autoSave(key, tempValue);
+        }
         if (e.key === 'Escape') setEditingKey(null);
     };
 
@@ -92,7 +100,7 @@ export default function BimProperties({ elementExternalId, projetoBimId, onClose
                 if (showEmpty) return true;
                 return value !== null && value !== "" && value !== 0 && value !== "0";
             })
-            .sort(([a], [b]) => a.localeCompare(b)) // Ordena por nome da propriedade
+            .sort(([a], [b]) => a.localeCompare(b))
             .map(([key, value]) => {
                 const isThisEditing = editingKey === key;
 
@@ -100,45 +108,45 @@ export default function BimProperties({ elementExternalId, projetoBimId, onClose
                     <div 
                         key={key} 
                         className={`
-                            group p-2 rounded border transition-all relative
+                            group p-2.5 rounded-lg border transition-all relative overflow-hidden w-full max-w-full
                             ${isThisEditing ? 'bg-blue-50 border-blue-300 shadow-inner' : 'bg-gray-50 border-gray-100 hover:border-blue-200'}
                         `}
+                        title={!isThisEditing ? String(value || 'Vazio') : ''}
                     >
-                        {/* Label da Propriedade */}
-                        <p className="text-[9px] font-bold text-gray-400 uppercase tracking-tighter mb-0.5">
+                        <p className="text-[9px] font-black text-gray-400 uppercase tracking-wider mb-1 block truncate pr-6">
                             {key}
                         </p>
                         
-                        <div className="flex items-center justify-between gap-2">
+                        <div className="relative min-h-[1.25rem]">
                             {isThisEditing ? (
-                                <input 
+                                <textarea 
                                     autoFocus
-                                    type="text"
+                                    rows={3}
                                     value={tempValue}
                                     onChange={(e) => setTempValue(e.target.value)}
                                     onBlur={() => autoSave(key, tempValue)}
                                     onKeyDown={(e) => handleKeyDown(e, key)}
-                                    className="flex-1 text-xs font-bold text-blue-900 bg-transparent outline-none"
+                                    className="w-full text-xs font-bold text-blue-900 bg-white border border-blue-200 rounded p-1 outline-none resize-none"
                                 />
                             ) : (
-                                <p className="flex-1 text-xs text-gray-700 font-medium break-words leading-tight">
+                                <p className="text-xs text-gray-700 font-medium leading-relaxed break-words pr-6 line-clamp-3">
                                     {String(value || '-')}
                                 </p>
                             )}
 
-                            {/* Ícone de Lápis (Aparece no Hover) */}
                             {!isThisEditing && (
                                 <button 
                                     onClick={() => { setEditingKey(key); setTempValue(value); }}
-                                    className="opacity-0 group-hover:opacity-100 p-1 text-blue-500 hover:bg-blue-100 rounded transition-all"
+                                    className="absolute top-[-18px] right-[-2px] opacity-0 group-hover:opacity-100 p-1.5 text-blue-500 hover:bg-blue-100 rounded-md transition-all z-10"
                                 >
                                     <FontAwesomeIcon icon={faPencilAlt} className="text-[10px]" />
                                 </button>
                             )}
 
-                            {/* Ícone de Check (Só no modo edição) */}
                             {isThisEditing && (
-                                <FontAwesomeIcon icon={faCheck} className="text-green-500 text-[10px] animate-pulse" />
+                                <div className="absolute bottom-1 right-1">
+                                    <FontAwesomeIcon icon={faCheck} className="text-green-500 text-[10px] animate-bounce" />
+                                </div>
                             )}
                         </div>
                     </div>
@@ -149,16 +157,15 @@ export default function BimProperties({ elementExternalId, projetoBimId, onClose
     if (!elementExternalId) return null;
 
     return (
-        <div className="w-80 bg-white border-l border-gray-200 h-full flex flex-col shadow-2xl animate-fade-in-right z-30">
-            {/* Header Compacto */}
-            <div className="p-4 border-b bg-gray-50 flex items-center justify-between">
-                <div className="flex items-center gap-2">
+        <div className="w-80 min-w-[320px] max-w-[320px] bg-white border-l border-gray-200 h-full flex flex-col shadow-2xl animate-fade-in-right z-30 overflow-hidden">
+            {/* Header */}
+            <div className="p-4 border-b bg-gray-50 flex items-center justify-between shrink-0">
+                <div className="flex items-center gap-2 truncate">
                     <FontAwesomeIcon icon={faInfoCircle} className="text-blue-500 text-sm" />
-                    <h3 className="text-[10px] font-black text-gray-700 uppercase tracking-widest">Parâmetros</h3>
+                    <h3 className="text-[10px] font-black text-gray-700 uppercase tracking-widest truncate">Parâmetros Técnicos</h3>
                 </div>
                 
-                <div className="flex items-center gap-4">
-                    {/* Toggle de Vazios */}
+                <div className="flex items-center gap-4 shrink-0">
                     <button 
                         onClick={() => setShowEmpty(!showEmpty)}
                         className={`text-sm transition-all ${showEmpty ? 'text-blue-600' : 'text-gray-300 hover:text-gray-500'}`}
@@ -173,35 +180,36 @@ export default function BimProperties({ elementExternalId, projetoBimId, onClose
             </div>
 
             {/* Conteúdo */}
-            <div className="flex-1 overflow-y-auto custom-scrollbar">
+            <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar bg-white">
                 {isLoading ? (
                     <div className="p-10 text-center text-blue-500"><FontAwesomeIcon icon={faSpinner} spin size="2x" /></div>
                 ) : elemento ? (
                     <div className="p-4 space-y-4">
-                        {/* Banner de Categoria (Não editável aqui, pois é um campo fixo) */}
-                        <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl p-3 shadow-lg shadow-blue-100">
-                            <p className="text-[8px] font-black text-blue-200 uppercase tracking-widest">Elemento / Categoria</p>
-                            <p className="text-xs font-bold text-white truncate">{elemento.categoria}</p>
+                        {/* Banner de Categoria */}
+                        <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl p-3 shadow-lg shadow-blue-100 relative overflow-hidden">
+                            <p className="text-[8px] font-black text-blue-200 uppercase tracking-widest">Categoria</p>
+                            <p className="text-xs font-bold text-white truncate pr-2" title={elemento.categoria}>{elemento.categoria}</p>
+                            <FontAwesomeIcon icon={faCube} className="absolute -right-2 -bottom-2 text-4xl text-white/10" />
                         </div>
 
-                        {/* Listagem de Propriedades */}
+                        {/* Lista de Propriedades */}
                         <div className="space-y-2 pb-10">
                             <h4 className="text-[9px] font-black text-gray-400 uppercase tracking-[0.2em] flex items-center gap-2 px-1">
-                                <FontAwesomeIcon icon={faTableList} /> Dados do Banco
+                                <FontAwesomeIcon icon={faTableList} /> Atributos Sincronizados
                             </h4>
-                            <div className="grid gap-1.5">
+                            <div className="flex flex-col gap-2">
                                 {renderProperties()}
                             </div>
                         </div>
                     </div>
                 ) : (
-                    <div className="p-10 text-center text-gray-300 italic text-xs">Aguardando sincronização...</div>
+                    <div className="p-10 text-center text-gray-300 italic text-xs">Buscando informações...</div>
                 )}
             </div>
 
-            {/* Rodapé Informativo */}
-            <div className="p-2 border-t bg-gray-50 text-[8px] text-gray-400 text-center font-bold uppercase tracking-tighter">
-                Edição direta ativa • Pressione Enter para salvar
+            {/* Rodapé fixo */}
+            <div className="p-2 border-t bg-gray-50 text-[8px] text-gray-400 text-center font-bold uppercase tracking-tighter shrink-0">
+                Clique no lápis para editar • Esc para cancelar
             </div>
         </div>
     );
