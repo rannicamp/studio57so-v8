@@ -3,6 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import BimSidebar from '@/components/bim/BimSidebar';
+import BimProperties from '@/components/bim/BimProperties';
 import AutodeskViewerAPI from '@/components/bim/AutodeskViewerAPI';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
@@ -26,6 +27,9 @@ export default function BimManagerPage() {
 
   // Estados para Mineração de Dados (Sincronização individual)
   const [syncStates, setSyncStates] = useState({});
+
+  // NOVO: Estado para controlar qual elemento está selecionado para mostrar as propriedades
+  const [selectedElementExternalId, setSelectedElementExternalId] = useState(null);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -57,6 +61,8 @@ export default function BimManagerPage() {
           setActiveFile(file);
       }
       
+      // Limpa a seleção de propriedades ao trocar de arquivo
+      setSelectedElementExternalId(null);
       localStorage.setItem('studio57_last_bim_urn', urn);
   };
 
@@ -64,6 +70,7 @@ export default function BimManagerPage() {
       setActiveUrn(null);
       setActiveFile(null);
       setViewerInstance(null);
+      setSelectedElementExternalId(null);
       localStorage.removeItem('studio57_last_bim_urn');
   };
 
@@ -99,10 +106,25 @@ export default function BimManagerPage() {
       }
   };
 
+  // FUNÇÃO MÁGICA: Captura o clique no Viewer e busca o ID universal (externalId)
+  const handleSelectionChange = (event) => {
+      const dbIdArray = event.dbIdArray;
+      if (dbIdArray && dbIdArray.length > 0 && viewerInstance) {
+          const dbId = dbIdArray[0];
+          viewerInstance.getProperties(dbId, (props) => {
+              if (props && props.externalId) {
+                  setSelectedElementExternalId(props.externalId);
+              }
+          });
+      } else {
+          setSelectedElementExternalId(null);
+      }
+  };
+
   return (
     <div className="flex h-screen w-full overflow-hidden bg-gray-50 relative">
       
-      {/* 1. BARRA LATERAL (Único meio de acesso) */}
+      {/* 1. BARRA LATERAL (Explorador) */}
       <div 
         className={`
             relative h-full bg-white border-r border-gray-200 transition-all duration-300 ease-in-out flex flex-col z-20
@@ -114,11 +136,11 @@ export default function BimManagerPage() {
             onFileSelect={handleFileSelect} 
             selectedContext={selectedContext} 
             activeUrn={activeUrn}
-            syncStates={syncStates} // Passando os estados de carregamento
+            syncStates={syncStates}
          />
       </div>
 
-      {/* BOTÃO DE COLAPSAR */}
+      {/* BOTÃO DE COLAPSAR SIDEBAR */}
       <button 
         onClick={() => setIsSidebarVisible(!isSidebarVisible)}
         className={`
@@ -131,40 +153,56 @@ export default function BimManagerPage() {
           <FontAwesomeIcon icon={isSidebarVisible ? faChevronLeft : faChevronRight} size="xs" />
       </button>
 
-      {/* 2. ÁREA PRINCIPAL (Visualização do Modelo) */}
-      <main className="flex-1 h-full relative bg-gray-200 flex flex-col min-w-0">
+      {/* 2. ÁREA PRINCIPAL (Visualização + Propriedades) */}
+      <main className="flex-1 h-full relative bg-gray-200 flex min-w-0">
           
-          {/* HEADER FLUTUANTE */}
-          <div className="absolute top-4 right-4 z-[60] flex gap-2">
-            <Link 
-                href="/dashboard" 
-                className="bg-white/90 hover:bg-white text-gray-700 p-2 rounded-lg shadow-sm border border-gray-200 backdrop-blur transition-all text-xs font-bold flex items-center gap-2"
-            >
-                <FontAwesomeIcon icon={faHome} /> SISTEMA
-            </Link>
-            {activeUrn && (
-                <button 
-                    onClick={handleCloseViewer}
-                    className="bg-white/90 hover:bg-red-50 text-red-600 p-2 rounded-lg shadow-sm border border-gray-200 backdrop-blur transition-all text-xs font-bold flex items-center gap-2"
+          {/* Visualizador 3D */}
+          <div className="flex-1 relative h-full">
+            {/* HEADER FLUTUANTE */}
+            <div className="absolute top-4 right-4 z-[60] flex gap-2">
+                <Link 
+                    href="/dashboard" 
+                    className="bg-white/90 hover:bg-white text-gray-700 p-2 rounded-lg shadow-sm border border-gray-200 backdrop-blur transition-all text-xs font-bold flex items-center gap-2"
                 >
-                    <FontAwesomeIcon icon={faTimes} /> FECHAR
-                </button>
-            )}
+                    <FontAwesomeIcon icon={faHome} /> SISTEMA
+                </Link>
+                {activeUrn && (
+                    <button 
+                        onClick={handleCloseViewer}
+                        className="bg-white/90 hover:bg-red-50 text-red-600 p-2 rounded-lg shadow-sm border border-gray-200 backdrop-blur transition-all text-xs font-bold flex items-center gap-2"
+                    >
+                        <FontAwesomeIcon icon={faTimes} /> FECHAR
+                    </button>
+                )}
+            </div>
+
+            <div className="w-full h-full">
+                {activeUrn ? (
+                    <AutodeskViewerAPI 
+                        urn={activeUrn} 
+                        onViewerReady={(v) => {
+                            setViewerInstance(v);
+                            // Registra o evento de clique no modelo
+                            v.addEventListener(window.Autodesk.Viewing.SELECTION_CHANGED_EVENT, handleSelectionChange);
+                        }}
+                    />
+                ) : (
+                    <div className="flex flex-col items-center justify-center h-full text-gray-300">
+                        <FontAwesomeIcon icon={faCube} className="text-6xl mb-4 opacity-20" />
+                        <p className="font-black text-2xl uppercase tracking-widest select-none opacity-20">Selecione um projeto</p>
+                    </div>
+                )}
+            </div>
           </div>
 
-          <div className="w-full h-full">
-             {activeUrn ? (
-                 <AutodeskViewerAPI 
-                    urn={activeUrn} 
-                    onViewerReady={(v) => setViewerInstance(v)}
-                 />
-             ) : (
-                 <div className="flex flex-col items-center justify-center h-full text-gray-300">
-                     <FontAwesomeIcon icon={faCube} className="text-6xl mb-4 opacity-20" />
-                     <p className="font-black text-2xl uppercase tracking-widest select-none opacity-20">Selecione um projeto</p>
-                 </div>
-             )}
-          </div>
+          {/* 3. BARRA DE PROPRIEDADES (Direita) */}
+          {selectedElementExternalId && activeFile && (
+              <BimProperties 
+                elementExternalId={selectedElementExternalId} 
+                projetoBimId={activeFile.id}
+                onClose={() => setSelectedElementExternalId(null)}
+              />
+          )}
       </main>
     </div>
   );
