@@ -6,107 +6,131 @@ import BimSidebar from '@/components/bim/BimSidebar';
 import BimContent from '@/components/bim/BimContent';
 import AutodeskViewerAPI from '@/components/bim/AutodeskViewerAPI';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faTimes, faChevronLeft, faHome, faSignOutAlt } from '@fortawesome/free-solid-svg-icons';
+import { faChevronLeft, faChevronRight, faHome, faTimes } from '@fortawesome/free-solid-svg-icons';
 import Link from 'next/link';
 
 export default function BimManagerPage() {
   const [selectedContext, setSelectedContext] = useState(null); 
   const [activeUrn, setActiveUrn] = useState(null); 
-  const [isViewerVisible, setIsViewerVisible] = useState(false);
+  
+  // Controle da Barra Lateral (Explorador)
+  const [isSidebarVisible, setIsSidebarVisible] = useState(true);
 
-  // Persistência
+  // Recupera estado salvo
   useEffect(() => {
     if (typeof window !== 'undefined') {
         const savedUrn = localStorage.getItem('studio57_last_bim_urn');
         const savedContext = localStorage.getItem('studio57_last_bim_context');
-        
         if (savedUrn) setActiveUrn(savedUrn);
-        if (savedContext) {
-            try { setSelectedContext(JSON.parse(savedContext)); } catch (e) {}
-        }
+        if (savedContext) try { setSelectedContext(JSON.parse(savedContext)); } catch (e) {}
     }
   }, []);
 
   const handleContextSelect = (context) => {
     setSelectedContext(context);
     localStorage.setItem('studio57_last_bim_context', JSON.stringify(context));
-    setIsViewerVisible(false); 
+    // Quando seleciona uma pasta, se tiver um arquivo aberto, a gente fecha ele? 
+    // Ou mantemos aberto? Pelo seu pedido, mantemos o explorer visível.
+    // Mas se você mudou de pasta, talvez queira ver a lista.
+    // Vamos manter o viewer aberto se já estiver, só mudamos o contexto da lista (que está oculta).
   };
 
   const handleFileSelect = (urn) => {
       if (!urn) return;
       setActiveUrn(urn);
-      setIsViewerVisible(true);
       localStorage.setItem('studio57_last_bim_urn', urn);
   };
 
+  const handleCloseViewer = () => {
+      setActiveUrn(null);
+      localStorage.removeItem('studio57_last_bim_urn');
+  };
+
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-gray-50 relative">
+    <div className="flex h-full w-full overflow-hidden bg-gray-50 relative">
       
-      {/* HEADER FLUTUANTE (Para sair do modo imersivo) */}
-      <div className="absolute top-0 right-0 p-4 z-[60] flex gap-2">
-        <Link 
-            href="/dashboard" 
-            className="bg-white hover:bg-gray-100 text-gray-700 p-2.5 rounded-lg shadow-md border border-gray-200 transition-all flex items-center gap-2 text-xs font-bold"
-            title="Voltar ao Sistema Principal"
-        >
-            <FontAwesomeIcon icon={faHome} /> <span className="hidden md:inline">SISTEMA</span>
-        </Link>
-      </div>
-
-      {/* === CAMADA 0: O VISUALIZADOR === */}
+      {/* 1. BARRA LATERAL (EXPLORADOR) - COLUNA ESQUERDA */}
       <div 
-        className="absolute inset-0 z-0 bg-gray-100"
-        style={{ 
-            visibility: isViewerVisible ? 'visible' : 'hidden', 
-            zIndex: isViewerVisible ? 50 : 0 
-        }}
+        className={`
+            relative h-full bg-white border-r border-gray-200 transition-all duration-300 ease-in-out flex flex-col
+            ${isSidebarVisible ? 'w-80 opacity-100' : 'w-0 opacity-0 overflow-hidden'}
+        `}
       >
-          {activeUrn && <AutodeskViewerAPI urn={activeUrn} />}
-          
-          {/* Botão Flutuante 'Voltar' dentro do Viewer */}
-          <div className="absolute top-4 left-4 z-50">
-                <button 
-                    onClick={() => setIsViewerVisible(false)}
-                    className="bg-white/90 backdrop-blur shadow-lg border border-gray-200 px-4 py-2 rounded-lg text-xs font-bold text-gray-700 hover:bg-white flex items-center gap-2 transition-all active:scale-95"
-                >
-                    <FontAwesomeIcon icon={faChevronLeft} /> EXPLORADOR DE ARQUIVOS
-                </button>
-          </div>
+         <BimSidebar 
+            onSelectContext={handleContextSelect} 
+            onFileSelect={handleFileSelect} // Permite abrir arquivo direto da árvore
+            selectedContext={selectedContext} 
+            activeUrn={activeUrn}
+         />
       </div>
 
-      {/* === CAMADA 1: A NAVEGAÇÃO (Sidebar + Content) === */}
-      
-      {/* Sidebar - Usando o componente que já criamos */}
-      <BimSidebar 
-        onSelectContext={handleContextSelect} 
-        onFileSelect={handleFileSelect}
-        selectedContext={selectedContext} 
-        activeUrn={activeUrn}
-      />
+      {/* BOTÃO DE COLAPSAR/EXPANDIR (Fica na divisa) */}
+      <button 
+        onClick={() => setIsSidebarVisible(!isSidebarVisible)}
+        className={`
+            absolute top-1/2 z-50 transform -translate-y-1/2 
+            bg-white border border-gray-200 shadow-md text-gray-500 hover:text-blue-600
+            w-6 h-12 flex items-center justify-center rounded-r-lg transition-all duration-300
+            ${isSidebarVisible ? 'left-80' : 'left-0'}
+        `}
+        title={isSidebarVisible ? "Ocultar Explorador" : "Mostrar Explorador"}
+      >
+          <FontAwesomeIcon icon={isSidebarVisible ? faChevronLeft : faChevronRight} size="xs" />
+      </button>
 
-      {/* Content - Área de lista */}
-      <main className="flex-1 flex flex-col relative min-w-0 bg-gray-50">
-        <BimContent 
-            context={selectedContext} 
-            onFileSelect={handleFileSelect}
-        />
-      </main>
 
-      {/* Sidebar Direita (Propriedades) - Opcional */}
-      {isViewerVisible && activeUrn && (
-          <aside className="w-80 bg-white border-l border-gray-200 flex flex-col shadow-2xl z-50 animate-slide-in-right hidden md:flex">
-              <div className="p-4 border-b flex justify-between items-center bg-gray-50">
-                  <h3 className="font-bold text-xs uppercase text-gray-500">Propriedades</h3>
-                  <button onClick={() => setIsViewerVisible(false)} className="text-gray-400 hover:text-red-500">
-                      <FontAwesomeIcon icon={faTimes} />
+      {/* 2. ÁREA PRINCIPAL (DIREITA) */}
+      <main className="flex-1 h-full relative bg-gray-100 flex flex-col min-w-0">
+          
+          {/* HEADER FLUTUANTE SIMPLES */}
+          <div className="absolute top-4 right-4 z-[60] flex gap-2">
+            <Link 
+                href="/dashboard" 
+                className="bg-white/90 hover:bg-white text-gray-700 p-2 rounded-lg shadow-sm border border-gray-200 backdrop-blur transition-all text-xs font-bold flex items-center gap-2"
+            >
+                <FontAwesomeIcon icon={faHome} /> SISTEMA
+            </Link>
+          </div>
+
+          {/* CAMADA A: O VISUALIZADOR (Fica no fundo, Z-0) */}
+          <div className="absolute inset-0 z-0 bg-gray-200">
+             {/* O Viewer sempre existe se houver URN. O ResizeObserver no componente cuida do tamanho. */}
+             {activeUrn ? (
+                 <AutodeskViewerAPI urn={activeUrn} />
+             ) : (
+                 /* Placeholder quando não tem nada aberto */
+                 <div className="flex items-center justify-center h-full opacity-30">
+                     <p className="font-black text-4xl text-gray-300 uppercase tracking-widest select-none">Studio 57 BIM</p>
+                 </div>
+             )}
+          </div>
+
+          {/* CAMADA B: A LISTA DE ARQUIVOS (BimContent) (Fica na frente, Z-10) */}
+          {/* Se tiver um arquivo ativo (viewer), escondemos a lista com display:none */}
+          <div 
+             className="absolute inset-0 z-10 bg-gray-50 flex flex-col"
+             style={{ display: activeUrn ? 'none' : 'flex' }}
+          >
+             {/* Botão para fechar visualizador não é necessário aqui, pois a lista só aparece se o viewer estiver fechado */}
+             <BimContent 
+                context={selectedContext} 
+                onFileSelect={handleFileSelect}
+             />
+          </div>
+
+          {/* CONTROLE DO VIEWER (Botão Fechar) - Só aparece se Viewer ativo */}
+          {activeUrn && (
+              <div className="absolute top-4 left-6 z-50">
+                  <button 
+                      onClick={handleCloseViewer}
+                      className="bg-white/90 backdrop-blur shadow-lg border border-gray-200 px-4 py-2 rounded-lg text-xs font-black text-gray-700 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-all active:scale-95 flex items-center gap-2"
+                  >
+                      <FontAwesomeIcon icon={faTimes} /> FECHAR VISUALIZAÇÃO
                   </button>
               </div>
-              <div className="flex-1 p-6 text-xs text-gray-500 text-center flex flex-col items-center justify-center">
-                  <p>Selecione um objeto no modelo para ver detalhes.</p>
-              </div>
-          </aside>
-      )}
+          )}
+
+      </main>
     </div>
   );
 }
