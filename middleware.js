@@ -21,7 +21,7 @@ export async function middleware(req) {
   // 1. CONFIGURAÇÃO DE ROTAS PÚBLICAS
   // =================================================================
   
-  // A. Caminhos EXATOS (Só libera se for exatamente isso)
+  // A. Caminhos EXATOS
   const publicExactPaths = [
     '/',
     '/login',
@@ -29,17 +29,15 @@ export async function middleware(req) {
     '/atualizar-senha',
     '/register',
     '/cadastro-corretor',
-    '/upload', // Rota de upload isolada
+    '/upload', 
     '/api/teste-manual',
-    '/sitemap.xml', // <--- ADICIONADO: Libera o mapa para o Google
-    '/robots.txt'   // <--- ADICIONADO: Libera as instruções para robôs
+    '/sitemap.xml',
+    '/robots.txt'
   ]
 
-  // B. PREFIXOS (Libera a rota E TUDO que vier depois dela "filhos")
-  // DICA DO TIO DEVONILDO: Coloque suas Landing Pages AQUI!
-  // Assim, /betasuites/obrigado funciona automaticamente.
+  // B. PREFIXOS
   const publicPrefixPaths = [
-    // --- Landing Pages (Adicione novos projetos aqui) ---
+    // --- Landing Pages ---
     '/empreendimentosstudio',
     '/refugiobraunas',
     '/residencialalfa',
@@ -54,20 +52,19 @@ export async function middleware(req) {
     
     // --- APIs e Webhooks ---
     '/api/auth',
-    '/api/meta',      // Libera todos os webhooks da Meta
-    '/api/whatsapp',  // Libera todos os webhooks do Whats
+    '/api/meta',
+    '/api/whatsapp',
     '/api/notifications',
-    '/api/cron'
+    '/api/cron',
+    '/api/aps' // Adicionado para garantir que rotas APS sejam consideradas públicas/api
   ]
 
   // =================================================================
   // LÓGICA DE VERIFICAÇÃO
   // =================================================================
 
-  // 1. É um caminho exato?
   let isPublicPath = publicExactPaths.includes(url.pathname)
 
-  // 2. Se não for exato, verifica se começa com algum prefixo permitido
   if (!isPublicPath) {
     isPublicPath = publicPrefixPaths.some((path) =>
       url.pathname.startsWith(path)
@@ -75,7 +72,7 @@ export async function middleware(req) {
   }
 
   // =================================================================
-  // 2. BLOQUEIO DE SEGURANÇA (Se não for público e não tiver sessão)
+  // 2. BLOQUEIO DE SEGURANÇA
   // =================================================================
   if (!session && !isPublicPath) {
     const redirectUrl = new URL('/login', req.url);
@@ -86,10 +83,8 @@ export async function middleware(req) {
   // 3. ROTEAMENTO DE USUÁRIO LOGADO
   // =================================================================
   if (session && user) {
-    // Lista de páginas de Autenticação (onde usuário logado não deve ficar)
     const isAuthPage = ['/login', '/', '/recuperar-senha', '/register'].includes(url.pathname);
 
-    // Se usuário logado tentar entrar no login, mandamos para o painel dele
     if (isAuthPage) {
         const { data: profile } = await supabase
           .from('usuarios')
@@ -99,15 +94,12 @@ export async function middleware(req) {
     
         const funcao_id = profile?.funcao_id
         
-        // Se for Corretor (20) -> Portal
         if (funcao_id === 20) {
             return NextResponse.redirect(new URL('/portal-painel', req.url))
         }
-        // Outros -> Painel Admin
         return NextResponse.redirect(new URL('/painel', req.url))
     }
     
-    // Verificação de permissão para rotas protegidas
     if (!isPublicPath && url.pathname !== '/atualizar-senha') {
         const { data: profile } = await supabase
             .from('usuarios')
@@ -136,8 +128,13 @@ export async function middleware(req) {
   return response
 }
 
+// --- AQUI ESTÁ A CORREÇÃO CRÍTICA PARA O ERRO 10MB ---
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|images/|icons/|sounds/|sw.js|manifest.json|workbox-).*)',
+    /*
+     * Ignora arquivos estáticos E a rota de upload da Autodesk
+     * Adicionado: |api/aps/upload
+     */
+    '/((?!_next/static|_next/image|favicon.ico|images/|icons/|sounds/|sw.js|manifest.json|workbox-|api/aps/upload).*)',
   ],
 }

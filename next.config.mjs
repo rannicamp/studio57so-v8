@@ -14,8 +14,8 @@ const nextConfig = {
         'studio57.netlify.app',
         'localhost:3000'
       ],
-      // Aumenta o limite para formulários grandes
-      bodySizeLimit: '2mb',
+      // Aumenta o limite para formulários grandes (Ajustado para BIM)
+      bodySizeLimit: '500mb', 
     },
   },
   // -------------------------------------------

@@ -1,125 +1,148 @@
+// Caminho: app/api/aps/upload/route.js
 import { NextResponse } from 'next/server';
+import { AuthenticationClient, Scopes } from '@aps_sdk/authentication';
+import { SdkManagerBuilder } from '@aps_sdk/autodesk-sdkmanager';
 
-// Nome do Bucket (Mantive o mesmo para aproveitar se ele já foi criado)
-const BUCKET_KEY = 'studio57-bim-projects-manager-v2';
+// --- CONFIGURAÇÕES CRÍTICAS (Evita Timeout) ---
+export const maxDuration = 60; 
+export const dynamic = 'force-dynamic';
+// ---------------------------------------------
 
-// Função auxiliar para obter o Token
-async function getInternalToken() {
-    const { APS_CLIENT_ID, APS_CLIENT_SECRET } = process.env;
-    const credentials = Buffer.from(`${APS_CLIENT_ID}:${APS_CLIENT_SECRET}`).toString('base64');
-    
-    const response = await fetch('https://developer.api.autodesk.com/authentication/v2/token', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'Authorization': `Basic ${credentials}`,
-        },
-        body: new URLSearchParams({
-            grant_type: 'client_credentials',
-            scope: 'data:read data:write data:create bucket:create bucket:read viewables:read',
-        }),
-    });
+const APS_CLIENT_ID = process.env.APS_CLIENT_ID;
+const APS_CLIENT_SECRET = process.env.APS_CLIENT_SECRET;
 
-    if (!response.ok) throw new Error(`Erro Auth Autodesk: ${response.statusText}`);
-    const data = await response.json();
-    return data.access_token;
-}
+// Sanitização do bucket
+const BUCKET_KEY = (process.env.APS_BUCKET_KEY || 'studio57_bim_bucket_' + APS_CLIENT_ID).toLowerCase().replace(/[^a-z0-9_-]/g, '');
+
+const sdkManager = SdkManagerBuilder.create().build();
+const authClient = new AuthenticationClient(sdkManager);
 
 export async function POST(request) {
     try {
+        // 1. Ler arquivo
         const formData = await request.formData();
         const file = formData.get('file');
 
-        if (!file) return NextResponse.json({ error: 'Nenhum arquivo enviado.' }, { status: 400 });
+        if (!file) return NextResponse.json({ error: 'Nenhum arquivo.' }, { status: 400 });
 
-        console.log(`[APS] Iniciando upload moderno (S3): ${file.name}`);
+        const arrayBuffer = await file.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
 
-        const buffer = Buffer.from(await file.arrayBuffer());
-        const token = await getInternalToken();
+        // 2. Autenticação
+        const credentials = await authClient.getTwoLeggedToken(
+            APS_CLIENT_ID,
+            APS_CLIENT_SECRET,
+            [Scopes.DataRead, Scopes.DataWrite, Scopes.BucketCreate, Scopes.BucketRead]
+        );
+        const accessToken = credentials.access_token;
 
-        // 1. Verificar/Criar Bucket
-        const checkBucket = await fetch(`https://developer.api.autodesk.com/oss/v2/buckets/${BUCKET_KEY}/details`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-
-        if (checkBucket.status === 404) {
-            console.log(`[APS] Criando bucket...`);
-            await fetch(`https://developer.api.autodesk.com/oss/v2/buckets`, {
+        // 3. Garantir Bucket (Via Fetch)
+        try {
+            await fetch('https://developer.api.autodesk.com/oss/v2/buckets', {
                 method: 'POST',
                 headers: {
-                    'Authorization': `Bearer ${token}`,
+                    'Authorization': `Bearer ${accessToken}`,
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ bucketKey: BUCKET_KEY, policyKey: 'transient' }) 
+                body: JSON.stringify({
+                    bucketKey: BUCKET_KEY,
+                    policyKey: 'transient'
+                })
             });
+        } catch (e) { /* Ignora se já existir */ }
+
+        // =====================================================================
+        // 4. UPLOAD MODERNO (DIRECT TO S3) - 3 ETAPAS
+        // =====================================================================
+        
+        const objectKey = encodeURIComponent(file.name);
+        // Endpoint Base
+        const s3Url = `https://developer.api.autodesk.com/oss/v2/buckets/${BUCKET_KEY}/objects/${objectKey}/signeds3upload`;
+
+        // ETAPA A: Obter URL assinada
+        const startRes = await fetch(s3Url, {
+            method: 'GET',
+            headers: { 'Authorization': `Bearer ${accessToken}` }
+        });
+
+        if (!startRes.ok) {
+            const err = await startRes.text();
+            throw new Error(`Erro ao iniciar S3 Upload: ${err}`);
         }
 
-        // --- NOVO FLUXO: DIRECT TO S3 (3 Passos) ---
+        const startData = await startRes.json();
+        const uploadUrl = startData.urls[0]; // URL da Amazon S3
+        const uploadKey = startData.uploadKey;
 
-        // Passo A: Pedir um link de upload assinado (Signed URL)
-        console.log(`[APS] Passo A: Solicitando URL de upload...`);
-        const signedUrlResponse = await fetch(`https://developer.api.autodesk.com/oss/v2/buckets/${BUCKET_KEY}/objects/${file.name}/signeds3upload`, {
-            method: 'GET',
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-
-        if (!signedUrlResponse.ok) throw new Error(`Erro ao obter URL S3: ${await signedUrlResponse.text()}`);
-        
-        const signedData = await signedUrlResponse.json();
-        const uploadUrl = signedData.urls[0]; // Link para upload
-        const uploadKey = signedData.uploadKey; // Chave para confirmar depois
-
-        // Passo B: Fazer o upload direto para esse link
-        console.log(`[APS] Passo B: Enviando bytes para S3...`);
-        const s3Upload = await fetch(uploadUrl, {
+        // ETAPA B: Enviar o binário para a Amazon S3 (Diretamente)
+        const s3UploadRes = await fetch(uploadUrl, {
             method: 'PUT',
             body: buffer,
-            // Importante: Não enviar Authorization header aqui, pois o link já é assinado
+            headers: {
+                // S3 exige que não tenha Authorization header aqui, ou headers conflitantes
+                // O tipo é binário puro
+            }
         });
 
-        if (!s3Upload.ok) throw new Error(`Erro no upload S3: ${s3Upload.statusText}`);
+        if (!s3UploadRes.ok) {
+            throw new Error(`Erro no envio para S3: ${s3UploadRes.status}`);
+        }
 
-        // Passo C: Avisar a Autodesk que terminamos (Finalize)
-        console.log(`[APS] Passo C: Finalizando upload...`);
-        const finalizeResponse = await fetch(`https://developer.api.autodesk.com/oss/v2/buckets/${BUCKET_KEY}/objects/${file.name}/signeds3upload`, {
+        // ETAPA C: Finalizar o Upload na Autodesk
+        const finalizeRes = await fetch(s3Url, {
             method: 'POST',
-            headers: { 
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json' 
+            headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify({ uploadKey: uploadKey })
         });
 
-        if (!finalizeResponse.ok) throw new Error(`Erro ao finalizar upload: ${await finalizeResponse.text()}`);
+        if (!finalizeRes.ok) {
+            const err = await finalizeRes.text();
+            throw new Error(`Erro ao finalizar S3 Upload: ${err}`);
+        }
 
-        const objectData = await finalizeResponse.json();
-        const objectId = objectData.objectId;
-        const urn = Buffer.from(objectId).toString('base64').replace(/=/g, ''); // Remove padding extra se houver
+        const objectDetails = await finalizeRes.json();
+        // =====================================================================
 
-        console.log(`[APS] Upload completo. URN: ${urn}`);
+        // 5. Preparar URN
+        const objectId = objectDetails.objectId;
+        const urn = Buffer.from(objectId).toString('base64').replace(/=/g, '');
 
-        // 3. Solicitar Tradução (Job) - Mantido igual
-        console.log(`[APS] Iniciando tradução SVF...`);
-        await fetch('https://developer.api.autodesk.com/modelderivative/v2/designdata/job', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                input: { urn: urn },
-                output: { formats: [{ type: 'svf', views: ['2d', '3d'] }] }
-            })
-        });
+        // 6. Tradução
+        await iniciarTraducao(urn, accessToken);
 
         return NextResponse.json({ 
             success: true, 
-            urn: urn,
-            filename: file.name
+            urn: urn, 
+            objectId: objectId 
         });
 
     } catch (error) {
-        console.error('[APS Error Critical]:', error.message);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        console.error('[APS UPLOAD ERROR]:', error);
+        return NextResponse.json({ error: error.message || "Erro desconhecido" }, { status: 500 });
+    }
+}
+
+async function iniciarTraducao(urn, accessToken) {
+    const url = 'https://developer.api.autodesk.com/modelderivative/v2/designdata/job';
+    const body = {
+        input: { urn: urn },
+        output: { formats: [{ type: 'svf', views: ['2d', '3d'] }] }
+    };
+
+    try {
+        await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/json',
+                'x-ads-force': 'true'
+            },
+            body: JSON.stringify(body)
+        });
+    } catch (e) {
+        console.log("Aviso Job:", e.message);
     }
 }
