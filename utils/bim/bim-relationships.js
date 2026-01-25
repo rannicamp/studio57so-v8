@@ -1,12 +1,13 @@
+// Caminho: utils/bim/bim-relationships.js
 import { createClient } from '../supabase/client';
 
 const supabase = createClient();
 
 /**
- * Busca todos os IDs de elementos vinculados a uma lista de atividades
+ * Busca todos os elementos vinculados a atividades específicas dentro de um projeto BIM
  */
 export async function getElementosPorAtividades(atividadeIds, projetoBimId) {
-    if (!atividadeIds || atividadeIds.length === 0) return [];
+    if (!atividadeIds || atividadeIds.length === 0 || !projetoBimId) return [];
 
     const { data, error } = await supabase
         .from('atividades_elementos')
