@@ -9,12 +9,21 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
     faBuilding, faFolder, faFolderOpen, faChevronRight, 
     faChevronDown, faCity, faLayerGroup, faSearch, faGhost, 
-    faSpinner, faCube, faClock, faPlus, faDatabase // Adicionei faDatabase
+    faSpinner, faCube, faClock, faPlus, faDatabase,
+    faCheckSquare, faSquare // Novos ícones para o Check
 } from '@fortawesome/free-solid-svg-icons';
 import BimUploadModal from './BimUploadModal';
 
-// Adicionamos syncStates nas props para o page.js nos dizer quem está carregando
-export default function BimSidebar({ onSelectContext, onFileSelect, selectedContext, activeUrn, syncStates = {} }) {
+// Adicionamos selectedModels nas props para gerenciar a mesclagem
+export default function BimSidebar({ 
+    onSelectContext, 
+    onFileSelect, 
+    onToggleModel, // Nova prop: Função para marcar/desmarcar modelo
+    selectedModels = [], // Nova prop: Array de URNs ativos
+    selectedContext, 
+    activeUrn, 
+    syncStates = {} 
+}) {
   const supabase = createClient();
   const { organizacao_id: organizacaoId } = useAuth();
   
@@ -63,11 +72,11 @@ export default function BimSidebar({ onSelectContext, onFileSelect, selectedCont
         .eq('organizacao_id', organizacaoId)
         .order('criado_em', { ascending: false });
 
-      if (!empresas) return [];
+      if (!todosArquivos) return [];
 
       const arvoreLimpa = [];
 
-      empresas.forEach(emp => {
+      empresas?.forEach(emp => {
         const obrasDaEmpresa = obras?.filter(o => String(o.empresa_proprietaria_id) === String(emp.id)) || [];
         const obrasComConteudo = [];
 
@@ -115,10 +124,6 @@ export default function BimSidebar({ onSelectContext, onFileSelect, selectedCont
       return arvoreLimpa;
     },
     enabled: !!organizacaoId,
-    staleTime: Infinity,
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
-    refetchOnReconnect: false,
   });
 
   const filteredStructure = useMemo(() => {
@@ -175,10 +180,8 @@ export default function BimSidebar({ onSelectContext, onFileSelect, selectedCont
             <div className="text-center py-10 opacity-30 flex flex-col items-center">
                 <FontAwesomeIcon icon={faGhost} size="2x" className="mb-2 text-gray-400" />
                 <p className="text-[10px] font-bold text-gray-500">VAZIO</p>
-                {searchTerm ? (
+                {searchTerm && (
                     <button onClick={() => setSearchTerm('')} className="text-[10px] text-blue-500 mt-2 hover:underline">Limpar</button>
-                ) : (
-                    <p className="text-[9px] text-gray-400 mt-2 max-w-[150px]">Use "Adicionar Novo" para começar.</p>
                 )}
             </div>
         ) : (
@@ -233,13 +236,14 @@ export default function BimSidebar({ onSelectContext, onFileSelect, selectedCont
                                                             <div className="ml-3 pl-2 border-l border-blue-100 mt-1 space-y-2 animate-fade-in">
                                                                 {disc.children.map(file => {
                                                                     const isActive = activeUrn === file.urn_autodesk;
+                                                                    const isSelected = selectedModels.includes(file.urn_autodesk); // Verifica se está mesclado
                                                                     const isSyncing = syncStates[file.id]?.isSyncing;
                                                                     const progress = syncStates[file.id]?.progress || 0;
 
                                                                     return (
                                                                         <div 
                                                                             key={file.id}
-                                                                            onClick={(e) => { e.stopPropagation(); onFileSelect(file); }} // Agora envia o OBJETO todo
+                                                                            onClick={(e) => { e.stopPropagation(); onFileSelect(file); }}
                                                                             className={`
                                                                                 group relative p-2 rounded-lg border cursor-pointer transition-all hover:scale-[1.02]
                                                                                 ${isActive 
@@ -249,9 +253,17 @@ export default function BimSidebar({ onSelectContext, onFileSelect, selectedCont
                                                                             `}
                                                                         >
                                                                             <div className="flex items-start gap-2">
-                                                                                <div className={`mt-0.5 p-1 rounded ${isActive ? 'bg-blue-500 text-white' : 'bg-gray-50 text-blue-500'}`}>
-                                                                                    <FontAwesomeIcon icon={faCube} className="text-[10px]" />
-                                                                                </div>
+                                                                                {/* NOVO: Botão de Check para Mesclagem */}
+                                                                                <button 
+                                                                                    onClick={(e) => {
+                                                                                        e.stopPropagation();
+                                                                                        onToggleModel(file);
+                                                                                    }}
+                                                                                    className={`mt-0.5 transition-colors ${isActive ? 'text-blue-200 hover:text-white' : 'text-gray-300 hover:text-blue-500'}`}
+                                                                                >
+                                                                                    <FontAwesomeIcon icon={isSelected ? faCheckSquare : faSquare} className="text-[12px]" />
+                                                                                </button>
+
                                                                                 <div className="min-w-0 flex-1">
                                                                                     <p className={`text-[10px] font-bold truncate leading-tight ${isActive ? 'text-white' : 'text-gray-700'}`}>
                                                                                         {file.nome_arquivo}
@@ -263,8 +275,7 @@ export default function BimSidebar({ onSelectContext, onFileSelect, selectedCont
                                                                                     </div>
                                                                                 </div>
                                                                                 
-                                                                                {/* NOVO: Botão de Sincronizar */}
-                                                                                <div className="flex items-center ml-1">
+                                                                                <div className="flex items-center ml-1 gap-1">
                                                                                     {isSyncing ? (
                                                                                         <div className="relative flex items-center justify-center">
                                                                                             <FontAwesomeIcon icon={faSpinner} spin className={`${isActive ? 'text-white' : 'text-blue-500'} text-[10px]`} />

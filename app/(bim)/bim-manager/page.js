@@ -11,7 +11,8 @@ import BimLinkActivityModal from '@/components/bim/BimLinkActivityModal'; // 1. 
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
     faChevronLeft, faChevronRight, faHome, faTimes, 
-    faCube, faStream, faChevronUp, faChevronDown, faPlus, faLink
+    faCube, faStream, faChevronUp, faChevronDown, faPlus, faLink,
+    faChevronRight as faChevronRightSolid // Ícone extra para a lista
 } from '@fortawesome/free-solid-svg-icons';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
@@ -34,6 +35,10 @@ export default function BimManagerPage() {
   const [contextMenu, setContextMenu] = useState(null); 
   const [isActivityModalOpen, setIsActivityModalOpen] = useState(false);
   const [isLinkingListOpen, setIsLinkingListOpen] = useState(false); 
+
+  // --- NOVOS ESTADOS PARA VISUALIZAÇÃO FEDERADA (MESCLAGEM) ---
+  const [selectedModels, setSelectedModels] = useState([]); // Guarda URNs marcadas com check
+  const loadedModelsRef = useRef({}); // Referência para saber quais modelos estão fisicamente no viewer
 
   // --- CARREGAMENTO DE DADOS AUXILIARES (PARA O MODAL FUNCIONAR) ---
   const { data: auxData } = useQuery({
@@ -145,11 +150,60 @@ export default function BimManagerPage() {
       });
   };
 
+  // --- FUNÇÃO PARA CARREGAR/REMOVER MODELOS (MESCLAGEM) ---
+  const handleToggleModel = async (file) => {
+    if (!viewerInstance) {
+        toast.error("O visualizador precisa estar aberto primeiro.");
+        return;
+    }
+
+    const urn = file.urn_autodesk;
+    const isLoaded = selectedModels.includes(urn);
+
+    if (isLoaded) {
+        // Remover Modelo
+        const modelToUnload = loadedModelsRef.current[urn];
+        if (modelToUnload) {
+            viewerInstance.impl.unloadModel(modelToUnload);
+            delete loadedModelsRef.current[urn];
+            setSelectedModels(prev => prev.filter(u => u !== urn));
+            toast.info(`Modelo ${file.nome_arquivo} removido.`);
+        }
+    } else {
+        // Carregar Modelo Adicional
+        const documentId = `urn:${urn}`;
+        window.Autodesk.Viewing.Document.load(documentId, (doc) => {
+            const viewables = doc.getRoot().getDefaultGeometry();
+            viewerInstance.loadModel(doc.getViewablePath(viewables), { 
+                keepCurrentModels: true,
+                modelNameOverride: file.nome_arquivo 
+            }, (model) => {
+                loadedModelsRef.current[urn] = model;
+                setSelectedModels(prev => [...prev, urn]);
+                toast.success(`Modelo ${file.nome_arquivo} mesclado!`);
+            });
+        }, (err) => toast.error("Erro ao carregar camada: " + err));
+    }
+  };
+
   return (
     <div className="flex h-screen w-full overflow-hidden bg-gray-50 flex-col">
       <div className="flex flex-1 overflow-hidden relative">
         <div className={`${isSidebarVisible ? 'w-80' : 'w-0'} transition-all duration-300 border-r bg-white z-20 shrink-0`}>
-            <BimSidebar onFileSelect={(f) => { setActiveUrn(f.urn_autodesk); setActiveFile(f); setSelectedElements([]); }} activeUrn={activeUrn} />
+            <BimSidebar 
+                onFileSelect={(f) => { 
+                    setActiveUrn(f.urn_autodesk); 
+                    setActiveFile(f); 
+                    setSelectedElements([]); 
+                    // Se clicar no nome, ele se torna o principal e entra no array de selecionados se não estiver
+                    if(!selectedModels.includes(f.urn_autodesk)) {
+                        setSelectedModels(prev => [...prev, f.urn_autodesk]);
+                    }
+                }} 
+                onToggleModel={handleToggleModel}
+                selectedModels={selectedModels}
+                activeUrn={activeUrn} 
+            />
         </div>
 
         <main className="flex-1 h-full relative flex min-w-0" onClick={() => setContextMenu(null)}>
@@ -161,6 +215,12 @@ export default function BimManagerPage() {
                 {activeUrn ? (
                     <AutodeskViewerAPI urn={activeUrn} onViewerReady={(v) => {
                         setViewerInstance(v);
+                        // Armazena o modelo inicial na referência
+                        if(v.model) {
+                            loadedModelsRef.current[activeUrn] = v.model;
+                            if(!selectedModels.includes(activeUrn)) setSelectedModels([activeUrn]);
+                        }
+                        
                         v.addEventListener(window.Autodesk.Viewing.SELECTION_CHANGED_EVENT, (ev) => {
                             updateSelection(ev.dbIdArray);
                         });
@@ -169,10 +229,12 @@ export default function BimManagerPage() {
                 ) : <div className="h-full flex items-center justify-center opacity-20 font-black text-2xl italic uppercase tracking-[0.3em] select-none">Studio 57 BIM</div>}
             </div>
 
+            {/* PROPRIEDADES - REATIVADA PARA QUALQUER SELEÇÃO */}
             {selectedElements.length === 1 && activeFile && (
                 <BimProperties elementExternalId={selectedElements[0]} projetoBimId={activeFile.id} onClose={() => setSelectedElements([])} />
             )}
 
+            {/* CONTEXT MENU - POSICIONAMENTO ABSOLUTO FIXO */}
             {contextMenu && (
                 <div className="fixed z-[9999] bg-white shadow-2xl border border-gray-100 rounded-xl p-1.5 w-60 animate-in fade-in zoom-in duration-75" style={{ top: contextMenu.y, left: contextMenu.x }}>
                     <div className="px-3 py-1 border-b mb-1">
