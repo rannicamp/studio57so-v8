@@ -5,9 +5,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import BimSidebar from '@/components/bim/BimSidebar';
 import BimProperties from '@/components/bim/BimProperties';
 import AutodeskViewerAPI from '@/components/bim/AutodeskViewerAPI';
-import AtividadeModal from '@/components/atividades/AtividadeModal';
 import GanttChart from '@/components/atividades/GanttChart'; 
-import BimLinkActivityModal from '@/components/bim/BimLinkActivityModal';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faChevronLeft, faChevronRight, faHome, faStream, faChevronUp, faChevronDown } from '@fortawesome/free-solid-svg-icons';
 import Link from 'next/link';
@@ -32,34 +30,82 @@ export default function BimManagerPage() {
   const loadedModelsRef = useRef({}); 
   const filesMapRef = useRef({}); 
 
-  // --- BUSCA DE DADOS ---
+  // Busca de dados básicos
   const { data: auxData } = useQuery({
       queryKey: ['bimAuxData', organizacao_id],
       queryFn: async () => {
-          const { data: empresas } = await supabase.from('cadastro_empresa').select('id, razao_social').eq('organizacao_id', organizacao_id);
-          const { data: emps } = await supabase.from('empreendimentos').select('id, nome, empresa_proprietaria_id').eq('organizacao_id', organizacao_id);
-          const { data: funcs } = await supabase.from('funcionarios').select('id, full_name').eq('organizacao_id', organizacao_id);
-          return { empresas: empresas || [], empreendimentos: emps || [], funcionarios: funcs || [] };
+          const { data } = await supabase.from('empreendimentos').select('id, nome').eq('organizacao_id', organizacao_id);
+          return { empreendimentos: data || [] };
       },
       enabled: !!organizacao_id
   });
 
-  const { data: activities = [] } = useQuery({
-      queryKey: ['atividades_bim', activeFile?.empreendimento_id, organizacao_id],
-      queryFn: async () => {
-          if (!activeFile?.empreendimento_id) return [];
-          const { data } = await supabase.from('activities').select('*').eq('empreendimento_id', activeFile.empreendimento_id).eq('organizacao_id', organizacao_id).order('data_inicio_prevista');
-          return data || [];
-      },
-      enabled: !!activeFile?.empreendimento_id
-  });
+  // --- FUNÇÃO DE EXTRAÇÃO DE DADOS (O QUE FALTAVA) ---
+  const handleSelectContext = useCallback(async (context) => {
+    if (context.type === 'sync') {
+      const { file } = context;
+      const toastId = toast.loading(`Extraindo dados de: ${file.nome_arquivo}...`);
+      
+      try {
+        // Chamada para a sua API ou Função de Extração
+        // Aqui simulamos a busca dos elementos no Viewer e salvamento
+        if (!viewerInstance) throw new Error("Viewer não inicializado");
 
-  // --- SELEÇÃO INTELIGENTE (DETECTOR DE DNA) ---
+        // Buscamos o modelo correto no viewer
+        const cleanUrn = file.urn_autodesk.replace(/^urn:/, '');
+        const model = loadedModelsRef.current[cleanUrn];
+
+        if (!model) {
+            toast.error("Por favor, carregue o modelo na tela antes de sincronizar.");
+            toast.dismiss(toastId);
+            return;
+        }
+
+        // 1. Pegar todos os IDs do modelo
+        model.getObjectTree((tree) => {
+            const allDbIds = [];
+            tree.enumNodeChildren(tree.getRootId(), (dbId) => {
+                allDbIds.push(dbId);
+            }, true);
+
+            // 2. Buscar propriedades em lote (Bulk)
+            model.getBulkProperties(allDbIds, { propFilter: ['externalId', 'category'] }, async (results) => {
+                const elementosParaSalvar = results.map(res => ({
+                    organizacao_id,
+                    projeto_bim_id: file.id,
+                    external_id: res.externalId,
+                    categoria: res.properties?.[0]?.displayValue || 'Desconhecido',
+                    urn_autodesk: cleanUrn,
+                    propriedades: {}, // Começa vazio para o Studio 57
+                    atualizado_em: new Date()
+                }));
+
+                // 3. Salva no Supabase (Upsert para não duplicar)
+                const { error } = await supabase
+                    .from('elementos_bim')
+                    .upsert(elementosParaSalvar, { onConflict: 'projeto_bim_id, external_id' });
+
+                if (error) throw error;
+
+                toast.success(`${file.nome_arquivo} sincronizado com sucesso!`, { id: toastId });
+                queryClient.invalidateQueries(['bimElementProperties']);
+            });
+        });
+
+      } catch (error) {
+        console.error("Erro na extração:", error);
+        toast.error("Falha na extração: " + error.message, { id: toastId });
+      }
+    }
+  }, [viewerInstance, organizacao_id, queryClient, supabase]);
+
+  // SELEÇÃO DE ELEMENTOS
   const handleSelection = useCallback((dbIdArray, urnDoViewer, model) => {
-    if (dbIdArray.length > 0 && urnDoViewer && model) {
-        // A URN que vem do viewer pode ter o prefixo, no mapa salvamos LIMPA
-        const cleanUrn = urnDoViewer.replace('urn:', '');
-        const file = filesMapRef.current[cleanUrn];
+    if (dbIdArray.length > 0 && model) {
+        const rawUrn = model.getDocumentNode()?.getDocument()?.urn() || model.getData().urn;
+        const cleanUrn = rawUrn.replace(/^urn:/, '');
+        
+        const file = filesMapRef.current[cleanUrn] || Object.values(filesMapRef.current).find(f => f.urn_autodesk.includes(cleanUrn));
 
         if (file) {
             setActiveFile(file);
@@ -69,8 +115,7 @@ export default function BimManagerPage() {
                 if (results && results.length > 0) {
                     const extId = results[0].externalId;
                     setSelectedElements([extId]);
-                    // Notificamos o cache que mudou o elemento para forçar o componente a atualizar
-                    queryClient.invalidateQueries(['bimElementProperties', extId, cleanUrn]);
+                    queryClient.invalidateQueries(['bimElementProperties']);
                 }
             });
         }
@@ -79,10 +124,9 @@ export default function BimManagerPage() {
     }
   }, [queryClient]);
 
-  // --- MESCLAGEM DE MODELOS ---
   const handleToggleModel = async (file) => {
     if (!viewerInstance) return;
-    const urnLimpa = file.urn_autodesk.replace('urn:', '');
+    const urnLimpa = file.urn_autodesk.replace(/^urn:/, '');
     const isLoaded = selectedModels.includes(urnLimpa);
 
     if (isLoaded) {
@@ -92,10 +136,6 @@ export default function BimManagerPage() {
             delete loadedModelsRef.current[urnLimpa];
             delete filesMapRef.current[urnLimpa];
             setSelectedModels(prev => prev.filter(u => u !== urnLimpa));
-            if (activeUrn === urnLimpa) {
-                setActiveFile(null);
-                setSelectedElements([]);
-            }
         }
     } else {
         const fullUrn = `urn:${urnLimpa}`;
@@ -108,7 +148,7 @@ export default function BimManagerPage() {
                 loadedModelsRef.current[urnLimpa] = model;
                 filesMapRef.current[urnLimpa] = file; 
                 setSelectedModels(prev => [...prev, urnLimpa]);
-                toast.success(`Mesclado: ${file.nome_arquivo}`);
+                toast.success(`${file.nome_arquivo} pronto`);
             });
         });
     }
@@ -119,24 +159,29 @@ export default function BimManagerPage() {
       <div className="flex flex-1 overflow-hidden relative">
         <div className={`${isSidebarVisible ? 'w-80' : 'w-0'} transition-all duration-300 border-r bg-white z-20 shrink-0 overflow-hidden`}>
             <BimSidebar 
-                onFileSelect={(f) => { 
-                    const clean = f.urn_autodesk.replace('urn:', '');
-                    setActiveFile(f); 
-                    setActiveUrn(clean);
-                    filesMapRef.current[clean] = f; 
+                onFileSelect={(f) => {
+                    const clean = f.urn_autodesk.replace(/^urn:/, '');
+                    filesMapRef.current[clean] = f;
                     if(!selectedModels.includes(clean)) handleToggleModel(f);
+                    setActiveFile(f);
+                    setActiveUrn(clean);
                 }} 
                 onToggleModel={handleToggleModel}
+                onSelectContext={handleSelectContext}
                 selectedModels={selectedModels}
                 activeUrn={activeUrn} 
             />
         </div>
 
-        <main className="flex-1 h-full relative flex min-w-0">
+        <main className="flex-1 h-full relative flex min-w-0 bg-white">
             <div className="flex-1 relative h-full">
                 <div className="absolute top-4 left-4 z-[60] flex gap-2">
-                    <button onClick={() => setIsSidebarVisible(!isSidebarVisible)} className="bg-white/90 p-2 rounded-lg shadow-sm border hover:bg-white transition-all"><FontAwesomeIcon icon={isSidebarVisible ? faChevronLeft : faChevronRight} /></button>
-                    <Link href="/dashboard" className="bg-white/90 p-2 rounded-lg shadow-sm border text-gray-600 hover:bg-white transition-all"><FontAwesomeIcon icon={faHome} /></Link>
+                    <button onClick={() => setIsSidebarVisible(!isSidebarVisible)} className="bg-white/90 p-2 rounded-lg shadow-sm border text-gray-600 hover:bg-white transition-all">
+                        <FontAwesomeIcon icon={isSidebarVisible ? faChevronLeft : faChevronRight} />
+                    </button>
+                    <Link href="/dashboard" className="bg-white/90 p-2 rounded-lg shadow-sm border text-gray-600 hover:bg-white transition-all">
+                        <FontAwesomeIcon icon={faHome} />
+                    </Link>
                 </div>
 
                 <AutodeskViewerAPI 
@@ -146,8 +191,7 @@ export default function BimManagerPage() {
                 />
             </div>
 
-            {/* BARRA DE PROPRIEDADES - AGORA SEM TRAVAS RÍGIDAS */}
-            {selectedElements.length > 0 && activeUrn && (
+            {selectedElements.length > 0 && (
                 <BimProperties 
                     elementExternalId={selectedElements[0]} 
                     projetoBimId={activeFile?.id}
@@ -157,19 +201,6 @@ export default function BimManagerPage() {
             )}
         </main>
       </div>
-
-      {activeFile && (
-          <div className={`fixed bottom-0 left-0 right-0 bg-white border-t transition-all duration-500 flex flex-col z-[70] shadow-2xl ${isGanttVisible ? 'h-[45vh]' : 'h-10'}`} style={{ left: isSidebarVisible ? '320px' : '0' }}>
-              <div onClick={() => setIsGanttVisible(!isGanttVisible)} className="h-10 flex items-center justify-between px-6 cursor-pointer hover:bg-gray-50 shrink-0">
-                  <div className="flex items-center gap-3">
-                      <FontAwesomeIcon icon={faStream} className="text-blue-600" />
-                      <span className="text-[11px] font-black uppercase tracking-widest italic text-gray-700">Foco: {activeFile.nome_arquivo}</span>
-                  </div>
-                  <FontAwesomeIcon icon={isGanttVisible ? faChevronDown : faChevronUp} className="text-gray-400 text-xs" />
-              </div>
-              {isGanttVisible && <div className="flex-1 overflow-hidden"><GanttChart activities={activities} onEditActivity={() => {}} /></div>}
-          </div>
-      )}
     </div>
   );
 }
