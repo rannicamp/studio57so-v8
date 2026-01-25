@@ -7,6 +7,7 @@ import BimProperties from '@/components/bim/BimProperties';
 import AutodeskViewerAPI from '@/components/bim/AutodeskViewerAPI';
 import AtividadeModal from '@/components/atividades/AtividadeModal';
 import GanttChart from '@/components/atividades/GanttChart'; 
+import BimLinkActivityModal from '@/components/bim/BimLinkActivityModal'; // 1. Importação do novo Modal
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
     faChevronLeft, faChevronRight, faHome, faTimes, 
@@ -21,7 +22,7 @@ import { toast } from 'sonner';
 
 export default function BimManagerPage() {
   const supabase = createClient();
-  const { organizacao_id } = useAuth();
+  const { organizacao_id, user } = useAuth();
 
   const [activeUrn, setActiveUrn] = useState(null); 
   const [activeFile, setActiveFile] = useState(null); 
@@ -32,9 +33,9 @@ export default function BimManagerPage() {
   const [selectedElements, setSelectedElements] = useState([]); 
   const [contextMenu, setContextMenu] = useState(null); 
   const [isActivityModalOpen, setIsActivityModalOpen] = useState(false);
-  const [isLinkingListOpen, setIsLinkingListOpen] = useState(false);
+  const [isLinkingListOpen, setIsLinkingListOpen] = useState(false); 
 
-  // --- CARREGAMENTO DE DADOS AUXILIARES (ESSENCIAL PARA O MODAL) ---
+  // --- CARREGAMENTO DE DADOS AUXILIARES (PARA O MODAL FUNCIONAR) ---
   const { data: auxData } = useQuery({
       queryKey: ['bimAuxData', organizacao_id],
       queryFn: async () => {
@@ -46,6 +47,7 @@ export default function BimManagerPage() {
       enabled: !!organizacao_id
   });
 
+  // Atividades para o Gantt e para a Lista de Vínculo
   const { data: activities = [], refetch: refetchActivities } = useQuery({
       queryKey: ['atividades_bim', activeFile?.empreendimento_id, organizacao_id],
       queryFn: async () => {
@@ -85,36 +87,59 @@ export default function BimManagerPage() {
   };
 
   const handleLinkExisting = async (activityId) => {
-      try {
-          const rows = selectedElements.map(extId => ({
-              organizacao_id,
-              atividade_id: activityId,
-              projeto_bim_id: activeFile.id,
-              external_id: extId
-          }));
-          const { error } = await supabase.from('atividades_elementos').insert(rows);
-          if (error) throw error;
-          toast.success("Vínculo realizado com sucesso!");
-          setIsLinkingListOpen(false);
-      } catch (e) { toast.error("Erro ao vincular: " + e.message); }
+      if (selectedElements.length === 0) {
+          toast.error("Nenhum elemento selecionado no modelo.");
+          return;
+      }
+
+      const promise = new Promise(async (resolve, reject) => {
+          try {
+              const rows = selectedElements.map(extId => ({
+                  organizacao_id,
+                  atividade_id: activityId,
+                  projeto_bim_id: activeFile.id,
+                  external_id: extId
+              }));
+
+              const { error } = await supabase.from('atividades_elementos').insert(rows);
+              
+              if (error) {
+                  if (error.code === '23505') {
+                       resolve(); 
+                  } else {
+                      throw error;
+                  }
+              }
+              resolve();
+          } catch (e) { 
+              reject(e); 
+          }
+      });
+
+      toast.promise(promise, {
+          loading: 'Vinculando elementos...',
+          success: () => {
+              setIsLinkingListOpen(false);
+              refetchActivities();
+              const activity = activities.find(a => a.id === activityId);
+              if (activity) highlightElementsForActivity(activity);
+              return "Vínculo realizado com sucesso!";
+          },
+          error: (err) => "Erro ao vincular: " + err.message
+      });
   };
 
   // --- CONFIGURAÇÃO DO MENU DE CONTEXTO ---
   const setupContextMenu = (v) => {
       v.container.addEventListener('contextmenu', (e) => {
-          // Detecta o elemento sob o mouse no momento do clique direito
           const canvasRect = v.container.getBoundingClientRect();
           const x = e.clientX - canvasRect.left;
           const y = e.clientY - canvasRect.top;
           const result = v.impl.hitTest(x, y);
           
           if (result && result.dbId) {
-              // Seleciona o elemento para que as propriedades e o menu saibam de quem se trata
               v.select([result.dbId]);
               updateSelection([result.dbId]);
-              
-              // Ajuste milimétrico baseado na imagem original que estava boa
-              // Usamos fixed para ignorar scrolls da página
               setContextMenu({ x: e.clientX + 5, y: e.clientY });
           }
       });
@@ -130,8 +155,8 @@ export default function BimManagerPage() {
         <main className="flex-1 h-full relative flex min-w-0" onClick={() => setContextMenu(null)}>
             <div className="flex-1 relative h-full">
                 <div className="absolute top-4 left-4 z-[60] flex gap-2">
-                    <button onClick={() => setIsSidebarVisible(!isSidebarVisible)} className="bg-white/90 p-2 rounded-lg shadow-sm border"><FontAwesomeIcon icon={isSidebarVisible ? faChevronLeft : faChevronRight} /></button>
-                    <Link href="/dashboard" className="bg-white/90 p-2 rounded-lg shadow-sm border text-gray-600"><FontAwesomeIcon icon={faHome} /></Link>
+                    <button onClick={() => setIsSidebarVisible(!isSidebarVisible)} className="bg-white/90 p-2 rounded-lg shadow-sm border transition-all hover:bg-white"><FontAwesomeIcon icon={isSidebarVisible ? faChevronLeft : faChevronRight} /></button>
+                    <Link href="/dashboard" className="bg-white/90 p-2 rounded-lg shadow-sm border text-gray-600 transition-all hover:bg-white"><FontAwesomeIcon icon={faHome} /></Link>
                 </div>
                 {activeUrn ? (
                     <AutodeskViewerAPI urn={activeUrn} onViewerReady={(v) => {
@@ -141,19 +166,18 @@ export default function BimManagerPage() {
                         });
                         setupContextMenu(v);
                     }}/>
-                ) : <div className="h-full flex items-center justify-center opacity-20 font-black text-2xl italic uppercase tracking-[0.3em]">Studio 57 BIM</div>}
+                ) : <div className="h-full flex items-center justify-center opacity-20 font-black text-2xl italic uppercase tracking-[0.3em] select-none">Studio 57 BIM</div>}
             </div>
 
-            {/* PROPRIEDADES - REATIVADA PARA QUALQUER SELEÇÃO */}
             {selectedElements.length === 1 && activeFile && (
                 <BimProperties elementExternalId={selectedElements[0]} projetoBimId={activeFile.id} onClose={() => setSelectedElements([])} />
             )}
 
-            {/* CONTEXT MENU - POSICIONAMENTO ABSOLUTO FIXO */}
             {contextMenu && (
                 <div className="fixed z-[9999] bg-white shadow-2xl border border-gray-100 rounded-xl p-1.5 w-60 animate-in fade-in zoom-in duration-75" style={{ top: contextMenu.y, left: contextMenu.x }}>
                     <div className="px-3 py-1 border-b mb-1">
-                        <p className="text-[10px] font-black text-gray-400 uppercase">Ações Studio 57</p>
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Ações Studio 57</p>
+                        <p className="text-[9px] font-bold text-blue-500 uppercase">{selectedElements.length} selecionados</p>
                     </div>
                     <button onClick={() => { setIsActivityModalOpen(true); setContextMenu(null); }} className="w-full text-left px-3 py-2.5 text-xs font-bold text-gray-700 hover:bg-blue-600 hover:text-white rounded-lg flex items-center gap-2 transition-all group">
                         <FontAwesomeIcon icon={faPlus} className="text-blue-500 group-hover:text-white" /> Criar Atividade 4D
@@ -164,39 +188,33 @@ export default function BimManagerPage() {
                 </div>
             )}
 
-            {/* MODAL DE VÍNCULO RÁPIDO */}
-            {isLinkingListOpen && (
-                <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col">
-                        <div className="p-4 border-b flex justify-between items-center bg-gray-50">
-                            <h3 className="font-bold text-gray-700 uppercase text-xs">Selecione a Atividade</h3>
-                            <button onClick={() => setIsLinkingListOpen(false)} className="text-gray-400 hover:text-red-500"><FontAwesomeIcon icon={faTimes}/></button>
-                        </div>
-                        <div className="p-2 max-h-96 overflow-y-auto space-y-1">
-                            {activities.map(act => (
-                                <button key={act.id} onClick={() => handleLinkExisting(act.id)} className="w-full text-left p-3 hover:bg-blue-50 rounded-lg text-sm border border-transparent hover:border-blue-100 flex flex-col">
-                                    <span className="font-bold text-gray-800">{act.nome}</span>
-                                    <span className="text-[10px] text-gray-400 uppercase">Status: {act.status}</span>
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-            )}
+            {/* MODAL DE VÍNCULO RÁPIDO - COMPONENTE MODULARIZADO */}
+            <BimLinkActivityModal 
+                isOpen={isLinkingListOpen}
+                onClose={() => setIsLinkingListOpen(false)}
+                activities={activities}
+                selectedCount={selectedElements.length}
+                onLink={handleLinkExisting}
+            />
         </main>
       </div>
 
       {/* GANTT INFERIOR */}
       {activeFile && (
-          <div className={`bg-white border-t border-gray-200 transition-all duration-500 flex flex-col z-[70] ${isGanttVisible ? 'h-[45vh]' : 'h-10'}`}>
-              <div onClick={() => setIsGanttVisible(!isGanttVisible)} className="h-10 flex items-center justify-between px-6 cursor-pointer hover:bg-gray-50 shrink-0">
+          <div className={`bg-white border-t border-gray-200 transition-all duration-500 flex flex-col z-[70] shadow-[0_-4px_20px_rgba(0,0,0,0.05)] ${isGanttVisible ? 'h-[45vh]' : 'h-10'}`}>
+              <div onClick={() => setIsGanttVisible(!isGanttVisible)} className="h-10 flex items-center justify-between px-6 cursor-pointer hover:bg-gray-50 transition-colors shrink-0">
                   <div className="flex items-center gap-3">
                       <FontAwesomeIcon icon={faStream} className="text-blue-600" />
-                      <span className="text-[11px] font-black uppercase tracking-widest italic">Execução 4D: {activeFile.nome_arquivo}</span>
+                      <span className="text-[11px] font-black uppercase tracking-widest italic text-gray-700">Execução 4D: {activeFile.nome_arquivo}</span>
+                      <div className="h-3 w-px bg-gray-300 mx-1"></div>
+                      <span className="text-[10px] bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full font-bold">{activities.length} Atividades</span>
                   </div>
-                  <FontAwesomeIcon icon={isGanttVisible ? faChevronDown : faChevronUp} className="text-gray-400" />
+                  <div className="flex items-center gap-2 text-gray-400">
+                      <span className="text-[9px] font-bold uppercase tracking-widest">{isGanttVisible ? 'Recolher' : 'Expandir Cronograma'}</span>
+                      <FontAwesomeIcon icon={isGanttVisible ? faChevronDown : faChevronUp} className="text-xs" />
+                  </div>
               </div>
-              {isGanttVisible && <div className="flex-1 overflow-hidden"><GanttChart activities={activities} onEditActivity={highlightElementsForActivity} /></div>}
+              {isGanttVisible && <div className="flex-1 overflow-hidden bg-white"><GanttChart activities={activities} onEditActivity={highlightElementsForActivity} /></div>}
           </div>
       )}
 
