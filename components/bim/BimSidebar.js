@@ -2,35 +2,38 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '../../utils/supabase/client';
 import { useAuth } from '../../contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
-    faBuilding, faFolder, faFolderOpen, faChevronRight, 
-    faChevronDown, faCity, faLayerGroup, faSearch, faGhost, 
-    faSpinner, faCube, faClock, faPlus, faDatabase,
-    faCheckSquare, faSquare // Novos ícones para o Check
+    faFolder, faFolderOpen, faChevronRight, 
+    faChevronDown, faLayerGroup, faSearch, faGhost, 
+    faSpinner, faClock, faPlus, faDatabase,
+    faCheckSquare, faSquare, faTrash, faTrashRestore, faBan, faRecycle
 } from '@fortawesome/free-solid-svg-icons';
+import { toast } from 'sonner';
 import BimUploadModal from './BimUploadModal';
 
-// Adicionamos selectedModels nas props para gerenciar a mesclagem
 export default function BimSidebar({ 
     onSelectContext, 
     onFileSelect, 
-    onToggleModel, // Nova prop: Função para marcar/desmarcar modelo
-    selectedModels = [], // Nova prop: Array de URNs ativos
+    onToggleModel, 
+    selectedModels = [], 
     selectedContext, 
     activeUrn, 
     syncStates = {} 
 }) {
   const supabase = createClient();
+  const queryClient = useQueryClient();
   const { organizacao_id: organizacaoId } = useAuth();
   
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedItems, setExpandedItems] = useState({});
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isTrashOpen, setIsTrashOpen] = useState(false); // Estado para abrir/fechar lixeira
 
+  // Persistência do estado de expansão
   useEffect(() => {
     if (typeof window !== 'undefined') {
         const savedState = localStorage.getItem('studio57_bim_sidebar_state');
@@ -57,23 +60,100 @@ export default function BimSidebar({
       onSelectContext(disc);       
   };
 
-  const { data: rawStructure = [], isLoading, refetch } = useQuery({
+  // --- MUTAÇÕES (Ações de Lixeira) ---
+
+  // 1. Mover para Lixeira (Soft Delete)
+  const { mutate: moveToTrash } = useMutation({
+      mutationFn: async (fileId) => {
+          const { error } = await supabase
+              .from('projetos_bim')
+              .update({ is_lixeira: true })
+              .eq('id', fileId);
+          if (error) throw error;
+      },
+      onSuccess: () => {
+          toast.success("Arquivo movido para a lixeira");
+          queryClient.invalidateQueries(['bimStructureWithFiles']);
+      },
+      onError: (err) => toast.error("Erro ao excluir: " + err.message)
+  });
+
+  // 2. Restaurar da Lixeira
+  const { mutate: restoreFromTrash } = useMutation({
+      mutationFn: async (fileId) => {
+          const { error } = await supabase
+              .from('projetos_bim')
+              .update({ is_lixeira: false })
+              .eq('id', fileId);
+          if (error) throw error;
+      },
+      onSuccess: () => {
+          toast.success("Arquivo restaurado!");
+          queryClient.invalidateQueries(['bimStructureWithFiles']);
+      },
+      onError: (err) => toast.error("Erro ao restaurar: " + err.message)
+  });
+
+  // 3. Excluir Permanentemente (Um arquivo específico)
+  const { mutate: deleteForever } = useMutation({
+      mutationFn: async (fileId) => {
+          const { error } = await supabase
+              .from('projetos_bim')
+              .delete()
+              .eq('id', fileId);
+          if (error) throw error;
+      },
+      onSuccess: () => {
+          toast.success("Arquivo excluído permanentemente.");
+          queryClient.invalidateQueries(['bimStructureWithFiles']);
+      },
+      onError: (err) => toast.error("Erro fatal: " + err.message)
+  });
+
+  // 4. Esvaziar Lixeira (Todos da organização)
+  const { mutate: emptyTrash, isPending: isEmptying } = useMutation({
+      mutationFn: async () => {
+          const { error } = await supabase
+              .from('projetos_bim')
+              .delete()
+              .eq('organizacao_id', organizacaoId)
+              .eq('is_lixeira', true);
+          if (error) throw error;
+      },
+      onSuccess: () => {
+          toast.success("Lixeira esvaziada!");
+          queryClient.invalidateQueries(['bimStructureWithFiles']);
+          setIsTrashOpen(false);
+      },
+      onError: (err) => toast.error("Erro ao esvaziar lixeira: " + err.message)
+  });
+
+
+  // --- QUERY PRINCIPAL ---
+  const { data, isLoading, refetch } = useQuery({
     queryKey: ['bimStructureWithFiles', organizacaoId],
     queryFn: async () => {
-      if (!organizacaoId) return [];
+      if (!organizacaoId) return { tree: [], trash: [] };
 
+      // Busca dados básicos
       const { data: empresas } = await supabase.from('cadastro_empresa').select('id, nome_fantasia, razao_social').eq('organizacao_id', organizacaoId).order('nome_fantasia');
       const { data: obras } = await supabase.from('empreendimentos').select('id, nome, empresa_proprietaria_id').eq('organizacao_id', organizacaoId).order('nome');
       const { data: disciplinas } = await supabase.from('disciplinas_projetos').select('id, sigla, nome').eq('organizacao_id', organizacaoId).order('sigla');
 
+      // Busca TODOS os arquivos (Lixeira e Normais)
       const { data: todosArquivos } = await supabase
         .from('projetos_bim')
-        .select('id, nome_arquivo, criado_em, urn_autodesk, empreendimento_id, disciplina_id, versao')
+        .select('id, nome_arquivo, criado_em, urn_autodesk, empreendimento_id, disciplina_id, versao, is_lixeira')
         .eq('organizacao_id', organizacaoId)
         .order('criado_em', { ascending: false });
 
-      if (!todosArquivos) return [];
+      if (!todosArquivos) return { tree: [], trash: [] };
 
+      // 1. Separa o que é lixeira do que é ativo
+      const arquivosAtivos = todosArquivos.filter(f => !f.is_lixeira);
+      const arquivosLixeira = todosArquivos.filter(f => f.is_lixeira);
+
+      // 2. Monta a árvore apenas com os ativos
       const arvoreLimpa = [];
 
       empresas?.forEach(emp => {
@@ -82,7 +162,7 @@ export default function BimSidebar({
 
         obrasDaEmpresa.forEach(obra => {
             const disciplinasAtivas = disciplinas?.map(disc => {
-                const arquivosDaPasta = todosArquivos?.filter(f => 
+                const arquivosDaPasta = arquivosAtivos.filter(f => 
                     f.empreendimento_id === obra.id && f.disciplina_id === disc.id
                 ) || [];
 
@@ -94,8 +174,6 @@ export default function BimSidebar({
                     sigla: disc.sigla,
                     nome: disc.nome,
                     uniqueId: `${obra.id}-${disc.id}`,
-                    obraId: obra.id,
-                    empresaId: emp.id,
                     children: arquivosDaPasta
                 };
             }).filter(Boolean) || [];
@@ -105,7 +183,6 @@ export default function BimSidebar({
                     id: obra.id,
                     type: 'obra',
                     nome: obra.nome,
-                    empresaId: emp.id,
                     children: disciplinasAtivas
                 });
             }
@@ -121,11 +198,15 @@ export default function BimSidebar({
         }
       });
 
-      return arvoreLimpa;
+      return { tree: arvoreLimpa, trash: arquivosLixeira };
     },
     enabled: !!organizacaoId,
   });
 
+  const rawStructure = data?.tree || [];
+  const trashFiles = data?.trash || [];
+
+  // Filtro de busca (Aplica-se à árvore)
   const filteredStructure = useMemo(() => {
     if (!searchTerm) return rawStructure;
     const lowerTerm = searchTerm.toLowerCase();
@@ -152,9 +233,9 @@ export default function BimSidebar({
   return (
     <div className="w-72 bg-white border-r border-gray-100 h-full flex flex-col shadow-sm relative">
       
+      {/* HEADER */}
       <div className="p-6 border-b border-gray-50 bg-white z-10 flex flex-col gap-4">
         <h2 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Navegador BIM</h2>
-        
         <button 
             onClick={() => setIsModalOpen(true)}
             className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-xl font-bold text-xs shadow-md shadow-blue-100 transition-all active:scale-95 flex items-center justify-center gap-2"
@@ -162,7 +243,6 @@ export default function BimSidebar({
             <FontAwesomeIcon icon={faPlus} />
             ADICIONAR NOVO
         </button>
-
         <div className="relative group">
             <FontAwesomeIcon icon={faSearch} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300 text-xs group-focus-within:text-blue-500" />
             <input 
@@ -175,6 +255,7 @@ export default function BimSidebar({
         </div>
       </div>
 
+      {/* ÁRVORE DE ARQUIVOS (ATIVOS) */}
       <div className="flex-1 overflow-y-auto px-3 py-4 custom-scrollbar bg-gray-50/30">
         {filteredStructure.length === 0 ? (
             <div className="text-center py-10 opacity-30 flex flex-col items-center">
@@ -221,10 +302,7 @@ export default function BimSidebar({
                                                     <div key={disc.uniqueId}>
                                                         <div 
                                                             onClick={() => handleDisciplineClick(disc)}
-                                                            className={`
-                                                                flex items-center gap-2 p-1.5 rounded-md cursor-pointer transition-all select-none
-                                                                ${isFolderOpen ? 'text-blue-700 bg-blue-50 font-bold' : 'text-gray-500 hover:text-gray-800'}
-                                                            `}
+                                                            className={`flex items-center gap-2 p-1.5 rounded-md cursor-pointer transition-all select-none ${isFolderOpen ? 'text-blue-700 bg-blue-50 font-bold' : 'text-gray-500 hover:text-gray-800'}`}
                                                         >
                                                             <FontAwesomeIcon icon={isFolderOpen ? faChevronDown : faChevronRight} className="text-[8px] opacity-50 w-2" />
                                                             <FontAwesomeIcon icon={faLayerGroup} className="text-[10px]" />
@@ -236,7 +314,7 @@ export default function BimSidebar({
                                                             <div className="ml-3 pl-2 border-l border-blue-100 mt-1 space-y-2 animate-fade-in">
                                                                 {disc.children.map(file => {
                                                                     const isActive = activeUrn === file.urn_autodesk;
-                                                                    const isSelected = selectedModels.includes(file.urn_autodesk); // Verifica se está mesclado
+                                                                    const isSelected = selectedModels.includes(file.urn_autodesk);
                                                                     const isSyncing = syncStates[file.id]?.isSyncing;
                                                                     const progress = syncStates[file.id]?.progress || 0;
 
@@ -244,21 +322,11 @@ export default function BimSidebar({
                                                                         <div 
                                                                             key={file.id}
                                                                             onClick={(e) => { e.stopPropagation(); onFileSelect(file); }}
-                                                                            className={`
-                                                                                group relative p-2 rounded-lg border cursor-pointer transition-all hover:scale-[1.02]
-                                                                                ${isActive 
-                                                                                    ? 'bg-blue-600 border-blue-600 text-white shadow-md' 
-                                                                                    : 'bg-white border-gray-100 hover:border-blue-200 hover:shadow-sm'
-                                                                                }
-                                                                            `}
+                                                                            className={`group relative p-2 rounded-lg border cursor-pointer transition-all hover:scale-[1.02] ${isActive ? 'bg-blue-600 border-blue-600 text-white shadow-md' : 'bg-white border-gray-100 hover:border-blue-200 hover:shadow-sm'}`}
                                                                         >
                                                                             <div className="flex items-start gap-2">
-                                                                                {/* NOVO: Botão de Check para Mesclagem */}
                                                                                 <button 
-                                                                                    onClick={(e) => {
-                                                                                        e.stopPropagation();
-                                                                                        onToggleModel(file);
-                                                                                    }}
+                                                                                    onClick={(e) => { e.stopPropagation(); onToggleModel(file); }}
                                                                                     className={`mt-0.5 transition-colors ${isActive ? 'text-blue-200 hover:text-white' : 'text-gray-300 hover:text-blue-500'}`}
                                                                                 >
                                                                                     <FontAwesomeIcon icon={isSelected ? faCheckSquare : faSquare} className="text-[12px]" />
@@ -276,6 +344,7 @@ export default function BimSidebar({
                                                                                 </div>
                                                                                 
                                                                                 <div className="flex items-center ml-1 gap-1">
+                                                                                    {/* Botão Sync */}
                                                                                     {isSyncing ? (
                                                                                         <div className="relative flex items-center justify-center">
                                                                                             <FontAwesomeIcon icon={faSpinner} spin className={`${isActive ? 'text-white' : 'text-blue-500'} text-[10px]`} />
@@ -283,16 +352,25 @@ export default function BimSidebar({
                                                                                         </div>
                                                                                     ) : (
                                                                                         <button 
-                                                                                            onClick={(e) => {
-                                                                                                e.stopPropagation();
-                                                                                                onSelectContext({ type: 'sync', file });
-                                                                                            }}
+                                                                                            onClick={(e) => { e.stopPropagation(); onSelectContext({ type: 'sync', file }); }}
                                                                                             className={`p-1 rounded transition-colors ${isActive ? 'text-blue-200 hover:bg-blue-500' : 'text-gray-300 hover:text-blue-600 hover:bg-blue-50'}`}
                                                                                             title="Sincronizar Propriedades"
                                                                                         >
                                                                                             <FontAwesomeIcon icon={faDatabase} className="text-[10px]" />
                                                                                         </button>
                                                                                     )}
+
+                                                                                    {/* Botão Excluir (Mover para Lixeira) */}
+                                                                                    <button 
+                                                                                        onClick={(e) => { 
+                                                                                            e.stopPropagation(); 
+                                                                                            if(confirm('Mover para lixeira?')) moveToTrash(file.id);
+                                                                                        }}
+                                                                                        className={`p-1 rounded transition-colors ${isActive ? 'text-red-300 hover:bg-red-500' : 'text-gray-300 hover:text-red-500 hover:bg-red-50'}`}
+                                                                                        title="Mover para Lixeira"
+                                                                                    >
+                                                                                        <FontAwesomeIcon icon={faTrash} className="text-[10px]" />
+                                                                                    </button>
                                                                                 </div>
                                                                             </div>
                                                                         </div>
@@ -311,6 +389,67 @@ export default function BimSidebar({
                     )}
                 </div>
             ))
+        )}
+      </div>
+
+      {/* LIXEIRA (FOOTER ACORDION) */}
+      <div className="border-t border-gray-200 bg-gray-100">
+        <div 
+            onClick={() => setIsTrashOpen(!isTrashOpen)}
+            className="p-3 flex items-center justify-between cursor-pointer hover:bg-gray-200 transition-colors"
+        >
+            <div className="flex items-center gap-2 text-xs font-bold text-gray-600">
+                <FontAwesomeIcon icon={faRecycle} className="text-gray-500" />
+                Lixeira ({trashFiles.length})
+            </div>
+            <FontAwesomeIcon icon={isTrashOpen ? faChevronDown : faChevronRight} className="text-[10px] text-gray-400" />
+        </div>
+
+        {isTrashOpen && (
+            <div className="bg-gray-50 border-t border-gray-200 max-h-48 overflow-y-auto p-2">
+                
+                {trashFiles.length > 0 && (
+                    <button 
+                        onClick={() => { if(confirm('Tem certeza? Isso apagará os arquivos PERMANENTEMENTE.')) emptyTrash(); }}
+                        disabled={isEmptying}
+                        className="w-full mb-2 text-[10px] font-bold text-red-500 bg-red-50 border border-red-100 py-1.5 rounded hover:bg-red-100 flex items-center justify-center gap-2"
+                    >
+                        {isEmptying ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faBan} />}
+                        Esvaziar Lixeira
+                    </button>
+                )}
+
+                <div className="space-y-2">
+                    {trashFiles.length === 0 ? (
+                        <p className="text-[10px] text-gray-400 text-center py-2">Lixeira vazia.</p>
+                    ) : (
+                        trashFiles.map(file => (
+                            <div key={file.id} className="bg-white p-2 rounded border border-gray-200 flex items-center justify-between opacity-75 hover:opacity-100 transition-opacity">
+                                <div className="min-w-0 flex-1">
+                                    <p className="text-[10px] font-bold text-gray-600 truncate decoration-line-through">{file.nome_arquivo}</p>
+                                    <p className="text-[8px] text-gray-400">{new Date(file.criado_em).toLocaleDateString()}</p>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                    <button 
+                                        onClick={() => restoreFromTrash(file.id)}
+                                        className="p-1.5 text-green-500 hover:bg-green-50 rounded" 
+                                        title="Restaurar"
+                                    >
+                                        <FontAwesomeIcon icon={faTrashRestore} className="text-xs" />
+                                    </button>
+                                    <button 
+                                        onClick={() => { if(confirm('Excluir permanentemente?')) deleteForever(file.id); }}
+                                        className="p-1.5 text-red-500 hover:bg-red-50 rounded" 
+                                        title="Excluir Definitivamente"
+                                    >
+                                        <FontAwesomeIcon icon={faBan} className="text-xs" />
+                                    </button>
+                                </div>
+                            </div>
+                        ))
+                    )}
+                </div>
+            </div>
         )}
       </div>
       
