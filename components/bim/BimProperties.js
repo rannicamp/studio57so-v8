@@ -7,7 +7,7 @@ import { createClient } from '../../utils/supabase/client';
 import { useAuth } from '../../contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
-    faInfoCircle, faTableList, faSpinner, faTimes, 
+    faInfoCircle, faSpinner, faTimes, 
     faEye, faEyeSlash, faPencilAlt, faCube 
 } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
@@ -31,19 +31,29 @@ export default function BimProperties({ elementExternalId, projetoBimId, urnAuto
         queryFn: async () => {
             if (!elementExternalId) return null;
             
+            // Limpeza de segurança (embora o page.js já envie limpo)
             const cleanUrn = urnAutodesk ? urnAutodesk.replace(/^urn:/, '').trim() : null;
 
-            // Busca no banco de dados
-            let query = supabase.from('elementos_bim').select('*').eq('external_id', elementExternalId);
+            console.log(`[Studio 57] Buscando propriedades: ExtID=${elementExternalId}, URN=${cleanUrn}`);
+
+            let query = supabase.from('elementos_bim')
+                .select('*')
+                .eq('external_id', elementExternalId);
             
-            // Se tivermos a URN, filtramos por ela para ser exato (Federado)
+            // FILTRAGEM CRÍTICA: Garante que pegamos o elemento do modelo CERTO
             if (cleanUrn) {
                 query = query.eq('urn_autodesk', cleanUrn);
+            } else if (projetoBimId) {
+                // Fallback se a URN falhar
+                query = query.eq('projeto_bim_id', projetoBimId);
             }
 
             const { data, error } = await query.maybeSingle(); 
             
-            if (error) throw error;
+            if (error) {
+                console.error("Erro Supabase:", error);
+                throw error;
+            }
 
             return data || { 
                 external_id: elementExternalId, 
@@ -70,7 +80,7 @@ export default function BimProperties({ elementExternalId, projetoBimId, urnAuto
                 .from('elementos_bim')
                 .upsert({ 
                     organizacao_id,
-                    projeto_bim_id: projetoBimId, 
+                    projeto_bim_id: elemento.projeto_bim_id || projetoBimId, // Prioriza o ID existente
                     urn_autodesk: cleanUrn,
                     external_id: elementExternalId,
                     propriedades: novasPropriedades,
