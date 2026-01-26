@@ -127,26 +127,16 @@ export default function BimManagerPage() {
       const externalIdsToSelect = links.map(l => l.external_id);
 
       // Precisamos buscar em TODOS os modelos carregados
-      // O viewerInstance.model pega apenas o modelo "ativo/padrão", mas podemos ter vários
-      // Iteramos sobre todos os modelos visíveis para achar os IDs
       const allModels = viewerInstance.impl.modelQueue().getModels();
       const allDbIdsToSelect = [];
 
-      // Promise.all para esperar o mapping de todos os modelos
       await Promise.all(allModels.map(model => {
           return new Promise((resolve) => {
               model.getExternalIdMapping((mapping) => {
                   externalIdsToSelect.forEach(extId => {
                       if (mapping[extId]) {
-                          // No viewer multi-model, o dbId precisa ser acompanhado do modelo na seleção
-                          // Mas a API select() simples aceita apenas dbIds do modelo padrão ou precisa de tratamento
-                          // O método viewer.select(dbIds, model) seleciona em um modelo específico.
-                          // Para selecionar em vários, a estratégia muda.
-                          // Simplificação: Vamos acumular e tentar selecionar globalmente ou focar no modelo que tem
-                          
-                          // Estratégia segura: Se achou, seleciona nesse modelo específico
                           viewerInstance.select(mapping[extId], model);
-                          allDbIdsToSelect.push(mapping[extId]); // Apenas para contagem/fit
+                          allDbIdsToSelect.push(mapping[extId]);
                       }
                   });
                   resolve();
@@ -338,6 +328,81 @@ export default function BimManagerPage() {
     }
   };
 
+  // --- [NOVO] CARREGAR CONJUNTO/VISTA SALVA ---
+  const handleLoadSet = async (filesInSet) => {
+    if (!viewerInstance) return;
+    if (!filesInSet || filesInSet.length === 0) return toast.error("Conjunto vazio.");
+
+    // 1. Identificar diferenças
+    const newUrns = filesInSet.map(f => f.urn_autodesk.replace(/^urn:/, ''));
+    
+    // Modelos que estão carregados mas NÃO estão no conjunto (devem sair)
+    const urnsToRemove = selectedModels.filter(urn => !newUrns.includes(urn));
+    
+    // Modelos que estão no conjunto mas NÃO estão carregados (devem entrar)
+    const filesToAdd = filesInSet.filter(f => !selectedModels.includes(f.urn_autodesk.replace(/^urn:/, '')));
+
+    const toastId = toast.loading("Carregando conjunto...");
+
+    // 2. Descarregar excedentes
+    if (urnsToRemove.length > 0) {
+        urnsToRemove.forEach(urn => {
+            const model = loadedModelsRef.current[urn];
+            if (model) {
+                viewerInstance.impl.unloadModel(model);
+                delete loadedModelsRef.current[urn];
+            }
+        });
+
+        // Se vamos remover TUDO o que estava antes, resetamos o Offset para evitar desalinhamento do novo grupo
+        if (urnsToRemove.length === selectedModels.length) {
+             globalOffsetRef.current = null;
+             console.log("🧹 Limpeza completa para novo conjunto. Offset resetado.");
+        }
+    }
+
+    // 3. Carregar novos (Sequencial para garantir o offset do primeiro)
+    for (const file of filesToAdd) {
+        await new Promise((resolve) => {
+             const urn = file.urn_autodesk.replace(/^urn:/, '');
+             const fullUrn = `urn:${urn}`;
+             
+             const loadOptions = { 
+                keepCurrentModels: true, 
+                applyScaling: 'm',
+                placementTransform: new THREE.Matrix4(),
+                globalOffset: globalOffsetRef.current 
+            };
+
+            window.Autodesk.Viewing.Document.load(fullUrn, (doc) => {
+                const viewables = doc.getRoot().getDefaultGeometry();
+                viewerInstance.loadModel(doc.getViewablePath(viewables), loadOptions, (model) => {
+                    model.studio57_context = file;
+                    loadedModelsRef.current[urn] = model;
+
+                    if (!globalOffsetRef.current) {
+                        globalOffsetRef.current = model.getData().globalOffset;
+                    }
+                    resolve();
+                }, (err) => {
+                    console.error("Erro ao carregar arquivo do set:", file.nome_arquivo, err);
+                    resolve(); // Resolve mesmo com erro para continuar o loop
+                });
+            }, (err) => resolve());
+        });
+    }
+
+    // 4. Atualizar Estados
+    setSelectedModels(newUrns);
+    setLoadedFiles(filesInSet);
+    
+    // Se o conjunto tem empreendimento, abre o Gantt
+    if (filesInSet[0]?.empreendimento_id) setIsGanttOpen(true);
+
+    toast.dismiss(toastId);
+    toast.success("Conjunto carregado com sucesso!");
+  };
+
   const handleSelectContext = useCallback(async (context) => {
     if (context.type === 'sync') {
       const { file } = context;
@@ -365,6 +430,7 @@ export default function BimManagerPage() {
                 onSelectContext={handleSelectContext}
                 selectedModels={selectedModels}
                 activeUrn={activeUrn} 
+                onLoadSet={handleLoadSet} // <--- NOVA PROP CONECTADA
             />
         </div>
 
