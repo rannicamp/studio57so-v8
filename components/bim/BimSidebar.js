@@ -1,7 +1,7 @@
 // Caminho: components/bim/BimSidebar.js
 'use client';
 
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '../../utils/supabase/client';
 import { useAuth } from '../../contexts/AuthContext';
@@ -11,17 +11,16 @@ import {
     faChevronDown, faLayerGroup, faSearch, faGhost, 
     faSpinner, faClock, faPlus, faDatabase,
     faCheckSquare, faSquare, faTrash, faTrashRestore, faBan, faRecycle,
-    faCloudUploadAlt, faCog 
+    faCloudUploadAlt, faCog, faEllipsisV, faExclamationTriangle, faPen
 } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 import BimUploadModal from './BimUploadModal';
+import BimEditModal from './BimEditModal';
 
 // --- COMPONENTE INTERNO: MONITOR DE STATUS ---
-// Este componente invisível cuida de atualizar o banco quando a Autodesk terminar
 function FileStatusPoller({ file, onComplete }) {
     useEffect(() => {
         if (file.status !== 'processing') return;
-
         const checkStatus = async () => {
             try {
                 const res = await fetch('/api/aps/status', {
@@ -30,23 +29,14 @@ function FileStatusPoller({ file, onComplete }) {
                     body: JSON.stringify({ urn: file.urn_autodesk })
                 });
                 const data = await res.json();
-
-                if (data.status === 'success') {
-                    onComplete(file.id, 'success'); // Chama função para atualizar DB
-                } else if (data.status === 'failed' || data.status === 'timeout') {
-                    onComplete(file.id, 'error');
-                }
-                // Se pending/inprogress, não faz nada e o useEffect roda de novo no próximo intervalo
-            } catch (err) {
-                console.error("Erro polling:", err);
-            }
+                if (data.status === 'success') onComplete(file.id, 'Concluido');
+                else if (data.status === 'failed' || data.status === 'timeout') onComplete(file.id, 'Erro');
+            } catch (err) { console.error(err); }
         };
-
-        const interval = setInterval(checkStatus, 5000); // Checa a cada 5 segundos
+        const interval = setInterval(checkStatus, 5000);
         return () => clearInterval(interval);
     }, [file, onComplete]);
-
-    return null; // Não renderiza nada visualmente
+    return null;
 }
 
 export default function BimSidebar({ 
@@ -54,7 +44,7 @@ export default function BimSidebar({
     onFileSelect, 
     onToggleModel, 
     selectedModels = [], 
-    selectedContext, 
+    selectedContext, // <--- CORREÇÃO: ADICIONADO AQUI
     activeUrn, 
     syncStates = {} 
 }) {
@@ -64,12 +54,15 @@ export default function BimSidebar({
   
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedItems, setExpandedItems] = useState({});
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalMode, setModalMode] = useState('create');
-  const [fileToUpdate, setFileToUpdate] = useState(null);
   const [isTrashOpen, setIsTrashOpen] = useState(false);
+  const [openMenuId, setOpenMenuId] = useState(null);
 
-  // Persistência
+  // Estados de Modais
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [uploadMode, setUploadMode] = useState('create');
+  const [fileToAction, setFileToAction] = useState(null);
+
   useEffect(() => {
     if (typeof window !== 'undefined') {
         const savedState = localStorage.getItem('studio57_bim_sidebar_state');
@@ -85,46 +78,35 @@ export default function BimSidebar({
       });
   };
 
-  const handleDisciplineClick = (disc) => {
-      toggleExpand(disc.uniqueId); 
-      onSelectContext(disc);       
-  };
+  const handleDisciplineClick = (disc) => { toggleExpand(disc.uniqueId); onSelectContext(disc); };
 
-  const openNewFileModal = () => { setModalMode('create'); setFileToUpdate(null); setIsModalOpen(true); };
-  const openNewVersionModal = (file) => { setModalMode('version'); setFileToUpdate(file); setIsModalOpen(true); };
+  // Funções de Abertura de Modal
+  const openCreateModal = () => { setUploadMode('create'); setFileToAction(null); setIsUploadModalOpen(true); };
+  const openVersionModal = (file) => { setUploadMode('version'); setFileToAction(file); setIsUploadModalOpen(true); };
+  const openEditModal = (file) => { setFileToAction(file); setIsEditModalOpen(true); };
 
-  // --- MUTAÇÕES ---
+  // Mutações
   const { mutate: updateFileStatus } = useMutation({
-      mutationFn: async ({ id, status }) => {
-          await supabase.from('projetos_bim').update({ status }).eq('id', id);
-      },
-      onSuccess: () => {
-          queryClient.invalidateQueries(['bimStructureWithFiles']);
-          toast.success("Arquivo processado e pronto para uso!");
-      }
+      mutationFn: async ({ id, status }) => { await supabase.from('projetos_bim').update({ status }).eq('id', id); },
+      onSuccess: () => { queryClient.invalidateQueries(['bimStructureWithFiles']); toast.success("Arquivo pronto!"); }
   });
-
   const { mutate: moveToTrash } = useMutation({
       mutationFn: async (fileId) => { await supabase.from('projetos_bim').update({ is_lixeira: true }).eq('id', fileId); },
       onSuccess: () => { toast.success("Movido para lixeira"); queryClient.invalidateQueries(['bimStructureWithFiles']); }
   });
-
   const { mutate: restoreFromTrash } = useMutation({
       mutationFn: async (fileId) => { await supabase.from('projetos_bim').update({ is_lixeira: false }).eq('id', fileId); },
       onSuccess: () => { toast.success("Restaurado!"); queryClient.invalidateQueries(['bimStructureWithFiles']); }
   });
-
   const { mutate: deleteForever } = useMutation({
       mutationFn: async (fileId) => { await supabase.from('projetos_bim').delete().eq('id', fileId); },
       onSuccess: () => { toast.success("Excluído."); queryClient.invalidateQueries(['bimStructureWithFiles']); }
   });
-
   const { mutate: emptyTrash, isPending: isEmptying } = useMutation({
       mutationFn: async () => { await supabase.from('projetos_bim').delete().eq('organizacao_id', organizacaoId).eq('is_lixeira', true); },
       onSuccess: () => { toast.success("Lixeira vazia!"); queryClient.invalidateQueries(['bimStructureWithFiles']); setIsTrashOpen(false); }
   });
 
-  // --- QUERY ---
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['bimStructureWithFiles', organizacaoId],
     queryFn: async () => {
@@ -132,14 +114,11 @@ export default function BimSidebar({
       const { data: empresas } = await supabase.from('cadastro_empresa').select('id, nome_fantasia, razao_social').eq('organizacao_id', organizacaoId).order('nome_fantasia');
       const { data: obras } = await supabase.from('empreendimentos').select('id, nome, empresa_proprietaria_id').eq('organizacao_id', organizacaoId).order('nome');
       const { data: disciplinas } = await supabase.from('disciplinas_projetos').select('id, sigla, nome').eq('organizacao_id', organizacaoId).order('sigla');
-      const { data: todosArquivos } = await supabase
-        .from('projetos_bim')
-        .select('id, nome_arquivo, criado_em, urn_autodesk, empreendimento_id, disciplina_id, versao, is_lixeira, status')
-        .eq('organizacao_id', organizacaoId)
-        .order('criado_em', { ascending: false });
+      const { data: todosArquivos } = await supabase.from('projetos_bim')
+        .select('id, nome_arquivo, criado_em, urn_autodesk, empreendimento_id, disciplina_id, empresa_id, versao, is_lixeira, status')
+        .eq('organizacao_id', organizacaoId).order('criado_em', { ascending: false });
 
       if (!todosArquivos) return { tree: [], trash: [] };
-
       const arquivosAtivos = todosArquivos.filter(f => !f.is_lixeira);
       const arquivosLixeira = todosArquivos.filter(f => f.is_lixeira);
       const arvoreLimpa = [];
@@ -160,7 +139,7 @@ export default function BimSidebar({
       return { tree: arvoreLimpa, trash: arquivosLixeira };
     },
     enabled: !!organizacaoId,
-    refetchInterval: 10000 // Refetch de segurança a cada 10s para atualizar listas
+    refetchInterval: 10000 
   });
 
   const rawStructure = data?.tree || [];
@@ -187,11 +166,9 @@ export default function BimSidebar({
 
   return (
     <div className="w-72 bg-white border-r border-gray-100 h-full flex flex-col shadow-sm relative">
-      
-      {/* HEADER */}
       <div className="p-6 border-b border-gray-50 bg-white z-10 flex flex-col gap-4">
         <h2 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Navegador BIM</h2>
-        <button onClick={openNewFileModal} className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-xl font-bold text-xs shadow-md shadow-blue-100 transition-all active:scale-95 flex items-center justify-center gap-2">
+        <button onClick={openCreateModal} className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-xl font-bold text-xs shadow-md shadow-blue-100 transition-all active:scale-95 flex items-center justify-center gap-2">
             <FontAwesomeIcon icon={faPlus} /> ADICIONAR NOVO
         </button>
         <div className="relative group">
@@ -200,8 +177,9 @@ export default function BimSidebar({
         </div>
       </div>
 
-      {/* ÁRVORE */}
-      <div className="flex-1 overflow-y-auto px-3 py-4 custom-scrollbar bg-gray-50/30">
+      <div className="flex-1 overflow-y-auto px-3 py-4 custom-scrollbar bg-gray-50/30 relative">
+        {openMenuId && (<div className="fixed inset-0 z-20 cursor-default" onClick={() => setOpenMenuId(null)}></div>)}
+
         {filteredStructure.length === 0 ? (
             <div className="text-center py-10 opacity-30 flex flex-col items-center">
                 <FontAwesomeIcon icon={faGhost} size="2x" className="mb-2 text-gray-400" />
@@ -237,65 +215,54 @@ export default function BimSidebar({
                                                         </div>
 
                                                         {isFolderOpen && (
-                                                            <div className="ml-3 pl-2 border-l border-blue-100 mt-1 space-y-2 animate-fade-in">
+                                                            <div className="ml-3 pl-2 border-l border-blue-100 mt-1 space-y-2 animate-fade-in pb-2">
                                                                 {disc.children.map(file => {
                                                                     const isActive = activeUrn === file.urn_autodesk;
                                                                     const isSelected = selectedModels.includes(file.urn_autodesk);
                                                                     const isSyncing = syncStates[file.id]?.isSyncing;
-                                                                    const isProcessing = file.status === 'processing'; // Verifica status do banco
+                                                                    const isProcessing = file.status === 'processing';
+                                                                    const isError = file.status === 'Erro';
 
                                                                     return (
                                                                         <div key={file.id} 
-                                                                            onClick={(e) => { 
-                                                                                e.stopPropagation(); 
-                                                                                if(!isProcessing) onFileSelect(file); // Bloqueia clique se processando
-                                                                            }} 
-                                                                            className={`group relative p-2 rounded-lg border cursor-pointer transition-all hover:scale-[1.02] ${isActive ? 'bg-blue-600 border-blue-600 text-white shadow-md' : 'bg-white border-gray-100 hover:border-blue-200 hover:shadow-sm'} ${isProcessing ? 'opacity-70 cursor-wait' : ''}`}
+                                                                            onClick={(e) => { e.stopPropagation(); if(!isProcessing && !isError) onFileSelect(file); }} 
+                                                                            className={`group relative p-2 rounded-lg border cursor-pointer transition-all hover:scale-[1.02] mb-1 ${isActive ? 'bg-blue-600 border-blue-600 text-white shadow-md' : 'bg-white border-gray-100 hover:border-blue-200 hover:shadow-sm'} ${isProcessing ? 'opacity-70 cursor-wait' : ''}`}
                                                                         >
-                                                                            {/* Componente Invisível de Polling */}
-                                                                            {isProcessing && (
-                                                                                <FileStatusPoller 
-                                                                                    file={file} 
-                                                                                    onComplete={(id, status) => updateFileStatus({ id, status })} 
-                                                                                />
-                                                                            )}
+                                                                            {isProcessing && (<FileStatusPoller file={file} onComplete={(id, status) => updateFileStatus({ id, status })} />)}
 
-                                                                            <div className="flex items-start gap-2">
-                                                                                <button onClick={(e) => { e.stopPropagation(); if(!isProcessing) onToggleModel(file); }} className={`mt-0.5 transition-colors ${isActive ? 'text-blue-200 hover:text-white' : 'text-gray-300 hover:text-blue-500'}`}>
-                                                                                    {isProcessing ? (
-                                                                                        <FontAwesomeIcon icon={faCog} spin className="text-blue-500" />
-                                                                                    ) : (
-                                                                                        <FontAwesomeIcon icon={isSelected ? faCheckSquare : faSquare} className="text-[12px]" />
-                                                                                    )}
+                                                                            <div className="flex items-start gap-2 relative">
+                                                                                <button onClick={(e) => { e.stopPropagation(); if(!isProcessing && !isError) onToggleModel(file); }} className={`mt-0.5 transition-colors ${isActive ? 'text-blue-200 hover:text-white' : 'text-gray-300 hover:text-blue-500'}`}>
+                                                                                    {isProcessing ? <FontAwesomeIcon icon={faCog} spin className="text-blue-500" /> : isError ? <FontAwesomeIcon icon={faExclamationTriangle} className="text-red-500" /> : <FontAwesomeIcon icon={isSelected ? faCheckSquare : faSquare} className="text-[12px]" />}
                                                                                 </button>
+                                                                                
                                                                                 <div className="min-w-0 flex-1">
                                                                                     <p className={`text-[10px] font-bold truncate leading-tight ${isActive ? 'text-white' : 'text-gray-700'}`}>{file.nome_arquivo}</p>
                                                                                     <div className={`flex items-center gap-1 mt-1 text-[8px] ${isActive ? 'text-blue-200' : 'text-gray-400'}`}>
-                                                                                        {isProcessing ? (
-                                                                                            <span className="text-blue-500 font-bold animate-pulse">PROCESSANDO...</span>
-                                                                                        ) : (
-                                                                                            <>
-                                                                                                <FontAwesomeIcon icon={faClock} /> {new Date(file.criado_em).toLocaleDateString()} <span className="opacity-50">•</span> v{file.versao}
-                                                                                            </>
-                                                                                        )}
+                                                                                        {isProcessing ? <span className="text-blue-500 font-bold animate-pulse">PROCESSANDO...</span> : isError ? <span className="text-red-500 font-bold">FALHA</span> : <><FontAwesomeIcon icon={faClock} /> {new Date(file.criado_em).toLocaleDateString()} <span className="opacity-50">•</span> v{file.versao}</>}
                                                                                     </div>
                                                                                 </div>
                                                                                 
-                                                                                {!isProcessing && (
-                                                                                    <div className="flex items-center ml-1 gap-1">
-                                                                                        <button onClick={(e) => { e.stopPropagation(); openNewVersionModal(file); }} className={`p-1 rounded transition-colors ${isActive ? 'text-blue-200 hover:bg-blue-500' : 'text-gray-300 hover:text-blue-600 hover:bg-blue-50'}`} title="Nova Versão">
-                                                                                            <FontAwesomeIcon icon={faCloudUploadAlt} className="text-[10px]" />
+                                                                                {!isProcessing && !isError && (
+                                                                                    <div className="relative">
+                                                                                        <button onClick={(e) => { e.stopPropagation(); setOpenMenuId(file.id); }} className={`p-1 px-2 rounded hover:bg-black/10 transition-all ${isActive ? 'text-white' : 'text-gray-400 hover:text-gray-600'}`}>
+                                                                                            <FontAwesomeIcon icon={faEllipsisV} className="text-[10px]" />
                                                                                         </button>
-                                                                                        {isSyncing ? (
-                                                                                            <div className="relative flex items-center justify-center"><FontAwesomeIcon icon={faSpinner} spin className="text-[10px]" /></div>
-                                                                                        ) : (
-                                                                                            <button onClick={(e) => { e.stopPropagation(); onSelectContext({ type: 'sync', file }); }} className={`p-1 rounded transition-colors ${isActive ? 'text-blue-200 hover:bg-blue-500' : 'text-gray-300 hover:text-blue-600 hover:bg-blue-50'}`} title="Sync">
-                                                                                                <FontAwesomeIcon icon={faDatabase} className="text-[10px]" />
-                                                                                            </button>
+                                                                                        {openMenuId === file.id && (
+                                                                                            <div className="absolute right-0 top-6 w-44 bg-white border border-gray-200 shadow-xl rounded-lg z-30 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-100 origin-top-right">
+                                                                                                <button onClick={(e) => { e.stopPropagation(); setOpenMenuId(null); openVersionModal(file); }} className="w-full text-left px-4 py-2 text-[11px] font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 flex items-center gap-2 transition-colors border-b border-gray-50">
+                                                                                                    <FontAwesomeIcon icon={faCloudUploadAlt} className="w-3" /> Atualizar Versão
+                                                                                                </button>
+                                                                                                <button onClick={(e) => { e.stopPropagation(); setOpenMenuId(null); openEditModal(file); }} className="w-full text-left px-4 py-2 text-[11px] font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 flex items-center gap-2 transition-colors border-b border-gray-50">
+                                                                                                    <FontAwesomeIcon icon={faPen} className="w-3" /> Editar / Mover
+                                                                                                </button>
+                                                                                                <button onClick={(e) => { e.stopPropagation(); setOpenMenuId(null); onSelectContext({ type: 'sync', file }); }} className="w-full text-left px-4 py-2 text-[11px] font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 flex items-center gap-2 transition-colors border-b border-gray-50">
+                                                                                                    {isSyncing ? <FontAwesomeIcon icon={faSpinner} spin className="w-3" /> : <FontAwesomeIcon icon={faDatabase} className="w-3" />} Sincronizar DB
+                                                                                                </button>
+                                                                                                <button onClick={(e) => { e.stopPropagation(); setOpenMenuId(null); if(confirm('Mover para lixeira?')) moveToTrash(file.id); }} className="w-full text-left px-4 py-2 text-[11px] font-medium text-red-500 hover:bg-red-50 flex items-center gap-2 transition-colors">
+                                                                                                    <FontAwesomeIcon icon={faTrash} className="w-3" /> Mover p/ Lixeira
+                                                                                                </button>
+                                                                                            </div>
                                                                                         )}
-                                                                                        <button onClick={(e) => { e.stopPropagation(); if(confirm('Lixeira?')) moveToTrash(file.id); }} className={`p-1 rounded transition-colors ${isActive ? 'text-red-300 hover:bg-red-500' : 'text-gray-300 hover:text-red-500 hover:bg-red-50'}`} title="Lixeira">
-                                                                                            <FontAwesomeIcon icon={faTrash} className="text-[10px]" />
-                                                                                        </button>
                                                                                     </div>
                                                                                 )}
                                                                             </div>
@@ -318,7 +285,6 @@ export default function BimSidebar({
         )}
       </div>
 
-      {/* LIXEIRA */}
       <div className="border-t border-gray-200 bg-gray-100">
         <div onClick={() => setIsTrashOpen(!isTrashOpen)} className="p-3 flex items-center justify-between cursor-pointer hover:bg-gray-200 transition-colors">
             <div className="flex items-center gap-2 text-xs font-bold text-gray-600"><FontAwesomeIcon icon={faRecycle} className="text-gray-500" /> Lixeira ({trashFiles.length})</div>
@@ -342,7 +308,21 @@ export default function BimSidebar({
         )}
       </div>
       
-      <BimUploadModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} preSelectedContext={selectedContext} onSuccess={() => refetch()} mode={modalMode} fileToUpdate={fileToUpdate} />
+      <BimUploadModal 
+        isOpen={isUploadModalOpen} 
+        onClose={() => setIsUploadModalOpen(false)} 
+        preSelectedContext={selectedContext} 
+        onSuccess={() => refetch()} 
+        mode={uploadMode} 
+        fileToUpdate={fileToAction} 
+      />
+
+      <BimEditModal 
+        isOpen={isEditModalOpen} 
+        onClose={() => setIsEditModalOpen(false)} 
+        fileToEdit={fileToAction} 
+        onSuccess={() => refetch()} 
+      />
     </div>
   );
 }
