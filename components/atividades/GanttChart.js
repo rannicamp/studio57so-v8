@@ -3,8 +3,11 @@
 
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSort, faSortUp, faSortDown, faHistory, faCircle, faCalendarDay, faLevelUpAlt } from '@fortawesome/free-solid-svg-icons';
+import { 
+    faSearchPlus, faSearchMinus, faCalendarDay 
+} from '@fortawesome/free-solid-svg-icons';
 
+// Utilitário de formatação de data
 const formatDate = (dateString) => {
     if (!dateString || !/^\d{4}-\d{2}-\d{2}/.test(dateString)) {
         return 'N/A';
@@ -13,310 +16,321 @@ const formatDate = (dateString) => {
     return `${day}/${month}/${year}`;
 };
 
-const DayColumn = ({ date }) => {
+// --- CONSTANTES DE LAYOUT ---
+const ROW_HEIGHT = 32;   
+const HEADER_HEIGHT = 48; 
+
+// Componente da Coluna de Dia
+const DayColumn = ({ date, width }) => {
     const day = date.getUTCDay();
     const isWeekend = day === 6 || day === 0;
+    
     return (
-        <div className={`w-20 text-center border-r border-gray-200 py-1 flex-shrink-0 ${isWeekend ? 'bg-red-50' : ''}`}>
-            <div className="font-medium text-xs">{date.toLocaleDateString('pt-BR', { weekday: 'short', timeZone: 'UTC' })}</div>
-            <div className="font-bold">{date.getUTCDate()}</div>
-            <div className="text-xs text-gray-500">{date.toLocaleDateString('pt-BR', { month: 'short', timeZone: 'UTC' })}</div>
+        <div 
+            className={`text-center border-r border-gray-100 flex-shrink-0 flex flex-col justify-center ${isWeekend ? 'bg-red-50/50' : ''}`}
+            style={{ width: `${width}px`, minWidth: `${width}px`, height: `${HEADER_HEIGHT}px` }}
+        >
+            <div className="font-medium text-[9px] uppercase text-gray-400 leading-none mb-0.5">
+                {date.toLocaleDateString('pt-BR', { weekday: 'short', timeZone: 'UTC' }).replace('.', '')}
+            </div>
+            <div className="font-bold text-[10px] text-gray-700 leading-none">
+                {date.getUTCDate()}
+            </div>
         </div>
     );
-}
+};
 
+// Legenda
 const GanttLegend = () => (
-    <div className="mt-4 p-3 flex justify-center items-center gap-6 text-xs text-gray-600 border-t bg-gray-50 no-print">
-        <div className="flex items-center gap-2"><FontAwesomeIcon icon={faCircle} className="text-gray-300" /><span>Planejado</span></div>
-        <div className="flex items-center gap-2"><FontAwesomeIcon icon={faCircle} className="text-blue-500" /><span>Real (No Prazo)</span></div>
-        <div className="flex items-center gap-2"><FontAwesomeIcon icon={faCircle} className="text-red-500" /><span>Real (Atrasado)</span></div>
-        <div className="flex items-center gap-2"><div className="w-0.5 h-4 bg-red-500"></div><span>Hoje</span></div>
+    <div className="flex gap-4 p-2 bg-gray-50 border-t text-[10px] text-gray-600 justify-end shrink-0">
+        <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-blue-500"></div> Planejado</div>
+        <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-green-500"></div> Realizado</div>
+        <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-red-500"></div> Atrasado</div>
+        <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-yellow-400"></div> Hoje</div>
     </div>
 );
 
 export default function GanttChart({ activities, onEditActivity }) {
-    const [sortConfig, setSortConfig] = useState({ key: 'data_inicio_prevista', direction: 'ascending' });
+    // --- ESTADO DO ZOOM ---
+    const [columnWidth, setColumnWidth] = useState(40); 
+
+    // Refs para sincronizar scroll
+    const taskListRef = useRef(null);
     const scrollContainerRef = useRef(null);
 
-    const requestSort = (key) => {
-        let direction = 'ascending';
-        if (sortConfig.key === key && sortConfig.direction === 'ascending') {
-            direction = 'descending';
+    // --- FUNÇÕES DE ZOOM ---
+    const zoomIn = () => setColumnWidth(prev => Math.min(prev + 10, 120));
+    const zoomOut = () => setColumnWidth(prev => Math.max(prev - 5, 20));
+
+    // --- SINCRONIA DE SCROLL VERTICAL ---
+    const handleScrollRight = (e) => {
+        if (taskListRef.current) taskListRef.current.scrollTop = e.target.scrollTop;
+    };
+
+    const handleWheelLeft = (e) => {
+        if (scrollContainerRef.current) scrollContainerRef.current.scrollTop += e.deltaY;
+    };
+
+    // 1. Range de Datas
+    const { startDate, endDate, totalDays } = useMemo(() => {
+        if (!activities || activities.length === 0) {
+            const now = new Date();
+            return { startDate: now, endDate: now, totalDays: 1 };
         }
-        setSortConfig({ key, direction });
-    };
 
-    const getSortIcon = (key) => {
-        if (!sortConfig || sortConfig.key !== key) return <FontAwesomeIcon icon={faSort} className="text-gray-400 ml-2" />;
-        return sortConfig.direction === 'ascending' ? <FontAwesomeIcon icon={faSortUp} className="ml-2" /> : <FontAwesomeIcon icon={faSortDown} className="ml-2" />;
-    };
+        let min = new Date(activities[0].start_date || new Date());
+        let max = new Date(activities[0].end_date || new Date());
 
-    // --- LÓGICA PRINCIPAL DE DADOS ---
-    const { structuredTasks, timelineDates, totalDays, todayMarkerPosition } = useMemo(() => {
-        // 1. Filtragem Agressiva: Remove "Entrega de Pedido"
-        const validActivities = activities ? activities.filter(act => {
-            // Verifica existência de datas
-            if (!act.data_inicio_prevista || !act.data_fim_prevista) return false;
-            
-            // Verifica Tipo de Atividade (Case Insensitive e Trimmed)
-            const tipo = act.tipo_atividade ? act.tipo_atividade.toLowerCase().trim() : '';
-            if (tipo.includes('entrega') && tipo.includes('pedido')) return false;
-            if (tipo === 'entrega') return false;
-            
-            return true;
-        }) : [];
+        activities.forEach(act => {
+            if (act.start_date) {
+                const start = new Date(act.start_date);
+                if (start < min) min = start;
+            }
+            if (act.end_date) {
+                const end = new Date(act.end_date);
+                if (end > max) max = end;
+            }
+        });
 
-        if (validActivities.length === 0) return { structuredTasks: [], timelineDates: [], totalDays: 0, todayMarkerPosition: null };
+        // Margem de segurança visual
+        min.setDate(min.getDate() - 5);
+        max.setDate(max.getDate() + 15);
 
-        // 2. Preparação dos Dados (Datas)
-        const tasksWithDates = validActivities.map(act => ({
-            ...act,
-            startDate: new Date(`${act.data_inicio_prevista}T00:00:00Z`),
-            endDate: new Date(`${act.data_fim_prevista}T00:00:00Z`),
-            realStartDate: act.data_inicio_real ? new Date(`${act.data_inicio_real}T00:00:00Z`) : null,
-            realEndDate: act.data_fim_real ? new Date(`${act.data_fim_real}T00:00:00Z`) : null,
-        }));
+        // Resetar horas para garantir cálculos de dias inteiros
+        min.setHours(0, 0, 0, 0);
+        max.setHours(0, 0, 0, 0);
 
-        // 3. Definição da Linha do Tempo (Min/Max Dates)
-        let minDate = new Date(Math.min.apply(null, tasksWithDates.map(t => t.startDate)));
-        let maxDate = new Date(Math.max.apply(null, tasksWithDates.map(t => t.realEndDate || t.endDate)));
-        
-        const today = new Date();
-        today.setUTCHours(0, 0, 0, 0);
+        const diffTime = Math.abs(max - min);
+        const totalDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
 
-        if (today > maxDate) maxDate = today;
+        return { startDate: min, endDate: max, totalDays };
+    }, [activities]);
 
+    // 2. Array de Datas
+    const timelineDates = useMemo(() => {
         const dates = [];
-        let tempDate = new Date(minDate);
-        tempDate.setUTCDate(tempDate.getUTCDate() - 7); // Margem de segurança antes
-        maxDate.setUTCDate(maxDate.getUTCDate() + 14);  // Margem de segurança depois
-        while (tempDate <= maxDate) {
-            dates.push(new Date(tempDate));
-            tempDate.setUTCDate(tempDate.getUTCDate() + 1);
+        for (let i = 0; i < totalDays; i++) {
+            const d = new Date(startDate);
+            d.setDate(d.getDate() + i);
+            dates.push(d);
         }
+        return dates;
+    }, [startDate, totalDays]);
 
-        const todayIndex = dates.findIndex(d => d.getTime() === today.getTime());
-        const todayMarkerPosition = todayIndex !== -1 ? `${todayIndex * 80 + 40}px` : null;
-
-        // 4. LÓGICA DE HIERARQUIA (PAI -> FILHO -> NETO)
-        
-        // Mapa auxiliar para encontrar filhos rapidamente
-        const childrenMap = {};
-        tasksWithDates.forEach(task => {
-            if (task.atividade_pai_id) {
-                if (!childrenMap[task.atividade_pai_id]) childrenMap[task.atividade_pai_id] = [];
-                childrenMap[task.atividade_pai_id].push(task);
-            }
-        });
-
-        // Identifica Raízes (Atividades sem pai ou cujo pai não está na lista filtrada)
-        // Nota: Para ser estrito "Pai", não deve ter pai_id.
-        // Se quisermos mostrar "netos órfãos" como raiz, precisaríamos ajustar, mas vamos assumir árvore completa.
-        const roots = tasksWithDates.filter(t => !t.atividade_pai_id);
-
-        // Função de ordenação
-        const sortFn = (a, b) => {
-             if (a[sortConfig.key] < b[sortConfig.key]) return sortConfig.direction === 'ascending' ? -1 : 1;
-             if (a[sortConfig.key] > b[sortConfig.key]) return sortConfig.direction === 'ascending' ? 1 : -1;
-             return 0;
-        };
-
-        roots.sort(sortFn);
-
-        // Construção da lista plana (Flattening) com 3 níveis
-        const flattenedList = [];
-        
-        roots.forEach(root => {
-            // NÍVEL 0: PAI
-            flattenedList.push({ ...root, level: 0 });
+    // 3. Estruturar Tarefas
+    const structuredTasks = useMemo(() => {
+        return activities.map(act => {
+            const start = new Date(act.start_date);
+            // Zera horas para evitar bug de fuso
+            start.setHours(0, 0, 0, 0);
             
-            const children = childrenMap[root.id] || [];
-            children.sort(sortFn); // Ordena filhos por data ou nome
-
-            children.forEach(child => {
-                // NÍVEL 1: FILHO
-                flattenedList.push({ ...child, level: 1 });
-
-                const grandchildren = childrenMap[child.id] || [];
-                grandchildren.sort(sortFn); // Ordena netos
-
-                grandchildren.forEach(grandchild => {
-                    // NÍVEL 2: NETO
-                    flattenedList.push({ ...grandchild, level: 2 });
-                    
-                    // Se houver bisnetos (Nível 3+), adicione lógica recursiva aqui se necessário.
-                    // Por enquanto paramos no neto conforme solicitado.
-                });
-            });
-        });
-
-        return { structuredTasks: flattenedList, timelineDates: dates, totalDays: dates.length, todayMarkerPosition };
-    }, [activities, sortConfig]);
-    
-    // Scroll inicial para "Hoje"
-    useEffect(() => {
-        const scrollToToday = () => {
-            const container = scrollContainerRef.current;
-            if (container && todayMarkerPosition) {
-                const markerPos = parseFloat(todayMarkerPosition.replace('px', ''));
-                const containerWidth = container.offsetWidth;
-                const scrollPos = markerPos - (containerWidth / 2);
-                container.scrollTo({ left: scrollPos, behavior: 'smooth' });
+            const end = new Date(act.end_date || act.start_date);
+            end.setHours(0, 0, 0, 0);
+            
+            let startDiff = 0;
+            if (!isNaN(start)) {
+                // Math.floor aqui garante que pegamos o dia correto
+                startDiff = Math.floor((start - startDate) / (1000 * 60 * 60 * 24));
             }
-        };
-        const timer = setTimeout(() => { scrollToToday(); }, 100);
+            
+            let duration = 1;
+            if (!isNaN(start) && !isNaN(end)) {
+                duration = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+                // Tarefas de 1 dia (inicio == fim) tem duração 0 na subtração, forçamos 1
+                if (duration < 1) duration = 1;
+                // Adiciona 1 dia para incluir o dia final visualmente
+                else duration += 1; 
+            }
+
+            return { ...act, startDiff, duration };
+        });
+    }, [activities, startDate]);
+
+    // 4. Marcador de Hoje (Posição em Pixels) - CORREÇÃO CRÍTICA
+    const todayMarkerPosition = useMemo(() => {
+        const today = new Date();
+        // ZERAR AS HORAS é o segredo para não pular o dia
+        today.setHours(0, 0, 0, 0);
+        
+        const start = new Date(startDate);
+        start.setHours(0, 0, 0, 0);
+        
+        const end = new Date(endDate);
+        end.setHours(0, 0, 0, 0);
+
+        if (today >= start && today <= end) {
+            const diffTime = today.getTime() - start.getTime();
+            // Math.floor para índice exato do dia
+            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+            
+            // Centraliza no meio da coluna do dia correto
+            return (diffDays * columnWidth) + (columnWidth / 2);
+        }
+        return null;
+    }, [startDate, endDate, columnWidth]);
+
+    // --- FUNÇÃO PARA ROLAR ATÉ "HOJE" ---
+    const scrollToToday = () => {
+        if (scrollContainerRef.current && todayMarkerPosition) {
+            const containerWidth = scrollContainerRef.current.clientWidth;
+            scrollContainerRef.current.scrollTo({
+                left: todayMarkerPosition - (containerWidth / 2),
+                behavior: 'smooth'
+            });
+        }
+    };
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            scrollToToday();
+        }, 100);
         return () => clearTimeout(timer);
     }, [todayMarkerPosition]);
 
-
-    const daysSinceStart = (date) => {
-        if (!timelineDates[0] || !date) return 0;
-        return (date.getTime() - timelineDates[0].getTime()) / (1000 * 60 * 60 * 24);
-    };
-
-    if (totalDays === 0) return <p className="p-4 text-center text-gray-500">Nenhuma atividade de obra para exibir no gráfico.</p>;
-    
-    const today = new Date();
-    today.setUTCHours(0, 0, 0, 0);
-    
-    const renderTaskRow = (task) => {
-        const plannedLeft = daysSinceStart(task.startDate) * 80;
-        const plannedWidth = (daysSinceStart(task.endDate) - daysSinceStart(task.startDate) + 1) * 80;
+    // Renderização da Barra
+    const renderTaskBar = (task) => {
+        const left = task.startDiff * columnWidth;
+        const width = task.duration * columnWidth;
         
-        let realLeft = 0, realWidth = 0;
+        let barColor = 'bg-blue-500';
+        let progressColor = 'bg-blue-700';
         
-        if (task.realStartDate) {
-            realLeft = daysSinceStart(task.realStartDate) * 80;
-            
-            let endPoint = task.realEndDate;
-            if (task.status === 'Em Andamento' && !task.realEndDate) {
-                endPoint = today;
-            }
+        if (task.status === 'Concluído') { barColor = 'bg-green-500'; progressColor = 'bg-green-700'; }
+        else if (task.status === 'Atrasado') { barColor = 'bg-red-500'; progressColor = 'bg-red-700'; }
+        else if (task.status === 'Pausado') { barColor = 'bg-yellow-400'; progressColor = 'bg-yellow-600'; }
 
-            if (endPoint) {
-                realWidth = (daysSinceStart(endPoint) - daysSinceStart(task.realStartDate) + 1) * 80;
-            }
-        }
-        
-        const isOverdue = task.realEndDate && task.endDate && task.realEndDate > task.endDate;
-        const realBarColor = isOverdue ? 'bg-red-500' : 'bg-blue-500';
+        const isLate = task.end_date && new Date(task.end_date) < new Date() && task.status !== 'Concluído';
+        if (isLate) { barColor = 'bg-red-400'; }
 
         return (
-             <div key={task.id} className="relative h-[60px] border-b border-gray-100 hover:bg-gray-50 transition-colors">
-                 {/* Barra Planejada (Cinza) */}
-                 <div className="absolute h-1/2 top-0 left-0 right-0">
-                     <div className="absolute h-5 bg-gray-300 rounded-md flex items-center overflow-hidden opacity-80" style={{ left: `${plannedLeft}px`, width: `${plannedWidth}px`, top: '4px' }}>
-                     </div>
-                 </div>
-                 {/* Barra Real (Colorida) */}
-                 <div className="absolute h-1/2 bottom-0 left-0 right-0">
-                     {realWidth > 0 && (
-                         <div className={`absolute h-5 ${realBarColor} rounded-md flex items-center overflow-hidden shadow-sm`} style={{ left: `${realLeft}px`, width: `${realWidth}px`, bottom: '4px' }}>
-                         </div>
-                     )}
-                 </div>
-                 {task.data_fim_original && (
-                     <FontAwesomeIcon icon={faHistory} className="absolute text-orange-500" style={{ left: `${plannedLeft + plannedWidth + 5}px`, top: '8px' }} title={`Reprogramado. Fim original: ${formatDate(task.data_fim_original)}`} />
-                 )}
-             </div>
+            <div 
+                className={`absolute top-1 bottom-1 rounded shadow-sm ${barColor} cursor-pointer hover:brightness-110 transition-all flex items-center`}
+                style={{ left: `${left}px`, width: `${width}px` }}
+                onClick={() => onEditActivity(task)}
+                title={`${task.nome} (${task.status})`}
+            >
+                {task.progresso > 0 && (
+                    <div 
+                        className={`h-full rounded-l ${progressColor} opacity-50`} 
+                        style={{ width: `${task.progresso}%` }}
+                    ></div>
+                )}
+                {/* Nome flutuante se a barra for pequena */}
+                <span className={`text-[9px] font-bold text-white px-2 truncate sticky left-0 ${width < 40 ? 'hidden group-hover:block absolute -top-5 bg-gray-800 text-white z-50 rounded p-1 w-max' : ''}`}>
+                    {task.nome}
+                </span>
+            </div>
         );
     };
 
     return (
-        <div className="bg-white rounded-xl shadow-lg overflow-hidden border border-gray-200">
-            {/* Header de Controle */}
-            <div className="p-4 border-b no-print flex justify-between items-center bg-gray-50">
-                <h3 className="font-semibold text-gray-700">Cronograma de Atividades</h3>
-                <button 
-                    onClick={() => {
-                        const container = scrollContainerRef.current;
-                        if (container && todayMarkerPosition) {
-                            const markerPos = parseFloat(todayMarkerPosition.replace('px', ''));
-                            const containerWidth = container.offsetWidth;
-                            const scrollPos = markerPos - (containerWidth / 2);
-                            container.scrollTo({ left: scrollPos, behavior: 'smooth' });
-                        }
-                    }}
-                    className="bg-white border border-gray-300 text-gray-700 px-3 py-1.5 rounded-md hover:bg-gray-50 text-sm shadow-sm flex items-center gap-2"
-                >
-                    <FontAwesomeIcon icon={faCalendarDay} className="text-blue-500" />
-                    Ir para Hoje
-                </button>
+        <div className="flex flex-col h-full border border-gray-200 rounded-lg bg-white shadow-sm overflow-hidden text-xs">
+            {/* Header de Controles */}
+            <div className="p-2 border-b bg-gray-50 flex justify-between items-center shrink-0">
+                <div className="text-gray-500 font-medium text-[10px] uppercase flex items-center gap-2">
+                    Horizonte Temporal
+                    {/* BOTÃO VOLTAR PARA HOJE */}
+                    {todayMarkerPosition && (
+                        <button 
+                            onClick={scrollToToday}
+                            className="flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-600 border border-blue-200 rounded hover:bg-blue-100 transition-colors ml-2"
+                            title="Centralizar em Hoje"
+                        >
+                            <FontAwesomeIcon icon={faCalendarDay} />
+                            <span>Hoje</span>
+                        </button>
+                    )}
+                </div>
+                
+                {/* Controles de Zoom */}
+                <div className="flex items-center gap-2">
+                    <button onClick={zoomOut} className="p-1 px-2 bg-white border border-gray-300 rounded hover:bg-gray-100 text-gray-600 shadow-sm active:scale-95 transition-all" title="Ver mais dias">
+                        <FontAwesomeIcon icon={faSearchMinus} className="text-xs" />
+                    </button>
+                    <span className="text-[10px] font-bold text-gray-400 w-8 text-center">{columnWidth}px</span>
+                    <button onClick={zoomIn} className="p-1 px-2 bg-white border border-gray-300 rounded hover:bg-gray-100 text-gray-600 shadow-sm active:scale-95 transition-all" title="Ver detalhes">
+                        <FontAwesomeIcon icon={faSearchPlus} className="text-xs" />
+                    </button>
+                </div>
             </div>
 
-            <div className="flex">
-                {/* COLUNA DA ESQUERDA (NOMES E HIERARQUIA) */}
-                <div className="w-96 flex-shrink-0 border-r border-gray-200 bg-white shadow-[2px_0_5px_rgba(0,0,0,0.05)] z-20">
-                    {/* Header da Coluna */}
-                    <div className="h-[61px] flex items-center p-4 border-b border-gray-200 bg-gray-50">
-                         <button onClick={() => requestSort('nome')} className="flex items-center font-bold text-gray-700 text-xs uppercase tracking-wider hover:text-blue-600 transition-colors">
-                             <span>Atividade</span>
-                             {getSortIcon('nome')}
-                         </button>
+            <div className="flex flex-1 overflow-hidden">
+                {/* COLUNA ESQUERDA: LISTA DE TAREFAS */}
+                <div className="w-56 flex-shrink-0 border-r border-gray-200 bg-white z-20 shadow-[2px_0_5px_rgba(0,0,0,0.05)] flex flex-col">
+                    {/* Header Fixo */}
+                    <div 
+                        className="border-b border-gray-200 bg-gray-50 flex items-center px-3 font-bold text-gray-600 text-[10px] uppercase tracking-wider shrink-0"
+                        style={{ height: `${HEADER_HEIGHT}px` }}
+                    >
+                        Atividade
                     </div>
-                    {/* Lista de Atividades */}
-                    <div>
-                        {structuredTasks.map((task) => {
-                            // Definindo classes baseadas no nível
-                            let paddingClass = 'pl-4'; // Nível 0
-                            let borderClass = '';
-                            let bgClass = 'bg-white';
-                            let textClass = 'text-gray-800 font-semibold';
-                            
-                            if (task.level === 1) { // Filho
-                                paddingClass = 'pl-8';
-                                borderClass = 'border-l-4 border-l-transparent hover:border-l-blue-300';
-                                bgClass = 'bg-gray-50/50';
-                                textClass = 'text-gray-700';
-                            } else if (task.level === 2) { // Neto
-                                paddingClass = 'pl-12';
-                                borderClass = 'border-l-4 border-l-transparent hover:border-l-blue-500';
-                                bgClass = 'bg-gray-100/50';
-                                textClass = 'text-gray-600 text-sm';
-                            }
-
-                            return (
-                                <div 
-                                    key={task.id} 
-                                    onClick={() => onEditActivity(task)}
-                                    className={`
-                                        py-1 border-b border-gray-100 h-[60px] flex flex-col justify-center cursor-pointer hover:bg-blue-50 transition-colors group
-                                        ${paddingClass} ${borderClass} ${bgClass}
-                                    `}
-                                >
-                                    <div className="flex items-center">
-                                        {task.level > 0 && <FontAwesomeIcon icon={faLevelUpAlt} className="text-gray-400 mr-2 transform rotate-90" style={{ width: '10px' }} />}
-                                        <div className={`truncate pr-2 ${textClass}`} title={task.nome}>
-                                            {task.nome}
-                                        </div>
-                                    </div>
-                                    <div className={`text-[10px] mt-0.5 flex gap-2 ${task.level > 0 ? 'pl-5' : ''}`}>
-                                        <span className="text-gray-400">Prev: {formatDate(task.data_inicio_prevista)}</span>
-                                        {task.data_inicio_real && <span className="text-blue-600 font-medium">Real: {formatDate(task.data_inicio_real)}</span>}
-                                    </div>
+                    {/* Lista com Scroll Oculto (Controlado pelo lado direito) */}
+                    <div 
+                        ref={taskListRef}
+                        onWheel={handleWheelLeft}
+                        className="overflow-hidden flex-1"
+                    >
+                        {structuredTasks.map(task => (
+                            <div 
+                                key={task.id} 
+                                className="border-b border-gray-50 flex items-center px-3 hover:bg-blue-50 cursor-pointer transition-colors"
+                                style={{ height: `${ROW_HEIGHT}px` }}
+                                onClick={() => onEditActivity(task)}
+                            >
+                                <div className="truncate font-medium text-gray-700 text-[10px]" title={task.nome}>
+                                    {task.nome}
                                 </div>
-                            );
-                        })}
+                            </div>
+                        ))}
                     </div>
                 </div>
 
-                {/* COLUNA DA DIREITA (TIMELINE) */}
-                <div className="flex-1 overflow-x-auto custom-scrollbar" ref={scrollContainerRef}>
-                    <div className="relative" style={{ width: `${totalDays * 80}px` }}>
-                        {/* Header de Datas */}
-                        <div className="flex sticky top-0 bg-white z-10 border-b border-gray-200 h-[61px] shadow-sm">
-                            {timelineDates.map(date => <DayColumn key={date.toISOString()} date={date} />)}
+                {/* COLUNA DIREITA: TIMELINE */}
+                <div 
+                    ref={scrollContainerRef}
+                    onScroll={handleScrollRight}
+                    className="flex-1 overflow-auto custom-scrollbar bg-white"
+                >
+                    <div className="relative" style={{ width: `${totalDays * columnWidth}px` }}>
+                        {/* Header de Datas (Sticky) */}
+                        <div className="flex sticky top-0 bg-white z-10 border-b border-gray-200 shadow-sm">
+                            {timelineDates.map(date => (
+                                <DayColumn 
+                                    key={date.toISOString()} 
+                                    date={date} 
+                                    width={columnWidth} 
+                                />
+                            ))}
                         </div>
                         
-                        {/* Linhas do Gráfico */}
-                        <div>
-                            {structuredTasks.map(task => renderTaskRow(task))}
+                        {/* Corpo do Gráfico */}
+                        <div className="relative">
+                            {/* Grid de Fundo */}
+                            <div className="absolute inset-0 flex pointer-events-none">
+                                {timelineDates.map((_, i) => (
+                                    <div key={i} className="border-r border-dashed border-gray-100 h-full" style={{ width: `${columnWidth}px` }}></div>
+                                ))}
+                            </div>
+
+                            {/* Linhas de Tarefa */}
+                            {structuredTasks.map(task => (
+                                <div 
+                                    key={task.id} 
+                                    className="relative border-b border-gray-50 hover:bg-gray-50 transition-colors group"
+                                    style={{ height: `${ROW_HEIGHT}px` }}
+                                >
+                                    {renderTaskBar(task)}
+                                </div>
+                            ))}
                         </div>
 
                         {/* Marcador de Hoje */}
                         {todayMarkerPosition && (
-                            <div className="absolute top-0 bottom-0 w-0.5 bg-red-500 z-30 pointer-events-none shadow-[0_0_8px_rgba(239,68,68,0.6)]" style={{ left: todayMarkerPosition }} title="Hoje">
-                                <div className="absolute -top-1 -left-1.5 w-3 h-3 bg-red-500 rounded-full"></div>
+                            <div 
+                                className="absolute top-0 bottom-0 w-[1px] bg-red-500 z-30 pointer-events-none shadow-[0_0_8px_rgba(239,68,68,0.6)]" 
+                                style={{ left: `${todayMarkerPosition}px` }} 
+                            >
+                                <div className="absolute -top-1 -left-[3px] w-[7px] h-[7px] bg-red-500 rounded-full"></div>
                             </div>
                         )}
                     </div>
