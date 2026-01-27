@@ -1,4 +1,3 @@
-// Caminho: components/bim/BimSidebar.js
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -11,7 +10,7 @@ import {
     faSearch, faGhost, faSpinner, faClock, faPlus, faDatabase,
     faCheckSquare, faSquare, faTrash, faTrashRestore, faBan, faRecycle,
     faCloudUploadAlt, faCog, faEllipsisV, faExclamationTriangle, faPen,
-    faSave, faCube
+    faSave, faCube, faTimesCircle
 } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 import BimUploadModal from './BimUploadModal';
@@ -40,11 +39,12 @@ export default function BimSidebar({
     onSelectContext, 
     onFileSelect, 
     onToggleModel, 
-    selectedModels = [], // Array de URNs
+    selectedModels = [], 
     selectedContext, 
     activeUrn, 
     syncStates = {},
-    onLoadSet 
+    onLoadSet,
+    onClearAll // <--- NOVA PROP RECEBIDA
 }) {
   const supabase = createClient();
   const queryClient = useQueryClient();
@@ -138,25 +138,21 @@ export default function BimSidebar({
         const obrasComConteudo = [];
         
         obrasDaEmpresa.forEach(obra => {
-            // 1. Processar Conjuntos deste Empreendimento
             const conjuntosDaObra = conjuntos?.filter(c => String(c.empreendimento_id) === String(obra.id)) || [];
             
-            // Transforma Conjuntos em "Nós" da árvore (type: 'set')
             const conjuntosNodes = conjuntosDaObra.map(set => ({
                 id: set.id,
-                type: 'set', // TIPO ESPECIAL
+                type: 'set', 
                 nome: set.nome,
-                data: set // Guardamos o objeto completo
+                data: set 
             }));
 
-            // 2. Processar Disciplinas (Pastas)
             const disciplinasAtivas = disciplinas?.map(disc => {
                 const arquivosDaPasta = arquivosAtivos.filter(f => f.empreendimento_id === obra.id && f.disciplina_id === disc.id) || [];
                 if (arquivosDaPasta.length === 0) return null;
                 return { id: disc.id, type: 'folder', sigla: disc.sigla, nome: disc.nome, uniqueId: `${obra.id}-${disc.id}`, children: arquivosDaPasta };
             }).filter(Boolean) || [];
 
-            // 3. Mesclar (Conjuntos PRIMEIRO, depois Disciplinas)
             const childrenCombinados = [...conjuntosNodes, ...disciplinasAtivas];
 
             if (childrenCombinados.length > 0) {
@@ -164,7 +160,7 @@ export default function BimSidebar({
                     id: obra.id, 
                     type: 'obra', 
                     nome: obra.nome, 
-                    children: childrenCombinados // Lista mista (Sets + Folders)
+                    children: childrenCombinados 
                 });
             }
         });
@@ -185,18 +181,13 @@ export default function BimSidebar({
   const filteredStructure = useMemo(() => {
     if (!searchTerm) return rawStructure;
     const lowerTerm = searchTerm.toLowerCase();
-    // Filtro recursivo adaptado para incluir sets
     const filterNode = (nodes) => {
       return nodes.reduce((acc, node) => {
         const matchesSelf = node.nome?.toLowerCase().includes(lowerTerm) || node.sigla?.toLowerCase().includes(lowerTerm);
-        // Se for Pasta, verifica arquivos filhos
         const hasMatchingFiles = node.type === 'folder' && node.children?.some(f => f.nome_arquivo.toLowerCase().includes(lowerTerm));
-        // Se for Empresa/Obra, verifica filhos recursivamente
         const filteredChildren = (node.children && node.type !== 'folder') ? filterNode(node.children) : node.children;
         
-        // Se for Conjunto (Set), ele é uma folha, só matchSelf importa
         if (matchesSelf || hasMatchingFiles || (filteredChildren && filteredChildren.length > 0)) {
-          // Se for nó pai (Empresa/Obra), só adiciona se tiver filhos válidos após filtro ou match próprio
            if (node.type !== 'set' && node.type !== 'folder' && (!filteredChildren || filteredChildren.length === 0) && !matchesSelf) return acc;
            
           acc.push({ ...node, children: filteredChildren, forceExpand: true });
@@ -235,19 +226,29 @@ export default function BimSidebar({
       <div className="p-6 border-b border-gray-50 bg-white z-10 flex flex-col gap-3">
         <h2 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Navegador BIM</h2>
         
-        {/* Botão Padrão ADICIONAR (Sempre visível) */}
         <button onClick={openCreateModal} className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2.5 rounded-xl font-bold text-xs shadow-md shadow-blue-100 transition-all active:scale-95 flex items-center justify-center gap-2">
             <FontAwesomeIcon icon={faPlus} /> ADICIONAR NOVO
         </button>
 
-        {/* Botão SALVAR SELEÇÃO (Apenas se houver seleção) */}
+        {/* ÁREA DE BOTÕES DE SELEÇÃO (SALVAR E LIMPAR) */}
         {selectedModels.length > 0 && (
-            <button 
-                onClick={() => setIsSetModalOpen(true)}
-                className="w-full bg-purple-100 hover:bg-purple-200 text-purple-700 border border-purple-200 py-2 rounded-xl font-bold text-[10px] transition-all active:scale-95 flex items-center justify-center gap-2 animate-in slide-in-from-top-2"
-            >
-                <FontAwesomeIcon icon={faSave} /> SALVAR SELEÇÃO ATUAL ({selectedModels.length})
-            </button>
+            <div className="flex gap-2 animate-in slide-in-from-top-2">
+                <button 
+                    onClick={() => setIsSetModalOpen(true)}
+                    className="flex-1 bg-purple-100 hover:bg-purple-200 text-purple-700 border border-purple-200 py-2 rounded-xl font-bold text-[10px] transition-all active:scale-95 flex items-center justify-center gap-2"
+                    title="Salvar como vista federada"
+                >
+                    <FontAwesomeIcon icon={faSave} /> SALVAR ({selectedModels.length})
+                </button>
+
+                <button 
+                    onClick={onClearAll}
+                    className="w-10 bg-red-50 hover:bg-red-100 text-red-500 border border-red-100 rounded-xl font-bold text-[10px] transition-all active:scale-95 flex items-center justify-center"
+                    title="Limpar seleção atual"
+                >
+                    <FontAwesomeIcon icon={faTimesCircle} className="text-sm" />
+                </button>
+            </div>
         )}
 
         <div className="relative group mt-1">
@@ -286,42 +287,28 @@ export default function BimSidebar({
 
                                     {(expandedItems[`obra-${obra.id}`] || obra.forceExpand) && (
                                         <div className="ml-4 mt-1 space-y-2">
-                                            {/* RENDERIZAÇÃO MISTA: CONJUNTOS E DISCIPLINAS */}
                                             {obra.children.map(child => {
-                                                
-                                                // === TIPO: CONJUNTO (SET) ===
                                                 if (child.type === 'set') {
                                                     const set = child.data;
                                                     return (
-                                                        <div key={`set-${set.id}`} 
-                                                             onClick={() => handleLoadSet(set)}
-                                                             className="group relative flex items-center gap-2 p-2 bg-white border border-purple-100 hover:border-purple-300 hover:shadow-sm rounded-lg cursor-pointer transition-all mb-1"
-                                                        >
-                                                            <div className="w-6 h-6 rounded bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
-                                                                <FontAwesomeIcon icon={faCube} className="text-[9px]" />
-                                                            </div>
+                                                        <div key={`set-${set.id}`} onClick={() => handleLoadSet(set)} className="group relative flex items-center gap-2 p-2 bg-white border border-purple-100 hover:border-purple-300 hover:shadow-sm rounded-lg cursor-pointer transition-all mb-1">
+                                                            <div className="w-6 h-6 rounded bg-purple-50 text-purple-600 flex items-center justify-center shrink-0"><FontAwesomeIcon icon={faCube} className="text-[9px]" /></div>
                                                             <div className="flex-1 min-w-0">
                                                                 <p className="text-[10px] font-bold text-gray-700 truncate">{set.nome}</p>
                                                                 <p className="text-[8px] text-gray-400">{set.projetos_ids?.length || 0} arquivos</p>
                                                             </div>
-                                                            <button onClick={(e) => { e.stopPropagation(); setOpenMenuId(`set-${set.id}`); }} className="p-1 text-gray-300 hover:text-purple-600 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                                <FontAwesomeIcon icon={faEllipsisV} className="text-[10px]" />
-                                                            </button>
+                                                            <button onClick={(e) => { e.stopPropagation(); setOpenMenuId(`set-${set.id}`); }} className="p-1 text-gray-300 hover:text-purple-600 opacity-0 group-hover:opacity-100 transition-opacity"><FontAwesomeIcon icon={faEllipsisV} className="text-[10px]" /></button>
                                                             {openMenuId === `set-${set.id}` && (
                                                                 <div className="absolute right-0 top-8 w-32 bg-white border border-gray-200 shadow-xl rounded-lg z-30 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 origin-top-right">
-                                                                    <button onClick={(e) => { e.stopPropagation(); setOpenMenuId(null); if(confirm('Excluir conjunto?')) deleteSet(set.id); }} className="w-full text-left px-3 py-2 text-[10px] font-medium text-red-500 hover:bg-red-50 flex items-center gap-2">
-                                                                        <FontAwesomeIcon icon={faTrash} /> Excluir
-                                                                    </button>
+                                                                    <button onClick={(e) => { e.stopPropagation(); setOpenMenuId(null); if(confirm('Excluir conjunto?')) deleteSet(set.id); }} className="w-full text-left px-3 py-2 text-[10px] font-medium text-red-500 hover:bg-red-50 flex items-center gap-2"><FontAwesomeIcon icon={faTrash} /> Excluir</button>
                                                                 </div>
                                                             )}
                                                         </div>
                                                     );
                                                 }
 
-                                                // === TIPO: PASTA (DISCIPLINA) ===
                                                 const disc = child;
                                                 const isFolderOpen = expandedItems[disc.uniqueId] || disc.forceExpand;
-                                                
                                                 return (
                                                     <div key={disc.uniqueId}>
                                                         <div onClick={() => handleDisciplineClick(disc)} className={`flex items-center gap-2 p-1.5 rounded-md cursor-pointer transition-all select-none ${isFolderOpen ? 'text-blue-700 bg-blue-50 font-bold' : 'text-gray-500 hover:text-gray-800'}`}>
@@ -335,14 +322,13 @@ export default function BimSidebar({
                                                                 {disc.children.map(file => {
                                                                     const isActive = activeUrn === file.urn_autodesk;
                                                                     const isSelected = selectedModels.includes(file.urn_autodesk);
-                                                                    const isSyncing = syncStates[file.id]?.isSyncing;
                                                                     const isProcessing = file.status === 'processing';
                                                                     const isError = file.status === 'Erro';
 
                                                                     return (
                                                                         <div key={file.id} 
-                                                                            onClick={(e) => { e.stopPropagation(); if(!isProcessing && !isError) onFileSelect(file); }} 
-                                                                            className={`group relative p-2 rounded-lg border cursor-pointer transition-all hover:scale-[1.02] mb-1 ${isActive ? 'bg-blue-600 border-blue-600 text-white shadow-md' : 'bg-white border-gray-100 hover:border-blue-200 hover:shadow-sm'} ${isProcessing ? 'opacity-70 cursor-wait' : ''}`}
+                                                                             onClick={(e) => { e.stopPropagation(); if(!isProcessing && !isError) onFileSelect(file); }} 
+                                                                             className={`group relative p-2 rounded-lg border cursor-pointer transition-all hover:scale-[1.02] mb-1 ${isActive ? 'bg-blue-600 border-blue-600 text-white shadow-md' : 'bg-white border-gray-100 hover:border-blue-200 hover:shadow-sm'} ${isProcessing ? 'opacity-70 cursor-wait' : ''}`}
                                                                         >
                                                                             {isProcessing && (<FileStatusPoller file={file} onComplete={(id, status) => updateFileStatus({ id, status })} />)}
                                                                             <div className="flex items-start gap-2 relative">
@@ -357,9 +343,7 @@ export default function BimSidebar({
                                                                                 </div>
                                                                                 {!isProcessing && !isError && (
                                                                                     <div className="relative">
-                                                                                        <button onClick={(e) => { e.stopPropagation(); setOpenMenuId(file.id); }} className={`p-1 px-2 rounded hover:bg-black/10 transition-all ${isActive ? 'text-white' : 'text-gray-400 hover:text-gray-600'}`}>
-                                                                                            <FontAwesomeIcon icon={faEllipsisV} className="text-[10px]" />
-                                                                                        </button>
+                                                                                        <button onClick={(e) => { e.stopPropagation(); setOpenMenuId(file.id); }} className={`p-1 px-2 rounded hover:bg-black/10 transition-all ${isActive ? 'text-white' : 'text-gray-400 hover:text-gray-600'}`}><FontAwesomeIcon icon={faEllipsisV} className="text-[10px]" /></button>
                                                                                         {openMenuId === file.id && (
                                                                                             <div className="absolute right-0 top-6 w-44 bg-white border border-gray-200 shadow-xl rounded-lg z-30 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 origin-top-right">
                                                                                                 <button onClick={(e) => { e.stopPropagation(); setOpenMenuId(null); openVersionModal(file); }} className="w-full text-left px-4 py-2 text-[11px] font-medium text-gray-700 hover:bg-blue-50 hover:text-blue-600 flex items-center gap-2 transition-colors border-b border-gray-50"><FontAwesomeIcon icon={faCloudUploadAlt} className="w-3" /> Atualizar Versão</button>

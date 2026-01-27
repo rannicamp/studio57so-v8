@@ -1,4 +1,3 @@
-// Caminho: hooks/bim/useBimModels.js
 import { useState, useRef } from 'react';
 import { toast } from 'sonner';
 
@@ -58,8 +57,7 @@ export function useBimModels(viewerInstance, setIsGanttOpen) {
                         return [...prev, file]; 
                     });
 
-                    // REMOVIDO: Abertura automática do Gantt
-                    // if (file.empreendimento_id && setIsGanttOpen) setIsGanttOpen(true);
+                    // Gantt automático removido (comportamento manual)
                     
                     viewerInstance.fitToView(); 
                     toast.success(`${file.nome_arquivo} carregado`);
@@ -124,9 +122,6 @@ export function useBimModels(viewerInstance, setIsGanttOpen) {
         setSelectedModels(newUrns);
         setLoadedFiles(filesInSet);
 
-        // REMOVIDO: Abertura automática do Gantt
-        // if (filesInSet[0]?.empreendimento_id && setIsGanttOpen) setIsGanttOpen(true);
-        
         setTimeout(() => {
             if (viewerInstance) viewerInstance.fitToView();
         }, 500);
@@ -135,11 +130,36 @@ export function useBimModels(viewerInstance, setIsGanttOpen) {
         toast.success("Conjunto carregado!");
     };
 
+    // --- NOVA FUNÇÃO: LIMPAR TUDO ---
+    const handleClearAll = () => {
+        if (!viewerInstance) return;
+
+        // 1. Descarrega todos os modelos do Viewer
+        selectedModels.forEach(urn => {
+            const model = loadedModelsRef.current[urn];
+            if (model) {
+                viewerInstance.impl.unloadModel(model);
+            }
+        });
+
+        // 2. Reseta os estados e referências
+        loadedModelsRef.current = {};
+        globalOffsetRef.current = null;
+        setSelectedModels([]);
+        setLoadedFiles([]);
+
+        // 3. Limpa a seleção visual
+        viewerInstance.clearSelection();
+        
+        toast.success("Seleção limpa.");
+    };
+
     return {
         loadedFiles,
         selectedModels,
         handleToggleModel,
         handleLoadSet,
+        handleClearAll, // <--- EXPORTADO AQUI
         loadedModelsRef 
     };
 }

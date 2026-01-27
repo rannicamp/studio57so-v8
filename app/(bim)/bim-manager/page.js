@@ -1,4 +1,3 @@
-// Caminho: app/(bim)/bim-manager/page.js
 'use client';
 
 import { useState, useMemo, useCallback } from 'react';
@@ -20,7 +19,7 @@ import BimNoteModal from '@/components/bim/BimNoteModal';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
     faChevronLeft, faChevronRight, faHome, 
-    faStream, faChevronDown 
+    faStream, faChevronDown, faColumns 
 } from '@fortawesome/free-solid-svg-icons';
 
 // Hooks Personalizados
@@ -33,29 +32,35 @@ export default function BimManagerPage() {
   const queryClient = useQueryClient();
   const { organizacao_id } = useAuth();
   
+  // 1. Hook do Viewer (Base)
   const { 
     viewerInstance, setViewerInstance, 
     selectedElements, setSelectedElements, 
     activeFile, activeUrn, resolveSelection 
   } = useBimViewer();
 
-  // Estados de Interface
+  // 2. UI States
   const [isSidebarVisible, setIsSidebarVisible] = useState(true);
-  const [isInspectorVisible, setIsInspectorVisible] = useState(true); // Controle da direita
   const [isGanttOpen, setIsGanttOpen] = useState(false);
+  const [isInspectorVisible, setIsInspectorVisible] = useState(true); // Controle da barra direita
 
-  // Hooks Lógicos
+  // 3. Hook de Modelos
   const { 
       loadedFiles, selectedModels, 
-      handleToggleModel, handleLoadSet, loadedModelsRef 
+      handleToggleModel, handleLoadSet, handleClearAll, // <--- PEGAMOS AQUI
+      loadedModelsRef 
   } = useBimModels(viewerInstance, setIsGanttOpen);
 
+  // 4. Hook de Notas
   const {
       isNoteModalOpen, setIsNoteModalOpen,
-      noteCaptureData, handleOpenNoteCreation, handleRestoreNote, onNoteSuccess
+      noteCaptureData, 
+      handleOpenNoteCreation, 
+      handleRestoreNote, 
+      onNoteSuccess
   } = useBimNotes(viewerInstance, activeFile);
 
-  // --- Lógica de Atividades ---
+  // 5. Lógica de Atividades
   const [contextTarget, setContextTarget] = useState(null); 
   const [modalInitialData, setModalInitialData] = useState(null); 
   const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
@@ -84,13 +89,16 @@ export default function BimManagerPage() {
       if (!viewerInstance || !activity) return;
       const { data: links } = await supabase.from('atividades_elementos').select('external_id').eq('atividade_id', activity.id);
       if (!links || links.length === 0) { viewerInstance.clearSelection(); return; }
+      
       const externalIdsToSelect = links.map(l => l.external_id);
       const allModels = viewerInstance.impl.modelQueue().getModels();
       const allDbIds = [];
+
       await Promise.all(allModels.map(m => new Promise(r => m.getExternalIdMapping(map => {
           externalIdsToSelect.forEach(eid => { if(map[eid]) { viewerInstance.select(map[eid], m); allDbIds.push(map[eid]); } });
           r();
       }))));
+
       if (allDbIds.length > 0) { viewerInstance.fitToView(allDbIds); toast.info(`${allDbIds.length} vinculados.`); }
       else toast.warning("Elementos não encontrados.");
   };
@@ -99,7 +107,12 @@ export default function BimManagerPage() {
   
   const handleOpenCreate = (targetData) => resolveSelection(targetData, (ids) => { 
       setContextTarget(targetData); 
-      setModalInitialData({ nome: targetData.elementName ? `Instalação ${targetData.elementName}` : '', projeto_bim_id: targetData.projetoBimId, elementos_bim: ids, empreendimento_id: activeFile?.empreendimento_id }); 
+      setModalInitialData({ 
+          nome: targetData.elementName ? `Instalação ${targetData.elementName}` : '', 
+          projeto_bim_id: targetData.projetoBimId, 
+          elementos_bim: ids, 
+          empreendimento_id: activeFile?.empreendimento_id 
+      }); 
       setIsCreateModalOpen(true); 
   });
 
@@ -133,6 +146,7 @@ export default function BimManagerPage() {
                 selectedModels={selectedModels}
                 activeUrn={activeUrn} 
                 onLoadSet={handleLoadSet} 
+                onClearAll={handleClearAll} // <--- PASSAMOS AQUI
             />
         </div>
 
@@ -155,13 +169,12 @@ export default function BimManagerPage() {
                     </button>
                 </div>
 
-                {/* 2. Botão Flutuante DIREITA (Inspector) - AGORA SIMÉTRICO! */}
+                {/* 2. Botão Flutuante DIREITA (Inspector) */}
                 <div className="absolute top-4 right-4 z-[60]">
                     <button 
                         onClick={() => setIsInspectorVisible(!isInspectorVisible)} 
                         className="bg-white/90 p-2 rounded-lg shadow-sm border text-gray-600 hover:bg-white transition-all hover:text-purple-600"
                     >
-                        {/* Lógica da seta: Se visível, seta pra direita fecha. Se invisível, seta pra esquerda abre. */}
                         <FontAwesomeIcon icon={isInspectorVisible ? faChevronRight : faChevronLeft} />
                     </button>
                 </div>
@@ -189,7 +202,7 @@ export default function BimManagerPage() {
                 </div>
             </div>
 
-            {/* --- DIREITA: INSPECTOR (Controlado pelo botão flutuante) --- */}
+            {/* --- DIREITA: INSPECTOR --- */}
             <div className={`${isInspectorVisible ? 'w-80 border-l' : 'w-0 border-none'} bg-white transition-all duration-300 flex flex-col overflow-hidden shrink-0 z-20 shadow-xl`}>
                 <BimInspector 
                     elementExternalId={selectedElements[0]} 
