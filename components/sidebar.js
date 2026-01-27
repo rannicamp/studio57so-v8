@@ -1,4 +1,3 @@
-// components/sidebar.js
 "use client";
 
 import Link from 'next/link';
@@ -7,7 +6,7 @@ import {
     faTachometerAlt, faBuilding, faProjectDiagram, faUsers, faTasks,
     faClipboardList, faAddressBook, faDollarSign, faShoppingCart,
     faInbox, faBullseye, faFileSignature, faCalculator,
-    faBoxOpen, faFileInvoiceDollar, faTags
+    faBoxOpen, faFileInvoiceDollar, faTags, faCube // Adicionei o faCube para o BIM
 } from '@fortawesome/free-solid-svg-icons';
 import { faMeta } from '@fortawesome/free-brands-svg-icons';
 import { useAuth } from '../contexts/AuthContext';
@@ -17,7 +16,7 @@ export default function Sidebar({ isOpen, closeSidebar }) {
     const { hasPermission, user } = useAuth();
     const sidebarPosition = user?.sidebar_position || 'left';
     
-    // Configuração dos itens (MANTIDO IDÊNTICO)
+    // Configuração dos itens - Agora com a nova seção BIM
     const navSections = [
         {
             title: 'Administrativo',
@@ -51,6 +50,12 @@ export default function Sidebar({ isOpen, closeSidebar }) {
                 { href: '/atividades', label: 'Atividades', icon: faTasks, recurso: 'atividades' },
             ]
         },
+        {
+            title: 'Coordenação BIM', // Nova seção que você pediu, seu lindo!
+            items: [
+                { href: '/bim-manager', label: 'BIM Manager', icon: faCube, recurso: 'bim' },
+            ]
+        },
     ];
 
     const logoUrl = "https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/sign/marca/public/STUDIO%2057%20PRETO%20-%20RETANGULAR.PNG?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9kMTIyN2I2ZC02YmI4LTQ0OTEtYWE0MS0yZTdiMDdlNDVmMjEiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJtYXJjYS9wdWJsaWMvU1RVRElPIDU3IFBSRVRPIC0gUkVUQU5HVUxBUi5QTkciLCJpYXQiOjE3NTA3MTA1ODEsImV4cCI6MjA2NjA3MDU4MX0.NKH_ZhXJYjHNpZ5j1suDDRwnggj9zte81D37NFZeCIE";
@@ -58,7 +63,7 @@ export default function Sidebar({ isOpen, closeSidebar }) {
 
     const isHorizontal = sidebarPosition === 'top' || sidebarPosition === 'bottom';
 
-    // --- MODO HORIZONTAL (Top/Bottom) - Mantém fixo ---
+    // --- MODO HORIZONTAL (Top/Bottom) ---
     if (isHorizontal) {
         const allItems = navSections.flatMap(section => section.items || []);
         return (
@@ -70,7 +75,7 @@ export default function Sidebar({ isOpen, closeSidebar }) {
                 </div>
                 <nav className="flex items-center gap-2 overflow-x-auto flex-nowrap no-scrollbar py-2 max-w-[80vw]">
                     {allItems.map((item) => {
-                        const canViewItem = hasPermission(item.recurso, 'pode_ver') || ['painel', 'perfil', 'caixa_de_entrada'].includes(item.recurso);
+                        const canViewItem = hasPermission(item.recurso, 'pode_ver') || ['painel', 'perfil', 'caixa_de_entrada', 'bim'].includes(item.recurso);
                         if (!item || !canViewItem) return null;
                         return (
                             <Tooltip key={item.label} label={item.label} position={sidebarPosition === 'top' ? 'bottom' : 'top'}>
@@ -91,7 +96,6 @@ export default function Sidebar({ isOpen, closeSidebar }) {
     }
 
     // --- MODO VERTICAL (GAVETA / OFF-CANVAS) ---
-    // Define a classe de posicionamento e transformação
     const drawerBaseClasses = "fixed top-0 bottom-0 z-50 w-[280px] bg-white shadow-2xl transform transition-transform duration-300 ease-in-out h-full overflow-y-auto";
     const drawerPositionClass = sidebarPosition === 'right' 
         ? `right-0 ${isOpen ? 'translate-x-0' : 'translate-x-full'}` 
@@ -99,7 +103,6 @@ export default function Sidebar({ isOpen, closeSidebar }) {
 
     return (
         <>
-            {/* BACKDROP (Fundo escuro que fecha ao clicar) */}
             {isOpen && (
                 <div 
                     className="fixed inset-0 bg-black/30 z-40 backdrop-blur-sm transition-opacity"
@@ -107,23 +110,19 @@ export default function Sidebar({ isOpen, closeSidebar }) {
                 ></div>
             )}
 
-            {/* GAVETA */}
             <aside className={`${drawerBaseClasses} ${drawerPositionClass}`}>
-                
-                {/* Cabeçalho da Gaveta */}
                 <div className="flex items-center justify-center h-[65px] border-b border-gray-100 sticky top-0 bg-white z-10">
                     <Link href="/painel" onClick={closeSidebar}>
                         <img src={logoUrl} alt="Logo Studio 57" className="h-9 w-auto" />
                     </Link>
                 </div>
 
-                {/* Lista de Navegação */}
                 <nav className="mt-4 pb-20">
                     <ul>
                         {navSections.map((section) => {
                             const sectionItems = section.items || [];
                             const hasVisibleItems = sectionItems.some(item => 
-                                hasPermission(item.recurso, 'pode_ver') || ['painel', 'perfil', 'caixa_de_entrada'].includes(item.recurso)
+                                hasPermission(item.recurso, 'pode_ver') || ['painel', 'perfil', 'caixa_de_entrada', 'bim'].includes(item.recurso)
                             );
 
                             if (!hasVisibleItems) return null;
@@ -136,7 +135,7 @@ export default function Sidebar({ isOpen, closeSidebar }) {
 
                                     <ul>
                                         {sectionItems.map((item) => {
-                                            const canViewItem = hasPermission(item.recurso, 'pode_ver') || ['painel', 'perfil', 'caixa_de_entrada'].includes(item.recurso);
+                                            const canViewItem = hasPermission(item.recurso, 'pode_ver') || ['painel', 'perfil', 'caixa_de_entrada', 'bim'].includes(item.recurso);
                                             if (!canViewItem) return null;
 
                                             return (
@@ -144,7 +143,7 @@ export default function Sidebar({ isOpen, closeSidebar }) {
                                                     <Link
                                                         href={item.href}
                                                         target={item.target}
-                                                        onClick={closeSidebar} // Fecha ao clicar no link
+                                                        onClick={closeSidebar}
                                                         rel={item.target === '_blank' ? 'noopener noreferrer' : undefined}
                                                         className="flex items-center py-3 px-6 text-gray-600 hover:bg-blue-50 hover:text-blue-700 transition-all duration-200 border-l-4 border-transparent hover:border-blue-600"
                                                     >

@@ -8,6 +8,7 @@ import AutodeskViewerAPI from '@/components/bim/AutodeskViewerAPI';
 import GanttChart from '@/components/atividades/GanttChart'; 
 import BimLinkActivityModal from '@/components/bim/BimLinkActivityModal';
 import AtividadeModal from '@/components/atividades/AtividadeModal';
+import BimNoteModal from '@/components/bim/BimNoteModal'; // <--- NOVO IMPORT
 
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
@@ -37,7 +38,6 @@ export default function BimManagerPage() {
   const [isGanttOpen, setIsGanttOpen] = useState(false);
   
   const loadedModelsRef = useRef({}); 
-  // [CORREÇÃO BIM] Referência para garantir alinhamento "Origem p/ Origem"
   const globalOffsetRef = useRef(null); 
 
   // --- ESTADOS PARA O FLUXO DE ATIVIDADES ---
@@ -46,6 +46,10 @@ export default function BimManagerPage() {
   const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   
+  // --- ESTADOS PARA NOTAS (NOVO) ---
+  const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
+  const [noteCaptureData, setNoteCaptureData] = useState(null); // Guarda snapshot e camera
+
   // Estado para edição via Gantt
   const [activityToEdit, setActivityToEdit] = useState(null);
 
@@ -102,7 +106,6 @@ export default function BimManagerPage() {
               const allExternalIds = props.map(p => p.externalId);
               callback(allExternalIds);
           }, (err) => {
-              console.error("Erro property:", err);
               callback([targetData.externalId]);
           });
       } else {
@@ -125,8 +128,6 @@ export default function BimManagerPage() {
       }
 
       const externalIdsToSelect = links.map(l => l.external_id);
-
-      // Precisamos buscar em TODOS os modelos carregados
       const allModels = viewerInstance.impl.modelQueue().getModels();
       const allDbIdsToSelect = [];
 
@@ -152,21 +153,19 @@ export default function BimManagerPage() {
       }
   };
 
-  // --- HANDLERS DE ABERTURA ---
+  // --- HANDLERS DE ABERTURA DE MODAIS ---
+  
+  // 1. Vincular Atividade
   const handleOpenLink = (targetData) => {
       resolveSelection(targetData, (idsParaVincular) => {
-          console.log("🛠️ [Page] Vínculo IDs:", idsParaVincular);
-          setContextTarget({ 
-              ...targetData, 
-              externalIds: idsParaVincular 
-          });
+          setContextTarget({ ...targetData, externalIds: idsParaVincular });
           setIsLinkModalOpen(true);
       });
   };
 
+  // 2. Criar Nova Atividade
   const handleOpenCreate = (targetData) => {
       resolveSelection(targetData, (idsParaVincular) => {
-          console.log("🛠️ [Page] Criação IDs:", idsParaVincular);
           setContextTarget(targetData);
           setModalInitialData({
               nome: targetData.elementName ? `Instalação ${targetData.elementName}` : '',
@@ -178,18 +177,43 @@ export default function BimManagerPage() {
       });
   };
 
-  // --- ACTIONS ---
+  // 3. CRIAR NOTA (NOVA FUNÇÃO)
+  const handleOpenNoteCreation = (targetData) => {
+      if (!viewerInstance) return;
+
+      // a) Captura Estado da Câmera
+      const cameraState = viewerInstance.getState({ viewport: true });
+
+      // b) Captura Screenshot (Blob -> Base64)
+      viewerInstance.getScreenShot(800, 600, (blobUrl) => {
+          fetch(blobUrl)
+              .then(res => res.blob())
+              .then(blob => {
+                  const reader = new FileReader();
+                  reader.onloadend = () => {
+                      const base64data = reader.result;
+                      
+                      // Salva tudo no estado e abre modal
+                      setNoteCaptureData({
+                          cameraState,
+                          snapshot: base64data,
+                          elementId: targetData?.externalId,
+                          projetoBimId: activeFile?.id // Assume o arquivo ativo como dono da nota
+                      });
+                      setIsNoteModalOpen(true);
+                  };
+                  reader.readAsDataURL(blob);
+              });
+      });
+  };
+
+  // --- ACTIONS (DB) ---
   const executeLink = async (activity) => {
       if (!contextTarget || !activity) return;
       const idsToLink = contextTarget.externalIds || [contextTarget.externalId];
-      
-      if (!idsToLink.length) {
-          toast.error("Nenhum elemento selecionado.");
-          return;
-      }
+      if (!idsToLink.length) return toast.error("Nenhum elemento selecionado.");
 
-      const toastId = toast.loading(`Vinculando ${idsToLink.length} elemento(s)...`);
-
+      const toastId = toast.loading(`Vinculando...`);
       try {
           const rowsToInsert = idsToLink.map(extId => ({
               organizacao_id,
@@ -199,17 +223,9 @@ export default function BimManagerPage() {
           }));
 
           const { error } = await supabase.from('atividades_elementos').insert(rowsToInsert);
+          if (error && error.code !== '23505') throw error;
 
-          if (error) {
-            if (error.code === '23505') {
-                 toast.success("Vínculos atualizados.", { id: toastId });
-            } else {
-                 throw error;
-            }
-          } else {
-            toast.success("Vínculos criados!", { id: toastId });
-          }
-          
+          toast.success("Vínculos criados!", { id: toastId });
           setIsLinkModalOpen(false);
           setContextTarget(null);
           queryClient.invalidateQueries(['bimElementLinks']); 
@@ -259,7 +275,7 @@ export default function BimManagerPage() {
     };
   }, [viewerInstance, queryClient]);
 
-  // --- [CORREÇÃO PRINCIPAL] GERENCIAMENTO DE MODELOS E OFFSET ---
+  // --- GERENCIAMENTO DE MODELOS E OFFSET ---
   const handleToggleModel = async (file) => {
     if (!viewerInstance) return;
     
@@ -267,13 +283,11 @@ export default function BimManagerPage() {
     const isLoaded = selectedModels.includes(urnBancoLimpa);
 
     if (isLoaded) {
-        // --- DESCARREGAR ---
         const modelToUnload = loadedModelsRef.current[urnBancoLimpa];
         if (modelToUnload) {
             viewerInstance.impl.unloadModel(modelToUnload);
             delete loadedModelsRef.current[urnBancoLimpa];
             
-            // Atualiza estados
             const newSelectedModels = selectedModels.filter(u => u !== urnBancoLimpa);
             setSelectedModels(newSelectedModels);
             setLoadedFiles(prev => prev.filter(f => f.id !== file.id)); 
@@ -282,45 +296,23 @@ export default function BimManagerPage() {
                 setSelectedElements([]); 
                 setActiveFile(null); 
             }
-
-            // Se fechou todos os modelos, reseta o offset global para o próximo primeiro modelo definir
             if (newSelectedModels.length === 0) {
                 globalOffsetRef.current = null;
-                console.log("🧹 Todos os modelos fechados. Global Offset resetado.");
             }
-
             toast.success(`${file.nome_arquivo} fechado.`);
         }
     } else {
-        // --- CARREGAR ---
         const fullUrn = `urn:${urnBancoLimpa}`;
-        
-        // Opções de carregamento para garantir alinhamento
-        const loadOptions = { 
-            keepCurrentModels: true, 
-            applyScaling: 'm',
-            placementTransform: new THREE.Matrix4(), // Garante matriz limpa
-            globalOffset: globalOffsetRef.current // <--- AQUI ESTÁ A MÁGICA
-        };
-
-        console.log(`📂 Carregando modelo... Global Offset atual:`, globalOffsetRef.current);
+        const loadOptions = { keepCurrentModels: true, applyScaling: 'm', placementTransform: new THREE.Matrix4(), globalOffset: globalOffsetRef.current };
 
         window.Autodesk.Viewing.Document.load(fullUrn, (doc) => {
             const viewables = doc.getRoot().getDefaultGeometry();
-            
             viewerInstance.loadModel(doc.getViewablePath(viewables), loadOptions, (model) => {
                 model.studio57_context = file;
                 loadedModelsRef.current[urnBancoLimpa] = model;
-                
-                // Se for o primeiro modelo carregado, salvamos o offset dele para os próximos
-                if (!globalOffsetRef.current) {
-                    globalOffsetRef.current = model.getData().globalOffset;
-                    console.log("📍 Global Offset definido pelo primeiro modelo:", globalOffsetRef.current);
-                }
-
+                if (!globalOffsetRef.current) globalOffsetRef.current = model.getData().globalOffset;
                 setSelectedModels(prev => [...prev, urnBancoLimpa]);
                 setLoadedFiles(prev => { if (prev.some(f => f.id === file.id)) return prev; return [...prev, file]; });
-                
                 if (file.empreendimento_id) setIsGanttOpen(true);
                 toast.success(`${file.nome_arquivo} carregado`);
             });
@@ -328,23 +320,15 @@ export default function BimManagerPage() {
     }
   };
 
-  // --- [NOVO] CARREGAR CONJUNTO/VISTA SALVA ---
   const handleLoadSet = async (filesInSet) => {
     if (!viewerInstance) return;
     if (!filesInSet || filesInSet.length === 0) return toast.error("Conjunto vazio.");
 
-    // 1. Identificar diferenças
     const newUrns = filesInSet.map(f => f.urn_autodesk.replace(/^urn:/, ''));
-    
-    // Modelos que estão carregados mas NÃO estão no conjunto (devem sair)
     const urnsToRemove = selectedModels.filter(urn => !newUrns.includes(urn));
-    
-    // Modelos que estão no conjunto mas NÃO estão carregados (devem entrar)
     const filesToAdd = filesInSet.filter(f => !selectedModels.includes(f.urn_autodesk.replace(/^urn:/, '')));
-
     const toastId = toast.loading("Carregando conjunto...");
 
-    // 2. Descarregar excedentes
     if (urnsToRemove.length > 0) {
         urnsToRemove.forEach(urn => {
             const model = loadedModelsRef.current[urn];
@@ -353,54 +337,31 @@ export default function BimManagerPage() {
                 delete loadedModelsRef.current[urn];
             }
         });
-
-        // Se vamos remover TUDO o que estava antes, resetamos o Offset para evitar desalinhamento do novo grupo
-        if (urnsToRemove.length === selectedModels.length) {
-             globalOffsetRef.current = null;
-             console.log("🧹 Limpeza completa para novo conjunto. Offset resetado.");
-        }
+        if (urnsToRemove.length === selectedModels.length) globalOffsetRef.current = null;
     }
 
-    // 3. Carregar novos (Sequencial para garantir o offset do primeiro)
     for (const file of filesToAdd) {
         await new Promise((resolve) => {
              const urn = file.urn_autodesk.replace(/^urn:/, '');
              const fullUrn = `urn:${urn}`;
-             
-             const loadOptions = { 
-                keepCurrentModels: true, 
-                applyScaling: 'm',
-                placementTransform: new THREE.Matrix4(),
-                globalOffset: globalOffsetRef.current 
-            };
-
+             const loadOptions = { keepCurrentModels: true, applyScaling: 'm', placementTransform: new THREE.Matrix4(), globalOffset: globalOffsetRef.current };
             window.Autodesk.Viewing.Document.load(fullUrn, (doc) => {
                 const viewables = doc.getRoot().getDefaultGeometry();
                 viewerInstance.loadModel(doc.getViewablePath(viewables), loadOptions, (model) => {
                     model.studio57_context = file;
                     loadedModelsRef.current[urn] = model;
-
-                    if (!globalOffsetRef.current) {
-                        globalOffsetRef.current = model.getData().globalOffset;
-                    }
+                    if (!globalOffsetRef.current) globalOffsetRef.current = model.getData().globalOffset;
                     resolve();
-                }, (err) => {
-                    console.error("Erro ao carregar arquivo do set:", file.nome_arquivo, err);
-                    resolve(); // Resolve mesmo com erro para continuar o loop
-                });
-            }, (err) => resolve());
+                }, () => resolve());
+            }, () => resolve());
         });
     }
 
-    // 4. Atualizar Estados
     setSelectedModels(newUrns);
     setLoadedFiles(filesInSet);
-    
-    // Se o conjunto tem empreendimento, abre o Gantt
     if (filesInSet[0]?.empreendimento_id) setIsGanttOpen(true);
-
     toast.dismiss(toastId);
-    toast.success("Conjunto carregado com sucesso!");
+    toast.success("Conjunto carregado!");
   };
 
   const handleSelectContext = useCallback(async (context) => {
@@ -421,7 +382,6 @@ export default function BimManagerPage() {
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-gray-50 flex-col font-sans">
-      
       <div className="flex flex-1 overflow-hidden relative">
         <div className={`${isSidebarVisible ? 'w-80' : 'w-0'} transition-all duration-300 border-r bg-white z-20 shrink-0 overflow-hidden`}>
             <BimSidebar 
@@ -430,7 +390,7 @@ export default function BimManagerPage() {
                 onSelectContext={handleSelectContext}
                 selectedModels={selectedModels}
                 activeUrn={activeUrn} 
-                onLoadSet={handleLoadSet} // <--- NOVA PROP CONECTADA
+                onLoadSet={handleLoadSet} 
             />
         </div>
 
@@ -481,6 +441,7 @@ export default function BimManagerPage() {
                     onClose={() => setSelectedElements([])}
                     onOpenLink={handleOpenLink}
                     onOpenCreate={handleOpenCreate}
+                    onOpenNote={handleOpenNoteCreation} // <--- PASSADO AO INSPECTOR
                 />
             )}
         </main>
@@ -505,6 +466,17 @@ export default function BimManagerPage() {
           />
       )}
 
+      {/* MODAL DE NOTAS */}
+      <BimNoteModal
+         isOpen={isNoteModalOpen}
+         onClose={() => setIsNoteModalOpen(false)}
+         captureData={noteCaptureData}
+         activities={visibleActivities}
+         onSuccess={() => {
+             queryClient.invalidateQueries(['bimNotes']);
+             toast.success("Nota salva!");
+         }}
+      />
     </div>
   );
 }
