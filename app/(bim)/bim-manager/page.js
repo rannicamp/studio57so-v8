@@ -8,7 +8,7 @@ import AutodeskViewerAPI from '@/components/bim/AutodeskViewerAPI';
 import GanttChart from '@/components/atividades/GanttChart'; 
 import BimLinkActivityModal from '@/components/bim/BimLinkActivityModal';
 import AtividadeModal from '@/components/atividades/AtividadeModal';
-import BimNoteModal from '@/components/bim/BimNoteModal'; // <--- NOVO IMPORT
+import BimNoteModal from '@/components/bim/BimNoteModal';
 
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
@@ -46,9 +46,9 @@ export default function BimManagerPage() {
   const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   
-  // --- ESTADOS PARA NOTAS (NOVO) ---
+  // --- ESTADOS PARA NOTAS ---
   const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
-  const [noteCaptureData, setNoteCaptureData] = useState(null); // Guarda snapshot e camera
+  const [noteCaptureData, setNoteCaptureData] = useState(null); 
 
   // Estado para edição via Gantt
   const [activityToEdit, setActivityToEdit] = useState(null);
@@ -153,9 +153,73 @@ export default function BimManagerPage() {
       }
   };
 
+  // --- NOVA FUNÇÃO: RESTAURAR NOTA (CORRIGIDA COM ZOOM) ---
+  const handleRestoreNote = async (note) => {
+    if (!viewerInstance) return;
+
+    // Cenário 1: Nota vinculada a um elemento (Prioridade para Zoom)
+    if (note.elemento_vinculado_id) {
+        const extId = note.elemento_vinculado_id;
+        const allModels = viewerInstance.impl.modelQueue().getModels();
+        let found = false;
+
+        // Procura em todos os modelos carregados
+        for (const model of allModels) {
+            await new Promise((resolve) => {
+                model.getExternalIdMapping((mapping) => {
+                    if (mapping[extId]) {
+                        const dbId = mapping[extId];
+                        
+                        // 1. Restaura o estado da câmera primeiro (para pegar o ângulo salvo)
+                        if (note.camera_state) {
+                             try {
+                                 const state = typeof note.camera_state === 'string' 
+                                    ? JSON.parse(note.camera_state) 
+                                    : note.camera_state;
+                                 viewerInstance.restoreState(state);
+                             } catch (e) { console.error("Erro parse camera", e); }
+                        }
+
+                        // 2. Seleciona o objeto
+                        viewerInstance.select(dbId, model);
+                        
+                        // 3. O PULO DO GATO: Força o Zoom (fitToView) no objeto
+                        // Isso corrige o problema de ficar "longe" devido a coordenadas globais
+                        viewerInstance.fitToView([dbId], model); 
+                        
+                        found = true;
+                    }
+                    resolve();
+                });
+            });
+            if (found) break; // Para se achar no primeiro modelo
+        }
+
+        if (found) {
+            toast.success("Elemento localizado.");
+            return; // Sucesso, encerra aqui
+        } else {
+            toast.warning("Elemento não encontrado nos modelos abertos. Restaurando apenas câmera.");
+        }
+    }
+    
+    // Cenário 2: Nota geral ou elemento não encontrado -> Restaura câmera salva
+    if (note.camera_state) {
+        try {
+            const state = typeof note.camera_state === 'string' 
+                ? JSON.parse(note.camera_state) 
+                : note.camera_state;
+                
+            viewerInstance.restoreState(state);
+            toast.success("Vista da câmera restaurada.");
+        } catch (e) {
+            toast.error("Erro ao restaurar vista.");
+        }
+    }
+  };
+
   // --- HANDLERS DE ABERTURA DE MODAIS ---
   
-  // 1. Vincular Atividade
   const handleOpenLink = (targetData) => {
       resolveSelection(targetData, (idsParaVincular) => {
           setContextTarget({ ...targetData, externalIds: idsParaVincular });
@@ -163,7 +227,6 @@ export default function BimManagerPage() {
       });
   };
 
-  // 2. Criar Nova Atividade
   const handleOpenCreate = (targetData) => {
       resolveSelection(targetData, (idsParaVincular) => {
           setContextTarget(targetData);
@@ -177,14 +240,10 @@ export default function BimManagerPage() {
       });
   };
 
-  // 3. CRIAR NOTA (NOVA FUNÇÃO)
   const handleOpenNoteCreation = (targetData) => {
       if (!viewerInstance) return;
 
-      // a) Captura Estado da Câmera
       const cameraState = viewerInstance.getState({ viewport: true });
-
-      // b) Captura Screenshot (Blob -> Base64)
       viewerInstance.getScreenShot(800, 600, (blobUrl) => {
           fetch(blobUrl)
               .then(res => res.blob())
@@ -192,13 +251,11 @@ export default function BimManagerPage() {
                   const reader = new FileReader();
                   reader.onloadend = () => {
                       const base64data = reader.result;
-                      
-                      // Salva tudo no estado e abre modal
                       setNoteCaptureData({
                           cameraState,
                           snapshot: base64data,
                           elementId: targetData?.externalId,
-                          projetoBimId: activeFile?.id // Assume o arquivo ativo como dono da nota
+                          projetoBimId: activeFile?.id 
                       });
                       setIsNoteModalOpen(true);
                   };
@@ -441,7 +498,8 @@ export default function BimManagerPage() {
                     onClose={() => setSelectedElements([])}
                     onOpenLink={handleOpenLink}
                     onOpenCreate={handleOpenCreate}
-                    onOpenNote={handleOpenNoteCreation} // <--- PASSADO AO INSPECTOR
+                    onOpenNote={handleOpenNoteCreation}
+                    onRestoreNote={handleRestoreNote} 
                 />
             )}
         </main>

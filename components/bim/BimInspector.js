@@ -9,7 +9,7 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import BimProperties from './BimProperties';
 import BimElementPlanning from './BimElementPlanning';
-import BimNotesList from './BimNotesList'; // Agora importando o arquivo correto!
+import BimNotesList from './BimNotesList';
 
 export default function BimInspector({ 
     elementExternalId, 
@@ -18,7 +18,8 @@ export default function BimInspector({
     onClose,
     onOpenLink,
     onOpenCreate,
-    onOpenNote 
+    onOpenNote,
+    onRestoreNote // <--- NOVA PROP (Recebe a função da Página Principal)
 }) {
     const [activeTab, setActiveTab] = useState('properties');
 
@@ -61,7 +62,10 @@ export default function BimInspector({
 
                     {activeTab === 'notes' && (
                         <div className="p-2">
-                            <BimNotesList onSelectNote={(note) => console.log("Nota clicada:", note)} />
+                            {/* AQUI ESTAVA O PROBLEMA: Agora passamos a função para cima */}
+                            <BimNotesList onSelectNote={(note) => {
+                                if (onRestoreNote) onRestoreNote(note);
+                            }} />
                         </div>
                     )}
                 </div>
