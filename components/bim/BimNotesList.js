@@ -43,26 +43,32 @@ export default function BimNotesList({ onSelectNote }) {
     const [newComment, setNewComment] = useState("");
 
     // Buscar Notas e Comentários
-    const { data: notes = [], isLoading } = useQuery({
+    const { data: notes = [], isLoading, error } = useQuery({
         queryKey: ['bimNotes', organizacao_id],
         queryFn: async () => {
             if (!organizacao_id) return [];
             
+            console.log("🔍 Buscando notas...");
+
+            // CORREÇÃO AQUI: Adicionei !bim_comentarios_user_fkey
             const { data, error } = await supabase
                 .from('bim_notas')
                 .select(`
                     *,
-                    usuario:usuarios (nome, sobrenome, avatar_url, email),
+                    usuario:usuarios!bim_notas_usuario_fkey (nome, sobrenome, avatar_url, email),
                     atividade:activities(nome),
                     comentarios:bim_notas_comentarios (
                         id, texto, criado_em,
-                        usuario:usuarios (nome, avatar_url)
+                        usuario:usuarios!bim_comentarios_user_fkey (nome, avatar_url)
                     )
                 `)
                 .eq('organizacao_id', organizacao_id)
                 .order('criado_em', { ascending: false });
             
-            if (error) throw error;
+            if (error) {
+                console.error("❌ Erro Supabase:", error);
+                throw error;
+            }
             return data;
         },
         enabled: !!organizacao_id
@@ -71,6 +77,8 @@ export default function BimNotesList({ onSelectNote }) {
     // Mutação para Enviar Comentário
     const { mutate: sendComment, isPending: isSending } = useMutation({
         mutationFn: async ({ notaId, texto }) => {
+            if (!user?.id) throw new Error("Usuário não identificado");
+            
             const { error } = await supabase
                 .from('bim_notas_comentarios')
                 .insert({
@@ -83,7 +91,6 @@ export default function BimNotesList({ onSelectNote }) {
         onSuccess: () => {
             setNewComment("");
             queryClient.invalidateQueries(['bimNotes']);
-            toast.success("Resposta enviada!");
         },
         onError: (e) => toast.error("Erro ao comentar: " + e.message)
     });
@@ -95,6 +102,8 @@ export default function BimNotesList({ onSelectNote }) {
     };
 
     if (isLoading) return <div className="p-8 text-center text-gray-400 text-xs"><FontAwesomeIcon icon={faSpinner} spin /> Carregando feed...</div>;
+    
+    if (error) return <div className="p-4 text-center text-red-400 text-xs">Erro ao carregar notas. Verifique o console.</div>;
 
     if (notes.length === 0) return (
         <div className="flex flex-col items-center justify-center h-64 text-gray-300">
@@ -104,12 +113,14 @@ export default function BimNotesList({ onSelectNote }) {
     );
 
     return (
-        <div className="p-3 space-y-4 bg-gray-50/50 min-h-full">
+        <div className="p-3 space-y-4 bg-gray-50/50 min-h-full pb-20">
             {notes.map(note => {
                 const userObj = note.usuario || {};
                 const fullName = userObj.nome ? `${userObj.nome} ${userObj.sobrenome || ''}` : "Usuário";
                 const initials = userObj.nome ? userObj.nome.substring(0, 1).toUpperCase() : "U";
-                const commentCount = note.comentarios?.length || 0;
+                
+                const commentsList = note.comentarios || [];
+                const commentCount = commentsList.length;
                 const isChatOpen = openChatId === note.id;
 
                 return (
@@ -156,7 +167,7 @@ export default function BimNotesList({ onSelectNote }) {
                         {/* RODAPÉ DE AÇÕES */}
                         <div className="px-4 py-2 bg-gray-50 border-t border-gray-100 flex justify-between items-center">
                             <button 
-                                onClick={() => setOpenChatId(isChatOpen ? null : note.id)} 
+                                onClick={(e) => { e.stopPropagation(); setOpenChatId(isChatOpen ? null : note.id); }} 
                                 className={`text-[10px] font-bold flex items-center gap-1 transition-colors ${isChatOpen ? 'text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
                             >
                                 <FontAwesomeIcon icon={faComment} /> 
@@ -164,16 +175,19 @@ export default function BimNotesList({ onSelectNote }) {
                             </button>
                         </div>
 
-                        {/* ÁREA DE COMENTÁRIOS (Expandível) */}
+                        {/* CHAT */}
                         {isChatOpen && (
                             <div className="bg-gray-50 px-4 pb-4 animate-in slide-in-from-top-2 border-t border-gray-200">
-                                {/* Lista de Mensagens */}
                                 <div className="space-y-3 py-3 max-h-40 overflow-y-auto custom-scrollbar">
-                                    {note.comentarios && note.comentarios.length > 0 ? (
-                                        note.comentarios.map(comment => (
-                                            <div key={comment.id} className="flex gap-2">
-                                                <div className="w-6 h-6 rounded-full bg-gray-200 overflow-hidden shrink-0 mt-1">
-                                                    {comment.usuario?.avatar_url && <img src={comment.usuario.avatar_url} className="w-full h-full object-cover" />}
+                                    {commentsList.length > 0 ? (
+                                        commentsList.map(comment => (
+                                            <div key={comment.id} className="flex gap-2 animate-in fade-in slide-in-from-bottom-1">
+                                                <div className="w-6 h-6 rounded-full bg-gray-200 overflow-hidden shrink-0 mt-1 border border-gray-300">
+                                                    {comment.usuario?.avatar_url ? (
+                                                        <img src={comment.usuario.avatar_url} className="w-full h-full object-cover" />
+                                                    ) : (
+                                                        <div className="w-full h-full bg-gray-400 flex items-center justify-center text-[8px] text-white font-bold">{comment.usuario?.nome?.[0] || '?'}</div>
+                                                    )}
                                                 </div>
                                                 <div className="bg-white p-2 rounded-lg rounded-tl-none border border-gray-200 shadow-sm flex-1">
                                                     <div className="flex justify-between items-baseline mb-1">
@@ -189,7 +203,6 @@ export default function BimNotesList({ onSelectNote }) {
                                     )}
                                 </div>
 
-                                {/* Input */}
                                 <form onSubmit={(e) => handleCommentSubmit(e, note.id)} className="flex gap-2 mt-2">
                                     <input 
                                         type="text" 
@@ -202,7 +215,7 @@ export default function BimNotesList({ onSelectNote }) {
                                     <button 
                                         type="submit" 
                                         disabled={!newComment.trim() || isSending}
-                                        className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                                        className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-sm"
                                     >
                                         {isSending ? <FontAwesomeIcon icon={faSpinner} spin className="text-xs"/> : <FontAwesomeIcon icon={faPaperPlane} className="text-xs"/>}
                                     </button>
