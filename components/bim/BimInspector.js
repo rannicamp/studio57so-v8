@@ -4,8 +4,8 @@
 import { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
-    faTimes, faLayerGroup, faTasks, faCamera, 
-    faStickyNote, faChevronRight 
+    faLayerGroup, faTasks, faCamera, 
+    faStickyNote 
 } from '@fortawesome/free-solid-svg-icons';
 import BimProperties from './BimProperties';
 import BimElementPlanning from './BimElementPlanning';
@@ -15,35 +15,29 @@ export default function BimInspector({
     elementExternalId, 
     projetoBimId, 
     urnAutodesk, 
-    onClose, // Usado para COLAPSAR agora
+    // onClose, // <-- REMOVIDO (Quem controla isso agora é a página principal)
     onOpenLink,
     onOpenCreate,
     onOpenNote,
     onRestoreNote 
 }) {
-    const [activeTab, setActiveTab] = useState('notes'); // Padrão: Notas (já que é sempre visível)
+    const [activeTab, setActiveTab] = useState(elementExternalId ? 'properties' : 'notes');
 
-    // Se selecionar algo, muda pra aba de dados automaticamente
     useEffect(() => {
         if (elementExternalId) {
             setActiveTab('properties');
-        } else {
-            setActiveTab('notes'); // Se não tem seleção, volta para notas
         }
     }, [elementExternalId]);
 
     return (
         <div className="w-80 bg-white border-l border-gray-200 h-full flex flex-col shadow-2xl z-30 transition-all duration-300">
             
-            {/* HEADER */}
+            {/* HEADER (LIMPO, SEM BOTÃO DE FECHAR) */}
             <div className="bg-white border-b shrink-0">
-                <div className="flex items-center justify-between p-3 border-b border-gray-100 bg-gray-50">
-                    <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-widest flex items-center gap-2">
+                <div className="flex items-center justify-center p-3 border-b border-gray-100 bg-gray-50">
+                    <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-widest text-center">
                         {elementExternalId ? 'Elemento Selecionado' : 'Painel de Colaboração'}
                     </h3>
-                    <button onClick={onClose} className="text-gray-400 hover:text-blue-600 transition-colors p-1" title="Recolher Painel">
-                        <FontAwesomeIcon icon={faChevronRight} />
-                    </button>
                 </div>
                 
                 {/* Abas */}
@@ -72,17 +66,19 @@ export default function BimInspector({
                     )}
 
                     {activeTab === 'notes' && (
-                        <BimNotesList onSelectNote={(note) => { if(onRestoreNote) onRestoreNote(note); }} />
+                        <BimNotesList onSelectNote={(note) => { 
+                            if(onRestoreNote) onRestoreNote(note); 
+                        }} />
                     )}
                 </div>
 
-                {/* FOOTER (Botão Criar Nota) */}
+                {/* FOOTER */}
                 <div className="p-3 border-t border-gray-200 bg-white shrink-0">
                     <button 
                         onClick={() => onOpenNote({ externalId: elementExternalId, projetoBimId: projetoBimId })} 
                         className="w-full bg-purple-600 hover:bg-purple-700 text-white py-2.5 rounded-lg text-xs font-bold shadow-md shadow-purple-100 active:scale-95 transition-all flex items-center justify-center gap-2"
                     >
-                        <FontAwesomeIcon icon={faCamera} /> {elementExternalId ? 'Relatar Problema no Elemento' : 'Criar Nota Geral'}
+                        <FontAwesomeIcon icon={faCamera} /> {elementExternalId ? 'Relatar Problema' : 'Criar Nota Geral'}
                     </button>
                 </div>
             </div>

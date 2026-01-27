@@ -1,3 +1,4 @@
+// Caminho: hooks/bim/useBimModels.js
 import { useState, useRef } from 'react';
 import { toast } from 'sonner';
 
@@ -27,7 +28,7 @@ export function useBimModels(viewerInstance, setIsGanttOpen) {
                 setLoadedFiles(prev => prev.filter(f => f.id !== file.id));
 
                 if (newSelectedModels.length === 0) {
-                    globalOffsetRef.current = null; // Reset Offset
+                    globalOffsetRef.current = null;
                 }
                 toast.success(`${file.nome_arquivo} fechado.`);
             }
@@ -57,9 +58,18 @@ export function useBimModels(viewerInstance, setIsGanttOpen) {
                         return [...prev, file]; 
                     });
 
-                    if (file.empreendimento_id && setIsGanttOpen) setIsGanttOpen(true);
+                    // REMOVIDO: Abertura automática do Gantt
+                    // if (file.empreendimento_id && setIsGanttOpen) setIsGanttOpen(true);
+                    
+                    viewerInstance.fitToView(); 
                     toast.success(`${file.nome_arquivo} carregado`);
+                }, (err) => {
+                    console.error("Erro ao carregar modelo:", err);
+                    toast.error("Erro ao renderizar modelo.");
                 });
+            }, (code, message, errors) => {
+                console.error("Erro ao carregar documento:", message);
+                toast.error("Falha ao acessar o arquivo Autodesk.");
             });
         }
     };
@@ -106,14 +116,21 @@ export function useBimModels(viewerInstance, setIsGanttOpen) {
                         loadedModelsRef.current[urn] = model;
                         if (!globalOffsetRef.current) globalOffsetRef.current = model.getData().globalOffset;
                         resolve();
-                    }, () => resolve());
-                }, () => resolve());
+                    }, (err) => { console.error(err); resolve(); });
+                }, (err) => { console.error(err); resolve(); });
             });
         }
 
         setSelectedModels(newUrns);
         setLoadedFiles(filesInSet);
-        if (filesInSet[0]?.empreendimento_id && setIsGanttOpen) setIsGanttOpen(true);
+
+        // REMOVIDO: Abertura automática do Gantt
+        // if (filesInSet[0]?.empreendimento_id && setIsGanttOpen) setIsGanttOpen(true);
+        
+        setTimeout(() => {
+            if (viewerInstance) viewerInstance.fitToView();
+        }, 500);
+
         toast.dismiss(toastId);
         toast.success("Conjunto carregado!");
     };
@@ -123,6 +140,6 @@ export function useBimModels(viewerInstance, setIsGanttOpen) {
         selectedModels,
         handleToggleModel,
         handleLoadSet,
-        loadedModelsRef // Exportado caso precise sync
+        loadedModelsRef 
     };
 }
