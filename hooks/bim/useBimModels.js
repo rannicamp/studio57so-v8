@@ -10,7 +10,10 @@ export function useBimModels(viewerInstance, setIsGanttOpen) {
 
     // Carregar/Descarregar Único Modelo
     const handleToggleModel = async (file) => {
-        if (!viewerInstance) return;
+        if (!viewerInstance) {
+            console.error("❌ Devonildo diz: O Viewer ainda não foi iniciado!");
+            return;
+        }
 
         const urnBancoLimpa = file.urn_autodesk.replace(/^urn:/, '');
         const isLoaded = selectedModels.includes(urnBancoLimpa);
@@ -34,6 +37,8 @@ export function useBimModels(viewerInstance, setIsGanttOpen) {
         } else {
             // LOAD
             const fullUrn = `urn:${urnBancoLimpa}`;
+            console.log("📡 Devonildo tentando carregar URN:", fullUrn);
+
             const loadOptions = { 
                 keepCurrentModels: true, 
                 applyScaling: 'm', 
@@ -56,23 +61,24 @@ export function useBimModels(viewerInstance, setIsGanttOpen) {
                         if (prev.some(f => f.id === file.id)) return prev; 
                         return [...prev, file]; 
                     });
-
-                    // Gantt automático removido (comportamento manual)
                     
                     viewerInstance.fitToView(); 
                     toast.success(`${file.nome_arquivo} carregado`);
                 }, (err) => {
-                    console.error("Erro ao carregar modelo:", err);
-                    toast.error("Erro ao renderizar modelo.");
+                    console.error("❌ Erro de Renderização Autodesk:", err);
+                    toast.error("Erro ao renderizar modelo no navegador.");
                 });
             }, (code, message, errors) => {
-                console.error("Erro ao carregar documento:", message);
-                toast.error("Falha ao acessar o arquivo Autodesk.");
+                console.error("❌ Erro ao acessar Documento Autodesk:", { code, message, errors });
+                if (code === 403) {
+                    toast.error("Acesso negado! Verifique se o domínio studio57.arq.br está autorizado na Autodesk.");
+                } else {
+                    toast.error(`Falha Autodesk: ${message}`);
+                }
             });
         }
     };
 
-    // Carregar Conjunto (Set)
     const handleLoadSet = async (filesInSet) => {
         if (!viewerInstance) return;
         if (!filesInSet || filesInSet.length === 0) return toast.error("Conjunto vazio.");
@@ -83,7 +89,6 @@ export function useBimModels(viewerInstance, setIsGanttOpen) {
         
         const toastId = toast.loading("Carregando conjunto...");
 
-        // Unload Excedentes
         if (urnsToRemove.length > 0) {
             urnsToRemove.forEach(urn => {
                 const model = loadedModelsRef.current[urn];
@@ -95,7 +100,6 @@ export function useBimModels(viewerInstance, setIsGanttOpen) {
             if (urnsToRemove.length === selectedModels.length) globalOffsetRef.current = null;
         }
 
-        // Load Novos (Sequencial)
         for (const file of filesToAdd) {
             await new Promise((resolve) => {
                 const urn = file.urn_autodesk.replace(/^urn:/, '');
@@ -121,36 +125,22 @@ export function useBimModels(viewerInstance, setIsGanttOpen) {
 
         setSelectedModels(newUrns);
         setLoadedFiles(filesInSet);
-
-        setTimeout(() => {
-            if (viewerInstance) viewerInstance.fitToView();
-        }, 500);
-
+        setTimeout(() => { if (viewerInstance) viewerInstance.fitToView(); }, 500);
         toast.dismiss(toastId);
         toast.success("Conjunto carregado!");
     };
 
-    // --- NOVA FUNÇÃO: LIMPAR TUDO ---
     const handleClearAll = () => {
         if (!viewerInstance) return;
-
-        // 1. Descarrega todos os modelos do Viewer
         selectedModels.forEach(urn => {
             const model = loadedModelsRef.current[urn];
-            if (model) {
-                viewerInstance.impl.unloadModel(model);
-            }
+            if (model) viewerInstance.impl.unloadModel(model);
         });
-
-        // 2. Reseta os estados e referências
         loadedModelsRef.current = {};
         globalOffsetRef.current = null;
         setSelectedModels([]);
         setLoadedFiles([]);
-
-        // 3. Limpa a seleção visual
         viewerInstance.clearSelection();
-        
         toast.success("Seleção limpa.");
     };
 
@@ -159,7 +149,7 @@ export function useBimModels(viewerInstance, setIsGanttOpen) {
         selectedModels,
         handleToggleModel,
         handleLoadSet,
-        handleClearAll, // <--- EXPORTADO AQUI
+        handleClearAll,
         loadedModelsRef 
     };
 }
