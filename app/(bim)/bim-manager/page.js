@@ -19,7 +19,7 @@ import BimNoteModal from '@/components/bim/BimNoteModal';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
     faChevronLeft, faChevronRight, faHome, 
-    faStream, faChevronDown, faColumns 
+    faStream, faChevronDown 
 } from '@fortawesome/free-solid-svg-icons';
 
 // Hooks Personalizados
@@ -32,26 +32,22 @@ export default function BimManagerPage() {
   const queryClient = useQueryClient();
   const { organizacao_id } = useAuth();
   
-  // 1. Hook do Viewer (Base)
   const { 
     viewerInstance, setViewerInstance, 
     selectedElements, setSelectedElements, 
     activeFile, activeUrn, resolveSelection 
   } = useBimViewer();
 
-  // 2. UI States
   const [isSidebarVisible, setIsSidebarVisible] = useState(true);
   const [isGanttOpen, setIsGanttOpen] = useState(false);
-  const [isInspectorVisible, setIsInspectorVisible] = useState(true); // Controle da barra direita
+  const [isInspectorVisible, setIsInspectorVisible] = useState(true);
 
-  // 3. Hook de Modelos
   const { 
       loadedFiles, selectedModels, 
-      handleToggleModel, handleLoadSet, handleClearAll, // <--- PEGAMOS AQUI
+      handleToggleModel, handleLoadSet, handleClearAll,
       loadedModelsRef 
   } = useBimModels(viewerInstance, setIsGanttOpen);
 
-  // 4. Hook de Notas
   const {
       isNoteModalOpen, setIsNoteModalOpen,
       noteCaptureData, 
@@ -60,7 +56,6 @@ export default function BimManagerPage() {
       onNoteSuccess
   } = useBimNotes(viewerInstance, activeFile);
 
-  // 5. Lógica de Atividades
   const [contextTarget, setContextTarget] = useState(null); 
   const [modalInitialData, setModalInitialData] = useState(null); 
   const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
@@ -89,30 +84,20 @@ export default function BimManagerPage() {
       if (!viewerInstance || !activity) return;
       const { data: links } = await supabase.from('atividades_elementos').select('external_id').eq('atividade_id', activity.id);
       if (!links || links.length === 0) { viewerInstance.clearSelection(); return; }
-      
       const externalIdsToSelect = links.map(l => l.external_id);
       const allModels = viewerInstance.impl.modelQueue().getModels();
       const allDbIds = [];
-
       await Promise.all(allModels.map(m => new Promise(r => m.getExternalIdMapping(map => {
           externalIdsToSelect.forEach(eid => { if(map[eid]) { viewerInstance.select(map[eid], m); allDbIds.push(map[eid]); } });
           r();
       }))));
-
       if (allDbIds.length > 0) { viewerInstance.fitToView(allDbIds); toast.info(`${allDbIds.length} vinculados.`); }
-      else toast.warning("Elementos não encontrados.");
   };
 
   const handleOpenLink = (targetData) => resolveSelection(targetData, (ids) => { setContextTarget({ ...targetData, externalIds: ids }); setIsLinkModalOpen(true); });
-  
   const handleOpenCreate = (targetData) => resolveSelection(targetData, (ids) => { 
       setContextTarget(targetData); 
-      setModalInitialData({ 
-          nome: targetData.elementName ? `Instalação ${targetData.elementName}` : '', 
-          projeto_bim_id: targetData.projetoBimId, 
-          elementos_bim: ids, 
-          empreendimento_id: activeFile?.empreendimento_id 
-      }); 
+      setModalInitialData({ nome: targetData.elementName ? `Instalação ${targetData.elementName}` : '', projeto_bim_id: targetData.projetoBimId, elementos_bim: ids, empreendimento_id: activeFile?.empreendimento_id }); 
       setIsCreateModalOpen(true); 
   });
 
@@ -121,7 +106,6 @@ export default function BimManagerPage() {
       const rows = ids.map(id => ({ organizacao_id, atividade_id: activity.id, projeto_bim_id: contextTarget.projetoBimId, external_id: String(id) }));
       const { error } = await supabase.from('atividades_elementos').insert(rows);
       if (!error || error.code === '23505') { toast.success("Vinculado!"); setIsLinkModalOpen(false); setContextTarget(null); queryClient.invalidateQueries(['bimElementLinks']); }
-      else toast.error(error.message);
   };
 
   const executeCreate = () => { setIsCreateModalOpen(false); setActivityToEdit(null); setModalInitialData(null); };
@@ -136,31 +120,18 @@ export default function BimManagerPage() {
   return (
     <div className="flex h-screen w-full overflow-hidden bg-gray-50 flex-col font-sans">
       <div className="flex flex-1 overflow-hidden relative">
-        
-        {/* --- ESQUERDA: NAVEGADOR --- */}
         <div className={`${isSidebarVisible ? 'w-80' : 'w-0'} transition-all duration-300 border-r bg-white z-20 shrink-0 overflow-hidden`}>
-            <BimSidebar 
-                onFileSelect={(f) => { const clean = f.urn_autodesk.replace(/^urn:/, ''); if(!selectedModels.includes(clean)) handleToggleModel(f); }} 
-                onToggleModel={handleToggleModel}
-                onSelectContext={handleSelectContext}
-                selectedModels={selectedModels}
-                activeUrn={activeUrn} 
-                onLoadSet={handleLoadSet} 
-                onClearAll={handleClearAll} // <--- PASSAMOS AQUI
-            />
+            <BimSidebar onFileSelect={(f) => { const clean = f.urn_autodesk.replace(/^urn:/, ''); if(!selectedModels.includes(clean)) handleToggleModel(f); }} onToggleModel={handleToggleModel} onSelectContext={handleSelectContext} selectedModels={selectedModels} activeUrn={activeUrn} onLoadSet={handleLoadSet} onClearAll={handleClearAll} />
         </div>
 
-        {/* --- CENTRO + DIREITA --- */}
         <main className="flex-1 h-full relative flex min-w-0 bg-white">
-            
             <div className="flex-1 relative h-full w-full flex flex-col min-w-0">
-                
-                {/* 1. Botões Flutuantes ESQUERDA (Navegador) */}
                 <div className="absolute top-4 left-4 z-[60] flex gap-2">
                     <button onClick={() => setIsSidebarVisible(!isSidebarVisible)} className="bg-white/90 p-2 rounded-lg shadow-sm border text-gray-600 hover:bg-white transition-all">
                         <FontAwesomeIcon icon={isSidebarVisible ? faChevronLeft : faChevronRight} />
                     </button>
-                    <Link href="/dashboard" className="bg-white/90 p-2 rounded-lg shadow-sm border text-gray-600 hover:bg-white transition-all">
+                    {/* BOTÃO DA CASINHA: APONTANDO PARA /painel */}
+                    <Link href="/painel" className="bg-white/90 p-2 rounded-lg shadow-sm border text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-all" title="Voltar ao Painel">
                         <FontAwesomeIcon icon={faHome} />
                     </Link>
                     <button onClick={() => setIsGanttOpen(!isGanttOpen)} className={`bg-white/90 p-2 rounded-lg shadow-sm border transition-all flex items-center gap-2 ${isGanttOpen ? 'text-blue-600 border-blue-300 ring-1' : ''}`}>
@@ -169,22 +140,16 @@ export default function BimManagerPage() {
                     </button>
                 </div>
 
-                {/* 2. Botão Flutuante DIREITA (Inspector) */}
                 <div className="absolute top-4 right-4 z-[60]">
-                    <button 
-                        onClick={() => setIsInspectorVisible(!isInspectorVisible)} 
-                        className="bg-white/90 p-2 rounded-lg shadow-sm border text-gray-600 hover:bg-white transition-all hover:text-purple-600"
-                    >
+                    <button onClick={() => setIsInspectorVisible(!isInspectorVisible)} className="bg-white/90 p-2 rounded-lg shadow-sm border text-gray-600 hover:bg-white transition-all hover:text-purple-600">
                         <FontAwesomeIcon icon={isInspectorVisible ? faChevronRight : faChevronLeft} />
                     </button>
                 </div>
 
-                {/* Viewer */}
                 <div className="flex-1 w-full relative">
                     <AutodeskViewerAPI urn={null} onViewerReady={setViewerInstance} />
                 </div>
 
-                {/* Gantt */}
                 <div className={`absolute bottom-0 left-0 right-0 z-[50] bg-white border-t border-gray-200 shadow-[0_-5px_30px_rgba(0,0,0,0.15)] transition-all duration-500 ease-in-out flex flex-col`} style={{ height: isGanttOpen ? '45%' : '0px' }}>
                     <div className="h-10 border-b flex items-center justify-between px-4 bg-gray-50 shrink-0">
                         <div className="flex items-center gap-2"><FontAwesomeIcon icon={faStream} className="text-blue-600 text-xs" /><span className="text-xs font-bold text-gray-700 uppercase tracking-wider">Cronograma ({visibleActivities.length} atv.)</span></div>
@@ -202,23 +167,12 @@ export default function BimManagerPage() {
                 </div>
             </div>
 
-            {/* --- DIREITA: INSPECTOR --- */}
             <div className={`${isInspectorVisible ? 'w-80 border-l' : 'w-0 border-none'} bg-white transition-all duration-300 flex flex-col overflow-hidden shrink-0 z-20 shadow-xl`}>
-                <BimInspector 
-                    elementExternalId={selectedElements[0]} 
-                    projetoBimId={activeFile?.id} 
-                    urnAutodesk={activeUrn} 
-                    onOpenLink={handleOpenLink}
-                    onOpenCreate={handleOpenCreate}
-                    onOpenNote={handleOpenNoteCreation}
-                    onRestoreNote={handleRestoreNote} 
-                />
+                <BimInspector elementExternalId={selectedElements[0]} projetoBimId={activeFile?.id} urnAutodesk={activeUrn} onOpenLink={handleOpenLink} onOpenCreate={handleOpenCreate} onOpenNote={handleOpenNoteCreation} onRestoreNote={handleRestoreNote} />
             </div>
-
         </main>
       </div>
 
-      {/* Modals */}
       <BimLinkActivityModal isOpen={isLinkModalOpen} onClose={() => setIsLinkModalOpen(false)} activities={allActivities} onLink={executeLink} targetElement={contextTarget} selectedCount={contextTarget?.externalIds?.length || 1} />
       {isCreateModalOpen && <AtividadeModal isOpen={isCreateModalOpen} onClose={() => { setIsCreateModalOpen(false); setActivityToEdit(null); }} onSuccess={executeCreate} initialData={modalInitialData} activityToEdit={activityToEdit} />}
       <BimNoteModal isOpen={isNoteModalOpen} onClose={() => setIsNoteModalOpen(false)} captureData={noteCaptureData} activities={visibleActivities} onSuccess={onNoteSuccess} />
