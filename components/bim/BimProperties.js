@@ -20,141 +20,163 @@ export default function BimProperties({ elementExternalId, projetoBimId, urnAuto
     const [editingKey, setEditingKey] = useState(null);
     const [tempValue, setTempValue] = useState('');
 
-    // Busca de Dados
-    const { data: elemento, isLoading, isFetching } = useQuery({
+    const { data: elemento, isFetching } = useQuery({
         queryKey: ['bimElementProperties', elementExternalId, urnAutodesk],
         queryFn: async () => {
             if (!elementExternalId) return null;
             const cleanUrn = urnAutodesk ? urnAutodesk.replace(/^urn:/, '').trim() : null;
-
-            // Tenta buscar no nosso banco (metadados extraídos/editados)
-            let query = supabase.from('elementos_bim')
-                .select('*')
-                .eq('external_id', elementExternalId);
             
+            let query = supabase.from('elementos_bim').select('*').eq('external_id', elementExternalId);
             if (cleanUrn) query = query.eq('urn_autodesk', cleanUrn);
             else if (projetoBimId) query = query.eq('projeto_bim_id', projetoBimId);
 
             const { data, error } = await query.maybeSingle(); 
             if (error) throw error;
-
-            return data || { 
-                external_id: elementExternalId, 
-                propriedades: {} 
-            };
+            
+            return data || { external_id: elementExternalId, propriedades: {} };
         },
         enabled: !!elementExternalId,
     });
 
-    // Função de Salvar Edição
-    const autoSave = async (key, newValue) => {
-        if (elemento?.propriedades?.[key] === newValue) { setEditingKey(null); return; }
+    // --- FUNÇÃO DE FORMATAÇÃO E ARREDONDAMENTO (SEM PONTOS DE MILHAR) ---
+    const formatValue = (val) => {
+        if (val === null || val === undefined) return "";
+        const stringVal = String(val).trim();
         
-        try {
-            const novasPropriedades = { ...(elemento?.propriedades || {}), [key]: newValue };
-            const cleanUrn = urnAutodesk?.replace(/^urn:/, '').trim();
-            
-            const { error } = await supabase.from('elementos_bim').upsert({ 
-                organizacao_id, 
-                projeto_bim_id: elemento.projeto_bim_id || projetoBimId, 
-                urn_autodesk: cleanUrn, 
-                external_id: elementExternalId,
-                propriedades: novasPropriedades, 
-                categoria: elemento?.categoria || 'Elemento Nativo',
-                atualizado_em: new Date() 
-            }, { onConflict: 'projeto_bim_id, external_id' });
+        // Remove traço, null ou vazio
+        if (stringVal === "-" || stringVal === "" || stringVal.toLowerCase() === "null") return "";
 
-            if (error) throw error;
-            toast.success(`Propriedade atualizada!`);
-            queryClient.invalidateQueries(['bimElementProperties']);
-        } catch (error) { 
-            toast.error("Erro ao salvar propriedade."); 
-            console.error(error);
-        } finally { 
-            setEditingKey(null); 
+        const num = parseFloat(stringVal);
+        if (!isNaN(num) && isFinite(num)) {
+            // Retorna o número com 2 casas decimais e ponto (ex: 5132131.56)
+            return Number(num.toFixed(2)).toString();
         }
+        
+        return stringVal;
     };
 
-    // Renderização da Lista
-    const renderProperties = () => {
-        const props = elemento?.propriedades || {};
-        const entries = Object.entries(props);
+    const autoSave = async (key, newValue) => {
+        if (elemento?.propriedades?.[key] === newValue) { setEditingKey(null); return; }
+        try {
+            const novasPropriedades = { ...(elemento?.propriedades || {}), [key]: newValue };
+            await supabase.from('elementos_bim').upsert({ 
+                organizacao_id, 
+                projeto_bim_id: elemento.projeto_bim_id || projetoBimId, 
+                urn_autodesk: urnAutodesk?.replace(/^urn:/, '').trim(), 
+                external_id: elementExternalId,
+                propriedades: novasPropriedades, 
+                categoria: elemento?.categoria,
+                familia: elemento?.familia,
+                tipo: elemento?.tipo,
+                atualizado_em: new Date() 
+            }, { onConflict: 'projeto_bim_id, external_id' });
+            toast.success(`Propriedade salva!`);
+            queryClient.invalidateQueries(['bimElementProperties']);
+        } catch (error) { toast.error("Erro ao salvar."); } finally { setEditingKey(null); }
+    };
 
-        if (entries.length === 0 && !showEmpty) {
-            return (
-                <div className="flex flex-col items-center justify-center h-40 text-center border-2 border-dashed border-gray-200 rounded-lg m-4">
-                    <p className="text-[10px] font-bold text-gray-400 uppercase">Nenhuma propriedade extraída</p>
-                    <p className="text-[9px] text-gray-300 mt-1">Clique em "Sincronizar" no menu lateral</p>
-                </div>
-            );
+    const props = elemento?.propriedades || {};
+
+    // --- BUSCA INTELIGENTE DE DESTAQUES (COLUNA OU JSON) ---
+    const getDestaqueValue = (colName, jsonNames) => {
+        // 1. Tenta pegar da coluna direta do banco (Ex: elemento.familia)
+        if (elemento && elemento[colName] && elemento[colName] !== "-" && elemento[colName] !== "") {
+            return formatValue(elemento[colName]);
         }
+        // 2. Se não achou na coluna, busca no JSON de propriedades
+        const jsonKey = Object.keys(props).find(k => jsonNames.some(n => k.toLowerCase().includes(n.toLowerCase())));
+        return formatValue(props[jsonKey]);
+    };
 
-        return entries.filter(([_, v]) => showEmpty || (v !== null && v !== "")).map(([key, value]) => {
-            const isEditing = editingKey === key;
-            return (
-                <div key={key} className={`group p-2.5 rounded-lg border transition-all relative ${isEditing ? 'bg-blue-50 border-blue-200 shadow-sm' : 'bg-white border-gray-100 hover:border-blue-200'}`}>
-                    <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1 truncate pr-6">{key}</p>
-                    
-                    <div className="relative min-h-[1.25rem]">
-                        {isEditing ? (
-                            <textarea 
-                                autoFocus 
-                                value={tempValue} 
-                                onChange={(e) => setTempValue(e.target.value)} 
-                                onBlur={() => autoSave(key, tempValue)} 
-                                className="w-full text-xs font-bold text-blue-900 bg-white border border-blue-200 rounded p-1 outline-none resize-none shadow-inner"
-                                rows={2}
-                            />
-                        ) : (
-                            <p className="text-xs text-gray-700 font-medium leading-relaxed break-words pr-6 line-clamp-4 cursor-text" onClick={() => { setEditingKey(key); setTempValue(value); }}>
-                                {String(value || '-')}
-                            </p>
-                        )}
-                        
-                        {!isEditing && (
-                            <button 
-                                onClick={() => { setEditingKey(key); setTempValue(value); }} 
-                                className="absolute top-[-20px] right-[-4px] opacity-0 group-hover:opacity-100 p-1.5 text-blue-400 hover:text-blue-600 transition-all"
-                            >
-                                <FontAwesomeIcon icon={faPencilAlt} className="text-[10px]" />
-                            </button>
-                        )}
-                    </div>
+    const destaques = {
+        familia: getDestaqueValue('familia', ['família', 'family', 'categoria']),
+        tipo: getDestaqueValue('tipo', ['tipo', 'type name', 'nome do tipo']),
+        area: getDestaqueValue('', ['área', 'area']),
+        volume: getDestaqueValue('', ['volume']),
+        comprimento: getDestaqueValue('', ['comprimento', 'length', 'comp.', 'conduíte'])
+    };
+
+    const renderPropertyCard = (key, value) => {
+        const formatted = formatValue(value);
+        // Se o valor for vazio ou traço, e não estiver em "Mostrar Tudo", oculta
+        if (!showEmpty && formatted === "") return null;
+
+        // Oculta chaves que já estão no topo
+        const keysDestaque = ['família', 'family', 'tipo', 'type name', 'área', 'area', 'volume', 'comprimento', 'length', 'conduíte'];
+        if (keysDestaque.some(kd => key.toLowerCase().includes(kd))) return null;
+
+        const isEditing = editingKey === key;
+
+        return (
+            <div key={key} className={`group p-2 rounded-lg border transition-all ${isEditing ? 'bg-blue-50 border-blue-200' : 'bg-white border-gray-100 hover:border-blue-200'}`}>
+                <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-0.5 truncate">{key}</p>
+                <div className="relative">
+                    {isEditing ? (
+                        <input autoFocus value={tempValue} onChange={(e) => setTempValue(e.target.value)} onBlur={() => autoSave(key, tempValue)} className="w-full text-xs font-bold text-blue-900 bg-white border border-blue-200 rounded px-1 outline-none" />
+                    ) : (
+                        <p className="text-xs text-gray-700 font-medium cursor-text truncate pr-4" onClick={() => { setEditingKey(key); setTempValue(value); }}>
+                            {formatted || '-'}
+                        </p>
+                    )}
                 </div>
-            );
-        });
+            </div>
+        );
     };
 
     return (
-        <div className="h-full flex flex-col">
-            {/* Header Interno do Conteúdo (Detalhes do ID) */}
-            <div className="p-4 bg-white border-b border-gray-100 shadow-[0_4px_10px_-5px_rgba(0,0,0,0.05)] z-10">
-                <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg p-3 shadow-md relative overflow-hidden text-white mb-3">
-                    <div className="flex justify-between items-start">
-                        <div>
-                            <p className="text-[8px] font-bold uppercase text-gray-400 mb-0.5">External ID</p>
-                            <p className="text-[10px] font-mono text-white break-all">{elementExternalId}</p>
-                        </div>
-                        <FontAwesomeIcon icon={faCube} className="text-gray-700 text-2xl" />
+        <div className="h-full flex flex-col bg-gray-50">
+            {/* 1. HEADER: FAMÍLIA E TIPO (BUSCANDO DAS COLUNAS CERTAS) */}
+            <div className="p-4 bg-white border-b border-gray-100 shadow-sm">
+                <div className="flex items-center gap-2 mb-3">
+                    <div className="w-8 h-8 rounded-lg bg-gray-800 flex items-center justify-center text-white shadow-lg shrink-0">
+                        <FontAwesomeIcon icon={faCube} />
+                    </div>
+                    <div className="min-w-0">
+                        <h3 className="text-[12px] font-black text-gray-900 leading-tight truncate uppercase italic">
+                            {destaques.familia || elemento?.categoria || 'Elemento Nativo'}
+                        </h3>
+                        <p className="text-[10px] font-bold text-blue-600 truncate uppercase tracking-tighter">
+                            {destaques.tipo || 'Tipo Principal'}
+                        </p>
                     </div>
                 </div>
 
-                <div className="flex justify-end">
-                    <button onClick={() => setShowEmpty(!showEmpty)} className={`text-[10px] font-bold flex items-center gap-1.5 px-2 py-1 rounded transition-colors ${showEmpty ? 'bg-blue-50 text-blue-600' : 'text-gray-400 hover:text-gray-600'}`}>
-                        <FontAwesomeIcon icon={showEmpty ? faEye : faEyeSlash} /> 
-                        {showEmpty ? 'Ocultando Vazios' : 'Mostrando Tudo'}
-                    </button>
+                {/* 2. GRID QUANTITATIVOS (ARREDONDAMENTO PURO) */}
+                <div className="grid grid-cols-3 gap-2 py-2 border-t border-gray-50 mt-2">
+                    <div className="bg-gray-50 p-2 rounded-lg text-center border border-gray-100">
+                        <p className="text-[8px] font-black text-gray-400 uppercase">Área</p>
+                        <p className="text-[11px] font-bold text-gray-700">{destaques.area || '--'}</p>
+                    </div>
+                    <div className="bg-gray-50 p-2 rounded-lg text-center border border-gray-100">
+                        <p className="text-[8px] font-black text-gray-400 uppercase">Volume</p>
+                        <p className="text-[11px] font-bold text-gray-700">{destaques.volume || '--'}</p>
+                    </div>
+                    <div className="bg-gray-50 p-2 rounded-lg text-center border border-gray-100">
+                        <p className="text-[8px] font-black text-gray-400 uppercase">Comp.</p>
+                        <p className="text-[11px] font-bold text-gray-700">{destaques.comprimento || '--'}</p>
+                    </div>
                 </div>
             </div>
 
-            {/* Lista com Scroll */}
-            <div className="flex-1 overflow-y-auto p-3 space-y-2 custom-scrollbar bg-gray-50">
+            {/* 3. FILTRO DE METADADOS */}
+            <div className="px-4 py-1.5 flex justify-between items-center bg-gray-50 border-b border-gray-100">
+                <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Metadados Extraídos</span>
+                <button onClick={() => setShowEmpty(!showEmpty)} className={`text-[9px] font-bold flex items-center gap-1 px-2 py-1 rounded-full transition-all ${showEmpty ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-200 text-gray-500'}`}>
+                    <FontAwesomeIcon icon={showEmpty ? faEye : faEyeSlash} /> {showEmpty ? 'TUDO' : 'RELEVANTES'}
+                </button>
+            </div>
+
+            {/* 4. LISTA DE PROPRIEDADES FILTRADA */}
+            <div className="flex-1 overflow-y-auto p-3 space-y-1.5 custom-scrollbar">
                 {isFetching ? (
-                    <div className="flex flex-col items-center justify-center py-10 gap-2 opacity-50">
-                        <FontAwesomeIcon icon={faSpinner} spin className="text-blue-500 text-xl" />
-                        <span className="text-[10px] uppercase font-bold text-gray-400">Carregando dados...</span>
-                    </div>
-                ) : renderProperties()}
+                    <div className="flex justify-center py-10 opacity-30"><FontAwesomeIcon icon={faSpinner} spin size="lg" /></div>
+                ) : (
+                    Object.entries(props).map(([k, v]) => renderPropertyCard(k, v))
+                )}
+                
+                <div className="mt-6 pt-4 border-t border-gray-200 opacity-20">
+                    <p className="text-[7px] font-mono text-center break-all uppercase">REF: {elementExternalId}</p>
+                </div>
             </div>
         </div>
     );
