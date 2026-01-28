@@ -2,30 +2,54 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
+import { createClient } from '@/utils/supabase/client';
 
 export function useBimNotes(viewerInstance, activeFile) {
     const queryClient = useQueryClient();
+    const supabase = createClient();
     const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
     const [noteCaptureData, setNoteCaptureData] = useState(null);
 
-    // Abrir Modal de Criação (Snapshot)
-    const handleOpenNoteCreation = (targetData) => {
+    // Abrir Modal de Criação (Captura Seleção Múltipla)
+    const handleOpenNoteCreation = async (targetData) => {
         if (!viewerInstance) return;
 
         const cameraState = viewerInstance.getState({ viewport: true });
         
-        // Screenshot
+        // Pegamos a seleção atual do Viewer
+        const aggregateSelection = viewerInstance.getAggregateSelection();
+        let selectedExternalIds = [];
+
+        if (aggregateSelection.length > 0) {
+            const selection = aggregateSelection[0];
+            const model = selection.model;
+            const dbIds = selection.selection;
+
+            // Transformamos DBIDs em ExternalIDs (IDs do Revit)
+            await new Promise((resolve) => {
+                model.getBulkProperties(dbIds, ['externalId'], (props) => {
+                    selectedExternalIds = props.map(p => p.externalId);
+                    resolve();
+                }, resolve);
+            });
+        }
+
+        // Se não selecionou nada mas clicou num elemento específico
+        if (selectedExternalIds.length === 0 && targetData?.externalId) {
+            selectedExternalIds = [targetData.externalId];
+        }
+
+        // Screenshot para a nota
         viewerInstance.getScreenShot(800, 600, (blobUrl) => {
             fetch(blobUrl)
                 .then(res => res.blob())
                 .then(blob => {
                     const reader = new FileReader();
                     reader.onloadend = () => {
-                        const base64data = reader.result;
                         setNoteCaptureData({
                             cameraState,
-                            snapshot: base64data,
-                            elementId: targetData?.externalId,
+                            snapshot: reader.result,
+                            elementIds: selectedExternalIds, // <--- Lista de IDs
                             projetoBimId: activeFile?.id 
                         });
                         setIsNoteModalOpen(true);
@@ -35,60 +59,56 @@ export function useBimNotes(viewerInstance, activeFile) {
         });
     };
 
-    // Restaurar Nota (Lógica de Zoom)
+    // Restaurar Nota (Lógica de Zoom Coletivo)
     const handleRestoreNote = async (note) => {
         if (!viewerInstance) return;
 
-        console.log("Tentando restaurar nota:", note.titulo); // Debug
+        // Buscamos os elementos vinculados na tabela nova
+        const { data: vinculos } = await supabase
+            .from('bim_notas_elementos')
+            .select('external_id')
+            .eq('nota_id', note.id);
 
-        // 1. Elemento Vinculado (Prioridade)
-        if (note.elemento_vinculado_id) {
-            const extId = note.elemento_vinculado_id;
+        const externalIds = vinculos?.map(v => v.external_id) || [];
+
+        if (externalIds.length > 0) {
             const allModels = viewerInstance.impl.modelQueue().getModels();
-            let found = false;
+            let allDbIds = [];
+            let targetModel = null;
 
             for (const model of allModels) {
                 await new Promise((resolve) => {
                     model.getExternalIdMapping((mapping) => {
-                        if (mapping[extId]) {
-                            const dbId = mapping[extId];
-                            
-                            // Restaura camera state se houver (para ângulo)
-                            if (note.camera_state) {
-                                try {
-                                    const state = typeof note.camera_state === 'string' ? JSON.parse(note.camera_state) : note.camera_state;
-                                    viewerInstance.restoreState(state);
-                                } catch(e) {}
+                        externalIds.forEach(extId => {
+                            if (mapping[extId]) {
+                                allDbIds.push(mapping[extId]);
+                                targetModel = model;
                             }
-
-                            // Select e Zoom (Fit To View é crucial aqui)
-                            viewerInstance.select(dbId, model);
-                            viewerInstance.fitToView([dbId], model); 
-                            found = true;
-                        }
+                        });
                         resolve();
                     });
                 });
-                if (found) break;
             }
 
-            if (found) {
-                toast.success("Elemento localizado.");
+            if (allDbIds.length > 0) {
+                // Restaura a câmera original da nota se houver
+                if (note.camera_state) {
+                    const state = typeof note.camera_state === 'string' ? JSON.parse(note.camera_state) : note.camera_state;
+                    viewerInstance.restoreState(state);
+                }
+                
+                viewerInstance.select(allDbIds, targetModel);
+                viewerInstance.fitToView(allDbIds, targetModel);
+                toast.success(`${allDbIds.length} elementos localizados.`);
                 return;
-            } else {
-                toast.warning("Elemento não encontrado. Restaurando câmera.");
             }
         }
         
-        // 2. Apenas Câmera (Sem elemento ou não achou)
+        // Fallback: Apenas Câmera
         if (note.camera_state) {
-            try {
-                const state = typeof note.camera_state === 'string' ? JSON.parse(note.camera_state) : note.camera_state;
-                viewerInstance.restoreState(state);
-                toast.success("Vista restaurada.");
-            } catch (e) {
-                toast.error("Erro ao restaurar vista.");
-            }
+            const state = typeof note.camera_state === 'string' ? JSON.parse(note.camera_state) : note.camera_state;
+            viewerInstance.restoreState(state);
+            toast.success("Vista restaurada.");
         }
     };
 
@@ -97,7 +117,7 @@ export function useBimNotes(viewerInstance, activeFile) {
         setIsNoteModalOpen,
         noteCaptureData,
         handleOpenNoteCreation,
-        handleRestoreNote, // <--- ESTA LINHA É OBRIGATÓRIA
+        handleRestoreNote,
         onNoteSuccess: () => {
             queryClient.invalidateQueries(['bimNotes']);
             toast.success("Nota salva!");
