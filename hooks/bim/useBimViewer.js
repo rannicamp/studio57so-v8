@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 export function useBimViewer() {
     const [viewerInstance, setViewerInstance] = useState(null);
     const [selectedElements, setSelectedElements] = useState([]);
+    const [fastSelectionCount, setFastSelectionCount] = useState(0); // O Contador Rápido
     const [activeFile, setActiveFile] = useState(null);
     const [activeUrn, setActiveUrn] = useState(null);
     
@@ -15,47 +16,64 @@ export function useBimViewer() {
 
         // Função de tratamento do evento
         const onAggregateSelection = (event) => {
-            const aggregateSelection = viewerInstance.getAggregateSelection();
-            if (aggregateSelection && aggregateSelection.length > 0) {
-                const selectionSet = aggregateSelection[0];
-                const model = selectionSet.model;
-                const dbIds = selectionSet.selection;
+            // --- A LIÇÃO APRENDIDA (CORREÇÃO BASEADA NA SUA PESQUISA) ---
+            // Em vez de .getSelection() que falha em multi-modelos, 
+            // usamos .getAggregateSelection() que varre tudo.
+            const aggregateList = viewerInstance.getAggregateSelection();
+            
+            // Soma a quantidade de itens selecionados em TODOS os modelos carregados
+            const totalCount = aggregateList.reduce((acc, curr) => acc + curr.selection.length, 0);
+            
+            // Atualiza o contador instantaneamente
+            setFastSelectionCount(totalCount);
+
+            // --- Lógica de Dados (Mantida para Propriedades) ---
+            if (aggregateList && aggregateList.length > 0) {
+                // Pega o último item clicado para mostrar as propriedades
+                const lastSelection = aggregateList[0]; 
+                const model = lastSelection.model;
+                const dbIds = lastSelection.selection;
 
                 if (model && dbIds.length > 0) {
-                    const dbId = dbIds[dbIds.length - 1];
+                    const dbId = dbIds[0]; // Pega o primeiro ID do grupo
+                    
+                    // 1. Tenta pegar metadados do arquivo (se houver)
                     const fileData = model.studio57_context;
-
                     if (fileData) {
-                        // Só atualiza se for diferente para evitar re-render
                         setActiveFile(prev => prev?.id === fileData.id ? prev : fileData);
                         setActiveUrn(prev => {
                             const newUrn = fileData.urn_autodesk.replace(/^urn:/, '');
                             return prev === newUrn ? prev : newUrn;
                         });
-                        
-                        // Pega o ExternalId para o Inspetor
-                        model.getBulkProperties([dbId], { propFilter: ['externalId', 'name'] }, (results) => {
-                            if (results && results.length > 0) {
-                                setSelectedElements([results[0].externalId]);
-                            }
-                        });
                     }
+
+                    // 2. Busca o ID externo
+                    model.getBulkProperties([dbId], { propFilter: ['externalId', 'name'] }, (results) => {
+                        if (results && results.length > 0) {
+                            const idToUse = results[0].externalId || String(results[0].dbId);
+                            setSelectedElements([idToUse]);
+                        }
+                    }, (err) => {
+                        console.error("Erro ao buscar propriedades:", err);
+                    });
                 }
             } else {
+                // Se clicou no vazio
                 setSelectedElements([]);
+                setFastSelectionCount(0);
             }
         };
 
-        // Adiciona o listener
+        // Adiciona o listener para MUDANÇA AGREGADA (O evento correto para multi-model)
         viewerInstance.addEventListener(window.Autodesk.Viewing.AGGREGATE_SELECTION_CHANGED_EVENT, onAggregateSelection);
         
-        // Limpeza (Crucial para não travar)
+        // Limpeza
         return () => {
             if (viewerInstance) {
                 viewerInstance.removeEventListener(window.Autodesk.Viewing.AGGREGATE_SELECTION_CHANGED_EVENT, onAggregateSelection);
             }
         };
-    }, [viewerInstance]); // Dependência correta
+    }, [viewerInstance]);
 
     // Helper para resolver seleção múltipla
     const resolveSelection = (targetData, callback) => {
@@ -63,11 +81,11 @@ export function useBimViewer() {
             callback([targetData.externalId]);
             return;
         }
+        // Aqui também atualizamos para usar a lógica agregada se precisar no futuro
         const currentSelection = viewerInstance.getSelection();
-
-        if (currentSelection.length > 1) {
-            const model = viewerInstance.model;
-            model.getBulkProperties(currentSelection, ['externalId'], (props) => {
+        if (currentSelection.length > 0) {
+             const model = viewerInstance.model;
+             model.getBulkProperties(currentSelection, ['externalId'], (props) => {
                 const allExternalIds = props.map(p => p.externalId);
                 callback(allExternalIds);
             }, (err) => {
@@ -83,6 +101,7 @@ export function useBimViewer() {
         setViewerInstance,
         selectedElements,
         setSelectedElements,
+        fastSelectionCount, // Exportando o contador corrigido
         activeFile,
         activeUrn,
         resolveSelection

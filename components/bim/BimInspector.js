@@ -1,4 +1,3 @@
-// Caminho: components/bim/BimInspector.js
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -13,9 +12,9 @@ import BimNotesList from './BimNotesList';
 
 export default function BimInspector({ 
     elementExternalId, 
+    selectedCount = 0, // Recebendo o contador da Page
     projetoBimId, 
     urnAutodesk, 
-    // onClose, // <-- REMOVIDO (Quem controla isso agora é a página principal)
     onOpenLink,
     onOpenCreate,
     onOpenNote,
@@ -32,7 +31,7 @@ export default function BimInspector({
     return (
         <div className="w-80 bg-white border-l border-gray-200 h-full flex flex-col shadow-2xl z-30 transition-all duration-300">
             
-            {/* HEADER (LIMPO, SEM BOTÃO DE FECHAR) */}
+            {/* HEADER */}
             <div className="bg-white border-b shrink-0">
                 <div className="flex items-center justify-center p-3 border-b border-gray-100 bg-gray-50">
                     <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-widest text-center">
@@ -58,7 +57,13 @@ export default function BimInspector({
             <div className="flex-1 overflow-hidden relative bg-gray-50/30 flex flex-col">
                 <div className="flex-1 overflow-y-auto custom-scrollbar">
                     {activeTab === 'properties' && elementExternalId && (
-                        <BimProperties elementExternalId={elementExternalId} projetoBimId={projetoBimId} urnAutodesk={urnAutodesk} />
+                        /* Passando o contador para dentro das Propriedades */
+                        <BimProperties 
+                            elementExternalId={elementExternalId} 
+                            selectedCount={selectedCount}
+                            projetoBimId={projetoBimId} 
+                            urnAutodesk={urnAutodesk} 
+                        />
                     )}
 
                     {activeTab === 'planning' && elementExternalId && (

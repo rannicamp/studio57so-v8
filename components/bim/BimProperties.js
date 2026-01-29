@@ -1,4 +1,3 @@
-// Caminho: components/bim/BimProperties.js
 'use client';
 
 import { useState } from 'react';
@@ -7,11 +6,11 @@ import { createClient } from '../../utils/supabase/client';
 import { useAuth } from '../../contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
-    faSpinner, faEye, faEyeSlash, faPencilAlt, faCube, faTag 
+    faSpinner, faEye, faEyeSlash, faPencilAlt, faCube, faTag, faMousePointer 
 } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 
-export default function BimProperties({ elementExternalId, projetoBimId, urnAutodesk }) {
+export default function BimProperties({ elementExternalId, selectedCount, projetoBimId, urnAutodesk }) {
     const supabase = createClient();
     const queryClient = useQueryClient();
     const { organizacao_id } = useAuth();
@@ -111,9 +110,20 @@ export default function BimProperties({ elementExternalId, projetoBimId, urnAuto
 
     return (
         <div className="h-full flex flex-col bg-gray-50">
-            {/* 1. HEADER REORGANIZADO: FAMÍLIA -> TIPO -> CATEGORIA  */}
+            {/* 1. HEADER COM O CONTADOR NOVO */}
             <div className="p-4 bg-white border-b border-gray-100 shadow-sm">
                 <div className="flex flex-col gap-1 mb-3">
+                    
+                    {/* AQUI ESTÁ A NOVIDADE: Badge de Seleção */}
+                    {selectedCount > 0 && (
+                        <div className="flex items-center gap-1.5 mb-1">
+                            <span className="bg-blue-50 text-blue-700 text-[9px] font-extrabold px-2 py-0.5 rounded-full border border-blue-100 flex items-center gap-1">
+                                <FontAwesomeIcon icon={faMousePointer} className="text-[8px]" />
+                                {selectedCount} {selectedCount === 1 ? 'SELECIONADO' : 'SELECIONADOS'}
+                            </span>
+                        </div>
+                    )}
+
                     <h3 className="text-[13px] font-black text-gray-900 leading-tight uppercase italic truncate">
                         {destaques.familia || 'Elemento'}
                     </h3>
