@@ -11,8 +11,7 @@ import Link from 'next/link';
 // Componentes UI
 import BimSidebar from '@/components/bim/BimSidebar';
 import BimInspector from '@/components/bim/BimInspector';
-// Mantendo o AutodeskViewerAPI pois você disse que funcionava melhor no seu setup original
-import AutodeskViewerAPI from '@/components/bim/AutodeskViewerAPI'; 
+import AutodeskViewerAPI from '@/components/bim/AutodeskViewerAPI';
 import GanttChart from '@/components/atividades/GanttChart'; 
 import BimLinkActivityModal from '@/components/bim/BimLinkActivityModal';
 import AtividadeModal from '@/components/atividades/AtividadeModal';
@@ -36,7 +35,7 @@ export default function BimManagerPage() {
   const { 
     viewerInstance, setViewerInstance, 
     selectedElements, setSelectedElements, 
-    fastSelectionCount, // <--- O NOVO CONTADOR AQUI
+    fastSelectionCount, 
     activeFile, activeUrn, resolveSelection 
   } = useBimViewer();
 
@@ -75,12 +74,9 @@ export default function BimManagerPage() {
   });
 
   const visibleActivities = useMemo(() => {
-    // Proteção para não quebrar o .map se loadedFiles for undefined
     if (!loadedFiles || loadedFiles.length === 0) return [];
-    
     const activeProjectIds = loadedFiles.map(f => f.empreendimento_id ? String(f.empreendimento_id) : null).filter(Boolean);
     if (activeProjectIds.length === 0) return [];
-    
     return allActivities.filter(act => act.empreendimento_id && activeProjectIds.includes(String(act.empreendimento_id)))
         .map(act => ({ ...act, start_date: act.data_inicio_prevista, end_date: act.data_fim_prevista }));
   }, [allActivities, loadedFiles]);
@@ -135,7 +131,6 @@ export default function BimManagerPage() {
                     <button onClick={() => setIsSidebarVisible(!isSidebarVisible)} className="bg-white/90 p-2 rounded-lg shadow-sm border text-gray-600 hover:bg-white transition-all">
                         <FontAwesomeIcon icon={isSidebarVisible ? faChevronLeft : faChevronRight} />
                     </button>
-                    {/* BOTÃO DA CASINHA: APONTANDO PARA /painel */}
                     <Link href="/painel" className="bg-white/90 p-2 rounded-lg shadow-sm border text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-all" title="Voltar ao Painel">
                         <FontAwesomeIcon icon={faHome} />
                     </Link>
@@ -174,8 +169,9 @@ export default function BimManagerPage() {
 
             <div className={`${isInspectorVisible ? 'w-80 border-l' : 'w-0 border-none'} bg-white transition-all duration-300 flex flex-col overflow-hidden shrink-0 z-20 shadow-xl`}>
                 <BimInspector 
-                    elementExternalId={selectedElements[0]} 
-                    selectedCount={fastSelectionCount} // <--- PASSANDO O NÚMERO
+                    elementExternalId={selectedElements[0]} // Mantido para compatibilidade
+                    selectedElements={selectedElements}     // <--- AQUI ESTÁ O ARRAY COMPLETO
+                    selectedCount={fastSelectionCount} 
                     projetoBimId={activeFile?.id} 
                     urnAutodesk={activeUrn} 
                     onOpenLink={handleOpenLink} 
