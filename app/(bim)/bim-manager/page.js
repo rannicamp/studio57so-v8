@@ -11,6 +11,7 @@ import Link from 'next/link';
 // Componentes UI
 import BimSidebar from '@/components/bim/BimSidebar';
 import BimInspector from '@/components/bim/BimInspector';
+// Mantendo o componente que você prefere:
 import AutodeskViewerAPI from '@/components/bim/AutodeskViewerAPI';
 import GanttChart from '@/components/atividades/GanttChart'; 
 import BimLinkActivityModal from '@/components/bim/BimLinkActivityModal';
@@ -136,7 +137,7 @@ export default function BimManagerPage() {
                     </Link>
                     <button onClick={() => setIsGanttOpen(!isGanttOpen)} className={`bg-white/90 p-2 rounded-lg shadow-sm border transition-all flex items-center gap-2 ${isGanttOpen ? 'text-blue-600 border-blue-300 ring-1' : ''}`}>
                         <FontAwesomeIcon icon={faStream} /> 
-                        {visibleActivities && visibleActivities.length > 0 && !isGanttOpen && <span className="bg-blue-600 text-white text-[10px] px-1.5 rounded-full font-bold ml-1">{visibleActivities.length}</span>}
+                        {visibleActivities.length > 0 && !isGanttOpen && <span className="bg-blue-600 text-white text-[10px] px-1.5 rounded-full font-bold ml-1">{visibleActivities.length}</span>}
                     </button>
                 </div>
 
@@ -152,11 +153,11 @@ export default function BimManagerPage() {
 
                 <div className={`absolute bottom-0 left-0 right-0 z-[50] bg-white border-t border-gray-200 shadow-[0_-5px_30px_rgba(0,0,0,0.15)] transition-all duration-500 ease-in-out flex flex-col`} style={{ height: isGanttOpen ? '45%' : '0px' }}>
                     <div className="h-10 border-b flex items-center justify-between px-4 bg-gray-50 shrink-0">
-                        <div className="flex items-center gap-2"><FontAwesomeIcon icon={faStream} className="text-blue-600 text-xs" /><span className="text-xs font-bold text-gray-700 uppercase tracking-wider">Cronograma ({visibleActivities ? visibleActivities.length : 0} atv.)</span></div>
+                        <div className="flex items-center gap-2"><FontAwesomeIcon icon={faStream} className="text-blue-600 text-xs" /><span className="text-xs font-bold text-gray-700 uppercase tracking-wider">Cronograma ({visibleActivities.length} atv.)</span></div>
                         <button onClick={() => setIsGanttOpen(false)} className="text-gray-400 hover:text-red-500 p-1"><FontAwesomeIcon icon={faChevronDown} /></button>
                     </div>
                     <div className="flex-1 overflow-hidden relative bg-white p-2">
-                        {visibleActivities && visibleActivities.length > 0 ? (
+                        {visibleActivities.length > 0 ? (
                             <div className="h-full overflow-auto custom-scrollbar">
                                 <GanttChart activities={visibleActivities} onEditActivity={handleActivitySelect} />
                             </div>
@@ -169,8 +170,9 @@ export default function BimManagerPage() {
 
             <div className={`${isInspectorVisible ? 'w-80 border-l' : 'w-0 border-none'} bg-white transition-all duration-300 flex flex-col overflow-hidden shrink-0 z-20 shadow-xl`}>
                 <BimInspector 
-                    elementExternalId={selectedElements[0]} // Mantido para compatibilidade
-                    selectedElements={selectedElements}     // <--- AQUI ESTÁ O ARRAY COMPLETO
+                    viewer={viewerInstance} // <--- ESTA FOI A ÚNICA LINHA QUE ADICIONEI
+                    elementExternalId={selectedElements[0]} 
+                    selectedElements={selectedElements}     
                     selectedCount={fastSelectionCount} 
                     projetoBimId={activeFile?.id} 
                     urnAutodesk={activeUrn} 
