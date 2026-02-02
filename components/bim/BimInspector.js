@@ -4,16 +4,16 @@ import { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
     faLayerGroup, faTasks, faCamera, 
-    faStickyNote, faFilter 
+    faStickyNote, faFilter, faListCheck 
 } from '@fortawesome/free-solid-svg-icons';
 import BimProperties from './BimProperties';
 import BimElementPlanning from './BimElementPlanning';
 import BimNotesList from './BimNotesList';
-import BimFilterPanel from './BimFilterPanel'; // <--- Importando o novo componente
+import BimFilterPanel from './BimFilterPanel';
 
 export default function BimInspector({ 
-    elementExternalId, 
-    selectedElements = [], 
+    elementExternalId, // ID único do primeiro item (para compatibilidade)
+    selectedElements = [], // Lista completa de OBJETOS { externalId, projetoBimId }
     selectedCount = 0, 
     projetoBimId, 
     urnAutodesk, 
@@ -21,16 +21,21 @@ export default function BimInspector({
     onOpenCreate,
     onOpenNote,
     onRestoreNote,
-    viewer // <--- Precisamos receber o viewer aqui agora para passar pro filtro
+    viewer 
 }) {
-    // Se não tiver nada selecionado, o padrão pode ser 'filter' ou 'notes'
-    const [activeTab, setActiveTab] = useState(selectedCount > 0 ? 'properties' : 'filter');
+    // Se tiver itens selecionados, força a aba de lista (ou properties se preferir)
+    const [activeTab, setActiveTab] = useState('filter');
 
     useEffect(() => {
         if (selectedCount > 0) {
-            setActiveTab('properties');
+            // Se quiser que vá direto para a lista ao selecionar vários, mude para 'selection'
+            setActiveTab('selection'); 
         }
     }, [selectedCount]);
+
+    // Helpers para extrair apenas os IDs (compatibilidade com componentes antigos)
+    // PROTEÇÃO DO DEVONILDO: Garante que pega o ID sendo objeto ou texto
+    const selectedIdsOnly = selectedElements.map(el => el.externalId || el);
 
     return (
         <div className="w-80 bg-white border-l border-gray-200 h-full flex flex-col shadow-2xl z-30 transition-all duration-300">
@@ -44,24 +49,25 @@ export default function BimInspector({
                 </div>
                 
                 {/* Abas */}
-                <div className="flex">
-                    {/* Aba DADOS (Propriedades) */}
-                    <button onClick={() => setActiveTab('properties')} disabled={selectedCount === 0} className={`flex-1 py-3 text-[10px] font-bold uppercase tracking-wide border-b-2 transition-all flex flex-col gap-1 items-center justify-center ${activeTab === 'properties' ? 'border-blue-600 text-blue-600 bg-blue-50/50' : 'border-transparent text-gray-400 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed'}`}>
+                <div className="flex overflow-x-auto scrollbar-hide">
+                    {/* ABA NOVA: SELEÇÃO / AUDITORIA */}
+                    <button onClick={() => setActiveTab('selection')} disabled={selectedCount === 0} className={`min-w-[60px] flex-1 py-3 text-[10px] font-bold uppercase tracking-wide border-b-2 transition-all flex flex-col gap-1 items-center justify-center ${activeTab === 'selection' ? 'border-green-600 text-green-600 bg-green-50/50' : 'border-transparent text-gray-400 hover:bg-gray-50 disabled:opacity-40'}`}>
+                        <FontAwesomeIcon icon={faListCheck} className="text-sm"/> Lista
+                    </button>
+
+                    <button onClick={() => setActiveTab('properties')} disabled={selectedCount === 0} className={`min-w-[60px] flex-1 py-3 text-[10px] font-bold uppercase tracking-wide border-b-2 transition-all flex flex-col gap-1 items-center justify-center ${activeTab === 'properties' ? 'border-blue-600 text-blue-600 bg-blue-50/50' : 'border-transparent text-gray-400 hover:bg-gray-50 disabled:opacity-40'}`}>
                         <FontAwesomeIcon icon={faLayerGroup} className="text-sm"/> Dados
                     </button>
                     
-                    {/* Aba 4D (Planejamento) */}
-                    <button onClick={() => setActiveTab('planning')} disabled={selectedCount !== 1} className={`flex-1 py-3 text-[10px] font-bold uppercase tracking-wide border-b-2 transition-all flex flex-col gap-1 items-center justify-center ${activeTab === 'planning' ? 'border-orange-500 text-orange-600 bg-orange-50/50' : 'border-transparent text-gray-400 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed'}`}>
+                    <button onClick={() => setActiveTab('planning')} disabled={selectedCount !== 1} className={`min-w-[60px] flex-1 py-3 text-[10px] font-bold uppercase tracking-wide border-b-2 transition-all flex flex-col gap-1 items-center justify-center ${activeTab === 'planning' ? 'border-orange-500 text-orange-600 bg-orange-50/50' : 'border-transparent text-gray-400 hover:bg-gray-50 disabled:opacity-40'}`}>
                         <FontAwesomeIcon icon={faTasks} className="text-sm"/> 4D
                     </button>
 
-                    {/* NOVA ABA: FILTRO */}
-                    <button onClick={() => setActiveTab('filter')} className={`flex-1 py-3 text-[10px] font-bold uppercase tracking-wide border-b-2 transition-all flex flex-col gap-1 items-center justify-center ${activeTab === 'filter' ? 'border-indigo-600 text-indigo-600 bg-indigo-50/50' : 'border-transparent text-gray-400 hover:bg-gray-50'}`}>
+                    <button onClick={() => setActiveTab('filter')} className={`min-w-[60px] flex-1 py-3 text-[10px] font-bold uppercase tracking-wide border-b-2 transition-all flex flex-col gap-1 items-center justify-center ${activeTab === 'filter' ? 'border-indigo-600 text-indigo-600 bg-indigo-50/50' : 'border-transparent text-gray-400 hover:bg-gray-50'}`}>
                         <FontAwesomeIcon icon={faFilter} className="text-sm"/> Busca
                     </button>
 
-                    {/* Aba NOTAS */}
-                    <button onClick={() => setActiveTab('notes')} className={`flex-1 py-3 text-[10px] font-bold uppercase tracking-wide border-b-2 transition-all flex flex-col gap-1 items-center justify-center ${activeTab === 'notes' ? 'border-purple-600 text-purple-600 bg-purple-50/50' : 'border-transparent text-gray-400 hover:bg-gray-50'}`}>
+                    <button onClick={() => setActiveTab('notes')} className={`min-w-[60px] flex-1 py-3 text-[10px] font-bold uppercase tracking-wide border-b-2 transition-all flex flex-col gap-1 items-center justify-center ${activeTab === 'notes' ? 'border-purple-600 text-purple-600 bg-purple-50/50' : 'border-transparent text-gray-400 hover:bg-gray-50'}`}>
                         <FontAwesomeIcon icon={faStickyNote} className="text-sm"/> Notas
                     </button>
                 </div>
@@ -70,13 +76,57 @@ export default function BimInspector({
             {/* CONTEÚDO */}
             <div className="flex-1 overflow-hidden relative bg-gray-50/30 flex flex-col">
                 <div className="flex-1 overflow-y-auto custom-scrollbar h-full">
+                    
+                    {/* NOVA TABELA DE AUDITORIA BLINDADA */}
+                    {activeTab === 'selection' && selectedCount > 0 && (
+                        <div className="p-2">
+                            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                                <table className="w-full text-[10px] text-left">
+                                    <thead className="bg-gray-100 text-gray-600 font-bold uppercase border-b">
+                                        <tr>
+                                            <th className="p-2 w-1/3">Projeto ID</th>
+                                            <th className="p-2 w-2/3">External ID</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-100">
+                                        {selectedElements.map((item, idx) => {
+                                            // LÓGICA DE SEGURANÇA:
+                                            // Se for objeto, usa externalId. Se for string, usa ela mesma.
+                                            const displayId = item.externalId ? item.externalId : item;
+                                            // Se for objeto, usa projetoBimId. Se for string, mostra traço.
+                                            const displayProject = item.projetoBimId ? item.projetoBimId : '-';
+
+                                            return (
+                                                <tr key={`${displayId}-${idx}`} className="hover:bg-blue-50 transition-colors">
+                                                    <td className="p-2 font-mono text-gray-500 truncate max-w-[80px]" title={displayProject}>
+                                                        {displayProject}
+                                                    </td>
+                                                    <td className="p-2 font-mono font-bold text-gray-700 break-all">
+                                                        {displayId}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                            <p className="text-[9px] text-gray-400 mt-2 text-center">
+                                Use esta lista para validar operações em lote (Status/4D).
+                            </p>
+                        </div>
+                    )}
+
                     {activeTab === 'properties' && selectedCount > 0 && (
                         <BimProperties 
-                            selectedIds={selectedElements}
+                            viewer={viewer}
+                            selectedIds={selectedIdsOnly} // Passando lista corrigida de textos
                             elementExternalId={elementExternalId} 
                             selectedCount={selectedCount}
                             projetoBimId={projetoBimId} 
                             urnAutodesk={urnAutodesk} 
+                            onOpenLink={onOpenLink}
+                            onOpenCreate={onOpenCreate}
+                            onOpenNote={onOpenNote}
                         />
                     )}
 
@@ -84,7 +134,6 @@ export default function BimInspector({
                         <BimElementPlanning elementExternalId={elementExternalId} projetoBimId={projetoBimId} elementName={`ID: ${String(elementExternalId).substring(0, 8)}`} onOpenLink={onOpenLink} onOpenCreate={onOpenCreate} />
                     )}
 
-                    {/* Renderização do Painel de Filtros */}
                     {activeTab === 'filter' && (
                         <BimFilterPanel viewer={viewer} projetoBimId={projetoBimId} />
                     )}
@@ -96,8 +145,7 @@ export default function BimInspector({
                     )}
                 </div>
 
-                {/* FOOTER (Só aparece se tiver seleção para notas, ou se estiver na aba de notas) */}
-                {activeTab !== 'filter' && (
+                {activeTab !== 'filter' && activeTab !== 'selection' && (
                     <div className="p-3 border-t border-gray-200 bg-white shrink-0">
                         <button 
                             onClick={() => onOpenNote({ externalId: elementExternalId, projetoBimId: projetoBimId })} 

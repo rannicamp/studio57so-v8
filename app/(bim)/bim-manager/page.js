@@ -11,7 +11,6 @@ import Link from 'next/link';
 // Componentes UI
 import BimSidebar from '@/components/bim/BimSidebar';
 import BimInspector from '@/components/bim/BimInspector';
-// Mantendo o componente que você prefere:
 import AutodeskViewerAPI from '@/components/bim/AutodeskViewerAPI';
 import GanttChart from '@/components/atividades/GanttChart'; 
 import BimLinkActivityModal from '@/components/bim/BimLinkActivityModal';
@@ -20,13 +19,16 @@ import BimNoteModal from '@/components/bim/BimNoteModal';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
     faChevronLeft, faChevronRight, faHome, 
-    faStream, faChevronDown 
+    faStream, faChevronDown, faLayerGroup, faSpinner 
 } from '@fortawesome/free-solid-svg-icons';
 
 // Hooks Personalizados
 import { useBimViewer } from '@/hooks/bim/useBimViewer';
 import { useBimModels } from '@/hooks/bim/useBimModels';
 import { useBimNotes } from '@/hooks/bim/useBimNotes';
+
+// IMPORTAÇÃO CORRETA DO HOOK
+import { useBimEvolution } from '@/hooks/bim/useBimEvolution'; 
 
 export default function BimManagerPage() {
   const supabase = createClient();
@@ -39,6 +41,13 @@ export default function BimManagerPage() {
     fastSelectionCount, 
     activeFile, activeUrn, resolveSelection 
   } = useBimViewer();
+
+  // Chamada do Hook de Evolução (Lógica Separada)
+  const { 
+    isEvolutionMode, 
+    isLoadingEvolution, 
+    toggleEvolutionMode 
+  } = useBimEvolution(viewerInstance, organizacao_id);
 
   const [isSidebarVisible, setIsSidebarVisible] = useState(true);
   const [isGanttOpen, setIsGanttOpen] = useState(false);
@@ -135,6 +144,18 @@ export default function BimManagerPage() {
                     <Link href="/painel" className="bg-white/90 p-2 rounded-lg shadow-sm border text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-all" title="Voltar ao Painel">
                         <FontAwesomeIcon icon={faHome} />
                     </Link>
+                    
+                    {/* Botão Evolução */}
+                    <button 
+                        onClick={toggleEvolutionMode} 
+                        disabled={isLoadingEvolution || !viewerInstance}
+                        className={`bg-white/90 p-2 rounded-lg shadow-sm border transition-all flex items-center gap-2 ${isEvolutionMode ? 'text-green-600 border-green-300 ring-1 ring-green-100 bg-green-50' : 'text-gray-600 hover:text-green-600'}`}
+                        title="Evolução da Obra (Colorir por Status)"
+                    >
+                        {isLoadingEvolution ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faLayerGroup} />}
+                        {isEvolutionMode && <span className="text-[10px] font-bold uppercase hidden md:inline">Evolução</span>}
+                    </button>
+
                     <button onClick={() => setIsGanttOpen(!isGanttOpen)} className={`bg-white/90 p-2 rounded-lg shadow-sm border transition-all flex items-center gap-2 ${isGanttOpen ? 'text-blue-600 border-blue-300 ring-1' : ''}`}>
                         <FontAwesomeIcon icon={faStream} /> 
                         {visibleActivities.length > 0 && !isGanttOpen && <span className="bg-blue-600 text-white text-[10px] px-1.5 rounded-full font-bold ml-1">{visibleActivities.length}</span>}
@@ -170,7 +191,7 @@ export default function BimManagerPage() {
 
             <div className={`${isInspectorVisible ? 'w-80 border-l' : 'w-0 border-none'} bg-white transition-all duration-300 flex flex-col overflow-hidden shrink-0 z-20 shadow-xl`}>
                 <BimInspector 
-                    viewer={viewerInstance} // <--- ESTA FOI A ÚNICA LINHA QUE ADICIONEI
+                    viewer={viewerInstance} 
                     elementExternalId={selectedElements[0]} 
                     selectedElements={selectedElements}     
                     selectedCount={fastSelectionCount} 
