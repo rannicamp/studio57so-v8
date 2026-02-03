@@ -1,9 +1,8 @@
-// Caminho: components/bim/BimElementPlanning.js
 'use client';
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { createClient } from '../../utils/supabase/client';
-import { useAuth } from '../../contexts/AuthContext';
+import { createClient } from '@/utils/supabase/client'; // Ajustei o caminho para @ (padrão Next.js)
+import { useAuth } from '@/contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
     faPlus, faLink, faUnlink, faCalendarAlt, 
@@ -20,30 +19,37 @@ export default function BimElementPlanning({
 }) {
     const supabase = createClient();
     const queryClient = useQueryClient();
-    const { organizacao_id } = useAuth();
+    const { user } = useAuth(); // Geralmente o ID da organização está nos metadados do usuário
+    
+    // Recupera o ID da organização (tenta direto ou via metadata)
+    const organizacaoId = user?.user_metadata?.organizacao_id || user?.organizacao_id;
 
     // 1. Busca Atividades Vinculadas a este Elemento
     const { data: vinculos = [], isLoading } = useQuery({
         queryKey: ['bimElementLinks', elementExternalId, projetoBimId],
         queryFn: async () => {
-            if (!elementExternalId || !projetoBimId) return [];
+            if (!elementExternalId || !projetoBimId || !organizacaoId) return [];
 
             const { data, error } = await supabase
-                .from('atividades_elementos')
+                .from('atividades_elementos') // Tabela correta (Link)
                 .select(`
                     id,
-                    atividade:activities (
+                    atividade:activities (   
                         id, nome, status, data_inicio_prevista, data_fim_prevista
                     )
                 `)
                 .eq('projeto_bim_id', projetoBimId)
                 .eq('external_id', elementExternalId)
-                .eq('organizacao_id', organizacao_id);
+                .eq('organizacao_id', organizacaoId);
 
-            if (error) throw error;
+            if (error) {
+                console.error("Erro ao buscar vínculos:", error);
+                throw error;
+            }
             return data || [];
         },
-        enabled: !!elementExternalId && !!projetoBimId
+        // Só executa se tiver todos os IDs necessários
+        enabled: !!elementExternalId && !!projetoBimId && !!organizacaoId
     });
 
     // 2. Função para Desvincular
@@ -58,19 +64,23 @@ export default function BimElementPlanning({
         onSuccess: () => {
             toast.success("Atividade desvinculada!");
             queryClient.invalidateQueries(['bimElementLinks']);
+            // Opcional: Atualizar gráfico de Gantt se necessário
             queryClient.invalidateQueries(['bimActivities']); 
         },
         onError: (err) => toast.error("Erro ao desvincular: " + err.message)
     });
 
-    // --- CORREÇÃO AQUI: Handlers que preparam os dados antes de enviar ---
+    // --- HANDLERS SEGUROS ---
     const handleLink = () => {
+        console.log("🔗 Tentando abrir modal de vínculo para:", elementExternalId);
         if (onOpenLink) {
             onOpenLink({
                 externalId: elementExternalId,
-                projetoBimId: projetoBimId, // Garante que o ID do projeto vai junto
+                projetoBimId: projetoBimId,
                 elementName: elementName
             });
+        } else {
+            console.error("❌ Função onOpenLink não foi passada para o componente!");
         }
     };
 
@@ -78,7 +88,7 @@ export default function BimElementPlanning({
         if (onOpenCreate) {
             onOpenCreate({
                 externalId: elementExternalId,
-                projetoBimId: projetoBimId, // Garante que o ID do projeto vai junto
+                projetoBimId: projetoBimId,
                 elementName: elementName
             });
         }
@@ -86,12 +96,14 @@ export default function BimElementPlanning({
     // ---------------------------------------------------------------------
 
     const getStatusColor = (status) => {
-        switch(status) {
-            case 'Concluído': return 'bg-green-100 text-green-700 border-green-200';
-            case 'Em Andamento': return 'bg-blue-100 text-blue-700 border-blue-200';
-            case 'Atrasado': return 'bg-red-100 text-red-700 border-red-200';
-            default: return 'bg-gray-100 text-gray-600 border-gray-200';
-        }
+        // Normaliza para minúsculas para evitar erros de digitação
+        const s = String(status || '').toLowerCase();
+        
+        if (s.includes('conclu') || s.includes('execut')) return 'bg-green-100 text-green-700 border-green-200';
+        if (s.includes('anda') || s.includes('inici')) return 'bg-blue-100 text-blue-700 border-blue-200';
+        if (s.includes('atras') || s.includes('bloq')) return 'bg-red-100 text-red-700 border-red-200';
+        
+        return 'bg-gray-100 text-gray-600 border-gray-200';
     };
 
     return (
@@ -100,23 +112,21 @@ export default function BimElementPlanning({
             <div className="p-4 border-b bg-white">
                 <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Elemento</h4>
                 <p className="text-xs font-bold text-gray-800 break-all" title={elementName}>
-                    {elementName || elementExternalId}
+                    {elementName || elementExternalId || 'Sem seleção'}
                 </p>
-                {/* Debug visual opcional para conferir se o ID chegou */}
-                {/* <p className="text-[8px] text-gray-400">Proj: {projetoBimId}</p> */}
             </div>
 
             {/* Botões de Ação */}
             <div className="p-3 grid grid-cols-2 gap-2 bg-white border-b shadow-sm z-10">
                 <button 
-                    onClick={handleLink} // Usa o handler corrigido
+                    onClick={handleLink}
                     className="flex flex-col items-center justify-center p-3 rounded-lg border-2 border-dashed border-blue-200 bg-blue-50 text-blue-600 hover:bg-blue-100 hover:border-blue-300 transition-all group"
                 >
                     <FontAwesomeIcon icon={faLink} className="mb-1 text-sm group-hover:scale-110 transition-transform" />
                     <span className="text-[9px] font-bold uppercase">Vincular</span>
                 </button>
                 <button 
-                    onClick={handleCreate} // Usa o handler corrigido
+                    onClick={handleCreate}
                     className="flex flex-col items-center justify-center p-3 rounded-lg border-2 border-dashed border-green-200 bg-green-50 text-green-600 hover:bg-green-100 hover:border-green-300 transition-all group"
                 >
                     <FontAwesomeIcon icon={faPlus} className="mb-1 text-sm group-hover:scale-110 transition-transform" />
@@ -130,6 +140,7 @@ export default function BimElementPlanning({
                     <div className="flex justify-center py-10 text-blue-500"><FontAwesomeIcon icon={faSpinner} spin /></div>
                 ) : vinculos.length > 0 ? (
                     vinculos.map((v) => {
+                        // Verifica se o objeto atividade veio corretamente do JOIN
                         const act = v.atividade;
                         if (!act) return null;
 
@@ -156,9 +167,9 @@ export default function BimElementPlanning({
                                     <div className="flex items-center gap-1 text-[9px] text-gray-400">
                                         <FontAwesomeIcon icon={faCalendarAlt} />
                                         <span>
-                                            {act.data_inicio_prevista ? new Date(act.data_inicio_prevista).toLocaleDateString() : 'S/D'} 
+                                            {act.data_inicio_prevista ? new Date(act.data_inicio_prevista).toLocaleDateString('pt-BR') : 'S/D'} 
                                             {' -> '} 
-                                            {act.data_fim_prevista ? new Date(act.data_fim_prevista).toLocaleDateString() : 'S/D'}
+                                            {act.data_fim_prevista ? new Date(act.data_fim_prevista).toLocaleDateString('pt-BR') : 'S/D'}
                                         </span>
                                     </div>
                                 </div>
