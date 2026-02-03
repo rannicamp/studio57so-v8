@@ -15,7 +15,7 @@ export default function BimInspector({
     elementExternalId, 
     selectedElements = [], 
     selectedCount = 0, 
-    projetoBimId, // ID genérico da página
+    projetoBimId, 
     urnAutodesk, 
     onOpenLink,
     onOpenCreate,
@@ -23,32 +23,30 @@ export default function BimInspector({
     onRestoreNote,
     viewer 
 }) {
+    // Se tiver itens selecionados, muda para properties ou mantém onde estava
     const [activeTab, setActiveTab] = useState('filter');
 
-    // DEVONILDO FIX: Sanitização e Seleção Inteligente do ID do Projeto
-    
-    // 1. Garante que safeId seja sempre string
+    // 1. Sanitização do ID (Single)
     const safeId = (typeof elementExternalId === 'object' && elementExternalId !== null)
         ? elementExternalId.externalId
         : elementExternalId;
 
-    // 2. Tenta descobrir o ID do Projeto específico deste elemento
-    // (Útil quando temos Arquitetura e Estrutura carregados juntos)
+    // 2. Resolve ID do Projeto
     const currentElementObj = selectedElements.find(el => (el.externalId || el) === safeId);
-    
-    // Se o elemento tiver um ID de projeto (veio do useBimViewer novo), usa ele.
-    // Se não, usa o genérico da página (projetoBimId).
     const activeProjectId = currentElementObj?.projetoBimId && currentElementObj?.projetoBimId !== 'N/A' 
         ? currentElementObj.projetoBimId 
         : projetoBimId;
 
+    // 3. Lista de IDs para Lote
+    const selectedIdsOnly = selectedElements.map(el => el.externalId || el);
+
     useEffect(() => {
         if (selectedCount > 0) {
-            setActiveTab('selection'); 
+            // Se selecionar vários, vai para a aba 4D ou Lista, dependendo da sua preferência.
+            // Aqui mantive a lógica padrão, mas você pode mudar para 'planning' se quiser forçar.
+            if (activeTab === 'filter') setActiveTab('selection');
         }
     }, [selectedCount]);
-
-    const selectedIdsOnly = selectedElements.map(el => el.externalId || el);
 
     return (
         <div className="w-80 bg-white border-l border-gray-200 h-full flex flex-col shadow-2xl z-30 transition-all duration-300">
@@ -71,7 +69,8 @@ export default function BimInspector({
                         <FontAwesomeIcon icon={faLayerGroup} className="text-sm"/> Dados
                     </button>
                     
-                    <button onClick={() => setActiveTab('planning')} disabled={selectedCount !== 1} className={`min-w-[60px] flex-1 py-3 text-[10px] font-bold uppercase tracking-wide border-b-2 transition-all flex flex-col gap-1 items-center justify-center ${activeTab === 'planning' ? 'border-orange-500 text-orange-600 bg-orange-50/50' : 'border-transparent text-gray-400 hover:bg-gray-50 disabled:opacity-40'}`}>
+                    {/* MUDANÇA AQUI: disabled={selectedCount === 0} (Antes era !== 1) */}
+                    <button onClick={() => setActiveTab('planning')} disabled={selectedCount === 0} className={`min-w-[60px] flex-1 py-3 text-[10px] font-bold uppercase tracking-wide border-b-2 transition-all flex flex-col gap-1 items-center justify-center ${activeTab === 'planning' ? 'border-orange-500 text-orange-600 bg-orange-50/50' : 'border-transparent text-gray-400 hover:bg-gray-50 disabled:opacity-40'}`}>
                         <FontAwesomeIcon icon={faTasks} className="text-sm"/> 4D
                     </button>
 
@@ -89,15 +88,15 @@ export default function BimInspector({
             <div className="flex-1 overflow-hidden relative bg-gray-50/30 flex flex-col">
                 <div className="flex-1 overflow-y-auto custom-scrollbar h-full">
                     
-                    {/* TABELA DE AUDITORIA */}
                     {activeTab === 'selection' && selectedCount > 0 && (
                         <div className="p-2">
+                            {/* Tabela de Lista Simples */}
                             <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
                                 <table className="w-full text-[10px] text-left">
                                     <thead className="bg-gray-100 text-gray-600 font-bold uppercase border-b">
                                         <tr>
-                                            <th className="p-2 w-1/3">Projeto ID</th>
-                                            <th className="p-2 w-2/3">External ID</th>
+                                            <th className="p-2">Projeto</th>
+                                            <th className="p-2">ID</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-100">
@@ -106,7 +105,7 @@ export default function BimInspector({
                                             const displayProject = item.projetoBimId ? item.projetoBimId : '-';
                                             return (
                                                 <tr key={`${displayId}-${idx}`} className="hover:bg-blue-50 transition-colors">
-                                                    <td className="p-2 font-mono text-gray-500 truncate max-w-[80px]" title={displayProject}>{displayProject}</td>
+                                                    <td className="p-2 font-mono text-gray-500 truncate max-w-[50px]">{displayProject}</td>
                                                     <td className="p-2 font-mono font-bold text-gray-700 break-all">{displayId}</td>
                                                 </tr>
                                             );
@@ -123,7 +122,7 @@ export default function BimInspector({
                             selectedIds={selectedIdsOnly} 
                             elementExternalId={safeId} 
                             selectedCount={selectedCount}
-                            projetoBimId={activeProjectId} // <--- Usando ID corrigido
+                            projetoBimId={activeProjectId} 
                             urnAutodesk={urnAutodesk} 
                             onOpenLink={onOpenLink}
                             onOpenCreate={onOpenCreate}
@@ -131,11 +130,14 @@ export default function BimInspector({
                         />
                     )}
 
-                    {activeTab === 'planning' && safeId && (
+                    {/* MUDANÇA AQUI: Passamos a lista e o count para o componente 4D */}
+                    {activeTab === 'planning' && selectedCount > 0 && (
                         <BimElementPlanning 
-                            elementExternalId={safeId} 
-                            projetoBimId={activeProjectId} // <--- Usando ID corrigido
-                            elementName={`ID: ${String(safeId).substring(0, 8)}`} 
+                            elementExternalId={safeId} // Fallback para single
+                            selectedIds={selectedIdsOnly} // ARRAY DE IDS
+                            selectedCount={selectedCount} // CONTAGEM
+                            projetoBimId={activeProjectId} 
+                            elementName={selectedCount > 1 ? `${selectedCount} Itens` : `ID: ${String(safeId).substring(0, 8)}`} 
                             onOpenLink={onOpenLink} 
                             onOpenCreate={onOpenCreate} 
                         />
@@ -152,7 +154,7 @@ export default function BimInspector({
                     )}
                 </div>
 
-                {activeTab !== 'filter' && activeTab !== 'selection' && (
+                {activeTab !== 'filter' && activeTab !== 'selection' && activeTab !== 'planning' && (
                     <div className="p-3 border-t border-gray-200 bg-white shrink-0">
                         <button 
                             onClick={() => onOpenNote({ externalId: safeId, projetoBimId: activeProjectId })} 
