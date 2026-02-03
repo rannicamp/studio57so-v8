@@ -14,30 +14,14 @@ const authClient = new AuthenticationClient(sdkManager);
 
 export async function POST(request) {
     try {
-        // --- MUDANÇA CRÍTICA AQUI ---
-        // Antes: lia formData() (arquivo binário) -> Estoura memória/tempo
-        // Agora: lê json() (apenas o link) -> Leve e rápido
-        
-        // Verifica se o content-type é JSON (o novo modal manda JSON)
-        const contentType = request.headers.get('content-type') || '';
-        
-        let fileUrl, fileName;
-
-        if (contentType.includes('application/json')) {
-            const body = await request.json();
-            fileUrl = body.fileUrl;
-            fileName = body.fileName;
-        } else {
-            // Fallback para código antigo (se alguém usar upload antigo)
-            // Mas recomendo remover isso para evitar erros de memória
-            return NextResponse.json({ error: 'Por favor, use o novo método de upload via URL.' }, { status: 400 });
-        }
+        // 1. Recebe APENAS a URL e o Nome (Payload levíssimo, KB)
+        const { fileUrl, fileName } = await request.json();
 
         if (!fileUrl || !fileName) {
-            return NextResponse.json({ error: 'URL ou Nome do arquivo faltando.' }, { status: 400 });
+            return NextResponse.json({ error: 'URL ou Nome faltando.' }, { status: 400 });
         }
 
-        console.log(`🚀 Iniciando Processamento Autodesk para: ${fileName}`);
+        console.log(`🚀 Iniciando Upload via URL: ${fileName}`);
 
         // 2. Autenticação Autodesk
         const credentials = await authClient.getTwoLeggedToken(
@@ -57,10 +41,10 @@ export async function POST(request) {
         } catch (e) {}
 
         // =====================================================================
-        // 4. STREAMING DO SUPABASE -> AUTODESK (Sem carregar na memória)
+        // 4. STREAMING DO ARQUIVO (SUPABASE -> SERVIDOR -> AUTODESK S3)
         // =====================================================================
         
-        // A. Baixa o arquivo do Supabase (Stream)
+        // A. Baixa o arquivo do Supabase (como Stream)
         const supabaseRes = await fetch(fileUrl);
         if (!supabaseRes.ok) throw new Error(`Erro ao baixar do Supabase: ${supabaseRes.statusText}`);
         
@@ -72,24 +56,22 @@ export async function POST(request) {
             method: 'GET',
             headers: { 'Authorization': `Bearer ${accessToken}` }
         });
-        
-        if (!startRes.ok) throw new Error(`Erro Auth Autodesk: ${startRes.statusText}`);
-        
         const startData = await startRes.json();
         const uploadUrl = startData.urls[0];
         const uploadKey = startData.uploadKey;
 
-        // C. Pipe do Supabase para Autodesk
-        // Convertemos o stream para ArrayBuffer (mais compatível com Serverless Edge)
+        // C. Pipe do Supabase para Autodesk (Sem estourar memória)
+        // Convertemos o stream do Supabase para ArrayBuffer para envio seguro ao S3
+        // Nota: Em Node puro usaríamos pipe, mas no Edge/Serverless o ArrayBuffer é mais compatível
         const fileBuffer = await supabaseRes.arrayBuffer();
 
         const s3UploadRes = await fetch(uploadUrl, {
             method: 'PUT',
-            body: fileBuffer,
-            // Header vazio para S3 (importante)
+            body: fileBuffer, // Envia o buffer baixado
+            // Importante: Não enviar Authorization header para o S3
         });
 
-        if (!s3UploadRes.ok) throw new Error(`Erro Upload S3: ${s3UploadRes.statusText}`);
+        if (!s3UploadRes.ok) throw new Error(`Erro Amazon S3: ${s3UploadRes.statusText}`);
 
         // D. Finaliza Upload
         const finalizeRes = await fetch(s3Url, {
@@ -109,7 +91,7 @@ export async function POST(request) {
         return NextResponse.json({ success: true, urn: urn });
 
     } catch (error) {
-        console.error('[APS UPLOAD ERROR]:', error);
+        console.error('[APS URL UPLOAD ERROR]:', error);
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }

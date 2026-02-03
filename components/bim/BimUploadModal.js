@@ -1,4 +1,3 @@
-// Caminho: components/bim/BimUploadModal.js
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -14,25 +13,23 @@ export default function BimUploadModal({
     onClose, 
     preSelectedContext, 
     onSuccess,
-    mode = 'create', // 'create' ou 'version'
-    fileToUpdate = null // Objeto do arquivo se for update
+    mode = 'create', 
+    fileToUpdate = null 
 }) {
     const supabase = createClient();
     const queryClient = useQueryClient();
     const { user, organizacao_id: organizacaoId } = useAuth();
 
-    // Estados de Seleção
     const [selectedEmpresa, setSelectedEmpresa] = useState('');
     const [selectedObra, setSelectedObra] = useState('');
     const [selectedDisciplina, setSelectedDisciplina] = useState('');
     const [file, setFile] = useState(null);
     
-    // Estados de Interface
     const [isUploading, setIsUploading] = useState(false);
     const [statusStep, setStatusStep] = useState('');
 
-    // 1. BUSCA DE DADOS (Dropdowns) - Só busca se for modo CREATE
-    const { data: dropdownData, isLoading: isLoadingDropdowns } = useQuery({
+    // 1. BUSCA DE DADOS
+    const { data: dropdownData } = useQuery({
         queryKey: ['bimUploadDropdowns', organizacaoId],
         queryFn: async () => {
             if (!organizacaoId) return null;
@@ -41,13 +38,12 @@ export default function BimUploadModal({
             const { data: obras } = await supabase.from('empreendimentos').select('id, nome, empresa_proprietaria_id').eq('organizacao_id', organizacaoId).order('nome');
             return { empresas: empresas || [], disciplinas: disciplinas || [], todasObras: obras || [] };
         },
-        enabled: isOpen && mode === 'create' && !!organizacaoId, // Otimização: Não busca em update
+        enabled: isOpen && mode === 'create' && !!organizacaoId,
         staleTime: 1000 * 60 * 5 
     });
 
     const obrasFiltradas = dropdownData?.todasObras?.filter(o => String(o.empresa_proprietaria_id) === String(selectedEmpresa)) || [];
 
-    // 2. PRÉ-PREENCHIMENTO INTELIGENTE
     useEffect(() => {
         if (isOpen) {
             if (mode === 'create' && preSelectedContext) {
@@ -55,18 +51,15 @@ export default function BimUploadModal({
                 if (preSelectedContext.obraId) setSelectedObra(preSelectedContext.obraId.toString());
                 if (preSelectedContext.type === 'folder') setSelectedDisciplina(preSelectedContext.id.toString());
             }
-            // Em modo 'version', não precisamos setar dropdowns, pois usaremos os dados originais do arquivo
         } else {
-            // Reset ao fechar
             setFile(null);
             setIsUploading(false);
             setStatusStep('');
         }
     }, [isOpen, preSelectedContext, mode]);
 
-    // 3. FUNÇÃO DE UPLOAD
+    // --- FUNÇÃO DE UPLOAD CORRIGIDA (CLIENT-SIDE -> SUPABASE -> LINK -> API) ---
     const handleDirectUpload = async () => {
-        // Validação
         if (!file) return toast.error("Selecione um arquivo .RVT!");
         
         if (mode === 'create') {
@@ -74,52 +67,88 @@ export default function BimUploadModal({
         }
 
         setIsUploading(true);
-        setStatusStep('Enviando para Autodesk...');
-
+        
         try {
-            // A. Enviar para API Autodesk (Igual para Create e Update)
-            const formData = new FormData();
-            formData.append('file', file);
+            // PASSO 1: UPLOAD DIRETO PARA O SUPABASE STORAGE
+            setStatusStep('1/3: Enviando arquivo para a nuvem...');
+            
+            // Gera nome único para evitar colisão
+            const fileExt = file.name.split('.').pop();
+            const uniqueName = `${Date.now()}_${Math.random().toString(36).substring(2)}.${fileExt}`;
+            const storagePath = `${uniqueName}`; // Caminho dentro do bucket bim-arquivos
 
-            const res = await fetch('/api/aps/upload', {
+            // Faz o upload binário direto para o Supabase (Bypass do seu servidor)
+            const { data: uploadData, error: uploadError } = await supabase.storage
+                .from('bim-arquivos') // Nome exato do bucket que você confirmou
+                .upload(storagePath, file, {
+                    cacheControl: '3600',
+                    upsert: false 
+                });
+
+            if (uploadError) throw new Error(`Erro Storage: ${uploadError.message}`);
+
+            // Pega a URL pública para o servidor baixar
+            const { data: publicUrlData } = supabase.storage
+                .from('bim-arquivos')
+                .getPublicUrl(storagePath);
+
+            const fileUrl = publicUrlData.publicUrl;
+
+            // PASSO 2: ENVIAR APENAS O LINK PARA O SEU SERVIDOR
+            setStatusStep('2/3: Processando na Autodesk...');
+
+            const res = await fetch('/api/aps/upload', { // Mesma rota, mas agora mandamos JSON
                 method: 'POST',
-                body: formData,
+                headers: { 
+                    'Content-Type': 'application/json' // <--- AQUI ESTÁ A CHAVE DO SUCESSO
+                },
+                body: JSON.stringify({ 
+                    fileUrl: fileUrl, 
+                    fileName: file.name 
+                }),
             });
 
-            const apiData = await res.json();
+            // Tratamento de resposta
+            let apiData;
+            try {
+                apiData = await res.json();
+            } catch (e) {
+                console.error("Erro parse JSON:", e);
+                throw new Error("Erro fatal no servidor (500). Verifique logs do backend.");
+            }
             
-            if (!res.ok) throw new Error(apiData.error || "Falha no envio para Autodesk");
-            if (!apiData.urn) throw new Error("API não retornou o URN.");
+            if (!res.ok) throw new Error(apiData.error || "Falha na tradução Autodesk");
+            if (!apiData.urn) throw new Error("Autodesk não retornou URN.");
 
-            setStatusStep('Atualizando Banco de Dados...');
+            // PASSO 3: SALVAR NO BANCO DE DADOS
+            setStatusStep('3/3: Salvando registro...');
 
-            // B. Salvar no Supabase (Aqui a lógica se divide)
+            const updateData = {
+                urn_autodesk: apiData.urn,
+                nome_arquivo: file.name,
+                tamanho_bytes: file.size,
+                status: 'Concluido',
+                caminho_storage: storagePath,
+                criado_em: new Date().toISOString()
+            };
+
             if (mode === 'version' && fileToUpdate) {
-                // --- MODO UPDATE (NOVA VERSÃO) ---
+                // Update
                 const { error: dbError } = await supabase
                     .from('projetos_bim')
                     .update({
-                        urn_autodesk: apiData.urn, // Nova Geometria
-                        nome_arquivo: file.name, // Nome pode ter mudado
-                        tamanho_bytes: file.size,
-                        status: 'Concluido', // Assume concluído após upload
-                        versao: (fileToUpdate.versao || 1) + 1, // INCREMENTA VERSÃO
-                        criado_em: new Date().toISOString() // Atualiza data para subir na lista
+                        ...updateData,
+                        versao: (fileToUpdate.versao || 1) + 1
                     })
-                    .eq('id', fileToUpdate.id); // Mantém o ID original (crucial para vínculos)
-
+                    .eq('id', fileToUpdate.id);
                 if (dbError) throw dbError;
-                toast.success(`Versão ${(fileToUpdate.versao || 1) + 1} criada com sucesso!`);
-
+                toast.success(`Versão atualizada para v${(fileToUpdate.versao || 1) + 1}!`);
             } else {
-                // --- MODO CREATE (NOVO ARQUIVO) ---
+                // Insert
                 const { error: dbError } = await supabase
                     .from('projetos_bim')
                     .insert({
-                        nome_arquivo: file.name,
-                        tamanho_bytes: file.size,
-                        urn_autodesk: apiData.urn,
-                        status: 'Concluido',
+                        ...updateData,
                         empresa_id: selectedEmpresa,
                         empreendimento_id: selectedObra,
                         disciplina_id: selectedDisciplina,
@@ -127,19 +156,17 @@ export default function BimUploadModal({
                         criado_por: user.id,
                         versao: 1
                     });
-
                 if (dbError) throw dbError;
-                toast.success("Projeto enviado com sucesso!");
+                toast.success("Projeto criado com sucesso!");
             }
             
-            // C. Finalização
             queryClient.invalidateQueries({ queryKey: ['bimStructureWithFiles', organizacaoId] });
             if (onSuccess) onSuccess();
             onClose();
 
         } catch (err) {
             console.error("Erro no upload:", err);
-            toast.error(`Erro: ${err.message}`);
+            toast.error(`Falha: ${err.message}`);
         } finally {
             setIsUploading(false);
             setStatusStep('');
@@ -147,84 +174,73 @@ export default function BimUploadModal({
     };
 
     if (!isOpen) return null;
-
     const isVersionMode = mode === 'version';
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
             <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col transform transition-all scale-100">
-                
-                {/* Header */}
                 <div className="px-6 py-4 border-b flex justify-between items-center bg-gray-50">
                     <h3 className="font-bold text-gray-800 flex items-center gap-2">
                         <FontAwesomeIcon icon={isVersionMode ? faSyncAlt : faCloudUploadAlt} className="text-blue-600" />
-                        {isVersionMode ? 'Atualizar Versão do Arquivo' : 'Novo Upload BIM'}
+                        {isVersionMode ? 'Atualizar Versão' : 'Novo Upload BIM'}
                     </h3>
                     <button onClick={onClose} disabled={isUploading} className="text-gray-400 hover:text-red-500 transition-colors disabled:opacity-50">
                         <FontAwesomeIcon icon={faTimes}/>
                     </button>
                 </div>
 
-                {/* Body */}
                 <div className="p-6 space-y-5">
-                    
-                    {/* SELETORES (Apenas modo Create) */}
                     {!isVersionMode ? (
-                        <>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Empresa</label>
-                                    <select 
-                                        value={selectedEmpresa} 
-                                        onChange={(e) => {setSelectedEmpresa(e.target.value); setSelectedObra('');}} 
-                                        className="w-full border border-gray-300 rounded-lg p-2 text-sm bg-white focus:ring-2 focus:ring-blue-100 outline-none"
-                                        disabled={isUploading}
-                                    >
-                                        <option value="">Selecione...</option>
-                                        {dropdownData?.empresas.map(e => <option key={e.id} value={e.id}>{e.nome_fantasia || e.razao_social}</option>)}
-                                    </select>
-                                </div>
-                                <div>
-                                    <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Obra</label>
-                                    <select 
-                                        value={selectedObra} 
-                                        onChange={(e) => setSelectedObra(e.target.value)} 
-                                        disabled={!selectedEmpresa || isUploading} 
-                                        className="w-full border border-gray-300 rounded-lg p-2 text-sm disabled:bg-gray-100 bg-white focus:ring-2 focus:ring-blue-100 outline-none"
-                                    >
-                                        <option value="">Selecione...</option>
-                                        {obrasFiltradas.map(o => <option key={o.id} value={o.id}>{o.nome}</option>)}
-                                    </select>
-                                </div>
-                            </div>
-
+                        <div className="grid grid-cols-2 gap-4">
                             <div>
+                                <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Empresa</label>
+                                <select 
+                                    value={selectedEmpresa} 
+                                    onChange={(e) => {setSelectedEmpresa(e.target.value); setSelectedObra('');}} 
+                                    className="w-full border border-gray-300 rounded-lg p-2 text-sm bg-white outline-none"
+                                    disabled={isUploading}
+                                >
+                                    <option value="">Selecione...</option>
+                                    {dropdownData?.empresas.map(e => <option key={e.id} value={e.id}>{e.nome_fantasia || e.razao_social}</option>)}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Obra</label>
+                                <select 
+                                    value={selectedObra} 
+                                    onChange={(e) => setSelectedObra(e.target.value)} 
+                                    disabled={!selectedEmpresa || isUploading} 
+                                    className="w-full border border-gray-300 rounded-lg p-2 text-sm disabled:bg-gray-100 bg-white outline-none"
+                                >
+                                    <option value="">Selecione...</option>
+                                    {obrasFiltradas.map(o => <option key={o.id} value={o.id}>{o.nome}</option>)}
+                                </select>
+                            </div>
+                            <div className="col-span-2">
                                 <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Disciplina</label>
                                 <select 
                                     value={selectedDisciplina} 
                                     onChange={(e) => setSelectedDisciplina(e.target.value)} 
                                     disabled={isUploading}
-                                    className="w-full border border-blue-200 rounded-lg p-2 text-sm font-bold text-blue-700 bg-blue-50/50 focus:ring-2 focus:ring-blue-200 outline-none"
+                                    className="w-full border border-blue-200 rounded-lg p-2 text-sm font-bold text-blue-700 bg-blue-50/50 outline-none"
                                 >
                                     <option value="">Selecione a Pasta...</option>
                                     {dropdownData?.disciplinas.map(d => <option key={d.id} value={d.id}>{d.sigla} - {d.nome}</option>)}
                                 </select>
                             </div>
-                        </>
+                        </div>
                     ) : (
-                        // INFO DE VERSÃO (Apenas modo Version)
                         <div className="bg-blue-50 border border-blue-100 rounded-lg p-3">
                             <p className="text-xs text-blue-800 font-bold mb-1">Substituindo Arquivo:</p>
                             <p className="text-sm text-gray-700 truncate">{fileToUpdate?.nome_arquivo}</p>
                             <div className="flex items-center gap-2 mt-2">
-                                <span className="text-[10px] bg-blue-200 text-blue-800 px-2 py-0.5 rounded-full font-bold">Versão Atual: v{fileToUpdate?.versao}</span>
+                                <span className="text-[10px] bg-blue-200 text-blue-800 px-2 py-0.5 rounded-full font-bold">v{fileToUpdate?.versao}</span>
                                 <FontAwesomeIcon icon={faSyncAlt} className="text-gray-400 text-xs" />
-                                <span className="text-[10px] bg-green-200 text-green-800 px-2 py-0.5 rounded-full font-bold">Nova Versão: v{(fileToUpdate?.versao || 1) + 1}</span>
+                                <span className="text-[10px] bg-green-200 text-green-800 px-2 py-0.5 rounded-full font-bold">v{(fileToUpdate?.versao || 1) + 1}</span>
                             </div>
                         </div>
                     )}
 
-                    {/* Área de Drop / Seleção */}
                     <div className="relative">
                         <input 
                             type="file" 
@@ -260,7 +276,6 @@ export default function BimUploadModal({
                         </label>
                     </div>
 
-                    {/* Barra de Status */}
                     {isUploading && (
                         <div className="bg-blue-50 p-3 rounded-lg flex items-center justify-center gap-3 border border-blue-100">
                             <FontAwesomeIcon icon={faSpinner} spin className="text-blue-600" />
@@ -269,18 +284,10 @@ export default function BimUploadModal({
                     )}
                 </div>
 
-                {/* Footer */}
                 <div className="px-6 py-4 border-t bg-gray-50 flex justify-end gap-3">
-                    <button 
-                        onClick={onClose} 
-                        disabled={isUploading} 
-                        className="px-4 py-2 text-sm font-bold text-gray-500 hover:text-gray-700 hover:bg-gray-200 rounded-lg transition-all"
-                    >
-                        Cancelar
-                    </button>
+                    <button onClick={onClose} disabled={isUploading} className="px-4 py-2 text-sm font-bold text-gray-500 hover:text-gray-700 hover:bg-gray-200 rounded-lg transition-all">Cancelar</button>
                     <button 
                         onClick={handleDirectUpload} 
-                        // Validação condicional do botão
                         disabled={isUploading || !file || (!isVersionMode && (!selectedDisciplina || !selectedObra))}
                         className="bg-blue-600 text-white px-6 py-2 rounded-lg text-sm font-bold shadow-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:shadow-none disabled:cursor-not-allowed transition-all active:scale-95 flex items-center gap-2"
                     >
