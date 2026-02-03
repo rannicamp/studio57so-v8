@@ -16,8 +16,7 @@ export default function ActivityBasicInfo({ formData, setFormData, organizacaoId
     const [isSearching, setIsSearching] = useState(false);
     const [showOptions, setShowOptions] = useState(false);
 
-    // Efeito para carregar o nome da atividade pai se estivermos editando e ela já vier preenchida
-    // (Opcional: em um cenário real, você pode já passar o objeto da pai, mas aqui buscamos por segurança)
+    // CORREÇÃO: Buscando o nome da atividade pai usando a coluna correta 'atividade_pai_id'
     useEffect(() => {
         const fetchParentName = async () => {
             if (formData.atividade_pai_id && !searchTerm && organizacaoId) {
@@ -32,7 +31,7 @@ export default function ActivityBasicInfo({ formData, setFormData, organizacaoId
         fetchParentName();
     }, [formData.atividade_pai_id, organizacaoId, supabase]);
 
-    // Lógica de Busca (Debounce)
+    // Lógica de Busca
     const searchActivities = useCallback(async (term) => {
         if (term.length < 3 || !organizacaoId) return;
         
@@ -43,7 +42,9 @@ export default function ActivityBasicInfo({ formData, setFormData, organizacaoId
                 .select('id, nome')
                 .eq('organizacao_id', organizacaoId)
                 .ilike('nome', `%${term}%`)
-                .limit(5); // Limita para não poluir a tela
+                // Evita que a própria atividade seja pai dela mesma se estivermos editando
+                .neq('id', formData.id || -1) 
+                .limit(5);
 
             if (error) throw error;
             setOptions(data || []);
@@ -54,20 +55,17 @@ export default function ActivityBasicInfo({ formData, setFormData, organizacaoId
         } finally {
             setIsSearching(false);
         }
-    }, [organizacaoId, supabase]);
+    }, [organizacaoId, supabase, formData.id]);
 
-    // Efeito do Debounce (Espera 500ms antes de buscar)
     useEffect(() => {
         const delayDebounce = setTimeout(() => {
             if (searchTerm && showOptions) {
                 searchActivities(searchTerm);
             }
         }, 500);
-
         return () => clearTimeout(delayDebounce);
     }, [searchTerm, showOptions, searchActivities]);
 
-    // Handlers
     const handleChange = (e) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
@@ -76,7 +74,6 @@ export default function ActivityBasicInfo({ formData, setFormData, organizacaoId
     const handleSearchChange = (e) => {
         setSearchTerm(e.target.value);
         setShowOptions(true);
-        // Se o usuário limpar o texto, removemos o vínculo
         if (e.target.value === '') {
             setFormData(prev => ({ ...prev, atividade_pai_id: null }));
         }
@@ -85,7 +82,7 @@ export default function ActivityBasicInfo({ formData, setFormData, organizacaoId
     const handleSelectParent = (activity) => {
         setFormData(prev => ({ ...prev, atividade_pai_id: activity.id }));
         setSearchTerm(activity.nome);
-        setShowOptions(false); // Esconde a lista
+        setShowOptions(false);
     };
 
     const handleClearParent = () => {
@@ -96,8 +93,6 @@ export default function ActivityBasicInfo({ formData, setFormData, organizacaoId
 
     return (
         <div className="bg-white p-4 rounded-lg border border-gray-100 shadow-sm space-y-4">
-            
-            {/* 1. NOME */}
             <div>
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nome da Atividade *</label>
                 <input 
@@ -111,7 +106,6 @@ export default function ActivityBasicInfo({ formData, setFormData, organizacaoId
                 />
             </div>
 
-            {/* 2. DESCRIÇÃO */}
             <div>
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Descrição</label>
                 <textarea 
@@ -124,7 +118,6 @@ export default function ActivityBasicInfo({ formData, setFormData, organizacaoId
                 />
             </div>
 
-            {/* 3. ATIVIDADE PAI (BUSCA) */}
             <div className="relative">
                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1 flex items-center gap-2">
                     Vincular à Atividade-Pai <span className="text-[9px] font-normal text-gray-400">(Opcional)</span>
@@ -134,7 +127,6 @@ export default function ActivityBasicInfo({ formData, setFormData, organizacaoId
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <FontAwesomeIcon icon={faSitemap} className="text-gray-400 text-sm" />
                     </div>
-                    
                     <input 
                         type="text" 
                         value={searchTerm} 
@@ -143,8 +135,6 @@ export default function ActivityBasicInfo({ formData, setFormData, organizacaoId
                         placeholder="Digite para buscar a atividade principal..." 
                         className="w-full p-2.5 pl-9 pr-8 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                     />
-
-                    {/* Botão Limpar */}
                     {searchTerm && (
                         <button 
                             type="button" 
@@ -156,17 +146,16 @@ export default function ActivityBasicInfo({ formData, setFormData, organizacaoId
                     )}
                 </div>
 
-                {/* Dropdown de Resultados */}
                 {showOptions && searchTerm.length >= 3 && (
-                    <ul className="absolute z-20 w-full bg-white border border-gray-200 rounded-lg mt-1 max-h-48 overflow-y-auto shadow-xl animate-in fade-in zoom-in-95 duration-100">
+                    <ul className="absolute z-20 w-full bg-white border border-gray-200 rounded-lg mt-1 max-h-48 overflow-y-auto shadow-xl">
                         {isSearching ? (
                             <li className="px-4 py-3 text-xs text-gray-500 italic text-center">Buscando...</li>
                         ) : options.length > 0 ? (
                             options.map(activity => (
                                 <li 
                                     key={activity.id} 
-                                    onMouseDown={() => handleSelectParent(activity)} // onMouseDown executa antes do onBlur do input
-                                    className="px-4 py-2.5 hover:bg-blue-50 cursor-pointer text-sm text-gray-700 border-b border-gray-50 last:border-0 transition-colors"
+                                    onMouseDown={() => handleSelectParent(activity)}
+                                    className="px-4 py-2.5 hover:bg-blue-50 cursor-pointer text-sm text-gray-700 border-b border-gray-50 last:border-0"
                                 >
                                     {activity.nome}
                                 </li>
@@ -177,7 +166,6 @@ export default function ActivityBasicInfo({ formData, setFormData, organizacaoId
                     </ul>
                 )}
             </div>
-
         </div>
     );
 }
