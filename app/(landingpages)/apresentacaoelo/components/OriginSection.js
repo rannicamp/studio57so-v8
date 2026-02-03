@@ -1,32 +1,48 @@
 export default function OriginSection() {
+  // Imagem Wide
+  const bgImage = "https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empresa-anexos/8/IMG_1770141108563.jpg";
+
   return (
-    <section className="snap-start h-screen flex items-center justify-center py-10 px-6 md:px-20 bg-gray-50 text-black">
-      <div className="max-w-6xl mx-auto grid md:grid-cols-2 gap-16 items-center">
-        <div>
-          <span className="text-[#FF6700] font-bold tracking-widest uppercase text-sm mb-2 block">01. A Origem</span>
-          <h2 className="text-5xl font-bold mb-8 leading-tight">
-            Do Design à Realidade.<br/>
-            <span className="text-[#FF6700]">Sem perder o elo.</span>
+    <section className="snap-start h-screen relative flex items-center overflow-hidden bg-black">
+      
+      {/* --- CAMADA 1: Imagem de Fundo --- */}
+      <div className="absolute inset-0 z-0">
+        <img 
+          src={bgImage} 
+          alt="Comparativo: Mesa bagunçada vs Gestão digital Elo 57"
+          className="w-full h-full object-cover opacity-60"
+        />
+      </div>
+
+      {/* --- CAMADA 2: Degradê (Mais suave agora para combinar com a fonte fina) --- */}
+      <div className="absolute inset-0 bg-gradient-to-r from-black via-black/80 to-transparent z-10" />
+
+      {/* --- CAMADA 3: Conteúdo Minimalista --- */}
+      <div className="relative z-20 container mx-auto px-6 md:px-24 h-full flex flex-col justify-center">
+        <div className="max-w-3xl border-l border-[#FF6700]/50 pl-8 md:pl-12 py-4">
+          
+          {/* Título Principal - Fino e Elegante */}
+          <h2 className="text-5xl md:text-7xl font-light mb-10 text-white leading-[1.1] tracking-tighter">
+            A Excelência não<br/>aceita gargalos.
           </h2>
-          <div className="space-y-6 text-xl text-gray-600 leading-relaxed font-light">
-            <p>
-              No <strong>Studio 57</strong>, nossa obsessão sempre foi a <em>Excelência em cada detalhe</em>. Mas percebemos um abismo entre o que projetávamos e o controle real no canteiro de obras.
-            </p>
-            <p>
-              As soluções de mercado eram fragmentadas. O financeiro não conversava com a engenharia.
-            </p>
-            <p className="font-medium text-black border-l-4 border-[#FF6700] pl-4">
-              Não aceitamos isso. Decidimos construir nossa própria solução.
+          
+          {/* Subtítulo (O Gancho) */}
+          <div className="mb-12">
+            <p className="text-xl md:text-3xl text-gray-200 font-extralight leading-relaxed tracking-wide">
+              "Para cumprir nossa promessa de <span className="text-white font-normal">Excelência em cada detalhe</span> no projeto, precisávamos ter <span className="text-white font-normal">Eficiência em cada detalhe</span> na execução."
             </p>
           </div>
-        </div>
-        <div className="h-[50vh] bg-white rounded-none md:rounded-2xl overflow-hidden shadow-2xl relative border border-gray-200">
-          <div className="absolute inset-0 flex items-center justify-center text-gray-400">
-             <span className="text-center px-4">
-               [FOTO: Equipe Studio 57]<br/>
-               <span className="text-sm">Ambiente de Criação</span>
-             </span>
+
+          {/* Corpo do Texto - Limpo */}
+          <div className="space-y-6 text-lg text-gray-400 leading-relaxed font-light max-w-xl">
+            <p>
+              O Studio 57 cresceu com uma obsessão pela qualidade técnica. Mas o mercado de software era fragmentado: o financeiro não falava com a engenharia, o BIM era isolado da obra.
+            </p>
+            <p>
+              Decidimos criar nosso próprio ecossistema. Onde o design e a execução falam a mesma língua.
+            </p>
           </div>
+
         </div>
       </div>
     </section>

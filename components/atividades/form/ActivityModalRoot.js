@@ -51,12 +51,10 @@ export default function ActivityModalRoot({
     const { user } = useAuth();
     const organizacaoId = user?.organizacao_id;
 
-    // 1. Hook de Dados Inteligente
     const { 
         empresas: optionsEmpresas, 
         empreendimentos: optionsObras, 
-        funcionarios: optionsFuncionarios, 
-        isLoading: isLoadingOptions 
+        funcionarios: optionsFuncionarios 
     } = useActivityFormOptions(organizacaoId, { allEmpresas, empreendimentos, funcionarios });
 
     const isEditing = Boolean(activityToEdit);
@@ -79,6 +77,7 @@ export default function ActivityModalRoot({
         is_recorrente: false,
         recorrencia_tipo: 'diaria',
         recorrencia_intervalo: 1,
+        recorrencia_dias_semana: null,
         recorrencia_fim: null,
         funcionario_id: null,
         contato_id: null,
@@ -87,15 +86,13 @@ export default function ActivityModalRoot({
 
     const [isSaving, setIsSaving] = useState(false);
 
-    // 2. Inicialização
     useEffect(() => {
         if (isOpen) {
             if (isEditing && activityToEdit) {
                 setFormData(prev => ({ ...prev, ...activityToEdit }));
             } else if (initialData) {
-                // Tenta inferir a empresa se vier do BIM apenas com empreendimento_id
                 let empresaPreenchida = initialData.empresa_id;
-                if (!empresaPreenchida && initialData.empreendimento_id && optionsObras.length > 0) {
+                if (!empresaPreenchida && initialData.empreendimento_id && optionsObras?.length > 0) {
                     const obra = optionsObras.find(o => o.id === initialData.empreendimento_id);
                     if (obra) empresaPreenchida = obra.empresa_proprietaria_id;
                 }
@@ -104,114 +101,108 @@ export default function ActivityModalRoot({
                     ...prev,
                     ...initialData,
                     empresa_id: empresaPreenchida || prev.empresa_id,
-                    // Garante padrões se vier vazio
                     duracao_dias: initialData.duracao_dias || 1,
                     status: initialData.status || 'Não Iniciado'
                 }));
             } else {
-                // Reset total
                 setFormData({
                     nome: '', descricao: '', status: 'Não Iniciado', tipo_atividade: 'Tarefa',
                     empresa_id: null, empreendimento_id: null, etapa_id: null, subetapa_id: null, atividade_pai_id: null,
                     data_inicio_prevista: '', data_fim_prevista: '', duracao_dias: 1,
                     is_recorrente: false, recorrencia_tipo: 'diaria', recorrencia_intervalo: 1,
-                    funcionario_id: null, contato_id: null
+                    funcionario_id: null, contato_id: null, responsavel_texto: ''
                 });
             }
         }
     }, [isOpen, isEditing, activityToEdit, initialData, optionsObras]);
 
-    // 3. Salvar
     const handleSubmit = async (e) => {
-        e.preventDefault();
+        if (e) e.preventDefault();
         setIsSaving(true);
 
         try {
-            if (!organizacaoId) throw new Error("Sessão inválida. Recarregue a página.");
-            if (!formData.nome) throw new Error("O nome da atividade é obrigatório.");
+            if (!organizacaoId) throw new Error("Sessão inválida.");
+            if (!formData.nome) throw new Error("O nome é obrigatório.");
 
-            // Recalcula data fim para garantir consistência no banco
             const dataFimCalculada = formData.tipo_atividade === 'Evento' 
                 ? formData.data_inicio_prevista 
                 : addBusinessDays(formData.data_inicio_prevista, formData.duracao_dias);
 
             const selectedFuncionario = optionsFuncionarios?.find(f => f.id == formData.funcionario_id);
 
+            // --- BLINDAGEM CONTRA COLUNAS DO SCHEMA CACHE ---
+            // Criamos um payload contendo APENAS o que existe na tabela 'activities'
             const payload = {
-                ...formData,
-                organizacao_id: organizacaoId,
-                responsavel_texto: selectedFuncionario ? selectedFuncionario.full_name : null,
+                nome: formData.nome,
+                descricao: formData.descricao,
+                status: formData.status,
+                tipo_atividade: formData.tipo_atividade,
+                empresa_id: formData.empresa_id || null,
+                empreendimento_id: formData.empreendimento_id || null,
                 etapa_id: formData.etapa_id || null,
                 subetapa_id: formData.subetapa_id || null,
-                funcionario_id: formData.funcionario_id || null,
-                empreendimento_id: formData.empreendimento_id || null,
                 atividade_pai_id: formData.atividade_pai_id || null,
-                data_fim_prevista: dataFimCalculada
+                funcionario_id: formData.funcionario_id || null,
+                contato_id: formData.contato_id || null,
+                diario_obra_id: formData.diario_obra_id || null,
+                organizacao_id: organizacaoId,
+                data_inicio_prevista: formData.data_inicio_prevista,
+                data_fim_prevista: dataFimCalculada,
+                duracao_dias: formData.duracao_dias,
+                hora_inicio: formData.hora_inicio,
+                duracao_horas: formData.duracao_horas,
+                is_recorrente: formData.is_recorrente,
+                recorrencia_tipo: formData.recorrencia_tipo,
+                recorrencia_intervalo: formData.recorrencia_intervalo,
+                recorrencia_dias_semana: formData.recorrencia_dias_semana,
+                recorrencia_fim: formData.recorrencia_fim,
+                responsavel_texto: selectedFuncionario ? selectedFuncionario.full_name : formData.responsavel_texto,
+                progresso: formData.progresso || 0,
+                custom_class: formData.custom_class || null,
+                dependencies: formData.dependencies || null
             };
 
-            // Se selecionou obra, garante que a empresa seja a dona da obra
+            // Regra original: Se mudou a obra, atualiza a empresa
             if (payload.empreendimento_id) {
                 const emp = optionsObras?.find(e => e.id == payload.empreendimento_id);
-                payload.empresa_id = emp?.empresa_proprietaria_id || payload.empresa_id;
+                if (emp) payload.empresa_id = emp.empresa_proprietaria_id;
             }
-
-            // Limpeza de campos virtuais
-            delete payload.anexos;
-            delete payload.elementos_bim;
 
             let resultActivity;
 
             if (isEditing) {
-                // --- UPDATE ---
                 const { data, error } = await supabase
                     .from('activities')
                     .update(payload)
                     .eq('id', activityToEdit.id)
                     .select()
                     .single();
+                
                 if (error) throw error;
                 resultActivity = data;
-                toast.success("Atividade atualizada!");
+                toast.success("Atualizado com sucesso!");
             } else {
-                // --- CREATE ---
                 payload.criado_por_usuario_id = user.id;
                 const { data, error } = await supabase
                     .from('activities')
                     .insert(payload)
                     .select()
                     .single();
+                
                 if (error) throw error;
                 resultActivity = data;
 
-                // --- VÍNCULO BIM (CORRIGIDO) ---
-                // Verifica se veio uma lista de elementos do BIM para vincular
-                if (initialData?.elementos_bim && initialData?.elementos_bim.length > 0) {
-                    
-                    // Valida ID do Projeto
-                    if (!initialData.projeto_bim_id) {
-                        console.error("❌ Erro: ID do projeto BIM não encontrado.", initialData);
-                    } else {
-                        const vinculosBim = initialData.elementos_bim.map(extId => ({
-                            organizacao_id: organizacaoId,
-                            atividade_id: resultActivity.id,
-                            projeto_bim_id: initialData.projeto_bim_id,
-                            external_id: String(extId)
-                        }));
-                        
-                        console.log("🚀 [Modal] Salvando vínculos:", vinculosBim);
-
-                        const { error: bimError } = await supabase.from('atividades_elementos').insert(vinculosBim);
-                        
-                        if (bimError) {
-                            console.error("❌ Erro ao salvar vínculo:", bimError);
-                            toast.warning("Atividade criada, mas falha ao vincular 3D.");
-                        } else {
-                            toast.success("Vínculo 4D criado com sucesso!");
-                        }
-                    }
+                // Vínculo BIM
+                if (initialData?.elementos_bim && initialData?.elementos_bim.length > 0 && initialData.projeto_bim_id) {
+                    const vinculosBim = initialData.elementos_bim.map(extId => ({
+                        organizacao_id: organizacaoId,
+                        atividade_id: resultActivity.id,
+                        projeto_bim_id: initialData.projeto_bim_id,
+                        external_id: String(extId)
+                    }));
+                    await supabase.from('atividades_elementos').insert(vinculosBim);
                 }
 
-                // Notificação
                 await enviarNotificacao({
                     userId: user.id,
                     titulo: "Nova Atividade",
@@ -220,19 +211,18 @@ export default function ActivityModalRoot({
                     organizacaoId,
                     canal: 'operacional'
                 });
-                toast.success("Atividade criada!");
+                toast.success("Criado com sucesso!");
             }
 
-            // Refresh Global
             queryClient.invalidateQueries(['atividades']);
             queryClient.invalidateQueries(['bimActivities']);
-            queryClient.invalidateQueries(['bimElementLinks']); // Atualiza a aba 4D do Inspetor
+            queryClient.invalidateQueries(['bimElementLinks']);
             
             if (onSuccess) onSuccess(resultActivity);
             onClose();
 
         } catch (error) {
-            console.error(error);
+            console.error("Erro no Studio 57:", error);
             toast.error(error.message || "Erro ao salvar.");
         } finally {
             setIsSaving(false);
@@ -245,7 +235,7 @@ export default function ActivityModalRoot({
         try {
             const { error } = await supabase.from('activities').delete().eq('id', activityToEdit.id);
             if (error) throw error;
-            toast.success("Atividade excluída.");
+            toast.success("Excluído!");
             queryClient.invalidateQueries(['atividades']);
             onClose();
         } catch (error) {
@@ -261,7 +251,6 @@ export default function ActivityModalRoot({
         <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
             <div className="bg-white w-full max-w-4xl rounded-2xl shadow-2xl flex flex-col max-h-[90vh]">
                 
-                {/* HEADER */}
                 <div className="flex items-center justify-between p-5 border-b bg-gray-50 rounded-t-2xl shrink-0">
                     <div>
                         <h2 className="text-xl font-bold text-gray-800">
@@ -276,10 +265,7 @@ export default function ActivityModalRoot({
                     </button>
                 </div>
 
-                {/* FORMULÁRIO */}
-                <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 custom-scrollbar">
-                    
-                    {/* Banner BIM (Se aplicável) */}
+                <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
                     {initialData?.elementos_bim && (
                         <div className="mb-6">
                             <ActivityBimLink count={initialData.elementos_bim.length} />
@@ -287,28 +273,23 @@ export default function ActivityModalRoot({
                     )}
 
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                        {/* Coluna Esquerda (Principal) */}
                         <div className="lg:col-span-8 space-y-6">
                             <ActivityBasicInfo 
                                 formData={formData} 
                                 setFormData={setFormData} 
                                 organizacaoId={organizacaoId}
                             />
-
                             <ActivityContextFields 
                                 formData={formData} 
                                 setFormData={setFormData}
                                 options={{ empresas: optionsEmpresas, empreendimentos: optionsObras }}
                                 organizacaoId={organizacaoId} 
                             />
-
                             <ActivitySchedule 
                                 formData={formData} 
                                 setFormData={setFormData} 
                             />
                         </div>
-
-                        {/* Coluna Direita (Lateral) */}
                         <div className="lg:col-span-4 space-y-6">
                             <ActivityAssignment 
                                 formData={formData} 
@@ -317,9 +298,8 @@ export default function ActivityModalRoot({
                             />
                         </div>
                     </div>
-                </form>
+                </div>
 
-                {/* FOOTER */}
                 <div className="p-4 border-t bg-gray-50 rounded-b-2xl flex justify-between items-center shrink-0">
                     <div>
                         {isEditing && (
