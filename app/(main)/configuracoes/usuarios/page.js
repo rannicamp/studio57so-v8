@@ -1,6 +1,7 @@
 import { createClient } from '@/utils/supabase/server';
 import { redirect } from 'next/navigation';
 import UserManagementForm from '@/components/UserManagementForm';
+import { InviteButton } from './InviteButton'; // <--- AQUI ESTÁ A CORREÇÃO (COM CHAVES)
 
 // Funções de busca de dados iniciais (Server Side)
 async function getUsers(organizacaoId) {
@@ -87,6 +88,9 @@ export default async function UserManagementPage() {
                         Controle total sobre quem acessa o Studio 57.
                     </p>
                 </div>
+                
+                {/* Botão de Convite Seguro */}
+                <InviteButton roles={roles} />
             </div>
 
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden">
