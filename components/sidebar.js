@@ -6,7 +6,7 @@ import {
     faTachometerAlt, faBuilding, faProjectDiagram, faUsers, faTasks,
     faClipboardList, faAddressBook, faDollarSign, faShoppingCart,
     faInbox, faBullseye, faFileSignature, faCalculator,
-    faBoxOpen, faFileInvoiceDollar, faTags, faCube // Adicionei o faCube para o BIM
+    faBoxOpen, faFileInvoiceDollar, faTags, faCube
 } from '@fortawesome/free-solid-svg-icons';
 import { faMeta } from '@fortawesome/free-brands-svg-icons';
 import { useAuth } from '../contexts/AuthContext';
@@ -16,7 +16,7 @@ export default function Sidebar({ isOpen, closeSidebar }) {
     const { hasPermission, user } = useAuth();
     const sidebarPosition = user?.sidebar_position || 'left';
     
-    // Configuração dos itens - Agora com a nova seção BIM
+    // Configuração dos itens - Totalmente Mapeada
     const navSections = [
         {
             title: 'Administrativo',
@@ -51,7 +51,7 @@ export default function Sidebar({ isOpen, closeSidebar }) {
             ]
         },
         {
-            title: 'Coordenação BIM', // Nova seção que você pediu, seu lindo!
+            title: 'Coordenação BIM',
             items: [
                 { href: '/bim-manager', label: 'BIM Manager', icon: faCube, recurso: 'bim' },
             ]
@@ -75,7 +75,9 @@ export default function Sidebar({ isOpen, closeSidebar }) {
                 </div>
                 <nav className="flex items-center gap-2 overflow-x-auto flex-nowrap no-scrollbar py-2 max-w-[80vw]">
                     {allItems.map((item) => {
-                        const canViewItem = hasPermission(item.recurso, 'pode_ver') || ['painel', 'perfil', 'caixa_de_entrada', 'bim'].includes(item.recurso);
+                        // AQUI ESTAVA A GAMBIARRA DO BIM: .includes('bim') foi REMOVIDO!
+                        const canViewItem = hasPermission(item.recurso, 'pode_ver') || ['painel', 'perfil', 'caixa_de_entrada'].includes(item.recurso);
+                        
                         if (!item || !canViewItem) return null;
                         return (
                             <Tooltip key={item.label} label={item.label} position={sidebarPosition === 'top' ? 'bottom' : 'top'}>
@@ -121,11 +123,13 @@ export default function Sidebar({ isOpen, closeSidebar }) {
                     <ul>
                         {navSections.map((section) => {
                             const sectionItems = section.items || [];
-                            const hasVisibleItems = sectionItems.some(item => 
-                                hasPermission(item.recurso, 'pode_ver') || ['painel', 'perfil', 'caixa_de_entrada', 'bim'].includes(item.recurso)
+                            
+                            // Filtra itens VISÍVEIS com base na permissão do banco
+                            const visibleItems = sectionItems.filter(item => 
+                                hasPermission(item.recurso, 'pode_ver') || ['painel', 'perfil', 'caixa_de_entrada'].includes(item.recurso)
                             );
 
-                            if (!hasVisibleItems) return null;
+                            if (visibleItems.length === 0) return null;
 
                             return (
                                 <li key={section.title} className="mb-6">
@@ -134,25 +138,20 @@ export default function Sidebar({ isOpen, closeSidebar }) {
                                     </h3>
 
                                     <ul>
-                                        {sectionItems.map((item) => {
-                                            const canViewItem = hasPermission(item.recurso, 'pode_ver') || ['painel', 'perfil', 'caixa_de_entrada', 'bim'].includes(item.recurso);
-                                            if (!canViewItem) return null;
-
-                                            return (
-                                                <li key={item.label}>
-                                                    <Link
-                                                        href={item.href}
-                                                        target={item.target}
-                                                        onClick={closeSidebar}
-                                                        rel={item.target === '_blank' ? 'noopener noreferrer' : undefined}
-                                                        className="flex items-center py-3 px-6 text-gray-600 hover:bg-blue-50 hover:text-blue-700 transition-all duration-200 border-l-4 border-transparent hover:border-blue-600"
-                                                    >
-                                                        <FontAwesomeIcon icon={item.icon} className="text-lg w-6" />
-                                                        <span className="ml-4 text-sm font-medium">{item.label}</span>
-                                                    </Link>
-                                                </li>
-                                            );
-                                        })}
+                                        {visibleItems.map((item) => (
+                                            <li key={item.label}>
+                                                <Link
+                                                    href={item.href}
+                                                    target={item.target}
+                                                    onClick={closeSidebar}
+                                                    rel={item.target === '_blank' ? 'noopener noreferrer' : undefined}
+                                                    className="flex items-center py-3 px-6 text-gray-600 hover:bg-blue-50 hover:text-blue-700 transition-all duration-200 border-l-4 border-transparent hover:border-blue-600"
+                                                >
+                                                    <FontAwesomeIcon icon={item.icon} className="text-lg w-6" />
+                                                    <span className="ml-4 text-sm font-medium">{item.label}</span>
+                                                </Link>
+                                            </li>
+                                        ))}
                                     </ul>
                                 </li>
                             );

@@ -26,10 +26,7 @@ export default function PermissionManager({ initialFuncoes }) {
   }, [isDragging]);
 
   // =================================================================================
-  // INÍCIO DA ATUALIZAÇÃO
-  // O PORQUÊ: A lista de recursos foi atualizada para incluir as novas páginas
-  // (Recursos Humanos, Tabela de Vendas, Almoxarifado) e para corrigir
-  // inconsistências de nomenclatura (painel, caixa_de_entrada).
+  // LISTA DE RECURSOS ATUALIZADA (BLINDADA PELO DEVONILDO) 🛡️
   // =================================================================================
   const resourceGroups = [
     {
@@ -50,22 +47,27 @@ export default function PermissionManager({ initialFuncoes }) {
       title: 'Comercial',
       resources: [
         { key: 'caixa_de_entrada', name: 'Caixa de Entrada' },
-        { key: 'crm', name: 'CRM' },
-        { key: 'funil', name: 'Funil de Vendas' },
+        { key: 'crm', name: 'Funil de Vendas (CRM)' },
         { key: 'tabela_vendas', name: 'Tabela de Vendas' },
-        { key: 'anuncios', name: 'Anúncios' },
+        { key: 'anuncios', name: 'Anúncios (Marketing)' },
         { key: 'contatos', name: 'Contatos' },
         { key: 'simulador', name: 'Simulador' },
       ]
     },
     {
-      title: 'Obra',
+      title: 'Obra & Engenharia',
       resources: [
         { key: 'orcamento', name: 'Orçamentação' },
         { key: 'pedidos', name: 'Pedidos de Compra' },
         { key: 'almoxarifado', name: 'Almoxarifado' },
         { key: 'rdo', name: 'Diário de Obra (RDO)' },
-        { key: 'atividades', name: 'Atividades' },
+        { key: 'atividades', name: 'Gestão de Atividades' },
+      ]
+    },
+    {
+      title: 'Coordenação BIM', // ✨ MÓDULO NOVO ✨
+      resources: [
+        { key: 'bim', name: 'BIM Manager (3D)' },
       ]
     },
     {
@@ -91,9 +93,6 @@ export default function PermissionManager({ initialFuncoes }) {
       ]
     }
   ];
-  // =================================================================================
-  // FIM DA ATUALIZAÇÃO
-  // =================================================================================
 
   const updateLocalPermission = (funcaoId, recursoKey, tipoPermissao, valor) => {
     setFuncoes(currentFuncoes =>
@@ -173,34 +172,34 @@ export default function PermissionManager({ initialFuncoes }) {
 
   return (
     <div className="space-y-4 select-none">
-      <div className="overflow-x-auto border border-gray-200 rounded-lg">
+      <div className="overflow-x-auto border border-gray-200 rounded-lg custom-scrollbar pb-4">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider sticky left-0 bg-gray-50 z-20">Função</th>
+              <th className="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider sticky left-0 bg-gray-50 z-20 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">Função</th>
               {resourceGroups.map(group => (
                 <th key={group.title} colSpan={group.resources.length * 4} className="px-6 py-3 text-center text-xs font-bold text-gray-600 uppercase tracking-wider border-l-2 border-gray-300">{group.title}</th>
               ))}
             </tr>
             <tr>
-              <th className="px-6 py-3 sticky left-0 bg-gray-50 z-20"></th>
+              <th className="px-6 py-3 sticky left-0 bg-gray-50 z-20 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]"></th>
               {resourceGroups.flatMap(group =>
                 group.resources.map(recurso => (
-                  <th key={recurso.key} colSpan="4" className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-l-2 border-gray-300">
+                  <th key={recurso.key} colSpan="4" className="px-6 py-3 text-center text-[10px] font-bold text-blue-600 uppercase tracking-wider border-l-2 border-gray-300 bg-blue-50/30">
                     {recurso.name}
                   </th>
                 ))
               )}
             </tr>
             <tr>
-              <th className="px-6 py-3 sticky left-0 bg-gray-50 z-20"></th>
+              <th className="px-6 py-3 sticky left-0 bg-gray-50 z-20 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]"></th>
               {resourceGroups.flatMap(group =>
                 group.resources.map(recurso => (
                   <Fragment key={recurso.key}>
-                    <th className="px-2 py-3 text-center text-xs font-medium text-gray-500 border-l-2 border-gray-300">Ver</th>
-                    <th className="px-2 py-3 text-center text-xs font-medium text-gray-500 border-l">Criar</th>
-                    <th className="px-2 py-3 text-center text-xs font-medium text-gray-500 border-l">Editar</th>
-                    <th className="px-2 py-3 text-center text-xs font-medium text-gray-500 border-l">Excluir</th>
+                    <th className="px-1 py-2 text-center text-[9px] font-medium text-gray-400 border-l-2 border-gray-300" title="Ver">Ver</th>
+                    <th className="px-1 py-2 text-center text-[9px] font-medium text-gray-400 border-l" title="Criar">Criar</th>
+                    <th className="px-1 py-2 text-center text-[9px] font-medium text-gray-400 border-l" title="Editar">Edit</th>
+                    <th className="px-1 py-2 text-center text-[9px] font-medium text-gray-400 border-l" title="Excluir">Del</th>
                   </Fragment>
                 ))
               )}
@@ -208,8 +207,8 @@ export default function PermissionManager({ initialFuncoes }) {
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {funcoes.map(funcao => (
-              <tr key={funcao.id}>
-                <td className="px-6 py-4 whitespace-nowrap font-semibold text-sm text-gray-800 sticky left-0 bg-white z-10">
+              <tr key={funcao.id} className="hover:bg-gray-50 transition-colors">
+                <td className="px-6 py-4 whitespace-nowrap font-bold text-xs text-gray-700 sticky left-0 bg-white z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
                   {funcao.nome_funcao}
                 </td>
                 {resourceGroups.flatMap(group =>
@@ -217,17 +216,17 @@ export default function PermissionManager({ initialFuncoes }) {
                     <Fragment key={recurso.key}>
                       {['pode_ver', 'pode_criar', 'pode_editar', 'pode_excluir'].map((tipo, tipoIndex) => {
                         const isChecked = getPermissao(funcao, recurso.key, tipo);
-                        const borderClass = tipoIndex === 0 ? 'border-l-2 border-gray-300' : 'border-l';
+                        const borderClass = tipoIndex === 0 ? 'border-l-2 border-gray-300' : 'border-l border-gray-100';
                         return (
                           <td
                             key={tipo}
-                            className={`px-2 py-4 text-center ${funcao.nome_funcao !== 'Proprietário' ? 'cursor-pointer' : ''} ${borderClass}`}
+                            className={`px-1 py-3 text-center ${funcao.nome_funcao !== 'Proprietário' ? 'cursor-pointer hover:bg-blue-50' : 'opacity-50 cursor-not-allowed'} ${borderClass}`}
                             onMouseDown={() => handleMouseDown(funcao.id, recurso.key, tipo, isChecked)}
                             onMouseEnter={() => handleMouseEnter(funcao.id, recurso.key, tipo)}
                           >
                             <input
                               type="checkbox"
-                              className="h-4 w-4 rounded pointer-events-none"
+                              className={`h-3.5 w-3.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 pointer-events-none transition-all ${isChecked ? 'scale-110' : ''}`}
                               readOnly
                               checked={isChecked}
                               disabled={funcao.nome_funcao === 'Proprietário'}
@@ -243,9 +242,10 @@ export default function PermissionManager({ initialFuncoes }) {
           </tbody>
         </table>
       </div>
-      <p className="text-xs text-gray-500 mt-2">
-        Nota: As permissões para a função &apos;Proprietário&apos; não podem ser alteradas. Clique e arraste para alterar múltiplas permissões.
-      </p>
+      <div className="flex justify-between items-center text-xs text-gray-500 mt-2 px-2">
+        <p>💡 Dica: Clique e arraste para marcar/desmarcar várias opções rapidamente.</p>
+        <p>🔒 O cargo 'Proprietário' possui acesso total irrestrito.</p>
+      </div>
     </div>
   );
 }
