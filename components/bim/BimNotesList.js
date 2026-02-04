@@ -8,7 +8,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
     faSpinner, faExclamationCircle, faCamera, 
-    faClock, faMapMarkerAlt, faComment, faPaperPlane 
+    faClock, faMapMarkerAlt, faComment, faPaperPlane, faTrash 
 } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 
@@ -33,6 +33,25 @@ function timeAgo(dateString) {
     return "agora";
 }
 
+// Configuração dos Status (Cor e Próximo Passo)
+const STATUS_CONFIG = {
+    'aberta': { 
+        label: 'Aberta', 
+        color: 'bg-red-50 text-red-600 border-red-100 hover:bg-red-100', 
+        next: 'em_analise' 
+    },
+    'em_analise': { 
+        label: 'Em Análise', 
+        color: 'bg-orange-50 text-orange-600 border-orange-100 hover:bg-orange-100', 
+        next: 'concluida' 
+    },
+    'concluida': { 
+        label: 'Concluída', 
+        color: 'bg-green-50 text-green-600 border-green-100 hover:bg-green-100', 
+        next: 'aberta' 
+    }
+};
+
 export default function BimNotesList({ onSelectNote }) {
     const supabase = createClient();
     const { organizacao_id, user } = useAuth();
@@ -42,7 +61,7 @@ export default function BimNotesList({ onSelectNote }) {
     const [openChatId, setOpenChatId] = useState(null);
     const [newComment, setNewComment] = useState("");
 
-    // Buscar Notas e Comentários
+    // --- QUERY: Buscar Notas (Filtrando Excluídos) ---
     const { data: notes = [], isLoading, error } = useQuery({
         queryKey: ['bimNotes', organizacao_id],
         queryFn: async () => {
@@ -50,7 +69,6 @@ export default function BimNotesList({ onSelectNote }) {
             
             console.log("🔍 Buscando notas...");
 
-            // CORREÇÃO AQUI: Adicionei !bim_comentarios_user_fkey
             const { data, error } = await supabase
                 .from('bim_notas')
                 .select(`
@@ -63,6 +81,7 @@ export default function BimNotesList({ onSelectNote }) {
                     )
                 `)
                 .eq('organizacao_id', organizacao_id)
+                .eq('excluido', false) // <--- O PULO DO GATO: Filtra o Soft Delete
                 .order('criado_em', { ascending: false });
             
             if (error) {
@@ -74,7 +93,7 @@ export default function BimNotesList({ onSelectNote }) {
         enabled: !!organizacao_id
     });
 
-    // Mutação para Enviar Comentário
+    // --- MUTATION 1: Enviar Comentário ---
     const { mutate: sendComment, isPending: isSending } = useMutation({
         mutationFn: async ({ notaId, texto }) => {
             if (!user?.id) throw new Error("Usuário não identificado");
@@ -93,6 +112,49 @@ export default function BimNotesList({ onSelectNote }) {
             queryClient.invalidateQueries(['bimNotes']);
         },
         onError: (e) => toast.error("Erro ao comentar: " + e.message)
+    });
+
+    // --- MUTATION 2: Mudar Status (Ciclo) ---
+    const { mutate: changeStatus } = useMutation({
+        mutationFn: async ({ notaId, currentStatus }) => {
+            // Descobre qual é o próximo status baseado na config
+            const nextStatus = STATUS_CONFIG[currentStatus]?.next || 'aberta';
+
+            const { error } = await supabase
+                .from('bim_notas')
+                .update({ status: nextStatus, atualizado_em: new Date() })
+                .eq('id', notaId);
+            
+            if (error) throw error;
+            return nextStatus;
+        },
+        onSuccess: (newStatus) => {
+            toast.success(`Status alterado para: ${STATUS_CONFIG[newStatus]?.label || newStatus}`);
+            queryClient.invalidateQueries(['bimNotes']);
+        },
+        onError: (e) => toast.error("Erro ao mudar status: " + e.message)
+    });
+
+    // --- MUTATION 3: Soft Delete (Lixeira) ---
+    const { mutate: softDeleteNote } = useMutation({
+        mutationFn: async (notaId) => {
+            if(!confirm("Tem certeza que deseja remover esta nota?")) return null; // Cancela se o usuário desistir
+
+            const { error } = await supabase
+                .from('bim_notas')
+                .update({ excluido: true, atualizado_em: new Date() }) // Marca como excluído
+                .eq('id', notaId);
+            
+            if (error) throw error;
+            return "deleted";
+        },
+        onSuccess: (result) => {
+            if (result === "deleted") {
+                toast.success("Nota movida para lixeira.");
+                queryClient.invalidateQueries(['bimNotes']);
+            }
+        },
+        onError: (e) => toast.error("Erro ao excluir: " + e.message)
     });
 
     const handleCommentSubmit = (e, notaId) => {
@@ -123,6 +185,9 @@ export default function BimNotesList({ onSelectNote }) {
                 const commentCount = commentsList.length;
                 const isChatOpen = openChatId === note.id;
 
+                // Configuração do Status Atual
+                const statusInfo = STATUS_CONFIG[note.status] || STATUS_CONFIG['aberta'];
+
                 return (
                     <div key={note.id} className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden group hover:shadow-md transition-all">
                         
@@ -141,7 +206,26 @@ export default function BimNotesList({ onSelectNote }) {
                                     <span className="text-[9px] text-gray-400 flex items-center gap-1"><FontAwesomeIcon icon={faClock} className="text-[8px]" /> {timeAgo(note.criado_em)}</span>
                                 </div>
                             </div>
-                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${note.status === 'aberta' ? 'bg-red-50 text-red-600 border border-red-100' : 'bg-green-50 text-green-600 border border-green-100'}`}>{note.status}</span>
+
+                            <div className="flex items-center gap-2">
+                                {/* Botão de Status Clicável */}
+                                <button 
+                                    onClick={(e) => { e.stopPropagation(); changeStatus({ notaId: note.id, currentStatus: note.status }); }}
+                                    className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border cursor-pointer transition-all active:scale-95 select-none ${statusInfo.color}`}
+                                    title="Clique para avançar o status"
+                                >
+                                    {statusInfo.label}
+                                </button>
+
+                                {/* Botão de Lixeira (Soft Delete) */}
+                                <button 
+                                    onClick={(e) => { e.stopPropagation(); softDeleteNote(note.id); }}
+                                    className="w-6 h-6 flex items-center justify-center rounded-full text-gray-300 hover:bg-red-50 hover:text-red-500 transition-colors"
+                                    title="Excluir Nota"
+                                >
+                                    <FontAwesomeIcon icon={faTrash} className="text-[10px]" />
+                                </button>
+                            </div>
                         </div>
 
                         {/* CONTEÚDO */}

@@ -31,6 +31,13 @@ export default function BimNoteModal({ isOpen, onClose, captureData, activities 
 
     if (!isOpen) return null;
 
+    // Helper para contar elementos (suporta formato antigo e novo)
+    const getElementCount = () => {
+        if (captureData?.elements) return captureData.elements.length;
+        if (captureData?.elementIds) return captureData.elementIds.length;
+        return 0;
+    };
+
     const handleSave = async () => {
         if (!titulo.trim()) return toast.error("O título é obrigatório.");
         setIsSaving(true);
@@ -41,7 +48,7 @@ export default function BimNoteModal({ isOpen, onClose, captureData, activities 
                 .from('bim_notas')
                 .insert({
                     organizacao_id,
-                    projeto_bim_id: captureData.projetoBimId,
+                    projeto_bim_id: captureData.projetoBimId, // Projeto "Principal" da vista
                     titulo,
                     descricao,
                     tipo,
@@ -57,15 +64,29 @@ export default function BimNoteModal({ isOpen, onClose, captureData, activities 
 
             if (noteError) throw noteError;
 
-            // 2. Inserir os Vínculos de Elementos (Se houver)
-            if (captureData.elementIds?.length > 0) {
-                const vinculos = captureData.elementIds.map(extId => ({
+            // 2. Inserir os Vínculos de Elementos (Lógica Blindada)
+            let vinculos = [];
+
+            // CASO A: Novo formato (Lista de Objetos { externalId, projectId })
+            if (captureData.elements && captureData.elements.length > 0) {
+                vinculos = captureData.elements.map(el => ({
+                    organizacao_id,
+                    nota_id: newNote.id,
+                    projeto_bim_id: el.projectId, // <--- O PULO DO GATO: Respeita o projeto de cada elemento!
+                    external_id: el.externalId
+                }));
+            } 
+            // CASO B: Formato Antigo (Lista de Strings) - Fallback
+            else if (captureData.elementIds && captureData.elementIds.length > 0) {
+                vinculos = captureData.elementIds.map(extId => ({
                     organizacao_id,
                     nota_id: newNote.id,
                     projeto_bim_id: captureData.projetoBimId,
                     external_id: extId
                 }));
+            }
 
+            if (vinculos.length > 0) {
                 const { error: linkError } = await supabase
                     .from('bim_notas_elementos')
                     .insert(vinculos);
@@ -73,7 +94,7 @@ export default function BimNoteModal({ isOpen, onClose, captureData, activities 
                 if (linkError) throw linkError;
             }
 
-            toast.success("Nota e vínculos criados!");
+            toast.success("Nota salva com sucesso!");
             if (onSuccess) onSuccess();
             onClose();
 
@@ -102,7 +123,7 @@ export default function BimNoteModal({ isOpen, onClose, captureData, activities 
                             <img src={captureData.snapshot} alt="Snapshot" className="w-full h-full object-cover" />
                             <div className="absolute top-2 left-2 bg-blue-600 text-white text-[9px] font-bold px-2 py-1 rounded-full shadow-lg">
                                 <FontAwesomeIcon icon={faCube} className="mr-1"/> 
-                                {captureData.elementIds?.length || 0} elementos vinculados
+                                {getElementCount()} elementos vinculados
                             </div>
                         </div>
                     )}
