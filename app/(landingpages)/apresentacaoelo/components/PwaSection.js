@@ -17,7 +17,6 @@ export default function PwaSection() {
         {/* Lado Esquerdo: Texto */}
         <div className="order-2 md:order-1">
           <span className="text-[#FF6700] font-bold tracking-widest uppercase text-sm mb-4 block">
-            04. Mobilidade Total
           </span>
           <h2 className="text-4xl md:text-6xl font-light text-black mb-6 leading-tight tracking-tight">
             Conectado.<br/>

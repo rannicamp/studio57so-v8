@@ -25,7 +25,6 @@ export default function CaseSection() {
         {/* Lado Esquerdo: Texto */}
         <div className="max-w-xl pointer-events-auto">
           <span className="text-[#FF6700] font-bold tracking-widest uppercase text-sm mb-4 block">
-            03. O Resultado
           </span>
           <h2 className="text-4xl md:text-6xl font-light text-black mb-6 leading-tight tracking-tight">
             Residencial <span className="font-bold">Alfa.</span>
