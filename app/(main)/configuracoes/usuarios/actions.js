@@ -3,7 +3,8 @@
 import { createClient } from '@supabase/supabase-js'
 import { revalidatePath } from 'next/cache'
 
-// Criamos um cliente ADMIN para realizar operações privilegiadas
+// --- CLIENTE ADMIN (Service Role) ---
+// Permite bypass nas regras de segurança para o Gestor fazer tudo
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY,
@@ -15,6 +16,9 @@ const supabaseAdmin = createClient(
   }
 );
 
+// ==============================================================================
+// 1. CRIAÇÃO DE USUÁRIO (NOVO)
+// ==============================================================================
 export async function createUser(prevState, formData) {
   const data = {
     nome: formData.get('nome'),
@@ -30,7 +34,7 @@ export async function createUser(prevState, formData) {
     return { success: false, message: 'Campos essenciais (nome, email, senha, organização) são obrigatórios.' }
   }
 
-  // 1. Criar na Autenticação (Auth)
+  // A. Criar na Autenticação (Auth)
   const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
     email: data.email,
     password: data.password,
@@ -50,7 +54,7 @@ export async function createUser(prevState, formData) {
     return { success: false, message: 'Não foi possível criar o usuário. Email pode ser inválido.' }
   }
 
-  // 2. Criar no Banco de Dados (Tabela usuarios)
+  // B. Criar no Banco de Dados (Tabela usuarios)
   const { error: profileError } = await supabaseAdmin
     .from('usuarios')
     .insert({
@@ -75,11 +79,55 @@ export async function createUser(prevState, formData) {
   return { success: true, message: 'Usuário criado com sucesso!' }
 }
 
+// ==============================================================================
+// 2. EDIÇÃO DE DADOS (RESTAURADO PARA O MODAL)
+// ==============================================================================
+export async function updateUserAction(formData) {
+  const userId = formData.get('userId')
+  const roleId = formData.get('roleId')
+  const funcionarioId = formData.get('funcionarioId')
+  // Converte "on" para true, null para false (caso venha do checkbox)
+  const isActive = formData.get('isActive') === 'on' 
+
+  try {
+    // 1. Atualiza dados básicos
+    const { error } = await supabaseAdmin
+      .from('usuarios')
+      .update({
+        funcao_id: roleId,
+        funcionario_id: funcionarioId === 'null' ? null : funcionarioId,
+        // Se quiser atualizar o status aqui também, descomente:
+        // is_active: isActive, 
+        updated_at: new Date()
+      })
+      .eq('id', userId)
+
+    if (error) throw error
+    
+    // 2. Sincroniza o status/banimento se o checkbox foi alterado no modal
+    // Chamamos a função de toggle para garantir que o Auth também seja atualizado
+    await toggleUserStatus(userId, !isActive) 
+
+    revalidatePath('/configuracoes/usuarios')
+    return { success: true, message: 'Dados atualizados com sucesso!' }
+  } catch (error) {
+    console.error('Erro ao atualizar:', error)
+    return { success: false, message: 'Erro ao atualizar usuário.' }
+  }
+}
+
+// ==============================================================================
+// 3. ALTERAR STATUS (ATIVAR/DESATIVAR COM BANIMENTO)
+// ==============================================================================
 export async function toggleUserStatus(userId, currentStatus) {
+  // Nota: currentStatus é o status ATUAL. O novo será o inverso.
+  // Se for passado um booleano direto para "statusDesejado", adapte a lógica abaixo.
+  // Aqui assumimos que se currentStatus=true, queremos desativar.
+  
   try {
     const newStatus = !currentStatus;
 
-    // 1. Atualiza na tabela visual 'usuarios'
+    // A. Atualiza na tabela visual 'usuarios'
     const { error: dbError } = await supabaseAdmin
       .from('usuarios')
       .update({ is_active: newStatus })
@@ -87,7 +135,7 @@ export async function toggleUserStatus(userId, currentStatus) {
 
     if (dbError) throw new Error(dbError.message);
 
-    // 2. Opcional: Banir/Desbanir no Auth do Supabase (impede login real)
+    // B. Banir/Desbanir no Auth do Supabase (impede login real)
     if (newStatus === false) {
        await supabaseAdmin.auth.admin.updateUserById(userId, { ban_duration: '876000h' }); // Banir por 100 anos
     } else {
@@ -102,6 +150,41 @@ export async function toggleUserStatus(userId, currentStatus) {
   }
 }
 
+// ==============================================================================
+// 4. EXCLUIR USUÁRIO (RESTAURADO PARA A LIXEIRA)
+// ==============================================================================
+export async function deleteUserAction(userId) {
+  try {
+    // A. Deleta do Auth (Sistema de Login)
+    const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(userId)
+    
+    if (authError) {
+        console.error("Erro ao deletar do Auth:", authError)
+    }
+
+    // B. Deleta da tabela pública 'usuarios'
+    // (Geralmente o Supabase deleta em cascata se configurado, mas garantimos aqui)
+    const { error: dbError } = await supabaseAdmin
+      .from('usuarios')
+      .delete()
+      .eq('id', userId)
+
+    if (dbError) throw dbError
+
+    revalidatePath('/configuracoes/usuarios')
+    return { success: true, message: 'Usuário excluído definitivamente.' }
+  } catch (error) {
+    console.error('Erro ao excluir:', error)
+    if (error.code === '23503') { // Código Postgres para violação de chave estrangeira
+        return { success: false, message: 'Não é possível excluir: Usuário possui vínculos (vendas, logs, etc). Tente apenas Desativar.' }
+    }
+    return { success: false, message: 'Erro ao excluir usuário.' }
+  }
+}
+
+// ==============================================================================
+// 5. REDEFINIR SENHA (NOVO)
+// ==============================================================================
 export async function resetUserPassword(userId, newPassword) {
     try {
         if (!newPassword || newPassword.length < 6) {

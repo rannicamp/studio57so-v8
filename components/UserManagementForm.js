@@ -1,12 +1,19 @@
 "use client";
 
 import { useState, useRef, useEffect, useMemo } from 'react';
-import { createUser, toggleUserStatus, resetUserPassword } from '@/app/(main)/configuracoes/usuarios/actions';
+import { 
+    createUser, 
+    updateUserAction, 
+    deleteUserAction, 
+    toggleUserStatus, 
+    resetUserPassword 
+} from '@/app/(main)/configuracoes/usuarios/actions'; // Certifique-se que o caminho está correto
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
     faPlus, faTimes, faSpinner, faSearch, faFilter, 
     faUserShield, faKey, faSort, faSortUp, faSortDown, 
-    faCalendarAlt, faUsers, faUserCheck, faUserSlash, faClock 
+    faCalendarAlt, faUsers, faUserCheck, faUserSlash, faClock,
+    faPen, faTrash // Adicionei ícones de edição e lixeira
 } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -14,7 +21,7 @@ import { createClient } from '@/utils/supabase/client';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
-// --- Função Helper para Persistência de UI (Mantida Intacta) ---
+// --- Função Helper para Persistência de UI ---
 const UI_STATE_KEY = 'STUDIO57_USERS_UI_STATE';
 
 const usePersistentUiState = (initialState) => {
@@ -42,13 +49,13 @@ const usePersistentUiState = (initialState) => {
     return [state, setState];
 };
 
-// --- Função fetchUsers (Atualizada com ultimo_acesso) ---
+// --- Função fetchUsers ---
 const fetchUsers = async (organizationId) => {
     const supabase = createClient();
     const { data, error } = await supabase
         .from('usuarios')
         .select(`
-            id, nome, sobrenome, email, is_active, created_at, avatar_url, ultimo_acesso,
+            id, nome, sobrenome, email, is_active, created_at, avatar_url, ultimo_acesso, funcao_id, funcionario_id,
             funcao:funcoes ( id, nome_funcao ),
             funcionario:funcionarios ( id, full_name, cpf )
         `)
@@ -75,7 +82,7 @@ const UserAvatar = ({ nome, sobrenome, url }) => {
     );
 };
 
-// --- Badge de Status Online (Novo) ---
+// --- Badge de Status Online ---
 const UserStatusBadge = ({ lastSeenDate }) => {
     if (!lastSeenDate) return <span className="text-xs text-gray-400">Nunca acessou</span>;
 
@@ -125,6 +132,7 @@ const AddUserModal = ({ isOpen, onClose, allRoles, allEmployees, organizationId 
 
     const { mutate, isPending } = useMutation({
         mutationFn: async (formData) => {
+            // Server Action
             const result = await createUser(null, formData);
             if (!result.success) throw new Error(result.message);
             return result;
@@ -195,6 +203,73 @@ const AddUserModal = ({ isOpen, onClose, allRoles, allEmployees, organizationId 
     );
 };
 
+// --- Modal de Edição de Usuário (NOVO) ---
+const EditUserModal = ({ isOpen, onClose, user, allRoles, allEmployees, organizationId }) => {
+    const queryClient = useQueryClient();
+    
+    const { mutate, isPending } = useMutation({
+        mutationFn: async (formData) => {
+            const result = await updateUserAction(formData);
+            if (!result.success) throw new Error(result.message);
+            return result;
+        },
+        onSuccess: () => {
+            toast.success('Usuário atualizado!');
+            queryClient.invalidateQueries({ queryKey: ['users', organizationId] });
+            onClose();
+        },
+        onError: (error) => toast.error(error.message),
+    });
+
+    if (!isOpen || !user) return null;
+
+    return (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in">
+            <div className="bg-white dark:bg-gray-800 p-8 rounded-xl shadow-2xl w-full max-w-lg border border-gray-200 dark:border-gray-700">
+                <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-xl font-bold text-gray-800 dark:text-white">Editar: {user.nome}</h2>
+                    <button onClick={onClose} className="text-gray-400 hover:text-red-500"><FontAwesomeIcon icon={faTimes} /></button>
+                </div>
+                <form action={mutate} className="space-y-4">
+                    <input type="hidden" name="userId" value={user.id} />
+                    
+                    {/* Toggle Ativo/Inativo na edição */}
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600">
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Status de Acesso</span>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" name="isActive" className="sr-only peer" defaultChecked={user.is_active} />
+                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-green-500"></div>
+                        </label>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Função</label>
+                            <select name="roleId" defaultValue={user.funcao_id} className="input-std">
+                                {allRoles.map(r => <option key={r.id} value={r.id}>{r.nome_funcao}</option>)}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Vincular RH</label>
+                            <select name="funcionarioId" defaultValue={user.funcionario_id || 'null'} className="input-std">
+                                <option value="null">-- Nenhum --</option>
+                                {allEmployees.map(e => <option key={e.id} value={e.id}>{e.full_name}</option>)}
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div className="pt-4 flex justify-end gap-3">
+                        <button type="button" onClick={onClose} className="btn-secondary">Cancelar</button>
+                        <button type="submit" disabled={isPending} className="btn-primary flex items-center gap-2">
+                            {isPending && <FontAwesomeIcon icon={faSpinner} className="animate-spin" />} Atualizar
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+};
+
 // --- Modal de Senha ---
 const ResetPasswordModal = ({ isOpen, onClose, user }) => {
     const [password, setPassword] = useState('');
@@ -230,9 +305,10 @@ const ResetPasswordModal = ({ isOpen, onClose, user }) => {
 export default function UserManagementForm({ initialUsers, allEmployees, allRoles, organizationId }) {
     const queryClient = useQueryClient();
     const [isAddUserModalOpen, setAddUserModalOpen] = useState(false);
+    const [editingUser, setEditingUser] = useState(null); // Estado para edição
     const [passwordModalUser, setPasswordModalUser] = useState(null);
     
-    // Estado de UI (Mantendo ultimo_acesso como padrão para ver quem está on)
+    // Estado de UI
     const [uiState, setUiState] = usePersistentUiState({
         search: '',
         filterRole: 'all',
@@ -246,7 +322,7 @@ export default function UserManagementForm({ initialUsers, allEmployees, allRole
         queryFn: () => fetchUsers(organizationId),
         initialData: initialUsers,
         refetchOnWindowFocus: true,
-        refetchInterval: 30000, // Atualiza a cada 30s para mostrar status online
+        refetchInterval: 30000, 
     });
 
     const toggleStatusMutation = useMutation({
@@ -256,6 +332,25 @@ export default function UserManagementForm({ initialUsers, allEmployees, allRole
             else { toast.error(data.message); }
         }
     });
+
+    const deleteUserMutation = useMutation({
+        mutationFn: async (userId) => {
+            const result = await deleteUserAction(userId);
+            if (!result.success) throw new Error(result.message);
+            return result;
+        },
+        onSuccess: () => {
+            toast.success("Usuário excluído definitivamente.");
+            queryClient.invalidateQueries({ queryKey: ['users', organizationId] });
+        },
+        onError: (error) => toast.error(error.message)
+    });
+
+    const handleDeleteClick = (userId) => {
+        if (confirm("ATENÇÃO: Você está prestes a excluir este usuário permanentemente.\n\nIsso removerá o histórico dele se não houver vínculos.\nTem certeza?")) {
+            deleteUserMutation.mutate(userId);
+        }
+    }
 
     // --- KPIs Calculados ---
     const stats = useMemo(() => {
@@ -304,7 +399,7 @@ export default function UserManagementForm({ initialUsers, allEmployees, allRole
                     valA = new Date(a.created_at || 0).getTime();
                     valB = new Date(b.created_at || 0).getTime();
                     break;
-                case 'ultimo_acesso': // Adicionada ordenação por acesso
+                case 'ultimo_acesso': 
                     valA = new Date(a.ultimo_acesso || 0).getTime();
                     valB = new Date(b.ultimo_acesso || 0).getTime();
                     break;
@@ -356,6 +451,16 @@ export default function UserManagementForm({ initialUsers, allEmployees, allRole
             `}</style>
 
             <AddUserModal isOpen={isAddUserModalOpen} onClose={() => setAddUserModalOpen(false)} allRoles={allRoles} allEmployees={allEmployees} organizationId={organizationId} />
+            
+            <EditUserModal 
+                isOpen={!!editingUser} 
+                onClose={() => setEditingUser(null)} 
+                user={editingUser} 
+                allRoles={allRoles} 
+                allEmployees={allEmployees} 
+                organizationId={organizationId} 
+            />
+            
             <ResetPasswordModal isOpen={!!passwordModalUser} onClose={() => setPasswordModalUser(null)} user={passwordModalUser} />
 
             {/* --- SEÇÃO DE KPIs --- */}
@@ -456,13 +561,13 @@ export default function UserManagementForm({ initialUsers, allEmployees, allRole
                                             ${['Administrador', 'Proprietário'].includes(user.funcao?.nome_funcao)
                                                 ? 'bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-900/30 dark:text-purple-300' 
                                                 : user.funcao?.nome_funcao === 'Corretor'
-                                                    ? 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-300'
-                                                    : 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300'}`}>
+                                                ? 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-300'
+                                                : 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300'}`}>
                                             {user.funcao?.nome_funcao || 'Sem Função'}
                                         </span>
                                     </td>
 
-                                    {/* Último Acesso (NOVO) */}
+                                    {/* Último Acesso */}
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         <UserStatusBadge lastSeenDate={user.ultimo_acesso} />
                                     </td>
@@ -492,13 +597,31 @@ export default function UserManagementForm({ initialUsers, allEmployees, allRole
 
                                     {/* Ações */}
                                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                        <button 
-                                            onClick={() => setPasswordModalUser(user)}
-                                            className="text-gray-400 hover:text-yellow-600 dark:hover:text-yellow-400 mx-2 p-2 rounded-full hover:bg-yellow-50 dark:hover:bg-yellow-900/20 transition-all tooltip"
-                                            title="Redefinir Senha"
-                                        >
-                                            <FontAwesomeIcon icon={faKey} />
-                                        </button>
+                                        <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <button 
+                                                onClick={() => setEditingUser(user)}
+                                                className="text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 p-2 rounded-full hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all tooltip"
+                                                title="Editar"
+                                            >
+                                                <FontAwesomeIcon icon={faPen} />
+                                            </button>
+                                            
+                                            <button 
+                                                onClick={() => setPasswordModalUser(user)}
+                                                className="text-gray-400 hover:text-yellow-600 dark:hover:text-yellow-400 p-2 rounded-full hover:bg-yellow-50 dark:hover:bg-yellow-900/20 transition-all tooltip"
+                                                title="Redefinir Senha"
+                                            >
+                                                <FontAwesomeIcon icon={faKey} />
+                                            </button>
+
+                                            <button 
+                                                onClick={() => handleDeleteClick(user.id)}
+                                                className="text-gray-400 hover:text-red-600 dark:hover:text-red-400 p-2 rounded-full hover:bg-red-50 dark:hover:bg-red-900/20 transition-all tooltip"
+                                                title="Excluir"
+                                            >
+                                                <FontAwesomeIcon icon={faTrash} />
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                             ))
