@@ -23,13 +23,13 @@ export default function OriginSection() {
           
           {/* Título Principal - Fino e Elegante */}
           <h2 className="text-5xl md:text-7xl font-light mb-10 text-white leading-[1.1] tracking-tighter">
-            A Excelência não<br/>aceita gargalos.
+            A Excelência não<br/>aceita omissão.
           </h2>
           
           {/* Subtítulo (O Gancho) */}
           <div className="mb-12">
             <p className="text-xl md:text-3xl text-gray-200 font-extralight leading-relaxed tracking-wide">
-              "Para cumprir nossa promessa de <span className="text-white font-normal">Excelência em cada detalhe</span> no projeto, precisávamos ter <span className="text-white font-normal">Eficiência em cada detalhe</span> na execução."
+              "Para cumprir nossa promessa de <span className="text-white font-normal">Excelência em cada detalhe</span> precisamos ser <span className="text-white font-normal">Eficiêncientes em cada detalhe</span> 
             </p>
           </div>
 
