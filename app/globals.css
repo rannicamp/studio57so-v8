@@ -1,0 +1,60 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Para esconder a barra de rolagem em navegadores como Chrome, Safari e Opera */
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+
+/* Para esconder a barra de rolagem no Firefox, IE e Edge */
+.no-scrollbar {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+}
+
+@keyframes marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.animate-marquee {
+  animation: marquee 60s linear infinite;
+}
+
+/* =================================================================
+   REGRAS DE IMPRESSÃO (Adicionado para limpar o PDF)
+   ================================================================= */
+@media print {
+  /* 1. Oculta notificações flutuantes (Sonner/Toast) */
+  [data-sonner-toaster],
+  [data-sonner-toast],
+  [data-sonner-visible],
+  ol[data-sonner-toaster] {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    height: 0 !important;
+    width: 0 !important;
+    overflow: hidden !important;
+    pointer-events: none !important;
+  }
+
+  /* 2. Garante que elementos com 'print:hidden' sumam mesmo */
+  .print\:hidden {
+    display: none !important;
+  }
+
+  /* 3. Ajuste de margens do navegador para a folha não cortar */
+  @page {
+    margin: 20mm; /* Alterado de 0mm para 10mm para dar respiro na borda */
+    size: auto;
+  }
+
+  /* 4. Reseta o fundo */
+  body {
+    margin: 0;
+    padding: 0;
+    background: white;
+  }
+}

@@ -1,0 +1,17 @@
+git fetch origin
+git reset --hard origin/main
+git clean -fd
+
+SELECT
+    n.nspname AS schema,
+    p.proname AS nome_da_funcao,
+    pg_get_functiondef(p.oid) AS codigo_fonte
+FROM
+    pg_proc p
+JOIN
+    pg_namespace n ON p.pronamespace = n.oid
+WHERE
+    n.nspname = 'public' -- Apenas o que está no seu esquema público
+    AND p.prokind IN ('f', 'p') -- FILTRO MÁGICO: Apenas Funções (f) e Procedimentos (p)
+ORDER BY
+    p.proname;

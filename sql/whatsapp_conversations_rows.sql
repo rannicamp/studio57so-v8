@@ -1,0 +1,1 @@
+INSERT INTO "public"."whatsapp_conversations" ("id", "phone_number", "updated_at", "created_at", "contato_id") VALUES ('220', '553391912291', '2025-12-04 13:20:46.969+00', '2025-12-04 12:52:23.604735+00', '4543');
