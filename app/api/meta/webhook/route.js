@@ -26,6 +26,7 @@ function sanitizePhone(phone) {
     return clean;
 }
 
+// Busca nomes de objetos (Campanha, Anúncio, FORMULÁRIO)
 async function getMetaObjectName(objectId) {
     const accessToken = process.env.META_PAGE_ACCESS_TOKEN;
     if (!objectId || !accessToken) return null;
@@ -91,7 +92,8 @@ export async function POST(request) {
 
         if (change?.field !== 'leadgen') return new NextResponse(JSON.stringify({ status: 'ignored' }), { status: 200 });
         
-        const { leadgen_id: leadId, page_id: pageId, campaign_id: campaignId, ad_id: adId, adgroup_id: adsetId } = change.value;
+        // Extração dos dados
+        const { leadgen_id: leadId, page_id: pageId, campaign_id: campaignId, ad_id: adId, adgroup_id: adsetId, form_id: formId } = change.value;
         
         // Verifica duplicidade
         const { data: existingLead } = await supabase.from('contatos').select('id').eq('meta_lead_id', leadId).single();
@@ -99,8 +101,9 @@ export async function POST(request) {
         
         const organizacaoId = await getOrganizationIdByPageId(supabase, pageId);
         
-        // Sincroniza metadados (Campanha, Adset, Ad)
-        let campaignName = null, adsetName = null, adName = null;
+        // 1. Sincroniza metadados e busca nomes
+        let campaignName = null, adsetName = null, adName = null, formName = null;
+        
         if (campaignId) {
             campaignName = await getMetaObjectName(campaignId);
             await supabase.from('meta_campaigns').upsert({ id: campaignId, name: campaignName, organizacao_id: organizacaoId });
@@ -113,18 +116,72 @@ export async function POST(request) {
             adName = await getMetaObjectName(adId);
             await supabase.from('meta_ads').upsert({ id: adId, name: adName, campaign_id: campaignId, adset_id: adsetId, organizacao_id: organizacaoId });
         }
+        
+        // 1.1 AUTO-SYNC DO CATÁLOGO DE FORMULÁRIOS
+        if (formId) {
+            formName = await getMetaObjectName(formId);
+            if (formName) {
+                // Upsert no catálogo para ficar disponível no mapeamento
+                await supabase.from('meta_forms_catalog').upsert({
+                    organizacao_id: organizacaoId,
+                    form_id: formId,
+                    name: formName,
+                    status: 'ACTIVE',
+                    last_synced: new Date().toISOString()
+                }, { onConflict: 'organizacao_id,form_id' });
+                console.log(`LOG: Catálogo atualizado via Webhook: ${formName} (${formId})`);
+            }
+        }
 
-        // Busca dados do Lead na API Graph
+        // 2. Busca dados do Lead
         const leadRes = await fetch(`https://graph.facebook.com/v20.0/${leadId}?access_token=${process.env.META_PAGE_ACCESS_TOKEN}`);
         const leadDetails = await leadRes.json();
         if (!leadRes.ok) throw new Error(leadDetails.error?.message || "Erro ao buscar lead");
 
+        // Monta mapa de respostas
         const formMap = {};
         leadDetails.field_data.forEach(f => { formMap[f.name] = f.values[0]; });
         
+        if (formName) {
+            formMap['form_name'] = formName;
+        }
+        
         const nomeLead = formMap.full_name || `Lead Meta (${new Date().toLocaleDateString()})`;
 
-        // Cria o Contato
+        // 3. APLICAÇÃO DO MAPEAMENTO "DE-PARA" (Versão Direta do Banco)
+        const extraFields = {};
+        if (formId) {
+            // Busca usando campo_destino em vez de join complexo
+            const { data: mappings } = await supabase
+                .from('meta_form_config')
+                .select('meta_field_name, campo_destino')
+                .eq('organizacao_id', organizacaoId)
+                .eq('meta_form_id', formId);
+
+            if (mappings && mappings.length > 0) {
+                mappings.forEach(map => {
+                    const metaValue = formMap[map.meta_field_name];
+                    const destinationColumn = map.campo_destino;
+
+                    if (metaValue !== undefined && destinationColumn) {
+                        let finalValue = metaValue;
+                        
+                        // Limpeza básica
+                        if (['renda', 'valor', 'preco', 'salario', 'custo'].some(k => destinationColumn.includes(k))) {
+                            finalValue = parseFloat(String(metaValue).replace(/[^0-9.,]/g, '').replace(',', '.'));
+                        }
+                        
+                        if (['true', 'verdadeiro', 'sim', 'yes'].includes(String(metaValue).toLowerCase())) finalValue = true;
+                        if (['false', 'falso', 'nao', 'não', 'no'].includes(String(metaValue).toLowerCase())) finalValue = false;
+
+                        extraFields[destinationColumn] = finalValue;
+                    }
+                });
+                console.log(`LOG: Mapeamento aplicado para Form ${formId}:`, extraFields);
+            }
+        }
+
+        // 4. Insert Final
         const { data: newContact, error: contactError } = await supabase.from('contatos').insert({
             nome: nomeLead,
             origem: 'Meta Lead Ad',
@@ -136,34 +193,31 @@ export async function POST(request) {
             meta_campaign_id: campaignId,
             meta_adgroup_id: adsetId,
             meta_page_id: pageId,
-            meta_form_id: change.value.form_id,
+            meta_form_id: formId, 
             meta_created_time: new Date(change.value.created_time * 1000).toISOString(),
-            meta_form_data: formMap,
+            meta_form_data: formMap, 
             meta_ad_name: adName,
             meta_campaign_name: campaignName,
-            meta_adset_name: adsetName
+            meta_adset_name: adsetName,
+            ...extraFields // Mágica acontecendo aqui
         }).select('id').single();
 
         if (contactError) throw new Error(contactError.message);
         contatoIdParaLimpeza = newContact.id;
 
-        // Salva Email e Telefone
         if (formMap.email) await supabase.from('emails').insert({ contato_id: newContact.id, email: formMap.email, tipo: 'Principal', organizacao_id: organizacaoId });
         
         if (formMap.phone_number) {
             const finalPhone = sanitizePhone(formMap.phone_number);
             if (finalPhone) {
-                // Trigger do banco vai vincular conversas automaticamente
                 await supabase.from('telefones').insert({ contato_id: newContact.id, telefone: finalPhone, tipo: 'Celular', organizacao_id: organizacaoId });
             }
         }
         
-        // Coloca no Funil
-        // A Trigger do banco vai detectar este INSERT e enviar a notificação automaticamente!
         const colunaId = await ensureFunilAndFirstColumn(supabase, organizacaoId);
         await supabase.from('contatos_no_funil').insert({ contato_id: newContact.id, coluna_id: colunaId, organizacao_id: organizacaoId });
         
-        console.log(`LOG: Novo Lead processado via Webhook. ID: ${newContact.id}`);
+        console.log(`LOG: Novo Lead processado via Webhook. ID: ${newContact.id}. Form: ${formName || formId}`);
 
         return new NextResponse(JSON.stringify({ status: 'success' }), { status: 200 });
 

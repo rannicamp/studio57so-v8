@@ -10,7 +10,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
     faSpinner, faTimes, faSearch, faPlus, faUsers, faHandshake, 
-    faPercent, faSackDollar, faCalendarDay, faRobot, faFilter, faLayerGroup 
+    faPercent, faSackDollar, faCalendarDay, faRobot, faFilter, faLayerGroup,
+    faTable // <--- Novo ícone para o botão de Mapeamento
 } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 import { differenceInCalendarDays, startOfDay } from 'date-fns';
@@ -22,8 +23,8 @@ import CrmDetalhesSidebar from '@/components/crm/CrmDetalhesSidebar';
 import AtividadeModal from '@/components/atividades/AtividadeModal';
 import KpiCard from '@/components/shared/KpiCard';
 import FiltroCrm from '@/components/crm/FiltroCrm';
-// --- IMPORTAÇÃO NOVA: Modal do WhatsApp ---
 import NewConversationModal from '@/components/whatsapp/NewConversationModal';
+import MetaFormMappingModal from '@/components/crm/MetaFormMappingModal'; // <--- Importação do Novo Modal
 
 // --- CHAVE ÚNICA PARA O LOCALSTORAGE (PERSISTÊNCIA) ---
 const CRM_UI_STATE_KEY = 'STUDIO57_CRM_UI_STATE_V1';
@@ -232,6 +233,9 @@ export default function CrmPage() {
     const [isWhatsModalOpen, setIsWhatsModalOpen] = useState(false);
     const [contactForWhats, setContactForWhats] = useState(null);
 
+    // --- ESTADOS PARA O MODAL DE MAPEAMENTO META ---
+    const [isMetaMappingOpen, setIsMetaMappingOpen] = useState(false);
+
     useEffect(() => { if (setPageTitle) setPageTitle("CRM - Funil de Vendas"); }, [setPageTitle]);
 
     const { data: funilData, isLoading: loadingFunil, error: funilError } = useQuery({ 
@@ -302,7 +306,7 @@ export default function CrmPage() {
     const openAddContactModal = () => { setSearchResults([]); setIsAddContactModalOpen(true); };
     const handleStatusChange = (contactId, columnId) => handleStatusChangeMutation.mutate({ contatoNoFunilId: contactId, newColumnId: columnId });
     
-    // --- FUNÇÃO PARA INICIAR WHATSAPP (A Novidade) ---
+    // --- FUNÇÃO PARA INICIAR WHATSAPP ---
     const handleStartWhatsApp = (entry) => {
         const contact = entry.contatos;
         if (!contact) return;
@@ -364,6 +368,16 @@ export default function CrmPage() {
                             Filtros
                         </button>
 
+                        {/* BOTÃO NOVO: Mapear Meta */}
+                        <button 
+                            onClick={() => setIsMetaMappingOpen(true)}
+                            className="bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium py-2 px-4 rounded-lg shadow-sm flex items-center transition duration-200"
+                            title="Mapear Campos do Formulário Meta"
+                        >
+                            <FontAwesomeIcon icon={faTable} className="text-blue-600 mr-2" />
+                            Mapear Meta
+                        </button>
+
                         <Link href="/crm/automacao" className="bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium py-2 px-4 rounded-lg shadow-sm flex items-center transition duration-200">
                             <FontAwesomeIcon icon={faRobot} className="text-purple-500 mr-2" /> Automações
                         </Link>
@@ -422,7 +436,7 @@ export default function CrmPage() {
                         userRole={userData?.funcoes?.nome_funcao}
                         onDeleteAllCardsInColumn={(id) => deleteColumnCardsMutation.mutate(id)}
                         onDeleteCard={(id) => deleteCardMutation.mutate(id)}
-                        onStartWhatsApp={handleStartWhatsApp} // <--- Passando a função para o Kanban
+                        onStartWhatsApp={handleStartWhatsApp} 
                     />
                 )}
             </div>
@@ -434,6 +448,13 @@ export default function CrmPage() {
                 isOpen={isWhatsModalOpen}
                 onClose={() => setIsWhatsModalOpen(false)}
                 preSelectedContact={contactForWhats}
+            />
+
+            {/* Modal de Mapeamento do Meta */}
+            <MetaFormMappingModal
+                isOpen={isMetaMappingOpen}
+                onClose={() => setIsMetaMappingOpen(false)}
+                organizacaoId={organizacaoId}
             />
         </div>
     );
