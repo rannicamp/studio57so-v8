@@ -6,17 +6,25 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTimes, faCalendarDay, faCalendarWeek, faCalendarAlt, faSyncAlt } from '@fortawesome/free-solid-svg-icons';
 import MultiSelectDropdown from '../financeiro/MultiSelectDropdown';
 
-// Estado padrão agora inclui a flag "isDynamicEndDate"
+// 1. Função Auxiliar para pegar a data CORRETA no fuso local (Brasil)
+// Evita que o lead criado a noite suma por causa do fuso UTC
+const getLocalToday = () => {
+    const d = new Date();
+    d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+    return d.toISOString().split('T')[0];
+};
+
+// 2. Estado padrão agora deixa a data final VAZIA (Sem limite)
+// Isso garante que novos leads sempre apareçam imediatamente
 const getDefaultFilterState = () => ({
-    // searchTerm é gerenciado fora agora, mas mantemos a estrutura limpa
     corretorIds: [],
     origens: [],
     unidadeIds: [],
     campaignIds: [],
     adIds: [],
     startDate: '',
-    endDate: new Date().toISOString().split('T')[0],
-    isDynamicEndDate: true, // Padrão: Inteligência ligada (sempre até hoje)
+    endDate: '', // VAZIO = Mostra tudo até o momento atual
+    isDynamicEndDate: false, // Desligado por padrão para evitar confusão
 });
 
 export default function FiltroCrm({ 
@@ -25,30 +33,27 @@ export default function FiltroCrm({
     const [activePeriodFilter, setActivePeriodFilter] = useState('');
 
     // --- 🧠 O CÉREBRO DA DATA DINÂMICA ---
-    // Assim que o componente aparece, se o modo "Dinâmico" estiver ligado, 
-    // ele força a data final para ser o "Hoje" real, ignorando o que estava salvo velho no cache.
+    // Só atualiza se o usuário ATIVAMENTE ligou a opção "Sempre Hoje"
     useEffect(() => {
         if (filters.isDynamicEndDate) {
-            const hojeReal = new Date().toISOString().split('T')[0];
+            const hojeReal = getLocalToday();
             
-            // Só atualiza se a data estiver diferente para não ficar num loop infinito
             if (filters.endDate !== hojeReal) {
                 console.log("🔄 Filtro Inteligente: Atualizando 'Até' para a data de hoje:", hojeReal);
                 setFilters(prev => ({ ...prev, endDate: hojeReal }));
             }
         }
-    }, [filters.isDynamicEndDate, setFilters]); // Roda quando a flag muda ou o componente monta
+    }, [filters.isDynamicEndDate, setFilters]);
 
     const handleFilterChange = (name, value) => {
         setFilters(prev => {
             const newState = { ...prev, [name]: value };
             
-            // Se o usuário mexer manualmente na data final, desligamos a inteligência
+            // Se mexer manualmente na data final, desligamos a inteligência
             if (name === 'endDate') {
                 newState.isDynamicEndDate = false;
                 setActivePeriodFilter('');
             }
-            // Se mexer na data inicial, desliga os botões rápidos, mas mantém o "Até Hoje" se estiver marcado
             if (name === 'startDate') {
                 setActivePeriodFilter('');
             }
@@ -61,52 +66,50 @@ export default function FiltroCrm({
     const toggleDynamicDate = () => {
         setFilters(prev => {
             const isTurningOn = !prev.isDynamicEndDate;
-            const hoje = new Date().toISOString().split('T')[0];
+            const hoje = getLocalToday();
             return {
                 ...prev,
                 isDynamicEndDate: isTurningOn,
-                endDate: isTurningOn ? hoje : prev.endDate // Se ligou, já bota hoje
+                endDate: isTurningOn ? hoje : prev.endDate 
             };
         });
     };
 
     const setDateRange = (period) => {
         const today = new Date();
+        // Ajuste de fuso para cálculos
+        today.setMinutes(today.getMinutes() - today.getTimezoneOffset());
+        
         let startDate, endDate;
-        let dynamic = true; // Botões rápidos geralmente implicam "contexto atual"
+        let dynamic = false;
 
         if (period === 'today') { 
-            startDate = endDate = today; 
+            startDate = today;
+            endDate = today; 
+            dynamic = true; // Botão "Hoje" liga o modo dinâmico
         } else if (period === 'week') {
             const firstDayOfWeek = new Date(today);
             firstDayOfWeek.setDate(today.getDate() - today.getDay()); // Domingo
             startDate = firstDayOfWeek;
-            // Final da semana (sábado)
+            
             const lastDayOfWeek = new Date(firstDayOfWeek);
             lastDayOfWeek.setDate(lastDayOfWeek.getDate() + 6);
             endDate = lastDayOfWeek;
-            
-            // Se o usuário escolheu "Essa Semana", faz sentido manter dinâmico? 
-            // Vamos deixar false para respeitar o intervalo fixo da semana visualizada, 
-            // ou true se quiser que "semana" sempre seja a "semana atual" quando recarregar.
-            // Para simplificar, botões rápidos resetam para datas fixas, 
-            // mas o usuário pode marcar "Sempre até hoje" depois se quiser.
-            dynamic = false; 
         } else if (period === 'month') {
             startDate = new Date(today.getFullYear(), today.getMonth(), 1);
-            endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0); // Último dia do mês
-            dynamic = false;
+            endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
         }
 
         setFilters(prev => ({ 
             ...prev, 
             startDate: startDate.toISOString().split('T')[0], 
             endDate: endDate.toISOString().split('T')[0],
-            isDynamicEndDate: period === 'today' // Só "Hoje" liga o modo dinâmico automático
+            isDynamicEndDate: dynamic
         }));
         setActivePeriodFilter(period);
     };
     
+    // Agora o Limpar Filtros remove a data final, resolvendo seu problema!
     const clearFilters = () => {
         setFilters(prev => ({ ...getDefaultFilterState(), searchTerm: prev.searchTerm }));
         setActivePeriodFilter('');
@@ -128,7 +131,7 @@ export default function FiltroCrm({
 
                 {/* Origens */}
                 <div>
-                     <MultiSelectDropdown label="Origem do Lead" options={origens || []} selectedIds={filters.origens} onChange={(selected) => handleFilterChange('origens', selected)} placeholder="Todas as Origens" />
+                      <MultiSelectDropdown label="Origem do Lead" options={origens || []} selectedIds={filters.origens} onChange={(selected) => handleFilterChange('origens', selected)} placeholder="Todas as Origens" />
                 </div>
 
                 {/* Unidades */}
@@ -178,7 +181,7 @@ export default function FiltroCrm({
                                 name="endDate" 
                                 value={filters.endDate} 
                                 onChange={(e) => handleFilterChange('endDate', e.target.value)} 
-                                disabled={filters.isDynamicEndDate} // Desabilita se for automático
+                                disabled={filters.isDynamicEndDate} 
                                 className={`w-full p-2 border rounded-md shadow-sm text-sm ${filters.isDynamicEndDate ? 'bg-blue-50 text-blue-800 border-blue-200 cursor-not-allowed font-medium' : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'}`} 
                             />
                             {filters.isDynamicEndDate && (
