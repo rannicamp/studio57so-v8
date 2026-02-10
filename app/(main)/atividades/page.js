@@ -17,7 +17,8 @@ import {
   faSpinner,
   faSearch,
   faFilter,
-  faPlus
+  faPlus,
+  faRobot // <--- Ícone da IA
 } from '@fortawesome/free-solid-svg-icons';
 
 import { createClient } from '@/utils/supabase/client';
@@ -34,6 +35,7 @@ import ActivityCalendar from '@/components/atividades/ActivityCalendar';
 import AtividadeFiltros from '@/components/atividades/AtividadeFiltros';
 import KpiCard from '@/components/shared/KpiCard';
 import AtividadeDetalhesSidebar from '@/components/atividades/AtividadeDetalhesSidebar';
+import ActivityCopilot from '@/components/atividades/ActivityCopilot'; // <--- Importação do Copiloto
 
 const STORAGE_KEY = 'STUDIO57_ACTIVITIES_UI_V1';
 
@@ -75,6 +77,7 @@ const fetchAuxiliaryData = async (supabase, organizacaoId) => {
         .from('funcionarios')
         .select('id, full_name')
         .eq('organizacao_id', organizacaoId)
+        .eq('status', 'Ativo') // Adicionei filtro de ativo por segurança
         .order('full_name');
         
     const { data: empresasData, error: empresasError } = await supabase
@@ -89,7 +92,6 @@ const fetchAuxiliaryData = async (supabase, organizacaoId) => {
 };
 
 export default function AtividadesPage() {
-    // CORREÇÃO: Removido 'await' (Componente de Cliente)
     const supabase = createClient();
     const router = useRouter();
     const queryClient = useQueryClient();
@@ -121,10 +123,14 @@ export default function AtividadesPage() {
     };
     const [filters, setFilters] = useState(cachedState?.filters || defaultFilters);
 
+    // Estados dos Modais e Sidebars
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingActivity, setEditingActivity] = useState(null);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [selectedActivityForSidebar, setSelectedActivityForSidebar] = useState(null);
+    
+    // --- ESTADO DO COPILOTO IA ---
+    const [isCopilotOpen, setIsCopilotOpen] = useState(false);
 
     const [debouncedFilters] = useDebounce(filters, 500);
 
@@ -190,7 +196,7 @@ export default function AtividadesPage() {
         mutationFn: async (activityToDuplicate) => {
             const { id, created_at, updated_at, empreendimentos, anexos, atividade_pai, ...newActivityData } = activityToDuplicate;
             newActivityData.nome = `${activityToDuplicate.nome} (Cópia)`;
-            newActivityData.status = 'Não Iniciado';
+            newActivityData.status = 'Não iniciado'; // Ajustado para corresponder ao padrão do banco
             newActivityData.data_inicio_real = null;
             newActivityData.data_fim_real = null;
             newActivityData.data_fim_original = null;
@@ -393,6 +399,16 @@ export default function AtividadesPage() {
                         Filtros
                     </button>
 
+                    {/* --- BOTÃO ASSISTENTE IA (NOVO) --- */}
+                    <button
+                        onClick={() => setIsCopilotOpen(true)}
+                        className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white px-4 py-2 rounded-lg shadow-md hover:shadow-lg transition-all flex items-center gap-2 text-sm font-medium mr-2"
+                        title="Abrir Planejador IA"
+                    >
+                        <FontAwesomeIcon icon={faRobot} />
+                        Assistente IA
+                    </button>
+
                     {canCreate && (
                         <button 
                             onClick={() => handleEditClick(null)} 
@@ -487,6 +503,18 @@ export default function AtividadesPage() {
                     allEmpresas={allEmpresas}
                 />
             )}
+
+            {/* --- COMPONENTE DO COPILOTO IA --- */}
+            <ActivityCopilot 
+                isOpen={isCopilotOpen}
+                onClose={() => setIsCopilotOpen(false)}
+                organizacaoId={organizacaoId}
+                usuarioId={user?.id}
+                onSuccess={() => {
+                    // Atualiza a lista de atividades (Kanban, Lista, etc) instantaneamente
+                    queryClient.invalidateQueries(['atividades', organizacaoId])
+                }}
+            />
         </div>
     );
 }
