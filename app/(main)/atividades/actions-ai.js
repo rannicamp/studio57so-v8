@@ -1,152 +1,297 @@
 'use server'
 
 import { createClient } from '@/utils/supabase/server'
-import { GoogleGenerativeAI } from "@google/generative-ai"
+import { GoogleGenAI } from "@google/genai"
 
-const apiKey = process.env.GEMINI_API_KEY
-const genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null
+// --- CONFIGURAÇÃO ---
+// Pode usar "gemini-2.0-flash" (Garantido) ou "gemini-3-pro-preview" (Se tiver acesso)
+const MODELO_IA = "gemini-2.0-flash"; 
 
-// --- UTILITÁRIOS ---
-function cleanJsonOutput(text) {
-  if (!text) return []
-  try { return JSON.parse(text) } catch (e) {
-    const firstBracket = text.indexOf('[')
-    const lastBracket = text.lastIndexOf(']')
-    if (firstBracket !== -1 && lastBracket !== -1) {
-      try { return JSON.parse(text.substring(firstBracket, lastBracket + 1)) } catch (e2) { return [] }
+const apiKey = process.env.GEMINI_API_KEY;
+const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
+
+// --- UTILITÁRIOS BLINDADOS ---
+
+// 1. Extrai o texto de forma segura (funciona se for função OU propriedade)
+function extractText(response) {
+  try {
+    if (!response) return "";
+    // Se for função (SDK antiga ou alguns modelos)
+    if (typeof response.text === 'function') {
+      return response.text();
     }
-    return []
+    // Se for propriedade (SDK nova @google/genai em alguns casos)
+    if (typeof response.text === 'string') {
+      return response.text;
+    }
+    // Fallback: Tenta pegar direto dos candidatos (Estrutura bruta)
+    if (response.candidates && response.candidates[0] && response.candidates[0].content && response.candidates[0].content.parts) {
+      return response.candidates[0].content.parts.map(p => p.text).join('');
+    }
+    return JSON.stringify(response); // Último recurso
+  } catch (e) {
+    console.error("Erro ao extrair texto da resposta:", e);
+    return "";
   }
 }
 
-// --- GERENCIAMENTO DE SESSÕES (TIPO WHATSAPP) ---
+// 2. Limpa o JSON (remove markdown)
+function cleanJsonOutput(text) {
+  if (!text) return null;
+  let clean = text.replace(/```json/g, '').replace(/```/g, '').trim();
+  try { return JSON.parse(clean); } catch (e) { return null; }
+}
+
+// --- FERRAMENTA: BUSCAR NO BANCO (RPC) ---
+async function searchActivitiesTool(criteria, organizacaoId) {
+  console.log("🔍 [IA TOOL] Buscando no banco com critérios:", criteria);
+  
+  const supabase = await createClient();
+  
+  try {
+    const { data, error } = await supabase.rpc('buscar_atividades_ia', {
+      p_organizacao_id: organizacaoId,
+      p_termo_busca: criteria.termo || null,
+      p_data_inicio: criteria.data_inicio || null,
+      p_data_fim: criteria.data_fim || null,
+      p_status: criteria.status || null
+    });
+
+    if (error) {
+      console.error("❌ [IA TOOL] Erro na RPC:", error.message);
+      return "Erro técnico ao consultar o banco de dados.";
+    }
+
+    if (!data || data.length === 0) {
+      console.log("⚠️ [IA TOOL] Nenhum resultado encontrado.");
+      return "Nenhuma atividade encontrada com esses filtros.";
+    }
+
+    console.log(`✅ [IA TOOL] Encontrados ${data.length} registros.`);
+    
+    // Formata uma string resumida para economizar tokens
+    return data.map(a => 
+      `• ID ${a.id} | ${a.atividade} | Status: ${a.status} | Data: ${new Date(a.data_inicio).toLocaleDateString()} | Resp: ${a.responsavel}`
+    ).join("\n");
+
+  } catch (err) {
+    console.error("❌ [IA TOOL] Exceção:", err);
+    return "Erro interno na ferramenta de busca.";
+  }
+}
+
+// --- CÉREBRO PRINCIPAL (ROTEADOR) ---
+export async function generateActivityPlan(userMessage, organizacaoId, currentPlan = null) {
+  console.log("\n==========================================");
+  console.log("🚀 [IA START] Recebido:", userMessage);
+  
+  if (!ai) {
+    console.error("❌ [IA ERROR] Sem chave API.");
+    return { type: 'message', message: "Erro: Chave API do Gemini não configurada." };
+  }
+
+  const supabase = await createClient();
+
+  try {
+    // 1. Contexto Rápido
+    const { data: contextData } = await supabase.rpc('get_ai_context_data', { p_organizacao_id: organizacaoId });
+    const safeContext = contextData || { empreendimentos: [], funcionarios: [] };
+
+    // 2. Prompt de Decisão
+    const decisionPrompt = `
+      Você é um Assistente de Engenharia. Hoje é ${new Date().toLocaleDateString('pt-BR')}.
+      
+      CONTEXTO RÁPIDO:
+      Obras: ${JSON.stringify(safeContext.empreendimentos)}
+      
+      MENSAGEM DO USUÁRIO: "${userMessage}"
+      
+      CLASSIFIQUE A INTENÇÃO E RETORNE APENAS O JSON:
+      
+      1. BUSCAR DADOS (listar, ver, consultar, o que tem pra fazer):
+         Return: { "action": "SEARCH", "filters": { "termo": "...", "data_inicio": "YYYY-MM-DD", "status": "..." } }
+      
+      2. PLANEJAR/CRIAR (agendar, criar tarefa, fazer cronograma, editar plano):
+         Return: { "action": "PLAN" }
+      
+      3. CONVERSA (oi, obrigado, dúvidas gerais):
+         Return: { "action": "CHAT", "reply": "..." }
+    `;
+
+    console.log(`🤔 [IA DECISION] Consultando modelo ${MODELO_IA}...`);
+    
+    const decisionResponse = await ai.models.generateContent({
+      model: MODELO_IA,
+      contents: decisionPrompt,
+      config: { responseMimeType: "application/json", temperature: 0.1 }
+    });
+
+    // CORREÇÃO AQUI: Usamos a função segura
+    const decisionText = extractText(decisionResponse);
+    console.log("💡 [IA DECISION] Resposta Raw:", decisionText);
+
+    let decision = cleanJsonOutput(decisionText);
+    
+    // Se falhar o JSON, assume Chat
+    if (!decision) {
+      console.warn("⚠️ [IA DECISION] Falha no JSON, caindo para CHAT.");
+      decision = { action: "CHAT", reply: "Não entendi bem. Pode repetir?" };
+    }
+
+    // --- ROTA 1: BUSCA ---
+    if (decision.action === "SEARCH") {
+      console.log("🔎 [IA ROUTE] Rota de BUSCA acionada.");
+      
+      // Chama a ferramenta (SQL)
+      const dbResult = await searchActivitiesTool(decision.filters || {}, organizacaoId);
+      
+      // Pede pra IA resumir o resultado
+      const finalResponse = await ai.models.generateContent({
+        model: MODELO_IA,
+        contents: `O usuário perguntou: "${userMessage}".
+                   O banco de dados retornou isso:
+                   ${dbResult}
+                   
+                   Responda ao usuário de forma amigável e resumida.`
+      });
+
+      return { type: 'message', message: extractText(finalResponse) };
+    }
+
+    // --- ROTA 2: CHAT ---
+    if (decision.action === "CHAT") {
+      console.log("💬 [IA ROUTE] Rota de CHAT acionada.");
+      return { type: 'message', message: decision.reply || "Estou à disposição." };
+    }
+
+    // --- ROTA 3: PLANEJAMENTO (JSON COMPLEXO) ---
+    if (decision.action === "PLAN") {
+      console.log("🏗️ [IA ROUTE] Rota de PLANEJAMENTO acionada.");
+      
+      let planPrompt = `
+        ATUE COMO: Gerente de Projetos Sênior.
+        TAREFA: Gerar um JSON Array de atividades para: "${userMessage}".
+        
+        CONTEXTO:
+        Obras (IDs reais): ${JSON.stringify(safeContext.empreendimentos)}
+        Equipe (IDs reais): ${JSON.stringify(safeContext.funcionarios)}
+        
+        REGRAS RÍGIDAS:
+        1. Retorne APENAS o JSON. Sem markdown.
+        2. Use 'temp_id' (1, 2...) e 'parent_temp_id' para hierarquia (Pai/Filho).
+        3. O campo 'status' DEVE SER "Não Iniciado".
+        4. Tente vincular 'empreendimento_id' e 'funcionario_id' se encontrar nomes parecidos.
+        
+        FORMATO:
+        [{ "temp_id": 1, "nome": "...", "status": "Não Iniciado", "parent_temp_id": null }]
+      `;
+
+      if (currentPlan) {
+        planPrompt = `EDITE este plano JSON: ${JSON.stringify(currentPlan)}. PEDIDO: "${userMessage}". Mantenha formato JSON estrito.`;
+      }
+
+      const planResponse = await ai.models.generateContent({
+        model: MODELO_IA,
+        contents: planPrompt,
+        config: { responseMimeType: "application/json", temperature: 0.8 }
+      });
+
+      const planText = extractText(planResponse);
+      console.log("📦 [IA PLAN] JSON Gerado:", planText.substring(0, 100) + "..."); 
+
+      let activities = cleanJsonOutput(planText);
+      
+      if (!activities) throw new Error("A IA não gerou um JSON válido.");
+      if (!Array.isArray(activities)) activities = [activities];
+
+      // Sanitização final
+      activities = activities.map(a => ({ ...a, status: 'Não Iniciado' }));
+
+      return { type: 'plan', data: activities };
+    }
+
+  } catch (error) {
+    console.error("💥 [IA CRITICAL ERROR]", error);
+    return { type: 'message', message: `Desculpe, tive um erro interno: ${error.message}` };
+  }
+}
+
+// --- FUNÇÕES DE PERSISTÊNCIA (PARA O CHAT FUNCIONAR) ---
 
 export async function listUserSessions(organizacaoId, usuarioId) {
-  const supabase = await createClient()
-  const { data, error } = await supabase
-    .from('ai_planning_sessions')
+  const supabase = await createClient();
+  const { data } = await supabase.from('ai_planning_sessions')
     .select('id, title, updated_at')
     .eq('organizacao_id', organizacaoId)
     .eq('user_id', usuarioId)
-    .order('updated_at', { ascending: false })
-
-  if (error) return []
-  return data
+    .order('updated_at', { ascending: false });
+  return data || [];
 }
 
-export async function createNewSession(organizacaoId, usuarioId, title = 'Novo Planejamento') {
-  const supabase = await createClient()
-  const { data, error } = await supabase
-    .from('ai_planning_sessions')
+export async function createNewSession(organizacaoId, usuarioId, title) {
+  const supabase = await createClient();
+  const { data, error } = await supabase.from('ai_planning_sessions')
     .insert({
       organizacao_id: organizacaoId,
       user_id: usuarioId,
       title: title,
-      messages: [{ role: 'ai', content: 'Olá! Qual o planejamento para esta conversa?' }],
+      messages: [{ role: 'ai', content: 'Olá! Estou pronto. Pode pedir para criar atividades ou consultar o banco.' }],
       current_plan: null
-    })
-    .select()
-    .single()
-
-  if (error) return { success: false, message: error.message }
-  return { success: true, session: data }
-}
-
-export async function deleteSession(sessionId) {
-  const supabase = await createClient()
-  await supabase.from('ai_planning_sessions').delete().eq('id', sessionId)
-  return { success: true }
-}
-
-export async function renameSession(sessionId, newTitle) {
-  const supabase = await createClient()
-  await supabase.from('ai_planning_sessions').update({ title: newTitle }).eq('id', sessionId)
-  return { success: true }
+    }).select().single();
+  
+  if (error) return { success: false };
+  return { success: true, session: data };
 }
 
 export async function getSessionById(sessionId) {
-  const supabase = await createClient()
-  const { data, error } = await supabase
-    .from('ai_planning_sessions')
-    .select('*')
-    .eq('id', sessionId)
-    .single()
-  
-  if (error) return { success: false }
-  return { success: true, session: data }
+  const supabase = await createClient();
+  const { data, error } = await supabase.from('ai_planning_sessions').select('*').eq('id', sessionId).single();
+  if (error) return { success: false };
+  return { success: true, session: data };
 }
 
 export async function saveSessionState(sessionId, messages, currentPlan) {
-  const supabase = await createClient()
-  await supabase
-    .from('ai_planning_sessions')
+  const supabase = await createClient();
+  await supabase.from('ai_planning_sessions')
     .update({ messages, current_plan: currentPlan, updated_at: new Date() })
-    .eq('id', sessionId)
+    .eq('id', sessionId);
 }
 
-// --- LÓGICA DA IA (MANTIDA IGUAL) ---
+export async function deleteSession(sessionId) {
+  const supabase = await createClient();
+  await supabase.from('ai_planning_sessions').delete().eq('id', sessionId);
+}
 
-export async function generateActivityPlan(userMessage, organizacaoId, currentPlan = null) {
-  if (!genAI) return { success: false, message: 'Erro: Chave API não configurada.' }
-  const supabase = await createClient()
-
-  try {
-    const { data: contextData } = await supabase.rpc('get_ai_context_data', { p_organizacao_id: organizacaoId })
-    const safeContext = contextData || { empreendimentos: [], funcionarios: [], etapas: [], tipos_atividade: [] }
-
-    let systemPrompt = ''
-    const baseRules = `
-      REGRAS:
-      1. STATUS: Sempre "Não Iniciado".
-      2. RETORNO: Apenas JSON Array.
-      3. HIERARQUIA: Use 'temp_id' e 'parent_temp_id'.
-      4. CONTEXTO: Use IDs reais de OBRAS (${JSON.stringify(safeContext.empreendimentos)}) e EQUIPE (${JSON.stringify(safeContext.funcionarios)}).
-    `
-
-    if (currentPlan && Array.isArray(currentPlan) && currentPlan.length > 0) {
-      systemPrompt = `ATUE COMO: Gerente Sênior. EDITE este JSON: ${JSON.stringify(currentPlan)}. PEDIDO: "${userMessage}". ${baseRules}`
-    } else {
-      systemPrompt = `ATUE COMO: Gerente Sênior. CRIE um plano JSON. DATA: ${new Date().toLocaleDateString('pt-BR')}. CONTEXTO EXTRA: Etapas ${JSON.stringify(safeContext.etapas)}. ${baseRules}. MODELO: [{ "temp_id": 1, "nome": "...", "status": "Não Iniciado", "parent_temp_id": null }]`
-    }
-
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash", generationConfig: { temperature: 1.0 } })
-    const result = await model.generateContent(systemPrompt + `\n\nPEDIDO: "${userMessage}"`)
-    let activities = cleanJsonOutput(result.response.text())
-    
-    if (!activities || activities.length === 0) return { success: false, message: 'Falha ao gerar plano.' }
-    if (!Array.isArray(activities)) activities = [activities]
-    activities = activities.map(a => ({ ...a, status: 'Não Iniciado' }))
-    
-    return { success: true, data: activities }
-  } catch (error) {
-    console.error('Erro IA:', error)
-    return { success: false, message: 'Erro de processamento.' }
-  }
+export async function renameSession(sessionId, newTitle) {
+  const supabase = await createClient();
+  await supabase.from('ai_planning_sessions').update({ title: newTitle }).eq('id', sessionId);
 }
 
 export async function confirmActivityPlan(activities, organizacaoId, usuarioId) {
-  const supabase = await createClient()
-  const idMap = {}
-  let totalSaved = 0
-  const parents = activities.filter(a => !a.parent_temp_id)
-  const children = activities.filter(a => a.parent_temp_id)
+  const supabase = await createClient();
+  const idMap = {};
+  let totalSaved = 0;
+  
+  const parents = activities.filter(a => !a.parent_temp_id);
+  const children = activities.filter(a => a.parent_temp_id);
 
   try {
     for (const activity of parents) {
-      const { data, error } = await supabase.from('activities').insert({ ...formatForDb(activity, organizacaoId, usuarioId), atividade_pai_id: null }).select('id').single()
-      if (error) throw error
-      if (activity.temp_id) idMap[activity.temp_id] = data.id
-      totalSaved++
+      const { data, error } = await supabase.from('activities').insert(formatForDb(activity, organizacaoId, usuarioId)).select('id').single();
+      if (error) throw error;
+      if (activity.temp_id) idMap[activity.temp_id] = data.id;
+      totalSaved++;
     }
     for (const activity of children) {
-      const realParentId = idMap[activity.parent_temp_id]
-      const { error } = await supabase.from('activities').insert({ ...formatForDb(activity, organizacaoId, usuarioId), atividade_pai_id: realParentId || null })
-      if (error) throw error
-      totalSaved++
+      const realParentId = idMap[activity.parent_temp_id];
+      const { error } = await supabase.from('activities').insert({ ...formatForDb(activity, organizacaoId, usuarioId), atividade_pai_id: realParentId || null });
+      if (error) throw error;
+      totalSaved++;
     }
-    return { success: true, count: totalSaved }
+    return { success: true, count: totalSaved };
   } catch (error) {
-    throw new Error('Erro ao salvar atividades.')
+    console.error("Erro ao salvar:", error);
+    throw new Error('Erro de banco de dados.');
   }
 }
 

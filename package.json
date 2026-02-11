@@ -19,6 +19,7 @@
     "@fortawesome/free-regular-svg-icons": "^6.7.2",
     "@fortawesome/free-solid-svg-icons": "^6.7.2",
     "@fortawesome/react-fontawesome": "^0.2.2",
+    "@google/genai": "^1.40.0",
     "@google/generative-ai": "^0.24.1",
     "@headlessui/react": "^2.2.9",
     "@mui/material": "^5.16.4",
