@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { createClient } from '../../utils/supabase/client';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
     faSpinner, 
@@ -13,12 +13,14 @@ import {
     faCalendarAlt,
     faSearch,
     faExclamationTriangle,
-    faTimes
+    faTimes,
+    faUndo 
 } from '@fortawesome/free-solid-svg-icons';
 import { useAuth } from '../../contexts/AuthContext';
-import { useDebounce } from 'use-debounce'; // Importante para não travar a digitação
+import { useDebounce } from 'use-debounce';
+import EstornoMovimentacaoModal from './EstornoMovimentacaoModal';
 
-// Busca simples de funcionários para o filtro (dropdown)
+// Busca simples de funcionários para o filtro
 const fetchFuncionarios = async (supabase, organizacaoId) => {
     if (!organizacaoId) return [];
     const { data } = await supabase
@@ -29,13 +31,12 @@ const fetchFuncionarios = async (supabase, organizacaoId) => {
     return data || [];
 };
 
-// --- NOVA FUNÇÃO DE BUSCA VIA RPC (BANCO DE DADOS) ---
+// Busca via RPC
 const fetchMovimentacoesRPC = async (supabase, organizacaoId, empreendimentoId, filtros, termoBusca) => {
     if (!organizacaoId || !empreendimentoId) return [];
 
     const { funcionarioId, dataInicio, dataFim, tipoMovimentacao } = filtros;
 
-    // Prepara os parâmetros para a função SQL
     const params = {
         p_organizacao_id: organizacaoId,
         p_empreendimento_id: empreendimentoId,
@@ -46,9 +47,7 @@ const fetchMovimentacoesRPC = async (supabase, organizacaoId, empreendimentoId, 
         p_funcionario_id: funcionarioId || null
     };
 
-    // Chama a função no banco
-    const { data, error } = await supabase
-        .rpc('buscar_movimentacoes_estoque', params);
+    const { data, error } = await supabase.rpc('buscar_movimentacoes_estoque', params);
 
     if (error) {
         console.error("Erro RPC:", error);
@@ -59,12 +58,14 @@ const fetchMovimentacoesRPC = async (supabase, organizacaoId, empreendimentoId, 
 
 export default function PainelMovimentacoes({ empreendimentoId }) {
     const supabase = createClient();
+    const queryClient = useQueryClient();
     const { user } = useAuth();
     const organizacaoId = user?.organizacao_id;
 
-    // --- ESTADOS ---
+    // Estados
+    const [modalEstornoOpen, setModalEstornoOpen] = useState(false);
+    const [movimentacaoParaEstorno, setMovimentacaoParaEstorno] = useState(null);
     const [filtroTexto, setFiltroTexto] = useState('');
-    // O debounce espera você parar de digitar por 500ms antes de buscar no banco
     const [termoBuscaDebounced] = useDebounce(filtroTexto, 500);
 
     const [filtrosQuery, setFiltrosQuery] = useState({
@@ -80,15 +81,23 @@ export default function PainelMovimentacoes({ empreendimentoId }) {
 
     const limparFiltros = () => {
         setFiltroTexto('');
-        setFiltrosQuery({
-            funcionarioId: '',
-            tipoMovimentacao: 'Todos',
-            dataInicio: '',
-            dataFim: ''
-        });
+        setFiltrosQuery({ funcionarioId: '', tipoMovimentacao: 'Todos', dataInicio: '', dataFim: '' });
     };
 
-    // Carrega Funcionários
+    const handleAbrirEstorno = (mov) => {
+        setMovimentacaoParaEstorno(mov);
+        setModalEstornoOpen(true);
+    };
+
+    const handleSucessoEstorno = () => {
+        queryClient.invalidateQueries(['movimentacoes_rpc']);
+        queryClient.invalidateQueries(['estoque']); 
+    };
+
+    const podeEstornar = (tipo) => {
+        return ['Saída por Uso', 'Retirada por Funcionário', 'Baixa por Quebra'].includes(tipo);
+    };
+
     const { data: funcionarios } = useQuery({
         queryKey: ['funcionarios_filtro', organizacaoId],
         queryFn: () => fetchFuncionarios(supabase, organizacaoId),
@@ -96,7 +105,6 @@ export default function PainelMovimentacoes({ empreendimentoId }) {
         staleTime: 1000 * 60 * 10,
     });
 
-    // Carrega Movimentações (Reage a qualquer mudança de filtro ou texto)
     const { data: movimentacoes, isLoading, isError, error } = useQuery({
         queryKey: ['movimentacoes_rpc', organizacaoId, empreendimentoId, filtrosQuery, termoBuscaDebounced],
         queryFn: () => fetchMovimentacoesRPC(supabase, organizacaoId, empreendimentoId, filtrosQuery, termoBuscaDebounced),
@@ -115,6 +123,7 @@ export default function PainelMovimentacoes({ empreendimentoId }) {
         switch (tipo) {
             case 'Entrada por Compra':
             case 'Devolução ao Estoque':
+            case 'Estorno':
                 return { color: 'text-green-700 bg-green-50 border-green-200', icon: faArrowUp };
             case 'Saída por Uso':
             case 'Retirada por Funcionário':
@@ -128,10 +137,14 @@ export default function PainelMovimentacoes({ empreendimentoId }) {
     return (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col h-[calc(100vh-220px)] min-h-[600px]">
             
-            {/* === BARRA DE FERRAMENTAS === */}
+            <EstornoMovimentacaoModal 
+                isOpen={modalEstornoOpen}
+                onClose={() => setModalEstornoOpen(false)}
+                movimentacao={movimentacaoParaEstorno}
+                onSuccess={handleSucessoEstorno}
+            />
+
             <div className="p-4 border-b border-gray-100 bg-gray-50/50 space-y-4">
-                
-                {/* Título e Ações */}
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2">
                     <div className="flex items-center gap-2 text-gray-700">
                         <FontAwesomeIcon icon={faCalendarAlt} className="text-blue-500" />
@@ -142,97 +155,38 @@ export default function PainelMovimentacoes({ empreendimentoId }) {
                             </span>
                         )}
                     </div>
-                    
-                    {/* Botão Limpar */}
                     {(filtroTexto || filtrosQuery.funcionarioId || filtrosQuery.dataInicio || filtrosQuery.dataFim || filtrosQuery.tipoMovimentacao !== 'Todos') && (
-                        <button 
-                            onClick={limparFiltros}
-                            className="text-xs text-red-600 hover:text-red-800 flex items-center gap-1 hover:underline transition-all"
-                        >
+                        <button onClick={limparFiltros} className="text-xs text-red-600 hover:text-red-800 flex items-center gap-1 hover:underline transition-all">
                             <FontAwesomeIcon icon={faTimes} /> Limpar Filtros
                         </button>
                     )}
                 </div>
 
-                {/* Grid de Filtros */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-3">
-                    
-                    {/* 1. Pesquisa de Texto (Maior destaque) */}
                     <div className="lg:col-span-4 relative">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <FontAwesomeIcon icon={faSearch} className="text-gray-400" />
-                        </div>
-                        <input
-                            type="text"
-                            value={filtroTexto}
-                            onChange={(e) => setFiltroTexto(e.target.value)}
-                            placeholder="Buscar item, pessoa, obs..."
-                            className="pl-10 w-full border border-gray-300 rounded-md p-2 text-sm focus:ring-blue-500 focus:border-blue-500 outline-none shadow-sm"
-                        />
+                        <FontAwesomeIcon icon={faSearch} className="absolute left-3 top-2.5 text-gray-400" />
+                        <input type="text" value={filtroTexto} onChange={(e) => setFiltroTexto(e.target.value)} placeholder="Buscar item, pessoa..." className="pl-10 w-full border border-gray-300 rounded-md p-2 text-sm focus:ring-blue-500 outline-none shadow-sm" />
                     </div>
-
-                    {/* 2. Filtro de Tipo */}
                     <div className="lg:col-span-2">
-                        <select
-                            value={filtrosQuery.tipoMovimentacao}
-                            onChange={(e) => handleFilterChange('tipoMovimentacao', e.target.value)}
-                            className="w-full border border-gray-300 rounded-md p-2 text-sm focus:ring-blue-500 focus:border-blue-500 outline-none bg-white shadow-sm"
-                        >
+                        <select value={filtrosQuery.tipoMovimentacao} onChange={(e) => handleFilterChange('tipoMovimentacao', e.target.value)} className="w-full border border-gray-300 rounded-md p-2 text-sm outline-none bg-white shadow-sm">
                             <option value="Todos">Todos os Tipos</option>
-                            <optgroup label="Entradas">
-                                <option value="Entrada por Compra">Entrada (Compra)</option>
-                                <option value="Devolução ao Estoque">Devolução</option>
-                            </optgroup>
-                            <optgroup label="Saídas">
-                                <option value="Retirada por Funcionário">Retirada (Func.)</option>
-                                <option value="Saída por Uso">Uso na Obra</option>
-                                <option value="Baixa por Quebra">Quebra/Perda</option>
-                            </optgroup>
+                            <optgroup label="Entradas"><option value="Entrada por Compra">Entrada (Compra)</option><option value="Devolução ao Estoque">Devolução</option><option value="Estorno">Estorno</option></optgroup>
+                            <optgroup label="Saídas"><option value="Retirada por Funcionário">Retirada (Func.)</option><option value="Saída por Uso">Uso na Obra</option><option value="Baixa por Quebra">Quebra/Perda</option></optgroup>
                         </select>
                     </div>
-
-                    {/* 3. Funcionario */}
-                    <div className="lg:col-span-3 relative">
-                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <FontAwesomeIcon icon={faUser} className="text-gray-400" />
-                        </div>
-                        <select
-                            value={filtrosQuery.funcionarioId}
-                            onChange={(e) => handleFilterChange('funcionarioId', e.target.value)}
-                            className="pl-10 w-full border border-gray-300 rounded-md p-2 text-sm focus:ring-blue-500 focus:border-blue-500 outline-none bg-white shadow-sm"
-                        >
+                    <div className="lg:col-span-3">
+                        <select value={filtrosQuery.funcionarioId} onChange={(e) => handleFilterChange('funcionarioId', e.target.value)} className="w-full border border-gray-300 rounded-md p-2 text-sm outline-none bg-white shadow-sm">
                             <option value="">Todos os Funcionários</option>
-                            {funcionarios?.map(func => (
-                                <option key={func.id} value={func.id}>{func.full_name}</option>
-                            ))}
+                            {funcionarios?.map(func => <option key={func.id} value={func.id}>{func.full_name}</option>)}
                         </select>
                     </div>
-
-                    {/* 4. Datas */}
                     <div className="lg:col-span-3 flex gap-2">
-                        <div className="relative w-full">
-                            <span className="absolute -top-2 left-2 bg-white px-1 text-[10px] text-gray-500 font-medium">De</span>
-                            <input
-                                type="date"
-                                value={filtrosQuery.dataInicio}
-                                onChange={(e) => handleFilterChange('dataInicio', e.target.value)}
-                                className="w-full border border-gray-300 rounded-md p-1.5 text-sm focus:ring-blue-500 focus:border-blue-500 outline-none shadow-sm"
-                            />
-                        </div>
-                        <div className="relative w-full">
-                            <span className="absolute -top-2 left-2 bg-white px-1 text-[10px] text-gray-500 font-medium">Até</span>
-                            <input
-                                type="date"
-                                value={filtrosQuery.dataFim}
-                                onChange={(e) => handleFilterChange('dataFim', e.target.value)}
-                                className="w-full border border-gray-300 rounded-md p-1.5 text-sm focus:ring-blue-500 focus:border-blue-500 outline-none shadow-sm"
-                            />
-                        </div>
+                        <input type="date" value={filtrosQuery.dataInicio} onChange={(e) => handleFilterChange('dataInicio', e.target.value)} className="w-full border border-gray-300 rounded-md p-1.5 text-sm shadow-sm" />
+                        <input type="date" value={filtrosQuery.dataFim} onChange={(e) => handleFilterChange('dataFim', e.target.value)} className="w-full border border-gray-300 rounded-md p-1.5 text-sm shadow-sm" />
                     </div>
                 </div>
             </div>
 
-            {/* === CONTEÚDO DA TABELA === */}
             <div className="flex-grow overflow-auto bg-gray-50/30">
                 {isLoading ? (
                     <div className="h-full flex flex-col items-center justify-center text-gray-500">
@@ -259,6 +213,7 @@ export default function PainelMovimentacoes({ empreendimentoId }) {
                                 <th className="px-4 py-3">Material</th>
                                 <th className="px-4 py-3 text-center">Qtd.</th>
                                 <th className="px-4 py-3">Responsável / Detalhes</th>
+                                <th className="px-4 py-3 text-right">Ações</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200 bg-white">
@@ -276,9 +231,7 @@ export default function PainelMovimentacoes({ empreendimentoId }) {
                                             </span>
                                         </td>
                                         <td className="px-4 py-3">
-                                            <div className="font-bold text-gray-800">
-                                                {mov.material_nome}
-                                            </div>
+                                            <div className="font-bold text-gray-800">{mov.material_nome}</div>
                                             {mov.observacao && (
                                                 <div className="text-[11px] text-gray-400 italic mt-1 max-w-[300px] truncate" title={mov.observacao}>
                                                     Obs: {mov.observacao}
@@ -287,9 +240,7 @@ export default function PainelMovimentacoes({ empreendimentoId }) {
                                         </td>
                                         <td className="px-4 py-3 text-center">
                                             <span className="font-bold text-gray-800 text-base">{mov.quantidade}</span>
-                                            <span className="text-[10px] text-gray-500 ml-1 block">
-                                                {mov.unidade_medida}
-                                            </span>
+                                            <span className="text-[10px] text-gray-500 ml-1 block">{mov.unidade_medida}</span>
                                         </td>
                                         <td className="px-4 py-3 text-xs">
                                             {mov.funcionario_nome && (
@@ -306,6 +257,17 @@ export default function PainelMovimentacoes({ empreendimentoId }) {
                                             <div className="text-gray-400 text-[10px] mt-1 border-t pt-1 w-max">
                                                 Reg. por: {mov.usuario_nome || 'Sistema'}
                                             </div>
+                                        </td>
+                                        <td className="px-4 py-3 text-right">
+                                            {podeEstornar(mov.tipo) && (
+                                                <button 
+                                                    onClick={() => handleAbrirEstorno(mov)}
+                                                    className="text-orange-600 hover:text-orange-800 bg-orange-50 hover:bg-orange-100 p-2 rounded-md transition-colors"
+                                                    title="Estornar / Devolver ao Estoque"
+                                                >
+                                                    <FontAwesomeIcon icon={faUndo} />
+                                                </button>
+                                            )}
                                         </td>
                                     </tr>
                                 );
