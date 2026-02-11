@@ -78,7 +78,7 @@ export default function RootLayout({ children }) {
               FB.init({
                 appId      : '1518358099511142',
                 cookie     : true,
-                xfml       : true,
+                xfbml      : true,  // <--- CORRIGIDO: Era xfml, agora é xfbml
                 version    : 'v20.0'
               });
               FB.AppEvents.logPageView();   
