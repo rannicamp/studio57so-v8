@@ -5,6 +5,20 @@ import { useEffect, Suspense } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { registrarVisita } from '@/app/_actions/monitorActions';
 
+// Função auxiliar para gerar ID único (funciona em qualquer lugar)
+const gerarIDUnico = () => {
+  // 1. Tenta usar o método moderno e seguro do navegador
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  
+  // 2. Plano B: Método manual para quando acessa pelo IP da rede (http://192...)
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+};
+
 function MonitorLogico() {
   const pathname = usePathname();
   const searchParams = useSearchParams(); 
@@ -12,8 +26,9 @@ function MonitorLogico() {
   useEffect(() => {
     // 1. Gerenciamento de Sessão (O "Crachá" do visitante)
     let sessionId = localStorage.getItem('studio57_session_id');
+    
     if (!sessionId) {
-      sessionId = crypto.randomUUID(); // Gera um ID único
+      sessionId = gerarIDUnico(); // Usamos nossa função blindada aqui
       localStorage.setItem('studio57_session_id', sessionId);
     }
 

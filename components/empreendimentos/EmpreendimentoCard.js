@@ -1,15 +1,14 @@
 "use client";
 
-import { useState, useEffect } from 'react'; // <-- Adicionado useState e useEffect
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faBuilding, faStore, faStoreSlash, faSpinner } from '@fortawesome/free-solid-svg-icons'; // <-- Ícones adicionados
-import { createClient } from '@/utils/supabase/client'; // <-- Adicionado
-import { useMutation, useQueryClient } from '@tanstack/react-query'; // <-- Adicionado
-import { toast } from 'sonner'; // <-- Adicionado
+import { faBuilding, faStore, faStoreSlash, faSpinner } from '@fortawesome/free-solid-svg-icons';
+import { createClient } from '@/utils/supabase/client';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 
-// O PORQUÊ: Adicionamos a prop 'organizacaoId' que virá da página principal
 export default function EmpreendimentoCard({ empreendimento, organizacaoId }) {
     const supabase = createClient();
     const queryClient = useQueryClient();
@@ -59,12 +58,12 @@ export default function EmpreendimentoCard({ empreendimento, organizacaoId }) {
         e.preventDefault(); 
 
         const novoStatus = !isListed;
-        // Atualiza visualmente primeiro (Otimistic UI)
+        // Atualiza visualmente primeiro (Optimistic UI)
         setIsListed(novoStatus); 
         updateVendaStatus.mutate(novoStatus);
     };
     
-    // Funções de estilo (iguais a antes)
+    // Funções de estilo
     const getStatusClass = (status) => {
         switch (status) {
             case 'Lancamento': return 'bg-blue-100 text-blue-800';
@@ -77,20 +76,20 @@ export default function EmpreendimentoCard({ empreendimento, organizacaoId }) {
     const proprietaria = empreendimento.empresa_proprietaria?.razao_social || 'Proprietário não definido';
 
     return (
-        // O Link continua envolvendo o card, mas o botão terá seu próprio clique
         <Link 
             href={`/empreendimentos/${empreendimento.id}`} 
-            className="block group rounded-lg overflow-hidden shadow-lg bg-white hover:shadow-xl transition-shadow duration-300 ease-in-out flex flex-col justify-between" // <-- Adicionado flex flex-col justify-between
+            className="block group rounded-lg overflow-hidden shadow-lg bg-white hover:shadow-xl transition-shadow duration-300 ease-in-out flex flex-col justify-between"
         >
             <div> {/* Div para agrupar imagem e texto */}
                 <div className="relative w-full h-48">
                     {empreendimento.imagem_capa_url ? (
+                        /* CORREÇÃO APLICADA AQUI: */
                         <Image
                             src={empreendimento.imagem_capa_url}
                             alt={`Imagem de capa do ${empreendimento.nome}`}
-                            layout="fill"
-                            objectFit="cover" 
-                            className="transition-transform duration-300 group-hover:scale-105"
+                            fill // Substitui o layout="fill"
+                            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw" // Boa prática para performance
+                            className="object-cover transition-transform duration-300 group-hover:scale-105" // Adicionado object-cover aqui
                         />
                     ) : (
                         <div className="w-full h-full bg-gray-200 flex items-center justify-center">
@@ -118,14 +117,14 @@ export default function EmpreendimentoCard({ empreendimento, organizacaoId }) {
                 </div>
             </div>
 
-            {/* ======================= BOTÃO TOGGLE ADICIONADO AQUI ======================= */}
+            {/* ======================= BOTÃO TOGGLE ======================= */}
             <div 
                 className="p-4 border-t border-gray-200 mt-auto bg-gray-50 hover:bg-gray-100 transition-colors"
-                onClick={handleToggleClick} // O clique na área toda do rodapé ativa o toggle
-                role="button" // Indica que é clicável
-                aria-pressed={isListed} // Acessibilidade
-                tabIndex={0} // Permite focar com o teclado
-                onKeyDown={(e) => { if (e.key === ' ' || e.key === 'Enter') handleToggleClick(e); }} // Permite ativar com teclado
+                onClick={handleToggleClick}
+                role="button"
+                aria-pressed={isListed}
+                tabIndex={0}
+                onKeyDown={(e) => { if (e.key === ' ' || e.key === 'Enter') handleToggleClick(e); }}
             >
                 <div className="flex items-center justify-between cursor-pointer">
                     <div className="flex items-center">
@@ -146,7 +145,6 @@ export default function EmpreendimentoCard({ empreendimento, organizacaoId }) {
                     )}
                 </div>
             </div>
-            {/* ======================= FIM DO BOTÃO TOGGLE ======================= */}
         </Link>
     );
 }
