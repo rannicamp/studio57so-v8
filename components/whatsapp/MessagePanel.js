@@ -78,8 +78,7 @@ export default function MessagePanel({ contact, onBack }) {
         return uppyInstance;
     });
 
-    // --- Hook de Áudio (Novo) ---
-    // Passamos a função de envio para ele usar quando terminar de gravar
+    // --- Hook de Áudio ---
     const handleSendAudio = async ({ file, caption }) => {
         sendAttachmentMutation.mutate({ file, caption });
     };
@@ -242,6 +241,12 @@ export default function MessagePanel({ contact, onBack }) {
     const handleSendMessage = (e) => { e.preventDefault(); if (newMessage.trim()) sendMessageMutation.mutate(newMessage); };
     const handleMediaClick = (media) => { setViewerMedia(media); setIsViewerOpen(true); };
 
+    // Handler para Ctrl+V de arquivos
+    const handlePasteFile = (file) => {
+        setSelectedFile(file);
+        setIsFilePreviewOpen(true);
+    };
+
     // Renders
     if (!contact) return <div className="flex flex-col items-center justify-center h-full bg-[#efeae2] border-l border-gray-300"><div className="text-center"><FontAwesomeIcon icon={faUserCircle} className="text-gray-300 text-6xl mb-4" /><h2 className="text-xl text-gray-500 font-light">Selecione uma conversa</h2></div></div>;
     if (isLoading) return <div className="flex items-center justify-center h-full bg-[#efeae2]"><FontAwesomeIcon icon={faSpinner} spin size="2x" className="text-[#00a884]" /></div>;
@@ -251,7 +256,6 @@ export default function MessagePanel({ contact, onBack }) {
             <TemplateMessageModal 
                 isOpen={isTemplateModalOpen} onClose={() => setIsTemplateModalOpen(false)} 
                 contactName={contact?.nome}
-                // (Simplifiquei passando só o necessário, você pode expandir se precisar)
             />
             <FilePreviewModal isOpen={isFilePreviewOpen} onClose={() => setIsFilePreviewOpen(false)} file={selectedFile} onSend={(f, c) => sendAttachmentMutation.mutate({ file: f, caption: c })} />
             <ChatMediaViewer isOpen={isViewerOpen} onClose={() => setIsViewerOpen(false)} mediaUrl={viewerMedia?.url} mediaType={viewerMedia?.type} fileName={viewerMedia?.name} />
@@ -270,7 +274,7 @@ export default function MessagePanel({ contact, onBack }) {
                 </div>
             )}
 
-            <div className="flex flex-col h-full bg-[#efeae2] relative">
+            <div className="flex flex-col h-full bg-[#efeae2] relative pt-[64px] md:pt-0">
                 <ChatHeader contact={contact} recipientPhone={recipientPhone} onBack={onBack} />
                 
                 <MessageList messages={messages} onMediaClick={handleMediaClick} />
@@ -283,6 +287,7 @@ export default function MessagePanel({ contact, onBack }) {
                     onOpenTemplate={() => setIsTemplateModalOpen(true)}
                     recorder={recorder}
                     uploadingOrProcessing={sendAttachmentMutation.isPending}
+                    onPasteFile={handlePasteFile}
                 />
             </div>
         </>
