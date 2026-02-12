@@ -1,44 +1,59 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/utils/supabase/server';
+import { createClient } from '@supabase/supabase-js';
+
+// Configuração manual do cliente (mantendo seu padrão atual)
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 export async function POST(request) {
+    // 1. Validação das Chaves de API
+    if (!supabaseUrl || !supabaseServiceKey) {
+        return NextResponse.json({ error: "Configuração do servidor incompleta (Faltam chaves)." }, { status: 500 });
+    }
+
     try {
-        const supabase = await createClient();
-
-        // 1. Recebe os dados
-        const dadosRecebidos = await request.json();
+        const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+        const body = await request.json();
         
-        // 2. Extraímos com nomes claros para o computador não se perder
-        // Tentamos pegar 'organizacaoId' ou 'organizacao_id' (o que vier)
-        const idDoContato = dadosRecebidos.contact_id;
-        const idDaOrganizacao = dadosRecebidos.organizacaoId || dadosRecebidos.organizacao_id;
+        // CORREÇÃO CRÍTICA AQUI:
+        // O frontend envia 'organizacaoId', então precisamos ler exatamente esse nome.
+        // Adicionei um fallback para garantir que funcione mesmo se mandar com underline.
+        const contact_id = body.contact_id;
+        const organizacaoId = body.organizacaoId || body.organizacao_id;
 
-        // 3. Verificação de segurança (Log para você ver no terminal)
-        console.log('[Mark Read] Dados extraídos:', { idDoContato, idDaOrganizacao });
-
-        if (!idDoContato || !idDaOrganizacao) {
-            return NextResponse.json({ 
-                error: 'Faltando contact_id ou organizacaoId',
-                recebido: { idDoContato, idDaOrganizacao }
-            }, { status: 400 });
+        // 2. Validação dos Dados Recebidos
+        if (!contact_id || !organizacaoId) {
+            console.error('[Mark Read API] Dados faltantes:', { contact_id, organizacaoId });
+            return NextResponse.json({ error: 'ID do contato e Organização são obrigatórios' }, { status: 400 });
         }
 
-        // 4. Atualização no Supabase usando as novas variáveis
-        const { error } = await supabase
+        // 3. Marca mensagens como lidas
+        await supabaseAdmin
+            .from('whatsapp_messages')
+            .update({ is_read: true })
+            .match({ 
+                contato_id: contact_id, 
+                direction: 'inbound',
+                is_read: false 
+            });
+
+        // 4. ZERA o contador na tabela de conversas
+        // Agora usamos a variável 'organizacaoId' que garantimos que existe ali em cima (passo 2)
+        const { error } = await supabaseAdmin
             .from('whatsapp_conversations')
             .update({ unread_count: 0 })
-            .eq('contato_id', idDoContato)
-            .eq('organizacao_id', idDaOrganizacao);
+            .eq('contato_id', contact_id)
+            .eq('organizacao_id', organizacaoId);
 
         if (error) {
-            console.error('[Mark Read API] Erro Supabase:', error);
-            return NextResponse.json({ error: error.message }, { status: 500 });
+            console.error('[Mark Read API] Erro ao atualizar conversa:', error);
+            throw error;
         }
 
-        return NextResponse.json({ success: true });
+        return NextResponse.json({ success: true }, { status: 200 });
 
-    } catch (err) {
-        console.error('[Mark Read API] Erro Fatal:', err);
-        return NextResponse.json({ error: 'Erro interno' }, { status: 500 });
+    } catch (error) {
+        console.error('[Mark Read API] Erro fatal:', error);
+        return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }
