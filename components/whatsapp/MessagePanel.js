@@ -27,24 +27,24 @@ import GoldenRetriever from '@uppy/golden-retriever';
 // CSS DO UPPY
 const UPPY_CSS_URL = "https://releases.transloadit.com/uppy/v5.2.1/uppy.min.css";
 
-// --- TRADUÇÃO PT-BR COMPLETA (Igual ao PontoImporter) ---
+// --- TRADUÇÃO PT-BR COMPLETA ---
 const pt_BR = {
   strings: {
     addMore: 'Adicionar mais',
     addMoreFiles: 'Adicionar mais arquivos',
-    browse: 'selecione', // AQUI ESTÁ A MÁGICA DO "BROWSE"
+    browse: 'selecione',
     browseFiles: 'selecionar arquivos',
     cancel: 'Cancelar',
     cancelUpload: 'Cancelar envio',
     complete: 'Concluído',
     dashboardTitle: 'Enviar Arquivo',
     dropPasteFiles: 'Arraste arquivos aqui ou %{browse}',
-    editFile: 'Adicionar Legenda', // Mudei de "Editar" para "Adicionar Legenda" para ficar claro
+    editFile: 'Adicionar Legenda',
     editing: 'Editando %{file}',
     fileProgress: 'Progresso: velocidade e tempo restante',
     myDevice: 'Meu Dispositivo',
     removeFile: 'Remover arquivo',
-    save: 'Salvar Legenda', // Botão de salvar a legenda
+    save: 'Salvar Legenda',
     saveChanges: 'Salvar alterações',
     uploadXFiles: {
       0: 'Enviar %{smart_count} arquivo',
@@ -109,7 +109,6 @@ export default function MessagePanel({ contact, onBack }) {
 
     // --- 1. LÓGICA DE REABERTURA AUTOMÁTICA (ANTI-CRASH) ---
     useEffect(() => {
-        // Verifica se o modal estava aberto antes do refresh/crash
         if (typeof window !== 'undefined') {
             const wasOpen = localStorage.getItem('whatsappUploaderOpen');
             if (wasOpen === 'true') {
@@ -118,13 +117,11 @@ export default function MessagePanel({ contact, onBack }) {
         }
     }, []);
 
-    // Função auxiliar para abrir o modal e salvar estado
     const openUploader = () => {
         setIsUploaderOpen(true);
         if (typeof window !== 'undefined') localStorage.setItem('whatsappUploaderOpen', 'true');
     };
 
-    // Função auxiliar para fechar o modal e limpar estado
     const closeUploader = () => {
         setIsUploaderOpen(false);
         if (typeof window !== 'undefined') localStorage.removeItem('whatsappUploaderOpen');
@@ -135,8 +132,8 @@ export default function MessagePanel({ contact, onBack }) {
         if (typeof window === 'undefined') return null;
     
         const uppyInstance = new Uppy({
-          id: 'whatsapp-uploader-v4-ptbr', // ID Novo para limpar cache de tradução
-          locale: pt_BR, // INJEÇÃO DA TRADUÇÃO NO NÚCLEO
+          id: 'whatsapp-uploader-v4-ptbr',
+          locale: pt_BR,
           autoProceed: false,
           debug: true,
           restrictions: {
@@ -161,12 +158,10 @@ export default function MessagePanel({ contact, onBack }) {
             target: dashboardContainerRef.current,
             inline: true,
             width: '100%',
-            height: 380, // Um pouco maior para caber tudo
+            height: 380,
             showProgressDetails: true,
             hideUploadButton: false,
-            // Nota de rodapé orientando sobre a legenda
             note: "Para adicionar legenda, clique no ícone de lápis na imagem.",
-            
             metaFields: [
               { 
                 id: 'caption', 
@@ -196,11 +191,15 @@ export default function MessagePanel({ contact, onBack }) {
 
     const markReadMutation = useMutation({
         mutationFn: async () => {
-             if (!contact?.contato_id) return;
+             if (!contact?.contato_id || !organizacaoId) return;
              await fetch('/api/whatsapp/mark-read', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ contact_id: contact.contato_id, organizacao_id: organizacaoId })
+                // CORREÇÃO: Enviando organizacaoId conforme a API espera
+                body: JSON.stringify({ 
+                    contact_id: contact.contato_id, 
+                    organizacaoId: organizacaoId 
+                })
             });
         },
         onSuccess: () => {
@@ -242,11 +241,17 @@ export default function MessagePanel({ contact, onBack }) {
     
     useEffect(() => {
         if (!contact || !organizacaoId) return;
+        // Inscrição no canal para mensagens novas e atualizações (Reactions trigger UPDATE)
         const channel = supabase.channel(`whatsapp_messages_org_${organizacaoId}`)
             .on('postgres_changes', 
-                { event: 'INSERT', schema: 'public', table: 'whatsapp_messages', filter: `organizacao_id=eq.${organizacaoId}` }, 
+                { event: '*', schema: 'public', table: 'whatsapp_messages', filter: `organizacao_id=eq.${organizacaoId}` }, 
                 (payload) => {
-                    if (payload.new.contato_id === contact.contato_id || payload.new.sender_id === recipientPhone || payload.new.receiver_id === recipientPhone) {
+                    const isRelevant = 
+                        payload.new.contato_id === contact.contato_id || 
+                        payload.new.sender_id === recipientPhone || 
+                        payload.new.receiver_id === recipientPhone;
+
+                    if (isRelevant) {
                         queryClient.invalidateQueries({ queryKey: ['messages', organizacaoId, contact.contato_id] });
                     }
                     queryClient.invalidateQueries({ queryKey: ['conversations', organizacaoId] });
@@ -383,7 +388,6 @@ export default function MessagePanel({ contact, onBack }) {
               toast.success("Arquivo enviado!");
               uppy.removeFile(id);
               
-              // Fecha o modal e limpa a flag de crash recovery
               closeUploader();
               queryClient.invalidateQueries({ queryKey: ['messages', organizacaoId, contact?.contato_id] });
     
@@ -513,7 +517,7 @@ export default function MessagePanel({ contact, onBack }) {
                 onSendTemplate={(t, l, v, txt, comp) => sendTemplateMutation.mutate({ templateName: t, language: l, variables: v, fullText: txt, components: comp })} 
                 contactName={contact?.nome} 
             />
-            {/* FilePreviewModal mantido apenas se precisar abrir arquivos antigos, mas não para envio novo */}
+            {/* FilePreviewModal mantido apenas se precisar abrir arquivos antigos */}
             <FilePreviewModal isOpen={isFilePreviewOpen} onClose={() => setIsFilePreviewOpen(false)} file={selectedFile} onSend={(f, c) => sendAttachmentMutation.mutate({ file: f, caption: c })} />
             <ChatMediaViewer isOpen={isViewerOpen} onClose={() => setIsViewerOpen(false)} mediaUrl={viewerMedia?.url} mediaType={viewerMedia?.type} fileName={viewerMedia?.name} />
             <link href={UPPY_CSS_URL} rel="stylesheet" />
@@ -527,7 +531,6 @@ export default function MessagePanel({ contact, onBack }) {
                         <FontAwesomeIcon icon={faCloudUploadAlt} className="text-blue-500" />
                         Enviar Arquivo
                     </h3>
-                    {/* Botão Fechar chama closeUploader para limpar flag */}
                     <button onClick={closeUploader} className="text-gray-400 hover:text-red-500 transition-colors p-2">
                         <FontAwesomeIcon icon={faTimes} size="lg" />
                     </button>
@@ -543,7 +546,7 @@ export default function MessagePanel({ contact, onBack }) {
             )}
 
             <div className="flex flex-col h-full bg-[#efeae2] relative">
-                {/* Header (Mantido Original) */}
+                {/* Header */}
                 <div className="bg-[#f0f2f5] px-4 py-2 border-b border-gray-300 flex items-center justify-between shadow-sm z-10 sticky top-0 h-16">
                     <div className="flex items-center gap-3 w-full">
                         {onBack && (
@@ -565,7 +568,7 @@ export default function MessagePanel({ contact, onBack }) {
                     </div>
                 </div>
 
-                {/* Lista de Mensagens (Mantida Original) */}
+                {/* Lista de Mensagens */}
                 <div className="flex-grow p-4 overflow-y-auto space-y-2 custom-scrollbar" style={{ backgroundImage: 'url("https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png")', backgroundRepeat: 'repeat' }}>
                     {messages?.map(msg => {
                         const isMe = msg.direction === 'outbound';
@@ -575,10 +578,13 @@ export default function MessagePanel({ contact, onBack }) {
                         const isImage = payload?.type === 'image' || payload?.image; const isAudio = payload?.type === 'audio' || payload?.audio;
                         const isVideo = payload?.type === 'video' || payload?.video; const isDocument = payload?.type === 'document' || payload?.document;
                         const hiddenTexts = ['Imagem', 'Áudio', 'Documento', 'Vídeo', 'Áudio enviado', 'Imagem enviada', 'Vídeo enviado'];
+                        
+                        // --- LÓGICA DE REAÇÃO (JOINHA) ---
+                        const reaction = msg.reaction_data; // { emoji: "👍", ... }
 
                         return (
                             <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'} mb-2`}>
-                                <div className={`relative max-w-[85%] sm:max-w-[65%] rounded-lg shadow-sm text-sm ${isMe ? 'bg-[#d9fdd3] rounded-tr-none' : 'bg-white rounded-tl-none'}`}>
+                                <div className={`relative max-w-[85%] sm:max-w-[65%] rounded-lg shadow-sm text-sm group ${isMe ? 'bg-[#d9fdd3] rounded-tr-none' : 'bg-white rounded-tl-none'}`}>
                                     <div className="p-1">
                                         {isImage && mediaUrl && <div className="rounded overflow-hidden mb-1 cursor-pointer bg-[#cfd4d2]" onClick={() => { setViewerMedia({ url: mediaUrl, type: 'image' }); setIsViewerOpen(true); }}><img src={mediaUrl} className="w-full h-auto max-h-80 object-cover" loading="lazy" /></div>}
                                         {isVideo && mediaUrl && <div className="rounded overflow-hidden mb-1 bg-black relative flex items-center justify-center min-h-[150px]"><button className="absolute inset-0 z-20 w-full h-full cursor-pointer opacity-0" onClick={() => { setViewerMedia({ url: mediaUrl, type: 'video' }); setIsViewerOpen(true); }}></button><div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none"><div className="w-12 h-12 bg-black/50 rounded-full flex items-center justify-center text-white backdrop-blur-sm shadow-lg"><FontAwesomeIcon icon={faPlayCircle} size="2x" /></div></div><video src={mediaUrl} className="w-full max-h-80 opacity-80 pointer-events-none object-cover" /></div>}
@@ -587,6 +593,14 @@ export default function MessagePanel({ contact, onBack }) {
                                         {msg.content && !hiddenTexts.includes(msg.content) && <p className="px-2 pb-1 pt-1 text-gray-800 whitespace-pre-wrap leading-relaxed">{msg.content}</p>}
                                     </div>
                                     <div className="flex justify-end items-center gap-1 px-2 pb-1 mt-[-4px]"><span className="text-[10px] text-gray-500">{msg.sent_at ? format(new Date(msg.sent_at), 'HH:mm') : ''}</span>{isMe && <FontAwesomeIcon icon={msg.status === 'read' ? faCheckDouble : msg.status === 'delivered' ? faCheckDouble : faCheck} className={msg.status === 'read' ? "text-[#53bdeb]" : "text-gray-500"} />}</div>
+                                    
+                                    {/* --- VISUALIZAÇÃO DA REAÇÃO --- */}
+                                    {reaction && reaction.emoji && (
+                                        <div className="absolute -bottom-2 -right-1 bg-white rounded-full p-1 shadow-md border border-gray-100 text-xs z-10 animate-in fade-in zoom-in duration-200">
+                                            {reaction.emoji}
+                                        </div>
+                                    )}
+
                                 </div>
                             </div>
                         );
@@ -594,10 +608,9 @@ export default function MessagePanel({ contact, onBack }) {
                     <div ref={messagesEndRef} />
                 </div>
 
+                {/* Input Area */}
                 <div className="bg-[#f0f2f5] px-4 py-2 flex items-center gap-2 z-20">
-                    {/* Botão Anexo modificado para abrir Uppy via openUploader */}
                     <button onClick={openUploader} className="text-gray-500 hover:text-gray-700 p-2" disabled={sendAttachmentMutation.isPending || isProcessingAudio}><FontAwesomeIcon icon={faPaperclip} size="lg" /></button>
-                    
                     {!isRecording && !isProcessingAudio && <button onClick={() => setIsTemplateModalOpen(true)} className="text-gray-500 hover:text-gray-700 p-2"><FontAwesomeIcon icon={faFileLines} size="lg" /></button>}
                     <div className="flex-grow bg-white rounded-lg border border-white flex items-center py-2 px-4 shadow-sm focus-within:ring-1 focus-within:ring-[#00a884] transition-all">
                         {isRecording ? <div className="flex-grow flex items-center text-red-500 font-medium animate-pulse"><span><FontAwesomeIcon icon={faMicrophone} className="mr-2" /> Gravando... {formatTime(recordingTime)}</span></div> : isProcessingAudio ? <div className="flex-grow flex items-center gap-2 text-gray-500 font-medium"><FontAwesomeIcon icon={faSpinner} spin /> Processando áudio...</div> : <textarea value={newMessage} onChange={(e) => setNewMessage(e.target.value)} onKeyDown={(e) => { if(e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(e); } }} placeholder="Digite uma mensagem" className="w-full bg-transparent border-none focus:ring-0 resize-none text-gray-700 max-h-24 custom-scrollbar p-0 placeholder-gray-400" rows={1} style={{ minHeight: '24px' }} />}

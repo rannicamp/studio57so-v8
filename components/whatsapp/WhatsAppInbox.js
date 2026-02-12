@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-// Ajuste no import para apontar para o local original do arquivo
 import { getConversations, getBroadcastLists, markMessagesAsRead } from '@/app/(main)/caixa-de-entrada/data-fetching';
 import ConversationList from '@/components/whatsapp/ConversationList';
 import MessagePanel from '@/components/whatsapp/MessagePanel';
@@ -12,7 +11,7 @@ import BroadcastPanel from '@/components/whatsapp/BroadcastPanel';
 import ContactProfile from '@/components/whatsapp/ContactProfile';
 import { Toaster } from 'sonner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSearch, faEnvelope, faInbox } from '@fortawesome/free-solid-svg-icons';
+import { faSearch, faEnvelope } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 import { useDebounce } from 'use-debounce';
 
@@ -121,7 +120,6 @@ export default function WhatsAppInbox({ onChangeTab }) {
             <Toaster position="top-right" richColors />
 
             {/* --- COLUNA 1: NAVEGAÇÃO E LISTAS --- */}
-            {/* CORREÇÃO: Largura fixa de 350px e shrink-0 para não espremer */}
             <div className={`
                 ${hasSelection ? 'hidden md:flex' : 'flex'} 
                 w-full md:w-[350px] shrink-0
@@ -161,7 +159,6 @@ export default function WhatsAppInbox({ onChangeTab }) {
             </div>
 
             {/* --- COLUNA 2: LISTA CENTRAL (CHAT) --- */}
-            {/* CORREÇÃO: Removemos 'transition-all' para evitar a dança */}
             <div className={`
                 ${hasSelection ? 'flex' : 'hidden md:flex'} 
                 flex-grow flex-col bg-[#efeae2] h-full overflow-hidden relative min-h-0
@@ -173,7 +170,6 @@ export default function WhatsAppInbox({ onChangeTab }) {
             </div>
             
             {/* --- COLUNA 3: DIREITA (PERFIL WHATSAPP) --- */}
-            {/* CORREÇÃO: Largura fixa de 350px */}
             {selectedContact && (
                 <div className="hidden lg:flex w-[350px] shrink-0 border-l bg-white flex-col h-full overflow-hidden min-h-0">
                     <div className="h-16 border-b flex items-center px-4 bg-[#f0f2f5] shrink-0"><h2 className="text-base font-semibold text-gray-700">Dados do Contato</h2></div>

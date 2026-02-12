@@ -1,47 +1,98 @@
 // Caminho: components/atividades/form/ActivitySchedule.js
 "use client";
 
-import { useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faClock, faCalendarAlt, faRedo } from '@fortawesome/free-solid-svg-icons';
+import { faClock, faCalendarAlt, faRedo, faCalculator, faSpinner } from '@fortawesome/free-solid-svg-icons';
+import { createClient } from '@/utils/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
-// --- UTILITÁRIO: Cálculo de Dias Úteis ---
-function addBusinessDays(startDate, days) {
-    // Se não tiver dias ou data, retorna a própria data ou vazio
+// --- UTILITÁRIO JS RÁPIDO (Fallback Seguro) ---
+// Usa UTC ao meio-dia para evitar erros de fuso horário (-1 dia)
+function addBusinessDaysSafe(startDate, days) {
     if (!startDate) return '';
-    
-    // Converte para número para garantir, se for inválido ou <= 0, assume 1 para cálculo visual
     const numDays = parseFloat(days);
     if (isNaN(numDays) || numDays <= 1) return startDate;
     
-    let currentDate = new Date(startDate.replace(/-/g, '/'));
+    // Divide a string YYYY-MM-DD
+    const parts = startDate.split('-');
+    // Cria data em UTC ao meio-dia (12:00) para evitar problemas de fuso
+    let current = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2], 12, 0, 0));
+    
     let daysToAdd = Math.ceil(numDays) - 1;
     
     while (daysToAdd > 0) {
-        currentDate.setDate(currentDate.getDate() + 1);
-        const dayOfWeek = currentDate.getDay();
-        if (dayOfWeek !== 0 && dayOfWeek !== 6) { // 0 = Domingo, 6 = Sábado
+        current.setUTCDate(current.getUTCDate() + 1);
+        const day = current.getUTCDay(); // 0 = Domingo, 6 = Sábado
+        if (day !== 0 && day !== 6) {
             daysToAdd--;
         }
     }
-    // Se cair no fim de semana após o cálculo, avança para segunda
-    while (currentDate.getDay() === 0 || currentDate.getDay() === 6) {
-        currentDate.setDate(currentDate.getDate() + 1);
+    
+    // Se cair no sábado/domingo após o loop, avança
+    while (current.getUTCDay() === 0 || current.getUTCDay() === 6) {
+        current.setUTCDate(current.getUTCDate() + 1);
     }
     
-    return currentDate.toISOString().split('T')[0];
+    return current.toISOString().split('T')[0];
 }
 
 export default function ActivitySchedule({ formData, setFormData }) {
+    const supabase = createClient();
+    const { user } = useAuth();
+    
+    // Estado para data calculada pelo servidor (considerando feriados)
+    const [serverEndDate, setServerEndDate] = useState(null);
+    const [isCalculating, setIsCalculating] = useState(false);
 
-    // Identifica se é Evento (Horas) ou Atividade (Dias) baseado nos dados
-    const isEvent = formData.duracao_horas !== null && formData.duracao_horas !== undefined;
+    // Identifica se é Evento (Horas) ou Atividade (Dias)
+    const isEvent = formData.tipo_atividade === 'Evento';
 
-    // Cálculo automático da data fim (apenas visual, mas útil para o usuário)
-    const dataFimCalculada = useMemo(() => {
-        if (isEvent) return formData.data_inicio_prevista; // Evento começa e termina no mesmo dia (geralmente)
-        return addBusinessDays(formData.data_inicio_prevista, formData.duracao_dias);
-    }, [formData.data_inicio_prevista, formData.duracao_dias, isEvent]);
+    // --- CÁLCULO PRECISO NO SERVIDOR (RPC) ---
+    const calculateEndDate = useCallback(async () => {
+        // Se for evento, data fim = data inicio
+        if (isEvent) {
+            setServerEndDate(formData.data_inicio_prevista);
+            return;
+        }
+
+        if (!formData.data_inicio_prevista || !formData.duracao_dias || !user?.organizacao_id) {
+            setServerEndDate(null);
+            return;
+        }
+
+        setIsCalculating(true);
+        try {
+            const { data, error } = await supabase.rpc('calcular_termino_atividade', {
+                p_data_inicio: formData.data_inicio_prevista,
+                p_dias_uteis: formData.duracao_dias,
+                p_organizacao_id: user.organizacao_id
+            });
+
+            if (!error && data) {
+                setServerEndDate(data);
+                // Opcional: Atualizar o formData automaticamente? 
+                // Por enquanto deixamos apenas visual para não causar loops, 
+                // mas você pode descomentar abaixo se quiser salvar a data calculada:
+                // setFormData(prev => ({ ...prev, data_fim_prevista: data }));
+            } else {
+                // Fallback para JS se der erro
+                setServerEndDate(addBusinessDaysSafe(formData.data_inicio_prevista, formData.duracao_dias));
+            }
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setIsCalculating(false);
+        }
+    }, [formData.data_inicio_prevista, formData.duracao_dias, isEvent, user?.organizacao_id, supabase]);
+
+    // Dispara cálculo quando muda data ou duração (com debounce nativo do useEffect)
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            calculateEndDate();
+        }, 500); // Espera 500ms após parar de digitar
+        return () => clearTimeout(timer);
+    }, [calculateEndDate]);
 
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
@@ -49,12 +100,8 @@ export default function ActivitySchedule({ formData, setFormData }) {
         setFormData(prev => ({ ...prev, [name]: val }));
     };
 
-    // NOVO: Validação ao sair do campo (onBlur)
-    // Isso permite deixar vazio enquanto digita, e corrige só no final
     const handleBlur = (e) => {
         const { name, value } = e.target;
-        
-        // Se o campo for duração e estiver vazio ou negativo, reseta para 1
         if ((name === 'duracao_dias' || name === 'duracao_horas') && (!value || parseFloat(value) <= 0)) {
             setFormData(prev => ({ ...prev, [name]: 1 }));
         }
@@ -62,7 +109,6 @@ export default function ActivitySchedule({ formData, setFormData }) {
 
     const handleTypeToggle = (type) => {
         if (type === 'atividade') {
-            // Limpa dados de hora e define padrão de dia
             setFormData(prev => ({ 
                 ...prev, 
                 duracao_horas: null, 
@@ -71,7 +117,6 @@ export default function ActivitySchedule({ formData, setFormData }) {
                 tipo_atividade: 'Tarefa'
             }));
         } else {
-            // Define padrão de evento
             setFormData(prev => ({ 
                 ...prev, 
                 duracao_horas: 1, 
@@ -130,18 +175,26 @@ export default function ActivitySchedule({ formData, setFormData }) {
                                 name="duracao_dias" 
                                 min="0.5" 
                                 step="0.5" 
-                                // CORREÇÃO: Removemos o "|| 1" daqui para permitir edição livre
                                 value={formData.duracao_dias} 
                                 onChange={handleChange} 
-                                // CORREÇÃO: Adicionamos onBlur para garantir valor válido ao sair
                                 onBlur={handleBlur}
                                 className="w-full p-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
                             />
                         </div>
                         <div className="md:col-span-2">
-                            <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Previsão de Término (Calculada)</label>
-                            <div className="w-full p-2 text-sm bg-gray-100 border border-gray-200 rounded-lg text-gray-600 font-mono">
-                                {dataFimCalculada ? new Date(dataFimCalculada).toLocaleDateString('pt-BR') : '--/--/----'}
+                            <label className="block text-xs font-bold text-gray-400 uppercase mb-1 flex items-center gap-2">
+                                Previsão de Término
+                                {isCalculating && <FontAwesomeIcon icon={faSpinner} spin className="text-blue-500" />}
+                            </label>
+                            <div className={`w-full p-2 text-sm bg-gray-100 border border-gray-200 rounded-lg font-mono flex items-center gap-2 ${serverEndDate ? 'text-gray-800' : 'text-gray-400'}`}>
+                                <FontAwesomeIcon icon={faCalendarAlt} className="text-gray-400"/>
+                                {serverEndDate 
+                                    ? new Date(serverEndDate.replace(/-/g, '/')).toLocaleDateString('pt-BR') 
+                                    : '--/--/----'
+                                }
+                                <span className="text-[9px] text-gray-400 ml-auto bg-white px-2 py-0.5 rounded border">
+                                    {isCalculating ? 'Calculando...' : 'Considera Feriados'}
+                                </span>
                             </div>
                         </div>
                     </>
@@ -175,7 +228,6 @@ export default function ActivitySchedule({ formData, setFormData }) {
                                 name="duracao_horas" 
                                 min="0.5" 
                                 step="0.5" 
-                                // CORREÇÃO AQUI TAMBÉM
                                 value={formData.duracao_horas || ''} 
                                 onChange={handleChange} 
                                 onBlur={handleBlur}
@@ -212,7 +264,7 @@ export default function ActivitySchedule({ formData, setFormData }) {
                                 <input 
                                     type="number" 
                                     name="recorrencia_intervalo" 
-                                    value={formData.recorrencia_intervalo} // Remove || 1
+                                    value={formData.recorrencia_intervalo} 
                                     onChange={handleChange} 
                                     onBlur={(e) => {
                                         if(!e.target.value || e.target.value < 1) setFormData(prev => ({...prev, recorrencia_intervalo: 1}))
