@@ -31,7 +31,7 @@ export default function LocationPickerModal({ isOpen, onClose, onSend }) {
             } else if (searchQuery.length === 0) {
                 setSearchResults([]);
             }
-        }, 600);
+        }, 800); // Aumentei um pouquinho para dar tempo de digitar mais detalhes
         return () => clearTimeout(delayDebounceFn);
     }, [searchQuery]);
 
@@ -52,12 +52,12 @@ export default function LocationPickerModal({ isOpen, onClose, onSend }) {
             (pos) => {
                 setPosition([pos.coords.latitude, pos.coords.longitude]);
                 setLoadingGps(false);
-                // Opcional: buscar o endereço reverso aqui se quiser mostrar o nome da rua
             },
             (err) => {
                 console.error("Erro GPS:", err);
                 setLoadingGps(false);
-                alert("Não foi possível obter sua localização. Verifique as permissões do navegador.");
+                // Fallback para Governador Valadares se falhar o GPS (Contexto Studio 57)
+                setPosition([-18.8511, -41.9418]);
             },
             { enableHighAccuracy: true, timeout: 10000 }
         );
@@ -66,10 +66,23 @@ export default function LocationPickerModal({ isOpen, onClose, onSend }) {
     const triggerSearch = async (query) => {
         setSearching(true);
         try {
-            // Adicionei viewbox ou countrycodes se quiser restringir, mas o padrão funciona bem
-            const response = await fetch(
-                `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=1&countrycodes=br`
-            );
+            let url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=1&countrycodes=br`;
+            
+            // --- O SEGREDO DO CONTEXTO LOCAL ---
+            // Se já tivermos uma posição (do GPS ou manual), usamos ela para filtrar a busca!
+            if (position) {
+                // Criamos uma "caixa" (viewbox) de +/- 1 grau ao redor da posição atual
+                // Isso prioriza resultados próximos (aprox. 100km ao redor)
+                const lat = position[0];
+                const lon = position[1];
+                const viewbox = `${lon-1},${lat-1},${lon+1},${lat+1}`; // left,top,right,bottom
+                
+                // bounded=0: "Prefira aqui perto, mas se não achar, procure longe"
+                url += `&viewbox=${viewbox}&bounded=0`; 
+            }
+            // ------------------------------------
+
+            const response = await fetch(url);
             const data = await response.json();
             setSearchResults(data);
         } catch (error) {
@@ -82,8 +95,9 @@ export default function LocationPickerModal({ isOpen, onClose, onSend }) {
     const handleSelectResult = (res) => {
         const newPos = [parseFloat(res.lat), parseFloat(res.lon)];
         setPosition(newPos);
-        setSearchQuery(res.display_name.split(',')[0]); // Mostra só o nome principal na barra
-        setSearchResults([]); // Esconde a lista para ver o mapa
+        // Limpa visualmente para focar no mapa
+        setSearchQuery(res.display_name.split(',')[0]); 
+        setSearchResults([]); 
     };
 
     if (!isOpen) return null;
@@ -96,24 +110,24 @@ export default function LocationPickerModal({ isOpen, onClose, onSend }) {
                 <div className="px-4 py-3 border-b flex items-center justify-between bg-white z-30 shrink-0 shadow-sm">
                     <div className="flex items-center gap-2 text-[#008069]">
                         <FontAwesomeIcon icon={faMapMarkerAlt} />
-                        <h3 className="font-bold text-gray-800 text-sm sm:text-base">Localização</h3>
+                        <h3 className="font-bold text-gray-800 text-sm sm:text-base">Localização Studio 57</h3>
                     </div>
                     <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 text-gray-500 hover:bg-red-50 hover:text-red-500 transition-colors">
                         <FontAwesomeIcon icon={faTimes} />
                     </button>
                 </div>
 
-                {/* Corpo: Flex Column no Mobile, Row no Desktop */}
+                {/* Corpo Principal */}
                 <div className="flex flex-col md:flex-row flex-1 overflow-hidden relative">
                     
-                    {/* Área de Busca (Topo no Mobile / Lateral no Desktop) */}
+                    {/* Área de Busca (Topo Mobile / Lateral Desktop) */}
                     <div className="w-full md:w-80 bg-white p-3 flex flex-col gap-2 shrink-0 z-20 md:border-r shadow-lg md:shadow-none">
                         
                         {/* Input de Busca */}
                         <div className="relative group">
                             <input 
                                 type="text"
-                                placeholder="🔍 Buscar rua, bairro, cep..."
+                                placeholder="🔍 Digite rua, bairro ou local..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 className="w-full pl-10 pr-4 py-3 rounded-xl bg-gray-100 border-transparent focus:bg-white focus:ring-2 focus:ring-[#008069] focus:border-transparent outline-none text-sm transition-all"
@@ -123,17 +137,17 @@ export default function LocationPickerModal({ isOpen, onClose, onSend }) {
                             </div>
                         </div>
 
-                        {/* Botão GPS Rápido (Visível na lista) */}
+                        {/* Botão GPS Rápido */}
                         <button 
                             onClick={handleGps}
                             className="flex items-center justify-center gap-2 p-2.5 rounded-xl bg-[#008069]/10 text-[#008069] text-xs font-bold hover:bg-[#008069]/20 transition-colors border border-[#008069]/10"
                         >
                             <FontAwesomeIcon icon={loadingGps ? faSpinner : faLocationArrow} spin={loadingGps} />
-                            {loadingGps ? "Localizando..." : "Usar minha localização atual"}
+                            {loadingGps ? "Buscando satélites..." : "Usar minha localização atual"}
                         </button>
 
-                        {/* Lista de Resultados (Scrollável) */}
-                        <div className={`flex flex-col gap-1 overflow-y-auto transition-all ${searchResults.length > 0 ? 'max-h-60 md:max-h-full border-t pt-2' : 'h-0 md:h-auto'}`}>
+                        {/* Lista de Resultados */}
+                        <div className={`flex flex-col gap-1 overflow-y-auto transition-all bg-white ${searchResults.length > 0 ? 'max-h-60 md:max-h-full border-t pt-2' : 'h-0 md:h-auto'}`}>
                             {searchResults.map((res) => (
                                 <button
                                     key={res.place_id}
@@ -150,11 +164,11 @@ export default function LocationPickerModal({ isOpen, onClose, onSend }) {
                         </div>
                     </div>
 
-                    {/* Mapa (Ocupa o resto) */}
+                    {/* Mapa */}
                     <div className="flex-1 relative bg-gray-200 w-full h-full">
                         <LocationMap position={position} onPositionChange={setPosition} />
                         
-                        {/* Botão GPS Flutuante (apenas para reforço visual no mapa) */}
+                        {/* Botão GPS Flutuante no Mapa */}
                         <button 
                             onClick={handleGps}
                             className="absolute bottom-20 right-4 md:bottom-6 md:right-6 z-[400] bg-white w-12 h-12 rounded-full shadow-xl text-gray-600 hover:text-[#008069] flex items-center justify-center active:scale-90 transition-transform"
@@ -163,11 +177,11 @@ export default function LocationPickerModal({ isOpen, onClose, onSend }) {
                             <FontAwesomeIcon icon={faCrosshairs} size="lg" />
                         </button>
 
-                        {/* Card de Coordenadas Flutuante */}
+                        {/* Indicador de Coordenadas */}
                         {position && (
                              <div className="absolute top-4 left-4 right-16 md:left-auto md:right-auto md:bottom-4 md:left-4 z-[400] pointer-events-none">
                                 <div className="bg-white/90 backdrop-blur px-3 py-2 rounded-lg shadow-sm border border-gray-100 inline-block pointer-events-auto max-w-full">
-                                   <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-0.5">Pino Selecionado</p>
+                                   <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-0.5">Local Selecionado</p>
                                    <p className="text-xs font-mono text-gray-800 truncate">
                                       {position[0].toFixed(5)}, {position[1].toFixed(5)}
                                    </p>
