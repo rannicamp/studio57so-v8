@@ -1,5 +1,3 @@
-//app\api\whatsapp\send\route.js
-
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
@@ -16,11 +14,10 @@ export async function POST(request) {
         const body = await request.json();
         
         // Desestruturação dos dados recebidos
-        let { to, type, text, link, caption, filename, templateName, languageCode, components, contact_id, custom_content } = body;
+        // Adicionei 'location' aqui
+        let { to, type, text, link, caption, filename, templateName, languageCode, components, contact_id, custom_content, location } = body;
 
         // --- 1. LIMPEZA E VALIDAÇÃO DO TELEFONE ---
-        // Remove tudo que não for dígito (remove +, -, espaço, parênteses)
-        // Para EUA (DDI 1), Brasil (DDI 55), etc, ficará apenas os números.
         const cleanPhone = to ? to.toString().replace(/\D/g, '') : '';
 
         if (!cleanPhone) {
@@ -44,7 +41,7 @@ export async function POST(request) {
         const payload = {
             messaging_product: 'whatsapp',
             recipient_type: 'individual',
-            to: cleanPhone, // Usa o número limpo
+            to: cleanPhone,
             type: type
         };
 
@@ -79,11 +76,21 @@ export async function POST(request) {
             payload.video = { link: link, caption: caption || '' };
             messageContentForDb = caption || 'Vídeo enviado';
         }
+        // --- NOVO BLOCO DE LOCALIZAÇÃO ---
+        else if (type === 'location') {
+            payload.location = {
+                latitude: location.latitude,
+                longitude: location.longitude,
+                name: location.name || 'Localização',
+                address: location.address || ''
+            };
+            messageContentForDb = `📍 Localização: ${location.latitude}, ${location.longitude}`;
+        }
 
         console.log(`[WhatsApp Send] Enviando ${type} para ${cleanPhone}...`);
 
         // --- 4. TENTATIVA DE ENVIO (META API) ---
-        const response = await fetch(`https://graph.facebook.com/v20.0/${phoneId}/messages`, {
+        const response = await fetch(`https://graph.facebook.com/v21.0/${phoneId}/messages`, {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -94,11 +101,10 @@ export async function POST(request) {
 
         const responseData = await response.json();
 
-        // --- 5. RESOLUÇÃO DO CONTATO (Para salvar no banco, sucesso ou erro) ---
+        // --- 5. RESOLUÇÃO DO CONTATO ---
         let finalContactId = contact_id;
         if (!finalContactId) {
             try {
-                // Tenta achar o contato pelo telefone limpo
                 const { data } = await supabaseAdmin.rpc('find_contact_smart', { phone_input: cleanPhone });
                 finalContactId = data;
             } catch (e) {
@@ -106,14 +112,12 @@ export async function POST(request) {
             }
         }
 
-        // --- 6. TRATAMENTO DE ERRO (Se falhar na Meta) ---
+        // --- 6. TRATAMENTO DE ERRO ---
         if (!response.ok) {
             console.error('[WhatsApp Send Error] Falha Meta:', JSON.stringify(responseData));
             
-            // AQUI ESTÁ A MÁGICA QUE VOCÊ PEDIU:
-            // Salva o erro no banco ao invés de só retornar 500
             const errorMessage = responseData.error?.message || 'Erro desconhecido na Meta API';
-            const errorPayload = responseData; // O JSON completo do erro
+            const errorPayload = responseData;
 
             await supabaseAdmin.from('whatsapp_messages').insert({
                 contato_id: finalContactId,
@@ -122,14 +126,13 @@ export async function POST(request) {
                 content: messageContentForDb,
                 sent_at: new Date().toISOString(),
                 direction: 'outbound',
-                status: 'failed', // Status de falha
-                raw_payload: errorPayload, // JSON completo do erro no raw_payload
-                error_message: errorMessage, // Mensagem legível na coluna de erro
+                status: 'failed',
+                raw_payload: errorPayload,
+                error_message: errorMessage,
                 organizacao_id: config.organizacao_id,
                 media_url: link || null
             });
 
-            // Retorna o erro para quem chamou a API também saber
             return NextResponse.json({ 
                 error: errorMessage,
                 details: responseData 
@@ -149,10 +152,10 @@ export async function POST(request) {
                 sent_at: new Date().toISOString(),
                 direction: 'outbound',
                 status: 'sent',
-                raw_payload: JSON.stringify(payload), // No sucesso, salvamos o que enviamos
+                raw_payload: JSON.stringify(payload),
                 organizacao_id: config.organizacao_id,
                 media_url: link || null,
-                error_message: null // Sem erro
+                error_message: null
             });
 
             if (dbError) console.error('[WhatsApp Send] Erro DB:', dbError);
@@ -162,9 +165,6 @@ export async function POST(request) {
 
     } catch (error) {
         console.error('[WhatsApp Send Fatal Error]', error);
-        
-        // Tenta salvar até erro de código/servidor se possível (opcional, mas recomendado)
-        // Isso é um "try/catch" de segurança máxima
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
 }

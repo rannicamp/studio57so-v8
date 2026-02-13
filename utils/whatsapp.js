@@ -112,3 +112,44 @@ export async function sendWhatsAppMedia(to, type, link, caption, filename) {
         return { success: false, error: error.message };
     }
 }
+
+/**
+ * Função para enviar localização.
+ * @param {string} to - O número de telefone do destinatário.
+ * @param {number} latitude - Latitude.
+ * @param {number} longitude - Longitude.
+ * @param {string} [name] - Nome do local (opcional).
+ * @param {string} [address] - Endereço do local (opcional).
+ */
+export async function sendWhatsAppLocation(to, latitude, longitude, name, address) {
+    try {
+        const response = await fetch('/api/whatsapp/send', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                to,
+                type: 'location',
+                location: {
+                    latitude,
+                    longitude,
+                    name: name || 'Localização Atual',
+                    address: address || ''
+                }
+            }),
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            throw new Error(result.error || 'Erro ao enviar localização.');
+        }
+
+        return { success: true, data: result };
+
+    } catch (error) {
+        console.error('Erro na função sendWhatsAppLocation:', error);
+        return { success: false, error: error.message };
+    }
+}

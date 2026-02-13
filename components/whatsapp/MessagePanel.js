@@ -9,16 +9,17 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faUserCircle, faCloudUploadAlt, faTimes } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 
-// Imports dos Novos Componentes Separados
+// Imports
 import ChatHeader from './panel/ChatHeader';
 import MessageList from './panel/MessageList';
 import ChatInput from './panel/ChatInput';
 import { useAudioRecorder } from './panel/useAudioRecorder';
-
 import TemplateMessageModal from './TemplateMessageModal';
 import FilePreviewModal from './FilePreviewModal';
 import ChatMediaViewer from './ChatMediaViewer';
+import LocationPickerModal from './LocationPickerModal'; // <--- O NOVO MODAL
 import { usePersistentState } from '@/hooks/usePersistentState';
+import { sendWhatsAppLocation } from '@/utils/whatsapp'; // <--- Importamos a função de envio
 
 // --- UPPY IMPORTS ---
 import Uppy from '@uppy/core';
@@ -27,7 +28,7 @@ import GoldenRetriever from '@uppy/golden-retriever';
 
 const UPPY_CSS_URL = "https://releases.transloadit.com/uppy/v5.2.1/uppy.min.css";
 
-// Utilitários Locais
+// Utilitários
 const sanitizeFileName = (fileName) => fileName.normalize('NFD').replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, '_').replace(/[^a-zA-Z0-9._-]/g, '');
 const cleanPhoneNumber = (phone) => phone ? phone.replace(/[^0-9]/g, '') : null;
 const getAttachmentType = (fileType) => {
@@ -38,12 +39,12 @@ const getAttachmentType = (fileType) => {
 };
 
 const pt_BR_Uppy = {
-  strings: {
-    addMore: 'Adicionar mais', cancel: 'Cancelar', dashboardTitle: 'Enviar Arquivo',
-    dropPasteFiles: 'Arraste arquivos aqui ou %{browse}', browse: 'selecione',
-    editFile: 'Adicionar Legenda', removeFile: 'Remover arquivo', save: 'Salvar Legenda', uploading: 'Enviando...',
-    complete: 'Concluído'
-  }
+    strings: {
+        addMore: 'Adicionar mais', cancel: 'Cancelar', dashboardTitle: 'Enviar Arquivo',
+        dropPasteFiles: 'Arraste arquivos aqui ou %{browse}', browse: 'selecione',
+        editFile: 'Adicionar Legenda', removeFile: 'Remover arquivo', save: 'Salvar Legenda', uploading: 'Enviando...',
+        complete: 'Concluído'
+    }
 };
 
 export default function MessagePanel({ contact, onBack }) {
@@ -60,6 +61,7 @@ export default function MessagePanel({ contact, onBack }) {
     const [isViewerOpen, setIsViewerOpen] = useState(false);
     const [isUploaderOpen, setIsUploaderOpen] = useState(false);
     const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
+    const [isLocationModalOpen, setIsLocationModalOpen] = useState(false); // Estado do Modal de Mapa
     
     // Estado de Contato
     const [recipientPhone, setRecipientPhone] = useState(null);
@@ -70,21 +72,15 @@ export default function MessagePanel({ contact, onBack }) {
     const [uppy] = useState(() => {
         if (typeof window === 'undefined') return null;
         const uppyInstance = new Uppy({
-          id: 'whatsapp-uploader-v4-ptbr', locale: pt_BR_Uppy, autoProceed: false,
-          restrictions: { maxFileSize: 64 * 1024 * 1024, maxNumberOfFiles: 1 },
-          meta: { caption: '' }
+            id: 'whatsapp-uploader-v4-ptbr', locale: pt_BR_Uppy, autoProceed: false,
+            restrictions: { maxFileSize: 64 * 1024 * 1024, maxNumberOfFiles: 1 },
+            meta: { caption: '' }
         });
         uppyInstance.use(GoldenRetriever, { serviceWorker: false, indexedDB: true });
         return uppyInstance;
     });
 
-    // --- Hook de Áudio ---
-    const handleSendAudio = async ({ file, caption }) => {
-        sendAttachmentMutation.mutate({ file, caption });
-    };
-    const recorder = useAudioRecorder(handleSendAudio);
-
-    // --- Queries & Mutations ---
+    // --- Queries ---
     const { data: messages, isLoading } = useQuery({
         queryKey: ['messages', organizacaoId, contact?.contato_id],
         queryFn: () => getMessages(supabase, organizacaoId, contact?.contato_id),
@@ -106,7 +102,7 @@ export default function MessagePanel({ contact, onBack }) {
 
     useEffect(() => { recipientPhoneRef.current = recipientPhone; }, [recipientPhone]);
 
-    // Mark as Read Logic
+    // Mark as Read
     const markReadMutation = useMutation({
         mutationFn: async () => {
              if (!contact?.contato_id || !organizacaoId) return;
@@ -128,7 +124,7 @@ export default function MessagePanel({ contact, onBack }) {
         }
     }, [contact?.contato_id, messages]);
 
-    // Realtime Subscriptions
+    // Realtime
     useEffect(() => {
         if (!contact || !organizacaoId) return;
         const channel = supabase.channel(`whatsapp_messages_org_${organizacaoId}`)
@@ -143,7 +139,9 @@ export default function MessagePanel({ contact, onBack }) {
         return () => { supabase.removeChannel(channel); };
     }, [contact, organizacaoId, recipientPhone, supabase, queryClient]);
 
-    // Send Mutations
+    // --- MUTAÇÕES ---
+
+    // 1. Enviar Texto
     const sendMessageMutation = useMutation({
         mutationFn: async (messageContent) => {
             if (!recipientPhone) throw new Error("Número do destinatário não encontrado.");
@@ -161,6 +159,7 @@ export default function MessagePanel({ contact, onBack }) {
         onError: (e) => toast.error(e.message)
     });
 
+    // 2. Enviar Anexo
     const sendAttachmentMutation = useMutation({
         mutationFn: async ({ file, caption }) => {
              const rawPhone = recipientPhoneRef.current || contact?.phone_number || contact?.telefone;
@@ -203,19 +202,45 @@ export default function MessagePanel({ contact, onBack }) {
         onError: (e) => toast.error(e.message)
     });
 
-    // Configuração Uppy Dashboard
+    // 3. Enviar Localização (A CORREÇÃO DO BUG)
+    const sendLocationMutation = useMutation({
+        mutationFn: async ({ latitude, longitude }) => {
+            const rawPhone = recipientPhoneRef.current || contact?.phone_number || contact?.telefone;
+            const targetPhone = cleanPhoneNumber(rawPhone);
+            if (!targetPhone) throw new Error("Número não encontrado.");
+
+            // Chama a função da utils, mas dentro do Mutation para atualizar a lista depois
+            const result = await sendWhatsAppLocation(targetPhone, latitude, longitude, "Localização Fixada", "");
+            if (!result.success) throw new Error(result.error);
+            return result;
+        },
+        onSuccess: () => {
+            toast.success("Localização enviada!");
+            // ESTA LINHA ABAIXO É O SEGREDO: Ela força a lista de mensagens a recarregar
+            queryClient.invalidateQueries({ queryKey: ['messages', organizacaoId, contact?.contato_id] });
+        },
+        onError: (e) => toast.error("Erro ao enviar local: " + e.message)
+    });
+
+    // Handlers
+    const handleSendMessage = (e) => { e.preventDefault(); if (newMessage.trim()) sendMessageMutation.mutate(newMessage); };
+    const handleSendAudio = async ({ file, caption }) => { sendAttachmentMutation.mutate({ file, caption }); };
+    const recorder = useAudioRecorder(handleSendAudio);
+    const handleMediaClick = (media) => { setViewerMedia(media); setIsViewerOpen(true); };
+    const handlePasteFile = (file) => { setSelectedFile(file); setIsFilePreviewOpen(true); };
+
+    // Uppy Effects
     useEffect(() => {
         if (!uppy || !dashboardContainerRef.current) return;
         if (!uppy.getPlugin('Dashboard')) {
-          uppy.use(DashboardPlugin, {
-            id: 'Dashboard', target: dashboardContainerRef.current, inline: true, width: '100%', height: 380,
-            showProgressDetails: true, hideUploadButton: false, note: "Para legenda, clique no lápis.",
-            metaFields: [{ id: 'caption', name: 'Legenda', placeholder: 'Legenda...' }]
-          });
+            uppy.use(DashboardPlugin, {
+                id: 'Dashboard', target: dashboardContainerRef.current, inline: true, width: '100%', height: 380,
+                showProgressDetails: true, hideUploadButton: false, note: "Para legenda, clique no lápis.",
+                metaFields: [{ id: 'caption', name: 'Legenda', placeholder: 'Legenda...' }]
+            });
         }
     }, [uppy, isUploaderOpen]);
 
-    // Lógica de Upload do Uppy
     useEffect(() => {
         if (!uppy) return;
         const uploaderFunction = async (fileIDs) => {
@@ -237,31 +262,25 @@ export default function MessagePanel({ contact, onBack }) {
         uppy.addUploader(uploaderFunction);
     }, [uppy, sendAttachmentMutation]);
 
-    // Handlers
-    const handleSendMessage = (e) => { e.preventDefault(); if (newMessage.trim()) sendMessageMutation.mutate(newMessage); };
-    const handleMediaClick = (media) => { setViewerMedia(media); setIsViewerOpen(true); };
-
-    // Handler para Ctrl+V de arquivos
-    const handlePasteFile = (file) => {
-        setSelectedFile(file);
-        setIsFilePreviewOpen(true);
-    };
-
     // Renders
     if (!contact) return <div className="flex flex-col items-center justify-center h-full bg-[#efeae2] border-l border-gray-300"><div className="text-center"><FontAwesomeIcon icon={faUserCircle} className="text-gray-300 text-6xl mb-4" /><h2 className="text-xl text-gray-500 font-light">Selecione uma conversa</h2></div></div>;
     if (isLoading) return <div className="flex items-center justify-center h-full bg-[#efeae2]"><FontAwesomeIcon icon={faSpinner} spin size="2x" className="text-[#00a884]" /></div>;
 
     return (
         <>
-            <TemplateMessageModal 
-                isOpen={isTemplateModalOpen} onClose={() => setIsTemplateModalOpen(false)} 
-                contactName={contact?.nome}
-            />
+            <TemplateMessageModal isOpen={isTemplateModalOpen} onClose={() => setIsTemplateModalOpen(false)} contactName={contact?.nome} />
             <FilePreviewModal isOpen={isFilePreviewOpen} onClose={() => setIsFilePreviewOpen(false)} file={selectedFile} onSend={(f, c) => sendAttachmentMutation.mutate({ file: f, caption: c })} />
             <ChatMediaViewer isOpen={isViewerOpen} onClose={() => setIsViewerOpen(false)} mediaUrl={viewerMedia?.url} mediaType={viewerMedia?.type} fileName={viewerMedia?.name} />
+            
+            {/* Modal de Mapa */}
+            <LocationPickerModal 
+                isOpen={isLocationModalOpen} 
+                onClose={() => setIsLocationModalOpen(false)} 
+                onSend={(loc) => sendLocationMutation.mutate(loc)} 
+            />
+
             <link href={UPPY_CSS_URL} rel="stylesheet" />
 
-            {/* Modal Uppy */}
             {isUploaderOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
                     <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
@@ -285,9 +304,14 @@ export default function MessagePanel({ contact, onBack }) {
                     onSendMessage={handleSendMessage}
                     onOpenUploader={() => setIsUploaderOpen(true)}
                     onOpenTemplate={() => setIsTemplateModalOpen(true)}
+                    
+                    // Passamos a função para abrir o modal de mapa
+                    onOpenLocation={() => setIsLocationModalOpen(true)}
+                    
                     recorder={recorder}
-                    uploadingOrProcessing={sendAttachmentMutation.isPending}
+                    uploadingOrProcessing={sendAttachmentMutation.isPending || sendLocationMutation.isPending}
                     onPasteFile={handlePasteFile}
+                    recipientPhone={cleanPhoneNumber(recipientPhone)}
                 />
             </div>
         </>
