@@ -17,9 +17,9 @@ import { useAudioRecorder } from './panel/useAudioRecorder';
 import TemplateMessageModal from './TemplateMessageModal';
 import FilePreviewModal from './FilePreviewModal';
 import ChatMediaViewer from './ChatMediaViewer';
-import LocationPickerModal from './LocationPickerModal'; // <--- O NOVO MODAL
+import LocationPickerModal from './LocationPickerModal';
 import { usePersistentState } from '@/hooks/usePersistentState';
-import { sendWhatsAppLocation } from '@/utils/whatsapp'; // <--- Importamos a função de envio
+import { sendWhatsAppLocation } from '@/utils/whatsapp';
 
 // --- UPPY IMPORTS ---
 import Uppy from '@uppy/core';
@@ -61,7 +61,7 @@ export default function MessagePanel({ contact, onBack }) {
     const [isViewerOpen, setIsViewerOpen] = useState(false);
     const [isUploaderOpen, setIsUploaderOpen] = useState(false);
     const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
-    const [isLocationModalOpen, setIsLocationModalOpen] = useState(false); // Estado do Modal de Mapa
+    const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
     
     // Estado de Contato
     const [recipientPhone, setRecipientPhone] = useState(null);
@@ -202,21 +202,28 @@ export default function MessagePanel({ contact, onBack }) {
         onError: (e) => toast.error(e.message)
     });
 
-    // 3. Enviar Localização (A CORREÇÃO DO BUG)
+    // 3. Enviar Localização (CORRIGIDO AGORA) ✅
     const sendLocationMutation = useMutation({
         mutationFn: async ({ latitude, longitude }) => {
             const rawPhone = recipientPhoneRef.current || contact?.phone_number || contact?.telefone;
             const targetPhone = cleanPhoneNumber(rawPhone);
             if (!targetPhone) throw new Error("Número não encontrado.");
 
-            // Chama a função da utils, mas dentro do Mutation para atualizar a lista depois
-            const result = await sendWhatsAppLocation(targetPhone, latitude, longitude, "Localização Fixada", "");
+            // AQUI ESTÁ A CORREÇÃO: Adicionamos contact.contato_id no final!
+            const result = await sendWhatsAppLocation(
+                targetPhone, 
+                latitude, 
+                longitude, 
+                "Localização Fixada", 
+                "", 
+                contact.contato_id // <--- O CRACHÁ QUE FALTAVA!
+            );
+            
             if (!result.success) throw new Error(result.error);
             return result;
         },
         onSuccess: () => {
             toast.success("Localização enviada!");
-            // ESTA LINHA ABAIXO É O SEGREDO: Ela força a lista de mensagens a recarregar
             queryClient.invalidateQueries({ queryKey: ['messages', organizacaoId, contact?.contato_id] });
         },
         onError: (e) => toast.error("Erro ao enviar local: " + e.message)
@@ -272,7 +279,6 @@ export default function MessagePanel({ contact, onBack }) {
             <FilePreviewModal isOpen={isFilePreviewOpen} onClose={() => setIsFilePreviewOpen(false)} file={selectedFile} onSend={(f, c) => sendAttachmentMutation.mutate({ file: f, caption: c })} />
             <ChatMediaViewer isOpen={isViewerOpen} onClose={() => setIsViewerOpen(false)} mediaUrl={viewerMedia?.url} mediaType={viewerMedia?.type} fileName={viewerMedia?.name} />
             
-            {/* Modal de Mapa */}
             <LocationPickerModal 
                 isOpen={isLocationModalOpen} 
                 onClose={() => setIsLocationModalOpen(false)} 
