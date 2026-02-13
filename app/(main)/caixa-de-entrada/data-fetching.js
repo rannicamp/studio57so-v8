@@ -1,5 +1,3 @@
-// app/(main)/caixa-de-entrada/data-fetching.js
-
 import { createClient } from '@/utils/supabase/client';
 
 export const getConversations = async (supabase, organizacaoId) => {
@@ -116,7 +114,7 @@ export const getMessages = async (supabase, organizacaoId, contatoId) => {
 
     const { data, error } = await supabase
         .from('whatsapp_messages')
-        .select('*')
+        .select('*') // <--- ISSO É VITAL: Traz raw_payload e tudo mais
         .eq('organizacao_id', organizacaoId)
         .eq('contato_id', contatoId)
         .order('sent_at', { ascending: true });
