@@ -38,6 +38,7 @@
     "browser-image-compression": "^2.0.2",
     "date-fns": "^4.1.0",
     "extenso": "^2.1.0",
+    "facebook-nodejs-business-sdk": "^24.0.1",
     "framer-motion": "^12.27.5",
     "googleapis": "^155.0.0",
     "html2pdf.js": "^0.12.1",

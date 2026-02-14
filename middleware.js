@@ -1,3 +1,4 @@
+// middleware.js
 import { NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/middleware'
 
@@ -13,11 +14,12 @@ export async function middleware(req) {
   const path = url.pathname
 
   // =================================================================
-  // 2. DEFINIÇÃO DE ROTAS PÚBLICAS (Onde não precisa de login)
+  // 2. DEFINIÇÃO DE ROTAS PÚBLICAS (Abertas para o mundo)
   // =================================================================
   const publicPaths = [
     '/', 
     '/login', 
+    '/cadastro',     // <--- Liberado para criar novas empresas!
     '/recuperar-senha', 
     '/atualizar-senha', 
     '/register', 
@@ -28,9 +30,9 @@ export async function middleware(req) {
   ]
 
   const publicPrefixes = [
-    '/api/',                 // APIs precisam estar abertas para o front funcionar
-    '/_next/',               // Arquivos internos do Next.js
-    '/static/',              // Arquivos estáticos
+    '/api/',                  // APIs precisam estar abertas
+    '/_next/',                // Next.js interno
+    '/static/',               // Estáticos
     '/empreendimentosstudio',
     '/refugiobraunas',
     '/residencialalfa',
@@ -39,57 +41,64 @@ export async function middleware(req) {
     '/migracao',
     '/sobre-nos',
     '/cadastrocliente',
-    '/simulador-financiamento'
+    '/simulador-financiamento',
+    '/auth/'                  // Callbacks de autenticação
   ]
 
-  // Verifica se é pública
-  let isPublicPath = publicPaths.includes(path) || publicPrefixes.some(prefix => path.startsWith(prefix))
+  // Verifica se o caminho atual é uma rota pública
+  const isPublicPath = publicPaths.includes(path) || publicPrefixes.some(prefix => path.startsWith(prefix))
 
   // =================================================================
-  // 3. PROTEÇÃO DE LOGIN (Se não tá logado, tchau!)
+  // 3. PROTEÇÃO DE LOGIN
   // =================================================================
+  
+  // Se não tem sessão e NÃO é uma rota pública: Manda pro Login
   if (!session && !isPublicPath) {
     const redirectUrl = new URL('/login', req.url);
     return NextResponse.redirect(redirectUrl);
   }
 
   // =================================================================
-  // 4. LÓGICA DE CARGOS (Seu lindo, aqui está a "Inversão")
+  // 4. LÓGICA PARA USUÁRIOS LOGADOS
   // =================================================================
   if (session) {
-    // Busca quem é o usuário
-    const { data: { user } } = await supabase.auth.getUser()
-    
-    // Busca o cargo no banco
+    // Se o usuário já está logado e tenta ir para /login ou /cadastro,
+    // nós mandamos ele para o painel principal dele.
+    if (path === '/login' || path === '/cadastro') {
+       // Buscamos o perfil para saber o cargo e decidir o destino
+       const { data: profile } = await supabase
+           .from('usuarios')
+           .select('funcao_id')
+           .eq('id', session.user.id)
+           .single()
+
+       const funcaoId = profile?.funcao_id
+
+       if (funcaoId === 4) return NextResponse.redirect(new URL('/bim-manager', req.url));
+       if (funcaoId === 20) return NextResponse.redirect(new URL('/portal-painel', req.url));
+       return NextResponse.redirect(new URL('/painel', req.url));
+    }
+
+    // --- REGRAS DE ACESSO POR CARGO (Acesso restrito) ---
     const { data: profile } = await supabase
         .from('usuarios')
         .select('funcao_id')
-        .eq('id', user.id)
+        .eq('id', session.user.id)
         .single()
     
     const funcaoId = profile?.funcao_id
 
-    // -------------------------------------------------------------
-    // REGRA SUPREMA DO PROJETISTA (ID 4)
-    // -------------------------------------------------------------
+    // REGRA DO PROJETISTA (ID 4)
     if (funcaoId === 4) {
-        // Rotas estritamente permitidas para o Projetista
-        // Ele SÓ PODE estar aqui ou chamando API.
         const isBimManager = path.startsWith('/bim-manager');
         const isApi = path.startsWith('/api/');
-        
-        // Se ele tentar ir para QUALQUER outro lugar (Painel, RDO, Financeiro, Raiz...)
-        if (!isBimManager && !isApi) {
-            // Joga ele de volta para a única tela que ele deve ver
+        if (!isBimManager && !isApi && !isPublicPath) {
             return NextResponse.redirect(new URL('/bim-manager', req.url))
         }
     }
 
-    // -------------------------------------------------------------
     // REGRA DO CORRETOR (ID 20)
-    // -------------------------------------------------------------
     else if (funcaoId === 20) {
-        // Corretor só vê o Portal do Corretor
         const isPortalCorretor = path.startsWith('/portal-') || 
                                  path.startsWith('/clientes') || 
                                  path.startsWith('/tabela-de-vendas') ||
@@ -99,16 +108,6 @@ export async function middleware(req) {
              return NextResponse.redirect(new URL('/portal-painel', req.url))
         }
     }
-    
-    // -------------------------------------------------------------
-    // REDIRECIONAMENTO INTELIGENTE DO LOGIN
-    // Se o cara logado tentar acessar /login de novo
-    // -------------------------------------------------------------
-    if (path === '/login' || path === '/') {
-        if (funcaoId === 4) return NextResponse.redirect(new URL('/bim-manager', req.url));
-        if (funcaoId === 20) return NextResponse.redirect(new URL('/portal-painel', req.url));
-        return NextResponse.redirect(new URL('/painel', req.url));
-    }
   }
 
   return response
@@ -117,8 +116,7 @@ export async function middleware(req) {
 export const config = {
   matcher: [
     /*
-     * Matcher para pegar todas as rotas, exceto estáticos claros.
-     * Isso garante que o Middleware rode em tudo.
+     * Pega todas as rotas exceto as que tem extensão (arquivos)
      */
     '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],

@@ -4,18 +4,18 @@ import { createClient } from '../../../../utils/supabase/server';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import IntegrationsManager from '../../../../components/configuracoes/IntegrationsManager';
-import { getOrganizationId } from '@/utils/getOrganizationId'; // Helper para buscar a organização
+import { getOrganizationId } from '@/utils/getOrganizationId';
 
 export default async function IntegracoesPage() {
     const supabase = await createClient();
 
-    // 1. Proteção de Rota - Verifica se o usuário está logado
+    // 1. Proteção de Rota
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
         redirect('/login');
     }
 
-    // 2. Busca a organização (Agora com o await corrigido na sua última atualização!)
+    // 2. Busca a organização
     const organizacaoId = await getOrganizationId(user.id);
     
     if (!organizacaoId) {
@@ -26,33 +26,47 @@ export default async function IntegracoesPage() {
         );
     }
 
-    // 3. Busca as empresas da organização
-    const { data: empresas } = await supabase
-        .from('cadastro_empresa')
-        .select('id, razao_social')
-        .eq('organizacao_id', organizacaoId);
-    
-    // 4. Busca configurações existentes do WhatsApp
-    const { data: configs } = await supabase
+    // 3. SAAS: Busca Integração Meta (Facebook/Instagram)
+    const { data: metaIntegration } = await supabase
+        .from('integracoes_meta')
+        .select('*')
+        .eq('organizacao_id', organizacaoId)
+        .single(); // Traz apenas 1 ou null
+
+    // 4. SAAS: Busca Integração Google
+    const { data: googleIntegration } = await supabase
+        .from('integracoes_google')
+        .select('*')
+        .eq('organizacao_id', organizacaoId)
+        .single();
+
+    // 5. Mantemos o WhatsApp Legacy (por enquanto)
+    const { data: whatsappConfig } = await supabase
         .from('configuracoes_whatsapp')
         .select('*')
-        .eq('organizacao_id', organizacaoId);
+        .eq('organizacao_id', organizacaoId)
+        .single();
 
     return (
-        <div className="space-y-6">
-            <Link href="/configuracoes" className="text-blue-500 hover:underline mb-4 inline-block">
-                &larr; Voltar para Configurações
-            </Link>
-            <h1 className="text-3xl font-bold text-gray-900">Integrações</h1>
-            <p className="text-gray-600">
-                Configure as credenciais para serviços externos, como a API do WhatsApp e Open Finance.
-            </p>
-            <div className="bg-white rounded-lg shadow p-6">
-                {/* CORREÇÃO: Passamos o organizacaoId explicitamente aqui! */}
+        <div className="space-y-6 container mx-auto px-4 py-8 max-w-6xl">
+            <div className="flex flex-col gap-2">
+                <Link href="/configuracoes" className="text-gray-500 hover:text-primary mb-2 inline-flex items-center gap-2 transition-colors">
+                    &larr; Voltar para Configurações
+                </Link>
+                <h1 className="text-3xl font-bold text-gray-900">Central de Integrações</h1>
+                <p className="text-gray-600 max-w-2xl">
+                    Conecte o Elo 57 às suas ferramentas favoritas de Marketing e Vendas. 
+                    Gerencie suas conexões com Facebook, Instagram, Google e WhatsApp em um só lugar.
+                </p>
+            </div>
+
+            <div className="mt-8">
+                {/* Enviamos tudo para o componente visual */}
                 <IntegrationsManager 
-                    empresas={empresas || []}
-                    initialConfigs={configs || []}
                     organizacaoId={organizacaoId}
+                    metaIntegration={metaIntegration}
+                    googleIntegration={googleIntegration}
+                    whatsappConfig={whatsappConfig}
                 />
             </div>
         </div>
