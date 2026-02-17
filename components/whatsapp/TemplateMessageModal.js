@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
     faSpinner, faTimes, faPaperPlane, faExclamationTriangle, 
-    faImage, faVideo, faFileAlt, faClock, faCalendarAlt, faSave
+    faImage, faVideo, faFileAlt, faClock, faCalendarAlt, faSave, faCheck
 } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 import { createClient } from '@/utils/supabase/client';
@@ -39,7 +39,7 @@ export default function TemplateMessageModal({ isOpen, onClose, onSendTemplate, 
     // Mídia
     const [headerType, setHeaderType] = useState(null);
     const [headerFile, setHeaderFile] = useState(null);
-    const [existingHeaderUrl, setExistingHeaderUrl] = useState(null); // Para edição
+    const [existingHeaderUrl, setExistingHeaderUrl] = useState(null); 
     const fileInputRef = useRef(null);
 
     // Agendamento
@@ -52,13 +52,11 @@ export default function TemplateMessageModal({ isOpen, onClose, onSendTemplate, 
     // Reset ou Preencher Dados ao Abrir
     useEffect(() => {
         if (isOpen) {
-            // Configura Data Mínima (Agora)
             const tzOffset = new Date().getTimezoneOffset() * 60000;
             const localISOTime = new Date(Date.now() - tzOffset).toISOString().slice(0, 16);
             setMinDate(localISOTime);
 
             if (initialData && templatesData) {
-                // MODO EDIÇÃO: Preencher campos
                 const templates = Array.isArray(templatesData) ? templatesData : (templatesData?.data || []);
                 const foundTemplate = templates.find(t => t.name === initialData.template_name);
                 
@@ -66,20 +64,16 @@ export default function TemplateMessageModal({ isOpen, onClose, onSendTemplate, 
                     setSelectedTemplate(foundTemplate);
                     setVariables(initialData.variables || []);
                     
-                    // Configurar Agendamento
                     if (initialData.scheduled_at) {
                         setIsScheduled(true);
-                        // Ajuste fuso para exibir no input local
                         const dateObj = new Date(initialData.scheduled_at);
                         const localDate = new Date(dateObj.getTime() - tzOffset).toISOString().slice(0, 16);
                         setScheduledDate(localDate);
                     }
 
-                    // Configurar Mídia Existente
                     const headerComp = foundTemplate.components.find(c => c.type === 'HEADER');
                     if (headerComp && ['IMAGE', 'VIDEO', 'DOCUMENT'].includes(headerComp.format)) {
                         setHeaderType(headerComp.format);
-                        // Tenta recuperar URL do initialData.components
                         const savedHeader = initialData.components?.find(c => c.type === 'header');
                         if (savedHeader?.parameters?.[0]?.[headerComp.format.toLowerCase()]?.link) {
                             setExistingHeaderUrl(savedHeader.parameters[0][headerComp.format.toLowerCase()].link);
@@ -87,7 +81,6 @@ export default function TemplateMessageModal({ isOpen, onClose, onSendTemplate, 
                     }
                 }
             } else {
-                // MODO CRIAÇÃO: Limpar tudo
                 setSelectedTemplate(null);
                 setVariables([]);
                 setHeaderType(null);
@@ -105,7 +98,7 @@ export default function TemplateMessageModal({ isOpen, onClose, onSendTemplate, 
         
         if (template) {
             setSelectedTemplate(template);
-            setExistingHeaderUrl(null); // Reseta se mudar template
+            setExistingHeaderUrl(null); 
             
             const bodyComponent = template.components.find(c => c.type === 'BODY');
             const variableCount = (bodyComponent?.text?.match(/\{\{\d\}\}/g) || []).length;
@@ -130,18 +123,12 @@ export default function TemplateMessageModal({ isOpen, onClose, onSendTemplate, 
         }
     };
 
-    const handleVariableChange = (index, value) => {
-        const newVariables = [...variables];
-        newVariables[index] = value;
-        setVariables(newVariables);
-    };
-
     const handleFileChange = (e) => {
         const file = e.target.files[0];
         if (file) {
             if (file.size > 15 * 1024 * 1024) return toast.error("Arquivo muito grande (Max 15MB)");
             setHeaderFile(file);
-            setExistingHeaderUrl(null); // Substitui a url antiga pelo novo arquivo
+            setExistingHeaderUrl(null); 
         }
     };
 
@@ -149,7 +136,6 @@ export default function TemplateMessageModal({ isOpen, onClose, onSendTemplate, 
         if (!selectedTemplate) return;
         if (variables.some(v => v.trim() === '')) return toast.warning('Preencha as variáveis.');
         
-        // Validação de Mídia: Precisa de arquivo NOVO ou URL ANTIGA
         if (headerType && !headerFile && !existingHeaderUrl) {
             return toast.warning(`Adicione um arquivo de ${headerType}.`);
         }
@@ -158,9 +144,8 @@ export default function TemplateMessageModal({ isOpen, onClose, onSendTemplate, 
 
         setIsSending(true);
         try {
-            let headerUrl = existingHeaderUrl; // Começa com a antiga (se houver)
+            let headerUrl = existingHeaderUrl; 
 
-            // Se tem arquivo NOVO, faz upload
             if (headerType && headerFile) {
                 const cleanName = sanitizeFileName(headerFile.name);
                 const uniqueName = `template_${Date.now()}_${cleanName}`;
@@ -194,21 +179,22 @@ export default function TemplateMessageModal({ isOpen, onClose, onSendTemplate, 
                 });
             }
 
-            // Converter data para UTC se for agendamento
             let finalDate = null;
             if (isScheduled && scheduledDate) {
                 finalDate = new Date(scheduledDate).toISOString();
             }
 
-            await onSendTemplate(
-                selectedTemplate.name, 
-                selectedTemplate.language, 
-                variables, 
-                fullText, 
-                components, 
-                finalDate,
-                initialData?.id // Passa o ID se for edição
-            );
+            // --- AQUI ESTAVA O PROBLEMA: Agora enviamos UM objeto ---
+            const templatePayload = {
+                name: selectedTemplate.name,
+                language: { code: selectedTemplate.language },
+                components: components,
+                fullText: fullText, 
+                scheduledAt: finalDate,
+                id: initialData?.id 
+            };
+
+            await onSendTemplate(templatePayload);
             
             onClose();
         } catch (err) {

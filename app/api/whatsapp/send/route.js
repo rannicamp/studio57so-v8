@@ -14,8 +14,7 @@ export async function POST(request) {
         const body = await request.json();
         
         // Desestruturação dos dados recebidos
-        // Adicionei 'location' aqui
-        let { to, type, text, link, caption, filename, templateName, languageCode, components, contact_id, custom_content, location } = body;
+        let { to, type, text, link, caption, filename, template, templateName, languageCode, components, contact_id, custom_content, location } = body;
 
         // --- 1. LIMPEZA E VALIDAÇÃO DO TELEFONE ---
         const cleanPhone = to ? to.toString().replace(/\D/g, '') : '';
@@ -52,13 +51,28 @@ export async function POST(request) {
             payload.text = { body: text, preview_url: true };
             messageContentForDb = text;
         } 
+        // --- CORREÇÃO AQUI: FILTRAGEM RIGOROSA PARA A META ---
         else if (type === 'template') {
-            payload.template = {
-                name: templateName,
-                language: { code: languageCode || 'pt_BR' },
-                components: components || []
-            };
-            messageContentForDb = custom_content || `Template: ${templateName}`;
+            if (template && template.name) {
+                // A Meta SÓ aceita estas 3 chaves. Qualquer outra (como fullText) causa erro 100.
+                payload.template = {
+                    name: template.name,
+                    language: template.language, // Deve ser um objeto { code: '...' }
+                    components: template.components || []
+                };
+                
+                // Usamos o fullText AQUI para o banco, mas não mandamos no payload da Meta
+                messageContentForDb = custom_content || template.fullText || `Template: ${template.name}`;
+            } 
+            else {
+                // Fallback para o modo antigo
+                payload.template = {
+                    name: templateName,
+                    language: { code: languageCode || 'pt_BR' },
+                    components: components || []
+                };
+                messageContentForDb = custom_content || `Template: ${templateName}`;
+            }
         } 
         else if (type === 'image') {
             payload.image = { link: link, caption: caption || '' };
@@ -76,7 +90,6 @@ export async function POST(request) {
             payload.video = { link: link, caption: caption || '' };
             messageContentForDb = caption || 'Vídeo enviado';
         }
-        // --- NOVO BLOCO DE LOCALIZAÇÃO ---
         else if (type === 'location') {
             payload.location = {
                 latitude: location.latitude,
@@ -117,8 +130,8 @@ export async function POST(request) {
             console.error('[WhatsApp Send Error] Falha Meta:', JSON.stringify(responseData));
             
             const errorMessage = responseData.error?.message || 'Erro desconhecido na Meta API';
-            const errorPayload = responseData;
-
+            
+            // Salva log de erro no banco
             await supabaseAdmin.from('whatsapp_messages').insert({
                 contato_id: finalContactId,
                 sender_id: phoneId,
@@ -127,7 +140,7 @@ export async function POST(request) {
                 sent_at: new Date().toISOString(),
                 direction: 'outbound',
                 status: 'failed',
-                raw_payload: errorPayload,
+                raw_payload: responseData,
                 error_message: errorMessage,
                 organizacao_id: config.organizacao_id,
                 media_url: link || null

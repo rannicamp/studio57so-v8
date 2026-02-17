@@ -202,21 +202,20 @@ export default function MessagePanel({ contact, onBack }) {
         onError: (e) => toast.error(e.message)
     });
 
-    // 3. Enviar Localização (CORRIGIDO AGORA) ✅
+    // 3. Enviar Localização (CORRIGIDO)
     const sendLocationMutation = useMutation({
         mutationFn: async ({ latitude, longitude }) => {
             const rawPhone = recipientPhoneRef.current || contact?.phone_number || contact?.telefone;
             const targetPhone = cleanPhoneNumber(rawPhone);
             if (!targetPhone) throw new Error("Número não encontrado.");
 
-            // AQUI ESTÁ A CORREÇÃO: Adicionamos contact.contato_id no final!
             const result = await sendWhatsAppLocation(
                 targetPhone, 
                 latitude, 
                 longitude, 
                 "Localização Fixada", 
                 "", 
-                contact.contato_id // <--- O CRACHÁ QUE FALTAVA!
+                contact.contato_id 
             );
             
             if (!result.success) throw new Error(result.error);
@@ -227,6 +226,38 @@ export default function MessagePanel({ contact, onBack }) {
             queryClient.invalidateQueries({ queryKey: ['messages', organizacaoId, contact?.contato_id] });
         },
         onError: (e) => toast.error("Erro ao enviar local: " + e.message)
+    });
+
+    // 4. NOVA: Enviar Template (O FIO QUE FALTAVA) 🔌
+    const sendTemplateMutation = useMutation({
+        mutationFn: async (templateData) => {
+            const rawPhone = recipientPhoneRef.current || contact?.phone_number || contact?.telefone;
+            const targetPhone = cleanPhoneNumber(rawPhone);
+            
+            if (!targetPhone) throw new Error("Número do destinatário não encontrado.");
+
+            const response = await fetch('/api/whatsapp/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                // Enviamos o templateData como recebido do modal
+                body: JSON.stringify({
+                    to: targetPhone,
+                    type: 'template',
+                    template: templateData, 
+                    contact_id: contact.contato_id
+                }),
+            });
+
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || 'Erro ao enviar modelo.');
+            return data;
+        },
+        onSuccess: () => {
+            toast.success('Modelo enviado com sucesso!');
+            setIsTemplateModalOpen(false); // Fecha o modal após enviar
+            queryClient.invalidateQueries({ queryKey: ['messages', organizacaoId, contact?.contato_id] });
+        },
+        onError: (e) => toast.error(`Erro: ${e.message}`)
     });
 
     // Handlers
@@ -275,7 +306,14 @@ export default function MessagePanel({ contact, onBack }) {
 
     return (
         <>
-            <TemplateMessageModal isOpen={isTemplateModalOpen} onClose={() => setIsTemplateModalOpen(false)} contactName={contact?.nome} />
+            {/* AGORA PASSAMOS A FUNÇÃO onSendTemplate CORRETAMENTE */}
+            <TemplateMessageModal 
+                isOpen={isTemplateModalOpen} 
+                onClose={() => setIsTemplateModalOpen(false)} 
+                contactName={contact?.nome}
+                onSendTemplate={(data) => sendTemplateMutation.mutate(data)} 
+            />
+
             <FilePreviewModal isOpen={isFilePreviewOpen} onClose={() => setIsFilePreviewOpen(false)} file={selectedFile} onSend={(f, c) => sendAttachmentMutation.mutate({ file: f, caption: c })} />
             <ChatMediaViewer isOpen={isViewerOpen} onClose={() => setIsViewerOpen(false)} mediaUrl={viewerMedia?.url} mediaType={viewerMedia?.type} fileName={viewerMedia?.name} />
             
