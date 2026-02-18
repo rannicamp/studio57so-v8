@@ -116,7 +116,8 @@ export default function WhatsAppInbox({ onChangeTab }) {
     const hasSelection = selectedContact || selectedList;
 
     return (
-        <div className="flex h-full w-full">
+        // ALTERAÇÃO AQUI: h-[100dvh] para altura real mobile e overflow-hidden para travar lateral
+        <div className="flex h-[100dvh] w-full overflow-hidden bg-white">
             <Toaster position="top-right" richColors />
 
             {/* --- COLUNA 1: NAVEGAÇÃO E LISTAS --- */}
