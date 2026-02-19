@@ -54,7 +54,7 @@ function MainLayoutContent({ children }) {
         localStorage.setItem('s57_sidebar_state', isSidebarOpen);
     }, [isSidebarOpen]);
 
-    // Rastreamento de Presença (Otimizado para não causar re-render)
+    // Rastreamento de Presença
     useEffect(() => {
         if (!user?.id) return;
         const updateOnlineStatus = async () => {
@@ -63,11 +63,11 @@ function MainLayoutContent({ children }) {
             } catch (error) { /* Silencioso */ }
         };
         updateOnlineStatus();
-        const interval = setInterval(updateOnlineStatus, 3 * 60 * 1000); // Aumentado para 3 min
+        const interval = setInterval(updateOnlineStatus, 3 * 60 * 1000); // 3 min
         return () => clearInterval(interval);
     }, [user?.id, supabase]);
 
-    // Verificação de Sessão (Sem dar refresh na página se já estiver logado)
+    // Verificação de Sessão
     useEffect(() => {
         if (!authLoading && !user && hasLoadedOnce.current) {
             router.push('/login');
@@ -100,21 +100,27 @@ function MainLayoutContent({ children }) {
     const toggleSidebar = () => setIsSidebarOpen(prev => !prev);
     const closeSidebar = () => setIsSidebarOpen(false);
     
-    // SÓ MOSTRA CARREGANDO SE REALMENTE NÃO TIVER USUÁRIO E FOR A PRIMEIRA VEZ
     if (authLoading && !hasLoadedOnce.current) {
         return <div className="flex items-center justify-center h-screen bg-white">Carregando...</div>;
     }
 
     if (!user && !authLoading) return null;
 
-    // --- LÓGICA DE LAYOUT ---
+    // --- LÓGICA DE LAYOUT CORRIGIDA PELO DEVONILDO ---
     const isLateral = sidebarPosition === 'left' || sidebarPosition === 'right';
     
     const mainStyles = (() => {
-        if (isCaixaDeEntrada) return {};
+        // Altura do cabeçalho calculada dinamicamente
+        const topPadding = isCotacoesBarVisible ? '89px' : '65px';
+
+        if (isCaixaDeEntrada) {
+            // AQUI ESTAVA O PROBLEMA! O layout ignorava o Header na Caixa de Entrada.
+            // Agora garantimos que o conteúdo seja empurrado para baixo dele.
+            return { paddingTop: topPadding };
+        }
         if (isLateral) {
             return {
-                paddingTop: isCotacoesBarVisible ? '89px' : '65px',
+                paddingTop: topPadding,
                 paddingBottom: '20px',
                 width: '100%'
             };
