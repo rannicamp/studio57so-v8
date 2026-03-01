@@ -56,11 +56,20 @@ O **Studio 57** é o ambiente de desenvolvimento e laboratório central. O **Elo
 - [ ] **Meta Ads:** Atualizar criativos e nomes nos aplicativos da Meta.
 
 ### 7. Governança de Aplicativos Meta (ESTRATÉGIA DEFINIDA)
-- [x] **Auditoria de Apps:** Identificadas as duplicatas para desativação futura.
+- [x] **Auditoria de Apps:** Identificadas todas as instâncias para evitar confusão.
 - [ ] **Estratégia de Separação (OFICIAL):**
-    - **App 1 (Marketing/Ads):** Elo 57 - Dev (**1900130190871246**) -> *Focado em Leads e Anúncios*.
-    - **App 2 (WhatsApp):** ELO 57 - WATS (**1459952825742829**) -> *Focado na API de WhatsApp para Clientes*.
-- [ ] **Lista de Identificados (Screenshot 01/03):** Seus IDs serão mantidos aqui para histórico até a desativação completa dos demais.
+    - **App 1 (Marketing/Ads):** Elo 57 - Dev (**1900130190871246**) ✅ **OFICIAL**
+    - **App 2 (WhatsApp):** ELO 57 - WATS (**1459952825742829**) ✅ **OFICIAL**
+- [ ] **Inventário Completo (Para Histórico e Limpeza):**
+    1. **CRM - Studio 57** (1518358099511142) - Modo: Ativo | Tipo: Empresa
+    2. **ELO 57 - WATS** (2052352668968564) - Modo: Dev | Empresa: Studio57
+    3. **ELO 57 - WATS** (1459952825742829) ✅ **OFICIAL WHATSAPP**
+    4. **Elo 57 - Dev** (1900130190871246) ✅ **OFICIAL MARKETING/ADS**
+    5. **Elo 57 - Dev** (749147054935696) - Modo: Dev | Empresa: Studio57
+    6. **Elo 57 - wa** (1472719784079456) - Modo: Dev | Tipo: Empresa
+    7. **Studio 57 gestor** (1827368137825495)
+    8. **CRM - Studio 57 - 2** (23905100505840850)
+    9. **Studio 57 gestor** (701113019490938)
 
 ## 📝 Notas de Conversa e Decisões
 - *2026-03-01:* Criação do Planejamento Master para centralizar a estratégia de lançamento.
