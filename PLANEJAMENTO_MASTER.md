@@ -55,22 +55,12 @@ O **Studio 57** é o ambiente de desenvolvimento e laboratório central. O **Elo
 - [ ] **Mobile:** Configurar ícone de notificação para dispositivos móveis (Android/iOS).
 - [ ] **Meta Ads:** Atualizar criativos e nomes nos aplicativos da Meta.
 
-### 7. Governança de Aplicativos Meta (ORGANIZAR)
-- [ ] **Auditoria de Apps:** Identificar e desativar duplicatas.
-- [ ] **Estratégia de Separação:**
-    - **App 1 (Marketing/CRM):** Focado em Leads, Conversões e Pixel.
-    - **App 2 (WhatsApp Business):** Exclusivo para a API de WhatsApp (Elo 57 - wa).
-- [ ] **Lista de Identificados (Screenshot 01/03):**
-    1. CRM - Studio 57 (1518358099511142) - *Ativo*
-    2. ELO 57 - WATS (2052352668968564) - *Dev*
-    3. ELO 57 - WATS (1459952825742829) - *Dev*
-    4. Elo 57 - Dev (1900130190871246) - *Dev*
-    5. Elo 57 - Dev (749147054935696) - *Dev*
-    6. Elo 57 - wa (1472719784079456) - *Dev*
-    7. Studio 57 gestor (1827368137825495)
-    8. CRM - Studio 57 - 2 (23905100505840850)
-    9. Studio 57 gestor (701113019490938)
-- [ ] **Ação:** Definir os "Sobreviventes" para Produção e Produção-Dev.
+### 7. Governança de Aplicativos Meta (ESTRATÉGIA DEFINIDA)
+- [x] **Auditoria de Apps:** Identificadas as duplicatas para desativação futura.
+- [ ] **Estratégia de Separação (OFICIAL):**
+    - **App 1 (Marketing/Ads):** Elo 57 - Dev (**1900130190871246**) -> *Focado em Leads e Anúncios*.
+    - **App 2 (WhatsApp):** ELO 57 - WATS (**1459952825742829**) -> *Focado na API de WhatsApp para Clientes*.
+- [ ] **Lista de Identificados (Screenshot 01/03):** Seus IDs serão mantidos aqui para histórico até a desativação completa dos demais.
 
 ## 📝 Notas de Conversa e Decisões
 - *2026-03-01:* Criação do Planejamento Master para centralizar a estratégia de lançamento.
