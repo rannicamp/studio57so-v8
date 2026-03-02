@@ -10,6 +10,20 @@ description: Sincronizar schema e funções do banco Studio 57 para o Elo 57 (nu
 
 ---
 
+## 🚨 REGRA CRÍTICA PARA O AGENTE DE IA
+
+> **PROIBIDO** executar qualquer sincronização para o **Elo 57 (produção)** — incluindo `sync-final.js`, `apply-functions.js`, `mirror-db.js` ou `sync-to-prod.ps1` — sem **autorização explícita e prévia do usuário Ranniere**.
+
+O fluxo obrigatório é:
+1. Fazer todas as alterações e testes no **Studio 57 (dev)** primeiro.
+2. Gerar e apresentar o relatório `sync_output.sql` para revisão.
+3. **PARAR** e perguntar ao usuário: *"Posso aplicar estas mudanças no Elo 57 (produção)?"*
+4. Só executar o sync após receber o **"sim"** explícito do usuário.
+
+**Qualquer sync automático para produção é uma violação grave desta regra.**
+
+---
+
 ## 🔁 Direção Sempre Correta
 
 ```
@@ -36,7 +50,7 @@ Leia o output e verifique:
 
 ---
 
-### Passo 2 — Gerar o relatório de diferenças (opcional, para revisão)
+### Passo 2 — Gerar o relatório de diferenças (OBRIGATÓRIO antes de qualquer sync)
 
 // turbo
 Execute o sync-schema para gerar um relatório SQL comparativo:
@@ -45,11 +59,22 @@ Execute o sync-schema para gerar um relatório SQL comparativo:
 node supabase/sync-schema.js
 ```
 
-Abra o arquivo `supabase/sync_output.sql` e revise as diferenças antes de aplicar.
+Abra o arquivo `supabase/sync_output.sql` e **apresente as diferenças ao usuário para revisão e aprovação** antes de prosseguir.
 
 ---
 
-### Passo 3 — Executar a sincronização completa
+### Passo 3 — ⛔ AGUARDAR APROVAÇÃO DO USUÁRIO
+
+**NÃO EXECUTE O PRÓXIMO PASSO SEM APROVAÇÃO EXPLÍCITA.**
+
+Mostre ao usuário o conteúdo do `sync_output.sql` e pergunte:
+> *"Revisei as mudanças acima. Posso aplicar no Elo 57 (produção) agora?"*
+
+Só avance após o usuário responder com confirmação clara (ex: "sim", "pode aplicar", "ok").
+
+---
+
+### Passo 4 — Executar a sincronização completa (SOMENTE após aprovação)
 
 Execute o script principal. Ele faz as 3 etapas automaticamente:
 
@@ -64,7 +89,7 @@ O que acontece internamente:
 
 ---
 
-### Passo 4 — Confirmar o resultado
+### Passo 5 — Confirmar o resultado
 
 // turbo
 Execute novamente a verificação para confirmar o sucesso:
@@ -80,7 +105,7 @@ Resultado esperado:
 
 ---
 
-### Passo 5 — Commitar os scripts atualizados (se houve mudanças nos scripts)
+### Passo 6 — Commitar os scripts atualizados (se houve mudanças nos scripts)
 
 ```
 git add supabase/

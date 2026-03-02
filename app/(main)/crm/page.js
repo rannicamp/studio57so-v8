@@ -105,8 +105,8 @@ const AddContactModal = ({ isOpen, onClose, onSearch, results, onAddContact, exi
                                         onClick={() => onAddContact(contact.id)}
                                         disabled={isAlreadyInFunnel}
                                         className={`px-3 py-1 text-xs font-bold rounded-md transition-colors ${isAlreadyInFunnel
-                                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                                                : 'bg-blue-600 hover:bg-blue-700 text-white'
+                                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                            : 'bg-blue-600 hover:bg-blue-700 text-white'
                                             }`}
                                     >
                                         {isAlreadyInFunnel ? 'Já no Funil' : <><FontAwesomeIcon icon={faPlus} className="mr-1" />Adicionar</>}
@@ -121,53 +121,29 @@ const AddContactModal = ({ isOpen, onClose, onSearch, results, onAddContact, exi
     );
 };
 
-// --- NOVA LÓGICA DE BUSCA DO FUNIL (MISTO: CLIENTE + SISTEMA) ---
-const fetchFunilData = async (supabase, organizacaoId, filters) => {
-    if (!organizacaoId) return { funilId: null, colunasDoFunil: [], contatosNoFunil: [] };
+// --- LÓGICA DE BUSCA DO FUNIL (ISOLAMENTO POR ORGANIZAÇÃO) ---
+const fetchFunilData = async (supabase, organizacaoId, funilId, filters) => {
+    if (!organizacaoId || !funilId) return { colunasDoFunil: [], contatosNoFunil: [] };
 
-    // 1. Busca o Funil do Cliente (Usa maybeSingle para evitar erro 406 se não existir)
-    const { data: funilData } = await supabase
-        .from('funis')
-        .select('id')
-        .eq('nome', 'Funil de Vendas')
+    // 1. Busca TODAS as Colunas deste Funil
+    const { data: cols } = await supabase
+        .from('colunas_funil')
+        .select('id, nome, ordem, tipo_coluna')
+        .eq('funil_id', funilId)
         .eq('organizacao_id', organizacaoId)
-        .maybeSingle(); // <--- CORREÇÃO DO ERRO 406
+        .order('ordem', { ascending: true });
+    const todasColunas = cols || [];
 
-    const funilId = funilData?.id;
+    // 2. Busca os Contatos (Leads) — filtrando pelas colunas DESTE funil
+    const colIds = todasColunas.map(c => c.id);
+    if (colIds.length === 0) return { colunasDoFunil: [], contatosNoFunil: [] };
 
-    // 2. Busca Colunas do Cliente (Se existirem)
-    let userColumns = [];
-    if (funilId) {
-        const { data: cols } = await supabase.from('colunas_funil')
-            .select('id, nome, ordem')
-            .eq('funil_id', funilId)
-            .eq('organizacao_id', organizacaoId);
-        if (cols) userColumns = cols;
-    }
-
-    // 3. Busca Colunas do SISTEMA (Org 1 - Entrada, Vendido, Perdido)
-    const { data: systemColumns, error: sysError } = await supabase.from('colunas_funil')
-        .select('id, nome, ordem')
-        .eq('organizacao_id', 1) // ID do Admin
-        .in('nome', ['ENTRADA', 'VENDIDO', 'PERDIDO']);
-
-    if (sysError) console.error("Erro ao buscar colunas do sistema:", sysError);
-
-    // 4. Mistura e Ordena
-    const todasColunas = [...(systemColumns || []), ...userColumns].sort((a, b) => a.ordem - b.ordem);
-
-    // 5. Busca os Contatos (Leads)
-    // Nota: O contato pertence à Organização do Cliente (organizacaoId),
-    // mas pode estar numa coluna do Sistema (coluna_id da Org 1).
     let query = supabase.from('contatos_no_funil').select(`
         id, coluna_id, numero_card, corretor_id, created_at,
         contatos:contato_id!inner(*, telefones(telefone, tipo), emails(email, tipo)),
         corretores:corretor_id(id, nome, razao_social),
         produtos_interesse:contatos_no_funil_produtos(id, produto:produtos_empreendimento(id, unidade, tipo, valor_venda_calculado, empreendimento_id))
-    `);
-
-    // Filtra apenas contatos DESTA organização
-    query = query.eq('organizacao_id', organizacaoId);
+    `).eq('organizacao_id', organizacaoId).in('coluna_id', colIds);
 
     // Filtros Avançados
     if (filters.searchTerm) {
@@ -182,23 +158,29 @@ const fetchFunilData = async (supabase, organizacaoId, filters) => {
 
     if (filters.unidadeIds?.length > 0) {
         const { data: funilProductLinks, error: linkError } = await supabase
-            .from('contatos_no_funil_produtos')
-            .select('contato_no_funil_id')
-            .in('produto_id', filters.unidadeIds);
+            .from('contatos_no_funil_produtos').select('contato_no_funil_id').in('produto_id', filters.unidadeIds);
         if (linkError) throw linkError;
         const matchingFunilIds = (funilProductLinks || []).map(link => link.contato_no_funil_id);
-        if (matchingFunilIds.length === 0) {
-            return { funilId, colunasDoFunil: todasColunas, contatosNoFunil: [] };
-        }
+        if (matchingFunilIds.length === 0) return { colunasDoFunil: todasColunas, contatosNoFunil: [] };
         query = query.in('id', matchingFunilIds);
     }
 
     const { data: contatosNoFunilRaw, error: contatosError } = await query;
     if (contatosError) throw contatosError;
 
-    const contatosParaEstado = (contatosNoFunilRaw || []).filter(item => item.contatos?.id);
+    return { colunasDoFunil: todasColunas, contatosNoFunil: (contatosNoFunilRaw || []).filter(item => item.contatos?.id) };
+};
 
-    return { funilId, colunasDoFunil: todasColunas, contatosNoFunil: contatosParaEstado };
+// --- LISTA TODOS OS FUNIS DA ORGANIZAÇÃO (o is_sistema aparece primeiro) ---
+const fetchAllFunils = async (supabase, organizacaoId) => {
+    if (!organizacaoId) return [];
+    const { data } = await supabase
+        .from('funis')
+        .select('id, nome, is_sistema')
+        .eq('organizacao_id', organizacaoId)
+        .order('is_sistema', { ascending: false }) // Sistema primeiro
+        .order('id', { ascending: true });
+    return data || [];
 };
 
 const fetchFilterData = async (supabase, organizacaoId) => {
@@ -275,18 +257,42 @@ export default function CrmPage() {
     const [contactForWhats, setContactForWhats] = useState(null);
     const [isMetaMappingOpen, setIsMetaMappingOpen] = useState(false);
 
+    // --- SELEÇÃO DE FUNIL ---
+    const [selectedFunilId, setSelectedFunilId] = useState(null);
+    const [isNovoFunilOpen, setIsNovoFunilOpen] = useState(false);
+    const [novoFunilNome, setNovoFunilNome] = useState('');
+    const [isFunilDropdownOpen, setIsFunilDropdownOpen] = useState(false);
+
     useEffect(() => { if (setPageTitle) setPageTitle("CRM - Funil de Vendas"); }, [setPageTitle]);
 
-    const { data: funilData, isLoading: loadingFunil, error: funilError } = useQuery({
-        queryKey: ['funilData', organizacaoId, debouncedFilters],
-        queryFn: () => fetchFunilData(supabase, organizacaoId, debouncedFilters),
+    // --- QUERY: Lista todos os funis da organização ---
+    const { data: todosFunis = [] } = useQuery({
+        queryKey: ['allFunis', organizacaoId],
+        queryFn: () => fetchAllFunils(supabase, organizacaoId),
         enabled: !!organizacaoId,
+        staleTime: 1000 * 60 * 5,
+    });
+
+    // Auto-seleciona o primeiro funil quando a lista carrega
+    useEffect(() => {
+        if (todosFunis.length > 0 && !selectedFunilId) {
+            setSelectedFunilId(todosFunis[0].id);
+        }
+    }, [todosFunis, selectedFunilId]);
+
+    const selectedFunilInfo = todosFunis.find(f => f.id === selectedFunilId);
+
+    const { data: funilData, isLoading: loadingFunil, error: funilError } = useQuery({
+        queryKey: ['funilData', organizacaoId, selectedFunilId, debouncedFilters],
+        queryFn: () => fetchFunilData(supabase, organizacaoId, selectedFunilId, debouncedFilters),
+        enabled: !!organizacaoId && !!selectedFunilId,
         staleTime: 1000 * 60 * 5,
         gcTime: 1000 * 60 * 10,
         refetchOnWindowFocus: true,
     });
 
-    const { funilId, colunasDoFunil = [], contatosNoFunil = [] } = funilData || {};
+    const { colunasDoFunil = [], contatosNoFunil = [] } = funilData || {};
+    const funilId = selectedFunilId; // Alias para compatibilidade com mutations existentes
 
     const { data: filterOptions } = useQuery({ queryKey: ['crmFilterOptions', organizacaoId], queryFn: () => fetchFilterData(supabase, organizacaoId), enabled: !!organizacaoId, staleTime: 1000 * 60 * 15 });
     const { data: availableProducts = [] } = useQuery({ queryKey: ['availableProducts', organizacaoId], queryFn: () => fetchAvailableProducts(supabase, organizacaoId), enabled: !!organizacaoId });
@@ -299,8 +305,9 @@ export default function CrmPage() {
         const dataToAnalyze = contatosNoFunil;
         if (!colunasDoFunil || dataToAnalyze.length === 0) return { totalLeads: 0, vendidos: 0, taxaConversao: 0, valorEmNegociacao: 0, ultimoLead: 'N/A' };
 
-        // Agora buscamos a coluna VENDIDO de forma agnóstica (pode ser do sistema ou do user)
-        const colunaVendido = colunasDoFunil.find(c => c.nome.toLowerCase() === 'vendido');
+        // Usa tipo_coluna para identificar a coluna de conversão de forma robusta
+        // (funciona mesmo se o usuário renomear a coluna de 'VENDIDO' para outro nome)
+        const colunaVendido = colunasDoFunil.find(c => c.tipo_coluna === 'ganho');
 
         const totalLeads = dataToAnalyze.length;
         const vendidos = dataToAnalyze.filter(c => c.coluna_id === colunaVendido?.id).length;
@@ -311,7 +318,35 @@ export default function CrmPage() {
         return { totalLeads, vendidos, taxaConversao, valorEmNegociacao, ultimoLead: ultimoLeadDate ? formatRelativeDate(ultimoLeadDate) : 'N/A' };
     }, [contatosNoFunil, colunasDoFunil]);
 
-    const mutationOptions = { onSuccess: (message) => { toast.success(message || "Operação realizada com sucesso!"); queryClient.invalidateQueries({ queryKey: ['funilData', organizacaoId, debouncedFilters] }); queryClient.invalidateQueries({ queryKey: ['availableProducts', organizacaoId] }); queryClient.invalidateQueries({ queryKey: ['crmFilterOptions', organizacaoId] }); }, onError: (error) => toast.error(error.message) };
+    const mutationOptions = { onSuccess: (message) => { toast.success(message || "Operação realizada com sucesso!"); queryClient.invalidateQueries({ queryKey: ['funilData', organizacaoId, selectedFunilId, debouncedFilters] }); queryClient.invalidateQueries({ queryKey: ['availableProducts', organizacaoId] }); queryClient.invalidateQueries({ queryKey: ['crmFilterOptions', organizacaoId] }); }, onError: (error) => toast.error(error.message) };
+
+    // --- CRIAÇÃO DE NOVO FUNIL (com colunas-âncora automáticas) ---
+    const createFunilMutation = useMutation({
+        mutationFn: async (nome) => {
+            if (!nome.trim()) throw new Error('O nome do funil é obrigatório.');
+            // 1. Cria o funil
+            const { data: novoFunil, error: funilErr } = await supabase
+                .from('funis').insert({ nome: nome.trim(), organizacao_id: organizacaoId }).select('id').single();
+            if (funilErr) throw funilErr;
+            // 2. Cria as 3 colunas-âncora obrigatórias
+            const colunas = [
+                { nome: 'ENTRADA', tipo_coluna: 'entrada', ordem: 0, funil_id: novoFunil.id, organizacao_id: organizacaoId },
+                { nome: 'VENDIDO', tipo_coluna: 'ganho', ordem: 98, funil_id: novoFunil.id, organizacao_id: organizacaoId },
+                { nome: 'PERDIDO', tipo_coluna: 'perdido', ordem: 99, funil_id: novoFunil.id, organizacao_id: organizacaoId },
+            ];
+            await supabase.from('colunas_funil').insert(colunas).throwOnError();
+            return novoFunil.id;
+        },
+        onSuccess: (novoId) => {
+            toast.success('Funil criado com sucesso!');
+            queryClient.invalidateQueries({ queryKey: ['allFunis', organizacaoId] });
+            setSelectedFunilId(novoId);
+            setNovoFunilNome('');
+            setIsNovoFunilOpen(false);
+        },
+        onError: (err) => toast.error(err.message),
+    });
+
     const associateProductMutation = useMutation({ mutationFn: async ({ contatoNoFunilId, productId }) => { if (!organizacaoId) { throw new Error("ID da organização não encontrado. Tente novamente."); } await supabase.from('contatos_no_funil_produtos').insert({ contato_no_funil_id: contatoNoFunilId, produto_id: productId, organizacao_id: organizacaoId }).throwOnError(); return "Produto associado!"; }, ...mutationOptions });
 
     const handleStatusChangeMutation = useMutation({
@@ -333,22 +368,29 @@ export default function CrmPage() {
         onError: (error) => { toast.error(`Erro ao mover o card: ${error.message}`); }
     });
 
-    // --- NOVA ADIÇÃO DE CONTATO: Usa Coluna Mestre ENTRADA (Org 1) ---
+    // --- ADIÇÃO MANUAL DE CONTATO: Usa Coluna ENTRADA do Funil de Entrada (is_sistema=true) ---
     const addContactMutation = useMutation({
         mutationFn: async (contactId) => {
-            // Busca a coluna ENTRADA do Sistema (Org 1)
-            const { data: colunaEntrada } = await supabase
-                .from('colunas_funil')
-                .select('id')
-                .eq('organizacao_id', 1)
-                .eq('nome', 'ENTRADA')
-                .single();
+            // Busca o funil do sistema primeiro
+            const { data: funilSistema } = await supabase
+                .from('funis').select('id')
+                .eq('organizacao_id', organizacaoId)
+                .eq('is_sistema', true)
+                .maybeSingle();
 
-            if (!colunaEntrada) throw new Error("Coluna 'ENTRADA' do sistema não encontrada.");
+            if (!funilSistema) throw new Error("Funil de Entrada do sistema não encontrado.");
+
+            const { data: colunaEntrada } = await supabase
+                .from('colunas_funil').select('id')
+                .eq('funil_id', funilSistema.id)
+                .eq('tipo_coluna', 'entrada')
+                .maybeSingle();
+
+            if (!colunaEntrada) throw new Error("Coluna 'ENTRADA' não encontrada no Funil de Entrada.");
 
             await supabase.from('contatos_no_funil').insert({
                 contato_id: contactId,
-                coluna_id: colunaEntrada.id, // Usa ID do Sistema
+                coluna_id: colunaEntrada.id,
                 organizacao_id: organizacaoId
             }).throwOnError();
             return "Contato adicionado!";
@@ -365,11 +407,16 @@ export default function CrmPage() {
     const associateCorretorMutation = useMutation({ mutationFn: async ({ contactId, corretorId }) => { await supabase.from('contatos_no_funil').update({ corretor_id: corretorId }).eq('id', contactId).throwOnError(); return "Corretor associado!"; }, ...mutationOptions });
     const editColumnMutation = useMutation({ mutationFn: async ({ columnId, newName }) => { const { error } = await supabase.from('colunas_funil').update({ nome: newName }).eq('id', columnId).eq('organizacao_id', organizacaoId); if (error) throw error; return "Nome da etapa atualizado!"; }, ...mutationOptions });
 
-    // --- NOVA EXCLUSÃO DE COLUNA: Move para ENTRADA (Org 1) por segurança ---
+    // --- EXCLUSÃO DE COLUNA: Move cards para ENTRADA nativa da Org por segurança ---
     const deleteColumnMutation = useMutation({
         mutationFn: async (columnIdToDelete) => {
-            // Busca coluna de destino (ENTRADA - Org 1)
-            const { data: firstColumn } = await supabase.from('colunas_funil').select('id').eq('organizacao_id', 1).eq('nome', 'ENTRADA').single();
+            // Busca coluna de destino (ENTRADA nativa desta organização)
+            const { data: firstColumn } = await supabase
+                .from('colunas_funil')
+                .select('id')
+                .eq('organizacao_id', organizacaoId)
+                .eq('tipo_coluna', 'entrada')
+                .maybeSingle();
             if (!firstColumn) throw new Error('Coluna de destino (ENTRADA) não encontrada.');
 
             if (columnIdToDelete === firstColumn.id) throw new Error('Não é possível excluir a coluna mestre ENTRADA.');
@@ -402,14 +449,61 @@ export default function CrmPage() {
 
     return (
         <div className="h-full flex flex-col bg-gray-100">
-            <CrmDetalhesSidebar open={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} funilEntry={selectedContactForSidebar} onAddActivity={(c) => { setContactForNewActivity(c); setIsActivityModalOpen(true); }} onEditActivity={(a) => { setActivityToEdit(a); setIsActivityModalOpen(true); }} onContactUpdate={() => queryClient.invalidateQueries({ queryKey: ['funilData', organizacaoId, debouncedFilters] })} refreshKey={sidebarRefreshKey} />
+            <CrmDetalhesSidebar open={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} funilEntry={selectedContactForSidebar} onAddActivity={(c) => { setContactForNewActivity(c); setIsActivityModalOpen(true); }} onEditActivity={(a) => { setActivityToEdit(a); setIsActivityModalOpen(true); }} onContactUpdate={() => queryClient.invalidateQueries({ queryKey: ['funilData', organizacaoId, selectedFunilId, debouncedFilters] })} refreshKey={sidebarRefreshKey} />
             {isActivityModalOpen && (<AtividadeModal isOpen={isActivityModalOpen} onClose={() => { setIsActivityModalOpen(false); setContactForNewActivity(null); setActivityToEdit(null); }} onActivityAdded={() => { if (isSidebarOpen) setSidebarRefreshKey(p => p + 1); }} activityToEdit={activityToEdit} initialContatoId={contactForNewActivity?.id} funcionarios={funcionarios} allEmpresas={empresas} />)}
 
             <div className="flex-shrink-0 bg-white shadow-sm p-6 space-y-6">
                 <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
+                    {/* --- SELETOR DE FUNIL --- */}
                     <div className="flex items-center gap-3">
-                        <h1 className="text-3xl font-bold text-gray-800">Funil de Vendas</h1>
-                        <span className="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded-full flex items-center gap-2">
+                        <div className="relative">
+                            <button
+                                onClick={() => setIsFunilDropdownOpen(o => !o)}
+                                className="flex items-center gap-2 bg-white border border-gray-200 rounded-xl px-4 py-2.5 shadow-sm hover:border-blue-400 hover:shadow-md transition-all group"
+                            >
+                                <FontAwesomeIcon icon={faLayerGroup} className="text-blue-500" />
+                                <span className="text-xl font-bold text-gray-800 leading-tight">
+                                    {selectedFunilInfo?.nome || 'Carregando...'}
+                                </span>
+                                <svg className={`w-4 h-4 text-gray-400 transition-transform ${isFunilDropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                            </button>
+
+                            {isFunilDropdownOpen && (
+                                <div className="absolute top-full left-0 mt-2 w-72 bg-white border border-gray-200 rounded-xl shadow-xl z-30 overflow-hidden">
+                                    <div className="p-2 space-y-0.5">
+                                        {todosFunis.map(funil => (
+                                            <div
+                                                key={funil.id}
+                                                className={`w-full flex items-center gap-1 rounded-lg transition-colors ${funil.id === selectedFunilId ? 'bg-blue-50' : 'hover:bg-gray-50'}`}
+                                            >
+                                                <button
+                                                    onClick={() => { setSelectedFunilId(funil.id); setIsFunilDropdownOpen(false); }}
+                                                    className={`flex-1 text-left px-3 py-2.5 text-sm font-medium flex items-center gap-2 ${funil.id === selectedFunilId ? 'text-blue-700' : 'text-gray-700'}`}
+                                                >
+                                                    <FontAwesomeIcon icon={faLayerGroup} className={funil.id === selectedFunilId ? 'text-blue-500' : 'text-gray-400'} />
+                                                    {funil.nome}
+                                                    {funil.is_sistema && (
+                                                        <span className="ml-auto text-xs bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded-full flex items-center gap-1">
+                                                            🔒 Sistema
+                                                        </span>
+                                                    )}
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <div className="border-t border-gray-100 p-2">
+                                        <button
+                                            onClick={() => { setIsFunilDropdownOpen(false); setIsNovoFunilOpen(true); }}
+                                            className="w-full text-left px-3 py-2.5 rounded-lg text-sm font-semibold text-blue-600 hover:bg-blue-50 transition-colors flex items-center gap-2"
+                                        >
+                                            <FontAwesomeIcon icon={faPlus} />
+                                            Novo Funil
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                        <span className="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">
                             {kpiData.totalLeads} leads
                         </span>
                     </div>
@@ -500,6 +594,59 @@ export default function CrmPage() {
             <CrmNotesModal isOpen={isNotesModalOpen} onClose={() => setIsNotesModalOpen(false)} contatoNoFunilId={currentContactFunilIdForNotes} contatoId={currentContactIdForNotes} />
             <NewConversationModal isOpen={isWhatsModalOpen} onClose={() => setIsWhatsModalOpen(false)} preSelectedContact={contactForWhats} />
             <MetaFormMappingModal isOpen={isMetaMappingOpen} onClose={() => setIsMetaMappingOpen(false)} organizacaoId={organizacaoId} />
+
+            {/* Backdrop para fechar o dropdown de funis */}
+            {isFunilDropdownOpen && (
+                <div className="fixed inset-0 z-20" onClick={() => setIsFunilDropdownOpen(false)} />
+            )}
+
+            {/* Modal: Criar Novo Funil */}
+            {isNovoFunilOpen && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-5">
+                        <div className="flex justify-between items-center">
+                            <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                                <FontAwesomeIcon icon={faLayerGroup} className="text-blue-500" />
+                                Novo Funil
+                            </h2>
+                            <button onClick={() => setIsNovoFunilOpen(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
+                                <FontAwesomeIcon icon={faTimes} />
+                            </button>
+                        </div>
+                        <p className="text-sm text-gray-500">
+                            O novo funil já virá com as colunas <strong>ENTRADA</strong>, <strong>VENDIDO</strong> e <strong>PERDIDO</strong> criadas automaticamente.
+                        </p>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Nome do Funil</label>
+                            <input
+                                type="text"
+                                placeholder="Ex: Residencial Alfa, Studios Beta..."
+                                value={novoFunilNome}
+                                onChange={(e) => setNovoFunilNome(e.target.value)}
+                                onKeyDown={(e) => { if (e.key === 'Enter' && novoFunilNome.trim()) createFunilMutation.mutate(novoFunilNome); }}
+                                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                autoFocus
+                            />
+                        </div>
+                        <div className="flex gap-3 justify-end">
+                            <button
+                                onClick={() => setIsNovoFunilOpen(false)}
+                                className="px-4 py-2 text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={() => createFunilMutation.mutate(novoFunilNome)}
+                                disabled={!novoFunilNome.trim() || createFunilMutation.isPending}
+                                className="px-4 py-2 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 rounded-lg transition-colors flex items-center gap-2"
+                            >
+                                {createFunilMutation.isPending ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faPlus} />}
+                                Criar Funil
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
