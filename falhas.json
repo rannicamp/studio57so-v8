@@ -1,0 +1,51 @@
+[
+  {
+    "receiver_id": "5533999517279",
+    "content": "Olá Ana Carolina Marques Vargas, tudo bem com você?\nPodemos continuar a nossa conversa?",
+    "error_message": null,
+    "raw_payload": "{\"messaging_product\":\"whatsapp\",\"recipient_type\":\"individual\",\"to\":\"5533999517279\",\"type\":\"template\",\"template\":{\"name\":\"reativar_contato\",\"language\":{\"code\":\"pt_BR\"},\"components\":[{\"type\":\"body\",\"parameters\":[{\"type\":\"text\",\"text\":\"Ana Carolina Marques Vargas\"}]}]}}",
+    "sent_at": "2026-03-02 16:51:12.811+00"
+  },
+  {
+    "receiver_id": "5533999517279",
+    "content": "Olá Ana Carolina Marques Vargas! Tudo bem com você?",
+    "error_message": null,
+    "raw_payload": "{\"messaging_product\":\"whatsapp\",\"recipient_type\":\"individual\",\"to\":\"5533999517279\",\"type\":\"template\",\"template\":{\"name\":\"iniciar_contato\",\"language\":{\"code\":\"en\"},\"components\":[{\"type\":\"body\",\"parameters\":[{\"type\":\"text\",\"text\":\"Ana Carolina Marques Vargas\"}]}]}}",
+    "sent_at": "2026-03-02 16:23:33.508+00"
+  },
+  {
+    "receiver_id": "5533999517279",
+    "content": "Olá Ana Carolina Marques Vargas, tudo bem com você?\nPodemos continuar a nossa conversa?",
+    "error_message": null,
+    "raw_payload": "{\"messaging_product\":\"whatsapp\",\"recipient_type\":\"individual\",\"to\":\"5533999517279\",\"type\":\"template\",\"template\":{\"name\":\"reativar_contato\",\"language\":{\"code\":\"pt_BR\"},\"components\":[{\"type\":\"body\",\"parameters\":[{\"type\":\"text\",\"text\":\"Ana Carolina Marques Vargas\"}]}]}}",
+    "sent_at": "2026-03-02 11:33:40.55+00"
+  },
+  {
+    "receiver_id": "553391912291",
+    "content": "Template: undefined",
+    "error_message": "(#100) The parameter template['name'] is required.",
+    "raw_payload": {
+      "error": {
+        "code": 100,
+        "type": "OAuthException",
+        "message": "(#100) The parameter template['name'] is required.",
+        "fbtrace_id": "AcfeE_RozoMBfSmyNQr0d72"
+      }
+    },
+    "sent_at": "2026-03-02 11:30:23.685+00"
+  },
+  {
+    "receiver_id": "553391912291",
+    "content": "Template: undefined",
+    "error_message": "(#100) The parameter template['name'] is required.",
+    "raw_payload": {
+      "error": {
+        "code": 100,
+        "type": "OAuthException",
+        "message": "(#100) The parameter template['name'] is required.",
+        "fbtrace_id": "AfwudJM6WPU-DXKB5hMVL1b"
+      }
+    },
+    "sent_at": "2026-03-02 11:30:01.083+00"
+  }
+]
