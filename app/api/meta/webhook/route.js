@@ -23,11 +23,10 @@ function sanitizePhone(phone) {
 }
 
 /**
- * Busca a coluna ENTRADA do Funil de Entrada da organização.
- *
- * Estratégia em cascata (funciona em qualquer ambiente):
- * 1. Funil marcado como is_sistema=true  (banco atualizado)
- * 2. Fallback: qualquer coluna tipo_coluna='entrada' da org (banco legado / não sincronizado)
+ * Busca a coluna ENTRADA do Funil de Entrada da organizacao.
+ * Estrategia em cascata:
+ * 1. Funil com is_sistema=true  (banco atualizado)
+ * 2. Fallback: qualquer coluna tipo_coluna='entrada' da org (banco legado)
  */
 async function getOrgEntryColumnId(supabase, orgId) {
     // TENTATIVA 1: Funil com is_sistema=true
@@ -70,7 +69,7 @@ async function getOrgEntryColumnId(supabase, orgId) {
     return null;
 }
 
-// --- VERIFICAÇÃO DO WEBHOOK (Meta valida a URL) ---
+// --- VERIFICACAO DO WEBHOOK (Meta valida a URL) ---
 export async function GET(request) {
     const { searchParams } = new URL(request.url);
     if (
@@ -84,10 +83,8 @@ export async function GET(request) {
 
 // --- RECEBIMENTO DE LEADS ---
 export async function POST(request) {
-    // ⚡ Lê o body ANTES de disparar o processamento async.
-    // No Next.js App Router, request.body só pode ser lido UMA vez.
-    // Se passarmos o `request` para a função async que roda depois do return,
-    // o body já foi consumido e vai falhar.
+    // Le o body ANTES de disparar o processamento async.
+    // No Next.js App Router, request.body so pode ser lido UMA vez.
     let body;
     try {
         body = await request.json();
@@ -95,39 +92,39 @@ export async function POST(request) {
         return NextResponse.json({ error: 'invalid_json' }, { status: 400 });
     }
 
-    // Responde 200 imediatamente para o Meta não marcar como "rejected"
+    // Responde 200 imediatamente para o Meta nao marcar como "rejected"
     processWebhook(body).catch(err =>
-        console.error('[WEBHOOK] Erro no processamento assíncrono:', err.message)
+        console.error('[WEBHOOK] Erro no processamento assincrono:', err.message)
     );
     return NextResponse.json({ status: 'received' }, { status: 200 });
 }
 
 async function processWebhook(body) {
     const supabase = getSupabaseAdmin();
-    if (!supabase) throw new Error('Supabase Admin não configurado.');
+    if (!supabase) throw new Error('Supabase Admin nao configurado.');
 
     const change = body.entry?.[0]?.changes?.[0];
 
     if (change?.field !== 'leadgen') {
-        console.log('[WEBHOOK] Evento ignorado (não é leadgen):', change?.field);
+        console.log('[WEBHOOK] Evento ignorado (nao e leadgen):', change?.field);
         return;
     }
 
     const { leadgen_id: leadId, page_id: pageId } = change.value;
     console.log(`[WEBHOOK] Lead recebido: leadId=${leadId}, pageId=${pageId}`);
 
-    // ── PASSO 1: Descobrir quais organizações têm esta página integrada ──
+    // PASSO 1: Descobrir quais organizacoes tem esta pagina integrada
     const { data: integracoes, error: intError } = await supabase
         .from('integracoes_meta')
         .select('organizacao_id, access_token')
         .eq('page_id', pageId);
 
     if (intError || !integracoes || integracoes.length === 0) {
-        console.error(`[WEBHOOK] Página ${pageId} sem integração no sistema. Lead descartado.`);
+        console.error(`[WEBHOOK] Pagina ${pageId} sem integracao no sistema. Lead descartado.`);
         return;
     }
 
-    // ── PASSO 2: Buscar dados completos do lead na API do Meta ──
+    // PASSO 2: Buscar dados completos do lead na API do Meta
     const pageAccessToken = integracoes[0].access_token;
     const leadFields = 'id,field_data,created_time,ad_id,ad_name,adset_id,adset_name,campaign_id,campaign_name,form_id,is_organic,platform';
     const apiUrl = `https://graph.facebook.com/v20.0/${leadId}?fields=${leadFields}&access_token=${pageAccessToken}`;
@@ -139,7 +136,7 @@ async function processWebhook(body) {
         throw new Error(`[Meta API] ${leadDetails.error.message} (code: ${leadDetails.error.code})`);
     }
 
-    // Monta mapa de campos do formulário
+    // Monta mapa de campos do formulario
     const formMap = {};
     (leadDetails.field_data || []).forEach(f => { formMap[f.name] = f.values?.[0]; });
 
@@ -147,7 +144,7 @@ async function processWebhook(body) {
     const emailLead = formMap.email || formMap.email_address;
     const phoneLead = formMap.phone_number || formMap.telefone;
 
-    // ── PASSO 3: Salvar o lead para cada organização conectada ──
+    // PASSO 3: Salvar o lead para cada organizacao conectada
     for (const integracao of integracoes) {
         const orgId = integracao.organizacao_id;
         console.log(`[WEBHOOK] Processando para Org ${orgId}...`);
@@ -159,7 +156,7 @@ async function processWebhook(body) {
             continue;
         }
 
-        // 3b. Anti-duplicata: ID único por org
+        // 3b. Anti-duplicata: ID unico por org
         const uniqueLeadId = `${leadId}_${orgId}`;
         const { data: existingLead } = await supabase
             .from('contatos')
@@ -168,7 +165,7 @@ async function processWebhook(body) {
             .maybeSingle();
 
         if (existingLead) {
-            console.log(`[Org ${orgId}] Lead ${uniqueLeadId} já existia. Ignorado.`);
+            console.log(`[Org ${orgId}] Lead ${uniqueLeadId} ja existia. Ignorado.`);
             continue;
         }
 
@@ -177,9 +174,9 @@ async function processWebhook(body) {
             .from('contatos')
             .insert({
                 nome: nomeLead,
-                origem: leadDetails.is_organic ? 'Meta Lead Orgânico' : 'Meta Lead Ad',
+                origem: leadDetails.is_organic ? 'Meta Lead Organico' : 'Meta Lead Ad',
                 tipo_contato: 'Lead',
-                personalidade_juridica: 'Pessoa Física',
+                personalidade_juridica: 'Pessoa Fisica',
                 organizacao_id: orgId,
                 meta_lead_id: uniqueLeadId,
                 meta_page_id: pageId,
@@ -208,15 +205,30 @@ async function processWebhook(body) {
             }
         }
 
-        // 3e. Vincula ao Funil de Entrada → coluna ENTRADA
-        const { error: funilError } = await supabase
+        // 3e. Vincula ao Funil de Entrada -> coluna ENTRADA
+        const { data: funilEntry, error: funilError } = await supabase
             .from('contatos_no_funil')
-            .insert({ contato_id: newContact.id, coluna_id: colunaEntradaId, organizacao_id: orgId });
+            .insert({ contato_id: newContact.id, coluna_id: colunaEntradaId, organizacao_id: orgId })
+            .select('id')
+            .single();
 
         if (funilError) {
             console.error(`[Org ${orgId}] Erro ao vincular ao funil:`, funilError.message);
+            continue;
+        }
+
+        console.log(`[Org ${orgId}] OK: "${nomeLead}" entregue na coluna ENTRADA (id=${colunaEntradaId}).`);
+
+        // 3f. AUTOMACAO DE ROTEAMENTO: verifica regras para mover para outro funil
+        const { data: roteamentoResult, error: roteamentoError } = await supabase
+            .rpc('fn_rotear_lead', { p_contato_no_funil_id: funilEntry.id });
+
+        if (roteamentoError) {
+            console.error(`[Org ${orgId}] Erro no roteamento automatico:`, roteamentoError.message);
+        } else if (roteamentoResult === 'SEM_REGRA') {
+            console.log(`[Org ${orgId}] Nenhuma regra aplicavel. Lead permanece no Funil de Entrada.`);
         } else {
-            console.log(`[Org ${orgId}] ✅ "${nomeLead}" entregue na coluna ENTRADA id=${colunaEntradaId}`);
+            console.log(`[Org ${orgId}] ROTEADO! Resultado: ${roteamentoResult}`);
         }
     }
 }
