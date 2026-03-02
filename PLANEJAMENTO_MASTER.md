@@ -9,10 +9,11 @@ O **Studio 57** é o ambiente de desenvolvimento e laboratório central. O **Elo
 ## 🚀 Status de Lançamento
 
 ## 🏁 Objetivos de Curto Prazo
-- [ ] Finalizar Sincronia de Bancos de Dados (vhuvnutzklhskkwbpxdz -> alqzomckjnefsmhusnfu).
+- [x] Finalizar Sincronia de Bancos de Dados (vhuvnutzklhskkwbpxdz -> alqzomckjnefsmhusnfu).
 - [/] Refinar Página de Cadastro de Organização (UI/UX e Dados Completos).
 - [ ] Validar Fluxo de Cadastro e Login em dispositivos Mobile (PWA).
 - [ ] Checklist Legal: Revisar textos das Políticas Públicas.
+- [ ] **Padronizar o Sistema de Upload** em todo o sistema (Protocolo Único com Uppy).
 
 ## 🏗️ Módulos Críticos para o Lançamento
 ### 1. Compliance e Segurança (95%)
@@ -71,9 +72,23 @@ O **Studio 57** é o ambiente de desenvolvimento e laboratório central. O **Elo
     8. **CRM - Studio 57 - 2** (23905100505840850)
     9. **Studio 57 gestor** (701113019490938)
 
+### 8. Padronização do Sistema de Upload (MELHORIA TÉCNICA)
+- [ ] **Auditoria:** Mapear todos os pontos do sistema que fazem upload de arquivos.
+- [ ] **Protocolo Único:** Garantir que 100% dos uploads usam **Uppy v5.2.1** + **GoldenRetriever** (anti-crash).
+- [ ] **Regras do Protocolo Anti-Crash (obrigatórias em todo upload):**
+    - CSS via `<link>` CDN no JSX (NUNCA importar via JS).
+    - Usar `@uppy/core`, `@uppy/dashboard`, `@uppy/xhr-upload` e `@uppy/golden-retriever`.
+    - NUNCA usar componentes visuais do `@uppy/react`.
+    - Upload direto para o Supabase Storage via XHR.
+- [ ] **Componente Global:** Criar `components/ui/UppyUploader.js` — componente reutilizável único.
+- [ ] **Refatorar:** Substituir todos os `<input type="file">` avulsos pelo componente global.
+- [ ] **Teste de Crash:** Validar que o GoldenRetriever recupera uploads interrompidos.
+
 ## 📝 Notas de Conversa e Decisões
 - *2026-03-01:* Criação do Planejamento Master para centralizar a estratégia de lançamento.
 - *2026-03-01:* Limpeza de arquivos de laboratório finalizada.
+- *2026-03-01:* Sincronia de banco concluída. Scripts `sync-final.js` e `check-elo.js` criados.
+- *2026-03-01:* Definida a necessidade de padronizar o sistema de upload com Protocolo Único (Uppy).
 
 ---
 *Assinado: Devonildo (Seu Mentor Técnico)*
