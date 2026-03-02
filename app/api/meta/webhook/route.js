@@ -35,7 +35,7 @@ async function getSystemEntryColumn(supabase) {
         .eq('nome', 'ENTRADA')
         .eq('organizacao_id', SYSTEM_ORG_ID) // <--- ID DA ORGANIZAÇÃO DO SISTEMA
         .limit(1)
-        .single();
+        .maybeSingle();
 
     if (!coluna) {
         console.error("ERRO CRÍTICO: Coluna 'ENTRADA' do sistema não encontrada.");
@@ -79,8 +79,11 @@ export async function POST(request) {
 
         // Busca dados na Meta apenas UMA vez (economiza chamadas de API)
         // Usamos o token da primeira organização encontrada, pois ele tem acesso à página
-        const pageAccessToken = integracoes[0].access_token;
-        const leadRes = await fetch(`https://graph.facebook.com/v20.0/${leadId}?access_token=${pageAccessToken}`);
+        const urlParams = new URLSearchParams({
+            fields: 'id,field_data,created_time,ad_id,ad_name,adset_id,adset_name,campaign_id,campaign_name,form_id,is_organic,platform',
+            access_token: pageAccessToken
+        });
+        const leadRes = await fetch(`https://graph.facebook.com/v20.0/${leadId}?${urlParams.toString()}`);
         const leadDetails = await leadRes.json();
 
         if (leadDetails.error) throw new Error(leadDetails.error.message);
@@ -111,7 +114,7 @@ export async function POST(request) {
                 .from('contatos')
                 .select('id')
                 .eq('meta_lead_id', uniqueLeadId)
-                .single();
+                .maybeSingle();
 
             if (existingLead) {
                 console.log(`Aviso: Lead já existe para a org ${clienteOrgId}, pulando...`);
@@ -121,12 +124,16 @@ export async function POST(request) {
             // Insere o contato
             const { data: newContact, error: contactError } = await supabase.from('contatos').insert({
                 nome: nomeLead,
-                origem: 'Meta Lead Ad',
+                origem: leadDetails.is_organic ? 'Meta Lead Orgânico' : 'Meta Lead Ad',
                 tipo_contato: 'Lead',
                 personalidade_juridica: 'Pessoa Física',
                 organizacao_id: clienteOrgId, // <--- ID DO CLIENTE DO LOOP
                 meta_lead_id: uniqueLeadId,   // <--- ID EXCLUSIVO PARA ESTE CLIENTE
                 meta_page_id: pageId,
+                meta_campaign_id: leadDetails.campaign_id || null,
+                meta_campaign_name: leadDetails.campaign_name || null,
+                meta_ad_id: leadDetails.ad_id || null,
+                meta_ad_name: leadDetails.ad_name || null,
                 meta_form_data: formMap
             }).select('id').single();
 

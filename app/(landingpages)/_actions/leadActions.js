@@ -2,7 +2,7 @@
 'use server';
 
 // Usamos o cliente com Service Role (Crachá Mestre) para ignorar o RLS
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js'; 
 import { redirect } from 'next/navigation';
 import { sendMetaEvent } from '../../../utils/metaCapi';
 
@@ -11,11 +11,11 @@ import { sendMetaEvent } from '../../../utils/metaCapi';
  * VERSÃO FINAL: Grava dados financeiros nas colunas específicas do banco
  */
 export async function processarLeadUniversal(formData, redirectUrl, origemPadrao) {
-
+  
   // 1. Conexão Mestre (Service Role)
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY,
+    process.env.SUPABASE_SERVICE_ROLE_KEY, 
     {
       auth: {
         autoRefreshToken: false,
@@ -28,7 +28,7 @@ export async function processarLeadUniversal(formData, redirectUrl, origemPadrao
   const nome = formData.get('nome');
   const email = formData.get('email');
   const origem = formData.get('origem') || origemPadrao || 'Landing Page - Genérica';
-
+  
   // --- TRATAMENTO DE DADOS FINANCEIROS (CAIXA) ---
   const rawRenda = formData.get('renda');
   let rendaFamiliar = null;
@@ -38,20 +38,20 @@ export async function processarLeadUniversal(formData, redirectUrl, origemPadrao
 
   // Se o campo 'renda' veio no formulário, tratamos como um Lead Financeiro
   if (rawRenda) {
-    isFinancialForm = true;
+      isFinancialForm = true;
+      
+      // Formata Renda: "5.000,00" -> 5000.00 (Formato aceito pelo numeric do Postgres)
+      const cleanRenda = rawRenda.toString().replace(/\./g, '').replace(',', '.');
+      const parsedRenda = parseFloat(cleanRenda);
+      if (!isNaN(parsedRenda)) {
+          rendaFamiliar = parsedRenda;
+      }
 
-    // Formata Renda: "5.000,00" -> 5000.00 (Formato aceito pelo numeric do Postgres)
-    const cleanRenda = rawRenda.toString().replace(/\./g, '').replace(',', '.');
-    const parsedRenda = parseFloat(cleanRenda);
-    if (!isNaN(parsedRenda)) {
-      rendaFamiliar = parsedRenda;
-    }
-
-    // Checkboxes: Se vierem no formData, é true.
-    fgts = formData.get('fgts') ? true : false;
-    maisDe3AnosClt = formData.get('tempo_trabalho') ? true : false;
+      // Checkboxes: Se vierem no formData, é true.
+      fgts = formData.get('fgts') ? true : false;
+      maisDe3AnosClt = formData.get('tempo_trabalho') ? true : false;
   }
-
+  
   // --- LÓGICA DE TELEFONE INTERNACIONAL ---
   const rawPhone = formData.get('telefone');
   const rawCountryCode = formData.get('country_code') || '+55';
@@ -107,23 +107,23 @@ export async function processarLeadUniversal(formData, redirectUrl, origemPadrao
     if (!contatoId) {
       // --- NOVO LEAD ---
       console.log(`[LeadActions] Novo Lead: ${nome}`);
-
+      
       const insertData = {
-        nome: nome,
-        origem: origem,
-        tipo_contato: 'Lead',
-        personalidade_juridica: 'Pessoa Física',
-        organizacao_id: organizacaoId,
-        status: 'Ativo'
+          nome: nome,
+          origem: origem,
+          tipo_contato: 'Lead',
+          personalidade_juridica: 'Pessoa Física',
+          organizacao_id: organizacaoId,
+          status: 'Ativo'
       };
 
       // Se for formulário financeiro, adiciona os dados nas colunas específicas
       if (isFinancialForm) {
-        insertData.renda_familiar = rendaFamiliar;
-        insertData.fgts = fgts;
-        insertData.mais_de_3_anos_clt = maisDe3AnosClt;
+          insertData.renda_familiar = rendaFamiliar;
+          insertData.fgts = fgts;
+          insertData.mais_de_3_anos_clt = maisDe3AnosClt;
       }
-
+      
       const { data: novoContato, error: contatoError } = await supabase
         .from('contatos')
         .insert(insertData)
@@ -135,21 +135,21 @@ export async function processarLeadUniversal(formData, redirectUrl, origemPadrao
 
       // Salva Telefone
       if (telefoneCompleto) {
-        await supabase.from('telefones').insert({
-          contato_id: contatoId,
-          telefone: telefoneCompleto,
+        await supabase.from('telefones').insert({ 
+          contato_id: contatoId, 
+          telefone: telefoneCompleto, 
           country_code: cleanCountryCode,
-          tipo: 'Celular',
+          tipo: 'Celular', 
           organizacao_id: organizacaoId
         });
       }
 
       if (email) {
-        await supabase.from('emails').insert({
-          contato_id: contatoId,
-          email: email,
-          tipo: 'Principal',
-          organizacao_id: organizacaoId
+        await supabase.from('emails').insert({ 
+          contato_id: contatoId, 
+          email: email, 
+          tipo: 'Principal', 
+          organizacao_id: organizacaoId 
         });
       }
 
@@ -159,7 +159,7 @@ export async function processarLeadUniversal(formData, redirectUrl, origemPadrao
         primeiro_nome: nome ? nome.split(' ')[0] : undefined,
         sobrenome: nome ? nome.split(' ').slice(1).join(' ') : undefined
       }, {
-        content_name: origem,
+        content_name: origem, 
         status: 'Novo',
         currency: 'BRL',
         value: rendaFamiliar || 0 // Envia a renda como valor para o pixel (opcional, ajuda o algoritmo)
@@ -168,15 +168,15 @@ export async function processarLeadUniversal(formData, redirectUrl, origemPadrao
     } else {
       // --- LEAD RECORRENTE (Update) ---
       console.log(`[LeadActions] Lead recorrente (ID: ${contatoId}). Atualizando dados.`);
-
+      
       const updateData = { updated_at: new Date() };
 
       // Só atualizamos os campos financeiros se eles vieram nesse formulário
       // Isso evita zerar dados se o cliente preencher um formulário simples depois
       if (isFinancialForm) {
-        updateData.renda_familiar = rendaFamiliar;
-        updateData.fgts = fgts;
-        updateData.mais_de_3_anos_clt = maisDe3AnosClt;
+          updateData.renda_familiar = rendaFamiliar;
+          updateData.fgts = fgts;
+          updateData.mais_de_3_anos_clt = maisDe3AnosClt;
       }
 
       await supabase
@@ -214,7 +214,7 @@ export async function processarLeadUniversal(formData, redirectUrl, origemPadrao
         contato_id: contatoId,
         coluna_id: colunaId,
         organizacao_id: organizacaoId,
-        numero_card: 1
+        numero_card: 1 
       });
     }
 
@@ -227,27 +227,24 @@ export async function processarLeadUniversal(formData, redirectUrl, origemPadrao
 
 // --- FUNÇÕES AUXILIARES ---
 async function ensureFunilExists(supabase, organizacaoId) {
-  // Procura Funil da Organização
-  const { data: funilPorNome } = await supabase.from('funis').select('id').eq('nome', 'Funil de Vendas').eq('organizacao_id', organizacaoId).maybeSingle();
-  if (funilPorNome) return funilPorNome.id;
-
-  // Cria Funil Padrão se não tiver
-  const { data: newFunil } = await supabase.from('funis').insert({ nome: 'Funil de Vendas', organizacao_id: organizacaoId }).select('id').single();
-  return newFunil.id;
+  const FUNIL_ID_FIXO = 'c0dd9026-6ede-4789-a77e-ec0e7fe8fa66';
+  let { data: funil } = await supabase.from('funis').select('id').eq('id', FUNIL_ID_FIXO).single();
+  
+  if (!funil) {
+    const { data: funilPorNome } = await supabase.from('funis').select('id').eq('nome', 'Funil de Vendas').eq('organizacao_id', organizacaoId).single();
+    if (funilPorNome) return funilPorNome.id;
+    const { data: newFunil } = await supabase.from('funis').insert({ nome: 'Funil de Vendas', organizacao_id: organizacaoId }).select('id').single();
+    funil = newFunil;
+  }
+  return funil.id;
 }
 
 async function getEntradaColumnId(supabase, funilId, organizacaoId) {
-  const SYSTEM_ORG_ID = 1;
-
-  // 1. TENTA ACHAR A COLUNA GLOBAL "ENTRADA" (ORG 1)
-  let { data: colunaGlobal } = await supabase.from('colunas_funil').select('id').eq('nome', 'ENTRADA').eq('organizacao_id', SYSTEM_ORG_ID).maybeSingle();
-  if (colunaGlobal) return colunaGlobal.id;
-
-  // 2. TENTA ACHAR UMA COLUNA ENTRADA DA PRÓPRIA ORG (SÓ SE O GLOBAL FALHAR CRITICAMENTE)
-  const { data: colunaPorNome } = await supabase.from('colunas_funil').select('id').eq('funil_id', funilId).eq('nome', 'ENTRADA').maybeSingle();
+  const ID_COLUNA_ENTRADA = 'e8e88027-c7be-4e8c-9667-e17fa4e06ce5';
+  let { data: coluna } = await supabase.from('colunas_funil').select('id').eq('id', ID_COLUNA_ENTRADA).single();
+  if (coluna) return coluna.id;
+  const { data: colunaPorNome } = await supabase.from('colunas_funil').select('id').eq('funil_id', funilId).eq('nome', 'ENTRADA').single();
   if (colunaPorNome) return colunaPorNome.id;
-
-  // 3. SE NÃO TIVER DE JEITO NENHUM, CRIA UMA NOVA PRA ELE
   const { data: newColuna } = await supabase.from('colunas_funil').insert({ funil_id: funilId, nome: 'ENTRADA', ordem: 0, organizacao_id: organizacaoId, cor: 'bg-gray-100' }).select('id').single();
   return newColuna.id;
 }
