@@ -20,7 +20,7 @@ export const viewport = {
 };
 
 export const metadata = {
-  title: 'Studio 57',
+  title: 'Elo 57',
   description: 'Sistema de Gestão',
   manifest: '/manifest.json',
 };

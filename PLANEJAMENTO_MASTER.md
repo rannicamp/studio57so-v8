@@ -50,10 +50,10 @@ O **Studio 57** é o ambiente de desenvolvimento e laboratório central. O **Elo
 - [ ] Bloqueio de funcionalidades por status de pagamento (Inadimplência).
 
 ### 6. Branding e Identidade Visual (Transição Elo 57)
-- [ ] **Rename:** Substituir ocorrências de "Studio 57" por "Elo 57" na interface.
-- [ ] **Assets:** Gerar e implementar Favicon (ícone da aba).
-- [ ] **Logotipo:** Definir e aplicar Logo Retangular e Logo Quadrada (Marca d'água).
-- [ ] **Mobile:** Configurar ícone de notificação para dispositivos móveis (Android/iOS).
+- [x] **Rename:** Substituir ocorrências de "Studio 57" por "Elo 57" na interface.
+- [x] **Assets:** Gerar e implementar Favicon (ícone da aba) e Ícones PWA (192x192, 512x512).
+- [x] **Logotipo:** Definir e aplicar Logo Retangular e Logo Quadrada (Marca d'água) em navegação, login e relatórios (BIM, Simulador, RDO, Tabela de Venda).
+- [x] **Mobile:** Configurar ícone de notificação para dispositivos móveis (Android/iOS) no `manifest.json` e `custom-sw.js`.
 - [ ] **Meta Ads:** Atualizar criativos e nomes nos aplicativos da Meta.
 
 ### 7. Governança de Aplicativos Meta (ESTRATÉGIA DEFINIDA)
@@ -84,11 +84,23 @@ O **Studio 57** é o ambiente de desenvolvimento e laboratório central. O **Elo
 - [ ] **Refatorar:** Substituir todos os `<input type="file">` avulsos pelo componente global.
 - [ ] **Teste de Crash:** Validar que o GoldenRetriever recupera uploads interrompidos.
 
+### 9. CRM Multi-Funis e Roteamento de Leads (CONCLUÍDO)
+- [x] Lógica de Funil de Vendas com suporte a regras de múltiplos funis.
+- [x] Roteamento Automático de Leads: Correção de tipagem UUID (`funil_destino_id`) e recriação da função no banco `fn_rotear_lead`.
+- [x] Limpeza de legados de banco de dados: Remoção do "Funil de Compras" obsoleto.
+
+### 10. WhatsApp Business API (CONCLUÍDO / EM MANUTENÇÃO)
+- [x] Correção do envio do Payload de Template (Bug de Código - Erro Meta #100).
+- [x] Configuração Oficial do App Meta (ELO 57 - WATS): Atualização das credenciais direto no banco `configuracoes_whatsapp`, resolvendo bloqueios de anti-spam em números novos (Erro Meta #131049).
+- [ ] **Melhoria Técnica:** Revisar e padronizar como os números de telefone são tratados/salvos no contato (remoção de +55, caracteres especiais e validação de 9º dígito) para evitar falhas silenciosas na Meta API.
+
 ## 📝 Notas de Conversa e Decisões
 - *2026-03-01:* Criação do Planejamento Master para centralizar a estratégia de lançamento.
 - *2026-03-01:* Limpeza de arquivos de laboratório finalizada.
 - *2026-03-01:* Sincronia de banco concluída. Scripts `sync-final.js` e `check-elo.js` criados.
 - *2026-03-01:* Definida a necessidade de padronizar o sistema de upload com Protocolo Único (Uppy).
+- *2026-03-02:* Lógica de Roteamento automático de leads via webhook resolvida para todos os novos funis com suporte a UUID.
+- *2026-03-02:* Bug do disparo de Templates de WhatsApp corrigido (Ajuste no código + Setup com novo ID do Elo 57 Oficial).
 
 ---
 *Assinado: Devonildo (Seu Mentor Técnico)*

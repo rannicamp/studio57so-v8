@@ -27,7 +27,7 @@ export default function PoliticasModal() {
   const acceptTermsMutation = useMutation({
     mutationFn: async () => {
       if (!user) throw new Error("Usuário não autenticado.");
-      
+
       const { error } = await supabase
         .from('usuarios')
         .update({
@@ -63,7 +63,7 @@ export default function PoliticasModal() {
   return (
     <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[100] p-4">
       <div className="bg-white rounded-lg shadow-2xl p-8 w-full max-w-4xl max-h-[90vh] flex flex-col">
-        
+
         {hasRejected && (
           <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6" role="alert">
             <div className="flex">
@@ -77,27 +77,27 @@ export default function PoliticasModal() {
         )}
 
         <h1 className="text-2xl font-bold text-gray-900 text-center mb-4 flex-shrink-0">Políticas de Uso e Privacidade</h1>
-        
+
         <div className="prose max-w-none overflow-y-auto pr-4 border-y py-4 max-h-[65vh]">
-          
-          <h2>Termos de Uso do Sistema Studio 57</h2>
+
+          <h2>Termos de Uso do Sistema Elo 57</h2>
           <p className="text-sm">Última atualização: 13 de setembro de 2025</p>
-          <p>Bem-vindo ao Sistema de Gestão Integrada do Studio 57. Ao acessar e utilizar esta plataforma, você concorda em cumprir e estar sujeito aos seguintes termos e condições de uso.</p>
-          
+          <p>Bem-vindo ao Sistema de Gestão Integrada do Elo 57. Ao acessar e utilizar esta plataforma, você concorda em cumprir e estar sujeito aos seguintes termos e condições de uso.</p>
+
           <h3>1. Contas de Usuário</h3>
           <p>O acesso ao sistema é restrito a usuários autorizados. Você é responsável por manter a confidencialidade de sua senha e por todas as atividades que ocorrem em sua conta.</p>
 
           <h3>2. Uso Aceitável</h3>
-          <p>Você concorda em usar o sistema apenas para fins comerciais legítimos do Studio 57. É estritamente proibido inserir informações falsas, realizar upload de arquivos maliciosos ou tentar obter acesso não autorizado.</p>
+          <p>Você concorda em usar o sistema apenas para fins comerciais legítimos do Elo 57. É estritamente proibido inserir informações falsas, realizar upload de arquivos maliciosos ou tentar obter acesso não autorizado.</p>
 
           <h3>3. Confidencialidade</h3>
-          <p>Todas as informações contidas neste sistema são consideradas confidenciais e propriedade do Studio 57. A divulgação não autorizada é estritamente proibida.</p>
-          
+          <p>Todas as informações contidas neste sistema são consideradas confidenciais e propriedade do Elo 57. A divulgação não autorizada é estritamente proibida.</p>
+
           <h3>4. Propriedade Intelectual</h3>
-          <p>O software, design, layout e todos os componentes do sistema são propriedade intelectual do Studio 57 e protegidos por leis de direitos autorais.</p>
+          <p>O software, design, layout e todos os componentes do sistema são propriedade intelectual do Elo 57 e protegidos por leis de direitos autorais.</p>
 
           <h3>5. Limitação de Responsabilidade</h3>
-          <p>O sistema é fornecido &apos;como está&apos;. O Studio 57 não se responsabiliza por perdas de dados ou danos resultantes do uso (ou da incapacidade de uso) da plataforma.</p>
+          <p>O sistema é fornecido &apos;como está&apos;. O Elo 57 não se responsabiliza por perdas de dados ou danos resultantes do uso (ou da incapacidade de uso) da plataforma.</p>
 
           <hr />
 
@@ -110,26 +110,26 @@ export default function PoliticasModal() {
           <h3>2. Compartilhamento com Terceiros e IA</h3>
           <p>Para fornecer nossos serviços, compartilhamos dados com parceiros como Supabase (armazenamento), Google (IA Stella e Calendar) e Meta (WhatsApp).</p>
         </div>
-        
-        <div className="mt-auto pt-6 flex flex-col md:flex-row items-center justify-center gap-4 flex-shrink-0">
-            {!hasRejected && (
-                <button
-                    onClick={handleReject}
-                    disabled={acceptTermsMutation.isPending}
-                    className="w-full md:w-auto bg-gray-200 text-gray-800 font-bold py-3 px-10 rounded-md hover:bg-gray-300 transition-colors"
-                >
-                    Não aceito
-                </button>
-            )}
 
+        <div className="mt-auto pt-6 flex flex-col md:flex-row items-center justify-center gap-4 flex-shrink-0">
+          {!hasRejected && (
             <button
-                onClick={handleAccept}
-                disabled={acceptTermsMutation.isPending}
-                className="w-full md:w-auto bg-green-600 text-white font-bold py-3 px-10 rounded-md hover:bg-green-700 disabled:bg-gray-400 transition-colors flex items-center justify-center gap-2"
+              onClick={handleReject}
+              disabled={acceptTermsMutation.isPending}
+              className="w-full md:w-auto bg-gray-200 text-gray-800 font-bold py-3 px-10 rounded-md hover:bg-gray-300 transition-colors"
             >
-                {acceptTermsMutation.isPending ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faCheckCircle} />}
-                {acceptTermsMutation.isPending ? 'Salvando...' : 'Li e aceito os termos'}
+              Não aceito
             </button>
+          )}
+
+          <button
+            onClick={handleAccept}
+            disabled={acceptTermsMutation.isPending}
+            className="w-full md:w-auto bg-green-600 text-white font-bold py-3 px-10 rounded-md hover:bg-green-700 disabled:bg-gray-400 transition-colors flex items-center justify-center gap-2"
+          >
+            {acceptTermsMutation.isPending ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faCheckCircle} />}
+            {acceptTermsMutation.isPending ? 'Salvando...' : 'Li e aceito os termos'}
+          </button>
         </div>
       </div>
     </div>

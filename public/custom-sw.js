@@ -9,10 +9,10 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener("push", function (event) {
-  let data = { 
-    title: "Studio 57", 
-    body: "Nova atualização", 
-    url: "/", 
+  let data = {
+    title: "Elo 57",
+    body: "Nova atualização",
+    url: "/",
     icon: "/icons/icon-192x192.png"
   };
 
@@ -35,9 +35,9 @@ self.addEventListener("push", function (event) {
     tag: data.tag || 'notification-' + Date.now(),
     renotify: true, // Força vibração mesmo se a tag repetir
     vibrate: [500, 100, 500], // Vibração Longa-Curta-Longa (Chama atenção)
-    data: { 
+    data: {
       url: data.url,
-      timestamp: Date.now() 
+      timestamp: Date.now()
     },
     actions: [
       { action: "open", title: "Ver Agora" }

@@ -4,30 +4,30 @@
 import React from 'react';
 
 const RdoPrintView = React.forwardRef(({ rdoData, atividades, maoDeObra, ocorrencias, fotos, pedidos }, ref) => {
-    
+
     if (!rdoData) return null;
 
-    // Logo do Studio 57
-    const logoUrl = "https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/sign/marca/public/STUDIO%2057%20PRETO%20-%20RETANGULAR.PNG?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9kMTIyN2I2ZC02YmI4LTQ0OTEtYWE0MS0yZTdiMDdlNDVmMjEiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJtYXJjYS9wdWJsaWMvU1RVRElPIDU3IFBSRVRPIC0gUkVUQU5HVUxBUi5QTkciLCJpYXQiOjE3NTA3MTA1ODEsImV4cCI6MjA2NjA3MDU4MX0.NKH_ZhXJYjHNpZ5j1suDDRwnggj9zte81D37NFZeCIE";
+    // Logo do Elo 57
+    const logoUrl = "/marca/logo-elo57-horizontal.svg";
 
     return (
-        <div 
-            ref={ref} 
+        <div
+            ref={ref}
             id="print-view-root"
             className="bg-white text-gray-800 font-sans text-xs p-8 w-[210mm] min-h-[297mm] mx-auto shadow-2xl print:shadow-none print:w-full print:m-0 print:p-4"
             // Estilos inline de segurança
             style={{ backgroundColor: '#ffffff', color: '#000000' }}
         >
-            
+
             {/* CABEÇALHO */}
             <header className="border-b-2 border-gray-800 pb-4 mb-6 flex justify-between items-center">
                 <div>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img 
-                        src={logoUrl} 
-                        alt="Studio 57" 
-                        className="h-12 mb-2 object-contain" 
-                        crossOrigin="anonymous" 
+                    <img
+                        src={logoUrl}
+                        alt="Elo 57"
+                        className="h-12 mb-2 object-contain"
+                        crossOrigin="anonymous"
                     />
                     <h1 className="text-xl font-bold uppercase tracking-wide">Relatório Diário de Obra</h1>
                 </div>
@@ -108,7 +108,7 @@ const RdoPrintView = React.forwardRef(({ rdoData, atividades, maoDeObra, ocorren
                             </tbody>
                         </table>
                     </div>
-                    
+
                     {/* RESUMO DE EFETIVO */}
                     <div className="w-48 border border-gray-300 p-3 bg-gray-50 print:bg-transparent h-fit rounded">
                         <p className="font-bold mb-2 border-b pb-1">Resumo do Efetivo:</p>
@@ -135,7 +135,7 @@ const RdoPrintView = React.forwardRef(({ rdoData, atividades, maoDeObra, ocorren
                     <ul className="border border-gray-300 rounded p-3 space-y-2">
                         {ocorrencias.map(occ => (
                             <li key={occ.id} className="border-b border-gray-200 last:border-0 pb-2 last:pb-0">
-                                <span className="font-bold text-red-700 block mb-1">[{occ.tipo}]:</span> 
+                                <span className="font-bold text-red-700 block mb-1">[{occ.tipo}]:</span>
                                 {occ.descricao}
                             </li>
                         ))}
@@ -150,7 +150,7 @@ const RdoPrintView = React.forwardRef(({ rdoData, atividades, maoDeObra, ocorren
                     <ul className="border border-gray-300 rounded p-3">
                         {pedidos.map(p => (
                             <li key={p.id} className="mb-2 last:mb-0">
-                                <strong>Pedido #{p.id}:</strong> {p.itens.map(i => i.descricao_item).join(', ')} 
+                                <strong>Pedido #{p.id}:</strong> {p.itens.map(i => i.descricao_item).join(', ')}
                                 {p.status === 'Entregue' && <span className="text-green-600 font-bold ml-2">(Entregue)</span>}
                             </li>
                         ))}
@@ -167,12 +167,12 @@ const RdoPrintView = React.forwardRef(({ rdoData, atividades, maoDeObra, ocorren
                             <div key={foto.id} className="border border-gray-200 p-2 text-center bg-white break-inside-avoid">
                                 <div className="h-36 w-full mb-1 bg-gray-100 flex items-center justify-center overflow-hidden">
                                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                                    <img 
-                                        src={foto.signedUrl} 
-                                        alt="RDO" 
-                                        className="w-full h-full object-cover" 
+                                    <img
+                                        src={foto.signedUrl}
+                                        alt="RDO"
+                                        className="w-full h-full object-cover"
                                         loading="eager"
-                                        crossOrigin="anonymous" 
+                                        crossOrigin="anonymous"
                                     />
                                 </div>
                                 <p className="text-[10px] text-gray-600 truncate px-1">{foto.descricao || ''}</p>
@@ -197,7 +197,7 @@ const RdoPrintView = React.forwardRef(({ rdoData, atividades, maoDeObra, ocorren
                     </div>
                 </div>
                 <div className="text-center text-[10px] text-gray-400 mt-10 border-t pt-2">
-                    Documento gerado digitalmente pelo Sistema Studio 57 em {new Date().toLocaleString('pt-BR')}
+                    Documento gerado digitalmente pelo Sistema Elo 57 em {new Date().toLocaleString('pt-BR')}
                 </div>
             </footer>
         </div>

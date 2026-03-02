@@ -243,7 +243,7 @@ export default function PermissionManager({ initialFuncoes }) {
             </div>
             <div>
               <h2 className="text-xl font-extrabold text-gray-800 tracking-tight">Cargos e Papéis</h2>
-              <p className="text-sm text-gray-500 font-medium">Defina níveis de acesso para os colaboradores do Studio 57.</p>
+              <p className="text-sm text-gray-500 font-medium">Defina níveis de acesso para os colaboradores do Elo 57.</p>
             </div>
           </div>
         </div>

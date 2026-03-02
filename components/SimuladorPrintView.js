@@ -12,7 +12,7 @@ const SimuladorPrintView = React.forwardRef(({ simulacao, produto, empreendiment
         return null;
     }
 
-    const logoUrl = 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/marca/public/STUDIO%2057%20PRETO%20-%20RETANGULO.PNG';
+    const logoUrl = '/marca/logo-elo57-horizontal.svg';
 
     const formatCurrency = (value) => {
         if (typeof value !== 'number') return 'R$ 0,00';
@@ -26,7 +26,7 @@ const SimuladorPrintView = React.forwardRef(({ simulacao, produto, empreendiment
         <div ref={ref} className="print-view p-8 bg-white text-gray-800 font-sans">
             <header className="flex justify-between items-center border-b-2 pb-4">
                 <div className="text-left">
-                    <img src={logoUrl} alt="Logo Studio 57" className="h-12" />
+                    <img src={logoUrl} alt="Logo Elo 57" className="h-12" />
                     {/* ***** DADOS FIXOS INSERIDOS MANUALMENTE ***** */}
                     <p className="text-sm mt-2">CNPJ: 41.464.589/0001-66</p>
                     <p className="text-sm">Av. Rio Doce, 1825 - Ilha dos Araújos</p>
@@ -76,8 +76,8 @@ const SimuladorPrintView = React.forwardRef(({ simulacao, produto, empreendiment
                             <span>Valor Final da Proposta:</span>
                             <span>{formatCurrency(resumo.valorFinal)}</span>
                         </div>
-                        
-                        <hr className="my-2"/>
+
+                        <hr className="my-2" />
 
                         <div className="flex justify-between items-center pt-2">
                             <span>Entrada ({resumo.entradaPercentual.toFixed(2)}%):</span>
@@ -97,7 +97,7 @@ const SimuladorPrintView = React.forwardRef(({ simulacao, produto, empreendiment
                         </div>
                     </div>
                 </section>
-                
+
                 <section>
                     <h2 className="text-lg font-semibold border-b pb-2 mb-3">Plano de Pagamento Detalhado</h2>
                     <table className="w-full text-sm text-left">
@@ -124,7 +124,7 @@ const SimuladorPrintView = React.forwardRef(({ simulacao, produto, empreendiment
 
                 <section className="mt-12 text-sm">
                     <p className="mb-4">
-                        <strong>Observações:</strong> É direito do Studio 57 incorporação Ltda. corrigir ou alterar os valores sem aviso prévio. A correção é trimestral sobre o saldo devedor de acordo com o INCC.
+                        <strong>Observações:</strong> É direito do Elo 57 corrigir ou alterar os valores sem aviso prévio. A correção é trimestral sobre o saldo devedor de acordo com o INCC.
                     </p>
                     <div className="mt-16 grid grid-cols-2 gap-16 text-center">
                         <div>
@@ -140,7 +140,7 @@ const SimuladorPrintView = React.forwardRef(({ simulacao, produto, empreendiment
             </main>
 
             <footer className="text-center text-xs text-gray-500 mt-12 pt-4 border-t">
-                Studio 57 - Excelência em cada detalhe.
+                Elo 57 - Excelência em cada detalhe.
             </footer>
         </div>
     );

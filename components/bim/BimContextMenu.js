@@ -15,7 +15,7 @@ export default function BimContextMenu({ viewer, onOpenCreate, onOpenLink }) {
       // Evita re-aplicar várias vezes desnecessariamente
       if (isConfiguredRef.current && viewer.customizeContextMenu.isStudio57) return;
 
-      console.log("🛠️ [Studio 57] Aplicando Menu de Contexto...");
+      console.log("🛠️ [Elo 57] Aplicando Menu de Contexto...");
 
       // Salva a referência original
       const originalCustomize = viewer.customizeContextMenu;
@@ -31,15 +31,15 @@ export default function BimContextMenu({ viewer, onOpenCreate, onOpenLink }) {
         if (status.dbId) {
           const dbId = status.dbId;
           const model = status.model;
-          
+
           // Confirmação no console
-          console.log("🖱️ [Studio 57] Clique Direito detectado no ID:", dbId);
+          console.log("🖱️ [Elo 57] Clique Direito detectado no ID:", dbId);
 
           if (model) {
             menu.push({ title: '----' });
-            
+
             // Título Visual
-            menu.push({ title: '🚀 Ações Studio 57', target: () => {} });
+            menu.push({ title: '🚀 Ações Elo 57', target: () => { } });
 
             // Item: Criar
             menu.push({
@@ -52,10 +52,10 @@ export default function BimContextMenu({ viewer, onOpenCreate, onOpenLink }) {
                   const contextData = {
                     externalId: item.externalId,
                     elementName: item.name || 'Elemento sem nome',
-                    projetoBimId: model.studio57_context?.id, 
+                    projetoBimId: model.studio57_context?.id,
                     urn: model.studio57_context?.urn_autodesk
                   };
-                  
+
                   if (!contextData.projetoBimId) {
                     toast.error("⚠️ Modelo sem contexto. Tente recarregar.");
                     return;
@@ -95,24 +95,24 @@ export default function BimContextMenu({ viewer, onOpenCreate, onOpenLink }) {
       // Marca como configurado para evitar loops, mas permite reconfigurar se o viewer mudar
       viewer.customizeContextMenu.isStudio57 = true;
       isConfiguredRef.current = true;
-      console.log("✅ [Studio 57] Menu de Contexto Configurado com Sucesso.");
+      console.log("✅ [Elo 57] Menu de Contexto Configurado com Sucesso.");
     };
 
     // --- ESTRATÉGIA DE INJEÇÃO ---
-    
+
     // 1. Tenta aplicar imediatamente (caso já esteja carregado)
     applyCustomMenu();
 
     // 2. Escuta o evento de Toolbar (garantia de carregamento da UI)
     const onToolbarCreated = () => {
-        applyCustomMenu();
+      applyCustomMenu();
     };
-    
+
     // Adiciona listener
     if (window.Autodesk && window.Autodesk.Viewing) {
-        viewer.addEventListener(window.Autodesk.Viewing.TOOLBAR_CREATED_EVENT, onToolbarCreated);
-        // Também escuta quando o modelo termina de carregar, pois às vezes o menu reseta
-        viewer.addEventListener(window.Autodesk.Viewing.GEOMETRY_LOADED_EVENT, onToolbarCreated);
+      viewer.addEventListener(window.Autodesk.Viewing.TOOLBAR_CREATED_EVENT, onToolbarCreated);
+      // Também escuta quando o modelo termina de carregar, pois às vezes o menu reseta
+      viewer.addEventListener(window.Autodesk.Viewing.GEOMETRY_LOADED_EVENT, onToolbarCreated);
     }
 
     return () => {

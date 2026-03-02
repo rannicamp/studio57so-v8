@@ -16,7 +16,7 @@ export default function EmailConnectionConfig({ onClose }) {
     const { user, organizacao_id } = useAuth();
     const queryClient = useQueryClient();
 
-    const [editingId, setEditingId] = useState(null); 
+    const [editingId, setEditingId] = useState(null);
     const [provider, setProvider] = useState('custom');
     const [formData, setFormData] = useState({
         conta_apelido: '',
@@ -130,7 +130,7 @@ export default function EmailConnectionConfig({ onClose }) {
         onSuccess: () => {
             toast.success(editingId ? "Conta atualizada!" : "Conta conectada!");
             queryClient.invalidateQueries(['emailAccounts']);
-            queryClient.invalidateQueries(['emailFolders']); 
+            queryClient.invalidateQueries(['emailFolders']);
             resetForm(); // Isso já limpa o cache
         },
         onError: (err) => toast.error("Erro ao salvar: " + err.message)
@@ -158,21 +158,21 @@ export default function EmailConnectionConfig({ onClose }) {
                         <FontAwesomeIcon icon={faPlus} /> Nova
                     </button>
                 </div>
-                
+
                 <div className="flex-grow overflow-y-auto space-y-2 custom-scrollbar">
-                    {isLoading ? <FontAwesomeIcon icon={faSpinner} spin className="text-gray-400" /> : 
-                     accounts?.length === 0 ? <p className="text-xs text-gray-400 italic">Nenhuma conta conectada.</p> :
-                     accounts.map(acc => (
-                        <div key={acc.id} className={`p-3 rounded-lg border cursor-pointer transition-all flex justify-between items-center group ${editingId === acc.id ? 'bg-blue-50 border-blue-500 ring-1 ring-blue-500' : 'bg-white border-gray-200 hover:border-blue-300'}`} onClick={() => handleEdit(acc)}>
-                            <div className="overflow-hidden">
-                                <p className="text-sm font-bold text-gray-800 truncate">{acc.conta_apelido || 'Conta sem nome'}</p>
-                                <p className="text-xs text-gray-500 truncate">{acc.email}</p>
-                            </div>
-                            <button onClick={(e) => { e.stopPropagation(); if(confirm('Remover esta conta?')) deleteMutation.mutate(acc.id); }} className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-red-50 text-gray-300 hover:text-red-500 transition-colors">
-                                <FontAwesomeIcon icon={faTrash} className="text-xs" />
-                            </button>
-                        </div>
-                    ))}
+                    {isLoading ? <FontAwesomeIcon icon={faSpinner} spin className="text-gray-400" /> :
+                        accounts?.length === 0 ? <p className="text-xs text-gray-400 italic">Nenhuma conta conectada.</p> :
+                            accounts.map(acc => (
+                                <div key={acc.id} className={`p-3 rounded-lg border cursor-pointer transition-all flex justify-between items-center group ${editingId === acc.id ? 'bg-blue-50 border-blue-500 ring-1 ring-blue-500' : 'bg-white border-gray-200 hover:border-blue-300'}`} onClick={() => handleEdit(acc)}>
+                                    <div className="overflow-hidden">
+                                        <p className="text-sm font-bold text-gray-800 truncate">{acc.conta_apelido || 'Conta sem nome'}</p>
+                                        <p className="text-xs text-gray-500 truncate">{acc.email}</p>
+                                    </div>
+                                    <button onClick={(e) => { e.stopPropagation(); if (confirm('Remover esta conta?')) deleteMutation.mutate(acc.id); }} className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-red-50 text-gray-300 hover:text-red-500 transition-colors">
+                                        <FontAwesomeIcon icon={faTrash} className="text-xs" />
+                                    </button>
+                                </div>
+                            ))}
                 </div>
             </div>
 
@@ -182,7 +182,7 @@ export default function EmailConnectionConfig({ onClose }) {
                     {editingId ? 'Editar Conta' : 'Nova Conexão'}
                     <span className="text-[10px] font-normal text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">Rascunho automático</span>
                 </h3>
-                
+
                 <div className="flex gap-4 justify-center mb-6">
                     <button type="button" onClick={() => handleProviderChange('gmail')} className={`flex flex-col items-center gap-2 p-3 rounded-lg border w-24 transition-all ${provider === 'gmail' ? 'border-red-500 bg-red-50 text-red-700 font-bold shadow-sm' : 'border-gray-200 text-gray-500 hover:bg-gray-50'}`}>
                         <span className="text-xl">G</span><span className="text-[10px]">Gmail</span>
@@ -218,7 +218,7 @@ export default function EmailConnectionConfig({ onClose }) {
                         </div>
                         <div className="md:col-span-2">
                             <label className="block text-xs font-semibold text-gray-700 mb-1">Nome do Remetente</label>
-                            <input type="text" name="nome_remetente" value={formData.nome_remetente} onChange={handleChange} className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Ex: João - Studio 57" />
+                            <input type="text" name="nome_remetente" value={formData.nome_remetente} onChange={handleChange} className="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Ex: João - Elo 57" />
                         </div>
                     </div>
 
@@ -234,7 +234,7 @@ export default function EmailConnectionConfig({ onClose }) {
 
                     <div className="flex justify-end gap-3 pt-4 border-t">
                         <button type="submit" disabled={saveMutation.isPending} className="px-6 py-2 text-sm font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 shadow-sm disabled:opacity-50">
-                            {saveMutation.isPending ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faSave} />} 
+                            {saveMutation.isPending ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faSave} />}
                             {editingId ? 'Salvar Alterações' : 'Conectar Conta'}
                         </button>
                     </div>

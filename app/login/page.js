@@ -16,7 +16,7 @@ export default function LoginPage() {
   const supabase = createClient();
 
   // --- NOVA LOGO ATUALIZADA ---
-  const logoUrl = "https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empresa-anexos/4/LOGO-P_1765565958716.PNG";
+  const logoUrl = "/marca/logo-elo57-horizontal.svg";
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -59,7 +59,7 @@ export default function LoginPage() {
             {/* Ajustei o width/height para garantir que a proporção fique boa */}
             <Image
               src={logoUrl}
-              alt="Logo Studio 57"
+              alt="Logo Elo 57"
               width={200}
               height={60}
               priority

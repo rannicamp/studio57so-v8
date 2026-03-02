@@ -16,7 +16,7 @@ import Tooltip from './Tooltip';
 export default function Sidebar({ isOpen, closeSidebar }) {
     const { hasPermission, user } = useAuth();
     const sidebarPosition = user?.sidebar_position || 'left';
-    
+
     // Configuração dos itens - Totalmente Mapeada
     const navSections = [
         {
@@ -59,8 +59,8 @@ export default function Sidebar({ isOpen, closeSidebar }) {
         },
     ];
 
-    const logoUrl = "https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/sign/marca/public/STUDIO%2057%20PRETO%20-%20RETANGULAR.PNG?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9kMTIyN2I2ZC02YmI4LTQ0OTEtYWE0MS0yZTdiMDdlNDVmMjEiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJtYXJjYS9wdWJsaWMvU1RVRElPIDU3IFBSRVRPIC0gUkVUQU5HVUxBUi5QTkciLCJpYXQiOjE3NTA3MTA1ODEsImV4cCI6MjA2NjA3MDU4MX0.NKH_ZhXJYjHNpZ5j1suDDRwnggj9zte81D37NFZeCIE";
-    const logoIconUrl = "/favicon.ico";
+    const logoUrl = "/marca/logo-elo57-horizontal.svg";
+    const logoIconUrl = "/marca/icone-elo57.svg";
 
     const isHorizontal = sidebarPosition === 'top' || sidebarPosition === 'bottom';
 
@@ -96,14 +96,14 @@ export default function Sidebar({ isOpen, closeSidebar }) {
     }
 
     const drawerBaseClasses = "fixed top-0 bottom-0 z-50 w-[280px] bg-white shadow-2xl transform transition-transform duration-300 ease-in-out h-full overflow-y-auto";
-    const drawerPositionClass = sidebarPosition === 'right' 
-        ? `right-0 ${isOpen ? 'translate-x-0' : 'translate-x-full'}` 
+    const drawerPositionClass = sidebarPosition === 'right'
+        ? `right-0 ${isOpen ? 'translate-x-0' : 'translate-x-full'}`
         : `left-0 ${isOpen ? 'translate-x-0' : '-translate-x-full'}`;
 
     return (
         <>
             {isOpen && (
-                <div 
+                <div
                     className="fixed inset-0 bg-black/30 z-40 backdrop-blur-sm transition-opacity"
                     onClick={closeSidebar}
                 ></div>
@@ -112,7 +112,7 @@ export default function Sidebar({ isOpen, closeSidebar }) {
             <aside className={`${drawerBaseClasses} ${drawerPositionClass}`}>
                 <div className="flex items-center justify-center h-[65px] border-b border-gray-100 sticky top-0 bg-white z-10">
                     <Link href="/painel" onClick={closeSidebar}>
-                        <img src={logoUrl} alt="Logo Studio 57" className="h-9 w-auto" />
+                        <img src={logoUrl} alt="Logo Elo 57" className="h-9 w-auto" />
                     </Link>
                 </div>
 
@@ -120,7 +120,7 @@ export default function Sidebar({ isOpen, closeSidebar }) {
                     <ul>
                         {navSections.map((section) => {
                             const sectionItems = section.items || [];
-                            const visibleItems = sectionItems.filter(item => 
+                            const visibleItems = sectionItems.filter(item =>
                                 hasPermission(item.recurso, 'pode_ver') || ['painel', 'perfil', 'caixa_de_entrada'].includes(item.recurso)
                             );
 

@@ -1,5 +1,5 @@
 // Caminho: utils/bim/bim-extractor.js
-import { createClient } from '../supabase/client'; 
+import { createClient } from '../supabase/client';
 
 const supabase = createClient();
 
@@ -18,7 +18,7 @@ export async function extrairDadosDoModelo(viewer, projetoBimId, organizacaoId, 
     // Captura URN Limpa
     const rawUrn = model.getData().urn;
     const cleanUrn = rawUrn ? (rawUrn.startsWith('urn:') ? rawUrn.replace('urn:', '') : rawUrn) : null;
-    console.log(`[Studio 57] Iniciando extração. URN: ${cleanUrn}`);
+    console.log(`[Elo 57] Iniciando extração. URN: ${cleanUrn}`);
 
     const tree = model.getInstanceTree();
     if (!tree) throw new Error("Árvore do modelo ainda não carregada.");
@@ -37,7 +37,7 @@ export async function extrairDadosDoModelo(viewer, projetoBimId, organizacaoId, 
     // --- 3. EXTRAÇÃO EM MEMÓRIA (CHUNKING APENAS PARA LEITURA) ---
     // Precisamos ler em pedaços para não travar a UI do navegador, 
     // mas vamos guardar tudo em 'allElements' para enviar junto no final.
-    let allElements = []; 
+    let allElements = [];
     let processed = 0;
     const CHUNK_SIZE = 1000; // Leitura mais agressiva pois é apenas memória local
 
@@ -53,7 +53,7 @@ export async function extrairDadosDoModelo(viewer, projetoBimId, organizacaoId, 
 
     for (let i = 0; i < totalItems; i += CHUNK_SIZE) {
         const chunkIds = leafIds.slice(i, i + CHUNK_SIZE);
-        
+
         // Lê do Viewer
         const rawResults = await getPropsPromise(chunkIds);
 
@@ -64,7 +64,7 @@ export async function extrairDadosDoModelo(viewer, projetoBimId, organizacaoId, 
             let familia = '';
             let tipo = '';
             let nivel = 'Não definido';
-            
+
             // Garante External ID
             const externalId = item.externalId || `ext-${item.dbId}`;
 
@@ -81,7 +81,7 @@ export async function extrairDadosDoModelo(viewer, projetoBimId, organizacaoId, 
                         const safeKey = p.displayName.replace(/[".]/g, '');
                         propsObj[safeKey] = val;
                     }
-                    
+
                     // Mapeamento Inteligente
                     if (p.attributeName === 'Category') categoria = p.displayValue;
                     if (p.attributeName === 'Family' || p.displayName === 'Família') familia = p.displayValue;
@@ -107,14 +107,14 @@ export async function extrairDadosDoModelo(viewer, projetoBimId, organizacaoId, 
         });
 
         allElements = [...allElements, ...processedChunk];
-        
+
         processed += chunkIds.length;
         // Notifica progresso da extração (0 a 50% do processo total)
         if (onProgress) onProgress(Math.round((processed / totalItems) * 50));
     }
 
     // --- 4. ENVIO PARA O BANCO (RPC) ---
-    console.log(`[Studio 57] Enviando ${allElements.length} elementos para sincronização no banco...`);
+    console.log(`[Elo 57] Enviando ${allElements.length} elementos para sincronização no banco...`);
     if (onProgress) onProgress(75); // Pulou para envio
 
     const { error } = await supabase.rpc('sync_bim_elements', {
@@ -130,7 +130,7 @@ export async function extrairDadosDoModelo(viewer, projetoBimId, organizacaoId, 
     }
 
     if (onProgress) onProgress(100);
-    console.log("[Studio 57] Sincronização e Soft Delete concluídos com sucesso.");
-    
+    console.log("[Elo 57] Sincronização e Soft Delete concluídos com sucesso.");
+
     return true;
 }

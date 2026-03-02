@@ -205,16 +205,16 @@ export default function TabelaVenda({ produtos, config, parcelasAdicionais, empr
                     <h2 className="text-2xl font-bold text-gray-900">Tabela de Venda</h2>
                     {/* Indicador de Status da Logo (Visível apenas na tela) */}
                     {empreendimento?.logo_url ? (
-                         <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full flex items-center gap-1 border border-green-200">
+                        <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full flex items-center gap-1 border border-green-200">
                             <FontAwesomeIcon icon={faImage} /> Logo Detectada
-                         </span>
+                        </span>
                     ) : (
-                         <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full flex items-center gap-1 border border-yellow-200">
+                        <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full flex items-center gap-1 border border-yellow-200">
                             <FontAwesomeIcon icon={faExclamationCircle} /> Sem Logo
-                         </span>
+                        </span>
                     )}
                 </div>
-                
+
                 <button
                     onClick={() => window.print()}
                     className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded inline-flex items-center transition-colors duration-200"
@@ -227,18 +227,18 @@ export default function TabelaVenda({ produtos, config, parcelasAdicionais, empr
             <div>
                 {/* CABEÇALHO DINÂMICO PARA IMPRESSÃO */}
                 <div className="print-header">
-                    {/* Logo Studio 57 (Fixa à esquerda) */}
-                    <img 
-                        src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/marca/public/STUDIO%2057%20PRETO%20-%20RETANGULAR.PNG" 
-                        alt="Logo Studio 57" 
-                        crossOrigin="anonymous"
+                    {/* Logo Elo 57 (Fixa à esquerda) */}
+                    <img
+                        src="/marca/logo-elo57-horizontal.svg"
+                        alt="Logo Elo 57"
+                        className="h-10 object-contain"
                     />
-                    
+
                     {/* Logo do Empreendimento (Dinâmica à direita) */}
                     {empreendimento?.logo_url ? (
-                        <img 
-                            src={empreendimento.logo_url} 
-                            alt={`Logo ${empreendimento.nome}`} 
+                        <img
+                            src={empreendimento.logo_url}
+                            alt={`Logo ${empreendimento.nome}`}
                             crossOrigin="anonymous"
                         />
                     ) : (
@@ -258,15 +258,15 @@ export default function TabelaVenda({ produtos, config, parcelasAdicionais, empr
                                 <th rowSpan="2">Área (m²)</th>
                                 <th rowSpan="2">Valor (R$)</th>
                                 <th colSpan={numColunasEntrada + 1} className="group-header">Entrada ({config.entrada_percentual || 0}%)</th>
-                                {parcelasAdicionais.map((p, i) => 
-                                    <th key={`adicional-header-${i}`} rowSpan="2">Intermediária<br/>{new Date(p.data_pagamento + 'T00:00:00').toLocaleDateString('pt-BR')}</th>
+                                {parcelasAdicionais.map((p, i) =>
+                                    <th key={`adicional-header-${i}`} rowSpan="2">Intermediária<br />{new Date(p.data_pagamento + 'T00:00:00').toLocaleDateString('pt-BR')}</th>
                                 )}
                                 <th colSpan="2" className="group-header">Parcelas Obra ({config.parcelas_obra_percentual || 0}%)</th>
                                 <th rowSpan="2">Remanescente ({config.saldo_remanescente_percentual || 0}%) (R$)</th>
                             </tr>
                             <tr>
                                 {Array.from({ length: numColunasEntrada }).map((_, i) => (
-                                    <th key={`entrada-sub-${i}`} className="sub-header">Parcela {i+1} (R$)</th>
+                                    <th key={`entrada-sub-${i}`} className="sub-header">Parcela {i + 1} (R$)</th>
                                 ))}
                                 <th className="sub-header">Total Entrada (R$)</th>
                                 <th className="sub-header">Qtde.</th>
@@ -300,7 +300,7 @@ export default function TabelaVenda({ produtos, config, parcelasAdicionais, empr
                         <div><span style={{ backgroundColor: '#fff3cd' }}></span> Reservado</div>
                         <div><span style={{ backgroundColor: '#f8d7da' }}></span> Vendido</div>
                     </div>
-                    
+
                     {/* AQUI ESTÁ A OBSERVAÇÃO DINÂMICA */}
                     <p className="observacoes-texto">
                         {empreendimento?.observacoes || '*Correção mensal pelo INCC até a entrega das chaves, após entrega IGP-M + 1% a.m.\n**Sujeito a alteração sem aviso prévio.'}

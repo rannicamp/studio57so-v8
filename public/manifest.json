@@ -1,12 +1,12 @@
 {
-  "name": "Studio 57 - Gestão",
-  "short_name": "Studio 57",
-  "description": "Sistema de Gestão e RH Studio 57",
+  "name": "Elo 57 - Gestão",
+  "short_name": "Elo 57",
+  "description": "Sistema de Gestão e RH Elo 57",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#2563eb",
-  "orientation": "any", 
+  "orientation": "any",
   "scope": "/",
   "icons": [
     {
@@ -22,13 +22,22 @@
       "purpose": "any maskable"
     }
   ],
-  "categories": ["business", "productivity", "utilities"],
+  "categories": [
+    "business",
+    "productivity",
+    "utilities"
+  ],
   "screenshots": [],
   "shortcuts": [
     {
       "name": "Importar Ponto",
       "url": "/recursos-humanos",
-      "icons": [{ "src": "/icons/icon-192x192.png", "sizes": "192x192" }]
+      "icons": [
+        {
+          "src": "/icons/icon-192x192.png",
+          "sizes": "192x192"
+        }
+      ]
     }
   ]
 }
