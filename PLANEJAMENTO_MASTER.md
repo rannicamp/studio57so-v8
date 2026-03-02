@@ -101,6 +101,8 @@ O **Studio 57** é o ambiente de desenvolvimento e laboratório central. O **Elo
 - *2026-03-01:* Definida a necessidade de padronizar o sistema de upload com Protocolo Único (Uppy).
 - *2026-03-02:* Lógica de Roteamento automático de leads via webhook resolvida para todos os novos funis com suporte a UUID.
 - *2026-03-02:* Bug do disparo de Templates de WhatsApp corrigido (Ajuste no código + Setup com novo ID do Elo 57 Oficial).
+- *2026-03-02:* Transição de Identidade Visual completa e deploy realizado para produção. (Logos, Títulos e PWA substituídos de Studio 57 para Elo 57).
+- *2026-03-02:* Ajuste Global de Tema: Botões primários (sistema inteiro) alterados de azul genérico para Laranja da Marca (#ff6700) através de sobrescrita no Tailwind.
 
 ---
 *Assinado: Devonildo (Seu Mentor Técnico)*
