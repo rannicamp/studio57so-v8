@@ -228,7 +228,7 @@ export default function MessagePanel({ contact, onBack }) {
         onError: (e) => toast.error("Erro ao enviar local: " + e.message)
     });
 
-    // 4. NOVA: Enviar Template (O FIO QUE FALTAVA) 🔌
+    // 4. NOVA: Enviar Template
     const sendTemplateMutation = useMutation({
         mutationFn: async (templateData) => {
             const rawPhone = recipientPhoneRef.current || contact?.phone_number || contact?.telefone;
@@ -236,14 +236,18 @@ export default function MessagePanel({ contact, onBack }) {
 
             if (!targetPhone) throw new Error("Número do destinatário não encontrado.");
 
+            // CORRECAO: a API route espera templateName, languageCode e components
+            // como campos no NIVEL RAIZ do body — não aninhados dentro de 'template'.
             const response = await fetch('/api/whatsapp/send', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                // Enviamos o templateData como recebido do modal
                 body: JSON.stringify({
                     to: targetPhone,
                     type: 'template',
-                    template: templateData,
+                    templateName: templateData.name,
+                    languageCode: templateData.language?.code || 'pt_BR',
+                    components: templateData.components || [],
+                    custom_content: templateData.fullText || `Template: ${templateData.name}`,
                     contact_id: contact.contato_id,
                     organizacao_id: organizacaoId
                 }),
@@ -255,7 +259,7 @@ export default function MessagePanel({ contact, onBack }) {
         },
         onSuccess: () => {
             toast.success('Modelo enviado com sucesso!');
-            setIsTemplateModalOpen(false); // Fecha o modal após enviar
+            setIsTemplateModalOpen(false);
             queryClient.invalidateQueries({ queryKey: ['messages', organizacaoId, contact?.contato_id] });
         },
         onError: (e) => toast.error(`Erro: ${e.message}`)
