@@ -84,19 +84,28 @@ export async function GET(request) {
 
 // --- RECEBIMENTO DE LEADS ---
 export async function POST(request) {
-    // ⚡ Responde 200 IMEDIATAMENTE para o Meta não marcar como "rejected".
-    // O processamento pesado ocorre de forma assíncrona.
-    processWebhook(request).catch(err =>
+    // ⚡ Lê o body ANTES de disparar o processamento async.
+    // No Next.js App Router, request.body só pode ser lido UMA vez.
+    // Se passarmos o `request` para a função async que roda depois do return,
+    // o body já foi consumido e vai falhar.
+    let body;
+    try {
+        body = await request.json();
+    } catch {
+        return NextResponse.json({ error: 'invalid_json' }, { status: 400 });
+    }
+
+    // Responde 200 imediatamente para o Meta não marcar como "rejected"
+    processWebhook(body).catch(err =>
         console.error('[WEBHOOK] Erro no processamento assíncrono:', err.message)
     );
     return NextResponse.json({ status: 'received' }, { status: 200 });
 }
 
-async function processWebhook(request) {
+async function processWebhook(body) {
     const supabase = getSupabaseAdmin();
     if (!supabase) throw new Error('Supabase Admin não configurado.');
 
-    const body = await request.json();
     const change = body.entry?.[0]?.changes?.[0];
 
     if (change?.field !== 'leadgen') {
