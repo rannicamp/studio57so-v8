@@ -42,7 +42,6 @@ export default function PagamentoFaturaModal({ isOpen, onClose, onSuccess, conta
         if (!formData.valor || formData.valor <= 0) return toast.warning("Informe um valor válido.");
 
         setLoading(true);
-        const transferenciaId = crypto.randomUUID(); // ID único para vincular as duas pontas
         const organizacaoId = user.organizacao_id;
 
         try {
@@ -56,7 +55,7 @@ export default function PagamentoFaturaModal({ isOpen, onClose, onSuccess, conta
                 data_pagamento: formData.data_pagamento,
                 status: 'Pago',
                 conciliado: true, // Já nasce conciliado pois é interno
-                transferencia_id: transferenciaId,
+                // transferencia_id: transferenciaId, ---> REMOVIDO: Para não sumir quando o usuário filtrar "Ocultar Transferências"
                 organizacao_id: organizacaoId,
                 observacao: formData.observacao
             };
@@ -71,7 +70,7 @@ export default function PagamentoFaturaModal({ isOpen, onClose, onSuccess, conta
                 data_pagamento: formData.data_pagamento,
                 status: 'Pago',
                 conciliado: true,
-                transferencia_id: transferenciaId,
+                // transferencia_id: transferenciaId, ---> REMOVIDO pelo mesmo motivo da despesa
                 organizacao_id: organizacaoId,
                 observacao: formData.observacao
             };

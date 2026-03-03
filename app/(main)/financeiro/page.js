@@ -157,7 +157,10 @@ export default function FinanceiroPage() {
         isLoading: isLoadingLancamentos,
         isFetching: isRefetching
     } = useLancamentos({
-        filters: debouncedFilters,
+        filters: {
+            ...debouncedFilters,
+            excludeContaIds: contasCartao.map(c => c.id) // <--- O DIVÓRCIO VISUAL ACONTECE AQUI
+        },
         page: currentPage,
         itemsPerPage,
         sortConfig
@@ -202,6 +205,15 @@ export default function FinanceiroPage() {
     const handleViewLancamentoDetails = (lancamento) => { setSelectedLancamento(lancamento); setIsDetailsSidebarOpen(true); };
     const handleCloseDetailsSidebar = () => { setIsDetailsSidebarOpen(false); setTimeout(() => setSelectedLancamento(null), 300); };
 
+    const handleNewDespesaCartao = (contaId) => {
+        setEditingLancamento({
+            tipo: 'Despesa',
+            conta_id: contaId,
+            status: 'Pendente' // Faturas de cartão geralmente começam pendentes até o fechamento/pagamento da fatura real
+        });
+        setIsFormModalOpen(true);
+    };
+
     const handleIrParaExtrato = (contaId) => {
         const filterState = { filters: { contaIds: [contaId], startDate: new Date().toISOString().split('T')[0], endDate: new Date().toISOString().split('T')[0] }, extratoItens: [], saldoAnterior: 0, autoExecutar: true };
         sessionStorage.setItem('lastExtratoState', JSON.stringify(filterState));
@@ -228,8 +240,8 @@ export default function FinanceiroPage() {
                             <button
                                 onClick={toggleCompetenciaView}
                                 className={`flex-shrink-0 w-10 h-[42px] border rounded-lg flex items-center justify-center transition-all ${filters.useCompetencia
-                                        ? 'bg-purple-100 border-purple-300 text-purple-700 hover:bg-purple-200'
-                                        : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50 hover:text-blue-600'
+                                    ? 'bg-purple-100 border-purple-300 text-purple-700 hover:bg-purple-200'
+                                    : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50 hover:text-blue-600'
                                     }`}
                                 title={filters.useCompetencia ? "Visualizando por Competência (Transação). Clique para voltar ao Caixa." : "Visualizar por Competência (Data da Transação)"}
                             >
@@ -275,7 +287,7 @@ export default function FinanceiroPage() {
 
             <div className="mt-4">
                 {activeTab === 'extrato' && <ExtratoManager contas={contas} onEdit={handleOpenEditModal} />}
-                {activeTab === 'cartoes' && <GerenciadorFaturas contasCartao={contasCartao} />}
+                {activeTab === 'cartoes' && <GerenciadorFaturas contasCartao={contasCartao} onNewDespesaCartao={handleNewDespesaCartao} />}
 
                 {activeTab === 'planejamento' && <PlanejamentoFolha filters={filters} setFilters={setFilters} />}
                 {activeTab === 'documentos' && <DocumentosManager filters={filters} />}
