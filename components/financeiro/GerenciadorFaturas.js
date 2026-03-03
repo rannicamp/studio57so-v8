@@ -259,11 +259,15 @@ export default function GerenciadorFaturas({ contasCartao, onNewDespesaCartao })
                                                 <div className={`text-xs mt-1 ${isAtual ? 'text-blue-500 font-medium' : 'text-gray-500'}`}>
                                                     Vencimento {format(dv, 'dd/MM')}
                                                 </div>
-                                                {isAtual && (
-                                                    <div className="text-xs text-blue-400 font-medium mt-0.5">
-                                                        {formatMoney(f.total_despesas - f.total_pago > 0 ? f.total_despesas - f.total_pago : 0)} a pagar
-                                                    </div>
-                                                )}
+                                                {/* Total de despesas sempre visível para conferência */}
+                                                <div className="text-xs font-semibold mt-1 text-red-500">
+                                                    {formatMoney(f.total_despesas)}
+                                                    {f.total_pago > 0 && (
+                                                        <span className="ml-1 text-green-500 font-normal">
+                                                            − {formatMoney(f.total_pago)}
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </div>
                                             <div className={`text-[10px] px-2 py-1 rounded-full font-bold uppercase tracking-wide shrink-0
                                                 ${isSelected ? s.color : isAtual ? s.color : 'bg-gray-100 text-gray-500'}
@@ -283,35 +287,56 @@ export default function GerenciadorFaturas({ contasCartao, onNewDespesaCartao })
                             <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
 
                                 {/* Resumo do Mês */}
-                                <div className="p-6 border-b bg-gradient-to-br from-gray-50 to-white flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                                    <div>
-                                        <h2 className="text-xl font-bold text-gray-800 capitalize">
-                                            Fatura de {format(parseISO(faturaAtiva.data_vencimento), 'MMMM', { locale: ptBR })}
-                                        </h2>
-                                        <p className="text-sm text-gray-500 mt-1">
-                                            Vencimento em {format(parseISO(faturaAtiva.data_vencimento), 'dd/MM/yyyy')}
-                                            <span className={`ml-2 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${statusAtiva.color}`}>
-                                                <FontAwesomeIcon icon={statusAtiva.icon} className="mr-1" /> {statusAtiva.label}
-                                            </span>
-                                        </p>
-                                    </div>
-
-                                    <div className="flex items-center gap-6">
-                                        <div className="text-right">
-                                            <p className="text-xs text-gray-500 uppercase font-semibold">Total a Pagar</p>
-                                            <p className={`text-2xl font-black ${saldoDevedorAtiva > 0 ? 'text-red-500' : 'text-green-500'}`}>
-                                                {formatMoney(saldoDevedorAtiva > 0 ? saldoDevedorAtiva : 0)}
+                                <div className="p-6 border-b bg-gradient-to-br from-gray-50 to-white">
+                                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-5">
+                                        <div>
+                                            <h2 className="text-xl font-bold text-gray-800 capitalize">
+                                                Fatura de {format(parseISO(faturaAtiva.data_vencimento), 'MMMM', { locale: ptBR })}
+                                            </h2>
+                                            <p className="text-sm text-gray-500 mt-1">
+                                                Vencimento em {format(parseISO(faturaAtiva.data_vencimento), 'dd/MM/yyyy')}
+                                                <span className={`ml-2 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${statusAtiva.color}`}>
+                                                    <FontAwesomeIcon icon={statusAtiva.icon} className="mr-1" /> {statusAtiva.label}
+                                                </span>
                                             </p>
                                         </div>
 
                                         {saldoDevedorAtiva > 1 && (
                                             <button
                                                 onClick={() => handlePagarClick(faturaAtiva)}
-                                                className="bg-gray-900 text-white hover:bg-black font-bold py-3 px-6 rounded-lg shadow-md flex items-center transition"
+                                                className="bg-gray-900 text-white hover:bg-black font-bold py-3 px-6 rounded-lg shadow-md flex items-center transition shrink-0"
                                             >
                                                 Pagar Fatura
                                             </button>
                                         )}
+                                    </div>
+
+                                    {/* Cards de totais separados */}
+                                    <div className="grid grid-cols-3 gap-3">
+                                        {/* Despesas */}
+                                        <div className="bg-red-50 border border-red-100 rounded-xl p-4">
+                                            <p className="text-[10px] text-red-500 uppercase font-bold tracking-wider mb-1">Compras / Despesas</p>
+                                            <p className="text-lg font-black text-red-600">{formatMoney(faturaAtiva.total_despesas)}</p>
+                                            <p className="text-[10px] text-red-400 mt-1">{faturaAtiva.itens.filter(i => i.tipo === 'Despesa').length} lançamentos</p>
+                                        </div>
+
+                                        {/* Receitas (estornos / pagamentos recebidos) */}
+                                        <div className="bg-green-50 border border-green-100 rounded-xl p-4">
+                                            <p className="text-[10px] text-green-600 uppercase font-bold tracking-wider mb-1">Estornos / Pagamentos</p>
+                                            <p className="text-lg font-black text-green-600">{formatMoney(faturaAtiva.total_pago)}</p>
+                                            <p className="text-[10px] text-green-400 mt-1">{faturaAtiva.itens.filter(i => i.tipo === 'Receita').length} lançamentos</p>
+                                        </div>
+
+                                        {/* Saldo a Pagar */}
+                                        <div className={`rounded-xl p-4 border ${saldoDevedorAtiva > 0 ? 'bg-orange-50 border-orange-100' : 'bg-emerald-50 border-emerald-100'}`}>
+                                            <p className={`text-[10px] uppercase font-bold tracking-wider mb-1 ${saldoDevedorAtiva > 0 ? 'text-orange-500' : 'text-emerald-600'}`}>Saldo a Pagar</p>
+                                            <p className={`text-lg font-black ${saldoDevedorAtiva > 0 ? 'text-orange-600' : 'text-emerald-600'}`}>
+                                                {formatMoney(saldoDevedorAtiva > 0 ? saldoDevedorAtiva : 0)}
+                                            </p>
+                                            <p className={`text-[10px] mt-1 ${saldoDevedorAtiva > 0 ? 'text-orange-400' : 'text-emerald-400'}`}>
+                                                {saldoDevedorAtiva <= 0 ? '✓ Quitada' : `= ${formatMoney(faturaAtiva.total_despesas)} − ${formatMoney(faturaAtiva.total_pago)}`}
+                                            </p>
+                                        </div>
                                     </div>
                                 </div>
 
