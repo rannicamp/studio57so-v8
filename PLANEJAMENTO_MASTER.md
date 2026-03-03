@@ -44,7 +44,11 @@ O **Studio 57** é o ambiente de desenvolvimento e laboratório central. O **Elo
 ### 5. Sistema de Pagamentos e Core Financeiro (CRÍTICO)
 - [ ] **Definição de Provedor:** Analisar taxas e facilidade de integração entre **Iugu** e **Asaas**.
 - [ ] **Demonstrativo de Resultados (DRE):** Implementar visão de competência (Receitas vs Despesas vs Lucro Líquido).
-- [ ] **Lógica de Cartão de Crédito:** Separar de "transferências". Criar fluxo de: Lançamento -> Taxa Operadora -> Liquidação (Recebimento).
+- [x] **Lógica de Cartão de Crédito — Separação Visual (03/03):** Aba "Cartões" reestruturada:
+    - Agrupamento correto de lançamentos por Mês/Ano da fatura (usando `dia_pagamento_fatura`).
+    - Histórico lateral com valor total de despesas por fatura e destaque visual da Fatura Atual (próximo vencimento).
+    - Extrato linha a linha dentro de cada fatura (Data, Descrição, Valor).
+    - Resumo com 3 cards separados: **Compras/Despesas** | **Estornos/Pagamentos** | **Saldo a Pagar**.
 - [ ] Implementar Webhooks para controle de status de assinatura.
 - [ ] Criar Dashboard de Faturamento para o cliente (Portal do Assinante).
 - [ ] Bloqueio de funcionalidades por status de pagamento (Inadimplência).
@@ -103,6 +107,15 @@ O **Studio 57** é o ambiente de desenvolvimento e laboratório central. O **Elo
 - *2026-03-02:* Bug do disparo de Templates de WhatsApp corrigido (Ajuste no código + Setup com novo ID do Elo 57 Oficial).
 - *2026-03-02:* Transição de Identidade Visual completa e deploy realizado para produção. (Logos, Títulos e PWA substituídos de Studio 57 para Elo 57).
 - *2026-03-02:* Ajuste Global de Tema: Botões primários (sistema inteiro) alterados de azul genérico para Laranja da Marca (#ff6700) através de sobrescrita no Tailwind.
+- *2026-03-03:* **Refatoração Completa da Aba Cartões de Crédito:**
+    - Diagnóstico e planejamento do sistema financeiro (decisão: usar filtros ao invés de novas tabelas).
+    - Interface reestruturada do `GerenciadorFaturas.js`: substituído o grid de faturas por um histórico lateral + extrato detalhado linha a linha por fatura.
+    - Corrigido o agrupamento de faturas: de data exata para Mês/Ano (`substring(0, 7)`), eliminando faturas duplicadas no mesmo mês.
+    - Corrigido o campo de vencimento: `dia_vencimento_fatura` (inexistente) → `dia_pagamento_fatura` (campo real da tabela `contas_financeiras`).
+    - Implementado destaque visual da **Fatura Atual** (próxima a vencer >= hoje) no histórico lateral com badge azul e padding maior.
+    - Implementado exibição do total de despesas em vermelho em todas as faturas do histórico lateral, com receitas em verde para facilitar conferência cruzada de faturas.
+    - Implementado resumo da fatura em 3 cards: Compras/Despesas, Estornos/Pagamentos e Saldo a Pagar com fórmula visível.
+    - Todos os commits feitos e deploy realizado via Netlify.
 
 ---
 *Assinado: Devonildo (Seu Mentor Técnico)*

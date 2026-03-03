@@ -158,8 +158,9 @@ export default function FinanceiroPage() {
         isFetching: isRefetching
     } = useLancamentos({
         filters: {
-            ...debouncedFilters,
-            excludeContaIds: contasCartao.map(c => c.id) // <--- O DIVÓRCIO VISUAL ACONTECE AQUI
+            ...debouncedFilters
+            // Lançamentos de cartão de crédito são visíveis na aba Lançamentos
+            // A aba Cartões oferece a visão organizada por fatura
         },
         page: currentPage,
         itemsPerPage,
