@@ -80,6 +80,19 @@ const ServiceWindowTimer = ({ lastInboundAt }) => {
     );
 };
 
+// Gera cor única para cada contato baseada no nome (igual ao Google Contacts)
+const AVATAR_COLORS = [
+    'bg-rose-500', 'bg-pink-500', 'bg-fuchsia-500', 'bg-purple-500',
+    'bg-violet-500', 'bg-indigo-500', 'bg-blue-500', 'bg-sky-500',
+    'bg-cyan-500', 'bg-teal-500', 'bg-emerald-500', 'bg-green-500',
+    'bg-lime-600', 'bg-amber-500', 'bg-orange-500', 'bg-red-500',
+];
+const getAvatarColor = (name = '') => {
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+};
+
 // --- COMPONENTE ITEM DA CONVERSA ---
 const ConversationItem = ({ conversation, isSelected, onSelect, onAction, isArchivedList }) => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -111,11 +124,11 @@ const ConversationItem = ({ conversation, isSelected, onSelect, onAction, isArch
             <div className="flex items-start">
                 {/* Avatar */}
                 <div className="relative mt-1">
-                    <div className="w-12 h-12 bg-gray-300 rounded-full flex items-center justify-center text-xl font-bold text-white overflow-hidden shrink-0">
+                    <div className={`w-12 h-12 ${getAvatarColor(contactName)} rounded-full flex items-center justify-center text-sm font-bold text-white overflow-hidden shrink-0 select-none`}>
                         {conversation.avatar_url ? (
                             <img src={conversation.avatar_url} alt="" className="w-full h-full object-cover" />
                         ) : (
-                            (contactName || '?').charAt(0).toUpperCase()
+                            contactName.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase() || '?'
                         )}
                     </div>
                     {conversation.unread_count > 0 && (
