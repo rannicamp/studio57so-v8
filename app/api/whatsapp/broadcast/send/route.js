@@ -16,6 +16,11 @@ export async function POST(request) {
         const { data: config } = await supabaseAdmin.from('configuracoes_whatsapp').select('*').single();
         if (!config) return NextResponse.json({ error: 'Configuração não encontrada.' }, { status: 500 });
 
+        // 🏆 Injeta token permanente com prioridade (sobrescreve o do banco que pode estar expirado)
+        if (process.env.WHATSAPP_SYSTEM_USER_TOKEN) {
+            config.whatsapp_permanent_token = process.env.WHATSAPP_SYSTEM_USER_TOKEN;
+        }
+
         // =====================================================================
         // 1. MODO AGENDAMENTO (Para o Futuro)
         // =====================================================================
@@ -23,14 +28,14 @@ export async function POST(request) {
             const { error: scheduleError } = await supabaseAdmin
                 .from('whatsapp_scheduled_broadcasts')
                 .insert({
-                    lista_id: list_id, 
-                    template_name, 
-                    language, 
-                    variables, 
-                    full_text_base, 
-                    components, 
+                    lista_id: list_id,
+                    template_name,
+                    language,
+                    variables,
+                    full_text_base,
+                    components,
                     scheduled_at,
-                    status: 'pending', 
+                    status: 'pending',
                     organizacao_id: config.organizacao_id
                 });
             if (scheduleError) throw scheduleError;
@@ -40,16 +45,16 @@ export async function POST(request) {
         // =====================================================================
         // 2. MODO IMEDIATO (Enviar Agora e Registrar Estatísticas)
         // =====================================================================
-        
+
         // A) Cria o registro no banco (como 'processing') para termos onde salvar as estatísticas
         const { data: newJob, error: createError } = await supabaseAdmin
             .from('whatsapp_scheduled_broadcasts')
             .insert({
-                lista_id: list_id, 
-                template_name, 
-                language, 
-                variables, 
-                full_text_base, 
+                lista_id: list_id,
+                template_name,
+                language,
+                variables,
+                full_text_base,
                 components,
                 scheduled_at: new Date().toISOString(), // Data de agora
                 status: 'processing', // Já nasce processando
@@ -65,11 +70,11 @@ export async function POST(request) {
             .from('whatsapp_list_members')
             .select('contatos(id, nome, telefones(telefone))')
             .eq('lista_id', list_id);
-            
-        const validTargets = members?.map(m => ({ 
-            id: m.contatos?.id, 
-            nome: m.contatos?.nome || 'Cliente', 
-            telefone: m.contatos?.telefones?.[0]?.telefone 
+
+        const validTargets = members?.map(m => ({
+            id: m.contatos?.id,
+            nome: m.contatos?.nome || 'Cliente',
+            telefone: m.contatos?.telefones?.[0]?.telefone
         })).filter(t => t.telefone) || [];
 
         console.log(`[Broadcast] Iniciando envio manual (Job ${newJob.id}) para ${validTargets.length} contatos.`);

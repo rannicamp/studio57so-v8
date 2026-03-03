@@ -12,7 +12,7 @@ export async function GET() {
     const supabaseAdmin = getSupabaseAdmin();
 
     try {
-        // 1. Busca as configurações do WhatsApp no seu banco de dados
+        // 1. Busca as configurações do WhatsApp no banco de dados
         const { data: config, error: configError } = await supabaseAdmin
             .from('configuracoes_whatsapp')
             .select('whatsapp_permanent_token, whatsapp_business_account_id')
@@ -24,22 +24,28 @@ export async function GET() {
             return NextResponse.json({ error: 'Credenciais do WhatsApp não encontradas.' }, { status: 500 });
         }
 
-        const { whatsapp_permanent_token: WHATSAPP_TOKEN, whatsapp_business_account_id: WHATSAPP_BUSINESS_ACCOUNT_ID } = config;
+        // 🏆 HIERARQUIA DE TOKEN: env var permanente > banco de dados (pode estar expirado!)
+        const WHATSAPP_TOKEN = process.env.WHATSAPP_SYSTEM_USER_TOKEN || config.whatsapp_permanent_token;
+        const WHATSAPP_BUSINESS_ACCOUNT_ID = config.whatsapp_business_account_id;
+
+        if (process.env.WHATSAPP_SYSTEM_USER_TOKEN) {
+            console.log('🏆 [Templates] Usando token permanente do System User.');
+        } else {
+            console.warn('⚠️ [Templates] Usando token do banco. Configure WHATSAPP_SYSTEM_USER_TOKEN no Netlify para evitar expiração.');
+        }
 
         // Verifica se o ID da conta de negócios está configurado
         if (!WHATSAPP_BUSINESS_ACCOUNT_ID) {
-            return NextResponse.json({ error: 'O ID da Conta de Negócios do WhatsApp (whatsapp_business_account_id) não está configurado na tabela de configurações.' }, { status: 500 });
+            return NextResponse.json({ error: 'ID da Conta de Negócios (WABA ID) não configurado.' }, { status: 500 });
         }
 
         // 2. Monta a URL para a API da Meta
         const url = `https://graph.facebook.com/v20.0/${WHATSAPP_BUSINESS_ACCOUNT_ID}/message_templates?fields=name,status,category,language,components&limit=100`;
 
-        // 3. Faz a chamada para a API da Meta para buscar os modelos
+        // 3. Chama a API da Meta
         const apiResponse = await fetch(url, {
             method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${WHATSAPP_TOKEN}`,
-            },
+            headers: { 'Authorization': `Bearer ${WHATSAPP_TOKEN}` },
         });
 
         const responseData = await apiResponse.json();

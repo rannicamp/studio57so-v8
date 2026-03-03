@@ -40,7 +40,8 @@ export async function POST(request) {
             return NextResponse.json({ error: 'Configuração do WhatsApp não encontrada para esta organização.' }, { status: 500 });
         }
 
-        const token = config.whatsapp_permanent_token;
+        // 🏆 Token permanente do System User tem prioridade sobre o token do banco (que pode expirar)
+        const token = process.env.WHATSAPP_SYSTEM_USER_TOKEN || config.whatsapp_permanent_token;
         const phoneId = config.whatsapp_phone_number_id;
 
         // --- 3. PREPARAÇÃO DO PAYLOAD PARA META ---
