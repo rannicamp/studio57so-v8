@@ -119,14 +119,25 @@ export async function POST(request) {
             return NextResponse.json({ error: 'Org não encontrada' }, { status: 400 });
         }
 
-        // Recuperamos Token Geral do Meta que já estava no banco, pra ser nosso whatsapp_token 
+        // 🏆 HIERARQUIA DE TOKEN (DO MAIS CONFIÁVEL AO MENOS CONFIÁVEL):
+        // 1º WHATSAPP_SYSTEM_USER_TOKEN (env var) → Token permanente de System User, nunca expira
+        // 2º whatsapp_token (vindo na requisição) → Token específico passado manualmente
+        // 3º integracao.access_token (OAuth do banco) → Token de 60 dias, pode expirar!
+        const systemUserToken = process.env.WHATSAPP_SYSTEM_USER_TOKEN;
+
         const { data: integracao } = await supabase
             .from('integracoes_meta')
             .select('access_token')
             .eq('organizacao_id', userData.organizacao_id)
             .single();
 
-        const wToken = whatsapp_token || integracao?.access_token;
+        const wToken = systemUserToken || whatsapp_token || integracao?.access_token;
+
+        if (systemUserToken) {
+            console.log('🏆 [WhatsApp Discover] Usando token permanente do System User (não expira).');
+        } else {
+            console.warn('⚠️ [WhatsApp Discover] ATENÇÃO: Usando token OAuth de 60 dias! Configure WHATSAPP_SYSTEM_USER_TOKEN no Netlify.');
+        }
 
         const supabaseAdmin = createAdminClient(
             process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -134,9 +145,7 @@ export async function POST(request) {
             { auth: { autoRefreshToken: false, persistSession: false } }
         );
 
-        // Removemos o Update na tabela 'integracoes_meta' pois o schema online não tem as colunas
-        // e nós já mandamos os dados diretamente para a tabela mestra de WhatsApp abaixo.
-        console.log('✅ Acesso Meta recuperado. Preenchendo CRM do WhatsApp...');
+        console.log('✅ Token selecionado. Preenchendo configuração de WhatsApp...');
 
         // ====================================================================
         // A MÁGICA FINAL: Injetar também na Tabela de Inbox do CRM (WhatsApp)
@@ -160,7 +169,7 @@ export async function POST(request) {
         const payloadWhatsApp = {
             whatsapp_business_account_id: waba_id,
             whatsapp_phone_number_id: phone_number_id,
-            whatsapp_permanent_token: wToken, // Corrigido o nome da coluna no schema
+            whatsapp_permanent_token: wToken, // Usa o token mais confiável disponível
             verify_token: process.env.WHATSAPP_VERIFY_TOKEN || process.env.META_VERIFY_TOKEN || 'Srbr19010720@',
             organizacao_id: userData.organizacao_id,
             empresa_id: empresaPadrao?.id
