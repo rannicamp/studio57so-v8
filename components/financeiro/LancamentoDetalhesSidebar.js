@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { addMonths, format, parseISO } from 'date-fns';
 import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -8,8 +10,7 @@ import {
     faTimes, faStickyNote, faBuilding, faFileInvoice, faCalendarAlt, faDollarSign,
     faTags, faUser, faLandmark, faFileLines, faEye, faSpinner,
     faArrowUp, faArrowDown, faCheckCircle, faExclamationTriangle, faCheck, faClock, faPen, faSave,
-    faExpand, faCompress
-    // faRobot foi removido daqui! 🗑️
+    faExpand, faCompress, faChevronLeft, faChevronRight
 } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 
@@ -121,6 +122,7 @@ const FilePreviewPanel = ({ fileUrl, fileName, fileType, onClose }) => {
 export default function LancamentoDetalhesSidebar({ open, onClose, lancamento }) {
     const supabase = createClient();
     const { user } = useAuth();
+    const queryClient = useQueryClient();
 
     // Estados de Dados
     const [auditLog, setAuditLog] = useState(null);
@@ -131,6 +133,7 @@ export default function LancamentoDetalhesSidebar({ open, onClose, lancamento })
     const [isEditingValue, setIsEditingValue] = useState(false);
     const [editValue, setEditValue] = useState('');
     const [isSavingValue, setIsSavingValue] = useState(false);
+    const [isChangingDate, setIsChangingDate] = useState(false);
 
     // Estado do Preview
     const [previewFile, setPreviewFile] = useState(null);
@@ -228,7 +231,33 @@ export default function LancamentoDetalhesSidebar({ open, onClose, lancamento })
             toast.success("Valor corrigido!");
             setIsEditingValue(false);
             lancamento.valor = novoValor;
+            if (lancamento.conta_id) {
+                queryClient.invalidateQueries({ queryKey: ['faturasCartao', lancamento.conta_id.toString()] });
+            }
         } catch (e) { toast.error("Erro ao salvar."); } finally { setIsSavingValue(false); }
+    };
+
+    const handleAjustarVencimento = async (mesesAAdicionar) => {
+        if (!lancamento || !lancamento.data_vencimento) return toast.error("Data de vencimento não informada.");
+        setIsChangingDate(true);
+        try {
+            const dataVencObj = parseISO(lancamento.data_vencimento);
+            const novaDataCalc = addMonths(dataVencObj, mesesAAdicionar);
+            const dataVencFormatada = format(novaDataCalc, 'yyyy-MM-dd');
+
+            const { error } = await supabase.from('lancamentos').update({ data_vencimento: dataVencFormatada }).eq('id', lancamento.id);
+            if (error) throw error;
+
+            toast.success("Vencimento ajustado com sucesso!");
+            lancamento.data_vencimento = dataVencFormatada; // update local
+            if (lancamento.conta_id) {
+                queryClient.invalidateQueries({ queryKey: ['faturasCartao', lancamento.conta_id.toString()] });
+            }
+        } catch (e) {
+            toast.error("Erro ao alterar vencimento.");
+        } finally {
+            setIsChangingDate(false);
+        }
     };
 
     // --- 4. RENDERIZAÇÃO ---
@@ -302,7 +331,7 @@ export default function LancamentoDetalhesSidebar({ open, onClose, lancamento })
                             <div className="space-y-3 relative z-10">
                                 <div className="flex justify-between items-center">
                                     <span className={`text-xs font-bold px-2 py-1 rounded border ${auditLog.status_auditoria === 'Aprovado' ? 'bg-green-50 text-green-700 border-green-200' :
-                                            auditLog.status_auditoria === 'Divergente' ? 'bg-orange-50 text-orange-700 border-orange-200' : 'bg-red-50 text-red-700 border-red-200'
+                                        auditLog.status_auditoria === 'Divergente' ? 'bg-orange-50 text-orange-700 border-orange-200' : 'bg-red-50 text-red-700 border-red-200'
                                         }`}>
                                         {auditLog.status_auditoria.toUpperCase()}
                                     </span>
@@ -367,7 +396,32 @@ export default function LancamentoDetalhesSidebar({ open, onClose, lancamento })
                             <dd><span className={`text-xs font-bold ${statusInfo.className}`}>{statusInfo.text}</span></dd>
                         </div>
 
-                        <InfoField label="Vencimento" value={formatDateString(lancamento.data_vencimento)} icon={faCalendarAlt} />
+                        <div className="md:col-span-1">
+                            <dt className="text-xs font-semibold text-gray-500 flex items-center gap-2 uppercase">
+                                <FontAwesomeIcon icon={faCalendarAlt} className="w-4" /> Vencimento
+                            </dt>
+                            <dd className="mt-1 flex items-center gap-2">
+                                <span className="text-sm text-gray-800">{formatDateString(lancamento.data_vencimento)}</span>
+                                <div className="flex bg-gray-100 rounded shadow-sm border overflow-hidden">
+                                    <button
+                                        onClick={() => handleAjustarVencimento(-1)}
+                                        disabled={isChangingDate || isSavingValue}
+                                        className="px-2 py-0.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors border-r"
+                                        title={lancamento.fatura_id ? "Mover p/ fatura anterior" : "Antecipar 1 mês"}
+                                    >
+                                        {isChangingDate ? <FontAwesomeIcon icon={faSpinner} spin size="xs" /> : <FontAwesomeIcon icon={faChevronLeft} size="xs" />}
+                                    </button>
+                                    <button
+                                        onClick={() => handleAjustarVencimento(1)}
+                                        disabled={isChangingDate || isSavingValue}
+                                        className="px-2 py-0.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                                        title={lancamento.fatura_id ? "Mover p/ próxima fatura" : "Adiar 1 mês"}
+                                    >
+                                        {isChangingDate ? <FontAwesomeIcon icon={faSpinner} spin size="xs" /> : <FontAwesomeIcon icon={faChevronRight} size="xs" />}
+                                    </button>
+                                </div>
+                            </dd>
+                        </div>
                         {lancamento.data_pagamento && <InfoField label="Pagamento" value={formatDateString(lancamento.data_pagamento)} icon={faCheckCircle} />}
 
                         <div className="md:col-span-2 pt-2 border-t border-gray-100"></div>

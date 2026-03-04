@@ -116,18 +116,15 @@ export default function ContasManager({ initialContas, onUpdate, empresas, onVer
         };
     }, [initialContas, saldos]);
 
-    // Filtra os cartões para não aparecerem nesta lista
     const groupedContas = useMemo(() => {
         const groups = {
             'Conta Corrente': [],
+            'Cartão de Crédito': [],
             'Dinheiro': [],
             'Conta Investimento': [],
         };
 
         initialContas.forEach(conta => {
-            // PULA se for cartão de crédito (já tem aba própria)
-            if (conta.tipo === 'Cartão de Crédito') return;
-
             const tipo = conta.tipo || 'Conta Corrente';
             if (groups[tipo]) {
                 groups[tipo].push(conta);

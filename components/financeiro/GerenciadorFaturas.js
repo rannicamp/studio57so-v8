@@ -50,15 +50,17 @@ export default function GerenciadorFaturas({ contasCartao, onNewDespesaCartao })
                     const d = new Date(dataBase);
                     d.setMonth(d.getMonth() + offset);
                     const mesRef = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-                    let dataVenc;
+                    let dataVenc, dataFech;
                     if (diaPag <= diaFech) {
                         const next = new Date(d);
                         next.setMonth(next.getMonth() + 1);
                         dataVenc = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}-${String(diaPag).padStart(2, '0')}`;
+                        dataFech = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(diaFech).padStart(2, '0')}`;
                     } else {
                         dataVenc = `${mesRef}-${String(diaPag).padStart(2, '0')}`;
+                        dataFech = `${mesRef}-${String(diaFech).padStart(2, '0')}`;
                     }
-                    upserts.push({ conta_id: Number(contaSelecionadaId), mes_referencia: mesRef, data_vencimento: dataVenc, organizacao_id: orgId });
+                    upserts.push({ conta_id: Number(contaSelecionadaId), mes_referencia: mesRef, data_fechamento: dataFech, data_vencimento: dataVenc, organizacao_id: orgId });
                 }
 
                 // Upsert silencioso (ignora conflito se já existir)
@@ -102,29 +104,11 @@ export default function GerenciadorFaturas({ contasCartao, onNewDespesaCartao })
 
         const hoje = startOfDay(new Date());
         const dataVencimento = parseISO(fatura.data_vencimento);
-
-        // Calculando data de fechamento aproximada (baseada no dia configurado na conta)
-        let dataFechamento = new Date(dataVencimento);
-        if (contaSelecionada?.dia_fechamento_fatura) {
-            // Volta para o dia de fechamento no mês anterior ao vencimento (ou mesmo mês, dependendo da config)
-            // Lógica simplificada: Se vence dia 10 e fecha dia 30, o fechamento é ~10 dias antes.
-            dataFechamento.setDate(dataFechamento.getDate() - 10); // Margem de segurança padrão se não tiver config exata
-
-            // Se tivermos os dias exatos, podemos ser precisos:
-            // Ex: Vence dia 05/02. Fecha dia 25/01.
-            const diaVenc = new Date(dataVencimento).getDate();
-            const diaFech = contaSelecionada.dia_fechamento_fatura;
-
-            // Recria a data de fechamento baseada no mês da fatura
-            const diffMeses = diaVenc < diaFech ? 1 : 0; // Se vence antes de fechar (impossível), ajusta mês
-            dataFechamento = new Date(dataVencimento);
-            dataFechamento.setMonth(dataFechamento.getMonth() - diffMeses);
-            dataFechamento.setDate(diaFech);
-        }
+        const dataFechamento = fatura.data_fechamento ? parseISO(fatura.data_fechamento) : null;
 
         if (isBefore(dataVencimento, hoje)) {
             return { label: 'ATRASADA', color: 'bg-red-100 text-red-700', icon: faExclamationTriangle };
-        } else if (isBefore(dataFechamento, hoje)) {
+        } else if (dataFechamento && isBefore(dataFechamento, hoje)) {
             return { label: 'FECHADA', color: 'bg-blue-100 text-blue-700', icon: faLock };
         } else {
             return { label: 'ABERTA', color: 'bg-yellow-100 text-yellow-700', icon: faLockOpen };
@@ -260,7 +244,7 @@ export default function GerenciadorFaturas({ contasCartao, onNewDespesaCartao })
                                                     )}
                                                 </div>
                                                 <div className={`text-xs mt-1 ${isAtual ? 'text-blue-500 font-medium' : 'text-gray-500'}`}>
-                                                    Vencimento {format(dv, 'dd/MM')}
+                                                    Fecha {f.data_fechamento ? format(parseISO(f.data_fechamento), 'dd/MM') : '--'} | Vence {format(dv, 'dd/MM')}
                                                 </div>
                                                 {/* Total de despesas sempre visível para conferência */}
                                                 <div className="text-xs font-semibold mt-1 text-red-500">
@@ -296,8 +280,15 @@ export default function GerenciadorFaturas({ contasCartao, onNewDespesaCartao })
                                             <h2 className="text-xl font-bold text-gray-800 capitalize">
                                                 Fatura de {format(parseISO(faturaAtiva.data_vencimento), 'MMMM', { locale: ptBR })}
                                             </h2>
+                                            <p className="text-sm font-medium mt-1">
+                                                <span className="text-orange-600 bg-orange-50 px-2 py-0.5 rounded mr-2 border border-orange-100">
+                                                    Fechamento em {faturaAtiva.data_fechamento ? format(parseISO(faturaAtiva.data_fechamento), 'dd/MM/yyyy') : '--'}
+                                                </span>
+                                                <span className="text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">
+                                                    Vencimento em {format(parseISO(faturaAtiva.data_vencimento), 'dd/MM/yyyy')}
+                                                </span>
+                                            </p>
                                             <p className="text-sm text-gray-500 mt-1">
-                                                Vencimento em {format(parseISO(faturaAtiva.data_vencimento), 'dd/MM/yyyy')}
                                                 <span className={`ml-2 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${statusAtiva.color}`}>
                                                     <FontAwesomeIcon icon={statusAtiva.icon} className="mr-1" /> {statusAtiva.label}
                                                 </span>
