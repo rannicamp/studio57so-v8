@@ -276,7 +276,7 @@ export default function LancamentoDetalhesSidebar({ open, onClose, lancamento })
     return (
         <>
             <div
-                className={`fixed inset-0 bg-black/70 backdrop-blur-sm z-40 transition-opacity duration-300 ${open ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+                className={`fixed inset-0 bg-black/70 backdrop-blur-sm z-[90] transition-opacity duration-300 !m-0 ${open ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
                 onClick={onClose}
             ></div>
 
@@ -290,7 +290,7 @@ export default function LancamentoDetalhesSidebar({ open, onClose, lancamento })
             )}
 
             <div
-                className="fixed top-0 right-0 h-full w-full md:w-[500px] bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-in-out flex flex-col border-l border-gray-200"
+                className="fixed top-0 right-0 h-full w-full md:w-[500px] bg-white shadow-2xl z-[100] transform transition-transform duration-300 ease-in-out flex flex-col border-l border-gray-200 !m-0"
                 style={{ transform: open ? 'translateX(0)' : 'translateX(100%)' }}
             >
                 {/* Header */}
