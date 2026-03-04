@@ -128,7 +128,7 @@ const fetchFunilData = async (supabase, organizacaoId, funilId, filters) => {
     // 1. Busca TODAS as Colunas deste Funil
     const { data: cols } = await supabase
         .from('colunas_funil')
-        .select('id, nome, ordem, tipo_coluna')
+        .select('id, nome, ordem, tipo_coluna, funil_id')
         .eq('funil_id', funilId)
         .eq('organizacao_id', organizacaoId)
         .order('ordem', { ascending: true });

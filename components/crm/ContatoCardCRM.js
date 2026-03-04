@@ -5,9 +5,9 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { 
-    faEllipsisV, faStickyNote, faBullhorn, faHome, faTasks, faPhone, 
-    faUserTie, faSpinner, faTimes, faPlus, faTrash, faGlobe 
+import {
+    faEllipsisV, faStickyNote, faBullhorn, faHome, faTasks, faPhone,
+    faUserTie, faSpinner, faTimes, faPlus, faTrash, faGlobe
 } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons'; // Importamos o ícone do Zap
 import { createClient } from '../../utils/supabase/client';
@@ -65,6 +65,41 @@ export default function ContatoCardCRM({
         enabled: !!debouncedSearchTerm && !!organizacao_id,
     });
 
+    // --- NOVA LÓGICA: MOVER PARA OUTRO FUNIL ---
+    const [isMoveFunnelModalOpen, setIsMoveFunnelModalOpen] = useState(false);
+    const [targetFunilId, setTargetFunilId] = useState('');
+    const [targetColumnId, setTargetColumnId] = useState('');
+
+    const { data: todosFunis = [], isLoading: isLoadingFunis } = useQuery({
+        queryKey: ['allFunisMini', organizacao_id],
+        queryFn: async () => {
+            const { data, error } = await supabase.from('funis').select('id, nome, is_sistema').eq('organizacao_id', organizacao_id).order('is_sistema', { ascending: false });
+            if (error) throw error;
+            return data || [];
+        },
+        enabled: !!organizacao_id && isMoveFunnelModalOpen
+    });
+
+    const { data: targetFunnelColumns = [], isLoading: isLoadingTargetCols } = useQuery({
+        queryKey: ['targetFunnelColumns', targetFunilId],
+        queryFn: async () => {
+            if (!targetFunilId) return [];
+            const { data, error } = await supabase.from('colunas_funil').select('id, nome, ordem').eq('funil_id', targetFunilId).order('ordem');
+            if (error) throw error;
+            return data || [];
+        },
+        enabled: !!targetFunilId && isMoveFunnelModalOpen
+    });
+
+    const handleConfirmMoveFunnel = (e) => {
+        e.stopPropagation();
+        if (!targetColumnId) return toast.error("Selecione a etapa de destino.");
+        onMoveToColumn(funilEntry.id, targetColumnId);
+        setIsMoveFunnelModalOpen(false);
+        setTargetFunilId('');
+        setTargetColumnId('');
+    };
+
     useEffect(() => {
         function handleClickOutside(event) {
             if (dropdownRef.current && !dropdownRef.current.contains(event.target)) setIsDropdownOpen(false);
@@ -89,7 +124,11 @@ export default function ContatoCardCRM({
     const cardNumber = funilEntry.numero_card;
     const currentColumnId = funilEntry.coluna_id;
     const isMetaLead = contato.origem === 'Meta Lead Ad';
-    
+
+    const currentColumn = useMemo(() => allColumns.find(c => c.id === currentColumnId), [allColumns, currentColumnId]);
+    const currentFunilId = currentColumn?.funil_id;
+    const sameFunnelColumns = useMemo(() => allColumns.filter(c => (!currentFunilId || c.funil_id === currentFunilId) && c.id !== currentColumnId), [allColumns, currentFunilId, currentColumnId]);
+
     const adName = contato?.meta_ad_name;
     const campaignName = contato?.meta_campaign_name;
 
@@ -137,13 +176,13 @@ export default function ContatoCardCRM({
 
     return (
         <div draggable onDragStart={handleCardDragStart} onClick={() => onCardClick(funilEntry)} className="relative bg-white p-3 rounded-md shadow border-l-4 border-blue-500 cursor-pointer hover:shadow-lg transition-shadow duration-200 text-left group">
-            
+
             {/* Cabeçalho com Nome e Menu */}
             <div className="flex justify-between items-start mb-2">
-                <div className="flex-grow pr-8"> 
+                <div className="flex-grow pr-8">
                     <p className="font-semibold text-gray-800 text-sm leading-tight">
                         <span className="text-blue-600 font-bold">#{cardNumber}</span> {displayName}
-                    </p> 
+                    </p>
                     <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
                         <FontAwesomeIcon icon={faPhone} /> {displayPhone}
                     </p>
@@ -159,8 +198,10 @@ export default function ContatoCardCRM({
                             <div className="border-t border-gray-200 my-1"></div>
                             <button onClick={handleDeleteCardClick} className="block w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50"><FontAwesomeIcon icon={faTrash} className="mr-2" /> Excluir Card</button>
                             <div className="border-t border-gray-200 my-1"></div>
-                            <p className="px-3 py-2 text-xs text-gray-500 border-b">Mover para:</p>
-                            {allColumns.filter(col => col.id !== currentColumnId).map(column => (<button key={column.id} onClick={(e) => { e.stopPropagation(); handleMoveClick(column.id); }} className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100">{column.nome}</button>))}
+                            <p className="px-3 py-2 text-xs text-gray-500 border-b">Mover (Este Funil):</p>
+                            {sameFunnelColumns.map(column => (<button key={column.id} onClick={(e) => { e.stopPropagation(); handleMoveClick(column.id); }} className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100">{column.nome}</button>))}
+                            <div className="border-t border-gray-200 my-1"></div>
+                            <button onClick={(e) => { e.stopPropagation(); setIsDropdownOpen(false); setIsMoveFunnelModalOpen(true); }} className="block w-full text-left px-3 py-2 text-sm font-semibold text-blue-600 hover:bg-blue-50">Mover p/ outro Funil...</button>
                         </div>
                     )}
                 </div>
@@ -227,7 +268,7 @@ export default function ContatoCardCRM({
                     </div>
                 )}
             </div>
-            
+
             {/* Etiquetas de Origem (Meta, Site, etc) */}
             <div className="mt-3 space-y-1">
                 {isMetaLead ? (
@@ -241,8 +282,8 @@ export default function ContatoCardCRM({
                         </div>
                     </>
                 ) : contato.origem ? (
-                     <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                         <FontAwesomeIcon icon={faGlobe} /> {contato.origem}
+                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        <FontAwesomeIcon icon={faGlobe} /> {contato.origem}
                     </span>
                 ) : null}
             </div>
@@ -262,6 +303,60 @@ export default function ContatoCardCRM({
                     <FontAwesomeIcon icon={faWhatsapp} size="lg" />
                 </button>
             </div>
+
+            {/* Modal: Mover para Outro Funil */}
+            {isMoveFunnelModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={(e) => e.stopPropagation()}>
+                    <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-5" onClick={(e) => e.stopPropagation()}>
+                        <h3 className="text-lg font-bold text-gray-800 mb-4">Mover para outro Funil</h3>
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Selecione o Funil de Destino</label>
+                                {isLoadingFunis ? (
+                                    <div className="text-sm text-gray-500 flex items-center gap-2"><FontAwesomeIcon icon={faSpinner} spin /> Carregando funis...</div>
+                                ) : (
+                                    <select
+                                        value={targetFunilId}
+                                        onChange={(e) => { setTargetFunilId(e.target.value); setTargetColumnId(''); }}
+                                        className="w-full p-2 border border-gray-300 rounded-md text-sm"
+                                    >
+                                        <option value="">-- Selecione um funil --</option>
+                                        {todosFunis.map(f => (
+                                            <option key={f.id} value={f.id} disabled={f.id === currentFunilId}>
+                                                {f.nome} {f.id === currentFunilId ? '(Funil Atual)' : ''}
+                                            </option>
+                                        ))}
+                                    </select>
+                                )}
+                            </div>
+
+                            {targetFunilId && (
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Selecione a Etapa (Coluna)</label>
+                                    {isLoadingTargetCols ? (
+                                        <div className="text-sm text-gray-500 flex items-center gap-2"><FontAwesomeIcon icon={faSpinner} spin /> Carregando etapas...</div>
+                                    ) : (
+                                        <select
+                                            value={targetColumnId}
+                                            onChange={(e) => setTargetColumnId(e.target.value)}
+                                            className="w-full p-2 border border-gray-300 rounded-md text-sm"
+                                        >
+                                            <option value="">-- Selecione uma etapa --</option>
+                                            {targetFunnelColumns.map(c => (
+                                                <option key={c.id} value={c.id}>{c.nome}</option>
+                                            ))}
+                                        </select>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                        <div className="mt-6 flex justify-end gap-3">
+                            <button onClick={(e) => { e.stopPropagation(); setIsMoveFunnelModalOpen(false); setTargetFunilId(''); setTargetColumnId(''); }} className="px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-md">Cancelar</button>
+                            <button onClick={handleConfirmMoveFunnel} disabled={!targetColumnId} className="px-4 py-2 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 rounded-md">Mover Card</button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
