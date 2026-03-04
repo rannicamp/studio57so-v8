@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '../../utils/supabase/client';
 import { useAuth } from '../../contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner, faLandmark, faArrowUp, faArrowDown, faAngleRight, faTrash } from '@fortawesome/free-solid-svg-icons';
+import { faSpinner, faLandmark, faArrowUp, faArrowDown, faAngleRight, faTrash, faHandHoldingDollar, faCheckCircle } from '@fortawesome/free-solid-svg-icons';
 import { format, subMonths, startOfMonth, endOfMonth, isSameMonth, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
@@ -159,7 +159,23 @@ export default function ExtratoManager({ contas }) {
                 </div>
 
                 {contaSelecionada && (
-                    <div className="text-right flex items-center gap-4 w-full md:w-auto justify-between md:justify-end">
+                    <div className="text-right flex items-center gap-4 w-full md:w-auto justify-between md:justify-end mt-4 md:mt-0">
+
+                        {/* NOVO KPI: Limite do Cheque Especial (Se existir) */}
+                        {contaSelecionada.limite_cheque_especial > 0 && (
+                            <div className="bg-red-50 p-2 md:p-3 rounded-lg border border-red-100 flex items-center gap-3">
+                                <div className="bg-red-100 p-2 rounded-full text-red-600 hidden md:block">
+                                    <FontAwesomeIcon icon={faHandHoldingDollar} />
+                                </div>
+                                <div className="text-right sm:text-left">
+                                    <p className="text-[10px] md:text-xs text-red-700 uppercase font-semibold">Cheque Especial</p>
+                                    <p className="text-sm md:text-lg font-bold text-red-600">
+                                        {formatCurrency(contaSelecionada.limite_cheque_especial)}
+                                    </p>
+                                </div>
+                            </div>
+                        )}
+
                         <div className="bg-gray-50 p-2 md:p-3 rounded-lg border">
                             <p className="text-[10px] md:text-xs text-gray-500 uppercase font-semibold">Saldo Atual na Conta</p>
                             <p className="text-sm md:text-lg font-bold text-gray-700">
@@ -273,6 +289,12 @@ export default function ExtratoManager({ contas }) {
                                             <div className="flex-1 px-4 min-w-0">
                                                 <div className="flex items-center gap-2 mb-0.5">
                                                     <p className="text-sm font-bold text-gray-800 truncate" title={item.descricao}>{item.descricao}</p>
+                                                    {item.status === 'Conciliado' && (
+                                                        <span className="text-[9px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider" title="Lançamento Conciliado">
+                                                            <FontAwesomeIcon icon={faCheckCircle} className="mr-1" />
+                                                            Conciliado
+                                                        </span>
+                                                    )}
                                                 </div>
                                                 <p className="text-xs text-gray-500 truncate">
                                                     {item.categoria?.nome || 'Sem Categoria'}
