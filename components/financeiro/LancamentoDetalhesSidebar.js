@@ -10,7 +10,7 @@ import {
     faTimes, faStickyNote, faBuilding, faFileInvoice, faCalendarAlt, faDollarSign,
     faTags, faUser, faLandmark, faFileLines, faEye, faSpinner,
     faArrowUp, faArrowDown, faCheckCircle, faExclamationTriangle, faCheck, faClock, faPen, faSave,
-    faExpand, faCompress, faChevronLeft, faChevronRight
+    faExpand, faCompress, faChevronLeft, faChevronRight, faHardHat
 } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 
@@ -428,6 +428,26 @@ export default function LancamentoDetalhesSidebar({ open, onClose, lancamento })
 
                         <InfoField label="Conta" value={lancamento.conta?.nome} icon={faFileInvoice} />
                         <InfoField label="Categoria" value={lancamento.categoria?.nome} icon={faTags} />
+
+                        {lancamento.data_transacao && (
+                            <InfoField label="Surgimento (Competência)" value={formatDateString(lancamento.data_transacao)} icon={faCalendarAlt} />
+                        )}
+
+                        {(lancamento.empresa?.nome_fantasia || lancamento.empresa?.razao_social) && (
+                            <div className="md:col-span-2">
+                                <InfoField label="Empresa" value={lancamento.empresa?.nome_fantasia || lancamento.empresa?.razao_social} icon={faBuilding} />
+                            </div>
+                        )}
+
+                        {lancamento.empreendimento?.nome && (
+                            <div className="md:col-span-2">
+                                <InfoField
+                                    label="Obra / Centro de Custo"
+                                    value={`${lancamento.empreendimento.nome}${lancamento.etapa?.nome_etapa ? ` - ${lancamento.etapa.nome_etapa}` : ''}`}
+                                    icon={faHardHat}
+                                />
+                            </div>
+                        )}
                         <div className="md:col-span-2">
                             <InfoField label="Favorecido" value={lancamento.favorecido?.nome || lancamento.favorecido?.razao_social} icon={faUser} />
                         </div>
