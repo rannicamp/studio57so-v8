@@ -5,11 +5,12 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '../../utils/supabase/client';
 import { useAuth } from '../../contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner, faLandmark, faArrowUp, faArrowDown, faAngleRight, faTrash, faHandHoldingDollar, faCheckCircle } from '@fortawesome/free-solid-svg-icons';
+import { faSpinner, faLandmark, faArrowUp, faArrowDown, faAngleRight, faTrash, faHandHoldingDollar, faCheckCircle, faExclamationTriangle, faFileAlt, faChevronDown, faChevronRight, faTimes } from '@fortawesome/free-solid-svg-icons';
 import { format, subMonths, startOfMonth, endOfMonth, isSameMonth, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
 import LancamentoDetalhesSidebar from './LancamentoDetalhesSidebar';
+import OfxUploader from './OfxUploader';
 
 const formatCurrency = (value) => {
     if (value === null || value === undefined || isNaN(value)) return 'R$ 0,00';
@@ -38,6 +39,8 @@ export default function ExtratoManager({ contas }) {
     const [mesSelecionado, setMesSelecionado] = useState(mesesDisponiveis[0]); // Padrão: Mês atual
     const [lancamentoSelecionado, setLancamentoSelecionado] = useState(null);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [ofxPainelAberto, setOfxPainelAberto] = useState(false);
+    const [arquivoOfxExpandido, setArquivoOfxExpandido] = useState(null); // id do arq selecionado
 
     const contaSelecionada = contas?.find(c => c.id == contaSelecionadaId);
 
@@ -60,7 +63,7 @@ export default function ExtratoManager({ contas }) {
 
             const saldoAnterior = saldoAnteriorAux || 0;
 
-            // 2. Busca Lançamentos do Mês
+            // 2. Busca Lançamentos Oficiais do Mês
             const { data: lancamentos, error: lancamentosError } = await supabase
                 .from('lancamentos')
                 .select('*, favorecido:contatos!favorecido_contato_id(*), categoria:categorias_financeiras(*), anexos:lancamentos_anexos(*)')
@@ -74,7 +77,7 @@ export default function ExtratoManager({ contas }) {
 
             if (lancamentosError) throw lancamentosError;
 
-            // 3. Processa Itens e Totais
+            // 3. Calcular Saldo e Totais
             let saldoCorrente = saldoAnterior;
             let totalEntradas = 0;
             let totalSaidas = 0;
@@ -82,17 +85,14 @@ export default function ExtratoManager({ contas }) {
             const itens = (lancamentos || []).map(lanc => {
                 const entrada = lanc.tipo === 'Receita' ? Number(lanc.valor) : 0;
                 const saida = lanc.tipo === 'Despesa' ? Number(lanc.valor) : 0;
-
                 saldoCorrente += entrada - saida;
                 totalEntradas += entrada;
                 totalSaidas += saida;
 
-                return {
-                    ...lanc,
-                    entrada,
-                    saida,
-                    saldo_acumulado: saldoCorrente
-                };
+                // Status visual: Se tem fitid_banco vinculado -> está conciliado com o OFX
+                const status_exibicao = lanc.fitid_banco ? 'Conciliado' : lanc.status;
+
+                return { ...lanc, entrada, saida, saldo_acumulado: saldoCorrente, status_exibicao };
             });
 
             return {
@@ -104,6 +104,38 @@ export default function ExtratoManager({ contas }) {
             };
         },
         enabled: !!contaSelecionadaId && !!mesSelecionado && !!organizacaoId
+    });
+
+    // Query: TODOS os Arquivos OFX da conta (filtragem por mes feita localmente no card)
+    const { data: arquivosOfxMes } = useQuery({
+        queryKey: ['ofx_arquivos', contaSelecionadaId, organizacaoId],
+        queryFn: async () => {
+            const { data, error } = await supabase
+                .from('banco_arquivos_ofx')
+                .select('*')
+                .eq('conta_id', Number(contaSelecionadaId))
+                .eq('organizacao_id', organizacaoId)
+                .order('periodo_inicio', { ascending: false });
+
+            if (error) throw error;
+            return data || [];
+        },
+        enabled: !!contaSelecionadaId && !!organizacaoId
+    });
+
+    // Query: Transaçoes do Arquivo OFX selecionado (drilldown)
+    const { data: ofxTransacoes, isLoading: isLoadingOfxTransacoes } = useQuery({
+        queryKey: ['ofx_transacoes', arquivoOfxExpandido],
+        queryFn: async () => {
+            const { data, error } = await supabase
+                .from('banco_transacoes_ofx')
+                .select('*')
+                .eq('arquivo_id', arquivoOfxExpandido)
+                .order('data_transacao', { ascending: true });
+            if (error) throw error;
+            return data || [];
+        },
+        enabled: !!arquivoOfxExpandido
     });
 
     // Exclusão usa useMutation para integrar com o cache
@@ -161,7 +193,15 @@ export default function ExtratoManager({ contas }) {
                 {contaSelecionada && (
                     <div className="text-right flex items-center gap-4 w-full md:w-auto justify-between md:justify-end mt-4 md:mt-0">
 
-                        {/* NOVO KPI: Limite do Cheque Especial (Se existir) */}
+                        <div className="hidden sm:block">
+                            <OfxUploader
+                                organizacaoId={organizacaoId}
+                                contas={contas}
+                                onUploadSuccess={() => {
+                                    queryClient.invalidateQueries({ queryKey: ['extrato'] });
+                                }}
+                            />
+                        </div>
                         {contaSelecionada.limite_cheque_especial > 0 && (
                             <div className="bg-red-50 p-2 md:p-3 rounded-lg border border-red-100 flex items-center gap-3">
                                 <div className="bg-red-100 p-2 rounded-full text-red-600 hidden md:block">
@@ -193,43 +233,134 @@ export default function ExtratoManager({ contas }) {
                 {/* LADO ESQUERDO: Seletor de Meses */}
                 <div className="lg:col-span-1 space-y-3">
                     <h3 className="text-sm font-bold text-gray-700 uppercase mb-2">Período de Referência</h3>
-                    <div className="bg-white border text-sm rounded-lg overflow-hidden flex flex-col max-h-[500px] overflow-y-auto shadow-sm">
+                    <div className="bg-white border text-sm rounded-lg overflow-hidden flex flex-col shadow-sm">
                         {mesesDisponiveis.map((mes, idx) => {
                             const isSelected = isSameMonth(mes, mesSelecionado);
                             const isCurrentMonth = isSameMonth(mes, new Date());
+                            const mesKey = mes.toISOString();
+                            const ofxDesteMes = (arquivosOfxMes || []).filter(a => {
+                                if (!a.periodo_inicio || !a.periodo_fim) return false;
+                                const startDate = format(startOfMonth(mes), 'yyyy-MM-dd');
+                                const endDate = format(endOfMonth(mes), 'yyyy-MM-dd');
+                                return a.periodo_inicio <= endDate && a.periodo_fim >= startDate;
+                            });
+                            const ofxAberto = ofxPainelAberto === mesKey;
 
                             return (
-                                <button
-                                    key={idx}
-                                    onClick={() => setMesSelecionado(mes)}
-                                    className={`text-left p-4 border-b last:border-0 transition-all flex items-center justify-between
-                                        ${isSelected
-                                            ? 'bg-blue-50 border-blue-200 border-l-4 border-l-blue-500'
-                                            : 'hover:bg-gray-50 bg-white border-l-4 border-l-transparent'
-                                        }
-                                    `}
-                                >
-                                    <div>
-                                        <div className={`font-bold capitalize ${isSelected ? 'text-blue-900' : 'text-gray-700'}`}>
-                                            {format(mes, 'MMMM', { locale: ptBR })} <span className="font-normal opacity-70">{format(mes, 'yyyy')}</span>
-                                        </div>
+                                <div key={idx} className={`border-b last:border-0 transition-all border-l-4 ${isSelected ? 'border-l-blue-500' : 'border-l-transparent'}`}>
+                                    {/* Linha principal do mês */}
+                                    <div className={`flex items-center ${isSelected ? 'bg-blue-50' : 'bg-white hover:bg-gray-50'}`}>
+                                        <button
+                                            onClick={() => { setMesSelecionado(mes); setArquivoOfxExpandido(null); }}
+                                            className="flex-1 text-left p-4"
+                                        >
+                                            <div className={`font-bold capitalize ${isSelected ? 'text-blue-900' : 'text-gray-700'}`}>
+                                                {format(mes, 'MMMM', { locale: ptBR })} <span className="font-normal opacity-70">{format(mes, 'yyyy')}</span>
+                                            </div>
+                                            {isCurrentMonth && (
+                                                <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wide mt-1 inline-block
+                                                    ${isSelected ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600'}`}>
+                                                    Atual
+                                                </span>
+                                            )}
+                                        </button>
+
+                                        {/* Seta do OFX */}
+                                        {ofxDesteMes.length > 0 && (
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); setOfxPainelAberto(ofxAberto ? null : mesKey); setArquivoOfxExpandido(null); }}
+                                                className={`pr-3 pl-2 py-4 transition-colors flex items-center gap-1 text-[10px] font-bold
+                                                    ${ofxAberto ? 'text-indigo-600' : 'text-gray-300 hover:text-indigo-400'}`}
+                                                title="Ver arquivos OFX deste mês"
+                                            >
+                                                <FontAwesomeIcon icon={faFileAlt} />
+                                                <span>{ofxDesteMes.length}</span>
+                                                <FontAwesomeIcon icon={ofxAberto ? faChevronDown : faChevronRight} />
+                                            </button>
+                                        )}
                                     </div>
-                                    {isCurrentMonth && (
-                                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wide
-                                            ${isSelected ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600'}
-                                        `}>
-                                            Atual
-                                        </span>
+
+                                    {/* Expansão dos Arquivos OFX */}
+                                    {ofxAberto && (
+                                        <div className="bg-indigo-50/60 border-t border-indigo-100 px-3 py-2 flex flex-col gap-1.5">
+                                            {ofxDesteMes.map(arq => (
+                                                <button
+                                                    key={arq.id}
+                                                    onClick={() => setArquivoOfxExpandido(prev => prev === arq.id ? null : arq.id)}
+                                                    className={`w-full text-left rounded-lg px-3 py-2 text-xs border transition-all
+                                                        ${arquivoOfxExpandido === arq.id
+                                                            ? 'bg-white border-indigo-400 shadow-sm'
+                                                            : 'bg-white/70 border-indigo-100 hover:border-indigo-300'}`}
+                                                >
+                                                    <div className="flex items-center gap-2">
+                                                        <FontAwesomeIcon icon={faFileAlt} className={`flex-shrink-0 text-xs ${arquivoOfxExpandido === arq.id ? 'text-indigo-500' : 'text-indigo-300'}`} />
+                                                        <div className="min-w-0">
+                                                            <p className="font-bold text-gray-800 truncate text-[11px]">{arq.nome_arquivo}</p>
+                                                            <p className="text-[9px] text-gray-400">
+                                                                {arq.periodo_inicio ? format(parseISO(arq.periodo_inicio), 'dd/MM/yy') : '?'} → {arq.periodo_fim ? format(parseISO(arq.periodo_fim), 'dd/MM/yy') : '?'}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                </button>
+                                            ))}
+                                        </div>
                                     )}
-                                </button>
+                                </div>
                             );
                         })}
                     </div>
                 </div>
 
-                {/* LADO DIREITO: O Extrato */}
+                {/* LADO DIREITO: Extrato ou Drilldown OFX */}
                 <div className="lg:col-span-3">
-                    {isLoading ? (
+                    {/* === MODO DRILLDOWN: Transações do Arquivo OFX === */}
+                    {arquivoOfxExpandido ? (
+                        <div className="bg-white rounded-xl shadow-sm border border-indigo-200 overflow-hidden">
+                            <div className="p-4 border-b bg-indigo-50 flex items-center justify-between">
+                                <div>
+                                    <p className="text-[10px] font-bold text-indigo-500 uppercase">Visualizando Arquivo OFX</p>
+                                    <h2 className="text-lg font-bold text-indigo-900">
+                                        {arquivosOfxMes?.find(a => a.id === arquivoOfxExpandido)?.nome_arquivo || 'Arquivo OFX'}
+                                    </h2>
+                                </div>
+                                <button
+                                    onClick={() => setArquivoOfxExpandido(null)}
+                                    className="p-2 rounded-full hover:bg-indigo-100 text-indigo-400 hover:text-indigo-700 transition-colors"
+                                    title="Fechar e voltar ao Extrato"
+                                >
+                                    <FontAwesomeIcon icon={faTimes} />
+                                </button>
+                            </div>
+                            <div className="divide-y divide-gray-100">
+                                {isLoadingOfxTransacoes ? (
+                                    <div className="p-8 text-center"><FontAwesomeIcon icon={faSpinner} spin className="text-indigo-500" /></div>
+                                ) : !ofxTransacoes || ofxTransacoes.length === 0 ? (
+                                    <div className="p-8 text-center text-gray-400 text-sm">Nenhuma transação encontrada neste arquivo.</div>
+                                ) : (
+                                    ofxTransacoes.map(t => (
+                                        <div key={t.fitid} className="p-4 flex items-center justify-between gap-4 hover:bg-indigo-50/30">
+                                            <div className="flex-shrink-0 w-16 text-center">
+                                                <div className="text-sm font-bold text-gray-600">{t.data_transacao ? format(parseISO(t.data_transacao), 'dd') : '-'}</div>
+                                                <div className="text-[10px] uppercase font-semibold text-gray-400">{t.data_transacao ? format(parseISO(t.data_transacao), 'MMM', { locale: ptBR }) : ''}</div>
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-sm font-bold text-gray-800 truncate">{t.descricao_banco || 'Sem descrição'}</p>
+                                                <p className="text-[10px] text-gray-400 uppercase">{t.memo_banco || t.tipo_ofx || ''}</p>
+                                            </div>
+                                            <div className="flex-shrink-0 text-right min-w-[90px]">
+                                                <p className={`text-sm font-bold ${t.tipo === 'Receita' ? 'text-green-600' : 'text-gray-800'}`}>
+                                                    {t.tipo === 'Receita' ? '+' : '-'}{formatCurrency(Math.abs(t.valor))}
+                                                </p>
+                                                {t.lancamento_id_vinculado && (
+                                                    <span className="text-[9px] text-green-600 font-bold"><FontAwesomeIcon icon={faCheckCircle} className="mr-0.5" />Conciliado</span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+                    ) : isLoading ? (
                         <div className="bg-white p-10 rounded-xl shadow-sm border border-gray-200 text-center">
                             <FontAwesomeIcon icon={faSpinner} spin size="2x" className="text-blue-500" />
                             <p className="text-gray-500 mt-2">Carregando movimentações do mês...</p>
@@ -277,28 +408,47 @@ export default function ExtratoManager({ contas }) {
                                         <div
                                             key={item.id}
                                             onClick={() => handleRowClick(item)}
-                                            className="p-4 hover:bg-slate-50 cursor-pointer transition-colors flex items-center justify-between group"
+                                            className={`p-4 cursor-pointer transition-colors flex items-center justify-between group 
+                                                ${item.isOfxStandalone ? 'bg-orange-50/50 hover:bg-orange-50 border-l-4 border-l-orange-400' : 'hover:bg-slate-50 border-l-4 border-l-transparent'}`}
                                         >
                                             {/* Data */}
                                             <div className="flex-shrink-0 w-16 text-center">
-                                                <div className="text-sm font-bold text-gray-700">{format(parseISO(item.data_pagamento), 'dd')}</div>
-                                                <div className="text-[10px] uppercase font-semibold text-gray-400">{format(parseISO(item.data_pagamento), 'MMM', { locale: ptBR })}</div>
+                                                <div className={`text-sm font-bold ${item.isOfxStandalone ? 'text-orange-800' : 'text-gray-700'}`}>
+                                                    {format(parseISO(item.data_pagamento), 'dd')}
+                                                </div>
+                                                <div className={`text-[10px] uppercase font-semibold ${item.isOfxStandalone ? 'text-orange-400' : 'text-gray-400'}`}>
+                                                    {format(parseISO(item.data_pagamento), 'MMM', { locale: ptBR })}
+                                                </div>
+                                                {item.isOfxStandalone && (
+                                                    <div className="text-[10px] text-orange-500 mt-1" title="Apenas no OFX">
+                                                        <FontAwesomeIcon icon={faExclamationTriangle} /> OFX
+                                                    </div>
+                                                )}
                                             </div>
 
                                             {/* Descrição e Infos */}
                                             <div className="flex-1 px-4 min-w-0">
                                                 <div className="flex items-center gap-2 mb-0.5">
-                                                    <p className="text-sm font-bold text-gray-800 truncate" title={item.descricao}>{item.descricao}</p>
-                                                    {item.status === 'Conciliado' && (
+                                                    <p className={`text-sm font-bold truncate ${item.isOfxStandalone ? 'text-orange-900' : 'text-gray-800'}`} title={item.descricao}>
+                                                        {item.descricao}
+                                                    </p>
+                                                    {item.status_exibicao === 'Conciliado' && (
                                                         <span className="text-[9px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider" title="Lançamento Conciliado">
                                                             <FontAwesomeIcon icon={faCheckCircle} className="mr-1" />
                                                             Conciliado
                                                         </span>
                                                     )}
+                                                    {item.isOfxStandalone && (
+                                                        <span className="text-[9px] bg-orange-200 text-orange-800 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider" title="Transação orfã. Adicione no sistema para conciliar.">
+                                                            Pendente Oficialização
+                                                        </span>
+                                                    )}
                                                 </div>
                                                 <p className="text-xs text-gray-500 truncate">
-                                                    {item.categoria?.nome || 'Sem Categoria'}
-                                                    {item.favorecido?.nome ? ` • ${item.favorecido.nome}` : ''}
+                                                    {item.isOfxStandalone
+                                                        ? 'Lançamento presente apenas no extrato bancário (Sem categoria e Favorecido)'
+                                                        : `${item.categoria?.nome || 'Sem Categoria'}${item.favorecido?.nome ? ` • ${item.favorecido.nome}` : ''}`
+                                                    }
                                                 </p>
                                             </div>
 

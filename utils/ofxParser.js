@@ -1,101 +1,146 @@
-// utils/ofxParser.js
+/**
+ * utils/ofxParser.js
+ *
+ * Parser nativo de arquivos OFX (SGML e XML).
+ * Suporta arquivos ISO-8859-1 (Latin-1) do BB e outros bancos brasileiros.
+ */
 
-export const parseOFX = async (file) => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
+/**
+ * Converte uma string OFX potencialmente com encoding Latin-1 para UTF-8
+ * Isso resolve o problema de caracteres especiais como ã, ç, ê, etc.
+ */
+const sanitizarTexto = (txt) => {
+  if (!txt) return '';
+  try {
+    // Tenta decodificar entidades HTML numéricas (ex: &#195; -> Ã)
+    return txt
+      .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(parseInt(code, 10)))
+      .trim();
+  } catch {
+    return txt.trim();
+  }
+};
 
-    reader.onload = (e) => {
-      const content = e.target.result;
-      try {
-        // 1. Separar o Cabeçalho (Metadata) do Corpo (XML)
-        // A Caixa usa OFX 1.0.2, onde o cabeçalho não é XML.
-        const ofxStartIndex = content.indexOf('<OFX>');
-        
-        if (ofxStartIndex === -1) {
-          throw new Error("Arquivo OFX inválido: Tag <OFX> não encontrada.");
-        }
+/**
+ * Lê o encoding declarado no header OFX.
+ * Ex: ENCODING:1252  ou  CHARSET:ISO-8859-1
+ */
+const detectarCharset = (content) => {
+  const charsetMatch = content.match(/CHARSET:?\s*(\S+)/i);
+  const encodingMatch = content.match(/ENCODING:?\s*(\S+)/i);
+  const charset = charsetMatch?.[1] || encodingMatch?.[1] || '';
 
-        // Pega apenas a parte XML
-        let xmlContent = content.substring(ofxStartIndex);
+  // Mapeamento de charset OFX -> nome Web
+  if (/1252|windows.?1252/i.test(charset)) return 'windows-1252';
+  if (/iso.?8859/i.test(charset)) return 'iso-8859-1';
+  if (/utf.?8/i.test(charset)) return 'utf-8';
+  return 'windows-1252'; // Padrão para bancos brasileiros
+};
 
-        // 2. Higienização para "XML Like" (Correção de SGML para XML)
-        // Alguns bancos não fecham tags em versões antigas, mas a Caixa geralmente fecha.
-        // O problema maior são caracteres especiais soltos como '&'.
-        xmlContent = xmlContent
-          .replace(/&(?!(amp|lt|gt|quot|apos);)/g, '&amp;') // Escapa & soltos
-          // Remove caracteres nulos ou inválidos que bancos antigos inserem
-          .replace(/[\x00-\x09\x0B\x0C\x0E-\x1F\x7F]/g, ''); 
+/**
+ * Extrai o valor de uma tag SGML simples dentro de um bloco.
+ * Ex: <TRNAMT>-150.00  -> '-150.00'
+ */
+const getTag = (block, tag) => {
+  // Captura valor após tag até próximo < ou quebra de linha
+  const regex = new RegExp(`<${tag}>([^<\\r\\n]+)`, 'i');
+  const result = regex.exec(block);
+  return result ? sanitizarTexto(result[1]) : null;
+};
 
-        // 3. Parser Nativo do Browser (DOMParser)
-        const parser = new DOMParser();
-        const xmlDoc = parser.parseFromString(xmlContent, "text/xml");
+/**
+ * Função principal de parsing do OFX.
+ * @param {ArrayBuffer|string} fileContentOrBuffer - Conteúdo do arquivo. Se ArrayBuffer, decodifica com charset correto.
+ */
+export const parseOfxContent = (fileContentOrBuffer) => {
+  try {
+    let fileContent;
 
-        const parserError = xmlDoc.querySelector("parsererror");
-        if (parserError) {
-          console.error("Erro XML:", parserError.textContent);
-          throw new Error("Falha ao processar a estrutura XML do arquivo.");
-        }
+    // Se recebeu ArrayBuffer (do FileReader), decodifica com charset certo
+    if (fileContentOrBuffer instanceof ArrayBuffer) {
+      // Primeiro lê como texto simples para detectar o charset declarado
+      const rawText = new TextDecoder('latin1').decode(fileContentOrBuffer);
+      const charset = detectarCharset(rawText);
+      fileContent = new TextDecoder(charset).decode(fileContentOrBuffer);
+    } else {
+      // String direta (compatibilidade retroativa)
+      fileContent = fileContentOrBuffer;
+    }
 
-        // 4. Extração de Dados
-        const transactions = [];
-        const bankId = getNodeValue(xmlDoc, "BANKID") || "000"; // Ex: 0104 (Caixa)
-        const acctId = getNodeValue(xmlDoc, "ACCTID") || "0000"; // Conta
-        
-        const transactionNodes = xmlDoc.getElementsByTagName("STMTTRN");
+    const transacoesManuais = [];
+    let bankId = null;
+    let acctId = null;
+    const idMap = new Set();
+    let index = 0;
 
-        for (let i = 0; i < transactionNodes.length; i++) {
-          const trn = transactionNodes[i];
-          
-          const tipo = getNodeValue(trn, "TRNTYPE"); // CREDIT ou DEBIT
-          const dataRaw = getNodeValue(trn, "DTPOSTED"); // 20251210030000.000
-          const valorRaw = getNodeValue(trn, "TRNAMT"); // 12910.0 ou -12870.0
-          const fitid = getNodeValue(trn, "FITID"); // ID único da transação
-          const memo = getNodeValue(trn, "MEMO") || getNodeValue(trn, "NAME"); // Descrição
+    // 1. Extração de Metadados (BANKID e ACCTID)
+    const bankIdMatch = fileContent.match(/<BANKID>([^<\r\n]+)/i);
+    if (bankIdMatch?.[1]) bankId = bankIdMatch[1].trim();
 
-          // Normalização de Dados
-          transactions.push({
-            id: fitid, // ID Único para conciliação
-            data: parseOfxDate(dataRaw), // Data ISO
-            descricao: memo,
-            valor: parseFloat(valorRaw), // Numérico
-            tipo: tipo, // CREDIT/DEBIT
-            banco_id: bankId,
-            conta_id: acctId,
-            conciliado: false // Padrão
-          });
-        }
+    const acctIdMatch = fileContent.match(/<ACCTID>([^<\r\n]+)/i);
+    if (acctIdMatch?.[1]) acctId = acctIdMatch[1].trim();
 
-        resolve(transactions);
+    // 2. Divide o arquivo em blocos por transação
+    // Suporta SGML (sem </STMTTRN>) e XML (com </STMTTRN>)
+    // Estratégia: separar por <STMTTRN> e processar cada bloco independentemente
+    const blocos = fileContent.split(/<STMTTRN>/gi);
+    blocos.shift(); // Remove o cabeçalho (tudo antes do primeiro <STMTTRN>)
 
-      } catch (error) {
-        reject(error);
+    for (const bloco of blocos) {
+      // Remove tag de fechamento se existir (XML style)
+      const blocoLimpo = bloco.replace(/<\/STMTTRN>.*/gis, '');
+
+      const valorRaw = getTag(blocoLimpo, 'TRNAMT');
+      // Normaliza separador decimal: OFX pode usar . ou ,
+      const valorNormalizado = valorRaw?.replace(',', '.') || '0';
+      const valor = parseFloat(valorNormalizado);
+
+      const dataStr = getTag(blocoLimpo, 'DTPOSTED')?.substring(0, 8);
+
+      // Bloco inválido: sem data ou sem valor numérico
+      if (!dataStr || dataStr.length < 8 || isNaN(valor)) continue;
+
+      const formattedDate = `${dataStr.substring(0, 4)}-${dataStr.substring(4, 6)}-${dataStr.substring(6, 8)}`;
+
+      let fitId = getTag(blocoLimpo, 'FITID');
+      const trnType = getTag(blocoLimpo, 'TRNTYPE') || (valor < 0 ? 'DEBIT' : 'CREDIT');
+      const memo = getTag(blocoLimpo, 'MEMO');
+      const name = getTag(blocoLimpo, 'NAME');
+      const descricao = memo || name || 'Sem descrição';
+
+      // Garante FITID único mesmo quando o banco não fornece
+      if (!fitId || fitId === '000000' || fitId === '0' || idMap.has(fitId)) {
+        fitId = `GEN_${dataStr}_${valorNormalizado.replace('.', '').replace('-', '')}_${index}`;
       }
+      idMap.add(fitId);
+
+      transacoesManuais.push({
+        fitid: fitId,
+        data: formattedDate,
+        valor: valor,                              // Negativo = Despesa, Positivo = Receita
+        tipo: valor >= 0 ? 'Receita' : 'Despesa',
+        tipo_ofx: trnType,
+        descricao: descricao,
+      });
+
+      index++;
+    }
+
+    return {
+      sucesso: true,
+      metadados: { bankId, acctId },
+      transacoes: transacoesManuais,
+      total_lido: transacoesManuais.length
     };
 
-    reader.onerror = (err) => reject(err);
-    
-    // Leitura como Text (Windows-1252 é o padrão OFX, mas UTF-8 costuma ler bem números/datas)
-    // Se tiver problemas com acentos (Ex: CRÉDITO), mudar para 'ISO-8859-1'
-    reader.readAsText(file, 'ISO-8859-1');
-  });
-};
-
-// --- Helpers ---
-
-// Pega valor de tag XML de forma segura
-const getNodeValue = (parent, tagName) => {
-  const node = parent.getElementsByTagName(tagName)[0];
-  return node ? node.textContent.trim() : null;
-};
-
-// Converte data OFX (YYYYMMDDHHMMSS) para ISO (YYYY-MM-DD)
-const parseOfxDate = (dateString) => {
-  if (!dateString || dateString.length < 8) return new Date().toISOString();
-  
-  // Extrai YYYY, MM, DD
-  const y = dateString.substring(0, 4);
-  const m = dateString.substring(4, 6);
-  const d = dateString.substring(6, 8);
-  
-  return `${y}-${m}-${d}`;
+  } catch (error) {
+    console.error('Erro no parseOfxContent:', error);
+    return {
+      sucesso: false,
+      erro: error.message,
+      metadados: null,
+      transacoes: [],
+      total_lido: 0
+    };
+  }
 };
