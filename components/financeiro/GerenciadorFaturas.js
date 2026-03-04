@@ -1,8 +1,8 @@
 // components/financeiro/GerenciadorFaturas.js
 "use client";
 
-import { useState, useMemo, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useState, useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '../../utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -12,83 +12,86 @@ import {
 import { format, isAfter, isBefore, parseISO, startOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import PagamentoFaturaModal from './PagamentoFaturaModal';
+import LancamentoDetalhesSidebar from './LancamentoDetalhesSidebar';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function GerenciadorFaturas({ contasCartao, onNewDespesaCartao }) {
     const supabase = createClient();
+    const queryClient = useQueryClient();
+    const { user } = useAuth();
+    const orgId = user?.organizacao_id;
     const [contaSelecionadaId, setContaSelecionadaId] = useState(contasCartao?.[0]?.id || '');
     const [faturaParaPagar, setFaturaParaPagar] = useState(null);
     const [isPagamentoModalOpen, setIsPagamentoModalOpen] = useState(false);
-    // NOVO STATE: Fatura Selecionada pelo Usuário para ver o extrato
     const [faturaAbertaDataVencimento, setFaturaAbertaDataVencimento] = useState('');
+    const [lancamentoSelecionado, setLancamentoSelecionado] = useState(null);
 
-    // 1. Busca lançamentos ESPECÍFICOS do cartão selecionado (sem filtros globais para ver a realidade total)
-    const { data: lancamentos = [], isLoading } = useQuery({
-        queryKey: ['lancamentosCartao', contaSelecionadaId],
+    // 1. Busca faturas diretamente da tabela faturas_cartao (lógica de agrupamento no banco)
+    //    A trigger fn_vincular_lancamento_fatura garante 1 fatura por mês automaticamente.
+    const { data: faturas = [], isLoading } = useQuery({
+        queryKey: ['faturasCartao', contaSelecionadaId],
         queryFn: async () => {
             if (!contaSelecionadaId) return [];
-            // Buscamos tudo desta conta para montar o histórico de faturas
-            // A data_vencimento no banco já foi calculada corretamente pelo LancamentoFormModal
-            // usando dia_fechamento_fatura e dia_pagamento_fatura do cartão
+
+            const conta = contasCartao.find(c => c.id == contaSelecionadaId);
+            const diaFech = conta?.dia_fechamento_fatura;
+            const diaPag = conta?.dia_pagamento_fatura;
+
+            // Garantir que existam faturas para os próximos 3 meses (geração automática)
+            if (diaFech && diaPag && orgId) {
+                const hoje = new Date();
+                let dataBase = new Date(hoje);
+                if (hoje.getDate() >= diaFech) {
+                    dataBase.setMonth(dataBase.getMonth() + 1);
+                }
+
+                const upserts = [];
+                for (let offset = 0; offset <= 3; offset++) {
+                    const d = new Date(dataBase);
+                    d.setMonth(d.getMonth() + offset);
+                    const mesRef = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                    let dataVenc;
+                    if (diaPag <= diaFech) {
+                        const next = new Date(d);
+                        next.setMonth(next.getMonth() + 1);
+                        dataVenc = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, '0')}-${String(diaPag).padStart(2, '0')}`;
+                    } else {
+                        dataVenc = `${mesRef}-${String(diaPag).padStart(2, '0')}`;
+                    }
+                    upserts.push({ conta_id: Number(contaSelecionadaId), mes_referencia: mesRef, data_vencimento: dataVenc, organizacao_id: orgId });
+                }
+
+                // Upsert silencioso (ignora conflito se já existir)
+                await supabase.from('faturas_cartao').upsert(upserts, { onConflict: 'conta_id,mes_referencia', ignoreDuplicates: true });
+            }
+
             const { data, error } = await supabase
-                .from('lancamentos')
-                .select('*')
+                .from('faturas_cartao')
+                .select(`
+                    *,
+                    itens:lancamentos(
+                        id, descricao, valor, tipo, status,
+                        data_transacao, data_vencimento, data_pagamento,
+                        categoria_id, transferencia_id
+                    )
+                `)
                 .eq('conta_id', contaSelecionadaId)
                 .order('data_vencimento', { ascending: false });
 
             if (error) throw error;
-            return data;
+
+            // Calcular totais localmente com base nos lançamentos já vinculados
+            return (data || []).map(f => ({
+                ...f,
+                itens: f.itens || [],
+                total_despesas: (f.itens || []).filter(i => i.tipo === 'Despesa').reduce((s, i) => s + Number(i.valor), 0),
+                total_pago: (f.itens || []).filter(i => i.tipo === 'Receita').reduce((s, i) => s + Number(i.valor), 0),
+            }));
         },
         enabled: !!contaSelecionadaId
     });
 
     const contaSelecionada = contasCartao.find(c => c.id == contaSelecionadaId);
-
-    // 2. Agrupa lançamentos por Mês/Ano da data de vencimento (1 fatura por mês)
-    // A data_vencimento de cada lançamento já foi calculada corretamente pelo LancamentoFormModal
-    // usando o ciclo do cartão (dia_fechamento_fatura e dia_pagamento_fatura).
-    // Aqui apenas agrupamos por mês/ano para consolidar numa única fatura por período.
-    const faturas = useMemo(() => {
-        if (!lancamentos.length) return [];
-
-        const grupos = {};
-
-        lancamentos.forEach(l => {
-            const vencimento = l.data_vencimento; // Ex: '2026-10-20'
-            if (!vencimento) return;
-
-            // Chave de agrupamento = YYYY-MM do vencimento
-            // Garante 1 fatura por mês independente do dia exato armazenado
-            const mesAno = vencimento.substring(0, 7);
-
-            if (!grupos[mesAno]) {
-                // Data oficial: usa dia_pagamento_fatura do cartão (campo real da tabela)
-                // Se não encontrado, usa o dia do primeiro lançamento do grupo
-                const diaPagamento = contaSelecionada?.dia_pagamento_fatura
-                    ? String(contaSelecionada.dia_pagamento_fatura).padStart(2, '0')
-                    : vencimento.substring(8, 10);
-
-                grupos[mesAno] = {
-                    id: mesAno,
-                    data_vencimento: `${mesAno}-${diaPagamento}`,
-                    itens: [],
-                    total_despesas: 0,
-                    total_pago: 0
-                };
-            }
-
-            grupos[mesAno].itens.push(l);
-
-            if (l.tipo === 'Despesa') {
-                grupos[mesAno].total_despesas += Number(l.valor);
-            } else if (l.tipo === 'Receita') {
-                // Pagamentos de fatura entram como Receita no cartão
-                grupos[mesAno].total_pago += Number(l.valor);
-            }
-        });
-
-        // Ordena por data (mais recentes primeiro)
-        return Object.values(grupos).sort((a, b) => new Date(b.data_vencimento) - new Date(a.data_vencimento));
-    }, [lancamentos, contaSelecionada]);
 
     // 3. Define o status da fatura (Aberta, Fechada, Paga, Atrasada)
     const getStatusFatura = (fatura) => {
@@ -358,7 +361,12 @@ export default function GerenciadorFaturas({ contasCartao, onNewDespesaCartao })
                                                     const isPagamento = item.tipo === 'Receita';
 
                                                     return (
-                                                        <tr key={id} className={`border-b hover:bg-gray-50 ${isPagamento ? 'bg-green-50/30' : ''}`}>
+                                                        <tr
+                                                            key={id}
+                                                            onClick={() => setLancamentoSelecionado(item)}
+                                                            className={`border-b cursor-pointer hover:bg-orange-50 transition-colors ${isPagamento ? 'bg-green-50/30 hover:bg-green-50' : ''
+                                                                }`}
+                                                        >
                                                             <td className="px-6 py-4 whitespace-nowrap text-gray-500">
                                                                 {format(parseISO(item.data_transacao), 'dd/MM/yyyy')}
                                                             </td>
@@ -389,8 +397,16 @@ export default function GerenciadorFaturas({ contasCartao, onNewDespesaCartao })
                 contaCartao={contaSelecionada}
                 fatura={faturaParaPagar}
                 onSuccess={() => {
+                    queryClient.invalidateQueries({ queryKey: ['faturasCartao', contaSelecionadaId] });
                     setIsPagamentoModalOpen(false);
                 }}
+            />
+
+            {/* Sidebar de Detalhes do Lançamento */}
+            <LancamentoDetalhesSidebar
+                open={!!lancamentoSelecionado}
+                onClose={() => setLancamentoSelecionado(null)}
+                lancamento={lancamentoSelecionado}
             />
         </div>
     );
