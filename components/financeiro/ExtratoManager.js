@@ -11,6 +11,7 @@ import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
 import LancamentoDetalhesSidebar from './LancamentoDetalhesSidebar';
 import OfxUploader from './OfxUploader';
+import PanelConciliacaoOFX from './PanelConciliacaoOFX';
 
 const formatCurrency = (value) => {
     if (value === null || value === undefined || isNaN(value)) return 'R$ 0,00';
@@ -41,6 +42,7 @@ export default function ExtratoManager({ contas }) {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [ofxPainelAberto, setOfxPainelAberto] = useState(false);
     const [arquivoOfxExpandido, setArquivoOfxExpandido] = useState(null); // id do arq selecionado
+    const [modoConciliacaoMes, setModoConciliacaoMes] = useState(null); // ativa o painel duplo e esconde extrato
 
     const contaSelecionada = contas?.find(c => c.id == contaSelecionadaId);
 
@@ -165,6 +167,34 @@ export default function ExtratoManager({ contas }) {
         }
     };
 
+    // Exclusão de Arquivos OFX (Limpa transações orfãs via banco)
+    const exclusaoOfxMutation = useMutation({
+        mutationFn: async (arquivoId) => {
+            const { error } = await supabase
+                .from('banco_arquivos_ofx')
+                .delete()
+                .eq('id', arquivoId)
+                .eq('organizacao_id', organizacaoId);
+            if (error) throw error;
+        },
+        onSuccess: () => {
+            toast.success('Arquivo OFX e suas transações excluídos!');
+            setArquivoOfxExpandido(null);
+            queryClient.invalidateQueries({ queryKey: ['ofx_arquivos'] });
+            queryClient.invalidateQueries({ queryKey: ['extrato'] });
+        },
+        onError: (err) => {
+            toast.error(`Erro ao excluir arquivo OFX: ${err.message}`);
+        }
+    });
+
+    const handleDeleteOfx = (e, arq) => {
+        e.stopPropagation();
+        if (window.confirm(`Deseja realmente excluir o arquivo "${arq.nome_arquivo}"? Todas as suas transações serão apagadas da base.`)) {
+            exclusaoOfxMutation.mutate(arq.id);
+        }
+    };
+
     const handleRowClick = (item) => {
         setLancamentoSelecionado(item);
         setIsSidebarOpen(true);
@@ -251,7 +281,7 @@ export default function ExtratoManager({ contas }) {
                                     {/* Linha principal do mês */}
                                     <div className={`flex items-center ${isSelected ? 'bg-blue-50' : 'bg-white hover:bg-gray-50'}`}>
                                         <button
-                                            onClick={() => { setMesSelecionado(mes); setArquivoOfxExpandido(null); }}
+                                            onClick={() => { setMesSelecionado(mes); setModoConciliacaoMes(null); setArquivoOfxExpandido(null); }}
                                             className="flex-1 text-left p-4"
                                         >
                                             <div className={`font-bold capitalize ${isSelected ? 'text-blue-900' : 'text-gray-700'}`}>
@@ -265,11 +295,28 @@ export default function ExtratoManager({ contas }) {
                                             )}
                                         </button>
 
-                                        {/* Seta do OFX */}
+                                        {/* Botão de Conciliar - Ativa a Direita */}
+                                        {ofxDesteMes.length > 0 && (
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setMesSelecionado(mes);
+                                                    setModoConciliacaoMes(mesKey);
+                                                }}
+                                                className={`mr-2 px-3 py-1.5 transition-all text-xs font-bold rounded-lg border flex items-center gap-1 shadow-sm
+                                                    ${modoConciliacaoMes === mesKey ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-indigo-600 border-indigo-200 hover:bg-indigo-50'}`}
+                                                title={`Conciliar Lançamentos de ${format(mes, 'MMMM', { locale: ptBR })}`}
+                                            >
+                                                <FontAwesomeIcon icon={faHandHoldingDollar} />
+                                                <span className="hidden sm:inline">Conciliar</span>
+                                            </button>
+                                        )}
+
+                                        {/* Seta do OFX (Para apenas visualizar e deletar arquivos) */}
                                         {ofxDesteMes.length > 0 && (
                                             <button
                                                 onClick={(e) => { e.stopPropagation(); setOfxPainelAberto(ofxAberto ? null : mesKey); setArquivoOfxExpandido(null); }}
-                                                className={`pr-3 pl-2 py-4 transition-colors flex items-center gap-1 text-[10px] font-bold
+                                                className={`pr-3 pl-2 py-4 transition-colors flex items-center gap-1 text-[10px] font-bold border-l
                                                     ${ofxAberto ? 'text-indigo-600' : 'text-gray-300 hover:text-indigo-400'}`}
                                                 title="Ver arquivos OFX deste mês"
                                             >
@@ -280,28 +327,31 @@ export default function ExtratoManager({ contas }) {
                                         )}
                                     </div>
 
-                                    {/* Expansão dos Arquivos OFX */}
+                                    {/* Expansão dos Arquivos OFX (Apenas Gerenciamento Visual agora) */}
                                     {ofxAberto && (
                                         <div className="bg-indigo-50/60 border-t border-indigo-100 px-3 py-2 flex flex-col gap-1.5">
                                             {ofxDesteMes.map(arq => (
-                                                <button
+                                                <div
                                                     key={arq.id}
-                                                    onClick={() => setArquivoOfxExpandido(prev => prev === arq.id ? null : arq.id)}
-                                                    className={`w-full text-left rounded-lg px-3 py-2 text-xs border transition-all
-                                                        ${arquivoOfxExpandido === arq.id
-                                                            ? 'bg-white border-indigo-400 shadow-sm'
-                                                            : 'bg-white/70 border-indigo-100 hover:border-indigo-300'}`}
+                                                    className={`w-full group rounded-lg border transition-all flex items-stretch overflow-hidden bg-white/70 border-indigo-100 hover:border-indigo-300`}
                                                 >
-                                                    <div className="flex items-center gap-2">
-                                                        <FontAwesomeIcon icon={faFileAlt} className={`flex-shrink-0 text-xs ${arquivoOfxExpandido === arq.id ? 'text-indigo-500' : 'text-indigo-300'}`} />
-                                                        <div className="min-w-0">
-                                                            <p className="font-bold text-gray-800 truncate text-[11px]">{arq.nome_arquivo}</p>
+                                                    <div className="flex-1 text-left px-3 py-2 text-xs flex items-center gap-2 min-w-0">
+                                                        <FontAwesomeIcon icon={faFileAlt} className={`flex-shrink-0 text-xs text-indigo-300`} />
+                                                        <div className="min-w-0 flex-1">
+                                                            <p className="font-bold text-gray-800 truncate text-[11px]" title={arq.nome_arquivo}>{arq.nome_arquivo}</p>
                                                             <p className="text-[9px] text-gray-400">
                                                                 {arq.periodo_inicio ? format(parseISO(arq.periodo_inicio), 'dd/MM/yy') : '?'} → {arq.periodo_fim ? format(parseISO(arq.periodo_fim), 'dd/MM/yy') : '?'}
                                                             </p>
                                                         </div>
                                                     </div>
-                                                </button>
+                                                    <button
+                                                        onClick={(e) => handleDeleteOfx(e, arq)}
+                                                        className="px-3 flex-shrink-0 flex items-center justify-center text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors border-l border-transparent group-hover:border-indigo-100"
+                                                        title="Apagar arquivo OFX do banco"
+                                                    >
+                                                        <FontAwesomeIcon icon={faTrash} />
+                                                    </button>
+                                                </div>
                                             ))}
                                         </div>
                                     )}
@@ -311,55 +361,24 @@ export default function ExtratoManager({ contas }) {
                     </div>
                 </div>
 
-                {/* LADO DIREITO: Extrato ou Drilldown OFX */}
+                {/* LADO DIREITO: Extrato ou Painel de Conciliação */}
                 <div className="lg:col-span-3">
-                    {/* === MODO DRILLDOWN: Transações do Arquivo OFX === */}
-                    {arquivoOfxExpandido ? (
-                        <div className="bg-white rounded-xl shadow-sm border border-indigo-200 overflow-hidden">
-                            <div className="p-4 border-b bg-indigo-50 flex items-center justify-between">
-                                <div>
-                                    <p className="text-[10px] font-bold text-indigo-500 uppercase">Visualizando Arquivo OFX</p>
-                                    <h2 className="text-lg font-bold text-indigo-900">
-                                        {arquivosOfxMes?.find(a => a.id === arquivoOfxExpandido)?.nome_arquivo || 'Arquivo OFX'}
-                                    </h2>
-                                </div>
-                                <button
-                                    onClick={() => setArquivoOfxExpandido(null)}
-                                    className="p-2 rounded-full hover:bg-indigo-100 text-indigo-400 hover:text-indigo-700 transition-colors"
-                                    title="Fechar e voltar ao Extrato"
-                                >
-                                    <FontAwesomeIcon icon={faTimes} />
-                                </button>
-                            </div>
-                            <div className="divide-y divide-gray-100">
-                                {isLoadingOfxTransacoes ? (
-                                    <div className="p-8 text-center"><FontAwesomeIcon icon={faSpinner} spin className="text-indigo-500" /></div>
-                                ) : !ofxTransacoes || ofxTransacoes.length === 0 ? (
-                                    <div className="p-8 text-center text-gray-400 text-sm">Nenhuma transação encontrada neste arquivo.</div>
-                                ) : (
-                                    ofxTransacoes.map(t => (
-                                        <div key={t.fitid} className="p-4 flex items-center justify-between gap-4 hover:bg-indigo-50/30">
-                                            <div className="flex-shrink-0 w-16 text-center">
-                                                <div className="text-sm font-bold text-gray-600">{t.data_transacao ? format(parseISO(t.data_transacao), 'dd') : '-'}</div>
-                                                <div className="text-[10px] uppercase font-semibold text-gray-400">{t.data_transacao ? format(parseISO(t.data_transacao), 'MMM', { locale: ptBR }) : ''}</div>
-                                            </div>
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-sm font-bold text-gray-800 truncate">{t.descricao_banco || 'Sem descrição'}</p>
-                                                <p className="text-[10px] text-gray-400 uppercase">{t.memo_banco || t.tipo_ofx || ''}</p>
-                                            </div>
-                                            <div className="flex-shrink-0 text-right min-w-[90px]">
-                                                <p className={`text-sm font-bold ${t.tipo === 'Receita' ? 'text-green-600' : 'text-gray-800'}`}>
-                                                    {t.tipo === 'Receita' ? '+' : '-'}{formatCurrency(Math.abs(t.valor))}
-                                                </p>
-                                                {t.lancamento_id_vinculado && (
-                                                    <span className="text-[9px] text-green-600 font-bold"><FontAwesomeIcon icon={faCheckCircle} className="mr-0.5" />Conciliado</span>
-                                                )}
-                                            </div>
-                                        </div>
-                                    ))
-                                )}
-                            </div>
-                        </div>
+
+                    {modoConciliacaoMes ? (
+                        // === MODO CONCILIADOR: DUAL PANEL (Novo Componente) ===
+                        <PanelConciliacaoOFX
+                            contaId={contaSelecionadaId}
+                            isCartaoCredito={contaSelecionada?.tipo === 'Cartão de Crédito'}
+                            arquivosOfxIds={(arquivosOfxMes || [])
+                                .filter(a => {
+                                    const mesAlvo = new Date(modoConciliacaoMes);
+                                    const startDate = format(startOfMonth(mesAlvo), 'yyyy-MM-dd');
+                                    const endDate = format(endOfMonth(mesAlvo), 'yyyy-MM-dd');
+                                    return a.periodo_inicio <= endDate && a.periodo_fim >= startDate;
+                                })
+                                .map(arq => arq.id)}
+                            onClosePanel={() => setModoConciliacaoMes(null)}
+                        />
                     ) : isLoading ? (
                         <div className="bg-white p-10 rounded-xl shadow-sm border border-gray-200 text-center">
                             <FontAwesomeIcon icon={faSpinner} spin size="2x" className="text-blue-500" />

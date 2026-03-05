@@ -178,6 +178,7 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
                 pedido_compra_id: formData.pedido_compra_id,
                 data_transacao: formData.data_transacao,
                 data_vencimento: formData.data_vencimento,
+                fitid_banco: formData.fitid_banco || null,
             };
 
             let lancamentosSalvos = [];

@@ -25,17 +25,8 @@ const sanitizarTexto = (txt) => {
  * Lê o encoding declarado no header OFX.
  * Ex: ENCODING:1252  ou  CHARSET:ISO-8859-1
  */
-const detectarCharset = (content) => {
-  const charsetMatch = content.match(/CHARSET:?\s*(\S+)/i);
-  const encodingMatch = content.match(/ENCODING:?\s*(\S+)/i);
-  const charset = charsetMatch?.[1] || encodingMatch?.[1] || '';
-
-  // Mapeamento de charset OFX -> nome Web
-  if (/1252|windows.?1252/i.test(charset)) return 'windows-1252';
-  if (/iso.?8859/i.test(charset)) return 'iso-8859-1';
-  if (/utf.?8/i.test(charset)) return 'utf-8';
-  return 'windows-1252'; // Padrão para bancos brasileiros
-};
+// Função detectarCharset() abolida a favor do fallback inteligente do TextDecoder
+// Detecção inteligente abolida a favor de TextDecoder com fallback.
 
 /**
  * Extrai o valor de uma tag SGML simples dentro de um bloco.
@@ -56,12 +47,13 @@ export const parseOfxContent = (fileContentOrBuffer) => {
   try {
     let fileContent;
 
-    // Se recebeu ArrayBuffer (do FileReader), decodifica com charset certo
+    // Se recebeu ArrayBuffer (do FileReader), tenta UTF-8 Rigoroso. Se quebrar (comum no BB/Caixa), cai para windows-1252
     if (fileContentOrBuffer instanceof ArrayBuffer) {
-      // Primeiro lê como texto simples para detectar o charset declarado
-      const rawText = new TextDecoder('latin1').decode(fileContentOrBuffer);
-      const charset = detectarCharset(rawText);
-      fileContent = new TextDecoder(charset).decode(fileContentOrBuffer);
+      try {
+        fileContent = new TextDecoder('utf-8', { fatal: true }).decode(fileContentOrBuffer);
+      } catch (e) {
+        fileContent = new TextDecoder('windows-1252').decode(fileContentOrBuffer);
+      }
     } else {
       // String direta (compatibilidade retroativa)
       fileContent = fileContentOrBuffer;

@@ -9,8 +9,8 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
     faSpinner, faCheckCircle, faMagic, faPlus,
     faEraser, faCalendarDay, faCalendarWeek, faCalendarAlt,
-    faUndo, faEye, faEyeSlash, faEdit, faTrash, faCalculator, faTimes, faPaste, faFileCode,
-    faCreditCard, faCalendarCheck
+    faUndo, faEye, faEyeSlash, faTrash, faCalculator, faTimes,
+    faCreditCard, faCalendarCheck, faLink, faPenToSquare, faFileInvoice
 } from '@fortawesome/free-solid-svg-icons';
 import LancamentoFormModal from './LancamentoFormModal';
 import { useDebouncedCallback } from 'use-debounce';
@@ -31,7 +31,6 @@ const getColorForPair = (pairId) => {
     return colors[pairId % colors.length];
 };
 
-// Diferença em dias entre duas datas (strings YYYY-MM-DD)
 const daysBetween = (date1, date2) => {
     if (!date1 || !date2) return 999;
     const d1 = new Date(date1);
@@ -45,11 +44,6 @@ const daysBetween = (date1, date2) => {
 const fetchLancamentosSistema = async (supabase, contaId, organizacaoId, startDate, endDate) => {
     if (!contaId || !organizacaoId || !startDate || !endDate) return [];
 
-    // ATUALIZAÇÃO IMPORTANTE: 
-    // Para cartões, a compra acontece na data_transacao (ex: dia 05), mas o vencimento é depois (ex: dia 20).
-    // O extrato OFX traz a data da COMPRA (05).
-    // Se filtrarmos apenas por data_vencimento ou data_pagamento, não acharemos a compra do dia 05.
-    // Por isso, incluímos data_transacao no filtro OR.
     const { data, error } = await supabase
         .from('lancamentos')
         .select(`
@@ -61,6 +55,35 @@ const fetchLancamentosSistema = async (supabase, contaId, organizacaoId, startDa
         .eq('organizacao_id', organizacaoId)
         .or(`data_pagamento.gte.${startDate},data_vencimento.gte.${startDate},data_transacao.gte.${startDate}`)
         .or(`data_pagamento.lte.${endDate},data_vencimento.lte.${endDate},data_transacao.lte.${endDate}`);
+
+    if (error) throw new Error(error.message);
+    return data;
+};
+
+const fetchArquivosOfx = async (supabase, contaId, organizacaoId) => {
+    if (!contaId || !organizacaoId) return [];
+
+    // Busca os arquivos OFX inseridos mais recentemente
+    const { data, error } = await supabase
+        .from('banco_arquivos_ofx')
+        .select('*')
+        .eq('conta_id', contaId)
+        .eq('organizacao_id', organizacaoId)
+        .order('data_importacao', { ascending: false })
+        .limit(20);
+
+    if (error) throw new Error(error.message);
+    return data;
+};
+
+const fetchTransacoesOfx = async (supabase, arquivoId) => {
+    if (!arquivoId) return [];
+
+    const { data, error } = await supabase
+        .from('banco_transacoes_ofx')
+        .select('*')
+        .eq('arquivo_id', arquivoId)
+        .order('data_transacao', { ascending: true });
 
     if (error) throw new Error(error.message);
     return data;
@@ -91,16 +114,11 @@ export default function ConciliacaoManager({ contas }) {
     // Estado da Conta Selecionada
     const [selectedContaId, setSelectedContaId] = useState(() => (typeof window !== 'undefined' ? sessionStorage.getItem('lastSelectedConciliationAccountId') || '' : ''));
 
-    // --- LÓGICA DE DETECÇÃO DE CARTÃO ---
-    // Simples e direta: verifica se o campo 'tipo' no banco é exatamente 'Cartão de Crédito'
     const selectedConta = useMemo(() => contas.find(c => c.id == selectedContaId), [contas, selectedContaId]);
     const isCartaoCredito = selectedConta?.tipo === 'Cartão de Crédito';
 
-    // Estados de Input (Arquivo ou Texto)
-    const [inputMode, setInputMode] = useState('ofx'); // 'ofx' ou 'csv'
-    const [file, setFile] = useState(null);
-    const [pastedText, setPastedText] = useState('');
-
+    // Novo Estado de OFX
+    const [selectedArquivoOfxId, setSelectedArquivoOfxId] = useState('');
     const [isProcessing, setIsProcessing] = useState(false);
 
     // Estado Geral da Conciliação
@@ -122,20 +140,27 @@ export default function ConciliacaoManager({ contas }) {
     const itemRefs = useRef(new Map());
     const containerRef = useRef(null);
     const [activePeriodFilter, setActivePeriodFilter] = useState('');
-    const [showConciliados, setShowConciliados] = useState(false);
+    const [showConciliados, setShowConciliados] = useState(true);
 
-    // --- Lógica Inteligente de Datas (NOVO) ---
-    // Define qual data do sistema devemos olhar/exibir
     const getDisplayDate = (lancamento) => {
         if (!lancamento) return 'N/A';
-        // Se for cartão, a regra é: data da transação (compra).
-        // Se não tiver data_transacao (legado), usa vencimento.
         if (isCartaoCredito) return lancamento.data_transacao || lancamento.data_vencimento;
-        // Se for conta corrente, é quando pagou ou quando vence
         return lancamento.data_pagamento || lancamento.data_vencimento;
     };
 
     // --- Queries e Mutations ---
+
+    const { data: arquivosOfx, isLoading: isLoadingArquivos } = useQuery({
+        queryKey: ['arquivosOfxConciliacao', selectedContaId, organizacaoId],
+        queryFn: () => fetchArquivosOfx(supabase, selectedContaId, organizacaoId),
+        enabled: !!(selectedContaId && organizacaoId),
+    });
+
+    const { data: transacoesOfxData, isLoading: isLoadingTransacoesOfx } = useQuery({
+        queryKey: ['transacoesOfxConciliacao', selectedArquivoOfxId],
+        queryFn: () => fetchTransacoesOfx(supabase, selectedArquivoOfxId),
+        enabled: !!selectedArquivoOfxId,
+    });
 
     const { data: lancamentosSistema, isLoading: isLoadingLancamentos } = useQuery({
         queryKey: ['lancamentosSistemaConciliacao', selectedContaId, organizacaoId, extratoPeriodo.startDate, extratoPeriodo.endDate],
@@ -143,27 +168,70 @@ export default function ConciliacaoManager({ contas }) {
         enabled: !!(selectedContaId && organizacaoId && extratoPeriodo.startDate && extratoPeriodo.endDate),
     });
 
+    // Quando o usuário seleciona um novo arquivo OFX e os dados chegam, mapeamos para conciliationState
+    useEffect(() => {
+        if (transacoesOfxData && transacoesOfxData.length > 0) {
+            const mappedExtrato = transacoesOfxData.map((t, index) => ({
+                id: typeof t.id !== 'undefined' && t.id !== null ? t.id : (t.fitid || `fallback-id-${index}`), // O id real na tabela ou fallback seguro
+                fitid: t.fitid,
+                data: t.data_transacao,
+                valor: t.valor,
+                tipo: t.tipo,
+                descricao: t.descricao_banco || t.memo_banco || 'Sem descrição',
+                lancamento_id_vinculado: t.lancamento_id_vinculado
+            }));
+
+            // Adiciona margem na data (menor e maior) para garantir que puxa o mês todo
+            const datasDoExtrato = mappedExtrato.map(t => new Date(t.data));
+            if (datasDoExtrato.length > 0) {
+                const minDate = new Date(Math.min.apply(null, datasDoExtrato));
+                const maxDate = new Date(Math.max.apply(null, datasDoExtrato));
+
+                // Margem de 5 dias antes e depois
+                minDate.setDate(minDate.getDate() - 5);
+                maxDate.setDate(maxDate.getDate() + 5);
+
+                const dataInicio = minDate.toISOString().split('T')[0];
+                const dataFim = maxDate.toISOString().split('T')[0];
+
+                setExtratoPeriodo({ startDate: dataInicio, endDate: dataFim });
+                setConciliationState({ extrato: mappedExtrato, sistema: [], matches: [], dateFilter: { startDate: dataInicio, endDate: dataFim } });
+            }
+        } else if (transacoesOfxData && transacoesOfxData.length === 0) {
+            setConciliationState({ extrato: [], sistema: [], matches: [], dateFilter: { startDate: '', endDate: '' } });
+            toast.info('Arquivo selecionado não possui transações.');
+        }
+    }, [transacoesOfxData]);
+
+
     const undoConciliationMutation = useMutation({
         mutationFn: async (lancamentoId) => {
-            const { data, error } = await supabase
+            // 1. Limpa o lançamento
+            const { error: err1 } = await supabase
                 .from('lancamentos')
                 .update({
                     conciliado: false,
                     status: 'Pendente',
                     data_pagamento: null,
-                    id_transacao_externa: null
+                    fitid_banco: null
                 })
                 .eq('id', lancamentoId)
-                .eq('organizacao_id', organizacaoId)
-                .select()
-                .single();
+                .eq('organizacao_id', organizacaoId);
 
-            if (error) throw new Error(error.message);
-            return data;
+            if (err1) throw new Error(err1.message);
+
+            // 2. Limpa a transação OFX também
+            const { error: err2 } = await supabase
+                .from('banco_transacoes_ofx')
+                .update({ lancamento_id_vinculado: null })
+                .eq('lancamento_id_vinculado', lancamentoId);
+
+            if (err2) throw new Error(err2.message);
         },
         onSuccess: () => {
             toast.success('Conciliação desfeita! O lançamento voltou a ser pendente.');
             queryClient.invalidateQueries({ queryKey: ['lancamentosSistemaConciliacao'] });
+            queryClient.invalidateQueries({ queryKey: ['transacoesOfxConciliacao'] }); // re-fetch ofx
         },
         onError: (error) => {
             toast.error(`Erro ao desfazer: ${error.message}`);
@@ -182,6 +250,7 @@ export default function ConciliacaoManager({ contas }) {
         onSuccess: () => {
             toast.success('Lançamento excluído!');
             onActionSuccess();
+            queryClient.invalidateQueries({ queryKey: ['transacoesOfxConciliacao'] });
         },
         onError: (error) => toast.error(`Erro: ${error.message}`),
     });
@@ -240,23 +309,25 @@ export default function ConciliacaoManager({ contas }) {
 
     // --- Efeitos e Lógica de Negócio ---
 
-    // 1. Sugestão Automática de Pares (ATUALIZADO COM DATA CORRETA)
+    // 1. Sugestão Automática de Pares
     useEffect(() => {
-        if (isLoadingLancamentos || !lancamentosSistema) return;
-        const availableSistema = lancamentosSistema.filter(l => !l.conciliado);
+        if (isLoadingLancamentos || !lancamentosSistema || isLoadingTransacoesOfx) return;
+
+        // Excluímos os que já possuem FITID vinculado ou que já mostraram que estão conciliados
+        const availableSistema = lancamentosSistema.filter(l => !l.fitid_banco);
         const newMatches = [];
         let pairCounter = 0;
 
-        // Clona para não mutar o estado diretamente durante a iteração
         const sistemaPool = [...availableSistema];
 
         conciliationState.extrato.forEach(extratoItem => {
-            // Se já tiver match manual na sessão, pula
+            // Se já está vinculado no banco na raiz (dbConciliated) ou se tem match manual na sessão, pula
+            if (extratoItem.lancamento_id_vinculado) return;
             const isAlreadyMatchedInSession = conciliationState.matches.some(m => m.extratoId === extratoItem.id);
             if (isAlreadyMatchedInSession) return;
 
             const matchIndex = sistemaPool.findIndex(sistemaItem => {
-                const dataSistema = getDisplayDate(sistemaItem); // <--- AQUI: Usa a data correta (Transação se for cartão)
+                const dataSistema = getDisplayDate(sistemaItem);
                 const valorSistema = Math.abs(sistemaItem.valor);
                 const valorExtrato = Math.abs(extratoItem.valor);
 
@@ -281,15 +352,14 @@ export default function ConciliacaoManager({ contas }) {
                 sistema: lancamentosSistema,
                 matches: [...prev.matches, ...newMatches]
             }));
-            toast.success(`${newMatches.length} pares foram sugeridos automaticamente!`);
+            toast.success(`${newMatches.length} pares foram sugeridos automaticamente! Confirme para vincular os FITIDs.`);
         } else {
             setConciliationState(prev => ({ ...prev, sistema: lancamentosSistema }));
         }
 
-        setIsProcessing(false);
-    }, [lancamentosSistema, isCartaoCredito]); // Re-executa se mudar o tipo da conta (cartão vs corrente)
+    }, [lancamentosSistema, isCartaoCredito, isLoadingTransacoesOfx]);
 
-    // 2. Desenhar Linhas (Mantido Original)
+    // 2. Desenhar Linhas
     const calculateLines = useDebouncedCallback(() => {
         if (!containerRef.current) return;
         if (selectedSistemaIds.size > 0) {
@@ -307,7 +377,6 @@ export default function ConciliacaoManager({ contas }) {
                 const sistemaRect = sistemaNode.getBoundingClientRect();
                 const extratoRect = extratoNode.getBoundingClientRect();
 
-                // Calcula coordenadas relativas ao container
                 const startX = sistemaRect.right - containerRect.left;
                 const startY = sistemaRect.top - containerRect.top + sistemaRect.height / 2;
                 const endX = extratoRect.left - containerRect.left;
@@ -325,204 +394,12 @@ export default function ConciliacaoManager({ contas }) {
         return () => window.removeEventListener('resize', calculateLines);
     }, [conciliationState, calculateLines, selectedSistemaIds]);
 
-    // 3. Persistência de Estado (Session Storage)
+    // 3. Persistência de Estado
     useEffect(() => {
         if (selectedContaId) sessionStorage.setItem('lastSelectedConciliationAccountId', selectedContaId);
         else sessionStorage.removeItem('lastSelectedConciliationAccountId');
     }, [selectedContaId]);
 
-    useEffect(() => {
-        if (selectedContaId && (conciliationState.extrato.length > 0 || conciliationState.sistema.length > 0)) {
-            sessionStorage.setItem(`conciliationProgress_${selectedContaId}`, JSON.stringify(conciliationState));
-        }
-    }, [conciliationState, selectedContaId]);
-
-    useEffect(() => {
-        if (selectedContaId) {
-            const savedStateJSON = sessionStorage.getItem(`conciliationProgress_${selectedContaId}`);
-            if (savedStateJSON) {
-                try {
-                    const savedState = JSON.parse(savedStateJSON);
-                    if (!savedState.dateFilter) savedState.dateFilter = { startDate: '', endDate: '' };
-                    setConciliationState(savedState);
-
-                    if (savedState.extrato.length > 0) {
-                        const datasDoExtrato = savedState.extrato.map(t => new Date(t.data));
-                        const dataInicio = new Date(Math.min.apply(null, datasDoExtrato)).toISOString().split('T')[0];
-                        const dataFim = new Date(Math.max.apply(null, datasDoExtrato)).toISOString().split('T')[0];
-                        setExtratoPeriodo({ startDate: dataInicio, endDate: dataFim });
-
-                        if (!savedState.dateFilter.startDate) {
-                            setConciliationState(prev => ({ ...prev, dateFilter: { startDate: dataInicio, endDate: dataFim } }));
-                        }
-                    }
-                    toast.info("Encontrei um progresso salvo e restaurei para você!");
-                } catch (e) {
-                    console.error("Erro ao restaurar estado", e);
-                }
-            } else {
-                setConciliationState({ extrato: [], sistema: [], matches: [], dateFilter: { startDate: '', endDate: '' } });
-                setExtratoPeriodo({ startDate: null, endDate: null });
-            }
-        } else {
-            setConciliationState({ extrato: [], sistema: [], matches: [], dateFilter: { startDate: '', endDate: '' } });
-            setExtratoPeriodo({ startDate: null, endDate: null });
-        }
-    }, [selectedContaId]);
-
-    // --- Processamento de Arquivos e Texto ---
-
-    const handleFileChange = (event) => {
-        const selectedFile = event.target.files[0];
-        if (selectedFile) {
-            setFile(selectedFile);
-            toast.info(`Arquivo "${selectedFile.name}" pronto para ser processado.`);
-        }
-    };
-
-    // Parser de OFX (Mantido)
-    const parseOfxFile = (fileContent) => {
-        try {
-            const transacoesManuais = [];
-            const transacoesRegex = /<STMTTRN>([\s\S]*?)<\/STMTTRN>/g;
-            let match;
-            const idMap = new Set();
-
-            let index = 0;
-            while ((match = transacoesRegex.exec(fileContent)) !== null) {
-                const transacaoBlock = match[1];
-
-                const getValue = (tag) => {
-                    const regex = new RegExp(`<${tag}>([^<]*)`);
-                    const result = regex.exec(transacaoBlock);
-                    return result ? result[1].trim() : null;
-                };
-
-                const valorRaw = getValue('TRNAMT');
-                const valor = parseFloat(valorRaw);
-                const dataStr = getValue('DTPOSTED')?.substring(0, 8);
-
-                if (!dataStr || isNaN(valor)) continue;
-
-                const formattedDate = `${dataStr.substring(0, 4)}-${dataStr.substring(4, 6)}-${dataStr.substring(6, 8)}`;
-
-                let fitId = getValue('FITID');
-
-                if (!fitId || fitId === '000000' || fitId === '0' || idMap.has(fitId)) {
-                    fitId = `GEN_${dataStr}_${valorRaw.replace('.', '')}_${index}`;
-                }
-
-                idMap.add(fitId);
-
-                transacoesManuais.push({
-                    id: fitId,
-                    data: formattedDate,
-                    valor: valor,
-                    descricao: getValue('MEMO') || getValue('NAME') || 'Sem descrição'
-                });
-
-                index++;
-            }
-            return transacoesManuais;
-        } catch (error) {
-            console.error("Erro no parse OFX:", error);
-            return null;
-        }
-    };
-
-    // Novo Parser de Texto/CSV (Mantido)
-    const parseCsvContent = (content) => {
-        if (!content) return [];
-
-        const lines = content.split(/\r?\n/).filter(line => line.trim() !== '');
-        const transacoes = [];
-        let index = 0;
-
-        const sampleLine = lines.find(l => l.includes(';') || l.includes(','));
-        const separator = sampleLine && sampleLine.includes(';') ? ';' : ',';
-
-        lines.forEach(line => {
-            if (line.toLowerCase().includes('data') && line.toLowerCase().includes('valor')) return;
-
-            const parts = line.split(separator).map(p => p.trim());
-            let data = null;
-            let valor = null;
-            let descricao = '';
-
-            for (const part of parts) {
-                if (!data && /^\d{2}\/\d{2}\/\d{4}$/.test(part)) {
-                    const [d, m, y] = part.split('/');
-                    data = `${y}-${m}-${d}`;
-                } else if (!data && /^\d{4}-\d{2}-\d{2}$/.test(part)) {
-                    data = part;
-                } else if (valor === null && /^-?[\d\.]+,\d{2}$/.test(part)) {
-                    valor = parseFloat(part.replace(/\./g, '').replace(',', '.'));
-                } else if (valor === null && /^-?[\d]+(\.\d+)?$/.test(part)) {
-                    valor = parseFloat(part);
-                } else {
-                    descricao += (descricao ? ' ' : '') + part;
-                }
-            }
-
-            if (data && valor !== null) {
-                const fitId = `CSV_${data}_${valor}_${index}_${Date.now()}`;
-                transacoes.push({
-                    id: fitId,
-                    data: data,
-                    valor: valor,
-                    descricao: descricao || 'Importado via Texto'
-                });
-                index++;
-            }
-        });
-        return transacoes;
-    };
-
-    const handleProcessFile = async () => {
-        if (!selectedContaId) {
-            toast.warning('Por favor, selecione uma conta primeiro.');
-            return;
-        }
-
-        if (inputMode === 'ofx' && !file) {
-            toast.warning('Por favor, selecione um arquivo OFX.');
-            return;
-        }
-
-        if (inputMode === 'csv' && !pastedText.trim()) {
-            toast.warning('Por favor, cole o conteúdo do CSV ou texto.');
-            return;
-        }
-
-        const toastId = toast.loading('Processando dados...');
-        setIsProcessing(true);
-        setConciliationState(prev => ({ ...prev, matches: [] }));
-
-        let transacoesDoExtrato = [];
-
-        if (inputMode === 'ofx') {
-            const fileContent = await file.text();
-            transacoesDoExtrato = parseOfxFile(fileContent);
-        } else {
-            transacoesDoExtrato = parseCsvContent(pastedText);
-        }
-
-        if (!transacoesDoExtrato || transacoesDoExtrato.length === 0) {
-            toast.error('Nenhuma transação válida encontrada.', { id: toastId });
-            setIsProcessing(false);
-            return;
-        }
-
-        toast.dismiss(toastId);
-        toast.info(`Lido com sucesso: ${transacoesDoExtrato.length} transações. Buscando correspondências...`);
-
-        const datasDoExtrato = transacoesDoExtrato.map(t => new Date(t.data));
-        const dataInicio = new Date(Math.min.apply(null, datasDoExtrato)).toISOString().split('T')[0];
-        const dataFim = new Date(Math.max.apply(null, datasDoExtrato)).toISOString().split('T')[0];
-
-        setConciliationState({ extrato: transacoesDoExtrato, sistema: [], matches: [], dateFilter: { startDate: dataInicio, endDate: dataFim } });
-        setExtratoPeriodo({ startDate: dataInicio, endDate: dataFim });
-    };
 
     // --- Lógica N:1 e Calculadora ---
 
@@ -563,98 +440,48 @@ export default function ConciliacaoManager({ contas }) {
         return { target, totalSistema, diff, isMatch, count: selectedSistemaIds.size };
     }, [selectedExtratoId, selectedSistemaIds, conciliationState]);
 
-    // --- Confirmação e Salvamento ---
+    // --- Confirmação e Salvamento no DB ---
 
     const handleConfirmMatches = async () => {
-        if (!user || !user.id || !organizacaoId) {
-            toast.error("Erro de autenticação. Recarregue a página.");
-            return;
-        }
-
+        if (!user || !user.id || !organizacaoId) return;
         if (conciliationState.matches.length === 0) return;
 
-        const toastId = toast.loading('Iniciando conciliação...');
+        const toastId = toast.loading('Confirmando conciliações e blindando FITID...');
         setIsProcessing(true);
 
         try {
-            // Se for arquivo, salva. Se for texto colado, cria um arquivo .txt com o conteúdo
-            let filePath = null;
-            const dataAtual = new Date();
-            const ano = dataAtual.getFullYear();
-            const mes = String(dataAtual.getMonth() + 1).padStart(2, '0');
-            const timestamp = Date.now();
+            // Arrays de atualização em massa manual (iteração)
+            for (const match of conciliationState.matches) {
+                const extratoItem = conciliationState.extrato.find(e => e.id === match.extratoId);
+                const targetValue = extratoItem.valor;
 
-            if (inputMode === 'ofx' && file) {
-                toast.loading('Salvando arquivo OFX...', { id: toastId });
-                filePath = `${organizacaoId}/${selectedContaId}/${ano}/${mes}/${timestamp}-${file.name}`;
-                const { error: uploadError } = await supabase.storage.from('extratos-bancarios').upload(filePath, file);
-                if (uploadError) throw new Error(`Upload falhou: ${uploadError.message}`);
-            } else if (inputMode === 'csv' && pastedText) {
-                toast.loading('Arquivando texto colado...', { id: toastId });
-                const blob = new Blob([pastedText], { type: 'text/plain' });
-                filePath = `${organizacaoId}/${selectedContaId}/${ano}/${mes}/${timestamp}-importacao-direta.txt`;
-                const { error: uploadError } = await supabase.storage.from('extratos-bancarios').upload(filePath, blob);
-                if (uploadError) throw new Error(`Upload falhou: ${uploadError.message}`);
+                // 1. Update no sistema oficial
+                const { error: err1 } = await supabase.from('lancamentos').update({
+                    conciliado: true,
+                    status: 'Pago',
+                    data_pagamento: extratoItem.data,
+                    fitid_banco: extratoItem.fitid, // Crucial: vincula o FITID!
+                    valor: targetValue,
+                    origem_criacao: 'Manual-Conciliado'
+                }).eq('id', match.sistemaId).eq('organizacao_id', organizacaoId);
+
+                if (err1) throw err1;
+
+                // 2. Update na tabela OFX para amarrar de volta
+                const { error: err2 } = await supabase.from('banco_transacoes_ofx').update({
+                    lancamento_id_vinculado: match.sistemaId
+                }).eq('fitid', extratoItem.fitid);
+
+                if (err2) throw err2;
             }
 
-            toast.loading('Confirmando conciliações...', { id: toastId });
+            toast.success(`${conciliationState.matches.length} transações foram conciliadas e blindadas!`, { id: toastId });
 
-            const updates = conciliationState.matches.map(match => {
-                const extratoItem = conciliationState.extrato.find(e => e.id === match.extratoId);
-                return {
-                    id: match.sistemaId,
-                    updates: {
-                        conciliado: true,
-                        status: 'Pago',
-                        data_pagamento: extratoItem.data,
-                        id_transacao_externa: match.extratoId,
-                        valor: conciliationState.sistema.find(s => s.id === match.sistemaId)?.valor
-                    }
-                };
-            });
-
-            const uniqueExtratoIds = new Set(conciliationState.matches.map(m => m.extratoId));
-            const totalConciliado = Array.from(uniqueExtratoIds).reduce((sum, id) => {
-                const item = conciliationState.extrato.find(e => e.id === id);
-                return sum + (item ? Math.abs(item.valor) : 0);
-            }, 0);
-
-            const lancamentosConciliadosJSON = conciliationState.matches.map(match => {
-                const sistemaItem = conciliationState.sistema.find(s => s.id === match.sistemaId);
-                const extratoItem = conciliationState.extrato.find(e => e.id === match.extratoId);
-                return {
-                    lancamento_id: sistemaItem.id,
-                    descricao_sistema: sistemaItem.descricao,
-                    valor_sistema: sistemaItem.valor,
-                    id_transacao_extrato: extratoItem.id,
-                    descricao_extrato: extratoItem.descricao,
-                    valor_extrato: extratoItem.valor
-                };
-            });
-
-            for (const item of updates) {
-                const { error } = await supabase.from('lancamentos').update(item.updates).eq('id', item.id).eq('organizacao_id', organizacaoId);
-                if (error) throw error;
-            }
-
-            const historicoRecord = {
-                usuario_id: user.id,
-                conta_financeira_id: selectedContaId,
-                organizacao_id: organizacaoId,
-                caminho_arquivo_ofx: filePath,
-                periodo_inicio_extrato: extratoPeriodo.startDate,
-                periodo_fim_extrato: extratoPeriodo.endDate,
-                lancamentos_conciliados: lancamentosConciliadosJSON,
-                total_conciliado: totalConciliado,
-                tipo_importacao: inputMode
-            };
-
-            const { error: historicoError } = await supabase.from('conciliacao_historico').insert([historicoRecord]);
-            if (historicoError) throw historicoError;
-
-            toast.success(`${updates.length} lançamentos conciliados!`, { id: toastId });
+            // Invalida e limpa estados de sessão local para obrigar refetch
             queryClient.invalidateQueries({ queryKey: ['lancamentosSistemaConciliacao'] });
-            resetState();
+            queryClient.invalidateQueries({ queryKey: ['transacoesOfxConciliacao'] });
+
+            setConciliationState(prev => ({ ...prev, matches: [] }));
         } catch (error) {
             toast.error(`Erro: ${error.message}`, { id: toastId });
         } finally {
@@ -663,25 +490,43 @@ export default function ConciliacaoManager({ contas }) {
     };
 
     const handleCreateLancamento = (extratoItem) => {
+        // Envia os dados para a janela de criação. 
+        // Armazenamos extratoItem.fitid numa coluna custom/temporária (via componente) ou aproveitamos os campos.
+        // O ideal é logo após salvar dar um update, então guardaremos o extratoItem ID em um ref interno só para o callback.
+
         setLancamentoParaCriar({
             descricao: extratoItem.descricao, valor: Math.abs(extratoItem.valor), tipo: extratoItem.valor > 0 ? 'Receita' : 'Despesa',
             conta_id: selectedContaId, data_transacao: extratoItem.data, data_vencimento: extratoItem.data,
-            data_pagamento: extratoItem.data, status: 'Pago', conciliado: true, id_transacao_externa: extratoItem.id,
+            data_pagamento: extratoItem.data, status: 'Pago', conciliado: true,
+            fitid_banco: extratoItem.fitid,
+            // A flag below is virtual/fake to pass through the process
+            virtual_ofx_id: extratoItem.id
         });
         setIsModalOpen(true);
     };
 
-    const handleSuccessCreate = (createdLancamento) => {
-        toast.success('Lançamento criado e conciliado!');
-        const extratoId = lancamentoParaCriar.id_transacao_externa;
-        if (!extratoId || !createdLancamento) return;
+    const updateOfxBindingMutation = useMutation({
+        mutationFn: async ({ lancamentoId, fitid }) => {
+            const { error } = await supabase.from('banco_transacoes_ofx').update({
+                lancamento_id_vinculado: lancamentoId
+            }).eq('fitid', fitid);
+            if (error) throw error;
+        }
+    });
 
-        setConciliationState(prev => ({
-            ...prev,
-            sistema: [...prev.sistema, { ...createdLancamento, conciliado: true }]
-        }));
+    const handleSuccessCreate = async (createdLancamento) => {
+        const fitid = lancamentoParaCriar?.fitid_banco;
 
-        queryClient.invalidateQueries({ queryKey: ['lancamentosSistemaConciliacao'] });
+        if (createdLancamento && fitid) {
+            // Efetivação do vínculo duplo!
+            await updateOfxBindingMutation.mutateAsync({
+                lancamentoId: createdLancamento.id,
+                fitid: fitid
+            });
+            toast.success('Lançamento criado no sistema com sucesso e vinculado à transação OFX!');
+            queryClient.invalidateQueries({ queryKey: ['lancamentosSistemaConciliacao'] });
+            queryClient.invalidateQueries({ queryKey: ['transacoesOfxConciliacao'] });
+        }
     };
 
     const handleOpenEditModal = (lancamento) => {
@@ -694,18 +539,6 @@ export default function ConciliacaoManager({ contas }) {
         setLancamentoParaEditar(null);
         queryClient.invalidateQueries({ queryKey: ['lancamentosSistemaConciliacao'] });
         toast.success('Lançamento atualizado!');
-    };
-
-    const resetState = () => {
-        if (selectedContaId) sessionStorage.removeItem(`conciliationProgress_${selectedContaId}`);
-        setFile(null);
-        setPastedText('');
-        setConciliationState({ extrato: [], sistema: [], matches: [], dateFilter: { startDate: '', endDate: '' } });
-        setSelectedExtratoId(null);
-        setSelectedSistemaIds(new Set());
-        setExtratoPeriodo({ startDate: null, endDate: null });
-        const fileInput = document.getElementById('file-input');
-        if (fileInput) fileInput.value = '';
     };
 
     const handleDateFilterChange = (name, value) => {
@@ -726,35 +559,25 @@ export default function ConciliacaoManager({ contas }) {
     const processedLists = useMemo(() => {
         const sessionMatchedSistemaIds = new Set(conciliationState.matches.map(m => m.sistemaId));
         const sessionMatchedExtratoIds = new Set(conciliationState.matches.map(m => m.extratoId));
-        const dbConciliatedExtratoIds = new Set(conciliationState.sistema.filter(s => s.conciliado && s.id_transacao_externa).map(s => s.id_transacao_externa));
+
+        // Mapea os fitids que o sistema já tem blindados
+        const dbConciliatedSistemaIds = new Set(conciliationState.sistema.filter(s => s.fitid_banco).map(s => s.id));
+        const sistemaFitidsMap = new Map();
+        conciliationState.sistema.forEach(s => {
+            if (s.fitid_banco) sistemaFitidsMap.set(s.fitid_banco, s.id);
+        });
+
+        // Se o OFX tiver o lancamento_id do banco, ou o fitid_banco dele existir na tabela sistema = já está Oficial
+        const dbConciliatedExtratoIds = new Set(conciliationState.extrato.filter(e => {
+            return e.lancamento_id_vinculado || sistemaFitidsMap.has(e.fitid);
+        }).map(e => e.id));
 
         const filterByDate = (items, type) => {
             const { startDate, endDate } = conciliationState.dateFilter;
             if (!startDate || !endDate) return items;
             return items.filter(item => {
-                // ATUALIZADO: Usa getDisplayDate para o sistema
                 const itemDate = type === 'sistema' ? getDisplayDate(item) : item.data;
                 return itemDate >= startDate && itemDate <= endDate;
-            });
-        };
-
-        // NOVO: Filtro de Foco (Mostra sistema relevante baseado no extrato selecionado)
-        const filterByFocus = (items, type) => {
-            if (type !== 'sistema' || !selectedExtratoId) return items;
-
-            const selectedExtratoItem = conciliationState.extrato.find(e => e.id === selectedExtratoId);
-            if (!selectedExtratoItem) return items;
-
-            return items.filter(sysItem => {
-                // Se já estiver selecionado, mantém visível
-                if (selectedSistemaIds.has(sysItem.id)) return true;
-
-                const sysDate = getDisplayDate(sysItem);
-                const valDiff = Math.abs(Math.abs(sysItem.valor) - Math.abs(selectedExtratoItem.valor));
-                const dayDiff = daysBetween(sysDate, selectedExtratoItem.data);
-
-                // Mostra se valor for próximo OU se data for próxima (max 5 dias)
-                return valDiff < 5 || dayDiff <= 5;
             });
         };
 
@@ -763,7 +586,7 @@ export default function ConciliacaoManager({ contas }) {
                 let status = 'pendente';
                 if ((type === 'sistema' && sessionMatchedSistemaIds.has(item.id)) || (type === 'extrato' && sessionMatchedExtratoIds.has(item.id))) {
                     status = 'sessionMatch';
-                } else if ((type === 'sistema' && item.conciliado) || (type === 'extrato' && dbConciliatedExtratoIds.has(item.id))) {
+                } else if ((type === 'sistema' && dbConciliatedSistemaIds.has(item.id)) || (type === 'extrato' && dbConciliatedExtratoIds.has(item.id))) {
                     status = 'dbConciliated';
                 }
                 return { ...item, conciliationStatus: status };
@@ -771,7 +594,6 @@ export default function ConciliacaoManager({ contas }) {
                 const order = { sessionMatch: 1, pendente: 2, dbConciliated: 3 };
                 if (order[a.conciliationStatus] !== order[b.conciliationStatus]) return order[a.conciliationStatus] - order[b.conciliationStatus];
 
-                // ATUALIZADO: Ordenação usa data correta
                 const dateA = new Date(type === 'sistema' ? getDisplayDate(a) : a.data);
                 const dateB = new Date(type === 'sistema' ? getDisplayDate(b) : b.data);
                 return dateA - dateB;
@@ -779,8 +601,6 @@ export default function ConciliacaoManager({ contas }) {
         };
 
         let filteredSistema = filterByDate(conciliationState.sistema, 'sistema');
-        // Aplica o foco apenas se houver seleção no extrato
-        if (selectedExtratoId) filteredSistema = filterByFocus(filteredSistema, 'sistema');
 
         const fullSortedSistema = classifyAndSort(filteredSistema, 'sistema');
         const fullSortedExtrato = classifyAndSort(filterByDate(conciliationState.extrato, 'extrato'), 'extrato');
@@ -803,10 +623,9 @@ export default function ConciliacaoManager({ contas }) {
     const handleItemClick = (item, listName) => {
         if (item.conciliationStatus === 'pendente') {
             if (listName === 'extrato') {
-                // Se clicou no extrato, toggle seleção E limpa seleção do sistema para focar
                 const newSelection = (selectedExtratoId === item.id ? null : item.id);
                 setSelectedExtratoId(newSelection);
-                if (newSelection) setSelectedSistemaIds(new Set()); // Limpa sistema para ativar o filtro de foco
+                if (newSelection) setSelectedSistemaIds(new Set());
             } else {
                 setSelectedSistemaIds(prev => {
                     const newSet = new Set(prev);
@@ -824,8 +643,7 @@ export default function ConciliacaoManager({ contas }) {
                 ...prev,
                 matches: prev.matches.filter(m => m.pairId !== matchToRemove.pairId)
             }));
-
-            toast.info('Grupo de conciliação desfeito.');
+            toast.info('Grupo de conciliação desfocado.');
         }
     };
 
@@ -851,7 +669,6 @@ export default function ConciliacaoManager({ contas }) {
 
         const isReceita = (type === 'sistema' ? item.tipo === 'Receita' : item.valor > 0);
         const valorClass = isReceita ? 'text-green-600' : 'text-red-600';
-        // ATUALIZADO: Uso do getDisplayDate
         const dataExibicao = type === 'sistema' ? getDisplayDate(item) : item.data;
 
         return (
@@ -861,23 +678,23 @@ export default function ConciliacaoManager({ contas }) {
                 onClick={() => handleItemClick(item, listName)}
                 className={`p-2 border grid grid-cols-12 gap-2 text-sm items-center rounded-md mb-1 transition-all ${interactionClass} ${rowClass}`}
             >
-                <div className="col-span-3 flex items-center gap-1">
-                    {formatDate(dataExibicao)}
-                    {type === 'sistema' && isCartaoCredito && <FontAwesomeIcon icon={faCalendarCheck} className="text-[10px] text-orange-400" title="Data da Transação (Cartão)" />}
+                <div className="col-span-3 flex items-center gap-1 min-w-0">
+                    <span className="truncate">{formatDate(dataExibicao)}</span>
+                    {type === 'sistema' && isCartaoCredito && <FontAwesomeIcon icon={faCalendarCheck} className="flex-shrink-0 text-[10px] text-orange-400" title="Data da Transação (Cartão)" />}
                 </div>
-                <div className="col-span-5 truncate" title={item.descricao}>{item.descricao}</div>
+                <div className="col-span-5 truncate" title={item.descricao || item.fitid}>{item.descricao || 'Sem descrição'}</div>
                 <div className={`col-span-2 text-right font-bold ${valorClass}`}>{formatCurrency(item.valor)}</div>
 
                 <div className={`col-span-2 text-center h-8 flex items-center gap-2 ${type === 'sistema' ? 'justify-end' : 'justify-start'}`}>
 
                     {type === 'extrato' && item.conciliationStatus === 'pendente' && (
-                        <button onClick={(e) => { e.stopPropagation(); handleCreateLancamento(item); }} className="bg-blue-100 text-blue-700 hover:bg-blue-200 text-xs font-bold px-2 py-1 rounded-md">
+                        <button onClick={(e) => { e.stopPropagation(); handleCreateLancamento(item); }} className="bg-blue-100 text-blue-700 hover:bg-blue-200 text-xs font-bold px-2 py-1 rounded-md" title="Acrescentar este lançamento manualmente">
                             <FontAwesomeIcon icon={faPlus} />
                         </button>
                     )}
 
                     {type === 'extrato' && item.conciliationStatus === 'dbConciliated' && (
-                        <FontAwesomeIcon icon={faCheckCircle} className="text-green-600" />
+                        <span className="text-green-600 text-[10px] uppercase font-bold tracking-wider" title="Cruza com um Lançamento Oficial do Sistema Baseado no FITID"><FontAwesomeIcon icon={faCheckCircle} className="mr-1" /> Oficial</span>
                     )}
 
                     {type === 'sistema' && (
@@ -891,7 +708,7 @@ export default function ConciliacaoManager({ contas }) {
                                 </button>
                             )}
                             {item.conciliationStatus === 'dbConciliated' && (
-                                <button onClick={(e) => { e.stopPropagation(); undoConciliationMutation.mutate(item.id); }} disabled={undoConciliationMutation.isPending} className="text-gray-500 hover:text-gray-700 text-xs px-1">
+                                <button onClick={(e) => { e.stopPropagation(); undoConciliationMutation.mutate(item.id); }} disabled={undoConciliationMutation.isPending} className="text-gray-500 hover:bg-gray-200 rounded p-1 hover:text-gray-700 text-xs" title="Desfazer o Match FITID">
                                     <FontAwesomeIcon icon={faUndo} spin={undoConciliationMutation.isPending} />
                                 </button>
                             )}
@@ -907,155 +724,135 @@ export default function ConciliacaoManager({ contas }) {
             <LancamentoFormModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSuccess={handleSuccessCreate} initialData={lancamentoParaCriar} />
             <LancamentoFormModal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} onSuccess={handleSuccessEdit} initialData={lancamentoParaEditar} />
 
-            <div className="p-4 border rounded-lg bg-gray-50 space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="p-5 border rounded-xl bg-white shadow-sm space-y-4 relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-1 bg-indigo-500 h-full"></div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {/* Coluna 1: Conta */}
                     <div>
-                        <label className="block text-sm font-medium mb-1">1. Selecione a Conta</label>
-                        <select value={selectedContaId} onChange={(e) => setSelectedContaId(e.target.value)} className="w-full p-2 border rounded-md">
+                        <label className="block text-sm font-bold text-gray-700 uppercase tracking-wider mb-2">1. Selecione a Conta Auditada</label>
+                        <select value={selectedContaId} onChange={(e) => { setSelectedContaId(e.target.value); setSelectedArquivoOfxId(''); }} className="w-full p-3 border-2 border-gray-100 rounded-lg focus:border-indigo-500 focus:ring-0 transition-colors font-semibold text-gray-700">
                             <option value="">-- Escolha uma conta --</option>
                             {contas.map(c => <option key={c.id} value={c.id}>{c.nome} ({c.tipo})</option>)}
                         </select>
-                        {isCartaoCredito && <p className="text-xs text-orange-600 mt-1 flex items-center gap-1"><FontAwesomeIcon icon={faCreditCard} /> Modo Cartão: Usando Data da Transação</p>}
+                        {isCartaoCredito && <p className="text-xs text-orange-600 mt-2 flex items-center gap-1 font-semibold"><FontAwesomeIcon icon={faCreditCard} /> Modo Cartão: Usando Data da Transação para cruzamento</p>}
                     </div>
 
-                    {/* Coluna 2: Importação (Abas) */}
+                    {/* Coluna 2: Arquivo OFX */}
                     <div>
-                        <label className="block text-sm font-medium mb-1">2. Importar Dados</label>
-                        <div className="flex gap-2 mb-2">
-                            <button
-                                onClick={() => setInputMode('ofx')}
-                                className={`flex-1 text-sm py-1 rounded-t-md font-semibold ${inputMode === 'ofx' ? 'bg-white border-t border-l border-r text-blue-700' : 'bg-gray-200 text-gray-500 hover:bg-gray-300'}`}
-                            >
-                                <FontAwesomeIcon icon={faFileCode} className="mr-2" /> Arquivo OFX
-                            </button>
-                            <button
-                                onClick={() => setInputMode('csv')}
-                                className={`flex-1 text-sm py-1 rounded-t-md font-semibold ${inputMode === 'csv' ? 'bg-white border-t border-l border-r text-blue-700' : 'bg-gray-200 text-gray-500 hover:bg-gray-300'}`}
-                            >
-                                <FontAwesomeIcon icon={faPaste} className="mr-2" /> Colar Texto/CSV
-                            </button>
-                        </div>
-
-                        <div className={`border rounded-b-md p-3 bg-white ${inputMode === 'csv' ? 'rounded-tr-md' : ''}`}>
-                            {inputMode === 'ofx' ? (
-                                <input id="file-input" type="file" onChange={handleFileChange} accept=".ofx,.ofc" className="w-full text-sm" />
-                            ) : (
-                                <textarea
-                                    placeholder="Cole aqui as linhas do seu extrato (Data, Descrição, Valor)..."
-                                    value={pastedText}
-                                    onChange={(e) => setPastedText(e.target.value)}
-                                    className="w-full h-24 p-2 text-xs border rounded-md font-mono"
-                                />
-                            )}
-                        </div>
+                        <label className="block text-sm font-bold text-gray-700 uppercase tracking-wider mb-2">2. Selecione o Arquivo OFX DB</label>
+                        <select
+                            value={selectedArquivoOfxId}
+                            onChange={(e) => setSelectedArquivoOfxId(e.target.value)}
+                            disabled={!selectedContaId || isLoadingArquivos}
+                            className={`w-full p-3 border-2 rounded-lg focus:border-indigo-500 focus:ring-0 transition-colors font-semibold shadow-inner
+                                ${!selectedContaId ? 'bg-gray-100 border-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white border-indigo-100 text-indigo-900'}`}
+                        >
+                            <option value="">-- {isLoadingArquivos ? 'Buscando extratos do banco...' : !selectedContaId ? 'Escolha a conta primeiro' : 'Escolha o Extrato Processado'} --</option>
+                            {arquivosOfx && arquivosOfx.map(arq => (
+                                <option key={arq.id} value={arq.id}>
+                                    {arq.nome_arquivo} ({formatDate(arq.periodo_inicio)} - {formatDate(arq.periodo_fim)})
+                                </option>
+                            ))}
+                        </select>
+                        <p className="text-[10px] text-gray-400 mt-2 font-semibold">Os arquivos presentes aqui foram injetados através do AuditDropzone no Extrato.</p>
                     </div>
-                </div>
-
-                <div className="flex justify-between items-center pt-3 border-t">
-                    <button onClick={resetState} className="text-sm text-gray-600 hover:text-red-600 font-semibold flex items-center gap-2">
-                        <FontAwesomeIcon icon={faEraser} /> Limpar
-                    </button>
-                    <button
-                        onClick={handleProcessFile}
-                        disabled={isProcessing || !selectedContaId || (inputMode === 'ofx' && !file) || (inputMode === 'csv' && !pastedText)}
-                        className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400 flex items-center gap-2 shadow-sm"
-                    >
-                        <FontAwesomeIcon icon={isProcessing ? faSpinner : faMagic} spin={isProcessing} />
-                        {isProcessing ? 'Lendo...' : 'Processar'}
-                    </button>
                 </div>
             </div>
 
             {/* Filtros de Visualização */}
             {conciliationState.extrato.length > 0 &&
-                <div className="p-4 border rounded-lg bg-gray-50 space-y-3 animate-fade-in">
-                    <div className="flex flex-wrap items-end gap-2">
-                        <div><label className="block text-xs font-bold text-gray-500 uppercase">De</label><input type="date" value={conciliationState.dateFilter.startDate} onChange={(e) => handleDateFilterChange('startDate', e.target.value)} className="w-36 p-2 border rounded-md text-sm" /></div>
-                        <div><label className="block text-xs font-bold text-gray-500 uppercase">Até</label><input type="date" value={conciliationState.dateFilter.endDate} onChange={(e) => handleDateFilterChange('endDate', e.target.value)} className="w-36 p-2 border rounded-md text-sm" /></div>
-
-                        <div className="flex border rounded-md overflow-hidden ml-2">
-                            {['today', 'week', 'month'].map(period => (
-                                <button key={period} onClick={() => setDateRange(period)} className={`px-3 py-2 text-sm hover:bg-gray-100 ${activePeriodFilter === period ? 'bg-blue-100 text-blue-700 font-bold' : 'bg-white text-gray-600'}`}>
-                                    <FontAwesomeIcon icon={period === 'today' ? faCalendarDay : period === 'week' ? faCalendarWeek : faCalendarAlt} />
-                                </button>
-                            ))}
+                <div className="p-4 border border-indigo-100 rounded-lg bg-indigo-50/30 space-y-3 animate-fade-in flex items-center justify-between">
+                    <div className="flex flex-wrap items-end gap-3">
+                        <div>
+                            <label className="block text-[10px] font-bold text-indigo-500 uppercase tracking-wider">Período Analisado (De)</label>
+                            <input type="date" value={conciliationState.dateFilter.startDate} onChange={(e) => handleDateFilterChange('startDate', e.target.value)} className="w-36 p-1.5 border border-indigo-200 rounded text-sm text-indigo-900 focus:ring-1 focus:ring-indigo-400 font-semibold bg-white" />
                         </div>
-
-                        <button onClick={() => setShowConciliados(!showConciliados)} className={`ml-auto text-sm border px-3 py-2 rounded-md flex items-center gap-2 ${showConciliados ? 'bg-blue-600 text-white' : 'bg-white hover:bg-gray-50'}`}>
-                            <FontAwesomeIcon icon={showConciliados ? faEyeSlash : faEye} /> {showConciliados ? 'Ocultar Conciliados' : 'Ver Conciliados'}
-                        </button>
+                        <div>
+                            <label className="block text-[10px] font-bold text-indigo-500 uppercase tracking-wider">(Até)</label>
+                            <input type="date" value={conciliationState.dateFilter.endDate} onChange={(e) => handleDateFilterChange('endDate', e.target.value)} className="w-36 p-1.5 border border-indigo-200 rounded text-sm text-indigo-900 focus:ring-1 focus:ring-indigo-400 font-semibold bg-white" />
+                        </div>
                     </div>
+
+                    <button onClick={() => setShowConciliados(!showConciliados)} className={`text-sm border-2 px-4 py-1.5 rounded-lg flex items-center gap-2 font-bold transition-all ${showConciliados ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' : 'bg-white border-indigo-200 hover:border-indigo-300 text-indigo-600'}`}>
+                        <FontAwesomeIcon icon={showConciliados ? faEyeSlash : faEye} /> {showConciliados ? 'Ocultar Conciliados' : 'Mostrar Conciliados'}
+                    </button>
                 </div>
             }
 
             {/* Listas e Linhas */}
-            <div ref={containerRef} className="relative pt-6 border-t min-h-[400px]">
-                <svg className="absolute top-0 left-0 w-full h-full pointer-events-none z-10">
-                    {lines.map((line, index) => (<path key={index} d={`M ${line.startX} ${line.startY} C ${line.startX + 50} ${line.startY}, ${line.endX - 50} ${line.endY}, ${line.endX} ${line.endY}`} stroke={getColorForPair(line.pairId).split(' ')[0].replace('border', 'stroke').replace('-400', '-500')} strokeWidth="2" fill="none" />))}
-                </svg>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                        <h3 className="font-semibold mb-2 text-gray-700 flex justify-between items-center">
-                            <span>Lançamentos (Sistema)</span>
-                            {selectedSistemaIds.size > 0 && <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full font-bold">{selectedSistemaIds.size} selecionado(s)</span>}
-                        </h3>
-                        <div className="border rounded-lg max-h-[60vh] overflow-y-auto space-y-1 p-1 bg-gray-50 custom-scrollbar">
-                            {isLoadingLancamentos && <div className="text-center p-8 text-gray-500"><FontAwesomeIcon icon={faSpinner} spin className="mr-2" /> Buscando...</div>}
-                            {!isLoadingLancamentos && processedLists.sortedSistema.map(item => renderItem(item, 'sistema', 'sistema'))}
-                            {!isLoadingLancamentos && processedLists.sortedSistema.length === 0 && <p className="p-8 text-sm text-gray-400 text-center italic">Nenhum lançamento no período.</p>}
+            {(conciliationState.extrato.length > 0 || conciliationState.sistema.length > 0) && (
+                <div ref={containerRef} className="relative mt-8 pt-6 border-t min-h-[400px]">
+                    <svg className="absolute top-0 left-0 w-full h-full pointer-events-none z-10">
+                        {lines.map((line, index) => (<path key={index} d={`M ${line.startX} ${line.startY} C ${line.startX + 50} ${line.startY}, ${line.endX - 50} ${line.endY}, ${line.endX} ${line.endY}`} stroke={getColorForPair(line.pairId).split(' ')[0].replace('border', 'stroke').replace('-400', '-500')} strokeWidth="2" fill="none" />))}
+                    </svg>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div>
+                            <h3 className="font-bold mb-3 text-2xl text-gray-800 flex justify-between items-center bg-gray-50 px-4 py-2 rounded-t-xl border-b-2 border-blue-200">
+                                <span>Lançamentos (Sistema)</span>
+                                {selectedSistemaIds.size > 0 && <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full font-bold shadow-inner">{selectedSistemaIds.size} selecionado(s)</span>}
+                            </h3>
+                            <div className="border border-t-0 rounded-b-xl max-h-[60vh] overflow-y-auto space-y-1 p-2 bg-white custom-scrollbar shadow-sm relative">
+                                {isLoadingLancamentos && <div className="absolute inset-0 bg-white/80 z-20 flex items-center justify-center flex-col text-blue-500 font-bold"><FontAwesomeIcon icon={faSpinner} spin size="2x" className="mb-2" /> Varrulhando Banco...</div>}
+                                {!isLoadingLancamentos && processedLists.sortedSistema.map(item => renderItem(item, 'sistema', 'sistema'))}
+                                {!isLoadingLancamentos && processedLists.sortedSistema.length === 0 && <p className="p-8 text-sm text-gray-400 text-center italic font-semibold">Sem registros neste período oficial do Studio.</p>}
+                            </div>
                         </div>
-                    </div>
-                    <div>
-                        <h3 className="font-semibold mb-2 text-gray-700">Extrato (Banco)</h3>
-                        <div className="border rounded-lg max-h-[60vh] overflow-y-auto space-y-1 p-1 bg-gray-50 custom-scrollbar">
-                            {processedLists.sortedExtrato.map(item => renderItem(item, 'extrato', 'extrato'))}
-                            {processedLists.sortedExtrato.length === 0 && <p className="p-8 text-sm text-gray-400 text-center italic">Nenhuma transação carregada.</p>}
+                        <div>
+                            <h3 className="font-bold mb-3 text-2xl text-indigo-900 bg-indigo-50 px-4 py-2 rounded-t-xl border-b-2 border-indigo-200 flex justify-between items-center">
+                                <span>Extrato OFX Puro</span>
+                                {isLoadingTransacoesOfx && <FontAwesomeIcon icon={faSpinner} spin className="text-indigo-400 text-sm" />}
+                            </h3>
+                            <div className="border border-t-0 border-indigo-100 rounded-b-xl max-h-[60vh] overflow-y-auto space-y-1 p-2 bg-white custom-scrollbar shadow-sm">
+                                {processedLists.sortedExtrato.map(item => renderItem(item, 'extrato', 'extrato'))}
+                                {processedLists.sortedExtrato.length === 0 && !isLoadingTransacoesOfx && <p className="p-8 text-sm text-gray-400 text-center italic font-semibold">Mural do Extrato DB Vazio.</p>}
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
+            )}
 
             {/* Calculadora Flutuante */}
-            {(conciliationState.matches.length > 0 || (calculadora)) && (
-                <div className="fixed bottom-0 left-0 md:left-64 right-0 bg-white p-4 border-t shadow-[0_-4px_20px_rgba(0,0,0,0.1)] z-50 animate-slide-up">
-                    <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+            {(conciliationState.matches.length > 0 || calculadora) && (
+                <div className="fixed bottom-0 left-0 md:left-64 right-0 bg-white p-4 items-center justify-center border-t border-t-indigo-200 shadow-[0_-15px_30px_rgba(0,0,0,0.05)] z-[100] animate-slide-up flex">
+                    <div className="w-full max-w-5xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
                         {calculadora ? (
-                            <div className={`flex items-center gap-4 px-4 py-2 rounded-lg border-2 ${calculadora.isMatch ? 'border-green-500 bg-green-50' : 'border-red-300 bg-red-50'}`}>
-                                <div className="flex flex-col items-end border-r pr-4 border-gray-300">
-                                    <span className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">Alvo (Extrato)</span>
-                                    <span className="font-mono font-bold text-lg text-gray-800">{formatCurrency(calculadora.target)}</span>
+                            <div className={`flex items-center gap-6 px-6 py-3 rounded-xl border-2 shadow-sm ${calculadora.isMatch ? 'border-green-400 bg-green-50/80' : 'border-orange-300 bg-orange-50'}`}>
+                                <div className="flex flex-col items-end border-r-2 pr-6 border-black/10">
+                                    <span className="text-[10px] text-gray-500 uppercase font-black tracking-widest drop-shadow-sm">Alvo OFX</span>
+                                    <span className="font-mono font-black text-2xl text-gray-800 drop-shadow-sm">{formatCurrency(calculadora.target)}</span>
                                 </div>
-                                <div className="flex flex-col items-end border-r pr-4 border-gray-300">
-                                    <span className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">Soma Seleção</span>
-                                    <span className="font-mono font-bold text-lg text-blue-700">{formatCurrency(calculadora.totalSistema)}</span>
+                                <div className="flex flex-col items-end border-r-2 pr-6 border-black/10">
+                                    <span className="text-[10px] text-gray-500 uppercase font-black tracking-widest drop-shadow-sm">Soma Seleção</span>
+                                    <span className="font-mono font-black text-2xl text-indigo-700 drop-shadow-sm">{formatCurrency(calculadora.totalSistema)}</span>
                                 </div>
                                 <div className="flex flex-col items-end">
-                                    <span className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">Diferença</span>
-                                    <span className={`font-mono font-bold text-lg ${calculadora.diff === 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                    <span className="text-[10px] text-gray-500 uppercase font-black tracking-widest drop-shadow-sm">Diferença</span>
+                                    <span className={`font-mono font-black text-2xl drop-shadow-sm ${calculadora.diff === 0 ? 'text-green-600' : 'text-red-500'}`}>
                                         {formatCurrency(calculadora.diff)}
                                     </span>
                                 </div>
                                 {calculadora.isMatch ? (
-                                    <button onClick={proceedWithMatch} className="ml-4 bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 font-bold flex items-center gap-2 animate-pulse shadow-md">
-                                        <FontAwesomeIcon icon={faLink} /> Conciliar
+                                    <button onClick={proceedWithMatch} className="ml-6 bg-gradient-to-r from-green-500 to-emerald-600 text-white px-6 py-3 text-lg rounded-xl hover:from-green-600 hover:to-emerald-700 font-extrabold flex items-center gap-2 animate-bounce shadow-[0_4px_15px_rgba(16,185,129,0.3)] transition-all">
+                                        <FontAwesomeIcon icon={faLink} /> UNIR
                                     </button>
                                 ) : (
-                                    <div className="ml-4 text-red-500 text-xs font-bold max-w-[100px] text-center leading-tight">Diferença encontrada</div>
+                                    <div className="ml-6 text-orange-600 text-xs font-bold max-w-[120px] text-center leading-tight bg-white p-2 border border-orange-200 rounded-lg shadow-sm">Diferença matemática identificada</div>
                                 )}
-                                <button onClick={() => { setSelectedExtratoId(null); setSelectedSistemaIds(new Set()); }} className="ml-2 text-gray-400 hover:text-gray-600 px-2">
+                                <button onClick={() => { setSelectedExtratoId(null); setSelectedSistemaIds(new Set()); }} className="ml-4 text-gray-400 hover:text-gray-800 bg-white p-2 rounded-full shadow-sm hover:shadow transition-all w-10 h-10 flex items-center justify-center">
                                     <FontAwesomeIcon icon={faTimes} />
                                 </button>
                             </div>
                         ) : (
-                            <div className="text-gray-500 text-sm italic flex items-center gap-2 bg-gray-100 px-4 py-2 rounded-full">
-                                <FontAwesomeIcon icon={faCalculator} /> Selecione itens para conciliar manualmente.
+                            <div className="text-gray-500 text-sm font-semibold flex items-center gap-2 bg-gray-50 border px-6 py-3 rounded-full flex-1 justify-center shadow-inner">
+                                <FontAwesomeIcon icon={faCalculator} className="text-indigo-400" /> Clique nos itens pendentes do OFX Direito e dos Lançamentos Esquerdos para unir o par.
                             </div>
                         )}
 
                         {conciliationState.matches.length > 0 && (
-                            <button onClick={handleConfirmMatches} disabled={isProcessing} className="bg-blue-800 text-white font-bold px-8 py-3 rounded-lg text-lg hover:bg-blue-900 disabled:bg-gray-400 flex items-center gap-3 shadow-lg transform transition hover:-translate-y-1">
-                                <FontAwesomeIcon icon={faCheckCircle} /> Confirmar {conciliationState.matches.length} Conciliações
+                            <button onClick={handleConfirmMatches} disabled={isProcessing} className="bg-gradient-to-r from-indigo-600 to-blue-700 text-white font-extrabold px-8 py-4 rounded-xl text-lg hover:from-indigo-700 hover:to-blue-800 disabled:from-gray-400 disabled:to-gray-500 flex items-center gap-3 shadow-[0_8px_25px_rgba(79,70,229,0.4)] transform transition hover:-translate-y-1 w-full md:w-auto justify-center">
+                                <FontAwesomeIcon icon={isProcessing ? faSpinner : faCheckCircle} spin={isProcessing} className="text-xl" />
+                                {isProcessing ? 'Gravando no BD...' : `CONFIRMAR ${conciliationState.matches.length} CONCILIAÇÕES`}
                             </button>
                         )}
                     </div>
