@@ -49,6 +49,10 @@ O **Studio 57** é o ambiente de desenvolvimento e laboratório central. O **Elo
     - Histórico lateral com valor total de despesas por fatura e destaque visual da Fatura Atual (próximo vencimento).
     - Extrato linha a linha dentro de cada fatura (Data, Descrição, Valor).
     - Resumo com 3 cards separados: **Compras/Despesas** | **Estornos/Pagamentos** | **Saldo a Pagar**.
+- [ ] **Gestão de Ativos e Passivos Patrimoniais (05/03):**
+    - [x] Criado `AtivosManager` com design dedicado da Família A (`DESIGN_SYSTEM.md`).
+    - [x] Criado `AtivoFormModal` para inclusão e edição corrigindo a renderização do valor real.
+    - [ ] Criar a vinculação de Receitas com Ativos (amortização/redução de patrimônio nas vendas parciais ou totais).
 - [ ] Implementar Webhooks para controle de status de assinatura.
 - [ ] Criar Dashboard de Faturamento para o cliente (Portal do Assinante).
 - [ ] Bloqueio de funcionalidades por status de pagamento (Inadimplência).
@@ -116,6 +120,7 @@ O **Studio 57** é o ambiente de desenvolvimento e laboratório central. O **Elo
     - Implementado exibição do total de despesas em vermelho em todas as faturas do histórico lateral, com receitas em verde para facilitar conferência cruzada de faturas.
     - Implementado resumo da fatura em 3 cards: Compras/Despesas, Estornos/Pagamentos e Saldo a Pagar com fórmula visível.
     - Todos os commits feitos e deploy realizado via Netlify.
+- *2026-03-05:* **Módulo de Patrimônio:** Criação da aba dedicada para Ativos e Passivos com painel gerencial (`AtivosManager`), separação do modal de criação `AtivoFormModal` resolvendo os bugs numéricos do IMask. Definida a pendência crítica de concluir a lógica matemática/visual de **vinculação entre Receitas e Ativos** para compor os saldos. Deploy realizado.
 
 ---
 *Assinado: Devonildo (Seu Mentor Técnico)*

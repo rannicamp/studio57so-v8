@@ -56,7 +56,8 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
         conta_origem_id: null,
         conta_destino_id: null,
         pedido_compra_id: null,
-        parcela_grupo: null
+        parcela_grupo: null,
+        lancamento_ativo_id: null
     });
 
     const [formData, setFormData] = useState(getInitialState());
@@ -97,6 +98,22 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
         queryFn: fetchDropdownData,
         enabled: isOpen && !!organizacaoId,
         staleTime: 5 * 60 * 1000,
+    });
+
+    // Ativos disponíveis para vínculo (apenas lançamentos de tipo Ativo)
+    const { data: ativosDisponiveis = [] } = useQuery({
+        queryKey: ['ativos-disponiveis', organizacaoId],
+        queryFn: async () => {
+            const { data } = await supabase
+                .from('lancamentos')
+                .select('id, descricao, valor')
+                .eq('organizacao_id', organizacaoId)
+                .eq('tipo', 'Ativo')
+                .order('descricao');
+            return data || [];
+        },
+        enabled: isOpen && !!organizacaoId,
+        staleTime: 60 * 1000,
     });
 
     // --- Lógica de Data Inteligente (Cartão e Parcelado) ---
@@ -179,6 +196,7 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
                 data_transacao: formData.data_transacao,
                 data_vencimento: formData.data_vencimento,
                 fitid_banco: formData.fitid_banco || null,
+                lancamento_ativo_id: formData.lancamento_ativo_id ? Number(formData.lancamento_ativo_id) : null,
             };
 
             let lancamentosSalvos = [];
@@ -590,6 +608,7 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
                             handleSelectFavorecido={handleSelectFavorecido}
                             favorecidoSearchResults={favorecidoSearchResults}
                             hierarchicalCategorias={hierarchicalCategorias}
+                            ativosDisponiveis={ativosDisponiveis}
                         />
 
                         <FormAnexos

@@ -5,7 +5,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '../../utils/supabase/client';
 import { useAuth } from '../../contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner, faChartLine, faChartBar, faScaleBalanced, faExclamationTriangle, faPlus, faChevronDown, faCheck, faTrash, faEdit } from '@fortawesome/free-solid-svg-icons';
+import { faSpinner, faChartLine, faChartBar, faScaleBalanced, faExclamationTriangle, faPlus, faChevronDown, faChevronUp, faCheck, faTrash, faEdit } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 import AtivoFormModal from './AtivoFormModal';
 
@@ -40,6 +40,7 @@ export default function AtivosManager({ contas }) {
     const [isDropdownContaOpen, setIsDropdownContaOpen] = useState(false);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingLancamento, setEditingLancamento] = useState(null);
+    const [expandedId, setExpandedId] = useState(null);
     const dropdownContaRef = useRef(null);
 
     useEffect(() => {
@@ -58,19 +59,54 @@ export default function AtivosManager({ contas }) {
         queryKey: ['patrimonio', contaSelecionadaId, organizacaoId],
         queryFn: async () => {
             if (!contaSelecionadaId || !organizacaoId) return [];
-            const { data, error } = await supabase
+
+            // 1. Busca os lançamentos Ativo/Passivo da conta
+            const { data: ativos, error } = await supabase
                 .from('lancamentos')
                 .select(`
                     *,
                     categoria:categorias_financeiras(nome),
-                    contrato:contratos(id, codigo_contrato, cliente:contatos!contatos_id_fkey(nome, razao_social))
+                    contrato:contratos(id, numero_contrato)
                 `)
                 .eq('organizacao_id', organizacaoId)
                 .eq('conta_id', contaSelecionadaId)
                 .in('tipo', ['Ativo', 'Passivo'])
                 .order('data_transacao', { ascending: false });
             if (error) throw new Error(error.message);
-            return data || [];
+            if (!ativos?.length) return [];
+
+            // 2. Busca receitas vinculadas a estes ativos
+            const ativosIds = ativos.map(a => a.id);
+            const { data: receitas } = await supabase
+                .from('lancamentos')
+                .select('id, descricao, valor, data_transacao, status, lancamento_ativo_id')
+                .eq('organizacao_id', organizacaoId)
+                .eq('tipo', 'Receita')
+                .in('lancamento_ativo_id', ativosIds);
+
+            // 3. Agrupa receitas por ativo
+            const receitasPorAtivo = {};
+            (receitas || []).forEach(r => {
+                if (!receitasPorAtivo[r.lancamento_ativo_id]) receitasPorAtivo[r.lancamento_ativo_id] = [];
+                receitasPorAtivo[r.lancamento_ativo_id].push(r);
+            });
+
+            // 4. Mescla: adiciona realizado e saldo a cada ativo
+            return ativos.map(a => {
+                const receitasVinculadas = receitasPorAtivo[a.id] || [];
+                const realizado = receitasVinculadas
+                    .filter(r => r.status === 'Pago')
+                    .reduce((s, r) => s + parseFloat(r.valor || 0), 0);
+                const totalReceitas = receitasVinculadas
+                    .reduce((s, r) => s + parseFloat(r.valor || 0), 0);
+                return {
+                    ...a,
+                    receitasVinculadas,
+                    realizado,
+                    totalReceitas,
+                    saldo: parseFloat(a.valor || 0) - totalReceitas,
+                };
+            });
         },
         enabled: !!contaSelecionadaId && !!organizacaoId,
     });
@@ -219,12 +255,14 @@ export default function AtivosManager({ contas }) {
                     <table className="min-w-full divide-y divide-gray-100 text-sm">
                         <thead className="bg-gray-50">
                             <tr>
+                                <th className="px-4 py-3 text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider w-8"></th>
                                 <th className="px-4 py-3 text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider">Data</th>
                                 <th className="px-4 py-3 text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider">Descrição</th>
                                 <th className="px-4 py-3 text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider">Tipo</th>
-                                <th className="px-4 py-3 text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider">Categoria</th>
                                 <th className="px-4 py-3 text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider">Contrato</th>
-                                <th className="px-4 py-3 text-right text-[11px] font-bold text-gray-500 uppercase tracking-wider">Valor</th>
+                                <th className="px-4 py-3 text-right text-[11px] font-bold text-gray-500 uppercase tracking-wider">Valor Original</th>
+                                <th className="px-4 py-3 text-right text-[11px] font-bold text-gray-500 uppercase tracking-wider">Realizado</th>
+                                <th className="px-4 py-3 text-right text-[11px] font-bold text-gray-500 uppercase tracking-wider">Saldo</th>
                                 <th className="px-4 py-3 text-center text-[11px] font-bold text-gray-500 uppercase tracking-wider w-24">Ações</th>
                             </tr>
                         </thead>
@@ -248,43 +286,94 @@ export default function AtivosManager({ contas }) {
                                     </div>
                                 </td></tr>
                             ) : lancamentos.map(l => {
-                                const contratoLabel = l.contrato?.codigo_contrato || (l.contrato_id ? `#${l.contrato_id}` : null);
+                                const contratoLabel = l.contrato?.numero_contrato ? `Nº ${l.contrato.numero_contrato}` : (l.contrato_id ? `#${l.contrato_id}` : null);
+                                const isExpanded = expandedId === l.id;
+                                const temReceitas = l.receitasVinculadas?.length > 0;
+                                const saldo = l.saldo ?? parseFloat(l.valor || 0);
                                 return (
-                                    <tr key={l.id} className="hover:bg-blue-50/20 transition-colors group">
-                                        <td className="px-4 py-3 text-gray-500 font-medium whitespace-nowrap">{formatDate(l.data_transacao)}</td>
-                                        <td className="px-4 py-3 font-semibold text-gray-700">{l.descricao}</td>
-                                        <td className="px-4 py-3">
-                                            <span className={`px-2.5 py-1 text-[10px] font-bold rounded-full border ${l.tipo === 'Ativo'
+                                    <>
+                                        <tr key={l.id} className="hover:bg-blue-50/20 transition-colors group">
+                                            {/* Expandir */}
+                                            <td className="px-2 py-3 text-center">
+                                                {temReceitas ? (
+                                                    <button onClick={() => setExpandedId(isExpanded ? null : l.id)}
+                                                        className="text-gray-400 hover:text-blue-600 p-1 transition-colors">
+                                                        <FontAwesomeIcon icon={isExpanded ? faChevronUp : faChevronDown} className="text-xs" />
+                                                    </button>
+                                                ) : <span className="text-gray-200 text-xs">—</span>}
+                                            </td>
+                                            <td className="px-4 py-3 text-gray-500 font-medium whitespace-nowrap">{formatDate(l.data_transacao)}</td>
+                                            <td className="px-4 py-3 font-semibold text-gray-700">{l.descricao}</td>
+                                            <td className="px-4 py-3">
+                                                <span className={`px-2.5 py-1 text-[10px] font-bold rounded-full border ${l.tipo === 'Ativo'
                                                     ? 'bg-green-50 text-green-700 border-green-200'
                                                     : 'bg-red-50 text-red-700 border-red-200'
-                                                }`}>
-                                                {l.tipo}
-                                            </span>
-                                        </td>
-                                        <td className="px-4 py-3 text-gray-500 font-medium">{l.categoria?.nome || '—'}</td>
-                                        <td className="px-4 py-3">
-                                            {contratoLabel ? (
-                                                <span className="px-2.5 py-1 text-[10px] font-bold rounded-full bg-blue-50 text-blue-700 border border-blue-200">
-                                                    {contratoLabel}
+                                                    }`}>
+                                                    {l.tipo}
                                                 </span>
-                                            ) : <span className="text-gray-400">—</span>}
-                                        </td>
-                                        <td className="px-4 py-3 text-right font-bold text-gray-800 whitespace-nowrap">{formatCurrency(l.valor)}</td>
-                                        <td className="px-4 py-3 text-center" onClick={e => e.stopPropagation()}>
-                                            <div className="flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <button onClick={() => handleEdit(l)} title="Editar"
-                                                    className="text-blue-500 hover:text-blue-700 p-2 transition-colors">
-                                                    <FontAwesomeIcon icon={faEdit} />
-                                                </button>
-                                                <button onClick={() => handleDelete(l.id)} title="Excluir"
-                                                    className="text-red-500 hover:text-red-700 p-2 transition-colors">
-                                                    <FontAwesomeIcon icon={faTrash} />
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
+                                            </td>
+                                            <td className="px-4 py-3">
+                                                {contratoLabel ? (
+                                                    <span className="px-2.5 py-1 text-[10px] font-bold rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                                                        {contratoLabel}
+                                                    </span>
+                                                ) : <span className="text-gray-400">—</span>}
+                                            </td>
+                                            <td className="px-4 py-3 text-right font-bold text-gray-800 whitespace-nowrap">{formatCurrency(l.valor)}</td>
+                                            <td className="px-4 py-3 text-right whitespace-nowrap">
+                                                {l.realizado > 0 ? (
+                                                    <span className="font-bold text-green-700">{formatCurrency(l.realizado)}</span>
+                                                ) : <span className="text-gray-400">—</span>}
+                                            </td>
+                                            <td className="px-4 py-3 text-right whitespace-nowrap">
+                                                <span className={`font-bold ${saldo <= 0 ? 'text-gray-400' : saldo < parseFloat(l.valor || 0) ? 'text-amber-700' : 'text-gray-800'}`}>
+                                                    {formatCurrency(saldo)}
+                                                </span>
+                                            </td>
+                                            <td className="px-4 py-3 text-center" onClick={e => e.stopPropagation()}>
+                                                <div className="flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <button onClick={() => handleEdit(l)} title="Editar"
+                                                        className="text-blue-500 hover:text-blue-700 p-2 transition-colors">
+                                                        <FontAwesomeIcon icon={faEdit} />
+                                                    </button>
+                                                    <button onClick={() => handleDelete(l.id)} title="Excluir"
+                                                        className="text-red-500 hover:text-red-700 p-2 transition-colors">
+                                                        <FontAwesomeIcon icon={faTrash} />
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                        {/* Linha expandida: receitas vinculadas */}
+                                        {isExpanded && temReceitas && (
+                                            <tr key={`${l.id}-receitas`}>
+                                                <td colSpan="9" className="px-0 py-0 bg-green-50/50 border-b border-green-100">
+                                                    <div className="px-8 py-2">
+                                                        <p className="text-[10px] font-bold text-green-700 uppercase tracking-wider mb-1">Receitas vinculadas (saídas do patrimônio)</p>
+                                                        <table className="w-full text-xs">
+                                                            <tbody>
+                                                                {l.receitasVinculadas.map(r => (
+                                                                    <tr key={r.id} className="border-b border-green-100 last:border-0">
+                                                                        <td className="py-1.5 text-gray-500 whitespace-nowrap w-28">{formatDate(r.data_transacao)}</td>
+                                                                        <td className="py-1.5 text-gray-700 font-medium">{r.descricao}</td>
+                                                                        <td className="py-1.5 text-center">
+                                                                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${r.status === 'Pago'
+                                                                                ? 'bg-green-100 text-green-700'
+                                                                                : 'bg-amber-100 text-amber-700'
+                                                                                }`}>{r.status}</span>
+                                                                        </td>
+                                                                        <td className="py-1.5 text-right font-bold text-green-700 whitespace-nowrap">{formatCurrency(r.valor)}</td>
+                                                                    </tr>
+                                                                ))}
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </>
                                 );
                             })}
+
                         </tbody>
                         {lancamentos.length > 0 && (
                             <tfoot className="bg-gray-50 border-t-2 border-gray-200">

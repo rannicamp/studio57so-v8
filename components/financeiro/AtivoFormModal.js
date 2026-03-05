@@ -34,7 +34,7 @@ export default function AtivoFormModal({ isOpen, onClose, onSuccess, contasPatri
                 setFormData({
                     tipo: initialData.tipo || 'Ativo',
                     descricao: initialData.descricao || '',
-                    valor: initialData.valor ? String(initialData.valor).replace('.', ',') : '',
+                    valor: initialData.valor ? String(initialData.valor) : '',
                     data_transacao: initialData.data_transacao || new Date().toISOString().split('T')[0],
                     conta_id: initialData.conta_id || '',
                     categoria_id: initialData.categoria_id || null,
@@ -63,7 +63,7 @@ export default function AtivoFormModal({ isOpen, onClose, onSuccess, contasPatri
     const mutation = useMutation({
         mutationFn: async (data) => {
             if (!organizacaoId) throw new Error('Organização não encontrada');
-            const valorNumerico = parseFloat(String(data.valor || '0').replace(/\./g, '').replace(',', '.')) || 0;
+            const valorNumerico = parseFloat(String(data.valor || '0').replace(',', '.')) || 0;
 
             const payload = {
                 tipo: data.tipo,
@@ -145,16 +145,16 @@ export default function AtivoFormModal({ isOpen, onClose, onSuccess, contasPatri
                                     <button type="button"
                                         onClick={() => setFormData(prev => ({ ...prev, tipo: 'Ativo', conta_id: '' }))}
                                         className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-md font-bold border-2 text-sm transition-all ${formData.tipo === 'Ativo'
-                                                ? 'bg-green-600 text-white border-green-600'
-                                                : 'bg-white text-gray-500 border-gray-200 hover:border-green-300'
+                                            ? 'bg-green-600 text-white border-green-600'
+                                            : 'bg-white text-gray-500 border-gray-200 hover:border-green-300'
                                             }`}>
                                         <FontAwesomeIcon icon={faChartLine} /> Ativo (Bem/Direito)
                                     </button>
                                     <button type="button"
                                         onClick={() => setFormData(prev => ({ ...prev, tipo: 'Passivo', conta_id: '' }))}
                                         className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-md font-bold border-2 text-sm transition-all ${formData.tipo === 'Passivo'
-                                                ? 'bg-red-600 text-white border-red-600'
-                                                : 'bg-white text-gray-500 border-gray-200 hover:border-red-300'
+                                            ? 'bg-red-600 text-white border-red-600'
+                                            : 'bg-white text-gray-500 border-gray-200 hover:border-red-300'
                                             }`}>
                                         <FontAwesomeIcon icon={faChartBar} /> Passivo (Dívida)
                                     </button>
@@ -193,7 +193,8 @@ export default function AtivoFormModal({ isOpen, onClose, onSuccess, contasPatri
                                 <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5">Valor *</label>
                                 <IMaskInput
                                     mask="R$ num"
-                                    blocks={{ num: { mask: Number, thousandsSeparator: '.', scale: 2, padFractionalZeros: true, radix: ',', signed: false } }}
+                                    blocks={{ num: { mask: Number, thousandsSeparator: '.', scale: 2, padFractionalZeros: true, radix: ',', mapToRadix: ['.'] } }}
+                                    unmask={true}
                                     value={String(formData.valor || '')}
                                     onAccept={(value) => setFormData(prev => ({ ...prev, valor: value }))}
                                     required

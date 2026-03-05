@@ -1,6 +1,8 @@
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTimes } from '@fortawesome/free-solid-svg-icons';
 
+const formatCurrency = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
+
 const HighlightedText = ({ text = '', highlight = '' }) => {
     if (!highlight.trim()) return <span>{text}</span>;
     const regex = new RegExp(`(${highlight.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
@@ -29,7 +31,8 @@ const CategoryOption = ({ category, level = 0 }) => (
 export default function FormCategorizacao({
     formData, handleChange, dropdownData, empresas,
     favorecidoSearchTerm, handleFavorecidoSearch, handleClearFavorecido,
-    handleSelectFavorecido, favorecidoSearchResults, hierarchicalCategorias
+    handleSelectFavorecido, favorecidoSearchResults, hierarchicalCategorias,
+    ativosDisponiveis = []
 }) {
     return (
         <div className="space-y-4 pt-4 border-t mt-4">
@@ -126,6 +129,31 @@ export default function FormCategorizacao({
                             {dropdownData?.etapas.map(e => <option key={e.id} value={e.id}>{e.nome_etapa}</option>)}
                         </select>
                     </div>
+                </div>
+            )}
+
+            {/* Vincular a Ativo Patrimonial — aparece só para Receitas */}
+            {formData.tipo === 'Receita' && ativosDisponiveis.length > 0 && (
+                <div className="p-3 border border-green-200 rounded-lg bg-green-50">
+                    <label className="block text-[11px] font-bold text-green-700 uppercase tracking-wider mb-1.5">
+                        📈 Vincular a Ativo Patrimonial (opcional)
+                    </label>
+                    <p className="text-xs text-green-600 mb-2">
+                        Esta receita é proveniente da venda de um ativo? Vincule aqui e o valor será descontado do patrimônio automaticamente.
+                    </p>
+                    <select
+                        name="lancamento_ativo_id"
+                        value={formData.lancamento_ativo_id || ''}
+                        onChange={handleChange}
+                        className="w-full p-2 bg-white border border-green-300 rounded-md text-sm font-medium text-gray-700 focus:outline-none focus:ring-1 focus:ring-green-500 transition-colors"
+                    >
+                        <option value="">— Não vincular —</option>
+                        {ativosDisponiveis.map(a => (
+                            <option key={a.id} value={a.id}>
+                                {a.descricao} ({formatCurrency(a.valor)})
+                            </option>
+                        ))}
+                    </select>
                 </div>
             )}
 
