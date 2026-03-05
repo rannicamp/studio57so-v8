@@ -10,7 +10,7 @@ import {
     faSpinner, faCheckCircle, faMagic, faPlus,
     faEraser, faCalendarDay, faCalendarWeek, faCalendarAlt,
     faUndo, faEye, faEyeSlash, faTrash, faCalculator, faTimes,
-    faCreditCard, faCalendarCheck, faLink, faPenToSquare, faFileInvoice
+    faCreditCard, faCalendarCheck, faLink, faPenToSquare, faFileInvoice, faCheck
 } from '@fortawesome/free-solid-svg-icons';
 import LancamentoFormModal from './LancamentoFormModal';
 import { useDebouncedCallback } from 'use-debounce';
@@ -111,8 +111,46 @@ export default function ConciliacaoManager({ contas }) {
 
     const queryClient = useQueryClient();
 
+    const contasAgrupadas = useMemo(() => {
+        if (!contas) return [];
+        const contasFiltradas = contas.filter(c => c.tipo !== 'Cartão de Crédito');
+
+        // Agrupa por Empresa -> Tipo
+        const empresas = {};
+        contasFiltradas.forEach(c => {
+            const empresaNome = c.empresa?.nome_fantasia || c.empresa?.razao_social || 'Contas Base (Sem Empresa Vínculada)';
+            const tipoNome = c.tipo || 'Outros';
+
+            if (!empresas[empresaNome]) empresas[empresaNome] = {};
+            if (!empresas[empresaNome][tipoNome]) empresas[empresaNome][tipoNome] = [];
+
+            empresas[empresaNome][tipoNome].push(c);
+        });
+
+        // Transforma o dicionário em array pronto para o render
+        return Object.entries(empresas).map(([empresa, tipos]) => ({
+            empresa,
+            tipos: Object.entries(tipos).map(([tipo, listaContas]) => ({
+                tipo,
+                contas: listaContas.sort((a, b) => a.nome.localeCompare(b.nome))
+            })).sort((a, b) => a.tipo.localeCompare(b.tipo))
+        })).sort((a, b) => a.empresa.localeCompare(b.empresa));
+    }, [contas]);
+
     // Estado da Conta Selecionada
     const [selectedContaId, setSelectedContaId] = useState(() => (typeof window !== 'undefined' ? sessionStorage.getItem('lastSelectedConciliationAccountId') || '' : ''));
+    const [isDropdownContaOpen, setIsDropdownContaOpen] = useState(false);
+    const dropdownContaRef = useRef(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (dropdownContaRef.current && !dropdownContaRef.current.contains(event.target)) {
+                setIsDropdownContaOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
 
     const selectedConta = useMemo(() => contas.find(c => c.id == selectedContaId), [contas, selectedContaId]);
     const isCartaoCredito = selectedConta?.tipo === 'Cartão de Crédito';
@@ -731,10 +769,64 @@ export default function ConciliacaoManager({ contas }) {
                     {/* Coluna 1: Conta */}
                     <div>
                         <label className="block text-sm font-bold text-gray-700 uppercase tracking-wider mb-2">1. Selecione a Conta Auditada</label>
-                        <select value={selectedContaId} onChange={(e) => { setSelectedContaId(e.target.value); setSelectedArquivoOfxId(''); }} className="w-full p-3 border-2 border-gray-100 rounded-lg focus:border-indigo-500 focus:ring-0 transition-colors font-semibold text-gray-700">
-                            <option value="">-- Escolha uma conta --</option>
-                            {contas.map(c => <option key={c.id} value={c.id}>{c.nome} ({c.tipo})</option>)}
-                        </select>
+                        <div className="relative w-full" ref={dropdownContaRef}>
+                            <button
+                                onClick={() => setIsDropdownContaOpen(!isDropdownContaOpen)}
+                                className="w-full text-left bg-white border-2 border-gray-200 hover:border-indigo-300 rounded-xl p-3 flex items-center justify-between transition-all shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            >
+                                {selectedConta ? (
+                                    <div className="flex flex-col">
+                                        <span className="font-bold text-sm text-gray-800">{selectedConta.nome}</span>
+                                        <span className="text-[10px] text-gray-500 font-semibold uppercase mt-0.5">
+                                            {selectedConta.empresa?.nome_fantasia || selectedConta.empresa?.razao_social || 'Contas Base (Sem Empresa Vínculada)'} • {selectedConta.tipo || 'Outros'}
+                                        </span>
+                                    </div>
+                                ) : (
+                                    <span className="text-gray-500 text-sm font-semibold">-- Selecione uma conta --</span>
+                                )}
+                                <FontAwesomeIcon icon={faChevronDown} className={`text-gray-400 text-sm transition-transform duration-200 ${isDropdownContaOpen ? 'rotate-180' : ''}`} />
+                            </button>
+
+                            {isDropdownContaOpen && (
+                                <div className="absolute z-50 w-full mt-2 bg-white border border-gray-200 rounded-xl shadow-2xl max-h-[400px] overflow-y-auto custom-scrollbar p-1 origin-top animate-fadeIn">
+                                    {contasAgrupadas.map(gEmpresa => (
+                                        <div key={gEmpresa.empresa} className="p-2">
+                                            <h3 className="text-[10px] font-black text-indigo-400 uppercase tracking-widest border-b border-gray-100 pb-1 mb-2 pl-1">{gEmpresa.empresa}</h3>
+
+                                            <div className="space-y-3">
+                                                {gEmpresa.tipos.map(gTipo => (
+                                                    <div key={gTipo.tipo} className="space-y-1">
+                                                        <h4 className="text-xs font-bold text-gray-400 flex items-center gap-1.5 pl-2 mb-1">
+                                                            <span className="w-1 h-1 rounded-full bg-indigo-300"></span>
+                                                            {gTipo.tipo}
+                                                        </h4>
+
+                                                        <div className="flex flex-col gap-1 w-full">
+                                                            {gTipo.contas.map(c => {
+                                                                const isSelected = selectedContaId === c.id;
+                                                                return (
+                                                                    <button
+                                                                        key={c.id}
+                                                                        onClick={() => { setSelectedContaId(c.id); setSelectedArquivoOfxId(''); setIsDropdownContaOpen(false); }}
+                                                                        className={`text-left flex items-start justify-between p-2.5 rounded-lg border transition-all duration-200 ${isSelected ? 'bg-indigo-50/80 border-indigo-200 shadow-sm' : 'border-transparent bg-transparent hover:bg-gray-50'}`}
+                                                                    >
+                                                                        <div className="flex flex-col flex-1 pr-2">
+                                                                            <span className={`font-bold text-[13px] leading-tight ${isSelected ? 'text-indigo-900' : 'text-gray-700'}`}>{c.nome}</span>
+                                                                            {c.descricao && <span className="text-[9px] text-gray-400 mt-0.5 line-clamp-1">{c.descricao}</span>}
+                                                                        </div>
+                                                                        {isSelected && <FontAwesomeIcon icon={faCheck} className="text-indigo-500 text-[10px] mt-0.5" />}
+                                                                    </button>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
                         {isCartaoCredito && <p className="text-xs text-orange-600 mt-2 flex items-center gap-1 font-semibold"><FontAwesomeIcon icon={faCreditCard} /> Modo Cartão: Usando Data da Transação para cruzamento</p>}
                     </div>
 
