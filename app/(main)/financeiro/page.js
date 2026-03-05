@@ -325,7 +325,7 @@ export default function FinanceiroPage() {
                     </>
                 )}
                 {activeTab === 'contas' && <ContasManager initialContas={contas} onUpdate={handleSuccessForm} empresas={empresas} onVerExtrato={handleIrParaExtrato} />}
-                {activeTab === 'ativos' && <AtivosManager />}
+                {activeTab === 'ativos' && <AtivosManager contas={contas} />}
             </div>
         </div>
     );

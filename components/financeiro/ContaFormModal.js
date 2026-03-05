@@ -111,15 +111,16 @@ export default function ContaFormModal({ isOpen, onClose, onSave, initialData, e
                                     <option value="Cartão de Crédito">Cartão de Crédito</option>
                                     <option value="Conta Investimento">Conta Investimento</option>
                                     <option value="Dinheiro">Dinheiro Físico</option>
-                                    {/* NOSSAS NOVAS OPÇÕES DE ERP */}
-                                    <option value="Passivos">Passivos (Empréstimos/Dívidas)</option>
-                                    <option value="Ativos">Ativos (Bens/Imóveis/Lotes)</option>
+                                    <optgroup label="── Patrimonial ──">
+                                        <option value="Conta de Ativo">🏛️ Conta de Ativo (Bens/Imóveis/Equipamentos)</option>
+                                        <option value="Conta de Passivo">📉 Conta de Passivo (Empréstimos/Dívidas)</option>
+                                    </optgroup>
                                 </select>
                             </div>
                             <div>
                                 {/* Mudança dinâmica do label baseada no tipo de conta */}
                                 <label className="block text-sm font-medium">
-                                    {formData.tipo === 'Passivos' ? 'Saldo Devedor Atual *' : formData.tipo === 'Ativos' ? 'Valor do Bem *' : 'Saldo Inicial / Fatura Aberta *'}
+                                    {formData.tipo === 'Conta de Passivo' ? 'Saldo Devedor Atual *' : formData.tipo === 'Conta de Ativo' ? 'Valor do Bem *' : 'Saldo Inicial / Fatura Aberta *'}
                                 </label>
                                 <IMaskInput
                                     mask="R$ num"

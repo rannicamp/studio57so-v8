@@ -129,6 +129,20 @@ CREATE TABLE public.automacoes (
     updated_at timestamp with time zone DEFAULT now()
 );
 
+CREATE TABLE public.banco_arquivos_ofx (
+    id uuid NOT NULL DEFAULT uuid_generate_v4(),
+    organizacao_id bigint,
+    conta_id bigint,
+    arquivo_url text,
+    nome_arquivo text,
+    data_envio timestamp with time zone DEFAULT now(),
+    enviado_por text,
+    periodo_inicio date,
+    periodo_fim date,
+    status text DEFAULT 'Processado'::text,
+    created_at timestamp with time zone DEFAULT now()
+);
+
 CREATE TABLE public.banco_de_horas (
     id bigint NOT NULL,
     funcionario_id bigint NOT NULL,
@@ -138,6 +152,20 @@ CREATE TABLE public.banco_de_horas (
     lancamento_id bigint,
     criado_em timestamp with time zone DEFAULT now(),
     organizacao_id bigint NOT NULL
+);
+
+CREATE TABLE public.banco_transacoes_ofx (
+    fitid text NOT NULL,
+    arquivo_id uuid,
+    organizacao_id bigint,
+    conta_id bigint,
+    data_transacao date NOT NULL,
+    valor numeric NOT NULL,
+    tipo text NOT NULL,
+    descricao_banco text,
+    memo_banco text,
+    lancamento_id_vinculado bigint,
+    created_at timestamp with time zone DEFAULT now()
 );
 
 CREATE TABLE public.bim_notas (
@@ -358,7 +386,9 @@ CREATE TABLE public.contas_financeiras (
     pluggy_item_id text,
     pluggy_account_id text,
     belvo_link_id text,
-    belvo_account_id text
+    belvo_account_id text,
+    codigo_banco_ofx text,
+    numero_conta_ofx text
 );
 
 CREATE TABLE public.contatos (
@@ -837,6 +867,18 @@ CREATE TABLE public.etapa_obra (
     organizacao_id bigint NOT NULL
 );
 
+CREATE TABLE public.faturas_cartao (
+    id bigint NOT NULL,
+    conta_id bigint NOT NULL,
+    mes_referencia text NOT NULL,
+    data_vencimento date NOT NULL,
+    status text NOT NULL DEFAULT 'Aberta'::text,
+    organizacao_id bigint NOT NULL,
+    created_at timestamp with time zone DEFAULT timezone('utc'::text, now()),
+    updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()),
+    data_fechamento date
+);
+
 CREATE TABLE public.feedback (
     id bigint NOT NULL,
     created_at timestamp with time zone DEFAULT now(),
@@ -1054,7 +1096,11 @@ CREATE TABLE public.lancamentos (
     recorrencia_data_fim date,
     pluggy_transaction_id text,
     status_auditoria_ia text DEFAULT 'Nao Auditado'::text,
-    antecipacao_grupo_id uuid
+    antecipacao_grupo_id uuid,
+    fatura_id bigint,
+    fitid_banco text,
+    origem_criacao text DEFAULT 'Manual'::text,
+    contrato_id bigint
 );
 
 CREATE TABLE public.lancamentos_anexos (

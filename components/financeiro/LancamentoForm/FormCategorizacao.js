@@ -75,7 +75,9 @@ export default function FormCategorizacao({
                         <label className="block text-sm font-medium">Conta*</label>
                         <select name="conta_id" value={formData.conta_id || ''} onChange={handleChange} required className="mt-1 w-full p-2 border rounded-md">
                             <option value="">Selecione...</option>
-                            {dropdownData?.contas.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+                            {dropdownData?.contas
+                                .filter(c => c.tipo !== 'Conta de Ativo' && c.tipo !== 'Conta de Passivo')
+                                .map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
                         </select>
                     </div>
                     <div>
