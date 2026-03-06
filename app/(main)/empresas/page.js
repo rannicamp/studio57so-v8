@@ -1,11 +1,13 @@
 // app/(main)/empresas/page.js
 import { createClient } from '../../../utils/supabase/server';
-import Link from 'next/link';
-import EmpresaList from '../../../components/empresas/EmpresaList';
 import { redirect } from 'next/navigation';
+import EmpresaManager from '../../../components/empresas/EmpresaManager';
+
+export const metadata = {
+    title: 'Elo 57 | Gestão de Empresas',
+};
 
 export default async function GerenciamentoEmpresasPage() {
-    // CORREÇÃO CRUCIAL: Adicionado 'await' aqui para Next.js 15
     const supabase = await createClient();
 
     const { data: { user } } = await supabase.auth.getUser();
@@ -28,9 +30,10 @@ export default async function GerenciamentoEmpresasPage() {
     }
 
     if (!organizacaoId) {
-        return <p className="p-4 text-red-500">Erro: Organização do usuário não encontrada.</p>;
+        return <p className="p-4 text-red-500 text-center font-bold">Erro: Organização do usuário não encontrada.</p>;
     }
 
+    // Busca todas as empresas já na renderização do servidor para entregar hidratado ao Client Component
     const { data: companies, error } = await supabase
         .from('cadastro_empresa')
         .select('*')
@@ -39,23 +42,12 @@ export default async function GerenciamentoEmpresasPage() {
 
     if (error) {
         console.error('Erro ao buscar empresas:', error.message);
-        return <p className="p-4 text-red-500">Não foi possível carregar as empresas.</p>;
+        return <p className="p-4 text-red-500 text-center">Não foi possível carregar o diretório de empresas no momento.</p>;
     }
 
-    const canDelete = (userRole === 'Proprietário');
-
     return (
-        <div className="p-4 md:p-6 lg:p-8 space-y-6">
-            <div className="flex justify-between items-center">
-                <h1 className="text-3xl font-bold text-gray-900">Gerenciamento de Empresas</h1>
-                <Link href="/empresas/cadastro" className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold px-4 py-2 rounded-md shadow-sm flex items-center gap-2 transition-colors">
-                    + Nova Empresa
-                </Link>
-            </div>
-
-            <div className="bg-white rounded-lg shadow">
-                <EmpresaList initialEmpresas={companies || []} isAdmin={canDelete} />
-            </div>
+        <div className="p-4 md:p-6 lg:p-8">
+            <EmpresaManager initialEmpresas={companies || []} />
         </div>
     );
 }
