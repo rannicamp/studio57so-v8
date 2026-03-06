@@ -80,17 +80,16 @@ O **Studio 57** é o ambiente de desenvolvimento e laboratório central. O **Elo
     8. **CRM - Studio 57 - 2** (23905100505840850)
     9. **Studio 57 gestor** (701113019490938)
 
-### 8. Padronização do Sistema de Upload (MELHORIA TÉCNICA)
-- [ ] **Auditoria:** Mapear todos os pontos do sistema que fazem upload de arquivos.
-- [ ] **Protocolo Único:** Garantir que 100% dos uploads usam **Uppy v5.2.1** + **GoldenRetriever** (anti-crash).
-- [ ] **Regras do Protocolo Anti-Crash (obrigatórias em todo upload):**
-    - CSS via `<link>` CDN no JSX (NUNCA importar via JS).
-    - Usar `@uppy/core`, `@uppy/dashboard`, `@uppy/xhr-upload` e `@uppy/golden-retriever`.
-    - NUNCA usar componentes visuais do `@uppy/react`.
-    - Upload direto para o Supabase Storage via XHR.
-- [ ] **Componente Global:** Criar `components/ui/UppyUploader.js` — componente reutilizável único.
-- [ ] **Refatorar:** Substituir todos os `<input type="file">` avulsos pelo componente global.
-- [ ] **Teste de Crash:** Validar que o GoldenRetriever recupera uploads interrompidos.
+### 8. Padronização Global do Sistema de Arquivos (Upload & UI)
+- [ ] **Auditoria de Componentes:** Substituir todos os inputs e cards de anexo por componentes oficiais padronizados.
+- [ ] **Resolução de Bugs Críticos:** Remover a dependência de "thumbnail_urls" que geram previews infinitos na Galeria de Marketing. Fallbacks universais devem ser usados para cada tipo de arquivo.
+- [ ] **Componentes de View (Visuais):**
+    - `FileListView.js`: Visualização em listagem enxuta (ideal para contratos, peps, recibos).
+    - `FileGridView.js`: Visualização em grade rica (ideal para fotos da obra, mídias sociais).
+- [ ] **Protocolo Único de Upload (Uppy Vanilla V5):**
+    - Criação de `<UppyUploaderGlobal />` atrelado a CDN CSS via JSX (Anti-Crash).
+    - Suporte a `@uppy/golden-retriever` para retomada de uploads massivos.
+    - Zero uso das dependências `@uppy/react`. Todo o motor do React roda sobre hooks que invocam instâncias isoladas do Uppy Vanilla.
 
 ### 9. CRM Multi-Funis e Roteamento de Leads (CONCLUÍDO)
 - [x] Lógica de Funil de Vendas com suporte a regras de múltiplos funis.

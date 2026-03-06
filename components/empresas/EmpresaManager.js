@@ -10,6 +10,7 @@ import {
     faFileContract, faMapMarkerAlt, faPhone, faEnvelope, faHashtag
 } from '@fortawesome/free-solid-svg-icons';
 import EmpresaFormModal from './EmpresaFormModal';
+import EmpresaAnexosTab from './EmpresaAnexosTab';
 import { toast } from 'sonner';
 
 export default function EmpresaManager({ initialEmpresas }) {
@@ -22,6 +23,14 @@ export default function EmpresaManager({ initialEmpresas }) {
     const [searchTerm, setSearchTerm] = useState('');
     const [isFormModalOpen, setIsFormModalOpen] = useState(false);
     const [empresaToEdit, setEmpresaToEdit] = useState(null);
+    const [activeTab, setActiveTab] = useState('ficha');
+
+    const tabs = [
+        { id: 'ficha', label: 'Ficha da Empresa' },
+        { id: 'contabil', label: 'Documentos Contábeis' },
+        { id: 'juridico', label: 'Documentos Jurídicos' },
+        { id: 'marketing', label: 'Marketing' },
+    ];
 
     // Permissões
     const isAdmin = ['Proprietário', 'Administrador'].includes(user?.userData?.funcao?.nome_funcao);
@@ -223,136 +232,168 @@ export default function EmpresaManager({ initialEmpresas }) {
                             )}
                         </div>
 
-                        {/* Grid de Informações */}
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-                            {/* COLUNA 1: Dados Legais e Societários (Larger) */}
-                            <div className="lg:col-span-2 space-y-6">
-                                {/* CARD: Documentação Básica */}
-                                <div className="bg-white border text-gray-700 border-gray-100 rounded-2xl p-6 shadow-sm ring-1 ring-gray-900/5 hover:shadow-md transition-shadow">
-                                    <h3 className="text-sm font-bold uppercase tracking-wider text-gray-400 mb-5 flex items-center gap-2">
-                                        <FontAwesomeIcon icon={faFileContract} /> Identificação Oficial
-                                    </h3>
-                                    <div className="grid grid-cols-2 gap-y-6 gap-x-4">
-                                        <div>
-                                            <p className="text-xs font-semibold text-gray-500 mb-1">CNPJ</p>
-                                            <p className="font-medium text-gray-900 text-base">{selectedEmpresa.cnpj || '—'}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-xs font-semibold text-gray-500 mb-1">NATUREZA JURÍDICA</p>
-                                            <p className="font-medium text-gray-900 text-base">{selectedEmpresa.natureza_juridica || '—'}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-xs font-semibold text-gray-500 mb-1">INSCRIÇÃO ESTADUAL</p>
-                                            <p className="text-sm text-gray-800">{selectedEmpresa.inscricao_estadual || '—'}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-xs font-semibold text-gray-500 mb-1">INSCRIÇÃO MUNICIPAL</p>
-                                            <p className="text-sm text-gray-800">{selectedEmpresa.inscricao_municipal || '—'}</p>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* CARD: Societário e Capital */}
-                                <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm ring-1 ring-gray-900/5 hover:shadow-md transition-shadow">
-                                    <h3 className="text-sm font-bold uppercase tracking-wider text-gray-400 mb-5 flex items-center gap-2">
-                                        <FontAwesomeIcon icon={faBuilding} /> Quadro e Objeto Social
-                                    </h3>
-                                    <div className="space-y-5">
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div>
-                                                <p className="text-xs font-semibold text-gray-500 mb-1">REPRESENTANTE LEGAL</p>
-                                                <p className="font-medium text-gray-900">{selectedEmpresa.responsavel_legal || '—'}</p>
-                                            </div>
-                                            <div>
-                                                <p className="text-xs font-semibold text-gray-500 mb-1">CAPITAL SOCIAL</p>
-                                                <p className="font-medium text-green-700 bg-green-50 inline-block px-2 py-0.5 rounded uppercase">{formatCurrency(selectedEmpresa.capital_social)}</p>
-                                            </div>
-                                        </div>
-                                        <div className="pt-4 border-t border-gray-50">
-                                            <p className="text-xs font-semibold text-gray-500 mb-2">OBJETO SOCIAL (ATIVIDADES)</p>
-                                            <p className="text-sm text-gray-700 leading-relaxed bg-gray-50 p-4 rounded-xl border border-gray-100">
-                                                {selectedEmpresa.objeto_social || <span className="text-gray-400 italic">Não detalhado no cadastro.</span>}
-                                            </p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* COLUNA 2: Contatos, Endereço e Integrações (Smaller Sidebar) */}
-                            <div className="space-y-6">
-
-                                {/* CARD: Contatos */}
-                                <div className="bg-blue-50/50 border border-blue-100 rounded-2xl p-6 shadow-sm">
-                                    <h3 className="text-sm font-bold uppercase tracking-wider text-blue-800/60 mb-5 flex items-center gap-2">
-                                        <FontAwesomeIcon icon={faEnvelope} /> Contato
-                                    </h3>
-                                    <div className="space-y-4">
-                                        <div className="flex items-start gap-3">
-                                            <div className="mt-0.5 text-blue-400 shrink-0"><FontAwesomeIcon icon={faPhone} /></div>
-                                            <div>
-                                                <p className="text-xs font-semibold text-gray-500 mb-0.5">TELEFONE</p>
-                                                <p className="font-medium text-gray-900">{selectedEmpresa.telefone || '—'}</p>
-                                            </div>
-                                        </div>
-                                        <div className="flex items-start gap-3">
-                                            <div className="mt-0.5 text-blue-400 shrink-0"><FontAwesomeIcon icon={faEnvelope} /></div>
-                                            <div className="break-all">
-                                                <p className="text-xs font-semibold text-gray-500 mb-0.5">E-MAIL INSTITUCIONAL</p>
-                                                {selectedEmpresa.email ? (
-                                                    <a href={`mailto:${selectedEmpresa.email}`} className="font-medium text-blue-600 hover:underline">{selectedEmpresa.email}</a>
-                                                ) : <p className="text-gray-900">—</p>}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* CARD: Endereço */}
-                                <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm ring-1 ring-gray-900/5">
-                                    <h3 className="text-sm font-bold uppercase tracking-wider text-gray-400 mb-4 flex items-center gap-2">
-                                        <FontAwesomeIcon icon={faMapMarkerAlt} /> Sede / Endereço
-                                    </h3>
-                                    {selectedEmpresa.cep || selectedEmpresa.address_street ? (
-                                        <div className="text-sm text-gray-700 leading-relaxed space-y-1">
-                                            <p className="font-medium text-gray-900">
-                                                {selectedEmpresa.address_street}{selectedEmpresa.address_number ? `, ${selectedEmpresa.address_number}` : ''}
-                                                {selectedEmpresa.address_complement && ` - ${selectedEmpresa.address_complement}`}
-                                            </p>
-                                            <p>{selectedEmpresa.neighborhood}</p>
-                                            <p>{selectedEmpresa.city} - {selectedEmpresa.state}</p>
-                                            <p className="text-gray-500 font-mono text-xs mt-2">CEP: {selectedEmpresa.cep}</p>
-                                        </div>
-                                    ) : (
-                                        <p className="text-sm text-gray-400 italic">Endereço não cadastrado.</p>
-                                    )}
-                                </div>
-
-                                {/* CARD: Integrações Tech */}
-                                <div className="bg-gray-900 text-white rounded-2xl p-6 shadow-md relative overflow-hidden">
-                                    {/* Decorator */}
-                                    <div className="absolute -right-4 -top-4 text-white/5 text-7xl"><FontAwesomeIcon icon={faHashtag} /></div>
-
-                                    <h3 className="text-sm font-bold uppercase tracking-wider text-gray-400 mb-4 flex items-center gap-2 relative z-10">
-                                        <FontAwesomeIcon icon={faHashtag} /> Identificadores
-                                    </h3>
-                                    <div className="relative z-10 space-y-4">
-                                        <div>
-                                            <p className="text-[10px] font-semibold text-gray-400 mb-1">ID SISTEMA (UUID)</p>
-                                            <p className="font-mono text-xs text-blue-300 break-all bg-black/30 p-1.5 rounded" title={selectedEmpresa.id}>{selectedEmpresa.id}</p>
-                                        </div>
-                                        <div>
-                                            <p className="text-[10px] font-semibold text-gray-400 mb-1">META BUSINESS ID</p>
-                                            {selectedEmpresa.meta_business_id ? (
-                                                <p className="font-mono text-xs text-green-400 bg-black/30 p-1.5 rounded">{selectedEmpresa.meta_business_id}</p>
-                                            ) : (
-                                                <p className="text-xs text-gray-500 italic">Não vinculado</p>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-
-                            </div>
+                        {/* Navigation Tabs */}
+                        <div className="border-b border-gray-200">
+                            <nav className="-mb-px flex space-x-8" aria-label="Tabs">
+                                {tabs.map(tab => (
+                                    <button
+                                        key={tab.id}
+                                        onClick={() => setActiveTab(tab.id)}
+                                        className={`whitespace-nowrap py-3 px-1 border-b-2 font-semibold text-sm transition-colors ${activeTab === tab.id ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-400 hover:text-gray-700 hover:border-gray-300'}`}
+                                    >
+                                        {tab.label}
+                                    </button>
+                                ))}
+                            </nav>
                         </div>
+
+                        {/* TAB CONTENT: FICHA */}
+                        {activeTab === 'ficha' && (
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fade-in">
+
+                                {/* COLUNA 1: Dados Legais e Societários (Larger) */}
+                                <div className="lg:col-span-2 space-y-6">
+                                    {/* CARD: Documentação Básica */}
+                                    <div className="bg-white border text-gray-700 border-gray-100 rounded-2xl p-6 shadow-sm ring-1 ring-gray-900/5 hover:shadow-md transition-shadow">
+                                        <h3 className="text-sm font-bold uppercase tracking-wider text-gray-400 mb-5 flex items-center gap-2">
+                                            <FontAwesomeIcon icon={faFileContract} /> Identificação Oficial
+                                        </h3>
+                                        <div className="grid grid-cols-2 gap-y-6 gap-x-4">
+                                            <div>
+                                                <p className="text-xs font-semibold text-gray-500 mb-1">CNPJ</p>
+                                                <p className="font-medium text-gray-900 text-base">{selectedEmpresa.cnpj || '—'}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-xs font-semibold text-gray-500 mb-1">NATUREZA JURÍDICA</p>
+                                                <p className="font-medium text-gray-900 text-base">{selectedEmpresa.natureza_juridica || '—'}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-xs font-semibold text-gray-500 mb-1">INSCRIÇÃO ESTADUAL</p>
+                                                <p className="text-sm text-gray-800">{selectedEmpresa.inscricao_estadual || '—'}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-xs font-semibold text-gray-500 mb-1">INSCRIÇÃO MUNICIPAL</p>
+                                                <p className="text-sm text-gray-800">{selectedEmpresa.inscricao_municipal || '—'}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* CARD: Societário e Capital */}
+                                    <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm ring-1 ring-gray-900/5 hover:shadow-md transition-shadow">
+                                        <h3 className="text-sm font-bold uppercase tracking-wider text-gray-400 mb-5 flex items-center gap-2">
+                                            <FontAwesomeIcon icon={faBuilding} /> Quadro e Objeto Social
+                                        </h3>
+                                        <div className="space-y-5">
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div>
+                                                    <p className="text-xs font-semibold text-gray-500 mb-1">REPRESENTANTE LEGAL</p>
+                                                    <p className="font-medium text-gray-900">{selectedEmpresa.responsavel_legal || '—'}</p>
+                                                </div>
+                                                <div>
+                                                    <p className="text-xs font-semibold text-gray-500 mb-1">CAPITAL SOCIAL</p>
+                                                    <p className="font-medium text-green-700 bg-green-50 inline-block px-2 py-0.5 rounded uppercase">{formatCurrency(selectedEmpresa.capital_social)}</p>
+                                                </div>
+                                            </div>
+                                            <div className="pt-4 border-t border-gray-50">
+                                                <p className="text-xs font-semibold text-gray-500 mb-2">OBJETO SOCIAL (ATIVIDADES)</p>
+                                                <p className="text-sm text-gray-700 leading-relaxed bg-gray-50 p-4 rounded-xl border border-gray-100">
+                                                    {selectedEmpresa.objeto_social || <span className="text-gray-400 italic">Não detalhado no cadastro.</span>}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* COLUNA 2: Contatos, Endereço e Integrações (Smaller Sidebar) */}
+                                <div className="space-y-6">
+
+                                    {/* CARD: Contatos */}
+                                    <div className="bg-blue-50/50 border border-blue-100 rounded-2xl p-6 shadow-sm">
+                                        <h3 className="text-sm font-bold uppercase tracking-wider text-blue-800/60 mb-5 flex items-center gap-2">
+                                            <FontAwesomeIcon icon={faEnvelope} /> Contato
+                                        </h3>
+                                        <div className="space-y-4">
+                                            <div className="flex items-start gap-3">
+                                                <div className="mt-0.5 text-blue-400 shrink-0"><FontAwesomeIcon icon={faPhone} /></div>
+                                                <div>
+                                                    <p className="text-xs font-semibold text-gray-500 mb-0.5">TELEFONE</p>
+                                                    <p className="font-medium text-gray-900">{selectedEmpresa.telefone || '—'}</p>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-start gap-3">
+                                                <div className="mt-0.5 text-blue-400 shrink-0"><FontAwesomeIcon icon={faEnvelope} /></div>
+                                                <div className="break-all">
+                                                    <p className="text-xs font-semibold text-gray-500 mb-0.5">E-MAIL INSTITUCIONAL</p>
+                                                    {selectedEmpresa.email ? (
+                                                        <a href={`mailto:${selectedEmpresa.email}`} className="font-medium text-blue-600 hover:underline">{selectedEmpresa.email}</a>
+                                                    ) : <p className="text-gray-900">—</p>}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* CARD: Endereço */}
+                                    <div className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm ring-1 ring-gray-900/5">
+                                        <h3 className="text-sm font-bold uppercase tracking-wider text-gray-400 mb-4 flex items-center gap-2">
+                                            <FontAwesomeIcon icon={faMapMarkerAlt} /> Sede / Endereço
+                                        </h3>
+                                        {selectedEmpresa.cep || selectedEmpresa.address_street ? (
+                                            <div className="text-sm text-gray-700 leading-relaxed space-y-1">
+                                                <p className="font-medium text-gray-900">
+                                                    {selectedEmpresa.address_street}{selectedEmpresa.address_number ? `, ${selectedEmpresa.address_number}` : ''}
+                                                    {selectedEmpresa.address_complement && ` - ${selectedEmpresa.address_complement}`}
+                                                </p>
+                                                <p>{selectedEmpresa.neighborhood}</p>
+                                                <p>{selectedEmpresa.city} - {selectedEmpresa.state}</p>
+                                                <p className="text-gray-500 font-mono text-xs mt-2">CEP: {selectedEmpresa.cep}</p>
+                                            </div>
+                                        ) : (
+                                            <p className="text-sm text-gray-400 italic">Endereço não cadastrado.</p>
+                                        )}
+                                    </div>
+
+                                    {/* CARD: Integrações Tech */}
+                                    <div className="bg-gray-900 text-white rounded-2xl p-6 shadow-md relative overflow-hidden">
+                                        {/* Decorator */}
+                                        <div className="absolute -right-4 -top-4 text-white/5 text-7xl"><FontAwesomeIcon icon={faHashtag} /></div>
+
+                                        <h3 className="text-sm font-bold uppercase tracking-wider text-gray-400 mb-4 flex items-center gap-2 relative z-10">
+                                            <FontAwesomeIcon icon={faHashtag} /> Identificadores
+                                        </h3>
+                                        <div className="relative z-10 space-y-4">
+                                            <div>
+                                                <p className="text-[10px] font-semibold text-gray-400 mb-1">ID SISTEMA (UUID)</p>
+                                                <p className="font-mono text-xs text-blue-300 break-all bg-black/30 p-1.5 rounded" title={selectedEmpresa.id}>{selectedEmpresa.id}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-[10px] font-semibold text-gray-400 mb-1">META BUSINESS ID</p>
+                                                {selectedEmpresa.meta_business_id ? (
+                                                    <p className="font-mono text-xs text-green-400 bg-black/30 p-1.5 rounded">{selectedEmpresa.meta_business_id}</p>
+                                                ) : (
+                                                    <p className="text-xs text-gray-500 italic">Não vinculado</p>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </div>
+                        )}
+
+                        {/* TAB CONTENT: CONTÁBIL */}
+                        {activeTab === 'contabil' && (
+                            <EmpresaAnexosTab empresaId={selectedEmpresa.id} categoria="contabil" />
+                        )}
+
+                        {/* TAB CONTENT: JURÍDICO */}
+                        {activeTab === 'juridico' && (
+                            <EmpresaAnexosTab empresaId={selectedEmpresa.id} categoria="juridico" />
+                        )}
+
+                        {/* TAB CONTENT: MARKETING */}
+                        {activeTab === 'marketing' && (
+                            <EmpresaAnexosTab empresaId={selectedEmpresa.id} categoria="marketing" />
+                        )}
 
                     </div>
                 )}
