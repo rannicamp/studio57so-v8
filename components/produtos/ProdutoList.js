@@ -6,9 +6,9 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext'; // Ajustei para @/contexts
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { 
-  faPlus, faEdit, faTrash, faSpinner, faCopy, 
-  faSort, faSortUp, faSortDown, faSave, faDollarSign, faTasks 
+import {
+    faPlus, faEdit, faTrash, faSpinner, faCopy,
+    faSort, faSortUp, faSortDown, faSave, faDollarSign, faTasks
 } from '@fortawesome/free-solid-svg-icons';
 import ProdutoFormModal from './ProdutoFormModal';
 import { IMaskInput } from 'react-imask';
@@ -26,7 +26,7 @@ export default function ProdutoList({ initialProdutos, empreendimentoId, initial
     const [editingProduto, setEditingProduto] = useState(null);
     const [sortConfig, setSortConfig] = useState({ key: 'unidade', direction: 'ascending' });
     const [editingCell, setEditingCell] = useState(null);
-    
+
     const [selectedProdutos, setSelectedProdutos] = useState(new Set());
     const [bulkPrecoM2, setBulkPrecoM2] = useState('');
 
@@ -35,12 +35,12 @@ export default function ProdutoList({ initialProdutos, empreendimentoId, initial
     }, [initialProdutos]);
 
     const handleSuccess = () => {
-        if (onUpdate) onUpdate(); 
+        if (onUpdate) onUpdate();
         queryClient.invalidateQueries({ queryKey: ['comercializacaoData', empreendimentoId] });
-        setSelectedProdutos(new Set()); 
+        setSelectedProdutos(new Set());
         setBulkPrecoM2('');
     };
-    
+
     // =================================================================================
     // ATUALIZAÇÃO EM MASSA (BLINDADA)
     // Agora recalcula também o Valor de Venda Final baseado no Fator
@@ -57,17 +57,17 @@ export default function ProdutoList({ initialProdutos, empreendimentoId, initial
 
                 const area = parseFloat(produto.area_m2) || 0;
                 const novoValorBase = area * newPrecoM2;
-                
+
                 // CORREÇÃO DO DEVONILDO: Recalcular o valor final também no bulk update
                 const fator = parseFloat(produto.fator_reajuste_percentual) || 0;
                 const novoValorFinal = novoValorBase * (1 + (fator / 100));
 
                 return supabase
                     .from('produtos_empreendimento')
-                    .update({ 
-                        preco_m2: newPrecoM2, 
+                    .update({
+                        preco_m2: newPrecoM2,
                         valor_base: novoValorBase,
-                        valor_venda_calculado: novoValorFinal 
+                        valor_venda_calculado: novoValorFinal
                     })
                     .eq('id', productId);
             }).filter(Boolean);
@@ -100,9 +100,13 @@ export default function ProdutoList({ initialProdutos, empreendimentoId, initial
     });
 
     const deleteProductMutation = useMutation({
-        mutationFn: (id) => supabase.from('produtos_empreendimento').delete().eq('id', id).throwOnError(),
-        onSuccess: () => { handleSuccess(); toast.success("Produto excluído com sucesso!"); },
-        onError: (error) => toast.error(`Erro ao excluir: ${error.message}`),
+        mutationFn: async (id) => {
+            // Em vez de '.delete()', nós atualizamos o status para 'Inativo'
+            // Isso previne o erro de Foreign Key constraint caso o produto já esteja vendido/em contrato.
+            await supabase.from('produtos_empreendimento').update({ status: 'Inativo' }).eq('id', id).throwOnError();
+        },
+        onSuccess: () => { handleSuccess(); toast.success("Produto marcado como Inativo com sucesso!"); },
+        onError: (error) => toast.error(`Erro ao inativar: ${error.message}`),
     });
 
     const saveProductMutation = useMutation({
@@ -116,7 +120,7 @@ export default function ProdutoList({ initialProdutos, empreendimentoId, initial
             if (dataToSave.valor_base !== null) { dataToSave.valor_venda_calculado = dataToSave.valor_base * (1 + (dataToSave.fator_reajuste_percentual / 100)); } else { dataToSave.valor_venda_calculado = null; }
             const { id, ...dbData } = dataToSave;
             let query;
-            if (isEditing) { query = supabase.from('produtos_empreendimento').update(dbData).eq('id', id); } 
+            if (isEditing) { query = supabase.from('produtos_empreendimento').update(dbData).eq('id', id); }
             else { if (!organizacaoId) throw new Error("Organização não identificada."); query = supabase.from('produtos_empreendimento').insert({ ...dbData, empreendimento_id: empreendimentoId, organizacao_id: organizacaoId }); }
             const { error } = await query;
             if (error) throw error;
@@ -136,7 +140,7 @@ export default function ProdutoList({ initialProdutos, empreendimentoId, initial
             const updatedValues = {};
             const area = parseFloat(produtoOriginal.area_m2) || 0;
             const cleanValue = parseFloat(String(value).replace(/[^0-9,.]/g, '').replace(',', '.')) || 0;
-            
+
             // Lida com a atualização dos campos e suas interdependências
             if (field === 'preco_m2' && area > 0) {
                 updatedValues.preco_m2 = cleanValue;
@@ -167,7 +171,7 @@ export default function ProdutoList({ initialProdutos, empreendimentoId, initial
     });
 
     const handleSellProduct = (produto) => toast("Iniciar Venda", { description: `Criar um novo contrato para a Unidade ${produto.unidade}?`, action: { label: "Confirmar", onClick: () => sellProductMutation.mutate(produto) }, cancel: { label: "Cancelar" } });
-    const handleDelete = (id) => toast("Confirmar Exclusão", { description: "Esta ação não pode ser desfeita. Deseja realmente excluir este produto?", action: { label: "Excluir", onClick: () => deleteProductMutation.mutate(id) }, cancel: { label: "Cancelar" }, classNames: { actionButton: 'bg-red-600' } });
+    const handleDelete = (id) => toast("Confirmar Inativação", { description: "Marcar este produto como Inativo? Ele será ocultado das listas, mas não será removido da base de dados se estiver associado a contratos.", action: { label: "Inativar", onClick: () => deleteProductMutation.mutate(id) }, cancel: { label: "Cancelar" }, classNames: { actionButton: 'bg-red-600' } });
     const handleSaveFromModal = (formData) => { const promise = saveProductMutation.mutateAsync(formData); toast.promise(promise, { loading: 'Salvando produto...', success: 'Produto salvo com sucesso!', error: (err) => err.message || 'Ocorreu um erro.' }); return promise.then(() => true).catch(() => false); };
     const handleBulkUpdate = () => bulkUpdatePrecoM2Mutation.mutate(bulkPrecoM2);
 
@@ -179,7 +183,7 @@ export default function ProdutoList({ initialProdutos, empreendimentoId, initial
     const handleSelectAll = (e) => {
         if (e.target.checked) { setSelectedProdutos(new Set(sortedProdutos.map(p => p.id))); } else { setSelectedProdutos(new Set()); }
     };
-    
+
     const sortedProdutos = useMemo(() => {
         const items = Array.isArray(produtos) ? [...produtos] : [];
         if (sortConfig.key) { items.sort((a, b) => { const vA = a[sortConfig.key], vB = b[sortConfig.key]; if (vA == null) return 1; if (vB == null) return -1; const numA = parseFloat(vA); const numB = parseFloat(vB); if (!isNaN(numA) && !isNaN(numB)) { return sortConfig.direction === 'ascending' ? numA - numB : numB - numA; } return sortConfig.direction === 'ascending' ? String(vA).localeCompare(String(vB)) : String(vB).localeCompare(String(vA)); }); }
@@ -191,25 +195,25 @@ export default function ProdutoList({ initialProdutos, empreendimentoId, initial
     const handleDuplicate = (produto) => { const p = { ...produto, id: null, unidade: `${produto.unidade}-Copia` }; setEditingProduto(p); setIsModalOpen(true); };
     const handleCellClick = (rowId, field) => setEditingCell({ rowId, field });
     const handleInlineUpdate = (productId, field, value) => inlineUpdateMutation.mutate({ productId, field, value });
-    
+
     const renderEditableCell = (produto, field, formatFn) => {
         const nonEditableFields = ['valor_venda_calculado'];
         if (nonEditableFields.includes(field)) {
-             return <div className="p-1">{formatFn ? formatFn(produto[field]) : produto[field]}</div>;
+            return <div className="p-1">{formatFn ? formatFn(produto[field]) : produto[field]}</div>;
         }
 
         if (editingCell?.rowId === produto.id && editingCell?.field === field) {
-            if (field === 'status') { return ( <select defaultValue={produto[field]} onBlur={(e) => handleInlineUpdate(produto.id, field, e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === 'Tab') e.target.blur(); if (e.key === 'Escape') setEditingCell(null); }} autoFocus className="p-1 border rounded-md w-full bg-yellow-50 text-black"> <option>Disponível</option> <option>Reservado</option> <option>Vendido</option> </select> ); }
-            return ( <input type="text" defaultValue={produto[field]} onBlur={(e) => handleInlineUpdate(produto.id, field, e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === 'Tab') e.target.blur(); if (e.key === 'Escape') setEditingCell(null); }} autoFocus className="p-1 border rounded-md w-full bg-yellow-50 text-right text-black"/> );
+            if (field === 'status') { return (<select defaultValue={produto[field]} onBlur={(e) => handleInlineUpdate(produto.id, field, e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === 'Tab') e.target.blur(); if (e.key === 'Escape') setEditingCell(null); }} autoFocus className="p-1 border rounded-md w-full bg-yellow-50 text-black"> <option>Disponível</option> <option>Reservado</option> <option>Vendido</option> <option>Inativo</option> </select>); }
+            return (<input type="text" defaultValue={produto[field]} onBlur={(e) => handleInlineUpdate(produto.id, field, e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === 'Tab') e.target.blur(); if (e.key === 'Escape') setEditingCell(null); }} autoFocus className="p-1 border rounded-md w-full bg-yellow-50 text-right text-black" />);
         }
         return <div className="cursor-pointer p-1 hover:bg-gray-100 rounded" onClick={() => handleCellClick(produto.id, field)}>{formatFn ? formatFn(produto[field]) : produto[field]}</div>;
     };
-    
+
     const formatCurrency = (value) => value == null || isNaN(value) ? 'N/A' : new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
     const formatPercent = (value) => value == null || isNaN(value) ? `${Number(0).toFixed(4)}%` : `${Number(value).toFixed(4)}%`;
     const formatArea = (value) => value == null || isNaN(value) ? 'N/A' : `${Number(value).toFixed(2).replace('.', ',')} m²`;
     const SortableHeader = ({ sortKey, label, className = '' }) => { const icon = sortConfig.key === sortKey ? (sortConfig.direction === 'ascending' ? faSortUp : faSortDown) : faSort; return (<th className={`px-4 py-3 text-xs font-bold uppercase ${className}`}><button onClick={() => requestSort(sortKey)} className="flex items-center gap-2 w-full hover:text-gray-700">{label}<FontAwesomeIcon icon={icon} className="text-gray-400" /></button></th>); };
-    
+
     const isMutating = sellProductMutation.isPending || deleteProductMutation.isPending || saveProductMutation.isPending || bulkUpdatePrecoM2Mutation.isPending || inlineUpdateMutation.isPending;
 
     return (
@@ -217,16 +221,16 @@ export default function ProdutoList({ initialProdutos, empreendimentoId, initial
             <ProdutoFormModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleSaveFromModal} produtoToEdit={editingProduto} />
             <div className="flex flex-wrap justify-between items-end gap-4 p-4 bg-gray-50 rounded-lg border">
                 <div className={`transition-all duration-300 ${selectedProdutos.size > 0 ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-                     <label className="flex items-center gap-2 cursor-pointer mb-2"><span className="font-semibold text-gray-700 text-sm">Novo Preço/m² para {selectedProdutos.size} item(ns)</span></label>
-                     <div className="flex items-center gap-2">
-                         <IMaskInput mask="R$ num" blocks={{ num: { mask: Number, thousandsSeparator: '.', radix: ',', scale: 2, padFractionalZeros: true }}} value={bulkPrecoM2} onAccept={(value) => setBulkPrecoM2(value)} className="p-2 border rounded-md shadow-sm w-48 text-black" />
-                         <button onClick={handleBulkUpdate} disabled={isMutating} className="bg-purple-600 text-white px-3 py-2 rounded-md shadow-sm hover:bg-purple-700 flex items-center gap-2 disabled:bg-gray-400 text-sm"> <FontAwesomeIcon icon={bulkUpdatePrecoM2Mutation.isPending ? faSpinner : faTasks} spin={bulkUpdatePrecoM2Mutation.isPending} /> Aplicar</button>
-                     </div>
+                    <label className="flex items-center gap-2 cursor-pointer mb-2"><span className="font-semibold text-gray-700 text-sm">Novo Preço/m² para {selectedProdutos.size} item(ns)</span></label>
+                    <div className="flex items-center gap-2">
+                        <IMaskInput mask="R$ num" blocks={{ num: { mask: Number, thousandsSeparator: '.', radix: ',', scale: 2, padFractionalZeros: true } }} value={bulkPrecoM2} onAccept={(value) => setBulkPrecoM2(value)} className="p-2 border rounded-md shadow-sm w-48 text-black" />
+                        <button onClick={handleBulkUpdate} disabled={isMutating} className="bg-purple-600 text-white px-3 py-2 rounded-md shadow-sm hover:bg-purple-700 flex items-center gap-2 disabled:bg-gray-400 text-sm"> <FontAwesomeIcon icon={bulkUpdatePrecoM2Mutation.isPending ? faSpinner : faTasks} spin={bulkUpdatePrecoM2Mutation.isPending} /> Aplicar</button>
+                    </div>
                 </div>
 
                 <button onClick={() => handleOpenModal()} className="bg-blue-600 text-white px-4 py-2 rounded-md shadow-sm hover:bg-blue-700 flex items-center gap-2 self-end"><FontAwesomeIcon icon={faPlus} />Adicionar Produto</button>
             </div>
-            
+
             <div className="overflow-x-auto border rounded-lg">
                 <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50 text-gray-700">
@@ -245,7 +249,7 @@ export default function ProdutoList({ initialProdutos, empreendimentoId, initial
                         </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200 text-gray-700">
-                        {isMutating && sortedProdutos.length === 0 ? ( <tr><td colSpan="10" className="text-center py-10"><FontAwesomeIcon icon={faSpinner} spin size="2x" /></td></tr>
+                        {isMutating && sortedProdutos.length === 0 ? (<tr><td colSpan="10" className="text-center py-10"><FontAwesomeIcon icon={faSpinner} spin size="2x" /></td></tr>
                         ) : sortedProdutos.length > 0 ? (
                             sortedProdutos.map(produto => (
                                 <tr key={produto.id} className={`hover:bg-gray-50 transition-colors ${produto.status === 'Vendido' ? 'bg-red-50 hover:bg-red-100' : produto.status === 'Reservado' ? 'bg-yellow-50 hover:bg-yellow-100' : ''} ${selectedProdutos.has(produto.id) ? 'bg-blue-50' : ''}`}>
@@ -262,11 +266,11 @@ export default function ProdutoList({ initialProdutos, empreendimentoId, initial
                                         {produto.status === 'Disponível' && (<button onClick={() => handleSellProduct(produto)} title="Vender esta Unidade" className="text-green-600 hover:text-green-800 transition-colors"><FontAwesomeIcon icon={faDollarSign} /></button>)}
                                         <button onClick={() => handleOpenModal(produto)} title="Editar no Modal" className="text-blue-500 hover:text-blue-700 transition-colors"><FontAwesomeIcon icon={faEdit} /></button>
                                         <button onClick={() => handleDuplicate(produto)} title="Duplicar" className="text-gray-500 hover:text-gray-700 transition-colors"><FontAwesomeIcon icon={faCopy} /></button>
-                                        <button onClick={() => handleDelete(produto.id)} title="Excluir" className="text-red-500 hover:text-red-700 transition-colors"><FontAwesomeIcon icon={faTrash} /></button>
+                                        <button onClick={() => handleDelete(produto.id)} title={produto.status === 'Inativo' ? "Produto já inativo" : "Inativar Produto"} className="text-red-500 hover:text-red-700 transition-colors"><FontAwesomeIcon icon={faTrash} /></button>
                                     </td>
                                 </tr>
                             ))
-                        ) : ( <tr><td colSpan="10" className="text-center py-10 text-gray-500">Nenhum produto cadastrado.</td></tr> )}
+                        ) : (<tr><td colSpan="10" className="text-center py-10 text-gray-500">Nenhum produto cadastrado.</td></tr>)}
                     </tbody>
                 </table>
             </div>
