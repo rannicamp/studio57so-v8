@@ -43,7 +43,7 @@ O **Studio 57** é o ambiente de desenvolvimento e laboratório central. O **Elo
 
 ### 5. Sistema de Pagamentos e Core Financeiro (CRÍTICO)
 - [ ] **Definição de Provedor:** Analisar taxas e facilidade de integração entre **Iugu** e **Asaas**.
-- [ ] **Demonstrativo de Resultados (DRE):** Implementar visão de competência (Receitas vs Despesas vs Lucro Líquido).
+- [x] **Demonstrativo de Resultados (DRE):** Implementar visão de competência (Receitas vs Despesas vs Lucro Líquido).
 - [x] **Lógica de Cartão de Crédito — Separação Visual (03/03):** Aba "Cartões" reestruturada:
     - Agrupamento correto de lançamentos por Mês/Ano da fatura (usando `dia_pagamento_fatura`).
     - Histórico lateral com valor total de despesas por fatura e destaque visual da Fatura Atual (próximo vencimento).
@@ -121,6 +121,9 @@ O **Studio 57** é o ambiente de desenvolvimento e laboratório central. O **Elo
     - Implementado resumo da fatura em 3 cards: Compras/Despesas, Estornos/Pagamentos e Saldo a Pagar com fórmula visível.
     - Todos os commits feitos e deploy realizado via Netlify.
 - *2026-03-05:* **Módulo de Patrimônio:** Criação da aba dedicada para Ativos e Passivos com painel gerencial (`AtivosManager`), separação do modal de criação `AtivoFormModal` resolvendo os bugs numéricos do IMask. Definida a pendência crítica de concluir a lógica matemática/visual de **vinculação entre Receitas e Ativos** para compor os saldos. Deploy realizado.
+- *2026-03-06:* **Finalização da DRE e Impressão Global:**
+    - Lógica estrutural consolidada para o DRE (`useRelatorioDRE.js`), scripts SQL rodados formatando categorias filhas/mestras corretamente. Interface pronta com design clean, formatador de lucros e prejuízos. Integrado na aba Relatórios com Toggle Visual.
+    - **Impressão Global Standard A4 (`s57-print-area`):** Todos os componentes sensíveis (Ficha de Funcionário, Folha de Ponto, Tabelas, Recibos, Contratos, Simulador) foram padronizados, removendo os hacks de substituição do HTML do navegador. Menus ocultados com sucesso. O sistema imprime limpo sem `notifiers`.
 
 ---
 *Assinado: Devonildo (Seu Mentor Técnico)*
