@@ -102,6 +102,10 @@ O **Studio 57** é o ambiente de desenvolvimento e laboratório central. O **Elo
 - [x] Configuração Oficial do App Meta (ELO 57 - WATS): Atualização das credenciais direto no banco `configuracoes_whatsapp`, resolvendo bloqueios de anti-spam em números novos (Erro Meta #131049).
 - [ ] **Melhoria Técnica:** Revisar e padronizar como os números de telefone são tratados/salvos no contato (remoção de +55, caracteres especiais e validação de 9º dígito) para evitar falhas silenciosas na Meta API.
 
+### 11. Reestruturação do Sistema de Empresas (UX/Dados)
+- [ ] **Diagnóstico:** A página e o sistema atual de empresas (visão, ficha, listagem) estão defasados e faltando informações.
+- [ ] **Novo Layout (Ficha Completa):** Repensar toda a estrutura visual para que contenha o histórico completo, contatos, anexos e relatórios da empresa de forma clara e objetiva.
+
 ## 📝 Notas de Conversa e Decisões
 - *2026-03-01:* Criação do Planejamento Master para centralizar a estratégia de lançamento.
 - *2026-03-01:* Limpeza de arquivos de laboratório finalizada.
