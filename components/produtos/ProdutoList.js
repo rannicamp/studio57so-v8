@@ -101,12 +101,13 @@ export default function ProdutoList({ initialProdutos, empreendimentoId, initial
 
     const deleteProductMutation = useMutation({
         mutationFn: async (id) => {
-            // Em vez de '.delete()', nós atualizamos o status para 'Inativo'
-            // Isso previne o erro de Foreign Key constraint caso o produto já esteja vendido/em contrato.
-            await supabase.from('produtos_empreendimento').update({ status: 'Inativo' }).eq('id', id).throwOnError();
+            // Remove a ligação de Foreign Key antes para o banco permitir:
+            await supabase.from('contrato_produtos').delete().eq('produto_id', id);
+            // Agora, com o caminho livre, apagamos o produto definitivamente:
+            await supabase.from('produtos_empreendimento').delete().eq('id', id).throwOnError();
         },
-        onSuccess: () => { handleSuccess(); toast.success("Produto marcado como Inativo com sucesso!"); },
-        onError: (error) => toast.error(`Erro ao inativar: ${error.message}`),
+        onSuccess: () => { handleSuccess(); toast.success("Produto excluído com sucesso!"); },
+        onError: (error) => toast.error(`Erro ao excluir: ${error.message}`),
     });
 
     const saveProductMutation = useMutation({
@@ -171,7 +172,7 @@ export default function ProdutoList({ initialProdutos, empreendimentoId, initial
     });
 
     const handleSellProduct = (produto) => toast("Iniciar Venda", { description: `Criar um novo contrato para a Unidade ${produto.unidade}?`, action: { label: "Confirmar", onClick: () => sellProductMutation.mutate(produto) }, cancel: { label: "Cancelar" } });
-    const handleDelete = (id) => toast("Confirmar Inativação", { description: "Marcar este produto como Inativo? Ele será ocultado das listas, mas não será removido da base de dados se estiver associado a contratos.", action: { label: "Inativar", onClick: () => deleteProductMutation.mutate(id) }, cancel: { label: "Cancelar" }, classNames: { actionButton: 'bg-red-600' } });
+    const handleDelete = (id) => toast("Confirmar Exclusão", { description: "Esta ação não pode ser desfeita. Deseja realmente excluir este produto?", action: { label: "Excluir", onClick: () => deleteProductMutation.mutate(id) }, cancel: { label: "Cancelar" }, classNames: { actionButton: 'bg-red-600' } });
     const handleSaveFromModal = (formData) => { const promise = saveProductMutation.mutateAsync(formData); toast.promise(promise, { loading: 'Salvando produto...', success: 'Produto salvo com sucesso!', error: (err) => err.message || 'Ocorreu um erro.' }); return promise.then(() => true).catch(() => false); };
     const handleBulkUpdate = () => bulkUpdatePrecoM2Mutation.mutate(bulkPrecoM2);
 
@@ -203,7 +204,7 @@ export default function ProdutoList({ initialProdutos, empreendimentoId, initial
         }
 
         if (editingCell?.rowId === produto.id && editingCell?.field === field) {
-            if (field === 'status') { return (<select defaultValue={produto[field]} onBlur={(e) => handleInlineUpdate(produto.id, field, e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === 'Tab') e.target.blur(); if (e.key === 'Escape') setEditingCell(null); }} autoFocus className="p-1 border rounded-md w-full bg-yellow-50 text-black"> <option>Disponível</option> <option>Reservado</option> <option>Vendido</option> <option>Inativo</option> </select>); }
+            if (field === 'status') { return (<select defaultValue={produto[field]} onBlur={(e) => handleInlineUpdate(produto.id, field, e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === 'Tab') e.target.blur(); if (e.key === 'Escape') setEditingCell(null); }} autoFocus className="p-1 border rounded-md w-full bg-yellow-50 text-black"> <option>Disponível</option> <option>Reservado</option> <option>Vendido</option> </select>); }
             return (<input type="text" defaultValue={produto[field]} onBlur={(e) => handleInlineUpdate(produto.id, field, e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === 'Tab') e.target.blur(); if (e.key === 'Escape') setEditingCell(null); }} autoFocus className="p-1 border rounded-md w-full bg-yellow-50 text-right text-black" />);
         }
         return <div className="cursor-pointer p-1 hover:bg-gray-100 rounded" onClick={() => handleCellClick(produto.id, field)}>{formatFn ? formatFn(produto[field]) : produto[field]}</div>;
@@ -266,7 +267,7 @@ export default function ProdutoList({ initialProdutos, empreendimentoId, initial
                                         {produto.status === 'Disponível' && (<button onClick={() => handleSellProduct(produto)} title="Vender esta Unidade" className="text-green-600 hover:text-green-800 transition-colors"><FontAwesomeIcon icon={faDollarSign} /></button>)}
                                         <button onClick={() => handleOpenModal(produto)} title="Editar no Modal" className="text-blue-500 hover:text-blue-700 transition-colors"><FontAwesomeIcon icon={faEdit} /></button>
                                         <button onClick={() => handleDuplicate(produto)} title="Duplicar" className="text-gray-500 hover:text-gray-700 transition-colors"><FontAwesomeIcon icon={faCopy} /></button>
-                                        <button onClick={() => handleDelete(produto.id)} title={produto.status === 'Inativo' ? "Produto já inativo" : "Inativar Produto"} className="text-red-500 hover:text-red-700 transition-colors"><FontAwesomeIcon icon={faTrash} /></button>
+                                        <button onClick={() => handleDelete(produto.id)} title="Excluir" className="text-red-500 hover:text-red-700 transition-colors"><FontAwesomeIcon icon={faTrash} /></button>
                                     </td>
                                 </tr>
                             ))
