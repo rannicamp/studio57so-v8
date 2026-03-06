@@ -70,18 +70,7 @@ export default function ReciboModal({ isOpen, onClose, lancamento: initialLancam
     const valorPorExtenso = useMemo(() => numeroParaExtenso(lancamentoCompleto?.valor), [lancamentoCompleto]);
 
     const handlePrint = () => {
-        const printContents = document.getElementById('recibo-imprimivel').innerHTML;
-        const originalContents = document.body.innerHTML;
-        document.body.innerHTML = `<style>
-            body { font-family: sans-serif; } 
-            .recibo-container { width: 100%; max-width: 800px; margin: auto; padding: 20px; border: 1px solid #ccc; } 
-            h1 { text-align: center; } p { line-height: 1.6; } 
-            .assinatura { margin-top: 80px; text-align: center; }
-            .footer-info { margin-top: 40px; font-size: 0.8em; color: #888; }
-        </style>` + printContents;
         window.print();
-        document.body.innerHTML = originalContents;
-        window.location.reload();
     };
 
     if (!isOpen) return null;
@@ -104,10 +93,10 @@ export default function ReciboModal({ isOpen, onClose, lancamento: initialLancam
                             <p className="mt-2">Carregando dados do recibo...</p>
                         </div>
                     ) : (
-                        <div id="recibo-imprimivel" className="recibo-container border rounded-md p-8">
+                        <div id="recibo-imprimivel" className="recibo-container border rounded-md p-8 s57-print-area print:border-none print:shadow-none font-sans">
                             <h1 className="text-2xl font-bold text-center mb-6">RECIBO</h1>
 
-                            <p className="text-lg leading-relaxed mb-6">
+                            <p className="text-lg leading-relaxed mb-6 print:leading-loose">
                                 {isReceita ? "Recebemos de" : "Recebi(emos) de"} <strong>{pagadorNome || 'N/A'}</strong>,
                                 CPF/CNPJ nº <strong>{pagadorDocumento || 'N/A'}</strong>,
                                 a importância de <strong>R$ {new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2 }).format(lancamentoCompleto?.valor || 0)}</strong>
@@ -129,7 +118,7 @@ export default function ReciboModal({ isOpen, onClose, lancamento: initialLancam
                             {/* O PORQUÊ: Ajustamos a estrutura da assinatura para o formato solicitado,
                         priorizando clareza e profissionalismo quando a empresa recebe um pagamento. */}
                             {/* ================================================================================= */}
-                            <div className="assinatura text-center mt-20">
+                            <div className="assinatura text-center mt-24 print:mt-40">
                                 <div className="border-t border-black w-72 mx-auto"></div>
                                 {isReceita ? (
                                     <>

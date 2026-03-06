@@ -663,7 +663,7 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
   }
 
   return (
-    <div className="bg-white p-6 rounded-lg shadow print:shadow-none print:p-0">
+    <div className="bg-white p-6 rounded-lg shadow print:shadow-none print:p-0 s57-print-area">
       {/* CABEÇALHO COM BOTÕES DE AÇÃO */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4 print:hidden">
         <h2 className="text-2xl font-bold text-gray-900">Detalhes do RDO</h2>

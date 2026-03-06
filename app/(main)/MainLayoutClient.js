@@ -133,11 +133,15 @@ function MainLayoutContent({ children }) {
 
     const content = (
         <>
-            <Header toggleSidebar={toggleSidebar} />
-            <Sidebar isOpen={isSidebarOpen} closeSidebar={closeSidebar} isAdmin={isProprietario} />
+            <div className="print:hidden">
+                <Header toggleSidebar={toggleSidebar} />
+            </div>
+            <div className="print:hidden">
+                <Sidebar isOpen={isSidebarOpen} closeSidebar={closeSidebar} isAdmin={isProprietario} />
+            </div>
 
             <main
-                className={`${isCaixaDeEntrada ? 'flex-1 w-full relative overflow-hidden flex flex-col' : 'flex-grow p-4 transition-all duration-300'}`}
+                className={`${isCaixaDeEntrada ? 'flex-1 w-full relative overflow-hidden flex flex-col' : 'flex-grow p-4 transition-all duration-300 print:p-0 print:m-0'}`}
                 style={mainStyles}
             >
                 <div className={isCaixaDeEntrada ? "h-full w-full" : "w-full"}>

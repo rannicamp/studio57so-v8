@@ -174,8 +174,8 @@ export default function FinanceiroDRE({ dadosDRE, isLoading }) {
     };
 
     return (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 mt-6 overflow-hidden flex flex-col">
-            <div className="px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-slate-50 to-white flex items-center justify-between">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 mt-6 overflow-hidden flex flex-col print:shadow-none print:border-none print:m-0 print:p-0 s57-print-area">
+            <div className="px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-slate-50 to-white print:from-white print:to-white flex items-center justify-between">
                 <div>
                     <h3 className="text-lg font-bold text-slate-800">Demonstração do Resultado do Exercício (DRE)</h3>
                     <p className="text-sm text-slate-500 font-medium">Regime de Caixa • Consolidado por Categorias Mestres</p>

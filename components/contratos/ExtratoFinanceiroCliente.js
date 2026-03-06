@@ -107,26 +107,6 @@ export default function ExtratoFinanceiroCliente({ contatoId, contrato }) {
 
     return (
         <>
-            {/* ESTILOS ESPECÍFICOS DE IMPRESSÃO */}
-            <style jsx global>{`
-                @media print {
-                    body * { visibility: hidden; }
-                    #printable-extrato, #printable-extrato * { visibility: visible; }
-                    #printable-extrato {
-                        position: absolute;
-                        left: 0;
-                        top: 0;
-                        width: 100%;
-                        background: white;
-                        color: black;
-                        margin: 0;
-                        padding: 20px;
-                    }
-                    thead { display: table-header-group; }
-                    tr { page-break-inside: avoid; }
-                }
-            `}</style>
-
             {/* --- VISÃO DE TELA (WIDGET COLORIDO) --- */}
             <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100 flex-shrink-0 space-y-8 animate-fade-in print:hidden">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-gray-100 pb-6">
@@ -202,7 +182,7 @@ export default function ExtratoFinanceiroCliente({ contatoId, contrato }) {
             </div>
 
             {/* --- VISÃO DE IMPRESSÃO --- */}
-            <div id="printable-extrato" className="hidden print:block font-serif text-black">
+            <div id="printable-extrato" className="hidden print:block font-serif text-black s57-print-area print:p-8">
 
                 {/* Cabeçalho */}
                 <div className="border-b-2 border-gray-800 pb-4 mb-6 flex justify-between items-center">

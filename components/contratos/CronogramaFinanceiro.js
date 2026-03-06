@@ -245,15 +245,13 @@ export default function CronogramaFinanceiro({ contrato, onUpdate }) {
             {/* --- BLOCO DE ESTILOS (Inalterado) --- */}
             <style jsx global>{`
                 @media print { 
-                    body * { visibility: hidden; } 
                     [data-sonner-toast] { visibility: hidden !important; display: none !important; }
-                    .printable-area, .printable-area * { visibility: visible; } 
-                    .printable-area { position: absolute; left: 0; top: 0; width: 100%; padding-left: 1.5cm; box-sizing: border-box; } 
+                    .printable-area { padding-left: 1.5cm; box-sizing: border-box; } 
                 } 
             `}</style>
 
             {/* --- ÁREA DE IMPRESSÃO (Inalterada) --- */}
-            <div className="hidden print:block printable-area">
+            <div className="hidden print:block printable-area s57-print-area">
                 <PlanoPagamentoPrint contrato={contrato} signatory={selectedSignatory} geradoPor={geradoPor} />
             </div>
 

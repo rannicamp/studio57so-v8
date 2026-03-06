@@ -48,7 +48,7 @@ export default function TabelaVenda({ produtos, config, parcelasAdicionais, empr
     };
 
     return (
-        <div className="printable-content-area bg-white rounded-lg shadow p-6 mt-8">
+        <div className="printable-content-area s57-print-area bg-white rounded-lg shadow p-6 mt-8">
             <style jsx global>{`
                 /* ==========================================================================
                    ESTILOS DA TELA (VISUALIZAÇÃO NORMAL)
@@ -109,23 +109,12 @@ export default function TabelaVenda({ produtos, config, parcelasAdicionais, empr
                         -webkit-print-color-adjust: exact !important;
                         print-color-adjust: exact !important;
                     }
-                    body * {
-                        visibility: hidden;
-                    }
 
-                    .printable-content-area, .printable-content-area * {
-                        visibility: visible;
-                    }
                     .printable-content-area .no-print {
                         display: none;
                     }
 
                     .printable-content-area {
-                        position: absolute;
-                        top: 10mm;
-                        left: 10mm;
-                        width: calc(100% - 20mm);
-                        height: auto;
                         padding: 0 !important;
                         margin: 0 !important;
                         border: none !important;

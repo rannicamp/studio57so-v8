@@ -651,7 +651,7 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
     if (!employee) return null;
 
     return (
-        <div className="printable-area space-y-4">
+        <div className="printable-area s57-print-area space-y-4">
             <LancarValeModal
                 isOpen={isValeModalOpen}
                 onClose={() => setIsValeModalOpen(false)}
@@ -663,7 +663,7 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
                 holidays={holidays}
             />
 
-            <style jsx global>{`@media print { @page { size: A4 portrait; margin: 0.8cm; } body * { visibility: hidden; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; } .printable-area, .printable-area * { visibility: visible; } .printable-area { position: absolute; left: 0; top: 0; width: 100%; padding: 0 !important; margin: 0 !important; border: none !important; box-shadow: none !important; } .no-print { display: none !important; } .print-header { display: block !important; } .print-header-info h3 { font-size: 1.1rem !important; } .kpi-container-on-print { display: grid !important; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; margin-top: 0.5rem; font-size: 8pt; border: 1px solid #eee; padding: 4px; border-radius: 6px; } table { font-size: 7.5pt !important; width: 100%; border-collapse: collapse !important; margin-top: 0.5rem; } th, td { border: 1px solid #ccc !important; padding: 2px !important; text-align: center; } .signature-section { margin-top: 1.5cm !important; page-break-inside: avoid; } }`}</style>
+            <style jsx global>{`@media print { @page { size: A4 portrait; margin: 0.8cm; } body * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; } .printable-area { padding: 0 !important; margin: 0 !important; border: none !important; box-shadow: none !important; } .no-print { display: none !important; } .print-header { display: block !important; } .print-header-info h3 { font-size: 1.1rem !important; } .kpi-container-on-print { display: grid !important; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; margin-top: 0.5rem; font-size: 8pt; border: 1px solid #eee; padding: 4px; border-radius: 6px; } table { font-size: 7.5pt !important; width: 100%; border-collapse: collapse !important; margin-top: 0.5rem; } th, td { border: 1px solid #ccc !important; padding: 2px !important; text-align: center; } .signature-section { margin-top: 1.5cm !important; page-break-inside: avoid; } }`}</style>
 
             {pendingDays.length > 0 && (
                 <div className="p-4 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-800 rounded-md no-print">

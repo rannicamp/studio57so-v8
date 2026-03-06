@@ -422,7 +422,7 @@ const ContrachequeSection = ({ employee, salarioAtual, organizacaoId }) => {
     const handleConfirmSemBonus = () => { setPrintView('semBonus'); setIsPrintModalOpen(false); };
 
     return (
-        <div className={`printable-contracheque ${printView === 'semBonus' ? 'print-sem-bonus' : ''}`}>
+        <div className={`printable-contracheque s57-print-area ${printView === 'semBonus' ? 'print-sem-bonus' : ''}`}>
             <PrintConfirmationModal
                 isOpen={isPrintModalOpen}
                 onClose={() => setIsPrintModalOpen(false)}
@@ -645,10 +645,6 @@ export default function FichaCompletaFuncionario({ employee, allDocuments, allPo
         <div className="space-y-8">
             <style jsx global>{`
                 @media print {
-                    body * { visibility: hidden; }
-                    .printable-contracheque, .printable-contracheque * { visibility: visible; }
-                    .printable-contracheque { position: absolute; left: 0; top: 0; width: 100%; padding: 20px; }
-                    .no-print { display: none !important; }
                     .print-sem-bonus .print-bonus-item { display: none; }
                     .print-sem-bonus .print-sem-bonus-only { display: block !important; }
                 }

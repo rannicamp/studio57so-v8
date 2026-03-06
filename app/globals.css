@@ -23,10 +23,16 @@
 }
 
 /* =================================================================
-   REGRAS DE IMPRESSÃO (Adicionado para limpar o PDF)
+   SISTEMA GLOBAL DE IMPRESSÃO A4 (Padrão Studio 57)
+   Inspirado no módulo de Contratos.
    ================================================================= */
 @media print {
-  /* 1. Oculta notificações flutuantes (Sonner/Toast) */
+  /* 1. Oculta TUDO na tela por padrão (ignora layouts complexos) */
+  body * {
+    visibility: hidden;
+  }
+  
+  /* 2. Oculta notificações flutuantes */
   [data-sonner-toaster],
   [data-sonner-toast],
   [data-sonner-visible],
@@ -40,18 +46,29 @@
     pointer-events: none !important;
   }
 
-  /* 2. Garante que elementos com 'print:hidden' sumam mesmo */
-  .print\:hidden {
-    display: none !important;
+  /* 3. MAS exibe APENAS a classe de impressão e seus descendentes */
+  .s57-print-area, .s57-print-area * {
+    visibility: visible !important;
   }
 
-  /* 3. Ajuste de margens do navegador para a folha não cortar */
+  /* 4. Arranca o container do fluxo e joga para a origem da folha A4 */
+  .s57-print-area {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-sizing: border-box !important;
+    background: white !important;
+  }
+
+  /* 5. Define tamanho da página física e margem de respiro */
   @page {
-    margin: 20mm; /* Alterado de 0mm para 10mm para dar respiro na borda */
-    size: auto;
+    size: A4;
+    margin: 15mm;
   }
 
-  /* 4. Reseta o fundo */
   body {
     margin: 0;
     padding: 0;
