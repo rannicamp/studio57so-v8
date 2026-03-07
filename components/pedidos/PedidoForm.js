@@ -17,6 +17,7 @@ import LancamentoFormModal from '../financeiro/LancamentoFormModal';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { notificarGrupo } from '@/utils/notificacoes';
+import UppyListUploader from '@/components/ui/UppyListUploader';
 
 const formatDuration = (milliseconds) => {
     if (milliseconds < 0 || isNaN(milliseconds)) return '0 dias';
@@ -91,9 +92,8 @@ export default function PedidoForm({ pedidoId }) {
     const [isLancamentoModalOpen, setIsLancamentoModalOpen] = useState(false);
     const [lancamentoInitialData, setLancamentoInitialData] = useState(null);
     const [editingItem, setEditingItem] = useState(null);
-    const [newAnexoFile, setNewAnexoFile] = useState(null);
     const [newAnexoType, setNewAnexoType] = useState('Nota Fiscal');
-    const [newAnexoOutroDescricao, setNewAnexoOutroDescricao] = useState('');
+    const [showUploader, setShowUploader] = useState(false);
     const [kpis, setKpis] = useState(null);
     const [sortConfig, setSortConfig] = useState({ key: 'descricao_item', direction: 'ascending' });
     const [selectedItems, setSelectedItems] = useState(new Set());
@@ -201,24 +201,25 @@ export default function PedidoForm({ pedidoId }) {
         onError: (err) => toast.error(`Erro na atualização em massa: ${err.message}`)
     });
 
-    const addAnexoMutation = useMutation({
-        ...mutationOptions,
-        mutationFn: async (file) => {
-            const anexoDescricaoFinal = newAnexoType === 'Outro' ? newAnexoOutroDescricao : newAnexoType;
-            const fileName = `${organizacaoId}/pedidos-anexos/pedido_${pedido.id}/${anexoDescricaoFinal.replace(/ /g, '_')}_${Date.now()}.${file.name.split('.').pop()}`;
-            const { error: uploadError } = await supabase.storage.from('pedidos-anexos').upload(fileName, file);
-            if (uploadError) throw uploadError;
-            const { error: dbError } = await supabase.from('pedidos_compra_anexos').insert({ pedido_compra_id: pedido.id, caminho_arquivo: fileName, nome_arquivo: file.name, descricao: anexoDescricaoFinal, usuario_id: user.id, organizacao_id: organizacaoId });
-            if (dbError) throw dbError;
-        },
-        onSuccess: () => {
-            mutationOptions.onSuccess();
-            toast.success("Anexo adicionado com sucesso!");
-            setNewAnexoFile(null); setNewAnexoType('Nota Fiscal'); setNewAnexoOutroDescricao('');
-            if (document.getElementById('anexo-file-input')) document.getElementById('anexo-file-input').value = '';
-        },
-        onError: (err) => toast.error(`Erro no upload: ${err.message}`),
-    });
+    const handlePedidoUploadSuccess = async (result) => {
+        // result vem do UppyListUploader: { path, fileName, fileSize, tipoDocumento, descricao }
+        const anexoDescricaoFinal = result.descricao || newAnexoType;
+        const { error: dbError } = await supabase.from('pedidos_compra_anexos').insert({
+            pedido_compra_id: pedido.id,
+            caminho_arquivo: result.path,
+            nome_arquivo: result.fileName,
+            descricao: anexoDescricaoFinal,
+            usuario_id: user.id,
+            organizacao_id: organizacaoId
+        });
+        if (dbError) {
+            toast.error(`Erro ao salvar anexo no banco: ${dbError.message}`);
+        } else {
+            queryClient.invalidateQueries({ queryKey: ['pedido', pedidoId, organizacaoId] });
+            toast.success(`Anexo "${result.fileName}" adicionado!`);
+            setShowUploader(false);
+        }
+    };
 
     const removeAnexoMutation = useMutation({
         ...mutationOptions,
@@ -300,7 +301,6 @@ export default function PedidoForm({ pedidoId }) {
 
     const handleHeaderFieldChange = (field, value) => { setPedidoHeader(p => ({ ...p, [field]: value })); };
     const handleHeaderFieldSave = async (field) => { updateHeaderMutation.mutate({ [field]: pedidoHeader[field] }); };
-    const handleAddAnexo = async () => { if (!newAnexoFile) { toast.error('Por favor, selecione um arquivo.'); return; } addAnexoMutation.mutate(newAnexoFile); };
     const handleRemoveAnexo = (anexo) => { toast.warning(`Tem certeza que deseja remover o anexo "${anexo.nome_arquivo}"?`, { action: { label: "Remover", onClick: () => removeAnexoMutation.mutate(anexo) }, cancel: { label: "Cancelar" } }); };
     const handleDownloadAnexo = async (caminho) => {
         try {
@@ -565,17 +565,24 @@ export default function PedidoForm({ pedidoId }) {
                 </div>
 
                 <div className="border-t pt-6">
-                    <h3 className="text-lg font-semibold mb-4 flex items-center gap-2"><FontAwesomeIcon icon={faPaperclip} /> Anexos do Pedido</h3>
-                    <div className="bg-gray-50 p-4 rounded-lg border">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-                            <div><label className="block text-sm font-medium text-gray-700">Tipo de Arquivo</label><select value={newAnexoType} onChange={(e) => setNewAnexoType(e.target.value)} className="mt-1 w-full p-2 border rounded-md"><option>Nota Fiscal</option><option>Contrato</option><option>Orçamento</option><option>Outro</option></select></div>
-                            <div className={newAnexoType === 'Outro' ? 'block' : 'hidden'}><label className="block text-sm font-medium text-gray-700">Descreva o arquivo</label><input type="text" value={newAnexoOutroDescricao} onChange={(e) => setNewAnexoOutroDescricao(e.target.value)} className="mt-1 w-full p-2 border rounded-md" /></div>
-                            <div><label className="block text-sm font-medium text-gray-700">Arquivo</label><input type="file" id="anexo-file-input" onChange={(e) => setNewAnexoFile(e.target.files[0])} className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:bg-blue-50 hover:file:bg-blue-100" /></div>
-                        </div>
-                        <div className="text-right mt-4"><button onClick={handleAddAnexo} disabled={addAnexoMutation.isPending || !newAnexoFile} className="bg-green-600 text-white px-4 py-2 rounded-md shadow-sm hover:bg-green-700 disabled:opacity-50 flex items-center gap-2"><FontAwesomeIcon icon={addAnexoMutation.isPending ? faSpinner : faUpload} spin={addAnexoMutation.isPending} />{addAnexoMutation.isPending ? 'Enviando...' : 'Adicionar Anexo'}</button></div>
+                    <div className="flex justify-between items-center mb-4">
+                        <h3 className="text-lg font-semibold flex items-center gap-2"><FontAwesomeIcon icon={faPaperclip} /> Anexos do Pedido</h3>
+                        <button onClick={() => setShowUploader(v => !v)} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-bold rounded-lg hover:bg-blue-700 shadow-sm transition">
+                            <FontAwesomeIcon icon={faUpload} />
+                            {showUploader ? 'Cancelar' : 'Adicionar Documento'}
+                        </button>
                     </div>
-                    <div className="mt-6">
-                        <h4 className="font-semibold text-sm">Arquivos Anexados:</h4>
+                    {showUploader && (
+                        <div className="mb-4 border border-blue-100 rounded-xl overflow-hidden shadow-sm">
+                            <UppyListUploader
+                                bucketName="pedidos-anexos"
+                                folderPath={`${organizacaoId}/pedidos/${pedidoId}`}
+                                hideClassificacao={false}
+                                onUploadSuccess={handlePedidoUploadSuccess}
+                            />
+                        </div>
+                    )}
+                    <div>
                         {anexos.length === 0 ? <p className="text-sm text-gray-500 mt-2">Nenhum anexo encontrado.</p> : (<ul className="divide-y border rounded-md mt-2">{anexos.map(anexo => (<li key={anexo.id} className="p-3 flex justify-between items-center text-sm"><div><p className="font-medium">{anexo.nome_arquivo}</p><p className="text-xs text-gray-600">{anexo.descricao || 'Sem descrição'}</p></div><div className="flex items-center gap-4"><button onClick={() => handleDownloadAnexo(anexo.caminho_arquivo)} className="text-blue-600 hover:text-blue-800" title="Baixar"><FontAwesomeIcon icon={faDownload} /></button><button onClick={() => handleRemoveAnexo(anexo)} className="text-red-500 hover:text-red-700" title="Remover"><FontAwesomeIcon icon={faTrash} /></button></div></li>))}</ul>)}
                     </div>
                 </div>

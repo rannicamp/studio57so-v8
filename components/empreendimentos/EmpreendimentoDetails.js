@@ -3,6 +3,8 @@
 
 // --- Imports ---
 import ThumbnailUploader from '@/components/shared/ThumbnailUploader';
+import AnexoUploader from '@/components/shared/AnexoUploader';
+import GaleriaMarketingShared from '@/components/shared/GaleriaMarketing';
 import { useState, useMemo, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -63,110 +65,7 @@ function KpiCard({ title, value, icon, colorClass = 'text-blue-500' }) {
         </div>
     );
 }
-const AnexoUploader = ({ empreendimentoId, allowedTipos, onUploadSuccess, categoria, organizacaoId }) => {
-    const supabase = createClient();
-    const [file, setFile] = useState(null);
-    const [descricao, setDescricao] = useState('');
-    const [tipoId, setTipoId] = useState('');
-    const [isUploading, setIsUploading] = useState(false);
-    const [isDraggingOver, setIsDraggingOver] = useState(false);
-    const fileInputRef = useRef(null);
-
-    const handleFileSelect = async (selectedFile) => {
-        if (!selectedFile) return;
-
-        if (!selectedFile.type.startsWith('image/')) {
-            setFile(selectedFile);
-            return;
-        }
-
-        const options = {
-            maxSizeMB: 2,
-            maxWidthOrHeight: 1920,
-            useWebWorker: true,
-        };
-
-        try {
-            toast.info("Otimizando imagem para o upload...");
-            const compressedFile = await imageCompression(selectedFile, options);
-            setFile(compressedFile);
-            toast.success("Imagem otimizada!");
-        } catch (error) {
-            console.error('Erro ao comprimir a imagem:', error);
-            toast.error('Não foi possível otimizar a imagem. Usando o arquivo original.');
-            setFile(selectedFile);
-        }
-    };
-
-    const resetState = () => { setFile(null); setDescricao(''); setTipoId(''); if (fileInputRef.current) fileInputRef.current.value = ""; };
-    const handleDragEnter = (e) => { e.preventDefault(); e.stopPropagation(); setIsDraggingOver(true); };
-    const handleDragLeave = (e) => { e.preventDefault(); e.stopPropagation(); setIsDraggingOver(false); };
-    const handleDragOver = (e) => { e.preventDefault(); e.stopPropagation(); };
-    const handleDrop = (e) => { e.preventDefault(); e.stopPropagation(); setIsDraggingOver(false); if (e.dataTransfer.files[0]) handleFileSelect(e.dataTransfer.files[0]); };
-    const handleUpload = async () => {
-        if (!file || !tipoId) { toast.error("Por favor, selecione um tipo de documento e um arquivo."); return; }
-        if (!categoria) { toast.error("Erro: A categoria da aba não foi definida."); return; }
-        if (!organizacaoId) {
-            toast.error("Erro de segurança: Organização não identificada. Por favor, faça login novamente.");
-            return;
-        }
-
-        setIsUploading(true);
-        const tipoSelecionado = allowedTipos.find(t => t.id == tipoId);
-        const sigla = tipoSelecionado?.sigla || 'DOC';
-        const fileExt = file.name.split('.').pop();
-        const newFileName = `${empreendimentoId}/${sigla}_${Date.now()}.${fileExt}`;
-        const promise = new Promise(async (resolve, reject) => {
-            const { error: uploadError } = await supabase.storage.from('empreendimento-anexos').upload(newFileName, file, { upsert: true });
-            if (uploadError) return reject(uploadError);
-
-            const { data, error: dbError } = await supabase.from('empreendimento_anexos').insert({
-                empreendimento_id: empreendimentoId,
-                caminho_arquivo: newFileName,
-                nome_arquivo: file.name,
-                descricao: descricao,
-                tipo_documento_id: tipoId,
-                categoria_aba: categoria,
-                organizacao_id: organizacaoId,
-                disponivel_corretor: false // Garante o valor padrão no upload
-            }).select().single();
-
-            if (dbError) return reject(dbError);
-            // Chamadas API (sem relação direta com o botão, mantidas como estavam)
-            fetch('/api/empreendimentos/process-anexo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ anexoId: data.id }) }).catch(err => console.error("Erro ao chamar API de processamento da IA:", err));
-            fetch('/api/generate-pdf-thumbnail', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ anexo: data }) }).catch(err => console.error("Erro ao iniciar a geração de thumbnail:", err));
-
-            resolve({ msg: "Anexo enviado! A IA começará a estudá-lo.", newAnexo: data });
-        });
-        toast.promise(promise, {
-            loading: 'Enviando arquivo...',
-            success: (result) => { onUploadSuccess(result.newAnexo); resetState(); return result.msg; },
-            error: (err) => `Erro: ${err.message}`,
-            finally: () => setIsUploading(false)
-        });
-    };
-    const dropzoneClass = isDraggingOver ? 'border-blue-500 bg-blue-50' : 'border-gray-300 bg-gray-50';
-    return (
-        <div className="p-4 bg-white border rounded-lg space-y-4">
-            <h4 className="font-semibold text-gray-700">Adicionar Novo Documento</h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <select value={tipoId} onChange={(e) => setTipoId(e.target.value)} className="p-2 border rounded-md w-full"><option value="">-- Selecione o Tipo --</option>{allowedTipos.map(t => <option key={t.id} value={t.id}>{t.descricao} ({t.sigla})</option>)}</select>
-                <input type="text" placeholder="Descrição (opcional)" value={descricao} onChange={(e) => setDescricao(e.target.value)} className="p-2 border rounded-md w-full" />
-            </div>
-            <div onDragEnter={handleDragEnter} onDragLeave={handleDragLeave} onDragOver={handleDragOver} onDrop={handleDrop} onClick={() => fileInputRef.current?.click()} className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${dropzoneClass}`}>
-                <input ref={fileInputRef} type="file" className="hidden" onChange={(e) => handleFileSelect(e.target.files[0])} />
-                <FontAwesomeIcon icon={faCloudUploadAlt} className="text-4xl text-gray-400 mb-3" />
-                {file ? (<div><p className="font-semibold text-gray-700">{file.name}</p><p className="text-sm text-gray-500">{(file.size / 1024).toFixed(2)} KB</p></div>) : (<p className="text-gray-500">Arraste e solte o arquivo aqui, ou <span className="text-blue-600 font-semibold">clique para selecionar</span>.</p>)}
-            </div>
-            <div className="flex justify-end">
-                <button onClick={handleUpload} disabled={isUploading || !file || !tipoId} className="bg-blue-600 text-white text-sm font-bold px-6 py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center gap-2 transition-colors shadow-sm">
-                    {isUploading ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faUpload} />}
-                    {isUploading ? 'Enviando...' : 'Enviar Arquivo'}
-                </button>
-            </div>
-        </div>
-    );
-};
+// AnexoUploader inline foi removido. Usando components/shared/AnexoUploader.js
 
 // --- ATUALIZAÇÃO: TabelaVendas agora recebe sortConfig via props ---
 const TabelaVendas = ({ produtos, empreendimentoId, sortConfig, onSortChange }) => {
@@ -236,8 +135,8 @@ const ListaAnexos = ({ anexos, onDelete, onToggleCorretor, isToggling }) => {
                             disabled={isToggling}
                             title={anexo.disponivel_corretor ? "Disponível para Corretores (Clique para remover)" : "Indisponível para Corretores (Clique para publicar)"}
                             className={`p-2 w-8 h-8 flex items-center justify-center rounded-full transition-colors ${anexo.disponivel_corretor
-                                    ? 'text-white bg-blue-600 hover:bg-blue-700'
-                                    : 'text-gray-500 bg-gray-200 hover:bg-gray-300'
+                                ? 'text-white bg-blue-600 hover:bg-blue-700'
+                                : 'text-gray-500 bg-gray-200 hover:bg-gray-300'
                                 }`}
                         >
                             <FontAwesomeIcon icon={isToggling ? faSpinner : faUserTie} className={`${isToggling ? 'animate-spin' : ''} text-sm`} />
@@ -252,112 +151,7 @@ const ListaAnexos = ({ anexos, onDelete, onToggleCorretor, isToggling }) => {
     );
 };
 
-// --- GaleriaMarketing com o botão de toggle ---
-const GaleriaMarketing = ({ anexos, onDelete, onToggleCorretor, isToggling }) => {
-    const supabase = createClient();
-    const replaceFileInputRef = useRef(null);
-    const [anexoToReplace, setAnexoToReplace] = useState(null);
-
-    const handleReplaceClick = (anexo) => {
-        setAnexoToReplace(anexo);
-        replaceFileInputRef.current?.click();
-    };
-
-    const handleFileReplace = async (event) => {
-        const file = event.target.files[0];
-        if (!file || !anexoToReplace) return;
-
-        toast.promise(
-            new Promise(async (resolve, reject) => {
-                const { error } = await supabase.storage
-                    .from('empreendimento-anexos')
-                    .upload(anexoToReplace.caminho_arquivo, file, { upsert: true });
-                if (error) return reject(error);
-                // Trigger thumbnail regeneration if needed
-                fetch('/api/generate-pdf-thumbnail', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ anexo: anexoToReplace }) }).catch(err => console.error("Erro ao regerar thumbnail:", err));
-                resolve("Arquivo substituído com sucesso! A página será recarregada.");
-            }),
-            {
-                loading: 'Substituindo arquivo...',
-                success: (msg) => { setTimeout(() => window.location.reload(), 2000); return msg; },
-                error: (err) => `Erro ao substituir: ${err.message}`,
-                finally: () => { setAnexoToReplace(null); if (replaceFileInputRef.current) replaceFileInputRef.current.value = ""; }
-            }
-        );
-    };
-
-    if (!anexos || anexos.length === 0) return <p className="text-center text-gray-500 py-4 mt-4">Nenhum item de marketing encontrado.</p>;
-
-    const isVideo = (path) => /\.(mp4|webm|ogg)$/i.test(path || '');
-    const isPdf = (path) => /\.(pdf)$/i.test(path || '');
-
-    const handleGeneratePublicLink = async (filePath) => {
-        if (!filePath) { toast.error("Arquivo não encontrado."); return; }
-        const { data } = supabase.storage.from('empreendimento-anexos').getPublicUrl(filePath);
-        if (data?.publicUrl) {
-            try {
-                await navigator.clipboard.writeText(data.publicUrl);
-                toast.success("Link público copiado para a área de transferência!");
-            } catch (err) {
-                toast.error("Falha ao copiar o link.");
-                console.error("Erro ao copiar para clipboard:", err);
-            }
-        } else {
-            toast.error("Não foi possível gerar o link público.");
-        }
-    };
-
-    return (
-        <>
-            <input type="file" ref={replaceFileInputRef} className="hidden" onChange={handleFileReplace} />
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mt-4">
-                {anexos.map(anexo => (
-                    <div key={anexo.id} className="relative group rounded-lg overflow-hidden shadow-lg border">
-                        {/* Preview */}
-                        <a href={anexo.public_url} target="_blank" rel="noopener noreferrer">
-                            {anexo.thumbnail_url ? (
-                                <img src={anexo.thumbnail_url} alt={`Pré-visualização de ${anexo.nome_arquivo}`} className="w-full h-48 object-contain" />
-                            ) : isVideo(anexo.caminho_arquivo) ? (
-                                <video controls src={anexo.public_url} className="w-full h-48 object-contain bg-black">Seu navegador não suporta vídeos.</video>
-                            ) : isPdf(anexo.nome_arquivo) ? (
-                                <div className="w-full h-48 bg-gray-200 flex flex-col items-center justify-center text-gray-500">
-                                    <FontAwesomeIcon icon={faSpinner} spin size="2x" /><span className="mt-2 text-sm">Processando preview...</span>
-                                </div>
-                            ) : (
-                                anexo.public_url && <img src={anexo.public_url} alt={anexo.nome_arquivo} className="w-full h-48 object-contain" />
-                            )}
-                        </a>
-                        {/* Botões Overlay */}
-                        <div className="absolute top-0 right-0 p-1 flex items-center gap-1 bg-black/30 rounded-bl-lg opacity-0 group-hover:opacity-100 transition-opacity">
-                            {/* Botão Toggle Corretor */}
-                            <button
-                                onClick={() => onToggleCorretor(anexo)}
-                                disabled={isToggling}
-                                title={anexo.disponivel_corretor ? "Disponível para Corretores" : "Indisponível para Corretores"}
-                                className={`text-white h-7 w-7 flex items-center justify-center rounded-full hover:bg-black/30 transition-colors ${anexo.disponivel_corretor ? 'bg-blue-600' : 'bg-gray-600'
-                                    }`}
-                            >
-                                <FontAwesomeIcon icon={isToggling ? faSpinner : faUserTie} className={`${isToggling ? 'animate-spin' : ''} text-xs`} />
-                            </button>
-                            {/* Outros Botões */}
-                            <button onClick={() => handleReplaceClick(anexo)} title="Substituir" className="text-white h-7 w-7 flex items-center justify-center hover:bg-black/30 rounded-full transition-colors"><FontAwesomeIcon icon={faRightLeft} /></button>
-                            <a href={anexo.public_url} download={anexo.nome_arquivo} title="Baixar" className="text-white h-7 w-7 flex items-center justify-center hover:bg-black/30 rounded-full transition-colors"><FontAwesomeIcon icon={faDownload} /></a>
-                            <button onClick={() => handleGeneratePublicLink(anexo.caminho_arquivo)} title="Copiar link público" className="text-white h-7 w-7 flex items-center justify-center hover:bg-black/30 rounded-full transition-colors"><FontAwesomeIcon icon={faLink} /></button>
-                            <a href={anexo.public_url} target="_blank" rel="noopener noreferrer" title="Visualizar" className="text-white h-7 w-7 flex items-center justify-center hover:bg-black/30 rounded-full transition-colors"><FontAwesomeIcon icon={faEye} /></a>
-                            <button onClick={() => onDelete(anexo.id)} title="Excluir" className="text-white h-7 w-7 flex items-center justify-center hover:bg-black/30 rounded-full transition-colors"><FontAwesomeIcon icon={faTrash} /></button>
-                        </div>
-                        {/* Descrição Overlay */}
-                        {(anexo.descricao || anexo.tipo?.descricao) && (
-                            <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-xs p-2 truncate" title={anexo.descricao || anexo.tipo.descricao}>
-                                {anexo.descricao || anexo.tipo.descricao}
-                            </div>
-                        )}
-                    </div>
-                ))}
-            </div>
-        </>
-    );
-};
+// GaleriaMarketing inline foi removido. Usando components/shared/GaleriaMarketing.js
 
 
 // --- COMPONENTE DO MODAL ---
@@ -632,9 +426,9 @@ export default function EmpreendimentoDetails({ empreendimento, corporateEntitie
                 {activeTab === 'gerenciamento_contratos' && (<GerenciamentoModelosContrato empreendimentoId={empreendimento.id} organizacaoId={organizacaoId} />)}
                 {['documentos_juridicos', 'documentos_gerais', 'marketing'].includes(activeTab) && (
                     <div className="space-y-6 animate-fade-in">
-                        {activeTab === 'documentos_juridicos' && (<> <AnexoUploader empreendimentoId={empreendimento.id} allowedTipos={documentoTipos} onUploadSuccess={handleUploadSuccess} categoria="juridico" organizacaoId={organizacaoId} /> <ListaAnexos anexos={anexos.filter(a => a.categoria_aba === 'juridico')} onDelete={handleDeleteAnexo} onToggleCorretor={toggleCorretorVisibility} isToggling={isToggling} /> </>)}
-                        {activeTab === 'documentos_gerais' && (<> <AnexoUploader empreendimentoId={empreendimento.id} allowedTipos={documentoTipos} onUploadSuccess={handleUploadSuccess} categoria="geral" organizacaoId={organizacaoId} /> <ListaAnexos anexos={anexos.filter(a => a.categoria_aba === 'geral')} onDelete={handleDeleteAnexo} onToggleCorretor={toggleCorretorVisibility} isToggling={isToggling} /> </>)}
-                        {activeTab === 'marketing' && (<> <AnexoUploader empreendimentoId={empreendimento.id} allowedTipos={documentoTipos} onUploadSuccess={handleUploadSuccess} categoria="marketing" organizacaoId={organizacaoId} /> <GaleriaMarketing anexos={anexos.filter(a => a.categoria_aba === 'marketing')} onDelete={handleDeleteAnexo} onToggleCorretor={toggleCorretorVisibility} isToggling={isToggling} /> </>)}
+                        {activeTab === 'documentos_juridicos' && (<> <AnexoUploader parentId={empreendimento.id} storageBucket="empreendimento-anexos" tableName="empreendimento_anexos" allowedTipos={documentoTipos} onUploadSuccess={handleUploadSuccess} categoria="juridico" organizacaoId={organizacaoId} /> <ListaAnexos anexos={anexos.filter(a => a.categoria_aba === 'juridico')} onDelete={handleDeleteAnexo} onToggleCorretor={toggleCorretorVisibility} isToggling={isToggling} /> </>)}
+                        {activeTab === 'documentos_gerais' && (<> <AnexoUploader parentId={empreendimento.id} storageBucket="empreendimento-anexos" tableName="empreendimento_anexos" allowedTipos={documentoTipos} onUploadSuccess={handleUploadSuccess} categoria="geral" organizacaoId={organizacaoId} /> <ListaAnexos anexos={anexos.filter(a => a.categoria_aba === 'geral')} onDelete={handleDeleteAnexo} onToggleCorretor={toggleCorretorVisibility} isToggling={isToggling} /> </>)}
+                        {activeTab === 'marketing' && (<> <AnexoUploader parentId={empreendimento.id} storageBucket="empreendimento-anexos" tableName="empreendimento_anexos" allowedTipos={documentoTipos} onUploadSuccess={handleUploadSuccess} categoria="marketing" organizacaoId={organizacaoId} /> <GaleriaMarketingShared anexos={anexos.filter(a => a.categoria_aba === 'marketing')} storageBucket="empreendimento-anexos" onDelete={(id) => handleDeleteAnexo(id)} /> </>)}
                     </div>
                 )}
             </div>
