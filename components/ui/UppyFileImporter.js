@@ -1,12 +1,10 @@
 // components/ui/UppyFileImporter.js
+// Padrão nativo do sistema - sem Dashboard do Uppy
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import Uppy from '@uppy/core';
-import Dashboard from '@uppy/react/dashboard';
+import React, { useRef } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faXmark } from '@fortawesome/free-solid-svg-icons';
-import { toast } from 'sonner';
+import { faXmark, faCloudUploadAlt, faFileAlt } from '@fortawesome/free-solid-svg-icons';
 
 export default function UppyFileImporter({
     isOpen,
@@ -14,104 +12,47 @@ export default function UppyFileImporter({
     onFileSelected,
     title = "Importar Arquivo",
     allowedFileTypes = ['.csv'],
-    maxFileSize = 10 * 1024 * 1024, // 10MB default
     note = "Selecione ou arraste o arquivo aqui",
-    children // For extra UI inside the modal (like column mapping)
+    children
 }) {
-    const [uppy] = useState(() => new Uppy({
-        id: 'file-importer',
-        allowMultipleUploadBatches: false,
-        restrictions: {
-            maxNumberOfFiles: 1,
-            allowedFileTypes: allowedFileTypes,
-            maxFileSize: maxFileSize,
-        },
-        locale: {
-            strings: {
-                dropHereOr: 'Arraste o arquivo aqui ou %{browse}',
-                browse: 'busque no dispositivo',
-                xFilesSelected: {
-                    0: '%{smart_count} arquivo selecionado',
-                    1: '%{smart_count} arquivos selecionados'
-                },
-                uploading: 'Enviando',
-                complete: 'Completo',
-                uploadFailed: 'Falha no envio',
-                pleasePressRetry: 'Por favor, tente novamente.',
-                cancel: 'Cancelar',
-                cancelUpload: 'Cancelar envio',
-                removeFile: 'Remover arquivo',
-                editFile: 'Editar arquivo',
-                editing: 'Editando %{file}',
-                saveChanges: 'Salvar alterações',
-                myDevice: 'Meu Dispositivo',
-                dropPasteFiles: 'Solte o arquivo aqui ou %{browse}',
-                dropPaste: 'Solte o arquivo aqui ou %{browse}',
-                addMore: 'Adicionar mais',
-                uploadComplete: 'Envio concluído',
-                resumeUpload: 'Pausado',
-                pauseUpload: 'Pausar',
-                retryUpload: 'Tentar novamente',
-                cancelUpload: 'Cancelar',
-                xMoreFilesAdded: {
-                    0: '%{smart_count} arquivo adicionado',
-                    1: '%{smart_count} arquivos adicionados'
-                },
-                exceedsSize: 'Este arquivo excede o limite máximo permitido de %{size}',
-                youCanOnlyUploadX: {
-                    0: 'Você só pode enviar %{smart_count} arquivo por vez',
-                    1: 'Você só pode enviar %{smart_count} arquivos por vez'
-                },
-                youHaveToAtLeastSelectX: {
-                    0: 'Você precisa selecionar pelo menos %{smart_count} arquivo',
-                    1: 'Você precisa selecionar pelo menos %{smart_count} arquivos'
-                },
-                selectFileNamed: 'Selecione o arquivo %{name}',
-                unselectFileNamed: 'Remover o arquivo %{name}',
-                openFolderNamed: 'Abrir a pasta %{name}'
-            }
-        },
-    }));
-
-    useEffect(() => {
-        const handleFileAdded = (file) => {
-            if (onFileSelected) {
-                // We pass the actual JS File object
-                onFileSelected(file.data);
-            }
-        };
-
-        const handleRestrictionFailed = (file, error) => {
-            toast.error(error.message);
-        };
-
-        uppy.on('file-added', handleFileAdded);
-        uppy.on('restriction-failed', handleRestrictionFailed);
-
-        return () => {
-            uppy.off('file-added', handleFileAdded);
-            uppy.off('restriction-failed', handleRestrictionFailed);
-        };
-    }, [uppy, onFileSelected]);
-
-    // Cleanup when modal closes
-    useEffect(() => {
-        if (!isOpen) {
-            uppy.cancelAll();
-        }
-    }, [isOpen, uppy]);
+    const fileInputRef = useRef(null);
 
     if (!isOpen) return null;
 
-    return (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            {/* INJEÇÃO DO CSS VIA CDN */}
-            <link href="https://releases.transloadit.com/uppy/v3.23.0/uppy.min.css" rel="stylesheet" />
+    const handleFileChange = (e) => {
+        const file = e.target.files?.[0];
+        if (file && onFileSelected) {
+            onFileSelected(file);
+        }
+        // Limpa o input para permitir selecionar o mesmo arquivo novamente
+        if (fileInputRef.current) fileInputRef.current.value = '';
+    };
 
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[95vh] flex flex-col relative animate-in fade-in zoom-in-95 duration-200">
+    const handleDrop = (e) => {
+        e.preventDefault();
+        const file = e.dataTransfer.files?.[0];
+        if (file && onFileSelected) {
+            // Validar a extensão do arquivo
+            const ext = '.' + file.name.split('.').pop().toLowerCase();
+            if (allowedFileTypes.length > 0 && !allowedFileTypes.includes(ext)) {
+                return;
+            }
+            onFileSelected(file);
+        }
+    };
+
+    const handleDragOver = (e) => {
+        e.preventDefault();
+    };
+
+    return (
+        // Overlay
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg flex flex-col relative animate-fadeIn">
+
                 {/* Header */}
-                <div className="flex justify-between items-center p-5 border-b sticky top-0 bg-white rounded-t-xl z-20">
-                    <h2 className="text-xl font-bold text-gray-800">{title}</h2>
+                <div className="flex justify-between items-center px-6 py-4 border-b">
+                    <h2 className="text-lg font-bold text-gray-800">{title}</h2>
                     <button
                         onClick={onClose}
                         className="text-gray-400 hover:text-red-500 hover:bg-gray-100 w-8 h-8 rounded-full flex items-center justify-center transition-colors"
@@ -121,26 +62,50 @@ export default function UppyFileImporter({
                     </button>
                 </div>
 
-                {/* Content */}
-                <div className="p-6 flex-grow overflow-y-auto custom-scrollbar flex flex-col gap-6">
-                    {/* Uppy Dashboard (Selection Mode) */}
-                    <div>
-                        <p className="text-sm font-medium text-gray-700 mb-2">1. {note}</p>
-                        <Dashboard
-                            uppy={uppy}
-                            width="100%"
-                            height={250}
-                            hideUploadButton={true} // We don't upload directly, we pass the file to the parent
-                            showRemoveButtonAfterComplete={true}
-                            showProgressDetails={false}
-                            theme="light"
-                            note={`Apenas arquivos ${allowedFileTypes.join(', ')} até ${Math.round(maxFileSize / 1024 / 1024)}MB`}
-                            proudlyDisplayPoweredByUppy={false}
-                        />
+                {/* Área de Drop e Seleção */}
+                <div className="p-6">
+                    <p className="text-sm text-gray-500 mb-3">{note}</p>
+
+                    {/* Zona de Drop */}
+                    <div
+                        onDrop={handleDrop}
+                        onDragOver={handleDragOver}
+                        onClick={() => fileInputRef.current?.click()}
+                        className="border-2 border-dashed border-gray-300 hover:border-blue-400 hover:bg-blue-50 rounded-xl p-10 flex flex-col items-center justify-center gap-3 cursor-pointer transition-all"
+                    >
+                        <div className="bg-blue-100 w-14 h-14 rounded-full flex items-center justify-center">
+                            <FontAwesomeIcon icon={faCloudUploadAlt} className="text-blue-500 text-2xl" />
+                        </div>
+                        <div className="text-center">
+                            <p className="font-semibold text-gray-700">Clique para selecionar ou arraste aqui</p>
+                            <p className="text-xs text-gray-400 mt-1">
+                                Formatos aceitos: {allowedFileTypes.join(', ').toUpperCase()}
+                            </p>
+                        </div>
+                        <FontAwesomeIcon icon={faFileAlt} className="text-gray-200 text-5xl absolute opacity-10 pointer-events-none" />
                     </div>
 
-                    {/* Slot for parent to render mapping UI, processing buttons, etc */}
+                    {/* Input oculto */}
+                    <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept={allowedFileTypes.join(',')}
+                        onChange={handleFileChange}
+                        className="hidden"
+                    />
+
+                    {/* Slot extra para conteúdo adicional (ex: mapeamento de colunas) */}
                     {children}
+                </div>
+
+                {/* Footer */}
+                <div className="px-6 pb-4 flex justify-end border-t pt-4">
+                    <button
+                        onClick={onClose}
+                        className="px-5 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-sm transition-colors"
+                    >
+                        Cancelar
+                    </button>
                 </div>
             </div>
         </div>
