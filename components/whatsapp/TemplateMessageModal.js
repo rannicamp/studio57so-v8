@@ -3,12 +3,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { 
-    faSpinner, faTimes, faPaperPlane, faExclamationTriangle, 
+import {
+    faSpinner, faTimes, faPaperPlane, faExclamationTriangle,
     faImage, faVideo, faFileAlt, faClock, faCalendarAlt, faSave, faCheck
 } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 import { createClient } from '@/utils/supabase/client';
+import UppyFileImporter from '@/components/ui/UppyFileImporter';
 
 const useWhatsAppTemplates = () => {
     return useQuery({
@@ -21,7 +22,7 @@ const useWhatsAppTemplates = () => {
             }
             return response.json();
         },
-        staleTime: 1000 * 60 * 5, 
+        staleTime: 1000 * 60 * 5,
         refetchOnWindowFocus: false,
     });
 };
@@ -35,18 +36,18 @@ export default function TemplateMessageModal({ isOpen, onClose, onSendTemplate, 
     const [selectedTemplate, setSelectedTemplate] = useState(null);
     const [variables, setVariables] = useState([]);
     const [isSending, setIsSending] = useState(false);
-    
+
     // Mídia
     const [headerType, setHeaderType] = useState(null);
     const [headerFile, setHeaderFile] = useState(null);
-    const [existingHeaderUrl, setExistingHeaderUrl] = useState(null); 
-    const fileInputRef = useRef(null);
+    const [existingHeaderUrl, setExistingHeaderUrl] = useState(null);
+    const [isUppyOpen, setIsUppyOpen] = useState(false);
 
     // Agendamento
     const [isScheduled, setIsScheduled] = useState(false);
     const [scheduledDate, setScheduledDate] = useState('');
     const [minDate, setMinDate] = useState('');
-    
+
     const supabase = createClient();
 
     // Reset ou Preencher Dados ao Abrir
@@ -59,11 +60,11 @@ export default function TemplateMessageModal({ isOpen, onClose, onSendTemplate, 
             if (initialData && templatesData) {
                 const templates = Array.isArray(templatesData) ? templatesData : (templatesData?.data || []);
                 const foundTemplate = templates.find(t => t.name === initialData.template_name);
-                
+
                 if (foundTemplate) {
                     setSelectedTemplate(foundTemplate);
                     setVariables(initialData.variables || []);
-                    
+
                     if (initialData.scheduled_at) {
                         setIsScheduled(true);
                         const dateObj = new Date(initialData.scheduled_at);
@@ -95,11 +96,11 @@ export default function TemplateMessageModal({ isOpen, onClose, onSendTemplate, 
     const handleTemplateChange = (templateName) => {
         const templates = Array.isArray(templatesData) ? templatesData : (templatesData?.data || []);
         const template = templates.find(t => t.name === templateName);
-        
+
         if (template) {
             setSelectedTemplate(template);
-            setExistingHeaderUrl(null); 
-            
+            setExistingHeaderUrl(null);
+
             const bodyComponent = template.components.find(c => c.type === 'BODY');
             const variableCount = (bodyComponent?.text?.match(/\{\{\d\}\}/g) || []).length;
             const initialVars = Array(variableCount).fill('');
@@ -123,19 +124,19 @@ export default function TemplateMessageModal({ isOpen, onClose, onSendTemplate, 
         }
     };
 
-    const handleFileChange = (e) => {
-        const file = e.target.files[0];
+    const handleFileChange = (file) => {
+        setIsUppyOpen(false);
         if (file) {
             if (file.size > 15 * 1024 * 1024) return toast.error("Arquivo muito grande (Max 15MB)");
             setHeaderFile(file);
-            setExistingHeaderUrl(null); 
+            setExistingHeaderUrl(null);
         }
     };
 
     const handleSend = async () => {
         if (!selectedTemplate) return;
         if (variables.some(v => v.trim() === '')) return toast.warning('Preencha as variáveis.');
-        
+
         if (headerType && !headerFile && !existingHeaderUrl) {
             return toast.warning(`Adicione um arquivo de ${headerType}.`);
         }
@@ -144,7 +145,7 @@ export default function TemplateMessageModal({ isOpen, onClose, onSendTemplate, 
 
         setIsSending(true);
         try {
-            let headerUrl = existingHeaderUrl; 
+            let headerUrl = existingHeaderUrl;
 
             if (headerType && headerFile) {
                 const cleanName = sanitizeFileName(headerFile.name);
@@ -189,13 +190,13 @@ export default function TemplateMessageModal({ isOpen, onClose, onSendTemplate, 
                 name: selectedTemplate.name,
                 language: { code: selectedTemplate.language },
                 components: components,
-                fullText: fullText, 
+                fullText: fullText,
                 scheduledAt: finalDate,
-                id: initialData?.id 
+                id: initialData?.id
             };
 
             await onSendTemplate(templatePayload);
-            
+
             onClose();
         } catch (err) {
             toast.error("Erro: " + err.message);
@@ -217,12 +218,12 @@ export default function TemplateMessageModal({ isOpen, onClose, onSendTemplate, 
                     </h2>
                     <button onClick={onClose} className="text-gray-500 hover:text-gray-800"><FontAwesomeIcon icon={faTimes} /></button>
                 </div>
-                
+
                 <div className="flex-grow overflow-y-auto custom-scrollbar pr-2 space-y-5">
                     {!templatesData && !error ? <div className="text-center p-8"><FontAwesomeIcon icon={faSpinner} spin className="text-2xl text-[#00a884]" /></div> : (
                         <>
                             {error && <div className="text-red-500 bg-red-50 p-3 rounded text-sm">{error.message}</div>}
-                            
+
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Modelo</label>
                                 <select className="w-full p-2 border rounded-md" onChange={(e) => handleTemplateChange(e.target.value)} value={selectedTemplate?.name || ''}>
@@ -238,19 +239,40 @@ export default function TemplateMessageModal({ isOpen, onClose, onSendTemplate, 
                                     {headerType && (
                                         <div className="bg-blue-50 p-3 rounded border border-blue-100">
                                             <label className="block text-sm font-bold text-blue-800 mb-2">Anexar {headerType}</label>
-                                            
+
                                             {existingHeaderUrl && (
                                                 <div className="mb-2 text-xs text-green-700 flex items-center gap-2">
                                                     <FontAwesomeIcon icon={faCheck} /> Arquivo já anexado. (Envie outro para trocar)
                                                 </div>
                                             )}
-                                            
-                                            <input type="file" onChange={handleFileChange} accept={headerType === 'IMAGE' ? "image/*" : headerType === 'VIDEO' ? "video/*" : ".pdf"} className="block w-full text-sm text-gray-500" />
+
+                                            <UppyFileImporter
+                                                isOpen={isUppyOpen}
+                                                onClose={() => setIsUppyOpen(false)}
+                                                onFileSelected={handleFileChange}
+                                                title={`Selecionar ${headerType}`}
+                                                allowedFileTypes={headerType === 'IMAGE' ? ['.jpg', '.jpeg', '.png'] : headerType === 'VIDEO' ? ['.mp4'] : ['.pdf']}
+                                                maxFileSize={15 * 1024 * 1024}
+                                            />
+
+                                            <div onClick={() => setIsUppyOpen(true)} className="w-full p-3 border-2 border-dashed border-blue-300 rounded bg-white text-center cursor-pointer hover:bg-blue-50 transition-colors">
+                                                {headerFile ? (
+                                                    <span className="text-blue-700 font-medium">
+                                                        <FontAwesomeIcon icon={faCheck} className="mr-2" />
+                                                        {headerFile.name}
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-blue-600">
+                                                        <FontAwesomeIcon icon={headerType === 'IMAGE' ? faImage : headerType === 'VIDEO' ? faVideo : faFileAlt} className="mr-2" />
+                                                        Clique para anexar {headerType}
+                                                    </span>
+                                                )}
+                                            </div>
                                         </div>
                                     )}
                                     <div className="p-3 border rounded bg-gray-50 text-sm italic whitespace-pre-line">{selectedTemplate.components.find(c => c.type === 'BODY')?.text}</div>
                                     {variables.map((v, i) => (
-                                        <input key={i} type="text" value={v} onChange={(e) => {const n=[...variables];n[i]=e.target.value;setVariables(n)}} className="w-full p-2 border rounded" placeholder={`Variável {{${i+1}}}`} />
+                                        <input key={i} type="text" value={v} onChange={(e) => { const n = [...variables]; n[i] = e.target.value; setVariables(n) }} className="w-full p-2 border rounded" placeholder={`Variável {{${i + 1}}}`} />
                                     ))}
 
                                     {showScheduling && (

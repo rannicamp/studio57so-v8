@@ -5,6 +5,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCloudUploadAlt, faSpinner, faCheckCircle, faFileInvoice, faTimesCircle, faCheck, faChevronDown } from '@fortawesome/free-solid-svg-icons';
 import { createClient } from '../../utils/supabase/client';
 import { toast } from 'sonner';
+import UppyFileImporter from '@/components/ui/UppyFileImporter';
 
 export default function OfxUploader({ organizacaoId, contas, onUploadSuccess }) {
     const supabase = createClient();
@@ -13,7 +14,7 @@ export default function OfxUploader({ organizacaoId, contas, onUploadSuccess }) 
     const [uploadStatus, setUploadStatus] = useState(null); // 'success', 'error', 'pending_account'
     const [queue, setQueue] = useState([]); // Array de arquivos esperando vinculação de conta
     const [selectedPendingContaId, setSelectedPendingContaId] = useState('');
-    const fileInputRef = useRef(null);
+    const [isModalOpen, setIsModalOpen] = useState(false);
 
     const [isDropdownContaOpen, setIsDropdownContaOpen] = useState(false);
     const dropdownContaRef = useRef(null);
@@ -73,11 +74,9 @@ export default function OfxUploader({ organizacaoId, contas, onUploadSuccess }) 
         if (files.length > 0) await processFiles(files);
     };
 
-    const handleFileInput = async (e) => {
-        const files = Array.from(e.target.files);
-        if (files.length > 0) await processFiles(files);
-        // Reset do input target para permitir selecionar os mesmos dnv
-        if (fileInputRef.current) fileInputRef.current.value = '';
+    const handleFileInput = async (file) => {
+        setIsModalOpen(false); // Fecha o modal após selecionar
+        if (file) await processFiles([file]);
     };
 
     const processFiles = async (filesArray) => {
@@ -364,17 +363,17 @@ export default function OfxUploader({ organizacaoId, contas, onUploadSuccess }) 
 
     return (
         <div className="w-full flex justify-end">
-            <input
-                type="file"
-                multiple
-                ref={fileInputRef}
-                className="hidden"
-                accept=".ofx"
-                onChange={handleFileInput}
+            <UppyFileImporter
+                isOpen={isModalOpen}
+                onClose={() => setIsModalOpen(false)}
+                onFileSelected={handleFileInput}
+                title="Importar Arquivo OFX"
+                allowedFileTypes={['.ofx']}
+                note="Selecione ou arraste o arquivo .ofx exportado do seu banco"
             />
 
             <button
-                onClick={() => fileInputRef.current?.click()}
+                onClick={() => setIsModalOpen(true)}
                 disabled={isProcessing}
                 className={`
                     flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all shadow-sm

@@ -12,6 +12,7 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 
 import ConfirmReadmissionModal from '../modals/ConfirmReadmissionModal';
+import UppyAvatarUploader from '@/components/ui/UppyAvatarUploader';
 
 const DRAFT_KEY = 'RH_FUNC_MODAL_DRAFT';
 
@@ -198,8 +199,6 @@ export default function FuncionarioModal({ isOpen, onClose, employeeToEdit, onSa
     });
 
     const [formData, setFormData] = useState(getInitialState());
-    const [newPhotoFile, setNewPhotoFile] = useState(null);
-    const [photoPreview, setPhotoPreview] = useState(null);
     const [isUploading, setIsUploading] = useState(false);
 
     const [isModalSalarialOpen, setIsModalSalarialOpen] = useState(false);
@@ -212,13 +211,8 @@ export default function FuncionarioModal({ isOpen, onClose, employeeToEdit, onSa
 
         if (employeeToEdit) {
             setFormData(prev => ({ ...prev, ...employeeToEdit }));
-            if (employeeToEdit.foto_url) {
-                if (!employeeToEdit.foto_url.startsWith('http')) {
-                    supabase.storage.from('funcionarios-documentos').getPublicUrl(employeeToEdit.foto_url).then(({ data }) => setPhotoPreview(data.publicUrl));
-                } else {
-                    setPhotoPreview(employeeToEdit.foto_url);
-                }
-            }
+            // Foto é gerenciada pelo formData.foto_url
+
             supabase.from('historico_salarial')
                 .select('salario_base, valor_diaria')
                 .eq('funcionario_id', employeeToEdit.id)
@@ -239,7 +233,6 @@ export default function FuncionarioModal({ isOpen, onClose, employeeToEdit, onSa
                 } catch (e) { }
             } else {
                 setFormData(getInitialState());
-                setPhotoPreview(null);
             }
         }
     }, [isOpen, employeeToEdit, supabase]);
@@ -258,14 +251,8 @@ export default function FuncionarioModal({ isOpen, onClose, employeeToEdit, onSa
 
     const handleMaskedChange = (name, value) => setFormData(prev => ({ ...prev, [name]: value }));
 
-    const handlePhotoChange = (e) => {
-        const file = e.target.files[0];
-        if (file) {
-            setNewPhotoFile(file);
-            const reader = new FileReader();
-            reader.onloadend = () => setPhotoPreview(reader.result);
-            reader.readAsDataURL(file);
-        }
+    const handlePhotoUpload = (url) => {
+        setFormData(prev => ({ ...prev, foto_url: url }));
     };
 
     const handleSaveHistoricoSalarial = async (novoHistorico) => {
@@ -319,13 +306,7 @@ export default function FuncionarioModal({ isOpen, onClose, employeeToEdit, onSa
                 }
             }
 
-            if (newPhotoFile) {
-                const ext = newPhotoFile.name.split('.').pop();
-                const path = `${organizacao_id}/documentos/${formData.id || 'novo'}/foto_${Date.now()}.${ext}`;
-                const { data: upload, error: upError } = await supabase.storage.from('funcionarios-documentos').upload(path, newPhotoFile, { upsert: true });
-                if (upError) throw upError;
-                finalFotoPath = upload.path;
-            }
+            // Não fazemos upload da foto aqui mais, UppyAvatarUploader faz sozinho e define formData.foto_url
 
             const dataToSave = { ...formData };
             delete dataToSave._draftId;
@@ -428,12 +409,16 @@ export default function FuncionarioModal({ isOpen, onClose, employeeToEdit, onSa
                         </div>
                     ) : (
                         <form onSubmit={handleSubmit} className="space-y-6">
-                            <div className="flex items-center gap-4 border-b pb-4">
-                                {photoPreview ? <img src={photoPreview} className="w-20 h-20 rounded-full object-cover border" /> : <FontAwesomeIcon icon={faUserCircle} className="w-20 h-20 text-gray-300" />}
-                                <div className="flex-1">
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Foto</label>
-                                    <input type="file" accept="image/*" onChange={handlePhotoChange} className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:bg-blue-50 hover:file:bg-blue-100" />
-                                </div>
+                            <div className="flex justify-center border-b pb-6">
+                                <UppyAvatarUploader
+                                    url={formData.foto_url}
+                                    onUpload={handlePhotoUpload}
+                                    bucketName="funcionarios-documentos"
+                                    folderPath={`${organizacao_id}/documentos/${formData.id || 'novo'}`}
+                                    label="Foto do Funcionário"
+                                    aspectRatio="aspect-square"
+                                    className="w-32 h-32 rounded-full overflow-hidden [&_.uppy-avatar-container]:rounded-full shadow-md"
+                                />
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

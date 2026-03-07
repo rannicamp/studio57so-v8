@@ -9,6 +9,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faUserCircle, faSpinner } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
+import UppyAvatarUploader from '@/components/ui/UppyAvatarUploader';
 
 // Por que: Adicionamos este helper para formatar datas no formato 'YYYY-MM-DD'
 // para 'DD/MM/YYYY' de forma segura, sem causar problemas com fuso horário.
@@ -71,8 +72,8 @@ export default function FichaFuncionario({ initialEmployee, companies, empreendi
     const [isEditing, setIsEditing] = useState(false);
     const [employee, setEmployee] = useState(initialEmployee);
     const [formData, setFormData] = useState(initialEmployee || {});
-    const [isUploading, setIsUploading] = useState(false);
-    const [photoPreview, setPhotoPreview] = useState(initialEmployee?.foto_url || null);
+    // photoPreview state is no longer needed since UppyAvatar handles preview internally
+    // and we'll just use formData.foto_url directly.
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -114,48 +115,8 @@ export default function FichaFuncionario({ initialEmployee, companies, empreendi
         });
     };
 
-    const handlePhotoChange = async (event) => {
-        const file = event.target.files[0];
-        if (!file) return;
-
-        setIsUploading(true);
-
-        const promise = () => new Promise(async (resolve, reject) => {
-            const fileExtension = file.name.split('.').pop();
-            const newFileName = `public/${employee.id}-${Date.now()}.${fileExtension}`;
-
-            if (formData.foto_url) {
-                const oldFilePath = formData.foto_url.split('/funcionarios-documentos/')[1];
-                if (oldFilePath) {
-                    await supabase.storage.from('funcionarios-documentos').remove([oldFilePath]);
-                }
-            }
-
-            const { data: uploadData, error: uploadError } = await supabase.storage
-                .from('funcionarios-documentos')
-                .upload(newFileName, file);
-
-            if (uploadError) {
-                return reject(uploadError);
-            }
-
-            const { data: { publicUrl } } = supabase.storage
-                .from('funcionarios-documentos')
-                .getPublicUrl(uploadData.path);
-
-            // IMPORTANTE: Salvamos o PATH RELATIVO no banco (não a URL pública).
-            // A URL é gerada em runtime pelo GerenciamentoFuncionarios ao carregar a lista.
-            setFormData(prev => ({ ...prev, foto_url: uploadData.path }));
-            setPhotoPreview(publicUrl); // Para o preview imediato na tela, usamos a publicUrl
-            resolve(uploadData.path);
-        });
-
-        toast.promise(promise, {
-            loading: 'Enviando foto...',
-            success: 'Foto carregada! Salve as alterações para confirmar.',
-            error: (err) => `Erro no upload: ${err.message}`,
-            finally: () => setIsUploading(false)
-        });
+    const handlePhotoUpload = (url) => {
+        setFormData(prev => ({ ...prev, foto_url: url }));
     };
 
     const handleSaveChanges = async () => {
@@ -212,14 +173,16 @@ export default function FichaFuncionario({ initialEmployee, companies, empreendi
                 <div className="space-y-10">
                     <fieldset>
                         <legend className="text-xl font-semibold text-gray-800 border-b pb-2 mb-4">Foto de Perfil</legend>
-                        <div className="flex items-center gap-4">
-                            {photoPreview ? (
-                                <img src={photoPreview} alt="Preview" className="w-24 h-24 rounded-full object-cover" />
-                            ) : (
-                                <FontAwesomeIcon icon={faUserCircle} className="w-24 h-24 text-gray-300" />
-                            )}
-                            <input type="file" id="photo-upload" onChange={handlePhotoChange} disabled={isUploading} className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:bg-blue-50 hover:file:bg-blue-100" />
-                            {isUploading && <FontAwesomeIcon icon={faSpinner} spin className="text-blue-500" />}
+                        <div className="flex justify-start">
+                            <UppyAvatarUploader
+                                url={formData.foto_url}
+                                onUpload={handlePhotoUpload}
+                                bucketName="funcionarios-documentos"
+                                folderPath={`public/${employee.id}`}
+                                label=""
+                                aspectRatio="aspect-square"
+                                className="w-32 h-32 rounded-full overflow-hidden [&_.uppy-avatar-container]:rounded-full shadow-md"
+                            />
                         </div>
                     </fieldset>
 

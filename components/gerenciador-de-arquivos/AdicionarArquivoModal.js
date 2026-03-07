@@ -9,6 +9,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCloudUploadAlt, faSpinner, faUpload, faXmark } from '@fortawesome/free-solid-svg-icons';
 import { motion, AnimatePresence } from 'framer-motion';
 import imageCompression from 'browser-image-compression';
+import UppyFileImporter from '@/components/ui/UppyFileImporter';
 
 const fetchModalData = async () => {
     const supabase = createClient();
@@ -38,8 +39,7 @@ export default function AdicionarArquivoModal({ isOpen, onClose, onUploadSuccess
     const [tipoId, setTipoId] = useState('');
     const [categoria, setCategoria] = useState('marketing');
     const [isUploading, setIsUploading] = useState(false);
-    const [isDraggingOver, setIsDraggingOver] = useState(false);
-    const fileInputRef = useRef(null);
+    const [isUppyOpen, setIsUppyOpen] = useState(false);
 
     const { data, isLoading } = useQuery({ queryKey: ['modalUploadData'], queryFn: fetchModalData, enabled: isOpen });
 
@@ -53,8 +53,8 @@ export default function AdicionarArquivoModal({ isOpen, onClose, onUploadSuccess
                 setEmpresaId(selectedEmpreendimento.empresa_proprietaria_id);
             }
         } else {
-           // Se nenhum empreendimento for selecionado, limpamos a empresa para permitir a seleção manual.
-           setEmpresaId('');
+            // Se nenhum empreendimento for selecionado, limpamos a empresa para permitir a seleção manual.
+            setEmpresaId('');
         }
     }, [empreendimentoId, data?.empreendimentos]);
 
@@ -76,7 +76,6 @@ export default function AdicionarArquivoModal({ isOpen, onClose, onUploadSuccess
 
     const resetState = () => {
         setFile(null); setDescricao(''); setEmpreendimentoId(''); setTipoId(''); setEmpresaId(''); setCategoria('marketing');
-        if (fileInputRef.current) fileInputRef.current.value = "";
     };
 
     const handleUpload = async () => {
@@ -87,13 +86,13 @@ export default function AdicionarArquivoModal({ isOpen, onClose, onUploadSuccess
         }
 
         setIsUploading(true);
-        
+
         const promise = new Promise(async (resolve, reject) => {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return reject(new Error("Usuário não autenticado."));
             const { data: userData, error: userError } = await supabase.from('usuarios').select('organizacao_id').eq('id', user.id).single();
             if (userError || !userData) return reject(new Error("Não foi possível identificar a organização do usuário."));
-            
+
             const tipoSelecionado = data.tipos.find(t => t.id == tipoId);
             const sigla = tipoSelecionado?.sigla || 'DOC';
             const fileExt = file.name.split('.').pop();
@@ -106,11 +105,11 @@ export default function AdicionarArquivoModal({ isOpen, onClose, onUploadSuccess
 
             // O PORQUÊ DA MUDANÇA: O objeto de inserção agora é dinâmico, incluindo
             // 'empreendimento_id' ou 'empresa_id' conforme o que foi selecionado.
-            const insertData = { 
-                caminho_arquivo: newFileName, 
-                nome_arquivo: file.name, 
-                descricao: descricao, 
-                tipo_documento_id: tipoId, 
+            const insertData = {
+                caminho_arquivo: newFileName,
+                nome_arquivo: file.name,
+                descricao: descricao,
+                tipo_documento_id: tipoId,
                 categoria_aba: categoria,
                 usuario_id: user.id,
                 organizacao_id: userData.organizacao_id,
@@ -120,7 +119,7 @@ export default function AdicionarArquivoModal({ isOpen, onClose, onUploadSuccess
 
             const { error: dbError } = await supabase.from('empreendimento_anexos').insert(insertData);
             if (dbError) return reject(dbError);
-            
+
             resolve("Arquivo enviado com sucesso!");
         });
 
@@ -131,7 +130,7 @@ export default function AdicionarArquivoModal({ isOpen, onClose, onUploadSuccess
             finally: () => setIsUploading(false),
         });
     };
-    
+
     return (
         <AnimatePresence>
             {isOpen && (
@@ -150,12 +149,22 @@ export default function AdicionarArquivoModal({ isOpen, onClose, onUploadSuccess
                                     <select value={categoria} onChange={(e) => setCategoria(e.target.value)} className="p-2 border rounded-md w-full"><option value="marketing">Marketing</option><option value="juridico">Jurídico</option><option value="geral">Geral</option><option value="marca">Marca</option></select>
                                 </div>
                                 <input type="text" placeholder="Descrição (opcional)" value={descricao} onChange={(e) => setDescricao(e.target.value)} className="p-2 border rounded-md w-full" />
-                                {/* ... Drag and drop e botão de upload ... */}
-                                <div onClick={() => fileInputRef.current?.click()} className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer`}>
-                                    <input ref={fileInputRef} type="file" className="hidden" onChange={(e) => handleFileSelect(e.target.files[0])} />
+                                <div onClick={() => setIsUppyOpen(true)} className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:bg-gray-50 transition-colors`}>
                                     <FontAwesomeIcon icon={faCloudUploadAlt} className="text-4xl text-gray-400 mb-3" />
-                                    {file ? (<div><p className="font-semibold">{file.name}</p><p className="text-sm">{(file.size / 1024).toFixed(2)} KB</p></div>) : (<p>Arraste e solte ou <span className="font-semibold text-blue-600">clique aqui</span>.</p>)}
+                                    {file ? (<div><p className="font-semibold">{file.name}</p><p className="text-sm">{(file.size / 1024).toFixed(2)} KB</p></div>) : (<p>Clique para selecionar o arquivo.</p>)}
                                 </div>
+
+                                <UppyFileImporter
+                                    isOpen={isUppyOpen}
+                                    onClose={() => setIsUppyOpen(false)}
+                                    onFileSelected={(selectedFile) => {
+                                        setIsUppyOpen(false);
+                                        handleFileSelect(selectedFile);
+                                    }}
+                                    title="Selecionar Arquivo"
+                                    allowedFileTypes={['image/*', '.pdf', '.doc', '.docx', '.xls', '.xlsx']}
+                                    note="Selecione o arquivo que deseja anexar"
+                                />
                                 <div className="flex justify-end">
                                     <button onClick={handleUpload} disabled={isUploading || !file || !tipoId || (!empreendimentoId && !empresaId)} className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400">
                                         {isUploading ? <FontAwesomeIcon icon={faSpinner} spin className="mr-2" /> : <FontAwesomeIcon icon={faUpload} className="mr-2" />}

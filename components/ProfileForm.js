@@ -9,14 +9,13 @@ import {
     faSave, faSpinner, faCamera, faUser, faEnvelope, faIdCard,
     faBriefcase, faLock, faKey, faTimes, faCheckCircle
 } from '@fortawesome/free-solid-svg-icons';
+import UppyAvatarUploader from '@/components/ui/UppyAvatarUploader';
 
 export default function ProfileForm() {
     const { user, refreshUser } = useAuth();
     const supabase = createClient();
-    const fileInputRef = useRef(null);
 
     const [loading, setLoading] = useState(false);
-    const [uploading, setUploading] = useState(false);
 
     // Estados do Formulário
     const [formData, setFormData] = useState({
@@ -130,44 +129,23 @@ export default function ProfileForm() {
         }
     };
 
-    // 4. Upload de Avatar
-    const handleAvatarUpload = async (event) => {
+    // 4. Upload de Avatar via UppyAvatarUploader
+    const handleAvatarUpload = async (newUrl) => {
         try {
-            setUploading(true);
-            const file = event.target.files[0];
-            if (!file) return;
+            // Se o upload retornou uma URL válida, atualiza o banco do usuário
+            if (newUrl) {
+                await supabase
+                    .from('usuarios')
+                    .update({ avatar_url: newUrl })
+                    .eq('id', user.id);
+            }
 
-            const fileExt = file.name.split('.').pop();
-            const fileName = `${user.id}-${Date.now()}.${fileExt}`;
-            const filePath = `avatars/${fileName}`;
-
-            // Upload
-            const { error: uploadError } = await supabase.storage
-                .from('public-assets')
-                .upload(filePath, file, { upsert: true });
-
-            if (uploadError) throw uploadError;
-
-            // URL Pública
-            const { data: { publicUrl } } = supabase.storage
-                .from('public-assets')
-                .getPublicUrl(filePath);
-
-            // Atualiza banco
-            await supabase
-                .from('usuarios')
-                .update({ avatar_url: publicUrl })
-                .eq('id', user.id);
-
-            setFormData(prev => ({ ...prev, avatar_url: publicUrl }));
-            toast.success('Foto atualizada!');
+            setFormData(prev => ({ ...prev, avatar_url: newUrl }));
             if (refreshUser) await refreshUser();
 
         } catch (error) {
             console.error(error);
-            toast.error('Erro no upload da imagem.');
-        } finally {
-            setUploading(false);
+            toast.error('Erro ao salvar no banco a nova imagem de perfil.');
         }
     };
 
@@ -188,37 +166,15 @@ export default function ProfileForm() {
                 <div className="px-8 pb-8">
                     {/* Foto de Perfil */}
                     <div className="relative -mt-16 mb-6 flex justify-between items-end">
-                        <div className="relative group">
-                            <div className="w-32 h-32 rounded-full border-4 border-white bg-gray-200 shadow-md overflow-hidden relative">
-                                {formData.avatar_url ? (
-                                    <img src={formData.avatar_url} alt="Perfil" className="w-full h-full object-cover" />
-                                ) : (
-                                    <div className="w-full h-full flex items-center justify-center text-gray-400 text-4xl">
-                                        <FontAwesomeIcon icon={faUser} />
-                                    </div>
-                                )}
-
-                                <div
-                                    onClick={() => fileInputRef.current?.click()}
-                                    className="absolute inset-0 bg-black/50 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-                                    title="Alterar foto"
-                                >
-                                    <FontAwesomeIcon icon={faCamera} />
-                                </div>
-                            </div>
-
-                            {uploading && (
-                                <div className="absolute inset-0 flex items-center justify-center bg-white/80 rounded-full z-10">
-                                    <FontAwesomeIcon icon={faSpinner} spin className="text-blue-600" />
-                                </div>
-                            )}
-
-                            <input
-                                type="file"
-                                ref={fileInputRef}
-                                onChange={handleAvatarUpload}
-                                accept="image/*"
-                                className="hidden"
+                        <div className="relative group w-32 h-32 rounded-full border-4 border-white bg-gray-200 shadow-md transform translate-y-2">
+                            <UppyAvatarUploader
+                                url={formData.avatar_url}
+                                onUpload={handleAvatarUpload}
+                                bucketName="public-assets"
+                                folderPath="avatars"
+                                label=""
+                                aspectRatio="aspect-square"
+                                className="w-full h-full rounded-full overflow-hidden [&_.uppy-avatar-container]:rounded-full"
                             />
                         </div>
 

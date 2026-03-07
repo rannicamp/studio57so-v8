@@ -1,0 +1,13 @@
+﻿
+> teste-netlify@0.1.0 dev
+> next dev
+
+   Ôû▓ Next.js 15.5.12
+   - Local:        http://localhost:3002
+   - Network:      http://192.168.1.67:3002
+   - Environments: .env.local
+   - Experiments (use with caution):
+     ┬À serverActions
+
+ Ô£ô Starting...
+ Ô£ô Ready in 3.4s

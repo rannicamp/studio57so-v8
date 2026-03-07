@@ -6,6 +6,7 @@ import { createClient } from '../../utils/supabase/client';
 import { useAuth } from '../../contexts/AuthContext';
 import Papa from 'papaparse';
 import { toast } from 'sonner';
+import UppyFileImporter from '@/components/ui/UppyFileImporter';
 
 const MaterialImporter = ({ isOpen, onClose }) => {
     const supabase = createClient();
@@ -52,20 +53,19 @@ const MaterialImporter = ({ isOpen, onClose }) => {
             }, 1500);
         },
     });
-    
+
     const resetState = () => {
         setFile(null);
         setHeaders([]);
         setMappings({});
     };
 
-    const handleFileChange = (e) => {
-        const selectedFile = e.target.files[0];
+    const handleFileChange = (selectedFile) => {
         if (selectedFile) {
             setFile(selectedFile);
             setHeaders([]);
             setMappings({});
-            
+
             Papa.parse(selectedFile, {
                 header: true,
                 skipEmptyLines: true,
@@ -74,12 +74,12 @@ const MaterialImporter = ({ isOpen, onClose }) => {
                     if (results.data.length > 0) {
                         const fileHeaders = Object.keys(results.data[0]);
                         setHeaders(fileHeaders);
-                        
+
                         const initialMappings = {};
                         fileHeaders.forEach(header => {
                             const lowerHeader = header.toLowerCase().replace(/ /g, '_');
-                            const found = dbColumns.find(dbCol => 
-                                dbCol.key.toLowerCase().startsWith(lowerHeader) || 
+                            const found = dbColumns.find(dbCol =>
+                                dbCol.key.toLowerCase().startsWith(lowerHeader) ||
                                 dbCol.label.toLowerCase().startsWith(header.toLowerCase())
                             );
                             if (found) {
@@ -98,7 +98,7 @@ const MaterialImporter = ({ isOpen, onClose }) => {
     const handleMappingChange = (csvHeader, dbColumn) => {
         setMappings((prev) => ({ ...prev, [csvHeader]: dbColumn }));
     };
-    
+
     const handleImport = async () => {
         if (!file) {
             toast.warning('Por favor, selecione um arquivo CSV.');
@@ -118,7 +118,7 @@ const MaterialImporter = ({ isOpen, onClose }) => {
                     }
 
                     const invalidRowIndex = results.data.findIndex(row => !row[mappedDescricaoColumn] || row[mappedDescricaoColumn].trim() === '');
-                    
+
                     if (invalidRowIndex !== -1) {
                         reject(new Error(`Erro no arquivo: A coluna de Descrição ('${mappedDescricaoColumn}') está vazia na linha ${invalidRowIndex + 2}.`));
                         return;
@@ -144,7 +144,7 @@ const MaterialImporter = ({ isOpen, onClose }) => {
                         reject(new Error("Nenhuma linha válida encontrada para importação."));
                         return;
                     }
-                    
+
                     try {
                         const result = await importMutation.mutateAsync(dataToImport);
                         resolve(result);
@@ -169,68 +169,58 @@ const MaterialImporter = ({ isOpen, onClose }) => {
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center p-4">
-            <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-                <h2 className="text-xl font-bold mb-4">Importar Materiais de CSV</h2>
-                
+        <UppyFileImporter
+            isOpen={isOpen}
+            onClose={() => { resetState(); onClose(); }}
+            onFileSelected={handleFileChange}
+            title="Importar Materiais de CSV"
+            allowedFileTypes={['.csv']}
+            note="Selecione ou arraste o arquivo CSV com a lista de materiais"
+        >
+            {headers.length > 0 && (
                 <div className="mb-4">
-                    <label htmlFor="file-upload" className="block text-sm font-medium text-gray-700 mb-2">
-                        Selecione o arquivo CSV
-                    </label>
-                    <input 
-                        id="file-upload"
-                        type="file" 
-                        accept=".csv" 
-                        onChange={handleFileChange} 
-                        className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                    />
-                </div>
-
-                {headers.length > 0 && (
-                    <div className="mb-4">
-                        <h3 className="text-lg font-semibold mb-2">Mapeamento de Colunas</h3>
-                        <p className="text-sm text-gray-600 mb-3">Vincule as colunas do seu arquivo (esquerda) com as colunas do banco de dados (direita).</p>
-                        <div className="space-y-2">
-                            {headers.map((header) => (
-                                <div key={header} className="grid grid-cols-2 gap-4 items-center">
-                                    <div className="font-medium text-gray-800 bg-gray-100 p-2 rounded truncate">
-                                        {header}
-                                    </div>
-                                    <select
-                                        value={mappings[header] || ''}
-                                        onChange={(e) => handleMappingChange(header, e.target.value)}
-                                        className="block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
-                                    >
-                                        <option value="">Ignorar esta coluna</option>
-                                        {dbColumns.map((col) => (
-                                            <option key={col.key} value={col.key}>
-                                                {col.label}
-                                            </option>
-                                        ))}
-                                    </select>
+                    <h3 className="text-lg font-semibold mb-2">2. Mapeamento de Colunas</h3>
+                    <p className="text-sm text-gray-600 mb-3">Vincule as colunas do seu arquivo (esquerda) com as colunas do banco de dados (direita).</p>
+                    <div className="space-y-2">
+                        {headers.map((header) => (
+                            <div key={header} className="grid grid-cols-2 gap-4 items-center">
+                                <div className="font-medium text-gray-800 bg-gray-100 p-2 rounded truncate">
+                                    {header}
                                 </div>
-                            ))}
-                        </div>
+                                <select
+                                    value={mappings[header] || ''}
+                                    onChange={(e) => handleMappingChange(header, e.target.value)}
+                                    className="block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                                >
+                                    <option value="">Ignorar esta coluna</option>
+                                    {dbColumns.map((col) => (
+                                        <option key={col.key} value={col.key}>
+                                            {col.label}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        ))}
                     </div>
-                )}
-
-                <div className="flex justify-end space-x-3 mt-6">
-                    <button 
-                        onClick={() => { resetState(); onClose(); }}
-                        className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300"
-                    >
-                        Cancelar
-                    </button>
-                    <button 
-                        onClick={handleImport}
-                        disabled={importMutation.isPending || headers.length === 0}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-blue-300"
-                    >
-                        {importMutation.isPending ? 'Importando...' : 'Importar Dados'}
-                    </button>
                 </div>
+            )}
+
+            <div className="flex justify-end space-x-3 mt-6 border-t pt-4">
+                <button
+                    onClick={() => { resetState(); onClose(); }}
+                    className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors"
+                >
+                    Cancelar
+                </button>
+                <button
+                    onClick={handleImport}
+                    disabled={importMutation.isPending || headers.length === 0}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-blue-300 transition-colors"
+                >
+                    {importMutation.isPending ? 'Importando...' : 'Importar Dados'}
+                </button>
             </div>
-        </div>
+        </UppyFileImporter>
     );
 };
 

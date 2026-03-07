@@ -93,7 +93,7 @@ const DocumentosSection = ({ documentos: initialDocuments, employeeId, employeeN
     useEffect(() => {
         const fetchTipos = async () => {
             setLoading(true);
-            const { data } = await supabase.from('documento_tipos').select('*').eq('organizacao_id', organizacaoId).order('sigla');
+            const { data } = await supabase.from('documento_tipos').select('*').order('sigla');
             setTiposDocumento(data || []);
             setLoading(false);
         };

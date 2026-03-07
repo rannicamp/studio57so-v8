@@ -49,8 +49,8 @@ export default async function ViewEmpreendimentoPage({ params }) {
     // 4. Buscar produtos do empreendimento, AGORA COM FILTRO DE SEGURANÇA
     const { data: produtos } = await supabase.from('produtos_empreendimento').select('*').eq('empreendimento_id', id).eq('organizacao_id', organizacaoId);
 
-    // 5. Buscar tipos de documento, AGORA COM FILTRO DE SEGURANÇA
-    const { data: documentoTipos } = await supabase.from('documento_tipos').select('*').eq('organizacao_id', organizacaoId).order('sigla');
+    // 5. Buscar tipos de documento (já vêm filtrados via RLS no banco de dados)
+    const { data: documentoTipos } = await supabase.from('documento_tipos').select('*').order('sigla');
 
     // ======================= A CORREÇÃO ESTÁ AQUI =======================
     // 6. Buscar anexos, AGORA COM FILTRO DE SEGURANÇA E A NOVA COLUNA
@@ -60,7 +60,7 @@ export default async function ViewEmpreendimentoPage({ params }) {
         .eq('empreendimento_id', empreendimento.id)
         .eq('organizacao_id', organizacaoId);
     // ======================= FIM DA CORREÇÃO =======================
-    
+
     // A geração de URLs assinadas não precisa de alteração, pois já depende dos anexos filtrados
     const anexosComUrl = await Promise.all(
         (anexosData || []).map(async anexo => {

@@ -45,7 +45,6 @@ export default function ContratoDocumentos({ contratoId }) {
                 const { data: tiposData } = await supabase
                     .from('documento_tipos')
                     .select('*')
-                    .eq('organizacao_id', user.organizacao_id)
                     .order('descricao');
                 setTiposDocumento(tiposData || []);
             }

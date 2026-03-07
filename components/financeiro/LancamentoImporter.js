@@ -9,6 +9,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faUpload, faDownload, faCheckCircle, faExclamationTriangle, faTimes } from '@fortawesome/free-solid-svg-icons';
 import Papa from 'papaparse';
 import { toast } from 'sonner';
+import UppyFileImporter from '@/components/ui/UppyFileImporter';
 
 const dbColumns = [
     { key: 'data_transacao', label: 'Data da Transação (DD/MM/AAAA) *' },
@@ -146,8 +147,7 @@ export default function LancamentoImporter({ isOpen, onClose, onImportComplete }
         setSummary({ ready: 0, errors: 0 });
     };
 
-    const handleFileChange = (event) => {
-        const selectedFile = event.target.files[0];
+    const handleFileChange = (selectedFile) => {
         if (!selectedFile) return;
         setFile(selectedFile);
         setHeaders([]);
@@ -242,85 +242,81 @@ export default function LancamentoImporter({ isOpen, onClose, onImportComplete }
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-white p-0 rounded-lg shadow-2xl w-full max-w-4xl max-h-[95vh] flex flex-col">
-                <div className="flex justify-between items-center p-6 border-b sticky top-0 bg-white rounded-t-lg z-10">
-                    <h2 className="text-2xl font-bold text-gray-800">Importar Lançamentos via CSV</h2>
-                    <button onClick={onClose} type="button" className="text-gray-400 hover:text-gray-600 p-2 rounded-full transition-colors"><FontAwesomeIcon icon={faTimes} size="lg" /></button>
-                </div>
-                <div className="p-6 flex-grow overflow-y-auto">
+        <UppyFileImporter
+            isOpen={isOpen}
+            onClose={() => { resetState(); onClose(); }}
+            onFileSelected={handleFileChange}
+            title="Importar Lançamentos via CSV"
+            allowedFileTypes={['.csv']}
+            note="Selecione ou arraste o arquivo CSV com a lista de lançamentos"
+        >
+            {isLoadingValidation && <div className="text-center p-4"> <FontAwesomeIcon icon={faSpinner} spin /> Carregando dados de validação...</div>}
 
-                    {isLoadingValidation && <div className="text-center p-4"> <FontAwesomeIcon icon={faSpinner} spin /> Carregando dados de validação...</div>}
-
-                    {!isLoadingValidation && (
-                        <>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
-                                <div>
-                                    <label htmlFor="file-upload" className="block text-sm font-medium text-gray-700 mb-2">1. Selecione o arquivo</label>
-                                    <div className="flex gap-4">
-                                        <input id="file-upload" type="file" accept=".csv" onChange={handleFileChange} className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:bg-blue-50 hover:file:bg-blue-100" />
-                                        <button onClick={handleDownloadTemplate} className="flex-shrink-0 bg-gray-600 text-white px-3 py-2 rounded-md hover:bg-gray-700 flex items-center gap-2 text-sm"> <FontAwesomeIcon icon={faDownload} /> Modelo </button>
-                                    </div>
-                                </div>
-                                {headers.length > 0 && (
-                                    <div>
-                                        <h3 className="text-sm font-medium text-gray-700 mb-2">2. Mapeamento de Colunas</h3>
-                                        <div className="space-y-2 max-h-40 overflow-y-auto pr-2 border p-2 rounded-md">
-                                            {headers.map((header) => (
-                                                <div key={header} className="grid grid-cols-2 gap-4 items-center">
-                                                    <div className="font-medium text-gray-800 bg-gray-100 p-2 rounded truncate text-sm"> {header} </div>
-                                                    <select value={mappings[header] || ''} onChange={(e) => setMappings(prev => ({ ...prev, [header]: e.target.value }))} className="block w-full p-2 border border-gray-300 rounded-md shadow-sm text-sm">
-                                                        <option value="">Ignorar esta coluna</option>
-                                                        {dbColumns.map((col) => (<option key={col.key} value={col.key}> {col.label} </option>))}
-                                                    </select>
-                                                </div>
-                                            ))}
+            {!isLoadingValidation && (
+                <>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
+                        <div>
+                            <div className="flex gap-4">
+                                <button onClick={handleDownloadTemplate} className="flex-shrink-0 bg-gray-600 text-white px-3 py-2 rounded-md hover:bg-gray-700 flex items-center gap-2 text-sm w-full justify-center"> <FontAwesomeIcon icon={faDownload} /> Baixar Modelo CSV </button>
+                            </div>
+                        </div>
+                        {headers.length > 0 && (
+                            <div>
+                                <h3 className="text-sm font-medium text-gray-700 mb-2">2. Mapeamento de Colunas</h3>
+                                <div className="space-y-2 max-h-40 overflow-y-auto pr-2 border p-2 rounded-md">
+                                    {headers.map((header) => (
+                                        <div key={header} className="grid grid-cols-2 gap-4 items-center">
+                                            <div className="font-medium text-gray-800 bg-gray-100 p-2 rounded truncate text-sm"> {header} </div>
+                                            <select value={mappings[header] || ''} onChange={(e) => setMappings(prev => ({ ...prev, [header]: e.target.value }))} className="block w-full p-2 border border-gray-300 rounded-md shadow-sm text-sm">
+                                                <option value="">Ignorar esta coluna</option>
+                                                {dbColumns.map((col) => (<option key={col.key} value={col.key}> {col.label} </option>))}
+                                            </select>
                                         </div>
-                                    </div>
-                                )}
-                            </div>
-
-                            {headers.length > 0 && <button onClick={processFile} className="w-full bg-indigo-600 text-white py-2 rounded-md hover:bg-indigo-700 mb-4">Processar e Validar Arquivo</button>}
-
-                            {processedRecords.length > 0 && (
-                                <div className="flex-grow overflow-hidden flex flex-col">
-                                    <h3 className="text-lg font-bold text-gray-800 mb-2">3. Pré-visualização</h3>
-                                    <div className="flex-grow overflow-y-auto border rounded-md">
-                                        <table className="min-w-full divide-y divide-gray-200">
-                                            <thead className="bg-gray-50 sticky top-0">
-                                                <tr>
-                                                    <th className="px-2 py-2 text-left text-xs font-medium uppercase">Descrição</th>
-                                                    <th className="px-2 py-2 text-left text-xs font-medium uppercase">Valor</th>
-                                                    <th className="px-2 py-2 text-left text-xs font-medium uppercase">Data</th>
-                                                    <th className="px-2 py-2 text-left text-xs font-medium uppercase">Status</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="bg-white divide-y divide-gray-200">
-                                                {processedRecords.map((rec, index) => (
-                                                    <tr key={index} className={rec.status === 'error' ? 'bg-red-50' : 'hover:bg-gray-50'}>
-                                                        <td className="px-2 py-2 text-sm">{rec.descricao || 'N/A'}</td>
-                                                        <td className="px-2 py-2 text-sm">{rec.valor || 'N/A'}</td>
-                                                        <td className="px-2 py-2 text-sm">{rec.data_transacao || 'N/A'}</td>
-                                                        <td className="px-2 py-2 text-sm"><StatusIndicator status={rec.status} message={rec.error_message} /></td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
+                                    ))}
                                 </div>
-                            )}
-
-                            <div className="flex justify-end space-x-3 pt-4 border-t mt-4">
-                                <button onClick={() => { resetState(); onClose(); }} className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300"> Cancelar </button>
-                                <button onClick={handleImport} disabled={importMutation.isPending || summary.ready === 0} className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-gray-400 flex items-center gap-2">
-                                    {importMutation.isPending ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faUpload} />}
-                                    {importMutation.isPending ? 'Importando...' : `Importar ${summary.ready} Válidos`}
-                                </button>
                             </div>
-                        </>
+                        )}
+                    </div>
+
+                    {headers.length > 0 && <button onClick={processFile} className="w-full bg-indigo-600 text-white py-2 rounded-md hover:bg-indigo-700 mb-4 transition-colors">Processar e Validar Arquivo</button>}
+
+                    {processedRecords.length > 0 && (
+                        <div className="flex-grow overflow-hidden flex flex-col">
+                            <h3 className="text-lg font-bold text-gray-800 mb-2">3. Pré-visualização</h3>
+                            <div className="flex-grow overflow-y-auto border rounded-md">
+                                <table className="min-w-full divide-y divide-gray-200">
+                                    <thead className="bg-gray-50 sticky top-0">
+                                        <tr>
+                                            <th className="px-2 py-2 text-left text-xs font-medium uppercase">Descrição</th>
+                                            <th className="px-2 py-2 text-left text-xs font-medium uppercase">Valor</th>
+                                            <th className="px-2 py-2 text-left text-xs font-medium uppercase">Data</th>
+                                            <th className="px-2 py-2 text-left text-xs font-medium uppercase">Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="bg-white divide-y divide-gray-200">
+                                        {processedRecords.map((rec, index) => (
+                                            <tr key={index} className={rec.status === 'error' ? 'bg-red-50' : 'hover:bg-gray-50'}>
+                                                <td className="px-2 py-2 text-sm">{rec.descricao || 'N/A'}</td>
+                                                <td className="px-2 py-2 text-sm">{rec.valor || 'N/A'}</td>
+                                                <td className="px-2 py-2 text-sm">{rec.data_transacao || 'N/A'}</td>
+                                                <td className="px-2 py-2 text-sm"><StatusIndicator status={rec.status} message={rec.error_message} /></td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
                     )}
-                </div>
-            </div>
-        </div>
+
+                    <div className="flex justify-end space-x-3 pt-4 border-t mt-4">
+                        <button onClick={() => { resetState(); onClose(); }} className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 transition-colors"> Cancelar </button>
+                        <button onClick={handleImport} disabled={importMutation.isPending || summary.ready === 0} className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:bg-gray-400 flex items-center gap-2 transition-colors">
+                            {importMutation.isPending ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faUpload} />}
+                            {importMutation.isPending ? 'Importando...' : `Importar ${summary.ready} Válidos`}
+                        </button>
+                    </div>
+                </>
+            )}
+        </UppyFileImporter>
     );
 }

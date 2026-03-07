@@ -40,6 +40,12 @@ Botão "Novo Documento"
             └── onUploadSuccess(result) → componente pai insere no banco
 ```
 
+## Arquitetura Complementar (Próximos Passos)
+
+Para cobrir 100% do sistema, precisamos criar variações baseadas no mesmo protocolo Anti-Crash:
+1. **`UppyAvatarUploader.js`**: Para substituição do `<ThumbnailUploader />`, avatares de RH e capas de empreendimentos (upload de imagem única, aspect-ratio específico).
+2. **`UppyFileImporter.js`**: Para arquivos de processamento em lote (OFX, Retorno, CSV), onde o arquivo não vai apenas para o Storage, mas é lido massivamente pelo Dashboard.
+
 ## Regras de Integração
 
 1. **O Uppy faz SOMENTE o upload para o Storage** — nunca insere no banco diretamente.

@@ -2,7 +2,7 @@
 'use client';
 
 // --- Imports ---
-import ThumbnailUploader from '@/components/shared/ThumbnailUploader';
+import UppyAvatarUploader from '@/components/ui/UppyAvatarUploader';
 import AnexoUploader from '@/components/shared/AnexoUploader';
 import GaleriaMarketingShared from '@/components/shared/GaleriaMarketing';
 import { useState, useMemo, useEffect, useRef } from 'react';
@@ -336,6 +336,22 @@ export default function EmpreendimentoDetails({ empreendimento, corporateEntitie
         } catch (error) { toast.error(`Erro: ${error.message}`); } finally { setIsGeneratingSummary(false); }
     };
 
+    // Atualiza a imagem de capa (mesma lógica do antigo ThumbnailUploader)
+    const handleThumbnailUpload = async (newUrl) => {
+        const { error } = await supabase
+            .from('empreendimentos')
+            .update({ imagem_capa_url: newUrl })
+            .eq('id', empreendimento.id);
+
+        if (error) {
+            toast.error('Erro ao salvar nova imagem de capa no banco.');
+            return;
+        }
+
+        // Atualiza a prop local sem recarregar (otimista)
+        empreendimento.imagem_capa_url = newUrl;
+    };
+
     // Atualiza o estado local quando os anexos iniciais mudam (importante se vierem do server-side)
     useEffect(() => { setAnexos(initialAnexos); }, [initialAnexos]);
 
@@ -393,7 +409,21 @@ export default function EmpreendimentoDetails({ empreendimento, corporateEntitie
         <div className="p-6 bg-white shadow-md rounded-lg">
             {/* Header */}
             <div className="flex justify-between items-start mb-6 gap-4">
-                <h1 className="text-3xl font-bold text-gray-800">{empreendimento.nome}</h1>
+                <div className="flex items-start gap-4">
+                    <UppyAvatarUploader
+                        url={empreendimento.imagem_capa_url}
+                        onUpload={handleThumbnailUpload}
+                        bucketName="empreendimentos"
+                        folderPath={`capas/${empreendimento.id}`}
+                        label=""
+                        aspectRatio="aspect-square" /* Logo style */
+                        className="w-24 h-24 flex-shrink-0 mt-1"
+                    />
+                    <div>
+                        <h1 className="text-3xl font-bold text-gray-800">{empreendimento.nome}</h1>
+                        <p className="text-gray-500 font-medium">{empreendimento.status}</p>
+                    </div>
+                </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
                     <button onClick={handleGerarResumo} disabled={isGeneratingSummary} className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors disabled:bg-gray-400"><FontAwesomeIcon icon={isGeneratingSummary ? faSpinner : faWandMagicSparkles} className={`mr-2 ${isGeneratingSummary ? 'animate-spin' : ''}`} />{isGeneratingSummary ? 'Gerando...' : 'Gerar Resumo com IA'}</button>
                     <Link href={`/empreendimentos/editar/${empreendimento.id}`} className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors">Editar Empreendimento</Link>
@@ -425,7 +455,7 @@ export default function EmpreendimentoDetails({ empreendimento, corporateEntitie
 
                 {activeTab === 'gerenciamento_contratos' && (<GerenciamentoModelosContrato empreendimentoId={empreendimento.id} organizacaoId={organizacaoId} />)}
                 {['documentos_juridicos', 'documentos_gerais', 'marketing'].includes(activeTab) && (
-                    <div className="space-y-6 animate-fade-in">
+                    <div className="space-y-6 animate-fade-in mt-6">
                         {activeTab === 'documentos_juridicos' && (<> <AnexoUploader parentId={empreendimento.id} storageBucket="empreendimento-anexos" tableName="empreendimento_anexos" allowedTipos={documentoTipos} onUploadSuccess={handleUploadSuccess} categoria="juridico" organizacaoId={organizacaoId} /> <ListaAnexos anexos={anexos.filter(a => a.categoria_aba === 'juridico')} onDelete={handleDeleteAnexo} onToggleCorretor={toggleCorretorVisibility} isToggling={isToggling} /> </>)}
                         {activeTab === 'documentos_gerais' && (<> <AnexoUploader parentId={empreendimento.id} storageBucket="empreendimento-anexos" tableName="empreendimento_anexos" allowedTipos={documentoTipos} onUploadSuccess={handleUploadSuccess} categoria="geral" organizacaoId={organizacaoId} /> <ListaAnexos anexos={anexos.filter(a => a.categoria_aba === 'geral')} onDelete={handleDeleteAnexo} onToggleCorretor={toggleCorretorVisibility} isToggling={isToggling} /> </>)}
                         {activeTab === 'marketing' && (<> <AnexoUploader parentId={empreendimento.id} storageBucket="empreendimento-anexos" tableName="empreendimento_anexos" allowedTipos={documentoTipos} onUploadSuccess={handleUploadSuccess} categoria="marketing" organizacaoId={organizacaoId} /> <GaleriaMarketingShared anexos={anexos.filter(a => a.categoria_aba === 'marketing')} storageBucket="empreendimento-anexos" onDelete={(id) => handleDeleteAnexo(id)} /> </>)}

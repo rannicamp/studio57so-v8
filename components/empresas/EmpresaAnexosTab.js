@@ -26,7 +26,6 @@ export default function EmpresaAnexosTab({ empresaId, categoria }) {
             const { data: documentoTipos, error: tiposError } = await supabase
                 .from('documento_tipos')
                 .select('*')
-                .eq('organizacao_id', organizacaoId)
                 .order('descricao');
             if (tiposError) throw tiposError;
 

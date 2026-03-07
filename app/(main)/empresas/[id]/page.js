@@ -28,13 +28,12 @@ const fetchEmpresaData = async (supabase, empresaId, organizacaoId) => {
         throw new Error(`Erro ao buscar empresa: ${empresaError.message}`);
     }
 
-    // 2. Busca os Tipos de Documento (com filtro de organização)
+    // 2. Busca os Tipos de Documento (filtrado automaticamente por RLS)
     const { data: documentoTipos, error: tiposError } = await supabase
         .from('documento_tipos')
         .select('*')
-        .eq('organizacao_id', organizacaoId)
         .order('descricao');
-    
+
     if (tiposError) throw new Error(`Erro ao buscar tipos de documento: ${tiposError.message}`);
 
     // 3. Busca os anexos
@@ -62,7 +61,7 @@ const fetchEmpresaData = async (supabase, empresaId, organizacaoId) => {
 export default function EmpresaPage() {
     // CORREÇÃO: Removido 'await' (Componente de Cliente)
     const supabase = createClient();
-    
+
     const params = useParams();
     const { id: empresaId } = params;
     const { user } = useAuth();
@@ -82,11 +81,11 @@ export default function EmpresaPage() {
     if (isError && error.message.includes('Empresa não encontrada')) {
         notFound();
     }
-    
+
     if (isError) {
         return <div className="p-4 text-red-500 text-center">Erro ao carregar os dados: {error.message}</div>;
     }
-    
+
     if (!data?.empresa) {
         return <div className="text-center p-10">Dados não encontrados.</div>;
     }
