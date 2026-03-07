@@ -101,6 +101,8 @@ export default function UppyFileImporter({
         }
     }, [isOpen, uppy]);
 
+    if (!isOpen) return null;
+
     return (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             {/* INJEÇÃO DO CSS VIA CDN */}
