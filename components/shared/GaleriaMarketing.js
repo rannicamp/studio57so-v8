@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 
 export default function GaleriaMarketing({ anexos, storageBucket, onDelete }) {
     const supabase = createClient();
-    
+
     if (!anexos || anexos.length === 0) return <p className="text-center text-gray-500 py-4 mt-4">Nenhum item de marketing encontrado.</p>;
 
     const handleCopyLink = async (filePath) => {
@@ -31,14 +31,15 @@ export default function GaleriaMarketing({ anexos, storageBucket, onDelete }) {
             {anexos.map(anexo => (
                 <div key={anexo.id} className="relative group rounded-lg overflow-hidden shadow-lg border">
                     <a href={anexo.public_url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center h-48 bg-gray-100">
-                        {anexo.thumbnail_url ? (
-                            <img src={anexo.thumbnail_url} alt={`Pré-visualização de ${anexo.nome_arquivo}`} className="w-full h-full object-contain"/>
-                        ) : (
-                            <div className="text-gray-500 flex flex-col items-center">
-                                <FontAwesomeIcon icon={faSpinner} spin size="2x" />
-                                <span className="mt-2 text-sm">Gerando preview...</span>
-                            </div>
-                        )}
+                        <img
+                            src={anexo.thumbnail_url || anexo.public_url}
+                            alt={`Pré-visualização de ${anexo.nome_arquivo}`}
+                            className="w-full h-full object-contain"
+                            onError={(e) => {
+                                e.target.onerror = null;
+                                e.target.outerHTML = `<div class="text-gray-400 flex flex-col items-center justify-center w-full h-full bg-gray-100"><svg class="w-12 h-12 mb-2" fill="currentColor" viewBox="0 0 384 512"><path d="M0 64C0 28.7 28.7 0 64 0H224V128c0 17.7 14.3 32 32 32H384V448c0 35.3-28.7 64-64 64H64c-35.3 0-64-28.7-64-64V64zm384 64H256V0L384 128z"/></svg><span class="text-xs px-2 text-center break-all">${anexo.nome_arquivo}</span></div>`;
+                            }}
+                        />
                     </a>
                     <div className="absolute top-0 right-0 p-1 flex items-center gap-1 bg-black/20 rounded-bl-lg opacity-0 group-hover:opacity-100 transition-opacity">
                         <a href={anexo.public_url} download={anexo.nome_arquivo} title="Baixar" className="text-white h-7 w-7 flex items-center justify-center hover:scale-110"><FontAwesomeIcon icon={faDownload} /></a>

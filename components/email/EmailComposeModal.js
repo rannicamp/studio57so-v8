@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTimes, faPaperPlane, faSpinner, faTrashAlt, faFile, faUser, faBuilding, faChevronDown, faCheck } from '@fortawesome/free-solid-svg-icons';
 import EmailEditor from './EmailEditor';
-import EmailAttachmentUpload from './EmailAttachmentUpload'; // O novo motor
+import UppyListUploader from '../ui/UppyListUploader';
 import { toast } from 'sonner';
 import { useDebounce } from 'use-debounce';
 import { createClient } from '@/utils/supabase/client';
@@ -155,13 +155,13 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null,
     }, [isOpen, initialData, selectedAccountConfig]);
 
     // --- RECEBE O RETORNO DO UPPY ---
-    const handleAttachmentsComplete = useCallback((newFiles) => {
-        const formattedAttachments = newFiles.map(f => ({
-            filename: f.name,
-            path: f.url,
-            size: typeof f.size === 'number' ? f.size : 0
-        }));
-        setFormData(prev => ({ ...prev, attachments: [...prev.attachments, ...formattedAttachments] }));
+    const handleUploadSuccess = useCallback((result) => {
+        const formattedAttachment = {
+            filename: result.fileName,
+            path: result.path,
+            size: result.fileSize || 0
+        };
+        setFormData(prev => ({ ...prev, attachments: [...prev.attachments, formattedAttachment] }));
     }, [setFormData]);
 
     const removeAttachment = (index) => {
@@ -256,8 +256,13 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null,
 
                         {/* ÁREA DE ANEXOS */}
                         <div className="space-y-3">
-                            <div className="border border-dashed border-gray-300 rounded-lg p-2 bg-gray-50">
-                                <EmailAttachmentUpload onUploadComplete={handleAttachmentsComplete} />
+                            <div className="border border-dashed border-gray-300 rounded-lg bg-gray-50 overflow-hidden">
+                                <UppyListUploader
+                                    bucketName="emailanexo"
+                                    folderPath={`temp/${user?.id}`}
+                                    hideClassificacao={true}
+                                    onUploadSuccess={handleUploadSuccess}
+                                />
                             </div>
 
                             {/* LISTA VISUAL NO PAI */}
