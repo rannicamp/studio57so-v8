@@ -31,6 +31,7 @@
     "@uppy/core": "^5.2.0",
     "@uppy/dashboard": "^5.1.0",
     "@uppy/golden-retriever": "^5.2.1",
+    "@uppy/locales": "^5.1.1",
     "@uppy/react": "^5.1.1",
     "@uppy/webcam": "^5.1.0",
     "@uppy/xhr-upload": "^5.1.1",

@@ -13,6 +13,8 @@ import {
     faFileInvoiceDollar, faPrint
 } from '@fortawesome/free-solid-svg-icons';
 import KpiCard from '@/components/shared/KpiCard';
+import UppyListUploader from '@/components/ui/UppyListUploader';
+import FileListView from '@/components/ui/FileListView';
 import { toast } from 'sonner';
 
 // --- HELPERS DE FORMATAÇÃO DE DATA ---
@@ -80,11 +82,9 @@ const DocumentosSection = ({ documentos: initialDocuments, employeeId, employeeN
     const supabase = createClient();
     const [documentos, setDocumentos] = useState(initialDocuments || []);
     const [tiposDocumento, setTiposDocumento] = useState([]);
-    const [newFile, setNewFile] = useState(null);
-    const [newFileType, setNewFileType] = useState('');
-    const [isUploading, setIsUploading] = useState(false);
     const [loading, setLoading] = useState(true);
-    const fileInputRef = useRef(null);
+
+    const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
 
     useEffect(() => {
         setDocumentos(initialDocuments || []);
@@ -100,57 +100,35 @@ const DocumentosSection = ({ documentos: initialDocuments, employeeId, employeeN
         if (organizacaoId) fetchTipos();
     }, [supabase, organizacaoId]);
 
-    const getFileIcon = (fileName) => {
-        if (!fileName) return faFile;
-        const extension = fileName.split('.').pop().toLowerCase();
-        if (['jpg', 'jpeg', 'png', 'gif'].includes(extension)) return faFileImage;
-        if (extension === 'pdf') return faFilePdf;
-        if (['doc', 'docx'].includes(extension)) return faFileWord;
-        return faFile;
-    };
+    const handleUploadSuccess = async (result) => {
+        const tipoId = result.tipoDocumento;
+        if (!tipoId) return;
 
-    const handleUpload = async () => {
-        if (!newFile || !newFileType) {
-            toast.error('Por favor, selecione um arquivo e um tipo de documento.');
-            return;
-        }
-        setIsUploading(true);
+        const tipoSelecionado = tiposDocumento.find(t => t.id == tipoId);
 
-        const tipoSelecionado = tiposDocumento.find(t => t.id == newFileType);
-        const sigla = tipoSelecionado?.sigla || 'DOC';
-        const fileExtension = newFile.name.split('.').pop();
-        const newFileName = `documentos/${employeeId}/${sigla}_${employeeName.replace(/ /g, '_')}.${fileExtension}`;
+        const { error: insertError } = await supabase.from('documentos_funcionarios').insert({
+            funcionario_id: employeeId,
+            nome_documento: result.descricao || tipoSelecionado?.descricao || result.fileName,
+            caminho_arquivo: result.path,
+            tipo_documento_id: tipoId,
+            criado_por_usuario_id: user.id,
+            organizacao_id: organizacaoId
+        });
 
-        const { error: uploadError } = await supabase.storage.from('funcionarios-documentos').upload(newFileName, newFile, { upsert: true });
-
-        if (uploadError) {
-            toast.error('Erro no upload: ' + uploadError.message);
+        if (insertError) {
+            toast.error(`Erro ao salvar registro de ${result.fileName}: ${insertError.message}`);
         } else {
-            const { error: insertError } = await supabase.from('documentos_funcionarios').insert({
-                funcionario_id: employeeId,
-                nome_documento: tipoSelecionado.descricao,
-                caminho_arquivo: newFileName,
-                tipo_documento_id: newFileType,
-                criado_por_usuario_id: user.id,
-                organizacao_id: organizacaoId
-            });
-
-            if (insertError) {
-                toast.error(`Erro ao salvar registro: ${insertError.message}`);
-                await supabase.storage.from('funcionarios-documentos').remove([newFileName]);
-            } else {
-                toast.success('Documento enviado com sucesso!');
-                setNewFile(null);
-                setNewFileType('');
-                if (fileInputRef.current) fileInputRef.current.value = "";
-                onUpdate();
-            }
+            toast.success(`${result.fileName} anexado com sucesso!`);
         }
-        setIsUploading(false);
     };
 
-    const handleView = async (filePath) => {
-        const { data } = await supabase.storage.from('funcionarios-documentos').createSignedUrl(filePath, 3600);
+    const handleUploadComplete = () => {
+        setIsUploadModalOpen(false); // Fecha o modal ao terminar todos
+        onUpdate();
+    };
+
+    const handleView = async (doc) => {
+        const { data } = await supabase.storage.from('funcionarios-documentos').createSignedUrl(doc.caminho_arquivo, 3600);
         if (data?.signedUrl) window.open(data.signedUrl, '_blank');
         else toast.error('Não foi possível gerar a URL do documento.');
     };
@@ -184,43 +162,71 @@ const DocumentosSection = ({ documentos: initialDocuments, employeeId, employeeN
 
     return (
         <div className="space-y-6">
-            <div className="p-4 border rounded-lg bg-gray-50">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-                    <div className="md:col-span-2">
-                        <label className="block text-sm font-medium">Arquivo</label>
-                        <input ref={fileInputRef} type="file" onChange={(e) => setNewFile(e.target.files[0])} className="mt-1 block w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:bg-blue-50 hover:file:bg-blue-100" />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium">Tipo de Documento</label>
-                        <select value={newFileType} onChange={(e) => setNewFileType(e.target.value)} className="mt-1 block w-full p-2 border rounded-md">
-                            <option value="">Selecione...</option>
-                            {tiposDocumento.map(tipo => (<option key={tipo.id} value={tipo.id}>{tipo.sigla} - {tipo.descricao}</option>))}
-                        </select>
-                    </div>
+            <div className="flex justify-between items-center mb-6">
+                <div>
+                    <h3 className="font-bold text-gray-800 text-lg">Documentos do Funcionário</h3>
+                    <p className="text-gray-500 text-sm">Gerencie arquivos, PDFs e recibos.</p>
                 </div>
-                <div className="text-right mt-4">
-                    <button onClick={handleUpload} disabled={isUploading} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400">
-                        {isUploading ? <><FontAwesomeIcon icon={faSpinner} spin className="mr-2" />Enviando...</> : <><FontAwesomeIcon icon={faUpload} className="mr-2" />Enviar Documento</>}
-                    </button>
-                </div>
+                <button
+                    onClick={() => setIsUploadModalOpen(true)}
+                    className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition-colors flex items-center gap-2"
+                >
+                    <FontAwesomeIcon icon={faUpload} /> Novo Documento
+                </button>
             </div>
-            <div className="space-y-3">
-                {loading ? <p>Carregando...</p> : documentos.length === 0 ? <p className="text-center text-gray-500 py-4">Nenhum documento anexado.</p> :
-                    documentos.map(doc => (
-                        <div key={doc.id} className="flex items-center justify-between p-3 border rounded-md bg-white">
-                            <div className="flex items-center gap-3">
-                                <FontAwesomeIcon icon={getFileIcon(doc.caminho_arquivo)} className="text-2xl text-gray-500" />
-                                <div>
-                                    <p className="font-semibold">{doc.nome_documento}</p>
-                                    <p className="text-xs text-gray-500">Enviado em: {formatTimestamp(doc.data_upload)}</p>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-4">
-                                <button onClick={() => handleView(doc.caminho_arquivo)} className="text-blue-500 hover:text-blue-700"><FontAwesomeIcon icon={faEye} title="Visualizar" /></button>
-                                <button onClick={() => handleDelete(doc)} className="text-red-500 hover:text-red-700"><FontAwesomeIcon icon={faTrash} title="Excluir" /></button>
-                            </div>
+
+            {/* MODAL DE UPLOAD */}
+            {isUploadModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4 animate-in fade-in duration-200">
+                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl h-[85vh] flex flex-col overflow-hidden relative">
+                        {/* Header do Modal */}
+                        <div className="px-6 py-4 border-b flex justify-between items-center bg-gray-50 shrink-0">
+                            <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                                <FontAwesomeIcon icon={faUpload} className="text-blue-600" />
+                                Lista Pessoal e Otimizada de Envios
+                            </h2>
+                            <button
+                                onClick={() => setIsUploadModalOpen(false)}
+                                className="text-gray-400 hover:text-red-500 transition-colors"
+                            >
+                                <FontAwesomeIcon icon={faTimesCircle} className="w-6 h-6" />
+                            </button>
                         </div>
-                    ))
+
+                        {/* Corpo do Modal em Lista - O Uploader List é Self Contained em height */}
+                        <div className="p-6 bg-gray-50 flex-1 overflow-hidden">
+                            <UppyListUploader
+                                bucketName="funcionarios-documentos"
+                                folderPath={`documentos/${employeeId}`}
+                                onUploadSuccess={handleUploadSuccess}
+                                onUploadComplete={handleUploadComplete}
+                                tiposDocumento={tiposDocumento}
+                            />
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            <div className="space-y-3">
+                {loading ? <p>Carregando...</p> :
+                    <FileListView
+                        files={documentos.map(doc => ({
+                            id: doc.id,
+                            nome_arquivo: doc.nome_documento,
+                            caminho_arquivo: doc.caminho_arquivo,
+                            tamanho_bytes: null,
+                            tipo: { descricao: 'Documento' }
+                        }))}
+                        onDelete={(file) => {
+                            const originalDoc = documentos.find(d => d.id === file.id);
+                            if (originalDoc) handleDelete(originalDoc);
+                        }}
+                        onView={(file) => {
+                            const originalDoc = documentos.find(d => d.id === file.id);
+                            if (originalDoc) handleView(originalDoc);
+                        }}
+                        emptyMessage="Nenhum documento anexado."
+                    />
                 }
             </div>
         </div>

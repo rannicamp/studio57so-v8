@@ -8,20 +8,15 @@ import { createClient } from '../../utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faUpload } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner'; // <-- Importa o toast para notificações
+import UppyListUploader from '../ui/UppyListUploader';
 
 export default function AbonoModal({ isOpen, onClose, onSave, date, employeeId }) {
   const supabase = createClient();
   const { userData } = useAuth(); // <--- 2. PEGAMOS OS DADOS DO USUÁRIO LOGADO
   const [horas, setHoras] = useState(8);
   const [motivo, setMotivo] = useState('');
-  const [file, setFile] = useState(null);
+  const [uploadedFilePath, setUploadedFilePath] = useState(null);
   const [loading, setLoading] = useState(false);
-
-  const handleFileChange = (e) => {
-    if (e.target.files && e.target.files.length > 0) {
-      setFile(e.target.files[0]);
-    }
-  };
 
   const handleSave = async () => {
     setLoading(true);
@@ -29,26 +24,9 @@ export default function AbonoModal({ isOpen, onClose, onSave, date, employeeId }
     // ---> 3. AQUI ESTÁ A MUDANÇA MÁGICA <---
     // Verificação de segurança para garantir que temos a organização
     if (!userData?.organizacao_id) {
-        toast.error('Erro de segurança: Organização do usuário não encontrada. Por favor, faça login novamente.');
-        setLoading(false);
-        return;
-    }
-
-    let filePath = null;
-
-    if (file) {
-      const fileExtension = file.name.split('.').pop();
-      filePath = `documentos/${employeeId}/abono_${date}.${fileExtension}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('funcionarios-documentos')
-        .upload(filePath, file, { upsert: true });
-
-      if (uploadError) {
-        toast.error("Erro no upload do atestado: " + uploadError.message);
-        setLoading(false);
-        return;
-      }
+      toast.error('Erro de segurança: Organização do usuário não encontrada. Por favor, faça login novamente.');
+      setLoading(false);
+      return;
     }
 
     // Adicionamos o "carimbo" da organização ao pacote de dados
@@ -56,7 +34,7 @@ export default function AbonoModal({ isOpen, onClose, onSave, date, employeeId }
       data_abono: date,
       horas_abonadas: horas,
       motivo: motivo,
-      caminho_arquivo: filePath,
+      caminho_arquivo: uploadedFilePath,
       organizacao_id: userData.organizacao_id, // <-- "Carimbo" adicionado!
     });
 
@@ -93,12 +71,25 @@ export default function AbonoModal({ isOpen, onClose, onSave, date, employeeId }
             ></textarea>
           </div>
           <div>
-            <label className="block text-sm font-medium">Anexar Atestado (Opcional)</label>
-             <input
-                type="file"
-                onChange={handleFileChange}
-                className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:bg-blue-50 hover:file:bg-blue-100"
-            />
+            <label className="block text-sm font-medium mb-1">Anexar Atestado (Opcional)</label>
+            {!uploadedFilePath ? (
+              <div className="border border-gray-200 rounded-lg overflow-hidden bg-gray-50 max-h-[400px]">
+                <UppyListUploader
+                  bucketName="funcionarios-documentos"
+                  folderPath={`documentos/${employeeId}`}
+                  maxNumberOfFiles={1}
+                  hideClassificacao={true}
+                  onUploadSuccess={(result) => setUploadedFilePath(result.path)}
+                />
+              </div>
+            ) : (
+              <div className="flex items-center justify-between p-3 bg-green-50 text-green-700 border border-green-200 rounded-md">
+                <span className="text-sm">Atestado anexado com sucesso!</span>
+                <button type="button" onClick={() => setUploadedFilePath(null)} className="text-sm font-medium underline text-red-600 hover:text-red-800">
+                  Remover
+                </button>
+              </div>
+            )}
           </div>
         </div>
         <div className="flex justify-end gap-4 pt-6 mt-4 border-t">
