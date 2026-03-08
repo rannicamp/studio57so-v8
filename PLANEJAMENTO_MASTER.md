@@ -29,18 +29,18 @@ O **Studio 57** é o ambiente de desenvolvimento e laboratório central. O **Elo
 - [ ] Setup do Repositório de Produção (`elo57-lab-saas`) sincronizado.
 - [ ] Rotina de Sincronização de Banco (Schema Sync).
 
-### 4. Onboarding de Clientes (Pendente de Implementação)
-- [ ] Nova UI para `app/cadastro/page.js` (Estilo Premium e Bifásico).
-- [ ] Chaveador de Natureza Jurídica (Pessoa Física vs Pessoa Jurídica).
-- [ ] Coleta de dados completa:
+### 4. Onboarding de Clientes (CONCLUÍDO)
+- [x] Nova UI para `app/cadastro/page.js` (Estilo Premium e Bifásico).
+- [x] Chaveador de Natureza Jurídica (Pessoa Física vs Pessoa Jurídica).
+- [x] Coleta de dados completa:
     - **Pessoa (Usuário):** Nome, CPF, E-mail, Celular.
     - **Organização/Profissional:** Nome Fantasia/Razão, CNPJ (se PJ), Endereço, Logo.
-- [ ] **Arquitetura Técnica (Definida em 01/03):** 
+- [x] **Arquitetura Técnica (Definida em 01/03):** 
     - Adicionar `entidade_principal_id` na tabela `organizacoes`.
     - Flexibilizar `cadastro_empresa` (CNPJ e Razão Social como opcionais).
     - Fluxo: Criar Org -> Criar Entidade (PF/PJ) -> Vincular Org à Entidade -> Criar User Admin.
-- [ ] Integração com APIs de busca (ViaCEP e CNPJ).
-- [ ] Fluxo de boas-vindas pós-cadastro e tour inicial.
+- [x] Integração com APIs de busca (ViaCEP e CNPJ).
+- [x] Fluxo de boas-vindas pós-cadastro e tour inicial.
 
 ### 5. Sistema de Pagamentos e Core Financeiro (CRÍTICO)
 - [x] **Definição de Provedor:** Definido **Asaas** como gateway oficial por sua API amigável (Node/Next), split nativo, webhook poderoso, emissão de NFe e Pix automático.
