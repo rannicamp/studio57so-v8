@@ -50,10 +50,10 @@ O **Studio 57** é o ambiente de desenvolvimento e laboratório central. O **Elo
     - Histórico lateral com valor total de despesas por fatura e destaque visual da Fatura Atual (próximo vencimento).
     - Extrato linha a linha dentro de cada fatura (Data, Descrição, Valor).
     - Resumo com 3 cards separados: **Compras/Despesas** | **Estornos/Pagamentos** | **Saldo a Pagar**.
-- [ ] **Gestão de Ativos e Passivos Patrimoniais (05/03):**
+- [x] **Gestão de Ativos e Passivos Patrimoniais (05/03):**
     - [x] Criado `AtivosManager` com design dedicado da Família A (`DESIGN_SYSTEM.md`).
     - [x] Criado `AtivoFormModal` para inclusão e edição corrigindo a renderização do valor real.
-    - [ ] Criar a vinculação de Receitas com Ativos (amortização/redução de patrimônio nas vendas parciais ou totais).
+    - [x] Criar a vinculação de Receitas com Ativos (amortização/redução de patrimônio nas vendas parciais ou totais).
 - [ ] Implementar Webhooks para controle de status de assinatura.
 - [ ] Criar Dashboard de Faturamento para o cliente (Portal do Assinante).
 - [ ] Bloqueio de funcionalidades por status de pagamento (Inadimplência).
