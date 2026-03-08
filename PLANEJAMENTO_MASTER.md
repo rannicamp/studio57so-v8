@@ -43,7 +43,7 @@ O **Studio 57** é o ambiente de desenvolvimento e laboratório central. O **Elo
 - [ ] Fluxo de boas-vindas pós-cadastro e tour inicial.
 
 ### 5. Sistema de Pagamentos e Core Financeiro (CRÍTICO)
-- [ ] **Definição de Provedor:** Analisar taxas e facilidade de integração entre **Iugu** e **Asaas**.
+- [x] **Definição de Provedor:** Definido **Asaas** como gateway oficial por sua API amigável (Node/Next), split nativo, webhook poderoso, emissão de NFe e Pix automático.
 - [x] **Demonstrativo de Resultados (DRE):** Implementar visão de competência (Receitas vs Despesas vs Lucro Líquido).
 - [x] **Lógica de Cartão de Crédito — Separação Visual (03/03):** Aba "Cartões" reestruturada:
     - Agrupamento correto de lançamentos por Mês/Ano da fatura (usando `dia_pagamento_fatura`).
