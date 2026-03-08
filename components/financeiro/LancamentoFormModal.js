@@ -262,6 +262,7 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
                                     favorecido_contato_id: favorecidoFinalId,
                                     conta_id: formData.conta_id,
                                     tipo: formData.tipo,
+                                    lancamento_ativo_id: formData.lancamento_ativo_id ? Number(formData.lancamento_ativo_id) : null,
                                     data_vencimento: newItemVencDate,
                                     data_transacao: newItemTransDate
                                 };
