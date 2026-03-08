@@ -130,10 +130,17 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="flex w-full justify-center rounded-md border border-transparent bg-blue-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                className="flex w-full justify-center rounded-md border border-transparent bg-blue-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-70 disabled:cursor-not-allowed transition-colors"
               >
                 {isLoading ? "Entrando..." : "Entrar"}
               </button>
+            </div>
+
+            <div className="mt-6 text-center text-sm text-gray-600">
+              Primeiro acesso?{' '}
+              <Link href="/cadastro" className="font-semibold text-blue-600 hover:text-blue-500 transition-colors">
+                Cadastre-se grátis
+              </Link>
             </div>
           </form>
         </div>

@@ -67,6 +67,7 @@ O **Studio 57** é o ambiente de desenvolvimento e laboratório central. O **Elo
 
 ### 7. Governança de Aplicativos Meta (ESTRATÉGIA DEFINIDA)
 - [x] **Auditoria de Apps:** Identificadas todas as instâncias para evitar confusão.
+- [x] **Aprovação WABA (08/03):** Permissão da Meta concedida para gerenciar mensagens de clientes. A conversão de App foi planejada e adiada (fora do escopo prioritário).
 - [ ] **Estratégia de Separação (OFICIAL):**
     - **App 1 (Marketing/Ads):** Elo 57 - Dev (**1900130190871246**) ✅ **OFICIAL**
     - **App 2 (WhatsApp):** ELO 57 - WATS (**1459952825742829**) ✅ **OFICIAL**
@@ -129,7 +130,8 @@ O **Studio 57** é o ambiente de desenvolvimento e laboratório central. O **Elo
 - *2026-03-07:* **🔐 RLS Global — Blindagem Total do Banco de Dados:**
     - Criado `supabase/generate_rls.js` para gerar políticas SQL automáticas.
     - Gerado e executado `supabase/aplicar_rls_global.sql` com **121 tabelas** protegidas com 4 políticas cada (SELECT, INSERT, UPDATE, DELETE).
-    - **Regra implementada:** Dados da Organização 1 (Elo 57 / Matriz) são **públicos para leitura** por qualquer usuário logado. Cada organização só pode **criar/editar/excluir** os seus próprios dados. Dados da Org 1 são somente editáveis por membros da própria Org 1.
+    - **Regra implementada (Multitenancy SaaS):** Dados da Organização 1 (Elo 57 / Matriz) são **públicos para leitura** por qualquer usuário logado `(organizacao_id = get_auth_user_org() OR organizacao_id = 1)`. Cada organização só pode **criar/editar/excluir** os seus próprios dados. Dados da Org 1 são somente editáveis por membros da própria Org 1.
+    - **REGRA INQUEBRÁVEL (Nulos/Globais):** O sistema NÃO DEVE usar `organizacao_id IS NULL` para burlar RLS (risco de segurança grave). Registros globais do sistema **obrigatóriamente** pertencem à Organização 1. A ausência de ID (Null) é indicativo de falha de script e os dados ficarão invisíveis.
     - Criada função `get_auth_user_org()` no Postgres para leitura segura do `organizacao_id` do usuário autenticado (evita recursão infinita).
     - **Limpeza Frontend:** Removidos os filtros redundantes de `organizacao_id` dos componentes (`empreendimentos/page.js`, `empresas/page.js`, `FichaCompletaFuncionario.js`, `ContratoDocumentos.js`, `LancamentoFormModal.js`, `EmpresaAnexosTab.js`).
 - *2026-03-07:* **🐛 Fix: Modal OFX bloqueando a página inteira:**
@@ -148,6 +150,19 @@ O **Studio 57** é o ambiente de desenvolvimento e laboratório central. O **Elo
     - Identificado que o PWA no iPhone criava uma camada fantasma que bloqueava os toques usando `h-[100dvh]`. Trocado para `h-full` no `WhatsAppInbox.js`.
     - Resolvido o "Becos Sem Saída" (Dead End) no Mobile: ao abrir um email pelo celular, o menu principal sumia. Adicionado selector de abas `WhatsApp / E-mail` no topo do `EmailListPanel.js` exclusivo para mobile (`md:hidden`), permitindo a troca livre entre as caixas.
     - Deploy realizado.
+
+- *2026-03-08:* **🟢 Aprovação Oficial da Meta (WABA):**
+    - Obtivemos permissão oficial da Meta para que o nosso App possa gerenciar todas as mensagens dos clientes.
+    - A conversão definitiva de App precisará ser feita em algum momento, mas foi decidido **não fazer isso agora** para focar nos outros módulos críticos do lançamento. O atual continua rodando.
+
+- *2026-03-08:* **🏢 Refatoração do Cadastro PF/PJ e Checkout (Onboarding):**
+    - Front-end (`app/cadastro/page.js`) recriado como Wizard Premium (Passo-a-passo) com logo oficial.
+    - Integração de busca automática de CNPJ (BrasilAPI) e CEP (ViaCEP).
+    - Validador visual inteligente adicionado na etapa de "Confirmar Senha".
+    - Back-end (`app/cadastro/actions.js`) refatorado para usar `SUPABASE_SERVICE_ROLE_KEY` permitindo a criação do tripé de Entrada Local (Organização -> Empresa/Autônomo -> Administrador) mesmo para usuários não-autenticados.
+    - Script rodado no banco de dados de Produção liberando o "NOT NULL" do CNPJ para aceitar os cadastros do tipo Pessoa Física e Autônomos sem explodir erros.
+    - Correção e Transferência dos Cargos (Funções e Permissões) da ORG 2 para a ORG Master 1, resolvendo o bloqueio do RLS e habilitando os Menus Laterais automaticamente logo no primeiro login dos novos usuários! 🚀
+    - Subida do HTML oficial responsivo no Email Template do Auth do Supabase!
 
 ---
 *Assinado: Devonildo (Seu Mentor Técnico)*
