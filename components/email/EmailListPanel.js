@@ -11,6 +11,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
 import EmailActionMenu from './EmailActionMenu';
+import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 
 const fetchMessages = async ({ queryKey, pageParam = 1 }) => {
     const [_key, folderPath, searchTerm, status, accountId] = queryKey;
@@ -54,7 +55,9 @@ export default function EmailListPanel({
     selectedEmailId,
     searchTerm,
     onCreateRule,
-    onUnreadCountChange
+    onUnreadCountChange,
+    onChangeTab,
+    canViewWhatsapp
 }) {
     const [filterStatus, setFilterStatus] = useState('unread');
     const [selectedIds, setSelectedIds] = useState(new Set());
@@ -210,6 +213,24 @@ export default function EmailListPanel({
 
     return (
         <div className="flex flex-col h-full bg-white border-r border-gray-200 relative">
+
+            {/* ABAS MOBILE — visíveis só no mobile (md:hidden) para o usuário nunca ficar preso */}
+            {onChangeTab && (
+                <div className="flex border-b bg-gray-50 shrink-0 md:hidden">
+                    {canViewWhatsapp && (
+                        <button
+                            onClick={() => onChangeTab('whatsapp')}
+                            className="flex-1 py-3 text-sm font-medium flex justify-center items-center gap-2 border-b-2 border-transparent text-gray-500 active:bg-gray-100 touch-manipulation"
+                        >
+                            <FontAwesomeIcon icon={faWhatsapp} className="text-base" /> WhatsApp
+                        </button>
+                    )}
+                    <button className="flex-1 py-3 text-sm font-bold flex justify-center items-center gap-2 border-b-2 border-blue-600 text-blue-600 bg-white touch-manipulation">
+                        <FontAwesomeIcon icon={faEnvelope} className="text-base" /> E-mail
+                    </button>
+                </div>
+            )}
+
             {selectedIds.size > 0 && (
                 <div className="absolute top-0 inset-x-0 h-[60px] bg-blue-600 z-20 flex items-center justify-between px-4 text-white shadow-md animate-slide-down">
                     <div className="flex items-center gap-4">

@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { formatarParaWhatsAppBR } from '@/utils/phoneUtils';
 
 // Delay para segurança (entre envios)
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -6,8 +7,8 @@ const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 export async function processBroadcast(supabaseAdmin, config, targetContacts, templateData, jobInfo) {
     const { template_name, language, variables, full_text_base, components: extraComponents } = templateData;
     // Pega o ID do Job (Broadcast)
-    const { jobId, jobCreatedAt, batchSize = 5 } = jobInfo || {}; 
-    
+    const { jobId, jobCreatedAt, batchSize = 5 } = jobInfo || {};
+
     let processedCount = 0;
     let successCount = 0;
     let failCount = 0;
@@ -25,11 +26,11 @@ export async function processBroadcast(supabaseAdmin, config, targetContacts, te
                 .select('id')
                 .eq('contato_id', target.id)
                 .eq('direction', 'outbound')
-                .gte('created_at', jobCreatedAt) 
+                .gte('created_at', jobCreatedAt)
                 .limit(1);
 
             if (existingMsg && existingMsg.length > 0) {
-                continue; 
+                continue;
             }
 
             processedCount++;
@@ -59,10 +60,19 @@ export async function processBroadcast(supabaseAdmin, config, targetContacts, te
             });
 
             // Payload API
+            // formatarParaWhatsAppBR: remove DDI +55 e o 9º dígito de celulares BR
+            const phoneForMeta = formatarParaWhatsAppBR(target.telefone);
+
+            if (!phoneForMeta) {
+                console.warn(`[Processor] Número inválido para ${target.nome}, pulando.`);
+                skippedCount++;
+                continue;
+            }
+
             const payload = {
                 messaging_product: 'whatsapp',
                 recipient_type: 'individual',
-                to: target.telefone,
+                to: phoneForMeta,
                 type: 'template',
                 template: {
                     name: template_name,
@@ -105,7 +115,7 @@ export async function processBroadcast(supabaseAdmin, config, targetContacts, te
                 }
             }
 
-            const delay = 4000; 
+            const delay = 4000;
             await sleep(delay);
 
         } catch (error) {
@@ -114,9 +124,9 @@ export async function processBroadcast(supabaseAdmin, config, targetContacts, te
         }
     }
 
-    return { 
-        processedInThisRun: processedCount, 
-        success: successCount, 
+    return {
+        processedInThisRun: processedCount,
+        success: successCount,
         failed: failCount,
         skipped: skippedCount
     };

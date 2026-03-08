@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { sendMetaEvent } from '@/utils/metaCapi';
+import { formatarParaWhatsAppBR } from '@/utils/phoneUtils';
 
 // Configuração do Supabase com Service Role
 const supabaseAdmin = createClient(
@@ -12,7 +13,7 @@ const supabaseAdmin = createClient(
 // --- FUNÇÃO AUXILIAR: Enviar Template WhatsApp ---
 async function sendTemplateMessage(config, to, contato, templateName, language) {
     const url = `https://graph.facebook.com/v20.0/${config.whatsapp_phone_number_id}/messages`;
-    
+
     // Tratamento de segurança para o nome do contato
     const nomeExibicao = contato?.nome || contato?.razao_social || 'Cliente';
 
@@ -23,19 +24,23 @@ async function sendTemplateMessage(config, to, contato, templateName, language) 
             text: nomeExibicao
         }]
     }];
+
+    // formatarParaWhatsAppBR: remove DDI +55 e o 9º dígito de celulares BR (exigência da Meta API)
+    const phoneForMeta = formatarParaWhatsAppBR(to);
+
     const payload = {
-        messaging_product: "whatsapp", to: to, type: "template",
+        messaging_product: "whatsapp", to: phoneForMeta, type: "template",
         template: { name: templateName, language: { code: language }, components: components }
     };
 
     try {
-        const response = await fetch(url, { 
-            method: 'POST', 
-            headers: { 
-                'Content-Type': 'application/json', 
-                'Authorization': `Bearer ${config.whatsapp_permanent_token}` 
-            }, 
-            body: JSON.stringify(payload) 
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${config.whatsapp_permanent_token}`
+            },
+            body: JSON.stringify(payload)
         });
         const responseData = await response.json();
 
@@ -101,9 +106,9 @@ export async function PUT(req) {
             if (fetchError || !fullData) {
                 console.error("❌ [CRM] Erro ao buscar dados interligados:", fetchError);
             } else {
-                const contato = fullData.contatos; 
+                const contato = fullData.contatos;
                 const coluna = fullData.colunas_funil;
-                
+
                 const telefone = contato?.telefones?.length > 0 ? contato.telefones[0].telefone : null;
                 const email = contato?.emails?.length > 0 ? contato.emails[0].email : null;
                 const nomeContato = contato?.nome || contato?.razao_social || 'Desconhecido';
@@ -113,19 +118,19 @@ export async function PUT(req) {
                 console.log(`📊 [CRM] Cliente: ${nomeContato} | Nova Coluna: ${coluna.nome}`);
 
                 // --- 🚀 ESTRATÉGIA FACEBOOK CAPI (Pixel) ---
-                
+
                 // ID OFICIAL DA COLUNA VENDIDO: 5bdd47f6-35d6-4662-93f2-f7c0fc4ba60e
-                const isVendido = 
-                    nomeColuna.includes('vendido') || 
-                    nomeColuna.includes('venda realizada') || 
-                    colunaId === '5bdd47f6-35d6-4662-93f2-f7c0fc4ba60e'; 
+                const isVendido =
+                    nomeColuna.includes('vendido') ||
+                    nomeColuna.includes('venda realizada') ||
+                    colunaId === '5bdd47f6-35d6-4662-93f2-f7c0fc4ba60e';
 
                 if (isVendido) {
                     console.log(`💰 [PIXEL] VENDA IDENTIFICADA! Buscando contrato...`);
-                    
+
                     // --- NOVA LÓGICA: BUSCA VALOR NO CONTRATO ---
                     let valorReal = 350000.00; // Valor de fallback (Médio)
-                    
+
                     // Busca o contrato mais recente deste cliente
                     const { data: contratoData, error: contratoError } = await supabaseAdmin
                         .from('contratos')
@@ -155,13 +160,13 @@ export async function PUT(req) {
                         status: 'Concluído'
                     });
                 }
-                
+
                 // LEAD PERDIDO
                 else if (nomeColuna.includes('perdido') || nomeColuna.includes('perda') || nomeColuna.includes('desistência')) {
                     console.log(`🚫 [PIXEL] Lead Perdido.`);
                     await sendMetaEvent('LeadLost', { email, telefone }, { reason: coluna.nome });
                 }
-                
+
                 // AGENDAMENTO
                 else if (nomeColuna.includes('visita') || nomeColuna.includes('agendado')) {
                     console.log(`📅 [PIXEL] Visita Agendada.`);

@@ -1,0 +1,208 @@
+﻿
+> teste-netlify@0.1.0 build
+> next build
+
+   Ôû▓ Next.js 15.5.12
+   - Environments: .env.local
+   - Experiments (use with caution):
+     ┬À serverActions
+
+   Creating an optimized production build ...
+ Ô£ô Compiled successfully in 2.1min
+   Skipping validation of types
+   Skipping linting
+   Collecting page data ...
+   Generating static pages (0/149) ...
+   Generating static pages (37/149) 
+   Generating static pages (74/149) 
+   Generating static pages (111/149) 
+ Ô£ô Generating static pages (149/149)
+   Finalizing page optimization ...
+   Collecting build traces ...
+
+Route (app)                                   Size  First Load JS
+Ôöî Ôùï /                                      4.55 kB         499 kB
+Ôö£ Ôùï /_not-found                               1 kB         104 kB
+Ôö£ Ôùï /admin                                 1.22 kB         493 kB
+Ôö£ Ôùï /admin/politicas                       5.03 kB         515 kB
+Ôö£ ãÆ /almoxarifado                          14.9 kB         525 kB
+Ôö£ ãÆ /api/admin/check-users                   311 B         103 kB
+Ôö£ ãÆ /api/ai/agent-tasks                      311 B         103 kB
+Ôö£ ãÆ /api/aps/status                          311 B         103 kB
+Ôö£ ãÆ /api/aps/token                           311 B         103 kB
+Ôö£ ãÆ /api/aps/upload                          311 B         103 kB
+Ôö£ ãÆ /api/aps/upload-url                      311 B         103 kB
+Ôö£ ãÆ /api/auth/[...nextauth]                  311 B         103 kB
+Ôö£ ãÆ /api/cep                                 311 B         103 kB
+Ôö£ ãÆ /api/conciliacao/match-ia                311 B         103 kB
+Ôö£ ãÆ /api/contatos/duplicates                 311 B         103 kB
+Ôö£ ãÆ /api/contatos/export                     311 B         103 kB
+Ôö£ ãÆ /api/contatos/search                     311 B         103 kB
+Ôö£ ãÆ /api/cotacoes                            311 B         103 kB
+Ôö£ ãÆ /api/crm                                 311 B         103 kB
+Ôö£ ãÆ /api/cron/process-broadcasts             311 B         103 kB
+Ôö£ ãÆ /api/debug-env                           311 B         103 kB
+Ôö£ ãÆ /api/email/accounts                      311 B         103 kB
+Ôö£ ãÆ /api/email/actions                       311 B         103 kB
+Ôö£ ãÆ /api/email/attachment                    311 B         103 kB
+Ôö£ ãÆ /api/email/content                       311 B         103 kB
+Ôö£ ãÆ /api/email/folders                       311 B         103 kB
+Ôö£ ãÆ /api/email/folders/actions               311 B         103 kB
+Ôö£ ãÆ /api/email/folders/create                311 B         103 kB
+Ôö£ ãÆ /api/email/messages                      311 B         103 kB
+Ôö£ ãÆ /api/email/rules                         311 B         103 kB
+Ôö£ ãÆ /api/email/rules/apply                   311 B         103 kB
+Ôö£ ãÆ /api/email/rules/run                     311 B         103 kB
+Ôö£ ãÆ /api/email/send                          311 B         103 kB
+Ôö£ ãÆ /api/email/sync                          311 B         103 kB
+Ôö£ ãÆ /api/empreendimentos/[id]                311 B         103 kB
+Ôö£ ãÆ /api/empreendimentos/analyze-document    311 B         103 kB
+Ôö£ ãÆ /api/empreendimentos/gerar-resumo        311 B         103 kB
+Ôö£ ãÆ /api/empreendimentos/process-anexo       311 B         103 kB
+Ôö£ ãÆ /api/extract-pdf                         311 B         103 kB
+Ôö£ ãÆ /api/feedback                            311 B         103 kB
+Ôö£ ãÆ /api/final-test                          311 B         103 kB
+Ôö£ ãÆ /api/financeiro/auditoria-ia             311 B         103 kB
+Ôö£ ãÆ /api/generate-pdf-thumbnail              311 B         103 kB
+Ôö£ ãÆ /api/google-calendar/create-event        311 B         103 kB
+Ôö£ ãÆ /api/instagram/accounts                  311 B         103 kB
+Ôö£ ãÆ /api/instagram/conversations             311 B         103 kB
+Ôö£ ãÆ /api/instagram/messages                  311 B         103 kB
+Ôö£ ãÆ /api/materiais/import                    311 B         103 kB
+Ôö£ ãÆ /api/meta/ad-accounts                    311 B         103 kB
+Ôö£ ãÆ /api/meta/ads                            311 B         103 kB
+Ôö£ ãÆ /api/meta/ads/status                     311 B         103 kB
+Ôö£ ãÆ /api/meta/callback                       311 B         103 kB
+Ôö£ ãÆ /api/meta/campaigns                      311 B         103 kB
+Ôö£ ãÆ /api/meta/conectar                       311 B         103 kB
+Ôö£ ãÆ /api/meta/dados                          311 B         103 kB
+Ôö£ ãÆ /api/meta/pages                          311 B         103 kB
+Ôö£ ãÆ /api/meta/webhook                        311 B         103 kB
+Ôö£ ãÆ /api/meta/whatsapp-discover              311 B         103 kB
+Ôö£ ãÆ /api/notifications/push                  311 B         103 kB
+Ôö£ ãÆ /api/notifications/send                  311 B         103 kB
+Ôö£ ãÆ /api/notifications/subscribe             311 B         103 kB
+Ôö£ ãÆ /api/simulacao/enviar-proposta           311 B         103 kB
+Ôö£ ãÆ /api/test-insert                         311 B         103 kB
+Ôö£ ãÆ /api/test-lead                           311 B         103 kB
+Ôö£ ãÆ /api/teste-manual                        311 B         103 kB
+Ôö£ ãÆ /api/versiculo                           311 B         103 kB
+Ôö£ ãÆ /api/whatsapp/broadcast/send             311 B         103 kB
+Ôö£ ãÆ /api/whatsapp/chat-manager               311 B         103 kB
+Ôö£ ãÆ /api/whatsapp/lists                      311 B         103 kB
+Ôö£ ãÆ /api/whatsapp/lists/sync                 311 B         103 kB
+Ôö£ ãÆ /api/whatsapp/mark-read                  311 B         103 kB
+Ôö£ ãÆ /api/whatsapp/save-attachment            311 B         103 kB
+Ôö£ ãÆ /api/whatsapp/scheduled-broadcasts       311 B         103 kB
+Ôö£ ãÆ /api/whatsapp/send                       311 B         103 kB
+Ôö£ ãÆ /api/whatsapp/templates                  311 B         103 kB
+Ôö£ ãÆ /api/whatsapp/webhook                    311 B         103 kB
+Ôö£ ãÆ /api/whatsapp/webhook/mark-read          311 B         103 kB
+Ôö£ Ôùï /apresentacaoelo                       8.38 kB         449 kB
+Ôö£ ãÆ /atividades                            47.9 kB         566 kB
+Ôö£ Ôùï /atualizar-senha                       2.54 kB         509 kB
+Ôö£ ãÆ /auth/callback                           311 B         103 kB
+Ôö£ ãÆ /automacao                             6.09 kB         516 kB
+Ôö£ Ôùï /betasuites                            8.73 kB         502 kB
+Ôö£ Ôùï /betasuites/obrigado                     179 B         107 kB
+Ôö£ Ôùï /bim-manager                           20.1 kB         550 kB
+Ôö£ ãÆ /bim-manager desativado                2.43 kB         521 kB
+Ôö£ Ôùï /cadastro                              1.24 kB         104 kB
+Ôö£ Ôùï /cadastro-corretor                     4.17 kB         460 kB
+Ôö£ Ôùï /cadastrocliente                       2.63 kB         125 kB
+Ôö£ ãÆ /cadastrocliente/[slug]                2.36 kB         125 kB
+Ôö£ Ôùï /cadastrocliente/obrigado                167 B         107 kB
+Ôö£ ãÆ /caixa-de-entrada                      64.9 kB         844 kB
+Ôö£ Ôùï /clientes                              5.21 kB         547 kB
+Ôö£ ãÆ /comercial/anuncios                      10 kB         468 kB
+Ôö£ ãÆ /comercial/tabela-de-vendas              171 B         441 kB
+Ôö£ ãÆ /configuracoes                         2.48 kB         506 kB
+Ôö£ ãÆ /configuracoes/cotacoes                5.87 kB         516 kB
+Ôö£ ãÆ /configuracoes/feedback                  179 B         107 kB
+Ôö£ ãÆ /configuracoes/feedback/enviar         4.51 kB         513 kB
+Ôö£ ãÆ /configuracoes/feedback/visualizar     5.03 kB         518 kB
+Ôö£ ãÆ /configuracoes/financeiro              22.3 kB         576 kB
+Ôö£ ãÆ /configuracoes/integracoes             7.95 kB         175 kB
+Ôö£ ãÆ /configuracoes/materiais               7.01 kB         509 kB
+Ôö£ ãÆ /configuracoes/notificacoes            13.2 kB         524 kB
+Ôö£ ãÆ /configuracoes/painel/construtor         760 B         523 kB
+Ôö£ ãÆ /configuracoes/permissoes              7.43 kB         512 kB
+Ôö£ ãÆ /configuracoes/politicas                 932 B         443 kB
+Ôö£ ãÆ /configuracoes/rh                      9.92 kB         520 kB
+Ôö£ ãÆ /configuracoes/tipos-documento         5.59 kB         514 kB
+Ôö£ ãÆ /configuracoes/usuarios                13.6 kB         545 kB
+Ôö£ ãÆ /contatos                              21.6 kB         576 kB
+Ôö£ ãÆ /contatos/cadastro                     2.41 kB         538 kB
+Ôö£ ãÆ /contatos/duplicatas                   4.19 kB         524 kB
+Ôö£ ãÆ /contatos/editar/[id]                     3 kB         536 kB
+Ôö£ ãÆ /contatos/formatar-telefones           6.58 kB         516 kB
+Ôö£ ãÆ /contratos                             5.46 kB         532 kB
+Ôö£ ãÆ /contratos/[id]                          165 B         583 kB
+Ôö£ ãÆ /crm                                   24.6 kB         560 kB
+Ôö£ ãÆ /crm/automacao                         6.84 kB         520 kB
+Ôö£ ãÆ /empreendimentos                       5.81 kB         524 kB
+Ôö£ ãÆ /empreendimentos/[id]                  13.3 kB         690 kB
+Ôö£ ãÆ /empreendimentos/[id]/produtos         15.2 kB         545 kB
+Ôö£ ãÆ /empreendimentos/cadastro              1.03 kB         540 kB
+Ôö£ ãÆ /empreendimentos/editar/[id]             203 B         534 kB
+Ôö£ Ôùï /empreendimentosstudio                   178 B         112 kB
+Ôö£ ãÆ /empresas                              8.56 kB         561 kB
+Ôö£ ãÆ /empresas/[id]                         2.71 kB         542 kB
+Ôö£ ãÆ /financeiro                             150 kB         711 kB
+Ôö£ ãÆ /financeiro/auditoria                  6.68 kB         532 kB
+Ôö£ ãÆ /financeiro/categorias                 3.92 kB         521 kB
+Ôö£ ãÆ /financeiro/conciliacao                  16 kB         565 kB
+Ôö£ ãÆ /financeiro/transferencias             2.99 kB         507 kB
+Ôö£ ãÆ /funcionarios                            311 B         103 kB
+Ôö£ ãÆ /funcionarios/visualizar/[id]          11.7 kB         590 kB
+Ôö£ ãÆ /gerenciador-de-arquivos               8.09 kB         581 kB
+Ôö£ Ôùï /login                                 2.12 kB         168 kB
+Ôö£ ãÆ /metateste                             2.12 kB         105 kB
+Ôö£ Ôùï /migracao                              3.36 kB         448 kB
+Ôö£ ãÆ /orcamento                               11 kB         521 kB
+Ôö£ ãÆ /painel                                2.65 kB         498 kB
+Ôö£ ãÆ /pedidos                               17.2 kB         596 kB
+Ôö£ ãÆ /pedidos/[id]                            616 B         578 kB
+Ôö£ ãÆ /perfil                                5.53 kB         521 kB
+Ôö£ ãÆ /politicas                               187 B         446 kB
+Ôö£ Ôùï /portal-arquivos                       5.34 kB         520 kB
+Ôö£ Ôùï /portal-contratos                      3.46 kB         530 kB
+Ôö£ ãÆ /portal-contratos/[id]                   164 B         583 kB
+Ôö£ Ôùï /portal-painel                         1.21 kB         167 kB
+Ôö£ ãÆ /portal-perfil                           185 B         507 kB
+Ôö£ ãÆ /rdo                                    1.1 kB         536 kB
+Ôö£ ãÆ /rdo/[id]                                200 B         535 kB
+Ôö£ ãÆ /rdo/gerenciador                       3.97 kB         517 kB
+Ôö£ Ôùï /recuperar-senha                       2.64 kB         513 kB
+Ôö£ ãÆ /recursos-humanos                      27.9 kB         587 kB
+Ôö£ ãÆ /recursos-humanos/contratos/[id]       6.77 kB         531 kB
+Ôö£ Ôùï /refugiobraunas                        11.1 kB         521 kB
+Ôö£ Ôùï /refugiobraunas/obrigado                 179 B         107 kB
+Ôö£ Ôùï /register                              1.08 kB         108 kB
+Ôö£ ãÆ /relatorios                             6.3 kB         516 kB
+Ôö£ ãÆ /relatorios/comercial                  1.83 kB         531 kB
+Ôö£ ãÆ /relatorios/financeiro                 34.5 kB         662 kB
+Ôö£ ãÆ /relatorios/radar                      2.07 kB         560 kB
+Ôö£ ãÆ /relatorios/rh                         10.9 kB         511 kB
+Ôö£ Ôùï /residencialalfa                         11 kB         544 kB
+Ôö£ Ôùï /residencialalfa/anuncios              48.9 kB         487 kB
+Ôö£ Ôùï /residencialalfa/obrigado                179 B         107 kB
+Ôö£ ãÆ /simulador-financiamento                 604 B         537 kB
+Ôö£ ãÆ /simulador-financiamento/[id]            199 B         536 kB
+Ôö£ Ôùï /sitemap.xml                             311 B         103 kB
+Ôö£ ãÆ /sobre                                   179 B         107 kB
+Ôö£ Ôùï /sobre-nos                             4.45 kB         451 kB
+Ôö£ Ôùï /tabela-de-vendas                      1.72 kB         506 kB
+Ôö£ ãÆ /teste-bim                               10 kB         498 kB
+Ôöö ãÆ /upload                                8.39 kB         581 kB
++ First Load JS shared by all               103 kB
+  Ôö£ chunks/1255-a1c02572a6d511aa.js        45.7 kB
+  Ôö£ chunks/4bd1b696-100b9d70ed4e49c1.js    54.2 kB
+  Ôöö other shared chunks (total)            3.08 kB
+
+
+ãÆ Middleware                               81.9 kB
+
+Ôùï  (Static)   prerendered as static content
+ãÆ  (Dynamic)  server-rendered on demand
+

@@ -194,6 +194,8 @@ function EmailInboxContent({ onChangeTab, canViewWhatsapp }) {
                         onCreateRule={handleOpenRules}
                         onCreateFolder={handleOpenCreateFolder}
                         onUnreadCountChange={handleUnreadUpdate}
+                        onChangeTab={onChangeTab}
+                        canViewWhatsapp={props?.canViewWhatsapp}
                     />
                 ) : (
                     <div className="flex flex-col items-center justify-center h-full bg-gray-50 text-gray-500 p-8 text-center">

@@ -13,14 +13,15 @@ O **Studio 57** é o ambiente de desenvolvimento e laboratório central. O **Elo
 - [/] Refinar Página de Cadastro de Organização (UI/UX e Dados Completos).
 - [ ] Validar Fluxo de Cadastro e Login em dispositivos Mobile (PWA).
 - [ ] Checklist Legal: Revisar textos das Políticas Públicas.
-- [ ] **Padronizar o Sistema de Upload** em todo o sistema (Protocolo Único com Uppy).
+- [x] **RLS Global Aplicado no Banco de Dados (07/03) — 121 tabelas protegidas.**
+- [x] **Padronizar o Sistema de Upload (07/03) — CONCLUÍDO.** `UppyAvatarUploader`, `UppyFileImporter` e todo o sistema reescritos no padrão nativo.
 
 ## 🏗️ Módulos Críticos para o Lançamento
 ### 1. Compliance e Segurança (95%)
 - [x] Super Admin Redirection.
 - [x] Matriz de Aceites (Multi-contratos).
 - [x] Central de Políticas Públicas (/politicas).
-- [ ] Auditoria Final de RLS (Row Level Security).
+- [x] **Auditoria Final de RLS (Row Level Security) — CONCLUÍDA (07/03).**
 
 ### 1. Infraestrutura e Domínios
 - [x] Configuração do domínio oficial `elo57.com.br` no Netlify (Propagando).
@@ -80,16 +81,13 @@ O **Studio 57** é o ambiente de desenvolvimento e laboratório central. O **Elo
     8. **CRM - Studio 57 - 2** (23905100505840850)
     9. **Studio 57 gestor** (701113019490938)
 
-### 8. Padronização Global do Sistema de Arquivos (Upload & UI)
-- [ ] **Auditoria de Componentes:** Substituir todos os inputs e cards de anexo por componentes oficiais padronizados.
-- [ ] **Resolução de Bugs Críticos:** Remover a dependência de "thumbnail_urls" que geram previews infinitos na Galeria de Marketing. Fallbacks universais devem ser usados para cada tipo de arquivo.
-- [ ] **Componentes de View (Visuais):**
-    - `FileListView.js`: Visualização em listagem enxuta (ideal para contratos, peps, recibos).
-    - `FileGridView.js`: Visualização em grade rica (ideal para fotos da obra, mídias sociais).
-- [ ] **Protocolo Único de Upload (Uppy Vanilla V5):**
-    - Criação de `<UppyUploaderGlobal />` atrelado a CDN CSS via JSX (Anti-Crash).
-    - Suporte a `@uppy/golden-retriever` para retomada de uploads massivos.
-    - Zero uso das dependências `@uppy/react`. Todo o motor do React roda sobre hooks que invocam instâncias isoladas do Uppy Vanilla.
+### 8. Padronização Global do Sistema de Arquivos (Upload & UI) — ✅ CONCLUÍDO (07/03)
+- [x] **Auditoria de Componentes:** Todos os componentes de upload auditados e padronizados.
+- [x] `UppyFileImporter.js`: Reescrito sem Dashboard do Uppy, usando input HTML nativo + zona drag-and-drop no padrão visual do sistema.
+- [x] `UppyAvatarUploader.js`: Reescrito sem `@uppy/react/dashboard`, usando Supabase Storage nativo + preview de imagem.
+- [x] `UppyListUploader.js`: Já estava correto (Uppy Vanilla + GoldenRetriever + input nativo).
+- [x] `MessagePanel.js` (WhatsApp): Usa DashboardPlugin via CDN no padrão correto do protocolo.
+- [~] `UploadFotosRdo.js`: Página laboratorial inativa, sem risco.
 
 ### 9. CRM Multi-Funis e Roteamento de Leads (CONCLUÍDO)
 - [x] Lógica de Funil de Vendas com suporte a regras de múltiplos funis.
@@ -99,7 +97,7 @@ O **Studio 57** é o ambiente de desenvolvimento e laboratório central. O **Elo
 ### 10. WhatsApp Business API (CONCLUÍDO / EM MANUTENÇÃO)
 - [x] Correção do envio do Payload de Template (Bug de Código - Erro Meta #100).
 - [x] Configuração Oficial do App Meta (ELO 57 - WATS): Atualização das credenciais direto no banco `configuracoes_whatsapp`, resolvendo bloqueios de anti-spam em números novos (Erro Meta #131049).
-- [ ] **Melhoria Técnica:** Revisar e padronizar como os números de telefone são tratados/salvos no contato (remoção de +55, caracteres especiais e validação de 9º dígito) para evitar falhas silenciosas na Meta API.
+- [x] **Melhoria Técnica (08/03):** Criado `utils/phoneUtils.js` com `formatarParaWhatsAppBR()` e `formatarParaStorageBR()`. Corrigido o 9º dígito em todos os pontos de envio: `send/route.js`, `broadcastProcessor.js` e `crm/route.js`. O banco continua armazenando o número completo (com 9); a remoção do 9 ocorre somente no momento do envio à API da Meta.
 
 ### 11. Reestruturação do Sistema de Empresas (UX/Dados)
 - [ ] **Diagnóstico:** A página e o sistema atual de empresas (visão, ficha, listagem) estão defasados e faltando informações.
@@ -127,6 +125,29 @@ O **Studio 57** é o ambiente de desenvolvimento e laboratório central. O **Elo
 - *2026-03-06:* **Finalização da DRE e Impressão Global:**
     - Lógica estrutural consolidada para o DRE (`useRelatorioDRE.js`), scripts SQL rodados formatando categorias filhas/mestras corretamente. Interface pronta com design clean, formatador de lucros e prejuízos. Integrado na aba Relatórios com Toggle Visual.
     - **Impressão Global Standard A4 (`s57-print-area`):** Todos os componentes sensíveis (Ficha de Funcionário, Folha de Ponto, Tabelas, Recibos, Contratos, Simulador) foram padronizados, removendo os hacks de substituição do HTML do navegador. Menus ocultados com sucesso. O sistema imprime limpo sem `notifiers`.
+
+- *2026-03-07:* **🔐 RLS Global — Blindagem Total do Banco de Dados:**
+    - Criado `supabase/generate_rls.js` para gerar políticas SQL automáticas.
+    - Gerado e executado `supabase/aplicar_rls_global.sql` com **121 tabelas** protegidas com 4 políticas cada (SELECT, INSERT, UPDATE, DELETE).
+    - **Regra implementada:** Dados da Organização 1 (Elo 57 / Matriz) são **públicos para leitura** por qualquer usuário logado. Cada organização só pode **criar/editar/excluir** os seus próprios dados. Dados da Org 1 são somente editáveis por membros da própria Org 1.
+    - Criada função `get_auth_user_org()` no Postgres para leitura segura do `organizacao_id` do usuário autenticado (evita recursão infinita).
+    - **Limpeza Frontend:** Removidos os filtros redundantes de `organizacao_id` dos componentes (`empreendimentos/page.js`, `empresas/page.js`, `FichaCompletaFuncionario.js`, `ContratoDocumentos.js`, `LancamentoFormModal.js`, `EmpresaAnexosTab.js`).
+- *2026-03-07:* **🐛 Fix: Modal OFX bloqueando a página inteira:**
+    - Identificado que o componente `UppyFileImporter.js` renderizava um overlay fixo (`fixed inset-0`) em toda a tela mesmo quando o modal estava **fechado**, bloqueando todos os cliques.
+    - Corrigido com `if (!isOpen) return null;`.
+    - **Bonus:** Componente `UppyFileImporter.js` completamente reescrito, substituindo o Dashboard visual do Uppy por um modal nativo no padrão do sistema (input HTML + zona de drag-and-drop estilizada).
+    - Deploy realizado.
+
+- *2026-03-08:* **📱 Fix: Correção do 9º Dígito nos Números de WhatsApp:**
+    - Criado `utils/phoneUtils.js` com `formatarParaWhatsAppBR()` (remove DDI+55 e o 9º dígito de celulares BR) e `formatarParaStorageBR()` (padroniza para armazenamento).
+    - Corrigidos 4 pontos de falha silenciosa: `app/api/whatsapp/send/route.js`, `utils/broadcastProcessor.js`, `app/api/crm/route.js` e `components/contatos/PadronizacaoManager.js`.
+    - **Regra final:** Banco armazena número completo com DDI e com o 9. A API da Meta recebe o número sem DDI e sem o 9 (ex: `3398182638`).
+    - Deploy realizado.
+
+- *2026-03-08:* **📱 Fix: Travamento da Caixa de Entrada no iOS/Safari (PWA):**
+    - Identificado que o PWA no iPhone criava uma camada fantasma que bloqueava os toques usando `h-[100dvh]`. Trocado para `h-full` no `WhatsAppInbox.js`.
+    - Resolvido o "Becos Sem Saída" (Dead End) no Mobile: ao abrir um email pelo celular, o menu principal sumia. Adicionado selector de abas `WhatsApp / E-mail` no topo do `EmailListPanel.js` exclusivo para mobile (`md:hidden`), permitindo a troca livre entre as caixas.
+    - Deploy realizado.
 
 ---
 *Assinado: Devonildo (Seu Mentor Técnico)*

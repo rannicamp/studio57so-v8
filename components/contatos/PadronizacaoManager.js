@@ -33,52 +33,42 @@ const SortableHeader = ({ label, sortKey, sortConfig, requestSort }) => {
     );
 };
 
-// Lógica Centralizada de Padronização (Usada tanto na exibição quanto no salvamento)
+// Lógica Centralizada de Padronização (Para SALVAR NO BANCO — com DDI e com o 9)
+// Nota: A remoção do 9 para envio WhatsApp é feita por formatarParaWhatsAppBR() no momento do envio.
 const standardizePhoneLogic = (rawPhone, currentCountryCode) => {
     let digits = (rawPhone || '').replace(/\D/g, '');
     let finalNumber = digits;
-    let newCountryCode = currentCountryCode;
+    let newCountryCode = currentCountryCode || '+55';
     let isModified = false;
 
-    // 1. Regra EUA (Começa com 1, tem 11 digitos)
-    if (digits.startsWith('1') && digits.length === 11) {
-        // É EUA, mantém como está.
+    // 1. Regra EUA (country_code +1 explícito OU começa com 1 e tem 11 dígitos)
+    if (newCountryCode === '+1' || (digits.startsWith('1') && digits.length === 11)) {
         if (newCountryCode !== '+1') {
-             newCountryCode = '+1'; // Ajusta country code se estiver errado
-             isModified = true;
-        }
-    } 
-    // 2. Regra Brasil (Sem DDI)
-    // Se tiver 10 ou 11 digitos e NÃO for o caso EUA acima
-    else if (digits.length >= 10 && digits.length <= 11) {
-        // Proteção extra: Se começar com 1 e o terceiro digito NÃO for 9 (Ex: 150...), assume EUA e não mexe
-        if (digits.startsWith('1') && digits.length === 11 && digits[2] !== '9') {
-             if (newCountryCode !== '+1') {
-                newCountryCode = '+1';
-                isModified = true;
-             }
-        } else {
-            // É Brasil sem DDI, adiciona 55
-            if (!digits.startsWith('55')) {
-                finalNumber = '55' + digits;
-                newCountryCode = '+55';
-                isModified = true;
-            }
+            newCountryCode = '+1';
+            isModified = true;
         }
     }
-    // 3. Regra Brasil (Já tem 55)
+    // 2. Regra Brasil — número sem DDI (10 ou 11 dígitos locais)
+    else if (!digits.startsWith('55') && digits.length >= 10 && digits.length <= 11) {
+        // Adiciona DDI 55
+        finalNumber = '55' + digits;
+        newCountryCode = '+55';
+        isModified = true;
+    }
+    // 3. Regra Brasil — já tem DDI 55
     else if (digits.startsWith('55')) {
-         if (newCountryCode !== '+55') {
-             newCountryCode = '+55';
-             isModified = true;
-         }
+        if (newCountryCode !== '+55') {
+            newCountryCode = '+55';
+            isModified = true;
+        }
+        // Mantém o número com o 9 no banco (padrão de armazenamento BR)
     }
 
-    // Se o número mudou, marcamos como modificado
     if (finalNumber !== digits) isModified = true;
 
     return { finalNumber, newCountryCode, isModified };
 };
+
 
 
 const fetchFixableData = async (supabase, organizacaoId) => {
@@ -92,7 +82,7 @@ const fetchFixableData = async (supabase, organizacaoId) => {
     if (error) throw new Error(`Erro ao carregar dados: ${error.message}`);
 
     const multiPhonesNeedingFix = data.flatMap(c => c.telefones.filter(p => p.telefone && p.telefone.includes('/')).map(p => ({ ...p, contato_id: c.id, contato_nome: c.nome || c.razao_social })));
-    
+
     // Filtra apenas telefones que a nossa lógica diz que precisam mudar
     const standardPhonesNeedingFix = data.flatMap(c => c.telefones.filter(p => {
         if (!p.telefone || p.telefone.includes('/')) return false;
@@ -131,9 +121,9 @@ export default function PadronizacaoManager() {
             initialDataLoaded.current = true;
         }
     }, [dataToFix]);
-    
+
     const { phones = [], names = [], company_names = [], multi_phones = [] } = dataToFix || {};
-    
+
     const mutation = useMutation({
         mutationFn: async ({ logic }) => {
             const { error } = await logic();
@@ -193,7 +183,7 @@ export default function PadronizacaoManager() {
                 const newRecords = numbers.map(num => {
                     // Usa a lógica padrão para cada sub-número também
                     const { finalNumber, newCountryCode } = standardizePhoneLogic(num, '+55');
-                    
+
                     return { contato_id: phone.contato_id, telefone: finalNumber, country_code: newCountryCode, tipo: 'Importado', organizacao_id: organizacaoId };
                 });
                 await supabase.from('telefones').insert(newRecords);
@@ -207,7 +197,7 @@ export default function PadronizacaoManager() {
     const sortedNames = useMemo(() => sortData(names, namesSortConfig), [names, namesSortConfig]);
     const sortedCompanyNames = useMemo(() => sortData(company_names, companyNamesSortConfig), [company_names, companyNamesSortConfig]);
     const sortedPhones = useMemo(() => sortData(phones, phonesSortConfig), [phones, phonesSortConfig]);
-    
+
     if (loading && !dataToFix) { return (<div className="text-center p-10"><FontAwesomeIcon icon={faSpinner} spin size="2x" /></div>); }
 
     if (phones.length === 0 && names.length === 0 && company_names.length === 0 && multi_phones.length === 0) {
@@ -224,24 +214,24 @@ export default function PadronizacaoManager() {
     return (
         <div className="space-y-8 p-1">
             {isFetching && initialDataLoaded.current && (
-                 <div className="flex justify-end mb-2">
+                <div className="flex justify-end mb-2">
                     <span className="text-xs text-blue-500 bg-blue-50 px-2 py-1 rounded"><FontAwesomeIcon icon={faSpinner} spin /> Atualizando em segundo plano...</span>
-                 </div>
+                </div>
             )}
 
             {/* Bloco de Telefones */}
             {phones.length > 0 && (<div className="space-y-4 p-4 border rounded-lg bg-blue-50">
                 <div className="flex items-center gap-4"><FontAwesomeIcon icon={faPhone} className="text-2xl text-blue-500" /><div><h2 className="text-xl font-semibold">Telefones fora do padrão</h2></div></div>
                 <div className="space-y-3"><div className="max-h-40 overflow-y-auto border rounded-lg bg-white"><table className="min-w-full divide-y divide-gray-200"><thead className="bg-gray-50"><tr><th className="px-4 py-2"><SortableHeader label="Contato" sortKey="contato_nome" sortConfig={phonesSortConfig} requestSort={(k) => requestSort(k, setPhonesSortConfig)} /></th><th className="px-4 py-2"><SortableHeader label="Atual" sortKey="telefone" sortConfig={phonesSortConfig} requestSort={(k) => requestSort(k, setPhonesSortConfig)} /></th><th className="px-4 py-2 text-left text-xs font-bold text-gray-600 uppercase">Será Salvo Como (Sem Máscara)</th></tr></thead><tbody className="bg-white divide-y divide-gray-200">{sortedPhones.map(p => {
-                    
+
                     // AQUI ESTÁ A GARANTIA: Usamos a mesma função que será usada ao salvar
                     const { finalNumber } = standardizePhoneLogic(p.telefone, p.country_code);
-                    
+
                     return (<tr key={p.id}>
                         <td className="px-4 py-2 text-xs">{p.contato_nome}</td>
                         <td className="px-4 py-2 text-xs text-red-600 flex items-center gap-1">
-                           {p.country_code === '+1' && <FontAwesomeIcon icon={faGlobeAmericas} className="text-blue-400" title="USA" />}
-                           {p.telefone}
+                            {p.country_code === '+1' && <FontAwesomeIcon icon={faGlobeAmericas} className="text-blue-400" title="USA" />}
+                            {p.telefone}
                         </td>
                         <td className="px-4 py-2 text-xs text-green-700 font-mono font-bold flex items-center gap-2">
                             <FontAwesomeIcon icon={faArrowRight} className="text-gray-300" />

@@ -18,3 +18,41 @@
  Ô£ô Compiled in 2.9s (1167 modules)
  GET /contratos 200 in 21937ms
  Ôùï Compiling /login ...
+ Ô£ô Compiled /api/notifications/subscribe in 11.8s (3367 modules)
+ GET /favicon.ico 500 in 8779ms
+ GET /login 200 in 13945ms
+ GET /api/auth/session 200 in 9128ms
+ GET /contratos 200 in 6246ms
+ POST /api/notifications/subscribe 200 in 9264ms
+ GET /contratos 200 in 132ms
+ GET /login 200 in 174ms
+ GET /contratos 200 in 387ms
+ GET /login 200 in 170ms
+ Ôùï Compiling /painel ...
+ Ô£ô Compiled /painel in 4s (3101 modules)
+ GET /painel 200 in 4537ms
+ GET /painel 200 in 162ms
+ Ôùï Compiling /_error ...
+ Ô£ô Compiled /login in 1281ms (3204 modules)
+ GET /login 200 in 2241ms
+ GET /favicon.ico 500 in 6463ms
+ GET /painel 200 in 927ms
+ GET /login 200 in 738ms
+ GET /favicon.ico 500 in 69ms
+ GET /login 200 in 139ms
+ GET /painel 200 in 550ms
+ GET /login 200 in 189ms
+ GET /favicon.ico 500 in 101ms
+ GET /login 200 in 177ms
+ Ô£ô Compiled in 1614ms (1373 modules)
+ Ô£ô Compiled in 860ms (1373 modules)
+ GET /painel 200 in 539ms
+ GET /login 200 in 425ms
+ GET /login 200 in 280ms
+ Ôùï Compiling /_error ...
+ Ô£ô Compiled /_error in 1858ms (3204 modules)
+ GET /favicon.ico 500 in 1961ms
+ GET /painel 200 in 1549ms
+ GET /login 200 in 349ms
+ GET /favicon.ico 500 in 72ms
+ GET /login 200 in 182ms

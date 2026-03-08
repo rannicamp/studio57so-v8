@@ -46,7 +46,7 @@ export default function WhatsAppInbox({ onChangeTab }) {
 
     useEffect(() => {
         if (typeof window !== 'undefined') {
-            try { localStorage.setItem(WHATSAPP_UI_STATE_KEY, JSON.stringify(debouncedUiState)); } catch (e) {}
+            try { localStorage.setItem(WHATSAPP_UI_STATE_KEY, JSON.stringify(debouncedUiState)); } catch (e) { }
         }
     }, [debouncedUiState]);
 
@@ -109,15 +109,15 @@ export default function WhatsAppInbox({ onChangeTab }) {
         setSelectedList(null);
     };
 
-    const filteredConversations = conversations?.filter(c => 
-        c.nome.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    const filteredConversations = conversations?.filter(c =>
+        c.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
         c.phone_number.includes(searchTerm)
     );
 
     const hasSelection = selectedContact || selectedList;
 
     return (
-        <div className="flex h-[100dvh] w-full overflow-hidden bg-white">
+        <div className="flex h-full w-full overflow-hidden bg-white">
             <Toaster position="top-right" richColors />
 
             {/* --- COLUNA 1: NAVEGAÇÃO E LISTAS (SEMPRE VISÍVEL) --- */}
@@ -145,7 +145,7 @@ export default function WhatsAppInbox({ onChangeTab }) {
                     <div className="flex-1 flex flex-col items-center justify-center bg-gray-50 p-6 text-center">
                         <FontAwesomeIcon icon={faWhatsapp} className="text-5xl text-gray-300 mb-4" />
                         <p className="text-gray-500 text-sm mb-6">WhatsApp não conectado.</p>
-                        <button 
+                        <button
                             onClick={() => router.push('/configuracoes/integracoes')}
                             className="md:hidden w-full bg-[#25D366] hover:bg-[#1ebd5a] text-white font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 shadow-sm"
                         >
@@ -194,7 +194,7 @@ export default function WhatsAppInbox({ onChangeTab }) {
                         <p className="text-gray-500 mb-8 leading-relaxed px-4">
                             Conecte o número oficial da sua empresa para enviar mensagens, áudios e gerir toda a sua operação diretamente pelo CRM.
                         </p>
-                        <button 
+                        <button
                             onClick={() => router.push('/configuracoes/integracoes')}
                             className="w-full bg-[#25D366] hover:bg-[#1ebd5a] text-white font-bold py-3.5 px-6 rounded-xl transition-all hover:shadow-md flex items-center justify-center gap-2"
                         >
@@ -210,11 +210,11 @@ export default function WhatsAppInbox({ onChangeTab }) {
                         flex-grow flex-col bg-[#efeae2] h-full overflow-hidden relative min-h-0
                     `}>
                         {selectedContact ? <MessagePanel contact={selectedContact} onBack={handleBackToList} /> :
-                        selectedList ? <BroadcastPanel list={selectedList} onBack={handleBackToList} /> :
-                        <div className="flex flex-col items-center justify-center h-full text-gray-400 bg-[#f0f2f5]"><FontAwesomeIcon icon={faWhatsapp} className="text-7xl mb-6 text-gray-300 opacity-50" /><p className="font-medium text-lg">Selecione uma conversa para iniciar</p></div>
+                            selectedList ? <BroadcastPanel list={selectedList} onBack={handleBackToList} /> :
+                                <div className="flex flex-col items-center justify-center h-full text-gray-400 bg-[#f0f2f5]"><FontAwesomeIcon icon={faWhatsapp} className="text-7xl mb-6 text-gray-300 opacity-50" /><p className="font-medium text-lg">Selecione uma conversa para iniciar</p></div>
                         }
                     </div>
-                    
+
                     {/* --- COLUNA 3: DIREITA (PERFIL WHATSAPP) --- */}
                     {selectedContact && (
                         <div className="hidden lg:flex w-[350px] shrink-0 border-l bg-white flex-col h-full overflow-hidden min-h-0">

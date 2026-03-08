@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { formatarParaWhatsAppBR } from '@/utils/phoneUtils';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -23,7 +24,8 @@ export async function POST(request) {
         }
 
         // --- 1. LIMPEZA E VALIDAÇÃO DO TELEFONE ---
-        const cleanPhone = to ? to.toString().replace(/\D/g, '') : '';
+        // formatarParaWhatsAppBR: remove DDI +55 e o 9º dígito de celulares BR (exigência da Meta API)
+        const cleanPhone = formatarParaWhatsAppBR(to);
 
         if (!cleanPhone) {
             return NextResponse.json({ error: 'Número de telefone inválido ou vazio.' }, { status: 400 });
