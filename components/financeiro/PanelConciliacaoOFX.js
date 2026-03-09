@@ -11,6 +11,7 @@ import {
     faUndo, faEye, faEyeSlash, faTrash, faCalculator, faTimes,
     faCalendarCheck, faLink, faPenToSquare
 } from '@fortawesome/free-solid-svg-icons';
+import { v4 as uuidv4 } from 'uuid';
 import LancamentoFormModal from './LancamentoFormModal';
 import { useDebouncedCallback } from 'use-debounce';
 import { toast } from 'sonner';
@@ -105,6 +106,7 @@ export default function PanelConciliacaoOFX({ contaId, isCartaoCredito, arquivos
     const itemRefs = useRef(new Map());
     const containerRef = useRef(null);
     const [showConciliados, setShowConciliados] = useState(true);
+    const [expandedBorderos, setExpandedBorderos] = useState({}); // Controle de Sanfona para o Extrato Diário
 
     const getDisplayDate = (lancamento) => {
         if (!lancamento) return 'N/A';
@@ -126,7 +128,54 @@ export default function PanelConciliacaoOFX({ contaId, isCartaoCredito, arquivos
 
     const { data: lancamentosSistema, isLoading: isLoadingLancamentos } = useQuery({
         queryKey: ['lancamentosSistemaConciliacao', contaId, organizacaoId, extratoPeriodo.startDate, extratoPeriodo.endDate],
-        queryFn: () => fetchLancamentosSistema(supabase, contaId, organizacaoId, extratoPeriodo.startDate, extratoPeriodo.endDate),
+        queryFn: async () => {
+            const raw = await fetchLancamentosSistema(supabase, contaId, organizacaoId, extratoPeriodo.startDate, extratoPeriodo.endDate);
+
+            // LOGICA BORDERÔ NO FETCH
+            const borderosMap = {};
+            const finalItens = [];
+
+            (raw || []).forEach(lanc => {
+                if (lanc.agrupamento_id) {
+                    if (!borderosMap[lanc.agrupamento_id]) {
+                        const paiFicticio = {
+                            id: lanc.agrupamento_id, // Usamos o proprio agrupamento_id como id
+                            isBordero: true,
+                            agrupamento_id: lanc.agrupamento_id,
+                            descricao: 'Borderô de Lançamentos',
+                            tipo: lanc.tipo,
+                            valor: 0, // Será somado
+                            data_pagamento: lanc.data_pagamento,
+                            data_transacao: lanc.data_transacao,
+                            data_vencimento: lanc.data_vencimento,
+                            filhos: [],
+                            fitid_banco: null, // Assume do filho se todos tiverem
+                            lancamento_id_vinculado: null
+                        };
+                        borderosMap[lanc.agrupamento_id] = paiFicticio;
+                        finalItens.push(paiFicticio);
+                    }
+                    // Adiciona valor considerando o sinal, mas aqui a lista bruta não lida com saldos. Assume-se que um borderô só tenha de um tipo.
+                    borderosMap[lanc.agrupamento_id].filhos.push(lanc);
+                    borderosMap[lanc.agrupamento_id].valor += Number(lanc.valor);
+                } else {
+                    finalItens.push(lanc);
+                }
+            });
+
+            // Atualiza status dos agrupados
+            Object.values(borderosMap).forEach(b => {
+                b.descricao = `Borderô - ${b.filhos.length} lançamentos (${b.tipo === 'Despesa' ? 'Pagamentos' : 'Recebimentos'})`;
+                const todosConciliados = b.filhos.every(f => f.fitid_banco);
+                // Se TODOS estão conciliados, o pai herda os dados de conciliação para display
+                if (todosConciliados) {
+                    b.fitid_banco = b.filhos[0].fitid_banco;
+                    b.conciliado = true;
+                }
+            });
+
+            return finalItens;
+        },
         enabled: !!(contaId && organizacaoId && extratoPeriodo.startDate && extratoPeriodo.endDate),
     });
 
@@ -239,6 +288,38 @@ export default function PanelConciliacaoOFX({ contaId, isCartaoCredito, arquivos
         ), { duration: 10000 });
     };
 
+    // Mutation: Criar Borderô direto da Conciliação
+    const criarBorderoMutation = useMutation({
+        mutationFn: async () => {
+            if (selectedSistemaIds.size < 2) throw new Error("Selecione pelo menos 2 lançamentos para agrupar.");
+            const novoBorderoId = uuidv4();
+            const idsArray = Array.from(selectedSistemaIds);
+            const { error } = await supabase
+                .from('lancamentos')
+                .update({ agrupamento_id: novoBorderoId })
+                .in('id', idsArray)
+                .eq('organizacao_id', organizacaoId);
+
+            if (error) throw error;
+            return idsArray.length;
+        },
+        onSuccess: (qtde) => {
+            toast.success(`${qtde} Lançamentos agrupados em Borderô!`);
+            setSelectedSistemaIds(new Set());
+            queryClient.invalidateQueries({ queryKey: ['lancamentosSistemaConciliacao'] });
+            queryClient.invalidateQueries({ queryKey: ['extrato'] });
+        },
+        onError: (err) => {
+            toast.error(`Erro ao criar borderô: ${err.message}`);
+        }
+    });
+
+    const handleCriarBordero = () => {
+        if (window.confirm(`Tem certeza que deseja agrupar os ${selectedSistemaIds.size} lançamentos selecionados em um único Borderô?`)) {
+            criarBorderoMutation.mutate();
+        }
+    };
+
     // 1. Sugestão Automática de Pares
     useEffect(() => {
         if (isLoadingLancamentos || !lancamentosSistema || isLoadingTransacoesOfx) return;
@@ -349,16 +430,40 @@ export default function PanelConciliacaoOFX({ contaId, isCartaoCredito, arquivos
         try {
             for (const match of conciliationState.matches) {
                 const extratoItem = conciliationState.extrato.find(e => e.id === match.extratoId);
-                const targetValue = extratoItem.valor;
+                const sistemaItem = conciliationState.sistema.find(s => s.id === match.sistemaId); // Pode ser um Pai ou um Lancamento real
 
-                const { error: err1 } = await supabase.from('lancamentos').update({
-                    conciliado: true, status: 'Pago', data_pagamento: extratoItem.data,
-                    fitid_banco: extratoItem.fitid, valor: targetValue, origem_criacao: 'Manual-Conciliado'
-                }).eq('id', match.sistemaId).eq('organizacao_id', organizacaoId);
+                // Se for pai, significa que todos os filhos recebem o Update.
+                // Mas, o supabase.update sem match na PK (ja que passariamos array de ids), demanda array.
+                const idsParaAtualizar = sistemaItem.isBordero ? sistemaItem.filhos.map(f => f.id) : [match.sistemaId];
+
+                // NOTA: Para valor, quando for borderô (multiplos itens), NÃO podemos sobescrever o "targetValue" do Lote pro iten individual!!!
+                // Sendo Borderô, apenas gravamos as chaves logicas. Sendo Unitário, cravamos o valor exato pro centavo do banco bater.
+
+                let updatePayload = {
+                    conciliado: true,
+                    status: 'Pago',
+                    data_pagamento: extratoItem.data,
+                    fitid_banco: extratoItem.fitid,
+                    origem_criacao: 'Manual-Conciliado'
+                };
+
+                // Se não for borderô, force atualizar o valor pelo q veio no OFX (Corrige centavos).
+                if (!sistemaItem.isBordero) {
+                    updatePayload.valor = extratoItem.valor;
+                }
+
+                const { error: err1 } = await supabase.from('lancamentos').update(updatePayload)
+                    .in('id', idsParaAtualizar)
+                    .eq('organizacao_id', organizacaoId);
                 if (err1) throw err1;
 
+                // O Banco Transacoes OFX guarda SOMENTE UM 'lancamento_id_vinculado'. 
+                // Como lancamento_id_vinculado é bigint (FK), vinculamos ao ID do PRIMEIRO FILHO do Borderô 
+                // e não o UUID do agrupamento_id.
+                const linkedId = sistemaItem.isBordero ? sistemaItem.filhos[0].id : match.sistemaId;
+
                 const { error: err2 } = await supabase.from('banco_transacoes_ofx').update({
-                    lancamento_id_vinculado: match.sistemaId
+                    lancamento_id_vinculado: linkedId
                 }).eq('fitid', extratoItem.fitid);
                 if (err2) throw err2;
             }
@@ -522,7 +627,9 @@ export default function PanelConciliacaoOFX({ contaId, isCartaoCredito, arquivos
                     {type === 'extrato' && item.conciliationStatus === 'dbConciliated' && (
                         <span className="text-green-600 text-[9px] uppercase font-bold tracking-wider" title="Cruza com um Lançamento Oficial do Sistema"><FontAwesomeIcon icon={faCheckCircle} className="mr-0.5" /> Oficial</span>
                     )}
-                    {type === 'sistema' && (
+
+                    {/* Botoes Padrão Para Sistema */}
+                    {type === 'sistema' && !item.isBordero && (
                         <>
                             <button onClick={(e) => { e.stopPropagation(); handleOpenEditModal(item); }} className="text-blue-600 hover:text-blue-800 text-xs px-1"><FontAwesomeIcon icon={faPenToSquare} /></button>
                             {(item.conciliationStatus === 'pendente' || item.conciliationStatus === 'sessionMatch') && (
@@ -533,10 +640,52 @@ export default function PanelConciliacaoOFX({ contaId, isCartaoCredito, arquivos
                             )}
                         </>
                     )}
+
+                    {/* Botoes Espciais Para Borderô */}
+                    {type === 'sistema' && item.isBordero && (
+                        <>
+                            {item.conciliationStatus === 'dbConciliated' && (
+                                <button onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (window.confirm('Desfazer Conciliação do Lote inteiro? Essa ação atinge VÁRIOS lançamentos.')) {
+                                        Promise.all(item.filhos.map(f => undoConciliationMutation.mutateAsync(f.id)));
+                                    }
+                                }} disabled={undoConciliationMutation.isPending} className="text-gray-500 hover:bg-gray-200 rounded p-1"><FontAwesomeIcon icon={faUndo} spin={undoConciliationMutation.isPending} /></button>
+                            )}
+                            <button onClick={(e) => { e.stopPropagation(); setExpandedBorderos(prev => ({ ...prev, [item.id]: !prev[item.id] })); }} className="text-gray-400 hover:bg-gray-200 rounded p-1 text-[10px] ml-1 font-bold">
+                                {expandedBorderos[item.id] ? "ESCONDER" : "ITENS"}
+                            </button>
+                        </>
+                    )}
                 </div>
             </div>
         );
     };
+
+    const renderSistemaRows = () => {
+        return processedLists.sortedSistema.map(item => {
+            const isExpanded = !!expandedBorderos[item.id];
+
+            return (
+                <div key={item.id} className="flex flex-col border-b border-gray-100 last:border-0 border-transparent">
+                    {renderItem(item, 'sistema', 'sistema')}
+                    {item.isBordero && isExpanded && (
+                        <div className="bg-gray-100/50 pl-8 pr-2 py-2 mb-2 rounded border border-gray-200 border-t-0 -mt-2">
+                            {item.filhos.map(f => (
+                                <div key={f.id} className="flex justify-between items-center text-[10px] text-gray-500 py-1 border-b border-gray-200/50 last:border-0">
+                                    <div className="flex gap-2">
+                                        <span className="font-mono">{formatDate(f.data_pagamento)}</span>
+                                        <span className="truncate max-w-[150px]">{f.descricao}</span>
+                                    </div>
+                                    <span className="font-bold">{formatCurrency(f.valor)}</span>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )
+        });
+    }
 
     return (
         <div className="bg-white rounded-xl shadow-lg border border-indigo-200 overflow-hidden relative">
@@ -602,7 +751,7 @@ export default function PanelConciliacaoOFX({ contaId, isCartaoCredito, arquivos
                         </h3>
                         <div className="flex-1 overflow-y-auto p-1 bg-gray-50/50 custom-scrollbar relative">
                             {isLoadingLancamentos && <div className="absolute inset-0 bg-white/80 z-20 flex items-center justify-center flex-col text-blue-500 font-bold"><FontAwesomeIcon icon={faSpinner} spin size="2x" className="mb-2" /></div>}
-                            {!isLoadingLancamentos && processedLists.sortedSistema.map(item => renderItem(item, 'sistema', 'sistema'))}
+                            {!isLoadingLancamentos && renderSistemaRows()}
                             {!isLoadingLancamentos && processedLists.sortedSistema.length === 0 && <p className="p-8 text-sm text-gray-400 text-center italic font-semibold">Sem registros neste período do sistema.</p>}
                         </div>
                     </div>
@@ -610,7 +759,7 @@ export default function PanelConciliacaoOFX({ contaId, isCartaoCredito, arquivos
             </div>
 
             {/* Calculadora / Barra Inferior (Position absolute or fixed inside component container) */}
-            {(conciliationState.matches.length > 0 || calculadora) && (
+            {(conciliationState.matches.length > 0 || calculadora || selectedSistemaIds.size > 1) && (
                 <div className="absolute bottom-0 left-0 w-full bg-white p-3 border-t shadow-[0_-5px_15px_rgba(0,0,0,0.1)] z-50 flex items-center justify-between gap-4">
                     {calculadora ? (
                         <div className={`flex flex-1 items-center gap-4 px-4 py-2 rounded-lg border-2 shadow-sm ${calculadora.isMatch ? 'border-green-400 bg-green-50' : 'border-orange-300 bg-orange-50'}`}>
@@ -639,9 +788,27 @@ export default function PanelConciliacaoOFX({ contaId, isCartaoCredito, arquivos
                                 <FontAwesomeIcon icon={faTimes} />
                             </button>
                         </div>
+                    ) : selectedSistemaIds.size > 1 ? (
+                        <div className="flex flex-1 items-center justify-between bg-indigo-50 border border-indigo-200 px-4 py-2 rounded-lg">
+                            <div className="flex items-center gap-4">
+                                <span className="bg-indigo-600 text-white text-xs font-bold px-2 py-1 rounded-full">{selectedSistemaIds.size} selecionados</span>
+                                <div className="flex flex-col">
+                                    <span className="text-[10px] text-indigo-500 uppercase font-bold">Total a agrupar</span>
+                                    <span className="text-sm text-indigo-900 font-bold">
+                                        {formatCurrency(Array.from(selectedSistemaIds).reduce((acc, id) => {
+                                            const item = conciliationState.sistema.find(s => s.id === id);
+                                            return acc + (item ? item.valor : 0);
+                                        }, 0))}
+                                    </span>
+                                </div>
+                            </div>
+                            <button onClick={handleCriarBordero} disabled={criarBorderoMutation.isPending} className="bg-white border border-indigo-200 text-indigo-700 px-4 py-1.5 rounded-md text-xs font-bold hover:bg-indigo-100 transition shadow-sm">
+                                {criarBorderoMutation.isPending ? <FontAwesomeIcon icon={faSpinner} spin className="mr-2" /> : 'Agrupar em Borderô'}
+                            </button>
+                        </div>
                     ) : (
                         <div className="text-gray-500 text-xs font-semibold flex items-center gap-2 bg-gray-50 border px-4 py-2 rounded-lg flex-1">
-                            <FontAwesomeIcon icon={faCalculator} className="text-indigo-400" /> Clique em um Lançamento OFX (Esq) e um(ou mais) do Studio 57 (Dir) para unir manualmente.
+                            <FontAwesomeIcon icon={faCalculator} className="text-indigo-400" /> Clique em um Lançamento OFX (Esq) e um(ou mais) do Studio 57 (Dir) para unir manualmente ou agrupar em Borderô.
                         </div>
                     )}
 

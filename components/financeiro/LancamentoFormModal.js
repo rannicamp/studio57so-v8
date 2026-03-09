@@ -142,6 +142,16 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
         staleTime: 60 * 1000,
     });
 
+    // --- Autopreencher Empresa Baseado na Conta ---
+    useEffect(() => {
+        if (!isOpen || isEditing || !dropdownData?.contas || !formData.conta_id || formData.empresa_id) return;
+
+        const contaSelecionada = dropdownData.contas.find(c => c.id == formData.conta_id);
+        if (contaSelecionada && contaSelecionada.empresa_id) {
+            setFormData(prev => ({ ...prev, empresa_id: contaSelecionada.empresa_id }));
+        }
+    }, [formData.conta_id, dropdownData?.contas, isOpen, isEditing, formData.empresa_id]);
+
     // --- Lógica de Data Inteligente (Cartão e Parcelado) ---
     useEffect(() => {
         if (isEditing || !dropdownData?.contas || !formData.conta_id || !formData.data_transacao) return;
@@ -576,7 +586,7 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
             <div className="bg-white p-0 rounded-lg shadow-2xl w-full max-w-3xl max-h-[95vh] flex flex-col">
                 <div className="flex justify-between items-center p-6 border-b sticky top-0 bg-white rounded-t-lg z-10">
                     <h3 className="text-2xl font-bold text-gray-800">{isEditing ? 'Editar Lançamento' : 'Novo Lançamento'}</h3>

@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import LancamentoDetalhesSidebar from './LancamentoDetalhesSidebar';
 import OfxUploader from './OfxUploader';
 import PanelConciliacaoOFX from './PanelConciliacaoOFX';
+import { v4 as uuidv4 } from 'uuid'; // Para gerar o ID do Borderô
 
 const formatCurrency = (value) => {
     if (value === null || value === undefined || isNaN(value)) return 'R$ 0,00';
@@ -62,7 +63,24 @@ export default function ExtratoManager({ contas, empresas }) {
     }, [contas]);
 
     // Estados
-    const [contaSelecionadaId, setContaSelecionadaId] = useState(contasAgrupadas?.[0]?.tipos?.[0]?.contas?.[0]?.id || '');
+    const [contaSelecionadaId, setContaSelecionadaId] = useState('');
+
+    useEffect(() => {
+        const savedId = typeof window !== 'undefined' ? localStorage.getItem('studio57_last_conta_id') : null;
+        let startId = contasAgrupadas?.[0]?.tipos?.[0]?.contas?.[0]?.id || '';
+        if (savedId && contas && contas.some(c => c.id == savedId)) {
+            startId = savedId;
+        }
+        if (!contaSelecionadaId && startId) {
+            setContaSelecionadaId(startId);
+        }
+    }, [contas, contasAgrupadas, contaSelecionadaId]);
+
+    const handleSelectConta = (id) => {
+        setContaSelecionadaId(id);
+        if (typeof window !== 'undefined') localStorage.setItem('studio57_last_conta_id', id);
+        setIsDropdownContaOpen(false);
+    };
     const [isDropdownContaOpen, setIsDropdownContaOpen] = useState(false);
     const dropdownContaRef = useRef(null);
 
@@ -82,6 +100,7 @@ export default function ExtratoManager({ contas, empresas }) {
     const [ofxPainelAberto, setOfxPainelAberto] = useState(false);
     const [arquivoOfxExpandido, setArquivoOfxExpandido] = useState(null); // id do arq selecionado
     const [modoConciliacaoMes, setModoConciliacaoMes] = useState(null); // ativa o painel duplo e esconde extrato
+    const [selectedIds, setSelectedIds] = useState([]); // Array de IDs selecionados para Borderô
 
     const contaSelecionada = contas?.find(c => c.id == contaSelecionadaId);
 
@@ -118,22 +137,66 @@ export default function ExtratoManager({ contas, empresas }) {
 
             if (lancamentosError) throw lancamentosError;
 
-            // 3. Calcular Saldo e Totais
+            // 3. Agrupamento de Borderô (agrupamento_id) e Totais
             let saldoCorrente = saldoAnterior;
             let totalEntradas = 0;
             let totalSaidas = 0;
 
-            const itens = (lancamentos || []).map(lanc => {
+            const borderosMap = {};
+            const itensFinais = [];
+
+            (lancamentos || []).forEach(lanc => {
                 const entrada = lanc.tipo === 'Receita' ? Number(lanc.valor) : 0;
                 const saida = lanc.tipo === 'Despesa' ? Number(lanc.valor) : 0;
                 saldoCorrente += entrada - saida;
                 totalEntradas += entrada;
                 totalSaidas += saida;
 
-                // Status visual: Se tem fitid_banco vinculado -> está conciliado com o OFX
                 const status_exibicao = lanc.fitid_banco ? 'Conciliado' : lanc.status;
+                const l = { ...lanc, entrada, saida, saldo_acumulado: saldoCorrente, status_exibicao };
 
-                return { ...lanc, entrada, saida, saldo_acumulado: saldoCorrente, status_exibicao };
+                // Lógica de agrupar Borderô
+                if (l.agrupamento_id) {
+                    if (!borderosMap[l.agrupamento_id]) {
+                        // Cria o "Pai Fictício" do Borderô na primeira vez que achar um filho
+                        const paiFicticio = {
+                            id: l.agrupamento_id, // Usamos o proprio agrupamento_id como chave do pai
+                            isBordero: true,
+                            isExpanded: false,
+                            agrupamento_id: l.agrupamento_id,
+                            descricao: 'Borderô de Lançamentos',
+                            tipo: l.tipo, // Assume o tipo do primeiro filho
+                            valorTotal: 0,
+                            data_pagamento: l.data_pagamento, // Usa a data do primeiro filho encontrado
+                            filhos: [],
+                            saldo_acumulado: 0, // Será atualizado depois 
+                            status_exibicao: 'Misto'
+                        };
+                        borderosMap[l.agrupamento_id] = paiFicticio;
+                        itensFinais.push(paiFicticio); // O pai entra na lista principal
+                    }
+                    // Adiciona o filho e soma o total
+                    borderosMap[l.agrupamento_id].filhos.push(l);
+                    borderosMap[l.agrupamento_id].valorTotal += Number(l.valor);
+                    borderosMap[l.agrupamento_id].saldo_acumulado = l.saldo_acumulado; // Saldo da linha pai reflete o saldo após todos passarem
+                } else {
+                    // Lançamento normal sem borderô
+                    itensFinais.push(l);
+                }
+            });
+
+            // Atualiza status e descrição dos Borderôs
+            Object.values(borderosMap).forEach(b => {
+                b.descricao = `Borderô - ${b.filhos.length} lançamentos (${b.tipo === 'Despesa' ? 'Pagamentos' : 'Recebimentos'})`;
+                const todosConciliados = b.filhos.every(f => f.status_exibicao === 'Conciliado');
+                const algumConciliado = b.filhos.some(f => f.status_exibicao === 'Conciliado');
+                if (todosConciliados) b.status_exibicao = 'Conciliado';
+                else if (algumConciliado) b.status_exibicao = 'Parcial';
+                else b.status_exibicao = 'Pendente';
+
+                // Se o Pai é Despesa, a saída total dele é o valorTotal
+                if (b.tipo === 'Despesa') { b.saida = b.valorTotal; b.entrada = 0; }
+                else { b.entrada = b.valorTotal; b.saida = 0; }
             });
 
             return {
@@ -141,7 +204,7 @@ export default function ExtratoManager({ contas, empresas }) {
                 entradas: totalEntradas,
                 saidas: totalSaidas,
                 saldoFinal: saldoCorrente,
-                itens
+                itens: itensFinais
             };
         },
         enabled: !!contaSelecionadaId && !!mesSelecionado && !!organizacaoId
@@ -234,9 +297,112 @@ export default function ExtratoManager({ contas, empresas }) {
         }
     };
 
+    // --- LÓGICA DE BORDERÔ / SELEÇÃO MÚLTIPLA ---
+    const toggleSelectAll = () => {
+        if (!extratoData || extratoData.itens.length === 0) return;
+        if (selectedIds.length === extratoData.itens.length) {
+            setSelectedIds([]); // Desmarca tudo
+        } else {
+            setSelectedIds(extratoData.itens.map(i => i.id)); // Marca tudo
+        }
+    };
+
+    const toggleSelectRow = (e, id) => {
+        e.stopPropagation();
+        setSelectedIds(prev =>
+            prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+        );
+    };
+
+    // Mutation: Criar Borderô
+    const criarBorderoMutation = useMutation({
+        mutationFn: async () => {
+            if (selectedIds.length < 2) throw new Error("Selecione pelo menos 2 lançamentos para agrupar.");
+            const novoBorderoId = uuidv4();
+            const { error } = await supabase
+                .from('lancamentos')
+                .update({ agrupamento_id: novoBorderoId })
+                .in('id', selectedIds)
+                .eq('organizacao_id', organizacaoId);
+
+            if (error) throw error;
+            return selectedIds.length;
+        },
+        onSuccess: (qtde) => {
+            toast.success(`${qtde} Lançamentos agrupados com sucesso!`);
+            setSelectedIds([]);
+            queryClient.invalidateQueries({ queryKey: ['extrato'] });
+        },
+        onError: (err) => {
+            toast.error(`Erro ao criar borderô: ${err.message}`);
+        }
+    });
+
+    const handleCriarBordero = () => {
+        if (window.confirm(`Tem certeza que deseja agrupar ${selectedIds.length} lançamentos em um único Borderô?`)) {
+            criarBorderoMutation.mutate();
+        }
+    };
+
+    const [expandedBorderos, setExpandedBorderos] = useState({}); // Controla quais borderôs estao abertos
+
+    const toggleBordero = (e, borderoId) => {
+        e.stopPropagation();
+        setExpandedBorderos(prev => ({ ...prev, [borderoId]: !prev[borderoId] }));
+    };
+
+    const desagruparBorderoCompletoMutation = useMutation({
+        mutationFn: async (borderoId) => {
+            const { error } = await supabase
+                .from('lancamentos')
+                .update({ agrupamento_id: null })
+                .eq('agrupamento_id', borderoId)
+                .eq('organizacao_id', organizacaoId);
+            if (error) throw error;
+        },
+        onSuccess: () => {
+            toast.success('Borderô desfeito com sucesso!');
+            queryClient.invalidateQueries({ queryKey: ['extrato'] });
+        }
+    });
+
+    const desagruparIndividualMutation = useMutation({
+        mutationFn: async (lancamentoId) => {
+            const { error } = await supabase
+                .from('lancamentos')
+                .update({ agrupamento_id: null })
+                .eq('id', lancamentoId)
+                .eq('organizacao_id', organizacaoId);
+            if (error) throw error;
+        },
+        onSuccess: () => {
+            toast.success('Lançamento removido do borderô!');
+            queryClient.invalidateQueries({ queryKey: ['extrato'] });
+        }
+    });
+
+    const handleDesagruparBordero = (e, borderoId) => {
+        e.stopPropagation();
+        if (window.confirm("Deseja realmente desfazer este Borderô? Os lançamentos continuarão existindo separadamente.")) {
+            desagruparBorderoCompletoMutation.mutate(borderoId);
+        }
+    };
+
+    const handleRemoverDoBordero = (e, lancamentoId) => {
+        e.stopPropagation();
+        if (window.confirm("Retirar este lançamento específico do Borderô?")) {
+            desagruparIndividualMutation.mutate(lancamentoId);
+        }
+    };
+
     const handleRowClick = (item) => {
-        setLancamentoSelecionado(item);
-        setIsSidebarOpen(true);
+        if (item.isBordero) {
+            // Se clica no borderô e nao for no chevrom, também expande
+            setExpandedBorderos(prev => ({ ...prev, [item.id]: !prev[item.id] }));
+        } else {
+            setLancamentoSelecionado(item);
+            setIsSidebarOpen(true);
+        }
     };
 
     return (
@@ -292,7 +458,7 @@ export default function ExtratoManager({ contas, empresas }) {
                                                             return (
                                                                 <button
                                                                     key={c.id}
-                                                                    onClick={() => { setContaSelecionadaId(c.id); setIsDropdownContaOpen(false); }}
+                                                                    onClick={() => handleSelectConta(c.id)}
                                                                     className={`text-left flex items-start justify-between p-2.5 rounded-lg border transition-all duration-200 ${isSelected ? 'bg-indigo-50/80 border-indigo-200 shadow-sm' : 'border-transparent bg-transparent hover:bg-gray-50'}`}
                                                                 >
                                                                     <div className="flex flex-col flex-1 pr-2">
@@ -380,7 +546,7 @@ export default function ExtratoManager({ contas, empresas }) {
                                     {/* Linha principal do mês */}
                                     <div className={`flex items-center ${isSelected ? 'bg-blue-50' : 'bg-white hover:bg-gray-50'}`}>
                                         <button
-                                            onClick={() => { setMesSelecionado(mes); setModoConciliacaoMes(null); setArquivoOfxExpandido(null); }}
+                                            onClick={() => { setMesSelecionado(mes); setModoConciliacaoMes(null); setArquivoOfxExpandido(null); setSelectedIds([]); }}
                                             className="flex-1 text-left p-4"
                                         >
                                             <div className={`font-bold capitalize ${isSelected ? 'text-blue-900' : 'text-gray-700'}`}>
@@ -516,6 +682,32 @@ export default function ExtratoManager({ contas, empresas }) {
                                 </div>
                             </div>
 
+                            {/* Barra de Ação Flutuante (Borderô) */}
+                            {selectedIds.length > 0 && (
+                                <div className="bg-indigo-600 text-white p-3 flex items-center justify-between animate-fadeIn sticky top-0 z-10 shadow-md">
+                                    <div className="flex items-center gap-3">
+                                        <span className="bg-indigo-800 text-xs font-bold px-2 py-1 rounded-full">{selectedIds.length} selecionados</span>
+                                        <span className="text-sm font-medium">Lançamentos prontos para ação em lote.</span>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <button
+                                            onClick={() => setSelectedIds([])}
+                                            className="text-indigo-200 hover:text-white px-3 py-1.5 text-xs font-bold transition-colors"
+                                        >
+                                            Cancelar
+                                        </button>
+                                        <button
+                                            onClick={handleCriarBordero}
+                                            disabled={selectedIds.length < 2 || criarBorderoMutation.isPending}
+                                            className="bg-white text-indigo-700 hover:bg-indigo-50 px-4 py-1.5 rounded text-xs font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                                        >
+                                            {criarBorderoMutation.isPending ? <FontAwesomeIcon icon={faSpinner} spin className="mr-2" /> : null}
+                                            Agrupar em Borderô
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
                             {/* Lista de Movimentações */}
                             <div className="divide-y divide-gray-100">
                                 {extratoData.itens.length === 0 ? (
@@ -523,89 +715,218 @@ export default function ExtratoManager({ contas, empresas }) {
                                         Nenhuma movimentação identificada para o período.
                                     </div>
                                 ) : (
-                                    extratoData.itens.map(item => (
-                                        <div
-                                            key={item.id}
-                                            onClick={() => handleRowClick(item)}
-                                            className={`p-4 cursor-pointer transition-colors flex items-center justify-between group 
-                                                ${item.isOfxStandalone ? 'bg-orange-50/50 hover:bg-orange-50 border-l-4 border-l-orange-400' : 'hover:bg-slate-50 border-l-4 border-l-transparent'}`}
-                                        >
-                                            {/* Data */}
-                                            <div className="flex-shrink-0 w-16 text-center">
-                                                <div className={`text-sm font-bold ${item.isOfxStandalone ? 'text-orange-800' : 'text-gray-700'}`}>
-                                                    {format(parseISO(item.data_pagamento), 'dd')}
-                                                </div>
-                                                <div className={`text-[10px] uppercase font-semibold ${item.isOfxStandalone ? 'text-orange-400' : 'text-gray-400'}`}>
-                                                    {format(parseISO(item.data_pagamento), 'MMM', { locale: ptBR })}
-                                                </div>
-                                                {item.isOfxStandalone && (
-                                                    <div className="text-[10px] text-orange-500 mt-1" title="Apenas no OFX">
-                                                        <FontAwesomeIcon icon={faExclamationTriangle} /> OFX
+                                    extratoData.itens.map(item => {
+
+                                        // RENDERIZAÇÃO DE LINHA FILHO NORMAL
+                                        const renderRowNormal = (l, isFilho = false) => (
+                                            <div
+                                                key={l.id}
+                                                onClick={() => handleRowClick(l)}
+                                                className={`p-4 cursor-pointer transition-colors flex items-center justify-between group 
+                                                    ${selectedIds.includes(l.id) ? 'bg-indigo-50/50 hover:bg-indigo-50 border-l-4 border-l-indigo-400' :
+                                                        l.isOfxStandalone ? 'bg-orange-50/50 hover:bg-orange-50 border-l-4 border-l-orange-400' : 'hover:bg-slate-50 border-l-4 border-l-transparent'}
+                                                    ${isFilho ? 'pl-12 bg-gray-50/50 border-t border-dashed' : ''}
+                                                `}
+                                            >
+                                                {/* Checkbox (Apenas se NAO for filho ou standalone OFX no momento) */}
+                                                {!isFilho && !l.isOfxStandalone && (
+                                                    <div className="flex-shrink-0 pr-4 pl-1" onClick={(e) => e.stopPropagation()}>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={selectedIds.includes(l.id)}
+                                                            onChange={(e) => toggleSelectRow(e, l.id)}
+                                                            className="w-4 h-4 text-indigo-600 bg-gray-100 border-gray-300 rounded focus:ring-indigo-500 focus:ring-2 cursor-pointer transition-all"
+                                                        />
                                                     </div>
                                                 )}
-                                            </div>
 
-                                            {/* Descrição e Infos */}
-                                            <div className="flex-1 px-4 min-w-0">
-                                                <div className="flex items-center gap-2 mb-0.5">
-                                                    <p className={`text-sm font-bold truncate ${item.isOfxStandalone ? 'text-orange-900' : 'text-gray-800'}`} title={item.descricao}>
-                                                        {item.descricao}
-                                                    </p>
-                                                    {item.status_exibicao === 'Conciliado' && (
-                                                        <span className="text-[9px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider" title="Lançamento Conciliado">
-                                                            <FontAwesomeIcon icon={faCheckCircle} className="mr-1" />
-                                                            Conciliado
-                                                        </span>
-                                                    )}
-                                                    {item.isOfxStandalone && (
-                                                        <span className="text-[9px] bg-orange-200 text-orange-800 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider" title="Transação orfã. Adicione no sistema para conciliar.">
-                                                            Pendente Oficialização
-                                                        </span>
+                                                {/* Se for filho, da um espacinho no lugar do checkbox */}
+                                                {isFilho && <div className="flex-shrink-0 w-8 flex justify-center text-gray-300"><FontAwesomeIcon icon={faAngleRight} className="text-[10px]" /></div>}
+
+                                                {/* Data */}
+                                                <div className="flex-shrink-0 w-16 text-center">
+                                                    <div className={`text-sm font-bold ${l.isOfxStandalone ? 'text-orange-800' : 'text-gray-700'}`}>
+                                                        {format(parseISO(l.data_pagamento), 'dd')}
+                                                    </div>
+                                                    <div className={`text-[10px] uppercase font-semibold ${l.isOfxStandalone ? 'text-orange-400' : 'text-gray-400'}`}>
+                                                        {format(parseISO(l.data_pagamento), 'MMM', { locale: ptBR })}
+                                                    </div>
+                                                    {l.isOfxStandalone && (
+                                                        <div className="text-[10px] text-orange-500 mt-1" title="Apenas no OFX">
+                                                            <FontAwesomeIcon icon={faExclamationTriangle} /> OFX
+                                                        </div>
                                                     )}
                                                 </div>
-                                                <p className="text-xs text-gray-500 truncate">
-                                                    {item.isOfxStandalone
-                                                        ? 'Lançamento presente apenas no extrato bancário (Sem categoria e Favorecido)'
-                                                        : `${item.categoria?.nome || 'Sem Categoria'}${item.favorecido?.nome ? ` • ${item.favorecido.nome}` : ''}`
-                                                    }
-                                                </p>
-                                            </div>
 
-                                            {/* Valores e Saldo */}
-                                            <div className="flex-shrink-0 flex items-center gap-6 pr-4">
-                                                {/* Coluna 1: Valor */}
-                                                <div className="text-right min-w-[100px]">
-                                                    {item.tipo === 'Receita' ? (
-                                                        <p className="text-sm font-bold text-green-600">+{formatCurrency(item.entrada)}</p>
+                                                {/* Descrição e Infos */}
+                                                <div className="flex-1 px-4 min-w-0">
+                                                    <div className="flex items-center gap-2 mb-0.5">
+                                                        <p className={`text-sm font-bold truncate ${l.isOfxStandalone ? 'text-orange-900' : 'text-gray-800'}`} title={l.descricao}>
+                                                            {l.descricao}
+                                                        </p>
+                                                        {l.status_exibicao === 'Conciliado' && (
+                                                            <span className="flex-shrink-0 text-[8px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider" title="Lançamento Conciliado">
+                                                                <FontAwesomeIcon icon={faCheckCircle} className="mr-1" />
+                                                                Conciliado
+                                                            </span>
+                                                        )}
+                                                        {l.isOfxStandalone && (
+                                                            <span className="text-[9px] bg-orange-200 text-orange-800 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider" title="Transação orfã. Adicione no sistema para conciliar.">
+                                                                Pendente Oficialização
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <p className="text-[11px] text-gray-500 truncate">
+                                                        {l.isOfxStandalone
+                                                            ? 'Lançamento presente apenas no extrato bancário'
+                                                            : `${l.categoria?.nome || 'Sem Categoria'}${l.favorecido?.nome ? ` • ${l.favorecido.nome}` : ''}`
+                                                        }
+                                                    </p>
+                                                </div>
+
+                                                {/* Valores e Saldo */}
+                                                <div className="flex-shrink-0 flex items-center gap-6 pr-4">
+                                                    {/* Coluna 1: Valor */}
+                                                    <div className="text-right min-w-[90px]">
+                                                        {l.tipo === 'Receita' ? (
+                                                            <p className="text-sm font-bold text-green-600">+{formatCurrency(l.entrada)}</p>
+                                                        ) : (
+                                                            <p className="text-sm font-bold text-gray-800">-{formatCurrency(l.saida)}</p>
+                                                        )}
+                                                    </div>
+
+                                                    {/* Coluna 2: Saldo */}
+                                                    {!isFilho && (
+                                                        <div className="text-right min-w-[90px] border-l border-gray-100 pl-4 hidden sm:block">
+                                                            <p className="text-[9px] text-gray-400 font-semibold uppercase mb-0.5">Saldo</p>
+                                                            <p className={`text-xs font-bold ${l.saldo_acumulado < 0 ? 'text-red-500' : 'text-gray-500'}`}>
+                                                                {formatCurrency(l.saldo_acumulado)}
+                                                            </p>
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                {/* Ações / Ícone Sidebar */}
+                                                <div className="flex-shrink-0 flex items-center gap-2 text-gray-300 group-hover:text-blue-500 transition-colors">
+                                                    {isFilho ? (
+                                                        <button
+                                                            onClick={(e) => handleRemoverDoBordero(e, l.id)}
+                                                            className="p-1.5 text-gray-300 hover:text-orange-500 hover:bg-orange-50 rounded-full transition-all"
+                                                            title="Desvincular do Borderô"
+                                                        >
+                                                            <p className="text-[10px] font-bold uppercase">Sair</p>
+                                                        </button>
                                                     ) : (
-                                                        <p className="text-sm font-bold text-gray-800">-{formatCurrency(item.saida)}</p>
+                                                        hasPermission('financeiro', 'pode_excluir') && (
+                                                            <button
+                                                                onClick={(e) => handleDelete(e, l)}
+                                                                className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-full transition-all"
+                                                                title="Excluir Lançamento"
+                                                            >
+                                                                <FontAwesomeIcon icon={faTrash} size="sm" />
+                                                            </button>
+                                                        )
+                                                    )}
+                                                    <FontAwesomeIcon icon={faAngleRight} />
+                                                </div>
+                                            </div>
+                                        );
+
+                                        // RENDERIZAÇÃO DE LINHA PAI (BORDERÔ)
+                                        if (item.isBordero) {
+                                            const isExpanded = expandedBorderos[item.id];
+                                            return (
+                                                <div key={item.id} className="flex flex-col">
+                                                    <div
+                                                        onClick={(e) => toggleBordero(e, item.id)}
+                                                        className="p-4 cursor-pointer transition-colors flex items-center justify-between group hover:bg-indigo-50/30 border-l-4 border-l-indigo-600 bg-white"
+                                                    >
+                                                        {/* SETA (Expandir/Retrair) */}
+                                                        <div className="flex-shrink-0 pr-4 pl-1 w-10 text-center">
+                                                            <FontAwesomeIcon
+                                                                icon={faChevronRight}
+                                                                className={`text-indigo-400 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}
+                                                            />
+                                                        </div>
+
+                                                        {/* Data do Primeiro Filho */}
+                                                        <div className="flex-shrink-0 w-16 text-center">
+                                                            <div className="text-sm font-bold text-indigo-900">
+                                                                {format(parseISO(item.data_pagamento), 'dd')}
+                                                            </div>
+                                                            <div className="text-[10px] uppercase font-semibold text-indigo-400">
+                                                                {format(parseISO(item.data_pagamento), 'MMM', { locale: ptBR })}
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Descrição e Infos do Pai */}
+                                                        <div className="flex-1 px-4 min-w-0">
+                                                            <div className="flex items-center gap-2 mb-0.5">
+                                                                <p className="text-sm font-extrabold truncate text-indigo-900" title={item.descricao}>
+                                                                    {item.descricao}
+                                                                </p>
+                                                                {item.status_exibicao === 'Conciliado' && (
+                                                                    <span className="flex-shrink-0 text-[8px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider" title="Lote todo Conciliado">
+                                                                        <FontAwesomeIcon icon={faCheckCircle} className="mr-1" />
+                                                                        Lote Ok
+                                                                    </span>
+                                                                )}
+                                                                {item.status_exibicao === 'Parcial' && (
+                                                                    <span className="flex-shrink-0 text-[8px] bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
+                                                                        Baixa Parcial
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                            <p className="text-[11px] text-indigo-400 font-semibold truncate">
+                                                                Clique para ver as origens detalhadas
+                                                            </p>
+                                                        </div>
+
+                                                        {/* Valores e Saldo do Borderô Inteiro */}
+                                                        <div className="flex-shrink-0 flex items-center gap-6 pr-4">
+                                                            {/* Coluna 1: Valor Máximo Somado */}
+                                                            <div className="text-right min-w-[90px]">
+                                                                {item.tipo === 'Receita' ? (
+                                                                    <p className="text-sm font-bold text-green-600">+{formatCurrency(item.entrada)}</p>
+                                                                ) : (
+                                                                    <p className="text-sm font-black text-indigo-900">-{formatCurrency(item.saida)}</p>
+                                                                )}
+                                                            </div>
+
+                                                            {/* Coluna 2: Saldo Agrupado */}
+                                                            <div className="text-right min-w-[90px] border-l border-indigo-100 pl-4 hidden sm:block">
+                                                                <p className="text-[9px] text-indigo-300 font-semibold uppercase mb-0.5">Saldo</p>
+                                                                <p className={`text-xs font-bold ${item.saldo_acumulado < 0 ? 'text-red-500' : 'text-gray-500'}`}>
+                                                                    {formatCurrency(item.saldo_acumulado)}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* AÇÕES BORDERÔ */}
+                                                        <div className="flex-shrink-0 flex items-center gap-2 text-indigo-300 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                            <button
+                                                                onClick={(e) => handleDesagruparBordero(e, item.id)}
+                                                                className="px-2 py-1 bg-white border border-indigo-200 text-indigo-600 hover:bg-indigo-50 rounded text-[10px] font-bold uppercase shadow-sm"
+                                                                title="Desfazer grupo"
+                                                            >
+                                                                Desagrupar
+                                                            </button>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* LINHAS FILHAS (ABERTAS OU FECHADAS) */}
+                                                    {isExpanded && (
+                                                        <div className="flex flex-col bg-gray-50/30">
+                                                            {item.filhos.map(filho => renderRowNormal(filho, true))}
+                                                        </div>
                                                     )}
                                                 </div>
+                                            );
+                                        }
 
-                                                {/* Coluna 2: Saldo */}
-                                                <div className="text-right min-w-[100px] border-l border-gray-100 pl-4">
-                                                    <p className="text-[10px] text-gray-400 font-semibold uppercase mb-0.5">Saldo</p>
-                                                    <p className={`text-sm font-bold ${item.saldo_acumulado < 0 ? 'text-red-500' : 'text-gray-500'}`}>
-                                                        {formatCurrency(item.saldo_acumulado)}
-                                                    </p>
-                                                </div>
-                                            </div>
-
-                                            {/* Ações / Ícone Sidebar */}
-                                            <div className="flex-shrink-0 flex items-center gap-2 text-gray-300 group-hover:text-blue-500 transition-colors">
-                                                {hasPermission('financeiro', 'pode_excluir') && (
-                                                    <button
-                                                        onClick={(e) => handleDelete(e, item)}
-                                                        className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-full transition-all"
-                                                        title="Excluir Lançamento"
-                                                    >
-                                                        <FontAwesomeIcon icon={faTrash} size="sm" />
-                                                    </button>
-                                                )}
-                                                <FontAwesomeIcon icon={faAngleRight} />
-                                            </div>
-                                        </div>
-                                    ))
+                                        // Renderiza linha normal se não for Borderô
+                                        return renderRowNormal(item);
+                                    })
                                 )}
                             </div>
                         </div>
