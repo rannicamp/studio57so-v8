@@ -262,8 +262,8 @@ export default function PontoImporter({ onImport }) {
                 <FontAwesomeIcon icon={faTimes} className="w-6 h-6" />
               </button>
             </div>
-            <div className="p-6">
-              <div className="border border-blue-100 rounded-xl overflow-hidden shadow-sm max-h-[400px]">
+            <div className="p-6 overflow-y-auto max-h-[75vh]">
+              <div className="border border-blue-100 rounded-xl bg-white shadow-sm p-4 min-h-[500px]">
                 <UppyListUploader
                   bucketName="arquivos-ponto"
                   folderPath="importacoes"
