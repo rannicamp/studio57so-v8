@@ -150,7 +150,10 @@ export default function ContratoList({
                             <tr key={contrato.id} className="hover:bg-gray-50 group cursor-pointer" onClick={() => router.push(`${basePath}/${contrato.id}`)}>
 
                                 <td className="px-6 py-4 whitespace-nowrap">
-                                    <span className="text-sm font-medium text-gray-900">#{contrato.numero_contrato || '-'}</span>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-sm font-medium text-gray-900">#{contrato.numero_contrato || '-'}</span>
+                                        <span className="text-[10px] font-mono text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200" title="ID do Sistema">id: {contrato.id}</span>
+                                    </div>
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                     {contrato.tipo_documento === 'TERMO_DE_INTERESSE' ? 'Termo' : 'Contrato'}

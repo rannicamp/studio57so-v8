@@ -32,7 +32,7 @@ export default function FormCategorizacao({
     formData, handleChange, dropdownData, empresas,
     favorecidoSearchTerm, handleFavorecidoSearch, handleClearFavorecido,
     handleSelectFavorecido, favorecidoSearchResults, hierarchicalCategorias,
-    ativosDisponiveis = []
+    ativosDisponiveis = [], contratosDisponiveis = []
 }) {
     return (
         <div className="space-y-4 pt-4 border-t mt-4">
@@ -132,9 +132,37 @@ export default function FormCategorizacao({
                 </div>
             )}
 
+            {/* Vincular a Contrato — aparece só para Receitas */}
+            {formData.tipo === 'Receita' && contratosDisponiveis.length > 0 && (
+                <div className="p-3 border border-blue-200 rounded-lg bg-blue-50 mt-4">
+                    <label className="block text-[11px] font-bold text-blue-700 uppercase tracking-wider mb-1.5">
+                        📝 Vincular a um Contrato de Venda (opcional)
+                    </label>
+                    <p className="text-xs text-blue-600 mb-2">
+                        Se este lançamento for parcela de um contrato existente, selecione-o abaixo.
+                    </p>
+                    <select
+                        name="contrato_id"
+                        value={formData.contrato_id || ''}
+                        onChange={handleChange}
+                        className="w-full p-2 bg-white border border-blue-300 rounded-md text-sm font-medium text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors"
+                    >
+                        <option value="">— Não vincular —</option>
+                        {contratosDisponiveis.map(c => {
+                            const clienteNome = c.cliente?.nome || c.cliente?.razao_social || 'Sem Cliente';
+                            return (
+                                <option key={c.id} value={c.id}>
+                                    Contrato #{c.numero_contrato || c.id} - {clienteNome} ({formatCurrency(c.valor_final_venda)})
+                                </option>
+                            );
+                        })}
+                    </select>
+                </div>
+            )}
+
             {/* Vincular a Ativo Patrimonial — aparece só para Receitas */}
             {formData.tipo === 'Receita' && ativosDisponiveis.length > 0 && (
-                <div className="p-3 border border-green-200 rounded-lg bg-green-50">
+                <div className="p-3 border border-green-200 rounded-lg bg-green-50 mt-4">
                     <label className="block text-[11px] font-bold text-green-700 uppercase tracking-wider mb-1.5">
                         📈 Vincular a Ativo Patrimonial (opcional)
                     </label>

@@ -145,8 +145,8 @@ export default function FichaContrato({
         queryClient.invalidateQueries({ queryKey: ['contrato', initialContratoData.id, organizacaoId] });
         queryClient.invalidateQueries({ queryKey: ['modelosContratoFicha', contrato?.empreendimento_id, organizacaoId] });
         // Invalida também o financeiro se houver alteração
-        if (contrato?.contato_id) {
-            queryClient.invalidateQueries({ queryKey: ['extratoFinanceiroCliente', contrato.contato_id, organizacaoId] });
+        if (contrato?.id) {
+            queryClient.invalidateQueries({ queryKey: ['extratoFinanceiroCliente', contrato.id, organizacaoId] });
         }
     };
 
@@ -336,7 +336,7 @@ export default function FichaContrato({
                                     <strong>Atenção:</strong> Defina um cliente na aba Venda para consultar o extrato financeiro.
                                 </div>
                             ) : (
-                                <ExtratoFinanceiroCliente contatoId={contrato.contato_id} contrato={contrato} />
+                                <ExtratoFinanceiroCliente contratoId={contrato.id} contrato={contrato} />
                             )}
                         </div>
                     )}

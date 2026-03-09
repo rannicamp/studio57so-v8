@@ -57,7 +57,8 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
         conta_destino_id: null,
         pedido_compra_id: null,
         parcela_grupo: null,
-        lancamento_ativo_id: null
+        lancamento_ativo_id: null,
+        contrato_id: null
     });
 
     const [formData, setFormData] = useState(getInitialState());
@@ -66,6 +67,7 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
     const [isSearchingFavorecido, setIsSearchingFavorecido] = useState(false);
     const [searchAttempted, setSearchAttempted] = useState(false);
     const [isDragging, setIsDragging] = useState(false);
+    const [updateScopeOption, setUpdateScopeOption] = useState('single');
 
     // --- Buscas de Dados (Dropdowns) ---
     const fetchDropdownData = async () => {
@@ -110,6 +112,27 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
                 .eq('organizacao_id', organizacaoId)
                 .eq('tipo', 'Ativo')
                 .order('descricao');
+            return data || [];
+        },
+        enabled: isOpen && !!organizacaoId,
+        staleTime: 60 * 1000,
+    });
+
+    // Contratos disponíveis para vínculo
+    const { data: contratosDisponiveis = [] } = useQuery({
+        queryKey: ['contratos-disponiveis', organizacaoId],
+        queryFn: async () => {
+            const { data } = await supabase
+                .from('contratos')
+                .select(`
+                    id,
+                    numero_contrato,
+                    valor_final_venda,
+                    cliente:contatos!contratos_contato_id_fkey ( nome, razao_social ),
+                    empreendimentos ( nome )
+                `)
+                .eq('organizacao_id', organizacaoId)
+                .order('numero_contrato', { ascending: false });
             return data || [];
         },
         enabled: isOpen && !!organizacaoId,
@@ -197,6 +220,7 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
                 data_vencimento: formData.data_vencimento,
                 fitid_banco: formData.fitid_banco || null,
                 lancamento_ativo_id: formData.lancamento_ativo_id ? Number(formData.lancamento_ativo_id) : null,
+                contrato_id: formData.contrato_id ? Number(formData.contrato_id) : null,
             };
 
             let lancamentosSalvos = [];
@@ -263,6 +287,7 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
                                     conta_id: formData.conta_id,
                                     tipo: formData.tipo,
                                     lancamento_ativo_id: formData.lancamento_ativo_id ? Number(formData.lancamento_ativo_id) : null,
+                                    contrato_id: formData.contrato_id ? Number(formData.contrato_id) : null,
                                     data_vencimento: newItemVencDate,
                                     data_transacao: newItemTransDate
                                 };
@@ -476,14 +501,9 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
     const handleSubmit = (e) => {
         e.preventDefault();
 
-        if (isEditing && formData.parcela_grupo) {
-            toast.custom((t) => (
-                <UpdateScopeToast
-                    t={t}
-                    onSingle={() => mutation.mutate({ formData, updateScope: 'single' })}
-                    onFuture={() => mutation.mutate({ formData, updateScope: 'future' })}
-                />
-            ), { duration: Infinity });
+        // Passa o updateScope definido visualmente pelo usuário no radio group, ou garante 'single'
+        if (isEditing && formData.parcela_grupo && (formData.form_type === 'parcelado' || formData.form_type === 'recorrente')) {
+            mutation.mutate({ formData, updateScope: updateScopeOption });
         } else {
             mutation.mutate({ formData, updateScope: 'single' });
         }
@@ -610,6 +630,7 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
                             favorecidoSearchResults={favorecidoSearchResults}
                             hierarchicalCategorias={hierarchicalCategorias}
                             ativosDisponiveis={ativosDisponiveis}
+                            contratosDisponiveis={contratosDisponiveis}
                         />
 
                         <FormAnexos
@@ -624,6 +645,27 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
                             handleDragEvents={handleDragEvents}
                             handleDrop={handleDrop}
                         />
+
+                        {isEditing && formData.parcela_grupo && (formData.form_type === 'parcelado' || formData.form_type === 'recorrente') && (
+                            <div className="pt-4 border-t mt-4 mb-2">
+                                <label className="block text-[13px] font-bold text-gray-700 uppercase tracking-wider mb-2">
+                                    🔄 Propagação de Alterações
+                                </label>
+                                <div className="flex gap-4 p-3 bg-gray-50 border rounded-lg">
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input type="radio" name="updateScopeOption" value="single" checked={updateScopeOption === 'single'} onChange={(e) => setUpdateScopeOption(e.target.value)} className="w-4 h-4 text-blue-600 focus:ring-blue-500" />
+                                        <span className="text-sm font-medium text-gray-700">Apenas esta parcela</span>
+                                    </label>
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input type="radio" name="updateScopeOption" value="future" checked={updateScopeOption === 'future'} onChange={(e) => setUpdateScopeOption(e.target.value)} className="w-4 h-4 text-blue-600 focus:ring-blue-500" />
+                                        <span className="text-sm font-medium text-gray-700">Esta e parcelas futuras</span>
+                                    </label>
+                                </div>
+                                <p className="text-xs text-gray-500 mt-2 ml-1">
+                                    {updateScopeOption === 'single' ? 'Apenas o lançamento atual será modificado e terá vínculos atualizados.' : 'Essa e todas as próximas parcelas vão herdar esses dados, vínculos e recalcular vencimentos.'}
+                                </p>
+                            </div>
+                        )}
 
                         <div className="flex justify-end gap-4 pt-4 border-t">
                             <button type="button" onClick={onClose} className="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300">Cancelar</button>

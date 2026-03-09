@@ -164,5 +164,12 @@ O **Studio 57** é o ambiente de desenvolvimento e laboratório central. O **Elo
     - Correção e Transferência dos Cargos (Funções e Permissões) da ORG 2 para a ORG Master 1, resolvendo o bloqueio do RLS e habilitando os Menus Laterais automaticamente logo no primeiro login dos novos usuários! 🚀
     - Subida do HTML oficial responsivo no Email Template do Auth do Supabase!
 
+- *2026-03-08:* **🏢 Saneamento Financeiro de Lançamentos Órfãos e Correção de Abas:**
+    - Diagnóstico de base legado: identificados +200 lançamentos no banco de dados sem a "Foreign Key" `contrato_id` apontada.
+    - Script SQL via Regex/Match text rodado para atrelar a numeração da descrição dos boletos (ex: "Contrato #10") com seus devidos ID's de Banco de Dados. Lote automático validado.
+    - Correção específica do Contato "José Rogério de Paiva" dividindo os lançamentos residuais de 2 filhos (AP 401 e AP 501) com precisão. Base 100% limpa.
+    - Front-End **Aba Lançamentos (FichaContrato)** corrigida: O filtro da tabela agora puxa rigorosamente por `contrato_id` (ID do Contrato aberto no momento) invés de `favorecido_contato_id` (que causava mistura dos saldos de outros lotes/apartamentos do mesmo dono).
+    - Subindo versão para o ambiente oficial Netlify.
+
 ---
 *Assinado: Devonildo (Seu Mentor Técnico)*

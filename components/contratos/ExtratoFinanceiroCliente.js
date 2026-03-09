@@ -29,13 +29,13 @@ const formatDoc = (doc) => {
         : doc.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4");
 };
 
-const fetchExtratoFinanceiro = async (supabase, contatoId, organizacaoId) => {
-    if (!contatoId || !organizacaoId) return [];
+const fetchExtratoFinanceiro = async (supabase, contratoId, organizacaoId) => {
+    if (!contratoId || !organizacaoId) return [];
 
     const { data, error } = await supabase
         .from('lancamentos')
         .select('*, categoria:categorias_financeiras(*), conta:contas_financeiras(*)')
-        .eq('favorecido_contato_id', contatoId)
+        .eq('contrato_id', contratoId)
         .eq('organizacao_id', organizacaoId)
         // Ordem cronológica: Antigos (Pagos) em cima, Futuros (Pendentes) embaixo
         .order('data_vencimento', { ascending: true });
@@ -47,15 +47,15 @@ const fetchExtratoFinanceiro = async (supabase, contatoId, organizacaoId) => {
     return data || [];
 };
 
-export default function ExtratoFinanceiroCliente({ contatoId, contrato }) {
+export default function ExtratoFinanceiroCliente({ contratoId, contrato }) {
     const supabase = createClient();
     const { user } = useAuth();
     const organizacaoId = user?.organizacao_id;
 
     const { data: lancamentos = [], isLoading, isError, error } = useQuery({
-        queryKey: ['extratoFinanceiroCliente', contatoId, organizacaoId],
-        queryFn: () => fetchExtratoFinanceiro(supabase, contatoId, organizacaoId),
-        enabled: !!contatoId && !!organizacaoId,
+        queryKey: ['extratoFinanceiroCliente', contratoId, organizacaoId],
+        queryFn: () => fetchExtratoFinanceiro(supabase, contratoId, organizacaoId),
+        enabled: !!contratoId && !!organizacaoId,
     });
 
     const handlePrint = () => {
