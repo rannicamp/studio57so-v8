@@ -19,7 +19,7 @@ export async function processIncomingMedia(supabaseAdmin, message, config, conta
 
         // Limpeza do nome
         const cleanName = fileName.normalize('NFD').replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, '_').replace(/[^a-zA-Z0-9._-]/g, '');
-        
+
         const date = new Date();
         const year = date.getFullYear();
         const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -28,20 +28,22 @@ export async function processIncomingMedia(supabaseAdmin, message, config, conta
 
         console.log(`[MediaService] Baixando mídia ${mediaId}...`);
 
+        const token = process.env.WHATSAPP_SYSTEM_USER_TOKEN || config.whatsapp_permanent_token;
+
         // 1. Pega URL de download
         const urlResponse = await fetch(`https://graph.facebook.com/v20.0/${mediaId}`, {
-            headers: { 'Authorization': `Bearer ${config.whatsapp_permanent_token}` }
+            headers: { 'Authorization': `Bearer ${token}` }
         });
-        
+
         if (!urlResponse.ok) throw new Error(`Erro URL Meta: ${urlResponse.statusText}`);
         const urlData = await urlResponse.json();
         if (!urlData.url) throw new Error('URL não retornada pela Meta');
 
         // 2. Baixa o arquivo binário
         const fileResponse = await fetch(urlData.url, {
-            headers: { 'Authorization': `Bearer ${config.whatsapp_permanent_token}` }
+            headers: { 'Authorization': `Bearer ${token}` }
         });
-        
+
         if (!fileResponse.ok) throw new Error(`Erro Download Binário: ${fileResponse.statusText}`);
         const fileBlob = await fileResponse.arrayBuffer();
 
