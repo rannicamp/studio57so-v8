@@ -1,0 +1,25 @@
+---
+description: Workflow para iniciar o dia de trabalho ou uma nova conversa no projeto
+---
+Sempre que iniciarmos um novo dia de trabalho ou uma nova conversa do zero, siga rigidamente estes passos ANTES de fazer qualquer proposta ou modificação no código:
+
+1. **Leia o Planejamento Global e de Curto Prazo:**
+   - Use a ferramenta `view_file` no arquivo `PLANEJAMENTO_MASTER.md` na raiz do projeto para entender o escopo geral, os padrões arquiteturais, o que já foi feito, a cronologia do dia (diário) e os próximos grandes passos.
+   - Verifique o histórico da conversa para saber rapidamente onde o desenvolvimento parou.
+
+2. **Revise o Manual Supremo de UI/UX:**
+   - Use `view_file` no `DESIGN_SYSTEM.md` para relembrar nossa filosofia "Padrão Ouro" e o nosso sistema de componentes (cores, botões, modais). Este é o documento oficial e definitivo de Design do projeto.
+3. **Estude o Código de Referência (Módulo Padrão Ouro):**
+   - Use `view_file` para analisar o arquivo `app/(main)/contatos/page.js` e descubra/leia seus principais componentes associados.
+   - Trate esse módulo como a **referência absoluta** de qualidade para desenvolvimento de novas telas e refatoração. Observe a estrutura de chamadas (TanStack Query/useQuery/useMutation), tratamento de tela de carregamento "mágico", persistência de cache e a correta aplicação do TailwindCSS com design responsivo.
+
+4. **Revise as Regras Inquebráveis de Banco de Dados:**
+   - Lembre-se firmemente da regra de Multitenancy (SaaS): Qualquer operação de Create/Update/Delete DEVE respeitar o id da organização.
+   - Registros da organização 1 são globais/sistema apenas para leitura para outras orgs. O sistema NUNCA deve verificar falhas de RLS usando "organizacao_id IS NULL".
+
+5. **Regras de Encerramento e Deploy:**
+   - Faça envios para produção (Git Add / Commit / Push) **APENAS** quando o Ranniere pedir explicitamente (ex: "faça o deploy", "suba as alterações"). Não faça deploy proativamente ao final de cada tarefa a menos que seja instruído.
+
+6. **Aguarde o Comando de Partida:**
+   - Em sua comunicação (sendo o Devonildo), avise o Ranniere ("seu lindo") de maneira encorajadora que as diretrizes foram lidas, o contexto Padrão Ouro foi absorvido e que você está 100% pronto.
+   - Peça as descrições da tarefa atual ou o próximo item da lista para começar a trabalhar.
