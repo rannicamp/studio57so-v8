@@ -22,6 +22,11 @@ export default function TabelaRelatorioContratos({ contratos }) {
         );
     });
 
+    const totalVGV = filtrados.reduce((acc, c) => acc + (c.valor_final_venda || 0), 0);
+    const totalPago = filtrados.reduce((acc, c) => acc + (c.valorPago || 0), 0);
+    const totalAPagar = filtrados.reduce((acc, c) => acc + (c.saldoAPagar || 0), 0);
+    const percentualGeral = totalVGV > 0 ? (totalPago / totalVGV) * 100 : 0;
+
     return (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
 
@@ -102,6 +107,37 @@ export default function TabelaRelatorioContratos({ contratos }) {
                             </tr>
                         )}
                     </tbody>
+                    {filtrados.length > 0 && (
+                        <tfoot className="bg-gray-100/70 border-t-2 border-gray-200 text-gray-800 sticky bottom-0">
+                            <tr>
+                                <td colSpan="4" className="px-6 py-4 text-right uppercase text-xs font-bold tracking-wider text-gray-500">
+                                    Totais ({filtrados.length})
+                                </td>
+                                <td className="px-6 py-4 text-right font-bold text-gray-900 border-l border-white/50">
+                                    {formatCurrency(totalVGV)}
+                                </td>
+                                <td className="px-6 py-4 text-right font-bold text-green-700 bg-green-50/30">
+                                    {formatCurrency(totalPago)}
+                                </td>
+                                <td className="px-6 py-4 text-right font-bold text-orange-700 bg-orange-50/30">
+                                    {formatCurrency(totalAPagar)}
+                                </td>
+                                <td className="px-6 py-4">
+                                    <div className="flex flex-col gap-1.5 min-w-[120px]">
+                                        <div className="flex justify-between text-xs font-extrabold text-gray-700">
+                                            <span>Média Global: {Math.round(percentualGeral)}% Pago</span>
+                                        </div>
+                                        <div className="w-full bg-gray-200/50 rounded-full h-2.5 overflow-hidden">
+                                            <div
+                                                className={`h-full rounded-full transition-all duration-500 ${percentualGeral >= 100 ? 'bg-purple-600' : 'bg-blue-600'}`}
+                                                style={{ width: `${Math.min(100, Math.max(0, percentualGeral))}%` }}
+                                            />
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tfoot>
+                    )}
                 </table>
             </div>
         </div>

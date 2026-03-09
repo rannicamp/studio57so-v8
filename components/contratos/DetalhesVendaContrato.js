@@ -316,7 +316,25 @@ export default function DetalhesVendaContrato({
                 </div>
             </fieldset>
 
-            <fieldset className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-8 border-t border-gray-100">
+            <fieldset className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-8 border-t border-gray-100">
+                <div>
+                    <label className="block text-xs font-semibold text-gray-500 uppercase mb-1.5">Tipo do Documento</label>
+                    <div className="relative">
+                        <select
+                            value={contrato.tipo_documento || 'TERMO_DE_INTERESSE'}
+                            onChange={(e) => {
+                                setContrato(prev => ({ ...prev, tipo_documento: e.target.value }));
+                                handleFieldUpdate('tipo_documento', e.target.value);
+                            }}
+                            disabled={updateFieldMutation.isPending}
+                            className="w-full p-2 bg-green-50 border border-green-200 text-sm font-bold text-green-800 rounded-md focus:outline-none focus:ring-1 focus:ring-green-500 transition-colors"
+                        >
+                            <option value="TERMO_DE_INTERESSE">Termo de Interesse</option>
+                            <option value="CONTRATO">Contrato (Efetivado)</option>
+                        </select>
+                        {updateFieldMutation.isPending && <FontAwesomeIcon icon={faSpinner} spin className="absolute right-8 top-3 text-green-600" />}
+                    </div>
+                </div>
                 <div>
                     <label className="block text-xs font-semibold text-gray-500 uppercase mb-1.5">Data da Venda</label>
                     <input type="date" value={formatDate(contrato.data_venda)} onChange={(e) => setContrato(prev => ({ ...prev, data_venda: e.target.value }))} onBlur={(e) => handleFieldUpdate('data_venda', e.target.value)} disabled={updateFieldMutation.isPending} className="w-full p-2 bg-white border border-gray-300 text-sm font-medium text-gray-700 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors" />
