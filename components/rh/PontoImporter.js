@@ -249,8 +249,8 @@ export default function PontoImporter({ onImport }) {
       {/* MODAL DO UPLOADER */}
       {isUploadModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl flex flex-col overflow-hidden relative">
-            <div className="px-6 py-4 border-b flex justify-between items-center bg-gray-50">
+          <div className="bg-white w-full h-full md:h-auto md:max-w-2xl flex flex-col overflow-hidden relative md:rounded-xl shadow-2xl">
+            <div className="px-4 py-4 md:px-6 md:py-4 border-b flex justify-between items-center bg-gray-50 flex-shrink-0">
               <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
                 <FontAwesomeIcon icon={faUpload} className="text-blue-600" />
                 Selecionar Arquivo de Ponto
@@ -262,8 +262,8 @@ export default function PontoImporter({ onImport }) {
                 <FontAwesomeIcon icon={faTimes} className="w-6 h-6" />
               </button>
             </div>
-            <div className="p-6 overflow-y-auto max-h-[75vh]">
-              <div className="border border-blue-100 rounded-xl bg-white shadow-sm p-4 min-h-[500px]">
+            <div className="p-4 md:p-6 overflow-y-auto flex-1">
+              <div className="border border-blue-100 rounded-xl bg-white shadow-sm p-4 h-full min-h-[400px]">
                 <UppyListUploader
                   bucketName="arquivos-ponto"
                   folderPath="importacoes"
