@@ -10,9 +10,9 @@ O **Studio 57** é o ambiente de desenvolvimento e laboratório central. O **Elo
 
 ## 🏁 Objetivos de Curto Prazo
 - [x] Finalizar Sincronia de Bancos de Dados (vhuvnutzklhskkwbpxdz -> alqzomckjnefsmhusnfu).
-- [/] Refinar Página de Cadastro de Organização (UI/UX e Dados Completos).
+- [x] Refinar Página de Cadastro de Organização (UI/UX e Dados Completos).
 - [ ] Validar Fluxo de Cadastro e Login em dispositivos Mobile (PWA).
-- [ ] Checklist Legal: Revisar textos das Políticas Públicas.
+- [x] Checklist Legal: Revisar textos das Políticas Públicas.
 - [x] **RLS Global Aplicado no Banco de Dados (07/03) — 121 tabelas protegidas.**
 - [x] **Padronizar o Sistema de Upload (07/03) — CONCLUÍDO.** `UppyAvatarUploader`, `UppyFileImporter` e todo o sistema reescritos no padrão nativo.
 
