@@ -6,6 +6,7 @@ import { faCloudUploadAlt, faSpinner, faCheckCircle, faFileInvoice, faTimesCircl
 import { createClient } from '../../utils/supabase/client';
 import { toast } from 'sonner';
 import UppyFileImporter from '@/components/ui/UppyFileImporter';
+import { parseOfxContent } from '../../utils/ofxParser';
 
 export default function OfxUploader({ organizacaoId, contas, onUploadSuccess }) {
     const supabase = createClient();
@@ -74,9 +75,13 @@ export default function OfxUploader({ organizacaoId, contas, onUploadSuccess }) 
         if (files.length > 0) await processFiles(files);
     };
 
-    const handleFileInput = async (file) => {
+    const handleFileInput = async (files) => {
         setIsModalOpen(false); // Fecha o modal após selecionar
-        if (file) await processFiles([file]);
+        if (Array.isArray(files) && files.length > 0) {
+            await processFiles(files);
+        } else if (files) {
+            await processFiles([files]);
+        }
     };
 
     const processFiles = async (filesArray) => {
@@ -109,7 +114,19 @@ export default function OfxUploader({ organizacaoId, contas, onUploadSuccess }) 
                 let matchedConta = null;
 
                 if (bankId && acctId) {
-                    matchedConta = contas.find(c => c.codigo_banco_ofx === bankId && c.numero_conta_ofx === acctId);
+                    matchedConta = contas.find(c => {
+                        // Limpa zeros à esquerda e espaços
+                        const dbBank = c.codigo_banco_ofx ? String(c.codigo_banco_ofx).replace(/^0+/, '').trim() : '';
+                        const ofxBank = String(bankId).replace(/^0+/, '').trim();
+
+                        // Limpa qualquer pontuação ou espaço (ex: "105.706-5" vira "1057065")
+                        const dbAcctOfx = c.numero_conta_ofx ? String(c.numero_conta_ofx).replace(/[^0-9a-zA-Z]/g, '') : '';
+                        const dbAcctOficial = c.numero_conta ? String(c.numero_conta).replace(/[^0-9a-zA-Z]/g, '') : '';
+                        const ofxAcct = String(acctId).replace(/[^0-9a-zA-Z]/g, '');
+
+                        // Um banco precisa bater (ignorando zeros). A conta pode bater na coluna de OFX ou na Oficial!
+                        return dbBank === ofxBank && (dbAcctOfx === ofxAcct || dbAcctOficial === ofxAcct);
+                    });
                 }
 
                 if (matchedConta) {
@@ -369,7 +386,8 @@ export default function OfxUploader({ organizacaoId, contas, onUploadSuccess }) 
                 onFileSelected={handleFileInput}
                 title="Importar Arquivo OFX"
                 allowedFileTypes={['.ofx']}
-                note="Selecione ou arraste o arquivo .ofx exportado do seu banco"
+                note="Selecione ou arraste os arquivos .ofx exportados do seu banco"
+                multiple={true}
             />
 
             <button

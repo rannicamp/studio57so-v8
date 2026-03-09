@@ -287,7 +287,7 @@ export default function FinanceiroPage() {
             </div>
 
             <div className="mt-4">
-                {activeTab === 'extrato' && <ExtratoManager contas={contas} onEdit={handleOpenEditModal} />}
+                {activeTab === 'extrato' && <ExtratoManager contas={contas} empresas={empresas} onEdit={handleOpenEditModal} />}
                 {activeTab === 'cartoes' && <GerenciadorFaturas contasCartao={contasCartao} onNewDespesaCartao={handleNewDespesaCartao} />}
 
                 {activeTab === 'planejamento' && <PlanejamentoFolha filters={filters} setFilters={setFilters} />}

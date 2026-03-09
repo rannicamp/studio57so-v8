@@ -13,6 +13,7 @@ export default function UppyFileImporter({
     title = "Importar Arquivo",
     allowedFileTypes = ['.csv'],
     note = "Selecione ou arraste o arquivo aqui",
+    multiple = false,
     children
 }) {
     const fileInputRef = useRef(null);
@@ -20,9 +21,9 @@ export default function UppyFileImporter({
     if (!isOpen) return null;
 
     const handleFileChange = (e) => {
-        const file = e.target.files?.[0];
-        if (file && onFileSelected) {
-            onFileSelected(file);
+        const files = Array.from(e.target.files || []);
+        if (files.length > 0 && onFileSelected) {
+            onFileSelected(multiple ? files : files[0]);
         }
         // Limpa o input para permitir selecionar o mesmo arquivo novamente
         if (fileInputRef.current) fileInputRef.current.value = '';
@@ -30,14 +31,16 @@ export default function UppyFileImporter({
 
     const handleDrop = (e) => {
         e.preventDefault();
-        const file = e.dataTransfer.files?.[0];
-        if (file && onFileSelected) {
+        const files = Array.from(e.dataTransfer.files || []);
+        if (files.length > 0 && onFileSelected) {
             // Validar a extensão do arquivo
-            const ext = '.' + file.name.split('.').pop().toLowerCase();
-            if (allowedFileTypes.length > 0 && !allowedFileTypes.includes(ext)) {
-                return;
+            const validFiles = files.filter(file => {
+                const ext = '.' + file.name.split('.').pop().toLowerCase();
+                return allowedFileTypes.length === 0 || allowedFileTypes.includes(ext);
+            });
+            if (validFiles.length > 0) {
+                onFileSelected(multiple ? validFiles : validFiles[0]);
             }
-            onFileSelected(file);
         }
     };
 
@@ -89,6 +92,7 @@ export default function UppyFileImporter({
                     <input
                         ref={fileInputRef}
                         type="file"
+                        multiple={multiple}
                         accept={allowedFileTypes.join(',')}
                         onChange={handleFileChange}
                         className="hidden"

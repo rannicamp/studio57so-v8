@@ -45,4 +45,20 @@ Estas contas são do tipo **Conta Corrente**, mas ainda não possuem preenchimen
 | 47 | 1 - CARTÃO SICOOB AC CREDI S57 ARQUITETURA | Cartão de Crédito | SICOOB | - | - |
 | 48 | Ativos Imobiliários | Conta de Ativo | - | - | - |
 
-*(Gerado automaticamente a partir do banco de dados `vhuvnutzklhskkwbpxdz`)*
+---
+
+## Contas Órfãs Encontradas nos Arquivos OFX (Para Verificação)
+
+Estas contas foram encontradas nos arquivos OFX processados, mas não possuem correspondência direta no sistema. Requerem verificação para saber se são contas antigas, inativas ou se precisam ser cadastradas:
+
+| Banco (OFX) | Conta (OFX) | Instituição | Observações |
+|-------------|-------------|-------------|-------------|
+| `0104` | `000119588` | Caixa Econômica Federal | Possivelmente conta antiga (Arquivos de 2019-2020) |
+| `0104` | `0000000045177` | Caixa Econômica Federal | Aparece em dez/2020 e jan/2021 |
+| `0104` | `0000000023022` | Caixa Econômica Federal | Histórico vasto de 2021 a 2024 |
+| `0104` | `0005795211458` | Caixa Econômica Federal | Muito parecida com a conta principal `342`. Final `458`. |
+| `0341` | `7559994285` | Itaú | Um arquivo isolado |
+| `000` | `7564364003796` | SICOOB (Provável) | Mapeado com Banco `000` nos arquivos |
+| `000` | `7563027362255` | SICOOB (Provável) | Mapeado com Banco `000` nos arquivos |
+
+*(Gerado automaticamente a partir do banco de dados `vhuvnutzklhskkwbpxdz` e da varredura de OFXs)*

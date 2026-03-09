@@ -1,7 +1,7 @@
 //components/financeiro/ContaFormModal.js
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faPlus, faTrash, faTimes } from '@fortawesome/free-solid-svg-icons';
 import { IMaskInput } from 'react-imask';
@@ -14,6 +14,7 @@ export default function ContaFormModal({ isOpen, onClose, onSave, initialData, e
         tipo: 'Conta Corrente',
         saldo_inicial: '',
         instituicao: '',
+        codigo_banco_ofx: '',
         empresa_id: null,
         agencia: '',
         numero_conta: '',
@@ -27,6 +28,35 @@ export default function ContaFormModal({ isOpen, onClose, onSave, initialData, e
 
     const [formData, setFormData] = useState(getInitialState());
     const [loading, setLoading] = useState(false);
+    const [bancosList, setBancosList] = useState([]);
+    const [instituicaoQuery, setInstituicaoQuery] = useState('');
+    const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const dropdownRef = useRef(null);
+
+    // Mapear Bancos da Brasil API
+    useEffect(() => {
+        if (isOpen && bancosList.length === 0) {
+            fetch('https://brasilapi.com.br/api/bancos/v1')
+                .then(res => res.json())
+                .then(data => {
+                    // Filtrar apenas bancos com código válido
+                    const validBanks = data.filter(b => b.code != null && b.name);
+                    setBancosList(validBanks);
+                })
+                .catch(err => console.error("Erro ao carregar bancos da Brasil API:", err));
+        }
+    }, [isOpen, bancosList.length]);
+
+    // Fechar dropdown ao clicar fora
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+                setIsDropdownOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
 
     useEffect(() => {
         if (isOpen) {
@@ -35,8 +65,28 @@ export default function ContaFormModal({ isOpen, onClose, onSave, initialData, e
                 initial.chaves_pix = [{ tipo: 'CNPJ', chave: '' }];
             }
             setFormData(initial);
+            setInstituicaoQuery(initial.instituicao || '');
         }
     }, [isOpen, initialData, isEditing]);
+
+    const handleSelectBank = (bank) => {
+        const codigoFormatado = String(bank.code).padStart(3, '0');
+        const nomeInstituicao = bank.name;
+
+        setInstituicaoQuery(nomeInstituicao);
+        setFormData(prev => ({
+            ...prev,
+            instituicao: nomeInstituicao,
+            codigo_banco_ofx: codigoFormatado,
+            nome: prev.nome ? prev.nome : `${codigoFormatado} - ${nomeInstituicao}` // Preenche automaticamente o nome se estiver vazio
+        }));
+        setIsDropdownOpen(false);
+    };
+
+    const filteredBancos = bancosList.filter(b =>
+        (b.name && b.name.toLowerCase().includes(instituicaoQuery.toLowerCase())) ||
+        (b.code && String(b.code).includes(instituicaoQuery))
+    );
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -132,9 +182,38 @@ export default function ContaFormModal({ isOpen, onClose, onSave, initialData, e
                                     className="mt-1 w-full p-2 border rounded-md"
                                 />
                             </div>
-                            <div>
-                                <label className="block text-sm font-medium">Instituição/Credor</label>
-                                <input type="text" name="instituicao" value={formData.instituicao || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md" placeholder="Ex: Bradesco, Itaú, CEF..." />
+                            <div className="relative" ref={dropdownRef}>
+                                <label className="block text-sm font-medium text-gray-700">Instituição Financeira / Banco</label>
+                                <input
+                                    type="text"
+                                    value={instituicaoQuery}
+                                    onChange={(e) => {
+                                        setInstituicaoQuery(e.target.value);
+                                        setIsDropdownOpen(true);
+                                        setFormData(prev => ({ ...prev, instituicao: e.target.value }));
+                                    }}
+                                    onFocus={() => setIsDropdownOpen(true)}
+                                    className="mt-1 w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                                    placeholder="Pesquise o banco (Ex: Itaú, 001)..."
+                                />
+                                {isDropdownOpen && (
+                                    <ul className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-xl max-h-60 overflow-auto divide-y divide-gray-100">
+                                        {filteredBancos.length > 0 ? (
+                                            filteredBancos.map(bank => (
+                                                <li
+                                                    key={bank.code}
+                                                    onClick={() => handleSelectBank(bank)}
+                                                    className="p-3 hover:bg-blue-50 cursor-pointer transition-colors flex items-center gap-3"
+                                                >
+                                                    <span className="font-semibold text-blue-700 bg-blue-100/50 px-2 py-1 rounded-md text-xs">{String(bank.code).padStart(3, '0')}</span>
+                                                    <span className="text-gray-700 font-medium">{bank.name}</span>
+                                                </li>
+                                            ))
+                                        ) : (
+                                            <li className="p-4 text-center text-gray-500 text-sm">Nenhum banco encontrado... Você pode digitar livremente.</li>
+                                        )}
+                                    </ul>
+                                )}
                             </div>
                         </div>
 

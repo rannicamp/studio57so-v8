@@ -79,7 +79,7 @@ const DeletionToast = ({ toastId, onSingleDelete, onFutureDelete }) => (
 );
 
 
-export default function PanelConciliacaoOFX({ contaId, isCartaoCredito, arquivosOfxIds = [], onClosePanel }) {
+export default function PanelConciliacaoOFX({ contaId, isCartaoCredito, arquivosOfxIds = [], empresas = [], onClosePanel }) {
     const supabase = createClient();
     const { user, organizacao_id: organizacaoId } = useAuth();
     const queryClient = useQueryClient();
@@ -528,8 +528,8 @@ export default function PanelConciliacaoOFX({ contaId, isCartaoCredito, arquivos
     return (
         <div className="bg-white rounded-xl shadow-lg border border-indigo-200 overflow-hidden relative">
 
-            <LancamentoFormModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSuccess={handleSuccessCreate} initialData={lancamentoParaCriar} />
-            <LancamentoFormModal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} onSuccess={handleSuccessEdit} initialData={lancamentoParaEditar} />
+            <LancamentoFormModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSuccess={handleSuccessCreate} initialData={lancamentoParaCriar} empresas={empresas} />
+            <LancamentoFormModal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} onSuccess={handleSuccessEdit} initialData={lancamentoParaEditar} empresas={empresas} />
 
             <div className="p-4 bg-indigo-50 border-b flex items-center justify-between">
                 <div>

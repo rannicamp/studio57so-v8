@@ -18,7 +18,7 @@ const formatCurrency = (value) => {
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 };
 
-export default function ExtratoManager({ contas }) {
+export default function ExtratoManager({ contas, empresas }) {
     const supabase = createClient();
     const queryClient = useQueryClient();
     const { user, hasPermission } = useAuth();
@@ -256,8 +256,14 @@ export default function ExtratoManager({ contas }) {
                             {contaSelecionada ? (
                                 <div className="flex flex-col">
                                     <span className="font-bold text-sm text-gray-800">{contaSelecionada.nome}</span>
-                                    <span className="text-[10px] text-gray-500 font-semibold uppercase mt-0.5">
-                                        {contaSelecionada.empresa?.nome_fantasia || contaSelecionada.empresa?.razao_social || 'Contas Base (Sem Empresa Vínculada)'} • {contaSelecionada.tipo || 'Outros'}
+                                    <span className="text-[10px] text-gray-500 font-semibold uppercase mt-0.5 flex flex-wrap gap-1 items-center">
+                                        <span>{contaSelecionada.empresa?.nome_fantasia || 'Sem Empresa'} • {contaSelecionada.tipo}</span>
+                                        {(contaSelecionada.agencia || contaSelecionada.numero_conta) && (
+                                            <>
+                                                <span className="hidden sm:inline">|</span>
+                                                <span className="font-mono text-indigo-500 bg-indigo-50 px-1.5 py-0.5 rounded">Ag: {contaSelecionada.agencia || '-'} / Cc: {contaSelecionada.numero_conta || '-'}</span>
+                                            </>
+                                        )}
                                     </span>
                                 </div>
                             ) : (
@@ -291,7 +297,12 @@ export default function ExtratoManager({ contas }) {
                                                                 >
                                                                     <div className="flex flex-col flex-1 pr-2">
                                                                         <span className={`font-bold text-[13px] leading-tight ${isSelected ? 'text-indigo-900' : 'text-gray-700'}`}>{c.nome}</span>
-                                                                        {c.descricao && <span className="text-[9px] text-gray-400 mt-0.5 line-clamp-1">{c.descricao}</span>}
+                                                                        <span className="flex flex-col xs:flex-row xs:items-center gap-1 mt-0.5 text-[9px] text-gray-400">
+                                                                            {c.instituicao && <span className="font-sans uppercase">{c.instituicao}</span>}
+                                                                            {(c.agencia || c.numero_conta) && (
+                                                                                <span className="font-mono bg-gray-100 text-gray-500 px-1 rounded truncate">Ag: {c.agencia || '-'} / Cc: {c.numero_conta || '-'}</span>
+                                                                            )}
+                                                                        </span>
                                                                     </div>
                                                                     {isSelected && <FontAwesomeIcon icon={faCheck} className="text-indigo-500 text-[10px] mt-0.5" />}
                                                                 </button>
@@ -456,6 +467,7 @@ export default function ExtratoManager({ contas }) {
                         // === MODO CONCILIADOR: DUAL PANEL (Novo Componente) ===
                         <PanelConciliacaoOFX
                             contaId={contaSelecionadaId}
+                            empresas={empresas}
                             isCartaoCredito={contaSelecionada?.tipo === 'Cartão de Crédito'}
                             arquivosOfxIds={(arquivosOfxMes || [])
                                 .filter(a => {

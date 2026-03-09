@@ -1,5 +1,6 @@
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTimes } from '@fortawesome/free-solid-svg-icons';
+import SelectConta from '../SelectConta';
 
 const formatCurrency = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
 
@@ -34,6 +35,15 @@ export default function FormCategorizacao({
     handleSelectFavorecido, favorecidoSearchResults, hierarchicalCategorias,
     ativosDisponiveis = [], contratosDisponiveis = []
 }) {
+    // Filtragem Top-Down
+    const filterByEmpresa = (list) => {
+        if (!formData.empresa_id) return []; // Retorna vazio forçando seleção de empresa primeiro
+        return (list || []).filter(item => !item.empresa_id || String(item.empresa_id) === String(formData.empresa_id));
+    };
+
+    const contasFiltradas = filterByEmpresa(dropdownData?.contas);
+    const empreendimentosFiltrados = filterByEmpresa(dropdownData?.empreendimentos);
+
     return (
         <div className="space-y-4 pt-4 border-t mt-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -57,31 +67,38 @@ export default function FormCategorizacao({
                     <legend className="font-semibold text-sm">Contas</legend>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
                         <div>
-                            <label className="block text-sm font-medium">De (Origem)*</label>
-                            <select name="conta_origem_id" value={formData.conta_origem_id || ''} onChange={handleChange} required className="mt-1 w-full p-2 border rounded-md">
-                                <option value="">Selecione...</option>
-                                {dropdownData?.contas.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
-                            </select>
+                            <label className="block text-sm font-medium mb-1">De (Origem)*</label>
+                            <SelectConta
+                                name="conta_origem_id"
+                                value={formData.conta_origem_id}
+                                onChange={handleChange}
+                                contas={contasFiltradas}
+                                required={true}
+                            />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium">Para (Destino)*</label>
-                            <select name="conta_destino_id" value={formData.conta_destino_id || ''} onChange={handleChange} required className="mt-1 w-full p-2 border rounded-md">
-                                <option value="">Selecione...</option>
-                                {dropdownData?.contas.filter(c => c.id !== formData.conta_origem_id).map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
-                            </select>
+                            <label className="block text-sm font-medium mb-1">Para (Destino)*</label>
+                            <SelectConta
+                                name="conta_destino_id"
+                                value={formData.conta_destino_id}
+                                onChange={handleChange}
+                                contas={contasFiltradas.filter(c => c.id !== formData.conta_origem_id)}
+                                required={true}
+                            />
                         </div>
                     </div>
                 </fieldset>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                        <label className="block text-sm font-medium">Conta*</label>
-                        <select name="conta_id" value={formData.conta_id || ''} onChange={handleChange} required className="mt-1 w-full p-2 border rounded-md">
-                            <option value="">Selecione...</option>
-                            {dropdownData?.contas
-                                .filter(c => c.tipo !== 'Conta de Ativo' && c.tipo !== 'Conta de Passivo')
-                                .map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
-                        </select>
+                        <label className="block text-sm font-medium mb-1">Conta*</label>
+                        <SelectConta
+                            name="conta_id"
+                            value={formData.conta_id}
+                            onChange={handleChange}
+                            contas={contasFiltradas.filter(c => c.tipo !== 'Conta de Ativo' && c.tipo !== 'Conta de Passivo')}
+                            required={true}
+                        />
                     </div>
                     <div>
                         <label className="block text-sm font-medium">Categoria</label>
@@ -109,17 +126,10 @@ export default function FormCategorizacao({
                         )}
                     </div>
                     <div>
-                        <label className="block text-sm font-medium">Empresa</label>
-                        <select name="empresa_id" value={formData.empresa_id || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md bg-blue-50" disabled={!!formData.empreendimento_id}>
-                            <option value="">Nenhuma</option>
-                            {empresas.map(e => <option key={e.id} value={e.id}>{e.nome_fantasia || e.razao_social}</option>)}
-                        </select>
-                    </div>
-                    <div>
                         <label className="block text-sm font-medium">Empreendimento</label>
-                        <select name="empreendimento_id" value={formData.empreendimento_id || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md">
+                        <select name="empreendimento_id" value={formData.empreendimento_id || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md disabled:bg-gray-100" disabled={!formData.empresa_id}>
                             <option value="">Nenhum</option>
-                            {dropdownData?.empreendimentos.map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}
+                            {empreendimentosFiltrados.map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}
                         </select>
                     </div>
                     <div>

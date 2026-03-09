@@ -516,12 +516,13 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
         let valToSet = value === '' ? null : value;
         let newFormData = { ...formData, [name]: valToSet };
 
-        // Automação da Empresa
-        if ((name === 'conta_id' || name === 'conta_origem_id') && valToSet) {
-            const contaSelecionada = dropdownData?.contas?.find(c => c.id.toString() === valToSet.toString());
-            if (contaSelecionada && contaSelecionada.empresa_id) {
-                newFormData.empresa_id = contaSelecionada.empresa_id;
-            }
+        // Reset cascata quando muda a empresa raiz
+        if (name === 'empresa_id') {
+            newFormData.conta_id = null;
+            newFormData.conta_origem_id = null;
+            newFormData.conta_destino_id = null;
+            newFormData.empreendimento_id = null;
+            newFormData.etapa_id = null;
         }
 
         if (name === 'form_type' && value === 'transferencia') {
@@ -549,13 +550,6 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
         }
 
         if (name === 'empreendimento_id') {
-            if (value && dropdownData?.empreendimentos) {
-                const emp = dropdownData.empreendimentos.find(e => e.id == value);
-                newFormData.empresa_id = emp?.empresa_id || null;
-            } else {
-                const contaSelecionada = dropdownData?.contas?.find(c => c.id == newFormData.conta_id);
-                newFormData.empresa_id = contaSelecionada?.empresa_id || null;
-            }
             newFormData.etapa_id = null;
         }
         setFormData(newFormData);
@@ -591,6 +585,27 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
                     {dropdownError && <p className="text-center p-3 rounded-md text-sm font-semibold mb-4 bg-red-100 text-red-800">Erro: {dropdownError.message}</p>}
 
                     <form onSubmit={handleSubmit} className="space-y-6">
+                        {/* Seleção principal de Empresa no topo */}
+                        <div className="bg-gray-50 p-5 rounded-2xl border border-gray-200 mb-6 shadow-sm">
+                            <label className="block text-sm font-bold text-gray-800 mb-2 flex items-center gap-2">
+                                <span className="bg-blue-600 text-white w-6 h-6 rounded-full inline-flex items-center justify-center text-xs">1</span>
+                                Empresa Contexto <span className="text-red-500">*</span>
+                            </label>
+                            <select
+                                name="empresa_id"
+                                value={formData.empresa_id || ''}
+                                onChange={handleChange}
+                                required
+                                className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-semibold text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all shadow-sm placeholder-gray-400"
+                            >
+                                <option value="">Selecione a Empresa do Lançamento...</option>
+                                {empresas.map(e => <option key={e.id} value={e.id}>{e.nome_fantasia || e.razao_social}</option>)}
+                            </select>
+                            <p className="text-xs text-gray-500 mt-2 font-medium">
+                                A seleção da empresa define quais contas bancárias e empreendimentos estarão disponíveis abaixo.
+                            </p>
+                        </div>
+
                         <TipoLancamentoSelector
                             formData={formData}
                             handleChange={handleChange}
