@@ -172,5 +172,14 @@ O **Studio 57** é o ambiente de desenvolvimento e laboratório central. O **Elo
     - Front-End **Aba Lançamentos (FichaContrato)** corrigida: O filtro da tabela agora puxa rigorosamente por `contrato_id` (ID do Contrato aberto no momento) invés de `favorecido_contato_id` (que causava mistura dos saldos de outros lotes/apartamentos do mesmo dono).
     - Subindo versão para o ambiente oficial Netlify.
 
+- *2026-03-09:* **🏦 Conciliação Bancária OFX Avançada (Borderôs e UI Inteligente):**
+    - Implementado suporte a **Borderôs** (Agrupamento de lançamentos por `agrupamento_id`) no Extrato e no Conciliador OFX, permitindo conciliar um único OFX com múltiplos lançamentos do sistema que compõem aquele valor.
+    - Alterado `fitid_banco` do banco de dados (removido *Unique Constraint*) para aceitar o vínculo da FK do primeiro lançamento filho do borderô.
+    - Criada memória persistente de Conta Bancária no localStorage para evitar perda de contexto ao navegar entre abas.
+    - UX Aprimorada: Barra de resumo no `PanelConciliacaoOFX` passando a exibir o valor total da soma dos itens a serem agrupados.
+    - Modal de Novo Lançamento turbinado para auto-preencher rapidamente a **Empresa** com base na Conta Bancária importada do OFX.
+    - Ajustado o *Z-index* do modal de Lançamentos para evitar sobreposição pela Action Bar de conciliação do Painel OFX.
+    - Inserida categoria faltante "Estorno (Receita)" diretamente via script SQL no Supabase.
+
 ---
 *Assinado: Devonildo (Seu Mentor Técnico)*
