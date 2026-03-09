@@ -45,6 +45,7 @@ O **Studio 57** é o ambiente de desenvolvimento e laboratório central. O **Elo
 ### 5. Sistema de Pagamentos e Core Financeiro (CRÍTICO)
 - [x] **Definição de Provedor:** Definido **Asaas** como gateway oficial por sua API amigável (Node/Next), split nativo, webhook poderoso, emissão de NFe e Pix automático.
 - [x] **Demonstrativo de Resultados (DRE):** Implementar visão de competência (Receitas vs Despesas vs Lucro Líquido).
+- [x] **Relatório de Contratos Ativos:** Implementar visão consolidada de VGV, % de Quitação (Pago x Pendente) e status de Inadimplência na Central Financeira.
 - [x] **Lógica de Cartão de Crédito — Separação Visual (03/03):** Aba "Cartões" reestruturada:
     - Agrupamento correto de lançamentos por Mês/Ano da fatura (usando `dia_pagamento_fatura`).
     - Histórico lateral com valor total de despesas por fatura e destaque visual da Fatura Atual (próximo vencimento).

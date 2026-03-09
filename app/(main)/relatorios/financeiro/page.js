@@ -6,7 +6,7 @@ import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner, faLayerGroup } from '@fortawesome/free-solid-svg-icons';
+import { faSpinner, faLayerGroup, faFileContract } from '@fortawesome/free-solid-svg-icons';
 
 // Componentes
 import SmartKpiCard from '@/components/painel/SmartKpiCard';
@@ -15,6 +15,7 @@ import KpiPlaceholder from '@/components/painel/KpiPlaceholder';
 import KpiBuilderModal from '@/components/painel/KpiBuilderModal';
 import FinanceiroDashboard from '@/components/relatorios/financeiro/FinanceiroDashboard';
 import RelatorioDREContainer from '@/components/relatorios/financeiro/RelatorioDREContainer';
+import RelatorioContratosBase from '@/components/relatorios/RelatorioContratosBase';
 
 export default function RelatorioFinanceiroPage() {
     const supabase = createClient();
@@ -173,7 +174,7 @@ export default function RelatorioFinanceiroPage() {
         <div className="h-full w-full space-y-8 p-2">
 
             {/* ABAS (TABS) DE NAVEGAÇÃO PRINCIPAL */}
-            <div className="flex bg-white rounded-lg shadow-sm border border-gray-100 p-1 mb-2 max-w-md mx-auto print:hidden">
+            <div className="flex flex-col md:flex-row bg-white rounded-lg shadow-sm border border-gray-100 p-1 mb-2 max-w-2xl mx-auto print:hidden">
                 <button
                     className={`flex-1 flex justify-center items-center gap-2 py-2 px-4 rounded-md font-medium text-sm transition-colors ${visaoGeral === 'dashboard' ? 'bg-blue-50 text-blue-700 shadow-sm border border-blue-100' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
                     onClick={() => setVisaoGeral('dashboard')}
@@ -186,6 +187,13 @@ export default function RelatorioFinanceiroPage() {
                     onClick={() => setVisaoGeral('dre')}
                 >
                     Demonstração (DRE)
+                </button>
+                <button
+                    className={`flex-1 flex justify-center items-center gap-2 py-2 px-4 rounded-md font-medium text-sm transition-colors ${visaoGeral === 'contratos' ? 'bg-orange-50 text-orange-700 shadow-sm border border-orange-100' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
+                    onClick={() => setVisaoGeral('contratos')}
+                >
+                    <FontAwesomeIcon icon={faFileContract} />
+                    Contratos de Venda
                 </button>
             </div>
 
@@ -284,9 +292,13 @@ export default function RelatorioFinanceiroPage() {
                         <FinanceiroDashboard />
                     </section>
                 </>
-            ) : (
+            ) : visaoGeral === 'dre' ? (
                 <section>
                     <RelatorioDREContainer />
+                </section>
+            ) : (
+                <section>
+                    <RelatorioContratosBase />
                 </section>
             )}
 
