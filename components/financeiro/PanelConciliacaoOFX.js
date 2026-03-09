@@ -79,7 +79,7 @@ const DeletionToast = ({ toastId, onSingleDelete, onFutureDelete }) => (
 );
 
 
-export default function PanelConciliacaoOFX({ contaId, isCartaoCredito, arquivosOfxIds = [], empresas = [], onClosePanel }) {
+export default function PanelConciliacaoOFX({ contaId, isCartaoCredito, arquivosOfxIds = [], mesSelecionado, onClosePanel }) {
     const supabase = createClient();
     const { user, organizacao_id: organizacaoId } = useAuth();
     const queryClient = useQueryClient();
@@ -108,8 +108,12 @@ export default function PanelConciliacaoOFX({ contaId, isCartaoCredito, arquivos
 
     const getDisplayDate = (lancamento) => {
         if (!lancamento) return 'N/A';
-        if (isCartaoCredito) return lancamento.data_transacao || lancamento.data_vencimento;
-        return lancamento.data_pagamento || lancamento.data_vencimento;
+        // Para cartão: prioridade é quando a compra ocorreu, depois quando vence a fatura
+        if (isCartaoCredito) return lancamento.data_transacao || lancamento.data_vencimento || lancamento.data_pagamento;
+
+        // Para contas normais (regra oficial de negócio):
+        // 1º Data de Pagamento -> 2º Data de Vencimento -> 3º Data de Transação (criação)
+        return lancamento.data_pagamento || lancamento.data_vencimento || lancamento.data_transacao;
     };
 
     // --- Queries ---
@@ -151,13 +155,22 @@ export default function PanelConciliacaoOFX({ contaId, isCartaoCredito, arquivos
                 const dataInicio = minDate.toISOString().split('T')[0];
                 const dataFim = maxDate.toISOString().split('T')[0];
 
+                let visualInicio = dataInicio;
+                let visualFim = dataFim;
+                if (mesSelecionado) {
+                    const d = new Date(mesSelecionado); // ISO string UTC
+                    visualInicio = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+                    const ultimoDia = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+                    visualFim = `${ultimoDia.getFullYear()}-${String(ultimoDia.getMonth() + 1).padStart(2, '0')}-${String(ultimoDia.getDate()).padStart(2, '0')}`;
+                }
+
                 setExtratoPeriodo({ startDate: dataInicio, endDate: dataFim });
-                setConciliationState({ extrato: mappedExtrato, sistema: [], matches: [], dateFilter: { startDate: dataInicio, endDate: dataFim } });
+                setConciliationState({ extrato: mappedExtrato, sistema: [], matches: [], dateFilter: { startDate: visualInicio, endDate: visualFim } });
             }
         } else if (transacoesOfxData && transacoesOfxData.length === 0) {
             setConciliationState({ extrato: [], sistema: [], matches: [], dateFilter: { startDate: '', endDate: '' } });
         }
-    }, [transacoesOfxData]);
+    }, [transacoesOfxData, mesSelecionado]);
 
 
     const undoConciliationMutation = useMutation({
@@ -528,8 +541,8 @@ export default function PanelConciliacaoOFX({ contaId, isCartaoCredito, arquivos
     return (
         <div className="bg-white rounded-xl shadow-lg border border-indigo-200 overflow-hidden relative">
 
-            <LancamentoFormModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSuccess={handleSuccessCreate} initialData={lancamentoParaCriar} empresas={empresas} />
-            <LancamentoFormModal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} onSuccess={handleSuccessEdit} initialData={lancamentoParaEditar} empresas={empresas} />
+            <LancamentoFormModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSuccess={handleSuccessCreate} initialData={lancamentoParaCriar} />
+            <LancamentoFormModal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} onSuccess={handleSuccessEdit} initialData={lancamentoParaEditar} />
 
             <div className="p-4 bg-indigo-50 border-b flex items-center justify-between">
                 <div>

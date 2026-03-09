@@ -467,7 +467,7 @@ export default function ExtratoManager({ contas, empresas }) {
                         // === MODO CONCILIADOR: DUAL PANEL (Novo Componente) ===
                         <PanelConciliacaoOFX
                             contaId={contaSelecionadaId}
-                            empresas={empresas}
+                            mesSelecionado={modoConciliacaoMes}
                             isCartaoCredito={contaSelecionada?.tipo === 'Cartão de Crédito'}
                             arquivosOfxIds={(arquivosOfxMes || [])
                                 .filter(a => {

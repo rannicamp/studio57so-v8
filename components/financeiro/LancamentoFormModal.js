@@ -20,7 +20,7 @@ import FormCategorizacao from './LancamentoForm/FormCategorizacao';
 import FormAnexos from './LancamentoForm/FormAnexos';
 import { UpdateScopeToast } from './LancamentoForm/UpdateScopeToast';
 
-export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initialData, empresas = [] }) {
+export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initialData }) {
     const supabase = createClient();
     const queryClient = useQueryClient();
     const { user, organizacao_id: organizacaoId } = useAuth();
@@ -92,7 +92,10 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
         const { data: tiposDocData, error: tiposDocError } = await supabase.from('documento_tipos').select('*').order('sigla');
         if (tiposDocError) throw new Error(tiposDocError.message);
 
-        return { contas: contasData, categorias: categoriasData, empreendimentos: empreendimentosData, etapas: etapasData, tiposDocumento: tiposDocData };
+        const { data: empresasData, error: empresasError } = await supabase.from('cadastro_empresa').select('id, razao_social, nome_fantasia').in('organizacao_id', [organizacaoId, 1]).order('nome_fantasia');
+        if (empresasError) throw new Error(empresasError.message);
+
+        return { contas: contasData, categorias: categoriasData, empreendimentos: empreendimentosData, etapas: etapasData, tiposDocumento: tiposDocData, empresas: empresasData };
     };
 
     const { data: dropdownData, isLoading: isLoadingDropdowns, error: dropdownError } = useQuery({
@@ -599,7 +602,7 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
                                 className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-semibold text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all shadow-sm placeholder-gray-400"
                             >
                                 <option value="">Selecione a Empresa do Lançamento...</option>
-                                {empresas.map(e => <option key={e.id} value={e.id}>{e.nome_fantasia || e.razao_social}</option>)}
+                                {(dropdownData?.empresas || []).map(e => <option key={e.id} value={e.id}>{e.nome_fantasia || e.razao_social}</option>)}
                             </select>
                             <p className="text-xs text-gray-500 mt-2 font-medium">
                                 A seleção da empresa define quais contas bancárias e empreendimentos estarão disponíveis abaixo.
@@ -637,7 +640,7 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
                             formData={formData}
                             handleChange={handleChange}
                             dropdownData={dropdownData}
-                            empresas={empresas}
+                            empresas={dropdownData?.empresas || []}
                             favorecidoSearchTerm={favorecidoSearchTerm}
                             handleFavorecidoSearch={handleFavorecidoSearch}
                             handleClearFavorecido={handleClearFavorecido}
