@@ -6,7 +6,7 @@ import {
     faTachometerAlt, faBuilding, faProjectDiagram, faUsers, faTasks,
     faClipboardList, faAddressBook, faDollarSign, faShoppingCart,
     faInbox, faBullseye, faFileSignature, faCalculator,
-    faBoxOpen, faFileInvoiceDollar, faTags, faCube
+    faBoxOpen, faFileInvoiceDollar, faTags, faCube, faChartLine
 } from '@fortawesome/free-solid-svg-icons';
 import { faMeta } from '@fortawesome/free-brands-svg-icons';
 // CORREÇÃO: Usando @/ para o contexto
@@ -28,6 +28,7 @@ export default function Sidebar({ isOpen, closeSidebar }) {
                 { href: '/empresas', label: 'Empresas', icon: faBuilding, recurso: 'empresas' },
                 { href: '/empreendimentos', label: 'Empreendimentos', icon: faProjectDiagram, recurso: 'empreendimentos' },
                 { href: '/contratos', label: 'Contratos', icon: faFileSignature, recurso: 'contratos' },
+                { href: '/financeiro/indices', label: 'Índices Financeiros', icon: faChartLine, recurso: 'financeiro' },
             ]
         },
         {

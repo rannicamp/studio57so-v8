@@ -27,35 +27,23 @@ A paleta base foca em:
 
 ## 🏗️ PARTE II: Componentes Estruturais (Layout)
 
-### 1. Cabeçalhos VIPs (Headers Destaque) - USE COM MODERAÇÃO!
-Telas principais de módulos de conteúdo podem usar um Header Card Sólido para guiar a tela, mas **SEM NENHUM DEGRADÊ OU EFEITO DE LUZ (BLUR)**.
-*⚠️ Proibido usar em páginas de "Menu" ou "Dashboard secundário".*
+### 1. 🚨 PROIBIÇÃO ABSOLUTA: Cabeçalhos "Letreiros VIPs" Coloridos Gigantes
+**NUNCA utilize caixas de cabeçalho coloridas enormes** (ex: `bg-blue-700 p-10 rounded-3xl` com título gigante branco). Isso já foi expressamente considerado "brega" e inadequado para o Studio 57. 
+A inspiração máxima do design corporativo do painel logado é a tela de **Contatos** (`app/(main)/contatos/page.js`), que utiliza uma interface muito mais "clean" e profissional.
+
+### 2. Cabeçalho de Módulo Padrão (Obrigatório)
+Todas as telas e módulos do sistema devem, sem exceção, usar o modelo simples e direto de texto escuro sob o fundo padrão da página:
 
 ```jsx
-{/* EXEMPLO CORRETO - SÓLIDO E LIMPO: */}
-<div className="bg-blue-700 p-8 md:p-10 rounded-3xl shadow-md border border-blue-800 relative overflow-hidden">
-    <div className="relative z-10 flex items-center gap-6">
-        <div className="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center">
-           <FontAwesomeIcon icon={faFileSignature} className="text-white text-xl" />
-        </div>
-        <div>
-            <h1 className="text-3xl font-extrabold text-white tracking-tight mb-2">Título do Módulo</h1>
-            <p className="text-blue-100 font-medium">Subtítulo explicativo do que esta página faz</p>
-        </div>
+<div className="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-6 gap-4">
+  <div className="flex flex-col gap-2">
+    <div className="flex items-center gap-3">
+        <h2 className="text-3xl font-bold text-gray-800">Nome do Módulo (Ex: Contatos)</h2>
     </div>
-</div>
-```
-
-### 2. Cabeçalho de Módulo Padrão (Sem Fundo)
-Para a maioria das listagens simples:
-```jsx
-<div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
-  <div>
-    <h1 className="text-2xl font-bold text-gray-800">Nome do Módulo</h1>
-    <p className="text-sm text-gray-500 font-medium mt-0.5">Descrição curta do módulo</p>
+    <p className="text-gray-500 font-medium">Descrição curta ou sutil sobre o módulo e sua função.</p>
   </div>
   <div className="flex flex-wrap gap-2 items-center">
-    {/* Busca + Botões Secundários + Botão Primário */}
+    {/* Controles: Busca, Filtros, Exportar e o Botão Primário sempre à direita extremidade */}
   </div>
 </div>
 ```
