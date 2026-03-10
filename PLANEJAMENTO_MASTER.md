@@ -12,6 +12,7 @@ O **Studio 57** é o ambiente de desenvolvimento e laboratório central. O **Elo
 - [x] Finalizar Sincronia de Bancos de Dados (vhuvnutzklhskkwbpxdz -> alqzomckjnefsmhusnfu).
 - [x] Refinar Página de Cadastro de Organização (UI/UX e Dados Completos).
 - [ ] Validar Fluxo de Cadastro e Login em dispositivos Mobile (PWA).
+- [ ] **Migração do WABA Oficial (Meta):** Transferir os tokens de acesso e IDs de webhook para o novo aplicativo oficial recém-aprovado, garantindo governança limpa de mensagens sem restrições.
 - [x] Checklist Legal: Revisar textos das Políticas Públicas.
 - [x] **RLS Global Aplicado no Banco de Dados (07/03) — 121 tabelas protegidas.**
 - [x] **Padronizar o Sistema de Upload (07/03) — CONCLUÍDO.** `UppyAvatarUploader`, `UppyFileImporter` e todo o sistema reescritos no padrão nativo.
@@ -26,8 +27,8 @@ O **Studio 57** é o ambiente de desenvolvimento e laboratório central. O **Elo
 ### 1. Infraestrutura e Domínios
 - [x] Configuração do domínio oficial `elo57.com.br` no Netlify (Propagando).
 - [ ] Configuração de e-mail transacional (SendGrid/Resend).
-- [ ] Setup do Repositório de Produção (`elo57-lab-saas`) sincronizado.
-- [ ] Rotina de Sincronização de Banco (Schema Sync).
+- [x] Setup do Repositório de Produção (`elo57-lab-saas`) sincronizado. ✅ **(09/03)**
+- [x] Rotina de Sincronização de Banco (Schema Sync). ✅ **Método Oficial sem Docker criado (09/03)**
 
 ### 4. Onboarding de Clientes (CONCLUÍDO)
 - [x] Nova UI para `app/cadastro/page.js` (Estilo Premium e Bifásico).
@@ -68,7 +69,8 @@ O **Studio 57** é o ambiente de desenvolvimento e laboratório central. O **Elo
 
 ### 7. Governança de Aplicativos Meta (ESTRATÉGIA DEFINIDA)
 - [x] **Auditoria de Apps:** Identificadas todas as instâncias para evitar confusão.
-- [x] **Aprovação WABA (08/03):** Permissão da Meta concedida para gerenciar mensagens de clientes. A conversão de App foi planejada e adiada (fora do escopo prioritário).
+- [x] **Aprovação WABA (08/03):** Permissão da Meta concedida para gerenciar mensagens de clientes.
+- [ ] **Migração Definitiva de App WABA:** Atualizar o banco de dados e as variáveis de ambiente com o System User Token do novo App oficial para encerrar apps espelhos legados.
 - [ ] **Estratégia de Separação (OFICIAL):**
     - **App 1 (Marketing/Ads):** Elo 57 - Dev (**1900130190871246**) ✅ **OFICIAL**
     - **App 2 (WhatsApp):** ELO 57 - WATS (**1459952825742829**) ✅ **OFICIAL**
@@ -180,6 +182,30 @@ O **Studio 57** é o ambiente de desenvolvimento e laboratório central. O **Elo
     - Modal de Novo Lançamento turbinado para auto-preencher rapidamente a **Empresa** com base na Conta Bancária importada do OFX.
     - Ajustado o *Z-index* do modal de Lançamentos para evitar sobreposição pela Action Bar de conciliação do Painel OFX.
     - Inserida categoria faltante "Estorno (Receita)" diretamente via script SQL no Supabase.
+
+- *2026-03-09:* **🧹 Organização da Raiz do Projeto:**
+    - Pasta raiz limpa: arquivos de log, JSONs de teste e scripts temporários deletados.
+    - Arquivos úteis organizados nas pastas `docs/`, `scripts/` e `supabase/`.
+
+- *2026-03-09:* **📚 Unificação dos Manuais de Design:**
+    - Conteúdo do `PADRAO_OURO_UI.md` fundido dentro do `DESIGN_SYSTEM.md` como **Manual Supremo de UI/UX** (Versão 2.0).
+    - Arquivo `PADRAO_OURO_UI.md` deletado para eliminar redundância.
+    - Workflow `/iniciar` atualizado para referenciar apenas o `DESIGN_SYSTEM.md`.
+
+- *2026-03-09:* **🧠 Planejamento: Migração do WABA Oficial (Meta):**
+    - Registrada a tarefa de migrar os tokens e IDs do WhatsApp Business API para o novo app oficial recém-aprovado pela Meta.
+
+- *2026-03-09:* **🏦 Novo Método de Sincronização de Banco (Sem Docker):**
+    - Identificado que o `supabase db dump` exige Docker (indisponível na máquina).
+    - Criado `supabase/migrar-studio-elo.js`: script nativo Node.js que sincroniza **Funções/RPCs + RLS + Colunas/Tabelas** diretamente via conexão Postgres, sem necessidade de Docker.
+    - Migração completa executada com sucesso: 122 tabelas confirmadas no Elo 57 com todas as políticas RLS aplicadas.
+    - Arquivo de migração salvo em `supabase/migrations/20260309_full_sync.sql`.
+    - Workflow `/espelhardb` **completamente reescrito** para adotar o novo método oficial.
+
+- *2026-03-09:* **🚀 Repositório de Produção Sincronizado:**
+    - Código do projeto enviado para `https://github.com/rannicamp/elo57-lab-saas.git`.
+    - Pasta `app/(landingpages)` excluída do push via `git rm --cached` + `.gitignore` (exclusiva do Studio 57).
+    - Ambos os remotos (`origin` e `lab-saas`) estão sincronizados com o commit mais recente.
 
 ---
 *Assinado: Devonildo (Seu Mentor Técnico)*
