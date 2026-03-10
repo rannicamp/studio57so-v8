@@ -1,6 +1,6 @@
 -- ================================================
 -- SYNC SCRIPT: LAB → PROD
--- Gerado em: 01/03/2026, 15:34:09
+-- Gerado em: 09/03/2026, 20:55:04
 -- ⚠️  REVISE ANTES DE EXECUTAR NO PROD!
 -- ================================================
 
@@ -8,7 +8,19 @@
 📦 Comparando schema: public
 
 -- 
-🔍 Comparando colunas de 119 tabelas em comum...
+⚠️  Tabelas no PROD que NÃO EXISTEM no LAB (1) — NÃO SERÃO DROPADAS automaticamente:
+
+-- ⚠️  AS TABELAS ABAIXO EXISTEM NO PROD MAS NÃO NO LAB
+-- DESCOMENTE COM CUIDADO APENAS SE TIVER CERTEZA:
+-- DROP TABLE IF EXISTS public.regras_roteamento_funil;
+-- 
+🔍 Comparando colunas de 122 tabelas em comum...
+
+-- ALTERAÇÕES NA TABELA: cadastro_empresa
+-- ⚠️  COLUNA ALTERADA: cnpj
+-- LAB:  text|null|NO|null|text
+-- PROD: text|null|YES|null|text
+ALTER TABLE public.cadastro_empresa ALTER COLUMN cnpj TYPE text USING cnpj::text;
 
 -- ALTERAÇÕES NA TABELA: campos_sistema
 -- ⚠️  COLUNA ALTERADA: organizacao_id
@@ -70,5 +82,5 @@ ALTER TABLE public.variaveis_virtuais ALTER COLUMN organizacao_id TYPE bigint US
 ⚡ Comparando funções/RPCs...
 
 -- ================================================
--- FIM DO SCRIPT | Total de diferenças: 10
+-- FIM DO SCRIPT | Total de diferenças: 11
 -- ================================================
