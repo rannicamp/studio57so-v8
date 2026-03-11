@@ -16,7 +16,7 @@ export async function POST(request) {
     if (!user) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
 
     // 1. Recebe os dados. Agora 'attachments' é um array de { filename, path }
-    // O 'path' é a URL pública do Supabase, o que deixa o JSON super leve!
+    // O 'path' normalmente vem como "temp/user-id/arquivo.pdf" do bucket
     const { to, cc, bcc, subject, html, replyToMessageId, attachments, accountId } = await request.json();
 
     if (!to || !subject || !html) {
@@ -44,13 +44,33 @@ export async function POST(request) {
       tls: { rejectUnauthorized: false }
     });
 
+    // 2.5 BUSCA URLs PÚBLICAS REAIS DOS ANEXOS NO BUCKET DO SUPABASE
+    const processedAttachments = [];
+    if (attachments && attachments.length > 0) {
+        for (const attachment of attachments) {
+             // Se o anexo já for uma URL completa via HTTPs, deixa passar. 
+             // Se for um path interno (ex: "temp/meuId/arquivo.pdf"), gera a URL pública:
+             let finalPath = attachment.path;
+             if (finalPath && !finalPath.startsWith('http')) {
+                  const { data: publicUrlData } = supabase.storage.from('emailanexo').getPublicUrl(finalPath);
+                  if (publicUrlData && publicUrlData.publicUrl) {
+                      finalPath = publicUrlData.publicUrl;
+                  }
+             }
+             processedAttachments.push({
+                 filename: attachment.filename,
+                 path: finalPath
+             });
+        }
+    }
+
     // 3. PREPARA O E-MAIL
-    // O Nodemailer é inteligente: se passamos 'path' com URL, ele baixa e anexa sozinho!
+    // O Nodemailer é inteligente: se passamos 'path' com a URL cheia, ele baixa e anexa sozinho!
     const mailOptions = {
       from: `"${config.nome_remetente || user.email}" <${config.email}>`,
       to, cc, bcc, subject, html,
       ...(replyToMessageId && { inReplyTo: replyToMessageId, references: [replyToMessageId] }),
-      attachments: attachments || [] 
+      attachments: processedAttachments 
     };
 
     // 4. ENVIA

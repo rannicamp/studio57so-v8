@@ -15,7 +15,8 @@ import {
     faFileAlt,
     faExclamationCircle,
     faPlus,
-    faPaperPlane
+    faPaperPlane,
+    faPaperclip
 } from '@fortawesome/free-solid-svg-icons';
 
 export default function UppyListUploader({
@@ -24,6 +25,7 @@ export default function UppyListUploader({
     maxNumberOfFiles = null,
     onUploadSuccess = () => { },
     onUploadComplete = () => { },
+    onFilesChange = () => { },
     tiposDocumento = [],
     hideClassificacao = false,
 }) {
@@ -44,6 +46,11 @@ export default function UppyListUploader({
             }
         }
     }, []);
+
+    // Notifica o pai sempre que a lista de arquivos mudar
+    useEffect(() => {
+        onFilesChange(fileList);
+    }, [fileList]);
 
     const handleFilesAdded = (e) => {
         const selectedFiles = Array.from(e.target.files);
@@ -147,6 +154,7 @@ export default function UppyListUploader({
             });
 
             uppyRef.current.on('upload-progress', (file, progress) => {
+                if (!file?.meta) return;
                 setFileList(prev => prev.map(f =>
                     f.id === file.meta.customId
                         ? { ...f, progress: (progress.bytesUploaded / progress.bytesTotal) * 100, status: 'uploading' }
@@ -155,6 +163,7 @@ export default function UppyListUploader({
             });
 
             uppyRef.current.on('upload-success', (file, response) => {
+                if (!file?.meta) return;
                 const uploadedPath = file.meta.supabasePath;
 
                 // Marca sucesso visual
@@ -170,7 +179,7 @@ export default function UppyListUploader({
                     customId: file.meta.customId,
                     fileName: file.name,
                     fileType: file.type,
-                    fileSize: file.size,
+                    fileSize: file.size || file.data?.size || 0,
                     path: uploadedPath,
                     bucket: bucketName,
                     tipoDocumento: file.meta.tipoDocumento,
@@ -179,6 +188,7 @@ export default function UppyListUploader({
             });
 
             uppyRef.current.on('upload-error', (file, uploadError) => {
+                if (!file?.meta) return;
                 setFileList(prev => prev.map(f =>
                     f.id === file.meta.customId
                         ? { ...f, status: 'error' }
@@ -229,7 +239,7 @@ export default function UppyListUploader({
                     <FontAwesomeIcon icon={faUpload} className="text-xl text-blue-500" />
                     <div>
                         <p className="font-semibold">Buscador de Arquivos</p>
-                        <p className="text-xs text-gray-500">Adicione os PDFs ou Imagens para enviar.</p>
+                        <p className="text-xs text-gray-500">Adicione os PDFs ou Imagens para anexar à mensagem.</p>
                     </div>
                 </div>
                 <div>
@@ -240,7 +250,7 @@ export default function UppyListUploader({
                         onChange={handleFilesAdded}
                         className="hidden"
                     />
-                    <button
+                    <button type="button"
                         onClick={() => fileInputRef.current?.click()}
                         disabled={isUploading}
                         className="bg-white border shadow-sm border-gray-300 text-gray-700 hover:bg-gray-100 font-semibold py-2 px-4 rounded-md transition-colors disabled:opacity-50"
@@ -317,7 +327,7 @@ export default function UppyListUploader({
 
                                     <td className="px-4 py-3 relative z-10 text-center">
                                         {file.status === 'idle' && (
-                                            <button
+                                            <button type="button"
                                                 onClick={() => handleRemoveFile(file.id)}
                                                 className="text-gray-400 hover:text-red-600 transition-colors p-2"
                                                 title="Remover"
@@ -352,15 +362,15 @@ export default function UppyListUploader({
                     )}
                 </div>
 
-                <button
+                <button type="button"
                     onClick={handleStartUpload}
                     disabled={isUploading || pendingCount === 0}
                     className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg shadow-lg flex items-center justify-center gap-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed min-w-[200px]"
                 >
                     {isUploading ? (
-                        <><FontAwesomeIcon icon={faSpinner} spin /> Processando...</>
+                        <><FontAwesomeIcon icon={faSpinner} spin /> Carregando para nuvem...</>
                     ) : (
-                        <><FontAwesomeIcon icon={faPaperPlane} /> Enviar {pendingCount > 0 ? pendingCount : ''} Arquivo(s)</>
+                        <><FontAwesomeIcon icon={faPaperclip} /> Anexar {pendingCount > 0 ? pendingCount : ''} Arquivo(s)</>
                     )}
                 </button>
             </div>

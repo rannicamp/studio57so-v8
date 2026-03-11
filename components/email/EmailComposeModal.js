@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faTimes, faPaperPlane, faSpinner, faTrashAlt, faFile, faUser, faBuilding, faChevronDown, faCheck } from '@fortawesome/free-solid-svg-icons';
+import { faTimes, faPaperPlane, faSpinner, faTrashAlt, faFile, faUser, faBuilding, faChevronDown, faCheck, faPaperclip, faExclamationTriangle } from '@fortawesome/free-solid-svg-icons';
 import EmailEditor from './EmailEditor';
 import UppyListUploader from '../ui/UppyListUploader';
 import { toast } from 'sonner';
@@ -29,6 +29,8 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null,
 
     const [loading, setLoading] = useState(false);
     const [mounted, setMounted] = useState(false);
+    const [showAttachmentModal, setShowAttachmentModal] = useState(false);
+    const [pendingAttachments, setPendingAttachments] = useState([]);
 
     // Rascunho persistente
     const [formData, setFormData] = usePersistentState('studio57_email_draft_temp', {
@@ -171,13 +173,26 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null,
     const handleDiscard = () => {
         if (confirm('Tem certeza?')) {
             setFormData({ to: '', cc: '', bcc: '', subject: '', body: '', replyToMessageId: null, attachments: [], accountId: formData.accountId });
+            setPendingAttachments([]);
             onClose();
         }
     };
 
+    // O tamanho total agora é a soma dos que já subiram (attachments) + os que estão na fila do Uppy (pendingAttachments)
+    const uploadedSize = formData.attachments.reduce((acc, curr) => acc + (curr.size || 0), 0);
+    // Ignoramos pendentes que deram sucesso pra não somar dobrado, pois eles já foram pras attachments reais
+    const pendingSize = pendingAttachments.filter(f => f.status !== 'success').reduce((acc, curr) => acc + (curr.size || 0), 0);
+    
+    const totalAttachmentSize = uploadedSize + pendingSize;
+    const MAX_ATTACHMENT_SIZE = 25 * 1024 * 1024; // 25 MB
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (!formData.accountId) { toast.error("Selecione uma conta."); return; }
+        if (totalAttachmentSize > MAX_ATTACHMENT_SIZE) {
+            toast.error("O tamanho total dos anexos ultrapassa o limite de 25MB.");
+            return;
+        }
         setLoading(true);
         try {
             const finalTo = formData.to.trim().replace(/,$/, '');
@@ -205,12 +220,12 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null,
                     <h2 className="font-bold text-gray-800 text-lg">
                         {initialData?.type === 'reply' ? 'Responder' : initialData?.type === 'forward' ? 'Encaminhar' : 'Nova Mensagem'}
                     </h2>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+                    <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600">
                         <FontAwesomeIcon icon={faTimes} className="text-xl" />
                     </button>
                 </div>
 
-                <form onSubmit={handleSubmit} className="flex flex-col flex-grow overflow-hidden">
+                <form onSubmit={handleSubmit} onKeyDown={(e) => { if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA' && !e.target.closest('.ProseMirror')) e.preventDefault(); }} className="flex flex-col flex-grow overflow-hidden">
                     <div className="p-6 flex flex-col h-full gap-4 overflow-y-auto custom-scrollbar">
                         <div className="grid gap-4 relative">
                             {/* Inputs De/Para/Assunto (Simplificados para leitura, código igual) */}
@@ -255,14 +270,19 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null,
                         </div>
 
                         {/* ÁREA DE ANEXOS */}
-                        <div className="space-y-3">
-                            <div className="border border-dashed border-gray-300 rounded-lg bg-gray-50 overflow-hidden">
-                                <UppyListUploader
-                                    bucketName="emailanexo"
-                                    folderPath={`temp/${user?.id}`}
-                                    hideClassificacao={true}
-                                    onUploadSuccess={handleUploadSuccess}
-                                />
+                        <div className="space-y-3 shrink-0">
+                            <div className="flex items-center justify-between">
+                                <button type="button" onClick={() => setShowAttachmentModal(true)} className="flex items-center gap-2 text-sm text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 px-3 py-1.5 rounded-md font-medium shadow-sm transition-colors">
+                                    <FontAwesomeIcon icon={faPaperclip} className="text-gray-500" />
+                                    Anexar Arquivos
+                                </button>
+                                
+                                {formData.attachments.length > 0 && (
+                                    <div className={`text-xs font-medium flex items-center gap-1.5 px-2.5 py-1 rounded bg-gray-100 ${totalAttachmentSize > MAX_ATTACHMENT_SIZE ? 'text-red-600 bg-red-50' : 'text-gray-600'}`}>
+                                       {totalAttachmentSize > MAX_ATTACHMENT_SIZE && <FontAwesomeIcon icon={faExclamationTriangle} />}
+                                       <span>{formatBytes(totalAttachmentSize)} / 25 MB</span>
+                                    </div>
+                                )}
                             </div>
 
                             {/* LISTA VISUAL NO PAI */}
@@ -301,6 +321,44 @@ export default function EmailComposeModal({ isOpen, onClose, initialData = null,
                     </div>
                 </form>
             </div>
+
+            {/* Modal de Anexos */}
+            {showAttachmentModal && (
+                <div className="fixed inset-0 bg-black/50 z-[999999] flex items-center justify-center p-4 backdrop-blur-sm" onClick={(e) => { if(e.target === e.currentTarget) setShowAttachmentModal(false); }}>
+                    <div className="bg-white w-full max-w-2xl rounded-xl shadow-2xl flex flex-col h-[70vh] md:h-auto md:max-h-[85vh] animate-fade-in-up" onClick={e => e.stopPropagation()}>
+                        <div className="flex justify-between items-center px-5 py-4 border-b bg-gray-50 rounded-t-xl shrink-0">
+                            <div className="flex items-center gap-2 text-gray-800">
+                                <FontAwesomeIcon icon={faPaperclip} className="text-lg text-blue-500" />
+                                <h3 className="font-bold">Anexar Arquivos ({formData.attachments.length})</h3>
+                            </div>
+                            <button type="button" onClick={() => setShowAttachmentModal(false)} className="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-200 transition-colors">
+                                <FontAwesomeIcon icon={faTimes} className="text-lg w-5 h-5 flex items-center justify-center" />
+                            </button>
+                        </div>
+                        
+                        <div className="p-5 overflow-y-auto flex-grow custom-scrollbar">
+                             <div className="border border-dashed border-gray-300 rounded-xl bg-gray-50/50 p-2 h-full min-h-[400px]">
+                                <UppyListUploader
+                                    bucketName="emailanexo"
+                                    folderPath={`temp/${user?.id}`}
+                                    hideClassificacao={true}
+                                    onUploadSuccess={handleUploadSuccess}
+                                    onUploadComplete={() => { setShowAttachmentModal(false); setPendingAttachments([]); }}
+                                    onFilesChange={(files) => setPendingAttachments(files)}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="px-5 py-3 border-t bg-white rounded-b-xl flex justify-between items-center shrink-0">
+                            <div className={`text-sm font-medium ${totalAttachmentSize > MAX_ATTACHMENT_SIZE ? 'text-red-500' : 'text-gray-500'}`}>
+                                Total: {formatBytes(totalAttachmentSize)} <span className="text-xs font-normal text-gray-400">(Máx 25 MB)</span>
+                                {totalAttachmentSize > MAX_ATTACHMENT_SIZE && <span className="block text-xs mt-0.5 text-red-500"><FontAwesomeIcon icon={faExclamationTriangle} /> Limite excedido</span>}
+                            </div>
+                            <span className="text-xs text-gray-400 font-medium">A janela fechará sozinha após o envio</span>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>,
         document.body
     );
