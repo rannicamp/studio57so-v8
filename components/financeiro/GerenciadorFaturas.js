@@ -2,18 +2,23 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '../../utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
     faCreditCard, faCalendarAlt, faCheckCircle, faLock,
-    faLockOpen, faExclamationTriangle, faMoneyBillWave, faSpinner
+    faLockOpen, faExclamationTriangle, faMoneyBillWave, faSpinner,
+    faCloudUploadAlt, faMagic
 } from '@fortawesome/free-solid-svg-icons';
 import { format, isAfter, isBefore, parseISO, startOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import PagamentoFaturaModal from './PagamentoFaturaModal';
 import LancamentoDetalhesSidebar from './LancamentoDetalhesSidebar';
 import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
+import UppyFileImporter from '@/components/ui/UppyFileImporter';
+import PanelConciliacaoCartao from './PanelConciliacaoCartao';
+import { faFileAlt, faChevronDown, faChevronRight, faTrash } from '@fortawesome/free-solid-svg-icons';
 
 export default function GerenciadorFaturas({ contasCartao, onNewDespesaCartao }) {
     const supabase = createClient();
@@ -25,6 +30,55 @@ export default function GerenciadorFaturas({ contasCartao, onNewDespesaCartao })
     const [isPagamentoModalOpen, setIsPagamentoModalOpen] = useState(false);
     const [faturaAbertaDataVencimento, setFaturaAbertaDataVencimento] = useState('');
     const [lancamentoSelecionado, setLancamentoSelecionado] = useState(null);
+
+    // Estados para PDF da IA
+    const [isUppyOpen, setIsUppyOpen] = useState(false);
+    const [isExtractingPDF, setIsExtractingPDF] = useState(false);
+    const [ofxPainelAberto, setOfxPainelAberto] = useState(false); // String com a data_vencimento ou null
+    const [modoConciliacaoMes, setModoConciliacaoMes] = useState(null); // Ativa o modal de conciliação para uma fatura
+
+    // Query: Busca TODOS os Arquivos OFX/PDF da conta para sabermos se tem arquivo importado na fatura
+    const { data: arquivosOfxMes } = useQuery({
+        queryKey: ['ofx_arquivos_cartao', contaSelecionadaId, orgId],
+        queryFn: async () => {
+            const { data, error } = await supabase
+                .from('banco_arquivos_ofx')
+                .select('*')
+                .eq('conta_id', Number(contaSelecionadaId))
+                .eq('organizacao_id', orgId)
+                .order('periodo_inicio', { ascending: false });
+
+            if (error) throw error;
+            return data || [];
+        },
+        enabled: !!contaSelecionadaId && !!orgId
+    });
+
+    // Mutation: Excluir arquivo de OFX/Fatura Extraída e suas transações filhas orfãs
+    const exclusaoOfxMutation = useMutation({
+        mutationFn: async (arquivoId) => {
+            const { error } = await supabase
+                .from('banco_arquivos_ofx')
+                .delete()
+                .eq('id', arquivoId)
+                .eq('organizacao_id', orgId);
+            if (error) throw error;
+        },
+        onSuccess: () => {
+            toast.success('Arquivo OFX / Fatura extraída excluída!');
+            queryClient.invalidateQueries({ queryKey: ['ofx_arquivos_cartao'] });
+        },
+        onError: (err) => {
+            toast.error(`Erro ao excluir arquivo: ${err.message}`);
+        }
+    });
+
+    const handleDeleteOfx = (e, arq) => {
+        e.stopPropagation();
+        if (window.confirm(`Deseja realmente excluir o arquivo "${arq.nome_arquivo}"? Todas as suas transações serão apagadas da base.`)) {
+            exclusaoOfxMutation.mutate(arq.id);
+        }
+    };
 
     // 1. Busca faturas diretamente da tabela faturas_cartao (lógica de agrupamento no banco)
     //    A trigger fn_vincular_lancamento_fatura garante 1 fatura por mês automaticamente.
@@ -147,6 +201,130 @@ export default function GerenciadorFaturas({ contasCartao, onNewDespesaCartao })
     const statusAtiva = faturaAtiva ? getStatusFatura(faturaAtiva) : null;
     const saldoDevedorAtiva = faturaAtiva ? (faturaAtiva.total_despesas - faturaAtiva.total_pago) : 0;
 
+    const handlePdfUpload = async (file) => {
+        setIsUppyOpen(false);
+        if (!file) return;
+
+        setIsExtractingPDF(true);
+        const toastId = toast.loading('Lendo Fatura com Inteligência Artificial...');
+
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+
+            const res = await fetch('/api/cartoes/extrair-fatura', {
+                method: 'POST',
+                body: formData
+            });
+
+            const result = await res.json();
+            if (!res.ok) throw new Error(result.error || 'Falha ao extrair dados do PDF.');
+
+            let accountsInjected = 0;
+            toast.loading('Injetando transações geradas via IA no banco seguro...', { id: toastId });
+
+            if (result.extratos && result.extratos.length > 0) {
+                for (const extrato of result.extratos) {
+                    const finalDigits = extrato.cartao_final ? String(extrato.cartao_final).trim() : '';
+                    let matchedContaId = contaSelecionadaId;
+
+                    if (finalDigits.length >= 4) {
+                        const found = contasCartao.find(c => c.numero_conta && String(c.numero_conta).endsWith(finalDigits));
+                        if (found) matchedContaId = found.id;
+                    }
+
+                    if (!matchedContaId || !extrato.lancamentos || extrato.lancamentos.length === 0) continue;
+
+                    // 1. Título do arquivo de rascunho.
+                    const nomeArq = `Fatura_Virtual_Cartao_${finalDigits || 'Desconhecido'}_Venc_${faturaAtiva.data_vencimento}.pdf`;
+
+                    // Remove rascunho anterior pra evitar sujar se a pessoa enviar a mesma fatura de novo
+                    await supabase.from('banco_arquivos_ofx').delete()
+                        .eq('conta_id', matchedContaId).eq('nome_arquivo', nomeArq).eq('organizacao_id', orgId);
+
+                    const { data: arqHeader, error: arqError } = await supabase.from('banco_arquivos_ofx').insert({
+                        organizacao_id: orgId, conta_id: matchedContaId,
+                        nome_arquivo: nomeArq, status: 'Processado IA',
+                        periodo_inicio: faturaAtiva.data_vencimento, periodo_fim: faturaAtiva.data_vencimento
+                    }).select('*').single();
+
+                    if (arqError) { console.error('Erro OFX Header:', arqError); continue; }
+
+                    // 2. Transações com FITID customizado e forte
+                    const payloadTransacoes = extrato.lancamentos.map((l, index) => {
+                        const safeDateTrans = l.data_transacao || faturaAtiva.data_vencimento;
+                        const dateTransStr = safeDateTrans.replace(/-/g, '');
+                        const dateVencStr = faturaAtiva.data_vencimento.replace(/-/g, '');
+                        const tipoLetra = l.tipo === 'Despesa' ? 'D' : 'R';
+                        
+                        // FITID Robusto: Conta - Vcto - Compra - Valor - Tipo - IndexSegurancaDaLinha
+                        const fitidFormatado = `CC-${finalDigits || '0000'}-${dateVencStr}-${dateTransStr}-${l.valor}-${tipoLetra}-${index}`;
+
+                        return {
+                            fitid: fitidFormatado,
+                            arquivo_id: arqHeader.id, organizacao_id: orgId, conta_id: matchedContaId,
+                            data_transacao: safeDateTrans,
+                            valor: l.tipo === 'Despesa' ? -Math.abs(l.valor) : Math.abs(l.valor), // Despesas OFX são negativas
+                            tipo: l.tipo,
+                            descricao_banco: l.descricao || 'Compra Cartão',
+                            memo_banco: `Fatura Proc. IA: ${extrato.titular || 'Titular'}`
+                        };
+                    });
+
+                    if (payloadTransacoes.length > 0) {
+                        const { error: trError } = await supabase.from('banco_transacoes_ofx').upsert(payloadTransacoes, { onConflict: 'fitid' });
+                        if (!trError) accountsInjected++;
+                    }
+                }
+            }
+
+            toast.success(`Leitura concluída! ${accountsInjected} sub-cartão(ões) injetado(s) com sucesso.`, { id: toastId });
+            queryClient.invalidateQueries({ queryKey: ['ofx_arquivos_cartao'] });
+            
+            // Pergunta amigável se quer abrir a conciliação logo ou deixa lá no painel.
+            toast('Deseja conciliar a fatura agora?', {
+                id: toastId, // Substituir o toast de loading para este
+                action: {
+                    label: 'Sim, Conciliar',
+                    onClick: () => setModoConciliacaoMes(faturaAtiva.data_vencimento)
+                },
+                cancel: {
+                    label: 'Depois'
+                },
+                duration: 10000
+            });
+            
+        } catch (error) {
+            console.error('Erro de extração:', error);
+            toast.error(error.message || 'Ocorreu um erro ao chamar a IA do Gemini.', { id: toastId });
+        } finally {
+            setIsExtractingPDF(false);
+        }
+    };
+
+    if (modoConciliacaoMes) {
+        return (
+            <div className="space-y-4 animate-fadeIn">
+                <div className="flex justify-between items-center bg-indigo-50 border border-indigo-100 p-4 rounded-xl shadow-sm mb-4">
+                    <div>
+                        <h2 className="text-xl font-black text-indigo-900 flex items-center gap-2">
+                            <FontAwesomeIcon icon={faMagic} className="text-indigo-500" /> Conciliação Inteligente de Fatura IA
+                        </h2>
+                        <p className="text-sm text-indigo-600 font-semibold mt-1">Conecte as despesas identificadas pela Inteligência Artificial com os lançamentos efetuados no sistema.</p>
+                    </div>
+                    <button 
+                        onClick={() => setModoConciliacaoMes(null)}
+                        className="px-6 py-2.5 bg-white border border-gray-300 shadow hover:bg-gray-50 text-gray-800 font-bold rounded-xl transition"
+                    >
+                        Concluir e Voltar
+                    </button>
+                </div>
+                {/* Aqui entregamos a lista de cartões e o cartão que estava ativamente selecionado */}
+                <PanelConciliacaoCartao contas={contasCartao} initialContaId={contaSelecionadaId} faturaVencimento={modoConciliacaoMes} />
+            </div>
+        );
+    }
+
     return (
         <div className="space-y-6 animate-fadeIn">
             {/* Seletor de Conta e Nova Compra (Mantido igual) */}
@@ -213,55 +391,104 @@ export default function GerenciadorFaturas({ contasCartao, onNewDespesaCartao })
                                     const isAtual = f.id === faturaAtualId;
                                     const dv = parseISO(f.data_vencimento);
 
+                                    const ofxDestaFatura = (arquivosOfxMes || []).filter(a => a.periodo_inicio === f.data_vencimento);
+                                    const ofxAberto = ofxPainelAberto === f.data_vencimento;
+
                                     return (
-                                        <button
-                                            key={idx}
-                                            onClick={() => setFaturaAbertaDataVencimento(f.data_vencimento)}
-                                            className={`text-left border-b last:border-0 transition-all flex justify-between items-center
-                                                ${isAtual ? 'p-5 border-l-4 border-l-blue-500' : 'p-4 border-l-4 border-l-transparent'}
-                                                ${isSelected
-                                                    ? 'bg-orange-50 border-orange-200 border-l-4 border-l-orange-500'
-                                                    : isAtual
-                                                        ? 'bg-blue-50/60 hover:bg-blue-50'
-                                                        : 'hover:bg-gray-50 bg-white'
-                                                }
-                                            `}
-                                        >
-                                            <div>
-                                                <div className="flex items-center gap-2 flex-wrap">
-                                                    <div className={`font-bold ${isSelected ? 'text-orange-900' : isAtual ? 'text-blue-900' : 'text-gray-700'}`}>
-                                                        {format(dv, 'MMMM / yyyy', { locale: ptBR })}
+                                        <div key={idx} className="border-b last:border-0 transition-all">
+                                            <div className={`flex justify-between items-center ${isAtual ? 'p-5 border-l-4 border-l-blue-500' : 'p-4 border-l-4 border-l-transparent'}
+                                                ${isSelected ? 'bg-orange-50 border-orange-200 border-l-4 border-l-orange-500' : isAtual ? 'bg-blue-50/60 hover:bg-blue-50' : 'hover:bg-gray-50 bg-white'}`}
+                                            >
+                                                <button
+                                                    onClick={() => { setFaturaAbertaDataVencimento(f.data_vencimento); setModoConciliacaoMes(null); }}
+                                                    className="flex-1 text-left"
+                                                >
+                                                    <div className="flex items-center gap-2 flex-wrap">
+                                                        <div className={`font-bold ${isSelected ? 'text-orange-900' : isAtual ? 'text-blue-900' : 'text-gray-700'}`}>
+                                                            {format(dv, 'MMMM / yyyy', { locale: ptBR })}
+                                                        </div>
+                                                        {isAtual && !isSelected && (
+                                                            <span className="text-[9px] bg-blue-600 text-white px-1.5 py-0.5 rounded-full font-black uppercase tracking-wider">
+                                                                Atual
+                                                            </span>
+                                                        )}
+                                                        {isAtual && isSelected && (
+                                                            <span className="text-[9px] bg-orange-500 text-white px-1.5 py-0.5 rounded-full font-black uppercase tracking-wider">
+                                                                Atual
+                                                            </span>
+                                                        )}
                                                     </div>
-                                                    {isAtual && !isSelected && (
-                                                        <span className="text-[9px] bg-blue-600 text-white px-1.5 py-0.5 rounded-full font-black uppercase tracking-wider">
-                                                            Atual
-                                                        </span>
-                                                    )}
-                                                    {isAtual && isSelected && (
-                                                        <span className="text-[9px] bg-orange-500 text-white px-1.5 py-0.5 rounded-full font-black uppercase tracking-wider">
-                                                            Atual
-                                                        </span>
-                                                    )}
-                                                </div>
-                                                <div className={`text-xs mt-1 ${isAtual ? 'text-blue-500 font-medium' : 'text-gray-500'}`}>
-                                                    Fecha {f.data_fechamento ? format(parseISO(f.data_fechamento), 'dd/MM') : '--'} | Vence {format(dv, 'dd/MM')}
-                                                </div>
-                                                {/* Total de despesas sempre visível para conferência */}
-                                                <div className="text-xs font-semibold mt-1 text-red-500">
-                                                    {formatMoney(f.total_despesas)}
-                                                    {f.total_pago > 0 && (
-                                                        <span className="ml-1 text-green-500 font-normal">
-                                                            − {formatMoney(f.total_pago)}
-                                                        </span>
+                                                    <div className={`text-xs mt-1 ${isAtual ? 'text-blue-500 font-medium' : 'text-gray-500'}`}>
+                                                        Fecha {f.data_fechamento ? format(parseISO(f.data_fechamento), 'dd/MM') : '--'} | Vence {format(dv, 'dd/MM')}
+                                                    </div>
+                                                    {/* Total de despesas sempre visível para conferência */}
+                                                    <div className="text-xs font-semibold mt-1 text-red-500">
+                                                        {formatMoney(f.total_despesas)}
+                                                        {f.total_pago > 0 && (
+                                                            <span className="ml-1 text-green-500 font-normal">
+                                                                − {formatMoney(f.total_pago)}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </button>
+
+                                                <div className="flex flex-col items-end gap-2">
+                                                    <div className={`text-[10px] px-2 py-1 rounded-full font-bold uppercase tracking-wide shrink-0
+                                                        ${isSelected ? s.color : isAtual ? s.color : 'bg-gray-100 text-gray-500'}
+                                                    `}>
+                                                        {s.label}
+                                                    </div>
+                                                    {ofxDestaFatura.length > 0 && (
+                                                        <div className="flex items-center gap-2">
+                                                            <button
+                                                                onClick={(e) => { e.stopPropagation(); setModoConciliacaoMes(f.data_vencimento); }}
+                                                                className={`px-3 py-1 text-xs font-bold rounded border shadow-sm transition-all
+                                                                    ${isSelected ? 'bg-indigo-600 text-white border-indigo-700 hover:bg-indigo-500' : 'bg-white text-indigo-600 border-indigo-200 hover:bg-indigo-50'}`}
+                                                            >
+                                                                Conciliar
+                                                            </button>
+                                                            <button
+                                                                onClick={(e) => { e.stopPropagation(); setOfxPainelAberto(ofxAberto ? null : f.data_vencimento); }}
+                                                                className={`p-1.5 rounded transition-colors flex items-center gap-1 text-[10px] font-bold 
+                                                                    ${ofxAberto ? 'bg-indigo-100 text-indigo-700' : 'text-gray-400 hover:bg-gray-100'}`}
+                                                                title="Expandir PDFs Importados"
+                                                            >
+                                                                <FontAwesomeIcon icon={faFileAlt} />
+                                                                <span>{ofxDestaFatura.length}</span>
+                                                                <FontAwesomeIcon icon={ofxAberto ? faChevronDown : faChevronRight} />
+                                                            </button>
+                                                        </div>
                                                     )}
                                                 </div>
                                             </div>
-                                            <div className={`text-[10px] px-2 py-1 rounded-full font-bold uppercase tracking-wide shrink-0
-                                                ${isSelected ? s.color : isAtual ? s.color : 'bg-gray-100 text-gray-500'}
-                                            `}>
-                                                {s.label}
-                                            </div>
-                                        </button>
+
+                                            {/* Sub-lista de arquivos importados da IA */}
+                                            {ofxAberto && ofxDestaFatura.length > 0 && (
+                                                <div className="bg-indigo-50/60 border-t border-indigo-100 px-3 py-2 flex flex-col gap-1.5">
+                                                    {ofxDestaFatura.map(arq => (
+                                                        <div
+                                                            key={arq.id}
+                                                            className={`w-full group rounded-lg border transition-all flex items-stretch overflow-hidden bg-white/70 border-indigo-100 hover:border-indigo-300`}
+                                                        >
+                                                            <div className="flex-1 text-left px-3 py-2 text-xs flex items-center gap-2 min-w-0">
+                                                                <FontAwesomeIcon icon={faFileAlt} className={`flex-shrink-0 text-xs text-indigo-400`} />
+                                                                <div className="min-w-0 flex-1">
+                                                                    <p className="font-bold text-gray-800 truncate text-[11px]" title={arq.nome_arquivo}>{arq.nome_arquivo}</p>
+                                                                    <p className="text-[9px] text-gray-400">Inserido em {format(parseISO(arq.created_at), 'dd/MM/yy HH:mm')}</p>
+                                                                </div>
+                                                            </div>
+                                                            <button
+                                                                onClick={(e) => handleDeleteOfx(e, arq)}
+                                                                className="px-3 flex-shrink-0 flex items-center justify-center text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors border-l border-transparent group-hover:border-indigo-100"
+                                                                title="Apagar dados extraídos desta fatura"
+                                                            >
+                                                                <FontAwesomeIcon icon={faTrash} />
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
                                     );
                                 });
                             })()}
@@ -295,14 +522,24 @@ export default function GerenciadorFaturas({ contasCartao, onNewDespesaCartao })
                                             </p>
                                         </div>
 
-                                        {saldoDevedorAtiva > 1 && (
+                                        <div className="flex gap-2">
+                                            {saldoDevedorAtiva > 1 && (
+                                                <button
+                                                    onClick={() => handlePagarClick(faturaAtiva)}
+                                                    className="bg-gray-900 text-white hover:bg-black font-bold py-3 px-6 rounded-lg shadow-md flex items-center transition shrink-0"
+                                                >
+                                                    Pagar Fatura
+                                                </button>
+                                            )}
                                             <button
-                                                onClick={() => handlePagarClick(faturaAtiva)}
-                                                className="bg-gray-900 text-white hover:bg-black font-bold py-3 px-6 rounded-lg shadow-md flex items-center transition shrink-0"
+                                                onClick={() => setIsUppyOpen(true)}
+                                                disabled={isExtractingPDF}
+                                                className={`py-3 px-6 rounded-lg shadow-md font-bold flex items-center transition shrink-0 ${isExtractingPDF ? 'bg-indigo-300 text-white cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-700 text-white'}`}
                                             >
-                                                Pagar Fatura
+                                                {isExtractingPDF ? <FontAwesomeIcon icon={faSpinner} spin className="mr-2" /> : <FontAwesomeIcon icon={faCloudUploadAlt} className="mr-2" />}
+                                                Importar PDF
                                             </button>
-                                        )}
+                                        </div>
                                     </div>
 
                                     {/* Cards de totais separados */}
@@ -398,6 +635,17 @@ export default function GerenciadorFaturas({ contasCartao, onNewDespesaCartao })
                 open={!!lancamentoSelecionado}
                 onClose={() => setLancamentoSelecionado(null)}
                 lancamento={lancamentoSelecionado}
+            />
+
+            {/* Uploader Uppy PDF Gemini */}
+            <UppyFileImporter
+                isOpen={isUppyOpen}
+                onClose={() => setIsUppyOpen(false)}
+                onFileSelected={handlePdfUpload}
+                title="Importar Fatura em PDF"
+                allowedFileTypes={['.pdf']}
+                note="A nossa IA (Gemini) vai ler o seu PDF e extrair os lançamentos."
+                multiple={false}
             />
         </div>
     );
