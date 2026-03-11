@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -59,12 +59,26 @@ export default function WhatsAppInbox({ onChangeTab }) {
     });
 
     // 2. Busca conversas (só ativa se tiver config)
-    const { data: conversations, isLoading: isLoadingConversations } = useQuery({
+    const { data: rawConversations, isLoading: isLoadingConversations } = useQuery({
         queryKey: ['conversations', organizacaoId],
         queryFn: () => getConversations(supabase, organizacaoId),
         enabled: !!organizacaoId && !!whatsappConfig,
         refetchOnWindowFocus: true,
     });
+
+    // Deduplica as conversas para evitar que a mesma pessoa apareça duas vezes
+    const conversations = React.useMemo(() => {
+        if (!rawConversations) return [];
+        const seen = new Set();
+        return rawConversations.filter(c => {
+            const identifier = c.contato_id || c.phone_number;
+            if (!identifier) return true; // Se não tem identificador, deixa passar
+            if (seen.has(identifier)) return false;
+            seen.add(identifier);
+            return true;
+        });
+    }, [rawConversations]);
+
 
     // 3. Busca listas
     const { data: broadcastLists, isLoading: isLoadingLists } = useQuery({
