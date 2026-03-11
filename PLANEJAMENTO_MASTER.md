@@ -208,4 +208,32 @@ O **Studio 57** é o ambiente de desenvolvimento e laboratório central. O **Elo
     - Ambos os remotos (`origin` e `lab-saas`) estão sincronizados com o commit mais recente.
 
 ---
+
+- *2026-03-11:* **🤖 Módulo de Importação de Faturas de Cartão via IA — Avanços e Correções:**
+
+    **✅ O que conquistamos:**
+    - **Visualizador de PDF inline:** Implementado `FaturaPreviewPanel` no `ExtratoCartaoManager.js`. Ao importar uma fatura, o PDF original é salvo no bucket `documentos-financeiro/faturas-cartao/`. O card do arquivo na UI é clicável e abre o PDF num painel lateral (igual ao `LancamentoDetalhesSidebar`). A URL pública completa é salva em `banco_arquivos_ofx.arquivo_url`.
+    - **Novo fluxo de extração com `pdf-parse`:** Instalada a biblioteca `pdf-parse`. Antes de enviar para o Gemini, o texto puro é extraído localmente. Isso reduz o payload ~10x, economiza cota da API e evita rate limit. Mantém fallback para PDFs escaneados.
+    - **Prompt com "Regras de Ouro":** O prompt da rota `app/api/cartoes/extrair-fatura/route.js` foi reescrito incorporando as regras do agente Gemini do Ranniere: ignorar lixo (saldo anterior, total, juros, parcelas futuras), tratamento correto de data com virada de ano (Dez→Jan), valores positivos + campo `tipo` separando Despesa/Receita.
+    - **Fix do arquivo invisível:** Corrigido bug crítico onde `continue` abortava toda a inserção quando `lancamentos.length === 0`. Agora o arquivo `banco_arquivos_ofx` é salvo mesmo sem lançamentos — badge IA 🪄, botão Conciliar e card clicável aparecem corretamente.
+    - **Organização da pasta `faturas/`:** PDFs organizados automaticamente em subpastas por conta/cartão usando keywords dos nomes de arquivo: `BB-Sonia-4724/`, `BB-Igor-0753/`, `BB-Igor-3093/`, `Caixa-2399/`, `SICOOB-AC-Credi-7841/`, `SICOOB-Credioriodoce-6482/`, `SICOOB-7346/`.
+    - **IA lendo PDFs para classificação:** Usamos o Gemini (`gemini-2.5-flash`) via script de linha de comando para ler PDFs desconhecidos e identificar banco, titular e final do cartão. Funcionou para classificar o `25-04_FAT CARTÃO_REF ABR25.pdf` (→ SICOOB final 7346) e o `25-06_FAT_FATURA BB JUN25.pdf` (→ Igor, final 3093).
+    - **numero_conta da Sônia atualizado:** Descoberto que a Sônia tem cartão final `4724`. Atualizado `contas_financeiras` ID 27 com `numero_conta = '4724'` para o sistema reconhecer automaticamente nas próximas importações.
+    - **Limpeza de duplicatas:** Unificadas contas duplicadas criadas pela IA (final 0753 tinha 8 contas → mantida ID 29). Migradas transações, faturas e OFX para a conta certa.
+
+    **😤 Frustrações e Limitações enfrentadas:**
+    - **Rate Limit do Gemini free (429):** A API gratuita tem limite de ~20 RPM. Ao testar sequencialmente vários PDFs, travava com erro `retryDelay: 56s`. Isso vai continuar sendo um problema se o usuário importar muitas faturas de uma vez. **Solução futura:** implementar fila com delay entre requisições ou usar API paga (Pay-as-you-go).
+    - **`totalInjected = 0` confuso:** O toast dizia "0 cartão(ões)" mesmo quando a extração funcionou, pois o contador só incrementava após inserir transações. Corrigido, mas revelou que o novo fluxo `pdf-parse` pode retornar texto que a IA não consegue converter em lançamentos bem formatados dependendo do PDF.
+    - **PDF-parse + texto mal formatado:** O `pdf-parse` extrai texto mas os PDFs de fatura de banco têm layout colunar complexo. O texto extraído pode ter palavras embaralhadas (ex: "Limite Créditomplementar"). Para PDFs simples funcionou; para faturas complexas, a qualidade do texto precisa ser validada.
+    - **Arquivo não aparecia na fatura correta:** O filtro `a.periodo_inicio === fatura.data_vencimento` exige que a data de vencimento extraída pela IA bata exatamente com a data da fatura no sistema. Qualquer diferença de 1 dia deixa o arquivo invisível.
+
+    **🎯 Próximos passos para amanhã:**
+    - [ ] **Testar o fluxo completo de ponta a ponta:** Importar uma fatura pelo sistema (não por script), verificar se o badge IA, o botão Conciliar e o viewer 👁️ aparecem corretamente.
+    - [ ] **Validar qualidade do texto extraído:** Abrir o console do navegador (F12) e checar o `console.log('[IA] ...')` para ver o que a IA está retornando de `lancamentos`.
+    - [ ] **Fila de processamento com delay:** Implementar delay de 3–5s entre requisições no `handlePdfUpload` para evitar rate limit ao importar múltiplas faturas.
+    - [ ] **Importar todas as faturas organizadas:** Com a pasta `faturas/` bem organizada por conta, fazer a importação completa de todas as faturas de cada cartão.
+    - [ ] **Revisar o filtro de `periodo_inicio`:** Talvez salvar também o `mes_referencia` no arquivo e usar isso para o filtro, ao invés de comparar datas exatas.
+    - [ ] **Conciliar as faturas importadas:** Após importar, usar o `PanelConciliacaoCartao` para ligar as transações da IA com os lançamentos do sistema.
+
+---
 *Assinado: Devonildo (Seu Mentor Técnico)*

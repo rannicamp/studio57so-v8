@@ -196,9 +196,8 @@ export default function PanelConciliacaoCartao({ contas, initialContaId, faturaV
                 }
             });
 
-            return finalItens;
         },
-        enabled: !!(contaId && organizacaoId && extratoPeriodo.startDate && extratoPeriodo.endDate),
+        enabled: !!(selectedContaId && organizacaoId && extratoPeriodo.startDate && extratoPeriodo.endDate),
     });
 
     // Quando o usuário seleciona um novo arquivo OFX e os dados chegam, mapeamos para conciliationState
@@ -228,20 +227,24 @@ export default function PanelConciliacaoCartao({ contas, initialContaId, faturaV
 
                 let visualInicio = dataInicio;
                 let visualFim = dataFim;
-                if (mesSelecionado) {
-                    const d = new Date(mesSelecionado); // ISO string UTC
-                    visualInicio = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
-                    const ultimoDia = new Date(d.getFullYear(), d.getMonth() + 1, 0);
-                    visualFim = `${ultimoDia.getFullYear()}-${String(ultimoDia.getMonth() + 1).padStart(2, '0')}-${String(ultimoDia.getDate()).padStart(2, '0')}`;
+                if (faturaVencimento) {
+                    const d = new Date(faturaVencimento); // data de vencimento
+                    // Mostrar alguns dias antes e depois do vencimento da fatura
+                    const minD = new Date(d);
+                    minD.setDate(minD.getDate() - 40); // Uma fatura geralmente tem 30 dias de ciclo 
+                    const maxD = new Date(d);
+                    maxD.setDate(maxD.getDate() + 10);
+                    visualInicio = minD.toISOString().split('T')[0];
+                    visualFim = maxD.toISOString().split('T')[0];
                 }
 
-                setExtratoPeriodo({ startDate: dataInicio, endDate: dataFim });
+                setExtratoPeriodo({ startDate: visualInicio, endDate: visualFim });
                 setConciliationState({ extrato: mappedExtrato, sistema: [], matches: [], dateFilter: { startDate: visualInicio, endDate: visualFim } });
             }
         } else if (transacoesOfxData && transacoesOfxData.length === 0) {
             setConciliationState({ extrato: [], sistema: [], matches: [], dateFilter: { startDate: '', endDate: '' } });
         }
-    }, [transacoesOfxData, mesSelecionado]);
+    }, [transacoesOfxData, faturaVencimento]);
 
 
     const undoConciliationMutation = useMutation({

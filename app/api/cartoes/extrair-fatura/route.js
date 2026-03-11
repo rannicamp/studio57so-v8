@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import pdfParse from 'pdf-parse';
 
-// Tenta usar gemini-1.5-flash por ter um limit maior na conta free, mas garantindo eficácia no parse
+// gemini-2.5-flash para análise de texto (muito mais eficiente que enviar PDF binário)
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 export async function POST(request) {
@@ -15,61 +16,98 @@ export async function POST(request) {
 
         const arrayBuffer = await file.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
-        const base64Data = buffer.toString('base64');
 
-        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+        // ─── NOVO FLUXO: Extração de Texto Puro com pdf-parse ───────────────────
+        // Em vez de enviar o PDF binário (base64 pesado) direto para a IA,
+        // extraímos primeiro o texto puro localmente. Isso:
+        //   1. Reduz o payload ~10x (texto vs base64 do PDF)
+        //   2. Reduz consumo de cota da API (text vs file API)
+        //   3. Acelera o processamento e evita rate limits
+        let textoPdf = '';
+        try {
+            const parsed = await pdfParse(buffer);
+            textoPdf = parsed.text || '';
+        } catch (parseErr) {
+            console.warn('[pdf-parse] Falha na extração de texto — tentando enviar PDF diretamente:', parseErr.message);
+        }
 
-        const pdfPart = {
-            inlineData: {
-                data: base64Data,
-                mimeType: "application/pdf"
-            },
-        };
+        const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
-        const prompt = `Você é um excelente assistente financeiro de uma Construtora. 
-Sua tarefa é ler este PDF contendo uma fatura de cartão de crédito.
-Algumas faturas possuem DIVERSOS cartões agrupados (ex: Titular e Adicionais).
+        const prompt = `Você é um assistente especializado em contabilidade e processamento de dados financeiros para o sistema "Studio 57".
+Sua única função é analisar o texto extraído de uma fatura de cartão de crédito e converter os dados em JSON estruturado.
 
-Retorne EXCLUSIVAMENTE um Array JSON válido com os blocos de cartões encontrados.
-MUITO IMPORTANTE: Remova os acentos das chaves e devolva estritamente em JSON puro sem blocos markdown.
+🚫 REGRAS RÍGIDAS — O QUE IGNORAR (LIXO):
+- IGNORE: Saldo Anterior, Total da Fatura, Pagamento Efetuado, Juros de Financiamento, Encargos, IOF, Limite de Crédito (como linha de transação), Melhor dia de pagamento.
+- IGNORE: Parcelas futuras listadas em formato descritivo (ex: "Parcela 02/05 a vencer"). Extraia apenas os lançamentos REAIS DO MÊS ATUAL da fatura.
+- IGNORE: Linhas de cabeçalho, rodapé, separadores e resumos.
+- EXTRAIA APENAS: Compras, Serviços, Estornos, Créditos e Cancelamentos reais.
+
+📅 TRATAMENTO DE DATA:
+- Se a data na fatura for "DD/MM", deduza o ano correto com base no período da fatura.
+- Se a transação for de Dezembro (12) e a fatura for de Janeiro (01), use o ANO ANTERIOR para essa transação.
+- Formato final obrigatório: YYYY-MM-DD.
+
+💰 TRATAMENTO DE VALOR:
+- Remova vírgulas de milhar e converta decimal para ponto (1.500,50 → 1500.50).
+- TODOS os valores numéricos devem vir POSITIVOS. O campo "tipo" define se é entrada ou saída.
+- "tipo": "Despesa" → compra, serviço, tarifa (valor positivo no JSON).
+- "tipo": "Receita" → estorno, crédito, cancelamento, pagamento recebido (valor positivo no JSON).
+
+🃏 CARTÕES MÚLTIPLOS:
+- Algumas faturas agrupam VÁRIOS cartões (titular + adicionais). Se houver lançamentos de cartões com finais DIFERENTES, separe em objetos distintos dentro do array.
+
+Retorne EXCLUSIVAMENTE um Array JSON válido, SEM markdown, SEM texto extra, SEM blocos de código. Apenas o JSON puro.
 
 A estrutura DEVE SER EXATAMENTE ESTA:
 [
   {
-    "cartao_final": "0753", // OBRIGATÓRIO: Apenas os 4 últimos dígitos do cartão onde as compras ocorreram. Se for omisso/impossível achar, retorne "".
-    "titular": "Igor M A Rezende", // Nome do titular / responsável do cartão impresso no PDF para esse bloco.
-    "bandeira": "Elo", // Elo, Visa, Mastercard.
+    "cartao_final": "0753",
+    "titular": "Igor M A Rezende",
+    "bandeira": "Elo",
+    "instituicao": "Banco do Brasil",
+    "data_vencimento_fatura": "2026-02-10",
+    "data_fechamento_fatura": "2026-01-07",
+    "limite_credito": 5000.00,
     "lancamentos": [
       {
-        "data_transacao": "2026-02-12", // OBRIGATÓRIO no formato YYYY-MM-DD. Assuma o ano com base na fatura, caso haja compras do mês anterior preencha o ano/mês corretamente da transação.
-        "descricao": "NOME DO ESTABELECIMENTO", // Descreva o nome da compra.
-        "valor": 25.50, // OBRIGATÓRIO Float Numérico. Não use vírgulas para decimais. Exemplo: 1500.50 (SEM SINAL DE MOEDA).
-        "tipo": "Despesa" // "Despesa" se for compra normal. "Receita" se for Estorno, Cancelamento, Pagamento recebido ou Crédito. OS VALORES NUMÉRICOS ACIMA SEMPRE DEVEM VIR POSITIVOS, ESSE CAMPO QUE DEFINE!
+        "data_transacao": "2026-01-15",
+        "descricao": "NOME DO ESTABELECIMENTO",
+        "valor": 150.00,
+        "tipo": "Despesa"
       }
     ]
   }
-]
+]`;
 
-REGRAS RÍGIDAS DE EXTRAÇÃO:
-1. Elimine todas as vírgulas do campo valor (1.500,50 vira 1500.50) e forneça todos os valores positivos independente de sinal impresso (o tipo deve separar o joio do trigo).
-2. IGNORE juros, compras parceladas listadas para o futuro de forma descritiva, faturas passadas e limites de crédito. Extraia apenas a MOVIMENTAÇÃO REAL DESCRITA MÊS A MÊS.
-3. Se a fatura tiver lançamentos que claramente pertencem a cartões diferentes com finais diferentes, quebre em MÚLTIPLOS OBJETOS DENTRO DO SEU ARRAY PRINCIPAL.
-`;
+        let result;
 
-        const result = await model.generateContent([prompt, pdfPart]);
+        if (textoPdf && textoPdf.trim().length > 100) {
+            // ✅ CAMINHO PRINCIPAL: Texto extraído com sucesso → envia só texto (leve e rápido)
+            console.log(`[pdf-parse] Texto extraído: ${textoPdf.length} caracteres. Enviando texto para a IA.`);
+            result = await model.generateContent([
+                prompt,
+                `\n\n--- TEXTO EXTRAÍDO DA FATURA ---\n${textoPdf}\n--- FIM DO TEXTO ---`
+            ]);
+        } else {
+            // ⚠️ FALLBACK: PDF escaneado/imagem → envia binário como antes
+            console.log('[pdf-parse] Texto insuficiente (PDF escaneado?). Enviando PDF binário como fallback.');
+            const base64Data = buffer.toString('base64');
+            result = await model.generateContent([
+                prompt,
+                { inlineData: { data: base64Data, mimeType: 'application/pdf' } }
+            ]);
+        }
+
         const responseText = await result.response.text();
-
         let cleanJson = responseText.replace(/```json/gi, '').replace(/```/g, '').trim();
-
-        // Faz o parse do Array
         const extratos = JSON.parse(cleanJson);
 
-        return NextResponse.json({ success: true, extratos: extratos });
+        return NextResponse.json({ success: true, extratos });
 
     } catch (error) {
-        console.error("Erro no processamento da Fatura pelo Gemini:", error);
+        console.error('Erro no processamento da Fatura pelo Gemini:', error);
         return NextResponse.json(
-            { error: "Erro ao processar Fatura com a Inteligência Artificial.", details: error.message },
+            { error: 'Erro ao processar Fatura com a Inteligência Artificial.', details: error.message },
             { status: 500 }
         );
     }

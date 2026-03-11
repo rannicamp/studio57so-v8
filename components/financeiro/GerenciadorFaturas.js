@@ -235,8 +235,12 @@ export default function GerenciadorFaturas({ contasCartao, onNewDespesaCartao })
 
                     if (!matchedContaId || !extrato.lancamentos || extrato.lancamentos.length === 0) continue;
 
+                    // Busca a data de vencimento extraida pela IA
+                    const dataVencimentoIA = extrato.data_vencimento_fatura || faturaAtiva?.data_vencimento || result.extratos[0]?.lancamentos[0]?.data_transacao;
+                    if (!dataVencimentoIA) continue;
+
                     // 1. Título do arquivo de rascunho.
-                    const nomeArq = `Fatura_Virtual_Cartao_${finalDigits || 'Desconhecido'}_Venc_${faturaAtiva.data_vencimento}.pdf`;
+                    const nomeArq = `Fatura_Virtual_Cartao_${finalDigits || 'Desconhecido'}_Venc_${dataVencimentoIA}.pdf`;
 
                     // Remove rascunho anterior pra evitar sujar se a pessoa enviar a mesma fatura de novo
                     await supabase.from('banco_arquivos_ofx').delete()
@@ -245,16 +249,16 @@ export default function GerenciadorFaturas({ contasCartao, onNewDespesaCartao })
                     const { data: arqHeader, error: arqError } = await supabase.from('banco_arquivos_ofx').insert({
                         organizacao_id: orgId, conta_id: matchedContaId,
                         nome_arquivo: nomeArq, status: 'Processado IA',
-                        periodo_inicio: faturaAtiva.data_vencimento, periodo_fim: faturaAtiva.data_vencimento
+                        periodo_inicio: dataVencimentoIA, periodo_fim: dataVencimentoIA
                     }).select('*').single();
 
                     if (arqError) { console.error('Erro OFX Header:', arqError); continue; }
 
                     // 2. Transações com FITID customizado e forte
                     const payloadTransacoes = extrato.lancamentos.map((l, index) => {
-                        const safeDateTrans = l.data_transacao || faturaAtiva.data_vencimento;
+                        const safeDateTrans = l.data_transacao || dataVencimentoIA;
                         const dateTransStr = safeDateTrans.replace(/-/g, '');
-                        const dateVencStr = faturaAtiva.data_vencimento.replace(/-/g, '');
+                        const dateVencStr = dataVencimentoIA.replace(/-/g, '');
                         const tipoLetra = l.tipo === 'Despesa' ? 'D' : 'R';
                         
                         // FITID Robusto: Conta - Vcto - Compra - Valor - Tipo - IndexSegurancaDaLinha
@@ -273,7 +277,13 @@ export default function GerenciadorFaturas({ contasCartao, onNewDespesaCartao })
 
                     if (payloadTransacoes.length > 0) {
                         const { error: trError } = await supabase.from('banco_transacoes_ofx').upsert(payloadTransacoes, { onConflict: 'fitid' });
-                        if (!trError) accountsInjected++;
+                        if (!trError) {
+                            accountsInjected++;
+                            // Força a aba pular pro mês que a IA leu
+                            if (dataVencimentoIA !== faturaAbertaDataVencimento) {
+                                setFaturaAbertaDataVencimento(dataVencimentoIA);
+                            }
+                        }
                     }
                 }
             }

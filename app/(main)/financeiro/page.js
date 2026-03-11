@@ -13,7 +13,7 @@ import {
     faPlus, faSpinner, faLock, faBalanceScale,
     faHandshake, faShieldAlt, faBuilding, faFileInvoice,
     faFilter, faSearch, faCreditCard, faFolderOpen,
-    faClipboardList, faLandmark, faCalendarDay, faHistory
+    faClipboardList, faLandmark, faCalendarDay, faHistory, faMagic
 } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 import { useDebounce } from 'use-debounce';
@@ -24,6 +24,7 @@ import ContasManager from '../../../components/financeiro/ContasManager';
 import AtivosManager from '../../../components/financeiro/AtivosManager';
 import LancamentoFormModal from '../../../components/financeiro/LancamentoFormModal';
 import ExtratoManager from '../../../components/financeiro/ExtratoManager';
+import ExtratoCartaoManager from '../../../components/financeiro/ExtratoCartaoManager';
 import LancamentoDetalhesSidebar from '../../../components/financeiro/LancamentoDetalhesSidebar';
 import FiltroFinanceiro from '../../../components/financeiro/FiltroFinanceiro';
 import FinanceiroStats from '../../../components/financeiro/FinanceiroStats';
@@ -278,6 +279,7 @@ export default function FinanceiroPage() {
                         <TabButton tabName="lancamentos" label="Lançamentos" icon={faBalanceScale} />
                         <TabButton tabName="extrato" label="Extrato" icon={faFileInvoice} />
                         <TabButton tabName="cartoes" label="Cartões" icon={faCreditCard} />
+                        <TabButton tabName="fatura_cartao" label="Fatura Cartão IA" icon={faMagic} />
                         <TabButton tabName="planejamento" label="Planejamento Folha" icon={faClipboardList} />
                         <TabButton tabName="documentos" label="Documentos" icon={faFolderOpen} />
                         <TabButton tabName="contas" label="Contas" icon={faBuilding} />
@@ -289,6 +291,7 @@ export default function FinanceiroPage() {
             <div className="mt-4">
                 {activeTab === 'extrato' && <ExtratoManager contas={contas} empresas={empresas} onEdit={handleOpenEditModal} />}
                 {activeTab === 'cartoes' && <GerenciadorFaturas contasCartao={contasCartao} onNewDespesaCartao={handleNewDespesaCartao} />}
+                {activeTab === 'fatura_cartao' && <ExtratoCartaoManager contasCartao={contasCartao} />}
 
                 {activeTab === 'planejamento' && <PlanejamentoFolha filters={filters} setFilters={setFilters} />}
                 {activeTab === 'documentos' && <DocumentosManager filters={filters} />}
