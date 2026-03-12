@@ -9,7 +9,8 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
     faPlus, faUniversity, faCreditCard, faMoneyBillWave, faChartLine,
     faEdit, faTrash, faExclamationTriangle, faSpinner,
-    faWallet, faHandHoldingDollar, faLayerGroup, faMoneyBillTransfer, faFileInvoice
+    faWallet, faHandHoldingDollar, faLayerGroup, faMoneyBillTransfer,
+    faFileInvoice, faBuilding, faCheck
 } from '@fortawesome/free-solid-svg-icons';
 import ContaFormModal from './ContaFormModal';
 import PagamentoFaturaModal from './PagamentoFaturaModal';
@@ -28,6 +29,16 @@ const getAccountIcon = (type) => {
     }
 };
 
+const TYPE_COLORS = {
+    'Conta Corrente': 'text-blue-600 bg-blue-50',
+    'Cartão de Crédito': 'text-orange-600 bg-orange-50',
+    'Dinheiro': 'text-green-600 bg-green-50',
+    'Conta Investimento': 'text-purple-600 bg-purple-50',
+    'Conta de Ativo': 'text-teal-600 bg-teal-50',
+    'Passivos': 'text-red-600 bg-red-50',
+    'Outros': 'text-gray-600 bg-gray-100',
+};
+
 const fetchSaldosReais = async (contas, organizacaoId) => {
     if (!contas || contas.length === 0 || !organizacaoId) return {};
     const supabase = createClient();
@@ -42,20 +53,12 @@ const fetchSaldosReais = async (contas, organizacaoId) => {
             p_data_inicio: dataCorte,
             p_organizacao_id: organizacaoId
         });
-
-        if (error) {
-            console.error(`Erro ao calcular saldo da conta ${conta.nome}:`, error);
-            return { id: conta.id, saldo: 0 };
-        }
+        if (error) return { id: conta.id, saldo: 0 };
         return { id: conta.id, saldo: data };
     });
 
     const results = await Promise.all(promises);
-
-    return results.reduce((acc, item) => {
-        acc[item.id] = item.saldo;
-        return acc;
-    }, {});
+    return results.reduce((acc, item) => { acc[item.id] = item.saldo; return acc; }, {});
 };
 
 export default function ContasManager({ initialContas, onUpdate, empresas, onVerExtrato }) {
@@ -65,9 +68,9 @@ export default function ContasManager({ initialContas, onUpdate, empresas, onVer
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingConta, setEditingConta] = useState(null);
-
     const [isPagamentoModalOpen, setIsPagamentoModalOpen] = useState(false);
     const [contaParaPagar, setContaParaPagar] = useState(null);
+    const [empresaSelecionada, setEmpresaSelecionada] = useState(null);
 
     const { data: saldos = {}, isLoading: isLoadingSaldos } = useQuery({
         queryKey: ['saldosContasReais', initialContas.map(c => c.id), organizacaoId],
@@ -76,74 +79,50 @@ export default function ContasManager({ initialContas, onUpdate, empresas, onVer
         refetchOnWindowFocus: true
     });
 
-    const kpis = useMemo(() => {
-        let saldoLiquido = 0;
-        let limiteChequeTotal = 0;
-        let limiteChequeUsado = 0;
-        let poderCompra = 0;
+    // Agrupa contas por empresa (padrão ExtratoManager)
+    const empresasAgrupadas = useMemo(() => {
+        const mapa = {};
+        initialContas.forEach(c => {
+            const key = c.empresa?.nome_fantasia || c.empresa?.razao_social || 'Sem Empresa Vinculada';
+            if (!mapa[key]) mapa[key] = { nome: key, contas: [] };
+            mapa[key].contas.push(c);
+        });
+        return Object.values(mapa).sort((a, b) => a.nome.localeCompare(b.nome));
+    }, [initialContas]);
 
+    // Auto-seleciona a primeira empresa
+    const empresaAtiva = empresaSelecionada ?? empresasAgrupadas[0]?.nome ?? null;
+    const contasDaEmpresa = useMemo(() => {
+        const grupo = empresasAgrupadas.find(e => e.nome === empresaAtiva);
+        return grupo?.contas || [];
+    }, [empresasAgrupadas, empresaAtiva]);
+
+    // KPIs Globais
+    const kpis = useMemo(() => {
+        let saldoLiquido = 0, limiteChequeTotal = 0, limiteChequeUsado = 0, poderCompra = 0;
         initialContas.forEach(conta => {
             const saldo = saldos[conta.id] || 0;
             const limite = conta.limite_cheque_especial || 0;
-
-            // Ignora cartões no cálculo do saldo líquido e poder de compra
             if (conta.tipo !== 'Cartão de Crédito') {
-
-                // === LÓGICA ATUALIZADA AQUI ===
-                // Saldo Líquido (Caixa): Soma apenas contas Positivas (Dinheiro Real)
-                if (saldo > 0) {
-                    saldoLiquido += saldo;
-                }
-
-                // Poder de Compra: (Saldo Atual + Limite) de todas as contas
+                if (saldo > 0) saldoLiquido += saldo;
                 poderCompra += (saldo + limite);
-
                 if (conta.tipo === 'Conta Corrente') {
                     limiteChequeTotal += limite;
-                    if (saldo < 0) {
-                        limiteChequeUsado += Math.min(Math.abs(saldo), limite);
-                    }
+                    if (saldo < 0) limiteChequeUsado += Math.min(Math.abs(saldo), limite);
                 }
             }
         });
-
         return {
-            saldoLiquido,
-            limiteChequeTotal,
-            limiteChequeUsado,
+            saldoLiquido, limiteChequeTotal, limiteChequeUsado, poderCompra,
             percentualUsoCheque: limiteChequeTotal > 0 ? (limiteChequeUsado / limiteChequeTotal) * 100 : 0,
-            poderCompra
         };
     }, [initialContas, saldos]);
-
-    const groupedContas = useMemo(() => {
-        const groups = {
-            'Conta Corrente': [],
-            'Cartão de Crédito': [],
-            'Dinheiro': [],
-            'Conta Investimento': [],
-        };
-
-        initialContas.forEach(conta => {
-            const tipo = conta.tipo || 'Conta Corrente';
-            if (groups[tipo]) {
-                groups[tipo].push(conta);
-            } else {
-                if (!groups['Outros']) groups['Outros'] = [];
-                groups['Outros'].push(conta);
-            }
-        });
-
-        return groups;
-    }, [initialContas]);
 
     const saveMutation = useMutation({
         mutationFn: async (formData) => {
             const isEditing = !!formData.id;
-            let dataToSave;
             const { saldo_atual, fatura_atual, ...restOfData } = formData;
-
-            dataToSave = {
+            let dataToSave = {
                 ...restOfData,
                 saldo_inicial: parseFloat(String(formData.saldo_inicial || '0').replace(/[^0-9,.-]/g, '').replace('.', '').replace(',', '.')) || 0,
                 limite_credito: formData.limite_credito ? parseFloat(String(formData.limite_credito).replace(/[^0-9,.-]/g, '').replace('.', '').replace(',', '.')) : null,
@@ -154,7 +133,6 @@ export default function ContasManager({ initialContas, onUpdate, empresas, onVer
                 organizacao_id: organizacaoId,
             };
             Object.keys(dataToSave).forEach(key => { if (dataToSave[key] === '' || dataToSave[key] === undefined) dataToSave[key] = null; });
-
             let error;
             if (isEditing) {
                 const { id, empresa, conta_debito_fatura, ...updateData } = dataToSave;
@@ -168,11 +146,7 @@ export default function ContasManager({ initialContas, onUpdate, empresas, onVer
             if (error) throw error;
             return isEditing ? 'Conta atualizada' : 'Conta criada';
         },
-        onSuccess: (message) => {
-            toast.success(`${message} com sucesso!`);
-            onUpdate();
-            setIsModalOpen(false);
-        },
+        onSuccess: (message) => { toast.success(`${message} com sucesso!`); onUpdate(); setIsModalOpen(false); },
         onError: (error) => toast.error(`Erro ao salvar: ${error.message}`),
     });
 
@@ -181,10 +155,7 @@ export default function ContasManager({ initialContas, onUpdate, empresas, onVer
             const { error } = await supabase.from('contas_financeiras').delete().eq('id', contaId).eq('organizacao_id', organizacaoId);
             if (error) throw error;
         },
-        onSuccess: () => {
-            toast.success("Conta excluída com sucesso.");
-            onUpdate();
-        },
+        onSuccess: () => { toast.success("Conta excluída com sucesso."); onUpdate(); },
         onError: (error) => toast.error(`Erro ao excluir: ${error.message}`),
     });
 
@@ -196,23 +167,9 @@ export default function ContasManager({ initialContas, onUpdate, empresas, onVer
         });
     };
 
-    const handleOpenEditModal = (conta) => { setEditingConta(conta); setIsModalOpen(true); };
-    const handleOpenAddModal = () => { setEditingConta(null); setIsModalOpen(true); };
-
     const handleOpenPagamentoModal = (conta) => {
-        const contaComSaldo = { ...conta, saldoAtual: saldos[conta.id] || 0 };
-        setContaParaPagar(contaComSaldo);
+        setContaParaPagar({ ...conta, saldoAtual: saldos[conta.id] || 0 });
         setIsPagamentoModalOpen(true);
-    };
-
-    const handlePagamentoSuccess = () => {
-        onUpdate();
-        toast.success("Saldo atualizado!");
-    };
-
-    const getSaldoLabel = (conta) => {
-        if (conta.tipo === 'Cartão de Crédito') return 'Fatura Atual';
-        return 'Saldo Real';
     };
 
     return (
@@ -226,185 +183,222 @@ export default function ContasManager({ initialContas, onUpdate, empresas, onVer
                 empresas={empresas}
                 contas={initialContas.filter(c => c.tipo === 'Conta Corrente')}
             />
-
             <PagamentoFaturaModal
                 isOpen={isPagamentoModalOpen}
                 onClose={() => setIsPagamentoModalOpen(false)}
-                onSuccess={handlePagamentoSuccess}
+                onSuccess={() => { onUpdate(); toast.success("Saldo atualizado!"); }}
                 contaCartao={contaParaPagar}
                 contasDisponiveis={initialContas.filter(c => c.tipo !== 'Cartão de Crédito')}
             />
 
+            {/* KPIs globais */}
             {initialContas.length > 0 && (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                    <KpiCard
-                        title="Saldo Líquido (Caixa)"
-                        value={isLoadingSaldos ? '...' : formatCurrency(kpis.saldoLiquido)}
-                        icon={faWallet}
-                        color={kpis.saldoLiquido >= 0 ? "blue" : "red"}
-                        subtext="Dinheiro real disponível"
-                    />
-                    <KpiCard
-                        title="Poder de Compra"
-                        value={isLoadingSaldos ? '...' : formatCurrency(kpis.poderCompra)}
-                        icon={faHandHoldingDollar}
-                        color="green"
-                        subtext="Caixa + Limites"
-                    />
-
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <KpiCard title="Saldo Líquido (Caixa)" value={isLoadingSaldos ? '...' : formatCurrency(kpis.saldoLiquido)} icon={faWallet} color={kpis.saldoLiquido >= 0 ? "blue" : "red"} subtext="Dinheiro real disponível" />
+                    <KpiCard title="Poder de Compra" value={isLoadingSaldos ? '...' : formatCurrency(kpis.poderCompra)} icon={faHandHoldingDollar} color="green" subtext="Caixa + Limites" />
                     <div className="bg-white p-4 rounded-lg shadow-md border-l-4 border-red-500 flex flex-col justify-between">
                         <div className="flex justify-between items-start">
                             <div>
                                 <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">Uso Cheque Especial</p>
-                                <h3 className="text-lg font-bold text-gray-800 mt-1">
-                                    {isLoadingSaldos ? '...' : formatCurrency(kpis.limiteChequeUsado)}
-                                </h3>
+                                <h3 className="text-lg font-bold text-gray-800 mt-1">{isLoadingSaldos ? '...' : formatCurrency(kpis.limiteChequeUsado)}</h3>
                             </div>
-                            <div className="bg-red-100 p-2 rounded-full text-red-600">
-                                <FontAwesomeIcon icon={faExclamationTriangle} />
-                            </div>
+                            <div className="bg-red-100 p-2 rounded-full text-red-600"><FontAwesomeIcon icon={faExclamationTriangle} /></div>
                         </div>
                         <div className="mt-3">
                             <div className="w-full bg-gray-200 rounded-full h-2.5 mb-1">
-                                <div
-                                    className="bg-red-600 h-2.5 rounded-full transition-all duration-500"
-                                    style={{ width: `${Math.min(kpis.percentualUsoCheque, 100)}%` }}
-                                ></div>
+                                <div className="bg-red-600 h-2.5 rounded-full transition-all duration-500" style={{ width: `${Math.min(kpis.percentualUsoCheque, 100)}%` }}></div>
                             </div>
-                            <p className="text-xs text-gray-500 text-right">
-                                {kpis.percentualUsoCheque.toFixed(1)}% de {formatCurrency(kpis.limiteChequeTotal)}
-                            </p>
+                            <p className="text-xs text-gray-500 text-right">{kpis.percentualUsoCheque.toFixed(1)}% de {formatCurrency(kpis.limiteChequeTotal)}</p>
                         </div>
                     </div>
                 </div>
             )}
 
-            <div className="bg-white p-6 rounded-lg shadow-md mb-6">
-                <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-                        <FontAwesomeIcon icon={faLayerGroup} className="text-blue-600" />
-                        Minhas Contas
-                    </h2>
-                    {hasPermission('financeiro', 'pode_criar') && (
-                        <button onClick={handleOpenAddModal} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow flex items-center transition duration-200">
-                            <FontAwesomeIcon icon={faPlus} className="mr-2" /> Nova Conta
-                        </button>
-                    )}
+            {/* Layout Split: Empresas | Contas */}
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
+
+                {/* ESQUERDA: Lista de Empresas */}
+                <div className="lg:col-span-1">
+                    <div className="flex items-center justify-between mb-2">
+                        <h3 className="text-sm font-bold text-gray-700 uppercase">Empresas</h3>
+                        {hasPermission('financeiro', 'pode_criar') && (
+                            <button onClick={() => { setEditingConta(null); setIsModalOpen(true); }} className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold py-1.5 px-3 rounded-lg shadow flex items-center gap-1 transition">
+                                <FontAwesomeIcon icon={faPlus} /> Nova
+                            </button>
+                        )}
+                    </div>
+                    <div className="bg-white border rounded-lg overflow-hidden shadow-sm flex flex-col">
+                        {empresasAgrupadas.length === 0 ? (
+                            <p className="p-6 text-sm text-gray-400 text-center">Nenhuma conta cadastrada.</p>
+                        ) : (
+                            empresasAgrupadas.map(emp => {
+                                const isSelected = empresaAtiva === emp.nome;
+                                const saldoEmpresa = emp.contas
+                                    .filter(c => c.tipo !== 'Cartão de Crédito')
+                                    .reduce((acc, c) => acc + (saldos[c.id] || 0), 0);
+                                return (
+                                    <button
+                                        key={emp.nome}
+                                        onClick={() => setEmpresaSelecionada(emp.nome)}
+                                        className={`w-full text-left p-4 border-b last:border-0 border-l-4 transition-all flex items-start gap-3
+                                            ${isSelected ? 'border-l-blue-500 bg-blue-50' : 'border-l-transparent hover:bg-gray-50'}`}
+                                    >
+                                        <div className={`p-2 rounded-full mt-0.5 flex-shrink-0 ${isSelected ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-500'}`}>
+                                            <FontAwesomeIcon icon={faBuilding} className="text-sm" />
+                                        </div>
+                                        <div className="min-w-0 flex-1">
+                                            <p className={`text-sm font-bold leading-tight truncate ${isSelected ? 'text-blue-900' : 'text-gray-700'}`}>{emp.nome}</p>
+                                            <p className="text-[10px] text-gray-400 mt-0.5">{emp.contas.length} conta{emp.contas.length > 1 ? 's' : ''}</p>
+                                            <p className={`text-xs font-bold mt-1 ${saldoEmpresa >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                                {isLoadingSaldos ? '...' : formatCurrency(saldoEmpresa)}
+                                            </p>
+                                        </div>
+                                        {isSelected && <FontAwesomeIcon icon={faCheck} className="text-blue-400 text-xs mt-1 flex-shrink-0" />}
+                                    </button>
+                                );
+                            })
+                        )}
+                    </div>
                 </div>
 
-                {initialContas.length === 0 ? (
-                    <div className="text-center py-10 bg-gray-50 rounded-lg border border-dashed border-gray-200">
-                        <FontAwesomeIcon icon={faLayerGroup} className="text-5xl text-gray-300 mb-4" />
-                        <h3 className="text-lg font-semibold text-gray-700">Nenhuma conta cadastrada</h3>
-                        <p className="text-gray-500 text-sm mt-1">Gerencie seu dinheiro criando uma nova conta bancária.</p>
-                    </div>
-                ) : (
-                    <div className="space-y-8">
-                        {Object.entries(groupedContas).map(([tipo, contasDoTipo]) => {
-                            if (!contasDoTipo || contasDoTipo.length === 0) return null;
+                {/* DIREITA: Lista de Contas da Empresa Selecionada */}
+                <div className="lg:col-span-3">
+                    <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+                        {/* Header */}
+                        <div className="p-4 border-b bg-gradient-to-br from-gray-50 to-white flex items-center gap-3">
+                            <div className="bg-blue-100 p-2 rounded-full text-blue-600">
+                                <FontAwesomeIcon icon={faBuilding} />
+                            </div>
+                            <div>
+                                <h2 className="text-base font-bold text-gray-800">{empresaAtiva || 'Selecione uma empresa'}</h2>
+                                <p className="text-xs text-gray-500">{contasDaEmpresa.length} conta{contasDaEmpresa.length !== 1 ? 's' : ''} cadastrada{contasDaEmpresa.length !== 1 ? 's' : ''}</p>
+                            </div>
+                        </div>
 
-                            return (
-                                <div key={tipo} className="animate-fade-in-up">
-                                    <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-4 border-b border-gray-200 pb-2 flex items-center gap-2">
-                                        <FontAwesomeIcon icon={getAccountIcon(tipo)} className="text-gray-400 text-lg" />
-                                        {tipo}
-                                        <span className="bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded-full">{contasDoTipo.length}</span>
-                                    </h3>
-
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                        {contasDoTipo.map(conta => {
-                                            const saldoReal = saldos[conta.id] ?? 0;
-                                            const limite = conta.limite_cheque_especial || 0;
-                                            const saldoDisponivel = saldoReal + limite;
-                                            const isCartao = conta.tipo === 'Cartão de Crédito';
-
-                                            const valorDisplay = isCartao ? Math.abs(saldoReal) : saldoReal;
-                                            let colorClass = 'text-gray-800';
-                                            if (saldoReal < 0) {
-                                                colorClass = 'text-red-600';
-                                            } else if (isCartao && saldoReal > 0) {
-                                                colorClass = 'text-green-600';
-                                            }
-
-                                            return (
-                                                <div key={conta.id} className="border border-gray-200 p-4 rounded-lg shadow-sm hover:shadow-md transition-all hover:border-blue-300 relative group flex flex-col justify-between bg-white">
-                                                    <div>
-                                                        <div className="flex items-start justify-between mb-3">
-                                                            <div className="flex items-center gap-4">
-                                                                <div className={`p-3 rounded-full ${isCartao ? 'bg-orange-50 text-orange-600' : 'bg-blue-50 text-blue-600'}`}>
-                                                                    <FontAwesomeIcon icon={getAccountIcon(conta.tipo)} className="text-xl" />
-                                                                </div>
-                                                                <div>
-                                                                    <h3 className="font-bold text-lg text-gray-800 leading-tight">{conta.nome}</h3>
-                                                                    <p className="text-xs text-gray-500 font-medium">{conta.instituicao}</p>
-                                                                </div>
-                                                            </div>
-                                                            {hasPermission('financeiro', 'pode_editar') && (
-                                                                <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity bg-white px-2 rounded shadow-sm border border-gray-100">
-                                                                    <button onClick={() => handleOpenEditModal(conta)} className="text-gray-400 hover:text-blue-600 p-1.5" title="Editar"><FontAwesomeIcon icon={faEdit} /></button>
-                                                                    <button onClick={() => handleDeleteConta(conta)} className="text-gray-400 hover:text-red-600 p-1.5" title="Excluir"><FontAwesomeIcon icon={faTrash} /></button>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                        <div className="space-y-2 text-xs text-gray-600 border-t border-gray-100 pt-3">
-                                                            {conta.empresa && <p className="truncate" title={conta.empresa.nome_fantasia}><strong className="text-gray-700">Empresa:</strong> {conta.empresa.nome_fantasia || conta.empresa.razao_social}</p>}
-                                                            {(conta.tipo === 'Conta Corrente' || !conta.tipo) && (
-                                                                <>
-                                                                    <p><strong>Ag:</strong> {conta.agencia || '-'} / <strong>CC:</strong> {conta.numero_conta || '-'}</p>
-                                                                    {limite > 0 &&
-                                                                        <p className='text-orange-600 flex items-center gap-1 mt-1 bg-orange-50 p-1 rounded w-fit'>
-                                                                            <FontAwesomeIcon icon={faExclamationTriangle} />
-                                                                            <span>Limite: {formatCurrency(limite)}</span>
-                                                                        </p>
-                                                                    }
-                                                                </>
-                                                            )}
-                                                            {isCartao && (
-                                                                <p><strong>Vence dia:</strong> {conta.dia_pagamento_fatura || 'N/A'}</p>
-                                                            )}
-                                                        </div>
-                                                    </div>
-
-                                                    <div className="text-right mt-4 pt-3 border-t border-gray-100">
-                                                        <p className="text-xs uppercase font-bold text-gray-400 mb-1">{getSaldoLabel(conta)}</p>
-                                                        <p className={`text-2xl font-bold ${colorClass}`}>
-                                                            {isLoadingSaldos ? <FontAwesomeIcon icon={faSpinner} spin className="text-lg text-gray-300" /> : formatCurrency(valorDisplay)}
-                                                        </p>
-
-                                                        {!isCartao && limite > 0 && (
-                                                            <p className="text-xs text-gray-500 mt-1">
-                                                                Disponível (c/ Limite): <span className="font-semibold text-green-600">{isLoadingSaldos ? '...' : formatCurrency(saldoDisponivel)}</span>
-                                                            </p>
-                                                        )}
-
-                                                        <div className="flex gap-2 mt-2">
-                                                            <button
-                                                                onClick={() => onVerExtrato(conta.id)}
-                                                                className="flex-1 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 text-xs font-bold py-2 px-4 rounded-lg shadow-sm flex items-center justify-center transition duration-200"
-                                                                title="Ver Extrato dos últimos 30 dias"
-                                                            >
-                                                                <FontAwesomeIcon icon={faFileInvoice} className="mr-2 text-gray-500" /> Extrato
-                                                            </button>
-
-                                                            {isCartao && saldoReal < 0 && (
-                                                                <button
-                                                                    onClick={() => handleOpenPagamentoModal(conta)}
-                                                                    className="flex-1 bg-green-600 hover:bg-green-700 text-white text-xs font-bold py-2 px-4 rounded-lg shadow-sm flex items-center justify-center transition duration-200"
-                                                                >
-                                                                    <FontAwesomeIcon icon={faMoneyBillTransfer} className="mr-2" /> Pagar
-                                                                </button>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
+                        {/* Tabela de Contas */}
+                        {contasDaEmpresa.length === 0 ? (
+                            <div className="p-12 text-center">
+                                <FontAwesomeIcon icon={faLayerGroup} className="text-4xl text-gray-300 mb-3" />
+                                <p className="text-gray-500 text-sm">Nenhuma conta para esta empresa.</p>
+                            </div>
+                        ) : (
+                            <div className="divide-y divide-gray-100">
+                                {/* Cabeçalho da tabela */}
+                                <div className="grid grid-cols-12 gap-2 px-5 py-2 bg-gray-50 text-[10px] font-bold text-gray-500 uppercase tracking-wide">
+                                    <div className="col-span-4">Conta</div>
+                                    <div className="col-span-2">Ag / Nº</div>
+                                    <div className="col-span-2 text-right">Saldo Real</div>
+                                    <div className="col-span-2 text-right">Limite</div>
+                                    <div className="col-span-2 text-right">Ações</div>
                                 </div>
-                            );
-                        })}
+
+                                {contasDaEmpresa.map(conta => {
+                                    const saldoReal = saldos[conta.id] ?? 0;
+                                    const limite = conta.limite_cheque_especial || conta.limite_credito || 0;
+                                    const isCartao = conta.tipo === 'Cartão de Crédito';
+                                    const valorDisplay = isCartao ? Math.abs(saldoReal) : saldoReal;
+                                    const colorClass = saldoReal < 0 ? 'text-red-600' : (isCartao && saldoReal > 0 ? 'text-green-600' : 'text-gray-800');
+                                    const typeColor = TYPE_COLORS[conta.tipo] || TYPE_COLORS['Outros'];
+
+                                    return (
+                                        <div key={conta.id} className="grid grid-cols-12 gap-2 px-5 py-3.5 items-center hover:bg-gray-50/70 transition-colors group">
+                                            {/* Nome + Tipo */}
+                                            <div className="col-span-4 flex items-center gap-3 min-w-0">
+                                                <div className={`p-2 rounded-full flex-shrink-0 ${typeColor}`}>
+                                                    <FontAwesomeIcon icon={getAccountIcon(conta.tipo)} className="text-sm" />
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <p className="font-bold text-sm text-gray-800 truncate leading-tight" title={conta.nome}>{conta.nome}</p>
+                                                    <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ${typeColor}`}>
+                                                        {conta.tipo}
+                                                    </span>
+                                                    {isCartao && conta.dia_pagamento_fatura && (
+                                                        <span className="text-[9px] text-gray-400 ml-1">Vence dia {conta.dia_pagamento_fatura}</span>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            {/* Ag / Nº */}
+                                            <div className="col-span-2">
+                                                {conta.agencia || conta.numero_conta ? (
+                                                    <p className="text-xs font-mono text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded truncate">
+                                                        {conta.agencia ? `Ag: ${conta.agencia}` : ''}{conta.agencia && conta.numero_conta ? ' / ' : ''}{conta.numero_conta ? `CC: ${conta.numero_conta}` : ''}
+                                                    </p>
+                                                ) : (
+                                                    <span className="text-xs text-gray-300">—</span>
+                                                )}
+                                            </div>
+
+                                            {/* Saldo */}
+                                            <div className="col-span-2 text-right">
+                                                {isLoadingSaldos ? (
+                                                    <FontAwesomeIcon icon={faSpinner} spin className="text-gray-300" />
+                                                ) : (
+                                                    <>
+                                                        <p className={`font-bold text-sm ${colorClass}`}>{formatCurrency(valorDisplay)}</p>
+                                                        <p className="text-[9px] text-gray-400">{isCartao ? 'Fatura atual' : 'Saldo real'}</p>
+                                                    </>
+                                                )}
+                                            </div>
+
+                                            {/* Limite */}
+                                            <div className="col-span-2 text-right">
+                                                {limite > 0 ? (
+                                                    <>
+                                                        <p className="font-bold text-sm text-orange-600">{formatCurrency(limite)}</p>
+                                                        <p className="text-[9px] text-gray-400">{isCartao ? 'Crédito' : 'Cheque esp.'}</p>
+                                                    </>
+                                                ) : (
+                                                    <span className="text-xs text-gray-300">—</span>
+                                                )}
+                                            </div>
+
+                                            {/* Ações */}
+                                            <div className="col-span-2 text-right flex items-center justify-end gap-1">
+                                                <button
+                                                    onClick={() => onVerExtrato(conta.id)}
+                                                    title="Ver Extrato"
+                                                    className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition"
+                                                >
+                                                    <FontAwesomeIcon icon={faFileInvoice} />
+                                                </button>
+
+                                                {isCartao && saldoReal < 0 && (
+                                                    <button
+                                                        onClick={() => handleOpenPagamentoModal(conta)}
+                                                        title="Pagar Fatura"
+                                                        className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded transition"
+                                                    >
+                                                        <FontAwesomeIcon icon={faMoneyBillTransfer} />
+                                                    </button>
+                                                )}
+
+                                                {hasPermission('financeiro', 'pode_editar') && (
+                                                    <>
+                                                        <button
+                                                            onClick={() => { setEditingConta(conta); setIsModalOpen(true); }}
+                                                            title="Editar"
+                                                            className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition"
+                                                        >
+                                                            <FontAwesomeIcon icon={faEdit} />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDeleteConta(conta)}
+                                                            title="Excluir"
+                                                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition"
+                                                        >
+                                                            <FontAwesomeIcon icon={faTrash} />
+                                                        </button>
+                                                    </>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
                     </div>
-                )}
+                </div>
             </div>
         </div>
     );
