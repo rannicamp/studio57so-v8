@@ -38,19 +38,20 @@ const daysBetween = (date1, date2) => {
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 };
 
-const fetchLancamentosSistema = async (supabase, contaId, organizacaoId, startDate, endDate) => {
-    if (!contaId || !organizacaoId || !startDate || !endDate) return [];
+// BUG #2 CORRIGIDO: Cartões devem filtrar por fatura_id (não por data_vencimento).
+// O data_vencimento de um lançamento de cartão é a data da próxima parcela,
+// que pode estar meses à frente da data da transação — o filtro por range
+// de datas estava retornando zero resultados.
+const fetchLancamentosSistema = async (supabase, contaId, organizacaoId, faturaId) => {
+    if (!contaId || !organizacaoId || !faturaId) return [];
     
-    // A query or exige cuidado: se lançamentos.data_pagamento for null, a verificação gte falha.
-    // Transações de cartão podem ter data_pagamento null quando não fechadas.
-    // Precisamos de um filtro mais tolerante.
     const { data, error } = await supabase
         .from('lancamentos')
         .select(`*, favorecido:favorecido_contato_id ( id, nome, razao_social )`)
         .eq('conta_id', contaId)
         .eq('organizacao_id', organizacaoId)
-        .or(`data_transacao.gte.${startDate},data_vencimento.gte.${startDate},data_pagamento.gte.${startDate}`)
-        .or(`data_transacao.lte.${endDate},data_vencimento.lte.${endDate},data_pagamento.lte.${endDate}`);
+        .eq('fatura_id', faturaId)
+        .order('data_transacao', { ascending: true });
 
     if (error) throw new Error(error.message);
     return data;
@@ -223,6 +224,25 @@ export default function PanelConciliacaoCartao({ contas, initialContaId, faturaV
 
     // --- Queries ---
 
+    // BUG #3 CORRIGIDO: Busca o id numérico da fatura ativa diretamente por faturaVencimento.
+    // Antes, os lançamentos dependiam do extratoPeriodo (que só era setado quando havia
+    // transações OFX carregadas). Agora a query é independente e funciona junto com o PDF.
+    const { data: faturaAtivaData } = useQuery({
+        queryKey: ['faturaAtivaConciliacao', selectedContaId, organizacaoId, faturaVencimento],
+        queryFn: async () => {
+            const { data, error } = await supabase
+                .from('faturas_cartao')
+                .select('id, data_vencimento, mes_referencia')
+                .eq('conta_id', selectedContaId)
+                .eq('organizacao_id', organizacaoId)
+                .eq('data_vencimento', faturaVencimento)
+                .maybeSingle();
+            if (error) throw error;
+            return data;
+        },
+        enabled: !!(selectedContaId && organizacaoId && faturaVencimento),
+    });
+
     const { data: arquivosOfxMes, isLoading: isLoadingArquivos } = useQuery({
         queryKey: ['arquivosOfxCartaoConciliacao', selectedContaId, organizacaoId, faturaVencimento],
         queryFn: async () => {
@@ -245,9 +265,11 @@ export default function PanelConciliacaoCartao({ contas, initialContaId, faturaV
     });
 
     const { data: lancamentosSistema, isLoading: isLoadingLancamentos } = useQuery({
-        queryKey: ['lancamentosSistemaConciliacao', selectedContaId, organizacaoId, extratoPeriodo.startDate, extratoPeriodo.endDate],
+        // BUG #1 CORRIGIDO: chave de query usa faturaAtivaData?.id (não mais extratoPeriodo).
+        // BUG #3 CORRIGIDO: enabled usa faturaAtivaData?.id — independe do OFX estar carregado.
+        queryKey: ['lancamentosSistemaConciliacao', selectedContaId, organizacaoId, faturaAtivaData?.id],
         queryFn: async () => {
-            const raw = await fetchLancamentosSistema(supabase, selectedContaId, organizacaoId, extratoPeriodo.startDate, extratoPeriodo.endDate);
+            const raw = await fetchLancamentosSistema(supabase, selectedContaId, organizacaoId, faturaAtivaData?.id);
 
             // LOGICA BORDERÔ NO FETCH
             const borderosMap = {};
@@ -257,23 +279,22 @@ export default function PanelConciliacaoCartao({ contas, initialContaId, faturaV
                 if (lanc.agrupamento_id) {
                     if (!borderosMap[lanc.agrupamento_id]) {
                         const paiFicticio = {
-                            id: lanc.agrupamento_id, // Usamos o proprio agrupamento_id como id
+                            id: lanc.agrupamento_id,
                             isBordero: true,
                             agrupamento_id: lanc.agrupamento_id,
                             descricao: 'Borderô de Lançamentos',
                             tipo: lanc.tipo,
-                            valor: 0, // Será somado
+                            valor: 0,
                             data_pagamento: lanc.data_pagamento,
                             data_transacao: lanc.data_transacao,
                             data_vencimento: lanc.data_vencimento,
                             filhos: [],
-                            fitid_banco: null, // Assume do filho se todos tiverem
+                            fitid_banco: null,
                             lancamento_id_vinculado: null
                         };
                         borderosMap[lanc.agrupamento_id] = paiFicticio;
                         finalItens.push(paiFicticio);
                     }
-                    // Adiciona valor considerando o sinal, mas aqui a lista bruta não lida com saldos. Assume-se que um borderô só tenha de um tipo.
                     borderosMap[lanc.agrupamento_id].filhos.push(lanc);
                     borderosMap[lanc.agrupamento_id].valor += Number(lanc.valor);
                 } else {
@@ -285,15 +306,17 @@ export default function PanelConciliacaoCartao({ contas, initialContaId, faturaV
             Object.values(borderosMap).forEach(b => {
                 b.descricao = `Borderô - ${b.filhos.length} lançamentos (${b.tipo === 'Despesa' ? 'Pagamentos' : 'Recebimentos'})`;
                 const todosConciliados = b.filhos.every(f => f.fitid_banco);
-                // Se TODOS estão conciliados, o pai herda os dados de conciliação para display
                 if (todosConciliados) {
                     b.fitid_banco = b.filhos[0].fitid_banco;
                     b.conciliado = true;
                 }
             });
 
+            // BUG #1 CORRIGIDO: return que estava faltando! Sem esse return, o React Query
+            // recebia undefined e a lista de lançamentos ficava sempre vazia.
+            return finalItens;
         },
-        enabled: !!(selectedContaId && organizacaoId && extratoPeriodo.startDate && extratoPeriodo.endDate),
+        enabled: !!(selectedContaId && organizacaoId && faturaAtivaData?.id),
     });
 
     // Quando o usuário seleciona um novo arquivo OFX e os dados chegam, mapeamos para conciliationState
@@ -898,8 +921,8 @@ export default function PanelConciliacaoCartao({ contas, initialContaId, faturaV
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {/* Lado Esquerdo - Fatura Extraída Virtual */}
-                    <div className="bg-white rounded-lg shadow-sm border overflow-hidden flex flex-col h-[65vh]">
-                        <h3 className="font-bold text-sm bg-indigo-100 text-indigo-900 p-3 border-b border-indigo-200 flex items-center justify-between">
+                    <div className="bg-white rounded-lg shadow-sm border overflow-hidden flex flex-col max-h-[75vh]">
+                        <h3 className="font-bold text-sm bg-indigo-100 text-indigo-900 p-3 border-b border-indigo-200 flex items-center justify-between shrink-0">
                             <span className="flex items-center gap-2">Transações extraídas da Fatura {isLoadingTransacoesOfx && <FontAwesomeIcon icon={faSpinner} spin className="text-indigo-400" />}</span>
                             <button onClick={() => { setOfxParaEditar(null); setIsOfxModalOpen(true); }} className="bg-white border border-indigo-200 text-indigo-700 hover:bg-indigo-50 hover:shadow-sm px-2 py-1 rounded text-[10px] font-bold flex items-center gap-1 transition-all">
                                 <FontAwesomeIcon icon={faPlus} />
@@ -913,8 +936,8 @@ export default function PanelConciliacaoCartao({ contas, initialContaId, faturaV
                     </div>
 
                     {/* Lado Direito - Sistema (sistema) */}
-                    <div className="bg-white rounded-lg shadow-sm border overflow-hidden flex flex-col h-[65vh]">
-                        <h3 className="font-bold text-sm bg-gray-100 text-gray-800 p-3 border-b flex items-center justify-between">
+                    <div className="bg-white rounded-lg shadow-sm border overflow-hidden flex flex-col max-h-[75vh]">
+                        <h3 className="font-bold text-sm bg-gray-100 text-gray-800 p-3 border-b flex items-center justify-between shrink-0">
                             Lançamentos (Studio 57)
                             {selectedSistemaIds.size > 0 && <span className="text-[10px] bg-blue-100 text-blue-800 px-2 py-1 rounded-full">{selectedSistemaIds.size} selec.</span>}
                         </h3>

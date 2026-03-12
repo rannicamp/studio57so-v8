@@ -1,0 +1,169 @@
+{
+  "conta": {
+    "id": 29,
+    "nome": "0 - CARTÃO - BANCO DO BRASIL IGOR (0753)",
+    "tipo": "Cartão de Crédito"
+  },
+  "lancamentos": [
+    {
+      "id": 13733,
+      "descricao": "Tranf. de undefined: PAGAMENTO CARTÃO - BANCO DO BRASIL - REF FEV26",
+      "data_transacao": "2026-02-20",
+      "data_vencimento": "2026-03-20",
+      "data_pagamento": "2026-02-20",
+      "valor": 458.41
+    },
+    {
+      "id": 12810,
+      "descricao": "Tranf. de undefined: PAGAMENTO CARTÃO BANCO DO BRASIL REF JAN26",
+      "data_transacao": "2026-01-20",
+      "data_vencimento": "2026-02-20",
+      "data_pagamento": "2026-01-20",
+      "valor": 2506.41
+    },
+    {
+      "id": 12323,
+      "descricao": "CARTÃO BANCO DO BRASIL - ANUIDADE DIFERENCIADA  (8/12)",
+      "data_transacao": "2025-12-30",
+      "data_vencimento": "2026-08-20",
+      "data_pagamento": null,
+      "valor": 3.45
+    },
+    {
+      "id": 12324,
+      "descricao": "CARTÃO BANCO DO BRASIL - ANUIDADE DIFERENCIADA  (9/12)",
+      "data_transacao": "2025-12-30",
+      "data_vencimento": "2026-09-20",
+      "data_pagamento": null,
+      "valor": 3.45
+    },
+    {
+      "id": 12321,
+      "descricao": "CARTÃO BANCO DO BRASIL - ANUIDADE DIFERENCIADA  (6/12)",
+      "data_transacao": "2025-12-30",
+      "data_vencimento": "2026-06-20",
+      "data_pagamento": null,
+      "valor": 3.45
+    },
+    {
+      "id": 12390,
+      "descricao": "EMPÓRIO DO MARCENEIRO - MDF REFORMA ESCRITÓRIO - STUDIO 57  (10/10)",
+      "data_transacao": "2025-12-30",
+      "data_vencimento": "2026-01-20",
+      "data_pagamento": null,
+      "valor": 239.71
+    },
+    {
+      "id": 12318,
+      "descricao": "CARTÃO BANCO DO BRASIL - ANUIDADE DIFERENCIADA  (3/12)",
+      "data_transacao": "2025-12-30",
+      "data_vencimento": "2026-03-20",
+      "data_pagamento": null,
+      "valor": 3.45
+    },
+    {
+      "id": 12325,
+      "descricao": "CARTÃO BANCO DO BRASIL - ANUIDADE DIFERENCIADA  (10/12)",
+      "data_transacao": "2025-12-30",
+      "data_vencimento": "2026-10-20",
+      "data_pagamento": null,
+      "valor": 3.45
+    },
+    {
+      "id": 12367,
+      "descricao": "MERCADO LIVRE - TREVISAN MÁQUINAS - SERRA CIRCULAR MAKITA 5007N (5/12)",
+      "data_transacao": "2025-12-30",
+      "data_vencimento": "2025-12-20",
+      "data_pagamento": "2025-07-17",
+      "valor": 72.23
+    },
+    {
+      "id": 12316,
+      "descricao": "CARTÃO BANCO DO BRASIL - ANUIDADE DIFERENCIADA  (1/12)",
+      "data_transacao": "2025-12-30",
+      "data_vencimento": "2026-01-20",
+      "data_pagamento": "2025-11-20",
+      "valor": 3.45
+    },
+    {
+      "id": 12326,
+      "descricao": "CARTÃO BANCO DO BRASIL - ANUIDADE DIFERENCIADA  (11/12)",
+      "data_transacao": "2025-12-30",
+      "data_vencimento": "2026-11-20",
+      "data_pagamento": null,
+      "valor": 3.45
+    },
+    {
+      "id": 12320,
+      "descricao": "CARTÃO BANCO DO BRASIL - ANUIDADE DIFERENCIADA  (5/12)",
+      "data_transacao": "2025-12-30",
+      "data_vencimento": "2026-05-20",
+      "data_pagamento": null,
+      "valor": 3.45
+    },
+    {
+      "id": 12327,
+      "descricao": "CARTÃO BANCO DO BRASIL - ANUIDADE DIFERENCIADA  (12/12)",
+      "data_transacao": "2025-12-30",
+      "data_vencimento": "2026-12-20",
+      "data_pagamento": null,
+      "valor": 3.45
+    },
+    {
+      "id": 12319,
+      "descricao": "CARTÃO BANCO DO BRASIL - ANUIDADE DIFERENCIADA  (4/12)",
+      "data_transacao": "2025-12-30",
+      "data_vencimento": "2026-04-20",
+      "data_pagamento": null,
+      "valor": 3.45
+    },
+    {
+      "id": 12322,
+      "descricao": "CARTÃO BANCO DO BRASIL - ANUIDADE DIFERENCIADA  (7/12)",
+      "data_transacao": "2025-12-30",
+      "data_vencimento": "2026-07-20",
+      "data_pagamento": null,
+      "valor": 3.45
+    },
+    {
+      "id": 12861,
+      "descricao": "HAUSMALTE ESPLANADA - CONFRATERNIZAÇÃO EQUIPE STUDIO 57",
+      "data_transacao": "2025-12-23",
+      "data_vencimento": "2026-01-20",
+      "data_pagamento": null,
+      "valor": 622.74
+    },
+    {
+      "id": 12029,
+      "descricao": "Tranf. de undefined: PAGAMENTO CARTÃO BANCO DO BRASIL - REF DEZ25",
+      "data_transacao": "2025-12-22",
+      "data_vencimento": "2026-01-20",
+      "data_pagamento": "2025-12-22",
+      "valor": 2687.75
+    },
+    {
+      "id": 12862,
+      "descricao": "2º OFÍCIO REGISTRO DE NOTAS - CERTIDÕES ATUALIZADAS RESIDENCIAL ALFA - GERIC",
+      "data_transacao": "2025-12-12",
+      "data_vencimento": "2026-01-20",
+      "data_pagamento": null,
+      "valor": 623.81
+    },
+    {
+      "id": 12860,
+      "descricao": "TOKIO MARINE - SEGURO SAVEIRO ROBUST 9/12",
+      "data_transacao": "2025-12-12",
+      "data_vencimento": "2026-01-20",
+      "data_pagamento": null,
+      "valor": 477.61
+    },
+    {
+      "id": 13141,
+      "descricao": "ENCARGOS FINANCEIROS ROTATIVO - REF NOV25",
+      "data_transacao": "2025-12-10",
+      "data_vencimento": "2026-01-20",
+      "data_pagamento": null,
+      "valor": 2.37
+    }
+  ]
+}

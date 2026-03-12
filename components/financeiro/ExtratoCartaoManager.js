@@ -747,7 +747,7 @@ export default function ExtratoCartaoManager({ contasCartao }) {
                 {/* LADO ESQUERDO: Seletor de Faturas (troca de Meses) */}
                 <div className="lg:col-span-1 space-y-3">
                     <h3 className="text-sm font-bold text-gray-700 uppercase mb-2">Faturas do Cartão</h3>
-                    <div className="bg-white border text-sm rounded-lg overflow-hidden flex flex-col shadow-sm">
+                    <div className="bg-white border text-sm rounded-lg flex flex-col shadow-sm max-h-[75vh] overflow-y-auto custom-scrollbar">
                         {isFaturasLoading ? (
                             <div className="p-6 text-center"><FontAwesomeIcon icon={faSpinner} spin className="text-blue-400" /></div>
                         ) : faturas.length === 0 ? (
