@@ -1,0 +1,46 @@
+ARQUIVO ORIGINAL: Antecipação 25-09-02 - borderô - DOCUMENTO ASSINATURA ELETRÔNICA.pdf
+EXTRAÍDO EM: 12/03/2026, 13:09:15
+============================================================
+
+=== BORDERÔ DE ANTECIPAÇÃO DE RECEBÍVEIS ===
+
+DATA DA OPERAÇÃO: 02/09/2025 (Data de Emissão) / 02/09/2025 (Data da Solicitação)
+NÚMERO DA OPERAÇÃO: 14618626.3027-2025
+INSTITUIÇÃO: SICOOB CREDIRIODOCE
+EMPRESA CEDENTE: STUDIO 57 INCORPORACOES LTDA
+VALOR BRUTO TOTAL: R$ 26.970,74
+VALOR DAS TAXAS/JUROS: Juros: R$ 769,80; IOF: R$ 191,94; TAC: R$ 25,00
+VALOR LÍQUIDO: R$ 25.984,00
+TAXA DE DESCONTO:
+*   Tx Juros: 2,0000%
+*   Tx Juros INAD: 3,0000%
+*   Tx Mora a.m.: 1,0000%
+*   Tx Multa: 2,0000%
+*   CET Mês: 2,6344%
+*   CET Ano: 37,2145%
+*   Tx Efetiva a.m/ a.a: 2,0000% / 26,8241%
+PRAZO MÉDIO: Não informado
+
+=== RECEBÍVEIS ANTECIPADOS ===
+
+| # | Devedor/Favorecido | Nº Título/Boleto | Vencimento | Valor Face | Valor Presente |
+|---|-------------------|-----------------|------------|------------|----------------|
+| 1 | 090.381.606-74 KARINA LUCAS CARDOSO PINTO | 208/1183151 | 15/10/2025 | R$ 26.970,74 | R$ 26.009,00 |
+
+=== RESUMO ===
+Quantidade de recebíveis: 1
+Valor total dos títulos: R$ 26.970,74
+Valor líquido creditado: R$ 25.984,00
+Conta de crédito: 105.706-5
+
+=== OBSERVAÇÕES ===
+*   Limite Total da CCB: R$ 150.000,00
+*   Vigência da CCB: 17/07/2025 à 16/07/2026
+*   Situação: Em análise
+*   Origem: Balcão
+*   Perda Esperada: 0.600900
+*   Status: Aprovado Manualmente
+*   O cliente poderá optar pela liquidação antecipada do débito, nos termos da lei.
+*   Os recebíveis listados nesta remessa ainda não estão todos aprovados para antecipação e passarão por análise da cooperativa. Recebíveis que porventura não forem aprovados serão retirados da Remessa, alterando seu valor a menor. Os valores aprovados serão creditados em conta corrente, efetivando a operação de crédito, sujeita às cláusulas e às condições dispostas na Cédula de Crédito Bancário, assumindo o integral cumprimento da prestação constante no mesmo.
+*   Documento assinado eletronicamente, conforme art. 10, §2º, da MP 2.200-2/01.
+*   Identificador do arquivo: 18f9802fb9d952e6432881e6274ff66ba0e8383eab08a2c6e4a34b93fe28 - Senha de acesso: 7f3af4. Para confirmar a autenticidade acesse: https://www.sicoob.com.br/web/sicoob/autenticidade-de-documentos.

@@ -1,0 +1,48 @@
+ARQUIVO ORIGINAL: Antecipação 25-11-07 - Borderô - DOCUMENTO ASSINATURA ELETRÔNICA 4394202448115214564.PDF
+EXTRAÍDO EM: 12/03/2026, 13:29:41
+============================================================
+
+=== BORDERÔ DE ANTECIPAÇÃO DE RECEBÍVEIS ===
+
+DATA DA OPERAÇÃO: 07/11/2025
+NÚMERO DA OPERAÇÃO: 15060213.3027-2025
+INSTITUIÇÃO: SICOOB CREDIRIODOCE
+EMPRESA CEDENTE: STUDIO 57 INCORPORACOES LTDA
+VALOR BRUTO TOTAL: R$ 62.737,50
+VALOR DAS TAXAS/JUROS: R$ 3.240,58 (R$ 2.669,66 Juros + R$ 545,92 IOF + R$ 25,00 TAC)
+VALOR LÍQUIDO: R$ 59.496,92
+TAXA DE DESCONTO: 2,0000% (Tx Juros)
+PRAZO MÉDIO: Não informado
+
+=== RECEBÍVEIS ANTECIPADOS ===
+
+| # | Devedor/Favorecido | Nº Título/Boleto | Vencimento | Valor Face | Valor Presente |
+|---|-------------------|-----------------|------------|------------|----------------|
+| 1 | JAQUELINE SANDRA FERREIRA ALVES (083.766.926-07) | 310/1183151 | 22/01/2026 | R$ 4.333,33 | R$ 4.075,82 |
+| 2 | JAQUELINE SANDRA FERREIRA ALVES (083.766.926-07) | 309/1183151 | 22/12/2025 | R$ 4.333,33 | R$ 4.172,49 |
+| 3 | JAQUELINE SANDRA FERREIRA ALVES (083.766.926-07) | 306/1183151 | 22/01/2026 | R$ 26.000,00 | R$ 24.454,97 |
+| 4 | KARINA LUCAS CARDOSO PINTO (090.381.606-74) | 213/1183151 | 20/01/2026 | R$ 4.495,12 | R$ 4.234,40 |
+| 5 | KARINA LUCAS CARDOSO PINTO (090.381.606-74) | 212/1183151 | 20/12/2025 | R$ 4.495,12 | R$ 4.328,28 |
+| 6 | CAROLINA DRUMOND COELHO GARCIA (040.796.376-67) | 180/1183151 | 15/01/2026 | R$ 1.833,93 | R$ 1.734,10 |
+| 7 | CAROLINA DRUMOND COELHO GARCIA (040.796.376-67) | 179/1183151 | 15/12/2025 | R$ 1.833,93 | R$ 1.775,23 |
+| 8 | MONTE ALTO EMPREENDIMENTOS IMOBILIARIOS LTDA (12.237.802/0001-07) | 90/1183151 | 15/01/2026 | R$ 7.706,37 | R$ 7.286,91 |
+| 9 | MONTE ALTO EMPREENDIMENTOS IMOBILIARIOS LTDA (12.237.802/0001-07) | 89/1183151 | 15/12/2025 | R$ 7.706,37 | R$ 7.459,72 |
+
+=== RESUMO ===
+Quantidade de recebíveis: 9
+Valor total dos títulos: R$ 62.737,50
+Valor líquido creditado: R$ 59.496,92
+Conta de crédito: 105.706-5
+
+=== OBSERVAÇÕES ===
+A operação está "Em análise" na data de emissão 07/11/2025.
+A vigência da Cédula de Crédito Bancário (CCB) é de 17/07/2025 à 16/07/2026, com limite total de R$ 150.000,00.
+Os recebíveis listados nesta remessa ainda não estão todos aprovados para antecipação e passarão por análise da cooperativa. Recebíveis que porventura não forem aprovados serão retirados da Remessa, alterando seu valor a menor. Os valores aprovados serão creditados em conta corrente, efetivando a operação de crédito, sujeita às cláusulas e às condições dispostas na Cédula de Crédito Bancário, assumindo o integral cumprimento da prestação constante no mesmo.
+Dos 9 recebíveis, 6 estão com status "Pré-Aprovado" e 3 estão "Para Análise".
+O cliente poderá optar pela liquidação antecipada do débito, nos termos da lei.
+Taxa Efetiva Mensal: 2,0000%.
+Taxa Efetiva Anual: 26,8241%.
+Perda Esperada: 0,600900.
+CET Mês: 2,4953%.
+CET Ano: 34,9675%.
+Origem da solicitação: Balcão.

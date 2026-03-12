@@ -1,0 +1,45 @@
+ARQUIVO ORIGINAL: Antecipação 26-03-06 - Borderô - DOCUMENTO ASSINATURA ELETRÔNICA 9003448610448225105.pdf
+EXTRAÍDO EM: 12/03/2026, 14:39:17
+============================================================
+
+=== BORDERÔ DE ANTECIPAÇÃO DE RECEBÍVEIS ===
+
+DATA DA OPERAÇÃO: 06/03/2026
+NÚMERO DA OPERAÇÃO: 15783915.3027-2026
+INSTITUIÇÃO: SICOOB CREDIRIODOCE
+EMPRESA CEDENTE: STUDIO 57 INCORPORACOES LTDA
+VALOR BRUTO TOTAL: R$ 30.688,02
+VALOR DAS TAXAS/JUROS: R$ 3.305,20 (Juros: R$ 2.811,51, IOF: R$ 468,69, TAC: R$ 25,00)
+VALOR LÍQUIDO: R$ 27.382,82
+TAXA DE DESCONTO: 1,8000% (Tx Juros)
+PRAZO MÉDIO: Não informado
+
+=== RECEBÍVEIS ANTECIPADOS ===
+
+| # | Devedor/Favorecido | Nº Título/Boleto | Vencimento | Valor Face | Valor Presente |
+|---|-------------------|-----------------|------------|------------|----------------|
+| 1 | 047.708.506-70 MARCELO ALVES JOSÉ | 426/1183151 | 22/08/2026 | R$ 4.333,33 | R$ 3.837,48 |
+| 2 | 328.252.028-00 SAMUEL CLAUDIO DAMACENO | 390/1183151 | 10/08/2026 | R$ 8.017,19 | R$ 7.168,64 |
+| 3 | 113.860.986-20 MATHEUS VINICIUS DE ALMEIDA SILVA | 353/1183151 | 10/08/2026 | R$ 4.276,91 | R$ 3.824,23 |
+| 4 | 847.014.986-53 ALESSANDRA MONTE ALTO ALVIM | 285/1183151 | 10/08/2026 | R$ 1.925,00 | R$ 1.721,25 |
+| 5 | 902.012.056-53 ANGELA MONTE ALVIM | 254/1183151 | 10/08/2026 | R$ 1.925,00 | R$ 1.721,25 |
+| 6 | 040.796.376-67 CAROLINA DRUMOND COELHO GARCIA | 187/1183151 | 15/08/2026 | R$ 1.833,93 | R$ 1.631,94 |
+| 7 | 147.215.926-80 DARLENE RIBEIRO SOUZA | 129/1183151 | 10/08/2026 | R$ 4.170,83 | R$ 3.729,38 |
+| 8 | 142.286.296-87 ALSENIR DUARTE MONTE ALTO DE OLIVEIRA REZENDE | 72/1183151 | 05/08/2026 | R$ 4.205,83 | R$ 3.773,65 |
+
+=== RESUMO ===
+Quantidade de recebíveis: 8
+Valor total dos títulos: R$ 30.688,02
+Valor líquido creditado: R$ 27.382,82
+Conta de crédito: 105.706-5
+
+=== OBSERVAÇÕES ===
+*   Os recebíveis listados nesta remessa ainda não estão todos aprovados para antecipação e passarão por análise da cooperativa. Recebíveis que porventura não forem aprovados serão retirados da Remessa, alterando seu valor a menor. Os valores aprovados serão creditados em conta corrente, efetivando a operação de crédito, sujeita às cláusulas e às condições dispostas na Cédula de Crédito Bancário, assumindo o integral cumprimento da prestação constante no mesmo.
+*   O cliente poderá optar pela liquidação antecipada do débito, nos termos da lei.
+*   Vigência da CCB: 10/11/2025 à 09/11/2026.
+*   Perda Esperada: 0.600900.
+*   CET Mês: 2,1776%.
+*   CET Ano: 29,9650%.
+*   Tx Efetiva a.m/a.a: 1,8000% / 23,8720%.
+*   Taxas Adicionais (multa/juros): Tx Juros INAD (2,8000%), Tx Mora a.m. (1,0000%), Tx Multa (2,0000%).
+*   Status dos recebíveis: 7 estão "Pré-Aprovado" e 1 está "Para Análise" (documento 390/1183151).

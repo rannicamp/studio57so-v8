@@ -1,0 +1,37 @@
+ARQUIVO ORIGINAL: Antecipação 25-09-23 - Borderô - DOCUMENTO ASSINATURA ELETRÔNICA.pdf
+EXTRAÍDO EM: 12/03/2026, 13:10:15
+============================================================
+
+=== BORDERÔ DE ANTECIPAÇÃO DE RECEBÍVEIS ===
+
+DATA DA OPERAÇÃO: 23/09/2025
+NÚMERO DA OPERAÇÃO: 14766479.3027-2025
+INSTITUIÇÃO: SICOOB
+EMPRESA CEDENTE: STUDIO 57 INCORPORACOES LTDA
+VALOR BRUTO TOTAL: R$ 62.050,00
+VALOR DAS TAXAS/JUROS: R$ 2.595,25 (R$ 2.092,15 Juros + R$ 478,10 IOF + R$ 25,00 TAC)
+VALOR LÍQUIDO: R$ 59.454,75
+TAXA DE DESCONTO:
+    - Tx Juros: 2,0000%
+    - CET Mês: 2,5489%
+    - CET Ano: 35,8295%
+    - Tx Efetiva a.m/ a.a: 2,0000% / 26,8241%
+PRAZO MÉDIO: Não informado
+
+=== RECEBÍVEIS ANTECIPADOS ===
+
+| # | Devedor/Favorecido | Nº Título/Boleto | Vencimento | Valor Face | Valor Presente |
+|---|-------------------|-----------------|------------|------------|----------------|
+| 1 | 083.766.926-07 JAQUELINE SANDRA FERREIRA ALVES | 305/1183151 | 22/11/2025 | R$ 26.000,00 | R$ 24.715,25 |
+| 2 | 142.286.296-87 ALSENIR DUARTE MONTE ALTO DE OLIVEIRA REZENDE | 63/1183151 | 05/11/2025 | R$ 36.050,00 | R$ 34.764,50 |
+
+=== RESUMO ===
+Quantidade de recebíveis: 2
+Valor total dos títulos: R$ 62.050,00
+Valor líquido creditado: R$ 59.454,75
+Conta de crédito: 105.706-5
+
+=== OBSERVAÇÕES ===
+O cliente poderá optar pela liquidação antecipada do débito, nos termos da lei.
+Os recebíveis listados nesta remessa ainda não estão todos aprovados para antecipação e passarão por análise da cooperativa. Recebíveis que porventura não forem aprovados serão retirados da Remessa, alterando seu valor a menor. Os valores aprovados serão creditados em conta corrente, efetivando a operação de crédito, sujeita às cláusulas e às condições dispostas na Cédula de Crédito Bancário, assumindo o integral cumprimento da prestação constante no mesmo.
+Todos os recebíveis listados estão com status "Para Análise".

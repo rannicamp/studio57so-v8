@@ -1,0 +1,40 @@
+ARQUIVO ORIGINAL: Antecipação 25-11-24 - Borderô - DOCUMENTO ASSINATURA ELETRÔNICA 2281060131370323066.pdf
+EXTRAÍDO EM: 12/03/2026, 13:30:11
+============================================================
+
+=== BORDERÔ DE ANTECIPAÇÃO DE RECEBÍVEIS ===
+
+DATA DA OPERAÇÃO: 24/11/2025
+NÚMERO DA OPERAÇÃO: 15158891.3027-2025
+INSTITUIÇÃO: SICOOB
+EMPRESA CEDENTE: STUDIO 57 INCORPORACOES LTDA
+VALOR BRUTO TOTAL: R$ 20.002,17
+VALOR DAS TAXAS/JUROS: R$ 804,11 (Juros: R$ 630,02, IOF: R$ 149,09, TAC: R$ 25,00)
+VALOR LÍQUIDO: R$ 19.198,06
+TAXA DE DESCONTO: CET Mês: 2,6240% / CET Ano: 37,0440% (Taxa Efetiva a.m/ a.a: 2,0000% / 26,8241%)
+PRAZO MÉDIO: Não informado
+
+=== RECEBÍVEIS ANTECIPADOS ===
+
+| # | Devedor/Favorecido | Nº Título/Boleto | Vencimento | Valor Face | Valor Presente |
+|---|-------------------|-----------------|------------|------------|----------------|
+| 1 | MATHEUS VINICIUS DE ALMEIDA SILVA | 346/1183151 | 10/01/2026 | R$ 4.276,91 | R$ 4.105,73 |
+| 2 | ALESSANDRA MONTE ALTO ALVIM | 278/1183151 | 10/01/2026 | R$ 1.925,00 | R$ 1.847,96 |
+| 3 | ANGELA MONTE ALTO ALVIM | 247/1183151 | 10/01/2026 | R$ 1.925,00 | R$ 1.847,96 |
+| 4 | PAULO ROBERTO GOVEA FILHO | 159/1183151 | 10/01/2026 | R$ 3.498,60 | R$ 3.358,58 |
+| 5 | DARLENE RIBEIRO SOUZA | 122/1183151 | 10/01/2026 | R$ 4.170,83 | R$ 4.003,91 |
+| 6 | ALSENIR DUARTE MONTE ALTO DE OLIVEIRA REZENDE | 65/1183151 | 05/01/2026 | R$ 4.205,83 | R$ 4.058,92 |
+
+=== RESUMO ===
+Quantidade de recebíveis: 6
+Valor total dos títulos: R$ 20.002,17
+Valor líquido creditado: R$ 19.198,06
+Conta de crédito: 105.706-5
+
+=== OBSERVAÇÕES ===
+Os recebíveis listados nesta remessa ainda não estão todos aprovados para antecipação e passarão por análise da cooperativa. Recebíveis que porventura não forem aprovados serão retirados da Remessa, alterando seu valor a menor. Os valores aprovados serão creditados em conta corrente, efetivando a operação de crédito, sujeita às cláusulas e às condições dispostas na Cédula de Crédito Bancário, assumindo o integral cumprimento da prestação constante no mesmo.
+O cliente poderá optar pela liquidação antecipada do débito, nos termos da lei.
+Limite Total da CCB: R$ 150.000,00.
+Vigência da CCB: 17/07/2025 à 16/07/2026.
+Todos os recebíveis listados estão com status "Pré-Aprovado".
+Perda Esperada: 0.600900.

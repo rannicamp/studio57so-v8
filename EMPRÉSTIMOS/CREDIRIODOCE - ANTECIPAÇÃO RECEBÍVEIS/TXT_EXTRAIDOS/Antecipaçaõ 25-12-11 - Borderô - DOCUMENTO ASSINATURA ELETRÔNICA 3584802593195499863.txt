@@ -1,0 +1,47 @@
+ARQUIVO ORIGINAL: Antecipaçaõ 25-12-11 - Borderô - DOCUMENTO ASSINATURA ELETRÔNICA 3584802593195499863.pdf
+EXTRAÍDO EM: 12/03/2026, 13:07:59
+============================================================
+
+=== BORDERÔ DE ANTECIPAÇÃO DE RECEBÍVEIS ===
+
+DATA DA OPERAÇÃO: 11/12/2025
+NÚMERO DA OPERAÇÃO: 15280721.3027-2025
+INSTITUIÇÃO: SICOOB Crediriodoce (3027)
+EMPRESA CEDENTE: STUDIO 57 INCORPORACOES LTDA (41.464.589/0001-66)
+VALOR BRUTO TOTAL: R$ 30.879,93
+VALOR DAS TAXAS/JUROS: R$ 2.221,66 (Juros: R$ 1.866,26, IOF: R$ 330,40, TAC: R$ 25,00)
+VALOR LÍQUIDO: R$ 28.658,27
+TAXA DE DESCONTO: 2,0000% a.m / 26,8241% a.a (Tx Efetiva)
+PRAZO MÉDIO: Não informado
+
+=== RECEBÍVEIS ANTECIPADOS ===
+
+| # | Devedor/Favorecido                       | Nº Título/Boleto | Vencimento | Valor Face | Valor Presente |
+|---|------------------------------------------|-----------------|------------|------------|----------------|
+| 1 | 328.252.028-00 SAMUEL CLAUDIO DAMACENO   | 385/1183151     | 10/03/2026 | R$ 8.017,19 | R$ 7.467,00    |
+| 2 | 113.860.986-20 MATHEUS VINICIUS DE ALMEIDA SILVA | 349/1183151     | 10/04/2026 | R$ 4.276,91 | R$ 3.891,08    |
+| 3 | 847.014.986-53 ALESSANDRA MONTE ALTO ALVIM | 280/1183151     | 10/03/2026 | R$ 14.380,00 | R$ 13.393,15   |
+| 4 | 142.286.296-87 ALSENIR DUARTE MONTE ALTO DE OLIVEIRA REZENDE | 67/1183151      | 05/03/2026 | R$ 4.205,83 | R$ 3.932,04    |
+
+=== RESUMO ===
+Quantidade de recebíveis: 4
+Valor total dos títulos: R$ 30.879,93
+Valor líquido creditado: R$ 28.658,27
+Conta de crédito: 105.706-5
+
+=== OBSERVAÇÕES ===
+Situação da operação: Em análise.
+Vigência da Cédula de Crédito Bancário (CCB): 10/11/2025 à 09/11/2026.
+Limite Total da CCB: R$ 300.000,00.
+Responsável: MARINAD3027_00.
+Origem: Balcão.
+Taxa de Juros (Tx Juros): 2,0000%.
+Taxa de Juros Inadimplência (Tx Juros INAD): 3,0000%.
+Taxa de Mora a.m. (Tx Mora a.m.): 1,0000%.
+Taxa de Multa (Tx Multa): 2,0000%.
+CET Mensal (CET Mês): 2,4494%.
+CET Anual (CET Ano): 34,2349%.
+Perda Esperada: 0.600900.
+Status dos recebíveis individuais: Recebíveis 1 e 3 "Para Análise", Recebíveis 2 e 4 "Pré-Aprovado".
+Os recebíveis listados nesta remessa ainda não estão todos aprovados para antecipação e passarão por análise da cooperativa. Recebíveis que porventura não forem aprovados serão retirados da Remessa, alterando seu valor a menor. Os valores aprovados serão creditados em conta corrente, efetivando a operação de crédito, sujeita às cláusulas e às condições dispostas na Cédula de Crédito Bancário, assumindo o integral cumprimento da prestação constante no mesmo.
+O cliente poderá optar pela liquidação antecipada do débito, nos termos da lei.

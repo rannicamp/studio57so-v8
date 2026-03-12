@@ -1,0 +1,43 @@
+ARQUIVO ORIGINAL: Antecipação 25-09-08 - Borderô - DOCUMENTO ASSINATURA ELETRÔNICA.pdf
+EXTRAÍDO EM: 12/03/2026, 13:09:44
+============================================================
+
+=== BORDERÔ DE ANTECIPAÇÃO DE RECEBÍVEIS ===
+
+DATA DA OPERAÇÃO: 08/09/2025
+NÚMERO DA OPERAÇÃO: 14658249.3027-2025
+INSTITUIÇÃO: SICOOB CREDIRIODOCE
+EMPRESA CEDENTE: STUDIO 57 INCORPORACOES LTDA
+VALOR BRUTO TOTAL: R$ 21.556,37
+VALOR DAS TAXAS/JUROS: R$ 960,33 (Valor Juros: R$ 764,94 + Valor IOF: R$ 170,39 + Valor Tarifa: R$ 0,00 + Valor TAC: R$ 25,00)
+VALOR LÍQUIDO: R$ 20.596,04
+TAXA DE DESCONTO: 26,8241% a.a. (Tx Efetiva a.a.)
+PRAZO MÉDIO: Não informado
+
+=== RECEBÍVEIS ANTECIPADOS ===
+
+| # | Devedor/Favorecido | Nº Título/Boleto | Vencimento | Valor Face | Valor Presente |
+|---|-------------------|-----------------|------------|------------|----------------|
+| 1 | 847.014.986-53 ALESSANDRA MONTE ALTO ALVIM | 276/1183151 | 10/11/2025 | R$ 6.925,00 | R$ 6.577,84 |
+| 2 | 902.012.056-53 ANGELA MONTE ALTO ALVIM | 206/1183151 | 10/11/2025 | R$ 6.925,00 | R$ 6.577,84 |
+| 3 | 12.237.802/0001-07 MONTE ALTO EMPREENDIMENTOS IMOBILIARIOS LTDA | 87/1183151 | 15/10/2025 | R$ 7.706,37 | R$ 7.465,36 |
+
+=== RESUMO ===
+Quantidade de recebíveis: 3
+Valor total dos títulos: R$ 21.556,37
+Valor líquido creditado: R$ 20.596,04
+Conta de crédito: 105.706-5
+
+=== OBSERVAÇÕES ===
+Número da CCB: 1136625
+Vigência da CCB: 17/07/2025 à 16/07/2026
+Origem: Balcão
+Situação da Remessa: Liberada
+Perda Esperada: 0.600900
+CET Mês: 2,5816%
+CET Ano: 36,3575%
+Status dos Recebíveis: Aprovado Manualmente (para todos os itens)
+Taxas de Juros Adicionais: Tx Juros: 2,0000%, Tx Juros INAD: 3,0000%, Tx Mora a.m.: 1,0000%, Tx Multa: 2,0000%
+O cliente poderá optar pela liquidação antecipada do débito, nos termos da lei.
+Documento assinado eletronicamente, conforme art. 10, §2º, da MP 2.200-2/01.
+Para confirmar a autenticidade acesse: https://www.sicoob.com.br/web/sicoob/autenticidade-de-documentos

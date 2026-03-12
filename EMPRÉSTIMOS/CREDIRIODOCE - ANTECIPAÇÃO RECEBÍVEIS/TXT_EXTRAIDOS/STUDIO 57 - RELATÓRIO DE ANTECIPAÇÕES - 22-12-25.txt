@@ -1,0 +1,62 @@
+ARQUIVO ORIGINAL: STUDIO 57 - RELATÓRIO DE ANTECIPAÇÕES - 22-12-25.pdf
+EXTRAÍDO EM: 12/03/2026, 13:31:59
+============================================================
+
+=== BORDERÔ DE ANTECIPAÇÃO DE RECEBÍVEIS ===
+
+DATA DA OPERAÇÃO: 22/12/2025
+NÚMERO DA OPERAÇÃO: Não informado
+INSTITUIÇÃO: SICOOB CREDIRIODOCE
+EMPRESA CEDENTE: STUDIO 57 INCORPORACOES LTDA
+VALOR BRUTO TOTAL: 185.602,87
+VALOR DAS TAXAS/JUROS: Não informado
+VALOR LÍQUIDO: 185.602,87
+TAXA DE DESCONTO: Não informado
+PRAZO MÉDIO: Não informado
+
+=== RECEBÍVEIS ANTECIPADOS ===
+
+| # | Devedor/Favorecido              | Nº Título/Boleto | Vencimento | Valor Face | Valor Presente |
+|---|---------------------------------|------------------|------------|------------|----------------|
+| 1 | JAQUELINE SANDRA FERREIRA ALVES | 001202002-03     | 22/12/2025 | 4.333,33   | 4.333,33       |
+| 2 | ALSENIR DUARTE MONTE ALTO DE OLIVEIRA | 001402005-06     | 05/01/2026 | 4.205,83   | 4.205,83       |
+| 3 | MATHEUS VINICIUS DE ALMEIDA SILVA | 001503001-03     | 10/01/2026 | 4.276,91   | 4.276,91       |
+| 4 | ALESSANDRA MONTE ALTO ALVIM     | 001602005-02     | 10/01/2026 | 1.925,00   | 1.925,00       |
+| 5 | ANGELA MONTE ALTO ALVIM         | 001602002-02     | 10/01/2026 | 1.925,00   | 1.925,00       |
+| 6 | PAULO ROBERTO GOVEA FILHO       | 001603006-06     | 10/01/2026 | 3.498,60   | 3.498,60       |
+| 7 | DARLENE RIBEIRO SOUZA           | 001304001-06     | 10/01/2026 | 4.170,83   | 4.170,83       |
+| 8 | CAROLINA DRUMOND COELHO GARCIA  | 001604004-06     | 15/01/2026 | 1.833,93   | 1.833,93       |
+| 9 | MONTE ALTO EMPREENDIMENTOS      | 001504003-06     | 15/01/2026 | 7.706,37   | 7.706,37       |
+| 10 | JOSÉ ROGÉRIO DE PAIVA FILHO     | 001501005-06     | 19/01/2026 | 4.289,13   | 4.289,13       |
+| 11 | JOSÉ ROGÉRIO DE PAIVA FILHO     | 001401005-06     | 19/01/2026 | 4.246,67   | 4.246,67       |
+| 12 | KARINA LUCAS CARDOSO PINTO      | 001502002-05     | 20/01/2026 | 4.495,12   | 4.495,12       |
+| 13 | JAQUELINE SANDRA FERREIRA ALVES | 001202002-04     | 22/01/2026 | 4.333,33   | 4.333,33       |
+| 14 | JAQUELINE SANDRA FERREIRA ALVES | 001202001-02     | 22/01/2026 | 26.000,00  | 26.000,00      |
+| 15 | ALSENIR DUARTE MONTE ALTO DE OLIVEIRA | 001402005-07     | 05/02/2026 | 4.205,83   | 4.205,83       |
+| 16 | SAMUEL CLAUDIO DAMACENO         | 001302001-04     | 10/02/2026 | 8.017,19   | 8.017,19       |
+| 17 | MATHEUS VINICIUS DE ALMEIDA SILVA | 001503001-04     | 10/02/2026 | 4.276,91   | 4.276,91       |
+| 18 | ALESSANDRA MONTE ALTO ALVIM     | 001602005-03     | 10/02/2026 | 1.925,00   | 1.925,00       |
+| 19 | ANGELA MONTE ALTO ALVIM         | 001602002-03     | 10/02/2026 | 1.925,00   | 1.925,00       |
+| 20 | PAULO ROBERTO GOVEA FILHO       | 001603006-07     | 10/02/2026 | 3.498,60   | 3.498,60       |
+| 21 | DARLENE RIBEIRO SOUZA           | 001304001-07     | 10/02/2026 | 4.170,83   | 4.170,83       |
+| 22 | CAROLINA DRUMOND COELHO GARCIA  | 001604004-07     | 15/02/2026 | 1.833,93   | 1.833,93       |
+| 23 | MONTE ALTO EMPREENDIMENTOS      | 001504003-07     | 15/02/2026 | 7.706,37   | 7.706,37       |
+| 24 | JOSÉ ROGÉRIO DE PAIVA FILHO     | 001501005-07     | 19/02/2026 | 4.289,13   | 4.289,13       |
+| 25 | JOSÉ ROGÉRIO DE PAIVA FILHO     | 001401005-07     | 19/02/2026 | 4.246,67   | 4.246,67       |
+| 26 | KARINA LUCAS CARDOSO PINTO      | 001502002-06     | 20/02/2026 | 4.495,12   | 4.495,12       |
+| 27 | ALSENIR DUARTE MONTE ALTO DE OLIVEIRA | 001402005-08     | 05/03/2026 | 4.205,83   | 4.205,83       |
+| 28 | ANGELA MONTE ALTO ALVIM         | 001602002-04     | 10/03/2026 | 14.380,00  | 14.380,00      |
+| 29 | SAMUEL CLAUDIO DAMACENO         | 001302001-05     | 10/03/2026 | 8.017,19   | 8.017,19       |
+| 30 | ALESSANDRA MONTE ALTO ALVIM     | 001602005-04     | 10/03/2026 | 14.380,00  | 14.380,00      |
+| 31 | KARINA LUCAS CARDOSO PINTO      | 001502002-07     | 20/03/2026 | 4.495,12   | 4.495,12       |
+| 32 | SAMUEL CLAUDIO DAMACENO         | 001302001-06     | 10/04/2026 | 8.017,19   | 8.017,19       |
+| 33 | MATHEUS VINICIUS DE ALMEIDA SILVA | 001503001-06     | 10/04/2026 | 4.276,91   | 4.276,91       |
+
+=== RESUMO ===
+Quantidade de recebíveis: 33
+Valor total dos títulos: 185.602,87
+Valor líquido creditado: 185.602,87
+Conta de crédito: Não informado
+
+=== OBSERVAÇÕES ===
+Este documento é um "RELATÓRIO SELEÇÃO DE OPERAÇÕES PARCELAS EM ABERTO" (Report of Open Operations/Installments Selection) e lista parcelas em aberto, não apresentando explicitamente cálculos de desconto ou taxas de uma operação de antecipação de recebíveis. O "Valor Pago Parcial" é consistentemente 0,00, e o "Saldo Devedor" é igual ao "Valor Operação" para todos os itens, indicando os valores de face das parcelas pendentes. O período coberto pelo relatório é de 22/12/2025 a 31/12/2026.

@@ -1,0 +1,47 @@
+ARQUIVO ORIGINAL: Antecipação 26-01-29 - Borderô - DOCUMENTO ASSINATURA ELETRÔNICA 1482721156246229870.pdf
+EXTRAÍDO EM: 12/03/2026, 14:37:29
+============================================================
+
+=== BORDERÔ DE ANTECIPAÇÃO DE RECEBÍVEIS ===
+
+DATA DA OPERAÇÃO: 29/01/2026
+NÚMERO DA OPERAÇÃO: 15559115.3027-2026
+INSTITUIÇÃO: SICOOB
+EMPRESA CEDENTE: STUDIO 57 INCORPORACOES LTDA
+VALOR BRUTO TOTAL: R$ 17.043,32
+VALOR DAS TAXAS/JUROS: R$ 764,18 (Juros: R$ 604,56, IOF: R$ 134,62, TAC: R$ 25,00, Tarifa: R$ 0,00)
+VALOR LÍQUIDO: R$ 16.279,14
+TAXA DE DESCONTO: 2,0000% (Tx Juros)
+PRAZO MÉDIO: Não informado
+
+=== RECEBÍVEIS ANTECIPADOS ===
+
+| # | Devedor/Favorecido | Nº Título/Boleto | Vencimento | Valor Face | Valor Presente |
+|---|-------------------|-----------------|------------|------------|----------------|
+| 1 | 047.708.506-70 MARCELO ALVES JOSÉ | 421/1183151 | 22/03/2026 | R$ 4.333,33 | R$ 4.147,33 |
+| 2 | 047.708.506-70 MARCELO ALVES JOSÉ | 420/1183151 | 22/02/2026 | R$ 4.333,33 | R$ 4.236,06 |
+| 3 | 147.215.926-80 DARLENE RIBEIRO SOUZA | 125/1183151 | 10/04/2026 | R$ 4.170,83 | R$ 3.937,84 |
+| 4 | 142.286.296-87 ALSENIR DUARTE MONTE ALTO DE OLIVEIRA REZENDE | 68/1183151 | 05/04/2026 | R$ 4.205,83 | R$ 3.982,91 |
+
+=== RESUMO ===
+Quantidade de recebíveis: 4
+Valor total dos títulos: R$ 17.043,32
+Valor líquido creditado: R$ 16.279,14
+Conta de crédito: 105.706-5
+
+=== OBSERVAÇÕES ===
+O cliente poderá optar pela liquidação antecipada do débito, nos termos da lei.
+Vigência da CCB: 10/11/2025 à 09/11/2026.
+Origem: Balcão.
+Situação: Liberada.
+Taxa Juros INAD: 3,0000%.
+Taxa Mora a.m.: 1,0000%.
+Taxa Multa: 2,0000%.
+CET Mês: 2,6008%.
+CET Ano: 36,6679%.
+Taxa Efetiva a.m/ a.a: 2,0000% / 26,8241%.
+Perda Esperada: 0.600900.
+Documento assinado eletronicamente, conforme art. 10, §2º, da MP 2.200-2/01.
+Identificador do arquivo: ee7bc0faaa7b4beeca75c763fe740105a83fe2692af4e80390a7142ff3877c87.
+Identificador do documento: e70faaab4ec75c763fe740105a83fe2692af4e80390a7142ff3877c87 - Senha de acesso: a16593.
+Para confirmar a autenticidade acesse: https://www.sicoob.com.br/web/sicoob/autenticidade-de-documentos.

@@ -1,0 +1,41 @@
+ARQUIVO ORIGINAL: Antecipação 25-12-29 - Borderô - DOCUMENTO ASSINATURA ELETRÔNICA 5938596889095687728.pdf
+EXTRAÍDO EM: 12/03/2026, 13:31:18
+============================================================
+
+=== BORDERÔ DE ANTECIPAÇÃO DE RECEBÍVEIS ===
+
+DATA DA OPERAÇÃO: 29/12/2025
+NÚMERO DA OPERAÇÃO: 15375915.3027-2025
+INSTITUIÇÃO: SICOOB
+EMPRESA CEDENTE: STUDIO 57 INCORPORACOES LTDA
+VALOR BRUTO TOTAL: R$ 30.022,44
+VALOR DAS TAXAS/JUROS: R$ 1.797,51 (Juros: R$ 1.487,53 + IOF: R$ 284,98 + TAC: R$ 25,00)
+VALOR LÍQUIDO: R$ 28.224,93
+TAXA DE DESCONTO: 2,0000%
+PRAZO MÉDIO: Não informado
+
+=== RECEBÍVEIS ANTECIPADOS ===
+
+| # | Devedor/Favorecido | Nº Título/Boleto | Vencimento | Valor Face | Valor Presente |
+|---|-------------------------------------------------------|-----------------|------------|------------|----------------|
+| 1 | 113.860.986-20 MATHEUS VINICIUS DE ALMEIDA SILVA        | 348/1183151     | 10/03/2026 | 4.276,91   | 4.038,00       |
+| 2 | 040.796.376-67 CAROLINA DRUMOND COELHO GARCIA           | 182/1183151     | 15/03/2026 | 1.833,93   | 1.723,65       |
+| 3 | 073.120.626-60 PAULO ROBERTO GOVEA FILHO                | 161/1183151     | 10/03/2026 | 3.498,60   | 3.303,17       |
+| 4 | 147.215.926-80 DARLENE RIBEIRO SOUZA                    | 124/1183151     | 10/03/2026 | 4.170,83   | 3.937,84       |
+| 5 | 12.237.802/0001-07 MONTE ALTO EMPREENDIMENTOS IMOBILIARIOS | 92/1183151      | 15/03/2026 | 7.706,37   | 7.242,95       |
+| 6 | 108.131.656-01 JOSÉ ROGÉRIO DE PAIVA FILHO              | 43/1183151      | 19/03/2026 | 4.289,13   | 4.022,07       |
+| 7 | 108.131.656-01 JOSÉ ROGÉRIO DE PAIVA FILHO              | 19/1183151      | 19/03/2026 | 4.246,67   | 3.982,25       |
+
+=== RESUMO ===
+Quantidade de recebíveis: 7
+Valor total dos títulos: R$ 30.022,44
+Valor líquido creditado: R$ 28.224,93
+Conta de crédito: 105.706-5
+
+=== OBSERVAÇÕES ===
+Situação da remessa: Em análise.
+Os recebíveis listados nesta remessa ainda não estão todos aprovados para antecipação e passarão por análise da cooperativa. Recebíveis que porventura não forem aprovados serão retirados da Remessa, alterando seu valor a menor. Os valores aprovados serão creditados em conta corrente, efetivando a operação de crédito, sujeita às cláusulas e às condições dispostas na Cédula de Crédito Bancário, assumindo o integral cumprimento da prestação constante no mesmo.
+O cliente poderá optar pela liquidação antecipada do débito, nos termos da lei.
+CET Mês: 2,4849%
+CET Ano: 34,8019%
+Taxa Efetiva a.m/a.a: 2,0000% / 26,8241%

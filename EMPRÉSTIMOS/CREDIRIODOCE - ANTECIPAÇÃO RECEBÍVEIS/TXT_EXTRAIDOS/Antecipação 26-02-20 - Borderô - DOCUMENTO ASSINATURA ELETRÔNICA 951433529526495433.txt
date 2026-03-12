@@ -1,0 +1,52 @@
+ARQUIVO ORIGINAL: Antecipação 26-02-20 - Borderô - DOCUMENTO ASSINATURA ELETRÔNICA 951433529526495433.pdf
+EXTRAÍDO EM: 12/03/2026, 14:38:08
+============================================================
+
+=== BORDERÔ DE ANTECIPAÇÃO DE RECEBÍVEIS ===
+
+DATA DA OPERAÇÃO: 20/02/2026
+NÚMERO DA OPERAÇÃO: 15694799.3027-2026
+INSTITUIÇÃO: SICOOB CREDIRIODOCE
+EMPRESA CEDENTE: STUDIO 57 INCORPORACOES LTDA
+VALOR BRUTO TOTAL: R$ 52.592,59
+VALOR DAS TAXAS/JUROS: R$ 3.388,79 (R$ 2.861,46 de Juros + R$ 527,33 de IOF)
+VALOR LÍQUIDO: R$ 49.178,80
+TAXA DE DESCONTO: 2.0000% (Tx Juros)
+PRAZO MÉDIO: Não informado
+
+=== RECEBÍVEIS ANTECIPADOS ===
+
+| # | Devedor/Favorecido                      | Nº Título/Boleto | Vencimento | Valor Face  | Valor Presente |
+|---|-----------------------------------------|-----------------|------------|-------------|----------------|
+| 1 | MARCELO ALVES JOSÉ                      | 422/1183151     | 22/04/2026 | R$ 4.333,33 | R$ 4.122,33    |
+| 2 | MATHEUS VINICIUS DE ALMEIDA SILVA       | 350/1183151     | 10/05/2026 | R$ 4.276,91 | R$ 4.010,61    |
+| 3 | ALESSANDRA MONTE ALTO ALVIM             | 282/1183151     | 10/05/2026 | R$ 1.925,00 | R$ 1.805,14    |
+| 4 | ALESSANDRA MONTE ALTO ALVIM             | 281/1183151     | 10/04/2026 | R$ 1.925,00 | R$ 1.847,96    |
+| 5 | ANGELA MONTE ALTO ALVIM                 | 251/1183151     | 10/05/2026 | R$ 1.925,00 | R$ 1.805,14    |
+| 6 | ANGELA MONTE ALTO ALVIM                 | 250/1183151     | 10/04/2026 | R$ 1.925,00 | R$ 1.847,96    |
+| 7 | KARINA LUCAS CARDOSO PINTO              | 217/1183151     | 20/05/2026 | R$ 4.495,12 | R$ 4.186,63    |
+| 8 | CAROLINA DRUMOND COELHO GARCIA          | 184/1183151     | 15/05/2026 | R$ 1.833,93 | R$ 1.714,54    |
+| 9 | CAROLINA DRUMOND COELHO GARCIA          | 183/1183151     | 15/04/2026 | R$ 1.833,93 | R$ 1.753,89    |
+| 10| DARLENE RIBEIRO SOUZA                   | 126/1183151     | 10/05/2026 | R$ 4.170,83 | R$ 3.911,13    |
+| 11| MONTE ALTO EMPREENDIMENTOS IMOBILIARIOS | 95/1183151      | 15/06/2026 | R$ 7.706,37 | R$ 7.037,72    |
+| 12| MONTE ALTO EMPREENDIMENTOS IMOBILIARIOS | 94/1183151      | 15/05/2026 | R$ 7.706,37 | R$ 7.204,71    |
+| 13| JOSÉ ROGÉRIO DE PAIVA FILHO             | 45/1183151      | 19/05/2026 | R$ 4.289,13 | R$ 3.997,81    |
+| 14| JOSÉ ROGÉRIO DE PAIVA FILHO             | 21/1183151      | 19/05/2026 | R$ 4.246,67 | R$ 3.958,23    |
+
+=== RESUMO ===
+Quantidade de recebíveis: 14
+Valor total dos títulos: R$ 52.592,59
+Valor líquido creditado: R$ 49.178,80
+Conta de crédito: 105.706-5
+
+=== OBSERVAÇÕES ===
+O cliente poderá optar pela liquidação antecipada do débito, nos termos da lei.
+Os recebíveis listados nesta remessa ainda não estão todos aprovados para antecipação e passarão por análise da cooperativa. Recebíveis que porventura não forem aprovados serão retirados da Remessa, alterando seu valor a menor. Os valores aprovados serão creditados em conta corrente, efetivando a operação de crédito, sujeita às cláusulas e às condições dispostas na Cédula de Crédito Bancário, assumindo o integral cumprimento da prestação constante no mesmo.
+Dos 14 recebíveis, 12 estão "Pré-Aprovado" e 2 estão "Para Análise".
+Vigência da CCB: 10/11/2025 à 09/11/2026.
+Origem da remessa: Balcão.
+CET Mês: 2,4538%, CET Ano: 34,3049%.
+Tx Efetiva a.m/ a.a: 2,0000% / 26,8241%.
+Taxas adicionais para juros: Tx Juros INAD: 3,0000%; Tx Mora a.m.: 1,0000%; Tx Multa: 2,0000%.
+Perda Esperada: 0.600900.
+Valor da Tarifa: R$ 0,00.

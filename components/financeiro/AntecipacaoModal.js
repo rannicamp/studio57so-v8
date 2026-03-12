@@ -3,7 +3,11 @@
 
 import { useState, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner, faMoneyBillTransfer, faBuildingColumns, faTimes } from '@fortawesome/free-solid-svg-icons';
+import {
+    faSpinner, faMoneyBillTransfer, faBuildingColumns,
+    faTimes, faCalendarAlt, faReceipt, faInfoCircle,
+    faArrowRight, faCheckCircle
+} from '@fortawesome/free-solid-svg-icons';
 import { IMaskInput } from 'react-imask';
 
 export default function AntecipacaoModal({ isOpen, onClose, onSave, lancamentoOrigem, contas }) {
@@ -17,19 +21,21 @@ export default function AntecipacaoModal({ isOpen, onClose, onSave, lancamentoOr
 
     const [loading, setLoading] = useState(false);
 
-    // MÁGICA DE AUDITOR (Sua ideia aplicada!):
-    // Se o lançamento estiver sem empresa preenchida, o sistema olha para a conta do lançamento e pega a empresa de lá.
+    // Empresa do lançamento (olha na conta caso não esteja diretamente)
     const empresaAlvoId = lancamentoOrigem?.empresa_id || lancamentoOrigem?.conta?.empresa_id;
 
-    // Filtra as contas disponíveis de forma mais inteligente
+    // Filtro INTELIGENTE: se soubermos a empresa do boleto, só mostra contas dessa empresa.
+    // Se não souber a empresa, mostra todas para não bloquear o usuário.
+    const filtroPorEmpresa = (c) => !empresaAlvoId || c.empresa_id === empresaAlvoId;
+
+    // ✅ BUG CORRIGIDO: tipo correto no banco é 'Conta de Passivo' (não 'Passivos')
     const contasPassivo = contas?.filter(c =>
-        c.tipo === 'Passivos' &&
-        (!c.empresa_id || !empresaAlvoId || c.empresa_id === empresaAlvoId)
+        c.tipo === 'Conta de Passivo' && filtroPorEmpresa(c)
     ) || [];
 
+    // ✅ BUG CORRIGIDO: tipo correto no banco é 'Conta de Ativo' (não 'Ativos')
     const contasDestino = contas?.filter(c =>
-        c.tipo !== 'Passivos' && c.tipo !== 'Ativos' &&
-        (!c.empresa_id || !empresaAlvoId || c.empresa_id === empresaAlvoId)
+        c.tipo !== 'Conta de Passivo' && c.tipo !== 'Conta de Ativo' && filtroPorEmpresa(c)
     ) || [];
 
     useEffect(() => {
@@ -38,7 +44,6 @@ export default function AntecipacaoModal({ isOpen, onClose, onSave, lancamentoOr
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2
             });
-
             setFormData(prev => ({
                 ...prev,
                 valor_bruto: valorFormatado,
@@ -75,7 +80,6 @@ export default function AntecipacaoModal({ isOpen, onClose, onSave, lancamentoOr
         setLoading(true);
 
         const antecipacaoGrupoId = crypto.randomUUID();
-
         const payload = {
             lancamentoOrigemId: lancamentoOrigem.id,
             descricaoOrigem: lancamentoOrigem.descricao,
@@ -84,150 +88,230 @@ export default function AntecipacaoModal({ isOpen, onClose, onSave, lancamentoOr
             dataTransacao: formData.data_transacao,
             valorBruto: valorBrutoNum,
             valorTaxas: valorTaxasNum,
-            antecipacaoGrupoId: antecipacaoGrupoId,
-            // Usa a empresa corrigida para salvar os novos lançamentos sem falhas!
+            antecipacaoGrupoId,
             empresaId: empresaAlvoId,
             organizacaoId: lancamentoOrigem.organizacao_id
         };
 
         const success = await onSave(payload);
         setLoading(false);
-
-        if (success) {
-            onClose();
-        }
+        if (success) onClose();
     };
 
     if (!isOpen || !lancamentoOrigem) return null;
 
+    const labelCls = "block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1.5";
+    const inputCls = "w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-semibold text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all shadow-sm";
+    const selectCls = "w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm font-semibold text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all shadow-sm appearance-none";
+
     return (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-white p-0 rounded-lg shadow-2xl w-full max-w-xl max-h-[95vh] flex flex-col">
-                <div className="flex justify-between items-center p-6 border-b sticky top-0 bg-white rounded-t-lg z-10">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-gray-50 rounded-2xl shadow-sm w-full max-w-xl max-h-[95vh] flex flex-col border border-gray-200 overflow-hidden">
+
+                {/* ── HEADER ── */}
+                <div className="flex justify-between items-center px-6 py-5 bg-white border-b border-gray-200">
                     <div className="flex items-center gap-3">
-                        <div className="p-3 bg-emerald-100 text-emerald-600 rounded-full">
-                            <FontAwesomeIcon icon={faMoneyBillTransfer} className="text-xl" />
+                        <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0">
+                            <FontAwesomeIcon icon={faMoneyBillTransfer} />
                         </div>
                         <div>
-                            <h3 className="text-2xl font-bold text-gray-800">Antecipar Recebível</h3>
-                            <p className="text-sm text-gray-500">Transforme este boleto em saldo imediato</p>
+                            <h3 className="text-lg font-bold text-gray-800">Antecipar Recebível</h3>
+                            <p className="text-xs text-gray-500 font-medium">Registrar operação de antecipação junto ao banco</p>
                         </div>
                     </div>
-                    <button onClick={onClose} type="button" className="text-gray-400 hover:text-gray-600 p-2 rounded-full transition-colors"><FontAwesomeIcon icon={faTimes} size="lg" /></button>
+                    <button
+                        onClick={onClose}
+                        type="button"
+                        className="text-gray-400 hover:text-gray-600 p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                    >
+                        <FontAwesomeIcon icon={faTimes} />
+                    </button>
                 </div>
-                <div className="p-6 flex-grow overflow-y-auto">
 
-                    <form onSubmit={handleSubmit} className="space-y-5">
-                        <div className="bg-gray-50 p-4 rounded-md border border-gray-200 space-y-4">
-                            <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-1">
-                                    <FontAwesomeIcon icon={faBuildingColumns} className="mr-2 text-red-500" />
-                                    Conta de Passivo (Dívida) *
-                                </label>
-                                <select
-                                    name="conta_passivo_id"
-                                    value={formData.conta_passivo_id}
-                                    onChange={handleChange}
-                                    required
-                                    className="w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500"
-                                >
-                                    <option value="">Selecione a conta de Passivo...</option>
-                                    {contasPassivo.map(conta => (
-                                        <option key={conta.id} value={conta.id}>{conta.nome}</option>
-                                    ))}
-                                </select>
-                                {contasPassivo.length === 0 && (
-                                    <p className="text-xs text-red-500 mt-1">Nenhuma conta do tipo "Passivos" encontrada. Certifique-se de cadastrar uma no painel de Contas.</p>
-                                )}
-                            </div>
+                {/* ── BOLETO ORIGEM (INFO) ── */}
+                <div className="px-6 pt-5">
+                    <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm relative overflow-hidden">
+                        <div className="absolute top-0 left-0 w-1 h-full bg-blue-600"></div>
+                        <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-2">Boleto sendo antecipado</p>
+                        <p className="text-sm font-bold text-gray-800 leading-tight truncate">{lancamentoOrigem.descricao || '—'}</p>
+                        <p className="text-xs text-gray-500 font-medium mt-0.5">
+                            Valor: <span className="font-bold text-gray-700">
+                                {Number(lancamentoOrigem.valor || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                            </span>
+                        </p>
+                    </div>
+                </div>
 
-                            <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-1">
-                                    <FontAwesomeIcon icon={faBuildingColumns} className="mr-2 text-green-500" />
-                                    Conta Destino (Onde o dinheiro vai entrar) *
-                                </label>
-                                <select
-                                    name="conta_destino_id"
-                                    value={formData.conta_destino_id}
-                                    onChange={handleChange}
-                                    required
-                                    className="w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500"
-                                >
-                                    <option value="">Selecione a conta de destino...</option>
-                                    {contasDestino.map(conta => (
-                                        <option key={conta.id} value={conta.id}>{conta.nome}</option>
-                                    ))}
-                                </select>
-                            </div>
-                        </div>
+                {/* ── FORM ── */}
+                <div className="p-6 flex-grow overflow-y-auto space-y-5">
+                    <form onSubmit={handleSubmit} className="space-y-5" id="form-antecipacao">
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Data da Antecipação *</label>
-                                <input
-                                    type="date"
-                                    name="data_transacao"
-                                    value={formData.data_transacao}
-                                    onChange={handleChange}
-                                    required
-                                    className="w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500"
-                                />
+                        {/* Seção: Contas */}
+                        <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+                            <div className="absolute top-0 left-0 w-1 h-full bg-red-500 hidden"></div>
+                            <div className="px-5 py-4 border-b border-gray-100">
+                                <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Contas da Operação</p>
                             </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Valor Original do Boleto</label>
-                                <input
-                                    type="text"
-                                    value={`R$ ${formData.valor_bruto}`}
-                                    readOnly
-                                    className="w-full p-2 border rounded-md bg-gray-100 text-gray-500 cursor-not-allowed font-semibold"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Taxas e Juros do Banco *</label>
-                                <IMaskInput
-                                    mask="num"
-                                    blocks={{ num: { mask: Number, thousandsSeparator: '.', scale: 2, padFractionalZeros: true, radix: ',' } }}
-                                    name="valor_taxas"
-                                    value={String(formData.valor_taxas)}
-                                    onAccept={(value) => handleMaskedChange('valor_taxas', value)}
-                                    required
-                                    className="w-full p-2 border border-red-300 rounded-md focus:ring-2 focus:ring-red-500 text-red-600 font-semibold"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Valor Líquido (Entrada no Caixa)</label>
-                                <div className="w-full p-2 border border-green-300 rounded-md bg-green-50 text-green-700 font-bold flex items-center">
-                                    {valorLiquido.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                            <div className="p-5 space-y-4">
+
+                                {/* Conta Passivo */}
+                                <div>
+                                    <label className={labelCls}>
+                                        <FontAwesomeIcon icon={faBuildingColumns} className="mr-1.5 text-red-400" />
+                                        Conta de Passivo (Dívida)
+                                    </label>
+                                    <div className="relative">
+                                        <select
+                                            name="conta_passivo_id"
+                                            value={formData.conta_passivo_id}
+                                            onChange={handleChange}
+                                            required
+                                            className={selectCls}
+                                        >
+                                            <option value="">Selecione a conta de passivo...</option>
+                                            {contasPassivo.map(c => (
+                                                <option key={c.id} value={c.id}>{c.nome}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    {contasPassivo.length === 0 && (
+                                        <p className="text-[11px] font-semibold text-red-500 mt-1.5">
+                                            ⚠️ Nenhuma conta do tipo "Conta de Passivo" encontrada para esta empresa.
+                                        </p>
+                                    )}
+                                </div>
+
+                                {/* Seta visual */}
+                                <div className="flex items-center justify-center text-gray-300">
+                                    <FontAwesomeIcon icon={faArrowRight} />
+                                </div>
+
+                                {/* Conta Destino */}
+                                <div>
+                                    <label className={labelCls}>
+                                        <FontAwesomeIcon icon={faBuildingColumns} className="mr-1.5 text-green-500" />
+                                        Conta Destino (Onde o dinheiro entra)
+                                    </label>
+                                    <div className="relative">
+                                        <select
+                                            name="conta_destino_id"
+                                            value={formData.conta_destino_id}
+                                            onChange={handleChange}
+                                            required
+                                            className={selectCls}
+                                        >
+                                            <option value="">Selecione a conta de destino...</option>
+                                            {contasDestino.map(c => (
+                                                <option key={c.id} value={c.id}>{c.nome}</option>
+                                            ))}
+                                        </select>
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="bg-blue-50 p-3 rounded-md border border-blue-100 text-sm text-blue-800">
-                            <strong>O que vai acontecer?</strong>
-                            <ul className="list-disc ml-5 mt-1">
-                                <li>O boleto original mudará para a conta Passivo.</li>
-                                <li>Uma receita de {valorBrutoNum.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} entrará na Conta Destino.</li>
-                                <li>Uma despesa de taxas será registrada na Conta Destino.</li>
-                            </ul>
+                        {/* Seção: Valores */}
+                        <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+                            <div className="px-5 py-4 border-b border-gray-100">
+                                <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Valores da Operação</p>
+                            </div>
+                            <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+                                {/* Data */}
+                                <div>
+                                    <label className={labelCls}>
+                                        <FontAwesomeIcon icon={faCalendarAlt} className="mr-1.5 text-gray-400" />
+                                        Data da Antecipação
+                                    </label>
+                                    <input
+                                        type="date"
+                                        name="data_transacao"
+                                        value={formData.data_transacao}
+                                        onChange={handleChange}
+                                        required
+                                        className={inputCls}
+                                    />
+                                </div>
+
+                                {/* Valor Original */}
+                                <div>
+                                    <label className={labelCls}>
+                                        <FontAwesomeIcon icon={faReceipt} className="mr-1.5 text-gray-400" />
+                                        Valor Original do Boleto
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={`R$ ${formData.valor_bruto}`}
+                                        readOnly
+                                        className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm font-bold text-gray-500 cursor-not-allowed shadow-sm"
+                                    />
+                                </div>
+
+                                {/* Taxas */}
+                                <div>
+                                    <label className={labelCls + " text-red-500"}>
+                                        Taxas e Juros do Banco
+                                    </label>
+                                    <IMaskInput
+                                        mask="num"
+                                        blocks={{ num: { mask: Number, thousandsSeparator: '.', scale: 2, padFractionalZeros: true, radix: ',' } }}
+                                        name="valor_taxas"
+                                        value={String(formData.valor_taxas)}
+                                        onAccept={(value) => handleMaskedChange('valor_taxas', value)}
+                                        required
+                                        className="w-full bg-white border border-red-200 rounded-xl px-4 py-3 text-sm font-bold text-red-600 focus:outline-none focus:ring-2 focus:ring-red-400 transition-all shadow-sm"
+                                    />
+                                </div>
+
+                                {/* Valor Líquido */}
+                                <div>
+                                    <label className={labelCls + " text-green-600"}>
+                                        Valor Líquido (Entrada Caixa)
+                                    </label>
+                                    <div className="w-full bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-sm font-bold text-green-700 shadow-sm flex items-center gap-2">
+                                        <FontAwesomeIcon icon={faCheckCircle} className="text-green-400 text-xs" />
+                                        {valorLiquido.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
-                        <div className="flex justify-end gap-3 pt-4 border-t mt-6">
-                            <button
-                                type="button"
-                                onClick={onClose}
-                                className="bg-gray-100 text-gray-700 px-5 py-2 rounded-md hover:bg-gray-200 transition"
-                            >
-                                Cancelar
-                            </button>
-                            <button
-                                type="submit"
-                                disabled={loading || contasPassivo.length === 0 || contasDestino.length === 0}
-                                className="bg-emerald-600 text-white px-5 py-2 rounded-md hover:bg-emerald-700 transition disabled:bg-gray-400 flex items-center gap-2 font-semibold shadow-md"
-                            >
-                                {loading ? <FontAwesomeIcon icon={faSpinner} spin /> : <><FontAwesomeIcon icon={faMoneyBillTransfer} /> Efetivar Antecipação</>}
-                            </button>
+                        {/* Info Box */}
+                        <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 flex gap-3">
+                            <FontAwesomeIcon icon={faInfoCircle} className="text-blue-400 mt-0.5 flex-shrink-0" />
+                            <div className="text-xs text-blue-700 space-y-1">
+                                <p className="font-bold">O que vai acontecer:</p>
+                                <ul className="list-disc ml-4 space-y-0.5 font-medium">
+                                    <li>O boleto original será movido para a <strong>Conta de Passivo</strong>.</li>
+                                    <li>Uma receita de <strong>{valorBrutoNum.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong> entrará na Conta Destino.</li>
+                                    <li>Uma despesa de taxas de <strong>{valorTaxasNum.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</strong> será registrada.</li>
+                                </ul>
+                            </div>
                         </div>
+
                     </form>
+                </div>
+
+                {/* ── FOOTER ── */}
+                <div className="flex justify-end gap-3 px-6 py-4 bg-white border-t border-gray-200">
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="bg-white border border-gray-300 text-gray-700 px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-gray-50 transition-colors flex items-center gap-2 shadow-sm"
+                    >
+                        <FontAwesomeIcon icon={faTimes} className="text-gray-400" /> Cancelar
+                    </button>
+                    <button
+                        type="submit"
+                        form="form-antecipacao"
+                        disabled={loading || contasPassivo.length === 0 || contasDestino.length === 0}
+                        className="bg-blue-600 text-white px-6 py-2.5 rounded-xl text-sm font-extrabold shadow-sm hover:bg-blue-700 transition-colors flex items-center gap-2 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                    >
+                        {loading
+                            ? <><FontAwesomeIcon icon={faSpinner} spin /> Processando...</>
+                            : <><FontAwesomeIcon icon={faMoneyBillTransfer} /> Efetivar Antecipação</>
+                        }
+                    </button>
                 </div>
             </div>
         </div>

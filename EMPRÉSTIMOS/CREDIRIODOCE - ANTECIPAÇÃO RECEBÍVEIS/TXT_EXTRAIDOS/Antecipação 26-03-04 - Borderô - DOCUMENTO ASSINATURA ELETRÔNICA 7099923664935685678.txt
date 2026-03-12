@@ -1,0 +1,43 @@
+ARQUIVO ORIGINAL: Antecipação 26-03-04 - Borderô - DOCUMENTO ASSINATURA ELETRÔNICA 7099923664935685678.pdf
+EXTRAÍDO EM: 12/03/2026, 14:38:43
+============================================================
+
+=== BORDERÔ DE ANTECIPAÇÃO DE RECEBÍVEIS ===
+
+DATA DA OPERAÇÃO: 04/03/2026
+NÚMERO DA OPERAÇÃO: 15763819.3027-2026
+INSTITUIÇÃO: SICOOB CREDIRIODOCE
+EMPRESA CEDENTE: STUDIO 57 INCORPORACOES LTDA
+VALOR BRUTO TOTAL: R$ 30.688,02
+VALOR DAS TAXAS/JUROS: R$ 2.747,17 (R$ 2.313,20 Juros + R$ 408,97 IOF + R$ 25,00 TAC + R$ 0,00 Tarifa)
+VALOR LÍQUIDO: R$ 27.940,85
+TAXA DE DESCONTO: 1,8000%
+PRAZO MÉDIO: Não informado
+
+=== RECEBÍVEIS ANTECIPADOS ===
+
+| # | Devedor/Favorecido | Nº Título/Boleto | Vencimento | Valor Face | Valor Presente |
+|---|-------------------|-----------------|------------|------------|----------------|
+| 1 | MARCELO ALVES JOSÉ | 425/1183151 | 22/07/2026 | R$ 4.333,33 | R$ 3.920,32 |
+| 2 | SAMUEL CLAUDIO DAMACENO | 389/1183151 | 10/07/2026 | R$ 8.017,19 | R$ 7.313,27 |
+| 3 | MATHEUS VINICIUS DE ALMEIDA SILVA | 352/1183151 | 10/07/2026 | R$ 4.276,91 | R$ 3.901,39 |
+| 4 | ALESSANDRA MONTE ALTO ALVIM | 284/1183151 | 10/07/2026 | R$ 1.925,00 | R$ 1.755,98 |
+| 5 | ANGELA MONTE ALTO ALVIM | 253/1183151 | 10/07/2026 | R$ 1.925,00 | R$ 1.755,98 |
+| 6 | CAROLINA DRUMOND COELHO GARCIA | 186/1183151 | 15/07/2026 | R$ 1.833,93 | R$ 1.667,16 |
+| 7 | DARLENE RIBEIRO SOUZA | 128/1183151 | 10/07/2026 | R$ 4.170,83 | R$ 3.804,62 |
+| 8 | ALSENIR DUARTE MONTE ALTO DE OLIVEIRA REZENDE | 71/1183151 | 05/07/2026 | R$ 4.205,83 | R$ 3.847,13 |
+
+=== RESUMO ===
+Quantidade de recebíveis: 8
+Valor total dos títulos: R$ 30.688,02
+Valor líquido creditado: R$ 27.940,85
+Conta de crédito: 105.706-5
+
+=== OBSERVAÇÕES ===
+A operação está com a situação "Em análise".
+O Custo Efetivo Total (CET) da operação é de 2,1974% a.m. e 30,2724% a.a.
+A taxa efetiva da operação é de 1,8000% a.m. e 23,8720% a.a.
+A Perda Esperada para a remessa é de 0.600900.
+O cliente poderá optar pela liquidação antecipada do débito, nos termos da lei.
+Os recebíveis listados nesta remessa ainda não estão todos aprovados para antecipação e passarão por análise da cooperativa. Recebíveis que porventura não forem aprovados serão retirados da Remessa, alterando seu valor a menor. Os valores aprovados serão creditados em conta corrente, efetivando a operação de crédito, sujeita às cláusulas e às condições dispostas na Cédula de Crédito Bancário, assumindo o integral cumprimento da prestação constante no mesmo.
+Do total de 8 recebíveis, 1 item está "Aprovado Manualmente" (SAMUEL CLAUDIO DAMACENO) e os outros 7 itens estão "Pré-Aprovado".

@@ -1,0 +1,44 @@
+ARQUIVO ORIGINAL: Antecipação 25-11-26 - Borderô - DOCUMENTO ASSINATURA ELETRÔNICA 771865817444420061.pdf
+EXTRAÍDO EM: 12/03/2026, 13:10:58
+============================================================
+
+=== BORDERÔ DE ANTECIPAÇÃO DE RECEBÍVEIS ===
+
+DATA DA OPERAÇÃO: 26/11/2025
+NÚMERO DA OPERAÇÃO: 15178027.3027-2025
+INSTITUIÇÃO: SICOOB CREDIRIODOCE
+EMPRESA CEDENTE: STUDIO 57 INCORPORACOES LTDA
+VALOR BRUTO TOTAL: R$ 59.126,38
+VALOR DAS TAXAS/JUROS: R$ 3.529,31
+VALOR LÍQUIDO: R$ 55.597,07
+TAXA DE DESCONTO: CET Mês: 2,4665% / CET Ano: 34,5081%
+PRAZO MÉDIO: Não informado
+
+=== RECEBÍVEIS ANTECIPADOS ===
+
+| # | Devedor/Favorecido | Nº Título/Boleto | Vencimento | Valor Face | Valor Presente |
+|---|-------------------|-----------------|------------|------------|----------------|
+| 1 | 328.252.028-00 SAMUEL CLAUDIO DAMACENO | 384/1183151 | 10/02/2026 | R$ 8.017,19 | R$ 7.540,77 |
+| 2 | 113.860.986-20 MATHEUS VINICIUS DE ALMEIDA SILVA | 347/1183151 | 10/02/2026 | R$ 4.276,91 | R$ 4.022,76 |
+| 3 | 847.014.986-53 ALESSANDRA MONTE ALTO ALVIM | 279/1183151 | 10/02/2026 | R$ 1.925,00 | R$ 1.810,61 |
+| 4 | 902.012.056-53 ANGELA MONTE ALTO ALVIM | 248/1183151 | 10/02/2026 | R$ 1.925,00 | R$ 1.810,61 |
+| 5 | 090.381.606-74 KARINA LUCAS CARDOSO PINTO | 214/1183151 | 20/02/2026 | R$ 4.495,12 | R$ 4.196,14 |
+| 6 | 040.796.376-67 CAROLINA DRUMOND COELHO GARCIA | 181/1183151 | 15/02/2026 | R$ 1.833,93 | R$ 1.714,54 |
+| 7 | 073.120.626-60 PAULO ROBERTO GOVEA FILHO | 160/1183151 | 10/02/2026 | R$ 3.498,60 | R$ 3.290,70 |
+| 8 | 147.215.926-80 DARLENE RIBEIRO SOUZA | 123/1183151 | 10/02/2026 | R$ 4.170,83 | R$ 3.922,98 |
+| 9 | 12.237.802/0001-07 MONTE ALTO EMPREENDIMENTOS IMOBILIARIOS LTDA | 91/1183151 | 15/02/2026 | R$ 7.706,37 | R$ 7.204,71 |
+| 10 | 142.286.296-87 ALSENIR DUARTE MONTE ALTO DE OLIVEIRA REZENDE | 66/1183151 | 05/02/2026 | R$ 4.205,83 | R$ 3.970,89 |
+| 11 | 108.131.656-01 JOSÉ ROGÉRIO DE PAIVA FILHO | 42/1183151 | 19/02/2026 | R$ 4.289,13 | R$ 4.006,89 |
+| 12 | 108.131.656-01 JOSÉ ROGÉRIO DE PAIVA FILHO | 41/1183151 | 19/01/2026 | R$ 4.289,13 | R$ 4.101,93 |
+| 13 | 108.131.656-01 JOSÉ ROGÉRIO DE PAIVA FILHO | 18/1183151 | 19/02/2026 | R$ 4.246,67 | R$ 3.967,22 |
+| 14 | 108.131.656-01 JOSÉ ROGÉRIO DE PAIVA FILHO | 17/1183151 | 19/01/2026 | R$ 4.246,67 | R$ 4.061,32 |
+
+=== RESUMO ===
+Quantidade de recebíveis: 14
+Valor total dos títulos: R$ 59.126,38
+Valor líquido creditado: R$ 55.597,07
+Conta de crédito: 105.706-5
+
+=== OBSERVAÇÕES ===
+O cliente poderá optar pela liquidação antecipada do débito, nos termos da lei.
+Os recebíveis listados nesta remessa ainda não estão todos aprovados para antecipação e passarão por análise da cooperativa. Recebíveis que porventura não forem aprovados serão retirados da Remessa, alterando seu valor a menor. Os valores aprovados serão creditados em conta corrente, efetivando a operação de crédito, sujeita às cláusulas e às condições dispostas na Cédula de Crédito Bancário, assumindo o integral cumprimento da prestação constante no mesmo.
