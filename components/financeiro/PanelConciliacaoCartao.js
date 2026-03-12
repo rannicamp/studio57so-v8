@@ -38,16 +38,19 @@ const daysBetween = (date1, date2) => {
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 };
 
-// --- Funções de Busca (Data Fetching) ---
 const fetchLancamentosSistema = async (supabase, contaId, organizacaoId, startDate, endDate) => {
     if (!contaId || !organizacaoId || !startDate || !endDate) return [];
+    
+    // A query or exige cuidado: se lançamentos.data_pagamento for null, a verificação gte falha.
+    // Transações de cartão podem ter data_pagamento null quando não fechadas.
+    // Precisamos de um filtro mais tolerante.
     const { data, error } = await supabase
         .from('lancamentos')
         .select(`*, favorecido:favorecido_contato_id ( id, nome, razao_social )`)
         .eq('conta_id', contaId)
         .eq('organizacao_id', organizacaoId)
-        .or(`data_pagamento.gte.${startDate},data_vencimento.gte.${startDate},data_transacao.gte.${startDate}`)
-        .or(`data_pagamento.lte.${endDate},data_vencimento.lte.${endDate},data_transacao.lte.${endDate}`);
+        .or(`data_transacao.gte.${startDate},data_vencimento.gte.${startDate},data_pagamento.gte.${startDate}`)
+        .or(`data_transacao.lte.${endDate},data_vencimento.lte.${endDate},data_pagamento.lte.${endDate}`);
 
     if (error) throw new Error(error.message);
     return data;
@@ -687,6 +690,11 @@ export default function PanelConciliacaoCartao({ contas, initialContaId, faturaV
             if (!startDate || !endDate) return items;
             return items.filter(item => {
                 const itemDate = type === 'sistema' ? getDisplayDate(item) : item.data;
+                // Se for cartão de crédito e for lançamento do sistema, afrouxamos o filtro visual 
+                // para garantir que parcelamentos de meses anteriores fiquem visíveis para match
+                if (type === 'sistema' && isCartaoCredito) {
+                     return true;
+                }
                 return itemDate >= startDate && itemDate <= endDate;
             });
         };
