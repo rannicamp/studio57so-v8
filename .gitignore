@@ -46,3 +46,7 @@ next-env.d.ts
 # Sync de banco de dados (contém credenciais sensíveis)
 supabase/db-sync.conf
 
+# Arquivos com chaves e credenciais antigas
+docs/chaves antigas.txt
+docs/chaves*
+*chaves antigas*
