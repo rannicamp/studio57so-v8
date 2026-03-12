@@ -97,6 +97,18 @@ export default function ContasManager({ initialContas, onUpdate, empresas, onVer
         return grupo?.contas || [];
     }, [empresasAgrupadas, empresaAtiva]);
 
+    // Agrupa as contas da empresa ativa por tipo
+    const contasPorTipo = useMemo(() => {
+        const ORDEM_TIPOS = ['Conta Corrente', 'Conta Investimento', 'Cartão de Crédito', 'Dinheiro', 'Conta de Ativo', 'Passivos', 'Outros'];
+        const mapa = {};
+        contasDaEmpresa.forEach(c => {
+            const tipo = c.tipo || 'Outros';
+            if (!mapa[tipo]) mapa[tipo] = [];
+            mapa[tipo].push(c);
+        });
+        return ORDEM_TIPOS.filter(t => mapa[t]).map(t => ({ tipo: t, contas: mapa[t] }));
+    }, [contasDaEmpresa]);
+
     // KPIs Globais
     const kpis = useMemo(() => {
         let saldoLiquido = 0, limiteChequeTotal = 0, limiteChequeUsado = 0, poderCompra = 0;
@@ -275,123 +287,118 @@ export default function ContasManager({ initialContas, onUpdate, empresas, onVer
                             </div>
                         </div>
 
-                        {/* Tabela de Contas */}
-                        {contasDaEmpresa.length === 0 ? (
+                        {/* Tabela de Contas agrupada por Tipo */}
+                        {contasPorTipo.length === 0 ? (
                             <div className="p-12 text-center">
                                 <FontAwesomeIcon icon={faLayerGroup} className="text-4xl text-gray-300 mb-3" />
                                 <p className="text-gray-500 text-sm">Nenhuma conta para esta empresa.</p>
                             </div>
                         ) : (
-                            <div className="divide-y divide-gray-100">
-                                {/* Cabeçalho da tabela */}
-                                <div className="grid grid-cols-12 gap-2 px-5 py-2 bg-gray-50 text-[10px] font-bold text-gray-500 uppercase tracking-wide">
-                                    <div className="col-span-4">Conta</div>
-                                    <div className="col-span-2">Ag / Nº</div>
-                                    <div className="col-span-2 text-right">Saldo Real</div>
-                                    <div className="col-span-2 text-right">Limite</div>
-                                    <div className="col-span-2 text-right">Ações</div>
-                                </div>
-
-                                {contasDaEmpresa.map(conta => {
-                                    const saldoReal = saldos[conta.id] ?? 0;
-                                    const limite = conta.limite_cheque_especial || conta.limite_credito || 0;
-                                    const isCartao = conta.tipo === 'Cartão de Crédito';
-                                    const valorDisplay = isCartao ? Math.abs(saldoReal) : saldoReal;
-                                    const colorClass = saldoReal < 0 ? 'text-red-600' : (isCartao && saldoReal > 0 ? 'text-green-600' : 'text-gray-800');
-                                    const typeColor = TYPE_COLORS[conta.tipo] || TYPE_COLORS['Outros'];
-
+                            <div className="divide-y divide-gray-200">
+                                {contasPorTipo.map(({ tipo, contas: contasDoTipo }) => {
+                                    const typeColor = TYPE_COLORS[tipo] || TYPE_COLORS['Outros'];
                                     return (
-                                        <div key={conta.id} className="grid grid-cols-12 gap-2 px-5 py-3.5 items-center hover:bg-gray-50/70 transition-colors group">
-                                            {/* Nome + Tipo */}
-                                            <div className="col-span-4 flex items-center gap-3 min-w-0">
-                                                <div className={`p-2 rounded-full flex-shrink-0 ${typeColor}`}>
-                                                    <FontAwesomeIcon icon={getAccountIcon(conta.tipo)} className="text-sm" />
-                                                </div>
-                                                <div className="min-w-0">
-                                                    <p className="font-bold text-sm text-gray-800 truncate leading-tight" title={conta.nome}>{conta.nome}</p>
-                                                    <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ${typeColor}`}>
-                                                        {conta.tipo}
-                                                    </span>
-                                                    {isCartao && conta.dia_pagamento_fatura && (
-                                                        <span className="text-[9px] text-gray-400 ml-1">Vence dia {conta.dia_pagamento_fatura}</span>
-                                                    )}
-                                                </div>
+                                        <div key={tipo}>
+                                            {/* Cabeçalho do grupo de tipo */}
+                                            <div className={`flex items-center gap-2 px-5 py-2.5 ${typeColor} border-b`}>
+                                                <FontAwesomeIcon icon={getAccountIcon(tipo)} className="text-xs" />
+                                                <span className="text-[11px] font-black uppercase tracking-widest">{tipo}</span>
+                                                <span className="ml-1 text-[10px] opacity-60">({contasDoTipo.length})</span>
                                             </div>
 
-                                            {/* Ag / Nº */}
-                                            <div className="col-span-2">
-                                                {conta.agencia || conta.numero_conta ? (
-                                                    <p className="text-xs font-mono text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded truncate">
-                                                        {conta.agencia ? `Ag: ${conta.agencia}` : ''}{conta.agencia && conta.numero_conta ? ' / ' : ''}{conta.numero_conta ? `CC: ${conta.numero_conta}` : ''}
-                                                    </p>
-                                                ) : (
-                                                    <span className="text-xs text-gray-300">—</span>
-                                                )}
+                                            {/* Cabeçalho da tabela */}
+                                            <div className="grid grid-cols-12 gap-2 px-5 py-2 bg-gray-50 text-[10px] font-bold text-gray-500 uppercase tracking-wide">
+                                                <div className="col-span-4">Conta</div>
+                                                <div className="col-span-2">Ag / Nº</div>
+                                                <div className="col-span-2 text-right">Saldo Real</div>
+                                                <div className="col-span-2 text-right">Limite</div>
+                                                <div className="col-span-2 text-right">Ações</div>
                                             </div>
 
-                                            {/* Saldo */}
-                                            <div className="col-span-2 text-right">
-                                                {isLoadingSaldos ? (
-                                                    <FontAwesomeIcon icon={faSpinner} spin className="text-gray-300" />
-                                                ) : (
-                                                    <>
-                                                        <p className={`font-bold text-sm ${colorClass}`}>{formatCurrency(valorDisplay)}</p>
-                                                        <p className="text-[9px] text-gray-400">{isCartao ? 'Fatura atual' : 'Saldo real'}</p>
-                                                    </>
-                                                )}
-                                            </div>
+                                            {/* Linhas das contas do tipo */}
+                                            {contasDoTipo.map(conta => {
+                                                const saldoReal = saldos[conta.id] ?? 0;
+                                                const limite = conta.limite_cheque_especial || conta.limite_credito || 0;
+                                                const isCartao = conta.tipo === 'Cartão de Crédito';
+                                                const valorDisplay = isCartao ? Math.abs(saldoReal) : saldoReal;
+                                                const colorClass = saldoReal < 0 ? 'text-red-600' : (isCartao && saldoReal > 0 ? 'text-green-600' : 'text-gray-800');
+                                                return (
+                                                    <div key={conta.id} className="grid grid-cols-12 gap-2 px-5 py-3.5 items-center hover:bg-gray-50/70 transition-colors border-b last:border-0 border-gray-100 group">
+                                                        {/* Nome */}
+                                                        <div className="col-span-4 min-w-0">
+                                                            <p className="font-bold text-sm text-gray-800 truncate leading-tight" title={conta.nome}>{conta.nome}</p>
+                                                            {isCartao && conta.dia_pagamento_fatura && (
+                                                                <span className="text-[9px] text-gray-400">Vence dia {conta.dia_pagamento_fatura}</span>
+                                                            )}
+                                                        </div>
+                                                        {/* Ag / Nº */}
+                                                        <div className="col-span-2">
+                                                            {conta.agencia || conta.numero_conta ? (
+                                                                <p className="text-xs font-mono text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded truncate">
+                                                                    {conta.agencia ? `Ag: ${conta.agencia}` : ''}{conta.agencia && conta.numero_conta ? ' / ' : ''}{conta.numero_conta ? `CC: ${conta.numero_conta}` : ''}
+                                                                </p>
+                                                            ) : <span className="text-xs text-gray-300">—</span>}
+                                                        </div>
+                                                        {/* Saldo */}
+                                                        <div className="col-span-2 text-right">
+                                                            {isLoadingSaldos ? <FontAwesomeIcon icon={faSpinner} spin className="text-gray-300" /> : (
+                                                                <>
+                                                                    <p className={`font-bold text-sm ${colorClass}`}>{formatCurrency(valorDisplay)}</p>
+                                                                    <p className="text-[9px] text-gray-400">{isCartao ? 'Fatura atual' : 'Saldo real'}</p>
+                                                                </>
+                                                            )}
+                                                        </div>
+                                                        {/* Limite */}
+                                                        <div className="col-span-2 text-right">
+                                                            {limite > 0 ? (
+                                                                <>
+                                                                    <p className="font-bold text-sm text-orange-600">{formatCurrency(limite)}</p>
+                                                                    <p className="text-[9px] text-gray-400">{isCartao ? 'Crédito' : 'Cheque esp.'}</p>
+                                                                </>
+                                                            ) : <span className="text-xs text-gray-300">—</span>}
+                                                        </div>
+                                                        {/* Ações */}
+                                                        <div className="col-span-2 text-right flex items-center justify-end gap-1">
+                                                            <button onClick={() => onVerExtrato(conta.id)} title="Ver Extrato" className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition"><FontAwesomeIcon icon={faFileInvoice} /></button>
+                                                            {isCartao && saldoReal < 0 && (
+                                                                <button onClick={() => handleOpenPagamentoModal(conta)} title="Pagar Fatura" className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded transition"><FontAwesomeIcon icon={faMoneyBillTransfer} /></button>
+                                                            )}
+                                                            {hasPermission('financeiro', 'pode_editar') && (
+                                                                <>
+                                                                    <button onClick={() => { setEditingConta(conta); setIsModalOpen(true); }} title="Editar" className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition"><FontAwesomeIcon icon={faEdit} /></button>
+                                                                    <button onClick={() => handleDeleteConta(conta)} title="Excluir" className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition"><FontAwesomeIcon icon={faTrash} /></button>
+                                                                </>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
 
-                                            {/* Limite */}
-                                            <div className="col-span-2 text-right">
-                                                {limite > 0 ? (
-                                                    <>
-                                                        <p className="font-bold text-sm text-orange-600">{formatCurrency(limite)}</p>
-                                                        <p className="text-[9px] text-gray-400">{isCartao ? 'Crédito' : 'Cheque esp.'}</p>
-                                                    </>
-                                                ) : (
-                                                    <span className="text-xs text-gray-300">—</span>
-                                                )}
-                                            </div>
-
-                                            {/* Ações */}
-                                            <div className="col-span-2 text-right flex items-center justify-end gap-1">
-                                                <button
-                                                    onClick={() => onVerExtrato(conta.id)}
-                                                    title="Ver Extrato"
-                                                    className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition"
-                                                >
-                                                    <FontAwesomeIcon icon={faFileInvoice} />
-                                                </button>
-
-                                                {isCartao && saldoReal < 0 && (
-                                                    <button
-                                                        onClick={() => handleOpenPagamentoModal(conta)}
-                                                        title="Pagar Fatura"
-                                                        className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded transition"
-                                                    >
-                                                        <FontAwesomeIcon icon={faMoneyBillTransfer} />
-                                                    </button>
-                                                )}
-
-                                                {hasPermission('financeiro', 'pode_editar') && (
-                                                    <>
-                                                        <button
-                                                            onClick={() => { setEditingConta(conta); setIsModalOpen(true); }}
-                                                            title="Editar"
-                                                            className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition"
-                                                        >
-                                                            <FontAwesomeIcon icon={faEdit} />
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleDeleteConta(conta)}
-                                                            title="Excluir"
-                                                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition"
-                                                        >
-                                                            <FontAwesomeIcon icon={faTrash} />
-                                                        </button>
-                                                    </>
-                                                )}
-                                            </div>
+                                            {/* Rodapé subtotal do grupo */}
+                                            {(() => {
+                                                const totalSaldo = contasDoTipo.reduce((acc, c) => acc + (saldos[c.id] ?? 0), 0);
+                                                const totalLimite = contasDoTipo.reduce((acc, c) => acc + (c.limite_cheque_especial || c.limite_credito || 0), 0);
+                                                return (
+                                                    <div className={`grid grid-cols-12 gap-2 px-5 py-2.5 ${TYPE_COLORS[tipo] || TYPE_COLORS['Outros']} border-t`}>
+                                                        <div className="col-span-6 text-[10px] font-black uppercase tracking-wide opacity-60 flex items-center gap-1">
+                                                            Subtotal — {tipo}
+                                                        </div>
+                                                        <div className="col-span-2 text-right">
+                                                            <p className={`font-black text-sm ${totalSaldo < 0 ? 'text-red-700' : 'text-gray-800'}`}>{isLoadingSaldos ? '...' : formatCurrency(totalSaldo)}</p>
+                                                            <p className="text-[9px] opacity-50">Saldo total</p>
+                                                        </div>
+                                                        <div className="col-span-2 text-right">
+                                                            {totalLimite > 0 ? (
+                                                                <>
+                                                                    <p className="font-black text-sm text-orange-700">{formatCurrency(totalLimite)}</p>
+                                                                    <p className="text-[9px] opacity-50">Limite total</p>
+                                                                </>
+                                                            ) : <span className="text-xs opacity-30">—</span>}
+                                                        </div>
+                                                        <div className="col-span-2" />
+                                                    </div>
+                                                );
+                                            })()}
                                         </div>
                                     );
                                 })}
