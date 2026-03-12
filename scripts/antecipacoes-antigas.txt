@@ -1,0 +1,30 @@
+﻿[dotenv@17.3.1] injecting env (30) from .env.local -- tip: ­ƒöÉ prevent committing .env to code: https://dotenvx.com/precommit
+TOTAL: undefined
+node : file:///C:/Projetos/studio57so-v
+8/[eval1]:13
+No linha:1 caractere:1
++ node --input-type=module -e "
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpeci 
+   fied: (file:///C:/Proj...o-v8/[eva  
+  l1]:13:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCo 
+   mmandError
+ 
+d.forEach(l => 
+console.log(JSON.stringify({id:l.id, 
+data:l.data_transacao, 
+valor:parseFloat(l.valor).toFixed(2), 
+tipo:l.tipo, descricao:l.descricao, 
+anotacoes:l.anotacoes, 
+conta:l.conta_id})));
+  ^
+
+TypeError: d.forEach is not a function
+    at file:///C:/Projetos/studio57so-v
+8/[eval1]:13:3
+    at 
+process.processTicksAndRejections (node
+:internal/process/task_queues:105:5)
+
+Node.js v22.16.0

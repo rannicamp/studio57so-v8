@@ -25,17 +25,6 @@ export default function ExtratoManager({ contas, empresas }) {
     const { user, hasPermission } = useAuth();
     const organizacaoId = user?.organizacao_id;
 
-    // Gerar lista dos últimos 12 meses
-    const mesesDisponiveis = useMemo(() => {
-        const meses = [];
-        const hoje = new Date();
-        for (let i = 0; i < 12; i++) {
-            const dataBase = subMonths(hoje, i);
-            meses.push(startOfMonth(dataBase));
-        }
-        return meses;
-    }, []);
-
     const contasAgrupadas = useMemo(() => {
         if (!contas) return [];
         const contasFiltradas = contas.filter(c => c.tipo !== 'Cartão de Crédito');
@@ -94,7 +83,7 @@ export default function ExtratoManager({ contas, empresas }) {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    const [mesSelecionado, setMesSelecionado] = useState(mesesDisponiveis[0]); // Padrão: Mês atual
+    const [mesSelecionado, setMesSelecionado] = useState(startOfMonth(new Date())); // Padrão: Mês atual
     const [lancamentoSelecionado, setLancamentoSelecionado] = useState(null);
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [ofxPainelAberto, setOfxPainelAberto] = useState(false);
@@ -103,6 +92,44 @@ export default function ExtratoManager({ contas, empresas }) {
     const [selectedIds, setSelectedIds] = useState([]); // Array de IDs selecionados para Borderô
 
     const contaSelecionada = contas?.find(c => c.id == contaSelecionadaId);
+
+    // Query: Busca a data do lançamento mais antigo da conta para definir o início do histórico
+    const { data: dataInicioConta } = useQuery({
+        queryKey: ['extrato_data_inicio', contaSelecionadaId, organizacaoId],
+        queryFn: async () => {
+            if (!contaSelecionadaId || !organizacaoId) return null;
+            const { data, error } = await supabase
+                .from('lancamentos')
+                .select('data_pagamento')
+                .eq('conta_id', Number(contaSelecionadaId))
+                .eq('organizacao_id', organizacaoId)
+                .in('status', ['Pago', 'Conciliado'])
+                .order('data_pagamento', { ascending: true })
+                .limit(1);
+            if (error) throw error;
+            return data?.[0]?.data_pagamento || null; // Retorna a data mais antiga como string YYYY-MM-DD
+        },
+        enabled: !!contaSelecionadaId && !!organizacaoId
+    });
+
+    // Gera a lista de meses dinamicamente: do mês atual até o mês do lançamento mais antigo
+    const mesesDisponiveis = useMemo(() => {
+        const meses = [];
+        const hoje = new Date();
+        // Se não tiver data de início (sem lançamentos ainda), mostra apenas mês atual
+        if (!dataInicioConta) {
+            meses.push(startOfMonth(hoje));
+            return meses;
+        }
+        const mesInicio = startOfMonth(parseISO(dataInicioConta));
+        let cursor = startOfMonth(hoje);
+        // Gera todos os meses de hoje até o mês do primeiro lançamento
+        while (cursor >= mesInicio) {
+            meses.push(cursor);
+            cursor = subMonths(cursor, 1);
+        }
+        return meses;
+    }, [dataInicioConta]);
 
     // Queries
     const { data: extratoData, isLoading } = useQuery({
@@ -528,7 +555,7 @@ export default function ExtratoManager({ contas, empresas }) {
                 {/* LADO ESQUERDO: Seletor de Meses */}
                 <div className="lg:col-span-1 space-y-3">
                     <h3 className="text-sm font-bold text-gray-700 uppercase mb-2">Período de Referência</h3>
-                    <div className="bg-white border text-sm rounded-lg overflow-hidden flex flex-col shadow-sm">
+                    <div className="bg-white border text-sm rounded-lg flex flex-col shadow-sm overflow-y-auto max-h-[600px] custom-scrollbar">
                         {mesesDisponiveis.map((mes, idx) => {
                             const isSelected = isSameMonth(mes, mesSelecionado);
                             const isCurrentMonth = isSameMonth(mes, new Date());

@@ -1,0 +1,69 @@
+﻿[dotenv@17.3.1] injecting env (30) from .env.local -- tip: ÔÜÖ´©Å  override existing env vars with { override: true }
+
+­ƒôª Total despesas encontradas (ago/25 a mar/26): 1000
+
+================================================================================
+ÔØî Border├┤ 1 | 2025-08-04 | Taxa: R$ 2235.8 | Op: 14416527 ÔÇö N├âO ENCONTRADO
+   ­ƒôà Despesas no mesmo dia:
+      ID 7022 | R$ 353.04 | ANTECIPA├ç├âO DE RECEB├ìVEIS - D├ëB.IOF TD  | Conta 31
+      ID 8169 | R$ 36764.00 | ANTECIPA├ç├âO - RECEBIMENTO - RESIDENCIAL ALFA - AP 501 15/36 | Conta 41
+      ID 7021 | R$ 60.98 | REGISTRO CIVIL ONLINE - CERTID├âO DE NASCIMENTO RANNIERE  | Conta 31
+      ID 7023 | R$ 1857.76 | ANTECIPA├ç├âO DE RECEB├ìVEIS - D├ëB.JUROS CONTRATUAIS TD  | Conta 31
+      ID 13180 | R$ 96.99 | DL GOOGLE - GEMINI STUDIO 57 - ASSINATURA MENSAL | Conta 33
+      ID 7020 | R$ 25.00 | ANTECIPA├ç├âO DE RECEB├ìVEIS - D├ëB.TARIFA TD  | Conta 31
+      ID 7019 | R$ 27.75 | DARF - RETEN├ç├âO NF65773 ADAPTA  | Conta 31
+ÔØî Border├┤ 2 | 2025-09-02 | Taxa: R$ 986.74 | Op: 14618626 ÔÇö N├âO ENCONTRADO
+   ­ƒôà Despesas no mesmo dia:
+      ID 7481 | R$ 1162.27 | VALEMIX - 15┬¬ CONCRETAGEM 4M┬│ - PILARES LATERAIS T├ëRREO - PEDIDO 25921639 2/3 | Conta 31
+      ID 7480 | R$ 1351.00 | SANTANA FERRO E A├çO - FERRAGEM COMPLEMENTAR PILARES +280 - PEDIDO 24339361 2/2 | Conta 31
+      ID 8178 | R$ 26970.74 | ANTECIPA├ç├âO - RECEBIMENTO - RESIDENCIAL ALFA - AP 502 - ENTRADA 3/3 | Conta 41
+      ID 7482 | R$ 720.00 | CAIXA PR├ë-PAGO - VALE ALIMENTA├ç├âO OBRA - REF AG025 | Conta 31
+      ID 10041 | R$ 25.00 | D├ëB.TARIFA TD - ANTECIPA├ç├âO DE RECEB├ìVEIS  | Conta 31
+      ID 7441 | R$ 191.94 | D├ëB.IOF TD - ANTECIPA├ç├âO DE RECEB├ìVEIS | Conta 31
+      ID 7486 | R$ 769.80 | D├ëB.JUROS CONTRATUAIS TD - ANTECIPA├ç├âO RECEB├ìVEIS  | Conta 31
+      ID 7484 | R$ 25.00 | D├ëB.TARIFA TD - ANTECIPA├ç├âO DE RECEB├ìVEIS  | Conta 31
+ÔØî Border├┤ 3 | 2025-09-08 | Taxa: R$ 960.33 | Op: 14658249 ÔÇö N├âO ENCONTRADO
+   ­ƒôà Despesas no mesmo dia:
+      ID 7513 | R$ 15761.10 | AQUASOLIS - LOCA├ç├âO ESCORAMENTO DE LAJE - REF AGO25 | Conta 31
+      ID 13340 | R$ 12.00 | POSTO TNE ILHA - 1 GAL├âO ├üGUA MINERAL | Conta 34
+      ID 12687 | R$ 39.96 | KALUNGA.COM - TINTA IMPRESSORA EPSON (2/3) | Conta 34
+      ID 9855 | R$ 676.00 | SOLU├ç├òES MED. TRABALHO - MENSALIDADE REF SET25 | Conta 31
+      ID 12688 | R$ 39.96 | KALUNGA.COM - TINTA IMPRESSORA EPSON (3/3) | Conta 34
+      ID 7510 | R$ 545.00 | SOLU├ç├òES MED. TRABALHO - MENSALIDADE REF AGO25 | Conta 31
+      ID 12686 | R$ 39.96 | KALUNGA.COM - TINTA IMPRESSORA EPSON (1/3) | Conta 34
+      ID 10305 | R$ 21556.37 | ANTECIPA├ç├âO - BOLETOS RESIDENCIAL ALFA | Conta 41
+      ID 7390 | R$ 450.00 | ANDR├ë E ANDERSON - 1 CAMINH├âO PIPA - PEDIDO 91 | Conta 31
+ÔØî Border├┤ 4 | 2025-09-23 | Taxa: R$ 2595.25 | Op: 14766479 ÔÇö N├âO ENCONTRADO
+   ­ƒôà Despesas no mesmo dia:
+      ID 8202 | R$ 62050.00 | ANTECIPA├ç├âO - AP 402 PARCELA 15/36 E AP 202 PARCELA ENTRADA 1/3 | Conta 41
+ÔØî Border├┤ 5 | 2025-10-29 | Taxa: R$ 1534.66 | Op: 14999895 ÔÇö N├âO ENCONTRADO
+   ­ƒôà Nenhuma despesa no mesmo dia
+ÔØî Border├┤ 6 | 2025-11-07 | Taxa: R$ 3240.58 | Op: 15060213 ÔÇö N├âO ENCONTRADO
+   ­ƒôà Nenhuma despesa no mesmo dia
+ÔØî Border├┤ 7 | 2025-11-24 | Taxa: R$ 804.11 | Op: 15158891 ÔÇö N├âO ENCONTRADO
+   ­ƒôà Nenhuma despesa no mesmo dia
+ÔØî Border├┤ 8 | 2025-11-26 | Taxa: R$ 3529.31 | Op: 15178027 ÔÇö N├âO ENCONTRADO
+   ­ƒôà Nenhuma despesa no mesmo dia
+ÔØî Border├┤ 9 | 2025-12-10 | Taxa: R$ 2093.91 | Op: 15266665 ÔÇö N├âO ENCONTRADO
+   ­ƒôà Nenhuma despesa no mesmo dia
+ÔØî Border├┤ 10 | 2025-12-11 | Taxa: R$ 2221.66 | Op: 15280721 ÔÇö N├âO ENCONTRADO
+   ­ƒôà Nenhuma despesa no mesmo dia
+ÔØî Border├┤ 11 | 2025-12-29 | Taxa: R$ 1797.51 | Op: 15375915 ÔÇö N├âO ENCONTRADO
+   ­ƒôà Nenhuma despesa no mesmo dia
+ÔØî Border├┤ 12 | 2026-01-29 | Taxa: R$ 764.18 | Op: 15559115 ÔÇö N├âO ENCONTRADO
+   ­ƒôà Nenhuma despesa no mesmo dia
+ÔØî Border├┤ 14 | 2026-02-20 | Taxa: R$ 3388.79 | Op: 15694799 ÔÇö N├âO ENCONTRADO
+   ­ƒôà Nenhuma despesa no mesmo dia
+ÔØî Border├┤ 15 | 2026-03-04 | Taxa: R$ 2747.17 | Op: 15763819 ÔÇö N├âO ENCONTRADO
+   ­ƒôà Nenhuma despesa no mesmo dia
+ÔØî Border├┤ 16 | 2026-03-06 | Taxa: R$ 3305.2 | Op: 15783915 ÔÇö N├âO ENCONTRADO
+   ­ƒôà Nenhuma despesa no mesmo dia
+ÔØî Border├┤ 17 | 2026-03-10 | Taxa: R$ 2555.53 | Op: 15808406 ÔÇö N├âO ENCONTRADO
+   ­ƒôà Nenhuma despesa no mesmo dia
+
+================================================================================
+
+­ƒôè RESUMO: 0 encontradas | 16 n├úo encontradas
+
+
+­ƒùâ´©Å IDs encontrados (para update no banco):

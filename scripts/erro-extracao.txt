@@ -1,0 +1,90 @@
+﻿[dotenv@17.3.1] injecting env (30) from .env.local -- tip: ÔÜÖ´©Å  enable debug logging with { debug: true }
+­ƒÜÇ ROB├ö LEITOR DE BORDER├öS DE ANTECIPA├ç├âO
+==========================================
+­ƒôü Pasta de entrada: C:\Projetos\studio57so-v8\EMPR├ëSTIMOS\CREDIRIODOCE - ANTECIPA├ç├âO RECEB├ìVEIS
+­ƒôü Pasta de sa├¡da: C:\Projetos\studio57so-v8\EMPR├ëSTIMOS\CREDIRIODOCE - ANTECIPA├ç├âO RECEB├ìVEIS\TXT_EXTRAIDOS
+
+­ƒôï Encontrados 19 border├┤s para processar:
+
+   1. Antecipa├ºa├Á 25-12-11 - Border├┤ - DOCUMENTO ASSINATURA ELETR├öNICA 3584802593195499863.pdf
+   2. Antecipa├º├úo 25-08-04 - Border├┤ - DOCUMENTO ASSINATURA ELETR├öNICA.pdf
+   3. Antecipa├º├úo 25-08-04 - Border├┤ - STUDIO 57.pdf
+   4. Antecipa├º├úo 25-09-02 - border├┤ - DOCUMENTO ASSINATURA ELETR├öNICA.pdf
+   5. Antecipa├º├úo 25-09-08 - Border├┤ - DOCUMENTO ASSINATURA ELETR├öNICA.pdf
+   6. Antecipa├º├úo 25-09-23 - Border├┤ - DOCUMENTO ASSINATURA ELETR├öNICA.pdf
+   7. Antecipa├º├úo 25-10-29 - Border├┤ - DOCUMENTO ASSINATURA ELETR├öNICA 3311171107977909505.PDF
+   8. Antecipa├º├úo 25-11-07 - Border├┤ - DOCUMENTO ASSINATURA ELETR├öNICA 4394202448115214564.PDF
+   9. Antecipa├º├úo 25-11-24 - Border├┤ - DOCUMENTO ASSINATURA ELETR├öNICA 2281060131370323066.pdf
+   10. Antecipa├º├úo 25-11-26 - Border├┤ - DOCUMENTO ASSINATURA ELETR├öNICA 771865817444420061.pdf
+   11. Antecipa├º├úo 25-12-10 - Border├┤ - DOCUMENTO ASSINATURA ELETR├öNICA 7225045269811755072.pdf
+   12. Antecipa├º├úo 25-12-29 - Border├┤ - DOCUMENTO ASSINATURA ELETR├öNICA 5938596889095687728.pdf
+   13. Antecipa├º├úo 26-01-29 - Border├┤ - DOCUMENTO ASSINATURA ELETR├öNICA 1482721156246229870.pdf
+   14. Antecipa├º├úo 26-02-06 - Border├┤ - DOCUMENTO ASSINATURA ELETR├öNICA 6903911310215595547.pdf
+   15. Antecipa├º├úo 26-02-20 - Border├┤ - DOCUMENTO ASSINATURA ELETR├öNICA 951433529526495433.pdf
+   16. Antecipa├º├úo 26-03-04 - Border├┤ - DOCUMENTO ASSINATURA ELETR├öNICA 7099923664935685678.pdf
+   17. Antecipa├º├úo 26-03-06 - Border├┤ - DOCUMENTO ASSINATURA ELETR├öNICA 9003448610448225105.pdf
+   18. Antecipa├º├úo 26-03-10 - Border├┤ - DOCUMENTO ASSINATURA ELETR├öNICA 9182736921514410741.pdf
+   19. STUDIO 57 - RELAT├ôRIO DE ANTECIPA├ç├òES - 22-12-25.pdf
+
+ÔÅ¡´©Å  J├í processado: Antecipa├ºa├Á 25-12-11 - Border├┤ - DOCUMENTO ASSINATURA ELETR├öNICA 3584802593195499863.pdf (TXT existe). Pulando...
+
+ÔÅ¡´©Å  J├í processado: Antecipa├º├úo 25-08-04 - Border├┤ - DOCUMENTO ASSINATURA ELETR├öNICA.pdf (TXT existe). Pulando...
+
+ÔÅ¡´©Å  J├í processado: Antecipa├º├úo 25-08-04 - Border├┤ - STUDIO 57.pdf (TXT existe). Pulando...
+
+ÔÅ¡´©Å  J├í processado: Antecipa├º├úo 25-09-02 - border├┤ - DOCUMENTO ASSINATURA ELETR├öNICA.pdf (TXT existe). Pulando...
+
+ÔÅ¡´©Å  J├í processado: Antecipa├º├úo 25-09-08 - Border├┤ - DOCUMENTO ASSINATURA ELETR├öNICA.pdf (TXT existe). Pulando...
+
+ÔÅ¡´©Å  J├í processado: Antecipa├º├úo 25-09-23 - Border├┤ - DOCUMENTO ASSINATURA ELETR├öNICA.pdf (TXT existe). Pulando...
+
+ÔÅ¡´©Å  J├í processado: Antecipa├º├úo 25-10-29 - Border├┤ - DOCUMENTO ASSINATURA ELETR├öNICA 3311171107977909505.PDF (TXT existe). Pulando...
+
+ÔÅ¡´©Å  J├í processado: Antecipa├º├úo 25-11-07 - Border├┤ - DOCUMENTO ASSINATURA ELETR├öNICA 4394202448115214564.PDF (TXT existe). Pulando...
+
+ÔÅ¡´©Å  J├í processado: Antecipa├º├úo 25-11-24 - Border├┤ - DOCUMENTO ASSINATURA ELETR├öNICA 2281060131370323066.pdf (TXT existe). Pulando...
+
+ÔÅ¡´©Å  J├í processado: Antecipa├º├úo 25-11-26 - Border├┤ - DOCUMENTO ASSINATURA ELETR├öNICA 771865817444420061.pdf (TXT existe). Pulando...
+
+ÔÅ¡´©Å  J├í processado: Antecipa├º├úo 25-12-10 - Border├┤ - DOCUMENTO ASSINATURA ELETR├öNICA 7225045269811755072.pdf (TXT existe). Pulando...
+
+ÔÅ¡´©Å  J├í processado: Antecipa├º├úo 25-12-29 - Border├┤ - DOCUMENTO ASSINATURA ELETR├öNICA 5938596889095687728.pdf (TXT existe). Pulando...
+
+ÔÅ¡´©Å  J├í processado: Antecipa├º├úo 26-01-29 - Border├┤ - DOCUMENTO ASSINATURA ELETR├öNICA 1482721156246229870.pdf (TXT existe). Pulando...
+
+­ƒôä Processando: Antecipa├º├úo 26-02-06 - Border├┤ - DOCUMENTO ASSINATURA ELETR├öNICA 6903911310215595547.pdf
+   Ô¼å´©Å  Fazendo upload para o Gemini...
+node :    ÔØî ERRO ao processar 
+Antecipa├º├úo 26-02-06 - Border├┤ - 
+DOCUMENTO ASSINATURA ELETR├öNICA 
+6903911310215595547.pdf: Falha ao 
+obter URL de upload
+No linha:1 caractere:1
++ node 
+scripts/ler-borderos-antecipacao.mjs 
+2>&1 | Out-File "scripts\er ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~
+    + CategoryInfo          : NotSpeci 
+   fied: (   ÔØî ERRO ao ...r URL de   
+  upload:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCo 
+   mmandError
+ 
+
+ÔÅ¡´©Å  J├í processado: Antecipa├º├úo 26-02-20 - Border├┤ - DOCUMENTO ASSINATURA ELETR├öNICA 951433529526495433.pdf (TXT existe). Pulando...
+
+ÔÅ¡´©Å  J├í processado: Antecipa├º├úo 26-03-04 - Border├┤ - DOCUMENTO ASSINATURA ELETR├öNICA 7099923664935685678.pdf (TXT existe). Pulando...
+
+ÔÅ¡´©Å  J├í processado: Antecipa├º├úo 26-03-06 - Border├┤ - DOCUMENTO ASSINATURA ELETR├öNICA 9003448610448225105.pdf (TXT existe). Pulando...
+
+ÔÅ¡´©Å  J├í processado: Antecipa├º├úo 26-03-10 - Border├┤ - DOCUMENTO ASSINATURA ELETR├öNICA 9182736921514410741.pdf (TXT existe). Pulando...
+
+ÔÅ¡´©Å  J├í processado: STUDIO 57 - RELAT├ôRIO DE ANTECIPA├ç├òES - 22-12-25.pdf (TXT existe). Pulando...
+
+==========================================
+Ô£à CONCLU├ìDO! 18/19 border├┤s processados.
+ÔÜá´©Å  1 erro(s):
+   - Antecipa├º├úo 26-02-06 - Border├┤ - DOCUMENTO ASSINATURA ELETR├öNICA 6903911310215595547.pdf: Falha ao obter URL de upload
+­ƒôä Resumo geral salvo em: _RESUMO_GERAL.txt
+­ƒôü Arquivos TXT em: C:\Projetos\studio57so-v8\EMPR├ëSTIMOS\CREDIRIODOCE - ANTECIPA├ç├âO RECEB├ìVEIS\TXT_EXTRAIDOS

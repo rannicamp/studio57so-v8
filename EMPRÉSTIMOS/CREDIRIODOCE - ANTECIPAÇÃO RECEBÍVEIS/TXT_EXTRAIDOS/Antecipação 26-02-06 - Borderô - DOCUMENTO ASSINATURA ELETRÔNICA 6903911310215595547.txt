@@ -1,0 +1,37 @@
+ARQUIVO ORIGINAL: Antecipação 26-02-06 - Borderô - DOCUMENTO ASSINATURA ELETRÔNICA 6903911310215595547.pdf
+EXTRAÍDO EM: 12/03/2026, 16:48:10
+============================================================
+
+=== BORDERÔ DE ANTECIPAÇÃO DE RECEBÍVEIS ===
+
+DATA DA OPERAÇÃO: 12/03/2026
+NÚMERO DA OPERAÇÃO: 15611525.3027-2026
+INSTITUIÇÃO: SICOOB CREDIRIODOCE
+EMPRESA CEDENTE: STUDIO 57 INCORPORACOES LTDA
+VALOR BRUTO TOTAL: R$ 49.839,12
+VALOR DAS TAXAS/JUROS: R$ 2.977,85 (Juros: R$ 2.478,80 + IOF: R$ 474,05 + TAC: R$ 25,00)
+VALOR LÍQUIDO: R$ 46.861,27
+TAXA DE DESCONTO: 2,0000% a.m.
+PRAZO MÉDIO: 41 dias
+
+=== RECEBÍVEIS ANTECIPADOS ===
+
+| # | Devedor/Favorecido | Nº Título/Boleto | Vencimento | Valor Face | Valor Presente |
+|---|-------------------|-----------------|------------|------------|----------------|
+| 1 | MARCELO ALVES JOSÉ | 423/1183151 | 22/05/2026 | R$ 4.333,33 | R$ 3.987,40 |
+| 2 | KARINA LUCAS CARDOSO PINTO | 216/1183151 | 20/04/2026 | R$ 4.495,12 | R$ 4.237,60 |
+| 3 | JOSÉ ROGÉRIO DE PAIVA FILHO | 44/1183151 | 19/04/2026 | R$ 36.764,00 | R$ 34.657,88 |
+| 4 | JOSÉ ROGÉRIO DE PAIVA FILHO | 20/1183151 | 19/04/2026 | R$ 4.246,67 | R$ 4.003,39 |
+
+=== RESUMO ===
+Quantidade de recebíveis: 4
+Valor total dos títulos: R$ 49.839,12
+Valor líquido creditado: R$ 46.861,27
+Conta de crédito: 1178087
+
+=== OBSERVAÇÕES ===
+O cliente poderá optar pela liquidação antecipada do débito, nos termos da lei.
+CET Mês: 2,4700%
+CET Ano: 34,5630%
+Taxa Efetiva Anual: 26,8241%
+Perda Esperada: 0.600900

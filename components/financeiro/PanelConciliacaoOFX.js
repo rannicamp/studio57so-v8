@@ -320,6 +320,26 @@ export default function PanelConciliacaoOFX({ contaId, isCartaoCredito, arquivos
         }
     };
 
+    // Mutation: Desagrupar Borderô (volta cada lançamento a ser individual)
+    const desagruparBorderoMutation = useMutation({
+        mutationFn: async (borderoItem) => {
+            const idsFilhos = borderoItem.filhos.map(f => f.id);
+            const { error } = await supabase
+                .from('lancamentos')
+                .update({ agrupamento_id: null })
+                .in('id', idsFilhos)
+                .eq('organizacao_id', organizacaoId);
+            if (error) throw error;
+            return idsFilhos.length;
+        },
+        onSuccess: (qtde) => {
+            toast.success(`Borderô desfeito! ${qtde} lançamentos voltaram a ser individuais.`);
+            queryClient.invalidateQueries({ queryKey: ['lancamentosSistemaConciliacao'] });
+            queryClient.invalidateQueries({ queryKey: ['extrato'] });
+        },
+        onError: (err) => toast.error(`Erro ao desagrupar: ${err.message}`)
+    });
+
     // 1. Sugestão Automática de Pares
     useEffect(() => {
         if (isLoadingLancamentos || !lancamentosSistema || isLoadingTransacoesOfx) return;
@@ -641,7 +661,7 @@ export default function PanelConciliacaoOFX({ contaId, isCartaoCredito, arquivos
                         </>
                     )}
 
-                    {/* Botoes Espciais Para Borderô */}
+                    {/* Botoes Especiais Para Borderô */}
                     {type === 'sistema' && item.isBordero && (
                         <>
                             {item.conciliationStatus === 'dbConciliated' && (
@@ -650,7 +670,18 @@ export default function PanelConciliacaoOFX({ contaId, isCartaoCredito, arquivos
                                     if (window.confirm('Desfazer Conciliação do Lote inteiro? Essa ação atinge VÁRIOS lançamentos.')) {
                                         Promise.all(item.filhos.map(f => undoConciliationMutation.mutateAsync(f.id)));
                                     }
-                                }} disabled={undoConciliationMutation.isPending} className="text-gray-500 hover:bg-gray-200 rounded p-1"><FontAwesomeIcon icon={faUndo} spin={undoConciliationMutation.isPending} /></button>
+                                }} disabled={undoConciliationMutation.isPending} className="text-gray-500 hover:bg-gray-200 rounded p-1" title="Desfazer conciliação do lote"><FontAwesomeIcon icon={faUndo} spin={undoConciliationMutation.isPending} /></button>
+                            )}
+                            {/* Botão Desagrupar - apenas para borderôs não conciliados */}
+                            {(item.conciliationStatus === 'pendente' || item.conciliationStatus === 'sessionMatch') && (
+                                <button onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (window.confirm(`Desagrupar este Borderô? Os ${item.filhos.length} lançamentos voltarão a ser individuais.`)) {
+                                        desagruparBorderoMutation.mutate(item);
+                                    }
+                                }} disabled={desagruparBorderoMutation.isPending} className="text-orange-500 hover:bg-orange-100 rounded p-1 text-[10px] font-bold ml-1" title="Desfazer agrupamento em Borderô">
+                                    DESFAZER
+                                </button>
                             )}
                             <button onClick={(e) => { e.stopPropagation(); setExpandedBorderos(prev => ({ ...prev, [item.id]: !prev[item.id] })); }} className="text-gray-400 hover:bg-gray-200 rounded p-1 text-[10px] ml-1 font-bold">
                                 {expandedBorderos[item.id] ? "ESCONDER" : "ITENS"}

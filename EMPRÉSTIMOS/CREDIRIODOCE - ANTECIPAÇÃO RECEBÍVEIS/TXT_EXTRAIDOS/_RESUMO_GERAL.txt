@@ -1,13 +1,9 @@
 RESUMO CONSOLIDADO - BORDERÔS DE ANTECIPAÇÃO DE RECEBÍVEIS
 ============================================================
-Gerado em: 12/03/2026, 14:37:02
-Total de borderôs: 18
+Gerado em: 12/03/2026, 16:47:29
+Total de borderôs: 19
 ============================================================
 
-✅ Antecipação 26-01-29 - Borderô - DOCUMENTO ASSINATURA ELETRÔNICA 1482721156246229870.pdf
-✅ Antecipação 26-02-20 - Borderô - DOCUMENTO ASSINATURA ELETRÔNICA 951433529526495433.pdf
-✅ Antecipação 26-03-04 - Borderô - DOCUMENTO ASSINATURA ELETRÔNICA 7099923664935685678.pdf
-✅ Antecipação 26-03-06 - Borderô - DOCUMENTO ASSINATURA ELETRÔNICA 9003448610448225105.pdf
-✅ Antecipação 26-03-10 - Borderô - DOCUMENTO ASSINATURA ELETRÔNICA 9182736921514410741.pdf
+✅ Antecipação 26-02-06 - Borderô - DOCUMENTO ASSINATURA ELETRÔNICA 6903911310215595547.pdf
 
-Total processados com sucesso: 18/18
+Total processados com sucesso: 19/19
