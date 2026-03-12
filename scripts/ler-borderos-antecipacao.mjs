@@ -14,11 +14,24 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+
+// Carrega o .env.local automaticamente (seguro — a chave NUNCA fica no código)
+try {
+    const dotenv = require('dotenv');
+    dotenv.config({ path: '.env.local' });
+} catch (e) { /* dotenv opcional em produção — variável já estará no ambiente */ }
+
 // =====================================================
 // CONFIGURAÇÃO
 // =====================================================
-const API_KEY = "AIzaSyDoSo89BxMBkiKtmkuuByKj6bIBZtVGxWs";
-// gemini-2.5-flash-preview: modelo mais atual, aceita PDF, funciona com plano pago
+const API_KEY = process.env.GEMINI_API_KEY;
+if (!API_KEY) {
+    console.error('❌ GEMINI_API_KEY não encontrada! Verifique seu .env.local');
+    process.exit(1);
+}
+// gemini-2.5-flash: modelo mais atual, aceita PDF
 const MODELO = "gemini-2.5-flash";
 const MAX_RETRIES = 3; // Tentativas em caso de rate limit
 
