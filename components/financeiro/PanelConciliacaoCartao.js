@@ -914,14 +914,15 @@ export default function PanelConciliacaoCartao({ contas, initialContaId, faturaV
             </div>
 
             {/* Split Screen Lado-a-Lado */}
-            <div ref={containerRef} className="relative bg-gray-100/50 p-4 min-h-[500px] mb-20">
+            <div ref={containerRef} className="relative bg-gray-100/50 p-4 mb-20">
                 <svg className="absolute top-0 left-0 w-full h-full pointer-events-none z-10">
                     {lines.map((line, index) => (<path key={index} d={`M ${line.startX} ${line.startY} C ${line.startX + 50} ${line.startY}, ${line.endX - 50} ${line.endY}, ${line.endX} ${line.endY}`} stroke={getColorForPair(line.pairId).split(' ')[0].replace('border', 'stroke').replace('-400', '-500')} strokeWidth="2" fill="none" />))}
                 </svg>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* grid com altura fixa compartilhada — ambas as colunas têm exatamente 70vh */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-[70vh]">
                     {/* Lado Esquerdo - Fatura Extraída Virtual */}
-                    <div className="bg-white rounded-lg shadow-sm border overflow-hidden flex flex-col max-h-[75vh]">
+                    <div className="bg-white rounded-lg shadow-sm border overflow-hidden flex flex-col h-full">
                         <h3 className="font-bold text-sm bg-indigo-100 text-indigo-900 p-3 border-b border-indigo-200 flex items-center justify-between shrink-0">
                             <span className="flex items-center gap-2">Transações extraídas da Fatura {isLoadingTransacoesOfx && <FontAwesomeIcon icon={faSpinner} spin className="text-indigo-400" />}</span>
                             <button onClick={() => { setOfxParaEditar(null); setIsOfxModalOpen(true); }} className="bg-white border border-indigo-200 text-indigo-700 hover:bg-indigo-50 hover:shadow-sm px-2 py-1 rounded text-[10px] font-bold flex items-center gap-1 transition-all">
@@ -929,14 +930,14 @@ export default function PanelConciliacaoCartao({ contas, initialContaId, faturaV
                                 Nova Transação (OFX)
                             </button>
                         </h3>
-                        <div className="flex-1 overflow-y-auto p-1 bg-gray-50/50 custom-scrollbar relative">
+                        <div className="flex-1 overflow-y-auto p-1 bg-gray-50/50 custom-scrollbar">
                             {processedLists.sortedExtrato.map(item => renderItem(item, 'extrato', 'extrato'))}
                             {processedLists.sortedExtrato.length === 0 && !isLoadingTransacoesOfx && <p className="p-8 text-sm text-gray-400 text-center italic font-semibold">Sem transações no filtro atual.</p>}
                         </div>
                     </div>
 
-                    {/* Lado Direito - Sistema (sistema) */}
-                    <div className="bg-white rounded-lg shadow-sm border overflow-hidden flex flex-col max-h-[75vh]">
+                    {/* Lado Direito - Lançamentos do Sistema */}
+                    <div className="bg-white rounded-lg shadow-sm border overflow-hidden flex flex-col h-full">
                         <h3 className="font-bold text-sm bg-gray-100 text-gray-800 p-3 border-b flex items-center justify-between shrink-0">
                             Lançamentos (Studio 57)
                             {selectedSistemaIds.size > 0 && <span className="text-[10px] bg-blue-100 text-blue-800 px-2 py-1 rounded-full">{selectedSistemaIds.size} selec.</span>}
