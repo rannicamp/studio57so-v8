@@ -1,11 +1,19 @@
 import { NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import pdfParse from 'pdf-parse';
+import { GoogleAIFileManager } from '@google/generative-ai/server';
+import { writeFileSync, unlinkSync } from 'fs';
+import { join } from 'path';
+import os from 'os';
 
-// gemini-2.5-flash para análise de texto (muito mais eficiente que enviar PDF binário)
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+// Inicializa as dependências com a mesma chave
+const apiKey = process.env.GEMINI_API_KEY;
+const genAI = new GoogleGenerativeAI(apiKey);
+const fileManager = new GoogleAIFileManager(apiKey);
 
 export async function POST(request) {
+    let uploadedFileDetails = null;
+    let tempFilePath = null;
+
     try {
         const formData = await request.formData();
         const file = formData.get('file');
@@ -14,47 +22,53 @@ export async function POST(request) {
             return NextResponse.json({ error: 'Nenhum arquivo enviado.' }, { status: 400 });
         }
 
+        // ─── PASSO 1: Salvar arquivo temporário no servidor (Node.js) ────────────
         const arrayBuffer = await file.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
+        
+        // Cria um nome de arquivo temporário seguro na pasta Temp do sistema
+        tempFilePath = join(os.tmpdir(), `fatura_${Date.now()}_${Math.random().toString(36).substring(7)}.pdf`);
+        writeFileSync(tempFilePath, buffer);
+        console.log(`[GoogleAIFileManager] Arquivo temporário salvo em: ${tempFilePath}`);
 
-        // ─── NOVO FLUXO: Extração de Texto Puro com pdf-parse ───────────────────
-        // Em vez de enviar o PDF binário (base64 pesado) direto para a IA,
-        // extraímos primeiro o texto puro localmente. Isso:
-        //   1. Reduz o payload ~10x (texto vs base64 do PDF)
-        //   2. Reduz consumo de cota da API (text vs file API)
-        //   3. Acelera o processamento e evita rate limits
-        let textoPdf = '';
-        try {
-            const parsed = await pdfParse(buffer);
-            textoPdf = parsed.text || '';
-        } catch (parseErr) {
-            console.warn('[pdf-parse] Falha na extração de texto — tentando enviar PDF diretamente:', parseErr.message);
-        }
+        // ─── PASSO 2: Upload para o Google ───────────────────────────────────────
+        console.log("[GoogleAIFileManager] Iniciando upload nativo do PDF para os servidores do Google...");
+        uploadedFileDetails = await fileManager.uploadFile(tempFilePath, {
+            mimeType: "application/pdf",
+            displayName: file.name || "Fatura Cartao"
+        });
+        console.log(`[GoogleAIFileManager] Upload concluído! URI: ${uploadedFileDetails.file.uri}`);
 
+        // ─── PASSO 3: Configuração do Modelo e Prompt ────────────────────────────
         const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
         const prompt = `Você é um assistente especializado em contabilidade e processamento de dados financeiros para o sistema "Studio 57".
-Sua única função é analisar o texto extraído de uma fatura de cartão de crédito e converter os dados em JSON estruturado.
+Sua única função é analisar este PDF de fatura de cartão de crédito e extrair os dados em formato JSON estruturado.
 
 🚫 REGRAS RÍGIDAS — O QUE IGNORAR (LIXO):
-- IGNORE: Saldo Anterior, Total da Fatura, Pagamento Efetuado, Juros de Financiamento, Encargos, IOF, Limite de Crédito (como linha de transação), Melhor dia de pagamento.
-- IGNORE: Parcelas futuras listadas em formato descritivo (ex: "Parcela 02/05 a vencer"). Extraia apenas os lançamentos REAIS DO MÊS ATUAL da fatura.
-- IGNORE: Linhas de cabeçalho, rodapé, separadores e resumos.
-- EXTRAIA APENAS: Compras, Serviços, Estornos, Créditos e Cancelamentos reais.
+- IGNORE FORTEMENTE PAGAMENTOS DA FATURA: Qualquer linha indicando que a fatura foi paga deve ser DESCARTADA (ex: "PGTO DEBITO CONTA", "PAGAMENTO DE FATURA", "PGTO EM LOTERICA", "PAGAMENTO EFETUADO", "SALDO FATURA ANTERIOR", "PAGAMENTO TITULO"). Isso NÃO é uma receita, é a baixa da fatura anterior.
+- IGNORE: Juros de Financiamento, Encargos, Multa, IOF, Limite de Crédito, Saldo Atual, Resumo da Fatura.
+- IGNORE: Detalhamentos de limite e tabelas de parcelas pendentes (ex: "Parcela 02/05 a vencer"). 
+- EXTRAIA APENAS: Compras, Serviços, Estornos e Transações reais efetivadas e cobradas NESTA fatura.
 
-📅 TRATAMENTO DE DATA:
-- Se a data na fatura for "DD/MM", deduza o ano correto com base no período da fatura.
-- Se a transação for de Dezembro (12) e a fatura for de Janeiro (01), use o ANO ANTERIOR para essa transação.
+📅 TRATAMENTO DE DATA E TRANSAÇÕES ANTIGAS (MUITO IMPORTANTE):
+- EXTRAIA TODAS AS COMPRAS da fatura, MESMO se a data da compra (data_transacao) for do mês anterior! É comum compras dos meses passados entrarem na fatura de fechamento. NÃO IGNORE transações dos meses anteriores se estiverem na aba de cobrança.
+- Se a data na fatura for "DD/MM", deduza o ano correto. 
+- Transações de Dezembro (12) em faturas pagas em Janeiro (01) devem usar o ANO ANTERIOR. 
 - Formato final obrigatório: YYYY-MM-DD.
 
-💰 TRATAMENTO DE VALOR:
-- Remova vírgulas de milhar e converta decimal para ponto (1.500,50 → 1500.50).
-- TODOS os valores numéricos devem vir POSITIVOS. O campo "tipo" define se é entrada ou saída.
-- "tipo": "Despesa" → compra, serviço, tarifa (valor positivo no JSON).
-- "tipo": "Receita" → estorno, crédito, cancelamento, pagamento recebido (valor positivo no JSON).
+💰 TRATAMENTO DE VALOR (SINAIS E ESTORNOS):
+- Na leitura do PDF (especialmente Banco do Brasil), COMPRAS geralmente aparecem SEM SINAL e ESTORNOS aparecem COM SINAL NEGATIVO (-). 
+- INDEPENDENTE do PDF, no retorno JSON "valor" DEVE SER UM NÚMERO POSITIVO ESTUDIAL. 
+- Você classificará o "tipo" baseado na natureza e no sinal do PDF:
+  * "tipo": "Despesa" → Compras de produtos, iFood, Uber, assinaturas, supermercado, etc.
+  * "tipo": "Receita" → ESTORNOS de compras, cancelamentos ou devoluções de dinheiro de lojas (normalmente marcados com - no PDF). NOTA: Lembre-se, o "PGTO DEBITO CONTA" da fatura deve ser TOTALMENTE IGNORADO, e não classificado como receita.
+- Remova vírgulas de milhar e use ponto para decimais (1.500,50 → 1500.50).
 
-🃏 CARTÕES MÚLTIPLOS:
-- Algumas faturas agrupam VÁRIOS cartões (titular + adicionais). Se houver lançamentos de cartões com finais DIFERENTES, separe em objetos distintos dentro do array.
+🃏 CARTÕES MÚLTIPLOS E DEPENDENTES:
+- Faturas frequentemente contêm compras do "Titular" e de "Cartões Adicionais". 
+- Separe em objetos distintos se o cartão final FOR DIFERENTE.
+- Associe cada lançamento rigorosamente ao titular e final de cartão correspondente na fatura.
 
 Retorne EXCLUSIVAMENTE um Array JSON válido, SEM markdown, SEM texto extra, SEM blocos de código. Apenas o JSON puro.
 
@@ -79,24 +93,17 @@ A estrutura DEVE SER EXATAMENTE ESTA:
   }
 ]`;
 
-        let result;
-
-        if (textoPdf && textoPdf.trim().length > 100) {
-            // ✅ CAMINHO PRINCIPAL: Texto extraído com sucesso → envia só texto (leve e rápido)
-            console.log(`[pdf-parse] Texto extraído: ${textoPdf.length} caracteres. Enviando texto para a IA.`);
-            result = await model.generateContent([
-                prompt,
-                `\n\n--- TEXTO EXTRAÍDO DA FATURA ---\n${textoPdf}\n--- FIM DO TEXTO ---`
-            ]);
-        } else {
-            // ⚠️ FALLBACK: PDF escaneado/imagem → envia binário como antes
-            console.log('[pdf-parse] Texto insuficiente (PDF escaneado?). Enviando PDF binário como fallback.');
-            const base64Data = buffer.toString('base64');
-            result = await model.generateContent([
-                prompt,
-                { inlineData: { data: base64Data, mimeType: 'application/pdf' } }
-            ]);
-        }
+        // ─── PASSO 4: Envio e Geração de Conteúdo ────────────────────────────────
+        console.log(`[GoogleAIFileManager] Chamando IA de visão espacial...`);
+        const result = await model.generateContent([
+            {
+                fileData: {
+                    mimeType: uploadedFileDetails.file.mimeType,
+                    fileUri: uploadedFileDetails.file.uri
+                }
+            },
+            prompt
+        ]);
 
         const responseText = await result.response.text();
         let cleanJson = responseText.replace(/```json/gi, '').replace(/```/g, '').trim();
@@ -105,10 +112,31 @@ A estrutura DEVE SER EXATAMENTE ESTA:
         return NextResponse.json({ success: true, extratos });
 
     } catch (error) {
-        console.error('Erro no processamento da Fatura pelo Gemini:', error);
+        console.error('Erro no processamento da Fatura pelo Gemini Nativo:', error);
         return NextResponse.json(
             { error: 'Erro ao processar Fatura com a Inteligência Artificial.', details: error.message },
             { status: 500 }
         );
+    } finally {
+        // ─── PASSO 5: Limpeza da Casa ────────────────────────────────────────────
+        // Deleta o arquivo temporário local
+        if (tempFilePath) {
+            try {
+                unlinkSync(tempFilePath);
+            } catch (err) {
+                console.warn(`Aviso: falha ao deletar arquivo temporário local: ${tempFilePath}`, err.message);
+            }
+        }
+        
+        // Deleta o arquivo da nuvem do Google
+        if (uploadedFileDetails && uploadedFileDetails.file && uploadedFileDetails.file.name) {
+            try {
+                console.log(`[GoogleAIFileManager] Limpando arquivo da nuvem: ${uploadedFileDetails.file.name}`);
+                await fileManager.deleteFile(uploadedFileDetails.file.name);
+                console.log(`[GoogleAIFileManager] Arquivo removido da nuvem com sucesso.`);
+            } catch (err) {
+                console.error(`Erro ao deletar arquivo dos servidores Google (${uploadedFileDetails.file.name}):`, err.message);
+            }
+        }
     }
 }

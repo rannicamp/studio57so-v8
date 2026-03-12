@@ -287,6 +287,9 @@ export default function ExtratoCartaoManager({ contasCartao }) {
 
     const exclusaoOfxMutation = useMutation({
         mutationFn: async (arquivoId) => {
+            // Garante que todas as transações importadas pela IA sejam excluídas primeiro
+            await supabase.from('banco_transacoes_ofx').delete().eq('arquivo_id', arquivoId).eq('organizacao_id', organizacaoId);
+
             const { error } = await supabase.from('banco_arquivos_ofx').delete().eq('id', arquivoId).eq('organizacao_id', organizacaoId);
             if (error) throw error;
         },
@@ -413,6 +416,12 @@ export default function ExtratoCartaoManager({ contasCartao }) {
         for (let i = 0; i < fileArray.length; i++) {
             const file = fileArray[i];
             toast.loading(`🧠 IA lendo fatura ${i + 1} de ${fileArray.length}: ${file.name}`, { id: toastId });
+
+            if (i > 0) {
+                toast.loading(`⏳ Aguardando 4s para evitar limite da IA...`, { id: toastId });
+                await new Promise(r => setTimeout(r, 4000));
+                toast.loading(`🧠 Processando fatura ${i + 1} de ${fileArray.length}...`, { id: toastId });
+            }
 
             try {
                 const formData = new FormData();

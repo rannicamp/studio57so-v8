@@ -79,6 +79,95 @@ const DeletionToast = ({ toastId, onSingleDelete, onFutureDelete }) => (
     </div>
 );
 
+const TransacaoOfxModal = ({ isOpen, onClose, initialData, arquivoId, organizacaoId, contaId }) => {
+    const supabase = createClient();
+    const queryClient = useQueryClient();
+    const [formData, setFormData] = useState({ data_transacao: '', descricao_banco: '', valor: '', tipo: 'Despesa' });
+
+    useEffect(() => {
+        if (initialData) {
+            setFormData({
+                data_transacao: initialData.data || '',
+                descricao_banco: initialData.descricao || '',
+                valor: initialData.valor ? Math.abs(initialData.valor) : '',
+                tipo: initialData.tipo || 'Despesa'
+            });
+        } else {
+            setFormData({ data_transacao: new Date().toISOString().split('T')[0], descricao_banco: '', valor: '', tipo: 'Despesa' });
+        }
+    }, [initialData, isOpen]);
+
+    const mutation = useMutation({
+        mutationFn: async (data) => {
+            if (!arquivoId) throw new Error('Não há um lote de fatura ativo. Por favor, importe o PDF primeiro.');
+            const val = parseFloat(data.valor) || 0;
+            const payload = {
+                arquivo_id: arquivoId,
+                organizacao_id: organizacaoId,
+                conta_id: contaId,
+                data_transacao: data.data_transacao,
+                valor: data.tipo === 'Despesa' ? -Math.abs(val) : Math.abs(val),
+                tipo: data.tipo,
+                descricao_banco: data.descricao_banco,
+                fitid: initialData?.fitid || `MANUAL-${Date.now()}`
+            };
+
+            if (initialData?.id && String(initialData.id).indexOf('fallback') === -1) {
+                const { error } = await supabase.from('banco_transacoes_ofx').update(payload).eq('id', initialData.id);
+                if (error) throw error;
+            } else {
+                const { error } = await supabase.from('banco_transacoes_ofx').insert(payload);
+                if (error) throw error;
+            }
+        },
+        onSuccess: () => {
+            toast.success(initialData ? 'Lançamento atualizado!' : 'Lançamento adicionado à fatura!');
+            queryClient.invalidateQueries({ queryKey: ['transacoesOfxConciliacao'] });
+            onClose();
+        },
+        onError: (err) => toast.error(`Erro: ${err.message}`)
+    });
+
+    if (!isOpen) return null;
+
+    return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm p-5 space-y-4 animate-fadeIn">
+                <h3 className="font-bold text-lg text-indigo-900 border-b pb-2">
+                    {initialData ? 'Editar Lançamento OFX/IA' : 'Novo Lançamento Manual (Fatura)'}
+                </h3>
+                <div>
+                    <label className="text-[10px] uppercase font-bold text-gray-500">Data da Transação</label>
+                    <input type="date" value={formData.data_transacao} onChange={e => setFormData({...formData, data_transacao: e.target.value})} className="w-full border p-2 rounded-lg mt-1 text-sm bg-gray-50 focus:bg-white" />
+                </div>
+                <div>
+                    <label className="text-[10px] uppercase font-bold text-gray-500">Descrição na Fatura</label>
+                    <input type="text" value={formData.descricao_banco} onChange={e => setFormData({...formData, descricao_banco: e.target.value})} className="w-full border p-2 rounded-lg mt-1 text-sm bg-gray-50 focus:bg-white uppercase" placeholder="Ex: COMPRA LOJA" />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                    <div>
+                        <label className="text-[10px] uppercase font-bold text-gray-500">Tipo</label>
+                        <select value={formData.tipo} onChange={e => setFormData({...formData, tipo: e.target.value})} className="w-full border p-2 rounded-lg mt-1 text-sm bg-gray-50 focus:bg-white">
+                            <option value="Despesa">Despesa (-)</option>
+                            <option value="Receita">Crédito (+)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label className="text-[10px] uppercase font-bold text-gray-500">Valor (R$)</label>
+                        <input type="number" step="0.01" value={formData.valor} onChange={e => setFormData({...formData, valor: e.target.value})} className="w-full border p-2 rounded-lg mt-1 text-sm bg-gray-50 focus:bg-white" placeholder="0,00" />
+                    </div>
+                </div>
+                <div className="flex justify-end gap-2 pt-3 border-t">
+                    <button onClick={onClose} className="px-4 py-2 text-xs font-bold text-gray-500 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors">Cancelar</button>
+                    <button onClick={() => mutation.mutate(formData)} disabled={mutation.isPending} className="px-4 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors shadow-sm">
+                        {mutation.isPending ? <FontAwesomeIcon icon={faSpinner} spin /> : 'Salvar no OFX'}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 
 export default function PanelConciliacaoCartao({ contas, initialContaId, faturaVencimento, onClosePanel }) {
     const supabase = createClient();
@@ -107,6 +196,10 @@ export default function PanelConciliacaoCartao({ contas, initialContaId, faturaV
     const [lancamentoParaCriar, setLancamentoParaCriar] = useState(null);
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [lancamentoParaEditar, setLancamentoParaEditar] = useState(null);
+
+    // Modal OFX Edit/Add
+    const [isOfxModalOpen, setIsOfxModalOpen] = useState(false);
+    const [ofxParaEditar, setOfxParaEditar] = useState(null);
 
     // Visual (Linhas e Filtros)
     const [lines, setLines] = useState([]);
@@ -231,7 +324,7 @@ export default function PanelConciliacaoCartao({ contas, initialContaId, faturaV
                     const d = new Date(faturaVencimento); // data de vencimento
                     // Mostrar alguns dias antes e depois do vencimento da fatura
                     const minD = new Date(d);
-                    minD.setDate(minD.getDate() - 40); // Uma fatura geralmente tem 30 dias de ciclo 
+                    minD.setDate(minD.getDate() - 90); // Uma fatura pode capturar compras parceladas antigas (até 90 dias úteis de retrovisor)
                     const maxD = new Date(d);
                     maxD.setDate(maxD.getDate() + 10);
                     visualInicio = minD.toISOString().split('T')[0];
@@ -263,8 +356,43 @@ export default function PanelConciliacaoCartao({ contas, initialContaId, faturaV
             queryClient.invalidateQueries({ queryKey: ['transacoesOfxConciliacao'] });
             queryClient.invalidateQueries({ queryKey: ['extrato'] });
         },
-        onError: (error) => toast.error(`Erro ao desfazer: ${error.message}`)
+        mutationFn: async (id) => {
+            const { error } = await supabase.from('lancamentos').update({ fitid_banco: null, status: 'Pendente' }).eq('id', id);
+            if (error) throw error;
+            // Opcional: Desvincular do lado do banco também (na tabela banco_transacoes_ofx)
+            await supabase.from('banco_transacoes_ofx').update({ lancamento_id_vinculado: null }).eq('lancamento_id_vinculado', id);
+        },
+        onSuccess: () => {
+             toast.success('Associação de Lançamento (Match) desfeita!');
+             queryClient.invalidateQueries({ queryKey: ['lancamentosSistemaConciliacao'] });
+             queryClient.invalidateQueries({ queryKey: ['transacoesOfxConciliacao'] });
+        },
+        onError: (err) => toast.error(`Erro: ${err.message}`),
     });
+
+    const deleteOfxMutation = useMutation({
+        mutationFn: async (id) => {
+            const { error } = await supabase.from('banco_transacoes_ofx').delete().eq('id', id);
+            if (error) throw error;
+        },
+        onSuccess: () => {
+            toast.success('Transação excluída do extrato OFX/IA!');
+            queryClient.invalidateQueries({ queryKey: ['transacoesOfxConciliacao'] });
+        },
+        onError: (err) => toast.error(`Erro: ${err.message}`),
+    });
+
+    const handleDeleteOfxTransacao = (e, item) => {
+        e.stopPropagation();
+        if (window.confirm(`Excluir "${item.descricao}" definitivamente do extrato importado?`)) {
+            // Garante que não é um item genérico "fallback" para não travar
+            if (String(item.id).indexOf('fallback') === -1) {
+                deleteOfxMutation.mutate(item.id);
+            } else {
+                toast.error('Este é um item fantasma e não pode ser apagado.');
+            }
+        }
+    };
 
     const onActionSuccess = () => {
         queryClient.invalidateQueries({ queryKey: ['lancamentosSistemaConciliacao'] });
@@ -647,7 +775,11 @@ export default function PanelConciliacaoCartao({ contas, initialContaId, faturaV
 
                 <div className={`col-span-2 text-center h-8 flex items-center gap-1 ${type === 'sistema' ? 'justify-end' : 'justify-start'}`}>
                     {type === 'extrato' && item.conciliationStatus === 'pendente' && (
-                        <button onClick={(e) => { e.stopPropagation(); handleCreateLancamento(item); }} className="bg-blue-100 text-blue-700 hover:bg-blue-200 text-xs font-bold px-2 py-1 rounded-md" title="Acrescentar este lançamento manualmente"><FontAwesomeIcon icon={faPlus} /></button>
+                        <>
+                            <button onClick={(e) => { e.stopPropagation(); setOfxParaEditar(item); setIsOfxModalOpen(true); }} className="text-gray-400 hover:text-blue-600 text-[10px] px-1 transition-colors" title="Editar este item na Fatura Importada"><FontAwesomeIcon icon={faPenToSquare} /></button>
+                            <button onClick={(e) => handleDeleteOfxTransacao(e, item)} className="text-gray-400 hover:text-red-500 text-[10px] px-1 transition-colors" title="Excluir este item da Fatura Importada"><FontAwesomeIcon icon={faTrash} /></button>
+                            <button onClick={(e) => { e.stopPropagation(); handleCreateLancamento(item); }} className="bg-blue-100 text-blue-700 hover:bg-blue-200 text-[10px] font-bold px-1.5 py-1 flex-shrink-0 rounded shadow-sm border border-blue-200" title="Acrescentar este lançamento manualmente no Studio 57"><FontAwesomeIcon icon={faPlus} /></button>
+                        </>
                     )}
                     {type === 'extrato' && item.conciliationStatus === 'dbConciliated' && (
                         <span className="text-green-600 text-[9px] uppercase font-bold tracking-wider" title="Cruza com um Lançamento Oficial do Sistema"><FontAwesomeIcon icon={faCheckCircle} className="mr-0.5" /> Oficial</span>
@@ -717,6 +849,7 @@ export default function PanelConciliacaoCartao({ contas, initialContaId, faturaV
 
             <LancamentoFormModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSuccess={handleSuccessCreate} initialData={lancamentoParaCriar} />
             <LancamentoFormModal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} onSuccess={handleSuccessEdit} initialData={lancamentoParaEditar} />
+            <TransacaoOfxModal isOpen={isOfxModalOpen} onClose={() => setIsOfxModalOpen(false)} initialData={ofxParaEditar} arquivoId={arquivosOfxMes && arquivosOfxMes.length > 0 ? arquivosOfxMes[0] : null} organizacaoId={organizacaoId} contaId={selectedContaId} />
 
             <div className="p-4 bg-indigo-50 border-b flex items-center justify-between">
                 <div>
@@ -759,8 +892,11 @@ export default function PanelConciliacaoCartao({ contas, initialContaId, faturaV
                     {/* Lado Esquerdo - Fatura Extraída Virtual */}
                     <div className="bg-white rounded-lg shadow-sm border overflow-hidden flex flex-col h-[65vh]">
                         <h3 className="font-bold text-sm bg-indigo-100 text-indigo-900 p-3 border-b border-indigo-200 flex items-center justify-between">
-                            Transações extraídas da Fatura
-                            {isLoadingTransacoesOfx && <FontAwesomeIcon icon={faSpinner} spin className="text-indigo-400" />}
+                            <span className="flex items-center gap-2">Transações extraídas da Fatura {isLoadingTransacoesOfx && <FontAwesomeIcon icon={faSpinner} spin className="text-indigo-400" />}</span>
+                            <button onClick={() => { setOfxParaEditar(null); setIsOfxModalOpen(true); }} className="bg-white border border-indigo-200 text-indigo-700 hover:bg-indigo-50 hover:shadow-sm px-2 py-1 rounded text-[10px] font-bold flex items-center gap-1 transition-all">
+                                <FontAwesomeIcon icon={faPlus} />
+                                Nova Transação (OFX)
+                            </button>
                         </h3>
                         <div className="flex-1 overflow-y-auto p-1 bg-gray-50/50 custom-scrollbar relative">
                             {processedLists.sortedExtrato.map(item => renderItem(item, 'extrato', 'extrato'))}
