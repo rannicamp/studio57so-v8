@@ -92,6 +92,7 @@ export default function BimQuantitativosPage() {
     carregandoQuantitativoPorMaterial,
     kpisMaterial,
     atualizarFatorMaterial,
+    propriedadesMapeadas,
   } = useBimMapeamentos({
     organizacaoId: organizacao_id,
     empreendimentoId: empreendimentoSelecionadoId,
