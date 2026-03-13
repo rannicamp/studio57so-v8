@@ -35,7 +35,7 @@ const TYPE_COLORS = {
     'Dinheiro': 'text-green-600 bg-green-50',
     'Conta Investimento': 'text-purple-600 bg-purple-50',
     'Conta de Ativo': 'text-teal-600 bg-teal-50',
-    'Passivos': 'text-red-600 bg-red-50',
+    'Conta de Passivo': 'text-red-600 bg-red-50',
     'Outros': 'text-gray-600 bg-gray-100',
 };
 
@@ -99,7 +99,7 @@ export default function ContasManager({ initialContas, onUpdate, empresas, onVer
 
     // Agrupa as contas da empresa ativa por tipo
     const contasPorTipo = useMemo(() => {
-        const ORDEM_TIPOS = ['Conta Corrente', 'Conta Investimento', 'Cartão de Crédito', 'Dinheiro', 'Conta de Ativo', 'Passivos', 'Outros'];
+        const ORDEM_TIPOS = ['Conta Corrente', 'Conta Investimento', 'Cartão de Crédito', 'Dinheiro', 'Conta de Ativo', 'Conta de Passivo', 'Outros'];
         const mapa = {};
         contasDaEmpresa.forEach(c => {
             const tipo = c.tipo || 'Outros';

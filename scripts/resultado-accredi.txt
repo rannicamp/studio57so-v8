@@ -1,0 +1,26 @@
+﻿[dotenv@17.3.1] injecting env (30) from .env.local -- tip: ­ƒøá´©Å  run anywhere with `dotenvx run -- yourcommand`
+
+­ƒöÄ AC CREDI ÔÇö 4 PDFs encontrados:
+
+  1. ANTECIPA├ç├âO - STUDIO 57 - 08-01-24.pdf
+  2. ANTECIPA├ç├âO - STUDIO 57 - 13-01-24.pdf
+  3. ANTECIPA├ç├âO - STUDIO 57 - 18-12-24.pdf
+  4. ANTECIPA├ç├âO - STUDIO 57 - 27-12-24.pdf
+
+­ƒôä Processando: ANTECIPA├ç├âO - STUDIO 57 - 08-01-24.pdf
+   Ô£à Upload OK
+   ­ƒÆ¥ TXT salvo.
+
+­ƒôä Processando: ANTECIPA├ç├âO - STUDIO 57 - 13-01-24.pdf
+   Ô£à Upload OK
+   ­ƒÆ¥ TXT salvo.
+
+­ƒôä Processando: ANTECIPA├ç├âO - STUDIO 57 - 18-12-24.pdf
+   Ô£à Upload OK
+   ­ƒÆ¥ TXT salvo.
+
+­ƒôä Processando: ANTECIPA├ç├âO - STUDIO 57 - 27-12-24.pdf
+   Ô£à Upload OK
+   ­ƒÆ¥ TXT salvo.
+
+Ô£à Extra├º├úo AC CREDI conclu├¡da!

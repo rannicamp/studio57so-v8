@@ -1,0 +1,730 @@
+[
+  {
+    "id": 5044,
+    "data_transacao": "2024-12-27",
+    "valor": 8704.19,
+    "tipo": "Receita",
+    "descricao": "SICOOB - ANTECIPAÇÃO BOLETOS - REF AP 402 E 501 ",
+    "conta_id": 28
+  },
+  {
+    "id": 5040,
+    "data_transacao": "2024-12-27",
+    "valor": 15,
+    "tipo": "Despesa",
+    "descricao": "ANTECIPAÇÃO RECEBÍVEIS - DEB.TARIFA TD ",
+    "conta_id": 28
+  },
+  {
+    "id": 5282,
+    "data_transacao": "2025-01-09",
+    "valor": 630,
+    "tipo": "Despesa",
+    "descricao": "STUDIO 57 ARQUITETURA - ANTECIPAÇÃO ",
+    "conta_id": 28
+  },
+  {
+    "id": 5297,
+    "data_transacao": "2025-01-13",
+    "valor": 230.12,
+    "tipo": "Despesa",
+    "descricao": "ANTECIPAÇÃO RECEBÍVEIS SICOOB - DEB.IOF TD ",
+    "conta_id": 28
+  },
+  {
+    "id": 5296,
+    "data_transacao": "2025-01-13",
+    "valor": 15,
+    "tipo": "Despesa",
+    "descricao": "ANTECIPAÇÃO RECEBÍVEIS - DEB.TARIFA TD ",
+    "conta_id": 28
+  },
+  {
+    "id": 5298,
+    "data_transacao": "2025-01-13",
+    "valor": 1168.73,
+    "tipo": "Despesa",
+    "descricao": "SICOOB - ANTECIPAÇÃO RECEBÍVEIS - DEB.JUROS CONTRATUAIS TD ",
+    "conta_id": 28
+  },
+  {
+    "id": 5345,
+    "data_transacao": "2025-01-27",
+    "valor": 4443.35,
+    "tipo": "Despesa",
+    "descricao": "SICOOB - DÉBITO BOLETO ANTECIPADO INADIMPLENTE - REF AP 401 - PARC 3/6 ",
+    "conta_id": 28
+  },
+  {
+    "id": 5346,
+    "data_transacao": "2025-01-27",
+    "valor": 4487.83,
+    "tipo": "Despesa",
+    "descricao": "SICOOB - DÉBITO BOLETO ANTECIPADO INADIMPLENTE - REF AP 401 - PARC 3/6 ",
+    "conta_id": 28
+  },
+  {
+    "id": 6434,
+    "data_transacao": "2025-07-25",
+    "valor": -24,
+    "tipo": "Despesa",
+    "descricao": "DEBITO REF A SERASA - ANTECIPAÇÃO RECEBÍVEIS ",
+    "conta_id": 31
+  },
+  {
+    "id": 8170,
+    "data_transacao": "2025-08-04",
+    "valor": 36764,
+    "tipo": "Receita",
+    "descricao": "ANTECIPAÇÃO - RECEBIMENTO - RESIDENCIAL ALFA - AP 501 15/36",
+    "conta_id": 31
+  },
+  {
+    "id": 7022,
+    "data_transacao": "2025-08-04",
+    "valor": -353.04,
+    "tipo": "Despesa",
+    "descricao": "ANTECIPAÇÃO DE RECEBÍVEIS - DÉB.IOF TD ",
+    "conta_id": 31
+  },
+  {
+    "id": 7023,
+    "data_transacao": "2025-08-04",
+    "valor": -1857.76,
+    "tipo": "Despesa",
+    "descricao": "ANTECIPAÇÃO DE RECEBÍVEIS - DÉB.JUROS CONTRATUAIS TD ",
+    "conta_id": 31
+  },
+  {
+    "id": 8169,
+    "data_transacao": "2025-08-04",
+    "valor": 36764,
+    "tipo": "Despesa",
+    "descricao": "ANTECIPAÇÃO - RECEBIMENTO - RESIDENCIAL ALFA - AP 501 15/36",
+    "conta_id": 41
+  },
+  {
+    "id": 7020,
+    "data_transacao": "2025-08-04",
+    "valor": -25,
+    "tipo": "Despesa",
+    "descricao": "ANTECIPAÇÃO DE RECEBÍVEIS - DÉB.TARIFA TD ",
+    "conta_id": 31
+  },
+  {
+    "id": 7484,
+    "data_transacao": "2025-09-02",
+    "valor": -25,
+    "tipo": "Despesa",
+    "descricao": "DÉB.TARIFA TD - ANTECIPAÇÃO DE RECEBÍVEIS ",
+    "conta_id": 31
+  },
+  {
+    "id": 8178,
+    "data_transacao": "2025-09-02",
+    "valor": 26970.74,
+    "tipo": "Despesa",
+    "descricao": "ANTECIPAÇÃO - RECEBIMENTO - RESIDENCIAL ALFA - AP 502 - ENTRADA 3/3",
+    "conta_id": 41
+  },
+  {
+    "id": 10041,
+    "data_transacao": "2025-09-02",
+    "valor": 25,
+    "tipo": "Despesa",
+    "descricao": "DÉB.TARIFA TD - ANTECIPAÇÃO DE RECEBÍVEIS ",
+    "conta_id": 31
+  },
+  {
+    "id": 8179,
+    "data_transacao": "2025-09-02",
+    "valor": 26970.74,
+    "tipo": "Receita",
+    "descricao": "ANTECIPAÇÃO - RECEBIMENTO - RESIDENCIAL ALFA - AP 502 - ENTRADA 3/3",
+    "conta_id": 31
+  },
+  {
+    "id": 7486,
+    "data_transacao": "2025-09-02",
+    "valor": -769.8,
+    "tipo": "Despesa",
+    "descricao": "DÉB.JUROS CONTRATUAIS TD - ANTECIPAÇÃO RECEBÍVEIS ",
+    "conta_id": 31
+  },
+  {
+    "id": 7441,
+    "data_transacao": "2025-09-02",
+    "valor": -191.94,
+    "tipo": "Despesa",
+    "descricao": "DÉB.IOF TD - ANTECIPAÇÃO DE RECEBÍVEIS",
+    "conta_id": 31
+  },
+  {
+    "id": 10305,
+    "data_transacao": "2025-09-08",
+    "valor": 21556.37,
+    "tipo": "Despesa",
+    "descricao": "ANTECIPAÇÃO - BOLETOS RESIDENCIAL ALFA",
+    "conta_id": 41
+  },
+  {
+    "id": 10306,
+    "data_transacao": "2025-09-08",
+    "valor": 21556.37,
+    "tipo": "Receita",
+    "descricao": "ANTECIPAÇÃO - BOLETOS RESIDENCIAL ALFA",
+    "conta_id": 31
+  },
+  {
+    "id": 10043,
+    "data_transacao": "2025-09-18",
+    "valor": 280.74,
+    "tipo": "Despesa",
+    "descricao": "DÉBITO IOF TD - ANTECIPAÇÃO RECEBÍVEIS",
+    "conta_id": 31
+  },
+  {
+    "id": 7666,
+    "data_transacao": "2025-09-18",
+    "valor": -25,
+    "tipo": "Despesa",
+    "descricao": "DÉB.TARIFA TD - ANTECIPAÇÃO DE RECEBÍVEIS",
+    "conta_id": 31
+  },
+  {
+    "id": 7664,
+    "data_transacao": "2025-09-18",
+    "valor": -764.94,
+    "tipo": "Despesa",
+    "descricao": "DÉB.JUROS CONTRATUAIS TD - ANTECIPAÇÃO DE RECEBÍVEIS",
+    "conta_id": 31
+  },
+  {
+    "id": 7665,
+    "data_transacao": "2025-09-18",
+    "valor": -170.39,
+    "tipo": "Despesa",
+    "descricao": " DÉB.IOF TD - ANTECIPAÇÃO RECEBÍVEIS",
+    "conta_id": 31
+  },
+  {
+    "id": 8203,
+    "data_transacao": "2025-09-23",
+    "valor": 62050,
+    "tipo": "Receita",
+    "descricao": "ANTECIPAÇÃO - AP 402 PARCELA 15/36 E AP 202 PARCELA ENTRADA 1/3",
+    "conta_id": 31
+  },
+  {
+    "id": 8202,
+    "data_transacao": "2025-09-23",
+    "valor": 62050,
+    "tipo": "Despesa",
+    "descricao": "ANTECIPAÇÃO - AP 402 PARCELA 15/36 E AP 202 PARCELA ENTRADA 1/3",
+    "conta_id": 41
+  },
+  {
+    "id": 8199,
+    "data_transacao": "2025-09-30",
+    "valor": -25,
+    "tipo": "Despesa",
+    "descricao": "DÉBITO TARIFA - ANTECIPAÇÃO",
+    "conta_id": 31
+  },
+  {
+    "id": 8197,
+    "data_transacao": "2025-09-30",
+    "valor": -2092.15,
+    "tipo": "Despesa",
+    "descricao": "DÉBITO JUROS CONTRATUAIS - ANTECIPAÇÃO",
+    "conta_id": 31
+  },
+  {
+    "id": 10042,
+    "data_transacao": "2025-09-30",
+    "valor": 1228.92,
+    "tipo": "Despesa",
+    "descricao": "DÉBITO JUROS CONTRATUAIS - ANTECIPAÇÃO",
+    "conta_id": 31
+  },
+  {
+    "id": 8198,
+    "data_transacao": "2025-09-30",
+    "valor": -478.1,
+    "tipo": "Despesa",
+    "descricao": "DÉBITO IOF - ANTECIPAÇÃO",
+    "conta_id": 31
+  },
+  {
+    "id": 8536,
+    "data_transacao": "2025-10-06",
+    "valor": 5000,
+    "tipo": "Despesa",
+    "descricao": "WILSON DUTRA - COMISSÃO VENDA ANTECIPADA LOTE - CHÁCARAS REFÚGIO - PARCELA 1",
+    "conta_id": 26
+  },
+  {
+    "id": 9745,
+    "data_transacao": "2025-10-06",
+    "valor": 7500,
+    "tipo": "Despesa",
+    "descricao": "WILSON DUTRA - COMISSÃO VENDA ANTECIPADA LOTE - CHÁCARAS REFÚGIO - PARCELA 2/2",
+    "conta_id": 42
+  },
+  {
+    "id": 10040,
+    "data_transacao": "2025-11-05",
+    "valor": 36400,
+    "tipo": "Receita",
+    "descricao": "ANTECIPAÇÃO - RECEBIMENTO - RESIDENCIAL ALFA - AP 401 - 15/36",
+    "conta_id": 31
+  },
+  {
+    "id": 10039,
+    "data_transacao": "2025-11-05",
+    "valor": 36400,
+    "tipo": "Despesa",
+    "descricao": "ANTECIPAÇÃO - RECEBIMENTO - RESIDENCIAL ALFA - AP 401 - 15/36",
+    "conta_id": 41
+  },
+  {
+    "id": 10195,
+    "data_transacao": "2025-11-07",
+    "valor": 62737.5,
+    "tipo": "Despesa",
+    "descricao": "ANTECIPAÇÃO - BOLETOS PARCELAS - RESIDENCIAL ALFA",
+    "conta_id": 41
+  },
+  {
+    "id": 10198,
+    "data_transacao": "2025-11-07",
+    "valor": 25,
+    "tipo": "Despesa",
+    "descricao": "DÉBITO TARIFA TD - ANTECIPAÇÃO",
+    "conta_id": 31
+  },
+  {
+    "id": 10196,
+    "data_transacao": "2025-11-07",
+    "valor": 62737.5,
+    "tipo": "Receita",
+    "descricao": "ANTECIPAÇÃO - BOLETOS PARCELAS - RESIDENCIAL ALFA",
+    "conta_id": 31
+  },
+  {
+    "id": 10199,
+    "data_transacao": "2025-11-07",
+    "valor": 2669.66,
+    "tipo": "Despesa",
+    "descricao": "DÉBITO JUROS CONTRATUAIS - ANTECIPAÇÃO",
+    "conta_id": 31
+  },
+  {
+    "id": 10197,
+    "data_transacao": "2025-11-07",
+    "valor": 545.92,
+    "tipo": "Despesa",
+    "descricao": "DÉBITO IOF TD - ANTECIPAÇÃO RECEBÍVEIS",
+    "conta_id": 31
+  },
+  {
+    "id": 10296,
+    "data_transacao": "2025-11-24",
+    "valor": 20002.17,
+    "tipo": "Despesa",
+    "descricao": "ANTECIPAÇÃO - BOLETOS PARCELAS - RESIDENCIAL ALFA",
+    "conta_id": 41
+  },
+  {
+    "id": 10298,
+    "data_transacao": "2025-11-24",
+    "valor": 25,
+    "tipo": "Despesa",
+    "descricao": "DÉBITO TARIFA TD - ANTECIPAÇÃO",
+    "conta_id": 31
+  },
+  {
+    "id": 10300,
+    "data_transacao": "2025-11-24",
+    "valor": 630.02,
+    "tipo": "Despesa",
+    "descricao": "DÉBITO JUROS CONTRATUAIS - ANTECIPAÇÃO",
+    "conta_id": 31
+  },
+  {
+    "id": 10299,
+    "data_transacao": "2025-11-24",
+    "valor": 149.09,
+    "tipo": "Despesa",
+    "descricao": "DÉBITO IOF TD - ANTECIPAÇÃO RECEBÍVEIS",
+    "conta_id": 31
+  },
+  {
+    "id": 10297,
+    "data_transacao": "2025-11-24",
+    "valor": 20002.17,
+    "tipo": "Receita",
+    "descricao": "ANTECIPAÇÃO - BOLETOS PARCELAS - RESIDENCIAL ALFA",
+    "conta_id": 31
+  },
+  {
+    "id": 10308,
+    "data_transacao": "2025-11-26",
+    "valor": 59126.38,
+    "tipo": "Receita",
+    "descricao": "ANTECIPAÇÃO - BOLETOS PARCELAS - RESIDENCIAL ALFA",
+    "conta_id": 31
+  },
+  {
+    "id": 10570,
+    "data_transacao": "2025-11-26",
+    "valor": 25,
+    "tipo": "Despesa",
+    "descricao": "DÉBITO TARIFA TD - ANTECIPAÇÃO",
+    "conta_id": 31
+  },
+  {
+    "id": 10307,
+    "data_transacao": "2025-11-26",
+    "valor": 59126.38,
+    "tipo": "Despesa",
+    "descricao": "ANTECIPAÇÃO - BOLETOS PARCELAS - RESIDENCIAL ALFA",
+    "conta_id": 41
+  },
+  {
+    "id": 10571,
+    "data_transacao": "2025-11-26",
+    "valor": 562.5,
+    "tipo": "Despesa",
+    "descricao": "DÉBITO IOF TD - ANTECIPAÇÃO RECEBÍVEIS",
+    "conta_id": 31
+  },
+  {
+    "id": 10573,
+    "data_transacao": "2025-11-26",
+    "valor": 2941.81,
+    "tipo": "Despesa",
+    "descricao": "DÉBITO JUROS CONTRATUAIS - ANTECIPAÇÃO",
+    "conta_id": 31
+  },
+  {
+    "id": 10792,
+    "data_transacao": "2025-12-10",
+    "valor": 1765.77,
+    "tipo": "Despesa",
+    "descricao": "DÉBITO JUROS CONTRATUAIS - ANTECIPAÇÃO",
+    "conta_id": 31
+  },
+  {
+    "id": 10791,
+    "data_transacao": "2025-12-10",
+    "valor": 303.14,
+    "tipo": "Despesa",
+    "descricao": "DÉBITO IOF TD - ANTECIPAÇÃO RECEBÍVEIS",
+    "conta_id": 31
+  },
+  {
+    "id": 10790,
+    "data_transacao": "2025-12-10",
+    "valor": 25,
+    "tipo": "Despesa",
+    "descricao": "DÉBITO TARIFA TD - ANTECIPAÇÃO",
+    "conta_id": 31
+  },
+  {
+    "id": 10755,
+    "data_transacao": "2025-12-11",
+    "valor": 26892.31,
+    "tipo": "Receita",
+    "descricao": "ANTECIPAÇÃO - BOLETOS PARCELAS - RESIDENCIAL ALFA",
+    "conta_id": 31
+  },
+  {
+    "id": 10783,
+    "data_transacao": "2025-12-11",
+    "valor": 30879.93,
+    "tipo": "Receita",
+    "descricao": "ANTECIPAÇÃO - BOLETOS PARCELAS - RESIDENCIAL ALFA",
+    "conta_id": 31
+  },
+  {
+    "id": 10782,
+    "data_transacao": "2025-12-11",
+    "valor": 30879.93,
+    "tipo": "Despesa",
+    "descricao": "ANTECIPAÇÃO - BOLETOS PARCELAS - RESIDENCIAL ALFA",
+    "conta_id": 41
+  },
+  {
+    "id": 10754,
+    "data_transacao": "2025-12-11",
+    "valor": 26892.31,
+    "tipo": "Despesa",
+    "descricao": "ANTECIPAÇÃO - BOLETOS PARCELAS - RESIDENCIAL ALFA",
+    "conta_id": 41
+  },
+  {
+    "id": 10785,
+    "data_transacao": "2025-12-12",
+    "valor": 330.4,
+    "tipo": "Despesa",
+    "descricao": "DÉBITO IOF TD - ANTECIPAÇÃO RECEBÍVEIS",
+    "conta_id": 31
+  },
+  {
+    "id": 10786,
+    "data_transacao": "2025-12-12",
+    "valor": 1866.26,
+    "tipo": "Despesa",
+    "descricao": "DÉBITO JUROS CONTRATUAIS - ANTECIPAÇÃO",
+    "conta_id": 31
+  },
+  {
+    "id": 10784,
+    "data_transacao": "2025-12-12",
+    "valor": 25,
+    "tipo": "Despesa",
+    "descricao": "DÉBITO TARIFA TD - ANTECIPAÇÃO",
+    "conta_id": 31
+  },
+  {
+    "id": 12296,
+    "data_transacao": "2025-12-29",
+    "valor": 284.98,
+    "tipo": "Despesa",
+    "descricao": "DÉBITO IOF TD - ANTECIPAÇÃO",
+    "conta_id": 31
+  },
+  {
+    "id": 12295,
+    "data_transacao": "2025-12-29",
+    "valor": 1487.53,
+    "tipo": "Despesa",
+    "descricao": "DÉBITO JUROS CONTRATUAIS - ANTECIPAÇÃO",
+    "conta_id": 31
+  },
+  {
+    "id": 12297,
+    "data_transacao": "2025-12-29",
+    "valor": 25,
+    "tipo": "Despesa",
+    "descricao": "DÉBITO TARIFA TD - ANTECIPAÇÃO",
+    "conta_id": 31
+  },
+  {
+    "id": 12293,
+    "data_transacao": "2025-12-29",
+    "valor": 30022.44,
+    "tipo": "Despesa",
+    "descricao": "ANTECIPAÇÃO - BOLETOS PARCELAS - RESIDENCIAL ALFA",
+    "conta_id": 41
+  },
+  {
+    "id": 12294,
+    "data_transacao": "2025-12-29",
+    "valor": 30022.44,
+    "tipo": "Receita",
+    "descricao": "ANTECIPAÇÃO - BOLETOS PARCELAS - RESIDENCIAL ALFA",
+    "conta_id": 31
+  },
+  {
+    "id": 12718,
+    "data_transacao": "2026-01-13",
+    "valor": 3572.36,
+    "tipo": "Despesa",
+    "descricao": "DÉBITO TD - BOLETO ANTECIPADO INADIMPLENTE - UNID 603 RES. ALFA - PAULO GOVEA - REF JAN26 (VENC. 10/01/25)",
+    "conta_id": 31
+  },
+  {
+    "id": 12754,
+    "data_transacao": "2026-01-16",
+    "valor": 7706.37,
+    "tipo": "Despesa",
+    "descricao": "DÉBITO PAGAMENTO - BOLETO ANTECIPADO - UNID 504 - RESIDENCIAL ALFA",
+    "conta_id": 31
+  },
+  {
+    "id": 12814,
+    "data_transacao": "2026-01-19",
+    "valor": 3.03,
+    "tipo": "Receita",
+    "descricao": "DEVOLUÇÃO DE JUROS DE TD - PAGAMENTO DE BOLETO ANTECIPADO",
+    "conta_id": 31
+  },
+  {
+    "id": 12833,
+    "data_transacao": "2026-01-22",
+    "valor": 4333.33,
+    "tipo": "Despesa",
+    "descricao": "SICOOB CREDIRIODOCE - DESCONTO NA CONTA DE BOLETO ANTECIPADO - REF UNID. 202 RES ALFA - PARCELA 4/36",
+    "conta_id": 31
+  },
+  {
+    "id": 12832,
+    "data_transacao": "2026-01-22",
+    "valor": 26000,
+    "tipo": "Despesa",
+    "descricao": "SICOOB CREDIRIODOCE - DESCONTO NA CONTA DE BOLETO ANTECIPADO - REF UNID. 202 RES ALFA - PARCELA 3/3 ENTRADA ",
+    "conta_id": 31
+  },
+  {
+    "id": 12982,
+    "data_transacao": "2026-01-29",
+    "valor": 134.62,
+    "tipo": "Despesa",
+    "descricao": "DÉBITO IOF TD - ANTECIPAÇÃO RECEBÍVEIS",
+    "conta_id": 31
+  },
+  {
+    "id": 12981,
+    "data_transacao": "2026-01-29",
+    "valor": 604.56,
+    "tipo": "Despesa",
+    "descricao": "DÉBITO JUROS CONTRATUAIS - ANTECIPAÇÃO",
+    "conta_id": 31
+  },
+  {
+    "id": 12980,
+    "data_transacao": "2026-01-29",
+    "valor": 25,
+    "tipo": "Despesa",
+    "descricao": "DÉBITO TARIFA TD - ANTECIPAÇÃO",
+    "conta_id": 31
+  },
+  {
+    "id": 12983,
+    "data_transacao": "2026-01-29",
+    "valor": 17043.32,
+    "tipo": "Despesa",
+    "descricao": "ANTECIPAÇÃO - BOLETOS PARCELAS - RESIDENCIAL ALFA",
+    "conta_id": 41
+  },
+  {
+    "id": 12984,
+    "data_transacao": "2026-01-29",
+    "valor": 17043.32,
+    "tipo": "Receita",
+    "descricao": "ANTECIPAÇÃO - BOLETOS PARCELAS - RESIDENCIAL ALFA",
+    "conta_id": 31
+  },
+  {
+    "id": 13480,
+    "data_transacao": "2026-02-06",
+    "valor": 25,
+    "tipo": "Despesa",
+    "descricao": "DÉB.TARIFA TD - ANTECIPAÇÃO DE RECEBÍVEIS ",
+    "conta_id": 31
+  },
+  {
+    "id": 13485,
+    "data_transacao": "2026-02-06",
+    "valor": 49839.12,
+    "tipo": "Receita",
+    "descricao": "ANTECIPAÇÃO - BOLETOS PARCELAS - RESIDENCIAL ALFA",
+    "conta_id": 31
+  },
+  {
+    "id": 13481,
+    "data_transacao": "2026-02-06",
+    "valor": 474.05,
+    "tipo": "Despesa",
+    "descricao": "DÉBITO IOF TD - ANTECIPAÇÃO RECEBÍVEIS",
+    "conta_id": 31
+  },
+  {
+    "id": 13483,
+    "data_transacao": "2026-02-06",
+    "valor": 2478.8,
+    "tipo": "Despesa",
+    "descricao": "DÉBITO JUROS CONTRATUAIS TD - ANTECIPAÇÃO DE RECEBÍVEIS",
+    "conta_id": 31
+  },
+  {
+    "id": 13484,
+    "data_transacao": "2026-02-06",
+    "valor": 49839.12,
+    "tipo": "Despesa",
+    "descricao": "ANTECIPAÇÃO - BOLETOS PARCELAS - RESIDENCIAL ALFA",
+    "conta_id": 41
+  },
+  {
+    "id": 13467,
+    "data_transacao": "2026-02-09",
+    "valor": 2.81,
+    "tipo": "Receita",
+    "descricao": "DEVOLUÇÃO DE JUROS DE TD - PAGAMENTO DE BOLETO ANTECIPADO",
+    "conta_id": 31
+  },
+  {
+    "id": 13890,
+    "data_transacao": "2026-02-18",
+    "valor": 3598.87,
+    "tipo": "Despesa",
+    "descricao": "DÉBITO PAGAMENTO - BOLETO ANTECIPADO - UNID 603 - RES. ALFA - REF FEV26",
+    "conta_id": 31
+  },
+  {
+    "id": 13750,
+    "data_transacao": "2026-02-19",
+    "valor": 4289.13,
+    "tipo": "Despesa",
+    "descricao": "PAGAMENTO EMPRÉSTIMO PARCELA ANTECIPADA - UNIDADE 501 - REF FEV26",
+    "conta_id": 31
+  },
+  {
+    "id": 13749,
+    "data_transacao": "2026-02-19",
+    "valor": 4246.67,
+    "tipo": "Despesa",
+    "descricao": "PAGAMENTO EMPRÉSTIMO PARCELA ANTECIPADA - UNIDADE 401 - REF FEV26",
+    "conta_id": 31
+  },
+  {
+    "id": 13757,
+    "data_transacao": "2026-02-20",
+    "valor": 52592.59,
+    "tipo": "Receita",
+    "descricao": "ANTECIPAÇÃO - BOLETOS PARCELAS - RESIDENCIAL ALFA",
+    "conta_id": 31
+  },
+  {
+    "id": 13756,
+    "data_transacao": "2026-02-20",
+    "valor": 52592.59,
+    "tipo": "Despesa",
+    "descricao": "ANTECIPAÇÃO - BOLETOS PARCELAS - RESIDENCIAL ALFA",
+    "conta_id": 41
+  },
+  {
+    "id": 13760,
+    "data_transacao": "2026-02-20",
+    "valor": 25,
+    "tipo": "Despesa",
+    "descricao": "DÉBITO TARIFA TD - ANTECIPAÇÃO DE RECEBÍVEIS",
+    "conta_id": 31
+  },
+  {
+    "id": 13759,
+    "data_transacao": "2026-02-20",
+    "valor": 527.33,
+    "tipo": "Despesa",
+    "descricao": "DÉBITO IOF TD - ANTECIPAÇÃO RECEBÍVEIS",
+    "conta_id": 31
+  },
+  {
+    "id": 13758,
+    "data_transacao": "2026-02-20",
+    "valor": 2861.46,
+    "tipo": "Despesa",
+    "descricao": "DÉBITO JUROS CONTRATUAIS TD - ANTECIPAÇÃO DE RECEBÍVEIS",
+    "conta_id": 31
+  },
+  {
+    "id": 13884,
+    "data_transacao": "2026-02-23",
+    "valor": 4599.63,
+    "tipo": "Despesa",
+    "descricao": "DÉBITO PAGAMENTO - BOLETO ANTECIPADO - UNID 502 - RES. ALFA - REF FEV26",
+    "conta_id": 31
+  }
+]

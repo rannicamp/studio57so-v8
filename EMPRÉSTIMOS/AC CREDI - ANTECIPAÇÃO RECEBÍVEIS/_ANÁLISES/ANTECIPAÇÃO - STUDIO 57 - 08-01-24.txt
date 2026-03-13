@@ -1,0 +1,36 @@
+ARQUIVO: ANTECIPAÇÃO - STUDIO 57 - 08-01-24.pdf
+EXTRAÍDO: 12/03/2026, 17:20:03
+============================================================
+
+=== BORDERÔ AC CREDI - ANTECIPAÇÃO DE RECEBÍVEIS ===
+DATA DA OPERAÇÃO: 08/01/2025
+NÚMERO DA OPERAÇÃO: 13025535.4071-2025
+INSTITUIÇÃO: SICOOB AC CREDI
+EMPRESA CEDENTE: STUDIO 57 INCORPORACOES LTDA
+VALOR BRUTO TOTAL: R$ 4.289,13
+VALOR DAS TAXAS/JUROS: R$ 126,80 (Juros: R$ 88,61 + IOF: R$ 23,19 + TAC: R$ 15,00)
+VALOR LÍQUIDO: R$ 4.162,33
+TAXA DE DESCONTO: 1,4800% (mensal) / 19,2794% (anual)
+PRAZO MÉDIO: 42 dias
+
+=== RECEBÍVEIS ANTECIPADOS ===
+| # | Devedor | Nº Título/Boleto | Contrato | Parcela | Vencimento | Valor |
+|---|---|---|---|---|---|---|
+| 1 | JOSÉ ROGÉRIO DE PAIVA FILHO (CPF: 108.131.656-01) | 80/1091118 | Não informado | Não informado | 19/02/2025 | R$ 4.289,13 |
+
+=== RESUMO ===
+Quantidade de recebíveis: 1
+Valor total dos títulos: R$ 4.289,13
+Valor líquido creditado: R$ 4.162,33
+Conta de crédito: 29.787.631-7
+
+=== OBSERVAÇÕES ===
+Status da remessa: Pré-Aprovado
+O cliente poderá optar pela liquidação antecipada do débito, nos termos da lei.
+Os recebíveis listados nesta remessa ainda não estão todos aprovados para antecipação e passarão por análise da cooperativa. Recebíveis que porventura não forem aprovados serão retirados da Remessa, alterando seu valor a menor. Os valores aprovados serão creditados em conta corrente, efetivando a operação de crédito, sujeita às cláusulas e às condições dispostas na Cédula de Crédito Bancário, assumindo o integral cumprimento da prestação constante no mesmo.
+Risco: 0.09 %
+CET Mês: 2,1666%
+CET Ano: 29,7960%
+Origem: Balcão
+Responsável: LUIZAR4071_01
+Hora de Emissão: 17:19:10
