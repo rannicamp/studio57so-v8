@@ -988,7 +988,7 @@ export default function BimQuantitativosPage() {
         organizacaoId={organizacao_id}
         onSalvar={criarMapeamento}
         onExcluir={deletarMapeamento}
-        mapeamentoExistente={mapeamentoAtual}
+        mapeamentoExistente={vinculoModal ? resolverMapeamento(vinculoModal.elemento, vinculoModal.propriedade.nome) : null}
       />
 
       {/* ─── MODAL BIM IMPORT ─── */}
