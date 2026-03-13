@@ -38,6 +38,7 @@ export default function BimVinculoMaterialModal({
   const [busca, setBusca] = useState('');
   const [escopo, setEscopo] = useState('categoria');
   const [tipoVinculo, setTipoVinculo] = useState('material');
+  const [fatorConversao, setFatorConversao] = useState('');
   const [materialSel, setMaterialSel] = useState(null); // { id, nome, unidade_medida, origem: 'proprio'|'sinapi' }
   const [criandoNovo, setCriandoNovo] = useState(false);
   const [novoNome, setNovoNome] = useState('');
@@ -45,18 +46,35 @@ export default function BimVinculoMaterialModal({
   const [salvando, setSalvando] = useState(false);
   const [excluindo, setExcluindo] = useState(false);
 
-  // Reset ao abrir
   useEffect(() => {
     if (isOpen) {
-      setBusca('');
-      setEscopo('categoria');
-      setTipoVinculo('material');
-      setMaterialSel(null);
+      if (mapeamentoExistente) {
+        setEscopo(mapeamentoExistente.escopo || 'categoria');
+        setTipoVinculo(mapeamentoExistente.tipo_vinculo || 'material');
+        setFatorConversao(mapeamentoExistente.fator_conversao || '');
+        setBusca('');
+        if (mapeamentoExistente.material_id || mapeamentoExistente.sinapi_id) {
+          setMaterialSel({
+            id: mapeamentoExistente.material_id || mapeamentoExistente.sinapi_id,
+            nome: 'Carregando...',
+            origem: mapeamentoExistente.material_id ? 'proprio' : 'sinapi',
+            unidade_medida: mapeamentoExistente.unidade_override || 'un',
+          });
+        } else {
+          setMaterialSel(null);
+        }
+      } else {
+        setBusca('');
+        setEscopo('categoria');
+        setTipoVinculo('material');
+        setFatorConversao('');
+        setMaterialSel(null);
+      }
       setCriandoNovo(false);
       setNovoNome('');
       setSalvando(false);
     }
-  }, [isOpen]);
+  }, [isOpen, mapeamentoExistente]);
 
   // ─── Busca materiais próprios + SINAPI ────────────────────────────────────
   const { data: resultadosBusca = [], isFetching: buscando } = useQuery({
@@ -110,7 +128,23 @@ export default function BimVinculoMaterialModal({
         if (!isNaN(val) && val > 0) { soma += val; qtd++; }
       }
     });
-    return { qtd, soma };
+
+    let somaFinal = soma;
+    if (fatorConversao.trim()) {
+      try {
+        const expressao = fatorConversao.replace(/\[quantidade\]|\[q\]/gi, soma.toString());
+        // eslint-disable-next-line no-new-func
+        const fn = new Function('return ' + expressao);
+        const resultado = fn();
+        if (typeof resultado === 'number' && !isNaN(resultado)) {
+          somaFinal = resultado;
+        }
+      } catch (e) {
+        // Ignora erros de typescripting/math enquanto o usuario digita
+      }
+    }
+
+    return { qtd, somaRaw: soma, soma: somaFinal };
   })();
 
   // ─── Criar novo material inline ───────────────────────────────────────────
@@ -150,6 +184,7 @@ export default function BimVinculoMaterialModal({
         familia_bim:      escopo === 'familia' ? (elemento?.familia   || null) : null,
         tipo_vinculo:     isElemento ? 'elemento' : tipoVinculo,
         escopo,
+        fator_conversao:  fatorConversao.trim() || null,
         material_id:      (tipoVinculo === 'material' || isElemento) && materialSel?.origem === 'proprio' ? materialSel.id : null,
         sinapi_id:        (tipoVinculo === 'material' || isElemento) && materialSel?.origem === 'sinapi'  ? materialSel.id : null,
       };
@@ -375,6 +410,21 @@ export default function BimVinculoMaterialModal({
                     </button>
                   ))}
                 </div>
+              </div>
+              
+              {/* Fator de conversão */}
+              <div className="px-6 py-4 border-t border-gray-50">
+                <p className="text-[10px] font-black text-gray-400 uppercase tracking-wider mb-2">Fator de Conversão Matemático</p>
+                <p className="text-xs text-gray-500 mb-3 leading-relaxed">
+                  Se a unidade de compra for diferente da unidade do modelo BIM, você pode usar uma fórmula matemática. Exemplo: Para converter Metros em Barras de 12m, digite <code className="bg-gray-100 text-pink-600 px-1 py-0.5 rounded font-bold">[q] / 12</code>
+                </p>
+                <input 
+                  type="text" 
+                  value={fatorConversao}
+                  onChange={e => setFatorConversao(e.target.value)}
+                  placeholder="Ex: [quantidade] * 1.05"
+                  className="w-full px-4 py-2 text-sm font-mono border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:bg-blue-50/30 transition-all font-bold text-gray-700"
+                />
               </div>
             </>
           )}

@@ -730,8 +730,19 @@ export default function BimQuantitativosPage() {
                             <td className="px-4 py-3 text-center">
                               <BadgeUnidade unidade={item.unidade} />
                             </td>
-                            <td className="px-4 py-3 text-right font-bold text-gray-800">
-                              {fmt2(item.quantidade)}
+                            <td className="px-4 py-3 text-right">
+                              {item.fator_conversao ? (
+                                <div className="flex flex-col items-end">
+                                  <span className="text-[10px] text-gray-400 font-semibold strike-through line-through decorative">
+                                    {fmt2(item.quantidadeOriginalApenasParaInfo)}
+                                  </span>
+                                  <span className="font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded" title={`Fórmula: ${item.fator_conversao}`}>
+                                    {fmt2(item.quantidade)}
+                                  </span>
+                                </div>
+                              ) : (
+                                <span className="font-bold text-gray-800">{fmt2(item.quantidade)}</span>
+                              )}
                             </td>
                             <td className="px-4 py-3 text-right text-gray-500 text-xs">
                               {item.preco_unitario > 0

@@ -23,6 +23,7 @@ RETURNS TABLE (
     qtd_elementos bigint,
     external_ids_ativos text[],
     external_ids_inativos text[],
+    fator_conversao text,
     custo_total numeric,
     tem_alertas boolean,
     origem text
@@ -61,6 +62,7 @@ BEGIN
             m.tipo_vinculo,
             m.escopo,
             m.unidade_override,
+            m.fator_conversao,
             m.material_id,
             m.sinapi_id,
             CASE m.escopo 
@@ -139,6 +141,7 @@ BEGIN
             m.material_id,
             m.sinapi_id,
             MAX(m.unidade_override) AS unidade_override,
+            MAX(m.fator_conversao) AS fator_conversao,
             MAX(m.prop_nome) AS sample_prop_nome,
             SUM(m.prop_valor) AS total_quantidade,
             COUNT(DISTINCT m.elemento_id) AS total_elementos,
@@ -170,6 +173,7 @@ BEGIN
         a.total_elementos AS qtd_elementos,
         COALESCE(a.ativos, ARRAY[]::text[]) AS external_ids_ativos,
         COALESCE(a.inativos, ARRAY[]::text[]) AS external_ids_inativos,
+        a.fator_conversao,
         (a.total_quantidade * COALESCE(mat.preco_unitario, sin.preco_unitario, 0)) AS custo_total,
         (array_length(a.inativos, 1) > 0) AS tem_alertas,
         CASE WHEN mat.id IS NOT NULL THEN 'proprio' ELSE 'sinapi' END AS origem

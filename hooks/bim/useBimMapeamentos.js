@@ -163,7 +163,38 @@ export function useBimMapeamentos({ organizacaoId, empreendimentoId }) {
         console.error('[BimMapeamentos] Erro na RPC:', error);
         throw error;
       }
-      return data || [];
+
+      // Processar a matemática do fator customizado (ex: [q] / 10)
+      const parseFormula = (fatorStr, valorBruto) => {
+        if (!fatorStr) return valorBruto;
+        try {
+          const expressao = fatorStr.replace(/\[quantidade\]|\[q\]/gi, valorBruto.toString());
+          // eslint-disable-next-line no-new-func
+          const fn = new Function('return ' + expressao);
+          const resultado = fn();
+          return typeof resultado === 'number' && !isNaN(resultado) ? resultado : valorBruto;
+        } catch (e) {
+          console.error('[BimMapeamentos] Erro ao interpretar fator de conversao:', fatorStr, e);
+          return valorBruto;
+        }
+      };
+
+      const resultado = (data || []).map(item => {
+        if (item.fator_conversao) {
+          const original = Number(item.quantidade) || 0;
+          const preco = Number(item.preco_unitario) || 0;
+          const novaQuantidade = parseFormula(item.fator_conversao, original);
+          return {
+            ...item,
+            quantidadeOriginalApenasParaInfo: original,
+            quantidade: novaQuantidade,
+            custo_total: novaQuantidade * preco
+          };
+        }
+        return item;
+      });
+
+      return resultado;
     },
     enabled: !!organizacaoId && !!empreendimentoId,
     staleTime: 1000 * 60 * 5, // 5 min
