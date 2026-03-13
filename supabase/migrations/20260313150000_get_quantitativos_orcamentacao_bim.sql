@@ -55,6 +55,7 @@ BEGIN
         SELECT 
             m.id AS mapeamento_id,
             m.propriedade_nome,
+            m.propriedade_quantidade,
             m.categoria_bim,
             m.familia_bim,
             m.tipo_vinculo,
@@ -70,10 +71,10 @@ BEGIN
             END as prioridade
         FROM public.bim_mapeamentos_propriedades m
         WHERE m.organizacao_id = p_organizacao_id
-          AND m.tipo_vinculo = 'material'
+          AND m.tipo_vinculo IN ('material', 'elemento')
     ),
-    propriedades_extraidas AS (
-        -- 3. Combina elementos com os mapeamentos, extraindo apenas os campos necessários
+    vinculos_material AS (
+        -- 3a. Matching clássico por Propriedade ("material")
         SELECT 
             e.id AS elemento_id,
             e.external_id,
@@ -82,36 +83,53 @@ BEGIN
             e.is_active,
             m.propriedade_nome AS prop_nome,
             NULLIF(SUBSTRING(REPLACE(e.propriedades ->> m.propriedade_nome, ',', '.') FROM '^([0-9]+(?:\.[0-9]+)?)'), '')::numeric AS prop_valor,
-            m.mapeamento_id,
-            m.material_id,
-            m.sinapi_id,
-            m.unidade_override,
-            m.prioridade,
-            m.escopo,
-            m.categoria_bim,
-            m.familia_bim
+            m.propriedade_nome AS matching_key,
+            m.*
         FROM elementos e
-        JOIN mapeamentos m ON (e.propriedades ? m.propriedade_nome)
+        JOIN mapeamentos m ON m.tipo_vinculo = 'material' AND (e.propriedades ? m.propriedade_nome)
         WHERE (e.propriedades ->> m.propriedade_nome) ~ '^[0-9]'
+          AND (
+                (m.escopo = 'projeto')
+                OR (m.escopo = 'categoria' AND e.categoria = m.categoria_bim)
+                OR (m.escopo = 'familia' AND e.categoria = m.categoria_bim AND e.familia = m.familia_bim)
+          )
+    ),
+    vinculos_elemento AS (
+        -- 3b. Matching por Elemento (Família/Categoria direto ao Material)
+        SELECT 
+            e.id AS elemento_id,
+            e.external_id,
+            e.categoria,
+            e.familia,
+            e.is_active,
+            COALESCE(m.propriedade_quantidade, 'Unidade') AS prop_nome,
+            CASE 
+                WHEN m.propriedade_quantidade IS NOT NULL AND (e.propriedades ? m.propriedade_quantidade) THEN
+                    NULLIF(SUBSTRING(REPLACE(e.propriedades ->> m.propriedade_quantidade, ',', '.') FROM '^([0-9]+(?:\.[0-9]+)?)'), '')::numeric
+                ELSE 1.0
+            END AS prop_valor,
+            '@ELEMENTO@' AS matching_key,
+            m.*
+        FROM elementos e
+        JOIN mapeamentos m ON m.tipo_vinculo = 'elemento'
+          AND (
+                (m.escopo = 'projeto') -- Improvável, mas suportado
+                OR (m.escopo = 'categoria' AND e.categoria = m.categoria_bim)
+                OR (m.escopo = 'familia' AND e.categoria = m.categoria_bim AND e.familia = m.familia_bim)
+          )
     ),
     vinculos AS (
-        -- 4. Aplica a regra de escopo/prioridade, e filtra os numericos > 0
-        SELECT 
-            p.*
-        FROM propriedades_extraidas p
-        WHERE 
-            p.prop_valor > 0 AND (
-                (p.escopo = 'projeto')
-                OR (p.escopo = 'categoria' AND p.categoria = p.categoria_bim)
-                OR (p.escopo = 'familia' AND p.categoria = p.categoria_bim AND p.familia = p.familia_bim)
-            )
+        -- 4. Une os dois cenários, filtrando valores zerados
+        SELECT * FROM vinculos_material WHERE prop_valor > 0
+        UNION ALL
+        SELECT * FROM vinculos_elemento WHERE prop_valor > 0
     ),
     vinculos_filtrados AS (
-        -- 5. Seleciona apenas o mapeamento mais prioritario (menor prioridade) por <elemento, propriedade>
-        SELECT DISTINCT ON (v.elemento_id, v.prop_nome)
+        -- 5. Seleciona apenas o mapeamento mais prioritário
+        SELECT DISTINCT ON (v.elemento_id, v.matching_key)
             *
         FROM vinculos v
-        ORDER BY v.elemento_id, v.prop_nome, v.prioridade ASC
+        ORDER BY v.elemento_id, v.matching_key, v.prioridade ASC
     ),
     agregado AS (
         -- 6. Agrega agrupando pelo material / sinapi

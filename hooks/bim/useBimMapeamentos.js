@@ -91,7 +91,10 @@ export function useBimMapeamentos({ organizacaoId, empreendimentoId }) {
       console.log('[BimMapeamentos] Salvo com sucesso:', data?.id);
       return data;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['bim_mapeamentos', organizacaoId] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['bim_mapeamentos', organizacaoId] });
+      queryClient.invalidateQueries({ queryKey: ['bim_quantitativos_orcamentacao'] });
+    },
     onError: (err) => console.error('[useBimMapeamentos] Erro ao salvar mapeamento:', err),
   });
 
@@ -105,7 +108,10 @@ export function useBimMapeamentos({ organizacaoId, empreendimentoId }) {
         .eq('organizacao_id', organizacaoId);
       if (error) throw error;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['bim_mapeamentos', organizacaoId] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['bim_mapeamentos', organizacaoId] });
+      queryClient.invalidateQueries({ queryKey: ['bim_quantitativos_orcamentacao'] });
+    },
   });
 
   // ─── Lookup rápido: dado (categoria, familia, propriedade) → mapeamento ───

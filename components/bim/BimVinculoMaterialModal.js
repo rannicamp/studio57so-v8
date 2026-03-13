@@ -133,13 +133,14 @@ export default function BimVinculoMaterialModal({
     setErro(null);
     try {
       const payload = {
-        propriedade_nome: propriedade.nome,
+        propriedade_nome: tipoVinculo === 'elemento' ? `[ELEMENTO] ${elemento?.familia || elemento?.categoria || 'Desconhecido'}` : propriedade.nome,
+        propriedade_quantidade: tipoVinculo === 'elemento' ? propriedade.nome : null,
         categoria_bim:    escopo !== 'projeto' ? (elemento?.categoria || null) : null,
         familia_bim:      escopo === 'familia' ? (elemento?.familia   || null) : null,
         tipo_vinculo:     tipoVinculo,
         escopo,
-        material_id:      (tipoVinculo === 'material' && materialSel?.origem === 'proprio') ? materialSel.id : null,
-        sinapi_id:        (tipoVinculo === 'material' && materialSel?.origem === 'sinapi')  ? materialSel.id : null,
+        material_id:      (tipoVinculo === 'material' || tipoVinculo === 'elemento') && materialSel?.origem === 'proprio' ? materialSel.id : null,
+        sinapi_id:        (tipoVinculo === 'material' || tipoVinculo === 'elemento') && materialSel?.origem === 'sinapi'  ? materialSel.id : null,
       };
       console.log('[Modal] Salvando payload:', payload);
       await onSalvar(payload);
@@ -155,7 +156,7 @@ export default function BimVinculoMaterialModal({
   if (!isOpen || !propriedade) return null;
 
   const unidadeEstimada = materialSel?.unidade_medida || '';
-  const podeConfirmar   = tipoVinculo !== 'material' || materialSel;
+  const podeConfirmar   = (tipoVinculo !== 'material' && tipoVinculo !== 'elemento') || materialSel;
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
@@ -185,7 +186,7 @@ export default function BimVinculoMaterialModal({
             <div className="grid grid-cols-3 gap-2">
               {[
                 { v: 'material',     icon: '📦', label: 'Material' },
-                { v: 'quantitativo', icon: '📐', label: 'Medida Aux.' },
+                { v: 'elemento',     icon: '🧱', label: 'Elem. Inteiro' },
                 { v: 'ignorar',      icon: '❌', label: 'Ignorar' },
               ].map(op => (
                 <button
@@ -201,8 +202,16 @@ export default function BimVinculoMaterialModal({
             </div>
           </div>
 
-          {tipoVinculo === 'material' && (
+          {(tipoVinculo === 'material' || tipoVinculo === 'elemento') && (
             <>
+              {tipoVinculo === 'elemento' && (
+                <div className="px-6 pt-4 pb-1">
+                  <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-xl p-3 text-xs leading-5">
+                    <strong>Atenção:</strong> Você está mapeando o elemento inteiro ({elemento?.familia || elemento?.categoria}).<br/>
+                    A propriedade <span className="font-bold">"{propriedade.nome}"</span> será usada apenas para extrair a <u>quantidade/medida</u> deste material.
+                  </div>
+                </div>
+              )}
               {/* Busca de material */}
               <div className="px-6 py-4">
                 <p className="text-[10px] font-black text-gray-400 uppercase tracking-wider mb-2">
