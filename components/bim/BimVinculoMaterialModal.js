@@ -116,10 +116,6 @@ export default function BimVinculoMaterialModal({
   // ─── Criar novo material inline ───────────────────────────────────────────
   const criarNovoMaterial = async () => {
     if (!novoNome.trim()) return;
-    
-    // Pega o id do usuario atual para o RLS não barrar a criacao
-    const { data: { user }, error: authEr } = await supabase.auth.getUser();
-    if (authEr || !user) { alert('Erro de autenticação ao criar material.'); return; }
 
     const { data, error } = await supabase
       .from('materiais')
@@ -127,8 +123,7 @@ export default function BimVinculoMaterialModal({
         nome: novoNome,
         unidade_medida: novaUnidade,
         organizacao_id: organizacaoId,
-        classificacao: 'material',
-        criado_por: user.id
+        classificacao: 'Insumo'
       })
       .select()
       .single();

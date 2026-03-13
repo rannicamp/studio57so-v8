@@ -1,0 +1,67 @@
+[
+  {
+    "column_name": "id",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "column_name": "empresa_fornecedor_id",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "column_name": "nome",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "column_name": "descricao",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "column_name": "unidade_medida",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "column_name": "preco_unitario",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "column_name": "Grupo",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "column_name": "Código da Composição",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "column_name": "Origem",
+    "is_nullable": "YES",
+    "column_default": null
+  },
+  {
+    "column_name": "classificacao",
+    "is_nullable": "NO",
+    "column_default": "'Insumo'::text"
+  },
+  {
+    "column_name": "created_at",
+    "is_nullable": "YES",
+    "column_default": "now()"
+  },
+  {
+    "column_name": "organizacao_id",
+    "is_nullable": "NO",
+    "column_default": null
+  },
+  {
+    "column_name": "updated_at",
+    "is_nullable": "YES",
+    "column_default": "now()"
+  }
+]
