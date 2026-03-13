@@ -90,12 +90,32 @@ export default function BimQuantitativosPage() {
     resolverMapeamento,
     quantitativoPorMaterial,
     carregandoQuantitativoPorMaterial,
-    propriedadesMapeadas,
     kpisMaterial,
+    atualizarFatorMaterial,
   } = useBimMapeamentos({
     organizacaoId: organizacao_id,
     empreendimentoId: empreendimentoSelecionadoId,
   });
+
+  // Função para editar fator de conversao via prompt nativo
+  const handleEditFator = async (item) => {
+    const textoAtual = item.fator_conversao || '';
+    const formulaHelp = 'Escreva a matemática usando [q] para representar a quantidade originada do modelo.\nExemplo: [q] / 12  (divide por 12).\nDeixe em branco para remover a fórmula.';
+    const novo = window.prompt(`Fórmula de conversão para "${item.nome}":\n\n${formulaHelp}`, textoAtual);
+    
+    if (novo === null) return; // usuário cancelou
+    
+    try {
+      await atualizarFatorMaterial({
+        id: item.material_id || item.sinapi_id,
+        origem: item.material_id ? 'proprio' : 'sinapi',
+        novoFator: novo
+      });
+    } catch (e) {
+      alert('Erro ao salvar nova fórmula.');
+      console.error(e);
+    }
+  };
 
   // Fecha dropdown ao clicar fora
   useEffect(() => {
@@ -732,16 +752,22 @@ export default function BimQuantitativosPage() {
                             </td>
                             <td className="px-4 py-3 text-right">
                               {item.fator_conversao ? (
-                                <div className="flex flex-col items-end">
-                                  <span className="text-[10px] text-gray-400 font-semibold strike-through line-through decorative">
+                                <div className="flex flex-col items-end cursor-pointer group" onClick={() => handleEditFator(item)}>
+                                  <span className="text-[10px] text-gray-400 font-semibold strike-through line-through decorative group-hover:text-blue-400 transition-colors">
                                     {fmt2(item.quantidadeOriginalApenasParaInfo)}
                                   </span>
-                                  <span className="font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded" title={`Fórmula: ${item.fator_conversao}`}>
+                                  <span className="font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded group-hover:bg-blue-100 transition-colors" title={`Fórmula: ${item.fator_conversao} (Clique para editar)`}>
                                     {fmt2(item.quantidade)}
                                   </span>
                                 </div>
                               ) : (
-                                <span className="font-bold text-gray-800">{fmt2(item.quantidade)}</span>
+                                <span 
+                                  className="font-bold text-gray-800 cursor-pointer hover:text-blue-600 border-b border-dashed border-transparent hover:border-blue-400 transition-colors"
+                                  onClick={() => handleEditFator(item)}
+                                  title="Clique para adicionar uma fórmula de conversão"
+                                >
+                                  {fmt2(item.quantidade)}
+                                </span>
                               )}
                             </td>
                             <td className="px-4 py-3 text-right text-gray-500 text-xs">

@@ -114,6 +114,29 @@ export function useBimMapeamentos({ organizacaoId, empreendimentoId }) {
     },
   });
 
+  // ─── Mutation: atualizar fator de conversão em lote ───────────────────────
+  const { mutateAsync: atualizarFatorMaterial, isPending: atualizandoFator } = useMutation({
+    mutationFn: async ({ id, origem, novoFator }) => {
+      let q = supabase
+        .from('bim_mapeamentos_propriedades')
+        .update({ fator_conversao: novoFator ? novoFator.trim() : null })
+        .eq('organizacao_id', organizacaoId);
+        
+      if (origem === 'sinapi') {
+        q = q.eq('sinapi_id', id);
+      } else {
+        q = q.eq('material_id', id);
+      }
+
+      const { error } = await q;
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['bim_mapeamentos', organizacaoId] });
+      queryClient.invalidateQueries({ queryKey: ['bim_quantitativos_orcamentacao'] });
+    },
+  });
+
   // ─── Lookup rápido: dado (categoria, familia, propriedade) → mapeamento ───
   const mapeamentoPor = useMemo(() => {
     // Para cada chave, guarda o mapeamento de maior prioridade (mais específico)
