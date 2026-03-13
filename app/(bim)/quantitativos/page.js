@@ -89,11 +89,12 @@ export default function BimQuantitativosPage() {
     deletarMapeamento,
     resolverMapeamento,
     quantitativoPorMaterial,
+    carregandoQuantitativoPorMaterial,
     propriedadesMapeadas,
     kpisMaterial,
   } = useBimMapeamentos({
     organizacaoId: organizacao_id,
-    elementos: todosElementosEmpreendimento, // <— projeto inteiro!
+    empreendimentoId: empreendimentoSelecionadoId,
   });
 
   // Fecha dropdown ao clicar fora
@@ -138,7 +139,7 @@ export default function BimQuantitativosPage() {
     'm³': 'bg-purple-50 text-purple-700 border-purple-200',
     'm²': 'bg-green-50 text-green-700 border-green-200',
     'm':  'bg-blue-50 text-blue-700 border-blue-200',
-    'mm': 'bg-orange-50 text-orange-700 border-orange-200',
+    'mm': 'bg-orange-100 text-orange-600 border-orange-200',
     'un': 'bg-gray-50 text-gray-600 border-gray-200',
   };
   const BadgeUnidade = ({ unidade, ativo = true, onClick }) => {
@@ -614,7 +615,7 @@ export default function BimQuantitativosPage() {
           {/* ─── TABS: Elementos BIM | Por Material ─── */}
           {modeloSelecionado && (
             <div className="flex border-b border-gray-200 bg-white px-5 flex-shrink-0">
-              {[{ v: 'elementos', label: 'Elementos BIM' }, { v: 'por-material', label: `📦 Por Material${kpisMaterial.totalMapeados > 0 ? ` (${kpisMaterial.totalMapeados})` : ''}` }]
+              {[{ v: 'elementos', label: 'Elementos BIM' }, { v: 'por-material', label: `📦 Orçamentação${kpisMaterial.totalMapeados > 0 ? ` (${kpisMaterial.totalMapeados})` : ''}` }]
                 .map(tab => (
                   <button
                     key={tab.v}
@@ -654,7 +655,7 @@ export default function BimQuantitativosPage() {
                   <>
                     {/* Banner: escopo do empreendimento inteiro */}
                     <div className="flex items-center gap-2 mb-4 px-3 py-2 bg-blue-50 border border-blue-100 rounded-lg text-xs text-blue-700">
-                      {carregandoElementosEmp ? (
+                      {carregandoQuantitativoPorMaterial ? (
                         <>
                           <FontAwesomeIcon icon={faSpinner} spin className="text-blue-400 text-xs" />
                           <span>Calculando quantitativos do empreendimento...</span>

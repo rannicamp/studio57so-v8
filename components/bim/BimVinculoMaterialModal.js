@@ -166,7 +166,7 @@ export default function BimVinculoMaterialModal({
       <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-xl flex flex-col max-h-[90vh] overflow-hidden">
 
         {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-5">
+        <div className="bg-blue-600 text-white px-6 py-5">
           <button onClick={onClose} className="absolute top-4 right-4 text-white/70 hover:text-white w-8 h-8 rounded-lg hover:bg-white/20 flex items-center justify-center transition-all">
             <FontAwesomeIcon icon={faTimes} />
           </button>
