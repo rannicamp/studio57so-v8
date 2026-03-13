@@ -8,11 +8,14 @@ import {
   faBuilding, faCheck, faLayerGroup, faRuler, faRulerCombined,
   faFileExport, faArrowRight, faAngleDown, faAngleRight,
   faTriangleExclamation, faBoxOpen, faExpand, faCompress,
-  faSearch, faBarcode,
+  faSearch, faBarcode, faLink, faBan, faRuler as faRulerIcon,
+  faDollarSign, faExclamationTriangle, faChevronRight as faChevRight,
 } from '@fortawesome/free-solid-svg-icons';
 import Link from 'next/link';
 import { useBimQuantitativos } from '@/hooks/bim/useBimQuantitativos';
-import BimImportModal from '@/components/orcamento/BimImportModal';
+import { useBimMapeamentos }    from '@/hooks/bim/useBimMapeamentos';
+import BimImportModal           from '@/components/orcamento/BimImportModal';
+import BimVinculoMaterialModal  from '@/components/bim/BimVinculoMaterialModal';
 import { useQuery } from '@tanstack/react-query';
 import { createClient } from '@/utils/supabase/client';
 
@@ -45,9 +48,12 @@ export default function BimQuantitativosPage() {
   const [isDropdownEmpAberto, setIsDropdownEmpAberto] = useState(false);
   const [isBimModalAberto, setIsBimModalAberto] = useState(false);
   const [buscaElemento, setBuscaElemento] = useState('');
+  const [medidasSelecionadas, setMedidasSelecionadas] = useState({});
+  const [abaAtiva, setAbaAtiva] = useState('elementos'); // 'elementos' | 'por-material'
+  const [vinculoModal, setVinculoModal] = useState(null); // { propriedade, elemento }
   const dropdownRef = useRef(null);
 
-  // Etapas para o BimImportModal
+  // Orçamentos etapas
   const { data: etapas = [] } = useQuery({
     queryKey: ['etapas', organizacao_id],
     queryFn: async () => {
@@ -62,7 +68,7 @@ export default function BimQuantitativosPage() {
     staleTime: 10 * 60 * 1000,
   });
 
-  // Orçamentos do empreendimento selecionado (para importar)
+  // BIM: grupos + controles
   const {
     empreendimentosAgrupados, carregandoEmpreendimentos,
     empreendimentoSelecionadoId, empreendimentoSelecionado, handleSelectEmpreendimento,
@@ -70,7 +76,25 @@ export default function BimQuantitativosPage() {
     modeloSelecionadoId, modeloSelecionado, handleSelectModelo,
     grupos, carregandoElementos, kpis,
     categoriasExpandidas, toggleCategoria, expandirTodas, recolherTodas,
+    todosElementos,              // flat do modelo selecionado (para o modal de preview)
+    todosElementosEmpreendimento, // flat de TODOS os modelos do empreendimento (para Por Material)
+    carregandoElementosEmp,
   } = useBimQuantitativos({ organizacaoId: organizacao_id });
+
+  // Mapeamentos BIM → Materiais
+  // Usa todosElementosEmpreendimento para somar TODOS os modelos do empreendimento
+  const {
+    mapeamentos,
+    criarMapeamento,
+    deletarMapeamento,
+    resolverMapeamento,
+    quantitativoPorMaterial,
+    propriedadesMapeadas,
+    kpisMaterial,
+  } = useBimMapeamentos({
+    organizacaoId: organizacao_id,
+    elementos: todosElementosEmpreendimento, // <— projeto inteiro!
+  });
 
   // Fecha dropdown ao clicar fora
   useEffect(() => {
@@ -79,26 +103,292 @@ export default function BimQuantitativosPage() {
     return () => document.removeEventListener('mousedown', handle);
   }, []);
 
-  // Filtra grupos por busca de texto
+  // Reset medidas + expansão ao trocar modelo
+  useEffect(() => {
+    setMedidasSelecionadas({});
+  }, [modeloSelecionadoId]);
+
+  // Estado para elementos expandidos (chave = 'cat|||fam|||tipo')
+  const [tiposExpandidos, setTiposExpandidos] = useState(new Set());
+  const toggleTipoExpandido = (chave) => setTiposExpandidos(prev => {
+    const s = new Set(prev); s.has(chave) ? s.delete(chave) : s.add(chave); return s;
+  });
+
+  // Estado para famílias expandidas dentro de uma categoria
+  const [familiasExpandidas, setFamiliasExpandidas] = useState(new Set());
+  const toggleFamiliaExpandida = (chave) => setFamiliasExpandidas(prev => {
+    const s = new Set(prev); s.has(chave) ? s.delete(chave) : s.add(chave); return s;
+  });
+
+  // Helper: chave única por tipo
+  const tipoChave = (cat, fam, tipo) => `${cat}|||${fam}|||${tipo}`;
+
+  // Helper: obtém a medida ativa de um tipo
+  const getMedidaAtiva = (cat, fam, t) => {
+    const chave = tipoChave(cat, fam, t.tipo);
+    const escolhida = medidasSelecionadas[chave];
+    if (escolhida && t.medidas.find(m => m.chave === escolhida)) {
+      return t.medidas.find(m => m.chave === escolhida);
+    }
+    return t.medidas[0] || null;
+  };
+
+  // Badge padronizado para unidade (mesma aparência, cor por tipo)
+  const UNIDADE_COR = {
+    'm³': 'bg-purple-50 text-purple-700 border-purple-200',
+    'm²': 'bg-green-50 text-green-700 border-green-200',
+    'm':  'bg-blue-50 text-blue-700 border-blue-200',
+    'mm': 'bg-orange-50 text-orange-700 border-orange-200',
+    'un': 'bg-gray-50 text-gray-600 border-gray-200',
+  };
+  const BadgeUnidade = ({ unidade, ativo = true, onClick }) => {
+    const cor = UNIDADE_COR[unidade] || UNIDADE_COR['un'];
+    const base = `text-[10px] font-bold px-2 py-0.5 rounded-full border transition-all`;
+    const estado = ativo
+      ? `${cor} ring-2 ring-offset-1 ring-current/20`
+      : 'bg-gray-50 text-gray-400 border-gray-200 hover:text-gray-600';
+    return onClick
+      ? <button onClick={onClick} className={`${base} ${estado} cursor-pointer`}>{unidade}</button>
+      : <span className={`${base} ${cor}`}>{unidade}</span>;
+  };
+
+  // ─── Sidebar de detalhes ─────────────────────────────────────────────────
+  const [sidebarItem, setSidebarItem] = useState(null);
+  // sidebarItem = { tipo: 'familia' | 'tipo' | 'elemento', dados: {...}, cat, fam }
+
+  const fecharSidebar = () => setSidebarItem(null);
+
+  // Ao trocar modelo, fecha sidebar
+  useEffect(() => { setSidebarItem(null); }, [modeloSelecionadoId]);
+
+  // Filtra grupos por busca — agora com estrutura 3 níveis
   const gruposFiltrados = useMemo(() => {
     if (!buscaElemento.trim()) return grupos;
     const termo = buscaElemento.toLowerCase();
     return grupos
       .map(cat => ({
         ...cat,
-        grupos: cat.grupos.filter(g =>
-          g.familia.toLowerCase().includes(termo) ||
-          g.tipo.toLowerCase().includes(termo) ||
-          (g.sinapi_revit && g.sinapi_revit.toLowerCase().includes(termo))
-        ),
+        familias: cat.familias
+          .map(f => ({
+            ...f,
+            tipos: f.tipos.filter(t =>
+              f.familia.toLowerCase().includes(termo) ||
+              t.tipo.toLowerCase().includes(termo) ||
+              (t.sinapi_revit && t.sinapi_revit.toLowerCase().includes(termo))
+            ),
+          }))
+          .filter(f => f.tipos.length > 0),
       }))
-      .filter(cat => cat.grupos.length > 0);
+      .filter(cat => cat.familias.length > 0);
   }, [grupos, buscaElemento]);
+
+  // Helper: soma medidas de uma lista de tipos
+  const somarMedidas = (tipos) => {
+    const acum = {};
+    tipos.forEach(t => {
+      t.medidas.forEach(m => {
+        if (!acum[m.chave]) acum[m.chave] = { ...m, valor: 0, qtd_com_valor: 0 };
+        acum[m.chave].valor += m.valor;
+        acum[m.chave].qtd_com_valor += m.qtd_com_valor;
+      });
+    });
+    return Object.values(acum).sort((a, b) => b.qtd_com_valor - a.qtd_com_valor);
+  };
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Componente Sidebar de Detalhes (inline)
+  // ─────────────────────────────────────────────────────────────────────────
+  const SidebarDetalhes = () => {
+    if (!sidebarItem) return null;
+    const { tipo: nivel, dados, cat, fam } = sidebarItem;
+
+    // Cor do cabeçalho por nível
+    const headerCor = nivel === 'familia' ? 'bg-blue-600'
+                    : nivel === 'tipo'    ? 'bg-indigo-600'
+                    : 'bg-amber-600';
+
+    // Título dinâmico
+    const titulo = nivel === 'familia' ? `Família: ${dados.familia}`
+                 : nivel === 'tipo'    ? `Tipo: ${dados.tipo}`
+                 : `Elemento: ${dados.external_id}`;
+
+    // Calcula medidas a exibir
+    const medidasExibir = nivel === 'familia'
+      ? somarMedidas(dados.tipos)
+      : nivel === 'tipo'
+      ? dados.medidas
+      : []; // Elementos: exibe propriedades brutas
+
+    const props = nivel === 'elemento' ? (dados.propriedades || {}) : null;
+    const propKeys = props ? Object.keys(props).sort() : [];
+
+    return (
+      <div className="fixed top-0 right-0 h-full w-96 bg-white shadow-2xl z-50 flex flex-col border-l border-gray-200 animate-slide-in-right">
+        {/* Header */}
+        <div className={`${headerCor} text-white px-5 py-4 flex items-start justify-between`}>
+          <div>
+            <p className="text-[10px] uppercase tracking-widest font-semibold opacity-75">
+              {cat}{fam ? ` › ${fam}` : ''}
+            </p>
+            <h2 className="text-sm font-bold mt-0.5 leading-snug">{titulo}</h2>
+          </div>
+          <button
+            onClick={fecharSidebar}
+            className="text-white/70 hover:text-white text-lg leading-none ml-4 mt-0.5 hover:bg-white/20 w-7 h-7 rounded flex items-center justify-center transition-all"
+          >×</button>
+        </div>
+
+        {/* Conteúdo */}
+        <div className="flex-1 overflow-y-auto">
+
+          {/* Medidas (para Família e Tipo) */}
+          {medidasExibir.length > 0 && (
+            <div className="px-5 py-4 border-b border-gray-100">
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3">Quantidades</p>
+              <div className="grid grid-cols-2 gap-2">
+                {medidasExibir.map(m => (
+                  <div key={m.chave} className="bg-gray-50 rounded-lg px-3 py-2.5 border border-gray-100">
+                    <p className="text-[9px] text-gray-400 uppercase tracking-wide font-semibold">{m.label}</p>
+                    <p className="text-base font-bold text-gray-800 mt-0.5">
+                      {fmt2(m.valor)} <span className="text-[10px] font-normal text-gray-400">{m.unidade}</span>
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Contagem de instâncias */}
+          <div className="px-5 py-3 flex items-center gap-3 border-b border-gray-100">
+            <span className="bg-blue-100 text-blue-700 text-xs font-bold px-2.5 py-1 rounded-full">
+              {nivel === 'familia' ? dados.total_elementos
+               : nivel === 'tipo' ? dados.qtd_total
+               : 1} inst.
+            </span>
+            {nivel === 'tipo' && dados.sinapi_revit && (
+              <span className="bg-indigo-50 text-indigo-700 text-xs font-bold px-2.5 py-1 rounded border border-indigo-100 font-mono">
+                SINAPI {dados.sinapi_revit}
+              </span>
+            )}
+          </div>
+
+          {/* Para Família: lista os tipos */}
+          {nivel === 'familia' && (
+            <div className="px-5 py-4">
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Tipos nesta família</p>
+              <div className="space-y-1.5">
+                {dados.tipos.map(t => (
+                  <button
+                    key={t.tipo}
+                    onClick={() => setSidebarItem({ tipo: 'tipo', dados: t, cat, fam: dados.familia })}
+                    className="w-full text-left bg-gray-50 hover:bg-blue-50 border border-gray-100 hover:border-blue-200 rounded-lg px-3 py-2 transition-all"
+                  >
+                    <p className="text-xs font-semibold text-gray-700">{t.tipo}</p>
+                    <p className="text-[10px] text-gray-400 mt-0.5">
+                      {t.qtd_total} inst. &middot; {t.medidas[0] ? `${fmt2(t.medidas[0].valor)} ${t.medidas[0].unidade}` : 'Sem medida'}
+                    </p>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Para Tipo: lista os elementos */}
+          {nivel === 'tipo' && (
+            <div className="px-5 py-4">
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Elementos individuais</p>
+              <div className="space-y-1">
+                {dados.elementos.map(el => {
+                  const elProps = el.propriedades || {};
+                  const medAtiva = dados.medidas[0];
+                  const val = medAtiva ? parseFloat(elProps[medAtiva.chave] || 0) : null;
+                  return (
+                    <button
+                      key={el.id}
+                      onClick={() => setSidebarItem({ tipo: 'elemento', dados: el, cat, fam })}
+                      className="w-full text-left bg-gray-50 hover:bg-amber-50 border border-gray-50 hover:border-amber-200 rounded px-3 py-1.5 transition-all flex items-center justify-between gap-2"
+                    >
+                      <span className="text-[10px] font-mono text-gray-600 truncate">{el.external_id}</span>
+                      {val && val > 0 && (
+                        <span className="text-[10px] font-bold text-gray-700 shrink-0">{fmt2(val)} {medAtiva.unidade}</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Para Elemento: todas as propriedades brutas + botões de vínculo */}
+          {nivel === 'elemento' && (
+            <div className="px-5 py-4">
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3">Propriedades do Revit</p>
+              <div className="space-y-0 border border-gray-100 rounded-lg overflow-hidden">
+                {propKeys.map((k, i) => {
+                  const jaMapeada = propriedadesMapeadas.has(k);
+                  const valNum = parseFloat(props[k]);
+                  const temValor = !isNaN(valNum) && valNum > 0;
+                  return (
+                    <div
+                      key={k}
+                      className={`flex items-center gap-2 px-3 py-2 text-xs ${
+                        i % 2 === 0 ? 'bg-white' : 'bg-gray-50'
+                      } group hover:bg-blue-50/50 transition-colors`}
+                    >
+                      <span className="text-gray-500 font-medium shrink-0 max-w-[40%] truncate" title={k}>{k}</span>
+                      <span className="text-gray-800 font-semibold flex-1 text-right truncate" title={String(props[k])}>
+                        {String(props[k])}
+                      </span>
+                      {/* Botões de vínculo — só apareçem quando o campo tem valor numérico */}
+                      {temValor && (
+                        <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                          {jaMapeada ? (
+                            <span className="text-[9px] bg-green-100 text-green-700 border border-green-200 px-1.5 py-0.5 rounded-full font-bold">
+                              vinculado
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => setVinculoModal({
+                                propriedade: { nome: k, valor: valNum },
+                                elemento: dados,
+                              })}
+                              title="Vincular ao material"
+                              className="text-[9px] bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200 px-1.5 py-0.5 rounded-full font-bold transition-all"
+                            >
+                              📦 vincular
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+                {propKeys.length === 0 && (
+                  <p className="text-xs text-gray-400 p-4 text-center">Nenhuma propriedade registrada.</p>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+
 
   // ─── Render ────────────────────────────────────────────────────────────────
 
   return (
     <div className="flex flex-col h-screen bg-gray-50 overflow-hidden font-sans">
+
+      {/* Sidebar de detalhes */}
+      <SidebarDetalhes />
+      {sidebarItem && (
+        <div
+          className="fixed inset-0 z-40 bg-black/10 backdrop-blur-[1px]"
+          onClick={fecharSidebar}
+        />
+      )}
 
       {/* ══════════════ HEADER ══════════════ */}
       <header className="bg-white border-b border-gray-200 px-5 py-3 flex items-center gap-4 flex-shrink-0 shadow-sm">
@@ -321,115 +611,384 @@ export default function BimQuantitativosPage() {
             </div>
           )}
 
+          {/* ─── TABS: Elementos BIM | Por Material ─── */}
+          {modeloSelecionado && (
+            <div className="flex border-b border-gray-200 bg-white px-5 flex-shrink-0">
+              {[{ v: 'elementos', label: 'Elementos BIM' }, { v: 'por-material', label: `📦 Por Material${kpisMaterial.totalMapeados > 0 ? ` (${kpisMaterial.totalMapeados})` : ''}` }]
+                .map(tab => (
+                  <button
+                    key={tab.v}
+                    onClick={() => setAbaAtiva(tab.v)}
+                    className={`px-5 py-2.5 text-xs font-bold border-b-2 transition-all ${
+                      abaAtiva === tab.v
+                        ? 'border-blue-600 text-blue-700'
+                        : 'border-transparent text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    {tab.label}
+                    {tab.v === 'por-material' && kpisMaterial.materialComAlerta > 0 && (
+                      <span className="ml-1.5 bg-amber-100 text-amber-600 text-[9px] font-black px-1 py-0.5 rounded-full">
+                        {kpisMaterial.materialComAlerta} ⚠️
+                      </span>
+                    )}
+                  </button>
+                ))
+              }
+            </div>
+          )}
+
           {/* Tabela de Elementos */}
           <div className="flex-1 overflow-y-auto">
-            {carregandoElementos ? (
-              <div className="flex flex-col items-center justify-center h-full text-blue-400 gap-3">
-                <FontAwesomeIcon icon={faSpinner} spin size="2x" />
-                <p className="text-sm text-gray-500">Carregando elementos BIM...</p>
+            {/* ─── ABA: POR MATERIAL ─── */}
+            {abaAtiva === 'por-material' && (
+              <div className="p-5">
+                {quantitativoPorMaterial.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-20 text-gray-400 gap-4">
+                    <span className="text-5xl">📦</span>
+                    <p className="font-semibold text-center">
+                      Nenhum material vinculado ainda.<br />
+                      <span className="text-xs">Abra um elemento no sidebar e clique em "📦 vincular" numa propriedade.</span>
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    {/* Banner: escopo do empreendimento inteiro */}
+                    <div className="flex items-center gap-2 mb-4 px-3 py-2 bg-blue-50 border border-blue-100 rounded-lg text-xs text-blue-700">
+                      {carregandoElementosEmp ? (
+                        <>
+                          <FontAwesomeIcon icon={faSpinner} spin className="text-blue-400 text-xs" />
+                          <span>Calculando quantitativos do empreendimento...</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>🏗️</span>
+                          <span>
+                            <strong>{empreendimentoSelecionado?.nome}</strong>
+                            {' · '}{modelos.length} modelo{modelos.length !== 1 ? 's' : ''} BIM
+                            {' · '}<strong>{todosElementosEmpreendimento.length.toLocaleString('pt-BR')}</strong> elementos
+                          </span>
+                        </>
+                      )}
+                    </div>
+
+                    {/* KPIs materiais */}
+                    <div className="grid grid-cols-3 gap-3 mb-5">
+                      <div className="bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2">
+                        <p className="text-[9px] font-black text-emerald-600 uppercase tracking-wider">Custo Estimado</p>
+                        <p className="text-lg font-bold text-emerald-800">
+                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(kpisMaterial.custoTotal)}
+                        </p>
+                      </div>
+                      <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
+                        <p className="text-[9px] font-black text-blue-600 uppercase tracking-wider">Materiais Mapeados</p>
+                        <p className="text-lg font-bold text-blue-800">{kpisMaterial.totalMapeados}</p>
+                      </div>
+                      <div className="bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+                        <p className="text-[9px] font-black text-amber-600 uppercase tracking-wider">Alertas de Sync</p>
+                        <p className="text-lg font-bold text-amber-800">{kpisMaterial.materialComAlerta}</p>
+                      </div>
+                    </div>
+
+                    {/* Tabela de quantitativos por material */}
+                    <table className="w-full text-sm border-collapse">
+                      <thead className="bg-gray-50 border-b-2 border-gray-200">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Material</th>
+                          <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase">Unid.</th>
+                          <th className="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase">Quantidade</th>
+                          <th className="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase">R$ Unit.</th>
+                          <th className="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase">Total Est.</th>
+                          <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase">Elem.</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {quantitativoPorMaterial.map(item => (
+                          <tr
+                            key={item.key}
+                            className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${
+                              item.tem_alertas ? 'bg-amber-50/30' : ''
+                            }`}
+                          >
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-2">
+                                {item.tem_alertas && (
+                                  <span title={`${item.external_ids_inativos.length} elementos removidos do modelo`}>
+                                    <FontAwesomeIcon icon={faTriangleExclamation} className="text-amber-400 text-xs" />
+                                  </span>
+                                )}
+                                <div>
+                                  <p className="text-xs font-bold text-gray-800">{item.nome}</p>
+                                  {item.tem_alertas && (
+                                    <p className="text-[9px] text-amber-600">
+                                      {item.external_ids_inativos.length} elemento{item.external_ids_inativos.length !== 1 ? 's' : ''} removido{item.external_ids_inativos.length !== 1 ? 's' : ''} do modelo
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              <BadgeUnidade unidade={item.unidade} />
+                            </td>
+                            <td className="px-4 py-3 text-right font-bold text-gray-800">
+                              {fmt2(item.quantidade)}
+                            </td>
+                            <td className="px-4 py-3 text-right text-gray-500 text-xs">
+                              {item.preco_unitario > 0
+                                ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.preco_unitario)
+                                : <span className="text-gray-300">—</span>}
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              {item.preco_unitario > 0 ? (
+                                <span className="font-bold text-emerald-700">
+                                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.custo_total)}
+                                </span>
+                              ) : <span className="text-gray-300">—</span>}
+                            </td>
+                            <td className="px-4 py-3 text-center">
+                              <span className="bg-blue-100 text-blue-700 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                                {item.qtd_elementos}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                      {quantitativoPorMaterial.some(m => m.preco_unitario > 0) && (
+                        <tfoot className="bg-gray-50 border-t-2 border-gray-200">
+                          <tr>
+                            <td colSpan={4} className="px-4 py-2.5 text-xs font-black text-gray-600 uppercase tracking-wide">Total Estimado</td>
+                            <td className="px-4 py-2.5 text-right font-black text-emerald-700">
+                              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(kpisMaterial.custoTotal)}
+                            </td>
+                            <td></td>
+                          </tr>
+                        </tfoot>
+                      )}
+                    </table>
+                  </>
+                )}
               </div>
-            ) : !modeloSelecionadoId ? (
-              <div className="flex flex-col items-center justify-center h-full text-gray-400 gap-3">
-                <FontAwesomeIcon icon={faCubes} className="text-5xl text-gray-200" />
-                <p className="font-semibold">Selecione um modelo BIM à esquerda para visualizar os elementos.</p>
-              </div>
-            ) : gruposFiltrados.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full text-gray-400 gap-3">
-                <FontAwesomeIcon icon={faBoxOpen} className="text-5xl text-gray-200" />
-                <p className="font-semibold">Nenhum elemento encontrado{buscaElemento ? ' para a busca realizada' : ' neste modelo'}.</p>
-              </div>
-            ) : (
-              <table className="w-full text-sm border-collapse">
-                <thead className="bg-gray-100 sticky top-0 z-10">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase w-8"></th>
-                    <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase">Família / Tipo</th>
-                    <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase">Nível</th>
-                    <th className="px-4 py-3 text-center text-xs font-bold text-gray-600 uppercase">Qtd Elem.</th>
-                    <th className="px-4 py-3 text-right text-xs font-bold text-gray-600 uppercase">Área (m²)</th>
-                    <th className="px-4 py-3 text-right text-xs font-bold text-gray-600 uppercase">Volume (m³)</th>
-                    <th className="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase">SINAPI Revit</th>
-                  </tr>
-                </thead>
-                <tbody>
+            )}
+
+            {/* ─── ABA: ELEMENTOS BIM (original) ─── */}
+            {(abaAtiva === 'elementos' || !modeloSelecionado) && (
+              <>
+                {carregandoElementos ? (
+                  <div className="flex flex-col items-center justify-center h-full text-blue-400 gap-3">
+                    <FontAwesomeIcon icon={faSpinner} spin size="2x" />
+                    <p className="text-sm text-gray-500">Carregando elementos BIM...</p>
+                  </div>
+                ) : !modeloSelecionadoId ? (
+                  <div className="flex flex-col items-center justify-center h-full text-gray-400 gap-3">
+                    <FontAwesomeIcon icon={faCubes} className="text-5xl text-gray-200" />
+                    <p className="font-semibold">Selecione um modelo BIM à esquerda para visualizar os elementos.</p>
+                  </div>
+                ) : gruposFiltrados.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-full text-gray-400 gap-3">
+                    <FontAwesomeIcon icon={faBoxOpen} className="text-5xl text-gray-200" />
+                    <p className="font-semibold">Nenhum elemento encontrado{buscaElemento ? ' para a busca realizada' : ' neste modelo'}.</p>
+                  </div>
+                ) : (
+                  <table className="w-full text-sm border-collapse">
+                    <thead className="bg-gray-50 sticky top-0 z-10 border-b-2 border-gray-200">
+                      <tr>
+                        <th className="px-3 py-3 text-left text-xs font-bold text-gray-500 uppercase w-10"></th>
+                        <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Família / Tipo</th>
+                        <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Nível</th>
+                        <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase">Inst.</th>
+                        <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Unidade</th>
+                        <th className="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase">Quantidade</th>
+                        <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">SINAPI Revit</th>
+                      </tr>
+                    </thead>
+                    <tbody>
                   {gruposFiltrados.map(cat => {
-                    const expandido = categoriasExpandidas.has(cat.categoria);
+                    const catExpandida = categoriasExpandidas.has(cat.categoria);
                     return (
                       <>
-                        {/* ── Cabeçalho da Categoria ── */}
+                        {/* ── L1: Categoria ── */}
                         <tr
                           key={`cat-${cat.categoria}`}
                           onClick={() => toggleCategoria(cat.categoria)}
                           className="bg-gray-200 cursor-pointer hover:bg-gray-300 transition-colors border-t-2 border-gray-300"
                         >
-                          <td className="px-4 py-2.5 text-center">
-                            <FontAwesomeIcon
-                              icon={expandido ? faAngleDown : faAngleRight}
-                              className="text-gray-500"
-                            />
+                          <td className="px-3 py-2.5 text-center">
+                            <FontAwesomeIcon icon={catExpandida ? faAngleDown : faAngleRight} className="text-gray-500" />
                           </td>
-                          <td className="px-4 py-2.5 font-bold text-gray-700 text-xs uppercase tracking-wide" colSpan={2}>
+                          <td className="px-4 py-2.5 font-bold text-gray-700 text-xs uppercase tracking-wide" colSpan={4}>
                             <FontAwesomeIcon icon={faLayerGroup} className="mr-2 text-blue-500" />
                             {cat.categoria}
                           </td>
                           <td className="px-4 py-2.5 text-center text-xs font-bold text-gray-600">
                             {cat.total_elementos.toLocaleString('pt-BR')} elem.
                           </td>
-                          <td className="px-4 py-2.5 text-right text-xs font-semibold text-gray-600">
-                            {cat.area_total_categoria > 0 ? fmt2(cat.area_total_categoria) + ' m²' : '—'}
+                          <td className="px-4 py-2.5 text-right text-xs text-gray-500">
+                            {cat.area_total_categoria > 0 ? fmt2(cat.area_total_categoria) + ' m²' : ''}
                           </td>
-                          <td colSpan={2} className="px-4 py-2.5"></td>
                         </tr>
 
-                        {/* ── Linhas de Família/Tipo ── */}
-                        {expandido && cat.grupos.map((g, idx) => (
-                          <tr
-                            key={`${cat.categoria}-${g.familia}-${g.tipo}-${idx}`}
-                            className="border-b border-gray-100 hover:bg-blue-50/30 transition-colors group"
-                          >
-                            <td className="px-4 py-2.5 text-center text-gray-300">
-                              <FontAwesomeIcon icon={faAngleRight} className="text-xs" />
-                            </td>
-                            <td className="px-4 py-2.5">
-                              <p className="font-semibold text-gray-800 text-xs leading-tight">{g.familia}</p>
-                              {g.tipo && g.tipo !== g.familia && (
-                                <p className="text-[10px] text-gray-400 mt-0.5">{g.tipo}</p>
-                              )}
-                            </td>
-                            <td className="px-4 py-2.5 text-xs text-gray-500">{g.nivel}</td>
-                            <td className="px-4 py-2.5 text-center">
-                              <span className="bg-blue-100 text-blue-700 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-                                {g.elementos.length}
-                              </span>
-                            </td>
-                            <td className="px-4 py-2.5 text-right text-xs text-gray-700 font-medium">
-                              {g.area_total > 0 ? fmt2(g.area_total) : '—'}
-                            </td>
-                            <td className="px-4 py-2.5 text-right text-xs text-gray-500">
-                              {g.volume_total > 0 ? fmt2(g.volume_total) : '—'}
-                            </td>
-                            <td className="px-4 py-2.5">
-                              {g.sinapi_revit ? (
-                                <span className="bg-indigo-50 text-indigo-700 text-[10px] font-bold px-2 py-0.5 rounded border border-indigo-100 font-mono">
-                                  {g.sinapi_revit}
-                                </span>
-                              ) : (
-                                <span className="text-[10px] text-gray-300">—</span>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
+                        {catExpandida && cat.familias.map(fam => {
+                          const famChave = `${cat.categoria}|||${fam.familia}`;
+                          const famExpandida = familiasExpandidas.has(famChave);
+                          return (
+                            <>
+                              {/* ── L2: Família ── */}
+                              <tr
+                                key={`fam-${famChave}`}
+                                className="bg-blue-50 cursor-pointer hover:bg-blue-100 transition-colors border-t border-blue-100"
+                              >
+                                <td
+                                  className="px-3 py-2 text-center pl-7"
+                                  onClick={() => toggleFamiliaExpandida(famChave)}
+                                >
+                                  <FontAwesomeIcon icon={famExpandida ? faAngleDown : faAngleRight} className="text-blue-400 text-xs" />
+                                </td>
+                                <td
+                                  className="px-4 py-2 font-semibold text-blue-800 text-xs"
+                                  colSpan={4}
+                                  onClick={() => toggleFamiliaExpandida(famChave)}
+                                >
+                                  {fam.familia}
+                                  <span className="ml-2 text-[10px] text-blue-400 font-normal">
+                                    {fam.tipos.length} tipo{fam.tipos.length !== 1 ? 's' : ''}
+                                  </span>
+                                </td>
+                                <td
+                                  className="px-4 py-2 text-center text-xs font-bold text-blue-600"
+                                  onClick={() => toggleFamiliaExpandida(famChave)}
+                                >
+                                  {fam.total_elementos.toLocaleString('pt-BR')}
+                                </td>
+                                {/* Botão de detalhes da Família */}
+                                <td className="px-3 py-2 text-right">
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); setSidebarItem({ tipo: 'familia', dados: fam, cat: cat.categoria, fam: null }); }}
+                                    className="text-[9px] text-blue-400 hover:text-blue-700 hover:bg-blue-100 px-1.5 py-0.5 rounded transition-all opacity-0 group-hover:opacity-100"
+                                    title="Ver detalhes da família"
+                                  >
+                                    detalhes →
+                                  </button>
+                                </td>
+                              </tr>
+
+                              {famExpandida && fam.tipos.map((t, idx) => {
+                                const tChave = tipoChave(cat.categoria, fam.familia, t.tipo);
+                                const tExpandido = tiposExpandidos.has(tChave);
+                                const medidaAtiva = getMedidaAtiva(cat.categoria, fam.familia, t);
+                                const temMultiplas = t.medidas.length > 1;
+                                return (
+                                  <>
+                                    {/* ── L3: Tipo ── */}
+                                    <tr
+                                      key={`tipo-${tChave}`}
+                                      className="border-b border-gray-100 hover:bg-blue-50/30 transition-colors group"
+                                    >
+                                      <td className="px-3 py-2 text-center pl-12">
+                                        <button
+                                          onClick={() => toggleTipoExpandido(tChave)}
+                                          className="w-5 h-5 rounded hover:bg-gray-200 text-gray-400 hover:text-blue-600 transition-all flex items-center justify-center mx-auto"
+                                          title="Expandir elementos individuais"
+                                        >
+                                          <FontAwesomeIcon icon={tExpandido ? faAngleDown : faAngleRight} className="text-xs" />
+                                        </button>
+                                      </td>
+                                      {/* Nome do tipo — clica para abrir sidebar */}
+                                      <td
+                                        className="px-4 py-2 text-xs text-gray-700 cursor-pointer hover:text-blue-700"
+                                        onClick={() => setSidebarItem({ tipo: 'tipo', dados: t, cat: cat.categoria, fam: fam.familia })}
+                                      >
+                                        {t.tipo === '(sem tipo)' ? <em className="text-gray-400">sem tipo</em> : t.tipo}
+                                      </td>
+                                      <td className="px-4 py-2 text-[10px] text-gray-400">{t.nivel}</td>
+                                      <td className="px-4 py-2 text-center">
+                                        <span className="bg-blue-100 text-blue-700 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                                          {t.qtd_total}
+                                        </span>
+                                      </td>
+                                      {/* Unidade — badge padronizado */}
+                                      <td className="px-4 py-2">
+                                        {t.medidas.length === 0 ? (
+                                          <BadgeUnidade unidade="un" />
+                                        ) : temMultiplas ? (
+                                          <div className="flex flex-wrap gap-1">
+                                            {t.medidas.map(m => (
+                                              <BadgeUnidade
+                                                key={m.chave}
+                                                unidade={m.unidade}
+                                                ativo={medidaAtiva?.chave === m.chave}
+                                                onClick={() => setMedidasSelecionadas(prev => ({ ...prev, [tChave]: m.chave }))}
+                                              />
+                                            ))}
+                                          </div>
+                                        ) : (
+                                          <BadgeUnidade unidade={medidaAtiva?.unidade || 'un'} />
+                                        )}
+                                      </td>
+                                      <td className="px-4 py-2 text-right">
+                                        <span className="text-sm font-bold text-gray-800">
+                                          {medidaAtiva ? fmt2(medidaAtiva.valor) : t.qtd_total}
+                                        </span>
+                                      </td>
+                                      <td className="px-4 py-2">
+                                        {t.sinapi_revit
+                                          ? <span className="bg-indigo-50 text-indigo-700 text-[10px] font-bold px-2 py-0.5 rounded border border-indigo-100 font-mono">{t.sinapi_revit}</span>
+                                          : <span className="text-gray-200 text-[10px]">—</span>}
+                                      </td>
+                                    </tr>
+
+                                    {/* ── L4: Elementos individuais ── */}
+                                    {tExpandido && t.elementos.map(el => {
+                                      const props = el.propriedades || {};
+                                      const valorEl = medidaAtiva ? parseFloat(props[medidaAtiva.chave] || 0) : null;
+                                      return (
+                                        <tr key={`el-${el.id}`} className="border-b border-gray-50 bg-amber-50/20 hover:bg-amber-50/40">
+                                          <td className="px-3 py-1.5 pl-16 text-gray-300 text-center">·</td>
+                                          <td className="px-4 py-1.5 text-[10px] text-gray-500">
+                                            ID: <span className="font-mono text-gray-600">{el.external_id}</span>
+                                          </td>
+                                          <td className="px-4 py-1.5 text-[10px] text-gray-400">{el.nivel || '—'}</td>
+                                          <td className="px-4 py-1.5 text-center text-[10px] text-gray-400">1</td>
+                                          <td className="px-4 py-1.5">
+                                            {medidaAtiva && <BadgeUnidade unidade={medidaAtiva.unidade} />}
+                                          </td>
+                                          <td className="px-4 py-1.5 text-right text-[10px] text-gray-600 font-medium">
+                                            {valorEl && valorEl > 0 ? fmt2(valorEl) : '—'}
+                                          </td>
+                                          <td className="px-4 py-1.5">
+                                            {props['SINAPI'] && <span className="text-[9px] font-mono text-indigo-400">{props['SINAPI']}</span>}
+                                          </td>
+                                        </tr>
+                                      );
+                                    })}
+                                  </>
+                                );
+                              })}
+                            </>
+                          );
+                        })}
                       </>
                     );
                   })}
                 </tbody>
               </table>
             )}
+              </>
+            )}
           </div>
         </main>
       </div>
 
-      {/* ══════════════ MODAL BIM IMPORT ══════════════ */}
+      {/* ─── MODAL: Vincular Propriedade BIM ao Material ─── */}
+      <BimVinculoMaterialModal
+        isOpen={!!vinculoModal}
+        onClose={() => setVinculoModal(null)}
+        propriedade={vinculoModal?.propriedade}
+        elemento={vinculoModal?.elemento}
+        todosElementos={todosElementos}
+        organizacaoId={organizacao_id}
+        onSalvar={criarMapeamento}
+      />
+
+      {/* ─── MODAL BIM IMPORT ─── */}
       {isBimModalAberto && (
         <BimImportModal
           isOpen={isBimModalAberto}

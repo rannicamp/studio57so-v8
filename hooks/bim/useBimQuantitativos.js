@@ -137,70 +137,190 @@ export function useBimQuantitativos({ organizacaoId }) {
     }
   }, [modelos, modeloSelecionadoId]);
 
-  // ─── Query 3: Elementos Agrupados do Modelo ───────────────────────────
+  // ─── Query 3: Elementos Agrupados do Modelo + lista flat ────────────
+  const elementosQueryKey = ['bimQuant_elementos', modeloSelecionadoId, organizacaoId];
   const { data: grupos = [], isLoading: carregandoElementos } = useQuery({
-    queryKey: ['bimQuant_elementos', modeloSelecionadoId, organizacaoId],
+    queryKey: elementosQueryKey,
     queryFn: async () => {
       if (!modeloSelecionadoId || !organizacaoId) return [];
 
       // Busca todos os elementos do modelo (sem agrupar no banco para manter flexibilidade)
       const { data, error } = await supabase
         .from('elementos_bim')
-        .select('id, external_id, categoria, familia, tipo, nivel, propriedades')
+        .select('id, external_id, categoria, familia, tipo, nivel, propriedades, is_active')
         .eq('projeto_bim_id', modeloSelecionadoId)
-        .eq('is_active', true)
-        // Exclui categorias auxiliares (níveis, grids, etc.)
+        // Inclui inativos também para rastreabilidade
+        // .eq('is_active', true)  ← removido para expor inativados
         .not('categoria', 'in', '("Revit Level","Revit Grids","Revit Scope Boxes","Revit Reference Planes","<Indesejado>")');
 
       if (error) throw error;
 
-      // Agrupa client-side por Categoria → Família/Tipo
+      // ── Mapa de medidas reconhecidas → unidades ────────────────────────
+      const MEDIDAS_CONFIG = [
+        { chave: 'Volume',           unidade: 'm³',  label: 'Volume' },
+        { chave: 'Área',             unidade: 'm²',  label: 'Área' },
+        { chave: 'Area',             unidade: 'm²',  label: 'Área' },
+        { chave: 'Comprimento',      unidade: 'm',   label: 'Comprimento' },
+        { chave: 'Espessura',        unidade: 'm',   label: 'Espessura' },
+        { chave: 'Largura',          unidade: 'm',   label: 'Largura' },
+        { chave: 'Diâmetro',         unidade: 'mm',  label: 'Diâmetro' },
+        { chave: 'Diâmetro interno', unidade: 'mm',  label: 'Diâm. Interno' },
+        { chave: 'DN',               unidade: 'mm',  label: 'DN' },
+      ];
+
+      // Helper: monta medidas de um acumulador
+      const buildMedidas = (acumuladores, qtdTotal) =>
+        MEDIDAS_CONFIG
+          .filter(cfg => acumuladores[cfg.chave]?.qtd_com_valor > 0)
+          .reduce((acc, cfg) => {
+            const acum = acumuladores[cfg.chave];
+            if (!acc.find(m => m.unidade === cfg.unidade && m.label === cfg.label)) {
+              acc.push({ chave: cfg.chave, label: cfg.label, unidade: cfg.unidade,
+                valor: acum.soma, qtd_com_valor: acum.qtd_com_valor });
+            }
+            return acc;
+          }, [])
+          .sort((a, b) => b.qtd_com_valor - a.qtd_com_valor);
+
+      // ── Agrupa: Categoria → Família → Tipo ───────────────────────────
+      // mapaGrupos[categoria][familia][tipo] = { elementos, acumuladores, ... }
       const mapaGrupos = {};
       (data || []).forEach(el => {
-        const categoriaKey = el.categoria || 'Sem Categoria';
-        const familiaKey = `${el.familia || ''}|||${el.tipo || ''}`;
+        const cat  = el.categoria || 'Sem Categoria';
+        const fam  = el.familia   || '—';
+        const tipo = el.tipo      || '(sem tipo)';
 
-        if (!mapaGrupos[categoriaKey]) mapaGrupos[categoriaKey] = {};
-        if (!mapaGrupos[categoriaKey][familiaKey]) {
-          mapaGrupos[categoriaKey][familiaKey] = {
-            familia: el.familia || '—',
-            tipo: el.tipo || '',
+        if (!mapaGrupos[cat]) mapaGrupos[cat] = {};
+        if (!mapaGrupos[cat][fam]) mapaGrupos[cat][fam] = {};
+        if (!mapaGrupos[cat][fam][tipo]) {
+          mapaGrupos[cat][fam][tipo] = {
+            tipo,
             nivel: el.nivel || '—',
             elementos: [],
-            area_total: 0,
-            volume_total: 0,
             sinapi_revit: null,
             external_ids: [],
+            _acumuladores: {},
           };
         }
 
-        const g = mapaGrupos[categoriaKey][familiaKey];
+        const g = mapaGrupos[cat][fam][tipo];
         g.elementos.push(el);
         g.external_ids.push(el.external_id);
 
-        // Extrai quantidades do JSONB propriedades
         const props = el.propriedades || {};
-        const area = parseFloat(props['Área'] || props['Area'] || 0);
-        const volume = parseFloat(props['Volume'] || 0);
-        if (!isNaN(area)) g.area_total += area;
-        if (!isNaN(volume)) g.volume_total += volume;
         if (!g.sinapi_revit && props['SINAPI']) g.sinapi_revit = props['SINAPI'];
+
+        MEDIDAS_CONFIG.forEach(({ chave }) => {
+          const val = parseFloat(props[chave]);
+          if (isNaN(val) || val <= 0) return;
+          if (!g._acumuladores[chave]) g._acumuladores[chave] = { soma: 0, qtd_com_valor: 0 };
+          g._acumuladores[chave].soma += val;
+          g._acumuladores[chave].qtd_com_valor += 1;
+        });
       });
 
-      // Transforma para array ordenado
+      // ── Transforma para array de 3 níveis ─────────────────────────────
       return Object.entries(mapaGrupos)
-        .map(([categoria, famMap]) => ({
-          categoria,
-          total_elementos: Object.values(famMap).reduce((acc, g) => acc + g.elementos.length, 0),
-          area_total_categoria: Object.values(famMap).reduce((acc, g) => acc + g.area_total, 0),
-          grupos: Object.entries(famMap)
-            .map(([_key, g]) => g)
-            .sort((a, b) => a.familia.localeCompare(b.familia)),
-        }))
+        .map(([categoria, famMap]) => {
+          // Monta famílias
+          const familias = Object.entries(famMap)
+            .map(([familia, tipoMap]) => {
+              // Monta tipos (folhas da árvore)
+              const tipos = Object.entries(tipoMap)
+                .map(([_tipoKey, g]) => {
+                  const medidas = buildMedidas(g._acumuladores, g.elementos.length);
+                  return {
+                    tipo: g.tipo,
+                    nivel: g.nivel,
+                    elementos: g.elementos,
+                    external_ids: g.external_ids,
+                    sinapi_revit: g.sinapi_revit,
+                    medidas,
+                    medida_padrao: medidas[0]?.chave || null,
+                    qtd_total: g.elementos.length,
+                  };
+                })
+                .sort((a, b) => a.tipo.localeCompare(b.tipo));
+
+              const totalFamilia = tipos.reduce((acc, t) => acc + t.qtd_total, 0);
+              const areaTotalFamilia = tipos.reduce((acc, t) => {
+                const m = t.medidas.find(m => m.unidade === 'm²');
+                return acc + (m?.valor || 0);
+              }, 0);
+
+              return { familia, tipos, total_elementos: totalFamilia, area_total: areaTotalFamilia };
+            })
+            .sort((a, b) => a.familia.localeCompare(b.familia));
+
+          return {
+            categoria,
+            total_elementos: familias.reduce((acc, f) => acc + f.total_elementos, 0),
+            area_total_categoria: familias.reduce((acc, f) => acc + f.area_total, 0),
+            familias,
+          };
+        })
         .sort((a, b) => a.categoria.localeCompare(b.categoria));
     },
     enabled: !!modeloSelecionadoId && !!organizacaoId,
     staleTime: 3 * 60 * 1000,
+    // Retorna grupos (estrutura hierárquica) AND todosElementos (flat) juntos
+    select: (rawGrupos) => rawGrupos, // grupos já são o retorno da queryFn
+  });
+
+  // Lista flat de todos os elementos (inclui ativos e inativos) para mapeamentos
+  const { data: todosElementos = [] } = useQuery({
+    queryKey: ['bimQuant_elementos_flat', modeloSelecionadoId, organizacaoId],
+    queryFn: async () => {
+      if (!modeloSelecionadoId || !organizacaoId) return [];
+      const { data, error } = await supabase
+        .from('elementos_bim')
+        .select('id, external_id, categoria, familia, tipo, nivel, propriedades, is_active')
+        .eq('projeto_bim_id', modeloSelecionadoId)
+        .not('categoria', 'in', '("Revit Level","Revit Grids","Revit Scope Boxes","Revit Reference Planes","<Indesejado>")');
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!modeloSelecionadoId && !!organizacaoId,
+    staleTime: 3 * 60 * 1000,
+  });
+
+  // ─── Query 5: TODOS os elementos do Empreendimento (todos os modelos) ───
+  // Usado para calcular quantitativos por material do projeto inteiro
+  const { data: todosElementosEmpreendimento = [], isLoading: carregandoElementosEmp } = useQuery({
+    queryKey: ['bimQuant_elementos_empreendimento', empreendimentoSelecionadoId, organizacaoId],
+    queryFn: async () => {
+      if (!empreendimentoSelecionadoId || !organizacaoId) return [];
+
+      // Primeiro: pega os IDs de todos os modelos do empreendimento
+      const { data: modelosEmp, error: errMod } = await supabase
+        .from('projetos_bim')
+        .select('id')
+        .eq('empreendimento_id', empreendimentoSelecionadoId)
+        .eq('organizacao_id', organizacaoId)
+        .eq('is_lixeira', false);
+      if (errMod) throw errMod;
+
+      const modeloIds = (modelosEmp || []).map(m => m.id);
+      if (modeloIds.length === 0) return [];
+
+      const CATS_IGNORAR = ['Revit Level', 'Revit Grids', 'Revit Scope Boxes',
+        'Revit Reference Planes', '<Indesejado>'];
+
+      // Segundo: busca todos os elementos de todos esses modelos
+      const { data, error } = await supabase
+        .from('elementos_bim')
+        .select('id, external_id, categoria, familia, tipo, nivel, propriedades, is_active, projeto_bim_id')
+        .in('projeto_bim_id', modeloIds)
+        .not('categoria', 'in', `(${CATS_IGNORAR.map(c => `"${c}"`).join(',')})`);
+      if (error) {
+        console.error('[BimQuant] Erro na query elementos_empreendimento:', error);
+        throw error;
+      }
+      console.log(`[BimQuant] Empreendimento ${empreendimentoSelecionadoId}: ${(data||[]).length} elementos em ${modeloIds.length} modelo(s)`);
+      return data || [];
+    },
+    enabled: !!empreendimentoSelecionadoId && !!organizacaoId,
+    staleTime: 5 * 60 * 1000,
   });
 
   // ─── KPIs do Modelo ───────────────────────────────────────────────────
@@ -209,7 +329,7 @@ export function useBimQuantitativos({ organizacaoId }) {
     const totalCategorias = grupos.length;
     const areaTotal = grupos.reduce((acc, g) => acc + g.area_total_categoria, 0);
     const comSinapi = grupos.reduce(
-      (acc, g) => acc + g.grupos.filter(sub => sub.sinapi_revit).length, 0
+      (acc, g) => acc + g.familias.flatMap(f => f.tipos).filter(t => t.sinapi_revit).length, 0
     );
     return { totalElementos, totalCategorias, areaTotal, comSinapi };
   }, [grupos]);
@@ -240,10 +360,14 @@ export function useBimQuantitativos({ organizacaoId }) {
     modeloSelecionadoId,
     modeloSelecionado,
     handleSelectModelo,
-    // Elementos
+    // Elementos do modelo selecionado
     grupos,
+    todosElementos,              // flat do modelo selecionado (para preview de impacto no modal)
     carregandoElementos,
     kpis,
+    // Elementos do empreendimento inteiro (para aba Por Material)
+    todosElementosEmpreendimento,
+    carregandoElementosEmp,
     // UI
     categoriasExpandidas,
     toggleCategoria,
