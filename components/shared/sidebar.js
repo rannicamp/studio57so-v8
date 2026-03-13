@@ -6,7 +6,7 @@ import {
     faTachometerAlt, faBuilding, faProjectDiagram, faUsers, faTasks,
     faClipboardList, faAddressBook, faDollarSign, faShoppingCart,
     faInbox, faBullseye, faFileSignature, faCalculator,
-    faBoxOpen, faFileInvoiceDollar, faTags, faCube, faChartLine
+    faBoxOpen, faFileInvoiceDollar, faTags, faCube, faCubes, faChartLine
 } from '@fortawesome/free-solid-svg-icons';
 import { faMeta } from '@fortawesome/free-brands-svg-icons';
 // CORREÇÃO: Usando @/ para o contexto
@@ -56,6 +56,7 @@ export default function Sidebar({ isOpen, closeSidebar }) {
             title: 'Coordenação BIM',
             items: [
                 { href: '/bim-manager', label: 'BIM Manager', icon: faCube, recurso: 'bim' },
+                { href: '/quantitativos', label: 'BIM Quantitativos', icon: faCubes, recurso: 'bim' },
             ]
         },
     ];

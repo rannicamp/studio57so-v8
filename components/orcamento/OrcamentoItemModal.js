@@ -414,7 +414,7 @@ export default function OrcamentoItemModal({ isOpen, onClose, onSave, etapas, it
                             >
                                 <option value="">Selecione uma etapa</option>
                                 {etapas.map(etapa => (
-                                    <option key={etapa.id} value={etapa.id}>{etapa.nome}</option>
+                                    <option key={etapa.id} value={etapa.id}>{etapa.nome_etapa || etapa.nome}</option>
                                 ))}
                             </select>
                         </div>

@@ -85,30 +85,17 @@ export default function ComprasKanban({
 
     const duplicatePedidoMutation = useMutation({
         mutationFn: async (pedidoOriginal) => {
-            // CORREÇÃO: Removemos propriedades relacionais (objetos/arrays) que não são colunas diretas
+            // 1. Separa os campos escalares do cabeçalho (remove objetos relacionais)
             const { 
-                id, 
-                created_at, 
-                updated_at, 
-                data_solicitacao, 
-                status, 
-                fase_id, 
-                // Removemos estes campos extras para evitar o erro "Column not found":
-                anexos,
-                itens,
-                solicitante,
-                empreendimentos,
-                historico,
-                lancamentos,
+                id, created_at, updated_at, data_solicitacao, status, fase_id,
+                anexos, itens: itensMemoria, solicitante, empreendimentos, historico, lancamentos,
                 ...rest 
             } = pedidoOriginal;
             
-            // Pega a primeira fase (Solicitação) para a cópia
             const faseInicial = fases[0];
-            
             const novoPedido = {
                 ...rest,
-                titulo: `${pedidoOriginal.titulo} (Cópia)`,
+                titulo: `${pedidoOriginal.titulo || 'Pedido'} (Cópia)`,
                 status: faseInicial ? faseInicial.nome : 'Solicitação',
                 fase_id: faseInicial ? faseInicial.id : null,
                 data_solicitacao: new Date().toISOString(),
@@ -116,30 +103,42 @@ export default function ComprasKanban({
                 organizacao_id: user.organizacao_id
             };
 
-            const { data: pedidoCriado, error: erroPedido } = await supabase.from('pedidos_compra').insert(novoPedido).select().single();
+            // 2. Cria o cabeçalho do novo pedido
+            const { data: pedidoCriado, error: erroPedido } = await supabase
+                .from('pedidos_compra')
+                .insert(novoPedido)
+                .select()
+                .single();
             if (erroPedido) throw erroPedido;
 
-            if (pedidoOriginal.itens && pedidoOriginal.itens.length > 0) {
-                const itensParaCopiar = pedidoOriginal.itens.map(item => {
-                    // Também removemos relacionamentos dos itens antes de copiar
-                    const { 
-                        id, 
-                        pedido_compra_id, 
-                        created_at, 
-                        fornecedor, // remove objeto fornecedor
-                        etapa,      // remove objeto etapa
-                        ...itemRest 
-                    } = item;
-                    
-                    return { ...itemRest, pedido_compra_id: pedidoCriado.id, organizacao_id: user.organizacao_id };
-                });
-                await supabase.from('pedidos_compra_itens').insert(itensParaCopiar);
+            // 3. Busca os itens diretamente do banco (dados frescos, sem campos relacionais)
+            const { data: itensOriginais, error: erroItens } = await supabase
+                .from('pedidos_compra_itens')
+                .select('descricao_item, quantidade_solicitada, unidade_medida, fornecedor_id, preco_unitario_real, custo_total_real, etapa_id, subetapa_id, tipo_operacao, dias_aluguel, material_id, orcamento_item_id, organizacao_id')
+                .eq('pedido_compra_id', id);
+
+            if (erroItens) throw new Error(`Pedido duplicado, mas falha ao ler itens: ${erroItens.message}`);
+
+            // 4. Copia os itens para o novo pedido
+            if (itensOriginais && itensOriginais.length > 0) {
+                const itensParaCopiar = itensOriginais.map(item => ({
+                    ...item,
+                    pedido_compra_id: pedidoCriado.id,
+                    organizacao_id: user.organizacao_id,
+                }));
+
+                const { error: erroInsertItens } = await supabase
+                    .from('pedidos_compra_itens')
+                    .insert(itensParaCopiar);
+
+                if (erroInsertItens) throw new Error(`Pedido duplicado, mas falha ao copiar itens: ${erroInsertItens.message}`);
             }
-            return pedidoCriado;
+
+            return { pedidoCriado, qtdItens: itensOriginais?.length || 0 };
         },
-        onSuccess: () => {
+        onSuccess: ({ qtdItens }) => {
             queryClient.invalidateQueries({ queryKey: ['painelCompras'] });
-            toast.success('Pedido duplicado com sucesso!');
+            toast.success(`Pedido duplicado com sucesso! (${qtdItens} iten${qtdItens !== 1 ? 's' : ''} copiado${qtdItens !== 1 ? 's' : ''})`);
         },
         onError: (error) => toast.error(`Erro ao duplicar: ${error.message}`)
     });
