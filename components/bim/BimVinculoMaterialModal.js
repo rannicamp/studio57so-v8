@@ -102,8 +102,13 @@ export default function BimVinculoMaterialModal({
 
     let soma = 0, qtd = 0;
     filtrados.forEach(el => {
-      const val = parseFloat((el.propriedades || {})[propriedade.nome]);
-      if (!isNaN(val) && val > 0) { soma += val; qtd++; }
+      if (tipoVinculo === 'elemento_unidades') {
+        soma += 1;
+        qtd++;
+      } else {
+        const val = parseFloat((el.propriedades || {})[propriedade.nome]);
+        if (!isNaN(val) && val > 0) { soma += val; qtd++; }
+      }
     });
     return { qtd, soma };
   })();
@@ -135,15 +140,17 @@ export default function BimVinculoMaterialModal({
     setSalvando(true);
     setErro(null);
     try {
+      const isElemento = tipoVinculo === 'elemento' || tipoVinculo === 'elemento_unidades';
+      
       const payload = {
-        propriedade_nome: tipoVinculo === 'elemento' ? `[ELEMENTO] ${elemento?.familia || elemento?.categoria || 'Desconhecido'}` : propriedade.nome,
+        propriedade_nome: isElemento ? `[ELEMENTO] ${elemento?.familia || elemento?.categoria || 'Desconhecido'}` : propriedade.nome,
         propriedade_quantidade: tipoVinculo === 'elemento' ? propriedade.nome : null,
         categoria_bim:    escopo !== 'projeto' ? (elemento?.categoria || null) : null,
         familia_bim:      escopo === 'familia' ? (elemento?.familia   || null) : null,
-        tipo_vinculo:     tipoVinculo,
+        tipo_vinculo:     isElemento ? 'elemento' : tipoVinculo,
         escopo,
-        material_id:      (tipoVinculo === 'material' || tipoVinculo === 'elemento') && materialSel?.origem === 'proprio' ? materialSel.id : null,
-        sinapi_id:        (tipoVinculo === 'material' || tipoVinculo === 'elemento') && materialSel?.origem === 'sinapi'  ? materialSel.id : null,
+        material_id:      (tipoVinculo === 'material' || isElemento) && materialSel?.origem === 'proprio' ? materialSel.id : null,
+        sinapi_id:        (tipoVinculo === 'material' || isElemento) && materialSel?.origem === 'sinapi'  ? materialSel.id : null,
       };
       console.log('[Modal] Salvando payload:', payload);
       await onSalvar(payload);
@@ -175,7 +182,7 @@ export default function BimVinculoMaterialModal({
   if (!isOpen || !propriedade) return null;
 
   const unidadeEstimada = materialSel?.unidade_medida || '';
-  const podeConfirmar   = (tipoVinculo !== 'material' && tipoVinculo !== 'elemento') || materialSel;
+  const podeConfirmar   = (tipoVinculo !== 'material' && tipoVinculo !== 'elemento' && tipoVinculo !== 'elemento_unidades') || materialSel;
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
@@ -204,14 +211,15 @@ export default function BimVinculoMaterialModal({
             <p className="text-[10px] font-black text-gray-400 uppercase tracking-wider mb-2">Este campo representa:</p>
             <div className="grid grid-cols-3 gap-2">
               {[
-                { v: 'material',     icon: '📦', label: 'Material' },
-                { v: 'elemento',     icon: '🧱', label: 'Elem. Inteiro' },
-                { v: 'ignorar',      icon: '❌', label: 'Ignorar' },
+                { v: 'material',          icon: '📦', label: 'Material' },
+                { v: 'elemento',          icon: '🧱', label: 'Elem. (Medida)' },
+                { v: 'elemento_unidades', icon: '🔢', label: 'Elem. (Unidade)' },
+                { v: 'ignorar',           icon: '❌', label: 'Ignorar' },
               ].map(op => (
                 <button
                   key={op.v}
                   onClick={() => setTipoVinculo(op.v)}
-                  className={`flex flex-col items-center gap-1 py-3 px-2 rounded-xl border-2 text-xs font-semibold transition-all
+                  className={`flex flex-col items-center justify-center gap-1 py-3 px-1 rounded-xl border-2 text-[10px] leading-tight font-semibold transition-all
                     ${tipoVinculo === op.v ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-100 text-gray-600 hover:border-gray-200'}`}
                 >
                   <span className="text-xl">{op.icon}</span>
@@ -221,13 +229,21 @@ export default function BimVinculoMaterialModal({
             </div>
           </div>
 
-          {(tipoVinculo === 'material' || tipoVinculo === 'elemento') && (
+          {(tipoVinculo === 'material' || tipoVinculo === 'elemento' || tipoVinculo === 'elemento_unidades') && (
             <>
               {tipoVinculo === 'elemento' && (
                 <div className="px-6 pt-4 pb-1">
                   <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-xl p-3 text-xs leading-5">
                     <strong>Atenção:</strong> Você está mapeando o elemento inteiro ({elemento?.familia || elemento?.categoria}).<br/>
                     A propriedade <span className="font-bold">"{propriedade.nome}"</span> será usada apenas para extrair a <u>quantidade/medida</u> deste material.
+                  </div>
+                </div>
+              )}
+              {tipoVinculo === 'elemento_unidades' && (
+                <div className="px-6 pt-4 pb-1">
+                  <div className="bg-indigo-50 border border-indigo-200 text-indigo-800 rounded-xl p-3 text-xs leading-5">
+                    <strong>Atenção:</strong> Você está mapeando por unidades do {elemento?.familia || elemento?.categoria}.<br/>
+                    O sistema irá contar cada peça encontrada no modelo como <u>1 unidade</u> deste material.
                   </div>
                 </div>
               )}
@@ -372,9 +388,11 @@ export default function BimVinculoMaterialModal({
               </div>
               <div className="flex-1 bg-white rounded-xl border border-gray-100 px-4 py-3 text-center">
                 <p className="text-2xl font-black text-gray-800">
-                  {new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(impacto.soma)}
+                  {tipoVinculo === 'elemento_unidades' 
+                    ? impacto.soma.toLocaleString('pt-BR')
+                    : new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(impacto.soma)}
                 </p>
-                <p className="text-[10px] text-gray-400 font-semibold">{unidadeEstimada || 'total'}</p>
+                <p className="text-[10px] text-gray-400 font-semibold">{tipoVinculo === 'elemento_unidades' ? 'unidades' : (unidadeEstimada || 'total')}</p>
               </div>
             </div>
           </div>
