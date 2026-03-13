@@ -24,6 +24,8 @@ RETURNS TABLE (
     external_ids_ativos text[],
     external_ids_inativos text[],
     fator_conversao text,
+    material_id bigint,
+    sinapi_id bigint,
     custo_total numeric,
     tem_alertas boolean,
     origem text
