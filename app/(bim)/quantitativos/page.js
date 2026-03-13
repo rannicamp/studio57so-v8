@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useRef, useEffect, Fragment } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -842,7 +842,7 @@ export default function BimQuantitativosPage() {
                   {gruposFiltrados.map(cat => {
                     const catExpandida = categoriasExpandidas.has(cat.categoria);
                     return (
-                      <>
+                      <Fragment key={`frag-cat-${cat.categoria}`}>
                         {/* ── L1: Categoria ── */}
                         <tr
                           key={`cat-${cat.categoria}`}
@@ -868,7 +868,7 @@ export default function BimQuantitativosPage() {
                           const famChave = `${cat.categoria}|||${fam.familia}`;
                           const famExpandida = familiasExpandidas.has(famChave);
                           return (
-                            <>
+                            <Fragment key={`frag-fam-${famChave}`}>
                               {/* ── L2: Família ── */}
                               <tr
                                 key={`fam-${famChave}`}
@@ -914,7 +914,7 @@ export default function BimQuantitativosPage() {
                                 const medidaAtiva = getMedidaAtiva(cat.categoria, fam.familia, t);
                                 const temMultiplas = t.medidas.length > 1;
                                 return (
-                                  <>
+                                  <Fragment key={`frag-t-${tChave}`}>
                                     {/* ── L3: Tipo ── */}
                                     <tr
                                       key={`tipo-${tChave}`}
@@ -997,13 +997,13 @@ export default function BimQuantitativosPage() {
                                         </tr>
                                       );
                                     })}
-                                  </>
+                                  </Fragment>
                                 );
                               })}
-                            </>
+                            </Fragment>
                           );
                         })}
-                      </>
+                      </Fragment>
                     );
                   })}
                 </tbody>
