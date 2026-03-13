@@ -19,6 +19,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { notificarGrupo } from '@/utils/notificacoes';
 import UppyListUploader from '@/components/ui/UppyListUploader';
 
+
 const formatDuration = (milliseconds) => {
     if (milliseconds < 0 || isNaN(milliseconds)) return '0 dias';
     const days = Math.floor(milliseconds / (1000 * 60 * 60 * 24));
@@ -104,6 +105,20 @@ export default function PedidoForm({ pedidoId }) {
         queryKey: ['pedido', pedidoId, organizacaoId],
         queryFn: () => fetchPedidoData(supabase, pedidoId, organizacaoId),
         enabled: !!pedidoId && !!organizacaoId,
+    });
+
+    const { data: tiposDocumento = [] } = useQuery({
+        queryKey: ['documento_tipos', organizacaoId],
+        queryFn: async () => {
+            const { data, error } = await supabase
+                .from('documento_tipos')
+                .select('id, sigla, descricao')
+                .order('sigla');
+            if (error) throw error;
+            return data || [];
+        },
+        enabled: !!organizacaoId,
+        staleTime: 1000 * 60 * 10, // cache 10 minutos
     });
 
     const pedido = data?.pedido;
@@ -578,6 +593,7 @@ export default function PedidoForm({ pedidoId }) {
                                 bucketName="pedidos-anexos"
                                 folderPath={`${organizacaoId}/pedidos/${pedidoId}`}
                                 hideClassificacao={false}
+                                tiposDocumento={tiposDocumento}
                                 onUploadSuccess={handlePedidoUploadSuccess}
                             />
                         </div>

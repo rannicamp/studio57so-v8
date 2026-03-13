@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner, faTimes, faPlus, faDatabase, faBuilding } from '@fortawesome/free-solid-svg-icons';
+import { faSpinner, faTimes, faPlus, faDatabase, faBuilding, faCubes } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 import { useDebounce } from 'use-debounce';
 
@@ -25,7 +25,7 @@ const HighlightedText = ({ text = '', highlight = '' }) => {
     );
 };
 
-export default function OrcamentoItemModal({ isOpen, onClose, onSave, etapas, itemToEdit, organizacaoId }) {
+export default function OrcamentoItemModal({ isOpen, onClose, onSave, etapas, itemToEdit, organizacaoId, empreendimentoId }) {
     const supabase = createClient();
     const isEditing = Boolean(itemToEdit?.id);
     const subetapaInputRef = useRef(null);
@@ -37,12 +37,15 @@ export default function OrcamentoItemModal({ isOpen, onClose, onSave, etapas, it
         id: null,
         material_id: null,
         sinapi_id: null,
+        bim_elemento_ids: null,
+        bim_projeto_id: null,
         descricao: '',
         quantidade: 1,
         unidade: 'UN',
         preco_unitario: 0,
         etapa_id: '',
         subetapa_id: '',
+        origem: 'sinapi',
     }), []);
 
     const [formData, setFormData] = useState(getInitialState());
@@ -53,8 +56,7 @@ export default function OrcamentoItemModal({ isOpen, onClose, onSave, etapas, it
     const [isSearching, setIsSearching] = useState(false);
     const [loading, setLoading] = useState(false);
 
-    // Seletor de Banco de Dados: 'sinapi' ou 'proprio'
-    // Se estiver editando, tentamos adivinhar a origem, senão padrão é 'sinapi'
+    // Seletor de Banco de Dados: 'sinapi', 'proprio' ou 'bim'
     const [bancoOrigem, setBancoOrigem] = useState('sinapi');
 
     // Debounce para evitar muitas requisições enquanto digita (500ms)
@@ -78,9 +80,11 @@ export default function OrcamentoItemModal({ isOpen, onClose, onSave, etapas, it
                 });
 
                 // Tenta definir a origem visualmente baseada nos dados do item
-                if (itemToEdit.sinapi_id) {
+                if (itemToEdit.origem === 'bim' || (itemToEdit.bim_projeto_id && !itemToEdit.sinapi_id)) {
+                    setBancoOrigem('bim');
+                } else if (itemToEdit.sinapi_id || itemToEdit.origem === 'sinapi') {
                     setBancoOrigem('sinapi');
-                } else if (itemToEdit.material_id) {
+                } else if (itemToEdit.material_id || itemToEdit.origem === 'material_proprio') {
                     setBancoOrigem('proprio');
                 }
             } else {
@@ -95,6 +99,8 @@ export default function OrcamentoItemModal({ isOpen, onClose, onSave, etapas, it
     // 2. Busca Inteligente de Materiais (Carregamento Mágico)
     useEffect(() => {
         const searchMateriais = async () => {
+            // Não busca no modo BIM (tem UI própria)
+            if (bancoOrigem === 'bim') { setSearchResults([]); return; }
             // Só busca se tiver 3 ou mais letras
             if (!debouncedSearchTerm || debouncedSearchTerm.length < 3) {
                 setSearchResults([]);
@@ -196,7 +202,7 @@ export default function OrcamentoItemModal({ isOpen, onClose, onSave, etapas, it
 
             // Preparação do Objeto para Salvar
             const itemPayload = {
-                orcamento_id: formData.orcamento_id, // Mantém o ID do orçamento pai (se vier da edição)
+                orcamento_id: formData.orcamento_id,
                 descricao: formData.descricao,
                 quantidade: parseFloat(formData.quantidade),
                 unidade: formData.unidade,
@@ -207,15 +213,25 @@ export default function OrcamentoItemModal({ isOpen, onClose, onSave, etapas, it
                 custo_total: (parseFloat(formData.quantidade) * parseFloat(formData.preco_unitario))
             };
 
-            // A MÁGICA DOS DOIS BANCOS:
-            // Se estamos no modo SINAPI, salvamos o ID na coluna sinapi_id
-            // Se estamos no modo PRÓPRIO, salvamos na coluna material_id
+            // Define corretamente a origem e os campos de referência
             if (bancoOrigem === 'sinapi') {
-                itemPayload.sinapi_id = formData.material_id; // O ID selecionado vai para cá
-                itemPayload.material_id = null;               // Garante que o outro fique nulo
+                itemPayload.sinapi_id = formData.material_id;
+                itemPayload.material_id = null;
+                itemPayload.bim_projeto_id = null;
+                itemPayload.bim_elemento_ids = null;
+                itemPayload.origem = 'sinapi';
+            } else if (bancoOrigem === 'bim') {
+                itemPayload.sinapi_id = null;
+                itemPayload.material_id = null;
+                itemPayload.bim_projeto_id = formData.bim_projeto_id || null;
+                itemPayload.bim_elemento_ids = formData.bim_elemento_ids || null;
+                itemPayload.origem = 'bim';
             } else {
-                itemPayload.material_id = formData.material_id; // O ID selecionado vai para cá
-                itemPayload.sinapi_id = null;                   // Garante que o outro fique nulo
+                itemPayload.material_id = formData.material_id;
+                itemPayload.sinapi_id = null;
+                itemPayload.bim_projeto_id = null;
+                itemPayload.bim_elemento_ids = null;
+                itemPayload.origem = 'material_proprio';
             }
 
             // Envia para o componente pai salvar no banco
@@ -255,11 +271,11 @@ export default function OrcamentoItemModal({ isOpen, onClose, onSave, etapas, it
                             </label>
 
                             {/* Botões de Alternância (Toggle) */}
-                            <div className="flex gap-4 mb-3">
+                            <div className="flex gap-2 mb-3">
                                 <button
                                     type="button"
                                     onClick={() => setBancoOrigem('sinapi')}
-                                    className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all flex items-center justify-center gap-2
+                                    className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all flex items-center justify-center gap-2
                                         ${bancoOrigem === 'sinapi'
                                             ? 'bg-blue-600 text-white shadow-md ring-2 ring-blue-300'
                                             : 'bg-white text-gray-600 border border-gray-300 hover:bg-gray-50'}`}
@@ -270,7 +286,7 @@ export default function OrcamentoItemModal({ isOpen, onClose, onSave, etapas, it
                                 <button
                                     type="button"
                                     onClick={() => setBancoOrigem('proprio')}
-                                    className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all flex items-center justify-center gap-2
+                                    className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all flex items-center justify-center gap-2
                                         ${bancoOrigem === 'proprio'
                                             ? 'bg-green-600 text-white shadow-md ring-2 ring-green-300'
                                             : 'bg-white text-gray-600 border border-gray-300 hover:bg-gray-50'}`}
@@ -278,9 +294,24 @@ export default function OrcamentoItemModal({ isOpen, onClose, onSave, etapas, it
                                     <FontAwesomeIcon icon={faBuilding} />
                                     Meus Materiais
                                 </button>
+                                {/* 3º botão: Elemento BIM — só exibe se tiver empreendimentoId */}
+                                {empreendimentoId && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setBancoOrigem('bim')}
+                                        className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all flex items-center justify-center gap-2
+                                            ${bancoOrigem === 'bim'
+                                                ? 'bg-slate-700 text-white shadow-md ring-2 ring-slate-400'
+                                                : 'bg-white text-gray-600 border border-gray-300 hover:bg-gray-50'}`}
+                                    >
+                                        <FontAwesomeIcon icon={faCubes} />
+                                        BIM
+                                    </button>
+                                )}
                             </div>
 
-                            {/* Campo de Busca */}
+                            {/* Campo de Busca — SINAPI / Próprio */}
+                            {bancoOrigem !== 'bim' && (
                             <div className="relative">
                                 <input
                                     type="text"
@@ -295,9 +326,39 @@ export default function OrcamentoItemModal({ isOpen, onClose, onSave, etapas, it
                                     </div>
                                 )}
                             </div>
+                            )}
+
+                            {/* UI BIM — Informações do elemento vinculado */}
+                            {bancoOrigem === 'bim' && (
+                            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                                {formData.bim_projeto_id ? (
+                                    <div className="flex items-center gap-3">
+                                        <FontAwesomeIcon icon={faCubes} className="text-slate-500" />
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-xs font-bold text-slate-700">Elemento BIM vinculado</p>
+                                            <p className="text-[10px] text-slate-500">
+                                                {formData.bim_elemento_ids?.length || 0} elemento(s) • Modelo ID: {formData.bim_projeto_id}
+                                            </p>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => setFormData(p => ({ ...p, bim_projeto_id: null, bim_elemento_ids: null }))}
+                                            className="text-xs text-red-500 hover:text-red-700"
+                                        >
+                                            <FontAwesomeIcon icon={faTimes} /> Remover
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <p className="text-xs text-slate-500 text-center py-2">
+                                        ℹ️ Para vincular múltiplos elementos BIM, use o botão <strong>"Importar do BIM"</strong> na tela do orçamento.
+                                        <br/><span className="text-slate-400">Preencha a descrição manualmente abaixo.</span>
+                                    </p>
+                                )}
+                            </div>
+                            )}
 
                             {/* Lista de Resultados */}
-                            {searchResults.length > 0 && (
+                            {searchResults.length > 0 && bancoOrigem !== 'bim' && (
                                 <ul className="mt-2 max-h-60 overflow-y-auto bg-white border border-gray-200 rounded-md shadow-lg divide-y divide-gray-100">
                                     {searchResults.map((item) => (
                                         <li
