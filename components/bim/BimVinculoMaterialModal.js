@@ -132,7 +132,9 @@ export default function BimVinculoMaterialModal({
     let somaFinal = soma;
     if (fatorConversao.trim()) {
       try {
-        const expressao = fatorConversao.replace(/\[quantidade\]|\[q\]/gi, soma.toString());
+        const expressao = fatorConversao
+          .replace(/,/g, '.')
+          .replace(/\[quantidade\]|\[q\]/gi, soma.toString());
         // eslint-disable-next-line no-new-func
         const fn = new Function('return ' + expressao);
         const resultado = fn();

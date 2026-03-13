@@ -191,7 +191,10 @@ export function useBimMapeamentos({ organizacaoId, empreendimentoId }) {
       const parseFormula = (fatorStr, valorBruto) => {
         if (!fatorStr) return valorBruto;
         try {
-          const expressao = fatorStr.replace(/\[quantidade\]|\[q\]/gi, valorBruto.toString());
+          // Troca vírgula por ponto (para aceitar [q]/1,85 no Brasil) e mapeia a tag
+          const expressao = fatorStr
+            .replace(/,/g, '.')
+            .replace(/\[quantidade\]|\[q\]/gi, valorBruto.toString());
           // eslint-disable-next-line no-new-func
           const fn = new Function('return ' + expressao);
           const resultado = fn();

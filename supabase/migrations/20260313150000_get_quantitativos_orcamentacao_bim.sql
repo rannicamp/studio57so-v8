@@ -174,6 +174,8 @@ BEGIN
         COALESCE(a.ativos, ARRAY[]::text[]) AS external_ids_ativos,
         COALESCE(a.inativos, ARRAY[]::text[]) AS external_ids_inativos,
         a.fator_conversao,
+        a.material_id,
+        a.sinapi_id,
         (a.total_quantidade * COALESCE(mat.preco_unitario, sin.preco_unitario, 0)) AS custo_total,
         (array_length(a.inativos, 1) > 0) AS tem_alertas,
         CASE WHEN mat.id IS NOT NULL THEN 'proprio' ELSE 'sinapi' END AS origem
