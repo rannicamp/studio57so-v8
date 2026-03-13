@@ -50,24 +50,10 @@ BEGIN
           AND p.is_lixeira = false
           AND e.categoria NOT IN ('Revit Level', 'Revit Grids', 'Revit Scope Boxes', 'Revit Reference Planes', '<Indesejado>')
     ),
-    propriedades_extraidas AS (
-        -- 2. Transforma o JSONB 'propriedades' em linhas pra ser filtrável e vinculável
-        SELECT 
-            e.id AS elemento_id,
-            e.external_id,
-            e.categoria,
-            e.familia,
-            e.is_active,
-            k AS prop_nome,
-            NULLIF(SUBSTRING(REPLACE(v, ',', '.') FROM '^([0-9]+(?:\.[0-9]+)?)'), '')::numeric AS prop_valor
-        FROM elementos e,
-             jsonb_each_text(e.propriedades) AS j(k,v)
-        WHERE v ~ '^[0-9]'
-    ),
     mapeamentos AS (
-        -- 3. Puxa os mapeamentos da organizacao
+        -- 2. Puxa os mapeamentos da organizacao
         SELECT 
-            m.id,
+            m.id AS mapeamento_id,
             m.propriedade_nome,
             m.categoria_bim,
             m.familia_bim,
@@ -86,32 +72,46 @@ BEGIN
         WHERE m.organizacao_id = p_organizacao_id
           AND m.tipo_vinculo = 'material'
     ),
-    matchings AS (
-        -- 4. Faz o match respeitando prioridade de escopo usando ROW_NUMBER
+    propriedades_extraidas AS (
+        -- 3. Combina elementos com os mapeamentos, extraindo apenas os campos necessários
         SELECT 
-            p.elemento_id,
-            p.external_id,
-            p.is_active,
-            p.prop_nome,
-            p.prop_valor,
-            m.id AS mapeamento_id,
+            e.id AS elemento_id,
+            e.external_id,
+            e.categoria,
+            e.familia,
+            e.is_active,
+            m.propriedade_nome AS prop_nome,
+            NULLIF(SUBSTRING(REPLACE(e.propriedades ->> m.propriedade_nome, ',', '.') FROM '^([0-9]+(?:\.[0-9]+)?)'), '')::numeric AS prop_valor,
+            m.mapeamento_id,
             m.material_id,
             m.sinapi_id,
             m.unidade_override,
             m.prioridade,
-            ROW_NUMBER() OVER (
-                PARTITION BY p.elemento_id, p.prop_nome 
-                ORDER BY m.prioridade ASC
-            ) as rn
-        FROM propriedades_extraidas p
-        JOIN mapeamentos m ON p.prop_nome = m.propriedade_nome
-        WHERE (m.escopo = 'projeto')
-           OR (m.escopo = 'categoria' AND m.categoria_bim = p.categoria)
-           OR (m.escopo = 'familia' AND m.categoria_bim = p.categoria AND m.familia_bim = p.familia)
+            m.escopo,
+            m.categoria_bim,
+            m.familia_bim
+        FROM elementos e
+        JOIN mapeamentos m ON (e.propriedades ? m.propriedade_nome)
+        WHERE (e.propriedades ->> m.propriedade_nome) ~ '^[0-9]'
     ),
-    melhor_matching AS (
-        -- 5. Só fica com o mapeamento mais específico (prioridade 1) por elemento+propriedade
-        SELECT * FROM matchings WHERE rn = 1
+    vinculos AS (
+        -- 4. Aplica a regra de escopo/prioridade, e filtra os numericos > 0
+        SELECT 
+            p.*
+        FROM propriedades_extraidas p
+        WHERE 
+            p.prop_valor > 0 AND (
+                (p.escopo = 'projeto')
+                OR (p.escopo = 'categoria' AND p.categoria = p.categoria_bim)
+                OR (p.escopo = 'familia' AND p.categoria = p.categoria_bim AND p.familia = p.familia_bim)
+            )
+    ),
+    vinculos_filtrados AS (
+        -- 5. Seleciona apenas o mapeamento mais prioritario (menor prioridade) por <elemento, propriedade>
+        SELECT DISTINCT ON (v.elemento_id, v.prop_nome)
+            *
+        FROM vinculos v
+        ORDER BY v.elemento_id, v.prop_nome, v.prioridade ASC
     ),
     agregado AS (
         -- 6. Agrega agrupando pelo material / sinapi
@@ -126,7 +126,7 @@ BEGIN
             COUNT(DISTINCT m.elemento_id) AS total_elementos,
             array_agg(m.external_id) FILTER (WHERE m.is_active = true) AS ativos,
             array_agg(m.external_id) FILTER (WHERE m.is_active = false) AS inativos
-        FROM melhor_matching m
+        FROM vinculos_filtrados m
         GROUP BY 1, m.material_id, m.sinapi_id
     )
     -- 7. Join pra pegar dados do catalogo
