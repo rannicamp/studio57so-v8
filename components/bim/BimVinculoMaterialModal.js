@@ -27,6 +27,8 @@ export default function BimVinculoMaterialModal({
   todosElementos = [],
   // Callback ao salvar
   onSalvar,
+  onExcluir,
+  mapeamentoExistente, // { id: 123, ... }
   // Dados da organização
   organizacaoId,
 }) {
@@ -41,6 +43,7 @@ export default function BimVinculoMaterialModal({
   const [novoNome, setNovoNome] = useState('');
   const [novaUnidade, setNovaUnidade] = useState('un');
   const [salvando, setSalvando] = useState(false);
+  const [excluindo, setExcluindo] = useState(false);
 
   // Reset ao abrir
   useEffect(() => {
@@ -150,6 +153,22 @@ export default function BimVinculoMaterialModal({
       setErro(e?.message || 'Erro desconhecido ao salvar o vínculo.');
     } finally {
       setSalvando(false);
+    }
+  };
+
+  const handleExcluir = async () => {
+    if (!mapeamentoExistente) return;
+    if (!window.confirm('Tem certeza que deseja remover este vínculo?')) return;
+    setExcluindo(true);
+    setErro(null);
+    try {
+      await onExcluir(mapeamentoExistente.id);
+      onClose();
+    } catch (e) {
+      console.error('[Modal] Erro ao excluir:', e);
+      setErro(e?.message || 'Erro desconhecido ao excluir o vínculo.');
+    } finally {
+      setExcluindo(false);
     }
   };
 
@@ -369,18 +388,32 @@ export default function BimVinculoMaterialModal({
               <span><strong>Erro ao salvar:</strong> {erro}</span>
             </div>
           )}
-          <div className="flex justify-end gap-3">
-            <button onClick={onClose} className="px-5 py-2 text-sm text-gray-600 hover:text-gray-800 transition-colors">
-              Cancelar
-            </button>
-            <button
-              onClick={handleSalvar}
-              disabled={!podeConfirmar || salvando}
-              className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-xl shadow-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
-            >
-              {salvando && <FontAwesomeIcon icon={faSpinner} spin className="text-xs" />}
-              {tipoVinculo === 'ignorar' ? 'Marcar como Ignorar' : 'Salvar Vínculo'}
-            </button>
+          <div className="flex justify-between items-center">
+            <div>
+              {mapeamentoExistente && (
+                <button
+                  onClick={handleExcluir}
+                  disabled={excluindo || salvando}
+                  className="px-4 py-2 text-sm text-red-600 hover:text-red-800 hover:bg-red-50 font-semibold rounded-lg transition-colors flex items-center gap-2"
+                >
+                  {excluindo && <FontAwesomeIcon icon={faSpinner} spin className="text-xs" />}
+                  Remover Vínculo
+                </button>
+              )}
+            </div>
+            <div className="flex gap-3">
+              <button onClick={onClose} className="px-5 py-2 text-sm text-gray-600 hover:text-gray-800 transition-colors">
+                Cancelar
+              </button>
+              <button
+                onClick={handleSalvar}
+                disabled={!podeConfirmar || salvando || excluindo}
+                className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-xl shadow-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {salvando && <FontAwesomeIcon icon={faSpinner} spin className="text-xs" />}
+                {tipoVinculo === 'ignorar' ? 'Marcar como Ignorar' : 'Salvar Vínculo'}
+              </button>
+            </div>
           </div>
         </div>
       </div>

@@ -987,6 +987,8 @@ export default function BimQuantitativosPage() {
         todosElementos={todosElementos}
         organizacaoId={organizacao_id}
         onSalvar={criarMapeamento}
+        onExcluir={deletarMapeamento}
+        mapeamentoExistente={mapeamentoAtual}
       />
 
       {/* ─── MODAL BIM IMPORT ─── */}
