@@ -34,12 +34,11 @@ export async function extrairDadosDoModelo(viewer, projetoBimId, organizacaoId, 
     const totalItems = leafIds.length;
     if (totalItems === 0) throw new Error("Nenhum elemento encontrado no modelo 3D.");
 
-    // --- 3. EXTRAÇÃO EM MEMÓRIA (CHUNKING APENAS PARA LEITURA) ---
-    // Precisamos ler em pedaços para não travar a UI do navegador, 
-    // mas vamos guardar tudo em 'allElements' para enviar junto no final.
-    let allElements = [];
+    // --- 3. EXTRAÇÃO E ENVIO (CHUNKING) ---
+    // Extrai no Viewer e ENVIA IMEDIATAMENTE pro banco em lotes para poupar memória e payload.
     let processed = 0;
-    const CHUNK_SIZE = 1000; // Leitura mais agressiva pois é apenas memória local
+    const CHUNK_SIZE = 1000; 
+    const syncSession = new Date().toISOString(); // Assinatura de tempo para o Soft-Delete seguro
 
     // Função auxiliar para ler propriedades promisified
     const getPropsPromise = (ids) => {
@@ -51,13 +50,15 @@ export async function extrairDadosDoModelo(viewer, projetoBimId, organizacaoId, 
         });
     };
 
+    console.log(`[Elo 57] Iniciando extração de ${totalItems} elementos em lotes de ${CHUNK_SIZE}...`);
+
     for (let i = 0; i < totalItems; i += CHUNK_SIZE) {
         const chunkIds = leafIds.slice(i, i + CHUNK_SIZE);
 
         // Lê do Viewer
         const rawResults = await getPropsPromise(chunkIds);
 
-        // Processa e Limpa os Dados (Sua lógica original preservada)
+        // Processa e Limpa os Dados
         const processedChunk = rawResults.map(item => {
             const propsObj = {};
             let categoria = 'Outros';
@@ -70,7 +71,6 @@ export async function extrairDadosDoModelo(viewer, projetoBimId, organizacaoId, 
 
             if (item.properties) {
                 item.properties.forEach(p => {
-                    // Lógica de valor (aceita 0, rejeita string vazia/null)
                     let val = p.displayValue;
                     if (val === "" || val === null || val === undefined) {
                         val = p.value;
@@ -95,42 +95,53 @@ export async function extrairDadosDoModelo(viewer, projetoBimId, organizacaoId, 
                 familia = item.name.split('[')[0].trim();
             }
 
-            // Retorna objeto formatado para a RPC do Banco
             return {
                 external_id: externalId,
                 categoria: categoria || 'Outros',
                 familia: familia,
                 tipo: tipo,
                 nivel: nivel,
-                propriedades: propsObj // JSONB limpo
+                propriedades: propsObj
             };
         });
 
-        allElements = [...allElements, ...processedChunk];
+        // ENVIA ESTE LOTE PARA O BANCO IMEDIATAMENTE
+        if (processedChunk.length > 0) {
+            const { error: chunkError } = await supabase.rpc('sync_bim_elements_chunk', {
+                p_organizacao_id: organizacaoId,
+                p_projeto_id: projetoBimId,
+                p_urn: cleanUrn,
+                p_sync_session: syncSession,
+                p_elementos: processedChunk
+            });
+
+            if (chunkError) {
+                console.error(`Erro no chunk da RPC (Lote ${i/CHUNK_SIZE}):`, chunkError);
+                throw new Error("Falha ao salvar lote no banco: " + chunkError.message);
+            }
+        }
 
         processed += chunkIds.length;
-        // Notifica progresso da extração (0 a 50% do processo total)
-        if (onProgress) onProgress(Math.round((processed / totalItems) * 50));
+        // Notifica progresso da extração (0 a 90% do processo total)
+        if (onProgress) onProgress(Math.round((processed / totalItems) * 90));
     }
 
-    // --- 4. ENVIO PARA O BANCO (RPC) ---
-    console.log(`[Elo 57] Enviando ${allElements.length} elementos para sincronização no banco...`);
-    if (onProgress) onProgress(75); // Pulou para envio
+    // --- 4. FINALIZAÇÃO E SOFT DELETE (RPC) ---
+    console.log(`[Elo 57] Todos os lotes enviados. Finalizando sincronização...`);
+    if (onProgress) onProgress(95); 
 
-    const { error } = await supabase.rpc('sync_bim_elements', {
-        p_organizacao_id: organizacaoId,
+    const { error: finalizeError } = await supabase.rpc('sync_bim_elements_finalize', {
         p_projeto_id: projetoBimId,
-        p_urn: cleanUrn,
-        p_elementos: allElements // Envia o ARRAY GIGANTE de uma vez
+        p_sync_session: syncSession
     });
 
-    if (error) {
-        console.error("Erro na RPC sync_bim_elements:", error);
-        throw new Error("Erro ao salvar dados no banco: " + error.message);
+    if (finalizeError) {
+        console.error("Erro na RPC de finalização:", finalizeError);
+        throw new Error("Erro ao finalizar a extração no banco: " + finalizeError.message);
     }
 
     if (onProgress) onProgress(100);
-    console.log("[Elo 57] Sincronização e Soft Delete concluídos com sucesso.");
+    console.log("[Elo 57] Sincronização e Soft Delete concluídos com sucesso (Chunking).");
 
     return true;
 }

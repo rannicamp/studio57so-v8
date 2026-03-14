@@ -1,0 +1,108 @@
+﻿=== AUDITORIA DE PROJETOS BIM ===
+Bucket Autodesk: studio57_bim_bucket_jaut9ws08rjzdonzewanjug7bkdv32yt0undda69y2vesebc
+Ô£à Token da Autodesk obtido com sucesso.
+
+Encontrados 11 projetos na tabela projetos_bim no Supabase.
+Ô£à 0 arquivos fisicamente retidos no bucket Autodesk.
+
+--- AN├üLISE DETALHADA ---
+
+===========================================
+Projeto: 2021_015_PRIMEIRA INCORPORA├ç├âO_EDIFICIO RESIDENCIAL_PROJETO INC├èNDIO2.rvt (ID: 29)
+Tamanho: 31.66 MB
+Status Banco: Concluido
+URN Supabase -> Autodesk: dXJuOmFkc2sub2JqZWN0czpvcy5vYmplY3Q6c3R1ZGlvNTdfYmltX2J1Y2tldF9qYXV0OXdzMDhyanpkb256ZXdhbmp1Zzdia2R2MzJ5dDB1bmRkYTY5eTJ2ZXNlYmMvMjAyMV8wMTVfUFJJTUVJUkElMjBJTkNPUlBPUkElQzMlODclQzMlODNPX0VESUZJQ0lPJTIwUkVTSURFTkNJQUxfUFJPSkVUTyUyMElOQyVDMyU4QU5ESU8yLnJ2dA
+URN Local Decodificada: urn:adsk.objects:os.object:studio57_bim_bucket_jaut9ws08rjzdonzewanjug7bkdv32yt0undda69y2vesebc/2021_015_PRIMEIRA%20INCORPORA%C3%87%C3%83O_EDIFICIO%20RESIDENCIAL_PROJETO%20INC%C3%8ANDIO2.rvt
+ÔØî DISPONIBILIDADE NO DISCO: AUSENTE (Apagado ou Expirou da Nuvem).
+Motor 3D Viewer (Tradu├º├úo): SUCCESS (complete)
+
+===========================================
+Projeto: 2021_015_Projeto Sistema de Ancoragem Predial.rvt (ID: 28)
+Tamanho: 2.82 MB
+Status Banco: Concluido
+URN Supabase -> Autodesk: dXJuOmFkc2sub2JqZWN0czpvcy5vYmplY3Q6c3R1ZGlvNTdfYmltX2J1Y2tldF9qYXV0OXdzMDhyanpkb256ZXdhbmp1Zzdia2R2MzJ5dDB1bmRkYTY5eTJ2ZXNlYmMvMjAyMV8wMTVfUHJvamV0byUyMFNpc3RlbWElMjBkZSUyMEFuY29yYWdlbSUyMFByZWRpYWwucnZ0
+URN Local Decodificada: urn:adsk.objects:os.object:studio57_bim_bucket_jaut9ws08rjzdonzewanjug7bkdv32yt0undda69y2vesebc/2021_015_Projeto%20Sistema%20de%20Ancoragem%20Predial.rvt
+ÔØî DISPONIBILIDADE NO DISCO: AUSENTE (Apagado ou Expirou da Nuvem).
+Motor 3D Viewer (Tradu├º├úo): SUCCESS (complete)
+
+===========================================
+Projeto: Projeto Voz e Dados Resd.Alfa - V02.rvt (ID: 27)
+Tamanho: 7.5 MB
+Status Banco: Concluido
+URN Supabase -> Autodesk: dXJuOmFkc2sub2JqZWN0czpvcy5vYmplY3Q6c3R1ZGlvNTdfYmltX2J1Y2tldF9qYXV0OXdzMDhyanpkb256ZXdhbmp1Zzdia2R2MzJ5dDB1bmRkYTY5eTJ2ZXNlYmMvUHJvamV0byUyMFZveiUyMGUlMjBEYWRvcyUyMFJlc2QuQWxmYSUyMC0lMjBWMDIucnZ0
+URN Local Decodificada: urn:adsk.objects:os.object:studio57_bim_bucket_jaut9ws08rjzdonzewanjug7bkdv32yt0undda69y2vesebc/Projeto%20Voz%20e%20Dados%20Resd.Alfa%20-%20V02.rvt
+ÔØî DISPONIBILIDADE NO DISCO: AUSENTE (Apagado ou Expirou da Nuvem).
+Motor 3D Viewer (Tradu├º├úo): SUCCESS (complete)
+
+===========================================
+Projeto: Projeto SPDA Resd.Alfa - V01.rvt (ID: 26)
+Tamanho: 66.68 MB
+Status Banco: Concluido
+URN Supabase -> Autodesk: dXJuOmFkc2sub2JqZWN0czpvcy5vYmplY3Q6c3R1ZGlvNTdfYmltX2J1Y2tldF9qYXV0OXdzMDhyanpkb256ZXdhbmp1Zzdia2R2MzJ5dDB1bmRkYTY5eTJ2ZXNlYmMvUHJvamV0byUyMFNQREElMjBSZXNkLkFsZmElMjAtJTIwVjAxLnJ2dA
+URN Local Decodificada: urn:adsk.objects:os.object:studio57_bim_bucket_jaut9ws08rjzdonzewanjug7bkdv32yt0undda69y2vesebc/Projeto%20SPDA%20Resd.Alfa%20-%20V01.rvt
+ÔØî DISPONIBILIDADE NO DISCO: AUSENTE (Apagado ou Expirou da Nuvem).
+Motor 3D Viewer (Tradu├º├úo): SUCCESS (complete)
+
+===========================================
+Projeto: Projeto el├®trico Resd.Alfa - V05.rvt (ID: 25)
+Tamanho: 41.08 MB
+Status Banco: Concluido
+URN Supabase -> Autodesk: dXJuOmFkc2sub2JqZWN0czpvcy5vYmplY3Q6c3R1ZGlvNTdfYmltX2J1Y2tldF9qYXV0OXdzMDhyanpkb256ZXdhbmp1Zzdia2R2MzJ5dDB1bmRkYTY5eTJ2ZXNlYmMvUHJvamV0byUyMGVsJUMzJUE5dHJpY28lMjBSZXNkLkFsZmElMjAtJTIwVjA1LnJ2dA
+URN Local Decodificada: urn:adsk.objects:os.object:studio57_bim_bucket_jaut9ws08rjzdonzewanjug7bkdv32yt0undda69y2vesebc/Projeto%20el%C3%A9trico%20Resd.Alfa%20-%20V05.rvt
+ÔØî DISPONIBILIDADE NO DISCO: AUSENTE (Apagado ou Expirou da Nuvem).
+Motor 3D Viewer (Tradu├º├úo): SUCCESS (complete)
+
+===========================================
+Projeto: 2021_015_LINK 02_ARQUITETURA LAYOUT.rvt (ID: 24)
+Tamanho: 51.01 MB
+Status Banco: Concluido
+URN Supabase -> Autodesk: dXJuOmFkc2sub2JqZWN0czpvcy5vYmplY3Q6c3R1ZGlvNTdfYmltX2J1Y2tldF9qYXV0OXdzMDhyanpkb256ZXdhbmp1Zzdia2R2MzJ5dDB1bmRkYTY5eTJ2ZXNlYmMvMjAyMV8wMTVfTElOSyUyMDAyX0FSUVVJVEVUVVJBJTIwTEFZT1VULnJ2dA
+URN Local Decodificada: urn:adsk.objects:os.object:studio57_bim_bucket_jaut9ws08rjzdonzewanjug7bkdv32yt0undda69y2vesebc/2021_015_LINK%2002_ARQUITETURA%20LAYOUT.rvt
+ÔØî DISPONIBILIDADE NO DISCO: AUSENTE (Apagado ou Expirou da Nuvem).
+Motor 3D Viewer (Tradu├º├úo): FAILED (complete)
+­ƒÜ¿ MOTIVO FALHA: [{"type":"error","message":"Unrecoverable exit code from extractor: -1073741831","code":"TranslationWorker-InternalFailure"}]
+
+===========================================
+Projeto: 2021_015_LINK 01_V2_ARQUITETURA PAREDES.rvt (ID: 23)
+Tamanho: 41.57 MB
+Status Banco: Concluido
+URN Supabase -> Autodesk: dXJuOmFkc2sub2JqZWN0czpvcy5vYmplY3Q6c3R1ZGlvNTdfYmltX2J1Y2tldF9qYXV0OXdzMDhyanpkb256ZXdhbmp1Zzdia2R2MzJ5dDB1bmRkYTY5eTJ2ZXNlYmMvMjAyMV8wMTVfTElOSyUyMDAxX1YyX0FSUVVJVEVUVVJBJTIwUEFSRURFUy5ydnQ
+URN Local Decodificada: urn:adsk.objects:os.object:studio57_bim_bucket_jaut9ws08rjzdonzewanjug7bkdv32yt0undda69y2vesebc/2021_015_LINK%2001_V2_ARQUITETURA%20PAREDES.rvt
+ÔØî DISPONIBILIDADE NO DISCO: AUSENTE (Apagado ou Expirou da Nuvem).
+Motor 3D Viewer (Tradu├º├úo): SUCCESS (complete)
+
+===========================================
+Projeto: 2024_000_ESTRUTURA_CORRETA.rvt (ID: 22)
+Tamanho: 35.86 MB
+Status Banco: Concluido
+URN Supabase -> Autodesk: dXJuOmFkc2sub2JqZWN0czpvcy5vYmplY3Q6c3R1ZGlvNTdfYmltX2J1Y2tldF9qYXV0OXdzMDhyanpkb256ZXdhbmp1Zzdia2R2MzJ5dDB1bmRkYTY5eTJ2ZXNlYmMvMjAyNF8wMDBfRVNUUlVUVVJBX0NPUlJFVEEucnZ0
+URN Local Decodificada: urn:adsk.objects:os.object:studio57_bim_bucket_jaut9ws08rjzdonzewanjug7bkdv32yt0undda69y2vesebc/2024_000_ESTRUTURA_CORRETA.rvt
+ÔØî DISPONIBILIDADE NO DISCO: AUSENTE (Apagado ou Expirou da Nuvem).
+Motor 3D Viewer (Tradu├º├úo): SUCCESS (complete)
+
+===========================================
+Projeto: ESCADA.rvt (ID: 21)
+Tamanho: 2.79 MB
+Status Banco: Concluido
+URN Supabase -> Autodesk: dXJuOmFkc2sub2JqZWN0czpvcy5vYmplY3Q6c3R1ZGlvNTdfYmltX2J1Y2tldF9qYXV0OXdzMDhyanpkb256ZXdhbmp1Zzdia2R2MzJ5dDB1bmRkYTY5eTJ2ZXNlYmMvRVNDQURBLnJ2dA
+URN Local Decodificada: urn:adsk.objects:os.object:studio57_bim_bucket_jaut9ws08rjzdonzewanjug7bkdv32yt0undda69y2vesebc/ESCADA.rvt
+ÔØî DISPONIBILIDADE NO DISCO: AUSENTE (Apagado ou Expirou da Nuvem).
+Motor 3D Viewer (Tradu├º├úo): SUCCESS (complete)
+
+===========================================
+Projeto: 2021_015_PRIMEIRA INCORPORA├ç├âO_EDIFICIO RESIDENCIAL_PROJETO INC├èNDIO2.rvt (ID: 20)
+Tamanho: 138.19 MB
+Status Banco: Concluido
+URN Supabase -> Autodesk: dXJuOmFkc2sub2JqZWN0czpvcy5vYmplY3Q6c3R1ZGlvNTdfYmltX2J1Y2tldF9qYXV0OXdzMDhyanpkb256ZXdhbmp1Zzdia2R2MzJ5dDB1bmRkYTY5eTJ2ZXNlYmMvMjAyMV8wMTVfUFJJTUVJUkElMjBJTkNPUlBPUkElQzMlODclQzMlODNPX0VESUZJQ0lPJTIwUkVTSURFTkNJQUxfUFJPSkVUTyUyMElOQyVDMyU4QU5ESU8yLnJ2dA
+URN Local Decodificada: urn:adsk.objects:os.object:studio57_bim_bucket_jaut9ws08rjzdonzewanjug7bkdv32yt0undda69y2vesebc/2021_015_PRIMEIRA%20INCORPORA%C3%87%C3%83O_EDIFICIO%20RESIDENCIAL_PROJETO%20INC%C3%8ANDIO2.rvt
+ÔØî DISPONIBILIDADE NO DISCO: AUSENTE (Apagado ou Expirou da Nuvem).
+Motor 3D Viewer (Tradu├º├úo): SUCCESS (complete)
+
+===========================================
+Projeto: Residencial Alfa_Projeto Hidrossanit├írio_R04.rvt (ID: 19)
+Tamanho: 39.53 MB
+Status Banco: Concluido
+URN Supabase -> Autodesk: dXJuOmFkc2sub2JqZWN0czpvcy5vYmplY3Q6c3R1ZGlvNTdfYmltX2J1Y2tldF9qYXV0OXdzMDhyanpkb256ZXdhbmp1Zzdia2R2MzJ5dDB1bmRkYTY5eTJ2ZXNlYmMvUmVzaWRlbmNpYWwlMjBBbGZhX1Byb2pldG8lMjBIaWRyb3NzYW5pdCVDMyVBMXJpb19SMDQucnZ0
+URN Local Decodificada: urn:adsk.objects:os.object:studio57_bim_bucket_jaut9ws08rjzdonzewanjug7bkdv32yt0undda69y2vesebc/Residencial%20Alfa_Projeto%20Hidrossanit%C3%A1rio_R04.rvt
+ÔØî DISPONIBILIDADE NO DISCO: AUSENTE (Apagado ou Expirou da Nuvem).
+Motor 3D Viewer (Tradu├º├úo): SUCCESS (complete)
