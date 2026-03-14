@@ -235,5 +235,14 @@ O **Studio 57** é o ambiente de desenvolvimento e laboratório central. O **Elo
     - [ ] **Revisar o filtro de `periodo_inicio`:** Talvez salvar também o `mes_referencia` no arquivo e usar isso para o filtro, ao invés de comparar datas exatas.
     - [ ] **Conciliar as faturas importadas:** Após importar, usar o `PanelConciliacaoCartao` para ligar as transações da IA com os lançamentos do sistema.
 
+
+---
+
+### 12. Gestão de Custos BIM (Autodesk API) - *A FAZER*
+- [ ] **Diagnóstico:** A Autodesk cobra via "Flex Tokens" (aprox. U$ 4.50 ou R$ 25,00 por tradução de arquivo complexo como `.rvt` ou `.ifc`). O Studio 57 precisa repassar ou amortizar este custo.
+- [ ] **Sistema de Créditos:** Criar tabela `carteira_bim` no banco de dados.
+- [ ] **Planos/Pacotes:** Permitir que o cliente compre lotes de créditos (ex: 10 uploads).
+- [ ] **Bloqueio no Front-end/Back-end:** Antes de iniciar o `upload-direct-start`, verificar saldo na `carteira_bim`. Se saldo > 0, desconta 1 e permite o upload. Se saldo = 0, exibir modal para compra de pacote.
+
 ---
 *Assinado: Devonildo (Seu Mentor Técnico)*
