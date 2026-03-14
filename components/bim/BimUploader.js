@@ -89,7 +89,7 @@ export default function BimUploader({ onUploadComplete }) {
                 .from('projetos_bim')
                 .update({
                     urn_autodesk: finalizeData.urn,
-                    status: 'Concluido'
+                    status: 'Processando'
                 })
                 .eq('id', projetoRef.id);
 

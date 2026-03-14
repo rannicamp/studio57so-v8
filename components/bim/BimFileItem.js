@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
     faCheckSquare, faSquare, faClock, faEllipsisV, 
@@ -16,10 +17,15 @@ const BimFileItem = React.memo(({
     onToggleModel, 
     onAction 
 }) => {
+    const supabase = createClientComponentClient();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const [localStatus, setLocalStatus] = useState(file.status || 'Processando');
+    const [progressText, setProgressText] = useState('');
     const menuRef = useRef(null);
-    const isProcessing = file.status === 'processing';
-    const isError = file.status === 'Erro';
+
+    // Compatibilidade com diferentes nomenclaturas no BD
+    const isProcessing = localStatus === 'Processando' || localStatus === 'processing' || localStatus === 'Processando_Autodesk';
+    const isError = localStatus === 'Erro';
 
     // Fecha ao clicar fora
     useEffect(() => {
@@ -31,6 +37,49 @@ const BimFileItem = React.memo(({
         if (isMenuOpen) document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, [isMenuOpen]);
+
+    // Polling Automático para Status de Tradução da Autodesk
+    useEffect(() => {
+        let intervalId;
+        if (isProcessing && file.urn_autodesk) {
+            const checkTranslationStatus = async () => {
+                try {
+                    // Garantir que a URN passada não tem o prefixo para evitar erros na API deles
+                    const rawUrn = file.urn_autodesk.replace(/^urn:/, '');
+                    const res = await fetch('/api/aps/status', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ urn: rawUrn })
+                    });
+                    
+                    if (res.ok) {
+                        const data = await res.json();
+                        
+                        if (data.status === 'success') {
+                            setLocalStatus('Concluido');
+                            await supabase.from('projetos_bim').update({ status: 'Concluido' }).eq('id', file.id);
+                        } else if (data.status === 'failed' || data.status === 'timeout') {
+                            setLocalStatus('Erro');
+                            await supabase.from('projetos_bim').update({ status: 'Erro' }).eq('id', file.id);
+                        } else {
+                            // "pending" ou "inprogress"
+                            setProgressText(data.progress ? `PROGRESSO: ${data.progress}` : 'TRADUZINDO 3D...');
+                        }
+                    } else if (res.status === 404) {
+                        // Job ainda não começou ou URN inexistente (deve entrar em loop até existir)
+                        setProgressText('INICIANDO JOB...');
+                    }
+                } catch (err) {
+                    console.error('Erro no polling BIM:', err);
+                }
+            };
+
+            checkTranslationStatus(); // Roda imediatamente
+            intervalId = setInterval(checkTranslationStatus, 7000); // Roda a cada 7 segundos para não dar overload na rota
+        }
+
+        return () => { if (intervalId) clearInterval(intervalId); }
+    }, [isProcessing, file.urn_autodesk, file.id]);
 
     const handleMenuAction = (e, type) => {
         e.stopPropagation();
@@ -70,7 +119,7 @@ const BimFileItem = React.memo(({
                         {file.nome_arquivo}
                     </p>
                     <div className={`flex items-center gap-1 mt-1 text-[8px] ${isActive ? 'text-blue-200' : 'text-gray-400'}`}>
-                        {isProcessing ? "PROCESSANDO..." : <><FontAwesomeIcon icon={faClock} /> {new Date(file.criado_em).toLocaleDateString()} • v{file.versao}</>}
+                        {isProcessing ? progressText || "PROCESSANDO..." : <><FontAwesomeIcon icon={faClock} /> {new Date(file.criado_em).toLocaleDateString()} • v{file.versao}</>}
                     </div>
                 </div>
 
