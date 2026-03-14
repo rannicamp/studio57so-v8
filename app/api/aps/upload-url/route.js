@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 
 const APS_CLIENT_ID = process.env.APS_CLIENT_ID;
 const APS_CLIENT_SECRET = process.env.APS_CLIENT_SECRET;
-const BUCKET_KEY = (process.env.APS_BUCKET_KEY || 'studio57_bim_bucket_' + APS_CLIENT_ID).toLowerCase().replace(/[^a-z0-9_-]/g, '');
+const BUCKET_KEY = (process.env.APS_BUCKET_KEY || 'studio57_bim_bucket_p_' + APS_CLIENT_ID).toLowerCase().replace(/[^a-z0-9_-]/g, '');
 
 const sdkManager = SdkManagerBuilder.create().build();
 const authClient = new AuthenticationClient(sdkManager);
@@ -36,7 +36,7 @@ export async function POST(request) {
             await fetch('https://developer.api.autodesk.com/oss/v2/buckets', {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ bucketKey: BUCKET_KEY, policyKey: 'transient' })
+                body: JSON.stringify({ bucketKey: BUCKET_KEY, policyKey: 'persistent' })
             });
         } catch (e) {}
 
