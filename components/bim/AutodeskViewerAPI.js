@@ -79,9 +79,7 @@ function AutodeskViewerAPI({ urn, onViewerReady, onSelectionChange }) {
         const div = viewerContainerRef.current;
         if (!div || viewerInstanceRef.current) return;
 
-        const config3d = {
-            loaderExtensions: { svf: "Autodesk.MemoryLimited" },
-        };
+        const config3d = {}; // Removido Autodesk.MemoryLimited para evitar crash em arquivos de 50MB+
         
         const viewer = new Autodesk.Viewing.GuiViewer3D(div, config3d);
         const startedCode = viewer.start();

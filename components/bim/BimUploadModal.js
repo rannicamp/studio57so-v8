@@ -69,66 +69,54 @@ export default function BimUploadModal({
         setIsUploading(true);
         
         try {
-            // PASSO 1: UPLOAD DIRETO PARA O SUPABASE STORAGE
-            setStatusStep('1/3: Enviando arquivo para a nuvem...');
-            
-            // Gera nome único para evitar colisão
-            const fileExt = file.name.split('.').pop();
-            const uniqueName = `${Date.now()}_${Math.random().toString(36).substring(2)}.${fileExt}`;
-            const storagePath = `${uniqueName}`; // Caminho dentro do bucket bim-arquivos
+            // PASSO 1: Obter Link Direto de Upload Autodesk
+            setStatusStep('1/3: Conectando com Autodesk (Direct Upload)...');
 
-            // Faz o upload binário direto para o Supabase (Bypass do seu servidor)
-            const { data: uploadData, error: uploadError } = await supabase.storage
-                .from('bim-arquivos') // Nome exato do bucket que você confirmou
-                .upload(storagePath, file, {
-                    cacheControl: '3600',
-                    upsert: false 
-                });
-
-            if (uploadError) throw new Error(`Erro Storage: ${uploadError.message}`);
-
-            // Pega a URL pública para o servidor baixar
-            const { data: publicUrlData } = supabase.storage
-                .from('bim-arquivos')
-                .getPublicUrl(storagePath);
-
-            const fileUrl = publicUrlData.publicUrl;
-
-            // PASSO 2: ENVIAR APENAS O LINK PARA O SEU SERVIDOR
-            setStatusStep('2/3: Processando na Autodesk...');
-
-            const res = await fetch('/api/aps/upload', { // Mesma rota, mas agora mandamos JSON
+            const startRes = await fetch('/api/aps/upload-direct-start', {
                 method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json' // <--- AQUI ESTÁ A CHAVE DO SUCESSO
-                },
-                body: JSON.stringify({ 
-                    fileUrl: fileUrl, 
-                    fileName: file.name 
-                }),
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ fileName: file.name })
             });
 
-            // Tratamento de resposta
-            let apiData;
-            try {
-                apiData = await res.json();
-            } catch (e) {
-                console.error("Erro parse JSON:", e);
-                throw new Error("Erro fatal no servidor (500). Verifique logs do backend.");
-            }
+            const startData = await startRes.json();
+            if (!startRes.ok) throw new Error(startData.error || 'Falha ao conectar com Autodesk.');
             
-            if (!res.ok) throw new Error(apiData.error || "Falha na tradução Autodesk");
-            if (!apiData.urn) throw new Error("Autodesk não retornou URN.");
+            const { uploadUrl, uploadKey, objectKey } = startData;
+
+            // PASSO 2: Upload GIGANTE direto Browser -> Autodesk S3
+            setStatusStep(`2/3: Enviando arquivo de ${(file.size / 1024 / 1024).toFixed(1)}MB para nuvem Autodesk...`);
+
+            const s3UploadRes = await fetch(uploadUrl, {
+                method: 'PUT',
+                body: file
+            });
+
+            if (!s3UploadRes.ok) {
+                throw new Error(`O upload direto falhou: ${s3UploadRes.statusText}`);
+            }
+
+            // PASSO 3: Finaliza Upload e Pede Tradução SVF
+            setStatusStep('3/3: Iniciando Tradução 3D...');
+
+            const finalizeRes = await fetch('/api/aps/upload-direct-finalize', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ uploadKey, objectKey })
+            });
+
+            const finalizeData = await finalizeRes.json();
+            if (!finalizeRes.ok) throw new Error(finalizeData.error || 'Erro ao mandar traduzir o modelo.');
+            if (!finalizeData.urn) throw new Error('Não recebi o código URN de visualização.');
 
             // PASSO 3: SALVAR NO BANCO DE DADOS
             setStatusStep('3/3: Salvando registro...');
 
             const updateData = {
-                urn_autodesk: apiData.urn,
+                urn_autodesk: finalizeData.urn,
                 nome_arquivo: file.name,
                 tamanho_bytes: file.size,
-                status: 'Concluido',
-                caminho_storage: storagePath,
+                status: 'Processando',
+                caminho_storage: null, // Ignora Supabase Storage totalmente
                 criado_em: new Date().toISOString()
             };
 
