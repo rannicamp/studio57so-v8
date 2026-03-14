@@ -4,6 +4,7 @@ import { LayoutProvider } from '../../contexts/LayoutContext';
 import { EmpreendimentoProvider } from '../../contexts/EmpreendimentoContext';
 import { AuthProvider } from '../../contexts/AuthContext';
 import { Toaster } from 'sonner';
+import BimSidebarWrapper from '@/components/bim/BimSidebarWrapper';
 
 // Importa estilos globais e FontAwesome (igual ao main)
 import '../globals.css'; 
@@ -23,11 +24,14 @@ export default function BimLayout({ children }) {
     <AuthProvider>
         <LayoutProvider>
             <EmpreendimentoProvider>
-                <div className={`${inter.className} h-screen w-screen overflow-hidden bg-white text-gray-900`}>
+                <div className={`${inter.className} h-screen w-screen overflow-hidden bg-white text-gray-900 relative`}>
+                    {/* Botão flutuante e Menu Envelopado. O Absolute/Z-index garante sobreposição sem re-render */}
+                    <BimSidebarWrapper />
+
                     {/* Toaster para notificações (Sucesso/Erro upload) */}
                     <Toaster position="top-right" richColors />
                     
-                    {/* O conteúdo da página BIM (que já tem seu próprio sidebar) */}
+                    {/* O conteúdo da página BIM (Visualizadores, sem ser atrapalhado por Flexbox root) */}
                     {children}
                 </div>
             </EmpreendimentoProvider>
