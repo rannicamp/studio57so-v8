@@ -77,47 +77,57 @@ export async function extrairDadosDoModelo(viewer, projetoBimId, organizacaoId, 
                     }
 
                     if (val !== "" && val !== null && val !== undefined) {
-                        // Limpa chaves para JSONB
-                        const safeKey = p.displayName.replace(/[".]/g, '');
+                        // Limpa chaves para JSONB de forma segura (Tolerância MEP)
+                        const rawName = p.displayName || p.attributeName || p.name || `Propriedade_${p.dbId || 'Desconhecida'}`;
+                        const safeKey = String(rawName).replace(/[".]/g, '');
                         propsObj[safeKey] = val;
                     }
 
-                    // Mapeamento Inteligente
-                    if (p.attributeName === 'Category') categoria = p.displayValue;
-                    if (p.attributeName === 'Family' || p.displayName === 'Família') familia = p.displayValue;
-                    if (p.attributeName === 'Type' || p.displayName === 'Tipo') tipo = p.displayValue;
-                    if (p.attributeName === 'Level' || p.displayName === 'Nível' || p.attributeName === 'Level') nivel = p.displayValue;
+                    // Mapeamento Inteligente (Tratamento seguro nulo)
+                    const nomeAtributo = p.attributeName || '';
+                    const nomeDisplay = p.displayName || '';
+
+                    if (nomeAtributo === 'Category' || nomeDisplay === 'Categoria') categoria = val || p.displayValue;
+                    if (nomeAtributo === 'Family' || nomeDisplay === 'Família') familia = val || p.displayValue;
+                    if (nomeAtributo === 'Type' || nomeDisplay === 'Tipo') tipo = val || p.displayValue;
+                    if (nomeAtributo.includes('Level') || nomeDisplay.includes('Nível')) nivel = val || p.displayValue;
                 });
             }
 
-            // Fallback para Família (usa o nome do item se falhar)
+            // Fallback para Família (usa o nome do item se falhar) de forma segura
             if ((!familia || familia === "") && item.name) {
-                familia = item.name.split('[')[0].trim();
+                const nomeItem = String(item.name);
+                familia = nomeItem.includes('[') ? nomeItem.split('[')[0].trim() : nomeItem.trim();
             }
 
             return {
                 external_id: externalId,
-                categoria: categoria || 'Outros',
-                familia: familia,
-                tipo: tipo,
-                nivel: nivel,
+                categoria: categoria || 'Outros (Instalações)',
+                familia: familia || 'Desconhecido',
+                tipo: tipo || 'Elemento MEP',
+                nivel: nivel || 'Não definido',
                 propriedades: propsObj
             };
         });
 
         // ENVIA ESTE LOTE PARA O BANCO IMEDIATAMENTE
         if (processedChunk.length > 0) {
-            const { error: chunkError } = await supabase.rpc('sync_bim_elements_chunk', {
-                p_organizacao_id: organizacaoId,
-                p_projeto_id: projetoBimId,
-                p_urn: cleanUrn,
-                p_sync_session: syncSession,
-                p_elementos: processedChunk
-            });
+            try {
+                const { error: chunkError } = await supabase.rpc('sync_bim_elements_chunk', {
+                    p_organizacao_id: organizacaoId,
+                    p_projeto_id: projetoBimId,
+                    p_urn: cleanUrn,
+                    p_sync_session: syncSession,
+                    p_elementos: processedChunk
+                });
 
-            if (chunkError) {
-                console.error(`Erro no chunk da RPC (Lote ${i/CHUNK_SIZE}):`, chunkError);
-                throw new Error("Falha ao salvar lote no banco: " + chunkError.message);
+                if (chunkError) {
+                    console.error(`[Elo 57] Erro na RPC sinc. Lote ${i/CHUNK_SIZE}:`, chunkError);
+                    throw new Error("Falha Supabase ao salvar lote: " + chunkError.message);
+                }
+            } catch (err) {
+                 console.error(`[Elo 57] Falha fatal no chunk de extração. O chunk continha ${processedChunk.length} peças. Erro:`, err);
+                 throw err;
             }
         }
 
