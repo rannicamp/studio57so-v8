@@ -25,29 +25,15 @@ export default function BimUploader({ onUploadComplete }) {
         setUploading(true);
 
         try {
-            // --- ETAPA 1: Upload para o Supabase (Backup Seguro) ---
-            setStatus('1/4: Salvando no Banco de Dados Seguro...');
-
-            // Cria um nome único para não sobrescrever arquivos com mesmo nome
-            const fileExt = file.name.split('.').pop();
-            const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
-            const filePath = `${fileName}`;
-
-            const { error: uploadError } = await supabase.storage
-                .from('bim-arquivos') // Nome correto do bucket com hífen
-                .upload(filePath, file);
-
-            if (uploadError) throw new Error(`Erro Supabase Storage: ${uploadError.message}`);
-
-            // --- ETAPA 2: Criar Registro na Tabela (Metadados) ---
-            setStatus('2/4: Registrando Projeto...');
+            // --- ETAPA 1: Adicionar Registro Visual de Estado ---
+            setStatus('1/4: Preparando Banco de Dados...');
 
             const { data: projetoRef, error: dbError } = await supabase
                 .from('projetos_bim')
                 .insert({
                     nome_arquivo: file.name,
                     tamanho_bytes: file.size,
-                    caminho_storage: filePath,
+                    caminho_storage: null, // Sem Supabase Storage para arq grandes
                     status: 'Processando'
                 })
                 .select()
@@ -55,52 +41,62 @@ export default function BimUploader({ onUploadComplete }) {
 
             if (dbError) throw new Error(`Erro Tabela BIM: ${dbError.message}`);
 
-            // --- ETAPA 3: Enviar para Autodesk (Processamento) ---
-            setStatus('3/4: Enviando para Nuvem Autodesk...');
+            // --- ETAPA 2: Obter Link Direto de Upload Autodesk ---
+            setStatus('2/4: Conectando com Autodesk (Direct Upload)...');
 
-            const formData = new FormData();
-            formData.append('file', file);
-
-            // Bloco de tratamento de erro robusto
-            const res = await fetch('/api/aps/upload', {
+            const startRes = await fetch('/api/aps/upload-direct-start', {
                 method: 'POST',
-                body: formData,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ fileName: file.name })
             });
 
-            // Tentamos ler a resposta como JSON
-            let data;
-            try {
-                data = await res.json();
-            } catch (e) {
-                // Se falhar o parse do JSON, provavelmente é um erro 500 do servidor retornando HTML
-                console.error("Erro ao ler resposta do servidor:", e);
-                throw new Error(`Erro Fatal no Servidor (500). Verifique o terminal do VS Code para ver o log de erro.`);
+            const startData = await startRes.json();
+            if (!startRes.ok) throw new Error(startData.error || 'Falha ao conectar com Autodesk.');
+            
+            const { uploadUrl, uploadKey, objectKey } = startData;
+
+            // --- ETAPA 3: Upload GIGANTE direto Browser -> Autodesk S3 ---
+            setStatus(`3/4: Enviando arquivo de ${(file.size / 1024 / 1024).toFixed(1)}MB para nuvem Autodesk...`);
+
+            const s3UploadRes = await fetch(uploadUrl, {
+                method: 'PUT',
+                body: file
+            });
+
+            if (!s3UploadRes.ok) {
+                // Remove registro do banco já que o upload falhou
+                await supabase.from('projetos_bim').delete().eq('id', projetoRef.id);
+                throw new Error(`O upload direto falhou: ${s3UploadRes.statusText}`);
             }
 
-            // Se o status da requisição não for OK (200-299), lançamos o erro que veio do backend
-            if (!res.ok) {
-                throw new Error(data.error || `Erro na API Autodesk: ${res.statusText}`);
-            }
+            // --- ETAPA 4: Finaliza Upload e Pede Tradução SVF ---
+            setStatus('4/4: Iniciando Tradução 3D...');
 
-            if (!data.urn) {
-                throw new Error('O servidor respondeu, mas não enviou o código URN.');
-            }
+            const finalizeRes = await fetch('/api/aps/upload-direct-finalize', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ uploadKey, objectKey })
+            });
 
-            // --- ETAPA 4: Atualizar Registro com o URN ---
-            setStatus('4/4: Finalizando...');
+            const finalizeData = await finalizeRes.json();
+            if (!finalizeRes.ok) throw new Error(finalizeData.error || 'Erro ao mandar traduzir o modelo.');
+            if (!finalizeData.urn) throw new Error('Não recebi o código URN de visualização.');
+
+            // --- ETAPA 5: Salvar URN Seguro no Banco ---
+            setStatus('Atualizando URN do Banco...');
 
             const { error: updateError } = await supabase
                 .from('projetos_bim')
                 .update({
-                    urn_autodesk: data.urn,
+                    urn_autodesk: finalizeData.urn,
                     status: 'Concluido'
                 })
                 .eq('id', projetoRef.id);
 
-            if (updateError) throw new Error('Erro ao salvar URN no banco');
+            if (updateError) throw new Error('Falha ao registrar URN final.');
 
             setStatus('Sucesso! Projeto processado.');
-            if (onUploadComplete) onUploadComplete(data.urn);
+            if (onUploadComplete) onUploadComplete(finalizeData.urn);
 
         } catch (error) {
             console.error(error);
