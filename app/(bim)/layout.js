@@ -24,15 +24,19 @@ export default function BimLayout({ children }) {
     <AuthProvider>
         <LayoutProvider>
             <EmpreendimentoProvider>
-                <div className={`${inter.className} h-screen w-screen overflow-hidden bg-white text-gray-900 relative`}>
-                    {/* Botão flutuante e Menu Envelopado. O Absolute/Z-index garante sobreposição sem re-render */}
+                <div className={`${inter.className} h-screen w-screen bg-white text-gray-900 flex overflow-hidden`}>
+                    
+                    {/* O Wrapper agora funciona empurrando o layout quando aberto, integrado nativamente (Flex Item 1) */}
                     <BimSidebarWrapper />
 
-                    {/* Toaster para notificações (Sucesso/Erro upload) */}
-                    <Toaster position="top-right" richColors />
-                    
-                    {/* O conteúdo da página BIM (Visualizadores, sem ser atrapalhado por Flexbox root) */}
-                    {children}
+                    {/* Conteúdo Dinâmico do BIM Manager (Flex Item 2) */}
+                    <div className="flex-1 h-screen relative overflow-hidden transition-all duration-300">
+                        {/* Toaster para notificações (Sucesso/Erro upload) */}
+                        <Toaster position="top-right" richColors />
+                        
+                        {/* O conteúdo da página BIM (Visualizadores web GL) */}
+                        {children}
+                    </div>
                 </div>
             </EmpreendimentoProvider>
         </LayoutProvider>

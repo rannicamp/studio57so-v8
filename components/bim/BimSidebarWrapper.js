@@ -11,21 +11,25 @@ export default function BimSidebarWrapper() {
     return (
         <>
             {/* 
-              Botão Flutuante (Hambúrguer) sobreposto ao Viewer 
-              Mantemos o z-index alto, mas menor que o do Sidebar aberto
+              Painel estreito fixo na lateral quando o menu está fechado (Acompanha a altura da tela)
+              Isso dá uma "ancoragem" visual ao botão de menu, tornando-o parte do sistema.
             */}
             {!isSidebarOpen && (
-                <button
-                    onClick={() => setIsSidebarOpen(true)}
-                    className="absolute top-4 left-4 z-40 p-3 bg-white/90 backdrop-blur-sm text-gray-700 shadow-md rounded-xl hover:bg-gray-50 hover:text-blue-600 transition-all border border-gray-100 focus:outline-none flex items-center justify-center print:hidden group"
-                    title="Menu Principal"
-                >
-                    <FontAwesomeIcon icon={faBars} className="text-xl group-hover:scale-110 transition-transform" />
-                </button>
+                <div className="flex flex-col items-center py-4 w-[65px] bg-white border-r border-gray-100 z-40 print:hidden shadow-sm relative shrink-0">
+                    <button
+                        onClick={() => setIsSidebarOpen(true)}
+                        className="p-3 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all focus:outline-none flex items-center justify-center group"
+                        title="Abrir Menu Principal"
+                    >
+                        <FontAwesomeIcon icon={faBars} className="text-xl group-hover:scale-110 transition-transform" />
+                    </button>
+                    {/* Linha Fina decorativa da Identidade Visual */}
+                    <div className="w-8 h-px bg-gray-200 mt-4 rounded-full"></div>
+                </div>
             )}
 
-            {/* O Container do Sidebar. Ele já lida com o z-index e a camada escura (backdrop) internamente */}
-            <div className="print:hidden relative z-50">
+            {/* Container da Sidebar principal (mantém o controle oficial dela, com Z-index para sobrepor via animação quando aberta) */}
+            <div className="print:hidden">
                 <Sidebar 
                     isOpen={isSidebarOpen} 
                     closeSidebar={() => setIsSidebarOpen(false)} 
