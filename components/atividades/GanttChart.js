@@ -51,8 +51,9 @@ const GanttLegend = () => (
 );
 
 export default function GanttChart({ activities, onEditActivity }) {
-    // --- ESTADO DO ZOOM ---
+    // --- ESTADO DO ZOOM E FILTRO ---
     const [columnWidth, setColumnWidth] = useState(40); 
+    const [statusFilter, setStatusFilter] = useState('Todos'); // Novo Estado de Filtro
 
     // Refs para sincronizar scroll
     const taskListRef = useRef(null);
@@ -71,17 +72,33 @@ export default function GanttChart({ activities, onEditActivity }) {
         if (scrollContainerRef.current) scrollContainerRef.current.scrollTop += e.deltaY;
     };
 
+    // 0. Filtragem Prévia por Status
+    const filteredActivities = useMemo(() => {
+        if (!activities) return [];
+        if (statusFilter === 'Todos') return activities;
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        return activities.filter(act => {
+            if (statusFilter === 'Atrasados') {
+                return act.data_fim_prevista && new Date(act.data_fim_prevista) < today && act.status !== 'Concluído';
+            }
+            return act.status === statusFilter;
+        });
+    }, [activities, statusFilter]);
+
     // 1. Range de Datas
     const { startDate, endDate, totalDays } = useMemo(() => {
-        if (!activities || activities.length === 0) {
+        if (!filteredActivities || filteredActivities.length === 0) {
             const now = new Date();
             return { startDate: now, endDate: now, totalDays: 1 };
         }
 
-        let min = new Date(activities[0].start_date || new Date());
-        let max = new Date(activities[0].end_date || new Date());
+        let min = new Date(filteredActivities[0].start_date || new Date());
+        let max = new Date(filteredActivities[0].end_date || new Date());
 
-        activities.forEach(act => {
+        filteredActivities.forEach(act => {
             if (act.start_date) {
                 const start = new Date(act.start_date);
                 if (start < min) min = start;
@@ -104,7 +121,7 @@ export default function GanttChart({ activities, onEditActivity }) {
         const totalDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
 
         return { startDate: min, endDate: max, totalDays };
-    }, [activities]);
+    }, [filteredActivities]);
 
     // 2. Array de Datas
     const timelineDates = useMemo(() => {
@@ -117,9 +134,9 @@ export default function GanttChart({ activities, onEditActivity }) {
         return dates;
     }, [startDate, totalDays]);
 
-    // 3. Estruturar Tarefas
+    // 3. Estruturar Tarefas (agora usa o array já filtrado por status)
     const structuredTasks = useMemo(() => {
-        return activities.map(act => {
+        return filteredActivities.map(act => {
             const start = new Date(act.start_date);
             // Zera horas para evitar bug de fuso
             start.setHours(0, 0, 0, 0);
@@ -144,7 +161,7 @@ export default function GanttChart({ activities, onEditActivity }) {
 
             return { ...act, startDiff, duration };
         });
-    }, [activities, startDate]);
+    }, [filteredActivities, startDate]);
 
     // 4. Marcador de Hoje (Posição em Pixels) - CORREÇÃO CRÍTICA
     const todayMarkerPosition = useMemo(() => {
@@ -226,20 +243,40 @@ export default function GanttChart({ activities, onEditActivity }) {
     return (
         <div className="flex flex-col h-full border border-gray-200 rounded-lg bg-white shadow-sm overflow-hidden text-xs">
             {/* Header de Controles */}
-            <div className="p-2 border-b bg-gray-50 flex justify-between items-center shrink-0">
-                <div className="text-gray-500 font-medium text-[10px] uppercase flex items-center gap-2">
-                    Horizonte Temporal
-                    {/* BOTÃO VOLTAR PARA HOJE */}
-                    {todayMarkerPosition && (
-                        <button 
-                            onClick={scrollToToday}
-                            className="flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-600 border border-blue-200 rounded hover:bg-blue-100 transition-colors ml-2"
-                            title="Centralizar em Hoje"
+            <div className="p-2 border-b bg-gray-50 flex justify-between items-center shrink-0 flex-wrap gap-2">
+                <div className="flex items-center gap-3">
+                    <div className="text-gray-500 font-medium text-[10px] uppercase flex items-center gap-2">
+                        Horizonte Temporal
+                        {/* BOTÃO VOLTAR PARA HOJE */}
+                        {todayMarkerPosition && (
+                            <button 
+                                onClick={scrollToToday}
+                                className="flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-600 border border-blue-200 rounded hover:bg-blue-100 transition-colors ml-2"
+                                title="Centralizar em Hoje"
+                            >
+                                <FontAwesomeIcon icon={faCalendarDay} />
+                                <span>Hoje</span>
+                            </button>
+                        )}
+                    </div>
+
+                    {/* NOVO: SELECT DE FILTRO DE STATUS */}
+                    <div className="flex items-center gap-1 border-l pl-3 ml-1">
+                        <span className="text-[10px] uppercase font-bold text-gray-400">Status:</span>
+                        <select
+                            value={statusFilter}
+                            onChange={(e) => setStatusFilter(e.target.value)}
+                            className="text-xs bg-white border border-gray-300 rounded px-2 py-1 text-gray-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 cursor-pointer shadow-sm w-32 truncate"
                         >
-                            <FontAwesomeIcon icon={faCalendarDay} />
-                            <span>Hoje</span>
-                        </button>
-                    )}
+                            <option value="Todos">Todos ({activities?.length || 0})</option>
+                            <option value="Atrasados">Atrasados</option>
+                            <option value="Em Andamento">Em Andamento</option>
+                            <option value="Pausado">Pausado</option>
+                            <option value="Aguardando Material">Aguardando Material</option>
+                            <option value="Não iniciado">Não iniciado</option>
+                            <option value="Concluído">Concluído</option>
+                        </select>
+                    </div>
                 </div>
                 
                 {/* Controles de Zoom */}
