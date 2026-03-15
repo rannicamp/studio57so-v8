@@ -123,32 +123,36 @@ export function useBimQuantitativos({ organizacaoId }) {
     staleTime: 2 * 60 * 1000,
   });
 
-  const modeloSelecionado = useMemo(
-    () => modelos.find(m => String(m.id) === String(modeloSelecionadoId)),
-    [modelos, modeloSelecionadoId]
+  const modelosSelecionados = useMemo(
+    () => modelos.filter(m => modelosSelecionadosIds.includes(String(m.id))),
+    [modelos, modelosSelecionadosIds]
   );
+  const modeloSelecionado = modelosSelecionados[0] || null;
 
   // Auto-select primeiro modelo se não houver seleção
   useEffect(() => {
-    if (!modeloSelecionadoId && modelos.length > 0) {
-      const savedId = localStorage.getItem('studio57_bim_quant_modelo_id');
-      const validSaved = savedId && modelos.some(m => String(m.id) === savedId);
-      handleSelectModelo(validSaved ? savedId : String(modelos[0].id));
+    if (modelosSelecionadosIds.length === 0 && modelos.length > 0) {
+      const saved = localStorage.getItem('studio57_bim_quant_modelos_ids');
+      let validIds = [];
+      if (saved) {
+        try { validIds = JSON.parse(saved).filter(id => modelos.some(m => String(m.id) === String(id))); } catch(e) {}
+      }
+      handleSelectModelos(validIds.length > 0 ? validIds : [String(modelos[0].id)]);
     }
-  }, [modelos, modeloSelecionadoId]);
+  }, [modelos, modelosSelecionadosIds]);
 
   // ─── Query 3: Elementos Agrupados do Modelo + lista flat ────────────
   const elementosQueryKey = ['bimQuant_elementos', [...modelosSelecionadosIds].sort().join(','), organizacaoId];
   const { data: grupos = [], isLoading: carregandoElementos } = useQuery({
     queryKey: elementosQueryKey,
     queryFn: async () => {
-      if (!modeloSelecionadoId || !organizacaoId) return [];
+      if (modelosSelecionadosIds.length === 0 || !organizacaoId) return [];
 
       // Busca todos os elementos do modelo (sem agrupar no banco para manter flexibilidade)
       const { data, error } = await supabase
         .from('elementos_bim')
         .select('id, external_id, categoria, familia, tipo, nivel, propriedades, is_active')
-        .eq('projeto_bim_id', modeloSelecionadoId)
+        .in('projeto_bim_id', modelosSelecionadosIds)
         // Inclui inativos também para rastreabilidade
         // .eq('is_active', true)  ← removido para expor inativados
         .not('categoria', 'in', '("Revit Level","Revit Grids","Revit Scope Boxes","Revit Reference Planes","<Indesejado>")');
