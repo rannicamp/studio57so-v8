@@ -11,7 +11,7 @@ export function useBimEvolution(viewer, organizacaoId) {
 
     // DEFINIÇÃO DAS CORES
     const getStatusColor = (status) => {
-        const s = String(status).trim().toLowerCase().replace(' ', '_');
+        const s = String(status).normalize('NFD').replace(/[\u0300-\u036f]/g, "").trim().toLowerCase().replace(/\s+/g, '_');
         if (!window.THREE) return null;
 
         switch (s) {

@@ -109,13 +109,13 @@ export default function BimSidebar({
   return (
     <div className="w-72 bg-white border-r border-gray-100 h-full flex flex-col shadow-sm">
       <div className="p-6 border-b border-gray-50 bg-white z-10 flex flex-col gap-3">
-        <h2 className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Navegador BIM</h2>
+        <h2 className="text-[10px] font-extrabold text-gray-400 uppercase tracking-widest">Navegador BIM</h2>
         <button onClick={() => setModalState({ ...modalState, upload: true, mode: 'create', file: null })} className="w-full bg-blue-600 text-white py-2.5 rounded-xl font-bold text-xs shadow-md shadow-blue-100 flex items-center justify-center gap-2 transition-all active:scale-95">
             <FontAwesomeIcon icon={faPlus} /> NOVO ARQUIVO
         </button>
         {selectedModels.length > 0 && (
             <div className="flex gap-2 animate-in slide-in-from-top-1">
-                <button onClick={() => setModalState({ ...modalState, set: true })} className="flex-1 bg-purple-100 text-purple-700 py-2 rounded-xl font-bold text-[10px] flex items-center justify-center gap-2"><FontAwesomeIcon icon={faSave} /> SALVAR ({selectedModels.length})</button>
+                <button onClick={() => setModalState({ ...modalState, set: true })} className="flex-1 bg-gray-100 text-gray-700 hover:bg-gray-200 py-2 rounded-xl font-bold text-[10px] flex items-center justify-center gap-2"><FontAwesomeIcon icon={faSave} /> SALVAR ({selectedModels.length})</button>
                 <button onClick={onClearAll} className="w-10 bg-red-50 text-red-500 border border-red-100 rounded-xl"><FontAwesomeIcon icon={faTimesCircle} /></button>
             </div>
         )}
@@ -129,8 +129,8 @@ export default function BimSidebar({
         {filtered.map(emp => (
             <div key={emp.id} className="mb-2">
                 <div onClick={() => toggleExpand(`empresa-${emp.id}`)} className="flex items-center gap-2 p-2 hover:bg-white rounded-lg cursor-pointer">
-                    <FontAwesomeIcon icon={(expandedItems[`empresa-${emp.id}`] || emp.forceExpand) ? faChevronDown : faChevronRight} className="text-[8px] text-gray-300 w-3" />
-                    <span className="text-xs font-black text-gray-700 uppercase">{emp.nome}</span>
+                    <FontAwesomeIcon icon={(expandedItems[`empresa-${emp.id}`] || emp.forceExpand) ? faChevronDown : faChevronRight} className="text-[10px] text-gray-300 w-3" />
+                    <span className="text-xs font-extrabold text-gray-700 uppercase">{emp.nome}</span>
                 </div>
                 {(expandedItems[`empresa-${emp.id}`] || emp.forceExpand) && (
                     <div className="ml-3 pl-2 border-l border-gray-200 mt-1 space-y-1">
@@ -144,8 +144,8 @@ export default function BimSidebar({
                                     <div className="ml-4 mt-1 space-y-1">
                                         {obra.children.map(child => {
                                             if (child.type === 'set') return (
-                                                <div key={child.id} onClick={() => onLoadSet(data.allFiles.filter(f => child.data.projetos_ids.includes(f.id)))} className="flex items-center gap-2 p-2 bg-white border border-purple-100 rounded-lg cursor-pointer hover:shadow-sm">
-                                                    <FontAwesomeIcon icon={faCube} className="text-purple-600 text-[10px]" />
+                                                <div key={child.id} onClick={() => onLoadSet(data.allFiles.filter(f => child.data.projetos_ids.includes(f.id)))} className="flex items-center gap-2 p-2 bg-white border border-gray-200 rounded-lg cursor-pointer hover:shadow-sm">
+                                                    <FontAwesomeIcon icon={faCube} className="text-gray-500 text-[10px]" />
                                                     <span className="text-[10px] font-bold text-gray-700">{child.nome}</span>
                                                 </div>
                                             );
@@ -153,7 +153,7 @@ export default function BimSidebar({
                                             return (
                                                 <div key={child.uniqueId}>
                                                     <div onClick={() => toggleExpand(child.uniqueId)} className={`flex items-center gap-2 p-1.5 rounded-md cursor-pointer ${open ? 'text-blue-700 bg-blue-50 font-bold' : 'text-gray-500'}`}>
-                                                        <FontAwesomeIcon icon={open ? faChevronDown : faChevronRight} className="text-[8px] w-2" />
+                                                        <FontAwesomeIcon icon={open ? faChevronDown : faChevronRight} className="text-[10px] w-2" />
                                                         <span className="text-[10px] uppercase tracking-wider">{child.sigla}</span>
                                                     </div>
                                                     {open && (

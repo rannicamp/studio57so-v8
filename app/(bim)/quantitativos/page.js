@@ -9,13 +9,15 @@ import {
   faFileExport, faArrowRight, faAngleDown, faAngleRight,
   faTriangleExclamation, faBoxOpen, faExpand, faCompress,
   faSearch, faBarcode, faLink, faBan, faRuler as faRulerIcon,
-  faDollarSign, faExclamationTriangle, faChevronRight as faChevRight,
+  faDollarSign, faExclamationTriangle, faChevronRight as faChevRight, faFileInvoiceDollar,
 } from '@fortawesome/free-solid-svg-icons';
 import Link from 'next/link';
 import { useBimQuantitativos } from '@/hooks/bim/useBimQuantitativos';
 import { useBimMapeamentos }    from '@/hooks/bim/useBimMapeamentos';
-import BimImportModal           from '@/components/orcamento/BimImportModal';
-import BimVinculoMaterialModal  from '@/components/bim/BimVinculoMaterialModal';
+import { toast } from 'sonner';
+import BimImportModal from '@/components/orcamento/BimImportModal';
+import BimVinculoMaterialModal from '@/components/bim/BimVinculoMaterialModal';
+import BimGerenciarVinculosModal from '@/components/bim/BimGerenciarVinculosModal';
 import { useQuery } from '@tanstack/react-query';
 import { createClient } from '@/utils/supabase/client';
 
@@ -33,7 +35,7 @@ const BadgeStatus = ({ status }) => {
   };
   const cls = cfg[status?.toLowerCase()] || cfg['pendente'];
   return (
-    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase border ${cls}`}>
+    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full uppercase border ${cls}`}>
       {status || 'Disponível'}
     </span>
   );
@@ -50,7 +52,6 @@ export default function BimQuantitativosPage() {
   const [buscaElemento, setBuscaElemento] = useState('');
   const [medidasSelecionadas, setMedidasSelecionadas] = useState({});
   const [abaAtiva, setAbaAtiva] = useState('elementos'); // 'elementos' | 'por-material'
-  const [vinculoModal, setVinculoModal] = useState(null); // { propriedade, elemento }
   const dropdownRef = useRef(null);
 
   // Orçamentos etapas
@@ -97,6 +98,55 @@ export default function BimQuantitativosPage() {
     organizacaoId: organizacao_id,
     empreendimentoId: empreendimentoSelecionadoId,
   });
+
+  // ─── Agrupamento de Orçamento por Etapas ─────────────────────────────────────
+  const quantitativosAgrupados = useMemo(() => {
+    const grupos = {};
+    quantitativoPorMaterial.forEach(item => {
+      const eId = item.etapa_id || 'sem_etapa';
+      const eNome = item.etapa_nome || 'Sem Etapa Vinculada';
+      const sId = item.subetapa_id || 'sem_subetapa';
+      const sNome = item.subetapa_nome || '';
+
+      if (!grupos[eId]) {
+        grupos[eId] = {
+          etapa_id: eId,
+          etapa_nome: eNome,
+          custo_total: 0,
+          tem_alertas: false,
+          subetapas: {}
+        };
+      }
+      if (!grupos[eId].subetapas[sId]) {
+        grupos[eId].subetapas[sId] = {
+          subetapa_id: sId,
+          subetapa_nome: sNome,
+          custo_total: 0,
+          materiais: []
+        };
+      }
+
+      grupos[eId].custo_total += item.custo_total;
+      if (item.tem_alertas) grupos[eId].tem_alertas = true;
+      grupos[eId].subetapas[sId].custo_total += item.custo_total;
+      grupos[eId].subetapas[sId].materiais.push(item);
+    });
+
+    return Object.values(grupos).sort((a, b) => {
+      if (a.etapa_id === 'sem_etapa') return 1;
+      if (b.etapa_id === 'sem_etapa') return -1;
+      return a.etapa_nome.localeCompare(b.etapa_nome);
+    });
+  }, [quantitativoPorMaterial]);
+
+  const [etapasOrcamentoExpandidas, setEtapasOrcamentoExpandidas] = useState(new Set());
+  const toggleEtapaOrcamento = (id) => setEtapasOrcamentoExpandidas(prev => {
+    const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s;
+  });
+
+  // Modais / Seletoes (Vínculo & Exclusão)
+  const [vinculoModal, setVinculoModal] = useState(null);
+  const [materialGerenciar, setMaterialGerenciar] = useState(null);
 
   // Função para editar fator de conversao via prompt nativo
   const handleEditFator = async (item) => {
@@ -157,10 +207,10 @@ export default function BimQuantitativosPage() {
 
   // Badge padronizado para unidade (mesma aparência, cor por tipo)
   const UNIDADE_COR = {
-    'm³': 'bg-purple-50 text-purple-700 border-purple-200',
-    'm²': 'bg-green-50 text-green-700 border-green-200',
+    'm³': 'bg-blue-50 text-blue-700 border-blue-200',
+    'm²': 'bg-blue-50 text-blue-700 border-blue-200',
     'm':  'bg-blue-50 text-blue-700 border-blue-200',
-    'mm': 'bg-orange-100 text-orange-600 border-orange-200',
+    'mm': 'bg-gray-50 text-gray-700 border-gray-200',
     'un': 'bg-gray-50 text-gray-600 border-gray-200',
   };
   const BadgeUnidade = ({ unidade, ativo = true, onClick }) => {
@@ -270,7 +320,7 @@ export default function BimQuantitativosPage() {
               <div className="grid grid-cols-2 gap-2">
                 {medidasExibir.map(m => (
                   <div key={m.chave} className="bg-gray-50 rounded-lg px-3 py-2.5 border border-gray-100">
-                    <p className="text-[9px] text-gray-400 uppercase tracking-wide font-semibold">{m.label}</p>
+                    <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold">{m.label}</p>
                     <p className="text-base font-bold text-gray-800 mt-0.5">
                       {fmt2(m.valor)} <span className="text-[10px] font-normal text-gray-400">{m.unidade}</span>
                     </p>
@@ -365,7 +415,7 @@ export default function BimQuantitativosPage() {
                       {temValor && (
                         <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                           {jaMapeada ? (
-                            <span className="text-[9px] bg-green-100 text-green-700 border border-green-200 px-1.5 py-0.5 rounded-full font-bold">
+                            <span className="text-[10px] bg-green-100 text-green-700 border border-green-200 px-1.5 py-0.5 rounded-full font-bold">
                               vinculado
                             </span>
                           ) : (
@@ -375,9 +425,9 @@ export default function BimQuantitativosPage() {
                                 elemento: dados,
                               })}
                               title="Vincular ao material"
-                              className="text-[9px] bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200 px-1.5 py-0.5 rounded-full font-bold transition-all"
+                              className="text-[10px] bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200 px-1.5 py-0.5 rounded-full font-bold transition-all flex items-center gap-1"
                             >
-                              📦 vincular
+                              <FontAwesomeIcon icon={faLink} /> vincular
                             </button>
                           )}
                         </div>
@@ -426,7 +476,7 @@ export default function BimQuantitativosPage() {
 
         {/* Dropdown de Empreendimento */}
         <div className="flex-1 max-w-lg" ref={dropdownRef}>
-          <label className="block text-[9px] font-black text-gray-400 uppercase tracking-widest mb-0.5">
+          <label className="block text-[10px] font-extrabold text-gray-400 uppercase tracking-widest mb-0.5">
             Empreendimento
           </label>
           <div className="relative">
@@ -453,7 +503,7 @@ export default function BimQuantitativosPage() {
                   <div className="p-4 text-center text-gray-400"><FontAwesomeIcon icon={faSpinner} spin /></div>
                 ) : empreendimentosAgrupados.map(grupo => (
                   <div key={grupo.empresa} className="p-2">
-                    <h3 className="text-[9px] font-black text-blue-400 uppercase tracking-widest border-b border-gray-100 pb-1 mb-2 pl-1">
+                    <h3 className="text-[10px] font-extrabold text-blue-400 uppercase tracking-widest border-b border-gray-100 pb-1 mb-2 pl-1">
                       <FontAwesomeIcon icon={faBuilding} className="mr-1" />
                       {grupo.empresa}
                     </h3>
@@ -550,14 +600,14 @@ export default function BimQuantitativosPage() {
                       </p>
                       <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                         {modelo.disciplinas_projetos?.nome && (
-                          <span className="text-[9px] text-gray-500 font-medium">{modelo.disciplinas_projetos.nome}</span>
+                          <span className="text-[10px] text-gray-500 font-medium">{modelo.disciplinas_projetos.nome}</span>
                         )}
                         {modelo.versao && (
-                          <span className="text-[9px] text-gray-400">v{modelo.versao}</span>
+                          <span className="text-[10px] text-gray-400">v{modelo.versao}</span>
                         )}
                         <BadgeStatus status={modelo.status} />
                       </div>
-                      <p className="text-[9px] text-gray-400 mt-1">{fmtData(modelo.criado_em)}</p>
+                      <p className="text-[10px] text-gray-400 mt-1">{fmtData(modelo.criado_em)}</p>
                     </div>
                     {isSel && <FontAwesomeIcon icon={faCheck} className="text-blue-500 text-xs flex-shrink-0 mt-1" />}
                   </div>
@@ -610,21 +660,21 @@ export default function BimQuantitativosPage() {
               {/* KPIs */}
               <div className="grid grid-cols-4 gap-3">
                 <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
-                  <p className="text-[9px] font-black text-blue-500 uppercase tracking-wider">Total Elementos</p>
+                  <p className="text-[10px] font-extrabold text-blue-500 uppercase tracking-wider">Total Elementos</p>
                   <p className="text-lg font-bold text-blue-800">{kpis.totalElementos.toLocaleString('pt-BR')}</p>
                 </div>
                 <div className="bg-gray-50 border border-gray-100 rounded-lg px-3 py-2">
-                  <p className="text-[9px] font-black text-gray-500 uppercase tracking-wider">Categorias</p>
+                  <p className="text-[10px] font-extrabold text-gray-500 uppercase tracking-wider">Categorias</p>
                   <p className="text-lg font-bold text-gray-700">{kpis.totalCategorias}</p>
                 </div>
                 <div className="bg-green-50 border border-green-100 rounded-lg px-3 py-2">
-                  <p className="text-[9px] font-black text-green-600 uppercase tracking-wider">
+                  <p className="text-[10px] font-extrabold text-green-600 uppercase tracking-wider">
                     <FontAwesomeIcon icon={faRulerCombined} className="mr-1" />Área Total m²
                   </p>
                   <p className="text-lg font-bold text-green-700">{fmt2(kpis.areaTotal)}</p>
                 </div>
                 <div className="bg-indigo-50 border border-indigo-100 rounded-lg px-3 py-2">
-                  <p className="text-[9px] font-black text-indigo-500 uppercase tracking-wider">
+                  <p className="text-[10px] font-extrabold text-indigo-500 uppercase tracking-wider">
                     <FontAwesomeIcon icon={faBarcode} className="mr-1" />Com SINAPI
                   </p>
                   <p className="text-lg font-bold text-indigo-700">{kpis.comSinapi}</p>
@@ -636,21 +686,22 @@ export default function BimQuantitativosPage() {
           {/* ─── TABS: Elementos BIM | Por Material ─── */}
           {modeloSelecionado && (
             <div className="flex border-b border-gray-200 bg-white px-5 flex-shrink-0">
-              {[{ v: 'elementos', label: 'Elementos BIM' }, { v: 'por-material', label: `📦 Orçamentação${kpisMaterial.totalMapeados > 0 ? ` (${kpisMaterial.totalMapeados})` : ''}` }]
+              {[{ v: 'elementos', label: 'Elementos BIM', icon: faCubes }, { v: 'por-material', label: `Orçamentação${kpisMaterial.totalMapeados > 0 ? ` (${kpisMaterial.totalMapeados})` : ''}`, icon: faFileInvoiceDollar }]
                 .map(tab => (
                   <button
                     key={tab.v}
                     onClick={() => setAbaAtiva(tab.v)}
-                    className={`px-5 py-2.5 text-xs font-bold border-b-2 transition-all ${
+                    className={`px-5 py-2.5 text-xs font-bold border-b-2 transition-all flex items-center gap-2 ${
                       abaAtiva === tab.v
                         ? 'border-blue-600 text-blue-700'
                         : 'border-transparent text-gray-500 hover:text-gray-700'
                     }`}
                   >
+                    <FontAwesomeIcon icon={tab.icon} className={abaAtiva === tab.v ? 'text-blue-600' : 'text-gray-400'} />
                     {tab.label}
                     {tab.v === 'por-material' && kpisMaterial.materialComAlerta > 0 && (
-                      <span className="ml-1.5 bg-amber-100 text-amber-600 text-[9px] font-black px-1 py-0.5 rounded-full">
-                        {kpisMaterial.materialComAlerta} ⚠️
+                      <span className="ml-1.5 bg-amber-100 text-amber-700 border border-amber-200 text-[10px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-1">
+                        {kpisMaterial.materialComAlerta} <FontAwesomeIcon icon={faExclamationTriangle} />
                       </span>
                     )}
                   </button>
@@ -666,10 +717,10 @@ export default function BimQuantitativosPage() {
               <div className="p-5">
                 {quantitativoPorMaterial.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-20 text-gray-400 gap-4">
-                    <span className="text-5xl">📦</span>
+                    <span className="text-5xl text-gray-300"><FontAwesomeIcon icon={faBoxOpen} /></span>
                     <p className="font-semibold text-center">
                       Nenhum material vinculado ainda.<br />
-                      <span className="text-xs">Abra um elemento no sidebar e clique em "📦 vincular" numa propriedade.</span>
+                      <span className="text-xs">Abra um elemento no sidebar e clique em "<FontAwesomeIcon icon={faLink} className="mx-1" /> vincular" numa propriedade.</span>
                     </p>
                   </div>
                 ) : (
@@ -683,7 +734,7 @@ export default function BimQuantitativosPage() {
                         </>
                       ) : (
                         <>
-                          <span>🏗️</span>
+                          <FontAwesomeIcon icon={faBuilding} className="mr-1" />
                           <span>
                             <strong>{empreendimentoSelecionado?.nome}</strong>
                             {' · '}{modelos.length} modelo{modelos.length !== 1 ? 's' : ''} BIM
@@ -696,17 +747,17 @@ export default function BimQuantitativosPage() {
                     {/* KPIs materiais */}
                     <div className="grid grid-cols-3 gap-3 mb-5">
                       <div className="bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2">
-                        <p className="text-[9px] font-black text-emerald-600 uppercase tracking-wider">Custo Estimado</p>
+                        <p className="text-[10px] font-extrabold text-emerald-600 uppercase tracking-wider">Custo Estimado</p>
                         <p className="text-lg font-bold text-emerald-800">
                           {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(kpisMaterial.custoTotal)}
                         </p>
                       </div>
                       <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
-                        <p className="text-[9px] font-black text-blue-600 uppercase tracking-wider">Materiais Mapeados</p>
+                        <p className="text-[10px] font-extrabold text-blue-600 uppercase tracking-wider">Materiais Mapeados</p>
                         <p className="text-lg font-bold text-blue-800">{kpisMaterial.totalMapeados}</p>
                       </div>
                       <div className="bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
-                        <p className="text-[9px] font-black text-amber-600 uppercase tracking-wider">Alertas de Sync</p>
+                        <p className="text-[10px] font-extrabold text-amber-600 uppercase tracking-wider">Alertas de Sync</p>
                         <p className="text-lg font-bold text-amber-800">{kpisMaterial.materialComAlerta}</p>
                       </div>
                     </div>
@@ -721,84 +772,143 @@ export default function BimQuantitativosPage() {
                           <th className="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase">R$ Unit.</th>
                           <th className="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase">Total Est.</th>
                           <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase">Elem.</th>
+                          <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase">Ações</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {quantitativoPorMaterial.map(item => (
-                          <tr
-                            key={item.key}
-                            className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${
-                              item.tem_alertas ? 'bg-amber-50/30' : ''
-                            }`}
-                          >
-                            <td className="px-4 py-3">
-                              <div className="flex items-center gap-2">
-                                {item.tem_alertas && (
-                                  <span title={`${item.external_ids_inativos.length} elementos removidos do modelo`}>
-                                    <FontAwesomeIcon icon={faTriangleExclamation} className="text-amber-400 text-xs" />
-                                  </span>
-                                )}
-                                <div>
-                                  <p className="text-xs font-bold text-gray-800">{item.nome}</p>
-                                  {item.tem_alertas && (
-                                    <p className="text-[9px] text-amber-600">
-                                      {item.external_ids_inativos.length} elemento{item.external_ids_inativos.length !== 1 ? 's' : ''} removido{item.external_ids_inativos.length !== 1 ? 's' : ''} do modelo
-                                    </p>
+                        {quantitativosAgrupados.map(grupo => {
+                          const isExpandido = etapasOrcamentoExpandidas.size === 0 || etapasOrcamentoExpandidas.has(grupo.etapa_id);
+                          return (
+                            <Fragment key={grupo.etapa_id}>
+                              {/* L1: Cabeçalho da Etapa */}
+                              <tr 
+                                className="bg-blue-50 border-t-2 border-blue-200 cursor-pointer hover:bg-blue-100 transition-colors"
+                                onClick={() => toggleEtapaOrcamento(grupo.etapa_id)}
+                              >
+                                <td colSpan={4} className="px-4 py-2.5">
+                                  <div className="flex items-center gap-2">
+                                    <FontAwesomeIcon icon={isExpandido ? faAngleDown : faAngleRight} className="text-blue-500 w-3" />
+                                    <h3 className="text-xs font-bold text-blue-800 uppercase tracking-wide">
+                                      {grupo.etapa_nome}
+                                    </h3>
+                                    {grupo.tem_alertas && <FontAwesomeIcon icon={faTriangleExclamation} className="text-amber-500 ml-2" title="Possui itens com alertas/removidos" />}
+                                  </div>
+                                </td>
+                                <td className="px-4 py-2.5 text-right font-extrabold text-blue-800">
+                                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(grupo.custo_total)}
+                                </td>
+                                <td colSpan={2}></td>
+                              </tr>
+
+                              {/* L2: Subetapas e Materiais */}
+                              {isExpandido && Object.values(grupo.subetapas).map(sub => (
+                                <Fragment key={sub.subetapa_id}>
+                                  {/* Cabeçalho Subetapa (se houver nome) */}
+                                  {sub.subetapa_nome && (
+                                    <tr className="bg-gray-100 border-t border-gray-200">
+                                      <td colSpan={4} className="px-8 py-2">
+                                        <h4 className="text-[10px] font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2">
+                                          <FontAwesomeIcon icon={faLayerGroup} className="text-gray-400" />
+                                          {sub.subetapa_nome}
+                                        </h4>
+                                      </td>
+                                      <td className="px-4 py-2 text-right text-[10px] font-bold text-gray-500">
+                                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(sub.custo_total)}
+                                      </td>
+                                      <td colSpan={2}></td>
+                                    </tr>
                                   )}
-                                </div>
-                              </div>
-                            </td>
-                            <td className="px-4 py-3 text-center">
-                              <BadgeUnidade unidade={item.unidade} />
-                            </td>
-                            <td className="px-4 py-3 text-right">
-                              {item.fator_conversao ? (
-                                <div className="flex flex-col items-end cursor-pointer group" onClick={() => handleEditFator(item)}>
-                                  <span className="text-[10px] text-gray-400 font-semibold strike-through line-through decorative group-hover:text-blue-400 transition-colors">
-                                    {fmt2(item.quantidadeOriginalApenasParaInfo)}
-                                  </span>
-                                  <span className="font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded group-hover:bg-blue-100 transition-colors" title={`Fórmula: ${item.fator_conversao} (Clique para editar)`}>
-                                    {fmt2(item.quantidade)}
-                                  </span>
-                                </div>
-                              ) : (
-                                <span 
-                                  className="font-bold text-gray-800 cursor-pointer hover:text-blue-600 border-b border-dashed border-transparent hover:border-blue-400 transition-colors"
-                                  onClick={() => handleEditFator(item)}
-                                  title="Clique para adicionar uma fórmula de conversão"
-                                >
-                                  {fmt2(item.quantidade)}
-                                </span>
-                              )}
-                            </td>
-                            <td className="px-4 py-3 text-right text-gray-500 text-xs">
-                              {item.preco_unitario > 0
-                                ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.preco_unitario)
-                                : <span className="text-gray-300">—</span>}
-                            </td>
-                            <td className="px-4 py-3 text-right">
-                              {item.preco_unitario > 0 ? (
-                                <span className="font-bold text-emerald-700">
-                                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.custo_total)}
-                                </span>
-                              ) : <span className="text-gray-300">—</span>}
-                            </td>
-                            <td className="px-4 py-3 text-center">
-                              <span className="bg-blue-100 text-blue-700 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-                                {item.qtd_elementos}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
+
+                                  {/* Itens Materiais */}
+                                  {sub.materiais.map(item => (
+                                    <tr
+                                      key={item.key}
+                                      className={`border-b border-gray-100 hover:bg-white transition-colors ${
+                                        item.tem_alertas ? 'bg-amber-50/20' : 'bg-white'
+                                      }`}
+                                    >
+                                      <td className="px-4 py-2 pl-12 border-l-2 border-transparent hover:border-blue-400">
+                                        <div className="flex items-center gap-2">
+                                          {item.tem_alertas && (
+                                            <span title={`${item.external_ids_inativos.length} elementos removidos do modelo`}>
+                                              <FontAwesomeIcon icon={faTriangleExclamation} className="text-amber-400 text-[10px]" />
+                                            </span>
+                                          )}
+                                          <div>
+                                            <p className="text-xs font-semibold text-gray-700">{item.nome}</p>
+                                            {item.tem_alertas && (
+                                              <p className="text-[9px] text-amber-600">
+                                                {item.external_ids_inativos.length} elem. removidos do 3D
+                                              </p>
+                                            )}
+                                          </div>
+                                        </div>
+                                      </td>
+                                      <td className="px-4 py-2 text-center">
+                                        <BadgeUnidade unidade={item.unidade} />
+                                      </td>
+                                      <td className="px-4 py-2 text-right">
+                                        {item.fator_conversao ? (
+                                          <div className="flex flex-col items-end cursor-pointer group" onClick={() => handleEditFator(item)}>
+                                            <span className="text-[9px] text-gray-400 font-semibold strike-through line-through decorative group-hover:text-blue-400 transition-colors">
+                                              {fmt2(item.quantidadeOriginalApenasParaInfo)}
+                                            </span>
+                                            <span className="font-bold text-blue-700 bg-blue-50/50 px-1 py-0.5 rounded group-hover:bg-blue-100 transition-colors" title={`Fórmula: ${item.fator_conversao} (Clique para editar)`}>
+                                              {fmt2(item.quantidade)}
+                                            </span>
+                                          </div>
+                                        ) : (
+                                          <span 
+                                            className="text-xs font-bold text-gray-700 cursor-pointer hover:text-blue-600 border-b border-dashed border-transparent hover:border-blue-400 transition-colors"
+                                            onClick={() => handleEditFator(item)}
+                                            title="Adicionar conversão"
+                                          >
+                                            {fmt2(item.quantidade)}
+                                          </span>
+                                        )}
+                                      </td>
+                                      <td className="px-4 py-2 text-right text-gray-400 text-[10px]">
+                                        {item.preco_unitario > 0
+                                          ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.preco_unitario)
+                                          : <span className="text-gray-300">—</span>}
+                                      </td>
+                                      <td className="px-4 py-2 text-right">
+                                        {item.preco_unitario > 0 ? (
+                                          <span className="text-xs font-bold text-emerald-600">
+                                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.custo_total)}
+                                          </span>
+                                        ) : <span className="text-gray-300">—</span>}
+                                      </td>
+                                      <td className="px-4 py-2 text-center">
+                                        <span className="bg-blue-50 text-blue-600 text-[9px] font-bold px-1.5 py-0.5 rounded-full border border-blue-100">
+                                          {item.qtd_elementos}
+                                        </span>
+                                      </td>
+                                      <td className="px-4 py-2 text-center">
+                                        <button
+                                          onClick={() => setMaterialGerenciar(item)}
+                                          className="w-7 h-7 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-all flex items-center justify-center"
+                                          title="Gerenciar Vínculos"
+                                        >
+                                          <FontAwesomeIcon icon={faLink} className="text-xs" />
+                                        </button>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </Fragment>
+                              ))}
+                            </Fragment>
+                          );
+                        })}
                       </tbody>
                       {quantitativoPorMaterial.some(m => m.preco_unitario > 0) && (
                         <tfoot className="bg-gray-50 border-t-2 border-gray-200">
                           <tr>
-                            <td colSpan={4} className="px-4 py-2.5 text-xs font-black text-gray-600 uppercase tracking-wide">Total Estimado</td>
-                            <td className="px-4 py-2.5 text-right font-black text-emerald-700">
+                            <td colSpan={4} className="px-4 py-2.5 text-xs font-extrabold text-gray-600 uppercase tracking-wide">Total Estimado</td>
+                            <td className="px-4 py-2.5 text-right font-extrabold text-emerald-700">
                               {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(kpisMaterial.custoTotal)}
                             </td>
-                            <td></td>
+                            <td colSpan={2}></td>
                           </tr>
                         </tfoot>
                       )}
@@ -901,7 +1011,7 @@ export default function BimQuantitativosPage() {
                                 <td className="px-3 py-2 text-right">
                                   <button
                                     onClick={(e) => { e.stopPropagation(); setSidebarItem({ tipo: 'familia', dados: fam, cat: cat.categoria, fam: null }); }}
-                                    className="text-[9px] text-blue-400 hover:text-blue-700 hover:bg-blue-100 px-1.5 py-0.5 rounded transition-all opacity-0 group-hover:opacity-100"
+                                    className="text-[10px] text-blue-400 hover:text-blue-700 hover:bg-blue-100 px-1.5 py-0.5 rounded transition-all opacity-0 group-hover:opacity-100"
                                     title="Ver detalhes da família"
                                   >
                                     detalhes →
@@ -993,7 +1103,7 @@ export default function BimQuantitativosPage() {
                                             {valorEl && valorEl > 0 ? fmt2(valorEl) : '—'}
                                           </td>
                                           <td className="px-4 py-1.5">
-                                            {props['SINAPI'] && <span className="text-[9px] font-mono text-indigo-400">{props['SINAPI']}</span>}
+                                            {props['SINAPI'] && <span className="text-[10px] font-mono text-indigo-400">{props['SINAPI']}</span>}
                                           </td>
                                         </tr>
                                       );
@@ -1027,6 +1137,15 @@ export default function BimQuantitativosPage() {
         onSalvar={criarMapeamento}
         onExcluir={deletarMapeamento}
         mapeamentoExistente={vinculoModal ? resolverMapeamento(vinculoModal.elemento, vinculoModal.propriedade.nome) : null}
+      />
+
+      {/* ─── MODAL: Gerenciar/Desvincular Regras do Material ─── */}
+      <BimGerenciarVinculosModal
+        isOpen={!!materialGerenciar}
+        onClose={() => setMaterialGerenciar(null)}
+        materialOuSinapi={materialGerenciar}
+        mapeamentos={mapeamentos}
+        onExcluir={deletarMapeamento}
       />
 
       {/* ─── MODAL BIM IMPORT ─── */}

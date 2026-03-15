@@ -10,6 +10,7 @@ import {
     faCheckCircle, faHardHat 
 } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
+import { useBimMapeamentos } from '../../hooks/bim/useBimMapeamentos';
 
 // Mapeamento de Cores e Rótulos para os Status
 const STATUS_OPTIONS = {
@@ -41,6 +42,9 @@ export default function BimProperties({
     const [editingKey, setEditingKey] = useState(null);
     const [tempValue, setTempValue] = useState('');
     const [updatingStatus, setUpdatingStatus] = useState(false);
+
+    // Mapeamentos BIM (Quantitativos) - Para mostrar tag 'vinculado'
+    const { propriedadesMapeadas } = useBimMapeamentos({ organizacaoId: organizacao_id });
 
     // 1. BUSCA DE DADOS
     const { data: elementos, isFetching } = useQuery({
@@ -189,15 +193,21 @@ export default function BimProperties({
     const renderPropertyCard = (key, value) => {
         if (value === '__VARIES__' && !showEmpty) return null;
         const formatted = formatValue(value);
-        if (!showEmpty && (formatted === "" || formatted === null || formatted === "--")) return null;
+        if (!showEmpty && (formatted === "" || formatted === null || formatted === "--" || formatted === "0" || formatted === "0.00" || formatted === "0,00")) return null;
         const keysDestaque = ['família', 'family', 'tipo', 'type name', 'área', 'area', 'volume', 'comprimento', 'length', 'categoria', 'category', 'status_execucao'];
         if (keysDestaque.some(kd => key.toLowerCase().includes(kd))) return null;
         
         const isEditing = editingKey === key;
+        const jaMapeada = propriedadesMapeadas?.has(key);
 
         return (
             <div key={key} className={`group p-2 rounded-lg border transition-all ${isEditing ? 'bg-blue-50 border-blue-200' : 'bg-white border-gray-100 hover:border-blue-200'}`}>
-                <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-0.5 truncate" title={key}>{key}</p>
+                <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-0.5 truncate flex justify-between items-center" title={key}>
+                    <span>{key}</span>
+                    {jaMapeada && (
+                        <span className="text-[8px] bg-green-100 text-green-700 border border-green-200 px-1 py-0.5 rounded-sm font-bold lowercase tracking-normal ml-2 shrink-0">vinculado</span>
+                    )}
+                </p>
                 <div className="relative">
                     {isEditing ? (
                         <input autoFocus value={tempValue} onChange={(e) => setTempValue(e.target.value)} onBlur={() => autoSave(key, tempValue)} className="w-full text-xs font-bold text-blue-900 bg-white border border-blue-200 rounded px-1 outline-none" />

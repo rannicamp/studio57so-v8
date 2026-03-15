@@ -4,7 +4,7 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
-    faSearchPlus, faSearchMinus, faCalendarDay 
+    faSearchPlus, faSearchMinus, faCalendarDay, faChevronDown, faCheckSquare, faSquare 
 } from '@fortawesome/free-solid-svg-icons';
 
 // Utilitário de formatação de data
@@ -53,11 +53,43 @@ const GanttLegend = () => (
 export default function GanttChart({ activities, onEditActivity }) {
     // --- ESTADO DO ZOOM E FILTRO ---
     const [columnWidth, setColumnWidth] = useState(40); 
-    const [statusFilter, setStatusFilter] = useState('Todos'); // Novo Estado de Filtro
+    
+    // Filtro Múltiplo
+    const STATUS_OPTIONS = ['Atrasados', 'Em Andamento', 'Pausado', 'Aguardando Material', 'Não iniciado', 'Concluído'];
+    const [selectedStatuses, setSelectedStatuses] = useState([]); 
+    const [isStatusDropdownOpen, setIsStatusDropdownOpen] = useState(false);
+    const dropdownRef = useRef(null);
 
     // Refs para sincronizar scroll
     const taskListRef = useRef(null);
     const scrollContainerRef = useRef(null);
+
+    // Fechar dropdown ao clicar fora
+    useEffect(() => {
+        function handleClickOutside(event) {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+                setIsStatusDropdownOpen(false);
+            }
+        }
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
+    const toggleStatus = (status) => {
+        setSelectedStatuses(prev => 
+            prev.includes(status) 
+                ? prev.filter(s => s !== status)
+                : [...prev, status]
+        );
+    };
+
+    const handleSelectAll = () => {
+        if (selectedStatuses.length === STATUS_OPTIONS.length) {
+            setSelectedStatuses([]);
+        } else {
+            setSelectedStatuses([...STATUS_OPTIONS]);
+        }
+    };
 
     // --- FUNÇÕES DE ZOOM ---
     const zoomIn = () => setColumnWidth(prev => Math.min(prev + 10, 120));
@@ -72,21 +104,24 @@ export default function GanttChart({ activities, onEditActivity }) {
         if (scrollContainerRef.current) scrollContainerRef.current.scrollTop += e.deltaY;
     };
 
-    // 0. Filtragem Prévia por Status
+    // 0. Filtragem Prévia por Status Múltiplo
     const filteredActivities = useMemo(() => {
         if (!activities) return [];
-        if (statusFilter === 'Todos') return activities;
+        // Se nenhum filtro estiver marcado, ou todos estiverem marcados, mostra tudo.
+        if (selectedStatuses.length === 0 || selectedStatuses.length === STATUS_OPTIONS.length) return activities;
 
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
         return activities.filter(act => {
-            if (statusFilter === 'Atrasados') {
-                return act.data_fim_prevista && new Date(act.data_fim_prevista) < today && act.status !== 'Concluído';
+            let visualStatus = act.status;
+            // Atrasado tem prioridade no visual (mesmo em tela cheia)
+            if (act.data_fim_prevista && new Date(act.data_fim_prevista) < today && act.status !== 'Concluído') {
+                visualStatus = 'Atrasados';
             }
-            return act.status === statusFilter;
+            return selectedStatuses.includes(visualStatus);
         });
-    }, [activities, statusFilter]);
+    }, [activities, selectedStatuses]);
 
     // 1. Range de Datas
     const { startDate, endDate, totalDays } = useMemo(() => {
@@ -260,22 +295,46 @@ export default function GanttChart({ activities, onEditActivity }) {
                         )}
                     </div>
 
-                    {/* NOVO: SELECT DE FILTRO DE STATUS */}
-                    <div className="flex items-center gap-1 border-l pl-3 ml-1">
+                    {/* NOVO: DROPDOWN DE FILTRO MÚLTIPLO */}
+                    <div className="flex items-center gap-1 border-l pl-3 ml-1 relative" ref={dropdownRef}>
                         <span className="text-[10px] uppercase font-bold text-gray-400">Status:</span>
-                        <select
-                            value={statusFilter}
-                            onChange={(e) => setStatusFilter(e.target.value)}
-                            className="text-xs bg-white border border-gray-300 rounded px-2 py-1 text-gray-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 cursor-pointer shadow-sm w-32 truncate"
+                        
+                        <button
+                            onClick={() => setIsStatusDropdownOpen(!isStatusDropdownOpen)}
+                            className="flex items-center justify-between text-xs bg-white border border-gray-300 rounded px-2 py-1 text-gray-700 hover:bg-gray-50 active:bg-gray-100 cursor-pointer shadow-sm w-40 truncate"
                         >
-                            <option value="Todos">Todos ({activities?.length || 0})</option>
-                            <option value="Atrasados">Atrasados</option>
-                            <option value="Em Andamento">Em Andamento</option>
-                            <option value="Pausado">Pausado</option>
-                            <option value="Aguardando Material">Aguardando Material</option>
-                            <option value="Não iniciado">Não iniciado</option>
-                            <option value="Concluído">Concluído</option>
-                        </select>
+                            <span className="truncate">
+                                {selectedStatuses.length === 0 || selectedStatuses.length === STATUS_OPTIONS.length 
+                                    ? `Todos (${activities?.length || 0})` 
+                                    : `${selectedStatuses.length} selecionados`}
+                            </span>
+                            <FontAwesomeIcon icon={faChevronDown} className="text-[10px] text-gray-400 ml-2" />
+                        </button>
+
+                        {/* POP-OVER DO DROPDOWN */}
+                        {isStatusDropdownOpen && (
+                            <div className="absolute top-full left-10 mt-1 w-48 bg-white border border-gray-200 shadow-lg rounded-md z-50 py-1 flex flex-col">
+                                <button 
+                                    onClick={handleSelectAll}
+                                    className="px-3 py-1.5 text-left text-xs text-blue-600 font-semibold hover:bg-blue-50 border-b border-gray-100 mb-1 flex items-center gap-2"
+                                >
+                                    <FontAwesomeIcon icon={selectedStatuses.length === STATUS_OPTIONS.length ? faCheckSquare : faSquare} className="text-blue-500 w-3" />
+                                    {selectedStatuses.length === STATUS_OPTIONS.length ? "Desmarcar Todos" : "Selecionar Todos"}
+                                </button>
+                                
+                                {STATUS_OPTIONS.map(status => (
+                                    <label key={status} className="flex items-center gap-2 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 cursor-pointer">
+                                        <input 
+                                            type="checkbox" 
+                                            className="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+                                            checked={selectedStatuses.includes(status)}
+                                            onChange={() => toggleStatus(status)}
+                                        />
+                                        <span>{status}</span>
+                                    </label>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 </div>
                 

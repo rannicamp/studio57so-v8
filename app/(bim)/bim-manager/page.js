@@ -134,24 +134,51 @@ export default function BimManagerPage() {
 
         const externalIdsToSelect = links.map(l => l.external_id);
         const allModels = viewerInstance.impl.modelQueue().getModels();
-        const allDbIds = [];
+        
+        let totalSelecionados = 0;
+        const aggregateDocs = [];
 
-        // Converte ExternalID -> DbID em todos os modelos
+        // Converte ExternalID -> DbID em todos os modelos e agrupa
         await Promise.all(allModels.map(m => new Promise(resolve => {
             m.getExternalIdMapping(map => {
+                const dbIdsInThisModel = [];
                 externalIdsToSelect.forEach(eid => { 
                     if(map[eid]) { 
-                        viewerInstance.select(map[eid], m); 
-                        allDbIds.push(map[eid]); 
+                        dbIdsInThisModel.push(map[eid]); 
+                        totalSelecionados++;
                     } 
                 });
+                
+                if (dbIdsInThisModel.length > 0) {
+                    // Prepara o objeto aceito nativamente pela API avançada (setAggregateSelection)
+                    aggregateDocs.push({ id: m.id, model: m, ids: dbIdsInThisModel, selection: dbIdsInThisModel });
+                }
                 resolve();
             });
         })));
 
-        if (allDbIds.length > 0) { 
-            viewerInstance.fitToView(allDbIds); 
-            toast.info(`${allDbIds.length} elementos vinculados.`); 
+        if (aggregateDocs.length > 0) { 
+            viewerInstance.clearSelection();
+            
+            // Suporte para Múltiplas Seleções em Multiplos Modelos
+            if (viewerInstance.setAggregateSelection) {
+                viewerInstance.setAggregateSelection(aggregateDocs);
+            } else {
+                // Fallback para APIs mais antigas
+                aggregateDocs.forEach(doc => viewerInstance.select(doc.ids, doc.model));
+            }
+
+            // Centraliza a câmera no primeiro pacote de elementos para não dar conflito multiview
+            try {
+                viewerInstance.fitToView(aggregateDocs[0].ids, aggregateDocs[0].model);
+            } catch (e) {
+                console.warn("Aviso ao focar visualizador", e);
+            }
+            
+            toast.info(`${totalSelecionados} elementos vinculados selecionados.`); 
+        } else {
+            viewerInstance.clearSelection();
+            toast.warning('Notificados 31 vínculos, mas as peças não estavam visíveis nestes arquivos 3D.');
         }
     };
 
