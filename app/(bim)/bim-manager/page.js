@@ -519,6 +519,8 @@ export default function BimManagerPage() {
                 <BimQuantitativosOverlay 
                     onClose={() => setIsQuantitativosOpen(false)} 
                     onShowInModel={handleShowQuantitativos} 
+                    empreendimentoContextId={fileInUse?.empreendimento_id}
+                    modeloContextId={fileInUse?.id}
                 />
             )}
         </div>

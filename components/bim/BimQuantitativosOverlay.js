@@ -42,7 +42,7 @@ const BadgeStatus = ({ status }) => {
 
 // ─── Componente Principal ─────────────────────────────────────────────────────
 
-export default function BimQuantitativosOverlay({ onClose, onShowInModel }) {
+export default function BimQuantitativosOverlay({ onClose, onShowInModel, empreendimentoContextId, modeloContextId }) {
   const supabase = createClient();
   const { organizacao_id, user } = useAuth();
 
@@ -97,6 +97,19 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel }) {
     organizacaoId: organizacao_id,
     empreendimentoId: empreendimentoSelecionadoId,
   });
+
+  // ─── Sincronização de Contexto com o BIM Manager ───────────────────────────
+  useEffect(() => {
+    if (empreendimentoContextId && String(empreendimentoContextId) !== String(empreendimentoSelecionadoId)) {
+      handleSelectEmpreendimento(String(empreendimentoContextId));
+    }
+  }, [empreendimentoContextId, empreendimentoSelecionadoId, handleSelectEmpreendimento]);
+
+  useEffect(() => {
+    if (modeloContextId && String(modeloContextId) !== String(modeloSelecionadoId)) {
+      handleSelectModelo(String(modeloContextId));
+    }
+  }, [modeloContextId, modeloSelecionadoId, handleSelectModelo]);
 
   // ─── Agrupamento de Orçamento por Etapas ─────────────────────────────────────
   const quantitativosAgrupados = useMemo(() => {
@@ -457,12 +470,10 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel }) {
     );
   };
 
-
-
   // ─── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="absolute inset-0 z-[70] flex flex-col bg-gray-50 overflow-hidden font-sans">
+    <div className="absolute inset-0 z-[70] flex flex-col bg-gray-50 overflow-hidden font-sans animate-in fade-in zoom-in-95 duration-200">
 
       {/* Sidebar de detalhes */}
       <SidebarDetalhes />
@@ -474,70 +485,17 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel }) {
       )}
 
       {/* ══════════════ HEADER ══════════════ */}
-      <header className="bg-white border-b border-gray-200 px-5 py-3 flex items-center gap-4 flex-shrink-0 shadow-sm">
+      <header className="bg-white border-b border-gray-200 px-5 py-3 flex items-center justify-between gap-4 flex-shrink-0 shadow-sm">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center shadow-sm">
-            <FontAwesomeIcon icon={faCubes} className="text-white text-base" />
+          <div className="w-9 h-9 bg-emerald-600 rounded-xl flex items-center justify-center shadow-sm">
+            <FontAwesomeIcon icon={faFileInvoiceDollar} className="text-white text-base" />
           </div>
           <div>
-            <h1 className="text-base font-bold text-gray-800 leading-tight">BIM Quantitativos</h1>
-            <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wide">Elementos & Quantidades</p>
-          </div>
-        </div>
-
-        {/* Dropdown de Empreendimento */}
-        <div className="flex-1 max-w-lg" ref={dropdownRef}>
-          <label className="block text-[10px] font-extrabold text-gray-400 uppercase tracking-widest mb-0.5">
-            Empreendimento
-          </label>
-          <div className="relative">
-            <button
-              onClick={() => setIsDropdownEmpAberto(!isDropdownEmpAberto)}
-              className="w-full text-left bg-white border-2 border-gray-200 hover:border-blue-300 rounded-xl px-3 py-2 flex items-center justify-between transition-all shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-            >
-              {empreendimentoSelecionado ? (
-                <div className="flex flex-col min-w-0">
-                  <span className="font-bold text-sm text-gray-800 truncate">{empreendimentoSelecionado.nome}</span>
-                  <span className="text-[10px] text-gray-400 font-semibold uppercase">
-                    {empreendimentoSelecionado.empresa?.nome_fantasia || 'Sem Empresa'}
-                  </span>
-                </div>
-              ) : (
-                <span className="text-gray-400 text-sm">-- Selecione um empreendimento --</span>
-              )}
-              <FontAwesomeIcon icon={faChevronDown} className={`text-gray-400 text-xs ml-2 transition-transform ${isDropdownEmpAberto ? 'rotate-180' : ''}`} />
-            </button>
-
-            {isDropdownEmpAberto && (
-              <div className="absolute z-50 w-full mt-2 bg-white border border-gray-200 rounded-xl shadow-2xl max-h-80 overflow-y-auto p-1">
-                {carregandoEmpreendimentos ? (
-                  <div className="p-4 text-center text-gray-400"><FontAwesomeIcon icon={faSpinner} spin /></div>
-                ) : empreendimentosAgrupados.map(grupo => (
-                  <div key={grupo.empresa} className="p-2">
-                    <h3 className="text-[10px] font-extrabold text-blue-400 uppercase tracking-widest border-b border-gray-100 pb-1 mb-2 pl-1">
-                      <FontAwesomeIcon icon={faBuilding} className="mr-1" />
-                      {grupo.empresa}
-                    </h3>
-                    <div className="space-y-1">
-                      {grupo.empreendimentos.map(emp => {
-                        const isSel = String(empreendimentoSelecionadoId) === String(emp.id);
-                        return (
-                          <button
-                            key={emp.id}
-                            onClick={() => { handleSelectEmpreendimento(String(emp.id)); setIsDropdownEmpAberto(false); }}
-                            className={`w-full text-left flex items-center justify-between px-3 py-2 rounded-lg border transition-all text-sm
-                              ${isSel ? 'bg-blue-50 border-blue-200 font-bold text-blue-800' : 'border-transparent hover:bg-gray-50 text-gray-700'}`}
-                          >
-                            {emp.nome}
-                            {isSel && <FontAwesomeIcon icon={faCheck} className="text-blue-500 text-xs" />}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+            <h1 className="text-base font-bold text-gray-800 leading-tight">Orçamentação & Quantitativos BIM</h1>
+            <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wide">
+              {empreendimentoSelecionado?.nome || 'Empreendimento'}
+              {' · '} {modeloSelecionado?.nome_arquivo || 'Carregando...'}
+            </p>
           </div>
         </div>
 
@@ -559,77 +517,10 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel }) {
         </div>
       </header>
 
-      {/* ══════════════ CORPO SPLIT ══════════════ */}
+      {/* ══════════════ CORPO ÚNICO ══════════════ */}
       <div className="flex flex-1 overflow-hidden">
 
-        {/* ─── ESQUERDA (1/4): Lista de Modelos BIM ─── */}
-        <aside className="w-72 flex-shrink-0 bg-white border-r border-gray-200 flex flex-col overflow-hidden">
-          <div className="px-4 py-3 border-b border-gray-100">
-            <h2 className="text-xs font-bold text-gray-600 uppercase tracking-wider">
-              Modelos BIM
-              {modelos.length > 0 && <span className="ml-2 bg-blue-100 text-blue-700 text-[10px] font-bold px-1.5 py-0.5 rounded-full">{modelos.length}</span>}
-            </h2>
-          </div>
-
-          <div className="flex-1 overflow-y-auto p-3 space-y-2">
-            {carregandoModelos ? (
-              <div className="flex justify-center py-10 text-blue-400">
-                <FontAwesomeIcon icon={faSpinner} spin size="lg" />
-              </div>
-            ) : !empreendimentoSelecionadoId ? (
-              <div className="text-center py-10 text-gray-400 text-sm px-4">
-                <FontAwesomeIcon icon={faBuilding} className="text-3xl mb-2 text-gray-200" />
-                <p>Selecione um empreendimento para ver os modelos BIM.</p>
-              </div>
-            ) : modelos.length === 0 ? (
-              <div className="text-center py-10 text-gray-400 text-sm px-4">
-                <FontAwesomeIcon icon={faTriangleExclamation} className="text-3xl mb-2 text-amber-300" />
-                <p>Nenhum modelo BIM encontrado para este empreendimento.</p>
-                <Link href="/bim-manager" className="text-xs text-blue-500 mt-2 inline-block hover:underline">
-                  Fazer upload no BIM Manager →
-                </Link>
-              </div>
-            ) : modelos.map(modelo => {
-              const isSel = String(modeloSelecionadoId) === String(modelo.id);
-              return (
-                <button
-                  key={modelo.id}
-                  onClick={() => handleSelectModelo(modelo.id)}
-                  className={`w-full text-left p-3 rounded-xl border-2 transition-all duration-200
-                    ${isSel
-                      ? 'border-blue-500 bg-blue-50 shadow-sm'
-                      : 'border-gray-100 bg-white hover:border-blue-200 hover:bg-blue-50/30'
-                    }`}
-                >
-                  <div className="flex items-start gap-2">
-                    <div className={`mt-0.5 w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0
-                      ${isSel ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-400'}`}>
-                      <FontAwesomeIcon icon={faCubes} className="text-xs" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-xs font-bold leading-tight truncate ${isSel ? 'text-blue-800' : 'text-gray-700'}`} title={modelo.nome_arquivo}>
-                        {modelo.nome_arquivo}
-                      </p>
-                      <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                        {modelo.disciplinas_projetos?.nome && (
-                          <span className="text-[10px] text-gray-500 font-medium">{modelo.disciplinas_projetos.nome}</span>
-                        )}
-                        {modelo.versao && (
-                          <span className="text-[10px] text-gray-400">v{modelo.versao}</span>
-                        )}
-                        <BadgeStatus status={modelo.status} />
-                      </div>
-                      <p className="text-[10px] text-gray-400 mt-1">{fmtData(modelo.criado_em)}</p>
-                    </div>
-                    {isSel && <FontAwesomeIcon icon={faCheck} className="text-blue-500 text-xs flex-shrink-0 mt-1" />}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </aside>
-
-        {/* ─── DIREITA (3/4): Tabela de Elementos ─── */}
+        {/* ─── DIREITA (Ocupa 100% agora pq a Sidebar esquerda foi removida): Tabela de Elementos ─── */}
         <main className="flex-1 flex flex-col overflow-hidden">
 
           {/* KPIs + Barra de Ações */}
