@@ -34,10 +34,10 @@ export function useBimQuantitativos({ organizacaoId }) {
     localStorage.removeItem('studio57_bim_quant_modelo_id');
   };
 
-  const handleSelectModelo = (id) => {
-    setModeloSelecionadoId(String(id));
+  const handleSelectModelos = (ids) => {
+    setModelosSelecionadosIds(ids);
     setCategoriasExpandidas(new Set()); // Fecha todos os grupos ao trocar modelo
-    localStorage.setItem('studio57_bim_quant_modelo_id', String(id));
+    localStorage.setItem('studio57_bim_quant_modelos_ids', JSON.stringify(ids));
   };
 
   // ─── Query 1: Empreendimentos que têm modelos BIM com elementos ──────
