@@ -188,8 +188,9 @@ export function useBimMapeamentos({ organizacaoId, empreendimentoId }) {
         p_organizacao_id: organizacaoId,
         p_empreendimento_id: empreendimentoId,
       });
+
       if (error) {
-        console.error('[BimMapeamentos] Erro na RPC:', error);
+        console.error('[BimMapeamentos] Erro na RPC:', error.message, error.details, error.hint, error);
         throw error;
       }
 
