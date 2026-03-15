@@ -14,6 +14,7 @@ import {
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useBimQuantitativos } from '@/hooks/bim/useBimQuantitativos';
+import { useBimMapeamentos } from '@/hooks/bim/useBimMapeamentos';
 import { toast } from 'sonner';
 import BimImportModal from '@/components/orcamento/BimImportModal';
 import BimVinculoMaterialModal from '@/components/bim/BimVinculoMaterialModal';
