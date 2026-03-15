@@ -12,8 +12,8 @@ import {
   faDollarSign, faExclamationTriangle, faChevronRight as faChevRight, faFileInvoiceDollar,
 } from '@fortawesome/free-solid-svg-icons';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useBimQuantitativos } from '@/hooks/bim/useBimQuantitativos';
-import { useBimMapeamentos }    from '@/hooks/bim/useBimMapeamentos';
 import { toast } from 'sonner';
 import BimImportModal from '@/components/orcamento/BimImportModal';
 import BimVinculoMaterialModal from '@/components/bim/BimVinculoMaterialModal';
@@ -46,6 +46,7 @@ const BadgeStatus = ({ status }) => {
 export default function BimQuantitativosPage() {
   const supabase = createClient();
   const { organizacao_id, user } = useAuth();
+  const router = useRouter();
 
   const [isDropdownEmpAberto, setIsDropdownEmpAberto] = useState(false);
   const [isBimModalAberto, setIsBimModalAberto] = useState(false);
@@ -166,6 +167,19 @@ export default function BimQuantitativosPage() {
       alert('Erro ao salvar nova fórmula.');
       console.error(e);
     }
+  };
+
+  // Enviar comando ao BIM Manager para destacar os elementos
+  const handleShowInModel = (externalIds, label) => {
+    if (!externalIds || externalIds.length === 0) {
+      toast.warning('Nenhum elemento associado encontrado para exibir.');
+      return;
+    }
+    localStorage.setItem('bimSelectionPending', JSON.stringify({
+      externalIds,
+      notify: `Mostrando elementos: ${label}`
+    }));
+    router.push('/bim-manager');
   };
 
   // Fecha dropdown ao clicar fora
@@ -792,6 +806,18 @@ export default function BimQuantitativosPage() {
                                       {grupo.etapa_nome}
                                     </h3>
                                     {grupo.tem_alertas && <FontAwesomeIcon icon={faTriangleExclamation} className="text-amber-500 ml-2" title="Possui itens com alertas/removidos" />}
+                                    
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        const ids = Object.values(grupo.subetapas).flatMap(s => s.materiais.flatMap(m => m.external_ids_ativos));
+                                        handleShowInModel(ids, grupo.etapa_nome);
+                                      }}
+                                      className="ml-3 text-[9px] bg-blue-100 hover:bg-blue-600 text-blue-700 hover:text-white px-2 py-0.5 rounded-full font-bold transition-colors shadow-sm"
+                                      title="Ver todos elementos desta etapa no modelo 3D"
+                                    >
+                                      <FontAwesomeIcon icon={faCubes} className="mr-1" /> 3D
+                                    </button>
                                   </div>
                                 </td>
                                 <td className="px-4 py-2.5 text-right font-extrabold text-blue-800">
@@ -810,6 +836,17 @@ export default function BimQuantitativosPage() {
                                         <h4 className="text-[10px] font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2">
                                           <FontAwesomeIcon icon={faLayerGroup} className="text-gray-400" />
                                           {sub.subetapa_nome}
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              const ids = sub.materiais.flatMap(m => m.external_ids_ativos);
+                                              handleShowInModel(ids, sub.subetapa_nome);
+                                            }}
+                                            className="ml-2 text-[9px] text-gray-400 hover:text-blue-600 border border-transparent hover:border-blue-200 hover:bg-blue-50 px-1.5 py-0.5 rounded transition-all"
+                                            title="Ver elementos desta subetapa no modelo 3D"
+                                          >
+                                            <FontAwesomeIcon icon={faCubes} />
+                                          </button>
                                         </h4>
                                       </td>
                                       <td className="px-4 py-2 text-right text-[10px] font-bold text-gray-500">
@@ -880,9 +917,18 @@ export default function BimQuantitativosPage() {
                                         ) : <span className="text-gray-300">—</span>}
                                       </td>
                                       <td className="px-4 py-2 text-center">
-                                        <span className="bg-blue-50 text-blue-600 text-[9px] font-bold px-1.5 py-0.5 rounded-full border border-blue-100">
-                                          {item.qtd_elementos}
-                                        </span>
+                                        <div className="flex bg-blue-50 border border-blue-100 rounded overflow-hidden shadow-sm mx-auto w-max">
+                                          <span className="text-blue-600 text-[10px] font-bold px-2 py-1.5 border-r border-blue-100">
+                                            {item.qtd_elementos}
+                                          </span>
+                                          <button 
+                                            onClick={() => handleShowInModel(item.external_ids_ativos, item.nome)}
+                                            className="px-2 py-1 bg-white hover:bg-blue-600 text-blue-500 hover:text-white transition-colors"
+                                            title="Ver no 3D"
+                                          >
+                                            <FontAwesomeIcon icon={faCubes} className="text-[10px]" />
+                                          </button>
+                                        </div>
                                       </td>
                                       <td className="px-4 py-2 text-center">
                                         <button

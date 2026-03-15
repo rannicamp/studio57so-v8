@@ -135,6 +135,19 @@ export default function BimManagerPage() {
         const externalIdsToSelect = links.map(l => l.external_id);
         const allModels = viewerInstance.impl.modelQueue().getModels();
         
+        const aggregateDocs = [];
+
+        // Reutiliza a função auxiliar
+        await selectExternalIdsInViewer(externalIdsToSelect, `elementos vinculados selecionados.`);
+    };
+
+    // Função genérica para selecionar external_ids no viewer
+    const selectExternalIdsInViewer = async (externalIdsList, successMessage = 'elementos selecionados.') => {
+        if (!viewerInstance || !externalIdsList || externalIdsList.length === 0) return;
+
+        const allModels = viewerInstance.impl.modelQueue().getModels();
+        if (allModels.length === 0) return;
+
         let totalSelecionados = 0;
         const aggregateDocs = [];
 
@@ -142,7 +155,7 @@ export default function BimManagerPage() {
         await Promise.all(allModels.map(m => new Promise(resolve => {
             m.getExternalIdMapping(map => {
                 const dbIdsInThisModel = [];
-                externalIdsToSelect.forEach(eid => { 
+                externalIdsList.forEach(eid => { 
                     if(map[eid]) { 
                         dbIdsInThisModel.push(map[eid]); 
                         totalSelecionados++;
@@ -168,21 +181,41 @@ export default function BimManagerPage() {
                 aggregateDocs.forEach(doc => viewerInstance.select(doc.ids, doc.model));
             }
 
-            // Centraliza a câmera no primeiro pacote de elementos para não dar conflito multiview
+            // Centraliza a câmera no primeiro pacote de elementos
             try {
                 viewerInstance.fitToView(aggregateDocs[0].ids, aggregateDocs[0].model);
             } catch (e) {
                 console.warn("Aviso ao focar visualizador", e);
             }
             
-            toast.info(`${totalSelecionados} elementos vinculados selecionados.`); 
+            toast.info(`${totalSelecionados} ${successMessage}`); 
         } else {
             viewerInstance.clearSelection();
-            toast.warning('Notificados 31 vínculos, mas as peças não estavam visíveis nestes arquivos 3D.');
+            toast.warning('Os elementos não foram encontrados ou não estão visíveis nos arquivos 3D carregados.');
         }
     };
 
-    // ABRIR MODAL DE VÍNCULO (Com suporte a múltiplos itens)
+    // Efeito para checar pedido de seleção pendente via localStorage (ex: vindo do Quantitativos)
+    useEffect(() => {
+        if (!viewerInstance) return;
+
+        const pending = localStorage.getItem('bimSelectionPending');
+        if (pending) {
+            try {
+                const { externalIds, notify } = JSON.parse(pending);
+                if (externalIds && externalIds.length > 0) {
+                    // Atrasa levemente para garantir que todos os modelos do Autodesk viewer tenham mapeamento carregado
+                    setTimeout(() => {
+                        selectExternalIdsInViewer(externalIds, notify || 'elementos destacados no modelo.');
+                        localStorage.removeItem('bimSelectionPending');
+                    }, 500);
+                }
+            } catch (e) {
+                console.error("Erro ao ler seleção pendente", e);
+                localStorage.removeItem('bimSelectionPending');
+            }
+        }
+    }, [viewerInstance, loadedFiles]); // Roda quando o viewer inicia ou novos arquivos carregam
     const handleOpenLink = (targetData) => {
         resolveSelection(targetData, (ids) => {
             setContextTarget({ 
