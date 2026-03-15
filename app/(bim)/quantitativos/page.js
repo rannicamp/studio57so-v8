@@ -178,7 +178,8 @@ export default function BimQuantitativosPage() {
     }
     localStorage.setItem('bimSelectionPending', JSON.stringify({
       externalIds,
-      notify: `Mostrando elementos: ${label}`
+      notify: `Mostrando elementos: ${label}`,
+      modelos // Passa os modelos atuais da tela para forçar no load
     }));
     router.push('/bim-manager');
   };

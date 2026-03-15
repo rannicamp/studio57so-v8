@@ -202,13 +202,35 @@ export default function BimManagerPage() {
         const pending = localStorage.getItem('bimSelectionPending');
         if (pending) {
             try {
-                const { externalIds, notify } = JSON.parse(pending);
+                const { externalIds, notify, modelos } = JSON.parse(pending);
                 if (externalIds && externalIds.length > 0) {
-                    // Atrasa levemente para garantir que todos os modelos do Autodesk viewer tenham mapeamento carregado
-                    setTimeout(() => {
-                        selectExternalIdsInViewer(externalIds, notify || 'elementos destacados no modelo.');
-                        localStorage.removeItem('bimSelectionPending');
-                    }, 500);
+                    
+                    if (modelos && modelos.length > 0) {
+                        const loadedIds = loadedFiles.map(f => f.id);
+                        const missingModels = modelos.filter(m => !loadedIds.includes(m.id));
+                        
+                        // Se todos os modelos vieram pro Viewer já
+                        if (missingModels.length === 0) {
+                            setTimeout(() => {
+                                selectExternalIdsInViewer(externalIds, notify || 'elementos destacados no modelo.');
+                                localStorage.removeItem('bimSelectionPending');
+                                window.hasRequestedPendingLoad = false;
+                            }, 500);
+                        } else {
+                            // Existem modelos não carregados
+                            if (!window.hasRequestedPendingLoad) {
+                                window.hasRequestedPendingLoad = true;
+                                toast.info('Modelos vinculados não estão carregados, realizando auto-load...');
+                                handleLoadSet(modelos); // Dispara carregamento; O useEffect rodará de novo quando finalizar
+                            }
+                        }
+                    } else {
+                        // Sem dados de pre-load, fallback padrao
+                        setTimeout(() => {
+                            selectExternalIdsInViewer(externalIds, notify || 'elementos destacados no modelo.');
+                            localStorage.removeItem('bimSelectionPending');
+                        }, 500);
+                    }
                 }
             } catch (e) {
                 console.error("Erro ao ler seleção pendente", e);
