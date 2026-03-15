@@ -238,6 +238,15 @@ O **Studio 57** é o ambiente de desenvolvimento e laboratório central. O **Elo
 
 ---
 
+- *2026-03-14:* **🏗️ Unificação do BIM Manager com Orçamentação (Quantitativos):**
+    - A antiga rota `/quantitativos` foi deletada e transformada no componente `BimQuantitativosOverlay.js` rodando num ecossistema único (SPA).
+    - O Orçamento agora abre como um modal funcional dentro do BIM Manager (`app/(bim)/bim-manager/page.js`), obedecendo a área da tag `<main>`.
+    - Mantivemos a `BimSidebar` (Navegador BIM) sempre visível durante o orçamento.
+    - Limpeza de UI no cabeçalho do orçamento, com campo de busca e de expandir/contrair ancorados junto às abas, otimizando o preenchimento da `table` de elementos BIM.
+    - **Próximo Trabalho Imediato:** Continuar no planejamento estratégico do BIM em Orçamentos. Refinar usabilidade de fluxos de orçamentação amanhã.
+
+---
+
 ### 12. Gestão de Custos BIM (Autodesk API) - *A FAZER*
 - [ ] **Diagnóstico:** A Autodesk cobra via "Flex Tokens" (aprox. U$ 4.50 ou R$ 25,00 por tradução de arquivo complexo como `.rvt` ou `.ifc`). O Studio 57 precisa repassar ou amortizar este custo.
 - [ ] **Sistema de Créditos:** Criar tabela `carteira_bim` no banco de dados.
