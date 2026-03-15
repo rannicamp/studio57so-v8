@@ -11,8 +11,6 @@ import {
   faSearch, faBarcode, faLink, faBan, faRuler as faRulerIcon,
   faDollarSign, faExclamationTriangle, faChevronRight as faChevRight, faFileInvoiceDollar,
 } from '@fortawesome/free-solid-svg-icons';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useBimQuantitativos } from '@/hooks/bim/useBimQuantitativos';
 import { useBimMapeamentos } from '@/hooks/bim/useBimMapeamentos';
 import { toast } from 'sonner';
@@ -44,10 +42,9 @@ const BadgeStatus = ({ status }) => {
 
 // ─── Componente Principal ─────────────────────────────────────────────────────
 
-export default function BimQuantitativosPage() {
+export default function BimQuantitativosOverlay({ onClose, onShowInModel }) {
   const supabase = createClient();
   const { organizacao_id, user } = useAuth();
-  const router = useRouter();
 
   const [isDropdownEmpAberto, setIsDropdownEmpAberto] = useState(false);
   const [isBimModalAberto, setIsBimModalAberto] = useState(false);
@@ -176,12 +173,10 @@ export default function BimQuantitativosPage() {
       toast.warning('Nenhum elemento associado encontrado para exibir.');
       return;
     }
-    localStorage.setItem('bimSelectionPending', JSON.stringify({
-      externalIds,
-      notify: `Mostrando elementos: ${label}`,
-      modelos // Passa os modelos atuais da tela para forçar no load
-    }));
-    router.push('/bim-manager');
+    // Chama a prop passando dados ao invés de usar localStorage/router
+    if (onShowInModel) {
+      onShowInModel(externalIds, label, modelos);
+    }
   };
 
   // Fecha dropdown ao clicar fora
@@ -467,7 +462,7 @@ export default function BimQuantitativosPage() {
   // ─── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex flex-col h-screen bg-gray-50 overflow-hidden font-sans">
+    <div className="absolute inset-0 z-[70] flex flex-col bg-gray-50 overflow-hidden font-sans">
 
       {/* Sidebar de detalhes */}
       <SidebarDetalhes />
@@ -548,9 +543,10 @@ export default function BimQuantitativosPage() {
 
         {/* Ações direita do header */}
         <div className="ml-auto flex items-center gap-2">
-          <Link href="/bim-manager" className="p-2 rounded-lg border border-gray-200 text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-all text-sm" title="Abrir Viewer BIM">
-            <FontAwesomeIcon icon={faHome} />
-          </Link>
+          <button onClick={onClose} className="px-3 py-2 rounded-lg border border-gray-200 text-gray-400 hover:text-red-600 hover:bg-red-50 hover:border-red-200 transition-all text-sm font-bold flex items-center gap-2" title="Fechar Orçamento">
+            <span>Fechar Orçamento</span>
+            <span className="text-lg leading-none">×</span>
+          </button>
           {modeloSelecionadoId && empreendimentoSelecionadoId && (
             <button
               onClick={() => setIsBimModalAberto(true)}

@@ -19,8 +19,9 @@ import BimNoteModal from '@/components/bim/BimNoteModal';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
     faChevronLeft, faChevronRight, faHome, 
-    faStream, faChevronDown, faLayerGroup, faSpinner 
+    faStream, faChevronDown, faLayerGroup, faSpinner, faFileInvoiceDollar
 } from '@fortawesome/free-solid-svg-icons';
+import BimQuantitativosOverlay from '@/components/bim/BimQuantitativosOverlay';
 
 // Hooks Personalizados
 import { useBimViewer } from '@/hooks/bim/useBimViewer';
@@ -52,6 +53,7 @@ export default function BimManagerPage() {
     const [isSidebarVisible, setIsSidebarVisible] = useState(true);
     const [isGanttOpen, setIsGanttOpen] = useState(false);
     const [isInspectorVisible, setIsInspectorVisible] = useState(true);
+    const [isQuantitativosOpen, setIsQuantitativosOpen] = useState(false);
 
     // 4. Hook de Gerenciamento de Modelos
     const { 
@@ -139,6 +141,26 @@ export default function BimManagerPage() {
 
         // Reutiliza a função auxiliar
         await selectExternalIdsInViewer(externalIdsToSelect, `elementos vinculados selecionados.`);
+    };
+
+    // Tratar comando de seleção vindo do Quantitativos Overlay
+    const handleShowQuantitativos = (externalIds, label, modelos) => {
+        setIsQuantitativosOpen(false);
+        if (modelos && modelos.length > 0) {
+            const loadedIds = loadedFiles.map(f => f.id);
+            const missingModels = modelos.filter(m => !loadedIds.includes(m.id));
+            if (missingModels.length > 0) {
+                toast.info('Modelos vinculados não estão carregados, realizando auto-load...');
+                handleLoadSet(modelos);
+                
+                // Manda pro localStorage pra rodar no auto-load effect
+                localStorage.setItem('bimSelectionPending', JSON.stringify({
+                    externalIds, notify: label || 'elementos destacados no modelo.', modelos
+                }));
+                return;
+            }
+        }
+        selectExternalIdsInViewer(externalIds, label);
     };
 
     // Função genérica para selecionar external_ids no viewer
@@ -408,6 +430,14 @@ export default function BimManagerPage() {
                                 <FontAwesomeIcon icon={faStream} /> 
                                 {visibleActivities.length > 0 && !isGanttOpen && <span className="bg-blue-600 text-white text-[10px] px-1.5 rounded-full font-bold ml-1">{visibleActivities.length}</span>}
                             </button>
+                            <button 
+                                onClick={() => setIsQuantitativosOpen(true)} 
+                                className="bg-white/90 p-2 rounded-lg shadow-sm border text-gray-600 hover:text-emerald-600 hover:bg-emerald-50 transition-all ml-4"
+                                title="Abrir Orçamento (Quantitativos)"
+                            >
+                                <FontAwesomeIcon icon={faFileInvoiceDollar} />
+                                <span className="text-[10px] font-bold uppercase hidden md:inline ml-2">Orçamento</span>
+                            </button>
                         </div>
 
                         <div className="absolute top-4 right-4 z-[60]">
@@ -484,6 +514,13 @@ export default function BimManagerPage() {
                 activities={visibleActivities || []} 
                 onSuccess={onNoteSuccess} 
             />
+
+            {isQuantitativosOpen && (
+                <BimQuantitativosOverlay 
+                    onClose={() => setIsQuantitativosOpen(false)} 
+                    onShowInModel={handleShowQuantitativos} 
+                />
+            )}
         </div>
     );
 }

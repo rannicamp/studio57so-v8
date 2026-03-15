@@ -55,8 +55,7 @@ export default function Sidebar({ isOpen, closeSidebar }) {
         {
             title: 'Coordenação BIM',
             items: [
-                { href: '/bim-manager', label: 'BIM Manager', icon: faCube, recurso: 'bim' },
-                { href: '/quantitativos', label: 'BIM Quantitativos', icon: faCubes, recurso: 'bim' },
+                { href: '/bim-manager', label: 'BIM Manager 3D', icon: faBuilding, recurso: 'bim' },
             ]
         },
     ];
