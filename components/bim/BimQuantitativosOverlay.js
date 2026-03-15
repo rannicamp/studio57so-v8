@@ -19,6 +19,7 @@ import BimVinculoMaterialModal from '@/components/bim/BimVinculoMaterialModal';
 import BimGerenciarVinculosModal from '@/components/bim/BimGerenciarVinculosModal';
 import BimInsumoAvulsoModal from '@/components/bim/BimInsumoAvulsoModal';
 import { useQuery } from '@tanstack/react-query';
+import { createClient } from '@/utils/supabase/client';
 
 const fmt2 = (v) => new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v || 0);
 const fmtData = (d) => d ? new Date(d).toLocaleDateString('pt-BR') : '—';
