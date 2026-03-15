@@ -111,7 +111,7 @@ export function useBimQuantitativos({ organizacaoId }) {
       if (!empreendimentoSelecionadoId || !organizacaoId) return [];
       const { data, error } = await supabase
         .from('projetos_bim')
-        .select('id, nome_arquivo, status, versao, criado_em, disciplinas_projetos:disciplina_id(nome)')
+        .select('id, nome_arquivo, status, versao, criado_em, urn_autodesk, empreendimento_id, disciplinas_projetos:disciplina_id(nome)')
         .eq('empreendimento_id', empreendimentoSelecionadoId)
         .eq('organizacao_id', organizacaoId)
         .eq('is_lixeira', false)
