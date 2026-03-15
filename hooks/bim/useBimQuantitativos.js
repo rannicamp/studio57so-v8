@@ -275,16 +275,16 @@ export function useBimQuantitativos({ organizacaoId }) {
   const { data: todosElementos = [] } = useQuery({
     queryKey: ['bimQuant_elementos_flat', [...modelosSelecionadosIds].sort().join(','), organizacaoId],
     queryFn: async () => {
-      if (!modeloSelecionadoId || !organizacaoId) return [];
+      if (modelosSelecionadosIds.length === 0 || !organizacaoId) return [];
       const { data, error } = await supabase
         .from('elementos_bim')
         .select('id, external_id, categoria, familia, tipo, nivel, propriedades, is_active')
-        .eq('projeto_bim_id', modeloSelecionadoId)
+        .in('projeto_bim_id', modelosSelecionadosIds)
         .not('categoria', 'in', '("Revit Level","Revit Grids","Revit Scope Boxes","Revit Reference Planes","<Indesejado>")');
       if (error) throw error;
       return data || [];
     },
-    enabled: !!modeloSelecionadoId && !!organizacaoId,
+    enabled: modelosSelecionadosIds.length > 0 && !!organizacaoId,
     staleTime: 3 * 60 * 1000,
   });
 
@@ -361,9 +361,12 @@ export function useBimQuantitativos({ organizacaoId }) {
     // Modelos
     modelos,
     carregandoModelos,
-    modeloSelecionadoId,
+    modeloSelecionadoId: modelosSelecionadosIds[0] || null,
+    modelosSelecionadosIds,
     modeloSelecionado,
-    handleSelectModelo,
+    modelosSelecionados,
+    handleSelectModelo: handleSelectModelos,
+    handleSelectModelos,
     // Elementos do modelo selecionado
     grupos,
     todosElementos,              // flat do modelo selecionado (para preview de impacto no modal)
