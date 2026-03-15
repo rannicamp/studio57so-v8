@@ -105,10 +105,13 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
   }, [empreendimentoContextId, empreendimentoSelecionadoId, handleSelectEmpreendimento]);
 
   useEffect(() => {
-    if (modeloContextId && String(modeloContextId) !== String(modeloSelecionadoId)) {
-      handleSelectModelo(String(modeloContextId));
+    if (!modelosContextIds || modelosContextIds.length === 0) return;
+    const incomingIds = modelosContextIds.map(String).sort().join(',');
+    const currentIds = modelosSelecionadosIds.map(String).sort().join(',');
+    if (incomingIds !== currentIds) {
+      handleSelectModelos(modelosContextIds.map(String));
     }
-  }, [modeloContextId, modeloSelecionadoId, handleSelectModelo]);
+  }, [modelosContextIds, modelosSelecionadosIds, handleSelectModelos]);
 
   // ─── Agrupamento de Orçamento por Etapas ─────────────────────────────────────
   const quantitativosAgrupados = useMemo(() => {
