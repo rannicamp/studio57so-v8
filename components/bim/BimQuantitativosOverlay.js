@@ -150,8 +150,8 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
     });
   }, [quantitativoPorMaterial]);
 
-  const [etapasOrcamentoExpandidas, setEtapasOrcamentoExpandidas] = useState(new Set());
-  const toggleEtapaOrcamento = (id) => setEtapasOrcamentoExpandidas(prev => {
+  const [etapasRecolhidas, setEtapasRecolhidas] = useState(new Set());
+  const toggleEtapaOrcamento = (id) => setEtapasRecolhidas(prev => {
     const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s;
   });
 
@@ -620,7 +620,7 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
                       </thead>
                       <tbody>
                         {quantitativosAgrupados.map(grupo => {
-                          const isExpandido = etapasOrcamentoExpandidas.size === 0 || etapasOrcamentoExpandidas.has(grupo.etapa_id);
+                          const isExpandido = !etapasRecolhidas.has(grupo.etapa_id);
                           return (
                             <Fragment key={grupo.etapa_id}>
                               {/* L1: Cabeçalho da Etapa */}
