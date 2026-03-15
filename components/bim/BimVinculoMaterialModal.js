@@ -11,9 +11,11 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 
 const ESCOPOS = [
-  { valor: 'familia',   label: 'Apenas esta Família',  desc: 'Só elementos desta família específica',        cor: 'text-red-600'    },
+  { valor: 'elemento',  label: 'Apenas esta Instância',desc: 'Apenas este elemento BIM em específico',       cor: 'text-purple-600' },
+  { valor: 'tipo',      label: 'Apenas este Tipo',     desc: 'Só elementos com este EXATO tipo',             cor: 'text-blue-600'   },
+  { valor: 'familia',   label: 'Toda a Família',       desc: 'Todos os tipos desta família e categoria',     cor: 'text-red-600'    },
   { valor: 'categoria', label: 'Toda a Categoria',      desc: 'Todos os elementos desta categoria BIM',       cor: 'text-amber-600'  },
-  { valor: 'projeto',   label: 'Todo o Projeto',        desc: 'Qualquer elemento com esta propriedade',       cor: 'text-green-700'  },
+  { valor: 'projeto',   label: 'Todo o Projeto',        desc: 'Qualquer elemento do modelo com esta prop.',   cor: 'text-green-700'  },
 ];
 
 // ─── Componente Principal ─────────────────────────────────────────────────────
@@ -49,7 +51,7 @@ export default function BimVinculoMaterialModal({
   useEffect(() => {
     if (isOpen) {
       if (mapeamentoExistente) {
-        setEscopo(mapeamentoExistente.escopo || 'categoria');
+        setEscopo(mapeamentoExistente.escopo || (elemento?.external_id ? 'elemento' : elemento?.tipo ? 'tipo' : 'categoria'));
         setTipoVinculo(mapeamentoExistente.tipo_vinculo || 'material');
         setFatorConversao(mapeamentoExistente.fator_conversao || '');
         setBusca('');
@@ -65,7 +67,7 @@ export default function BimVinculoMaterialModal({
         }
       } else {
         setBusca('');
-        setEscopo('categoria');
+        setEscopo(elemento?.external_id && elemento?.tipo ? 'elemento' : elemento?.tipo ? 'tipo' : 'familia');
         setTipoVinculo('material');
         setFatorConversao('');
         setMaterialSel(null);
@@ -113,6 +115,8 @@ export default function BimVinculoMaterialModal({
     const fam = elemento?.familia   || '';
 
     const filtrados = todosElementos.filter(el => {
+      if (escopo === 'elemento')  return el.external_id === elemento?.external_id;
+      if (escopo === 'tipo')      return el.categoria === cat && el.familia === fam && el.tipo === elemento?.tipo;
       if (escopo === 'familia')   return el.categoria === cat && el.familia === fam;
       if (escopo === 'categoria') return el.categoria === cat;
       return true; // projeto
@@ -183,7 +187,9 @@ export default function BimVinculoMaterialModal({
         propriedade_nome: isElemento ? `[ELEMENTO] ${elemento?.familia || elemento?.categoria || 'Desconhecido'}` : propriedade.nome,
         propriedade_quantidade: tipoVinculo === 'elemento' ? propriedade.nome : null,
         categoria_bim:    escopo !== 'projeto' ? (elemento?.categoria || null) : null,
-        familia_bim:      escopo === 'familia' ? (elemento?.familia   || null) : null,
+        familia_bim:      (escopo === 'familia' || escopo === 'tipo' || escopo === 'elemento') ? (elemento?.familia || null) : null,
+        tipo_bim:         (escopo === 'tipo' || escopo === 'elemento') ? (elemento?.tipo || null) : null,
+        elemento_id:      escopo === 'elemento' ? (elemento?.external_id || null) : null,
         tipo_vinculo:     isElemento ? 'elemento' : tipoVinculo,
         escopo,
         fator_conversao:  fatorConversao.trim() || null,
@@ -406,7 +412,15 @@ export default function BimVinculoMaterialModal({
                         {escopo === op.valor && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
                       </div>
                       <div>
-                        <p className={`text-xs font-bold ${escopo === op.valor ? 'text-blue-700' : 'text-gray-700'}`}>{op.label}</p>
+                        <p className={`text-xs font-bold ${escopo === op.valor ? 'text-blue-700' : 'text-gray-700'}`}>
+                          {op.label}
+                          {escopo === op.valor && op.valor === 'elemento' && elemento?.external_id && (
+                             <span className="font-mono text-[9px] bg-blue-100 text-blue-800 ml-2 px-1 rounded border border-blue-200">ID: {elemento.external_id}</span>
+                          )}
+                          {escopo === op.valor && op.valor === 'tipo' && elemento?.tipo && (
+                             <span className="font-mono text-[9px] bg-blue-100 text-blue-800 ml-2 px-1 rounded border border-blue-200 truncate max-w-[120px] inline-block align-bottom">{elemento.tipo}</span>
+                          )}
+                        </p>
                         <p className="text-[10px] text-gray-400">{op.desc}</p>
                       </div>
                     </button>

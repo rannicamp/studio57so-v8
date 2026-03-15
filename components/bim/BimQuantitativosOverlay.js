@@ -17,10 +17,8 @@ import { toast } from 'sonner';
 import BimImportModal from '@/components/orcamento/BimImportModal';
 import BimVinculoMaterialModal from '@/components/bim/BimVinculoMaterialModal';
 import BimGerenciarVinculosModal from '@/components/bim/BimGerenciarVinculosModal';
+import BimInsumoAvulsoModal from '@/components/bim/BimInsumoAvulsoModal';
 import { useQuery } from '@tanstack/react-query';
-import { createClient } from '@/utils/supabase/client';
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 const fmt2 = (v) => new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v || 0);
 const fmtData = (d) => d ? new Date(d).toLocaleDateString('pt-BR') : '—';
@@ -158,6 +156,7 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
 
   // Modais / Seletoes (Vínculo & Exclusão)
   const [vinculoModal, setVinculoModal] = useState(null);
+  const [insumoAvulsoModalOpen, setInsumoAvulsoModalOpen] = useState(false);
   const [materialGerenciar, setMaterialGerenciar] = useState(null);
 
   // Função para editar fator de conversao via prompt nativo
@@ -389,31 +388,7 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
             </div>
           )}
 
-          {/* Para Tipo: lista os elementos */}
-          {nivel === 'tipo' && (
-            <div className="px-5 py-4">
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">Elementos individuais</p>
-              <div className="space-y-1">
-                {dados.elementos.map(el => {
-                  const elProps = el.propriedades || {};
-                  const medAtiva = dados.medidas[0];
-                  const val = medAtiva ? parseFloat(elProps[medAtiva.chave] || 0) : null;
-                  return (
-                    <button
-                      key={el.id}
-                      onClick={() => setSidebarItem({ tipo: 'elemento', dados: el, cat, fam })}
-                      className="w-full text-left bg-gray-50 hover:bg-amber-50 border border-gray-50 hover:border-amber-200 rounded px-3 py-1.5 transition-all flex items-center justify-between gap-2"
-                    >
-                      <span className="text-[10px] font-mono text-gray-600 truncate">{el.external_id}</span>
-                      {val && val > 0 && (
-                        <span className="text-[10px] font-bold text-gray-700 shrink-0">{fmt2(val)} {medAtiva.unidade}</span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
+          {/* Renderização de instâncias no sidebar REMOVIDA (agora expande direto na tabela) */}
 
           {/* Para Elemento: todas as propriedades brutas + botões de vínculo */}
           {nivel === 'elemento' && (
@@ -562,6 +537,16 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
                       <FontAwesomeIcon icon={faCompress} />
                     </button>
                   </>
+                )}
+                {abaAtiva === 'por-material' && (
+                  <button
+                    onClick={() => setInsumoAvulsoModalOpen(true)}
+                    className="flex items-center gap-2 px-3 py-1.5 ml-auto bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-xs rounded border border-emerald-200 transition-colors shadow-sm"
+                    title="Adicionar material ou serviço independente (Ex: Topografia, Pedreiro)"
+                  >
+                    <FontAwesomeIcon icon={faBoxOpen} />
+                    Insumo Avulso
+                  </button>
                 )}
               </div>
             </div>
@@ -721,6 +706,18 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
                                                 {item.external_ids_inativos.length} elem. removidos do 3D
                                               </p>
                                             )}
+                                            {item.pai_mapeamento_id && (
+                                              <p className="text-[9px] text-emerald-600 font-bold bg-emerald-50 px-1.5 py-0.5 rounded inline-block mt-0.5" title="A quantidade desta linha depende da quantidade de outro Material">
+                                                <FontAwesomeIcon icon={faLink} className="mr-1" />
+                                                Composição Filha
+                                              </p>
+                                            )}
+                                            {item.is_avulso && !item.pai_mapeamento_id && (
+                                              <p className="text-[9px] text-slate-500 font-bold bg-slate-100 px-1.5 py-0.5 rounded inline-block mt-0.5" title="Foi adicionado manualmente e possui quantidade travada">
+                                                <FontAwesomeIcon icon={faBoxOpen} className="mr-1" />
+                                                Avulso Inicial
+                                              </p>
+                                            )}
                                           </div>
                                         </div>
                                       </td>
@@ -760,18 +757,24 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
                                         ) : <span className="text-gray-300">—</span>}
                                       </td>
                                       <td className="px-4 py-2 text-center">
-                                        <div className="flex bg-blue-50 border border-blue-100 rounded overflow-hidden shadow-sm mx-auto w-max">
-                                          <span className="text-blue-600 text-[10px] font-bold px-2 py-1.5 border-r border-blue-100">
-                                            {item.qtd_elementos}
-                                          </span>
-                                          <button 
-                                            onClick={() => handleShowInModel(item.external_ids_ativos, item.nome)}
-                                            className="px-2 py-1 bg-white hover:bg-blue-600 text-blue-500 hover:text-white transition-colors"
-                                            title="Ver no 3D"
-                                          >
-                                            <FontAwesomeIcon icon={faCubes} className="text-[10px]" />
-                                          </button>
-                                        </div>
+                                        {item.is_avulso && !item.pai_mapeamento_id ? (
+                                          <div className="text-[10px] text-slate-400 font-semibold" title="Sem amarração com modelo 3D">
+                                            -
+                                          </div>
+                                        ) : (
+                                          <div className="flex bg-blue-50 border border-blue-100 rounded overflow-hidden shadow-sm mx-auto w-max">
+                                            <span className="text-blue-600 text-[10px] font-bold px-2 py-1.5 border-r border-blue-100">
+                                              {item.qtd_elementos}
+                                            </span>
+                                            <button 
+                                              onClick={() => handleShowInModel(item.external_ids_ativos, item.nome)}
+                                              className="px-2 py-1 bg-white hover:bg-blue-600 text-blue-500 hover:text-white transition-colors"
+                                              title="Ver no 3D"
+                                            >
+                                              <FontAwesomeIcon icon={faCubes} className="text-[10px]" />
+                                            </button>
+                                          </div>
+                                        )}
                                       </td>
                                       <td className="px-4 py-2 text-center">
                                         <button
@@ -832,6 +835,7 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
                         <th className="px-3 py-3 text-left text-xs font-bold text-gray-500 uppercase w-10"></th>
                         <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Família / Tipo</th>
                         <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Nível</th>
+                        <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Descrição</th>
                         <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase">Inst.</th>
                         <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Unidade</th>
                         <th className="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase">Quantidade</th>
@@ -852,7 +856,7 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
                           <td className="px-3 py-2.5 text-center">
                             <FontAwesomeIcon icon={catExpandida ? faAngleDown : faAngleRight} className="text-gray-500" />
                           </td>
-                          <td className="px-4 py-2.5 font-bold text-gray-700 text-xs uppercase tracking-wide" colSpan={4}>
+                          <td className="px-4 py-2.5 font-bold text-gray-700 text-xs uppercase tracking-wide" colSpan={5}>
                             <FontAwesomeIcon icon={faLayerGroup} className="mr-2 text-blue-500" />
                             {cat.categoria}
                           </td>
@@ -882,7 +886,7 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
                                 </td>
                                 <td
                                   className="px-4 py-2 font-semibold text-blue-800 text-xs"
-                                  colSpan={4}
+                                  colSpan={5}
                                   onClick={() => toggleFamiliaExpandida(famChave)}
                                 >
                                   {fam.familia}
@@ -896,15 +900,8 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
                                 >
                                   {fam.total_elementos.toLocaleString('pt-BR')}
                                 </td>
-                                {/* Botão de detalhes da Família */}
+                                {/* Botão de detalhes da Família removido, clique gerencia só expansão */}
                                 <td className="px-3 py-2 text-right">
-                                  <button
-                                    onClick={(e) => { e.stopPropagation(); setSidebarItem({ tipo: 'familia', dados: fam, cat: cat.categoria, fam: null }); }}
-                                    className="text-[10px] text-blue-400 hover:text-blue-700 hover:bg-blue-100 px-1.5 py-0.5 rounded transition-all opacity-0 group-hover:opacity-100"
-                                    title="Ver detalhes da família"
-                                  >
-                                    detalhes →
-                                  </button>
                                 </td>
                               </tr>
 
@@ -913,6 +910,11 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
                                 const tExpandido = tiposExpandidos.has(tChave);
                                 const medidaAtiva = getMedidaAtiva(cat.categoria, fam.familia, t);
                                 const temMultiplas = t.medidas.length > 1;
+
+                                // Extrair descrição do primeiro elemento do tipo
+                                const primeiroEl = t.elementos[0]?.propriedades || {};
+                                const descricaoTipo = primeiroEl['Descrição'] || primeiroEl['Description'] || primeiroEl['Comentários de tipo'] || primeiroEl['Type Comments'] || '—';
+
                                 return (
                                   <Fragment key={`frag-t-${tChave}`}>
                                     {/* ── L3: Tipo ── */}
@@ -929,14 +931,18 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
                                           <FontAwesomeIcon icon={tExpandido ? faAngleDown : faAngleRight} className="text-xs" />
                                         </button>
                                       </td>
-                                      {/* Nome do tipo — clica para abrir sidebar */}
+                                      {/* Nome do tipo — clica apenas para expandir, não abre sidebar */}
                                       <td
-                                        className="px-4 py-2 text-xs text-gray-700 cursor-pointer hover:text-blue-700"
-                                        onClick={() => setSidebarItem({ tipo: 'tipo', dados: t, cat: cat.categoria, fam: fam.familia })}
+                                        className="px-4 py-2 text-xs text-gray-700 cursor-pointer hover:text-blue-700 font-medium"
+                                        onClick={() => toggleTipoExpandido(tChave)}
                                       >
                                         {t.tipo === '(sem tipo)' ? <em className="text-gray-400">sem tipo</em> : t.tipo}
                                       </td>
                                       <td className="px-4 py-2 text-[10px] text-gray-400">{t.nivel}</td>
+                                      {/* Nova Coluna Descrição */}
+                                      <td className="px-4 py-2 text-[10px] text-gray-500 truncate max-w-[150px]" title={descricaoTipo !== '—' ? descricaoTipo : ''}>
+                                        {descricaoTipo}
+                                      </td>
                                       <td className="px-4 py-2 text-center">
                                         <span className="bg-blue-100 text-blue-700 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
                                           {t.qtd_total}
@@ -978,12 +984,19 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
                                       const props = el.propriedades || {};
                                       const valorEl = medidaAtiva ? parseFloat(props[medidaAtiva.chave] || 0) : null;
                                       return (
-                                        <tr key={`el-${el.id}`} className="border-b border-gray-50 bg-amber-50/20 hover:bg-amber-50/40">
-                                          <td className="px-3 py-1.5 pl-16 text-gray-300 text-center">·</td>
+                                        <tr 
+                                          key={`el-${el.id}`} 
+                                          className="border-b border-gray-50 bg-amber-50/20 hover:bg-amber-50/60 cursor-pointer group transition-colors"
+                                          onClick={() => setSidebarItem({ tipo: 'elemento', dados: el, cat: cat.categoria, fam: fam.familia })}
+                                        >
+                                          <td className="px-3 py-1.5 pl-16 text-amber-300 text-center group-hover:text-amber-500">
+                                            <FontAwesomeIcon icon={faAngleRight} className="text-[10px] opacity-0 group-hover:opacity-100 transition-opacity" />
+                                          </td>
                                           <td className="px-4 py-1.5 text-[10px] text-gray-500">
-                                            ID: <span className="font-mono text-gray-600">{el.external_id}</span>
+                                            Nome: <span className="font-mono text-gray-600">{props['Name'] || props['Nome'] || props['Mark'] || props['Marca'] || 'Instância'}</span>
                                           </td>
                                           <td className="px-4 py-1.5 text-[10px] text-gray-400">{el.nivel || '—'}</td>
+                                          <td className="px-4 py-1.5"></td>
                                           <td className="px-4 py-1.5 text-center text-[10px] text-gray-400">1</td>
                                           <td className="px-4 py-1.5">
                                             {medidaAtiva && <BadgeUnidade unidade={medidaAtiva.unidade} />}
@@ -1046,6 +1059,16 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
           orcamentoId={null}
           organizacaoId={organizacao_id}
           etapas={etapas}
+        />
+      )}
+
+      {/* ─── MODAL: INSUMO AVULSO ─── */}
+      {insumoAvulsoModalOpen && (
+        <BimInsumoAvulsoModal
+          isOpen={insumoAvulsoModalOpen}
+          onClose={() => setInsumoAvulsoModalOpen(false)}
+          empreendimentoId={empreendimentoSelecionadoId}
+          organizacaoId={organizacao_id}
         />
       )}
     </div>

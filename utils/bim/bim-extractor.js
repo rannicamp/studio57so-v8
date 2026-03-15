@@ -61,10 +61,10 @@ export async function extrairDadosDoModelo(viewer, projetoBimId, organizacaoId, 
         // Processa e Limpa os Dados
         const processedChunk = rawResults.map(item => {
             const propsObj = {};
-            let categoria = 'Outros';
+            let categoria = '';
             let familia = '';
             let tipo = '';
-            let nivel = 'Não definido';
+            let nivel = '';
 
             // Garante External ID
             const externalId = item.externalId || `ext-${item.dbId}`;
@@ -78,26 +78,37 @@ export async function extrairDadosDoModelo(viewer, projetoBimId, organizacaoId, 
 
                     if (val !== "" && val !== null && val !== undefined) {
                         // Limpa chaves para JSONB de forma segura (Tolerância MEP)
-                        const rawName = p.displayName || p.attributeName || p.name || `Propriedade_${p.dbId || 'Desconhecida'}`;
-                        const safeKey = String(rawName).replace(/[".]/g, '');
+                        const rawName = String(p.displayName || p.attributeName || p.name || `Propriedade_${p.dbId || 'Desconhecida'}`);
+                        const safeKey = rawName.replace(/[".]/g, '');
                         propsObj[safeKey] = val;
+                        
+                        // Mapeamento Inteligente com travamento (só pega se ainda não tiver pego ou se for uma chave muito forte)
+                        const nameLower = rawName.toLowerCase();
+                        
+                        if (!categoria && (nameLower === 'category' || nameLower === 'categoria')) categoria = val;
+                        if (!familia && (nameLower === 'family' || nameLower === 'família')) familia = val;
+                        // Para Tipo, Revit usa "Type Name", "Nome do tipo", "Type", "Tipo"
+                        if (!tipo && (nameLower === 'type name' || nameLower === 'nome do tipo' || nameLower === 'type' || nameLower === 'tipo')) tipo = val;
+                        if (!nivel && (nameLower.includes('level') || nameLower.includes('nível') || nameLower.includes('nivel'))) nivel = val;
                     }
-
-                    // Mapeamento Inteligente (Tratamento seguro nulo)
-                    const nomeAtributo = p.attributeName || '';
-                    const nomeDisplay = p.displayName || '';
-
-                    if (nomeAtributo === 'Category' || nomeDisplay === 'Categoria') categoria = val || p.displayValue;
-                    if (nomeAtributo === 'Family' || nomeDisplay === 'Família') familia = val || p.displayValue;
-                    if (nomeAtributo === 'Type' || nomeDisplay === 'Tipo') tipo = val || p.displayValue;
-                    if (nomeAtributo.includes('Level') || nomeDisplay.includes('Nível')) nivel = val || p.displayValue;
                 });
             }
 
             // Fallback para Família (usa o nome do item se falhar) de forma segura
-            if ((!familia || familia === "") && item.name) {
+            if (!familia && item.name) {
                 const nomeItem = String(item.name);
                 familia = nomeItem.includes('[') ? nomeItem.split('[')[0].trim() : nomeItem.trim();
+            }
+
+            // Fallback para Tipo (usa o nome do item se falhar)
+            if (!tipo && item.name) {
+                const nomeItem = String(item.name);
+                // Muitas vezes o item name é "Familia [Tipo]". Vamos tentar extrair.
+                if (nomeItem.includes('[') && nomeItem.includes(']')) {
+                    tipo = nomeItem.substring(nomeItem.indexOf('[') + 1, nomeItem.indexOf(']')).trim();
+                } else {
+                    tipo = nomeItem.trim();
+                }
             }
 
             return {

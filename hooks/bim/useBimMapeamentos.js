@@ -4,8 +4,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@/utils/supabase/client';
 import { useMemo } from 'react';
 
-// ─── Prioridade de escopo: família > categoria > projeto ─────────────────────
-const PRIORIDADE_ESCOPO = { familia: 1, categoria: 2, projeto: 3 };
+// ─── Prioridade de escopo: elemento > tipo > família > categoria > projeto ─────────────────────
+const PRIORIDADE_ESCOPO = { elemento: 1, tipo: 2, familia: 3, categoria: 4, projeto: 5 };
 
 // ─── Detecta a unidade de uma medida a partir do valor label ─────────────────
 function detectarUnidade(label) {
@@ -147,6 +147,8 @@ export function useBimMapeamentos({ organizacaoId, empreendimentoId }) {
       if (m.escopo === 'projeto')  candidatos.push(`projeto|||${m.propriedade_nome}`);
       if (m.escopo === 'categoria') candidatos.push(`categoria|||${m.categoria_bim}|||${m.propriedade_nome}`);
       if (m.escopo === 'familia')  candidatos.push(`familia|||${m.categoria_bim}|||${m.familia_bim}|||${m.propriedade_nome}`);
+      if (m.escopo === 'tipo')     candidatos.push(`tipo|||${m.categoria_bim}|||${m.familia_bim}|||${m.tipo_bim}|||${m.propriedade_nome}`);
+      if (m.escopo === 'elemento') candidatos.push(`elemento|||${m.elemento_id}|||${m.propriedade_nome}`);
 
       candidatos.forEach(chave => {
         const atual = mapa[chave];
@@ -161,9 +163,13 @@ export function useBimMapeamentos({ organizacaoId, empreendimentoId }) {
 
   // ─── Resolve mapeamento para um elemento + propriedade específicos ─────────
   const resolverMapeamento = (elem, propriedade) => {
+    const id  = elem.external_id || '';
     const cat = elem.categoria || '';
     const fam = elem.familia   || '';
+    const tip = elem.tipo      || '';
     return (
+      mapeamentoPor[`elemento|||${id}|||${propriedade}`] ||
+      mapeamentoPor[`tipo|||${cat}|||${fam}|||${tip}|||${propriedade}`] ||
       mapeamentoPor[`familia|||${cat}|||${fam}|||${propriedade}`] ||
       mapeamentoPor[`categoria|||${cat}|||${propriedade}`]         ||
       mapeamentoPor[`projeto|||${propriedade}`]                    ||
