@@ -505,15 +505,6 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
             <span>Fechar Orçamento</span>
             <span className="text-lg leading-none">×</span>
           </button>
-          {modeloSelecionadoId && empreendimentoSelecionadoId && (
-            <button
-              onClick={() => setIsBimModalAberto(true)}
-              className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold px-4 py-2 rounded-lg shadow-sm transition-colors"
-            >
-              <FontAwesomeIcon icon={faArrowRight} />
-              Enviar para Orçamento
-            </button>
-          )}
         </div>
       </header>
 
@@ -523,93 +514,56 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
         {/* ─── DIREITA (Ocupa 100% agora pq a Sidebar esquerda foi removida): Tabela de Elementos ─── */}
         <main className="flex-1 flex flex-col overflow-hidden">
 
-          {/* KPIs + Barra de Ações */}
+          {/* ─── TABS: Elementos BIM | Por Material + Busca ─── */}
           {modeloSelecionado && (
-            <div className="bg-white border-b border-gray-200 px-5 py-3 flex-shrink-0">
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <h2 className="text-sm font-bold text-gray-800 truncate">{modeloSelecionado.nome_arquivo}</h2>
-                  <p className="text-xs text-gray-400">Sincronizado em {fmtData(modeloSelecionado.criado_em)}</p>
-                </div>
-                {/* Controles de Expansão + Busca */}
-                <div className="flex items-center gap-2">
-                  <div className="relative">
-                    <FontAwesomeIcon icon={faSearch} className="absolute left-2.5 top-2 text-gray-300 text-xs" />
-                    <input
-                      type="text"
-                      value={buscaElemento}
-                      onChange={e => setBuscaElemento(e.target.value)}
-                      placeholder="Buscar família, tipo, SINAPI..."
-                      className="pl-7 pr-3 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-400 w-52"
-                    />
-                  </div>
-                  <button
-                    onClick={expandirTodas}
-                    title="Expandir tudo"
-                    className="p-1.5 text-xs border border-gray-200 rounded-lg text-gray-500 hover:bg-gray-50 transition-colors"
-                  >
-                    <FontAwesomeIcon icon={faExpand} />
-                  </button>
-                  <button
-                    onClick={recolherTodas}
-                    title="Recolher tudo"
-                    className="p-1.5 text-xs border border-gray-200 rounded-lg text-gray-500 hover:bg-gray-50 transition-colors"
-                  >
-                    <FontAwesomeIcon icon={faCompress} />
-                  </button>
-                </div>
+            <div className="flex items-center justify-between border-b border-gray-200 bg-white px-5 flex-shrink-0 pt-2">
+              <div className="flex gap-2">
+                {[{ v: 'elementos', label: 'Elementos BIM', icon: faCubes }, { v: 'por-material', label: `Orçamentação${kpisMaterial.totalMapeados > 0 ? ` (${kpisMaterial.totalMapeados})` : ''}`, icon: faFileInvoiceDollar }]
+                  .map(tab => (
+                    <button
+                      key={tab.v}
+                      onClick={() => setAbaAtiva(tab.v)}
+                      className={`px-5 py-2.5 text-xs font-bold border-b-2 transition-all flex items-center gap-2 ${
+                        abaAtiva === tab.v
+                          ? 'border-blue-600 text-blue-700'
+                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-200'
+                      }`}
+                    >
+                      <FontAwesomeIcon icon={tab.icon} className={abaAtiva === tab.v ? 'text-blue-600' : 'text-gray-400'} />
+                      {tab.label}
+                      {tab.v === 'por-material' && kpisMaterial.materialComAlerta > 0 && (
+                        <span className="ml-1.5 bg-amber-100 text-amber-700 border border-amber-200 text-[10px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-1">
+                          {kpisMaterial.materialComAlerta} <FontAwesomeIcon icon={faExclamationTriangle} />
+                        </span>
+                      )}
+                    </button>
+                  ))
+                }
               </div>
 
-              {/* KPIs */}
-              <div className="grid grid-cols-4 gap-3">
-                <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
-                  <p className="text-[10px] font-extrabold text-blue-500 uppercase tracking-wider">Total Elementos</p>
-                  <p className="text-lg font-bold text-blue-800">{kpis.totalElementos.toLocaleString('pt-BR')}</p>
+              {/* Controles de Expansão + Busca */}
+              <div className="flex items-center gap-2 pb-2">
+                <div className="relative">
+                  <FontAwesomeIcon icon={faSearch} className="absolute left-2.5 top-2 text-gray-300 text-xs" />
+                  <input
+                    type="text"
+                    value={buscaElemento}
+                    onChange={e => setBuscaElemento(e.target.value)}
+                    placeholder="Buscar família, tipo, SINAPI..."
+                    className="pl-7 pr-3 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-400 w-52 transition-all"
+                  />
                 </div>
-                <div className="bg-gray-50 border border-gray-100 rounded-lg px-3 py-2">
-                  <p className="text-[10px] font-extrabold text-gray-500 uppercase tracking-wider">Categorias</p>
-                  <p className="text-lg font-bold text-gray-700">{kpis.totalCategorias}</p>
-                </div>
-                <div className="bg-green-50 border border-green-100 rounded-lg px-3 py-2">
-                  <p className="text-[10px] font-extrabold text-green-600 uppercase tracking-wider">
-                    <FontAwesomeIcon icon={faRulerCombined} className="mr-1" />Área Total m²
-                  </p>
-                  <p className="text-lg font-bold text-green-700">{fmt2(kpis.areaTotal)}</p>
-                </div>
-                <div className="bg-indigo-50 border border-indigo-100 rounded-lg px-3 py-2">
-                  <p className="text-[10px] font-extrabold text-indigo-500 uppercase tracking-wider">
-                    <FontAwesomeIcon icon={faBarcode} className="mr-1" />Com SINAPI
-                  </p>
-                  <p className="text-lg font-bold text-indigo-700">{kpis.comSinapi}</p>
-                </div>
+                {abaAtiva === 'elementos' && (
+                  <>
+                    <button onClick={expandirTodas} title="Expandir tudo" className="p-1.5 text-xs border border-gray-200 rounded-lg text-gray-500 hover:bg-gray-50 transition-colors">
+                      <FontAwesomeIcon icon={faExpand} />
+                    </button>
+                    <button onClick={recolherTodas} title="Recolher tudo" className="p-1.5 text-xs border border-gray-200 rounded-lg text-gray-500 hover:bg-gray-50 transition-colors">
+                      <FontAwesomeIcon icon={faCompress} />
+                    </button>
+                  </>
+                )}
               </div>
-            </div>
-          )}
-
-          {/* ─── TABS: Elementos BIM | Por Material ─── */}
-          {modeloSelecionado && (
-            <div className="flex border-b border-gray-200 bg-white px-5 flex-shrink-0">
-              {[{ v: 'elementos', label: 'Elementos BIM', icon: faCubes }, { v: 'por-material', label: `Orçamentação${kpisMaterial.totalMapeados > 0 ? ` (${kpisMaterial.totalMapeados})` : ''}`, icon: faFileInvoiceDollar }]
-                .map(tab => (
-                  <button
-                    key={tab.v}
-                    onClick={() => setAbaAtiva(tab.v)}
-                    className={`px-5 py-2.5 text-xs font-bold border-b-2 transition-all flex items-center gap-2 ${
-                      abaAtiva === tab.v
-                        ? 'border-blue-600 text-blue-700'
-                        : 'border-transparent text-gray-500 hover:text-gray-700'
-                    }`}
-                  >
-                    <FontAwesomeIcon icon={tab.icon} className={abaAtiva === tab.v ? 'text-blue-600' : 'text-gray-400'} />
-                    {tab.label}
-                    {tab.v === 'por-material' && kpisMaterial.materialComAlerta > 0 && (
-                      <span className="ml-1.5 bg-amber-100 text-amber-700 border border-amber-200 text-[10px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-1">
-                        {kpisMaterial.materialComAlerta} <FontAwesomeIcon icon={faExclamationTriangle} />
-                      </span>
-                    )}
-                  </button>
-                ))
-              }
             </div>
           )}
 
