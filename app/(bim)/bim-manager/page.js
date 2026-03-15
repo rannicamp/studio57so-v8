@@ -484,6 +484,15 @@ export default function BimManagerPage() {
                             onRestoreNote={handleRestoreNote} 
                         />
                     </div>
+                    
+                    {isQuantitativosOpen && (
+                        <BimQuantitativosOverlay 
+                            onClose={() => setIsQuantitativosOpen(false)} 
+                            onShowInModel={handleShowQuantitativos} 
+                            empreendimentoContextId={fileInUse?.empreendimento_id}
+                            modeloContextId={fileInUse?.id}
+                        />
+                    )}
                 </main>
             </div>
 
@@ -514,15 +523,6 @@ export default function BimManagerPage() {
                 activities={visibleActivities || []} 
                 onSuccess={onNoteSuccess} 
             />
-
-            {isQuantitativosOpen && (
-                <BimQuantitativosOverlay 
-                    onClose={() => setIsQuantitativosOpen(false)} 
-                    onShowInModel={handleShowQuantitativos} 
-                    empreendimentoContextId={fileInUse?.empreendimento_id}
-                    modeloContextId={fileInUse?.id}
-                />
-            )}
         </div>
     );
 }
