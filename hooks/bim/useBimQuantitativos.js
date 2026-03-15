@@ -14,7 +14,7 @@ export function useBimQuantitativos({ organizacaoId }) {
 
   // ─── Estados de Seleção ───────────────────────────────────────────────
   const [empreendimentoSelecionadoId, setEmpreendimentoSelecionadoId] = useState('');
-  const [modeloSelecionadoId, setModeloSelecionadoId] = useState('');
+  const [modelosSelecionadosIds, setModelosSelecionadosIds] = useState([]);
   const [categoriasExpandidas, setCategoriasExpandidas] = useState(new Set());
   const [categoriasVisiveis, setCategoriasVisiveis] = useState(new Set());
 
@@ -138,7 +138,7 @@ export function useBimQuantitativos({ organizacaoId }) {
   }, [modelos, modeloSelecionadoId]);
 
   // ─── Query 3: Elementos Agrupados do Modelo + lista flat ────────────
-  const elementosQueryKey = ['bimQuant_elementos', modeloSelecionadoId, organizacaoId];
+  const elementosQueryKey = ['bimQuant_elementos', [...modelosSelecionadosIds].sort().join(','), organizacaoId];
   const { data: grupos = [], isLoading: carregandoElementos } = useQuery({
     queryKey: elementosQueryKey,
     queryFn: async () => {
@@ -261,7 +261,7 @@ export function useBimQuantitativos({ organizacaoId }) {
         })
         .sort((a, b) => a.categoria.localeCompare(b.categoria));
     },
-    enabled: !!modeloSelecionadoId && !!organizacaoId,
+    enabled: modelosSelecionadosIds.length > 0 && !!organizacaoId,
     staleTime: 3 * 60 * 1000,
     // Retorna grupos (estrutura hierárquica) AND todosElementos (flat) juntos
     select: (rawGrupos) => rawGrupos, // grupos já são o retorno da queryFn
@@ -269,7 +269,7 @@ export function useBimQuantitativos({ organizacaoId }) {
 
   // Lista flat de todos os elementos (inclui ativos e inativos) para mapeamentos
   const { data: todosElementos = [] } = useQuery({
-    queryKey: ['bimQuant_elementos_flat', modeloSelecionadoId, organizacaoId],
+    queryKey: ['bimQuant_elementos_flat', [...modelosSelecionadosIds].sort().join(','), organizacaoId],
     queryFn: async () => {
       if (!modeloSelecionadoId || !organizacaoId) return [];
       const { data, error } = await supabase

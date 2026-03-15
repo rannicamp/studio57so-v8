@@ -490,7 +490,7 @@ export default function BimManagerPage() {
                             onClose={() => setIsQuantitativosOpen(false)} 
                             onShowInModel={handleShowQuantitativos} 
                             empreendimentoContextId={fileInUse?.empreendimento_id}
-                            modeloContextId={fileInUse?.id}
+                            modelosContextIds={loadedFiles.map(f => f.id)}
                         />
                     )}
                 </main>

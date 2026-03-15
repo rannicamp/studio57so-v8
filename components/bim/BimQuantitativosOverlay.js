@@ -41,7 +41,7 @@ const BadgeStatus = ({ status }) => {
 
 // ─── Componente Principal ─────────────────────────────────────────────────────
 
-export default function BimQuantitativosOverlay({ onClose, onShowInModel, empreendimentoContextId, modeloContextId }) {
+export default function BimQuantitativosOverlay({ onClose, onShowInModel, empreendimentoContextId, modelosContextIds }) {
   const supabase = createClient();
   const { organizacao_id, user } = useAuth();
 
@@ -72,7 +72,7 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
     empreendimentosAgrupados, carregandoEmpreendimentos,
     empreendimentoSelecionadoId, empreendimentoSelecionado, handleSelectEmpreendimento,
     modelos, carregandoModelos,
-    modeloSelecionadoId, modeloSelecionado, handleSelectModelo,
+    modelosSelecionadosIds, modelosSelecionados, handleSelectModelos,
     grupos, carregandoElementos, kpis,
     categoriasExpandidas, toggleCategoria, expandirTodas, recolherTodas,
     todosElementos,              // flat do modelo selecionado (para o modal de preview)
@@ -470,7 +470,7 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
             <h1 className="text-base font-bold text-gray-800 leading-tight">Orçamentação & Quantitativos BIM</h1>
             <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wide">
               {empreendimentoSelecionado?.nome || 'Empreendimento'}
-              {' · '} {modeloSelecionado?.nome_arquivo || 'Carregando...'}
+              {' · '} {modelosSelecionados && modelosSelecionados.length > 0 ? (modelosSelecionados.length === 1 ? modelosSelecionados[0].nome_arquivo : `${modelosSelecionados.length} Modelos Selecionados`) : 'Carregando...'}
             </p>
           </div>
         </div>
@@ -491,7 +491,7 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
         <main className="flex-1 flex flex-col overflow-hidden">
 
           {/* ─── TABS: Elementos BIM | Por Material + Busca ─── */}
-          {modeloSelecionado && (
+          {(modelosSelecionados && modelosSelecionados.length > 0) && (
             <div className="flex items-center justify-between border-b border-gray-200 bg-white px-5 flex-shrink-0 pt-2">
               <div className="flex gap-2">
                 {[{ v: 'elementos', label: 'Elementos BIM', icon: faCubes }, { v: 'por-material', label: `Orçamentação${kpisMaterial.totalMapeados > 0 ? ` (${kpisMaterial.totalMapeados})` : ''}`, icon: faFileInvoiceDollar }]
@@ -819,7 +819,7 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
                     <FontAwesomeIcon icon={faSpinner} spin size="2x" />
                     <p className="text-sm text-gray-500">Carregando elementos BIM...</p>
                   </div>
-                ) : !modeloSelecionadoId ? (
+                ) : (!modelosSelecionadosIds || modelosSelecionadosIds.length === 0) ? (
                   <div className="flex flex-col items-center justify-center h-full text-gray-400 gap-3">
                     <FontAwesomeIcon icon={faCubes} className="text-5xl text-gray-200" />
                     <p className="font-semibold">Selecione um modelo BIM à esquerda para visualizar os elementos.</p>
