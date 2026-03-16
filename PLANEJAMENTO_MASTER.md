@@ -247,6 +247,14 @@ O **Studio 57** é o ambiente de desenvolvimento e laboratório central. O **Elo
 
 ---
 
+- *2026-03-15:* **🤖 Evolução do Copilot de Atividades para Agente Autônomo (RAG / Tool Calling):**
+    - Identificado que o antigo modelo de injetar 50 atividades simultâneas no contexto do chat (`/api/ai/agent-tasks`) estava obsoleto e consumindo limites da API, além de gerar alucinações.
+    - **Criação da SQL RPC `buscar_atividades_ai`:** Foi desenvolvida no Supabase uma função avançada que funciona como a "lupa" do Copilot, permitindo filtros cruzados por *Organização, Empreendimento, Funcionário (ID real), Termo Textual e Status*, garantindo que a IA nunca busque informações fora de sua governança (RLS).
+    - **Refatoração do Gemini (Function Calling):** A engine da IA foi movida diretamente para o Server Action `actions-ai.js`. O bot foi re-treinado para trabalhar com o modelo `gemini-2.5-flash`, perdendo o vício de adivinhar informações e sendo forçado a entrevistar o usuário para captar Datas, Duração e Responsáveis.
+    - **Loop de Ferramentas:** Quando um usuário pede para editar, a IA nativamente dispara a ferramenta `buscar_atividades`, cruza dados do banco em microssegundos e devolve apenas os cartões que de fato existem, com IDs corretos, prontos para a função UPDATE. JSON rigoroso definido via *System Prompt*. Bug de `Mime Type` em versões restritivas resolvido com sucesso! Deploy realizado.
+
+---
+
 ### 12. Gestão de Custos BIM (Autodesk API) - *A FAZER*
 - [ ] **Diagnóstico:** A Autodesk cobra via "Flex Tokens" (aprox. U$ 4.50 ou R$ 25,00 por tradução de arquivo complexo como `.rvt` ou `.ifc`). O Studio 57 precisa repassar ou amortizar este custo.
 - [ ] **Sistema de Créditos:** Criar tabela `carteira_bim` no banco de dados.

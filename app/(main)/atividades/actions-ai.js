@@ -135,11 +135,11 @@ export async function generateActivityPlan(messagesHistory, organizacaoId, usuar
     const model = genAI.getGenerativeModel({
       model: "gemini-2.5-flash",
       tools: [{ functionDeclarations: [buscarAtividadesTool] }],
-      generationConfig: {
-        responseMimeType: "application/json",
-        responseSchema: schema,
-      },
       systemInstruction: `
+        VOCÊ DEVE RESPONDER EXATAMENTE COM UM JSON VÁLIDO (SEJA NO FINAL DO SEU RACIOCÍNIO DE FERRAMENTA OU DIRETAMENTE).
+        NÃO USE MARCADORES MARKDOWN COMO \`\`\`json. APENAS O OBJETO JSON PURO SEGUINDO A ESTRUTURA ABAIXO:
+        Schema Obrigatório: ${JSON.stringify(schema)}
+
         VOCÊ É UM ANALISTA DE PLANEJAMENTO ATIVO DO STUDIO 57.
         Data de hoje: ${today}
         Você conversa com: ${contextData.nome_usuario}
@@ -190,24 +190,33 @@ export async function generateActivityPlan(messagesHistory, organizacaoId, usuar
         if (!functionCall) break;
 
         if (functionCall.name === 'buscar_atividades') {
-            const args = functionCall.args;
-            const supabase = await createClient();
-            const { data, error } = await supabase.rpc('buscar_atividades_ai', {
-                p_organizacao_id: organizacaoId,
-                p_termo: args.termo || null,
-                p_funcionario_id: args.funcionario_id || null,
-                p_empreendimento_id: args.empreendimento_id || null,
-                p_status: args.status || null
-            });
-            
-            const apiResponse = [{ functionResponse: { name: "buscar_atividades", response: { result: error || data || [] } } }];
-            response = await chat.sendMessage(apiResponse);
+            try {
+              const args = functionCall.args;
+              console.log("TOOL CALL args:", args);
+              const supabase = await createClient();
+              const { data, error } = await supabase.rpc('buscar_atividades_ai', {
+                  p_organizacao_id: organizacaoId,
+                  p_termo: args.termo || null,
+                  p_funcionario_id: args.funcionario_id || null,
+                  p_empreendimento_id: args.empreendimento_id || null,
+                  p_status: args.status || null
+              });
+              
+              if (error) console.error("Erro na RPC buscar_atividades_ai:", error);
+              
+              const apiResponse = [{ functionResponse: { name: "buscar_atividades", response: { result: error || data || [] } } }];
+              response = await chat.sendMessage(apiResponse);
+            } catch (toolError) {
+              console.error("Erro interno ao executar a tool:", toolError);
+              break;
+            }
         } else {
             break;
         }
     }
 
-    const rawText = response.response.text();
+    let rawText = response.response.text();
+    rawText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
     let result = JSON.parse(rawText);
 
     if (result.activities && result.activities.length > 0) {
