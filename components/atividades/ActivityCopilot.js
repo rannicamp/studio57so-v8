@@ -6,7 +6,7 @@ import {
   faRobot, faPaperPlane, faTimes, faCheckCircle, faMagic,
   faCalendarAlt, faBuilding, faListUl, faEdit, faTrash, faSave,
   faArrowLeft, faPlus, faComments, faPen,
-  faAlignLeft, faSitemap, faClock, faUser
+  faAlignLeft, faSitemap, faClock, faUser, faMicrophone
 } from '@fortawesome/free-solid-svg-icons'
 import {
   generateActivityPlan,
@@ -34,6 +34,11 @@ export default function ActivityCopilot({ isOpen, onClose, organizacaoId, usuari
   const [proposedPlan, setProposedPlan] = useState(null)
   const [saving, setSaving] = useState(false)
   const [editTitle, setEditTitle] = useState(null) // ID da sessão sendo renomeada na lista
+
+  // ESTADOS DE ÁUDIO
+  const [isRecording, setIsRecording] = useState(false)
+  const mediaRecorderRef = useRef(null)
+  const audioChunksRef = useRef([])
 
   const messagesEndRef = useRef(null)
 
@@ -109,6 +114,64 @@ export default function ActivityCopilot({ isOpen, onClose, organizacaoId, usuari
     await renameSession(id, newTitle)
     setSessionList(prev => prev.map(s => s.id === id ? { ...s, title: newTitle } : s))
     setEditTitle(null)
+  }
+
+  // --- FUNÇÕES DE ÁUDIO ---
+  async function handleAudioRecord() {
+    if (isRecording) {
+      // Para gravação
+      setIsRecording(false);
+      if (mediaRecorderRef.current) {
+        mediaRecorderRef.current.stop();
+      }
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = recorder;
+      audioChunksRef.current = [];
+
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+
+      recorder.onstop = async () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        stream.getTracks().forEach(track => track.stop()); // Libera o microfone
+
+        // Converte Blob para Base64
+        const reader = new FileReader();
+        reader.readAsDataURL(audioBlob);
+        reader.onloadend = async () => {
+          const base64Audio = reader.result;
+          setLoadingChat(true);
+          try {
+            const res = await fetch('/api/ai/transcribe', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ audioBase64: base64Audio, mimeType: 'audio/webm' })
+            });
+            const data = await res.json();
+            if (res.ok && data.text) {
+              setInputText(prev => prev + (prev ? ' ' : '') + data.text);
+            } else {
+              toast.error(data.error || 'Erro na transcrição');
+            }
+          } catch (err) {
+            toast.error('Erro ao conectar com API de transcrição');
+          } finally {
+            setLoadingChat(false);
+          }
+        };
+      };
+
+      recorder.start();
+      setIsRecording(true);
+    } catch (err) {
+      toast.error('Permissão de microfone negada ou indisponível.');
+    }
   }
 
   // --- FUNÇÕES DE CHAT ---
@@ -300,17 +363,34 @@ export default function ActivityCopilot({ isOpen, onClose, organizacaoId, usuari
               </div>
 
               <form onSubmit={handleSendMessage} className="p-4 bg-white border-t border-gray-200">
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={inputText}
-                    onChange={(e) => setInputText(e.target.value)}
-                    placeholder="Responda ou peça alterações..."
+                <div className="relative flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <input
+                      type="text"
+                      value={inputText}
+                      onChange={(e) => setInputText(e.target.value)}
+                      placeholder={isRecording ? "Ouvindo... Fale agora." : "Responda ou peça alterações..."}
+                      disabled={loadingChat || isRecording}
+                      className="w-full pl-4 pr-12 py-3 bg-gray-50 border border-gray-200 rounded-md focus:ring-2 focus:ring-blue-500 outline-none text-sm disabled:opacity-50"
+                    />
+                    <button type="submit" disabled={!inputText.trim() || loadingChat || isRecording} className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-blue-600 hover:bg-blue-50 rounded-md transition-colors">
+                      <FontAwesomeIcon icon={faPaperPlane} />
+                    </button>
+                  </div>
+                  
+                  {/* Botão de Áudio */}
+                  <button 
+                    type="button" 
+                    onClick={handleAudioRecord} 
                     disabled={loadingChat}
-                    className="w-full pl-4 pr-12 py-3 bg-gray-50 border border-gray-200 rounded-md focus:ring-2 focus:ring-blue-500 outline-none text-sm disabled:opacity-50"
-                  />
-                  <button type="submit" disabled={!inputText.trim() || loadingChat} className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-blue-600 hover:bg-blue-50 rounded-md transition-colors">
-                    <FontAwesomeIcon icon={faPaperPlane} />
+                    className={`p-3 rounded-full transition-colors flex-shrink-0 shadow-sm ${
+                      isRecording 
+                        ? 'bg-red-500 text-white animate-pulse shadow-red-200' 
+                        : 'bg-white border border-gray-200 text-gray-600 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200'
+                    }`}
+                    title={isRecording ? "Parar e transcrever" : "Falar no microfone"}
+                  >
+                    <FontAwesomeIcon icon={faMicrophone} />
                   </button>
                 </div>
               </form>

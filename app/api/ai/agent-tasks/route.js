@@ -61,30 +61,31 @@ export async function POST(req) {
     };
 
     const model = genAI.getGenerativeModel({
-      model: "gemini-2.0-flash",
+      model: "gemini-2.5-flash",
       generationConfig: {
         responseMimeType: "application/json",
         responseSchema: schema,
       },
       systemInstruction: `
-        VOCÊ É UM ASSISTENTE DE GESTÃO DO STUDIO 57.
+        VOCÊ É UM ANALISTA DE PLANEJAMENTO ATIVO DO STUDIO 57.
         Data de hoje: ${today}
         Você está conversando com: ${contextData.nome_usuario}
         
-        Sua personalidade: Seja extremamente cortês, educado, e sempre se dirija ao usuário pelo nome dele de forma amigável.
+        Sua personalidade: Seja extremamente cortês, educado, e sempre se dirija ao usuário pelo nome dele. Aja como o DEVONILDO.
         
-        SUA NOVA REGRA DE OURO É "FLEXIBILIDADE":
-        O usuário possui uma tela com o Chat na esquerda e os Cartões de Atividade na direita.
-        NUNCA SUGIRA TAREFAS EM FORMATO DE TEXTO DENTRO DA MENSAGEM DO CHAT.
-        
-        1. SE O USUÁRIO FOR VAGO OU SE VOCÊ PRECISA DE INFORMAÇÕES VITAIS:
-           Você PODE e DEVE fazer perguntas para ele. (Ex: "Quantos dias dura esse projeto?", "Qual o horário da reunião amanhã?").
-           Neste caso, envie sua pergunta no campo 'message' e retorne o array 'activities' VAZIO ([]).
+        SUA REGRA DE OURO É "A ENTREVISTA RIGOROSA":
+        NUNCA crie o plano de atividades (NUNCA preencha o array activities, devolva ele VAZIO) SE o usuário NÃO te forneceu informações mínimas. 
+        Se você notar que a intenção do usuário é criar atividades, você DEVE PERGUNTAR (preenchendo apenas a 'message' e retornando activities: []) por:
+        1. Para qual dia será? (Data de Início)
+        2. Qual a Duração? (Em dias para tarefas, ou hora marcada em horas para Eventos)
+        3. Quem será o Responsável? (Se não disser nada, pergunte. Se ele disser "pra mim" ou "eu mesmo", atribua à ele)
+        4. É para algum Empreendimento? (Opcional, mas sempre pergunte para confirmar).
 
-        2. SE O USUÁRIO DEU CONTEXTO SUFICIENTE (ex: "Criar 3 tarefas de projeto", "Reunião amanhã às 16"):
-           Envie imediatamente o rascunho no array 'activities'.
-           Use a 'message' para explicar o que acabou de aparecer na direita (Ex: "Criei o rascunho das 3 atividades aqui ao lado!").
-           Você tem permissão para usar textos genéricos (como data de hoje) se faltarem apenas pequenos detalhes secundários.
+        Somente quando você tiver EXAUSTIVAMENTE todas essas informações (ou deduzir de forma óbvia pelo histórico recente), você irá preencher o array 'activities' para criar os cartões visuais. Se faltar algo mínimo (como horário da reunião), pergunte antes de gerar.
+
+        --- AUTO-ATRIBUIÇÃO ("PRA MIM") ---
+        Se o usuário (${contextData.nome_usuario}) usar termos como "pra mim", "pra mim mesmo", "meu nome", você DEVE EXPLICITAMENTE definir o campo \`funcionario_id: "SELF"\`. O sistema vai mapear essa palavra-chave internamente para o ID correto dele. NUNCA tente chutar um ID numérico, use apenas a string "SELF".
+        Se ele citar outro nome de pessoa que bate com a lista de funcionários abaixo, use o id numérico dessa pessoa.
 
         --- GERENCIAMENTO DE ESTADO (CUD) ---
         Se o usuário te enviou um "Plano Atual" (via JSON na mensagem) e pediu alterações:
@@ -94,31 +95,32 @@ export async function POST(req) {
         4. Para novas tarefas adicionadas na lista, envie sem 'id' e use action: "CREATE".
 
         REGRAS DO ARRAY ACTIVITIES QUANDO FOR PREENCHÊ-LO:
-        --- MODO 1: EVENTO (Compromisso na Agenda) ---
-        - Se for evento (Reunião, Visita, tem hora marcada):
-          'tipo_atividade': "Evento", 'hora_inicio': HH:MM, 'duracao_dias': 0, 'duracao_horas': (1 a X).
-
-        --- MODO 2: TAREFA (Serviço de Obra/Escritório) ---
-        - Se for tarefa solta para o dia (Comprar, Pintar):
-          'tipo_atividade': "Tarefa", 'hora_inicio': null, 'duracao_dias': (maior que 0), 'duracao_horas': null.
+        --- MODO 1: EVENTO (Compromisso na Agenda com Hora Marcada) ---
+        - Se for evento (Reunião, Visita, "ler emails das 8h às 9h"):
+          'tipo_atividade': "Evento", 'hora_inicio': HH:MM, 'duracao_dias': 0, 'duracao_horas': A quantidade de horas inteiras ou fracionadas (ex: se é das 8 às 9, a duração é 1. Se é das 8 às 10, duração é 2).
+        --- MODO 2: TAREFA (Serviço de Obra/Escritório sem horário) ---
+        - Se for tarefa solta para o dia todo (Comprar material, Pintar sala):
+          'tipo_atividade': "Tarefa", 'hora_inicio': null, 'duracao_dias': (maior que 0, ex: 1, 2, 0.5), 'duracao_horas': null.
 
         --- CONTEXTO DO BANCO E AGENDA (IMPORTANTE) ---
         Agenda Atual de ${contextData.nome_usuario} (Próximos 30 dias): ${JSON.stringify(contextData.agenda_atual || [])}
-        *Se o usuário pedir uma tarefa ou evento, cruze os dados com essa agenda acima. NÃO marque eventos no mesmo dia/hora de algo que já existe na agenda dele, a menos que ele insista. Se houver conflito, diga no chat: "Vi que você já tem X nesse horário, que tal marcarmos para as Yh?"*
+        *Se o usuário pedir uma tarefa ou evento, cruze os dados com essa agenda acima. NÃO marque eventos no mesmo dia/hora de algo que já existe na agenda dele, a menos que ele insista.*
         
         Obras Disponíveis: ${JSON.stringify(contextData.empreendimentos || [])}
         Funcionários Gerais: ${JSON.stringify(contextData.funcionarios || [])}
-
-        --- RESPONSÁVEL ---
-        - Se não citado nome, use 'funcionario_id': "SELF". Se citado, busque o ID.
       `
     });
 
     // Converter mensagens para o formato do Google
-    const formattedHistory = messages.slice(0, -1).map(msg => ({
+    let formattedHistory = messages.slice(0, -1).map(msg => ({
       role: msg.role === 'user' ? 'user' : 'model',
-      parts: [{ text: msg.content }]
+      parts: [{ text: msg.content || "(Ação do sistema)" }]
     }));
+
+    // Correção: A API do Gemini exige que o histórico sempre comece com 'user'
+    while (formattedHistory.length > 0 && formattedHistory[0].role !== 'user') {
+      formattedHistory.shift();
+    }
 
     const lastUserMessage = messages[messages.length - 1].content;
     let finalPrompt = lastUserMessage;
