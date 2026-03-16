@@ -83,16 +83,21 @@ export async function POST(req) {
 
         Somente quando você tiver EXAUSTIVAMENTE todas essas informações (ou deduzir de forma óbvia pelo histórico recente), você irá preencher o array 'activities' para criar os cartões visuais. Se faltar algo mínimo (como horário da reunião), pergunte antes de gerar.
 
-        --- AUTO-ATRIBUIÇÃO ("PRA MIM") ---
-        Se o usuário (${contextData.nome_usuario}) usar termos como "pra mim", "pra mim mesmo", "meu nome", você DEVE EXPLICITAMENTE definir o campo \`funcionario_id: "SELF"\` E TAMBÉM preencher o campo \`responsavel_texto: "Eu (${contextData.nome_usuario})"\`. O sistema vai mapear essa palavra-chave internamente para o ID correto dele. NUNCA tente chutar um ID numérico, use apenas a string "SELF".
-        Se ele citar outro nome de pessoa que bate com a lista de funcionários abaixo, use o id numérico e preencha o \`responsavel_texto\` com o nome da pessoa.
+        --- MAPEAMENTO DE RESPONSÁVEL (CRÍTICO - BANCO DE DADOS) ---
+        Ao definir o responsável, você NÃO PODE simplesmente inventar textos soltos. Você tem acesso à "Tabela Virtual" de Funcionários Gerais listada no final deste prompt.
+        Se o usuário (${contextData.nome_usuario}) usar termos como "pra mim", "pra mim mesmo", "meu nome", você DEVE EXPLICITAMENTE definir o campo \`funcionario_id: "SELF"\` E TAMBÉM preencher o campo \`responsavel_texto: "Eu (${contextData.nome_usuario})"\`. O sistema vai mapear essa palavra-chave internamente para o ID correto dele.
+        Se ele citar outro nome de pessoa (Ex: "Atribui pra Mikaelly"), VOCÊ DEVE agir como um query de banco de dados: 
+        1. Busque o nome "Mikaelly" no array de \`Funcionários Gerais\`.
+        2. Pegue o valor exato da propriedade \`id\` dela (provavelmente um número idêntico ao do banco).
+        3. Coloque esse número na propriedade \`funcionario_id\`.
+        4. Coloque o nome completo dela no \`responsavel_texto\`.
+        NUNCA DEIXE \`funcionario_id\` COMO UMA STRING SE FOR OUTRA PESSOA QUE NÃO "SELF", ELA PRECISA SER O ID REAL DO BANCO.
 
-        --- GERENCIAMENTO DE ESTADO (CUD) ---
-        Se o usuário te enviou um "Plano Atual" (via JSON na mensagem) e pediu alterações:
-        1. Para tarefas que continuam iguais, devolva elas com as mesmas informações e action: "KEEP" ou "UPDATE".
-        2. Para tarefas que tiveram a data ou qualquer detalhe alterado, MANTENHA O MESMO 'id' e use action: "UPDATE".
-        3. Para tarefas que o usuário mandou cancelar ou remover, MANTENHA O MESMO 'id' e use action: "DELETE".
-        4. Para novas tarefas adicionadas na lista, envie sem 'id' e use action: "CREATE".
+        --- GERENCIAMENTO DE ESTADO (CUD - EDIÇÕES) ---
+        Se eu te enviar um "Plano Atual no painel direito" junto com a mensagem do usuário (Ex: ele pedindo para "mudar o responsável"), VOCÊ É OBRIGADO a devolver o array \`activities\` COMPLETO contendo as edições. NUNCA DEVOLVA O ARRAY VAZIO SE O USUÁRIO PEDIU UMA EDIÇÃO, caso contrário o cartão sumirá ou não será atualizado na tela dele.
+        1. Para tarefas que continuam iguais, devolva elas inalteradas com action: "KEEP" ou "UPDATE".
+        2. Para a tarefa que ele pediu para alterar, aplique a mudança, mantenha o mesmo 'id' ou 'temp_id', e use action: "UPDATE".
+        3. Para deletar, mantenha o 'id' e use action: "DELETE".
 
         REGRAS DO ARRAY ACTIVITIES QUANDO FOR PREENCHÊ-LO:
         --- MODO 1: EVENTO (Compromisso na Agenda com Hora Marcada) ---
