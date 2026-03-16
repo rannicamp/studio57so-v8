@@ -49,7 +49,7 @@ export async function POST(req) {
 
               // Vínculos
               empreendimento_id: { type: "integer", nullable: true },
-              funcionario_id: { type: "string", nullable: true },
+              funcionario_id: { type: "string", description: "OBRIGATÓRIO: O 'id' NUMÉRICO exato do funcionário no array (ex: '24'), ou a string literal 'SELF' se for pro usuário atual.", nullable: true },
               responsavel_texto: { type: "string", nullable: true },
               parent_temp_id: { type: "integer", nullable: true }
             },

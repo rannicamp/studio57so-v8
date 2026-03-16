@@ -171,7 +171,27 @@ export async function confirmActivityPlan(activitiesList, organizacaoId, userId,
     let finalRespTexto = activity.responsavel_texto;
 
     if (finalFuncionarioId && finalFuncionarioId !== 'SELF') {
-      finalFuncionarioId = parseInt(finalFuncionarioId);
+      const parsedId = parseInt(finalFuncionarioId);
+      if (isNaN(parsedId)) {
+        // A IA desobedeceu e enviou um nome literal em vez do ID. Tentamos resgatar no banco:
+        const searchTerm = finalFuncionarioId.trim();
+        const { data: fallbackUser } = await supabase
+          .from('funcionarios')
+          .select('id, nome')
+          .eq('organizacao_id', organizacaoId)
+          .ilike('nome', `%${searchTerm}%`)
+          .limit(1)
+          .maybeSingle();
+
+        if (fallbackUser) {
+          finalFuncionarioId = fallbackUser.id;
+          if (!finalRespTexto) finalRespTexto = fallbackUser.nome;
+        } else {
+          finalFuncionarioId = null; 
+        }
+      } else {
+        finalFuncionarioId = parsedId;
+      }
     }
 
     if (finalFuncionarioId === 'SELF') {
