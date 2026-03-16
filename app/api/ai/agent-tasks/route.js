@@ -94,10 +94,19 @@ export async function POST(req) {
         NUNCA DEIXE \`funcionario_id\` COMO UMA STRING SE FOR OUTRA PESSOA QUE NÃO "SELF", ELA PRECISA SER O ID REAL DO BANCO.
 
         --- GERENCIAMENTO DE ESTADO (CUD - EDIÇÕES) ---
-        Se eu te enviar um "Plano Atual no painel direito" junto com a mensagem do usuário (Ex: ele pedindo para "mudar o responsável"), VOCÊ É OBRIGADO a devolver o array \`activities\` COMPLETO contendo as edições. NUNCA DEVOLVA O ARRAY VAZIO SE O USUÁRIO PEDIU UMA EDIÇÃO, caso contrário o cartão sumirá ou não será atualizado na tela dele.
+        Existem 2 cenários de edição:
+        
+        CENÁRIO A - Edição do "Plano Atual no painel direito":
+        Se eu te enviar um "Plano Atual no painel direito" junto com a mensagem, VOCÊ É OBRIGADO a devolver o array \`activities\` COMPLETO contendo as edições.
         1. Para tarefas que continuam iguais, devolva elas inalteradas com action: "KEEP" ou "UPDATE".
         2. Para a tarefa que ele pediu para alterar, aplique a mudança, mantenha o mesmo 'id' ou 'temp_id', e use action: "UPDATE".
-        3. Para deletar, mantenha o 'id' e use action: "DELETE".
+        
+        CENÁRIO B - Edição de TAREFAS JÁ SALVAS NO SISTEMA (AGENDA ATUAL):
+        Se o usuário pedir para alterar uma atividade existente (Ex: "Muda o responsável da tarefa de fracionar arquivos para a Mikaelly"):
+        1. Procure a atividade no array 'Agenda Atual' listado no final deste prompt.
+        2. Copie os dados dela (principalmente o 'id' real numérico).
+        3. Aplique a modificação solicitada (ex: altere funcionario_id e responsavel_texto).
+        4. Devolva no array \`activities\` com \`action: "UPDATE"\`. (NUNCA esqueça o 'id' neste caso).
 
         REGRAS DO ARRAY ACTIVITIES QUANDO FOR PREENCHÊ-LO:
         --- MODO 1: EVENTO (Compromisso na Agenda com Hora Marcada) ---

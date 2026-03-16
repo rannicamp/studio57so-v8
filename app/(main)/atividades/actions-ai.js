@@ -37,21 +37,20 @@ async function getContextForAI(organizacaoId, userId) {
     if (userData && userData.nome) nomeUsuario = userData.nome.split(' ')[0];
   }
 
-  // 3. Buscar a Agenda do Usuário (Próximos 30 dias) - SEGURANÇA MÁXIMA
+  // 3. Buscar a Agenda do Usuário (Tarefas e Eventos Ativos) - SEGURANÇA MÁXIMA
   let agendaContext = [];
   try {
     let query = supabase
       .from('activities')
-      .select('nome, tipo_atividade, data_inicio_prevista, hora_inicio, duracao_dias, duracao_horas, status')
+      .select('id, nome, descricao, tipo_atividade, data_inicio_prevista, hora_inicio, duracao_dias, duracao_horas, status, funcionario_id, responsavel_texto, empreendimento_id')
       .eq('organizacao_id', organizacaoId)
       .neq('status', 'Concluído')
-      .gte('data_inicio_prevista', new Date().toISOString().split('T')[0])
-      .order('data_inicio_prevista', { ascending: true })
-      .limit(20);
+      .order('updated_at', { ascending: false })
+      .limit(50);
 
     // Filtra pelo responsavel (se ele for funcionario, usa o funcionario_id, senão busca atv. criadas por ele)
     if (funcionarioId) {
-      query = query.eq('funcionario_id', funcionarioId);
+      query = query.or(`funcionario_id.eq.${funcionarioId},criado_por_usuario_id.eq.${userId}`);
     } else {
       query = query.eq('criado_por_usuario_id', userId);
     }
