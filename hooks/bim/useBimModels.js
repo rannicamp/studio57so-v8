@@ -42,7 +42,7 @@ export function useBimModels(viewerInstance, setIsGanttOpen) {
             const loadOptions = { 
                 keepCurrentModels: true, 
                 applyScaling: 'm', 
-                placementTransform: new THREE.Matrix4(), 
+                placementTransform: new window.THREE.Matrix4(), 
                 globalOffset: globalOffsetRef.current 
             };
 
@@ -107,7 +107,7 @@ export function useBimModels(viewerInstance, setIsGanttOpen) {
                 const loadOptions = { 
                     keepCurrentModels: true, 
                     applyScaling: 'm', 
-                    placementTransform: new THREE.Matrix4(), 
+                    placementTransform: new window.THREE.Matrix4(), 
                     globalOffset: globalOffsetRef.current 
                 };
 

@@ -19,15 +19,17 @@ import BimNoteModal from '@/components/bim/BimNoteModal';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
     faChevronLeft, faChevronRight, faHome, 
-    faStream, faChevronDown, faLayerGroup, faSpinner, faFileInvoiceDollar
+    faStream, faChevronDown, faLayerGroup, faSpinner, faFileInvoiceDollar, faPenNib, faEraser
 } from '@fortawesome/free-solid-svg-icons';
 import BimQuantitativosOverlay from '@/components/bim/BimQuantitativosOverlay';
+import BimMarkupToolbar from '@/components/bim/BimMarkupToolbar';
 
 // Hooks Personalizados
 import { useBimViewer } from '@/hooks/bim/useBimViewer';
 import { useBimModels } from '@/hooks/bim/useBimModels';
 import { useBimNotes } from '@/hooks/bim/useBimNotes';
-import { useBimEvolution } from '@/hooks/bim/useBimEvolution'; 
+import { useBimEvolution } from '@/hooks/bim/useBimEvolution';
+import { useBimMarkup } from '@/hooks/bim/useBimMarkup';
 
 export default function BimManagerPage() {
     const supabase = createClient();
@@ -48,6 +50,26 @@ export default function BimManagerPage() {
         isLoadingEvolution, 
         toggleEvolutionMode 
     } = useBimEvolution(viewerInstance, organizacao_id);
+
+    // 2.5 Hook de Marcação e Desenho no Modelo 3D (Markup)
+    const { 
+        isMarkupActive, activeTool, setMarkupTool, 
+        enterMarkupMode, leaveMarkupMode, 
+        undo, clearMarkups, generateMarkupData, showSavedMarkup, hideMarkups
+    } = useBimMarkup(viewerInstance);
+
+    // 2.6 Wrapper para restaurar notas (Padrão + Markup SVG)
+    const handleRestoreNoteWrapper = (note) => {
+        // 1. Restaura visualização padrão (Câmera + Seleção)
+        handleRestoreNote(note);
+        
+        // 2. Restaura o desenho por cima (Markup) se existir
+        if (note.markup_svg) {
+            showSavedMarkup(note.markup_svg);
+        } else {
+            hideMarkups(); // Limpa a tela caso a nota anterior tivesse desenho
+        }
+    };
 
     // 3. Estados de Layout
     const [isSidebarVisible, setIsSidebarVisible] = useState(true);
@@ -70,6 +92,7 @@ export default function BimManagerPage() {
         isNoteModalOpen, setIsNoteModalOpen,
         noteCaptureData, 
         handleOpenNoteCreation, 
+        handleOpenMarkupNoteCreation,
         handleRestoreNote, 
         onNoteSuccess
     } = useBimNotes(viewerInstance, activeFile);
@@ -438,6 +461,29 @@ export default function BimManagerPage() {
                                 <FontAwesomeIcon icon={faFileInvoiceDollar} />
                                 <span className="text-[10px] font-bold uppercase hidden md:inline ml-2">Orçamento</span>
                             </button>
+                            <div className="flex items-center ml-4 bg-white/90 rounded-lg shadow-sm border divide-x divide-gray-200 overflow-hidden">
+                                <button 
+                                    onClick={() => isMarkupActive ? leaveMarkupMode() : enterMarkupMode()} 
+                                    disabled={!viewerInstance}
+                                    className={`p-2 transition-all flex items-center gap-2 ${isMarkupActive ? 'text-blue-600 bg-blue-50' : 'text-gray-600 hover:text-blue-600 hover:bg-gray-50'}`}
+                                    title="Anotações 3D (Desenho livre)"
+                                >
+                                    <FontAwesomeIcon icon={faPenNib} />
+                                    <span className="text-[10px] font-bold uppercase hidden md:inline">Marcação</span>
+                                </button>
+                                <button 
+                                    onClick={() => {
+                                        hideMarkups();
+                                        viewerInstance?.clearSelection();
+                                        toast.info("Anotação e seleções ocultadas na vista principal.");
+                                    }} 
+                                    disabled={!viewerInstance}
+                                    className="p-2 px-3 text-red-500 hover:bg-red-50 transition-all"
+                                    title="Limpar Desenho e Seleção"
+                                >
+                                    <FontAwesomeIcon icon={faEraser} />
+                                </button>
+                            </div>
                         </div>
 
                         <div className="absolute top-4 right-4 z-[60]">
@@ -448,6 +494,24 @@ export default function BimManagerPage() {
 
                         {/* VISUALIZADOR 3D */}
                         <div className="flex-1 w-full relative">
+                            {isMarkupActive && (
+                                <BimMarkupToolbar 
+                                    activeTool={activeTool} 
+                                    setMarkupTool={setMarkupTool} 
+                                    onUndo={undo} 
+                                    onClear={clearMarkups} 
+                                    onSave={() => {
+                                        const data = generateMarkupData();
+                                        if (data && data.svgString) {
+                                            handleOpenMarkupNoteCreation(data);
+                                            leaveMarkupMode();
+                                        } else {
+                                            toast.warning("Desenhe algo antes de salvar.");
+                                        }
+                                    }} 
+                                    onCancel={leaveMarkupMode} 
+                                />
+                            )}
                             <AutodeskViewerAPI urn={null} onViewerReady={setViewerInstance} />
                         </div>
 
@@ -481,7 +545,7 @@ export default function BimManagerPage() {
                             onOpenLink={handleOpenLink} 
                             onOpenCreate={handleOpenCreate} 
                             onOpenNote={handleOpenNoteCreation} 
-                            onRestoreNote={handleRestoreNote} 
+                            onRestoreNote={handleRestoreNoteWrapper} 
                         />
                     </div>
                     
