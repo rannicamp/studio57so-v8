@@ -110,7 +110,7 @@ export async function generateActivityPlan(messagesHistory, organizacaoId, usuar
     // Agora o server sempre retorna { success: true } num HTTP 200, 
     // mas os campos dependem se é conversational ou estruturado.
     if (result.activities && result.activities.length > 0) {
-      return { success: true, type: 'plan', data: result.activities, thought: result.thought_process };
+      return { success: true, type: 'plan', data: result.activities, thought: result.thought_process, message: result.message };
     } else {
       return { success: true, type: 'message', message: result.message || result.question_to_user || "Entendido." };
     }
