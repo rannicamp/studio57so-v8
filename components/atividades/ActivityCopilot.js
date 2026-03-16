@@ -208,7 +208,7 @@ export default function ActivityCopilot({ isOpen, onClose, organizacaoId, usuari
     }
   }
 
-  async function handleApprove() {
+  async function handleApproveAll() {
     if (!proposedPlan) return
     setSaving(true)
     try {
@@ -219,20 +219,47 @@ export default function ActivityCopilot({ isOpen, onClose, organizacaoId, usuari
         currentSession ? currentSession.current_plan : []
       )
       if (result.success) {
-        toast.success('Plano sincronizado com a agenda oficial!')
-        // Sincromiza os IDs reais vindos do banco
+        toast.success('Plano completo salvo na agenda!')
         setProposedPlan(result.finalPlan || [])
-
-        // Força salvar o State da Sessão agora mesmo para não haver delay
         if (currentSession) {
           await saveSessionState(currentSession.id, messages, result.finalPlan || [])
         }
-
         onSuccess?.()
-        // NOTA: Removido o onClose() automático. O usuário pode continuar conversando!
       }
     } catch {
-      toast.error('Erro ao salvar.')
+      toast.error('Erro ao salvar plano completo.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleSaveSingle(index, activity) {
+    setSaving(true)
+    try {
+      // Mandamos apenas essa atividade, fingindo que o plano atual é vazio para não deletar as outras
+      const result = await confirmActivityPlan([activity], organizacaoId, usuarioId, [])
+      if (result.success && result.finalPlan && result.finalPlan.length > 0) {
+        toast.success(`Atividade "${activity.nome}" salva com sucesso!`)
+        
+        // Substituimos a atividade no array pelo objeto real retornado no banco (com ID real)
+        const newPlan = [...proposedPlan]
+        newPlan[index] = result.finalPlan[0]
+        setProposedPlan(newPlan)
+
+        // Salvar a Sessão
+        if (currentSession) {
+          const currentSessionPlanState = currentSession.current_plan || []
+          // Adiciona ou substitui na sessao
+          const existingIdx = currentSessionPlanState.findIndex(a => a.id === result.finalPlan[0].id)
+          if(existingIdx >= 0) currentSessionPlanState[existingIdx] = result.finalPlan[0]
+          else currentSessionPlanState.push(result.finalPlan[0])
+          await saveSessionState(currentSession.id, messages, currentSessionPlanState)
+        }
+        
+        onSuccess?.()
+      }
+    } catch {
+      toast.error('Erro ao salvar a atividade.')
     } finally {
       setSaving(false)
     }
@@ -409,87 +436,82 @@ export default function ActivityCopilot({ isOpen, onClose, organizacaoId, usuari
                 </div>
 
                 <div className="flex-1 p-6 space-y-4 overflow-y-auto bg-gray-50">
-                  {proposedPlan.map((activity, i) => (
-                    <div key={i} className="bg-white rounded-xl shadow border border-gray-200 p-5 hover:shadow-md transition-shadow relative overflow-hidden group">
-                      {/* Borda Lateral Colorida de Status Simulado */}
-                      <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-yellow-400"></div>
+                  {proposedPlan.map((activity, i) => {
+                    const todayStr = new Date().toLocaleDateString('en-CA');
+                    const prazoStr = activity.data_fim_prevista || activity.data_inicio_prevista;
+                    const isOverdue = prazoStr && prazoStr < todayStr && activity.status !== 'Concluído';
+                    
+                    const isSaved = !!activity.id; // Se a IA apenas inventou, id é undefined.
 
-                      <div className="flex justify-between items-start mb-3">
-                        <div className="pr-4">
-                          <h4 className="text-base font-bold text-gray-800 leading-tight">{activity.nome}</h4>
+                    return (
+                      <div key={i} className={`bg-white rounded-md shadow p-3 border-l-4 ${isOverdue ? 'border-red-500' : 'border-blue-500'} hover:shadow-lg transition-shadow duration-200 flex flex-col justify-between min-h-[160px] relative`}>
+                        
+                        <div>
                           {activity.parent_temp_id && (
-                            <p className="text-[11px] text-blue-600 flex items-center gap-1 mt-1 font-semibold uppercase tracking-wider">
-                              <FontAwesomeIcon icon={faSitemap} /> Vinculado a outra tarefa
-                            </p>
+                            <div className="mb-2 bg-blue-50 border border-blue-100 text-blue-600 text-[10px] px-2 py-1 rounded flex items-center gap-1.5 w-fit max-w-full">
+                                <FontAwesomeIcon icon={faSitemap} className="flex-shrink-0" />
+                                <span className="truncate font-medium">Sub-tarefa Vinculada</span>
+                            </div>
                           )}
+
+                          <div className="flex justify-between items-start mb-2">
+                              <p className="text-sm font-bold text-gray-800 truncate pr-2" title={activity.nome}>{activity.nome}</p>
+                              <div className="flex items-center gap-2 flex-shrink-0">
+                                  {isSaved && <p className="text-xs text-gray-400">#{activity.id}</p>}
+                              </div>
+                          </div>
+
+                          {isOverdue && (
+                              <div className="bg-red-100 text-red-700 text-xs font-bold p-1 rounded-md mb-2 flex items-center justify-center gap-2">
+                                  <FontAwesomeIcon icon={faExclamationTriangle} />
+                                  <span>TAREFA ATRASADA</span>
+                              </div>
+                          )}
+
+                          {activity.descricao && (
+                            <p className="text-xs text-gray-500 mb-2 truncate" title={activity.descricao}>{activity.descricao}</p>
+                          )}
+
+                          <div className="text-xs text-gray-600 mt-1 space-y-1">
+                              <p className="flex items-center gap-2" title="Datas Previstas">
+                                  <FontAwesomeIcon icon={faCalendarAlt} className="w-3 text-gray-400" />
+                                  <span>{formatDate(activity.data_inicio_prevista)} {activity.data_fim_prevista && `a ${formatDate(activity.data_fim_prevista)}`}</span>
+                              </p>
+                              <p className="flex items-center gap-2" title="Duração / Hora">
+                                  <FontAwesomeIcon icon={faClock} className="w-3 text-gray-400" />
+                                  <span>{activity.hora_inicio ? `Hora: ${activity.hora_inicio} (${activity.duracao_horas}h)` : `Duração: ${activity.duracao_dias} dias`}</span>
+                              </p>
+                              <p className="flex items-center gap-2" title="Responsável">
+                                  <FontAwesomeIcon icon={faUser} className="w-3 text-gray-400" />
+                                  <span className="font-semibold">{activity.responsavel_texto || 'A Definir'}</span>
+                              </p>
+                          </div>
                         </div>
-                        <span className={`text-[10px] font-bold px-2 py-1 uppercase tracking-wide rounded-md whitespace-nowrap ${activity.tipo_atividade === 'Evento' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
-                          {activity.tipo_atividade}
-                        </span>
-                      </div>
 
-                      {/* Corpo (Descricao) */}
-                      {activity.descricao && (
-                        <div className="mb-4 bg-gray-50 rounded-md p-3 border border-gray-100">
-                          <p className="text-xs text-gray-600 leading-relaxed line-clamp-3">
-                            {activity.descricao}
-                          </p>
-                        </div>
-                      )}
-
-                      {/* Grade de Datas e Responsáveis */}
-                      <div className="grid grid-cols-2 gap-y-3 gap-x-4 pt-3 border-t border-gray-100">
-                        <div className="flex flex-col">
-                          <span className="text-[10px] uppercase font-bold text-gray-400 mb-0.5 flex items-center gap-1">
-                            <FontAwesomeIcon icon={faCalendarAlt} className="text-gray-300" /> Início
-                          </span>
-                          <span className="text-sm font-semibold text-gray-700">
-                            {formatDate(activity.data_inicio_prevista)}
-                          </span>
-                        </div>
-
-                        {activity.hora_inicio ? (
-                          <div className="flex flex-col border-l border-gray-100 pl-4">
-                            <span className="text-[10px] uppercase font-bold text-gray-400 mb-0.5 flex items-center gap-1">
-                              <FontAwesomeIcon icon={faClock} className="text-gray-300" /> Hora
+                        <div className="relative mt-4 pt-3 border-t flex justify-between items-center">
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] uppercase font-bold tracking-wide ${activity.status === 'Concluído' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+                                {activity.status || 'Não Iniciado'}
                             </span>
-                            <span className="text-sm font-semibold text-gray-700">
-                              {activity.hora_inicio} <span className="text-xs font-normal text-gray-500">({activity.duracao_horas}h)</span>
-                            </span>
-                          </div>
-                        ) : (
-                          <div className="flex flex-col border-l border-gray-100 pl-4">
-                            <span className="text-[10px] uppercase font-bold text-gray-400 mb-0.5 flex items-center gap-1">
-                              <FontAwesomeIcon icon={faClock} className="text-gray-300" /> Duração
-                            </span>
-                            <span className="text-sm font-semibold text-gray-700">
-                              {activity.duracao_dias} {activity.duracao_dias == 1 ? 'dia' : 'dias'}
-                            </span>
-                          </div>
-                        )}
-
-                        <div className="col-span-2 pt-2 flex items-center gap-2">
-                          <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 text-[10px]">
-                            <FontAwesomeIcon icon={faUser} />
-                          </div>
-                          <div className="flex flex-col">
-                             <span className="text-[10px] uppercase font-bold text-gray-400">Responsável</span>
-                             <span className="text-xs font-semibold text-gray-800">
-                               {activity.responsavel_texto || 'A Definir'}
-                             </span>
-                          </div>
+                            
+                            <button 
+                              onClick={() => handleSaveSingle(i, activity)} 
+                              disabled={saving || isSaved} 
+                              className={`text-xs font-bold px-3 py-1.5 rounded-md flex items-center gap-2 transition-colors ${isSaved ? 'bg-green-100 text-green-700 cursor-default' : 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm'}`}
+                            >
+                              {isSaved ? <><FontAwesomeIcon icon={faCheckCircle} /> Salvo</> : <><FontAwesomeIcon icon={faCheckCircle} /> Salvar</>}
+                            </button>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
 
                 <div className="p-4 bg-gray-50 border-t border-gray-200 flex gap-3 z-10 flex-shrink-0">
                   <button onClick={() => setProposedPlan(null)} className="flex-1 py-2 text-sm font-semibold text-gray-600 bg-white hover:bg-gray-100 rounded-md transition-colors border border-gray-300">
-                    <FontAwesomeIcon icon={faTimes} className="mr-2" /> Descartar
+                    <FontAwesomeIcon icon={faTimes} className="mr-2" /> Ocultar Plano
                   </button>
-                  <button onClick={handleApprove} disabled={saving} className="w-[60%] py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-md shadow-sm flex items-center justify-center gap-2 transition-colors disabled:opacity-50">
-                    {saving ? 'Sincronizando Banco...' : <><FontAwesomeIcon icon={faCheckCircle} /> Salvar Atividades</>}
+                  <button onClick={handleApproveAll} disabled={saving} className="w-[50%] py-2 bg-slate-800 hover:bg-slate-900 text-white text-sm font-semibold rounded-md shadow-sm flex items-center justify-center gap-2 transition-colors disabled:opacity-50">
+                    Salvar Todos
                   </button>
                 </div>
               </div>

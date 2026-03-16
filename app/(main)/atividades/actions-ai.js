@@ -244,7 +244,21 @@ export async function confirmActivityPlan(activitiesList, organizacaoId, userId,
         savedCount++;
       }
     }
-    else if (action === 'CREATE' || action === 'KEEP' || !activity.id) {
+    else if (action === 'KEEP') {
+      if (activity.id) {
+        // Se já tem ID, já está no banco, não precisa inserir nem atualizar
+        finalSyncedPlan.push(activity);
+      } else {
+        // KEEP sem ID? Fallback para CREATE
+        const { data, error } = await supabase.from('activities').insert(dbPayload).select().single();
+        if (!error && data) {
+          if (activity.temp_id) tempIdMap[activity.temp_id] = data.id;
+          finalSyncedPlan.push(data);
+          savedCount++;
+        }
+      }
+    }
+    else if (action === 'CREATE' || !activity.id) {
       const { data, error } = await supabase.from('activities').insert(dbPayload).select().single();
       if (error) {
         console.error("Erro ao salvar atividade:", error);
