@@ -192,7 +192,7 @@ export default function ActivityCopilot({ isOpen, onClose, organizacaoId, usuari
           setProposedPlan(result.data)
           setMessages(prev => [...prev, {
             role: 'ai',
-            content: proposedPlan ? 'Plano atualizado.' : `Gerei ${result.data.length} atividades.`
+            content: result.message || (proposedPlan ? 'Plano atualizado.' : `Gerei ${result.data.length} atividades.`)
           }])
         } else {
           // A IA apenas respondeu uma mensagem textual (conversando)
@@ -410,63 +410,75 @@ export default function ActivityCopilot({ isOpen, onClose, organizacaoId, usuari
 
                 <div className="flex-1 p-6 space-y-4 overflow-y-auto bg-gray-50">
                   {proposedPlan.map((activity, i) => (
-                    <div key={i} className="bg-white rounded-lg shadow-sm border p-4">
-                      {/* Header idêntico aos painéis do sidebar */}
-                      <div className="flex justify-between items-start mb-4">
-                        <div>
-                          <h4 className="text-lg font-semibold text-gray-900">{activity.nome}</h4>
+                    <div key={i} className="bg-white rounded-xl shadow border border-gray-200 p-5 hover:shadow-md transition-shadow relative overflow-hidden group">
+                      {/* Borda Lateral Colorida de Status Simulado */}
+                      <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-yellow-400"></div>
+
+                      <div className="flex justify-between items-start mb-3">
+                        <div className="pr-4">
+                          <h4 className="text-base font-bold text-gray-800 leading-tight">{activity.nome}</h4>
                           {activity.parent_temp_id && (
-                            <p className="text-xs text-blue-600 flex items-center gap-1 mt-1 font-medium">
-                              <FontAwesomeIcon icon={faSitemap} /> Sub-tarefa vinculada
+                            <p className="text-[11px] text-blue-600 flex items-center gap-1 mt-1 font-semibold uppercase tracking-wider">
+                              <FontAwesomeIcon icon={faSitemap} /> Vinculado a outra tarefa
                             </p>
                           )}
                         </div>
-                        <span className="text-xs font-semibold px-2 py-1 bg-blue-100 text-blue-800 rounded-full inline-block">{activity.tipo_atividade}</span>
+                        <span className={`text-[10px] font-bold px-2 py-1 uppercase tracking-wide rounded-md whitespace-nowrap ${activity.tipo_atividade === 'Evento' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
+                          {activity.tipo_atividade}
+                        </span>
                       </div>
 
-                      {/* Corpo (Descricao) similar ao Sidebar */}
+                      {/* Corpo (Descricao) */}
                       {activity.descricao && (
-                        <div className="mb-4">
-                          <dt className="text-xs font-medium text-gray-500 flex items-center gap-2 mb-1">
-                            <FontAwesomeIcon icon={faAlignLeft} /> Descrição
-                          </dt>
-                          <dd className="text-sm text-gray-900 leading-relaxed">{activity.descricao}</dd>
+                        <div className="mb-4 bg-gray-50 rounded-md p-3 border border-gray-100">
+                          <p className="text-xs text-gray-600 leading-relaxed line-clamp-3">
+                            {activity.descricao}
+                          </p>
                         </div>
                       )}
 
-                      {/* Grade de Datas e Responsáveis idêntico ao Sidebar */}
-                      <div className="border-t pt-4">
-                        <dl className="grid grid-cols-2 gap-4">
-                          <div>
-                            <dt className="text-xs font-medium text-gray-500 flex items-center gap-2">
-                              <FontAwesomeIcon icon={faCalendarAlt} /> Início Previsto
-                            </dt>
-                            <dd className="mt-1 text-sm text-gray-900">{formatDate(activity.data_inicio_prevista)}</dd>
-                          </div>
+                      {/* Grade de Datas e Responsáveis */}
+                      <div className="grid grid-cols-2 gap-y-3 gap-x-4 pt-3 border-t border-gray-100">
+                        <div className="flex flex-col">
+                          <span className="text-[10px] uppercase font-bold text-gray-400 mb-0.5 flex items-center gap-1">
+                            <FontAwesomeIcon icon={faCalendarAlt} className="text-gray-300" /> Início
+                          </span>
+                          <span className="text-sm font-semibold text-gray-700">
+                            {formatDate(activity.data_inicio_prevista)}
+                          </span>
+                        </div>
 
-                          {activity.hora_inicio ? (
-                            <div>
-                              <dt className="text-xs font-medium text-gray-500 flex items-center gap-2">
-                                <FontAwesomeIcon icon={faClock} /> Hora Marcada
-                              </dt>
-                              <dd className="mt-1 text-sm text-gray-900">{activity.hora_inicio}</dd>
-                            </div>
-                          ) : (
-                            <div>
-                              <dt className="text-xs font-medium text-gray-500 flex items-center gap-2">
-                                <FontAwesomeIcon icon={faClock} /> Duração Prevista
-                              </dt>
-                              <dd className="mt-1 text-sm text-gray-900">{activity.duracao_dias} {activity.duracao_dias == 1 ? 'dia' : 'dias'} </dd>
-                            </div>
-                          )}
-
-                          <div className="col-span-2">
-                            <dt className="text-xs font-medium text-gray-500 flex items-center gap-2">
-                              <FontAwesomeIcon icon={faUser} /> Responsável
-                            </dt>
-                            <dd className="mt-1 text-sm text-gray-900">{activity.responsavel_texto || 'A Definir'}</dd>
+                        {activity.hora_inicio ? (
+                          <div className="flex flex-col border-l border-gray-100 pl-4">
+                            <span className="text-[10px] uppercase font-bold text-gray-400 mb-0.5 flex items-center gap-1">
+                              <FontAwesomeIcon icon={faClock} className="text-gray-300" /> Hora
+                            </span>
+                            <span className="text-sm font-semibold text-gray-700">
+                              {activity.hora_inicio} <span className="text-xs font-normal text-gray-500">({activity.duracao_horas}h)</span>
+                            </span>
                           </div>
-                        </dl>
+                        ) : (
+                          <div className="flex flex-col border-l border-gray-100 pl-4">
+                            <span className="text-[10px] uppercase font-bold text-gray-400 mb-0.5 flex items-center gap-1">
+                              <FontAwesomeIcon icon={faClock} className="text-gray-300" /> Duração
+                            </span>
+                            <span className="text-sm font-semibold text-gray-700">
+                              {activity.duracao_dias} {activity.duracao_dias == 1 ? 'dia' : 'dias'}
+                            </span>
+                          </div>
+                        )}
+
+                        <div className="col-span-2 pt-2 flex items-center gap-2">
+                          <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 text-[10px]">
+                            <FontAwesomeIcon icon={faUser} />
+                          </div>
+                          <div className="flex flex-col">
+                             <span className="text-[10px] uppercase font-bold text-gray-400">Responsável</span>
+                             <span className="text-xs font-semibold text-gray-800">
+                               {activity.responsavel_texto || 'A Definir'}
+                             </span>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   ))}

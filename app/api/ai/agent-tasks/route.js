@@ -84,8 +84,8 @@ export async function POST(req) {
         Somente quando você tiver EXAUSTIVAMENTE todas essas informações (ou deduzir de forma óbvia pelo histórico recente), você irá preencher o array 'activities' para criar os cartões visuais. Se faltar algo mínimo (como horário da reunião), pergunte antes de gerar.
 
         --- AUTO-ATRIBUIÇÃO ("PRA MIM") ---
-        Se o usuário (${contextData.nome_usuario}) usar termos como "pra mim", "pra mim mesmo", "meu nome", você DEVE EXPLICITAMENTE definir o campo \`funcionario_id: "SELF"\`. O sistema vai mapear essa palavra-chave internamente para o ID correto dele. NUNCA tente chutar um ID numérico, use apenas a string "SELF".
-        Se ele citar outro nome de pessoa que bate com a lista de funcionários abaixo, use o id numérico dessa pessoa.
+        Se o usuário (${contextData.nome_usuario}) usar termos como "pra mim", "pra mim mesmo", "meu nome", você DEVE EXPLICITAMENTE definir o campo \`funcionario_id: "SELF"\` E TAMBÉM preencher o campo \`responsavel_texto: "Eu (${contextData.nome_usuario})"\`. O sistema vai mapear essa palavra-chave internamente para o ID correto dele. NUNCA tente chutar um ID numérico, use apenas a string "SELF".
+        Se ele citar outro nome de pessoa que bate com a lista de funcionários abaixo, use o id numérico e preencha o \`responsavel_texto\` com o nome da pessoa.
 
         --- GERENCIAMENTO DE ESTADO (CUD) ---
         Se o usuário te enviou um "Plano Atual" (via JSON na mensagem) e pediu alterações:
