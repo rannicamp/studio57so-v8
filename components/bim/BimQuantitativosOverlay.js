@@ -205,7 +205,7 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
   // Reset medidas + expansão ao trocar modelo
   useEffect(() => {
     setMedidasSelecionadas({});
-  }, [modeloSelecionadoId]);
+  }, [modelosSelecionadosIds]);
 
   // Estado para elementos expandidos (chave = 'cat|||fam|||tipo')
   const [tiposExpandidos, setTiposExpandidos] = useState(new Set());
@@ -258,7 +258,7 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
   const fecharSidebar = () => setSidebarItem(null);
 
   // Ao trocar modelo, fecha sidebar
-  useEffect(() => { setSidebarItem(null); }, [modeloSelecionadoId]);
+  useEffect(() => { setSidebarItem(null); }, [modelosSelecionadosIds]);
 
   // Filtra grupos por busca — agora com estrutura 3 níveis
   const gruposFiltrados = useMemo(() => {

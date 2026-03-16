@@ -196,7 +196,7 @@ export default function AtividadesPage() {
         mutationFn: async (activityToDuplicate) => {
             const { id, created_at, updated_at, empreendimentos, anexos, atividade_pai, ...newActivityData } = activityToDuplicate;
             newActivityData.nome = `${activityToDuplicate.nome} (Cópia)`;
-            newActivityData.status = 'Não iniciado'; // Ajustado para corresponder ao padrão do banco
+            newActivityData.status = 'Não Iniciado'; // Ajustado para corresponder ao padrão do frontend
             newActivityData.data_inicio_real = null;
             newActivityData.data_fim_real = null;
             newActivityData.data_fim_original = null;

@@ -22,16 +22,15 @@ export function useBimQuantitativos({ organizacaoId }) {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const savedEmp = localStorage.getItem('studio57_bim_quant_emp_id');
-    const savedMod = localStorage.getItem('studio57_bim_quant_modelo_id');
     if (savedEmp) setEmpreendimentoSelecionadoId(savedEmp);
-    if (savedMod) setModeloSelecionadoId(savedMod);
+    // A restauração de modelos é feita pelo auto-select (useEffect abaixo) que valida os IDs salvos em 'studio57_bim_quant_modelos_ids'
   }, []);
 
   const handleSelectEmpreendimento = (id) => {
     setEmpreendimentoSelecionadoId(id);
-    setModeloSelecionadoId(''); // Reseta modelo ao trocar empreendimento
+    setModelosSelecionadosIds([]); // Reseta modelos ao trocar empreendimento
     localStorage.setItem('studio57_bim_quant_emp_id', id);
-    localStorage.removeItem('studio57_bim_quant_modelo_id');
+    localStorage.removeItem('studio57_bim_quant_modelos_ids');
   };
 
   const handleSelectModelos = (ids) => {

@@ -183,7 +183,10 @@ CREATE TABLE public.bim_mapeamentos_propriedades (
     criado_em timestamp with time zone NOT NULL DEFAULT now(),
     atualizado_em timestamp with time zone NOT NULL DEFAULT now(),
     propriedade_quantidade text,
-    fator_conversao text
+    fator_conversao text,
+    tipo_bim text,
+    elemento_id text,
+    vinculo_pai_id bigint
 );
 
 CREATE TABLE public.bim_notas (
