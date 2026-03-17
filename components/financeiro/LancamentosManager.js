@@ -244,9 +244,9 @@ export default function LancamentosManager({
                 faturasMap[l.fatura_id].filhos.push(l);
                 
                 if (isReceita) {
-                    faturasMap[l.fatura_id].valorTotal -= Number(l.valor);
+                    faturasMap[l.fatura_id].valorTotal -= Math.abs(Number(l.valor));
                 } else {
-                    faturasMap[l.fatura_id].valorTotal += Number(l.valor);
+                    faturasMap[l.fatura_id].valorTotal += Math.abs(Number(l.valor));
                 }
             } else {
                 standaloneList.push(l);

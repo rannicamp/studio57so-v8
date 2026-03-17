@@ -189,8 +189,9 @@ export default function ExtratoCartaoManager({ contasCartao }) {
             const itensFinais = [];
 
             (lancamentos || []).forEach(lanc => {
-                const entrada = lanc.tipo === 'Receita' ? Number(lanc.valor) : 0;
-                const saida = lanc.tipo === 'Despesa' ? Number(lanc.valor) : 0;
+                const valorAbsoluto = Math.abs(Number(lanc.valor));
+                const entrada = lanc.tipo === 'Receita' ? valorAbsoluto : 0;
+                const saida = lanc.tipo === 'Despesa' ? valorAbsoluto : 0;
                 totalDespesas += saida;
                 totalCreditos += entrada;
 
@@ -217,7 +218,7 @@ export default function ExtratoCartaoManager({ contasCartao }) {
                         itensFinais.push(paiFicticio);
                     }
                     borderosMap[l.agrupamento_id].filhos.push(l);
-                    borderosMap[l.agrupamento_id].valorTotal += Number(l.valor);
+                    borderosMap[l.agrupamento_id].valorTotal += valorAbsoluto;
                 } else {
                     itensFinais.push(l);
                 }

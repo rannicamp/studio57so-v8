@@ -173,8 +173,9 @@ export default function ExtratoManager({ contas, empresas }) {
             const itensFinais = [];
 
             (lancamentos || []).forEach(lanc => {
-                const entrada = lanc.tipo === 'Receita' ? Number(lanc.valor) : 0;
-                const saida = lanc.tipo === 'Despesa' ? Number(lanc.valor) : 0;
+                const valorAbsoluto = Math.abs(Number(lanc.valor));
+                const entrada = lanc.tipo === 'Receita' ? valorAbsoluto : 0;
+                const saida = lanc.tipo === 'Despesa' ? valorAbsoluto : 0;
                 saldoCorrente += entrada - saida;
                 totalEntradas += entrada;
                 totalSaidas += saida;
@@ -204,7 +205,7 @@ export default function ExtratoManager({ contas, empresas }) {
                     }
                     // Adiciona o filho e soma o total
                     borderosMap[l.agrupamento_id].filhos.push(l);
-                    borderosMap[l.agrupamento_id].valorTotal += Number(l.valor);
+                    borderosMap[l.agrupamento_id].valorTotal += valorAbsoluto;
                     borderosMap[l.agrupamento_id].saldo_acumulado = l.saldo_acumulado; // Saldo da linha pai reflete o saldo após todos passarem
                 } else {
                     // Lançamento normal sem borderô
