@@ -28,7 +28,7 @@ async function processAccountBatchDB(config, regras, cursor, limit, supabase) {
             .from('email_messages_cache')
             .select('*', { count: 'exact', head: true })
             .eq('account_id', config.id)
-            .ilike('folder_path', '%INBOX%');
+            .eq('folder_path', 'INBOX');
 
         stats.totalMessages = count || 0;
 
@@ -41,7 +41,7 @@ async function processAccountBatchDB(config, regras, cursor, limit, supabase) {
             .from('email_messages_cache')
             .select('uid, folder_path, subject, from_text, to_text, account_id, id, flags')
             .eq('account_id', config.id)
-            .ilike('folder_path', '%INBOX%')
+            .eq('folder_path', 'INBOX')
             .order('uid', { ascending: false })
             .range(cursor, cursor + limit - 1);
 

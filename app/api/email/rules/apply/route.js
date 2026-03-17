@@ -40,12 +40,10 @@ export async function POST(request) {
 
         if (!regras || regras.length === 0) return NextResponse.json({ message: 'Sem regras ativas', processed: 0 });
 
-        // 🔥 MUDANÇA ARQUITETURAL: Responde IMEDIATAMENTE e solta a tela do usuário.
-        // A lógica pesada vai rodar solta no Event Loop do Node.js.
-        (async () => {
-            try {
-                let totalProcessed = 0;
-                let totalMoved = 0;
+        // Remove a IIFE (Immediately Invoked Function Expression) para forçar a execução síncrona
+        let totalProcessed = 0;
+        let totalMoved = 0;
+        try {
 
                 // Itera sobre as configurações (contas) para processar regras separadamente caso tenham sido atribuídas a elas
                 for (const config of configs) {
@@ -57,9 +55,9 @@ export async function POST(request) {
                     // Lógica: pegar apenas as msgs recentes na INBOX
                     const { data: messages } = await supabase
                         .from('email_messages_cache')
-                        .select('uid, folder_path, subject, from_text, to_text, account_id')
+                        .select('uid, folder_path, subject, from_text, to_text, account_id, id')
                         .eq('account_id', config.id)
-                        .ilike('folder_path', '%INBOX%') // ou eq('folder_path', 'INBOX') se for exatamente isso
+                        .eq('folder_path', 'INBOX')
                         .order('uid', { ascending: false })
                         .limit(100);
 
@@ -157,18 +155,19 @@ export async function POST(request) {
                 }
                 // Fim do Loop
 
-                console.log(`🪄 [Regras Background]: Concluído. Processados: ${totalProcessed}. Movidos: ${totalMoved}.`);
+                console.log(`🪄 [Regras Automáticas]: Concluído. Processados: ${totalProcessed}. Movidos: ${totalMoved}.`);
+
+                return NextResponse.json({
+                    success: true,
+                    message: `Regras aplicadas com sucesso.`,
+                    processed: totalProcessed,
+                    moved: totalMoved
+                });
 
             } catch (bgError) {
-                console.error('🔥 [Regras Background] Erro fatal durante execução solta:', bgError);
+                console.error('🔥 [Regras Automáticas] Erro durante execução:', bgError);
+                return NextResponse.json({ error: bgError.message }, { status: 500 });
             }
-        })(); // Fim da execução assíncrona não blocante
-
-        // O usuário já recebe essa resposta na mesma hora!
-        return NextResponse.json({
-            success: true,
-            message: `Processamento em background iniciado.`
-        });
 
     } catch (error) {
         console.error('Erro de autorização na chamada das regras:', error);

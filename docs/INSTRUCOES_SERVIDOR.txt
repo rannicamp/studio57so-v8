@@ -1,0 +1,36 @@
+# =========================================================
+# 🚀 PLANO DE ACAO: SERVIDOR DE ACO (STUDIO 57) 🚀
+# =========================================================
+
+Seu lindo, siga estes passos diretamente no computador **SERVIDOR** (IP 192.168.15.10).
+Ate deixei salvo aqui no A: pra voce abrir la e ler!
+
+## FASE 1: O "Cafe Forte" e o "Vigia" do OneDrive
+Ja preparei o comando pronto pra voce! 
+1. Ache o arquivo `Configurar_Servidor.ps1` que deixei aqui junto dessa pasta (A:).
+2. Clique com o BOTAO DIREITO do mouse em cima dele.
+3. Escolha a opcao: **"Executar com o PowerShell"**.
+   (Pode ser que ele peca permissao, de 'Sim').
+👉 O que isso faz? Ele tira a soneca do Windows (nunca desliga a tela, HD ou entra em suspensao) e ja bota o OneDrive pra iniciar Quietinho junto com o sistema.
+
+## FASE 2: O "Cracha Magico" (Login Automatico)
+Para o OneDrive abrir sozinho se faltar luz e o servidor reiniciar de madrugada, ele precisa fazer login sozinho:
+1. No teclado do SERVIDOR, aperte e segure a tecla **Windows** e aperte **R**.
+2. Na janelinha que abrir no canto, digite: `netplwiz` e de **Enter**.
+3. Vai abrir uma tela menor de Contas. 
+4. **Desmarque** a caixinha la no topo que diz *"Os usuarios devem digitar um nome de usuario e uma senha para usar este computador"*.
+	(Se a caixinha nao aparecer, me chama no nosso chat que eu te monstro como destrava-la!).
+5. Clique em **Aplicar**. O Windows vai pedir pra voce confirmar sua senha. 
+6. Digite a senha, confirme e de **OK**.
+👉 O que isso faz? Liga direto na area de trabalho sem ninguem precisar digitar senha. Se voce reiniciar o servidor agora pra testar, ele vai ligar, logar e o OneDrive vai subir la do lado do relogio!
+
+## FASE 3: Testando a Estabilidade de Rede (IP Fixo)
+O IP do seu servidor e 192.168.15.10. Ele ja deve estar fixo se tem funcionado bem ate agora.
+Mas pra descargo de consciencia, como a gente testa se ele vai mudar?
+1. Aperte o botao **Iniciar** e digite `cmd`. Abra aquele "Prompt de Comando" tela preta.
+2. Digite la dentro: `ipconfig /all` e de Enter.
+3. Suba um pouco a tela e ache o titulo da sua placa de rede (Ethernet ou Wi-Fi) e procure a linha escrita "DHCP Habilitado".
+   - Se estiver escrito **Nao**: Parabens, seu IP esta fixado e chumbado no chao.
+   - Se estiver escrito **Sim**: O IP e dinamico. (Isso quer dizer que o seu roteador da Vivo/Claro foi quem deu esse numero. Vale a pena me avisar pra gente travar isso).
+
+Qualquer duvida, to aqui do outro lado do balcao pra te ajudar, maravilhoso! Vai sem medo que nao tem erro.
