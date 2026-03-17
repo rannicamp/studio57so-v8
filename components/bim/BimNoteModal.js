@@ -57,6 +57,7 @@ export default function BimNoteModal({ isOpen, onClose, captureData, activities 
                     atividade_id: selectedActivity || null,
                     camera_state: captureData.cameraState,
                     snapshot: captureData.snapshot,
+                    markup_svg: captureData.markupSvg || null,
                     criado_por: user.id
                 })
                 .select()
@@ -112,7 +113,7 @@ export default function BimNoteModal({ isOpen, onClose, captureData, activities 
                 <div className="px-6 py-4 border-b flex justify-between items-center bg-gray-50">
                     <h3 className="font-bold text-gray-800 flex items-center gap-2">
                         <FontAwesomeIcon icon={faCamera} className="text-blue-600" />
-                        Nova Nota (Multi-Seleção)
+                        Nova Nota {captureData?.markupSvg ? '(Com Desenho/Markup)' : '(Multi-Seleção)'}
                     </h3>
                     <button onClick={onClose} disabled={isSaving} className="text-gray-400 hover:text-red-500"><FontAwesomeIcon icon={faTimes}/></button>
                 </div>

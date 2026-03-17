@@ -95,6 +95,59 @@ export function useBimNotes(viewerInstance, activeFile) {
         });
     };
 
+    // Abrir Modal via Ferramenta de Markup (Desenho em Tela 3D)
+    const handleOpenMarkupNoteCreation = async (markupData) => {
+        if (!viewerInstance) return;
+
+        // Fallback: se houver seleção, tenta pegar o projeto. Se não, usa o arquivo principal.
+        let determinedProjectId = activeFile?.id;
+        let finalElements = [];
+
+        // Tentativa 1: Verifica o modelo da seleção atual
+        const aggregateSelection = viewerInstance.getAggregateSelection();
+        if (aggregateSelection.length > 0) {
+            const firstModel = aggregateSelection[0].model;
+            determinedProjectId = firstModel?.studio57_context?.id || determinedProjectId;
+        }
+
+        // Tentativa 2: Busca varrendo todos os modelos carregados na cena
+        if (!determinedProjectId) {
+            const models = viewerInstance.impl.modelQueue().getModels();
+            for (let m of models) {
+                if (m.studio57_context?.id) {
+                    determinedProjectId = m.studio57_context.id;
+                    break;
+                }
+            }
+        }
+
+        if (!determinedProjectId) {
+            toast.error("Projeto não identificado. Necessário um modelo base carregado.");
+            return;
+        }
+
+        // Tira o printzinho congelado por trás do desenho
+        viewerInstance.getScreenShot(800, 600, (blobUrl) => {
+            fetch(blobUrl)
+                .then(res => res.blob())
+                .then(blob => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => {
+                        setNoteCaptureData({
+                            cameraState: markupData.cameraState,
+                            markupSvg: markupData.svgString, // <- A anotação tá aqui!
+                            snapshot: reader.result,
+                            elements: finalElements,
+                            elementIds: [],
+                            projetoBimId: determinedProjectId // id salvo em cache
+                        });
+                        setIsNoteModalOpen(true);
+                    };
+                    reader.readAsDataURL(blob);
+                });
+        });
+    };
+
     // Restaurar Nota (Agora com Hack Anti-Crash e Lógica de Projeto)
     const handleRestoreNote = async (note) => {
         if (!viewerInstance) return;
@@ -215,6 +268,7 @@ export function useBimNotes(viewerInstance, activeFile) {
         setIsNoteModalOpen,
         noteCaptureData,
         handleOpenNoteCreation,
+        handleOpenMarkupNoteCreation,
         handleRestoreNote,
         onNoteSuccess: () => {
             queryClient.invalidateQueries(['bimNotes']);

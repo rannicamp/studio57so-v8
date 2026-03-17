@@ -33,8 +33,14 @@ export async function GET() {
     });
 
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.reason || 'Falha ao obter token da Autodesk');
+      const errorText = await response.text();
+      console.error('[APS Token Fetch Error]', response.status, errorText);
+      try {
+        const errorData = JSON.parse(errorText);
+        throw new Error(errorData.developerMessage || errorData.reason || `Falha ao obter token da Autodesk (${response.status})`);
+      } catch (e) {
+        throw new Error(`Falha ao obter token da Autodesk HTTP ${response.status}: ${errorText}`);
+      }
     }
 
     const data = await response.json();
@@ -47,7 +53,7 @@ export async function GET() {
   } catch (error) {
     console.error('[APS Token Error]:', error);
     return NextResponse.json(
-      { error: 'Erro interno ao autenticar com Autodesk' },
+      { error: 'Erro interno ao autenticar com Autodesk: ' + error.message },
       { status: 500 }
     );
   }
