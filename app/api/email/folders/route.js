@@ -180,6 +180,9 @@ export async function GET(request) {
 
     } catch (error) {
         console.error('Folder API Error:', error);
+        if (error.textCode === 'AUTHENTICATIONFAILED' || (error.message && error.message.includes('Authentication failed'))) {
+            return NextResponse.json({ error: 'Falha de autenticação IMAP. Por favor, verifique a senha do aplicativo desta conta.', code: 'AUTH_FAILED' }, { status: 401 });
+        }
         return NextResponse.json({ error: 'Erro ao processar pastas' }, { status: 500 });
     } finally {
         if (connection) {

@@ -138,6 +138,12 @@ export async function POST(request) {
 
             } catch (err) {
                 console.error(`Erro conta ${config.email}:`, err);
+                
+                // Trata erro de autenticação para retornar amigavelmente se for a única conta ou não travar o loop
+                if (err.textCode === 'AUTHENTICATIONFAILED' || (err.message && err.message.includes('Authentication failed'))) {
+                     console.error(`A senha de aplicativo de ${config.email} parece estar inválida ou expirada.`);
+                }
+                
                 if (connection) try { connection.end(); } catch { }
             }
         }
