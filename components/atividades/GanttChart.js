@@ -4,7 +4,7 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
-    faSearchPlus, faSearchMinus, faCalendarDay, faChevronDown, faCheckSquare, faSquare 
+    faSearchPlus, faSearchMinus, faCalendarDay, faChevronDown, faChevronRight, faCheckSquare, faSquare 
 } from '@fortawesome/free-solid-svg-icons';
 
 // Utilitário de formatação de data
@@ -53,6 +53,9 @@ const GanttLegend = () => (
 export default function GanttChart({ activities, onEditActivity }) {
     // --- ESTADO DO ZOOM E FILTRO ---
     const [columnWidth, setColumnWidth] = useState(40); 
+    
+    // Estado de Collapse (Quais nós estão colapsados/fechados)
+    const [collapsedTasks, setCollapsedTasks] = useState(new Set());
     
     // Filtro Múltiplo
     const STATUS_OPTIONS = ['Atrasados', 'Em Andamento', 'Pausado', 'Aguardando Material', 'Não iniciado', 'Concluído'];
@@ -104,6 +107,10 @@ export default function GanttChart({ activities, onEditActivity }) {
         if (scrollContainerRef.current) scrollContainerRef.current.scrollTop += e.deltaY;
     };
 
+    // Helper para uniformizar nomes das propriedades de data (BIM vs Atividades)
+    const getStartDate = (act) => act.start_date || act.data_inicio_prevista || act.data_inicio_real || new Date();
+    const getEndDate = (act) => act.end_date || act.data_fim_prevista || act.data_fim_real || getStartDate(act);
+
     // 0. Filtragem Prévia por Status Múltiplo
     const filteredActivities = useMemo(() => {
         if (!activities) return [];
@@ -116,7 +123,8 @@ export default function GanttChart({ activities, onEditActivity }) {
         return activities.filter(act => {
             let visualStatus = act.status;
             // Atrasado tem prioridade no visual (mesmo em tela cheia)
-            if (act.data_fim_prevista && new Date(act.data_fim_prevista) < today && act.status !== 'Concluído') {
+            const actEndStr = getEndDate(act);
+            if (actEndStr && new Date(actEndStr) < today && act.status !== 'Concluído') {
                 visualStatus = 'Atrasados';
             }
             return selectedStatuses.includes(visualStatus);
@@ -130,16 +138,18 @@ export default function GanttChart({ activities, onEditActivity }) {
             return { startDate: now, endDate: now, totalDays: 1 };
         }
 
-        let min = new Date(filteredActivities[0].start_date || new Date());
-        let max = new Date(filteredActivities[0].end_date || new Date());
+        let min = new Date(getStartDate(filteredActivities[0]));
+        let max = new Date(getEndDate(filteredActivities[0]));
 
         filteredActivities.forEach(act => {
-            if (act.start_date) {
-                const start = new Date(act.start_date);
+            const startStr = getStartDate(act);
+            if (startStr) {
+                const start = new Date(startStr);
                 if (start < min) min = start;
             }
-            if (act.end_date) {
-                const end = new Date(act.end_date);
+            const endStr = getEndDate(act);
+            if (endStr) {
+                const end = new Date(endStr);
                 if (end > max) max = end;
             }
         });
@@ -171,12 +181,15 @@ export default function GanttChart({ activities, onEditActivity }) {
 
     // 3. Estruturar Tarefas (agora usa o array já filtrado por status)
     const structuredTasks = useMemo(() => {
-        return filteredActivities.map(act => {
-            const start = new Date(act.start_date);
+        const mappedTasks = filteredActivities.map(act => {
+            const actStartStr = getStartDate(act);
+            const actEndStr = getEndDate(act);
+
+            const start = new Date(actStartStr);
             // Zera horas para evitar bug de fuso
             start.setHours(0, 0, 0, 0);
             
-            const end = new Date(act.end_date || act.start_date);
+            const end = new Date(actEndStr);
             end.setHours(0, 0, 0, 0);
             
             let startDiff = 0;
@@ -196,7 +209,58 @@ export default function GanttChart({ activities, onEditActivity }) {
 
             return { ...act, startDiff, duration };
         });
+
+        // Aplicar ordenação hierárquica (Pai -> Filhos recursivamente)
+        const taskMap = new Map();
+        mappedTasks.forEach(t => taskMap.set(t.id, { ...t, subTasks: [] }));
+        
+        const roots = [];
+        taskMap.forEach(t => {
+            if (t.atividade_pai_id && taskMap.has(t.atividade_pai_id)) {
+                taskMap.get(t.atividade_pai_id).subTasks.push(t);
+            } else {
+                roots.push(t);
+            }
+        });
+
+        const flatList = [];
+        const flatten = (node, depth, parentIds = []) => {
+            flatList.push({ 
+                ...node, 
+                depth, 
+                hasChildren: node.subTasks.length > 0,
+                ancestors: parentIds
+            });
+            // Ordenar filhos por data de inicio e ID
+            const sortedSub = node.subTasks.sort((a,b) => (a.startDiff - b.startDiff) || (a.id - b.id));
+            sortedSub.forEach(child => flatten(child, depth + 1, [...parentIds, node.id]));
+        };
+
+        // Começar achatando as raizes ordenadas
+        roots.sort((a,b) => (a.startDiff - b.startDiff) || (a.id - b.id)).forEach(root => flatten(root, 0, []));
+        return flatList;
     }, [filteredActivities, startDate]);
+
+    // Ocultar atividades cujos pais estão colapsados
+    const visibleTasks = useMemo(() => {
+        return structuredTasks.filter(task => {
+            // Se a tarefa raiz ou nela não houver ancestrais, mostra
+            if (!task.ancestors || task.ancestors.length === 0) return true;
+            // Se qualquer um dos pais acima estiver colapsado, oculta
+            return !task.ancestors.some(parentId => collapsedTasks.has(parentId));
+        });
+    }, [structuredTasks, collapsedTasks]);
+
+    // Função de clique para alternar visibilidade (Toggle)
+    const toggleCollapse = (taskId, e) => {
+        e.stopPropagation(); // Evita abrir o modal de edição ao clicar no ícone
+        setCollapsedTasks(prev => {
+            const next = new Set(prev);
+            if (next.has(taskId)) next.delete(taskId);
+            else next.add(taskId);
+            return next;
+        });
+    };
 
     // 4. Marcador de Hoje (Posição em Pixels) - CORREÇÃO CRÍTICA
     const todayMarkerPosition = useMemo(() => {
@@ -251,7 +315,8 @@ export default function GanttChart({ activities, onEditActivity }) {
         else if (task.status === 'Atrasado') { barColor = 'bg-red-500'; progressColor = 'bg-red-700'; }
         else if (task.status === 'Pausado') { barColor = 'bg-yellow-400'; progressColor = 'bg-yellow-600'; }
 
-        const isLate = task.end_date && new Date(task.end_date) < new Date() && task.status !== 'Concluído';
+        const actEndStr = getEndDate(task);
+        const isLate = actEndStr && new Date(actEndStr) < new Date() && task.status !== 'Concluído';
         if (isLate) { barColor = 'bg-red-400'; }
 
         return (
@@ -366,15 +431,26 @@ export default function GanttChart({ activities, onEditActivity }) {
                         onWheel={handleWheelLeft}
                         className="overflow-hidden flex-1"
                     >
-                        {structuredTasks.map(task => (
+                        {visibleTasks.map(task => (
                             <div 
                                 key={task.id} 
-                                className="border-b border-gray-50 flex items-center px-3 hover:bg-blue-50 cursor-pointer transition-colors"
-                                style={{ height: `${ROW_HEIGHT}px` }}
+                                className={`border-b border-gray-50 flex items-center pr-3 hover:bg-blue-50 cursor-pointer transition-colors ${!task.atividade_pai_id ? 'bg-gray-50/50' : ''}`}
+                                style={{ height: `${ROW_HEIGHT}px`, paddingLeft: `${12 + (task.depth || 0) * 16}px` }}
                                 onClick={() => onEditActivity(task)}
                             >
-                                <div className="truncate font-medium text-gray-700 text-[10px]" title={task.nome}>
-                                    {task.nome}
+                                <div className={`truncate text-[10px] flex items-center gap-1.5 ${!task.atividade_pai_id ? 'font-bold text-gray-800' : 'font-medium text-gray-600'}`} title={task.nome}>
+                                    {task.depth > 0 && !task.hasChildren && <span className="text-gray-300 mr-1 opacity-50">↳</span>}
+                                    
+                                    {/* Botão Dropdown/Chevron */}
+                                    {task.hasChildren && (
+                                        <button 
+                                            onClick={(e) => toggleCollapse(task.id, e)}
+                                            className="w-4 h-4 flex items-center justify-center rounded hover:bg-gray-200 text-gray-400 shrink-0 transition-transform"
+                                        >
+                                            <FontAwesomeIcon icon={collapsedTasks.has(task.id) ? faChevronRight : faChevronDown} className="text-[8px] transition-transform" />
+                                        </button>
+                                    )}
+                                    <span className="truncate">{task.nome}</span>
                                 </div>
                             </div>
                         ))}
@@ -409,7 +485,7 @@ export default function GanttChart({ activities, onEditActivity }) {
                             </div>
 
                             {/* Linhas de Tarefa */}
-                            {structuredTasks.map(task => (
+                            {visibleTasks.map(task => (
                                 <div 
                                     key={task.id} 
                                     className="relative border-b border-gray-50 hover:bg-gray-50 transition-colors group"
