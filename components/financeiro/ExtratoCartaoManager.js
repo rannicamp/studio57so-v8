@@ -429,8 +429,32 @@ export default function ExtratoCartaoManager({ contasCartao }) {
                 formData.append('file', file);
 
                 const res = await fetch('/api/cartoes/extrair-fatura', { method: 'POST', body: formData });
-                const result = await res.json();
-                if (!res.ok) { console.error(`Erro na fatura ${file.name}:`, result.error); continue; }
+                
+                // --- PROTOCOLO ANTI-CRASH (Início) ---
+                // Verifica se a resposta não é JSON (ex: Vercel Timeout / 504 / 500 em formato HTML)
+                const contentType = res.headers.get("content-type");
+                if (contentType && contentType.indexOf("application/json") === -1) {
+                    const errorText = await res.text();
+                    console.error(`O Servidor retornou um erro não-JSON na fatura ${file.name}:`, errorText);
+                    toast.error(`⚠️ O servidor demorou muito para processar a fatura ou retornou um erro inesperado. Tente novamente mais tarde.`, { id: toastId });
+                    continue;
+                }
+                
+                let result;
+                try {
+                    result = await res.json();
+                } catch (parseErr) {
+                    console.error(`Erro ao converter JSON na fatura ${file.name}:`, parseErr);
+                    toast.error(`⚠️ Erro ao ler a resposta da inteligência artificial. Tente novamente.`, { id: toastId });
+                    continue;
+                }
+                // --- PROTOCOLO ANTI-CRASH (Fim) ---
+
+                if (!res.ok) { 
+                    console.error(`Erro na fatura ${file.name}:`, result.error || result); 
+                    toast.error(`Erro na leitura: ${result.error || 'Falha desconhecida'}`, { id: toastId });
+                    continue; 
+                }
 
                 if (result.extratos && result.extratos.length > 0) {
                     for (const extrato of result.extratos) {

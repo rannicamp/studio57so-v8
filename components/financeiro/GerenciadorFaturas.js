@@ -217,7 +217,23 @@ export default function GerenciadorFaturas({ contasCartao, onNewDespesaCartao })
                 body: formData
             });
 
-            const result = await res.json();
+            // --- PROTOCOLO ANTI-CRASH (Início) ---
+            const contentType = res.headers.get("content-type");
+            if (contentType && contentType.indexOf("application/json") === -1) {
+                const errorText = await res.text();
+                console.error(`O Servidor retornou um erro não-JSON na fatura ${file.name}:`, errorText);
+                throw new Error('O servidor demorou muito para processar a fatura ou retornou um erro inesperado. Tente novamente mais tarde.');
+            }
+            
+            let result;
+            try {
+                result = await res.json();
+            } catch (parseErr) {
+                console.error(`Erro ao converter JSON na fatura ${file.name}:`, parseErr);
+                throw new Error('Erro ao ler a resposta da inteligência artificial. Tente novamente.');
+            }
+            // --- PROTOCOLO ANTI-CRASH (Fim) ---
+
             if (!res.ok) throw new Error(result.error || 'Falha ao extrair dados do PDF.');
 
             let accountsInjected = 0;
