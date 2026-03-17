@@ -129,6 +129,7 @@ function EmailInboxContent({ onChangeTab, canViewWhatsapp }) {
             }
             setRulePrefill({
                 nome: `Mover e-mails de ${term}`,
+                account_id: email.account_id || null, // Garante que a regra nasça vinculada à conta correta
                 condicoes: [{ campo: 'from', operador: 'contains', valor: term }],
                 acoes: [{ tipo: 'move', pasta: '' }]
             });
