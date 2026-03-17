@@ -64,19 +64,54 @@ export async function POST(request) {
                     .eq('folder_path', folderPath);
             }
             else if (action === 'empty') {
-                await connection.openBox(folderPath);
-                const messages = await connection.search(['ALL'], { bodies: ['HEADER'], markSeen: false });
+                await connection.openBox(folderPath, { readOnly: false });
+                
+                // Pega todos os UIDs da pasta
+                const messages = await connection.search(['ALL'], { bodies: ['HEADER.FIELDS (MESSAGE-ID)'], markSeen: false });
+                
                 if (messages.length > 0) {
                     const uids = messages.map(m => m.attributes.uid);
-                    await connection.addFlags(uids, '\\Deleted');
-                    try { await connection.imap.expunge(uids); } catch (e) { }
+                    
+                    const isTrashFolder = folderPath.toUpperCase().includes('TRASH') || 
+                                          folderPath.toUpperCase().includes('LIXEIRA') || 
+                                          folderPath.toUpperCase().includes('DELETED');
 
-                    // Atualiza cache local
-                    await supabase.from('email_messages_cache')
-                        .update({ flags: ['\\Deleted'] })
-                        .eq('account_id', config.id)
-                        .eq('folder_path', folderPath)
-                        .in('uid', uids);
+                    if (!isTrashFolder) {
+                        // Se não for a lixeira, "Esvaziar" a pasta significa mover tudo para a Lixeira
+                        try {
+                            // Tenta mover para a TRASH padrão em muitos hosts
+                            await connection.moveMessage(uids, 'INBOX.Trash');
+                        } catch(e) {
+                            try { await connection.moveMessage(uids, 'TRASH'); } catch(err2) {
+                                // Se o host nao tiver Trash comum, só marca como deletado e foda-se
+                                await connection.addFlags(uids, '\\Deleted');
+                            }
+                        }
+                        
+                        // Atualiza o cache local para refletir a ida para a lixeira
+                        await supabase.from('email_messages_cache')
+                            .update({ folder_path: 'INBOX.Trash' })
+                            .eq('account_id', config.id)
+                            .eq('folder_path', folderPath)
+                            .in('uid', uids);
+                    } else {
+                        // Se JÁ ESTIVER NA LIXEIRA, "Esvaziar" significa ANQUILAÇÃO TOTAL (Hard Delete)
+                        await connection.addFlags(uids, '\\Deleted');
+                        
+                        try { 
+                            // Expunge deleta DEFINITIVAMENTE mensagens com a flag \Deleted
+                            await connection.imap.expunge(uids); 
+                        } catch (e) {
+                            console.log("Erro no expunge manual, dependendo do auto-expunge do servidor");
+                        }
+
+                        // Remove fisicamente as mensagens do nosso banco de cache
+                        await supabase.from('email_messages_cache')
+                            .delete()
+                            .eq('account_id', config.id)
+                            .eq('folder_path', folderPath)
+                            .in('uid', uids);
+                    }
                 }
                 await connection.closeBox();
             }
