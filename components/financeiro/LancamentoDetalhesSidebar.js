@@ -252,6 +252,8 @@ export default function LancamentoDetalhesSidebar({ open, onClose, lancamento })
             lancamento.data_vencimento = dataVencFormatada; // update local
             if (lancamento.conta_id) {
                 queryClient.invalidateQueries({ queryKey: ['faturasCartao', lancamento.conta_id.toString()] });
+                queryClient.invalidateQueries({ queryKey: ['extrato_cartao'] });
+                queryClient.invalidateQueries({ queryKey: ['lancamentos'] });
             }
         } catch (e) {
             toast.error("Erro ao alterar vencimento.");
