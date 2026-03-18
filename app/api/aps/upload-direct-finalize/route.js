@@ -42,17 +42,9 @@ export async function POST(request) {
 
         const objectDetails = await finalizeRes.json();
 
-        // 3. Gera URN Seguro e Dispara Tradução
+        // 3. Gera URN Seguro
         const objectId = objectDetails.objectId;
         const urn = Buffer.from(objectId).toString('base64').replace(/=/g, '');
-
-        // 4. Iniciar Tarefa de Tradução (Derivative API)
-        const derivativeUrl = 'https://developer.api.autodesk.com/modelderivative/v2/designdata/job';
-        await fetch(derivativeUrl, {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json', 'x-ads-force': 'true' },
-            body: JSON.stringify({ input: { urn: urn }, output: { formats: [{ type: 'svf', views: ['2d', '3d'] }] } })
-        });
 
         return NextResponse.json({ success: true, urn: urn });
 

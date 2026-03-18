@@ -70,7 +70,7 @@ export default function BimUploadModal({
         
         try {
             // PASSO 1: Obter Link Direto de Upload Autodesk
-            setStatusStep('1/3: Conectando com Autodesk (Direct Upload)...');
+            setStatusStep('1/5: Conectando com Autodesk (Direct Upload)...');
 
             const startRes = await fetch('/api/aps/upload-direct-start', {
                 method: 'POST',
@@ -87,7 +87,7 @@ export default function BimUploadModal({
             const { uploadUrl, uploadKey, objectKey } = startData;
 
             // PASSO 2: Upload GIGANTE direto Browser -> Autodesk S3
-            setStatusStep(`2/3: Enviando arquivo de ${(file.size / 1024 / 1024).toFixed(1)}MB para nuvem Autodesk...`);
+            setStatusStep(`2/5: Enviando arquivo de ${(file.size / 1024 / 1024).toFixed(1)}MB para nuvem Autodesk...`);
 
             const s3UploadRes = await fetch(uploadUrl, {
                 method: 'PUT',
@@ -98,8 +98,8 @@ export default function BimUploadModal({
                 throw new Error(`O upload direto falhou: ${s3UploadRes.statusText}`);
             }
 
-            // PASSO 3: Finaliza Upload e Pede Tradução SVF
-            setStatusStep('3/3: Iniciando Tradução 3D...');
+            // PASSO 3: Finaliza Upload S3
+            setStatusStep('3/5: Finalizando upload na nuvem (Autodesk S3)...');
 
             const finalizeRes = await fetch('/api/aps/upload-direct-finalize', {
                 method: 'POST',
@@ -114,8 +114,22 @@ export default function BimUploadModal({
             if (!finalizeRes.ok) throw new Error(finalizeData.error || `Erro do Servidor (Autodesk Finalize): ${finalizeRes.status}`);
             if (!finalizeData.urn) throw new Error('Não recebi o código URN de visualização.');
 
-            // PASSO 3: SALVAR NO BANCO DE DADOS
-            setStatusStep('3/3: Salvando registro...');
+            // PASSO 4: Iniciar Tradução
+            setStatusStep('4/5: Iniciando Tradução 3D Autodesk...');
+            const translateRes = await fetch('/api/aps/upload-direct-translate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ urn: finalizeData.urn })
+            });
+
+            const translateText = await translateRes.text();
+            let translateData = {};
+            try { translateData = JSON.parse(translateText); } catch(e) { }
+
+            if (!translateRes.ok) throw new Error(translateData.error || `Erro do Servidor (Autodesk Translate): ${translateRes.status}`);
+
+            // PASSO 5: SALVAR NO BANCO DE DADOS
+            setStatusStep('5/5: Salvando registro no banco de dados...');
 
             const updateData = {
                 urn_autodesk: finalizeData.urn,
