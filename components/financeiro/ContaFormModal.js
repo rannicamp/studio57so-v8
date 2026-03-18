@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner, faPlus, faTrash, faTimes } from '@fortawesome/free-solid-svg-icons';
+import { faSpinner, faPlus, faTrash, faTimes, faLink } from '@fortawesome/free-solid-svg-icons';
 import { IMaskInput } from 'react-imask';
 
 export default function ContaFormModal({ isOpen, onClose, onSave, initialData, empresas, contas }) {
@@ -101,6 +101,7 @@ export default function ContaFormModal({ isOpen, onClose, onSave, initialData, e
                     if (nextState.dia_fechamento_fatura != parent.dia_fechamento_fatura) { nextState.dia_fechamento_fatura = parent.dia_fechamento_fatura; changed = true; }
                     if (nextState.dia_pagamento_fatura != parent.dia_pagamento_fatura) { nextState.dia_pagamento_fatura = parent.dia_pagamento_fatura; changed = true; }
                     if (nextState.conta_debito_fatura_id !== parent.conta_debito_fatura_id) { nextState.conta_debito_fatura_id = parent.conta_debito_fatura_id; changed = true; }
+                    if (nextState.limite_credito != 0) { nextState.limite_credito = 0; changed = true; }
                     return changed ? nextState : prev;
                 });
             }
@@ -303,14 +304,20 @@ export default function ContaFormModal({ isOpen, onClose, onSave, initialData, e
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     <div>
                                         <label className="block text-sm font-medium">Limite de Crédito</label>
-                                        <IMaskInput
-                                            mask="R$ num"
-                                            blocks={{ num: { mask: Number, thousandsSeparator: '.', scale: 2, padFractionalZeros: true, radix: ',' } }}
-                                            name="limite_credito"
-                                            value={String(formData.limite_credito || '')}
-                                            onAccept={(value) => handleMaskedChange('limite_credito', value)}
-                                            className="mt-1 w-full p-2 border rounded-md"
-                                        />
+                                        {formData.conta_pai_id ? (
+                                            <div className="mt-1 w-full p-2 border rounded-md bg-gray-100 text-gray-500 flex items-center gap-2 text-sm font-semibold h-10">
+                                                <FontAwesomeIcon icon={faLink} /> Compartilhado com o Pai
+                                            </div>
+                                        ) : (
+                                            <IMaskInput
+                                                mask="R$ num"
+                                                blocks={{ num: { mask: Number, thousandsSeparator: '.', scale: 2, padFractionalZeros: true, radix: ',' } }}
+                                                name="limite_credito"
+                                                value={String(formData.limite_credito || '')}
+                                                onAccept={(value) => handleMaskedChange('limite_credito', value)}
+                                                className="mt-1 w-full p-2 border rounded-md"
+                                            />
+                                        )}
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium">Dia Fechamento Fatura</label>

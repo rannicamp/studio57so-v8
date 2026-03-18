@@ -10,7 +10,7 @@ import {
     faPlus, faUniversity, faCreditCard, faMoneyBillWave, faChartLine,
     faEdit, faTrash, faExclamationTriangle, faSpinner,
     faWallet, faHandHoldingDollar, faLayerGroup, faMoneyBillTransfer,
-    faFileInvoice, faBuilding, faCheck
+    faFileInvoice, faBuilding, faCheck, faLink
 } from '@fortawesome/free-solid-svg-icons';
 import ContaFormModal from './ContaFormModal';
 import PagamentoFaturaModal from './PagamentoFaturaModal';
@@ -371,7 +371,12 @@ export default function ContasManager({ initialContas, onUpdate, empresas, onVer
                                                         </div>
                                                         {/* Limite */}
                                                         <div className="col-span-2 text-right">
-                                                            {limite > 0 ? (
+                                                            {isFilho ? (
+                                                                <>
+                                                                    <p className="font-bold text-sm text-gray-400 flex items-center justify-end gap-1"><FontAwesomeIcon icon={faLink} /> Compart.</p>
+                                                                    <p className="text-[9px] text-gray-400">c/ Cartão Principal</p>
+                                                                </>
+                                                            ) : limite > 0 ? (
                                                                 <>
                                                                     <p className="font-bold text-sm text-orange-600">{formatCurrency(limite)}</p>
                                                                     <p className="text-[9px] text-gray-400">{isCartao ? 'Crédito' : 'Cheque esp.'}</p>
@@ -398,7 +403,11 @@ export default function ContasManager({ initialContas, onUpdate, empresas, onVer
                                             {/* Rodapé subtotal do grupo */}
                                             {(() => {
                                                 const totalSaldo = contasDoTipo.reduce((acc, c) => acc + (saldos[c.id] ?? 0), 0);
-                                                const totalLimite = contasDoTipo.reduce((acc, c) => acc + (c.limite_cheque_especial || c.limite_credito || 0), 0);
+                                                const totalLimite = contasDoTipo.reduce((acc, c) => {
+                                                    // Se for cartão filho, não soma o limite pois ele compartilha com o pai
+                                                    if (c.tipo === 'Cartão de Crédito' && c.conta_pai_id) return acc;
+                                                    return acc + (c.limite_cheque_especial || c.limite_credito || 0);
+                                                }, 0);
                                                 return (
                                                     <div className={`grid grid-cols-12 gap-2 px-5 py-2.5 ${TYPE_COLORS[tipo] || TYPE_COLORS['Outros']} border-t`}>
                                                         <div className="col-span-6 text-[10px] font-black uppercase tracking-wide opacity-60 flex items-center gap-1">
