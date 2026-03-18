@@ -72,10 +72,14 @@ export default function BimUploadModal({
             // PASSO 1: Obter Link Direto de Upload Autodesk
             setStatusStep('1/5: Conectando com Autodesk (Direct Upload)...');
 
+            // HIGIENE CRÍTICA DO NOME DO ARQUIVO: Remove espaços, acentos, ~, ç, !, etc., trocando tudo por "_"
+            // Isso evita que a Autodesk "engasgue" no Model Derivative e cause um TARGET_READ_TIMEOUT fantasma.
+            const safeFileName = file.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9.\-_]/g, '_');
+
             const startRes = await fetch('/api/aps/upload-direct-start', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ fileName: file.name })
+                body: JSON.stringify({ fileName: safeFileName })
             });
 
             const startText = await startRes.text();
@@ -112,15 +116,30 @@ export default function BimUploadModal({
             try { finalizeData = JSON.parse(finalizeText); } catch(e) { }
 
             if (!finalizeRes.ok) throw new Error(finalizeData.error || `Erro do Servidor (Autodesk Finalize): ${finalizeRes.status}`);
-            if (!finalizeData.urn) throw new Error('Não recebi o código URN de visualização.');
-
-            // PASSO 4: Iniciar Tradução
+            // PASSO 4: Iniciar Tradução (COM TEIMOSIA/RETRY AUTOMÁTICO)
+            setStatusStep('4/5: Preparando arquivo gigantesco para o motor 3D...');
+            await new Promise(resolve => setTimeout(resolve, 3000)); // Espera 3s pro OSS da Autodesk resfriar
+            
             setStatusStep('4/5: Iniciando Tradução 3D Autodesk...');
-            const translateRes = await fetch('/api/aps/upload-direct-translate', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ urn: finalizeData.urn })
-            });
+            let translateRes;
+            let translateAttempts = 0;
+            const maxTranslateAttempts = 3;
+
+            while (translateAttempts < maxTranslateAttempts) {
+                translateAttempts++;
+                translateRes = await fetch('/api/aps/upload-direct-translate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ urn: finalizeData.urn })
+                });
+
+                if (translateRes.ok) {
+                    break;
+                } else if (translateAttempts < maxTranslateAttempts) {
+                    setStatusStep(`4/5: Autodesk ocupada. Tentando de novo (${translateAttempts}/${maxTranslateAttempts})...`);
+                    await new Promise(resolve => setTimeout(resolve, 5000)); // Espera mais 5s a cada falha
+                }
+            }
 
             const translateText = await translateRes.text();
             let translateData = {};
