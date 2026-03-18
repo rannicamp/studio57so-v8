@@ -116,46 +116,18 @@ export default function BimUploadModal({
             try { finalizeData = JSON.parse(finalizeText); } catch(e) { }
 
             if (!finalizeRes.ok) throw new Error(finalizeData.error || `Erro do Servidor (Autodesk Finalize): ${finalizeRes.status}`);
-            // PASSO 4: Iniciar Tradução (COM TEIMOSIA/RETRY AUTOMÁTICO)
-            setStatusStep('4/5: Preparando arquivo gigantesco para o motor 3D...');
-            await new Promise(resolve => setTimeout(resolve, 3000)); // Espera 3s pro OSS da Autodesk resfriar
-            
-            setStatusStep('4/5: Iniciando Tradução 3D Autodesk...');
-            let translateRes;
-            let translateAttempts = 0;
-            const maxTranslateAttempts = 3;
+            if (!finalizeData.urn) throw new Error('Não recebi o código URN de visualização.');
 
-            while (translateAttempts < maxTranslateAttempts) {
-                translateAttempts++;
-                translateRes = await fetch('/api/aps/upload-direct-translate', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ urn: finalizeData.urn })
-                });
-
-                if (translateRes.ok) {
-                    break;
-                } else if (translateAttempts < maxTranslateAttempts) {
-                    setStatusStep(`4/5: Autodesk ocupada. Tentando de novo (${translateAttempts}/${maxTranslateAttempts})...`);
-                    await new Promise(resolve => setTimeout(resolve, 5000)); // Espera mais 5s a cada falha
-                }
-            }
-
-            const translateText = await translateRes.text();
-            let translateData = {};
-            try { translateData = JSON.parse(translateText); } catch(e) { }
-
-            if (!translateRes.ok) throw new Error(translateData.error || `Erro do Servidor (Autodesk Translate): ${translateRes.status}`);
-
-            // PASSO 5: SALVAR NO BANCO DE DADOS
-            setStatusStep('5/5: Salvando registro no banco de dados...');
+            // ✅ PASSO 4: SALVAR NO BANCO DE DADOS IMEDIATAMENTE (sem esperar tradução!)
+            // O arquivo JÁ ESTÁ na Autodesk com segurança. Não precisamos mais bloquear o usuário.
+            setStatusStep('4/5: Salvando registro no banco de dados...');
 
             const updateData = {
                 urn_autodesk: finalizeData.urn,
                 nome_arquivo: file.name,
                 tamanho_bytes: file.size,
                 status: 'Processando',
-                caminho_storage: null, // Ignora Supabase Storage totalmente
+                caminho_storage: null,
                 criado_em: new Date().toISOString()
             };
 
@@ -188,8 +160,29 @@ export default function BimUploadModal({
             }
             
             queryClient.invalidateQueries({ queryKey: ['bimStructureWithFiles', organizacaoId] });
+            
+            // ✅ PASSO 5: Fechar o modal AGORA — o arquivo está salvo e seguro!
+            setStatusStep('5/5: Arquivo salvo! Iniciando processamento 3D...');
             if (onSuccess) onSuccess();
             onClose();
+
+            // 🚀 FIRE AND FORGET: dispara a tradução DEPOIS de fechar, sem bloquear.
+            // Se a Autodesk demorar 30s para responder, o usuário já está feliz na tela com a engrenagem girando.
+            const urnParaTraduzir = finalizeData.urn;
+            fetch('/api/aps/upload-direct-translate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ urn: urnParaTraduzir })
+            }).then(async (res) => {
+                if (!res.ok) {
+                    const txt = await res.text().catch(() => '');
+                    console.warn('[BIM] Tradução iniciada mas retornou erro (ignorado, polling vai assumir):', txt);
+                } else {
+                    console.log('[BIM] ✅ Tradução 3D disparada com sucesso.');
+                }
+            }).catch((err) => {
+                console.warn('[BIM] Falha ao disparar tradução (ignorado, polling vai assumir):', err);
+            });
 
         } catch (err) {
             console.error("Erro no upload:", err);
