@@ -93,13 +93,18 @@ export default function BimUploadModal({
             // PASSO 2: Upload GIGANTE direto Browser -> Autodesk S3
             setStatusStep(`2/5: Enviando arquivo de ${(file.size / 1024 / 1024).toFixed(1)}MB para nuvem Autodesk...`);
 
-            const s3UploadRes = await fetch(uploadUrl, {
-                method: 'PUT',
-                body: file
-            });
+            let s3UploadRes;
+            try {
+                s3UploadRes = await fetch(uploadUrl, {
+                    method: 'PUT',
+                    body: file
+                });
+            } catch (fetchErr) {
+                throw new Error(`PASSO 2 - Falha ao enviar para S3 da Autodesk (CORS ou rede): ${fetchErr.message}`);
+            }
 
             if (!s3UploadRes.ok) {
-                throw new Error(`O upload direto falhou: ${s3UploadRes.statusText}`);
+                throw new Error(`PASSO 2 - Upload S3 falhou: ${s3UploadRes.status} ${s3UploadRes.statusText}`);
             }
 
             // PASSO 3: Finaliza Upload S3
