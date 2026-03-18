@@ -69,26 +69,22 @@ export async function POST(request) {
                 // Pega todos os UIDs da pasta
                 const messages = await connection.search(['ALL'], { bodies: ['HEADER.FIELDS (MESSAGE-ID)'], markSeen: false });
                 
+                const isTrashFolder = folderPath.toUpperCase().includes('TRASH') || 
+                                      folderPath.toUpperCase().includes('LIXEIRA') || 
+                                      folderPath.toUpperCase().includes('DELETED');
+
                 if (messages.length > 0) {
                     const uids = messages.map(m => m.attributes.uid);
                     
-                    const isTrashFolder = folderPath.toUpperCase().includes('TRASH') || 
-                                          folderPath.toUpperCase().includes('LIXEIRA') || 
-                                          folderPath.toUpperCase().includes('DELETED');
-
                     if (!isTrashFolder) {
-                        // Se não for a lixeira, "Esvaziar" a pasta significa mover tudo para a Lixeira
                         try {
-                            // Tenta mover para a TRASH padrão em muitos hosts
                             await connection.moveMessage(uids, 'INBOX.Trash');
                         } catch(e) {
                             try { await connection.moveMessage(uids, 'TRASH'); } catch(err2) {
-                                // Se o host nao tiver Trash comum, só marca como deletado e foda-se
                                 await connection.addFlags(uids, '\\Deleted');
                             }
                         }
                         
-                        // Atualiza o cache local para refletir a ida para a lixeira
                         await supabase.from('email_messages_cache')
                             .update({ folder_path: 'INBOX.Trash' })
                             .eq('account_id', config.id)
@@ -100,19 +96,33 @@ export async function POST(request) {
                         
                         try { 
                             // Expunge deleta DEFINITIVAMENTE mensagens com a flag \Deleted
-                            await connection.imap.expunge(uids); 
+                            await new Promise((resolve, reject) => {
+                                if (connection.imap.serverSupports('UIDPLUS')) {
+                                    connection.imap.expunge(uids, (err) => {
+                                        if (err) reject(err);
+                                        else resolve();
+                                    });
+                                } else {
+                                    connection.imap.expunge((err) => {
+                                        if (err) reject(err);
+                                        else resolve();
+                                    });
+                                }
+                            });
                         } catch (e) {
-                            console.log("Erro no expunge manual, dependendo do auto-expunge do servidor");
+                            console.log("Erro no expunge manual:", e);
                         }
-
-                        // Remove fisicamente as mensagens do nosso banco de cache
-                        await supabase.from('email_messages_cache')
-                            .delete()
-                            .eq('account_id', config.id)
-                            .eq('folder_path', folderPath)
-                            .in('uid', uids);
                     }
                 }
+
+                if (isTrashFolder) {
+                    // Remove as mensagens fisicamente do banco de cache (INCLUINDO ORFAOS)
+                    await supabase.from('email_messages_cache')
+                        .delete()
+                        .eq('account_id', config.id)
+                        .eq('folder_path', folderPath);
+                }
+
                 await connection.closeBox();
             }
             else if (action === 'markAllRead') {
