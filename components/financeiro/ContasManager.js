@@ -106,6 +106,21 @@ export default function ContasManager({ initialContas, onUpdate, empresas, onVer
             if (!mapa[tipo]) mapa[tipo] = [];
             mapa[tipo].push(c);
         });
+
+        // Ordenar cartões de crédito agrupando filhos abaixo de pais
+        if (mapa['Cartão de Crédito']) {
+            const ccList = mapa['Cartão de Crédito'];
+            const parentCards = ccList.filter(c => !c.conta_pai_id).sort((a, b) => a.nome.localeCompare(b.nome));
+            const sortedCards = [];
+            parentCards.forEach(parent => {
+                sortedCards.push(parent);
+                const children = ccList.filter(c => c.conta_pai_id === parent.id).sort((a, b) => a.nome.localeCompare(b.nome));
+                sortedCards.push(...children);
+            });
+            const orphans = ccList.filter(c => c.conta_pai_id && !parentCards.some(p => p.id === c.conta_pai_id));
+            mapa['Cartão de Crédito'] = [...sortedCards, ...orphans];
+        }
+
         return ORDEM_TIPOS.filter(t => mapa[t]).map(t => ({ tipo: t, contas: mapa[t] }));
     }, [contasDaEmpresa]);
 
@@ -142,6 +157,7 @@ export default function ContasManager({ initialContas, onUpdate, empresas, onVer
                 dia_fechamento_fatura: formData.dia_fechamento_fatura ? parseInt(formData.dia_fechamento_fatura, 10) : null,
                 dia_pagamento_fatura: formData.dia_pagamento_fatura ? parseInt(formData.dia_pagamento_fatura, 10) : null,
                 conta_debito_fatura_id: formData.conta_debito_fatura_id || null,
+                conta_pai_id: formData.conta_pai_id || null,
                 organizacao_id: organizacaoId,
             };
             Object.keys(dataToSave).forEach(key => { if (dataToSave[key] === '' || dataToSave[key] === undefined) dataToSave[key] = null; });
@@ -193,7 +209,7 @@ export default function ContasManager({ initialContas, onUpdate, empresas, onVer
                 isSaving={saveMutation.isPending}
                 initialData={editingConta}
                 empresas={empresas}
-                contas={initialContas.filter(c => c.tipo === 'Conta Corrente')}
+                contas={initialContas}
             />
             <PagamentoFaturaModal
                 isOpen={isPagamentoModalOpen}
@@ -320,10 +336,15 @@ export default function ContasManager({ initialContas, onUpdate, empresas, onVer
                                                 const saldoReal = saldos[conta.id] ?? 0;
                                                 const limite = conta.limite_cheque_especial || conta.limite_credito || 0;
                                                 const isCartao = conta.tipo === 'Cartão de Crédito';
+                                                const isFilho = isCartao && !!conta.conta_pai_id;
+                                                const indentClass = isFilho ? "pl-12 pr-5 relative" : "px-5";
                                                 const valorDisplay = isCartao ? Math.abs(saldoReal) : saldoReal;
                                                 const colorClass = saldoReal < 0 ? 'text-red-600' : (isCartao && saldoReal > 0 ? 'text-green-600' : 'text-gray-800');
                                                 return (
-                                                    <div key={conta.id} className="grid grid-cols-12 gap-2 px-5 py-3.5 items-center hover:bg-gray-50/70 transition-colors border-b last:border-0 border-gray-100 group">
+                                                    <div key={conta.id} className={`grid grid-cols-12 gap-2 py-3.5 items-center hover:bg-gray-50/70 transition-colors border-b last:border-0 border-gray-100 group ${indentClass}`}>
+                                                        {isFilho && (
+                                                            <div className="absolute left-6 top-1/2 -mt-3.5 w-3 h-4 border-l-2 border-b-2 border-gray-300 rounded-bl-xl"></div>
+                                                        )}
                                                         {/* Nome */}
                                                         <div className="col-span-4 min-w-0">
                                                             <p className="font-bold text-sm text-gray-800 truncate leading-tight" title={conta.nome}>{conta.nome}</p>

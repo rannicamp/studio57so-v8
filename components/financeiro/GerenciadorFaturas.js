@@ -25,7 +25,7 @@ export default function GerenciadorFaturas({ contasCartao, onNewDespesaCartao })
     const queryClient = useQueryClient();
     const { user } = useAuth();
     const orgId = user?.organizacao_id;
-    const [contaSelecionadaId, setContaSelecionadaId] = useState(contasCartao?.[0]?.id || '');
+    const [contaSelecionadaId, setContaSelecionadaId] = useState(contasCartao?.filter(c => !c.conta_pai_id)?.[0]?.id || contasCartao?.[0]?.id || '');
     const [faturaParaPagar, setFaturaParaPagar] = useState(null);
     const [isPagamentoModalOpen, setIsPagamentoModalOpen] = useState(false);
     const [faturaAbertaDataVencimento, setFaturaAbertaDataVencimento] = useState('');
@@ -37,14 +37,17 @@ export default function GerenciadorFaturas({ contasCartao, onNewDespesaCartao })
     const [ofxPainelAberto, setOfxPainelAberto] = useState(false); // String com a data_vencimento ou null
     const [modoConciliacaoMes, setModoConciliacaoMes] = useState(null); // Ativa o modal de conciliação para uma fatura
 
-    // Query: Busca TODOS os Arquivos OFX/PDF da conta para sabermos se tem arquivo importado na fatura
+    // Query: Busca TODOS os Arquivos OFX/PDF da conta (incluindo filhos) para sabermos se tem arquivo importado na fatura
     const { data: arquivosOfxMes } = useQuery({
         queryKey: ['ofx_arquivos_cartao', contaSelecionadaId, orgId],
         queryFn: async () => {
+            const childContas = contasCartao.filter(c => c.conta_pai_id === contaSelecionadaId);
+            const accountIds = [contaSelecionadaId, ...childContas.map(c => c.id)].filter(Boolean);
+
             const { data, error } = await supabase
                 .from('banco_arquivos_ofx')
                 .select('*')
-                .eq('conta_id', Number(contaSelecionadaId))
+                .in('conta_id', accountIds)
                 .eq('organizacao_id', orgId)
                 .order('periodo_inicio', { ascending: false });
 
@@ -365,7 +368,7 @@ export default function GerenciadorFaturas({ contasCartao, onNewDespesaCartao })
                         onChange={(e) => setContaSelecionadaId(e.target.value)}
                         className="w-full md:w-auto min-w-[300px] p-2 border border-gray-300 rounded-md font-medium text-gray-700 focus:ring-2 focus:ring-orange-500"
                     >
-                        {contasCartao.map(c => (
+                        {contasCartao.filter(c => !c.conta_pai_id).map(c => (
                             <option key={c.id} value={c.id}>{c.nome} (Final {c.numero_conta?.slice(-4) || '****'})</option>
                         ))}
                     </select>

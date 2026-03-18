@@ -161,6 +161,17 @@ const AccountFolderTree = ({ account, selectedFolder, onSelectFolder, expandedPa
                     if (safeFolderPath === 'INBOX' || safeFolderPath === 'ENTRADA') newMap['INBOX'] = 0;
                     return newMap;
                 });
+                
+                // Se for esvaziar, limpa a lista central de e-mails instantaneamente (Magia Visual)
+                if (action === 'empty' || action === 'delete') {
+                    queryClient.setQueriesData(
+                        { queryKey: ['emailMessages', folderPath] },
+                        (oldData) => {
+                            if (!oldData) return oldData;
+                            return { ...oldData, pages: [{ messages: [], total: 0, hasMore: false, page: 1 }], pageParams: [1] };
+                        }
+                    );
+                }
             }
         },
         onSuccess: () => {

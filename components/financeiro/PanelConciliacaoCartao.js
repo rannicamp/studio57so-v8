@@ -42,15 +42,15 @@ const daysBetween = (date1, date2) => {
 // O data_vencimento de um lançamento de cartão é a data da próxima parcela,
 // que pode estar meses à frente da data da transação — o filtro por range
 // de datas estava retornando zero resultados.
-const fetchLancamentosSistema = async (supabase, contaId, organizacaoId, faturaId) => {
-    if (!contaId || !organizacaoId || !faturaId) return [];
+const fetchLancamentosSistema = async (supabase, accountIds, organizacaoId, faturaIds) => {
+    if (!accountIds || accountIds.length === 0 || !organizacaoId || !faturaIds || faturaIds.length === 0) return [];
     
     const { data, error } = await supabase
         .from('lancamentos')
         .select(`*, favorecido:favorecido_contato_id ( id, nome, razao_social )`)
-        .eq('conta_id', contaId)
+        .in('conta_id', accountIds)
         .eq('organizacao_id', organizacaoId)
-        .eq('fatura_id', faturaId)
+        .in('fatura_id', faturaIds)
         .order('data_transacao', { ascending: true });
 
     if (error) throw new Error(error.message);
@@ -227,35 +227,39 @@ export default function PanelConciliacaoCartao({ contas, initialContaId, faturaV
     // BUG #3 CORRIGIDO: Busca o id numérico da fatura ativa diretamente por faturaVencimento.
     // Antes, os lançamentos dependiam do extratoPeriodo (que só era setado quando havia
     // transações OFX carregadas). Agora a query é independente e funciona junto com o PDF.
-    const { data: faturaAtivaData } = useQuery({
-        queryKey: ['faturaAtivaConciliacao', selectedContaId, organizacaoId, faturaVencimento],
+    const childContas = useMemo(() => contas?.filter(c => c.conta_pai_id === selectedContaId) || [], [contas, selectedContaId]);
+    const accountIds = useMemo(() => [selectedContaId, ...childContas.map(c => c.id)].filter(Boolean), [selectedContaId, childContas]);
+
+    const { data: faturasAtivasData } = useQuery({
+        queryKey: ['faturaAtivaConciliacao', accountIds, organizacaoId, faturaVencimento],
         queryFn: async () => {
             const { data, error } = await supabase
                 .from('faturas_cartao')
                 .select('id, data_vencimento, mes_referencia')
-                .eq('conta_id', selectedContaId)
+                .in('conta_id', accountIds)
                 .eq('organizacao_id', organizacaoId)
-                .eq('data_vencimento', faturaVencimento)
-                .maybeSingle();
+                .eq('data_vencimento', faturaVencimento);
             if (error) throw error;
             return data;
         },
-        enabled: !!(selectedContaId && organizacaoId && faturaVencimento),
+        enabled: !!(accountIds.length > 0 && organizacaoId && faturaVencimento),
     });
 
+    const faturaIds = useMemo(() => faturasAtivasData?.map(f => f.id) || [], [faturasAtivasData]);
+
     const { data: arquivosOfxMes, isLoading: isLoadingArquivos } = useQuery({
-        queryKey: ['arquivosOfxCartaoConciliacao', selectedContaId, organizacaoId, faturaVencimento],
+        queryKey: ['arquivosOfxCartaoConciliacao', accountIds, organizacaoId, faturaVencimento],
         queryFn: async () => {
              const { data, error } = await supabase
                 .from('banco_arquivos_ofx')
                 .select('id')
-                .eq('conta_id', selectedContaId)
+                .in('conta_id', accountIds)
                 .eq('organizacao_id', organizacaoId)
                 .eq('periodo_inicio', faturaVencimento); // Usamos periodo_inicio para rastrear a fatura q ele pertence
             if (error) throw error;
             return data.map(d => d.id) || [];
         },
-        enabled: !!(selectedContaId && organizacaoId && faturaVencimento),
+        enabled: !!(accountIds.length > 0 && organizacaoId && faturaVencimento),
     });
 
     const { data: transacoesOfxData, isLoading: isLoadingTransacoesOfx } = useQuery({
@@ -265,11 +269,9 @@ export default function PanelConciliacaoCartao({ contas, initialContaId, faturaV
     });
 
     const { data: lancamentosSistema, isLoading: isLoadingLancamentos } = useQuery({
-        // BUG #1 CORRIGIDO: chave de query usa faturaAtivaData?.id (não mais extratoPeriodo).
-        // BUG #3 CORRIGIDO: enabled usa faturaAtivaData?.id — independe do OFX estar carregado.
-        queryKey: ['lancamentosSistemaConciliacao', selectedContaId, organizacaoId, faturaAtivaData?.id],
+        queryKey: ['lancamentosSistemaConciliacao', accountIds, organizacaoId, faturaIds],
         queryFn: async () => {
-            const raw = await fetchLancamentosSistema(supabase, selectedContaId, organizacaoId, faturaAtivaData?.id);
+            const raw = await fetchLancamentosSistema(supabase, accountIds, organizacaoId, faturaIds);
 
             // LOGICA BORDERÔ NO FETCH
             const borderosMap = {};
@@ -316,7 +318,7 @@ export default function PanelConciliacaoCartao({ contas, initialContaId, faturaV
             // recebia undefined e a lista de lançamentos ficava sempre vazia.
             return finalItens;
         },
-        enabled: !!(selectedContaId && organizacaoId && faturaAtivaData?.id),
+        enabled: !!(accountIds.length > 0 && organizacaoId && faturaIds.length > 0),
     });
 
     // Quando o usuário seleciona um novo arquivo OFX e os dados chegam, mapeamos para conciliationState

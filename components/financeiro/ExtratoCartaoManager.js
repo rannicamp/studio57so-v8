@@ -72,7 +72,7 @@ export default function ExtratoCartaoManager({ contasCartao }) {
     // Auto seleção da primeira conta de cartão salva
     useEffect(() => {
         const savedId = typeof window !== 'undefined' ? localStorage.getItem('studio57_last_conta_cartao_id') : null;
-        let startId = contasCartao?.[0]?.id || '';
+        let startId = contasCartao?.filter(c => !c.conta_pai_id)?.[0]?.id || contasCartao?.[0]?.id || '';
         if (savedId && contasCartao && contasCartao.some(c => c.id == savedId)) {
             startId = savedId;
         }
@@ -247,15 +247,18 @@ export default function ExtratoCartaoManager({ contasCartao }) {
     });
 
     // =====================================================================
-    // QUERY: ARQUIVOS OFX/IA DA CONTA (idêntico ao ExtratoManager)
+    // QUERY: ARQUIVOS OFX/IA DA CONTA E FILHOS
     // =====================================================================
     const { data: arquivosOfxMes } = useQuery({
         queryKey: ['ofx_arquivos_cartao', contaSelecionadaId, organizacaoId],
         queryFn: async () => {
+            const childContas = contasCartao?.filter(c => c.conta_pai_id === contaSelecionadaId) || [];
+            const accountIds = [contaSelecionadaId, ...childContas.map(c => c.id)].filter(Boolean);
+
             const { data, error } = await supabase
                 .from('banco_arquivos_ofx')
                 .select('*')
-                .eq('conta_id', Number(contaSelecionadaId))
+                .in('conta_id', accountIds)
                 .eq('organizacao_id', organizacaoId)
                 .order('periodo_inicio', { ascending: false });
             if (error) throw error;
@@ -689,7 +692,7 @@ export default function ExtratoCartaoManager({ contasCartao }) {
 
                         {isDropdownContaOpen && (
                             <div className="absolute z-50 w-full mt-2 bg-white border border-gray-200 rounded-xl shadow-2xl max-h-[350px] overflow-y-auto p-1 origin-top animate-fadeIn">
-                                {(contasCartao || []).map(c => {
+                                {(contasCartao || []).filter(c => !c.conta_pai_id).map(c => {
                                     const isSelected = contaSelecionadaId === c.id;
                                     const isIncompleta = c.nome?.startsWith('⚠️');
                                     const nomeExibicao = c.nome?.replace('⚠️ ', '') || c.nome;

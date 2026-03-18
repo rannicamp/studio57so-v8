@@ -69,14 +69,12 @@ export async function POST(request) {
                 // Pega todos os UIDs da pasta
                 const messages = await connection.search(['ALL'], { bodies: ['HEADER.FIELDS (MESSAGE-ID)'], markSeen: false });
                 
-                const isTrashFolder = folderPath.toUpperCase().includes('TRASH') || 
-                                      folderPath.toUpperCase().includes('LIXEIRA') || 
-                                      folderPath.toUpperCase().includes('DELETED');
+                const isPermanentDeleteFolder = /TRASH|LIXEIRA|DELETED|SPAM|JUNK/i.test(folderPath);
 
                 if (messages.length > 0) {
                     const uids = messages.map(m => m.attributes.uid);
                     
-                    if (!isTrashFolder) {
+                    if (!isPermanentDeleteFolder) {
                         try {
                             await connection.moveMessage(uids, 'INBOX.Trash');
                         } catch(e) {
@@ -91,31 +89,30 @@ export async function POST(request) {
                             .eq('folder_path', folderPath)
                             .in('uid', uids);
                     } else {
-                        // Se JÁ ESTIVER NA LIXEIRA, "Esvaziar" significa ANQUILAÇÃO TOTAL (Hard Delete)
+                        // Se JÁ ESTIVER NA LIXEIRA OU SPAM, "Esvaziar" significa ANQUILAÇÃO TOTAL (Hard Delete)
                         await connection.addFlags(uids, '\\Deleted');
-                        
-                        try { 
-                            // Expunge deleta DEFINITIVAMENTE mensagens com a flag \Deleted
-                            await new Promise((resolve, reject) => {
-                                if (connection.imap.serverSupports('UIDPLUS')) {
-                                    connection.imap.expunge(uids, (err) => {
-                                        if (err) reject(err);
-                                        else resolve();
-                                    });
-                                } else {
-                                    connection.imap.expunge((err) => {
-                                        if (err) reject(err);
-                                        else resolve();
-                                    });
-                                }
-                            });
-                        } catch (e) {
-                            console.log("Erro no expunge manual:", e);
-                        }
+                    }
+
+                    // SEMPRE faz expunge na pasta atual. 
+                    // Motivo: Servidores sem `MOVE` simulam o mover com COPY + addFlags \Deleted, deixando as originais.
+                    try { 
+                        await new Promise((resolve, reject) => {
+                            if (connection.imap.serverSupports('UIDPLUS')) {
+                                connection.imap.expunge(uids, (err) => {
+                                    if (err) reject(err); else resolve();
+                                });
+                            } else {
+                                connection.imap.expunge((err) => {
+                                    if (err) reject(err); else resolve();
+                                });
+                            }
+                        });
+                    } catch (e) {
+                        console.log("Erro no expunge manual:", e);
                     }
                 }
 
-                if (isTrashFolder) {
+                if (isPermanentDeleteFolder) {
                     // Remove as mensagens fisicamente do banco de cache (INCLUINDO ORFAOS)
                     await supabase.from('email_messages_cache')
                         .delete()

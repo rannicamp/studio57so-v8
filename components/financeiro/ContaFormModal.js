@@ -24,6 +24,7 @@ export default function ContaFormModal({ isOpen, onClose, onSave, initialData, e
         dia_fechamento_fatura: '',
         dia_pagamento_fatura: '',
         conta_debito_fatura_id: null,
+        conta_pai_id: null,
     });
 
     const [formData, setFormData] = useState(getInitialState());
@@ -88,6 +89,24 @@ export default function ContaFormModal({ isOpen, onClose, onSave, initialData, e
         (b.code && String(b.code).includes(instituicaoQuery))
     );
 
+    // Herdar propriedades do cartão principal automaticamente
+    useEffect(() => {
+        if (formData.tipo === 'Cartão de Crédito' && formData.conta_pai_id) {
+            const parent = contas?.find(c => String(c.id) === String(formData.conta_pai_id));
+            if (parent) {
+                setFormData(prev => {
+                    const nextState = { ...prev };
+                    let changed = false;
+                    if (nextState.empresa_id !== parent.empresa_id) { nextState.empresa_id = parent.empresa_id; changed = true; }
+                    if (nextState.dia_fechamento_fatura != parent.dia_fechamento_fatura) { nextState.dia_fechamento_fatura = parent.dia_fechamento_fatura; changed = true; }
+                    if (nextState.dia_pagamento_fatura != parent.dia_pagamento_fatura) { nextState.dia_pagamento_fatura = parent.dia_pagamento_fatura; changed = true; }
+                    if (nextState.conta_debito_fatura_id !== parent.conta_debito_fatura_id) { nextState.conta_debito_fatura_id = parent.conta_debito_fatura_id; changed = true; }
+                    return changed ? nextState : prev;
+                });
+            }
+        }
+    }, [formData.conta_pai_id, formData.tipo, contas]);
+
     const handleChange = (e) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value === '' ? null : value }));
@@ -144,7 +163,7 @@ export default function ContaFormModal({ isOpen, onClose, onSave, initialData, e
                             </div>
                             <div>
                                 <label className="block text-sm font-medium">Empresa Proprietária</label>
-                                <select name="empresa_id" value={formData.empresa_id || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md">
+                                <select name="empresa_id" value={formData.empresa_id || ''} onChange={handleChange} disabled={!!formData.conta_pai_id} className="mt-1 w-full p-2 border rounded-md disabled:bg-gray-100 disabled:text-gray-500">
                                     <option value="">Nenhuma</option>
                                     {empresas.map(emp => (
                                         <option key={emp.id} value={emp.id}>{emp.nome_fantasia || emp.razao_social}</option>
@@ -266,6 +285,21 @@ export default function ContaFormModal({ isOpen, onClose, onSave, initialData, e
                         {formData.tipo === 'Cartão de Crédito' && (
                             <div className="pt-4 border-t border-gray-200 space-y-4">
                                 <h4 className="font-bold text-gray-800">Detalhes do Cartão de Crédito</h4>
+                                <div>
+                                    <label className="block text-sm font-medium">Cartão Principal (Opcional)</label>
+                                    <select
+                                        name="conta_pai_id"
+                                        value={formData.conta_pai_id || ''}
+                                        onChange={handleChange}
+                                        className="mt-1 w-full bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 p-2.5 outline-none transition-all"
+                                    >
+                                        <option value="">Nenhum (Cartão Titular)</option>
+                                        {contas?.filter(c => c.tipo === 'Cartão de Crédito' && c.id !== formData.id && !c.conta_pai_id).map(conta => (
+                                            <option key={conta.id} value={conta.id}>{conta.nome}</option>
+                                        ))}
+                                    </select>
+                                    <p className="text-[10px] text-gray-500 mt-1">Selecione apenas se este for um cartão virtual/adicional.</p>
+                                </div>
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     <div>
                                         <label className="block text-sm font-medium">Limite de Crédito</label>
@@ -280,18 +314,18 @@ export default function ContaFormModal({ isOpen, onClose, onSave, initialData, e
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium">Dia Fechamento Fatura</label>
-                                        <input type="number" name="dia_fechamento_fatura" value={formData.dia_fechamento_fatura || ''} onChange={handleChange} min="1" max="31" className="mt-1 w-full p-2 border rounded-md" />
+                                        <input type="number" name="dia_fechamento_fatura" value={formData.dia_fechamento_fatura || ''} onChange={handleChange} disabled={!!formData.conta_pai_id} min="1" max="31" className="mt-1 w-full p-2 border rounded-md disabled:bg-gray-100 disabled:text-gray-500" />
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium">Dia Pagamento Fatura</label>
-                                        <input type="number" name="dia_pagamento_fatura" value={formData.dia_pagamento_fatura || ''} onChange={handleChange} min="1" max="31" className="mt-1 w-full p-2 border rounded-md" />
+                                        <input type="number" name="dia_pagamento_fatura" value={formData.dia_pagamento_fatura || ''} onChange={handleChange} disabled={!!formData.conta_pai_id} min="1" max="31" className="mt-1 w-full p-2 border rounded-md disabled:bg-gray-100 disabled:text-gray-500" />
                                     </div>
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium">Conta para Débito da Fatura</label>
-                                    <select name="conta_debito_fatura_id" value={formData.conta_debito_fatura_id || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md">
+                                    <select name="conta_debito_fatura_id" value={formData.conta_debito_fatura_id || ''} onChange={handleChange} disabled={!!formData.conta_pai_id} className="mt-1 w-full p-2 border rounded-md disabled:bg-gray-100 disabled:text-gray-500">
                                         <option value="">Nenhuma / Pagamento Manual</option>
-                                        {contas?.map(conta => (
+                                        {contas?.filter(c => c.tipo !== 'Cartão de Crédito' && c.tipo !== 'Conta de Ativo' && c.tipo !== 'Conta de Passivo').map(conta => (
                                             <option key={conta.id} value={conta.id}>{conta.nome}</option>
                                         ))}
                                     </select>
