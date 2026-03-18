@@ -23,8 +23,8 @@ export async function POST(request) {
 
         // Busca o manifesto (o relatório de status da tradução)
         const manifest = await modelDerivativeClient.getManifest(
-            credentials.access_token,
-            urn
+            urn,
+            { accessToken: credentials.access_token }
         );
 
         // O status pode ser: 'pending', 'inprogress', 'success', 'failed', 'timeout'

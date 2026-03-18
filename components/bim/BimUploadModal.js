@@ -78,8 +78,11 @@ export default function BimUploadModal({
                 body: JSON.stringify({ fileName: file.name })
             });
 
-            const startData = await startRes.json();
-            if (!startRes.ok) throw new Error(startData.error || 'Falha ao conectar com Autodesk.');
+            const startText = await startRes.text();
+            let startData = {};
+            try { startData = JSON.parse(startText); } catch(e) { }
+
+            if (!startRes.ok) throw new Error(startData.error || `Falha ao conectar com Autodesk (Erro ${startRes.status}).`);
             
             const { uploadUrl, uploadKey, objectKey } = startData;
 
@@ -104,8 +107,11 @@ export default function BimUploadModal({
                 body: JSON.stringify({ uploadKey, objectKey })
             });
 
-            const finalizeData = await finalizeRes.json();
-            if (!finalizeRes.ok) throw new Error(finalizeData.error || 'Erro ao mandar traduzir o modelo.');
+            const finalizeText = await finalizeRes.text();
+            let finalizeData = {};
+            try { finalizeData = JSON.parse(finalizeText); } catch(e) { }
+
+            if (!finalizeRes.ok) throw new Error(finalizeData.error || `Erro do Servidor (Autodesk Finalize): ${finalizeRes.status}`);
             if (!finalizeData.urn) throw new Error('Não recebi o código URN de visualização.');
 
             // PASSO 3: SALVAR NO BANCO DE DADOS

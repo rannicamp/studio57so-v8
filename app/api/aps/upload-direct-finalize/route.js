@@ -3,6 +3,7 @@ import { AuthenticationClient, Scopes } from '@aps_sdk/authentication';
 import { SdkManagerBuilder } from '@aps_sdk/autodesk-sdkmanager';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 60; // Evita o erro 504 Gateway Timeout da Netlify/Vercel
 
 const APS_CLIENT_ID = process.env.APS_CLIENT_ID;
 const APS_CLIENT_SECRET = process.env.APS_CLIENT_SECRET;

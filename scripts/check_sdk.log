@@ -1,0 +1,9 @@
+ERRO: Error: Please provide a valid access token or an authentication provider
+    at ModelDerivativeClient.<anonymous> (c:\Projetos\studio57so-v8\node_modules\@aps_sdk\model-derivative\dist\custom-code\modelDerivativeClient.js:199:23)
+    at Generator.next (<anonymous>)
+    at c:\Projetos\studio57so-v8\node_modules\@aps_sdk\model-derivative\dist\custom-code\modelDerivativeClient.js:8:71
+    at new Promise (<anonymous>)
+    at __awaiter (c:\Projetos\studio57so-v8\node_modules\@aps_sdk\model-derivative\dist\custom-code\modelDerivativeClient.js:4:12)
+    at ModelDerivativeClient.getManifest (c:\Projetos\studio57so-v8\node_modules\@aps_sdk\model-derivative\dist\custom-code\modelDerivativeClient.js:196:16)
+    at test (file:///c:/Projetos/studio57so-v8/scripts/check_sdk.mjs:21:54)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
