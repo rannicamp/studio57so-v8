@@ -266,6 +266,21 @@ O **Studio 57** é o ambiente de desenvolvimento e laboratório central. O **Elo
 
 ---
 
+- *2026-03-19 (tarde):* **📬 Evolução Completa do Módulo de E-mail:**
+    - **Diagnóstico de Pastas Vazias:** Investigação profunda dos erros 401 e 404 no IMAP. Criada rota de diagnóstico `api/email/diagnose` que inspeciona as credenciais salvas no banco e testa a conexão IMAP ao vivo, retornando detalhes completos do erro.
+    - **Log de Diagnóstico Detalhado:** O `imap_debug.log` foi turbinado para registrar todos os campos do erro IMAP em JSON (`message`, `textCode`, `source`, `stack`), facilitando investigações futuras.
+    - **Auto-cura de E-mails Fantasmas (404):** Quando o servidor IMAP da Hostinger informa que um e-mail não existe mais, a API `api/email/content` agora o **deleta automaticamente** do cache `email_messages_cache`, evitando sujeira acumulada.
+    - **Modal de Reautenticação Expresso com Olho de Senha:** O `AccountFolderTree` ganhou um modal inline para redigitar a senha sem precisar navegar para configurações. Adicionado botão 👁️ olho para visualizar/esconder a senha antes de salvar.
+    - **👁️ Olho na Senha — Configurações de E-mail:** Campo `senha_app` no `EmailConnectionConfig.js` ganhou botão de toggle visibilidade da senha, facilitando conferência.
+    - **Busca Reposicionada:** A caixa de pesquisa saiu da barra lateral de pastas e foi movida para cima da lista de e-mails, no topo do `EmailListPanel.js`, com botão ✕ para limpar a busca rapidamente.
+    - **🔍 Busca Global com Highlight Amarelo (marca-texto):** A busca agora varre **todas as pastas da conta** e pesquisa em: `subject`, `from_text`, `to_text`, `cc_text` e **`text_body`** (corpo do e-mail). Os resultados exibem:
+        - 🟡 Termos marcados em amarelo no remetente, assunto e preview do corpo.
+        - 📄 Trecho do corpo do e-mail abaixo do assunto como preview.
+        - 📂 Badge azul indicando a pasta de origem do e-mail encontrado.
+    - **Causa raiz das "pastas vazias":** Descoberto que era simplesmente um **filtro de status aplicado na interface** (não um bug de conexão). O sistema estava funcionando corretamente e exibindo apenas e-mails que correspondiam ao filtro ativo.
+
+---
+
 ### 12. Gestão de Custos BIM (Autodesk API) - *A FAZER*
 - [ ] **Diagnóstico:** A Autodesk cobra via "Flex Tokens" (aprox. U$ 4.50 ou R$ 25,00 por tradução de arquivo complexo como `.rvt` ou `.ifc`). O Studio 57 precisa repassar ou amortizar este custo.
 - [ ] **Sistema de Créditos:** Criar tabela `carteira_bim` no banco de dados.
