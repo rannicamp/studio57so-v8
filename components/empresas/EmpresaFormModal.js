@@ -8,7 +8,8 @@ import { toast } from 'sonner';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner, faTimes, faSave } from '@fortawesome/free-solid-svg-icons';
+import { faSpinner, faTimes, faSave, faImage } from '@fortawesome/free-solid-svg-icons';
+import ThumbnailUploader from '@/components/shared/ThumbnailUploader';
 
 export default function EmpresaFormModal({ isOpen, onClose, initialData }) {
     const supabase = createClient();
@@ -36,6 +37,7 @@ export default function EmpresaFormModal({ isOpen, onClose, initialData }) {
         objeto_social: '',
         capital_social: '',
         natureza_juridica: '',
+        logo_url: '',
     });
 
     const [formData, setFormData] = useState(getInitialState());
@@ -53,6 +55,10 @@ export default function EmpresaFormModal({ isOpen, onClose, initialData }) {
 
     const handleMaskedChange = (name, value) => {
         setFormData(prevState => ({ ...prevState, [name]: value }));
+    };
+
+    const handleImageUpdate = (field, url) => {
+        setFormData(prev => ({ ...prev, [field]: url }));
     };
 
     const handleCepBlur = useCallback(async (cep) => {
@@ -142,6 +148,25 @@ export default function EmpresaFormModal({ isOpen, onClose, initialData }) {
                 {/* Corpo (Scrollable) */}
                 <div className="p-6 overflow-y-auto flex-grow custom-scrollbar">
                     <form id="empresa-form" onSubmit={handleSubmit} className="space-y-8">
+                        <fieldset>
+                            <h3 className="text-lg font-semibold text-gray-800 border-b pb-2 mb-4 flex items-center gap-2">
+                                <FontAwesomeIcon icon={faImage} className="text-blue-500" />
+                                Identidade Visual
+                            </h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                <div>
+                                    <ThumbnailUploader
+                                        label="Logo da Empresa (Formato Quadrado/Horizontal)"
+                                        url={formData.logo_url}
+                                        onUpload={(url) => handleImageUpdate('logo_url', url)}
+                                        bucketName="empresas"
+                                        aspectRatio="aspect-square"
+                                        objectFit="object-contain"
+                                    />
+                                </div>
+                            </div>
+                        </fieldset>
+
                         <fieldset>
                             <h3 className="text-lg font-semibold text-gray-800 border-b pb-2 mb-4">Dados da Empresa</h3>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

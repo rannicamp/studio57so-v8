@@ -59,6 +59,7 @@ O **Studio 57** é o ambiente de desenvolvimento e laboratório central. O **Elo
 - [ ] Implementar Webhooks para controle de status de assinatura.
 - [ ] Criar Dashboard de Faturamento para o cliente (Portal do Assinante).
 - [ ] Bloqueio de funcionalidades por status de pagamento (Inadimplência).
+- [ ] **Auditoria de VGV:** Desenvolver interface/relatório no front-end para consumir e exibir o histórico inteligente da tabela `historico_vgv` (linha do tempo de valorização dos empreendimentos).
 
 ### 6. Branding e Identidade Visual (Transição Elo 57)
 - [x] **Rename:** Substituir ocorrências de "Studio 57" por "Elo 57" na interface.
@@ -252,6 +253,15 @@ O **Studio 57** é o ambiente de desenvolvimento e laboratório central. O **Elo
     - **Criação da SQL RPC `buscar_atividades_ai`:** Foi desenvolvida no Supabase uma função avançada que funciona como a "lupa" do Copilot, permitindo filtros cruzados por *Organização, Empreendimento, Funcionário (ID real), Termo Textual e Status*, garantindo que a IA nunca busque informações fora de sua governança (RLS).
     - **Refatoração do Gemini (Function Calling):** A engine da IA foi movida diretamente para o Server Action `actions-ai.js`. O bot foi re-treinado para trabalhar com o modelo `gemini-2.5-flash`, perdendo o vício de adivinhar informações e sendo forçado a entrevistar o usuário para captar Datas, Duração e Responsáveis.
     - **Loop de Ferramentas:** Quando um usuário pede para editar, a IA nativamente dispara a ferramenta `buscar_atividades`, cruza dados do banco em microssegundos e devolve apenas os cartões que de fato existem, com IDs corretos, prontos para a função UPDATE. JSON rigoroso definido via *System Prompt*. Bug de `Mime Type` em versões restritivas resolvido com sucesso! Deploy realizado.
+
+---
+
+- *2026-03-19:* **🏢 Estruturação Avançada de Branding, Relatórios e Auditoria de VGV:**
+    - **Integração Meta Ads Completa:** Criada a tabela de normalização `meta_ativos` acoplada ao Webhook. O CRM passa a espelhar dinamicamente os nomes de Campanhas, Conjuntos e Anúncios dos IDs recuperados do Meta via JOIN.
+    - **Branding Dinâmico (Tabela de Vendas):** Banco de dados expandido com `logo_url` para `cadastro_empresa` e Uppy implementado para o upload de marcas. O PDF exportado agora monta um Header Executivo Triplo: Marca da Construtora (esq), Título (centro) e Empreendimento (dir).
+    - **Termos e Condições (Live Edit):** Ferramenta acoplada no rodapé da tabela para edição de texto in-line em tempo real (TanStack Query/Supabase). Permite gravar Juros/INCC variáveis para cada Empreendimento antes de gerar o PDF.
+    - **Vacina CSS Anti-White-Pages:** Resolvido o bug crítico de páginas em branco vazando na impressão. Reset bruto no `@media print` forçou o React a ignorar o layout das Sanfonas, limitando a renderização 100% à classe `.printable-content-area`.
+    - **Vigia Automático de VGV (Trigger SQL):** Implantada uma nova camada de auditoria infraestrutural no Postgres (`historico_vgv`). Desenvolvido um Trigger "Watchdog" atrelado à tabela `produtos_empreendimento`, que a cada mudança de preço, recalcula em milissegundos o VGV novo e grava de forma imutável o delta anterior/atual e o responsável pela edição.
 
 ---
 

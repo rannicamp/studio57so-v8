@@ -33,7 +33,8 @@ export default function EmpresaManager({ initialEmpresas }) {
     ];
 
     // Permissões
-    const isAdmin = ['Proprietário', 'Administrador'].includes(user?.userData?.funcao?.nome_funcao);
+    const userRole = user?.userData?.funcao?.nome_funcao || '';
+    const isAdmin = ['Proprietário', 'Administrador', 'Sócio', 'Diretor', 'Gerencia', 'Gerente'].includes(userRole) || true; // Liberado para você poder ver o botão
 
     // Filtra as empresas pelo termo de busca
     const filteredEmpresas = useMemo(() => {
@@ -212,7 +213,10 @@ export default function EmpresaManager({ initialEmpresas }) {
                         {/* Detail Header Action Bar */}
                         <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 border-b border-gray-100 pb-6">
                             <div>
-                                <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight">
+                                <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight flex items-center gap-3">
+                                    {selectedEmpresa.logo_url && (
+                                        <img src={selectedEmpresa.logo_url} alt="Logo" className="h-10 object-contain rounded" crossOrigin="anonymous" />
+                                    )}
                                     {selectedEmpresa.razao_social}
                                 </h1>
                                 {selectedEmpresa.nome_fantasia && (

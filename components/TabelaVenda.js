@@ -2,9 +2,12 @@
 
 "use client";
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPrint, faImage, faExclamationCircle } from '@fortawesome/free-solid-svg-icons';
+import { faPrint, faImage, faExclamationCircle, faPen, faCheck, faTimes } from '@fortawesome/free-solid-svg-icons';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { createClient } from '../utils/supabase/client';
+import { toast } from 'sonner';
 
 // Função para formatar números como moeda brasileira (BRL)
 const formatCurrency = (value) => {
@@ -13,8 +16,34 @@ const formatCurrency = (value) => {
 };
 
 export default function TabelaVenda({ produtos, config, parcelasAdicionais, empreendimento }) {
+    const supabase = createClient();
+    const queryClient = useQueryClient();
 
-    const TabelaCalculada = useMemo(() => {
+    const [isEditingObs, setIsEditingObs] = useState(false);
+    const defaultObs = '*Correção mensal pelo INCC até a entrega das chaves, após entrega IGP-M + 1% a.m.\n**Sujeito a alteração sem aviso prévio.';
+    const [obsText, setObsText] = useState(empreendimento?.observacoes || defaultObs);
+
+    const updateObsMutation = useMutation({
+        mutationFn: async (newObs) => {
+            const { error } = await supabase
+                .from('empreendimentos')
+                .update({ observacoes: newObs })
+                .eq('id', empreendimento?.id);
+            if (error) throw error;
+        },
+        onSuccess: () => {
+            toast.success('Termos e Condições atualizados!');
+            queryClient.invalidateQueries(['empreendimento', empreendimento?.id]);
+        },
+        onError: (error) => {
+            toast.error('Erro ao salvar termos: ' + error.message);
+        }
+    });
+
+    const handleSaveObs = () => {
+        updateObsMutation.mutate(obsText);
+        setIsEditingObs(false);
+    };    const TabelaCalculada = useMemo(() => {
         if (!produtos || produtos.length === 0 || !config) return [];
         return produtos.map(produto => {
             const valorVenda = parseFloat(produto.valor_venda_calculado) || 0;
@@ -105,21 +134,43 @@ export default function TabelaVenda({ produtos, config, parcelasAdicionais, empr
                         margin: 10mm;
                     }
 
+                    /* VACINA ANTI-PÁGINA BRANCA: Derrubar os limites de Altura e Overflow do Next.js/React */
+                    html, body, main, div {
+                        height: auto !important;
+                        min-height: auto !important;
+                        max-height: none !important;
+                        overflow: visible !important;
+                        box-shadow: none !important;
+                    }
+
                     body {
                         -webkit-print-color-adjust: exact !important;
                         print-color-adjust: exact !important;
+                        visibility: hidden; /* Esconde o gerador principal */
+                        margin: 0 !important;
+                        padding: 0 !important;
+                        background: none !important;
                     }
 
-                    .printable-content-area .no-print {
-                        display: none;
+                    .no-print {
+                        display: none !important;
                     }
 
+                    /* Força apenas a Área de Impressão ser visível e ficar absoluta no topo! */
                     .printable-content-area {
+                        position: absolute;
+                        left: 0;
+                        top: 0;
+                        width: 100%;
+                        visibility: visible;
                         padding: 0 !important;
                         margin: 0 !important;
                         border: none !important;
-                        box-shadow: none !important;
                         font-size: 8pt;
+                    }
+                    
+                    .printable-content-area * {
+                        visibility: visible;
                     }
 
                     .sales-table {
@@ -216,26 +267,46 @@ export default function TabelaVenda({ produtos, config, parcelasAdicionais, empr
             <div>
                 {/* CABEÇALHO DINÂMICO PARA IMPRESSÃO */}
                 <div className="print-header">
-                    {/* Logo Elo 57 (Fixa à esquerda) */}
-                    <img
-                        src="/marca/logo-elo57-horizontal.svg"
-                        alt="Logo Elo 57"
-                        className="h-10 object-contain"
-                    />
+                    {/* Logo da Empresa Proprietária (Esquerda) */}
+                    <div className="w-1/3 flex justify-start">
+                        {empreendimento?.proprietaria?.logo_url ? (
+                            <img
+                                src={empreendimento.proprietaria.logo_url}
+                                alt="Logo da Empresa Proprietária"
+                                className="h-10 object-contain"
+                                crossOrigin="anonymous"
+                            />
+                        ) : (
+                            <img
+                                src="/marca/logo-elo57-horizontal.svg"
+                                alt="Logo Elo 57"
+                                className="h-10 object-contain"
+                            />
+                        )}
+                    </div>
+
+                    {/* Título Centralizado */}
+                    <div className="w-1/3 flex justify-center items-center">
+                        <h2 className="text-xl font-bold text-gray-800 text-center uppercase">
+                            Tabela de Vendas - {empreendimento?.nome}
+                        </h2>
+                    </div>
 
                     {/* Logo do Empreendimento (Dinâmica à direita) */}
-                    {empreendimento?.logo_url ? (
-                        <img
-                            src={empreendimento.logo_url}
-                            alt={`Logo ${empreendimento.nome}`}
-                            crossOrigin="anonymous"
-                        />
-                    ) : (
-                        // Se não tiver logo, mostra o nome
-                        <div className="flex flex-col items-end justify-center h-8">
-                            <span className="text-lg font-bold text-gray-800 uppercase">{empreendimento?.nome}</span>
-                        </div>
-                    )}
+                    <div className="w-1/3 flex justify-end">
+                        {empreendimento?.logo_url ? (
+                            <img
+                                src={empreendimento.logo_url}
+                                alt={`Logo ${empreendimento.nome}`}
+                                crossOrigin="anonymous"
+                            />
+                        ) : (
+                            // Se não tiver logo, mostra o nome
+                            <div className="flex flex-col items-end justify-center h-8">
+                                <span className="text-lg font-bold text-gray-800 uppercase">{empreendimento?.nome}</span>
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 <div className="overflow-x-auto">
@@ -290,10 +361,42 @@ export default function TabelaVenda({ produtos, config, parcelasAdicionais, empr
                         <div><span style={{ backgroundColor: '#f8d7da' }}></span> Vendido</div>
                     </div>
 
-                    {/* AQUI ESTÁ A OBSERVAÇÃO DINÂMICA */}
-                    <p className="observacoes-texto">
-                        {empreendimento?.observacoes || '*Correção mensal pelo INCC até a entrega das chaves, após entrega IGP-M + 1% a.m.\n**Sujeito a alteração sem aviso prévio.'}
-                    </p>
+                    {/* AQUI ESTÁ A OBSERVAÇÃO DINÂMICA, AGORA EDITÁVEL */}
+                    <div className="mt-4 relative group">
+                        {isEditingObs ? (
+                            <div className="flex flex-col items-center gap-3 no-print bg-gray-50/50 p-4 border border-blue-100 rounded-xl shadow-inner mt-4">
+                                <p className="text-xs font-bold text-gray-500 uppercase">Editando Termos e Condições (Rodapé)</p>
+                                <textarea
+                                    className="w-full max-w-3xl p-3 border border-blue-300 rounded-lg text-sm text-center focus:ring-2 focus:ring-blue-500 outline-none shadow-sm text-gray-700 font-medium"
+                                    rows={4}
+                                    value={obsText}
+                                    onChange={(e) => setObsText(e.target.value)}
+                                    placeholder="Digite os Termos e Condições desta tabela..."
+                                />
+                                <div className="flex gap-2">
+                                    <button onClick={handleSaveObs} className="bg-green-600 hover:bg-green-700 text-white text-xs px-4 py-2 rounded-lg flex items-center gap-2 font-bold shadow-sm transition-all active:scale-95">
+                                        <FontAwesomeIcon icon={faCheck} /> Salvar Termos
+                                    </button>
+                                    <button onClick={() => { setIsEditingObs(false); setObsText(empreendimento?.observacoes || defaultObs); }} className="bg-gray-400 hover:bg-gray-500 text-white text-xs px-4 py-2 rounded-lg flex items-center gap-2 font-bold shadow-sm transition-all active:scale-95">
+                                        <FontAwesomeIcon icon={faTimes} /> Cancelar
+                                    </button>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="relative inline-block w-full text-center py-2 px-8 border border-transparent hover:border-gray-200 hover:bg-gray-50 rounded-lg transition-all">
+                                <p className="observacoes-texto text-sm text-gray-600">
+                                    {obsText}
+                                </p>
+                                <button 
+                                    onClick={() => setIsEditingObs(true)} 
+                                    className="absolute right-0 top-1/2 -translate-y-1/2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-all p-2 rounded-full no-print opacity-0 group-hover:opacity-100 shadow-sm border border-transparent hover:border-blue-100 focus:outline-none"
+                                    title="Editar Termos e Condições"
+                                >
+                                    <FontAwesomeIcon icon={faPen} />
+                                </button>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
         </div>

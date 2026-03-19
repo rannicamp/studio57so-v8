@@ -22,7 +22,7 @@ const fetchComercializacaoData = async (supabase, empreendimentoId, organizacaoI
     if (!empreendimentoId || !organizacaoId) return null;
 
     const [empreendimentoRes, produtosRes, configRes] = await Promise.all([
-        supabase.from('empreendimentos').select('*').eq('id', empreendimentoId).eq('organizacao_id', organizacaoId).single(),
+        supabase.from('empreendimentos').select('*, proprietaria:cadastro_empresa!empresa_proprietaria_id(logo_url)').eq('id', empreendimentoId).eq('organizacao_id', organizacaoId).single(),
         supabase.from('produtos_empreendimento').select('*').eq('empreendimento_id', empreendimentoId).eq('organizacao_id', organizacaoId).order('unidade'),
         supabase.from('configuracoes_venda').select('*').eq('empreendimento_id', empreendimentoId).eq('organizacao_id', organizacaoId).maybeSingle()
     ]);
