@@ -9,7 +9,8 @@ import {
     faSearch, faEnvelope, faInbox, faPaperPlane, faTrash, faBan,
     faFolder, faPlus, faCog, faSpinner,
     faChevronRight, faChevronDown, faUserCircle, faEllipsisV,
-    faCheckDouble, faEraser, faSync, faWandMagicSparkles
+    faCheckDouble, faEraser, faSync, faWandMagicSparkles,
+    faEye, faEyeSlash, faTimes
 } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 import { toast } from 'sonner';
@@ -62,6 +63,10 @@ const AccountFolderTree = ({ account, selectedFolder, onSelectFolder, expandedPa
     const supabase = createClient();
     const queryClient = useQueryClient();
     const [menuState, setMenuState] = useState({ isOpen: false, position: null, folder: null });
+    const [isReauthOpen, setIsReauthOpen] = useState(false);
+    const [newPassword, setNewPassword] = useState('');
+    const [isSavingAuth, setIsSavingAuth] = useState(false);
+    const [showPwd, setShowPwd] = useState(false);
 
     // Estado local para garantir atualização imediata
     const [countsMap, setCountsMap] = useState({});
@@ -139,6 +144,37 @@ const AccountFolderTree = ({ account, selectedFolder, onSelectFolder, expandedPa
 
         return () => { supabase.removeChannel(channel); };
     }, [account.id, supabase]);
+
+    const handleReauthenticate = async () => {
+        if (!newPassword.trim()) {
+            toast.error('Digite a nova senha.');
+            return;
+        }
+
+        setIsSavingAuth(true);
+        const toastId = toast.loading('Atualizando credenciais...');
+
+        try {
+            const { error } = await supabase
+                .from('email_configuracoes')
+                .update({ senha_app: newPassword.trim(), updated_at: new Date().toISOString() })
+                .eq('id', account.id);
+
+            if (error) throw error;
+
+            toast.success('Senha atualizada! Reconectando...', { id: toastId });
+            setNewPassword('');
+            setIsReauthOpen(false);
+            
+            // Força a nova tentativa IMAP
+            queryClient.invalidateQueries({ queryKey: ['emailFolders', account.id] });
+        } catch (error) {
+            console.error('Reauth Error:', error);
+            toast.error('Erro ao atualizar a senha no banco.', { id: toastId });
+        } finally {
+            setIsSavingAuth(false);
+        }
+    };
 
     const folderActionMutation = useMutation({
         mutationFn: async ({ action, folderPath }) => {
@@ -265,6 +301,57 @@ const AccountFolderTree = ({ account, selectedFolder, onSelectFolder, expandedPa
     };
 
     if (isLoading) return <div className="py-4 text-center text-gray-300"><FontAwesomeIcon icon={faSpinner} spin /></div>;
+    if (folderData === undefined && !isLoading) {
+        return (
+            <div className="py-3 px-4 text-xs text-red-500 bg-red-50/50 flex flex-col gap-2 items-start relative overflow-hidden">
+                <span className="font-bold flex items-center gap-1">
+                    <FontAwesomeIcon icon={faBan} /> Senha Expirada ou Recusada
+                </span>
+                <span className="text-gray-600 mb-1">
+                    A Hostinger negou o acesso desta conta ({account.email}).
+                </span>
+                
+                {isReauthOpen ? (
+                    <div className="w-full flex w-full flex-col gap-2 bg-white p-3 rounded border border-red-200 shadow-inner mt-1">
+                        <label className="font-bold text-gray-700">Nova Senha de App:</label>
+                        <div className="relative">
+                            <input 
+                                type={showPwd ? 'text' : 'password'} 
+                                className="w-full border border-gray-300 rounded px-2 py-1.5 pr-8 focus:outline-blue-500" 
+                                value={newPassword}
+                                onChange={(e) => setNewPassword(e.target.value)}
+                                onKeyDown={(e) => e.key === 'Enter' && handleReauthenticate()}
+                                placeholder="Ex: abcd efgh ijkl mnop"
+                                autoFocus
+                            />
+                            <button 
+                                type="button"
+                                onClick={() => setShowPwd(v => !v)}
+                                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700"
+                            >
+                                <FontAwesomeIcon icon={showPwd ? faEyeSlash : faEye} />
+                            </button>
+                        </div>             
+                        <div className="flex gap-2 w-full mt-1">
+                            <button onClick={handleReauthenticate} disabled={isSavingAuth} className="flex-1 bg-blue-600 text-white font-bold py-1.5 rounded hover:bg-blue-700 transition">
+                                {isSavingAuth ? 'Salvando...' : 'Reconectar'}
+                            </button>
+                            <button onClick={() => setIsReauthOpen(false)} className="px-3 bg-gray-100 text-gray-600 font-bold py-1.5 rounded hover:bg-gray-200 transition">
+                                <FontAwesomeIcon icon={faTimes} />
+                            </button>
+                        </div>
+                    </div>
+                ) : (
+                    <button 
+                        onClick={() => setIsReauthOpen(true)}
+                        className="bg-red-600 text-white font-bold px-3 py-1.5 rounded hover:bg-red-700 transition w-full shadow-sm"
+                    >
+                        Digitar Nova Senha
+                    </button>
+                )}
+            </div>
+        );
+    }
 
     return (
         <div className="pb-2">
@@ -405,12 +492,7 @@ export default function EmailSidebar({
                 <button onClick={onCompose} className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-md flex items-center justify-center gap-2 text-sm font-bold transition-transform active:scale-95"><FontAwesomeIcon icon={faPlus} /> Escrever E-mail</button>
             </div>
 
-            <div className="h-16 border-b flex flex-col justify-center px-4 bg-white shrink-0 z-10">
-                <div className="relative">
-                    <input type="text" placeholder="Buscar..." value={searchTerm} onChange={(e) => onSearchChange(e.target.value)} className="w-full pl-10 pr-4 py-1.5 border border-gray-300 rounded-lg bg-gray-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm transition-all" />
-                    <FontAwesomeIcon icon={faSearch} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs" />
-                </div>
-            </div>
+
 
             <div className="flex-grow overflow-y-auto custom-scrollbar bg-white">
                 <div className="p-3 bg-blue-50/50 text-xs font-bold text-blue-800 flex justify-between items-center tracking-wide border-b border-blue-100">

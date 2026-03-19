@@ -28,7 +28,6 @@ import ExtratoCartaoManager from '../../../components/financeiro/ExtratoCartaoMa
 import LancamentoDetalhesSidebar from '../../../components/financeiro/LancamentoDetalhesSidebar';
 import FiltroFinanceiro from '../../../components/financeiro/FiltroFinanceiro';
 import FinanceiroStats from '../../../components/financeiro/FinanceiroStats';
-import GerenciadorFaturas from '../../../components/financeiro/GerenciadorFaturas';
 import DocumentosManager from '../../../components/financeiro/DocumentosManager';
 import PlanejamentoFolha from '../../../components/financeiro/PlanejamentoFolha';
 
@@ -207,15 +206,6 @@ export default function FinanceiroPage() {
     const handleViewLancamentoDetails = (lancamento) => { setSelectedLancamento(lancamento); setIsDetailsSidebarOpen(true); };
     const handleCloseDetailsSidebar = () => { setIsDetailsSidebarOpen(false); setTimeout(() => setSelectedLancamento(null), 300); };
 
-    const handleNewDespesaCartao = (contaId) => {
-        setEditingLancamento({
-            tipo: 'Despesa',
-            conta_id: contaId,
-            status: 'Pendente' // Faturas de cartão geralmente começam pendentes até o fechamento/pagamento da fatura real
-        });
-        setIsFormModalOpen(true);
-    };
-
     const handleIrParaExtrato = (contaId) => {
         const filterState = { filters: { contaIds: [contaId], startDate: new Date().toISOString().split('T')[0], endDate: new Date().toISOString().split('T')[0] }, extratoItens: [], saldoAnterior: 0, autoExecutar: true };
         sessionStorage.setItem('lastExtratoState', JSON.stringify(filterState));
@@ -278,8 +268,7 @@ export default function FinanceiroPage() {
                     <nav className="-mb-px flex space-x-6 overflow-x-auto" aria-label="Tabs">
                         <TabButton tabName="lancamentos" label="Lançamentos" icon={faBalanceScale} />
                         <TabButton tabName="extrato" label="Extrato" icon={faFileInvoice} />
-                        <TabButton tabName="cartoes" label="Cartões" icon={faCreditCard} />
-                        <TabButton tabName="fatura_cartao" label="Fatura Cartão IA" icon={faMagic} />
+                        <TabButton tabName="fatura_cartao" label="Cartões IA" icon={faCreditCard} />
                         <TabButton tabName="planejamento" label="Planejamento Folha" icon={faClipboardList} />
                         <TabButton tabName="documentos" label="Documentos" icon={faFolderOpen} />
                         <TabButton tabName="contas" label="Contas" icon={faBuilding} />
@@ -290,7 +279,6 @@ export default function FinanceiroPage() {
 
             <div className="mt-4">
                 {activeTab === 'extrato' && <ExtratoManager contas={contas} empresas={empresas} onEdit={handleOpenEditModal} />}
-                {activeTab === 'cartoes' && <GerenciadorFaturas contasCartao={contasCartao} onNewDespesaCartao={handleNewDespesaCartao} />}
                 {activeTab === 'fatura_cartao' && <ExtratoCartaoManager contasCartao={contasCartao} />}
 
                 {activeTab === 'planejamento' && <PlanejamentoFolha filters={filters} setFilters={setFilters} />}

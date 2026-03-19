@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSave, faSpinner, faServer, faLock, faEnvelope, faPlus, faTrash, faEdit } from '@fortawesome/free-solid-svg-icons';
+import { faSave, faSpinner, faServer, faLock, faEnvelope, faPlus, faTrash, faEdit, faEye, faEyeSlash } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useDebounce } from 'use-debounce';
@@ -18,6 +18,7 @@ export default function EmailConnectionConfig({ onClose }) {
 
     const [editingId, setEditingId] = useState(null);
     const [provider, setProvider] = useState('custom');
+    const [showSenhaPwd, setShowSenhaPwd] = useState(false);
     const [formData, setFormData] = useState({
         conta_apelido: '',
         email: '',
@@ -213,7 +214,10 @@ export default function EmailConnectionConfig({ onClose }) {
                             <label className="block text-xs font-semibold text-gray-700 mb-1">Senha de App</label>
                             <div className="relative">
                                 <FontAwesomeIcon icon={faLock} className="absolute left-3 top-2.5 text-gray-400 text-xs" />
-                                <input type="password" name="senha_app" required value={formData.senha_app} onChange={handleChange} className="w-full pl-8 pr-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="••••••••••••" />
+                                <input type={showSenhaPwd ? 'text' : 'password'} name="senha_app" required value={formData.senha_app} onChange={handleChange} className="w-full pl-8 pr-9 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="••••••••••••" />
+                                <button type="button" onClick={() => setShowSenhaPwd(v => !v)} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 transition-colors">
+                                    <FontAwesomeIcon icon={showSenhaPwd ? faEyeSlash : faEye} className="text-sm" />
+                                </button>
                             </div>
                         </div>
                         <div className="md:col-span-2">

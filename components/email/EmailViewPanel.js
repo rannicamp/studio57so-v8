@@ -23,7 +23,10 @@ const fetchEmailContent = async ({ queryKey }) => {
     if (accountId) url += `&accountId=${accountId}`;
 
     const res = await fetch(url);
-    if (!res.ok) throw new Error('Erro ao carregar conteúdo');
+    if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || 'Erro ao carregar conteúdo. Tente novamente.');
+    }
     return res.json();
 };
 
@@ -50,12 +53,13 @@ export default function EmailViewPanel({ emailSummary, folder, onClose, onCreate
     const folderIdentifier = folder?.path || folder?.name;
     const accountId = folder?.accountId;
 
-    const { data: fullEmail, isLoading, isError } = useQuery({
+    const { data: fullEmail, isLoading, isError, error: queryError } = useQuery({
         queryKey: ['emailContent', folderIdentifier, emailSummary?.id, accountId],
         queryFn: fetchEmailContent,
         enabled: !!emailSummary?.id && !!folderIdentifier,
         staleTime: 1000 * 60 * 30,
         refetchOnWindowFocus: false,
+        retry: false, // Não tentar de novo se deu 404 ou 401
     });
 
     const senderInfo = useMemo(() => {
@@ -245,7 +249,7 @@ export default function EmailViewPanel({ emailSummary, folder, onClose, onCreate
 
             <div className="flex-grow overflow-y-auto custom-scrollbar p-6 bg-white relative">
                 {isLoading ? (<div className="flex flex-col items-center justify-center h-40 text-gray-400"><FontAwesomeIcon icon={faSpinner} spin className="text-3xl mb-3 text-blue-500" /><p className="text-sm animate-pulse">Baixando conteúdo...</p></div>)
-                    : isError ? (<div className="flex flex-col items-center justify-center h-full text-red-500"><FontAwesomeIcon icon={faExclamationTriangle} className="text-3xl mb-2 opacity-50" /><p>Não foi possível carregar a mensagem.</p></div>)
+                    : isError ? (<div className="flex flex-col items-center justify-center h-full text-red-500"><FontAwesomeIcon icon={faExclamationTriangle} className="text-3xl mb-2 opacity-50" /><p className="text-center font-bold px-4">{queryError?.message || 'Não foi possível carregar a mensagem.'}</p><p className="text-xs text-gray-400 mt-2">Feche e atualize a lista se a mensagem desapareceu.</p></div>)
                         : fullEmail ? (
                             <div className="animate-fade-in">
                                 <div className="prose prose-sm max-w-none text-gray-800 break-words font-sans">

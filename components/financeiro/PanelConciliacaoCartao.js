@@ -620,10 +620,20 @@ export default function PanelConciliacaoCartao({ contas, initialContaId, faturaV
                 // NOTA: Para valor, quando for borderô (multiplos itens), NÃO podemos sobescrever o "targetValue" do Lote pro iten individual!!!
                 // Sendo Borderô, apenas gravamos as chaves logicas. Sendo Unitário, cravamos o valor exato pro centavo do banco bater.
 
+                // REGRA DE OURO: Blindagem Temporal de Fatura de Cartão
+                // Se for cartão, a data de pagamento deve refletir a data_vencimento da Fatura correspondente
+                // para não "viajar no tempo" puxando a data de 3 meses atrás (data_transacao de um parcelado, por exemplo).
+                let dataPagamentoOficial = extratoItem.data;
+                if (isCartaoCredito && faturaVencimento) {
+                    dataPagamentoOficial = faturaVencimento;
+                } else if (isCartaoCredito && sistemaItem.data_vencimento) {
+                    dataPagamentoOficial = sistemaItem.data_vencimento;
+                }
+
                 let updatePayload = {
                     conciliado: true,
                     status: 'Pago',
-                    data_pagamento: extratoItem.data,
+                    data_pagamento: dataPagamentoOficial,
                     fitid_banco: extratoItem.fitid,
                     origem_criacao: 'Manual-Conciliado'
                 };
@@ -661,10 +671,13 @@ export default function PanelConciliacaoCartao({ contas, initialContaId, faturaV
     };
 
     const handleCreateLancamento = (extratoItem) => {
+        // Se for cartão, forçamos o Vencimento e o Pagamento para não fugir da Fatura atual
+        const dataReferenciaCard = (isCartaoCredito && faturaVencimento) ? faturaVencimento : extratoItem.data;
+        
         setLancamentoParaCriar({
             descricao: extratoItem.descricao, valor: Math.abs(extratoItem.valor), tipo: extratoItem.valor > 0 ? 'Receita' : 'Despesa',
-            conta_id: selectedContaId, data_transacao: extratoItem.data, data_vencimento: extratoItem.data,
-            data_pagamento: extratoItem.data, status: 'Pago', conciliado: true, fitid_banco: extratoItem.fitid, virtual_ofx_id: extratoItem.id
+            conta_id: selectedContaId, data_transacao: extratoItem.data, data_vencimento: dataReferenciaCard,
+            data_pagamento: dataReferenciaCard, status: 'Pago', conciliado: true, fitid_banco: extratoItem.fitid, virtual_ofx_id: extratoItem.id
         });
         setIsModalOpen(true);
     };

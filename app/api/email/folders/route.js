@@ -180,10 +180,23 @@ export async function GET(request) {
 
     } catch (error) {
         console.error('Folder API Error:', error);
+        // Log completo: captura todos os campos do erro IMAP para diagnóstico
+        try { 
+            const logEntry = JSON.stringify({
+                timestamp: new Date().toISOString(),
+                message: error.message,
+                textCode: error.textCode,
+                code: error.code,
+                source: error.source,
+                level: error.level,
+                stack: error.stack?.split('\n').slice(0, 3).join(' | ')
+            });
+            require('fs').appendFileSync('imap_debug.log', logEntry + '\n');
+        } catch(e){}
         if (error.textCode === 'AUTHENTICATIONFAILED' || (error.message && error.message.includes('Authentication failed'))) {
             return NextResponse.json({ error: 'Falha de autenticação IMAP. Por favor, verifique a senha do aplicativo desta conta.', code: 'AUTH_FAILED' }, { status: 401 });
         }
-        return NextResponse.json({ error: 'Erro ao processar pastas' }, { status: 500 });
+        return NextResponse.json({ error: 'Erro ao processar pastas', detail: error.message }, { status: 500 });
     } finally {
         if (connection) {
             try { connection.end(); } catch (e) { }

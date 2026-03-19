@@ -70,7 +70,15 @@ export async function GET(request) {
 
         if (messages.length === 0) {
             connection.end();
-            return NextResponse.json({ error: 'E-mail não encontrado' }, { status: 404 });
+            // Auto-cura: Se não achou na Hostinger, deletamos do cache local para limpar sujeira!
+            await supabase
+                .from('email_messages_cache')
+                .delete()
+                .eq('uid', uid)
+                .eq('folder_path', folderName)
+                .eq('account_id', config.id);
+
+            return NextResponse.json({ error: 'Este e-mail foi movido ou apagado do servidor por outro dispositivo.' }, { status: 404 });
         }
 
         const source = messages[0].parts.find(part => part.which === '')?.body;

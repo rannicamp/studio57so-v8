@@ -5,13 +5,34 @@ import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-q
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
     faArrowLeft, faSpinner, faSync, faBoxOpen, faExclamationCircle,
-    faEnvelopeOpen, faCheckSquare, faSquare, faTrash, faArchive, faEnvelope
+    faEnvelopeOpen, faCheckSquare, faSquare, faTrash, faArchive, faEnvelope,
+    faSearch, faTimes
 } from '@fortawesome/free-solid-svg-icons';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
 import EmailActionMenu from './EmailActionMenu';
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
+
+// --- COMPONENTE DE DESTAQUE AMARELO (marca-texto) ---
+function Highlight({ text, term }) {
+    if (!term || !text) return <span>{text}</span>;
+
+    const escapedTerm = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`(${escapedTerm})`, 'gi');
+    const parts = String(text).split(regex);
+
+    return (
+        <span>
+            {parts.map((part, i) =>
+                regex.test(part)
+                    ? <mark key={i} className="bg-yellow-200 text-yellow-900 rounded px-0.5 not-italic font-semibold">{part}</mark>
+                    : <span key={i}>{part}</span>
+            )}
+        </span>
+    );
+}
+// -----------------------------------------------------
 
 const fetchMessages = async ({ queryKey, pageParam = 1 }) => {
     const [_key, folderPath, searchTerm, status, accountId] = queryKey;
@@ -54,6 +75,7 @@ export default function EmailListPanel({
     onSelectEmail,
     selectedEmailId,
     searchTerm,
+    onSearchChange,
     onCreateRule,
     onUnreadCountChange,
     onChangeTab,
@@ -263,6 +285,30 @@ export default function EmailListPanel({
                     <button onClick={() => setFilterStatus('unread')} className={`pb-3 text-xs font-semibold border-b-2 transition-colors flex-1 text-center ${filterStatus === 'unread' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>Não Lidas</button>
                     <button onClick={() => setFilterStatus('all')} className={`pb-3 text-xs font-semibold border-b-2 transition-colors flex-1 text-center ${filterStatus === 'all' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>Todas</button>
                 </div>
+
+                {/* BARRA DE BUSCA */}
+                {onSearchChange && (
+                    <div className="px-3 pb-3">
+                        <div className="relative">
+                            <FontAwesomeIcon icon={faSearch} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs" />
+                            <input
+                                type="text"
+                                placeholder="Buscar e-mails..."
+                                value={searchTerm || ''}
+                                onChange={(e) => onSearchChange(e.target.value)}
+                                className="w-full pl-9 pr-8 py-2 text-sm bg-gray-100 border border-transparent rounded-lg focus:bg-white focus:border-blue-400 focus:ring-1 focus:ring-blue-400 outline-none transition-all"
+                            />
+                            {searchTerm && (
+                                <button
+                                    onClick={() => onSearchChange('')}
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700"
+                                >
+                                    <FontAwesomeIcon icon={faTimes} className="text-xs" />
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                )}
             </div>
 
             <div className="flex-grow overflow-y-auto custom-scrollbar relative">
@@ -303,10 +349,25 @@ export default function EmailListPanel({
                                                     </div>
                                                     <div className="flex-grow min-w-0 pr-6">
                                                         <div className="flex justify-between items-start mb-0.5 gap-2">
-                                                            <h4 className={`text-sm truncate flex-1 ${isSelected || isActive ? 'text-blue-900' : 'text-gray-800'} ${!isRead ? 'font-bold' : ''}`}>{email.from}</h4>
+                                                            <h4 className={`text-sm truncate flex-1 ${isSelected || isActive ? 'text-blue-900' : 'text-gray-800'} ${!isRead ? 'font-bold' : ''}`}>
+                                                                <Highlight text={email.from} term={searchTerm} />
+                                                            </h4>
                                                             <span className="text-[10px] text-gray-400 whitespace-nowrap shrink-0">{format(new Date(email.date), "dd/MM HH:mm", { locale: ptBR })}</span>
                                                         </div>
-                                                        <h3 className={`text-xs truncate mb-0.5 ${isSelected || isActive ? 'text-blue-800' : 'text-gray-600'} ${!isRead ? 'font-semibold' : ''}`}>{email.subject}</h3>
+                                                        <h3 className={`text-xs truncate mb-0.5 ${isSelected || isActive ? 'text-blue-800' : 'text-gray-600'} ${!isRead ? 'font-semibold' : ''}`}>
+                                                            <Highlight text={email.subject} term={searchTerm} />
+                                                        </h3>
+                                                        {/* Preview do corpo + indicador de pasta quando buscando */}
+                                                        {searchTerm && email.body_snippet && (
+                                                            <p className="text-[11px] text-gray-400 truncate mt-0.5 leading-relaxed">
+                                                                <Highlight text={email.body_snippet} term={searchTerm} />
+                                                            </p>
+                                                        )}
+                                                        {searchTerm && email.folder && (
+                                                            <span className="inline-block mt-1 text-[9px] font-bold uppercase tracking-wide bg-blue-50 text-blue-500 px-1.5 py-0.5 rounded">
+                                                                {email.folder.split('/').pop() || email.folder}
+                                                            </span>
+                                                        )}
                                                     </div>
                                                 </div>
 

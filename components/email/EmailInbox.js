@@ -192,6 +192,7 @@ function EmailInboxContent({ onChangeTab, canViewWhatsapp }) {
                         onSelectEmail={handleSelectEmail}
                         selectedEmailId={selectedEmail?.id}
                         searchTerm={debouncedSearchTerm}
+                        onSearchChange={setSearchTerm}
                         onCreateRule={handleOpenRules}
                         onCreateFolder={handleOpenCreateFolder}
                         onUnreadCountChange={handleUnreadUpdate}

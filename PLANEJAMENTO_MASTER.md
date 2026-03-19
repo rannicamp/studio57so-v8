@@ -262,6 +262,7 @@ O **Studio 57** é o ambiente de desenvolvimento e laboratório central. O **Elo
     - **Termos e Condições (Live Edit):** Ferramenta acoplada no rodapé da tabela para edição de texto in-line em tempo real (TanStack Query/Supabase). Permite gravar Juros/INCC variáveis para cada Empreendimento antes de gerar o PDF.
     - **Vacina CSS Anti-White-Pages:** Resolvido o bug crítico de páginas em branco vazando na impressão. Reset bruto no `@media print` forçou o React a ignorar o layout das Sanfonas, limitando a renderização 100% à classe `.printable-content-area`.
     - **Vigia Automático de VGV (Trigger SQL):** Implantada uma nova camada de auditoria infraestrutural no Postgres (`historico_vgv`). Desenvolvido um Trigger "Watchdog" atrelado à tabela `produtos_empreendimento`, que a cada mudança de preço, recalcula em milissegundos o VGV novo e grava de forma imutável o delta anterior/atual e o responsável pela edição.
+    - **Blindagem Temporal de Faturas de Cartão:** Ao conciliar extratos de cartão gerados por IA, o sistema agora ancora a `data_pagamento` e `data_vencimento` na data de vencimento da fatura ativa (`faturaVencimento`). Isso impede que parcelas antigas de compras passadas voltem no tempo, alterando as métricas de prestação de contas do mês atual (DRE e Caixa 100% corretos!).
 
 ---
 
