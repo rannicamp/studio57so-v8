@@ -140,7 +140,13 @@ const fetchFunilData = async (supabase, organizacaoId, funilId, filters) => {
 
     let query = supabase.from('contatos_no_funil').select(`
         id, coluna_id, numero_card, corretor_id, created_at,
-        contatos:contato_id!inner(*, telefones(telefone, tipo), emails(email, tipo)),
+        contatos:contato_id!inner(*, 
+            telefones(telefone, tipo), 
+            emails(email, tipo),
+            campanha:meta_ativos!fk_meta_campaign(nome, empreendimento_id),
+            adset:meta_ativos!fk_meta_adset(nome, empreendimento_id),
+            anuncio:meta_ativos!fk_meta_ad(nome, empreendimento_id)
+        ),
         corretores:corretor_id(id, nome, razao_social),
         produtos_interesse:contatos_no_funil_produtos(id, produto:produtos_empreendimento(id, unidade, tipo, valor_venda_calculado, empreendimento_id))
     `).eq('organizacao_id', organizacaoId).in('coluna_id', colIds);

@@ -169,6 +169,17 @@ async function processWebhook(body) {
             continue;
         }
 
+        // 3b-2. UPSERT Meta Ativos (O Cofre de Anúncios)
+        if (leadDetails.campaign_id) {
+            await supabase.from('meta_ativos').upsert({ id: leadDetails.campaign_id, organizacao_id: orgId, tipo: 'CAMPAIGN', nome: leadDetails.campaign_name || 'Desconhecido' }, { onConflict: 'id' });
+        }
+        if (leadDetails.adset_id) {
+            await supabase.from('meta_ativos').upsert({ id: leadDetails.adset_id, organizacao_id: orgId, tipo: 'ADSET', nome: leadDetails.adset_name || 'Desconhecido' }, { onConflict: 'id' });
+        }
+        if (leadDetails.ad_id) {
+            await supabase.from('meta_ativos').upsert({ id: leadDetails.ad_id, organizacao_id: orgId, tipo: 'AD', nome: leadDetails.ad_name || 'Desconhecido' }, { onConflict: 'id' });
+        }
+
         // 3c. Cria o contato
         const { data: newContact, error: contactError } = await supabase
             .from('contatos')
@@ -182,6 +193,8 @@ async function processWebhook(body) {
                 meta_page_id: pageId,
                 meta_campaign_id: leadDetails.campaign_id || null,
                 meta_campaign_name: leadDetails.campaign_name || null,
+                meta_adset_id: leadDetails.adset_id || null,
+                meta_adset_name: leadDetails.adset_name || null,
                 meta_ad_id: leadDetails.ad_id || null,
                 meta_ad_name: leadDetails.ad_name || null,
                 meta_form_data: formMap,

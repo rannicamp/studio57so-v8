@@ -129,8 +129,9 @@ export default function ContatoCardCRM({
     const currentFunilId = currentColumn?.funil_id;
     const sameFunnelColumns = useMemo(() => allColumns.filter(c => (!currentFunilId || c.funil_id === currentFunilId) && c.id !== currentColumnId), [allColumns, currentFunilId, currentColumnId]);
 
-    const adName = contato?.meta_ad_name;
-    const campaignName = contato?.meta_campaign_name;
+    const adName = contato?.anuncio?.nome || contato?.meta_ad_name;
+    const adsetName = contato?.adset?.nome || contato?.meta_adset_name;
+    const campaignName = contato?.campanha?.nome || contato?.meta_campaign_name;
 
     const handleAddProduct = () => {
         if (!selectedProductId) {
@@ -278,6 +279,7 @@ export default function ContatoCardCRM({
                         </span>
                         <div className="text-xs text-gray-600 mt-2 space-y-1">
                             {campaignName && <p><strong>Campanha:</strong> {campaignName}</p>}
+                            {adsetName && <p><strong>Conjunto:</strong> {adsetName}</p>}
                             {adName && <p><strong>Anúncio:</strong> {adName}</p>}
                         </div>
                     </>

@@ -17,7 +17,7 @@ const ALLOWED_COLUMNS = [
     'objetivo', 'is_awaiting_name_response', 'origem', 'meta_lead_id', 'meta_ad_id',
     'meta_adgroup_id', 'meta_page_id', 'meta_form_id', 'meta_created_time', 'meta_form_data',
     'organizacao_id', 'meta_ad_name', 'conjuge_id', 'regime_bens', 'meta_campaign_id',
-    'meta_campaign_name', 'meta_adset_name', 'criado_por_usuario_id', 'creci', 'lixeira'
+    'meta_campaign_name', 'meta_adset_name', 'meta_adset_id', 'criado_por_usuario_id', 'creci', 'lixeira'
 ];
 
 // Função auxiliar para buscar dados do CNPJ
