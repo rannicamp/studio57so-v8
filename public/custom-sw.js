@@ -1,6 +1,6 @@
 // public/custom-sw.js
 // ⚠️ VERSÃO DO CACHE: Atualize este número para forçar atualização no celular
-const CACHE_VERSION = 'v1.3';
+const CACHE_VERSION = 'v1.5';
 const CACHE_NAME = `elo57-cache-${CACHE_VERSION}`;
 
 self.addEventListener('install', (event) => {
@@ -96,8 +96,34 @@ self.addEventListener("fetch", (event) => {
     fetch(event.request).catch(() => {
       return caches.match(event.request).then((response) => {
         if (response) return response;
-        return new Response("Você está offline. Reconecte para continuar.", {
-          headers: { 'Content-Type': 'text/plain' }
+        
+        // Se a requisição for de página (navegador tentando carregar a UI)
+        if (event.request.mode === 'navigate' || 
+           (event.request.headers.get('accept') && event.request.headers.get('accept').includes('text/html'))) {
+          const offlineHtml = `
+            <!DOCTYPE html>
+            <html lang="pt-br">
+            <head>
+              <meta charset="utf-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1">
+              <title>Offline | Elo 57</title>
+              <style>
+                body { font-family: sans-serif; text-align: center; margin-top: 20%; background-color: #f9fafb; color: #111827; }
+                h1 { color: #f97316; }
+              </style>
+            </head>
+            <body>
+              <h1>Você está offline</h1>
+              <p>Por favor, verifique sua conexão com a internet para acessar o Studio 57.</p>
+            </body>
+            </html>
+          `;
+          return new Response(offlineHtml, { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+        }
+
+        // Se for requisição de dados/API, responde com JSON limpo para não quebrar JSON.parse
+        return new Response(JSON.stringify({ error: "offline", message: "Você está offline." }), {
+          headers: { 'Content-Type': 'application/json' }
         });
       });
     })
