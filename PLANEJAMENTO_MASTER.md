@@ -288,4 +288,19 @@ O **Studio 57** é o ambiente de desenvolvimento e laboratório central. O **Elo
 - [ ] **Bloqueio no Front-end/Back-end:** Antes de iniciar o `upload-direct-start`, verificar saldo na `carteira_bim`. Se saldo > 0, desconta 1 e permite o upload. Se saldo = 0, exibir modal para compra de pacote.
 
 ---
+
+### 13. 📸 Melhorias da Integração Instagram - *A FAZER (FUTURAMENTE)*
+
+> **Status atual (20/03/2026):** Caixa de entrada de DMs do Instagram operacional! Conversas sincronizadas, mensagens lidas e envio de respostas funcionando via `graph.instagram.com`. Webhook configurado em produção.
+
+#### Melhorias Planejadas:
+- [ ] **Link DM ↔ Lead no CRM:** Quando um DM chegar, verificar automaticamente se o remetente já é um lead na base. Se sim, exibir o card do lead na sidebar do chat.
+- [ ] **Sidebar de Perfil do Contato:** Ao abrir um DM, mostrar followers, bio, foto e últimos posts da pessoa.
+- [ ] **Módulo de Comentários:** Ler e responder comentários dos posts do @arqstudio57 direto do CRM sem abrir o Instagram.
+- [ ] **Dashboard de Engajamento:** Painel com métricas por post (alcance, impressões, curtidas, salvamentos) e crescimento de seguidores.
+- [ ] **Auto-resposta por Palavra-chave:** Configurar respostas automáticas para DMs com palavras específicas (ex: "preço", "orçamento").
+- [ ] **Análise de Melhor Horário:** Usar Insights da API para identificar quando o público está mais ativo.
+- [ ] **Token de Longa Duração:** Automatizar a renovação do Instagram Access Token antes de expirar (60 dias).
+
+---
 *Assinado: Devonildo (Seu Mentor Técnico)*

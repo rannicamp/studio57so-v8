@@ -60,13 +60,20 @@ function Avatar({ name, picUrl, size = 10 }) {
 
 // Item da lista de conversas
 function ConversationItem({ conv, isSelected, onClick }) {
+    // Se o nome é genérico ("Usuário XXXXX"), usa o @username como nome principal
+    const isGenericName = !conv.participant_name || conv.participant_name.startsWith('Usuário ');
+    const displayName = isGenericName
+        ? (conv.participant_username ? `@${conv.participant_username}` : conv.participant_name)
+        : conv.participant_name;
+    const showUsername = !isGenericName && conv.participant_username;
+
     return (
         <button
             onClick={() => onClick(conv)}
             className={`w-full flex items-center gap-3 px-4 py-3 transition-colors border-b border-gray-100 text-left ${isSelected ? 'bg-purple-50' : 'hover:bg-gray-50'}`}
         >
             <div className="relative shrink-0">
-                <Avatar name={conv.participant_name} picUrl={conv.participant_profile_pic} size={11} />
+                <Avatar name={displayName} picUrl={conv.participant_profile_pic} size={11} />
                 {conv.unread_count > 0 && (
                     <span className="absolute -top-1 -right-1 bg-gradient-to-br from-purple-500 to-orange-400 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
                         {conv.unread_count}
@@ -76,13 +83,13 @@ function ConversationItem({ conv, isSelected, onClick }) {
             <div className="flex-grow min-w-0">
                 <div className="flex justify-between items-baseline">
                     <p className={`text-sm truncate ${conv.unread_count > 0 ? 'font-bold text-gray-900' : 'font-medium text-gray-700'}`}>
-                        {conv.participant_name}
+                        {displayName}
                     </p>
                     <span className="text-[11px] text-gray-400 shrink-0 ml-2">
                         {formatRelativeTime(conv.last_message_at)}
                     </span>
                 </div>
-                {conv.participant_username && (
+                {showUsername && (
                     <p className="text-[11px] text-purple-500">@{conv.participant_username}</p>
                 )}
                 <p className="text-xs text-gray-500 truncate mt-0.5">{conv.snippet || 'Sem mensagens'}</p>
@@ -90,6 +97,7 @@ function ConversationItem({ conv, isSelected, onClick }) {
         </button>
     );
 }
+
 
 // Painel de mensagens
 function MessagePanel({ conv, organizacaoId, onBack }) {
@@ -157,18 +165,29 @@ function MessagePanel({ conv, organizacaoId, onBack }) {
                 <button onClick={onBack} className="md:hidden text-gray-500 hover:text-gray-700 mr-1">
                     <FontAwesomeIcon icon={faArrowLeft} />
                 </button>
-                <Avatar name={conv.participant_name} picUrl={conv.participant_profile_pic} size={10} />
-                <div>
-                    <p className="font-bold text-gray-800 text-sm">{conv.participant_name}</p>
-                    {conv.participant_username && (
-                        <p className="text-xs text-purple-500">@{conv.participant_username}</p>
-                    )}
-                </div>
+                {(() => {
+                    const isGeneric = !conv.participant_name || conv.participant_name.startsWith('Usuário ');
+                    const nome = isGeneric
+                        ? (conv.participant_username ? `@${conv.participant_username}` : conv.participant_name)
+                        : conv.participant_name;
+                    return (
+                        <>
+                            <Avatar name={nome} picUrl={conv.participant_profile_pic} size={10} />
+                            <div>
+                                <p className="font-bold text-gray-800 text-sm">{nome}</p>
+                                {!isGeneric && conv.participant_username && (
+                                    <p className="text-xs text-purple-500">@{conv.participant_username}</p>
+                                )}
+                            </div>
+                        </>
+                    );
+                })()}
                 <div className="ml-auto flex items-center gap-2">
-                    <FontAwesomeIcon icon={faInstagram} className="text-xl text-transparent bg-clip-text"
+                    <FontAwesomeIcon icon={faInstagram} className="text-xl"
                         style={{ color: '#e1306c' }} />
                 </div>
             </div>
+
 
             {/* Área de mensagens */}
             <div className="flex-grow overflow-y-auto p-4 flex flex-col gap-2 custom-scrollbar">
