@@ -22,7 +22,7 @@ export const viewport = {
 export const metadata = {
   title: 'Elo 57',
   description: 'Sistema de Gestão',
-  manifest: '/manifest.json?v=1.3',
+  manifest: '/manifest.json?v=1.4',
 };
 
 export default function RootLayout({ children }) {
