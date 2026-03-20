@@ -1,11 +1,31 @@
 // public/custom-sw.js
+// ⚠️ VERSÃO DO CACHE: Atualize este número para forçar atualização no celular
+const CACHE_VERSION = 'v1.3';
+const CACHE_NAME = `elo57-cache-${CACHE_VERSION}`;
 
 self.addEventListener('install', (event) => {
+  console.log(`[SW] Instalando versão ${CACHE_VERSION}`);
+  // Força o novo SW a tomar o controle imediatamente (SEM esperar aba fechar)
   self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(clients.claim());
+  event.waitUntil(
+    // Apaga TODOS os caches antigos (versões anteriores)
+    caches.keys().then((cacheNames) => {
+      return Promise.all(
+        cacheNames.map((cacheName) => {
+          if (cacheName !== CACHE_NAME) {
+            console.log(`[SW] Deletando cache antigo: ${cacheName}`);
+            return caches.delete(cacheName);
+          }
+        })
+      );
+    }).then(() => {
+      console.log(`[SW] Ativado! Cache atual: ${CACHE_NAME}`);
+      return clients.claim(); // Assume controle de todas as abas abertas
+    })
+  );
 });
 
 self.addEventListener("push", function (event) {
@@ -31,10 +51,10 @@ self.addEventListener("push", function (event) {
   const options = {
     body: data.body,
     icon: iconUrl,
-    badge: iconUrl, // Ícone pequeno da barra de status
+    badge: iconUrl,
     tag: data.tag || 'notification-' + Date.now(),
-    renotify: true, // Força vibração mesmo se a tag repetir
-    vibrate: [500, 100, 500], // Vibração Longa-Curta-Longa (Chama atenção)
+    renotify: true,
+    vibrate: [500, 100, 500],
     data: {
       url: data.url,
       timestamp: Date.now()
@@ -59,29 +79,27 @@ self.addEventListener("notificationclick", function (event) {
 
   event.waitUntil(
     clients.matchAll({ type: "window", includeUncontrolled: true }).then(function (clientList) {
-      // Tenta focar numa aba existente
       for (const client of clientList) {
         if (client.url.startsWith(self.location.origin) && 'focus' in client) {
           if ('navigate' in client) client.navigate(urlToOpen);
           return client.focus();
         }
       }
-      // Se não, abre nova janela
       if (clients.openWindow) return clients.openWindow(urlToOpen);
     })
   );
 });
 
-// --- DIAGNÓSTICO DO ASSISTENTE: W3C PWA OFFLINE REQUIREMENT ---
-// O Google Chrome Android bloqueia o botão "Instalar PWA" na Prompt Oficial se 
-// o Service Worker não tiver um Listener ativo de FETCH para simular rede offline!
+// --- FETCH: Necessário para o Chrome Android reconhecer como PWA instalável ---
 self.addEventListener("fetch", (event) => {
-  // Proxy Falso (Bypass): Usando 'respondWith' obrigamos o Motor Chromium
-  // a passar no Teste Anti-PWA de Heurística de App!
   event.respondWith(
     fetch(event.request).catch(() => {
-      // Queda de Conexão Falsa só pro Lighthouse dar aprovação A+
-      return new Response("App Offline.");
+      return caches.match(event.request).then((response) => {
+        if (response) return response;
+        return new Response("Você está offline. Reconecte para continuar.", {
+          headers: { 'Content-Type': 'text/plain' }
+        });
+      });
     })
   );
 });
