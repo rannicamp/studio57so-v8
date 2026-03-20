@@ -1,31 +1,43 @@
+// app/api/instagram/messages/route.js
+// Busca as mensagens de uma conversa do Instagram
 import { NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
 
-// Esta API irá receber o ID da conversa (thread) e o token de acesso da página
-// para buscar as mensagens daquele chat.
-export async function POST(request) {
-  try {
-    const { conversationId, pageAccessToken } = await request.json();
+const getSupabaseAdmin = () => createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY,
+    { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } }
+);
 
-    if (!conversationId || !pageAccessToken) {
-      return NextResponse.json({ error: 'ID da Conversa e Token de Acesso são obrigatórios.' }, { status: 400 });
+// GET - busca mensagens de uma conversa
+export async function GET(request) {
+    const supabase = getSupabaseAdmin();
+    const { searchParams } = new URL(request.url);
+    const conversationId = searchParams.get('conversation_id');
+
+    if (!conversationId) {
+        return NextResponse.json({ error: 'conversation_id é obrigatório' }, { status: 400 });
     }
 
-    // Usamos o ID da conversa para acessar as mensagens (messages)
-    // Pedimos os campos 'from' (quem enviou), 'message' (o conteúdo) e 'created_time' (quando foi enviada)
-    const url = `https://graph.facebook.com/v20.0/${conversationId}/messages?fields=from,message,created_time&access_token=${pageAccessToken}`;
+    const { data, error } = await supabase
+        .from('instagram_messages')
+        .select('*')
+        .eq('conversation_id', conversationId)
+        .order('sent_at', { ascending: true });
 
-    const response = await fetch(url);
-    const data = await response.json();
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-    if (!response.ok) {
-      throw new Error(data.error?.message || 'Falha ao buscar as mensagens da conversa.');
-    }
+    // Marca todas como lidas
+    await supabase
+        .from('instagram_messages')
+        .update({ is_read: true })
+        .eq('conversation_id', conversationId)
+        .eq('is_read', false);
 
-    // Retorna a lista de mensagens da conversa
-    return NextResponse.json(data);
+    await supabase
+        .from('instagram_conversations')
+        .update({ unread_count: 0 })
+        .eq('id', conversationId);
 
-  } catch (error) {
-    console.error('Erro na API /api/instagram/messages:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
+    return NextResponse.json(data || []);
 }

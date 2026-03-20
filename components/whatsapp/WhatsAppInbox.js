@@ -13,7 +13,7 @@ import ContactProfile from '@/components/whatsapp/ContactProfile';
 import { Toaster } from 'sonner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSearch, faEnvelope, faSpinner, faArrowRight } from '@fortawesome/free-solid-svg-icons';
-import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
+import { faWhatsapp, faInstagram } from '@fortawesome/free-brands-svg-icons';
 import { useDebounce } from 'use-debounce';
 
 const WHATSAPP_UI_STATE_KEY = 'whatsappUiState';
@@ -139,10 +139,13 @@ export default function WhatsAppInbox({ onChangeTab }) {
                 ${(hasSelection && whatsappConfig) ? 'hidden md:flex' : 'flex'} 
                 w-full md:w-[350px] shrink-0 flex-col border-r bg-white h-full overflow-hidden min-h-0
             `}>
-                {/* Abas Superiores (E-mail e WhatsApp) */}
+                {/* Abas Superiores (WhatsApp / Instagram / E-mail) */}
                 <div className="flex border-b bg-gray-50 shrink-0">
                     <button className="flex-1 py-4 text-sm font-bold flex justify-center items-center gap-2 border-b-2 transition-colors border-[#00a884] text-[#00a884] bg-white">
                         <FontAwesomeIcon icon={faWhatsapp} className="text-lg" /> WhatsApp
+                    </button>
+                    <button onClick={() => onChangeTab('instagram')} className="flex-1 py-4 text-sm font-medium flex justify-center items-center gap-2 border-b-2 transition-colors border-transparent text-gray-500 hover:bg-gray-100">
+                        <FontAwesomeIcon icon={faInstagram} className="text-lg" style={{ color: '#e1306c' }} /> Instagram
                     </button>
                     <button onClick={() => onChangeTab('email')} className="flex-1 py-4 text-sm font-medium flex justify-center items-center gap-2 border-b-2 transition-colors border-transparent text-gray-500 hover:bg-gray-100">
                         <FontAwesomeIcon icon={faEnvelope} className="text-lg" /> E-mail
