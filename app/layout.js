@@ -1,4 +1,4 @@
-﻿import { Inter } from 'next/font/google';
+import { Inter } from 'next/font/google';
 // ✅ AQUI SIM devem estar esses imports:
 import './globals.css';
 import { Providers } from './providers';
@@ -22,7 +22,7 @@ export const viewport = {
 export const metadata = {
   title: 'Elo 57',
   description: 'Sistema de Gestão',
-  manifest: '/manifest.json',
+  manifest: '/manifest.json?v=1.2',
 };
 
 export default function RootLayout({ children }) {
