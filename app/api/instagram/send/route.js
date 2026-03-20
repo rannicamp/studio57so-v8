@@ -1,5 +1,5 @@
 // app/api/instagram/send/route.js
-// Envia uma mensagem de resposta para um usuário do Instagram
+// Envia mensagem de resposta para usuário do Instagram via Instagram Login API
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
@@ -18,7 +18,7 @@ export async function POST(request) {
             return NextResponse.json({ error: 'Campos obrigatórios faltando.' }, { status: 400 });
         }
 
-        // 1. Buscar a integração Meta com o page_access_token e instagram_business_account_id
+        // 1. Buscar token e ID da conta
         const { data: integracao } = await supabase
             .from('integracoes_meta')
             .select('instagram_business_account_id, page_access_token')
@@ -26,29 +26,33 @@ export async function POST(request) {
             .eq('is_active', true)
             .single();
 
-        if (!integracao || !integracao.instagram_business_account_id) {
-            return NextResponse.json({ error: 'Integração Meta não configurada para esta organização.' }, { status: 404 });
+        const igAccountId = integracao?.instagram_business_account_id
+            || process.env.INSTAGRAM_ACCOUNT_ID;
+        const accessToken = integracao?.page_access_token
+            || process.env.INSTAGRAM_PAGE_ACCESS_TOKEN;
+
+        if (!igAccountId || !accessToken) {
+            return NextResponse.json({ error: 'Integração não configurada.' }, { status: 404 });
         }
 
-        const { instagram_business_account_id, page_access_token } = integracao;
-
-        // 2. Enviar a mensagem pela Graph API do Instagram
-        const sendUrl = `https://graph.facebook.com/v20.0/${instagram_business_account_id}/messages`;
+        // 2. Enviar via Instagram API (graph.instagram.com)
+        // POST /me/messages com recipient.id e message.text
+        const sendUrl = `https://graph.instagram.com/v21.0/me/messages`;
         const sendResponse = await fetch(sendUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 recipient: { id: recipient_id },
                 message: { text: text.trim() },
-                access_token: page_access_token,
+                access_token: accessToken,
             }),
         });
 
         const sendData = await sendResponse.json();
 
         if (!sendResponse.ok || sendData.error) {
-            const errMsg = sendData.error?.message || 'Falha ao enviar mensagem pelo Instagram.';
-            console.error('[Instagram Send] Erro Meta:', errMsg, sendData);
+            const errMsg = sendData.error?.message || 'Falha ao enviar mensagem.';
+            console.error('[Instagram Send] Erro:', errMsg, sendData);
             return NextResponse.json({ error: errMsg }, { status: 500 });
         }
 
@@ -58,8 +62,8 @@ export async function POST(request) {
             organizacao_id,
             conversation_id,
             message_id: sendData.message_id || `out_${Date.now()}`,
-            from_id: instagram_business_account_id,
-            from_name: 'Você',
+            from_id: igAccountId,
+            from_name: 'Studio 57',
             content: text.trim(),
             message_type: 'text',
             direction: 'outbound',
@@ -67,7 +71,7 @@ export async function POST(request) {
             sent_at: now,
         });
 
-        // 4. Atualizar o snippet da conversa
+        // 4. Atualizar snippet da conversa
         await supabase.from('instagram_conversations')
             .update({ snippet: text.trim().substring(0, 100), last_message_at: now, updated_at: now })
             .eq('id', conversation_id);
