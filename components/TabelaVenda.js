@@ -243,16 +243,6 @@ export default function TabelaVenda({ produtos, config, parcelasAdicionais, empr
             <div className="flex justify-between items-center mb-6 no-print">
                 <div className="flex items-center gap-3">
                     <h2 className="text-2xl font-bold text-gray-900">Tabela de Venda</h2>
-                    {/* Indicador de Status da Logo (Visível apenas na tela) */}
-                    {empreendimento?.logo_url ? (
-                        <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full flex items-center gap-1 border border-green-200">
-                            <FontAwesomeIcon icon={faImage} /> Logo Detectada
-                        </span>
-                    ) : (
-                        <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full flex items-center gap-1 border border-yellow-200">
-                            <FontAwesomeIcon icon={faExclamationCircle} /> Sem Logo
-                        </span>
-                    )}
                 </div>
 
                 <button

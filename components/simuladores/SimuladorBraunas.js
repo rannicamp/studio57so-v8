@@ -8,6 +8,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useRef } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@/utils/supabase/client';
 import { toast } from 'sonner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -16,7 +17,7 @@ import { IMaskInput } from 'react-imask';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import SimuladorPrintView from '@/components/SimuladorPrintView';
-import { useLayout } from '@/contexts/LayoutContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 // ─── Constantes ────────────────────────────────────────────────
 const REFUGIO_BRAUNAS_ID = 6;
@@ -42,17 +43,42 @@ const formatDateForDisplay = (dateStr) => dateStr ? new Date(dateStr + 'T00:00:0
 // ════════════════════════════════════════════════════════════════
 export default function SimuladorBraunas() {
     const supabase = createClient();
-    const { usuarioLogado } = useLayout();
+    const { user: usuarioLogado } = useAuth();
     const empreendimentoFixo = { id: REFUGIO_BRAUNAS_ID, nome: REFUGIO_BRAUNAS_NOME };
 
     const [produtos, setProdutos] = useState([]);
     const [selectedProdutos, setSelectedProdutos] = useState([]);
     const [currentSelectedProdutoId, setCurrentSelectedProdutoId] = useState('');
     const [loadingProdutos, setLoadingProdutos] = useState(true);
+    const queryClient = useQueryClient();
 
     const [cliente, setCliente] = useState({ nome: '', telefone: '', country_code: '+55' });
+    const [isClienteSelected, setIsClienteSelected] = useState(false);
     const [corretor, setCorretor] = useState({ nome: '', telefone: '', creci: '', country_code: '+55' });
     const [parcelasIntermediarias, setParcelasIntermediarias] = useState([]);
+
+    // BUSCA DE CLIENTES DO CORRETOR (AUTOCOMPLETE)
+    const { data: clientesLista } = useQuery({
+        queryKey: ['meusClientesAutocomplete', usuarioLogado?.id],
+        queryFn: async () => {
+            if (!usuarioLogado) return [];
+            const { data: contatos } = await supabase.from('contatos').select('id, nome, organizacao_id').eq('criado_por_usuario_id', usuarioLogado.id);
+            if (!contatos || contatos.length === 0) return [];
+            
+            const ids = contatos.map(c => c.id);
+            const { data: telefones } = await supabase.from('telefones').select('contato_id, telefone, country_code').in('contato_id', ids);
+            return contatos.map(c => {
+                const tel = telefones?.find(t => t.contato_id === c.id);
+                return { ...c, telefone: tel?.telefone || '', country_code: tel?.country_code || '+55' };
+            });
+        },
+        enabled: !!usuarioLogado
+    });
+
+    const filteredClientes = useMemo(() => {
+        if (!cliente.nome || isClienteSelected) return [];
+        return clientesLista?.filter(c => c.nome.toLowerCase().includes(cliente.nome.toLowerCase())) || [];
+    }, [cliente.nome, clientesLista, isClienteSelected]);
 
     useEffect(() => {
         if (usuarioLogado) {
@@ -191,7 +217,7 @@ export default function SimuladorBraunas() {
     // No mês aniversário: calcula sobre saldo devedor e distribui
     // o valor da correção pelas parcelas restantes.
     // ════════════════════════════════════════════════════════════
-    const handleSimular = () => {
+    const handleSimular = async () => {
         setIsSimulating(true);
         let idCounter = 1;
 
@@ -280,6 +306,32 @@ export default function SimuladorBraunas() {
             .sort((a, b) => new Date(a.data_vencimento) - new Date(b.data_vencimento));
 
         setCronograma(cronogramaFinal);
+
+        // SALVAMENTO SILENCIOSO NO CRM
+        if (cliente.nome && cliente.telefone && usuarioLogado) {
+            try {
+                const nomeStr = cliente.nome.trim();
+                const exists = clientesLista?.some(c => c.nome.toLowerCase() === nomeStr.toLowerCase());
+                
+                if (!exists) {
+                    const orgId = usuarioLogado.organizacao_id || 1;
+                    const { data: newCont } = await supabase.from('contatos').insert({
+                        nome: nomeStr, tipo_contato: 'Cliente', criado_por_usuario_id: usuarioLogado.id, organizacao_id: orgId
+                    }).select('id').single();
+                    
+                    if (newCont) {
+                        let cleanPhone = cliente.telefone.replace(/\D/g, '');
+                        await supabase.from('telefones').insert({
+                            contato_id: newCont.id, telefone: cleanPhone, country_code: cliente.country_code || '+55', tipo: 'Celular', organizacao_id: orgId
+                        });
+                        queryClient.invalidateQueries({ queryKey: ['meusClientesAutocomplete'] });
+                    }
+                }
+            } catch(err) {
+                console.error("Erro silenciado CRM:", err);
+            }
+        }
+
         setIsSimulating(false);
         const qtdCorrecoes = parcelasFinanciadas.filter(p => p.correcao_aplicada > 0).length;
         toast.success(`Simulação gerada! ${qtdCorrecoes} correção(ões) de ${taxaAnual.toFixed(2)}% a.a. (INCC ${inccEfetivo.toFixed(2)}% + 11%) aplicada(s).`);
@@ -396,7 +448,30 @@ export default function SimuladorBraunas() {
                 <fieldset className="p-4 border rounded-lg">
                     <legend className="px-2 font-semibold text-gray-700">Dados da Simulação</legend>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                        <input type="text" placeholder="Nome do Cliente" value={cliente.nome} onChange={(e) => setCliente({ ...cliente, nome: e.target.value })} className="p-2 border rounded-md" />
+                        
+                        <div className="relative">
+                            <input type="text" placeholder="Nome do Cliente" value={cliente.nome} 
+                                onChange={(e) => {
+                                   setCliente(prev => ({...prev, nome: e.target.value}));
+                                   setIsClienteSelected(false);
+                                }} 
+                                className="p-2 border rounded-md w-full" 
+                            />
+                            {filteredClientes.length > 0 && (
+                                <ul className="absolute z-10 w-full bg-white border rounded-md mt-1 max-h-48 overflow-y-auto shadow-lg">
+                                    {filteredClientes.map(c => (
+                                        <li key={c.id} onClick={() => {
+                                           setCliente(prev => ({...prev, nome: c.nome, telefone: c.telefone, country_code: c.country_code || '+55'}));
+                                           setIsClienteSelected(true);
+                                           toast.info(`Dados de ${c.nome} recuperados!`, { duration: 2000 });
+                                        }} className="px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm">
+                                            {c.nome}
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                        </div>
+
                         <input type="text" placeholder="Nome do Corretor" value={corretor.nome} readOnly className="p-2 border rounded-md bg-gray-100 text-gray-600" />
                         <PhoneInput countryCode={cliente.country_code} onCountryChange={(e) => setCliente({ ...cliente, country_code: e.target.value, telefone: '' })} phone={cliente.telefone} onPhoneChange={(value) => setCliente({ ...cliente, telefone: value })} placeholder="Telefone do Cliente" />
                         <div className="flex gap-2">

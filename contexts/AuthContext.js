@@ -52,9 +52,41 @@ export function AuthProvider({ children }) {
             return;
         }
 
+        // Buscar dados extras (CRECI, Telefone) na tabela de Contatos associada ao usuário (Corretores)
+        const { data: contatoData } = await supabase
+            .from('contatos')
+            .select('id, creci')
+            .eq('criado_por_usuario_id', currentUser.id)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+        let telefoneContato = '';
+        if (contatoData && contatoData.id) {
+            const { data: telData } = await supabase
+                .from('telefones')
+                .select('telefone')
+                .eq('contato_id', contatoData.id)
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .maybeSingle();
+            if (telData) telefoneContato = telData.telefone;
+        }
+
+        // Fallback: Buscar também em Funcionários caso seja um vendedor interno CLT
+        const { data: funcionarioData } = await supabase
+            .from('funcionarios')
+            .select('phone')
+            .eq('email', currentUser.email)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
         const combinedUser = {
             ...currentUser,
             ...profileData,
+            telefone: telefoneContato || funcionarioData?.phone || '',
+            creci: contatoData?.creci || ''
         };
 
         setUser(combinedUser);

@@ -17,7 +17,7 @@ export async function registerRealtor(formData) {
 
   const { 
       nome, email, password, confirmPassword, creci, cpf, termId, organizacaoIdForm,
-      estado_civil, cep, address_street, address_number, address_complement, neighborhood, city, state
+      estado_civil, cep, address_street, address_number, address_complement, neighborhood, city, state, telefone
   } = formData
 
   const organizacaoFinal = organizacaoIdForm || 2;
@@ -78,7 +78,7 @@ export async function registerRealtor(formData) {
 
     // 3. Contato COMPLETO (contatos)
     console.log('[ACTION] Criando Contato Completo...');
-    const { error: contactError } = await supabaseAdmin.from('contatos').insert({
+    const { data: contatoData, error: contactError } = await supabaseAdmin.from('contatos').insert({
       nome: nome,
       cpf: cpf,
       creci: creci, 
@@ -101,11 +101,36 @@ export async function registerRealtor(formData) {
       
       organizacao_id: organizacaoFinal, 
       criado_por_usuario_id: newUserId,
-    })
+    }).select('id').single();
 
     if (contactError) throw new Error(`Erro Contato: ${contactError.message}`)
 
-    // 4. Aceite Termos
+    const novoContatoId = contatoData.id;
+
+    // 4. Salvar Telefone atrelado
+    if (telefone) {
+        const { error: telError } = await supabaseAdmin.from('telefones').insert({
+            contato_id: novoContatoId,
+            telefone: telefone,
+            tipo: 'Celular',
+            country_code: '+55',
+            organizacao_id: organizacaoFinal
+        });
+        if (telError) console.error('[ACTION] Erro a salvar telefone filho:', telError.message);
+    }
+
+    // 5. Salvar Email atrelado
+    if (email) {
+        const { error: emailError } = await supabaseAdmin.from('emails').insert({
+            contato_id: novoContatoId,
+            email: email,
+            tipo: 'Comercial',
+            organizacao_id: organizacaoFinal
+        });
+        if (emailError) console.error('[ACTION] Erro ao salvar email filho:', emailError.message);
+    }
+
+    // 6. Aceite Termos
     await supabaseAdmin.from('termos_aceite').insert({
         user_id: newUserId,
         termo_id: termId,

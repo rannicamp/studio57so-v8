@@ -303,4 +303,11 @@ O **Studio 57** é o ambiente de desenvolvimento e laboratório central. O **Elo
 - [ ] **Token de Longa Duração:** Automatizar a renovação do Instagram Access Token antes de expirar (60 dias).
 
 ---
+
+### 14. 🧮 Unificação dos Simuladores Financeiros - *A FAZER (FUTURAMENTE)*
+- [ ] **Unificar Simulador Geral e Braúnas:** Deletar o `SimuladorBraunas.js` e concentrar toda a lógica no `SimuladorFinanceiroPublico.js` de forma dinâmica.
+- [ ] **Toggle de Correção Anual (Motor Híbrido):** Criar um botão inovador do tipo "Aplicar INCC + 11%" que, quando ativado, puxa a API de índices e recalcula o aniversário de parcelas.
+- [ ] **Limpeza de Interface:** Remover o componente de `SimuladorTabs` da Tabela de Vendas do Corretor, deixando uma única ferramenta central e poderosa que serve para qualquer cenário de loteamento.
+
+---
 *Assinado: Devonildo (Seu Mentor Técnico)*

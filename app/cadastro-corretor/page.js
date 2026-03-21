@@ -36,10 +36,10 @@ function CadastroCorretorForm() {
   const urlOrgId = searchParams.get('org')
   const ORGANIZACAO_ID = urlOrgId ? parseInt(urlOrgId, 10) : ORGANIZACAO_PADRAO_ID;
 
-  // MUDANÇA 2: Estado simples. Atualizou a página? Limpou tudo!
   const [formData, setFormData] = useState({
     nome: '',
     email: '',
+    telefone: '',
     creci: '',
     cpf: '',
     estado_civil: '',
@@ -99,7 +99,7 @@ function CadastroCorretorForm() {
   const handleClear = () => {
       if(confirm('Deseja limpar todos os campos?')) {
           setFormData(prev => ({
-              nome: '', email: '', creci: '', cpf: '', estado_civil: '',
+              nome: '', email: '', telefone: '', creci: '', cpf: '', estado_civil: '',
               cep: '', address_street: '', address_number: '', address_complement: '',
               neighborhood: '', city: '', state: '', acceptedTerms: false, 
               termId: prev.termId // Mantém só o ID do termo
@@ -191,7 +191,7 @@ function CadastroCorretorForm() {
       
       // Limpeza completa após sucesso
       setFormData({
-        nome: '', email: '', creci: '', cpf: '', estado_civil: '',
+        nome: '', email: '', telefone: '', creci: '', cpf: '', estado_civil: '',
         cep: '', address_street: '', address_number: '', address_complement: '',
         neighborhood: '', city: '', state: '', acceptedTerms: false, termId: currentTermId
       });
@@ -305,6 +305,11 @@ function CadastroCorretorForm() {
                         <label className="block text-sm font-medium text-gray-700">E-mail *</label>
                         <input name="email" type="email" required className="mt-1 block w-full p-2.5 border border-gray-300 rounded-md sm:text-sm" placeholder="voce@email.com" value={formData.email} onChange={handleChange} disabled={isLoading} />
                     </div>
+                </div>
+
+                <div>
+                    <label className="block text-sm font-medium text-gray-700">Telefone / Celular *</label>
+                    <input name="telefone" type="text" required className="mt-1 block w-full p-2.5 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 sm:text-sm" placeholder="(00) 00000-0000" value={formData.telefone} onChange={handleChange} disabled={isLoading} />
                 </div>
             </div>
           </div>
