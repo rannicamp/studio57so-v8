@@ -2,7 +2,7 @@
 'use client'
 
 // MUDANÇA 1: Usamos apenas useState (memória temporária)
-import { useState, useEffect } from 'react' 
+import { useState, useEffect, Suspense } from 'react' 
 import { useSearchParams } from 'next/navigation' // <-- Novo para capturar ?org=
 import { registerRealtor } from './actions'
 import { getLatestTerms } from './terms-actions'
@@ -24,6 +24,14 @@ import {
 const ORGANIZACAO_PADRAO_ID = 2;
 
 export default function CadastroCorretorPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen bg-gray-50"><FontAwesomeIcon icon={faSpinner} spin className="text-blue-600 text-4xl" /></div>}>
+      <CadastroCorretorForm />
+    </Suspense>
+  )
+}
+
+function CadastroCorretorForm() {
   const searchParams = useSearchParams()
   const urlOrgId = searchParams.get('org')
   const ORGANIZACAO_ID = urlOrgId ? parseInt(urlOrgId, 10) : ORGANIZACAO_PADRAO_ID;
