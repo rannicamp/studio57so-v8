@@ -159,7 +159,7 @@ export default function ProfileForm() {
         <>
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden animate-fade-in relative">
                 {/* Banner de Fundo */}
-                <div className="h-32 bg-gradient-to-r from-blue-600 to-indigo-600 relative">
+                <div className="h-32 bg-blue-600 relative">
                     <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'url(/pattern.svg)' }}></div>
                 </div>
 

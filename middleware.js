@@ -42,7 +42,6 @@ export async function middleware(req) {
     '/migracao',
     '/sobre-nos',
     '/cadastrocliente',
-    '/simulador-financiamento',
     '/auth/'                  // Callbacks de autenticação
   ]
 
@@ -76,7 +75,7 @@ export async function middleware(req) {
       const funcaoId = profile?.funcao_id
 
       if (funcaoId === 4) return NextResponse.redirect(new URL('/bim-manager', req.url));
-      if (funcaoId === 20) return NextResponse.redirect(new URL('/portal-painel', req.url));
+      if (funcaoId === 20 || funcaoId === 21) return NextResponse.redirect(new URL('/portal-painel', req.url));
       return NextResponse.redirect(new URL('/painel', req.url));
     }
 
@@ -107,11 +106,13 @@ export async function middleware(req) {
       }
     }
 
-    // REGRA DO CORRETOR (ID 20)
-    else if (funcaoId === 20) {
+    // REGRA DO CORRETOR (ID 20) E GERENTE (ID 21)
+    else if (funcaoId === 20 || funcaoId === 21) {
       const isPortalCorretor = path.startsWith('/portal-') ||
         path.startsWith('/clientes') ||
         path.startsWith('/tabela-de-vendas') ||
+        path.startsWith('/equipe') ||
+        path.startsWith('/simuladores') ||
         path.startsWith('/api/');
 
       if (!isPortalCorretor && !isPublicPath) {

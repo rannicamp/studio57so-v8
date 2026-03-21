@@ -2,7 +2,7 @@
 // ============================================================
 // Simulador Financeiro - Refúgio Braúnas
 // Empreendimento fixado em id=6 (Refúgio Braúnas)
-// Correção anual: max(0, IGP-M) + 11% sobre saldo devedor,
+// Correção anual: max(0, INCC) + 11% sobre saldo devedor,
 // distribuída pelas parcelas restantes no mês aniversário.
 // ============================================================
 'use client';
@@ -16,6 +16,7 @@ import { IMaskInput } from 'react-imask';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import SimuladorPrintView from '@/components/SimuladorPrintView';
+import { useLayout } from '@/contexts/LayoutContext';
 
 // ─── Constantes ────────────────────────────────────────────────
 const REFUGIO_BRAUNAS_ID = 6;
@@ -41,6 +42,7 @@ const formatDateForDisplay = (dateStr) => dateStr ? new Date(dateStr + 'T00:00:0
 // ════════════════════════════════════════════════════════════════
 export default function SimuladorBraunas() {
     const supabase = createClient();
+    const { usuarioLogado } = useLayout();
     const empreendimentoFixo = { id: REFUGIO_BRAUNAS_ID, nome: REFUGIO_BRAUNAS_NOME };
 
     const [produtos, setProdutos] = useState([]);
@@ -49,8 +51,19 @@ export default function SimuladorBraunas() {
     const [loadingProdutos, setLoadingProdutos] = useState(true);
 
     const [cliente, setCliente] = useState({ nome: '', telefone: '', country_code: '+55' });
-    const [corretor, setCorretor] = useState({ nome: '', telefone: '', country_code: '+55' });
+    const [corretor, setCorretor] = useState({ nome: '', telefone: '', creci: '', country_code: '+55' });
     const [parcelasIntermediarias, setParcelasIntermediarias] = useState([]);
+
+    useEffect(() => {
+        if (usuarioLogado) {
+            setCorretor(prev => ({
+                ...prev,
+                nome: usuarioLogado.nome || '',
+                telefone: usuarioLogado.telefone || '',
+                creci: usuarioLogado.creci || ''
+            }));
+        }
+    }, [usuarioLogado]);
 
     const [plano, setPlano] = useState({
         valor_base: 0,
@@ -73,15 +86,15 @@ export default function SimuladorBraunas() {
     const [isSimulating, setIsSimulating] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    // IGP-M acumulado 12M (correção anual do saldo devedor)
-    const [indiceIGPM, setIndiceIGPM] = useState(null);
-    const [isLoadingIGPM, setIsLoadingIGPM] = useState(true);
+    // INCC acumulado 12M (correção anual do saldo devedor)
+    const [indiceINCC, setIndiceINCC] = useState(null);
+    const [isLoadingINCC, setIsLoadingINCC] = useState(true);
     useEffect(() => {
-        fetch('/api/simulador/indice?indice=IGP-M')
+        fetch('/api/simulador/indice?indice=INCC')
             .then(r => r.json())
-            .then(d => setIndiceIGPM(d.taxa_acumulada_12m ?? 0))
-            .catch(() => setIndiceIGPM(0))
-            .finally(() => setIsLoadingIGPM(false));
+            .then(d => setIndiceINCC(d.taxa_acumulada_12m ?? 0))
+            .catch(() => setIndiceINCC(0))
+            .finally(() => setIsLoadingINCC(false));
     }, []);
 
     const printRef = useRef();
@@ -221,9 +234,9 @@ export default function SimuladorBraunas() {
 
         parcelasFinanciadas.sort((a, b) => new Date(a.data_vencimento) - new Date(b.data_vencimento));
 
-        // Passo 2: Aplicar Correção Anual (max(0, IGP-M) + 11%)
-        const igpmEfetivo = Math.max(0, indiceIGPM ?? 0);
-        const taxaAnual = igpmEfetivo + 11; // % ao ano
+        // Passo 2: Aplicar Correção Anual (max(0, INCC) + 11%)
+        const inccEfetivo = Math.max(0, indiceINCC ?? 0);
+        const taxaAnual = inccEfetivo + 11; // % ao ano
 
         // Saldo devedor inicial = total financiado (excluindo entrada)
         let saldoDevedor = (parseFloat(plano.parcelas_obra_valor) || 0)
@@ -269,7 +282,7 @@ export default function SimuladorBraunas() {
         setCronograma(cronogramaFinal);
         setIsSimulating(false);
         const qtdCorrecoes = parcelasFinanciadas.filter(p => p.correcao_aplicada > 0).length;
-        toast.success(`Simulação gerada! ${qtdCorrecoes} correção(ões) de ${taxaAnual.toFixed(2)}% a.a. (IGP-M ${igpmEfetivo.toFixed(2)}% + 11%) aplicada(s).`);
+        toast.success(`Simulação gerada! ${qtdCorrecoes} correção(ões) de ${taxaAnual.toFixed(2)}% a.a. (INCC ${inccEfetivo.toFixed(2)}% + 11%) aplicada(s).`);
     };
 
     const resumoData = useMemo(() => {
@@ -384,9 +397,12 @@ export default function SimuladorBraunas() {
                     <legend className="px-2 font-semibold text-gray-700">Dados da Simulação</legend>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
                         <input type="text" placeholder="Nome do Cliente" value={cliente.nome} onChange={(e) => setCliente({ ...cliente, nome: e.target.value })} className="p-2 border rounded-md" />
-                        <input type="text" placeholder="Nome do Corretor" value={corretor.nome} onChange={(e) => setCorretor({ ...corretor, nome: e.target.value })} className="p-2 border rounded-md" />
+                        <input type="text" placeholder="Nome do Corretor" value={corretor.nome} readOnly className="p-2 border rounded-md bg-gray-100 text-gray-600" />
                         <PhoneInput countryCode={cliente.country_code} onCountryChange={(e) => setCliente({ ...cliente, country_code: e.target.value, telefone: '' })} phone={cliente.telefone} onPhoneChange={(value) => setCliente({ ...cliente, telefone: value })} placeholder="Telefone do Cliente" />
-                        <PhoneInput countryCode={corretor.country_code} onCountryChange={(e) => setCorretor({ ...corretor, country_code: e.target.value, telefone: '' })} phone={corretor.telefone} onPhoneChange={(value) => setCorretor({ ...corretor, telefone: value })} placeholder="Telefone do Corretor" />
+                        <div className="flex gap-2">
+                            <input type="text" readOnly placeholder="Telefone do Corretor" value={corretor.telefone} className="p-2 border rounded-md w-full bg-gray-100 text-gray-600" />
+                            <input type="text" readOnly placeholder="CRECI" value={corretor.creci} className="p-2 border rounded-md w-full bg-gray-100 text-gray-600" />
+                        </div>
                     </div>
                 </fieldset>
 
@@ -524,9 +540,9 @@ export default function SimuladorBraunas() {
                         {/* Cabeçalho da tabela com taxa */}
                         <div className="flex items-center justify-between mb-3">
                             <h4 className="font-semibold text-gray-800">Cronograma Detalhado</h4>
-                            {!isLoadingIGPM && indiceIGPM !== null && (
+                            {!isLoadingINCC && indiceINCC !== null && (
                                 <span className="text-xs bg-amber-50 text-amber-700 border border-amber-200 px-2.5 py-1 rounded-full font-bold">
-                                    Correção Anual: IGP-M ({indiceIGPM.toFixed(2)}%) + 11% = {(Math.max(0, indiceIGPM) + 11).toFixed(2)}% a.a.
+                                    Correção Anual: INCC ({indiceINCC.toFixed(2)}%) + 11% = {(Math.max(0, indiceINCC) + 11).toFixed(2)}% a.a.
                                 </span>
                             )}
                         </div>

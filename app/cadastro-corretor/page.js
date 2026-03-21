@@ -3,6 +3,7 @@
 
 // MUDANÇA 1: Usamos apenas useState (memória temporária)
 import { useState, useEffect } from 'react' 
+import { useSearchParams } from 'next/navigation' // <-- Novo para capturar ?org=
 import { registerRealtor } from './actions'
 import { getLatestTerms } from './terms-actions'
 // O import do usePersistentState foi removido por segurança
@@ -19,10 +20,14 @@ import {
   faEraser // Ícone novo para o botão de limpar
 } from '@fortawesome/free-solid-svg-icons'
 
-// ID DA ORGANIZAÇÃO DEFINIDO AQUI
-const ORGANIZACAO_ID = 2;
+// ID PADRÃO DA ORGANIZAÇÃO (Fallback)
+const ORGANIZACAO_PADRAO_ID = 2;
 
 export default function CadastroCorretorPage() {
+  const searchParams = useSearchParams()
+  const urlOrgId = searchParams.get('org')
+  const ORGANIZACAO_ID = urlOrgId ? parseInt(urlOrgId, 10) : ORGANIZACAO_PADRAO_ID;
+
   // MUDANÇA 2: Estado simples. Atualizou a página? Limpou tudo!
   const [formData, setFormData] = useState({
     nome: '',
@@ -150,6 +155,7 @@ export default function CadastroCorretorPage() {
     const payload = {
         ...formData,
         termId: currentTermId,
+        organizacaoIdForm: ORGANIZACAO_ID, 
         ...securityData
     }
 

@@ -9,7 +9,7 @@ const SimuladorPrintView = React.forwardRef(({ simulacao, produto, empreendiment
 
     if (!simulacao || !resumo) return null;
 
-    const logoUrl = '/marca/logo-elo57-horizontal.svg';
+    const logoUrl = empreendimento?.logo_url || '/marca/logo-elo57-horizontal.svg';
 
     const formatCurrency = (value) => {
         if (typeof value !== 'number' && isNaN(parseFloat(value))) return 'R$ 0,00';
@@ -22,7 +22,7 @@ const SimuladorPrintView = React.forwardRef(({ simulacao, produto, empreendiment
             {/* ── Cabeçalho ─────────────────────────────────── */}
             <header className="flex justify-between items-center border-b-2 pb-4 mb-6">
                 <div className="text-left">
-                    <img src={logoUrl} alt="Logo Elo 57" className="h-10" />
+                    <img src={logoUrl} alt={`Logo ${empreendimento?.nome || 'Empresa'}`} className="h-10 object-contain" />
                     <p className="text-xs mt-2">CNPJ: 41.464.589/0001-66</p>
                     <p className="text-xs">Av. Rio Doce, 1825 - Ilha dos Araújos</p>
                     <p className="text-xs">Governador Valadares, MG - CEP: 35020-500</p>
@@ -79,12 +79,12 @@ const SimuladorPrintView = React.forwardRef(({ simulacao, produto, empreendiment
                         <p className="font-bold mb-1">⚠️ AVISO IMPORTANTE — ESTA É UMA SIMULAÇÃO</p>
                         <p>
                             Os valores de correção apresentados neste documento são uma <strong>projeção estimada</strong> com base
-                            no acumulado dos últimos 12 meses do índice IGP-M, acrescido de 11% ao ano conforme
-                            cláusula contratual. O IGP-M é divulgado mensalmente pela Fundação Getulio Vargas (FGV)
-                            e <strong>pode variar significativamente</strong> ao longo do tempo, inclusive podendo ser negativo.
+                            no acumulado dos últimos 12 meses do índice INCC, acrescido de 11% ao ano conforme
+                            cláusula contratual. O INCC é divulgado mensalmente pela Fundação Getulio Vargas (FGV)
+                            e <strong>pode variar significativamente</strong> ao longo do tempo.
                         </p>
                         <p className="mt-1">
-                            Em caso de IGP-M negativo no período, a correção mínima aplicada será de <strong>11% ao ano</strong>.
+                            Em caso de INCC negativo no período, a correção mínima aplicada será de <strong>11% ao ano</strong>.
                             Os valores reais das parcelas futuras serão recalculados anualmente na data de aniversário
                             do contrato, podendo diferir dos valores projetados nesta simulação.
                         </p>
@@ -138,7 +138,7 @@ const SimuladorPrintView = React.forwardRef(({ simulacao, produto, empreendiment
                         </tbody>
                     </table>
                     <p className="text-[10px] text-gray-500 mt-1">
-                        ★ Linhas destacadas = mês de aniversário do contrato com correção anual aplicada (IGP-M + 11% a.a.)
+                        ★ Linhas destacadas = mês de aniversário do contrato com correção anual aplicada (INCC + 11% a.a.)
                     </p>
                 </section>
 

@@ -5,7 +5,7 @@ import { createClient, createAdminClient } from '@/utils/supabase/server'
 import { cookies } from 'next/headers'
 
 // IDs Corretos do Studio 57
-const ORGANIZACAO_PADRAO_ID = 2
+// O organizacao_id será dinâmico pelo parametro da URL
 const FUNCAO_CORRETOR_ID = 20
 
 export async function registerRealtor(formData) {
@@ -16,9 +16,11 @@ export async function registerRealtor(formData) {
   const supabaseAdmin = createAdminClient()
 
   const { 
-      nome, email, password, confirmPassword, creci, cpf, termId,
+      nome, email, password, confirmPassword, creci, cpf, termId, organizacaoIdForm,
       estado_civil, cep, address_street, address_number, address_complement, neighborhood, city, state
   } = formData
+
+  const organizacaoFinal = organizacaoIdForm || 2;
 
   // --- Validações ---
   if (!nome || !email || !password || !creci || !cpf || !address_street || !city || !state || !cep || !estado_civil) {
@@ -65,12 +67,11 @@ export async function registerRealtor(formData) {
     console.log('[ACTION] Criando Perfil...');
     const { error: profileError } = await supabaseAdmin.from('usuarios').upsert({
       id: newUserId,
-      organizacao_id: ORGANIZACAO_PADRAO_ID, 
+      organizacao_id: organizacaoFinal, 
       funcao_id: FUNCAO_CORRETOR_ID, 
       nome: nome,
       email: email,
-      aceitou_termos: true,
-      data_aceite_termos: new Date().toISOString()
+      aceitou_termos: true
     })
 
     if (profileError) throw new Error(`Erro Perfil: ${profileError.message}`)
@@ -98,7 +99,7 @@ export async function registerRealtor(formData) {
       city: city,
       state: state,
       
-      organizacao_id: ORGANIZACAO_PADRAO_ID, 
+      organizacao_id: organizacaoFinal, 
       criado_por_usuario_id: newUserId,
     })
 
@@ -108,7 +109,7 @@ export async function registerRealtor(formData) {
     await supabaseAdmin.from('termos_aceite').insert({
         user_id: newUserId,
         termo_id: termId,
-        organizacao_id: ORGANIZACAO_PADRAO_ID
+        organizacao_id: organizacaoFinal
     })
     
     console.log('[ACTION] Sucesso Total!');

@@ -2,7 +2,8 @@
 // Uploader de imagem nativo (sem @uppy/react/dashboard)
 "use client";
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { createClient } from '@/utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCloudUploadAlt, faTrash, faSpinner, faImage, faPen, faXmark } from '@fortawesome/free-solid-svg-icons';
@@ -24,6 +25,9 @@ export default function UppyAvatarUploader({
     const [preview, setPreview] = useState(null);
     const [selectedFile, setSelectedFile] = useState(null);
     const fileInputRef = useRef(null);
+
+    const [mounted, setMounted] = useState(false);
+    useEffect(() => { setMounted(true); }, []);
 
     const hasWidthClass = className && /\bw-(?:full|screen|px|\d+|auto|min|max|fit)\b/.test(className);
     const rootClasses = hasWidthClass ? className : `w-full ${className}`.trim();
@@ -136,9 +140,9 @@ export default function UppyAvatarUploader({
                 )}
             </div>
 
-            {/* Modal */}
-            {isModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+            {/* Modal ejetado usando Portal para não quebrar no CSS do pai */}
+            {isModalOpen && mounted && createPortal(
+                <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 text-left">
                     <div className="bg-white rounded-xl shadow-2xl w-full max-w-md flex flex-col">
                         {/* Header */}
                         <div className="flex justify-between items-center px-5 py-4 border-b">
@@ -200,7 +204,8 @@ export default function UppyAvatarUploader({
                             </button>
                         </div>
                     </div>
-                </div>
+                </div>, 
+                document.body
             )}
         </div>
     );

@@ -11,6 +11,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 import SimuladorPrintView from './SimuladorPrintView';
+import { useLayout } from '@/contexts/LayoutContext';
 
 // --- Componente de Telefone com Seletor de País ---
 const PhoneInput = ({ countryCode, onCountryChange, phone, onPhoneChange, placeholder }) => {
@@ -45,6 +46,7 @@ const formatDateForDisplay = (dateStr) => dateStr ? new Date(dateStr + 'T00:00:0
 
 export default function SimuladorFinanceiroPublico({ empreendimentos }) {
     const supabase = createClient();
+    const { usuarioLogado } = useLayout();
 
     const [selectedEmpreendimentoId, setSelectedEmpreendimentoId] = useState('');
     const [produtos, setProdutos] = useState([]);
@@ -53,7 +55,18 @@ export default function SimuladorFinanceiroPublico({ empreendimentos }) {
     const [loadingProdutos, setLoadingProdutos] = useState(false);
 
     const [cliente, setCliente] = useState({ nome: '', telefone: '', country_code: '+55' });
-    const [corretor, setCorretor] = useState({ nome: '', telefone: '', country_code: '+55' });
+    const [corretor, setCorretor] = useState({ nome: '', telefone: '', creci: '', country_code: '+55' });
+
+    useEffect(() => {
+        if (usuarioLogado) {
+            setCorretor(prev => ({
+                ...prev,
+                nome: usuarioLogado.nome || '',
+                telefone: usuarioLogado.telefone || '',
+                creci: usuarioLogado.creci || ''
+            }));
+        }
+    }, [usuarioLogado]);
 
     const [parcelasIntermediarias, setParcelasIntermediarias] = useState([]);
 
@@ -341,7 +354,7 @@ export default function SimuladorFinanceiroPublico({ empreendimentos }) {
             <div className="space-y-8 no-print">
                 <h1 className="text-3xl font-bold text-center text-gray-800">Simulador de Pagamentos</h1>
 
-                <fieldset className="p-4 border rounded-lg"><legend className="px-2 font-semibold text-gray-700">Dados da Simulação</legend><div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4"><input type="text" placeholder="Nome do Cliente" value={cliente.nome} onChange={(e) => setCliente({ ...cliente, nome: e.target.value })} className="p-2 border rounded-md" /><input type="text" placeholder="Nome do Corretor" value={corretor.nome} onChange={(e) => setCorretor({ ...corretor, nome: e.target.value })} className="p-2 border rounded-md" /><PhoneInput countryCode={cliente.country_code} onCountryChange={(e) => setCliente({ ...cliente, country_code: e.target.value, telefone: '' })} phone={cliente.telefone} onPhoneChange={(value) => setCliente({ ...cliente, telefone: value })} placeholder="Telefone do Cliente" /><PhoneInput countryCode={corretor.country_code} onCountryChange={(e) => setCorretor({ ...corretor, country_code: e.target.value, telefone: '' })} phone={corretor.telefone} onPhoneChange={(value) => setCorretor({ ...corretor, telefone: value })} placeholder="Telefone do Corretor" /></div></fieldset>
+                <fieldset className="p-4 border rounded-lg"><legend className="px-2 font-semibold text-gray-700">Dados da Simulação</legend><div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4"><input type="text" placeholder="Nome do Cliente" value={cliente.nome} onChange={(e) => setCliente({ ...cliente, nome: e.target.value })} className="p-2 border rounded-md" /><input type="text" placeholder="Nome do Corretor" value={corretor.nome} readOnly className="p-2 border rounded-md bg-gray-100 text-gray-600" /><PhoneInput countryCode={cliente.country_code} onCountryChange={(e) => setCliente({ ...cliente, country_code: e.target.value, telefone: '' })} phone={cliente.telefone} onPhoneChange={(value) => setCliente({ ...cliente, telefone: value })} placeholder="Telefone do Cliente" /><div className="flex gap-2"><input type="text" readOnly placeholder="Telefone do Corretor" value={corretor.telefone} className="p-2 border rounded-md w-full bg-gray-100 text-gray-600" /><input type="text" readOnly placeholder="CRECI" value={corretor.creci} className="p-2 border rounded-md w-full bg-gray-100 text-gray-600" /></div></div></fieldset>
 
                 <fieldset className="p-4 border rounded-lg">
                     <legend className="px-2 font-semibold text-gray-700">Passo 1: Selecione o Imóvel</legend>

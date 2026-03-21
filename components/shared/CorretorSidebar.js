@@ -26,11 +26,16 @@ export default function CorretorSidebar({ user, onMobileItemClick }) {
     { name: 'Painel Geral', href: '/portal-painel', icon: faHome },
     { name: 'Meus Clientes', href: '/clientes', icon: faUsers },
     { name: 'Tabela de Vendas', href: '/tabela-de-vendas', icon: faChartLine },
-    { name: 'Simulador', href: '/simulador-financiamento', icon: faCalculator }, // Adicionei o botão do Simulador aqui
+    { name: 'Simuladores', href: '/simuladores', icon: faCalculator }, // Aba Centralizada de Simuladores
     { name: 'Empreendimentos', href: '/empreendimentosstudio', icon: faBuilding },
     { name: 'Contratos', href: '/portal-contratos', icon: faFileContract },
     { name: 'Arquivos', href: '/portal-arquivos', icon: faFolderOpen },
   ];
+
+  // Adiciona a aba 'Minha Equipe' SOMENTE se o usuário for um Gerente de Corretagem (ID 21)
+  if (user?.funcao_id === 21) {
+      menuItems.splice(1, 0, { name: 'Minha Equipe', href: '/equipe', icon: faUsers });
+  }
 
   const isActive = (path) => pathname === path || pathname?.startsWith(path + '/');
 
