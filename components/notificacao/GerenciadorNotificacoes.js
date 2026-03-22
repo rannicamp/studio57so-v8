@@ -23,11 +23,10 @@ export default function GerenciadorNotificacoes() {
   const [isEditing, setIsEditing] = usePersistentState('notif_isEditing', false);
   const [editingRule, setEditingRule] = usePersistentState('notif_editingRule', null);
 
-  // 1. BUSCA REGRAS
   const { data: regras = [], isLoading } = useQuery({
-    queryKey: ['regras_notificacao'],
+    queryKey: ['sys_notification_templates'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('regras_notificacao').select('*').order('tabela_alvo', { ascending: true });
+      const { data, error } = await supabase.from('sys_notification_templates').select('*').order('tabela_alvo', { ascending: true });
       if (error) throw error;
       return data;
     }
@@ -91,23 +90,21 @@ export default function GerenciadorNotificacoes() {
 
   const salvarRegraMutation = useMutation({
     mutationFn: async (dados) => {
-      const { data: { user } } = await supabase.auth.getUser();
-      const { data: userData } = await supabase.from('usuarios').select('organizacao_id').eq('id', user.id).single();
-
       const { id, ...dadosLimpos } = dados;
-      const payload = { ...dadosLimpos, organizacao_id: userData.organizacao_id };
+      // Templates globais são sempre organizacao_id = 1
+      const payload = { ...dadosLimpos, organizacao_id: 1 };
 
       if (editingRule?.id) {
-        const { error } = await supabase.from('regras_notificacao').update(payload).eq('id', editingRule.id);
+        const { error } = await supabase.from('sys_notification_templates').update(payload).eq('id', editingRule.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from('regras_notificacao').insert(payload);
+        const { error } = await supabase.from('sys_notification_templates').insert(payload);
         if (error) throw error;
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['regras_notificacao']);
-      toast.success(editingRule?.id ? "Regra atualizada!" : "Regra criada!");
+      queryClient.invalidateQueries(['sys_notification_templates']);
+      toast.success(editingRule?.id ? "Template atualizado!" : "Template criado!");
       resetForm();
     },
     onError: (err) => toast.error(`Erro: ${err.message}`)
@@ -115,11 +112,11 @@ export default function GerenciadorNotificacoes() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id) => {
-      await supabase.from('regras_notificacao').delete().eq('id', id);
+      await supabase.from('sys_notification_templates').delete().eq('id', id);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries(['regras_notificacao']);
-      toast.success("Regra excluída.");
+      queryClient.invalidateQueries(['sys_notification_templates']);
+      toast.success("Template excluído.");
     }
   });
 
@@ -232,16 +229,16 @@ export default function GerenciadorNotificacoes() {
                 <div className="grid gap-4">
                   {regrasAgrupadas[grupo].map((regra) => (
                     <div key={regra.id} className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm hover:shadow-md transition-all flex justify-between items-center group relative overflow-hidden">
-                      {/* Indicador de Status na Borda */}
-                      <div className={`absolute left-0 top-0 bottom-0 w-1 ${regra.ativo ? 'bg-blue-500' : 'bg-gray-300'}`}></div>
+                      {/* Indicador de Tipo de Evento na Borda */}
+                      <div className="absolute left-0 top-0 bottom-0 w-1 bg-purple-500"></div>
 
                       <div className="flex items-center gap-5 pl-2">
-                        <div className={`w-14 h-14 rounded-xl flex items-center justify-center text-2xl shadow-sm ${regra.ativo ? 'bg-blue-50 text-blue-600 border border-blue-100/50' : 'bg-gray-50 text-gray-400 border border-gray-100'}`}>
+                        <div className={`w-14 h-14 rounded-xl flex items-center justify-center text-2xl shadow-sm bg-blue-50 text-blue-600 border border-blue-100/50`}>
                           {renderIcon(regra.icone)}
                         </div>
 
                         <div>
-                          <h4 className={`font-bold text-base ${regra.ativo ? 'text-gray-900' : 'text-gray-400 line-through'}`}>
+                          <h4 className={`font-bold text-base text-gray-900`}>
                             {regra.nome_regra}
                           </h4>
                           <div className="flex flex-wrap items-center gap-2 mt-2">
@@ -262,9 +259,9 @@ export default function GerenciadorNotificacoes() {
                               </span>
                             )}
 
-                            {regra.enviar_push && (
-                              <span className="text-[11px] bg-gray-50 text-gray-600 px-2 py-1 rounded-md border border-gray-200 flex items-center gap-1" title="Aviso Push no Celular">
-                                <FontAwesomeIcon icon={faMobileAlt} /> Notifica App
+                              {regra.enviar_para_dono && (
+                              <span className="text-[11px] bg-orange-50 text-orange-600 px-2 py-1 rounded-md border border-orange-200 flex items-center gap-1" title="Avisa o Criador/Responsável do Registro">
+                                <FontAwesomeIcon icon={faMobileAlt} /> Sempre Dono
                               </span>
                             )}
                           </div>

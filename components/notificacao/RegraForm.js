@@ -31,7 +31,7 @@ export default function RegraForm({ initialData, tabelas, campos, funcoes, varia
         nome_regra: '', tabela_alvo: '', evento: 'INSERT',
         // Mantemos compatibilidade com legado
         coluna_monitorada: '', valor_gatilho: '',
-        funcoes_ids: [], enviar_para_dono: false, enviar_push: true,
+        enviar_para_dono: false,
         titulo_template: 'Nova notificação', mensagem_template: '{conteudo}', link_template: '/',
         ativo: true, icone: 'fa-bell',
         // NOVA LISTA DE FILTROS
@@ -164,11 +164,6 @@ export default function RegraForm({ initialData, tabelas, campos, funcoes, varia
 
         setShowSuggestions({ visible: false, field: null });
         setSearchTerm('');
-    };
-
-    const handleMultiSelect = (e) => {
-        const options = Array.from(e.target.selectedOptions, option => parseInt(option.value));
-        setFormData(prev => ({ ...prev, funcoes_ids: options }));
     };
 
     // Preparação final para envio: limpa campos legados se usar lista nova
@@ -350,19 +345,19 @@ export default function RegraForm({ initialData, tabelas, campos, funcoes, varia
                             </h4>
 
                             <div className="mb-6">
-                                <label className="block text-[10px] font-bold text-orange-600 mb-2 uppercase tracking-wide">Para quem mandar?</label>
+                                <label className="block text-[10px] font-bold text-orange-600 mb-2 uppercase tracking-wide">Regras Especiais de Envio</label>
                                 <div className="flex flex-col md:flex-row gap-4">
-                                    <select multiple name="funcoes_ids" value={formData.funcoes_ids || []} onChange={handleMultiSelect} className="flex-1 p-3 border border-orange-200 rounded-xl text-sm h-24 bg-white focus:ring-2 focus:ring-orange-400 outline-none shadow-sm transition-all">
-                                        {funcoes.map(f => <option key={f.id} value={f.id} className="p-1">{f.nome_funcao}</option>)}
-                                    </select>
-                                    <div className="w-full md:w-1/3 flex flex-col gap-2">
+                                    <div className="w-full md:w-1/2 flex flex-col gap-2">
                                         <label className="flex items-center gap-3 cursor-pointer bg-white p-4 rounded-xl border border-orange-200 hover:bg-orange-50 transition-colors h-full shadow-sm group-hover:border-orange-300">
                                             <input type="checkbox" name="enviar_para_dono" checked={formData.enviar_para_dono} onChange={handleChange} className="w-4 h-4 text-orange-500 rounded border-gray-300 focus:ring-orange-500" />
                                             <div>
                                                 <span className="text-xs font-bold text-gray-700 block transition-colors group-hover:text-orange-700">Responsável / Dono</span>
-                                                <span className="text-[10px] text-gray-400">Envia para quem criou.</span>
+                                                <span className="text-[10px] text-gray-400">Notifica sempre quem criou o registro, independente do Cargo.</span>
                                             </div>
                                         </label>
+                                    </div>
+                                    <div className="w-full md:w-1/2 flex items-center bg-orange-50 p-4 rounded-xl border border-orange-100">
+                                        <span className="text-xs text-orange-600 font-medium">Os Cargos (Funções) que receberão este alerta serão definidos pelos Donos de Franquia no próprio painel.</span>
                                     </div>
                                 </div>
                             </div>
@@ -425,20 +420,10 @@ export default function RegraForm({ initialData, tabelas, campos, funcoes, varia
                                 </div>
                             </div>
 
-                            <div className="mt-6 pt-5 border-t border-orange-200/50 flex flex-col md:flex-row justify-between items-center gap-4">
-                                <label className="flex items-center gap-3 cursor-pointer bg-white px-4 py-2.5 rounded-xl border border-orange-100 shadow-sm hover:border-orange-200 transition-colors w-full md:w-auto">
-                                    <div className={`w-10 h-5 rounded-full transition-colors relative shadow-inner ${formData.enviar_push ? 'bg-green-500' : 'bg-gray-200'}`}>
-                                        <div className={`w-4 h-4 bg-white rounded-full absolute top-0.5 shadow-sm transition-all ${formData.enviar_push ? 'left-5' : 'left-0.5'}`}></div>
-                                    </div>
-                                    <input type="checkbox" name="enviar_push" checked={formData.enviar_push} onChange={handleChange} className="sr-only" />
-                                    <span className="text-xs font-bold text-gray-700 flex items-center gap-2">
-                                        <FontAwesomeIcon icon={faMobileAlt} className={formData.enviar_push ? 'text-green-500' : 'text-gray-400'} /> Notificação Push App
-                                    </span>
-                                </label>
-
+                            <div className="mt-6 pt-5 border-t border-orange-200/50 flex flex-col md:flex-row justify-end items-center gap-4">
                                 <div className="w-full md:w-1/2 flex relative">
                                     <span className="absolute left-3 top-2.5 text-xs text-orange-400 font-bold">URL:</span>
-                                    <input name="link_template" value={formData.link_template || ''} onChange={handleChange} className="w-full pl-12 pr-4 py-2.5 border border-orange-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-orange-400 outline-none shadow-sm placeholder-orange-200" placeholder="Ex: /projetos/123" />
+                                    <input name="link_template" value={formData.link_template || ''} onChange={handleChange} className="w-full pl-12 pr-4 py-2.5 border border-orange-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-orange-400 outline-none shadow-sm placeholder-orange-200" placeholder="Ex: /projetos/123 (Ao clicar na notificação)" />
                                 </div>
                             </div>
                         </div>
