@@ -11,6 +11,7 @@ import { faSpinner, faChartLine, faArrowRight } from '@fortawesome/free-solid-sv
 const WelcomeCard = React.lazy(() => import('@/components/painel/widgets/WelcomeCard'));
 const QuickActionsWidget = React.lazy(() => import('@/components/painel/widgets/QuickActionsWidget'));
 const MinhasAtividadesWidget = React.lazy(() => import('@/components/painel/widgets/MinhasAtividadesWidget'));
+const ChatMuralWidget = React.lazy(() => import('@/components/painel/widgets/ChatMuralWidget'));
 const MeuRhWidget = React.lazy(() => import('@/components/painel/widgets/MeuRhWidget'));
 const NotificacoesWidget = React.lazy(() => import('@/components/painel/widgets/NotificacoesWidget'));
 const VersiculoDoDiaWidget = React.lazy(() => import('@/components/painel/widgets/VersiculoDoDiaWidget'));
@@ -90,6 +91,10 @@ export default function Painel() {
             {user?.funcionario_id && (
               <MinhasAtividadesWidget funcionario_id={user.funcionario_id} />
             )}
+          </Suspense>
+
+          <Suspense fallback={<WidgetSkeleton />}>
+             <ChatMuralWidget />
           </Suspense>
         </div>
 

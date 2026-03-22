@@ -205,7 +205,8 @@ CREATE TABLE public.bim_notas (
     responsavel_id uuid,
     criado_em timestamp with time zone DEFAULT now(),
     atualizado_em timestamp with time zone DEFAULT now(),
-    excluido boolean NOT NULL DEFAULT false
+    excluido boolean NOT NULL DEFAULT false,
+    markup_svg text
 );
 
 CREATE TABLE public.bim_notas_comentarios (
@@ -261,7 +262,8 @@ CREATE TABLE public.cadastro_empresa (
     meta_business_id text,
     objeto_social text,
     capital_social numeric,
-    natureza_juridica text
+    natureza_juridica text,
+    logo_url text
 );
 
 CREATE TABLE public.campos_sistema (
@@ -409,7 +411,8 @@ CREATE TABLE public.contas_financeiras (
     belvo_link_id text,
     belvo_account_id text,
     codigo_banco_ofx text,
-    numero_conta_ofx text
+    numero_conta_ofx text,
+    conta_pai_id bigint
 );
 
 CREATE TABLE public.contatos (
@@ -478,7 +481,8 @@ CREATE TABLE public.contatos (
     renda_familiar numeric,
     terceirizado_ativo boolean DEFAULT false,
     fgts boolean DEFAULT false,
-    mais_de_3_anos_clt boolean DEFAULT false
+    mais_de_3_anos_clt boolean DEFAULT false,
+    meta_adset_id text
 );
 
 CREATE TABLE public.contatos_no_funil (
@@ -1003,6 +1007,19 @@ CREATE TABLE public.historico_salarial (
     organizacao_id bigint NOT NULL
 );
 
+CREATE TABLE public.historico_vgv (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    data_alteracao timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
+    empreendimento_id bigint NOT NULL,
+    produto_id bigint NOT NULL,
+    valor_produto_anterior numeric,
+    valor_produto_novo numeric,
+    vgv_anterior numeric,
+    vgv_novo numeric,
+    organizacao_id integer,
+    usuario_alteracao uuid
+);
+
 CREATE TABLE public.indices_financeiros (
     id bigint NOT NULL DEFAULT nextval('indices_financeiros_id_seq'::regclass),
     nome_indice text NOT NULL,
@@ -1023,6 +1040,39 @@ CREATE TABLE public.indices_governamentais (
     created_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
     updated_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
     descricao text
+);
+
+CREATE TABLE public.instagram_conversations (
+    id bigint NOT NULL DEFAULT nextval('instagram_conversations_id_seq'::regclass),
+    organizacao_id bigint NOT NULL,
+    thread_id text NOT NULL,
+    instagram_account_id text NOT NULL,
+    participant_id text,
+    participant_name text,
+    participant_username text,
+    participant_profile_pic text,
+    snippet text,
+    unread_count integer DEFAULT 0,
+    last_message_at timestamp with time zone,
+    is_archived boolean DEFAULT false,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    instagram_conversation_id text
+);
+
+CREATE TABLE public.instagram_messages (
+    id bigint NOT NULL DEFAULT nextval('instagram_messages_id_seq'::regclass),
+    organizacao_id bigint NOT NULL,
+    conversation_id bigint NOT NULL,
+    message_id text NOT NULL,
+    from_id text,
+    from_name text,
+    content text,
+    message_type text DEFAULT 'text'::text,
+    direction text NOT NULL,
+    is_read boolean DEFAULT false,
+    sent_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now()
 );
 
 CREATE TABLE public.integracoes_google (
@@ -1055,7 +1105,8 @@ CREATE TABLE public.integracoes_meta (
     nome_conta text,
     meta_user_id text,
     status text DEFAULT 'inativo'::text,
-    page_access_token text
+    page_access_token text,
+    instagram_business_account_id text
 );
 
 CREATE TABLE public.jornada_detalhes (
@@ -1236,6 +1287,16 @@ CREATE TABLE public.meta_adsets (
     end_time timestamp with time zone,
     organizacao_id bigint NOT NULL,
     last_synced_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.meta_ativos (
+    id text NOT NULL,
+    organizacao_id bigint NOT NULL,
+    tipo text NOT NULL,
+    nome text NOT NULL,
+    empreendimento_id bigint,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
 );
 
 CREATE TABLE public.meta_campaigns (
@@ -1666,6 +1727,35 @@ CREATE TABLE public.subetapas (
     etapa_id bigint NOT NULL,
     created_at timestamp with time zone DEFAULT now(),
     organizacao_id bigint NOT NULL
+);
+
+CREATE TABLE public.sys_chat_broadcast_lists (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    organizacao_id bigint NOT NULL,
+    owner_id uuid NOT NULL,
+    nome text NOT NULL,
+    membros_ids ARRAY NOT NULL,
+    created_at timestamp with time zone DEFAULT timezone('utc'::text, now())
+);
+
+CREATE TABLE public.sys_chat_conversations (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    organizacao_id bigint NOT NULL,
+    created_at timestamp with time zone DEFAULT timezone('utc'::text, now())
+);
+
+CREATE TABLE public.sys_chat_messages (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    conversation_id uuid,
+    sender_id uuid NOT NULL,
+    conteudo text NOT NULL,
+    created_at timestamp with time zone DEFAULT timezone('utc'::text, now())
+);
+
+CREATE TABLE public.sys_chat_participants (
+    conversation_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    joined_at timestamp with time zone DEFAULT timezone('utc'::text, now())
 );
 
 CREATE TABLE public.tabelas_sistema (

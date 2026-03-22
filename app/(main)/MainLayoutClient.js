@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Sidebar from '@/components/shared/sidebar';
 import Header from '@/components/shared/Header';
+import FloatingChat from '@/components/chat/FloatingChat';
 import { LayoutProvider } from '../../contexts/LayoutContext';
 import { EmpreendimentoProvider, useEmpreendimento } from '../../contexts/EmpreendimentoContext';
 import { useAuth } from '../../contexts/AuthContext';
@@ -175,6 +176,7 @@ export default function MainLayoutClient({ children }) {
             <EmpreendimentoProvider>
                 <TermsUpdateEnforcer />
                 <MainLayoutContent>{children}</MainLayoutContent>
+                <FloatingChat />
             </EmpreendimentoProvider>
         </LayoutProvider>
     );
