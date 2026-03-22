@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faFileShield, faUsers, faBuilding, faGauge, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
+import { faFileShield, faUsers, faBuilding, faGauge, faArrowLeft, faBell } from '@fortawesome/free-solid-svg-icons';
 import { createClient } from '@/utils/supabase/client';
 import { useRouter } from 'next/navigation';
 
@@ -19,6 +19,7 @@ export default function AdminLayout({ children }) {
 
     const navigation = [
         { name: 'Dashboard', href: '/admin', icon: faGauge },
+        { name: 'Construtor de Notificações', href: '/admin/notificacoes', icon: faBell },
         { name: 'Políticas e Termos', href: '/admin/politicas', icon: faFileShield },
         { name: 'Organizações', href: '/admin/organizacoes', icon: faBuilding },
         { name: 'Usuários', href: '/admin/usuarios', icon: faUsers },

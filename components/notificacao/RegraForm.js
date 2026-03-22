@@ -233,21 +233,21 @@ export default function RegraForm({ initialData, tabelas, campos, funcoes, varia
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                                 <div className="space-y-1.5">
                                     <label className="block text-[10px] font-bold text-blue-600 uppercase tracking-wide">Módulo / Tabela do Banco</label>
-                                    <select required name="tabela_alvo" value={formData.tabela_alvo} onChange={handleChange} className="w-full px-4 py-3 bg-white border border-blue-200 rounded-xl text-sm font-medium text-gray-700 focus:ring-2 focus:ring-blue-500 outline-none transition-all shadow-sm">
-                                        <option value="">Selecione...</option>
-                                        {tabelas && tabelas.map(t => <option key={t.id} value={t.nome_tabela}>{t.nome_exibicao} ({t.modulo})</option>)}
-                                        <option value="activities">Atividades (Manual)</option>
-                                        <option value="whatsapp_messages">WhatsApp (Manual)</option>
-                                        <option value="produtos_empreendimento">Produtos (Manual)</option>
-                                        <option value="contratos">Contratos (Manual)</option>
+                                    <select required name="tabela_alvo" value={formData.tabela_alvo} onChange={handleChange} className="w-full px-4 py-3 bg-white border border-blue-200 rounded-xl text-sm font-bold text-gray-900 focus:ring-2 focus:ring-blue-500 outline-none transition-all shadow-sm">
+                                        <option value="" className="text-gray-900 bg-white font-bold">Selecione...</option>
+                                        {tabelas && tabelas.map(t => <option key={t.id} value={t.nome_tabela} className="text-gray-900 bg-white font-medium">{t.nome_exibicao} ({t.modulo})</option>)}
+                                        <option value="activities" className="text-gray-900 bg-white font-medium">Atividades (Manual)</option>
+                                        <option value="whatsapp_messages" className="text-gray-900 bg-white font-medium">WhatsApp (Manual)</option>
+                                        <option value="produtos_empreendimento" className="text-gray-900 bg-white font-medium">Produtos (Manual)</option>
+                                        <option value="contratos" className="text-gray-900 bg-white font-medium">Contratos (Manual)</option>
                                     </select>
                                 </div>
                                 <div className="space-y-1.5">
                                     <label className="block text-[10px] font-bold text-blue-600 uppercase tracking-wide">O que vai acontecer? (Evento)</label>
-                                    <select name="evento" value={formData.evento} onChange={handleChange} className="w-full px-4 py-3 bg-white border border-blue-200 rounded-xl text-sm font-medium text-gray-700 focus:ring-2 focus:ring-blue-500 outline-none transition-all shadow-sm">
-                                        <option value="INSERT">Sempre que Criar</option>
-                                        <option value="UPDATE">Sempre que Atualizar</option>
-                                        <option value="DELETE">Sempre que Excluir</option>
+                                    <select name="evento" value={formData.evento} onChange={handleChange} className="w-full px-4 py-3 bg-white border border-blue-200 rounded-xl text-sm font-bold text-gray-900 focus:ring-2 focus:ring-blue-500 outline-none transition-all shadow-sm">
+                                        <option value="INSERT" className="text-gray-900 bg-white font-medium">Sempre que Criar</option>
+                                        <option value="UPDATE" className="text-gray-900 bg-white font-medium">Sempre que Atualizar</option>
+                                        <option value="DELETE" className="text-gray-900 bg-white font-medium">Sempre que Excluir</option>
                                     </select>
                                 </div>
                             </div>
@@ -275,10 +275,10 @@ export default function RegraForm({ initialData, tabelas, campos, funcoes, varia
                                                 <select
                                                     value={cond.campo}
                                                     onChange={(e) => updateCondition(idx, 'campo', e.target.value)}
-                                                    className="w-full px-3 py-2 border border-blue-200 rounded-lg text-xs font-medium bg-white focus:ring-2 focus:ring-blue-400 outline-none shadow-sm transition-all"
+                                                    className="w-full px-3 py-2 border border-blue-200 rounded-lg text-xs font-bold text-gray-900 bg-white focus:ring-2 focus:ring-blue-400 outline-none shadow-sm transition-all"
                                                 >
-                                                    <option value="">Selecione o Campo...</option>
-                                                    {todasVariaveis.filter(v => v.tipo === 'coluna').map(c => <option key={c.id} value={c.nome}>{c.nome}</option>)}
+                                                    <option value="" className="text-gray-900 bg-white font-bold">Selecione o Campo...</option>
+                                                    {todasVariaveis.filter(v => v.tipo === 'coluna').map(c => <option key={c.id} value={c.nome} className="text-gray-900 bg-white font-medium">{c.nome}</option>)}
                                                 </select>
                                             </div>
 
@@ -287,9 +287,9 @@ export default function RegraForm({ initialData, tabelas, campos, funcoes, varia
                                                 <select
                                                     value={cond.operador}
                                                     onChange={(e) => updateCondition(idx, 'operador', e.target.value)}
-                                                    className="w-full px-3 py-2 border border-blue-200 rounded-lg text-xs font-bold bg-blue-50 text-blue-700 text-center focus:ring-2 focus:ring-blue-400 outline-none shadow-sm transition-all"
+                                                    className="w-full px-3 py-2 border border-blue-200 rounded-lg text-xs font-bold bg-blue-50 text-blue-800 text-center focus:ring-2 focus:ring-blue-400 outline-none shadow-sm transition-all"
                                                 >
-                                                    {OPERADORES.map(op => <option key={op.value} value={op.value}>{op.label}</option>)}
+                                                    {OPERADORES.map(op => <option key={op.value} value={op.value} className="text-gray-900 bg-white font-medium">{op.label}</option>)}
                                                 </select>
                                             </div>
 

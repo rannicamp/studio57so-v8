@@ -7,7 +7,8 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { 
   faBuilding, faCheck, faCheckCircle, faCog, faMobileAlt, faSave, faSpinner,
-  faBell, faUserShield, faToggleOn, faToggleOff, faDesktop, faUsers
+  faBell, faUserShield, faToggleOn, faToggleOff, faDesktop, faUsers,
+  faChevronDown, faChevronUp
 } from '@fortawesome/free-solid-svg-icons';
 import { renderIcon } from './constants';
 
@@ -23,42 +24,116 @@ const mapTabela = {
   'agendamentos': 'Agendamentos'
 };
 
-const getDescricaoHumana = (template) => {
-   const tabela = mapTabela[template.tabela_alvo] || template.tabela_alvo.replace(/_/g, ' ');
+const getDescricaoHumana = (template, catTabelas = []) => {
+   const tbInfo = catTabelas.find(tb => tb.nome_tabela === template.tabela_alvo);
+   const tabela = tbInfo?.nome_exibicao || mapTabela[template.tabela_alvo] || template.tabela_alvo.replace(/_/g, ' ');
+   
    let acao = "sofrer alteração";
    if (template.evento === 'INSERT') acao = "adicionado(a) ao sistema";
    if (template.evento === 'UPDATE') acao = "modificado(a)";
    if (template.evento === 'DELETE') acao = "excluído(a)";
    
-   return `Notifica imediatamente a equipe quando um registro em ${tabela} for ${acao}.`;
+   return `Notifica a equipe quando registro em ${tabela} for ${acao}.`;
 };
 
-// Mini-componente de Toggle estilo iOS
+// ToggleSwitch Minimalista
 const ToggleSwitch = ({ label, active, onChange, icon, disabled = false }) => (
   <div 
-    className={`flex items-center justify-between p-3.5 border rounded-2xl transition-all select-none ${disabled ? 'opacity-50 cursor-not-allowed bg-gray-50' : 'cursor-pointer bg-white hover:border-orange-300 hover:shadow-sm'}`} 
+    className={`flex items-center justify-between py-2.5 px-3 border rounded-xl transition-all select-none min-w-[110px] sm:min-w-[130px] ${disabled ? 'opacity-50 cursor-not-allowed bg-gray-50' : 'cursor-pointer bg-white hover:border-orange-300 hover:shadow-sm'}`} 
     onClick={() => !disabled && !!onChange && onChange()}
   >
-     <div className="flex items-center gap-3">
-        {icon && <div className={`w-8 h-8 rounded-full flex items-center justify-center ${active ? 'bg-orange-100 text-orange-600' : 'bg-gray-100 text-gray-400'}`}><FontAwesomeIcon icon={icon} /></div>}
-        <span className={`text-sm font-bold ${active ? 'text-gray-900' : 'text-gray-500'}`}>{label}</span>
+     <div className="flex items-center gap-2">
+        {icon && <FontAwesomeIcon icon={icon} className={`${active ? 'text-orange-500' : 'text-gray-400'}`} />}
+        <span className={`text-xs font-bold ${active ? 'text-gray-900' : 'text-gray-500'}`}>{label}</span>
      </div>
-     <div className={`w-12 h-6 rounded-full transition-colors relative flex items-center shrink-0 ${active ? 'bg-orange-500' : 'bg-gray-200'}`}>
-        <div className={`w-5 h-5 bg-white rounded-full shadow bg-blend-lighten absolute transition-transform ${active ? 'translate-x-6' : 'translate-x-1'}`}></div>
+     <div className={`w-10 h-5 rounded-full transition-colors relative flex items-center shrink-0 ml-3 ${active ? 'bg-orange-500' : 'bg-gray-200'}`}>
+        <div className={`w-4 h-4 bg-white rounded-full shadow absolute transition-transform ${active ? 'translate-x-[22px]' : 'translate-x-1'}`}></div>
      </div>
   </div>
 );
 
-function urlBase64ToUint8Array(base64String) {
-  const padding = '='.repeat((4 - base64String.length % 4) % 4);
-  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-  const rawData = window.atob(base64);
-  const outputArray = new Uint8Array(rawData.length);
-  for (let i = 0; i < rawData.length; ++i) {
-    outputArray[i] = rawData.charCodeAt(i);
-  }
-  return outputArray;
-}
+// Componente do Card Expansível
+const NotificationRow = ({ template, catTabelas, conf, funcoes, onToggleActive, onTogglePush, onSelectRole }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const isAtivo = conf?.is_active || false;
+  const pushAtivo = conf?.enviar_push || false;
+  const fIds = conf?.funcoes_ids || [];
+
+  return (
+    <div className={`rounded-2xl transition-all border overflow-hidden ${isAtivo ? 'bg-white border-gray-200 hover:border-orange-300 shadow-sm' : 'bg-gray-50 border-gray-100 opacity-90'}`}>
+      {/* HEADER (Always visible) */}
+      <div className="flex flex-col xl:flex-row p-4 sm:p-5 gap-4 items-start xl:items-center justify-between">
+         <div className="flex items-center gap-4 flex-1 cursor-pointer w-full" onClick={() => setIsExpanded(!isExpanded)}>
+            <div className={`w-12 h-12 flex shrink-0 items-center justify-center rounded-xl text-xl shadow-sm ${isAtivo ? 'bg-gradient-to-br from-orange-400 to-orange-500 text-white' : 'bg-gray-200 text-gray-400'}`}>
+               {renderIcon(template.icone)}
+            </div>
+            <div className="flex-1 pr-4">
+               <h4 className={`font-bold text-base sm:text-lg ${isAtivo ? 'text-gray-900' : 'text-gray-500'}`}>
+                 {template.nome_regra}
+               </h4>
+               <p className="text-xs sm:text-sm font-medium text-gray-500 mt-0.5 max-w-2xl line-clamp-2 xl:line-clamp-1">
+                 {getDescricaoHumana(template, catTabelas)}
+               </p>
+            </div>
+         </div>
+         
+         {/* Toggles and Expand Button */}
+         <div className="flex items-center gap-2 sm:gap-3 w-full xl:w-auto mt-2 xl:mt-0 pt-3 xl:pt-0 border-t xl:border-0 border-gray-100 xl:justify-end">
+            <ToggleSwitch 
+              label="Web" 
+              active={isAtivo} 
+              onChange={() => onToggleActive(template.id)} 
+            />
+            <ToggleSwitch 
+              label="Mobile" 
+              active={pushAtivo && isAtivo} 
+              disabled={!isAtivo}
+              onChange={() => onTogglePush(template.id)} 
+            />
+            <button 
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="w-10 h-10 rounded-full bg-gray-50 hover:bg-gray-100 text-gray-600 flex items-center justify-center transition-colors border border-gray-200 ml-auto xl:ml-2 shrink-0"
+              title="Configurar Cargos"
+            >
+              <FontAwesomeIcon icon={isExpanded ? faChevronUp : faChevronDown} />
+            </button>
+         </div>
+      </div>
+
+      {/* EXPANDABLE BODY */}
+      {isExpanded && (
+        <div className={`bg-gray-50/50 p-4 sm:p-5 border-t border-gray-100 transition-all duration-300 ${isAtivo ? 'opacity-100' : 'opacity-40 grayscale pointer-events-none'}`}>
+          <h5 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
+            <FontAwesomeIcon icon={faUsers} className="text-orange-500" />
+            Cargos Notificados <span className="text-xs font-normal text-gray-400 ml-1 hidden sm:inline">(Quem recebe os alertas)</span>
+          </h5>
+          <div className="flex flex-wrap gap-2">
+             {template.enviar_para_dono && (
+                <div className="px-3 py-1.5 border border-orange-200 bg-orange-50 text-orange-700 rounded-lg text-xs font-bold flex items-center gap-2 cursor-help" title="Configuração fixa: Autor da ação é sempre notificado.">
+                    <FontAwesomeIcon icon={faCheckCircle} /> Agente Autor
+                </div>
+             )}
+             {funcoes.map(funcao => {
+                const selected = fIds.includes(funcao.id);
+                return (
+                  <button 
+                     key={funcao.id}
+                     onClick={() => onSelectRole(template.id, funcao.id)}
+                     className={`px-3 py-1.5 border rounded-lg text-xs font-bold transition-all
+                       ${selected 
+                         ? 'bg-gradient-to-r from-orange-400 to-orange-500 text-white border-orange-500 shadow-sm' 
+                         : 'bg-white text-gray-600 border-gray-200 hover:border-orange-300 hover:bg-orange-50'}`}
+                  >
+                     {funcao.nome_funcao}
+                  </button>
+                );
+             })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 export default function ConfiguracaoNotificacoes() {
   const supabase = createClient();
@@ -120,6 +195,15 @@ export default function ConfiguracaoNotificacoes() {
     queryKey: ['funcoes_org'],
     queryFn: async () => {
       const { data, error } = await supabase.from('funcoes').select('*').order('nome_funcao');
+      if (error) throw error;
+      return data;
+    }
+  });
+
+  const { data: catTabelas = [] } = useQuery({
+    queryKey: ['tabelas_sistema_catalogo'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('tabelas_sistema').select('nome_tabela, nome_exibicao, modulo').eq('ativo', true);
       if (error) throw error;
       return data;
     }
@@ -311,10 +395,10 @@ export default function ConfiguracaoNotificacoes() {
                   <div className="w-12 h-12 bg-orange-100 text-orange-600 flex items-center justify-center rounded-2xl">
                     <FontAwesomeIcon icon={faBuilding} className="text-xl" />
                   </div>
-                  Regras da Empresa
+                  Regras de Alerta
                 </h3>
                 <p className="text-sm font-medium text-gray-500 mt-2">
-                  Ligue os avisos que você deseja ativar na sua operação e selecione quem deve recebê-los.
+                  Ative os alertas desejados na sua operação e selecione a equipe que deve recebê-los.
                 </p>
              </div>
              <div className="text-xs font-bold text-orange-600 uppercase tracking-widest bg-orange-50 px-3 py-1.5 rounded-lg border border-orange-100 shadow-sm">
@@ -322,7 +406,7 @@ export default function ConfiguracaoNotificacoes() {
              </div>
           </div>
 
-          <div className="p-4 sm:p-8 space-y-6">
+          <div className="p-4 sm:p-8 space-y-6 bg-white">
             {loadingTemplates || loadingConfigs ? (
                <div className="py-20 flex flex-col items-center justify-center text-gray-400">
                   <FontAwesomeIcon icon={faSpinner} spin className="text-4xl mb-4 text-orange-500" />
@@ -333,92 +417,39 @@ export default function ConfiguracaoNotificacoes() {
                   <p className="text-gray-500 font-medium">Nenhuma notificação foi disponibilizada pela equipe Elo 57 para a rede ainda.</p>
                </div>
             ) : (
-               <div className="grid gap-8">
-                 {templates.map(template => {
-                    const conf = getTemplateConfig(template.id);
-                    const isAtivo = conf?.is_active || false;
-                    const pushAtivo = conf?.enviar_push || false;
-                    const fIds = conf?.funcoes_ids || [];
-
-                    return (
-                        <div key={template.id} className={`rounded-3xl p-5 sm:p-7 transition-all border ${isAtivo ? 'bg-white border-orange-200 shadow-md shadow-orange-500/5' : 'bg-gray-50 border-gray-100 opacity-90'}`}>
-                           
-                           {/* 1. TOPO: Identidade e Toggles */}
-                           <div className="flex flex-col lg:flex-row gap-8 lg:items-center justify-between border-b border-gray-100 pb-6 mb-6">
-                              <div className="flex items-center gap-4 flex-1">
-                                 <div className={`w-14 h-14 flex shrink-0 items-center justify-center rounded-2xl text-2xl shadow-sm ${isAtivo ? 'bg-gradient-to-br from-orange-400 to-orange-500 text-white' : 'bg-gray-200 text-gray-400'}`}>
-                                    {renderIcon(template.icone)}
-                                 </div>
-                                 <div>
-                                    <h4 className={`font-extrabold text-lg sm:text-xl ${isAtivo ? 'text-gray-900' : 'text-gray-500'}`}>
-                                      {template.nome_regra}
-                                    </h4>
-                                    <p className="text-sm font-medium text-gray-500 mt-1 leading-snug">
-                                      {getDescricaoHumana(template)}
-                                    </p>
-                                 </div>
-                              </div>
-
-                              <div className="flex flex-col sm:flex-row gap-3 min-w-[320px]">
-                                 <div className="flex-1">
-                                    <ToggleSwitch 
-                                      label="Sistema (Web)" 
-                                      icon={faDesktop} 
-                                      active={isAtivo} 
-                                      onChange={() => handleToggleActive(template.id)} 
-                                    />
-                                 </div>
-                                 <div className="flex-1">
-                                    <ToggleSwitch 
-                                      label="Aplicativo (Celular)" 
-                                      icon={faMobileAlt} 
-                                      active={pushAtivo && isAtivo} 
-                                      disabled={!isAtivo}
-                                      onChange={() => handleTogglePush(template.id)} 
-                                    />
-                                 </div>
-                              </div>
-                           </div>
-
-                           {/* 2. BASE: Roteamento / Equipe (Somente ativo se isAtivo = true) */}
-                           <div className={`transition-all duration-300 ${isAtivo ? 'opacity-100' : 'opacity-40 grayscale pointer-events-none'}`}>
-                              <h5 className="text-sm font-bold text-gray-800 mb-4 flex items-center gap-2">
-                                <FontAwesomeIcon icon={faUsers} className="text-orange-500" />
-                                Para quem iremos enviar? <span className="text-xs font-normal text-gray-400 ml-1">(Marque os cargos que receberão)</span>
-                              </h5>
-                              
-                              <div className="flex flex-wrap gap-2.5">
-                                 {/* O Dono não pode remover se a regra master disser que ele recebe */}
-                                 {template.enviar_para_dono && (
-                                    <div className="px-4 py-2 border-2 border-orange-200 bg-orange-50 text-orange-700 rounded-xl text-xs font-bold flex items-center gap-2 cursor-help" title="Configuração fixa da Matriz: Quem executou a ação sempre será notificado/acompanhado.">
-                                        <FontAwesomeIcon icon={faCheckCircle} /> Agente Autor
-                                    </div>
-                                 )}
-                                 
-                                 {/* Grid de Funções (Cargos) da Organização Atual */}
-                                 {funcoes.map(funcao => {
-                                    const selected = fIds.includes(funcao.id);
-                                    return (
-                                      <button 
-                                         key={funcao.id}
-                                         onClick={() => handleSelectRole(template.id, funcao.id)}
-                                         className={`px-4 py-2 border-2 rounded-xl text-xs font-bold transition-all
-                                           ${selected 
-                                             ? 'bg-orange-500 text-white border-orange-500 shadow-sm' 
-                                             : 'bg-white text-gray-500 border-gray-100 hover:border-orange-200 hover:bg-orange-50'}`}
-                                      >
-                                         {funcao.nome_funcao}
-                                      </button>
-                                    );
-                                 })}
-                              </div>
-                           </div>
-
+               <div className="space-y-10">
+                 {Object.entries(
+                    templates.reduce((acc, template) => {
+                        const tbInfo = catTabelas.find(tb => tb.nome_tabela === template.tabela_alvo);
+                        const moduloNome = tbInfo?.modulo || 'Outros Módulos';
+                        
+                        if (!acc[moduloNome]) acc[moduloNome] = [];
+                        acc[moduloNome].push(template);
+                        return acc;
+                    }, {})
+                 ).map(([modulo, grupoTemplates]) => (
+                    <div key={modulo} className="space-y-4">
+                        <div className="flex items-center gap-3 pb-2 border-b border-gray-100">
+                            <h2 className="text-lg font-black text-gray-700 tracking-tight uppercase">{modulo}</h2>
                         </div>
-                    );
-                 })}
+                        <div className="grid gap-3">
+                            {grupoTemplates.map(template => (
+                                <NotificationRow 
+                                  key={template.id}
+                                  template={template}
+                                  catTabelas={catTabelas}
+                                  conf={getTemplateConfig(template.id)}
+                                  funcoes={funcoes}
+                                  onToggleActive={handleToggleActive}
+                                  onTogglePush={handleTogglePush}
+                                  onSelectRole={handleSelectRole}
+                                />
+                            ))}
+                        </div>
+                    </div>
+                 ))}
                </div>
-            )}
+             )}
           </div>
         </div>
       )}
