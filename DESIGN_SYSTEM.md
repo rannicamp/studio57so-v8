@@ -22,6 +22,7 @@ A paleta base foca em:
 2. **Cores estritas:** Nenhum Roxo, Índigo ou Teal como cor primária de fundo ou header. Use Azul.
 3. **Sombreamento:** Nenhum `shadow-lg` ou `shadow-2xl` em cards simples. Use apenas `shadow-sm` natural e seco.
 4. **Menus de Listagem:** Telas compostas apenas por `Cards` (Ex: Configurações) devem seguir o design limpo: Fundo cinza claro, card branco, ícone sutil de cor sólida.
+5. **Estilo Minimalista Máximo:** Extratos bancários podem usar sidebar mestre-detalhe, mas novos módulos de leitura (fóruns, recados, manuais) **DEVEM usar Grid de Cards limpos**. Ao clicar, centralize o conteúdo de forma limpa, não esprema textos do lado de navegações pesadas. Inspire-se no *Mural de Recados* ou *Configurações*.
 
 ---
 

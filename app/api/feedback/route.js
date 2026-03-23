@@ -4,19 +4,22 @@ import { NextResponse } from 'next/server';
 export async function POST(request) {
     const supabase = await createClient();
     try {
-        const { usuario_id, pagina, descricao } = await request.json();
+        const { usuario_id, organizacao_id, pagina, descricao, link_opcional, imagem_url } = await request.json();
 
-        if (!usuario_id || !descricao) {
-            return NextResponse.json({ error: 'Descrição e ID do usuário são obrigatórios.' }, { status: 400 });
+        if (!usuario_id || !descricao || !organizacao_id) {
+            return NextResponse.json({ error: 'Faltam dados obrigatórios (usuário, organização ou descrição).' }, { status: 400 });
         }
 
         const { data, error } = await supabase
             .from('feedback')
             .insert({
                 usuario_id,
+                organizacao_id,
                 pagina,
                 descricao,
-                status: 'Aberto'
+                link_opcional: link_opcional || null,
+                imagem_url: imagem_url || null,
+                status: 'Novo'
             })
             .select();
 

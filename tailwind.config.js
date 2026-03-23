@@ -9,12 +9,12 @@ module.exports = {
     extend: {
       colors: {
         'primary': '#45301f',
-        // Hack Elo 57: Sobrescrevemos a classe 'blue' com tons de laranja
+        // Hack Elo 57: Sobrescrevemos a classe 'blue' (que antes era Laranja) para PRETO a pedido de teste.
         // Isso muda a cor de todos os botões do sistema de uma vez sem precisar editar 100 arquivos.
         blue: {
-          500: '#ff8533', // Laranja claro (para anéis de foco)
-          600: '#ff6700', // Laranja Principal (Elo 57)
-          700: '#cc5200', // Laranja Escuro (Hover nos botões)
+          500: '#404040', // Cinza escuro (para anéis de foco)
+          600: '#000000', // Preto Principal Absoluto
+          700: '#1f1f1f', // Preto Opaco (Hover nos botões)
         },
         gray: {
           // 👇 AQUI ESTÁ A MÁGICA! 

@@ -17,7 +17,8 @@ import {
     faRobot,
     faShieldAlt,
     faUserTie,
-    faBell
+    faBell,
+    faBookReader
 } from '@fortawesome/free-solid-svg-icons';
 
 const ConfigCard = ({ href, icon, title, description, color = "bg-blue-50 text-blue-600" }) => (
@@ -127,6 +128,13 @@ export default function ConfiguracoesPage() {
             icon: faTools,
             href: '/configuracoes/integracoes',
             color: 'bg-gray-50 text-gray-600'
+        },
+        {
+            title: 'Manuais e Tutoriais',
+            description: 'Aprenda a utilizar os recursos do sistema com nossos guias práticos.',
+            icon: faBookReader,
+            href: '/configuracoes/tutoriais',
+            color: 'bg-rose-50 text-rose-600'
         }
     ];
 

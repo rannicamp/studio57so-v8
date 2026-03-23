@@ -20,6 +20,7 @@ import CotacoesBar from './CotacoesBar';
 
 // CORREÇÃO: Caminho absoluto para o componente de notificação que está em outra pasta
 import NotificationBell from '@/components/notificacao/NotificationBell'; 
+import FeedbackModal from '@/components/feedback/FeedbackModal';
 
 export default function Header({ headerPositionClass, toggleSidebar }) {
     const router = useRouter();
@@ -115,6 +116,7 @@ export default function Header({ headerPositionClass, toggleSidebar }) {
 
                     {/* GRUPO DE ÍCONES (Sino e Usuário) */}
                     <div className="flex items-center gap-2 md:gap-5 flex-shrink-0">
+                        <FeedbackModal />
                         <NotificationBell />
 
                         {userName && (
