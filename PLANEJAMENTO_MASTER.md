@@ -281,6 +281,15 @@ O **Studio 57** é o ambiente de desenvolvimento e laboratório central. O **Elo
 
 ---
 
+- *2026-03-23:* **📄 Gerador Dinâmico de Contratos e Otimização PDF:**
+    - **Conversor Inteligente:** Adicionada rotina de conversão nativa de um `Termo de Interesse` para `Contrato` em tempo real na aba de Ficha, mantendo as reservas da unidade do cliente.
+    - **Painel de Variáveis Contratuais:** Parâmetros Avançados injetados na Ficha de Venda (Índices INCC/IPCA, Periodicidade, Multa, Juros de Mora, Cláusula Penal), salvos e consumidos diretamente do Banco de Dados para auto-preenchimento do Documento.
+    - **Compressão Extrema `@media print`:** O layout do PDF do Quadro Resumo foi enxugado com precisão cirúrgica no Tailwind. Margens, bordas extras e paddings foram extirpados na renderização de impressão.
+    - **Limpeza Front-End de Componentes Inúteis:** Remoção total (do DB ao HTML) das cláusulas cruas 9, 10 e 11 do Quadro Resumo (apenas apontavam para as cláusulas), alcançando a marca impecável de apenas 2 páginas.
+    - **Fidelidade e Restauração de Minuta Histórica:** A redação rebuscada que o sistema sugeriu e poluiu visualmente as obrigações foi completamente revertida e alinhada com as minutas em Word idênticas aprovadas pelos Cartórios locais do cliente.
+
+---
+
 ### 12. Gestão de Custos BIM (Autodesk API) - *A FAZER*
 - [ ] **Diagnóstico:** A Autodesk cobra via "Flex Tokens" (aprox. U$ 4.50 ou R$ 25,00 por tradução de arquivo complexo como `.rvt` ou `.ifc`). O Studio 57 precisa repassar ou amortizar este custo.
 - [ ] **Sistema de Créditos:** Criar tabela `carteira_bim` no banco de dados.
