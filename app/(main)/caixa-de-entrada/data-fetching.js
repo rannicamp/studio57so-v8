@@ -53,9 +53,12 @@ export const getConversations = async (supabase, organizacaoId) => {
                 nomeEtapa = dadosFunil?.coluna?.nome;
             }
 
-            // --- 2. LÓGICA DO CRONÔMETRO ---
+            // --- 2. LÓGICA DO CRONÔMETRO (TICKET #58) ---
+            // Usa customer_window_start_at (atualizado APENAS quando o cliente envia mensagem)
+            // Fallback para cálculo via join de mensagens recentes (para conversas migradas sem o campo)
             const lastInboundMsg = conv.recent_msgs?.find(m => m.direction === 'inbound');
-            const lastInboundAt = lastInboundMsg ? lastInboundMsg.sent_at : null;
+            const lastInboundAt = conv.customer_window_start_at 
+                || (lastInboundMsg ? lastInboundMsg.sent_at : null);
 
             return {
                 conversation_id: conv.id,
@@ -74,7 +77,7 @@ export const getConversations = async (supabase, organizacaoId) => {
                 tipo_contato: conv.contatos?.tipo_contato,
                 etapa_funil: nomeEtapa,
                 
-                // Dado Novo
+                // Cronômetro de Janela (fonte confiável: campo exclusivo de mensagens inbound)
                 last_inbound_at: lastInboundAt
             };
         });

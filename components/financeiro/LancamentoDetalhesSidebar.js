@@ -85,7 +85,7 @@ const FilePreviewPanel = ({ fileUrl, fileName, fileType, onClose }) => {
 
     return (
         <div
-            className="fixed top-0 right-[500px] h-full bg-gray-900 shadow-2xl z-40 flex flex-col border-r border-gray-700 transform transition-all duration-300 ease-in-out w-full md:w-[calc(100%-500px)] lg:w-[800px]"
+            className="fixed top-0 right-[500px] h-full bg-gray-900 shadow-2xl z-[110] flex flex-col border-r border-gray-700 transform transition-all duration-300 ease-in-out w-full md:w-[calc(100%-500px)] lg:w-[800px]"
         >
             <div className="flex justify-between items-center p-3 bg-gray-800 text-white border-b border-gray-700 shadow-md">
                 <h3 className="text-sm font-semibold truncate flex items-center gap-2">

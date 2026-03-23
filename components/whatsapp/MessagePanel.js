@@ -6,7 +6,8 @@ import { getMessages } from '@/app/(main)/caixa-de-entrada/data-fetching';
 import { useAuth } from '@/contexts/AuthContext';
 import { createClient } from '@/utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner, faUserCircle, faCloudUploadAlt, faTimes } from '@fortawesome/free-solid-svg-icons';
+import { faSpinner, faUserCircle, faCloudUploadAlt, faTimes, faChevronDown } from '@fortawesome/free-solid-svg-icons';
+import ContactProfile from '@/components/whatsapp/ContactProfile';
 import { toast } from 'sonner';
 
 // Imports
@@ -62,6 +63,8 @@ export default function MessagePanel({ contact, onBack }) {
     const [isUploaderOpen, setIsUploaderOpen] = useState(false);
     const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
     const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
+    // Ticket #52: Perfil do contato em mobile
+    const [isProfileOpen, setIsProfileOpen] = useState(false);
 
     // Estado de Contato
     const [recipientPhone, setRecipientPhone] = useState(null);
@@ -342,8 +345,41 @@ export default function MessagePanel({ contact, onBack }) {
                 </div>
             )}
 
+            {/* --- BOTTOM SHEET: PERFIL DO CONTATO (MOBILE/TABLET) --- */}
+            {isProfileOpen && (
+                <>
+                    {/* Overlay escurecido ao fundo */}
+                    <div
+                        className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm lg:hidden animate-in fade-in duration-200"
+                        onClick={() => setIsProfileOpen(false)}
+                    />
+                    {/* Drawer deslizando de baixo */}
+                    <div className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-2xl shadow-2xl lg:hidden flex flex-col max-h-[85svh] animate-in slide-in-from-bottom duration-300">
+                        {/* Handle + Header */}
+                        <div className="flex items-center justify-between px-4 py-3 border-b bg-[#f0f2f5] rounded-t-2xl shrink-0">
+                            <h2 className="text-base font-bold text-gray-700">Dados do Contato</h2>
+                            <button
+                                onClick={() => setIsProfileOpen(false)}
+                                className="text-gray-400 hover:text-gray-600 p-2 rounded-full hover:bg-black/5 transition-colors"
+                            >
+                                <FontAwesomeIcon icon={faChevronDown} className="text-lg" />
+                            </button>
+                        </div>
+                        {/* Conteúdo rolável */}
+                        <div className="overflow-y-auto flex-grow">
+                            <ContactProfile contact={contact} />
+                        </div>
+                    </div>
+                </>
+            )}
+
             <div className="flex flex-col h-full bg-[#efeae2] relative pt-[64px] md:pt-0">
-                <ChatHeader contact={contact} recipientPhone={recipientPhone} onBack={onBack} />
+                <ChatHeader
+                    contact={contact}
+                    recipientPhone={recipientPhone}
+                    onBack={onBack}
+                    onToggleProfile={() => setIsProfileOpen(prev => !prev)}
+                />
 
                 <MessageList messages={messages} onMediaClick={handleMediaClick} />
 

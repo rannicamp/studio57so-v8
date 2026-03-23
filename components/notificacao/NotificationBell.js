@@ -112,7 +112,7 @@ export default function NotificationBell() {
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-3 w-96 bg-white rounded-2xl shadow-xl border border-gray-100 z-50 overflow-hidden ring-1 ring-black/5 transform origin-top-right transition-all animate-in fade-in zoom-in-95 duration-200">
+        <div className="fixed top-16 left-4 right-4 sm:absolute sm:inset-auto sm:right-0 sm:top-auto sm:mt-3 sm:w-96 bg-white rounded-2xl shadow-xl border border-gray-100 z-50 overflow-hidden ring-1 ring-black/5 transform origin-top-right transition-all animate-in fade-in zoom-in-95 duration-200">
           
           <div className="px-5 py-4 border-b border-gray-50 flex justify-between items-center bg-white">
             <h3 className="font-bold text-gray-800 text-base">Notificações</h3>
@@ -126,7 +126,7 @@ export default function NotificationBell() {
             )}
           </div>
 
-          <div className="max-h-[420px] overflow-y-auto custom-scrollbar">
+          <div className="max-h-[60svh] sm:max-h-[420px] overflow-y-auto custom-scrollbar">
             {isLoading ? (
               <div className="p-8 text-center text-gray-400 text-sm">Carregando...</div>
             ) : notificacoes.length === 0 ? (

@@ -1,5 +1,7 @@
 'use client'
 
+export const dynamic = 'force-dynamic';
+
 import { useState, useEffect } from 'react';
 import WhatsAppInbox from '@/components/whatsapp/WhatsAppInbox';
 import EmailInbox from '@/components/email/EmailInbox';
@@ -11,16 +13,16 @@ const INBOX_NAV_STATE_KEY = 'inboxNavState';
 export default function CaixaDeEntrada() {
     const { hasPermission, loading } = useAuth();
     const canViewWhatsapp = hasPermission('caixa_de_entrada', 'pode_ver');
-    const [activeTab, setActiveTab] = useState('email');
+    // Começa como null para evitar mismatch de hidratação server/client no Next.js
+    const [activeTab, setActiveTab] = useState(null);
 
     useEffect(() => {
-        if (typeof window !== 'undefined' && !loading) {
-            const cached = localStorage.getItem(INBOX_NAV_STATE_KEY);
-            if (canViewWhatsapp) {
-                setActiveTab(cached || 'whatsapp');
-            } else {
-                setActiveTab('email');
-            }
+        if (typeof window === 'undefined' || loading) return;
+        const cached = localStorage.getItem(INBOX_NAV_STATE_KEY);
+        if (canViewWhatsapp) {
+            setActiveTab(cached || 'whatsapp');
+        } else {
+            setActiveTab('email');
         }
     }, [canViewWhatsapp, loading]);
 
@@ -31,8 +33,8 @@ export default function CaixaDeEntrada() {
         }
     };
 
-    if (loading) {
-        return <div className="flex h-full items-center justify-center bg-gray-100 text-gray-500">Carregando permissões...</div>;
+    if (loading || activeTab === null) {
+        return <div className="flex h-full items-center justify-center bg-gray-100 text-gray-500">Carregando...</div>;
     }
 
     return (

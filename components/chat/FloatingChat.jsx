@@ -18,59 +18,67 @@ export default function FloatingChat() {
     const [activeView, setActiveView] = useState('list'); // 'list', 'room', ou 'memo_create'
     const [activeRoomUser, setActiveRoomUser] = useState(null);
     
-    // Lógica para Botão Arrastável
+    // Lógica para Botão Arrastável — Ticket #51
+    // Usa refs em vez de estado para evitar closure stale nos event listeners
     const [position, setPosition] = useState({ right: 24, bottom: 24 });
     const [isDragging, setIsDragging] = useState(false);
     const dragRef = useRef(null);
-    const startPos = useRef({ x: 0, y: 0 });
+    const startPos = useRef({ x: 0, y: 0, startRight: 24, startBottom: 24 });
+    const isDraggingRef = useRef(false);   // ref síncrona para os listeners
+    const hasMoved = useRef(false);        // distingue click de drag
+    const MOVE_THRESHOLD = 6;             // pixels mínimos para considerar drag
 
     const handlePointerDown = (e) => {
-        if (isOpen) return; 
         e.preventDefault();
+        isDraggingRef.current = true;
+        hasMoved.current = false;
         setIsDragging(true);
-        startPos.current = { 
-            x: e.clientX, 
+        startPos.current = {
+            x: e.clientX,
             y: e.clientY,
             startRight: position.right,
-            startBottom: position.bottom
+            startBottom: position.bottom,
         };
+        window.addEventListener('pointermove', handlePointerMove, { passive: false });
+        window.addEventListener('pointerup', handlePointerUp);
     };
 
     const handlePointerMove = (e) => {
-        if (!isDragging) return;
+        if (!isDraggingRef.current) return;
+        e.preventDefault();
         const dx = startPos.current.x - e.clientX;
         const dy = startPos.current.y - e.clientY;
-        
+
+        // Só ativa modo drag se passou do threshold (evita micro-tremidos)
+        if (!hasMoved.current && Math.abs(dx) < MOVE_THRESHOLD && Math.abs(dy) < MOVE_THRESHOLD) return;
+        hasMoved.current = true;
+
         let newRight = startPos.current.startRight + dx;
         let newBottom = startPos.current.startBottom + dy;
-        
-        // Boundaries basicas para nao sumir da tela
-        if (newRight < 0) newRight = 0;
-        if (newBottom < 0) newBottom = 0;
-        if (newRight > window.innerWidth - 60) newRight = window.innerWidth - 60;
-        if (newBottom > window.innerHeight - 60) newBottom = window.innerHeight - 60;
+
+        if (newRight < 8) newRight = 8;
+        if (newBottom < 8) newBottom = 8;
+        if (newRight > window.innerWidth - 64) newRight = window.innerWidth - 64;
+        if (newBottom > window.innerHeight - 64) newBottom = window.innerHeight - 64;
 
         setPosition({ right: newRight, bottom: newBottom });
     };
 
     const handlePointerUp = () => {
+        isDraggingRef.current = false;
         setIsDragging(false);
+        window.removeEventListener('pointermove', handlePointerMove);
+        window.removeEventListener('pointerup', handlePointerUp);
+        // hasMoved.current permanece como está — o onClick vai lê-lo logo em seguida
     };
 
+    // Cleanup em desmontagem
     useEffect(() => {
-        if (isDragging) {
-            window.addEventListener('pointermove', handlePointerMove);
-            window.addEventListener('pointerup', handlePointerUp);
-        } else {
-            window.removeEventListener('pointermove', handlePointerMove);
-            window.removeEventListener('pointerup', handlePointerUp);
-        }
-        // Cleanup em desmontagem
         return () => {
             window.removeEventListener('pointermove', handlePointerMove);
             window.removeEventListener('pointerup', handlePointerUp);
         };
-    }, [isDragging]);
+    }, []);
 
     const isCorretor = user?.funcoes?.nome_funcao?.toLowerCase().includes('corretor');
 
@@ -91,14 +99,15 @@ export default function FloatingChat() {
             }}
         >
             {!isOpen ? (
-                <div 
+            <div 
                     ref={dragRef}
                     onPointerDown={handlePointerDown}
                     onClick={() => {
-                        // So abre a caixa se nao foi um movimento de arrastar solto
-                        if (!isDragging) setIsOpen(true);
+                        // Só abre se foi um clique simples (sem arrastar)
+                        if (!hasMoved.current) setIsOpen(true);
                     }}
-                    className={`w-14 h-14 bg-gradient-to-r from-gray-900 to-black text-white rounded-full flex items-center justify-center shadow-2xl hover:scale-105 ${isDragging ? 'cursor-grabbing scale-105' : 'cursor-grab'}`}
+                    style={{ touchAction: 'none' }}
+                    className={`w-14 h-14 bg-gradient-to-r from-gray-900 to-black text-white rounded-full flex items-center justify-center shadow-2xl hover:scale-105 select-none ${isDragging ? 'cursor-grabbing scale-105' : 'cursor-grab'}`}
                     title="Comunicação e Memorandos"
                 >
                     <FontAwesomeIcon icon={faComments} className="text-2xl drop-shadow-md" />

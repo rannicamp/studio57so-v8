@@ -1,7 +1,7 @@
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faArrowLeft, faUserCircle, faSearch, faEllipsisVertical } from '@fortawesome/free-solid-svg-icons';
+import { faArrowLeft, faUserCircle, faSearch, faEllipsisVertical, faInfoCircle } from '@fortawesome/free-solid-svg-icons';
 
-export default function ChatHeader({ contact, recipientPhone, onBack }) {
+export default function ChatHeader({ contact, recipientPhone, onBack, onToggleProfile }) {
     return (
         <div className="bg-[#f0f2f5] px-4 py-2 border-b border-gray-300 flex items-center justify-between shadow-sm z-10 sticky top-0 h-16">
             <div className="flex items-center gap-3 w-full">
@@ -17,8 +17,18 @@ export default function ChatHeader({ contact, recipientPhone, onBack }) {
                     <h3 className="font-medium text-[#111b21] leading-tight truncate text-base">{contact.nome}</h3>
                     <p className="text-[13px] text-[#667781] truncate">{recipientPhone || "Toque para dados do contato"}</p>
                 </div>
-                <div className="flex items-center gap-4 text-[#54656f]">
+                <div className="flex items-center gap-1 text-[#54656f]">
                     <button className="hidden sm:block p-2 rounded-full hover:bg-black/5"><FontAwesomeIcon icon={faSearch} /></button>
+                    {/* Botão de Info: aparece apenas em telas menores que lg (onde a sidebar direita some) */}
+                    {onToggleProfile && (
+                        <button
+                            onClick={onToggleProfile}
+                            className="lg:hidden p-2 rounded-full hover:bg-black/5 transition-colors text-[#54656f]"
+                            title="Ver dados do contato"
+                        >
+                            <FontAwesomeIcon icon={faInfoCircle} className="text-lg" />
+                        </button>
+                    )}
                     <button className="p-2 rounded-full hover:bg-black/5"><FontAwesomeIcon icon={faEllipsisVertical} /></button>
                 </div>
             </div>

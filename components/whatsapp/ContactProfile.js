@@ -169,12 +169,26 @@ const HistoricoTimeline = ({ history }) => {
 const fetchContactProfileData = async (supabase, contatoId, organizacaoId) => {
     if (!contatoId || !organizacaoId) return null;
 
-    // 1. Dados Cadastrais COMPLETOS
+    // 1. Dados Cadastrais COMPLETOS (com JOIN em meta_ativos para origem do lead)
     const { data: contactDetails } = await supabase
         .from('contatos')
-        .select('*, telefones(*), emails(*)') 
+        .select(`
+            *,
+            telefones(*),
+            emails(*),
+            anuncio:meta_ad_id(id, nome),
+            adset:meta_adset_id(id, nome),
+            campanha:meta_campaign_id(id, nome)
+        `) 
         .eq('id', contatoId)
         .single();
+
+    // Resolve os nomes com fallback: coluna _name → JOIN meta_ativos
+    if (contactDetails) {
+        contactDetails.meta_ad_name = contactDetails.meta_ad_name || contactDetails.anuncio?.nome || null;
+        contactDetails.meta_adset_name = contactDetails.meta_adset_name || contactDetails.adset?.nome || null;
+        contactDetails.meta_campaign_name = contactDetails.meta_campaign_name || contactDetails.campanha?.nome || null;
+    }
 
     // 2. Dados de Funil (AGORA EXPANDIDO PARA O CARD)
     const { data: funilEntryData } = await supabase
@@ -550,6 +564,45 @@ export default function ContactProfile({ contact }) {
                         )}
                     </div>
                 </section>
+
+                {/* --- SEÇÃO: ORIGEM DO LEAD (TICKET #50 — espelho do ContatoCardCRM) --- */}
+                {(displayContact.origem || displayContact.meta_campaign_name || displayContact.meta_ad_name) && (() => {
+                    const isMetaLead = displayContact.origem === 'Meta Lead Ad';
+                    const adName = displayContact.meta_ad_name;
+                    const adsetName = displayContact.meta_adset_name;
+                    const campaignName = displayContact.meta_campaign_name;
+
+                    return (
+                        <section className="animate-in fade-in duration-300">
+                            <h4 className="font-semibold text-gray-700 mb-3 text-sm uppercase tracking-wide flex items-center gap-2">
+                                <FontAwesomeIcon icon={faBullhorn} className="text-orange-500" /> Origem do Lead
+                            </h4>
+                            <div className="space-y-1">
+                                {isMetaLead ? (
+                                    <>
+                                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                            <FontAwesomeIcon icon={faBullhorn} /> Meta Lead
+                                        </span>
+                                        <div className="text-xs text-gray-600 mt-2 space-y-1 bg-blue-50 border border-blue-100 rounded-lg p-3">
+                                            {campaignName && <p><strong>Campanha:</strong> {campaignName}</p>}
+                                            {adsetName && <p><strong>Conjunto:</strong> {adsetName}</p>}
+                                            {adName && <p><strong>Anúncio:</strong> {adName}</p>}
+                                            {displayContact.meta_created_time && (
+                                                <p className="text-gray-400 pt-1">
+                                                    Lead em: {format(new Date(displayContact.meta_created_time), "dd/MM/yyyy 'às' HH:mm")}
+                                                </p>
+                                            )}
+                                        </div>
+                                    </>
+                                ) : displayContact.origem ? (
+                                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                        <FontAwesomeIcon icon={faGlobe} /> {displayContact.origem}
+                                    </span>
+                                ) : null}
+                            </div>
+                        </section>
+                    );
+                })()}
 
                 <MetaFormData data={displayContact.meta_form_data} />
 
