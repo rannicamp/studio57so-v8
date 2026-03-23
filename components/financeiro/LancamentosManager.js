@@ -48,7 +48,7 @@ const BatchUpdateModal = ({ isOpen, onClose, onConfirm, fields, allData }) => {
 };
 
 export default function LancamentosManager({
-    lancamentos, allLancamentosKpi, loading, contas, categorias, empreendimentos, empresas, funcionarios, allContacts,
+    lancamentos, allLancamentosKpi, loading, contas, categorias, empreendimentos, empresas, funcionarios, allContacts, etapas,
     onEdit, onUpdate, filters, setFilters, sortConfig, setSortConfig,
     currentPage, setCurrentPage, itemsPerPage, setItemsPerPage, totalCount,
     onRowClick, isCompetenciaMode
@@ -206,7 +206,7 @@ export default function LancamentosManager({
     const handleSelectOne = (id) => { const newSelection = new Set(selectedIds); if (newSelection.has(id)) newSelection.delete(id); else newSelection.add(id); setSelectedIds(newSelection); };
 
     const batchUpdateFields = [{ key: 'status', label: 'Status', type: 'select', optionsKey: 'statusOptions' }, { key: 'favorecido_contato_id', label: 'Favorecido (Contato)', type: 'select', optionsKey: 'contatos' }, { key: 'funcionario_id', label: 'Associar ao Funcionário', type: 'select', optionsKey: 'funcionarios' }, { key: 'categoria_id', label: 'Categoria', type: 'select', optionsKey: 'categorias' }, { key: 'empreendimento_id', label: 'Empreendimento', type: 'select', optionsKey: 'empreendimentos' }, { key: 'conta_id', label: 'Conta', type: 'select', optionsKey: 'contas' }, { key: 'etapa_id', label: 'Etapa da Obra', type: 'select', optionsKey: 'etapas' }, { key: 'data_vencimento', label: 'Data de Vencimento', type: 'date' },];
-    const allDataForBatchModal = { statusOptions: [{ id: 'Pago', nome: 'Pago' }, { id: 'Pendente', nome: 'Pendente' }], categorias, empreendimentos, contas, etapas: [], contatos: allContacts, funcionarios: funcionarios?.map(f => ({ ...f, nome: f.full_name })), };
+    const allDataForBatchModal = { statusOptions: [{ id: 'Pago', nome: 'Pago' }, { id: 'Pendente', nome: 'Pendente' }], categorias, empreendimentos, contas, etapas: etapas || [], contatos: allContacts, funcionarios: funcionarios?.map(f => ({ ...f, nome: f.full_name })), };
 
     const getPaymentStatus = (item) => {
         if (item.status === 'Pago' || item.status === 'Conciliado' || item.conciliado) return { text: 'Paga', className: 'bg-green-100 text-green-800' };

@@ -47,15 +47,16 @@ async function fetchInitialData(organizacao_id) {
     const supabase = createClient();
     if (!organizacao_id) return { empresas: [], contas: [], categorias: [], empreendimentos: [], allContacts: [], funcionarios: [] };
 
-    const [empresasRes, contasRes, categoriasRes, empreendimentosRes, contatosRes, funcionariosRes] = await Promise.all([
+    const [empresasRes, contasRes, categoriasRes, empreendimentosRes, contatosRes, funcionariosRes, etapasRes] = await Promise.all([
         supabase.from('cadastro_empresa').select('*').eq('organizacao_id', organizacao_id).order('nome_fantasia'),
         supabase.from('contas_financeiras').select('*, empresa:cadastro_empresa!empresa_id(id, nome_fantasia, razao_social), conta_debito_fatura:contas_financeiras!conta_debito_fatura_id(id, nome)').eq('organizacao_id', organizacao_id).order('nome'),
         supabase.from('categorias_financeiras').select('*').in('organizacao_id', [organizacao_id, 1]).order('nome'),
         supabase.from('empreendimentos').select('*, empresa:cadastro_empresa!empresa_proprietaria_id(nome_fantasia, razao_social)').eq('organizacao_id', organizacao_id).order('nome'),
         supabase.from('contatos').select('id, nome, razao_social').eq('organizacao_id', organizacao_id).order('nome'),
-        supabase.from('funcionarios').select('id, full_name').eq('organizacao_id', organizacao_id).order('full_name')
+        supabase.from('funcionarios').select('id, full_name').eq('organizacao_id', organizacao_id).order('full_name'),
+        supabase.from('etapa_obra').select('id, nome_etapa').eq('organizacao_id', organizacao_id).order('nome_etapa')
     ]);
-    return { empresas: empresasRes.data || [], contas: contasRes.data || [], categorias: categoriasRes.data || [], empreendimentos: empreendimentosRes.data || [], allContacts: contatosRes.data || [], funcionarios: funcionariosRes.data || [] };
+    return { empresas: empresasRes.data || [], contas: contasRes.data || [], categorias: categoriasRes.data || [], empreendimentos: empreendimentosRes.data || [], allContacts: contatosRes.data || [], funcionarios: funcionariosRes.data || [], etapas: etapasRes.data || [] };
 }
 
 // === REMOVIDO: function fetchFinanceiroStats === 
@@ -143,13 +144,13 @@ export default function FinanceiroPage() {
     }, [debouncedFilters, currentPage, itemsPerPage, sortConfig, showFilters, activeTab]);
 
     const { data: initialData, isLoading: isLoadingInitialData } = useQuery({
-        queryKey: ['initialFinanceData', organizacao_id],
+        queryKey: ['initialFinanceDataV2', organizacao_id],
         queryFn: () => fetchInitialData(organizacao_id),
         enabled: canViewPage && !!organizacao_id,
         staleTime: 300000
     });
 
-    const { empresas = [], contas = [], categorias = [], empreendimentos = [], allContacts = [], funcionarios = [] } = initialData || {};
+    const { empresas = [], contas = [], categorias = [], empreendimentos = [], allContacts = [], funcionarios = [], etapas = [] } = initialData || {};
     const contasCartao = contas.filter(c => c.tipo === 'Cartão de Crédito');
 
     const {
@@ -298,6 +299,7 @@ export default function FinanceiroPage() {
                             empresas={empresas}
                             funcionarios={funcionarios}
                             allContacts={allContacts}
+                            etapas={etapas}
                             filters={filters}
                             setFilters={setFilters}
                             sortConfig={sortConfig}
