@@ -127,8 +127,14 @@ export async function middleware(req) {
 export const config = {
   matcher: [
     /*
-     * Pega todas as rotas exceto as que tem extensão (arquivos)
+     * Pega todas as rotas exceto:
+     * - _next/static (assets estáticos do Next.js)
+     * - _next/image (otimização de imagens)
+     * - favicon.ico
+     * - Arquivos com extensão conhecida (imagens, fonts, manifests, scripts, etc.)
+     * ⚠️ CRÍTICO PWA: .json e .js DEVEM estar aqui para que
+     * /manifest.json e /custom-sw.js sejam servidos sem redirect para /login
      */
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|apple-touch-icon\\.png|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|json|js|txt|webmanifest|woff|woff2|ttf|otf|mp3|mp4)$).*)',
   ],
-}
+}
