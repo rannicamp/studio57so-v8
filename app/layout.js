@@ -29,7 +29,10 @@ export const metadata = {
     title: 'Elo 57',
   },
   icons: {
-    apple: '/icons/icon-maskable-192x192.png',
+    apple: [
+      { url: '/apple-touch-icon.png', sizes: '192x192', type: 'image/png' },
+    ],
+    shortcut: '/icons/icon-192x192.png',
   },
 };
 
