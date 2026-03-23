@@ -1,6 +1,6 @@
 # 🎨 Elo 57 / Studio 57 — Manual Supremo de UI/UX e Design System
 
-> Versão 2.0 — Unificada (Março 2026)  
+> Versão 2.1 — Unificada (Março 2026 — Identidade Elo 57)  
 > **REGRA SUPREMA:** Este arquivo é a lei absoluta de Design e Código do sistema Elo 57. Antes de criar qualquer tela, layout, botão, ícone, tabela ou input, consulte aqui o código exato a ser copiado. Nenhuma improvisação visual é permitida.
 
 ---
@@ -9,6 +9,25 @@
 
 O sistema não deve ter cara de "painel genérico antigo", mas sim de um **Studio de Gestão Sóbrio, Sólido e Elegante**.
 A interface nunca deve dar sensação de "espremedura", abuse do espaçamento para deixar os componentes respirarem.
+
+### 0. 🏷️ Identidade Visual da Marca Elo 57
+
+**COR PRIMÁRIA DA MARCA: PRETO** (substituiu o laranja em março/2026)
+
+| Contexto | Logo | Fundo |
+|----------|------|-------|
+| Fundo Branco / Claro | Logo preta | `#FFFFFF` ou `bg-white` |
+| Fundo Preto / Escuro | Logo branca | `#000000` ou `bg-black` |
+
+**Ícones PWA** (pasta `public/icons/`):
+- `icon-192x192.png` e `icon-512x512.png` → fundo transparente, logo preta
+- `icon-maskable-192x192.png` e `icon-maskable-512x512.png` → fundo preto com logo branca
+- `theme_color` do manifest: `#000000`
+- `background_color` do manifest: `#000000`
+
+**⚠️ PROIBIDO:** usar `#F97316` (laranja) como cor principal ou de destaque da marca. O laranja foi descontinuado.
+
+---
 
 ### 1. Paleta de Cores e Proibições
 A paleta base foca em:

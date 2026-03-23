@@ -13,7 +13,7 @@ import ServiceWorkerRegistrar from '@/components/shared/ServiceWorkerRegistrar';
 const inter = Inter({ subsets: ['latin'] });
 
 export const viewport = {
-  themeColor: '#F97316',
+  themeColor: '#000000',
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
