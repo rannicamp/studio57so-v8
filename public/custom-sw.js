@@ -1,6 +1,6 @@
 // public/custom-sw.js
 // ⚠️ VERSÃO DO CACHE: Atualize este número para forçar atualização no celular
-const CACHE_VERSION = 'v1.5';
+const CACHE_VERSION = 'v1.6';
 const CACHE_NAME = `elo57-cache-${CACHE_VERSION}`;
 
 self.addEventListener('install', (event) => {
@@ -11,7 +11,6 @@ self.addEventListener('install', (event) => {
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    // Apaga TODOS os caches antigos (versões anteriores)
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
@@ -23,7 +22,7 @@ self.addEventListener('activate', (event) => {
       );
     }).then(() => {
       console.log(`[SW] Ativado! Cache atual: ${CACHE_NAME}`);
-      return clients.claim(); // Assume controle de todas as abas abertas
+      return clients.claim();
     })
   );
 });
@@ -45,7 +44,6 @@ self.addEventListener("push", function (event) {
     }
   }
 
-  // Garante URL absoluta para o ícone (Ajuda no Android)
   const iconUrl = data.icon.startsWith('http') ? data.icon : self.location.origin + data.icon;
 
   const options = {
@@ -90,16 +88,39 @@ self.addEventListener("notificationclick", function (event) {
   );
 });
 
-// --- FETCH: Necessário para o Chrome Android reconhecer como PWA instalável ---
+// --- FETCH: Network-first, com fallback offline APENAS para navegação ---
+// ⚠️ REGRAS DE SEGURANÇA:
+// 1. Nunca interceptar requisições POST (login, mutações)
+// 2. Nunca interceptar requisições para Supabase (auth, API)
+// 3. Nunca interceptar /auth/ ou /api/ (callbacks de autenticação)
 self.addEventListener("fetch", (event) => {
+  const url = new URL(event.request.url);
+  const isSameOrigin = url.origin === self.location.origin;
+  const isPost = event.request.method !== 'GET';
+  const isAuthPath = url.pathname.startsWith('/auth/') || 
+                     url.pathname.startsWith('/api/') ||
+                     url.pathname.startsWith('/login') ||
+                     url.pathname.startsWith('/_next/');
+  const isSupabase = url.hostname.includes('supabase.co') || 
+                     url.hostname.includes('supabase.in');
+
+  // ✅ DEIXA PASSAR SEM INTERCEPTAR:
+  // - Requisições POST (login, formulários, mutações)
+  // - Supabase (auth, banco)
+  // - /auth/, /api/, /login, /_next/
+  // - Requisições cross-origin (exceto Supabase já coberto)
+  if (isPost || isSupabase || isAuthPath || !isSameOrigin) {
+    return; // Passa direto para a rede sem interceptar
+  }
+
+  // Para requisições GET de assets/páginas: network-first
   event.respondWith(
     fetch(event.request).catch(() => {
       return caches.match(event.request).then((response) => {
         if (response) return response;
-        
-        // Se a requisição for de página (navegador tentando carregar a UI)
-        if (event.request.mode === 'navigate' || 
-           (event.request.headers.get('accept') && event.request.headers.get('accept').includes('text/html'))) {
+
+        // Só retorna offline page se for navegação HTML
+        if (event.request.mode === 'navigate') {
           const offlineHtml = `
             <!DOCTYPE html>
             <html lang="pt-br">
@@ -108,23 +129,22 @@ self.addEventListener("fetch", (event) => {
               <meta name="viewport" content="width=device-width, initial-scale=1">
               <title>Offline | Elo 57</title>
               <style>
-                body { font-family: sans-serif; text-align: center; margin-top: 20%; background-color: #f9fafb; color: #111827; }
-                h1 { color: #f97316; }
+                body { font-family: sans-serif; text-align: center; margin-top: 20%; background:#000; color:#fff; }
+                h1 { color: #fff; }
+                p { color: #aaa; }
               </style>
             </head>
             <body>
-              <h1>Você está offline</h1>
-              <p>Por favor, verifique sua conexão com a internet para acessar o Studio 57.</p>
+              <h1>Elo 57</h1>
+              <p>Você está offline. Verifique sua conexão.</p>
             </body>
             </html>
           `;
           return new Response(offlineHtml, { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
         }
 
-        // Se for requisição de dados/API, responde com JSON limpo para não quebrar JSON.parse
-        return new Response(JSON.stringify({ error: "offline", message: "Você está offline." }), {
-          headers: { 'Content-Type': 'application/json' }
-        });
+        // Para assets (imagens, JS, CSS): falha silenciosa
+        return new Response('', { status: 408 });
       });
     })
   );
