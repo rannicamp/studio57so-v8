@@ -77,7 +77,7 @@ export default function SimuladorBraunas() {
 
     const filteredClientes = useMemo(() => {
         if (!cliente.nome || isClienteSelected) return [];
-        return clientesLista?.filter(c => c.nome.toLowerCase().includes(cliente.nome.toLowerCase())) || [];
+        return clientesLista?.filter(c => (c.nome || '').toLowerCase().includes(cliente.nome.toLowerCase())) || [];
     }, [cliente.nome, clientesLista, isClienteSelected]);
 
     useEffect(() => {
@@ -311,7 +311,7 @@ export default function SimuladorBraunas() {
         if (cliente.nome && cliente.telefone && usuarioLogado) {
             try {
                 const nomeStr = cliente.nome.trim();
-                const exists = clientesLista?.some(c => c.nome.toLowerCase() === nomeStr.toLowerCase());
+                const exists = clientesLista?.some(c => (c.nome || '').toLowerCase() === nomeStr.toLowerCase());
                 
                 if (!exists) {
                     const orgId = usuarioLogado.organizacao_id || 1;

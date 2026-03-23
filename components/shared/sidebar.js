@@ -39,7 +39,7 @@ export default function Sidebar({ isOpen, closeSidebar }) {
                 { href: '/comercial/tabela-de-vendas', label: 'Tabela de Vendas', icon: faTags, recurso: 'tabela_vendas' },
                 { href: '/comercial/anuncios', label: 'Anúncios', icon: faMeta, recurso: 'anuncios' },
                 { href: '/contatos', label: 'Contatos', icon: faAddressBook, recurso: 'contatos' },
-                { href: '/simulador-financiamento', label: 'Simulador', icon: faCalculator, recurso: 'simulador', target: '_blank' },
+                { href: '/simulador-financiamento', label: 'Simulador', icon: faCalculator, recurso: 'simulador' },
             ]
         },
         {

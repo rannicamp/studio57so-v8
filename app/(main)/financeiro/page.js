@@ -54,7 +54,7 @@ async function fetchInitialData(organizacao_id) {
         supabase.from('empreendimentos').select('*, empresa:cadastro_empresa!empresa_proprietaria_id(nome_fantasia, razao_social)').eq('organizacao_id', organizacao_id).order('nome'),
         supabase.from('contatos').select('id, nome, razao_social').eq('organizacao_id', organizacao_id).order('nome'),
         supabase.from('funcionarios').select('id, full_name').eq('organizacao_id', organizacao_id).order('full_name'),
-        supabase.from('etapa_obra').select('id, nome_etapa').eq('organizacao_id', organizacao_id).order('nome_etapa')
+        supabase.from('etapa_obra').select('id, nome_etapa').in('organizacao_id', [organizacao_id, 1]).order('nome_etapa')
     ]);
     return { empresas: empresasRes.data || [], contas: contasRes.data || [], categorias: categoriasRes.data || [], empreendimentos: empreendimentosRes.data || [], allContacts: contatosRes.data || [], funcionarios: funcionariosRes.data || [], etapas: etapasRes.data || [] };
 }

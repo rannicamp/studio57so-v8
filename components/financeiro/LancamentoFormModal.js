@@ -86,7 +86,7 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
         const { data: empreendimentosData, error: empreendimentosError } = await supabase.from('empreendimentos').select('id, nome, empresa_id:empresa_proprietaria_id').eq('organizacao_id', organizacaoId).order('nome');
         if (empreendimentosError) throw new Error(empreendimentosError.message);
 
-        const { data: etapasData, error: etapasError } = await supabase.from('etapa_obra').select('id, nome_etapa').eq('organizacao_id', organizacaoId).order('nome_etapa');
+        const { data: etapasData, error: etapasError } = await supabase.from('etapa_obra').select('id, nome_etapa').in('organizacao_id', [organizacaoId, 1]).order('nome_etapa');
         if (etapasError) throw new Error(etapasError.message);
 
         const { data: tiposDocData, error: tiposDocError } = await supabase.from('documento_tipos').select('*').order('sigla');
