@@ -13,7 +13,7 @@ import ServiceWorkerRegistrar from '@/components/shared/ServiceWorkerRegistrar';
 const inter = Inter({ subsets: ['latin'] });
 
 export const viewport = {
-  themeColor: '#0288d1',
+  themeColor: '#F97316',
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
@@ -23,6 +23,14 @@ export const metadata = {
   title: 'Elo 57',
   description: 'Sistema de Gestão',
   manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'Elo 57',
+  },
+  icons: {
+    apple: '/icons/icon-maskable-192x192.png',
+  },
 };
 
 export default function RootLayout({ children }) {
