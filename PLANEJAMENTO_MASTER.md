@@ -288,6 +288,11 @@ O **Studio 57** é o ambiente de desenvolvimento e laboratório central. O **Elo
     - **Limpeza Front-End de Componentes Inúteis:** Remoção total (do DB ao HTML) das cláusulas cruas 9, 10 e 11 do Quadro Resumo (apenas apontavam para as cláusulas), alcançando a marca impecável de apenas 2 páginas.
     - **Fidelidade e Restauração de Minuta Histórica:** A redação rebuscada que o sistema sugeriu e poluiu visualmente as obrigações foi completamente revertida e alinhada com as minutas em Word idênticas aprovadas pelos Cartórios locais do cliente.
 
+- *2026-03-23 (tarde):* **🐛 Correções Críticas no Simulador e Ações em Lote:**
+    - **Diagnóstico Transparente em Modais:** Resolvido o bug onde as "Etapas de Obra" não carregavam na ferramenta de Ações em Lote (Financeiro). O filtro agora reconhece as etapas globais nativas (cadastro da matriz org=1) permitindo edições massivas limpas.
+    - **Unificação da Rota do Simulador:** Restaurado o Simulador de Financiamento na navegação oficial do painel (removido `target="_blank"`). A arquitetura atual utiliza o componente universal `SimuladorTabs`.
+    - **Blindagem Anti-Crash (Application Error):** Escudo preventivo inserido contra telas brancas da morte no formulário de busca de clientes do Simulador. Resolvido o erro letal gerado por chamadas imperativas de `toLowerCase()` em contatos históricos do CRM que estavam desprovidos de caracter/nome (`null`).
+
 ---
 
 ### 12. Gestão de Custos BIM (Autodesk API) - *A FAZER*
