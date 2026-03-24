@@ -70,7 +70,8 @@ O **Studio 57** é o ambiente de desenvolvimento e laboratório central. O **Elo
 
 ### 7. Governança de Aplicativos Meta (ESTRATÉGIA DEFINIDA)
 - [x] **Auditoria de Apps:** Identificadas todas as instâncias para evitar confusão.
-- [x] **Aprovação WABA (08/03):** Permissão da Meta concedida para gerenciar mensagens de clientes.
+- [x] **Aprovação WABA (08/03):** Permissão inicial da Meta concedida para gerenciar mensagens de clientes.
+- [x] **Conquista de Permissões SaaS (24/03):** Temos a aprovação das permissões avançadas `whatsapp_business_management` e `whatsapp_business_messaging` (Status: "Pronto para publicar"). **Vitória:** Temos absolutamente tudo o que precisamos nativamente para permitir que nossos clientes conectem e utilizem seus próprios números de WhatsApp de forma 100% integrada ao nosso sistema ("Embedded Signup").
 - [ ] **Migração Definitiva de App WABA:** Atualizar o banco de dados e as variáveis de ambiente com o System User Token do novo App oficial para encerrar apps espelhos legados.
 - [ ] **Estratégia de Separação (OFICIAL):**
     - **App 1 (Marketing/Ads):** Elo 57 - Dev (**1900130190871246**) ✅ **OFICIAL**

@@ -19,20 +19,15 @@ BEGIN
     IF TG_OP = 'UPDATE' THEN
         IF NEW.data_transacao = OLD.data_transacao 
            AND NEW.data_vencimento = OLD.data_vencimento 
-           AND NEW.conta_origem_id IS NOT DISTINCT FROM OLD.conta_origem_id 
-           AND NEW.conta_destino_id IS NOT DISTINCT FROM OLD.conta_destino_id 
+           AND NEW.conta_id IS NOT DISTINCT FROM OLD.conta_id 
            AND NEW.tipo = OLD.tipo THEN
             RETURN NEW;
         END IF;
     END IF;
 
-    -- Determinar se é Despesa (conta_origem) ou Receita (conta_destino) no Cartão
+    -- Determinar a conta, usando conta_id (a tabela de lançamentos possui conta_id e não origem_id)
     IF NEW.tipo IN ('Despesa', 'Receita') THEN
-        IF NEW.tipo = 'Despesa' THEN
-            v_conta_id := NEW.conta_origem_id;
-        ELSIF NEW.tipo = 'Receita' THEN
-            v_conta_id := NEW.conta_destino_id;
-        END IF;
+        v_conta_id := NEW.conta_id;
 
         IF v_conta_id IS NOT NULL THEN
             -- Buscar informações da conta

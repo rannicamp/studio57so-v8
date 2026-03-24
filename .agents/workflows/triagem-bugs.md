@@ -10,6 +10,7 @@ Ao iniciar o dia com \`/triagem-bugs\`, a IA deve seguir rigorosamente estes pas
 
 2. Iniciar Investigação da Causa Raiz
 - Para cada ticket resgatado, leia atentamente a queixa do autor (`descricao` e módulo `pagina`).
+- Se o ticket possuir um anexo (print do erro), faça o download da imagem para uma pasta local (ex: `./scripts/tmp_anexos/`). Analise a imagem visualmente para enriquecer e aprimorar o seu diagnóstico. Após a triagem e resolução do ticket em questão, apague o arquivo de imagem baixado para manter o ambiente limpo.
 - Utilize exaustivamente as ferramentas `find_by_name` e `grep_search` para rastrear os arquivos `.js` dentro do diretório `components/` ou `app/` que controlam aquele módulo citado.
 - Formule técnica e resumidamente:
   A) O **Diagnóstico**: O que está causando a anomalia visual ou quebra operacional no código lido.
@@ -44,4 +45,5 @@ async function runAtualizacao(id, diagnostico, solucao) {
 4. Apresentar Relatório Gerencial
 - Ao finalizar a atualização do banco, gere um relatório completo usando Artifact. O nome deverá ser `feedbacks_pendentes.md`.
 - Ele deve conter os detalhes de cada ticket juntamente com as soluções mapeadas por você, **incluindo obrigatoriamente o nome de quem fez a solicitação e o nome respectivo da Organização (pesquisando pelas tabelas `auth.users`, `funcionarios` e `cadastro_empresa`).**
+- Quando um chamado for corrigido na hora ou não proceder, você deve alterar o status para `Implementado`. NUNCA utilize "Concluído" ou "Resolvido", pois o componente Kanban React do frontend da Studio 57 está hardcoded para mover os cards finalizados exclusivamente para a coluna de ID `Implementado`.
 - Finalmente, pergunte ao Ranniere qual daqueles planos de solução o sistema deve executar neste instante.

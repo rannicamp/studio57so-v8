@@ -916,7 +916,11 @@ CREATE TABLE public.feedback (
     descricao text NOT NULL,
     status text DEFAULT 'Aberto'::text,
     captura_de_tela_url text,
-    organizacao_id bigint NOT NULL
+    organizacao_id bigint NOT NULL,
+    link_opcional text,
+    imagem_url text,
+    diagnostico text,
+    plano_solucao text
 );
 
 CREATE TABLE public.feriados (
@@ -1626,26 +1630,6 @@ CREATE TABLE public.rdo_fotos_uploads (
     organizacao_id bigint
 );
 
-CREATE TABLE public.regras_notificacao (
-    id bigint NOT NULL,
-    nome_regra text NOT NULL,
-    tabela_alvo text NOT NULL,
-    evento text NOT NULL,
-    coluna_monitorada text,
-    valor_gatilho text,
-    funcoes_ids ARRAY,
-    enviar_para_dono boolean DEFAULT false,
-    titulo_template text NOT NULL,
-    mensagem_template text NOT NULL,
-    link_template text,
-    ativo boolean DEFAULT true,
-    organizacao_id bigint NOT NULL,
-    created_at timestamp with time zone DEFAULT now(),
-    enviar_push boolean DEFAULT false,
-    icone text DEFAULT 'fa-bell'::text,
-    regras_avancadas jsonb
-);
-
 CREATE TABLE public.regras_roteamento_funil (
     id bigint NOT NULL DEFAULT nextval('regras_roteamento_funil_id_seq'::regclass),
     organizacao_id bigint NOT NULL,
@@ -1749,13 +1733,65 @@ CREATE TABLE public.sys_chat_messages (
     conversation_id uuid,
     sender_id uuid NOT NULL,
     conteudo text NOT NULL,
-    created_at timestamp with time zone DEFAULT timezone('utc'::text, now())
+    created_at timestamp with time zone DEFAULT timezone('utc'::text, now()),
+    read_at timestamp with time zone
+);
+
+CREATE TABLE public.sys_chat_mural_comments (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    post_id uuid NOT NULL,
+    author_id uuid NOT NULL,
+    conteudo text NOT NULL,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.sys_chat_mural_likes (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    post_id uuid NOT NULL,
+    user_id uuid NOT NULL,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.sys_chat_mural_posts (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    organizacao_id bigint NOT NULL,
+    author_id uuid NOT NULL,
+    assunto text NOT NULL,
+    conteudo text NOT NULL,
+    created_at timestamp with time zone DEFAULT now()
 );
 
 CREATE TABLE public.sys_chat_participants (
     conversation_id uuid NOT NULL,
     user_id uuid NOT NULL,
     joined_at timestamp with time zone DEFAULT timezone('utc'::text, now())
+);
+
+CREATE TABLE public.sys_notification_templates (
+    id bigint NOT NULL,
+    nome_regra text NOT NULL,
+    tabela_alvo text NOT NULL,
+    evento text NOT NULL,
+    coluna_monitorada text,
+    valor_gatilho text,
+    enviar_para_dono boolean DEFAULT false,
+    titulo_template text NOT NULL,
+    mensagem_template text NOT NULL,
+    link_template text,
+    organizacao_id bigint NOT NULL,
+    created_at timestamp with time zone DEFAULT now(),
+    icone text DEFAULT 'fa-bell'::text,
+    regras_avancadas jsonb
+);
+
+CREATE TABLE public.sys_org_notification_settings (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    organizacao_id bigint NOT NULL,
+    template_id bigint NOT NULL,
+    is_active boolean DEFAULT false,
+    funcoes_ids ARRAY DEFAULT '{}'::bigint[],
+    enviar_push boolean DEFAULT true,
+    created_at timestamp with time zone DEFAULT now()
 );
 
 CREATE TABLE public.tabelas_sistema (
@@ -1891,7 +1927,8 @@ CREATE TABLE public.whatsapp_conversations (
     unread_count integer DEFAULT 0,
     last_direction text DEFAULT 'inbound'::text,
     last_status text DEFAULT 'delivered'::text,
-    last_message_direction text DEFAULT 'inbound'::text
+    last_message_direction text DEFAULT 'inbound'::text,
+    customer_window_start_at timestamp with time zone
 );
 
 CREATE TABLE public.whatsapp_list_members (

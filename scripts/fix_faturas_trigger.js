@@ -2,8 +2,13 @@ require('dotenv').config({ path: '.env.local' });
 const postgres = require('postgres');
 
 async function run() {
-  const dbUrl = process.env.SUPABASE_DB_URL || process.env.DATABASE_URL;
-  if (!dbUrl) {
+  const password = process.env.SUPABASE_DB_PASSWORD;
+  const baseHost = process.env.NEXT_PUBLIC_SUPABASE_URL.replace('https://', '').split('/')[0];
+  const projectId = baseHost.split('.')[0];
+  const host = `db.${projectId}.supabase.co`;
+  const dbUrl = `postgres://postgres:${password}@${host}:6543/postgres`;
+
+  if (!dbUrl || !password) {
     console.log('Database URL not found.');
     return;
   }
@@ -30,20 +35,15 @@ BEGIN
     IF TG_OP = 'UPDATE' THEN
         IF NEW.data_transacao = OLD.data_transacao 
            AND NEW.data_vencimento = OLD.data_vencimento 
-           AND NEW.conta_origem_id IS NOT DISTINCT FROM OLD.conta_origem_id 
-           AND NEW.conta_destino_id IS NOT DISTINCT FROM OLD.conta_destino_id 
+           AND NEW.conta_id IS NOT DISTINCT FROM OLD.conta_id 
            AND NEW.tipo = OLD.tipo THEN
             RETURN NEW;
         END IF;
     END IF;
 
-    -- Determinar se é Despesa (conta_origem) ou Receita (conta_destino) no Cartão
+    -- Determinar a conta_id (financeiro_lancamentos possui apenas conta_id principal)
     IF NEW.tipo IN ('Despesa', 'Receita') THEN
-        IF NEW.tipo = 'Despesa' THEN
-            v_conta_id := NEW.conta_origem_id;
-        ELSIF NEW.tipo = 'Receita' THEN
-            v_conta_id := NEW.conta_destino_id;
-        END IF;
+        v_conta_id := NEW.conta_id;
 
         IF v_conta_id IS NOT NULL THEN
             -- Buscar informações da conta
