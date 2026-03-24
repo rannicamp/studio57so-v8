@@ -117,7 +117,7 @@ const TransacaoOfxModal = ({ isOpen, onClose, initialData, arquivoId, organizaca
             };
 
             if (initialData?.id && String(initialData.id).indexOf('fallback') === -1) {
-                const { error } = await supabase.from('banco_transacoes_ofx').update(payload).eq('id', initialData.id);
+                const { error } = await supabase.from('banco_transacoes_ofx').update(payload).eq('fitid', initialData.id);
                 if (error) throw error;
             } else {
                 const { error } = await supabase.from('banco_transacoes_ofx').insert(payload);
@@ -400,7 +400,7 @@ export default function PanelConciliacaoCartao({ contas, initialContaId, faturaV
 
     const deleteOfxMutation = useMutation({
         mutationFn: async (id) => {
-            const { error } = await supabase.from('banco_transacoes_ofx').delete().eq('id', id);
+            const { error } = await supabase.from('banco_transacoes_ofx').delete().eq('fitid', id);
             if (error) throw error;
         },
         onSuccess: () => {
