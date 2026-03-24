@@ -66,7 +66,8 @@ export async function POST(request) {
             .from('configuracoes_whatsapp')
             .select('*')
             .eq('whatsapp_phone_number_id', phoneNumberId) // <--- O CADEADO ESTÁ AQUI!
-            .single();
+            .limit(1)
+            .maybeSingle();
 
         if (!config) {
             console.error(`[Webhook] ERRO: Configuração não encontrada para o número receptor: ${phoneNumberId}`);
