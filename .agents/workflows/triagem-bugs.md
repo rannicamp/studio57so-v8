@@ -43,5 +43,5 @@ async function runAtualizacao(id, diagnostico, solucao) {
 
 4. Apresentar Relatório Gerencial
 - Ao finalizar a atualização do banco, gere um relatório completo usando Artifact. O nome deverá ser `feedbacks_pendentes.md`.
-- Ele deve conter os detalhes de cada ticket juntamente com as soluções mapeadas por você.
+- Ele deve conter os detalhes de cada ticket juntamente com as soluções mapeadas por você, **incluindo obrigatoriamente o nome de quem fez a solicitação e o nome respectivo da Organização (pesquisando pelas tabelas `auth.users`, `funcionarios` e `cadastro_empresa`).**
 - Finalmente, pergunte ao Ranniere qual daqueles planos de solução o sistema deve executar neste instante.

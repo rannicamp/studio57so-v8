@@ -373,7 +373,7 @@ export default function MessagePanel({ contact, onBack }) {
                 </>
             )}
 
-            <div className="flex flex-col h-full bg-[#efeae2] relative pt-[64px] md:pt-0">
+            <div className="flex flex-col h-full bg-[#efeae2] relative pt-0">
                 <ChatHeader
                     contact={contact}
                     recipientPhone={recipientPhone}
