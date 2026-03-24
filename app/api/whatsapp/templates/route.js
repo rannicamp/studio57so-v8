@@ -69,7 +69,8 @@ export async function GET() {
         }
 
         // 4. Filtra apenas os modelos que estão APROVADOS
-        const approvedTemplates = responseData.data.filter(template => template.status === 'APPROVED');
+        const safeData = Array.isArray(responseData?.data) ? responseData.data : [];
+        const approvedTemplates = safeData.filter(template => template.status === 'APPROVED');
 
         // 5. Retorna a lista de modelos aprovados para o front-end
         return NextResponse.json(approvedTemplates);

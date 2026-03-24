@@ -1,0 +1,23 @@
+[
+  {
+    "error_message": "(#131030) Recipient phone number not in allowed list",
+    "raw_payload": {
+      "error": {
+        "code": 131030,
+        "type": "OAuthException",
+        "message": "(#131030) Recipient phone number not in allowed list",
+        "error_data": {
+          "details": "O número de telefone do destinatário não está na lista de permissão: Adicione o telefone do destinatário à lista de destinatários e tente novamente.",
+          "messaging_product": "whatsapp"
+        },
+        "fbtrace_id": "AUx2eP01m1VLL9rXbYZnvUc"
+      }
+    },
+    "sent_at": "2026-03-24T17:59:00.963+00:00"
+  },
+  {
+    "error_message": null,
+    "raw_payload": "{\"messaging_product\":\"whatsapp\",\"recipient_type\":\"individual\",\"to\":\"3399579636\",\"type\":\"document\",\"document\":{\"link\":\"https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/whatsapp-media/chat/5041/2026/03/upload_1774195859563_BOOK_-_REFUGIO_BRAUNAS.pdf\",\"caption\":\"\",\"filename\":\"BOOK_-_REFUGIO_BRAUNAS.pdf\"}}",
+    "sent_at": "2026-03-22T16:11:06.327+00:00"
+  }
+]
