@@ -1,6 +1,7 @@
 // app/api/whatsapp/templates/route.js
 
 import { NextResponse } from 'next/server';
+import { createClient as createServerClient } from '@/utils/supabase/server';
 import { createClient } from '@supabase/supabase-js';
 
 const getSupabaseAdmin = () => createClient(
@@ -9,20 +10,32 @@ const getSupabaseAdmin = () => createClient(
 );
 
 export async function GET() {
+    const supabaseUser = await createServerClient();
+    const { data: { user }, error: authError } = await supabaseUser.auth.getUser();
+
+    if (authError || !user) {
+        return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+    }
+
+    const { data: profile } = await supabaseUser.from('usuarios').select('organizacao_id').eq('id', user.id).single();
+    if (!profile || !profile.organizacao_id) return NextResponse.json({ error: 'Perfil / Organização não encontrados' }, { status: 404 });
+
     const supabaseAdmin = getSupabaseAdmin();
 
     try {
-        // 1. Busca as configurações do WhatsApp no banco de dados
+        // 1. Busca as configurações MUILT-TENANT no banco de dados
         const { data: config, error: configError } = await supabaseAdmin
             .from('configuracoes_whatsapp')
             .select('whatsapp_permanent_token, whatsapp_business_account_id')
+            .eq('organizacao_id', profile.organizacao_id)
             .limit(1)
             .single();
 
         if (configError || !config) {
-            console.error('Erro ao buscar credenciais do WhatsApp:', configError);
-            return NextResponse.json({ error: 'Credenciais do WhatsApp não encontradas.' }, { status: 500 });
+            console.error('Erro ao buscar credenciais do WhatsApp para org:', profile.organizacao_id);
+            return NextResponse.json({ error: 'Credenciais do WhatsApp SaaS não configuradas para sua empresa.' }, { status: 500 });
         }
+
 
         // 🏆 HIERARQUIA DE TOKEN: env var permanente > banco de dados (pode estar expirado!)
         const WHATSAPP_TOKEN = process.env.WHATSAPP_SYSTEM_USER_TOKEN || config.whatsapp_permanent_token;
