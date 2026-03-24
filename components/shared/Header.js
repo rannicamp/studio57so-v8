@@ -79,7 +79,7 @@ export default function Header({ headerPositionClass, toggleSidebar }) {
                         <button onClick={() => router.back()} className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors" title="Voltar">
                             <FontAwesomeIcon icon={faChevronLeft} />
                         </button>
-                        <button onClick={() => router.push('/')} className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors" title="Início">
+                        <button onClick={() => router.push('/painel')} className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors" title="Início">
                             <FontAwesomeIcon icon={faHome} />
                         </button>
                         <button onClick={() => router.forward()} className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors" title="Avançar">

@@ -234,7 +234,7 @@ export default function CrmPage() {
     const queryClient = useQueryClient();
 
     const cachedState = getCachedUiState();
-    const defaultFilters = { searchTerm: '', corretorIds: [], origens: [], unidadeIds: [], campaignIds: [], adIds: [], startDate: '', endDate: new Date().toISOString().split('T')[0] };
+    const defaultFilters = { searchTerm: '', corretorIds: [], origens: [], unidadeIds: [], campaignIds: [], adIds: [], startDate: '', endDate: '' };
 
     const [filters, setFilters] = useState(cachedState?.filters || defaultFilters);
     const [sorting, setSorting] = useState(cachedState?.sorting || {});
