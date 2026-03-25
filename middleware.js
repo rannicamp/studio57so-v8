@@ -65,14 +65,18 @@ export async function middleware(req) {
     // Se o usuário já está logado e tenta ir para /login ou /cadastro,
     // nós mandamos ele para o painel principal dele.
     if (path === '/login' || path === '/cadastro') {
-      // Buscamos o perfil para saber o cargo e decidir o destino
-      const { data: profile } = await supabase
-        .from('usuarios')
-        .select('funcao_id')
-        .eq('id', user.id)
-        .single()
+      let funcaoId = req.cookies.get('sys_user_role')?.value;
 
-      const funcaoId = profile?.funcao_id
+      if (!funcaoId) {
+        const { data: profile } = await supabase
+          .from('usuarios')
+          .select('funcao_id')
+          .eq('id', user.id)
+          .single()
+        funcaoId = profile?.funcao_id;
+      } else {
+        funcaoId = parseInt(funcaoId, 10);
+      }
 
       if (funcaoId === 4) return NextResponse.redirect(new URL('/bim-manager', req.url));
       if (funcaoId === 20 || funcaoId === 21) return NextResponse.redirect(new URL('/portal-painel', req.url));
@@ -80,14 +84,27 @@ export async function middleware(req) {
     }
 
     // --- REGRAS DE ACESSO POR CARGO (Acesso restrito) ---
-    const { data: profile } = await supabase
-      .from('usuarios')
-      .select('funcao_id, is_superadmin')
-      .eq('id', user.id)
-      .single()
+    // NOVO: Sistema Anti-Timeout (Cache via Cookies) para não explodir a Edge Function da Netlify
+    let funcaoId = req.cookies.get('sys_user_role')?.value;
+    let isSuperAdmin = req.cookies.get('sys_is_admin')?.value;
 
-    const funcaoId = profile?.funcao_id
-    const isSuperAdmin = profile?.is_superadmin
+    if (!funcaoId || isSuperAdmin === undefined) {
+      const { data: profile } = await supabase
+        .from('usuarios')
+        .select('funcao_id, is_superadmin')
+        .eq('id', user.id)
+        .single()
+
+      funcaoId = profile?.funcao_id;
+      isSuperAdmin = profile?.is_superadmin ? 'true' : 'false';
+
+      // Salva no cookie para que as próximas 100 requisições (e prefetchs) não batam no banco de dados!
+      response.cookies.set('sys_user_role', String(funcaoId || ''), { maxAge: 60 * 30 }); // 30 minutos
+      response.cookies.set('sys_is_admin', isSuperAdmin, { maxAge: 60 * 30 });
+    } else {
+      funcaoId = parseInt(funcaoId, 10);
+      isSuperAdmin = isSuperAdmin === 'true';
+    }
 
     // REGRA DE SUPER ADMIN (ACESSO AO /admin)
     if (path.startsWith('/admin')) {

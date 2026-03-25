@@ -380,7 +380,7 @@ CREATE TABLE public.configuracoes_venda (
 
 CREATE TABLE public.configuracoes_whatsapp (
     id bigint NOT NULL,
-    empresa_id bigint NOT NULL,
+    empresa_id bigint,
     whatsapp_phone_number_id text,
     whatsapp_business_account_id text,
     whatsapp_permanent_token text,
