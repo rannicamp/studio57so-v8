@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '../../utils/supabase/client';
 import { useAuth } from '../../contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner, faLandmark, faArrowUp, faArrowDown, faAngleRight, faTrash, faHandHoldingDollar, faCheckCircle, faExclamationTriangle, faFileAlt, faChevronDown, faChevronRight, faTimes, faCheck, faMagic, faEye, faExpand } from '@fortawesome/free-solid-svg-icons';
+import { faSpinner, faLandmark, faArrowUp, faArrowDown, faAngleRight, faTrash, faHandHoldingDollar, faCheckCircle, faExclamationTriangle, faFileAlt, faChevronDown, faChevronRight, faTimes, faCheck, faMagic, faEye, faExpand, faFolderOpen, faExchangeAlt, faSearch, faSort } from '@fortawesome/free-solid-svg-icons';
 import { format, parseISO, isBefore, startOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
@@ -40,6 +40,186 @@ const FaturaPreviewPanel = ({ fileUrl, fileName, onClose }) => {
     );
 };
 
+// --- GERENCIADOR GLOBAL DE FATURAS E RE-VINCULAÇÃO ---
+const FaturasGerenciadorModal = ({ isOpen, onClose, organizacaoId, contasCartao, onPreviewRequest }) => {
+    const supabase = createClient();
+    const queryClient = useQueryClient();
+    const [vinculandoId, setVinculandoId] = useState(null);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [sortBy, setSortBy] = useState('data_envio_desc');
+
+    const { data: arquivosBD, isLoading } = useQuery({
+        queryKey: ['todas_faturas_ia', organizacaoId],
+        queryFn: async () => {
+            const { data, error } = await supabase
+                .from('banco_arquivos_ofx')
+                .select('*, conta:contas_financeiras(id, nome, numero_conta)')
+                .eq('organizacao_id', organizacaoId)
+                .eq('status', 'Processado IA');
+            if (error) throw error;
+            return data || [];
+        },
+        enabled: isOpen && !!organizacaoId
+    });
+
+    const revincularMutation = useMutation({
+        mutationFn: async ({ arquivoId, novaContaId }) => {
+            const { error: err1 } = await supabase.from('banco_arquivos_ofx').update({ conta_id: novaContaId }).eq('id', arquivoId).eq('organizacao_id', organizacaoId);
+            if (err1) throw err1;
+            const { error: err2 } = await supabase.from('banco_transacoes_ofx').update({ conta_id: novaContaId }).eq('arquivo_id', arquivoId).eq('organizacao_id', organizacaoId);
+            if (err2) throw err2;
+        },
+        onSuccess: () => {
+            toast.success('Fatura e transações movidas para a nova conta com sucesso!');
+            queryClient.invalidateQueries({ queryKey: ['todas_faturas_ia'] });
+            queryClient.invalidateQueries({ queryKey: ['faturasCartao_extrato'] });
+            queryClient.invalidateQueries({ queryKey: ['ofx_arquivos_cartao'] });
+            queryClient.invalidateQueries({ queryKey: ['extrato_cartao'] });
+            setVinculandoId(null);
+        },
+        onError: (err) => {
+            toast.error(`Falha ao realocar fatura: ${err.message}`);
+            setVinculandoId(null);
+        }
+    });
+
+    if (!isOpen) return null;
+
+    // Processar filtros em Client Side (evitando chamadas à API)
+    let processedArquivos = [...(arquivosBD || [])];
+    
+    // 1. Pesquisa
+    if (searchTerm) {
+        const lowerTerm = searchTerm.toLowerCase();
+        processedArquivos = processedArquivos.filter(arq => 
+            (arq.nome_arquivo && arq.nome_arquivo.toLowerCase().includes(lowerTerm)) ||
+            (arq.conta?.nome && arq.conta.nome.toLowerCase().includes(lowerTerm))
+        );
+    }
+    
+    // 2. Ordenação
+    processedArquivos.sort((a, b) => {
+        if (sortBy === 'data_envio_desc') return new Date(b.created_at) - new Date(a.created_at);
+        if (sortBy === 'data_envio_asc') return new Date(a.created_at) - new Date(b.created_at);
+        if (sortBy === 'nome_arquivo_asc') return (a.nome_arquivo || '').localeCompare(b.nome_arquivo || '');
+        if (sortBy === 'conta_nome_asc') return (a.conta?.nome || '').localeCompare(b.conta?.nome || '');
+        return 0;
+    });
+
+    return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fadeIn">
+            <div className="bg-slate-50 rounded-2xl shadow-2xl w-full max-w-5xl flex flex-col max-h-[90vh] overflow-hidden">
+                {/* Header */}
+                <div className="flex justify-between items-center p-5 bg-white border-b">
+                    <div>
+                        <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                            <FontAwesomeIcon icon={faFolderOpen} className="text-indigo-500" /> Gestão de Faturas Importadas (IA)
+                        </h2>
+                        <p className="text-xs text-gray-500 mt-1">Realoque PDFs que a inteligência artificial não conseguiu encontrar o cartão exato.</p>
+                    </div>
+                    <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full text-gray-500 transition-colors">
+                        <FontAwesomeIcon icon={faTimes} size="lg" />
+                    </button>
+                </div>
+                
+                {/* Barra de Filtros */}
+                <div className="bg-gray-50 p-4 border-b flex flex-col md:flex-row gap-3">
+                    <div className="relative flex-1">
+                        <FontAwesomeIcon icon={faSearch} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
+                        <input
+                            type="text"
+                            placeholder="Buscar por conta ou nome do arquivo..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full pl-9 pr-4 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
+                        />
+                    </div>
+                    <div className="relative w-full md:w-56 shrink-0">
+                        <FontAwesomeIcon icon={faSort} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
+                        <select
+                            value={sortBy}
+                            onChange={(e) => setSortBy(e.target.value)}
+                            className="w-full pl-9 pr-4 py-2 text-sm border border-gray-300 rounded-lg text-gray-700 focus:ring-2 focus:ring-indigo-500 outline-none appearance-none bg-white cursor-pointer"
+                        >
+                            <option value="data_envio_desc">Mais Recentes</option>
+                            <option value="data_envio_asc">Mais Antigos</option>
+                            <option value="nome_arquivo_asc">Nome do Arquivo (A-Z)</option>
+                            <option value="conta_nome_asc">Nome do Cartão/Conta (A-Z)</option>
+                        </select>
+                    </div>
+                </div>
+
+                {/* Lista */}
+                <div className="flex-1 overflow-y-auto p-5 custom-scrollbar">
+                    {isLoading ? (
+                        <div className="text-center py-10 text-gray-400"><FontAwesomeIcon icon={faSpinner} spin size="2x" /></div>
+                    ) : processedArquivos.length === 0 ? (
+                        <div className="text-center py-10 text-gray-500 bg-white rounded-xl border border-dashed">
+                            {searchTerm ? 'Nenhuma fatura encontrada na busca.' : 'Nenhuma fatura IA processada.'}
+                        </div>
+                    ) : (
+                        <div className="space-y-3">
+                            {processedArquivos.map(arq => {
+                                const isWarning = arq.conta?.nome?.startsWith('⚠️');
+                                return (
+                                    <div key={arq.id} className="bg-white rounded-xl border border-gray-200 shadow-sm hover:border-indigo-300 transition-colors p-4 flex flex-col md:flex-row gap-4 md:items-center">
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <button onClick={() => onPreviewRequest(arq.arquivo_url, arq.nome_arquivo)} className="text-indigo-600 hover:text-indigo-800 font-bold text-sm truncate uppercase tracking-tight" title="Visualizar PDF">
+                                                    <FontAwesomeIcon icon={faEye} className="mr-1.5" />{arq.nome_arquivo}
+                                                </button>
+                                                <span className="text-[10px] bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full font-bold border border-indigo-100 uppercase">{format(parseISO(arq.periodo_inicio), 'MMM/yyyy', {locale: ptBR})}</span>
+                                                <span className="text-[9px] text-gray-400 ml-2">{format(parseISO(arq.created_at), 'dd/MM/yy HH:mm')}</span>
+                                            </div>
+                                            <div className="flex items-center gap-1.5 mt-2">
+                                                <span className="text-[10px] uppercase font-bold text-gray-400">Vinculado a: </span>
+                                                <span className={`text-[11px] font-bold px-2 py-0.5 rounded ${isWarning ? 'bg-amber-100 text-amber-800 border-amber-200 border' : 'bg-gray-100 text-gray-600 border-gray-200 border'}`}>
+                                                    {arq.conta?.nome || 'Conta Órfã'}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        
+                                        <div className="flex items-center gap-2 shrink-0">
+                                            {vinculandoId === arq.id ? (
+                                                <div className="flex items-center gap-2 bg-indigo-50 p-1.5 rounded-lg border border-indigo-200 animate-fadeIn">
+                                                    <select 
+                                                        className="text-[11px] border-none bg-transparent focus:ring-0 text-indigo-900 font-bold cursor-pointer w-48 sm:w-56 outline-none appearance-none"
+                                                        onChange={(e) => {
+                                                            if(e.target.value) {
+                                                                revincularMutation.mutate({ arquivoId: arq.id, novaContaId: e.target.value });
+                                                            }
+                                                        }}
+                                                        disabled={revincularMutation.isPending}
+                                                    >
+                                                        <option value="">Escolha a conta certa...</option>
+                                                        {(contasCartao || []).map(c => (
+                                                            <option key={c.id} value={c.id}>{c.nome.replace('⚠️ ', '')} {c.numero_conta ? `(*${c.numero_conta})` : ''}</option>
+                                                        ))}
+                                                    </select>
+                                                    <button onClick={() => setVinculandoId(null)} className="text-gray-400 hover:text-gray-700 px-2" disabled={revincularMutation.isPending}>
+                                                        {revincularMutation.isPending ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faTimes} />}
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <button 
+                                                    onClick={() => setVinculandoId(arq.id)}
+                                                    className="px-3 py-1.5 text-xs font-bold text-gray-600 bg-white border border-gray-300 hover:bg-gray-50 hover:text-indigo-600 hover:border-indigo-300 rounded-lg transition-colors flex items-center gap-1.5"
+                                                >
+                                                    <FontAwesomeIcon icon={faExchangeAlt} /> Mudar Vínculo
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};
+
 const formatCurrency = (value) => {
     if (value === null || value === undefined || isNaN(value)) return 'R$ 0,00';
     return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
@@ -68,6 +248,7 @@ export default function ExtratoCartaoManager({ contasCartao }) {
     const [isUppyOpen, setIsUppyOpen] = useState(false);
     const [isExtractingPDF, setIsExtractingPDF] = useState(false);
     const [previewFatura, setPreviewFatura] = useState(null); // { url, nome }
+    const [isGerenciadorOpen, setIsGerenciadorOpen] = useState(false);
 
     // Auto seleção da primeira conta de cartão salva
     useEffect(() => {
@@ -663,6 +844,14 @@ export default function ExtratoCartaoManager({ contasCartao }) {
                 <div className="fixed inset-0 bg-black/50 z-[100]" onClick={() => setPreviewFatura(null)} />
             )}
 
+            <FaturasGerenciadorModal 
+                isOpen={isGerenciadorOpen} 
+                onClose={() => setIsGerenciadorOpen(false)} 
+                organizacaoId={organizacaoId} 
+                contasCartao={contasCartao} 
+                onPreviewRequest={(url, nome) => setPreviewFatura({ url, nome })}
+            />
+
             <div className="space-y-6 animate-fadeIn">
             {/* CABEÇALHO UNIFICADO (idêntico ao ExtratoManager) */}
             <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 flex flex-col md:flex-row items-start md:items-center gap-4">
@@ -733,16 +922,25 @@ export default function ExtratoCartaoManager({ contasCartao }) {
                 </div>
 
                 {contaSelecionada && (
-                    <div className="text-right flex items-center gap-4 w-full md:w-auto justify-between md:justify-end mt-4 md:mt-0">
-                        {/* Botão IA PDF (troca do OfxUploader) */}
-                        <button
-                            onClick={() => setIsUppyOpen(true)}
-                            disabled={isExtractingPDF}
-                            className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-sm transition-all disabled:opacity-60"
-                        >
-                            {isExtractingPDF ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faMagic} />}
-                            Importar Fatura PDF (IA)
-                        </button>
+                    <div className="text-right flex flex-col md:flex-row items-center gap-4 w-full md:w-auto justify-between md:justify-end mt-4 md:mt-0">
+                        <div className="flex gap-2 w-full md:w-auto">
+                            <button
+                                onClick={() => setIsGerenciadorOpen(true)}
+                                className="flex-1 md:flex-none items-center justify-center gap-2 bg-white border border-gray-300 hover:border-gray-400 text-gray-700 text-xs font-bold px-4 py-2.5 rounded-xl shadow-sm transition-all"
+                                title="Visualizar todos os uploads de faturas"
+                            >
+                                <FontAwesomeIcon icon={faFolderOpen} className="text-gray-500" />
+                                <span className="hidden sm:inline">Gestão de </span>Arquivos
+                            </button>
+                            <button
+                                onClick={() => setIsUppyOpen(true)}
+                                disabled={isExtractingPDF}
+                                className="flex-1 md:flex-none items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-sm transition-all disabled:opacity-60"
+                            >
+                                {isExtractingPDF ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faMagic} />}
+                                Importar Fatura (IA)
+                            </button>
+                        </div>
 
                         {/* Cards de Totais da Fatura */}
                         {extratoData && (
