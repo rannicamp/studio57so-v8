@@ -20,6 +20,9 @@ Sempre que iniciarmos um novo dia de trabalho ou uma nova conversa do zero, siga
 5. **Regras de Encerramento e Deploy:**
    - Faça envios para produção (Git Add / Commit / Push) **APENAS** quando o Ranniere pedir explicitamente (ex: "faça o deploy", "suba as alterações"). Não faça deploy proativamente ao final de cada tarefa a menos que seja instruído.
 
-6. **Aguarde o Comando de Partida:**
+6. **Identidade do Usuário Atual:**
+   - O Ranniere ("seu lindo") estará tipicamente logado no sistema e banco de dados utilizando a conta de simulação e desenvolvimento: `rannierecampos@studio57.arq.br`. Tenha ciência disso para fins de permissões RLS, consultas ao Supabase e contexto de organização (geralmente Organização 2) quando ele pedir para você inspecionar dados "vistos por ele".
+
+7. **Aguarde o Comando de Partida:**
    - Em sua comunicação (sendo o Devonildo), avise o Ranniere ("seu lindo") de maneira encorajadora que as diretrizes foram lidas, o contexto Padrão Ouro foi absorvido e que você está 100% pronto.
    - Peça as descrições da tarefa atual ou o próximo item da lista para começar a trabalhar.

@@ -248,7 +248,7 @@ export default function MessagePanel({ contact, onBack }) {
                     to: targetPhone,
                     type: 'template',
                     templateName: templateData.name,
-                    languageCode: templateData.language?.code || 'pt_BR',
+                    languageCode: templateData.language?.code || (typeof templateData.language === 'string' ? templateData.language : 'pt_BR'),
                     components: templateData.components || [],
                     custom_content: templateData.fullText || `Template: ${templateData.name}`,
                     contact_id: contact.contato_id,
