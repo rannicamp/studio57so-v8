@@ -77,9 +77,24 @@ export async function POST(request) {
         // 2. Rota de Status (Enviado, Entregue, Lido...)
         if (change.statuses) {
             const statusUpdate = change.statuses[0];
+            
+            // Corrige o Buraco Negro de Erros: Se a Meta rejeitar assincronamente (ex: falta de cartão),
+            // ela não retorna erro HTTP 400. Ela retorna HTTP 200 no envio, mas joga 'failed' no webhook
+            // com o array de errors. Temos que salvar esse erro!
+            let errorMessage = null;
+            if (statusUpdate.status === 'failed' && statusUpdate.errors && statusUpdate.errors.length > 0) {
+                errorMessage = `Meta Error ${statusUpdate.errors[0].code}: ${statusUpdate.errors[0].message || statusUpdate.errors[0].title || 'Failed'}`;
+            }
+
+            const updatePayload = { status: statusUpdate.status };
+            if (errorMessage) {
+                updatePayload.error_message = errorMessage;
+            }
+
             await supabaseAdmin.from('whatsapp_messages')
-                .update({ status: statusUpdate.status })
+                .update(updatePayload)
                 .eq('message_id', statusUpdate.id);
+                
             // Nota: Atualizar por message_id é seguro pois a Meta garante que ele é único globalmente.
             return NextResponse.json({ status: 'status_updated' });
         }
