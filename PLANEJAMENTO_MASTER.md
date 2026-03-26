@@ -325,4 +325,12 @@ O **Studio 57** é o ambiente de desenvolvimento e laboratório central. O **Elo
 - [ ] **Limpeza de Interface:** Remover o componente de `SimuladorTabs` da Tabela de Vendas do Corretor, deixando uma única ferramenta central e poderosa que serve para qualquer cenário de loteamento.
 
 ---
+
+### 15. 🧠 Arquitetura Assíncrona de IA (Faturas) - *A FAZER (Se Gargalo na Nuvem Persistir)*
+- [ ] **Diagnóstico:** Servidores como Netlify/Vercel cortam a conexão da API (`/api/cartoes/extrair-fatura`) após 10 a 15 segundos (504 Gateway Timeout). Se a IA do Gemini demorar mais que isso para PDFs complexos, a importação em tempo real via HTTP aborta.
+- [ ] **Migração para Edge Function/Webhook:** Remover o processo pesado da rota `/api/` do Next.js e construir uma **Supabase Edge Function** autônoma.
+- [ ] **Fluxo Desacoplado (Background Job):** O usuário faz upload do PDF. O frontend salva no Storage e cria a linha no DB com status `Processando na Nuvem...` e libera a tela do usuário. O Supabase dispara um Webhook interno para a Edge Function. A função baixa o PDF, conversa com o Gemini (sem pressa/timeout), escreve os dados no banco e muda o status para `Processado IA`.
+- [ ] **UI Mágica:** O frontend usa `Supabase Realtime` na tabela de arquivos. Quando a IA terminar o processo isolado e mudar o status de "Processando" para "Processado", sobe um aviso (Toast) festivo na tela do usuário avisando que aquela fatura que ele upou há minutos atrás está pronta.
+
+---
 *Assinado: Devonildo (Seu Mentor Técnico)*
