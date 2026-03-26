@@ -28,37 +28,43 @@ export function formatarParaWhatsAppBR(rawPhone, countryCode = '+55') {
 
     if (!digits) return '';
 
-    // 2. Se for número brasileiro (country_code +55 ou começa com 55)
-    const isBrazilian = countryCode === '+55' || digits.startsWith('55');
+    // Adiciona o DDI temporariamente se estiver faltando para a formatação
+    const ddiNum = countryCode.replace('+', '');
+    if (!digits.startsWith(ddiNum) && isBrazilian(countryCode, digits)) {
+         digits = ddiNum + digits;
+    }
 
-    if (isBrazilian) {
-        // Remove o DDI 55 se presente
-        if (digits.startsWith('55')) {
-            digits = digits.substring(2);
+    // 2. Se for número brasileiro (+55)
+    function isBrazilian(cc, dig) {
+        return cc === '+55' || dig.startsWith('55') || (dig.length >= 10 && dig.length <= 11 && cc === '+55');
+    }
+
+    if (isBrazilian(countryCode, digits) || digits.startsWith('55')) {
+        // Garante que tem o 55
+        if (!digits.startsWith('55')) {
+            digits = '55' + digits;
         }
 
-        // Agora temos: DDD (2d) + número local (8 ou 9 dígitos)
+        const localDigits = digits.substring(2);
+
+        // Agora temos o número local após o 55
         // Celular BR = 11 dígitos locais (DDD 2d + 9 + número 8d)
-        // Fixo BR    = 10 dígitos locais (DDD 2d + número 8d)
-        if (digits.length === 11) {
-            // Tem 11 dígitos locais → é celular com 9 → remove o 9
-            // O 9 fica na posição 2 (após os 2 dígitos do DDD)
-            const ddd = digits.substring(0, 2);
-            const noveDigito = digits[2];
-            const numero = digits.substring(3); // 8 dígitos restantes
+        if (localDigits.length === 11) {
+            const ddd = localDigits.substring(0, 2);
+            const noveDigito = localDigits[2];
+            const numero = localDigits.substring(3); // 8 dígitos restantes
 
             if (noveDigito === '9') {
-                // Confirmado: é o 9 de celular. Remove.
-                return ddd + numero; // 10 dígitos (o que a Meta quer)
+                // Remove o 9, MAS MANTÉM O 55 e o DDD
+                return '55' + ddd + numero; // 12 dígitos total (o que a Meta Oficial quer)
             }
         }
 
-        // 10 dígitos (fixo) ou caso não seja o padrão esperado → retorna como está
-        return digits;
+        // Se tiver 10 dígitos locais (fixo) ou já estiver com 8 dígitos (sem o 9)
+        return '55' + localDigits;
     }
 
-    // 3. Internacional: apenas dígitos limpos (sem DDI)
-    // Ex: +1 (555) 123-4567 → 15551234567
+    // 3. Internacional: retorna como está (esperando que já tenha o DDI)
     return digits;
 }
 
