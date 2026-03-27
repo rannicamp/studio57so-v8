@@ -719,6 +719,20 @@ export default function ExtratoCartaoManager({ contasCartao }) {
     // =====================================================================
     // RENDER
     // =====================================================================
+    // =====================================================================
+    // Lógica para encontrar quem é a "Fatura Atual" (A que recebe as transações de hoje)
+    // =====================================================================
+    const getFaturaAtualId = () => {
+        if (!faturas || faturas.length === 0) return null;
+        const faturasAbertas = faturas.filter(f => f.data_fechamento && !isBefore(parseISO(f.data_fechamento), startOfDay(new Date())));
+        if (faturasAbertas.length > 0) {
+            // Como faturas é ordenado DESC, a fatura aberta mais próxima de fechar é o último elemento deste sub-array
+            return faturasAbertas[faturasAbertas.length - 1].id;
+        }
+        return faturas[0]?.id; // Fallback
+    };
+    const idFaturaAtualOficial = getFaturaAtualId();
+
     return (
         <>
             {/* VISUALIZADOR PDF DA FATURA */}
@@ -873,28 +887,35 @@ export default function ExtratoCartaoManager({ contasCartao }) {
                                 const dataVenc = parseISO(fatura.data_vencimento);
                                 const isAtrasada = isBefore(dataVenc, hoje);
                                 const faturaKey = fatura.data_vencimento;
+                                const isFaturaAtual = fatura.id === idFaturaAtualOficial;
+                                const isInFuturo = !isAtrasada && !isFaturaAtual;
 
                                 // Arquivos IA para esta fatura (compara pelo periodo_inicio)
                                 const arquivosFatura = (arquivosOfxMes || []).filter(a => a.periodo_inicio === fatura.data_vencimento);
                                 const ofxAberto = ofxPainelAberto === faturaKey;
 
                                 return (
-                                    <div key={idx} className={`border-b last:border-0 transition-all border-l-4 ${isSelected ? 'border-l-blue-500' : 'border-l-transparent'}`}>
-                                        <div className={`flex items-center ${isSelected ? 'bg-blue-50' : 'bg-white hover:bg-gray-50'}`}>
+                                    <div key={idx} className={`border-b last:border-0 transition-all border-l-4 ${isSelected ? 'border-l-blue-600' : 'border-l-transparent'} ${isFaturaAtual && !isSelected ? 'border-l-blue-400' : ''}`}>
+                                        <div className={`flex items-center ${isSelected ? 'bg-blue-50' : (isFaturaAtual ? 'bg-blue-50/50 hover:bg-blue-50' : 'bg-white hover:bg-gray-50')}`}>
                                             <button
                                                 onClick={() => { setFaturaSelecionadaVencimento(fatura.data_vencimento); setModoConciliacaoMes(null); setArquivoOfxExpandido(null); setSelectedIds([]); }}
                                                 className="flex-1 text-left p-4"
                                             >
-                                                <div className={`font-bold capitalize ${isSelected ? 'text-blue-900' : 'text-gray-700'}`}>
+                                                <div className={`font-bold capitalize ${isSelected ? 'text-blue-700' : (isFaturaAtual ? 'text-blue-600' : 'text-gray-700')}`}>
                                                     Venc. {format(parseISO(fatura.data_vencimento), 'dd/MM/yyyy')}
                                                 </div>
                                                 <div className="mt-1 flex gap-1 flex-wrap">
-                                                    {isAtrasada ? (
-                                                        <span className="text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wide bg-red-100 text-red-700">Atrasada</span>
+                                                    {isAtrasada && fatura.status !== 'Pago' ? (
+                                                        <span className="px-2.5 py-1 text-[10px] font-bold rounded-full bg-red-50 text-red-700 border border-red-200 uppercase">Atrasada</span>
+                                                    ) : isFaturaAtual ? (
+                                                        <span className="px-2.5 py-1 text-[10px] font-bold rounded-full bg-green-50 text-green-700 border border-green-200 uppercase">Atual (Aberta)</span>
                                                     ) : (
-                                                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wide ${isSelected ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600'}`}>
-                                                            {idx === 0 ? 'Atual' : 'Anterior'}
+                                                        <span className="px-2.5 py-1 text-[10px] font-bold rounded-full bg-gray-50 text-gray-500 border border-gray-200 uppercase">
+                                                            {isInFuturo && fatura.status !== 'Pago' ? 'Futura' : 'Anterior'}
                                                         </span>
+                                                    )}
+                                                    {fatura.status === 'Pago' && (
+                                                        <span className="px-2.5 py-1 text-[10px] font-bold rounded-full bg-green-50 text-green-700 border border-green-200 uppercase">Paga</span>
                                                     )}
                                                     {arquivosFatura.length > 0 && (
                                                         <span className="text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wide bg-purple-100 text-purple-700">
