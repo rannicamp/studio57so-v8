@@ -1,0 +1,182 @@
+[
+  {
+    "table": "diarios_obra",
+    "trigger_name": "trg_auto_notificacao_diarios_obra",
+    "action_statement": "EXECUTE FUNCTION processar_regras_notificacao()"
+  },
+  {
+    "table": "diarios_obra",
+    "trigger_name": "trg_auto_notificacao_diarios_obra",
+    "action_statement": "EXECUTE FUNCTION processar_regras_notificacao()"
+  },
+  {
+    "table": "produtos_empreendimento",
+    "trigger_name": "trg_auto_notificacao_produtos_empreendimento",
+    "action_statement": "EXECUTE FUNCTION processar_regras_notificacao()"
+  },
+  {
+    "table": "produtos_empreendimento",
+    "trigger_name": "trg_auto_notificacao_produtos_empreendimento",
+    "action_statement": "EXECUTE FUNCTION processar_regras_notificacao()"
+  },
+  {
+    "table": "produtos_empreendimento",
+    "trigger_name": "trg_auto_notificacao_produtos_empreendimento",
+    "action_statement": "EXECUTE FUNCTION processar_regras_notificacao()"
+  },
+  {
+    "table": "lancamentos",
+    "trigger_name": "trg_auto_notificacao_lancamentos",
+    "action_statement": "EXECUTE FUNCTION processar_regras_notificacao()"
+  },
+  {
+    "table": "lancamentos",
+    "trigger_name": "trg_auto_notificacao_lancamentos",
+    "action_statement": "EXECUTE FUNCTION processar_regras_notificacao()"
+  },
+  {
+    "table": "lancamentos",
+    "trigger_name": "trg_auto_notificacao_lancamentos",
+    "action_statement": "EXECUTE FUNCTION processar_regras_notificacao()"
+  },
+  {
+    "table": "contatos_no_funil",
+    "trigger_name": "trg_auto_notificacao_contatos_no_funil",
+    "action_statement": "EXECUTE FUNCTION processar_regras_notificacao()"
+  },
+  {
+    "table": "contatos_no_funil",
+    "trigger_name": "trg_auto_notificacao_contatos_no_funil",
+    "action_statement": "EXECUTE FUNCTION processar_regras_notificacao()"
+  },
+  {
+    "table": "contatos_no_funil",
+    "trigger_name": "trg_auto_notificacao_contatos_no_funil",
+    "action_statement": "EXECUTE FUNCTION processar_regras_notificacao()"
+  },
+  {
+    "table": "contatos",
+    "trigger_name": "tr_processar_regras_notificacao_contatos",
+    "action_statement": "EXECUTE FUNCTION processar_regras_notificacao()"
+  },
+  {
+    "table": "contatos",
+    "trigger_name": "tr_processar_regras_notificacao_contatos",
+    "action_statement": "EXECUTE FUNCTION processar_regras_notificacao()"
+  },
+  {
+    "table": "contatos",
+    "trigger_name": "tr_processar_regras_notificacao_contatos",
+    "action_statement": "EXECUTE FUNCTION processar_regras_notificacao()"
+  },
+  {
+    "table": "contatos",
+    "trigger_name": "trg_auto_notificacao_contatos",
+    "action_statement": "EXECUTE FUNCTION processar_regras_notificacao()"
+  },
+  {
+    "table": "contatos",
+    "trigger_name": "trg_auto_notificacao_contatos",
+    "action_statement": "EXECUTE FUNCTION processar_regras_notificacao()"
+  },
+  {
+    "table": "activities",
+    "trigger_name": "trg_auto_notificacao_activities",
+    "action_statement": "EXECUTE FUNCTION processar_regras_notificacao()"
+  },
+  {
+    "table": "activities",
+    "trigger_name": "trg_auto_notificacao_activities",
+    "action_statement": "EXECUTE FUNCTION processar_regras_notificacao()"
+  },
+  {
+    "table": "activities",
+    "trigger_name": "trg_auto_notificacao_activities",
+    "action_statement": "EXECUTE FUNCTION processar_regras_notificacao()"
+  },
+  {
+    "table": "activities",
+    "trigger_name": "trg_notificacao_activities",
+    "action_statement": "EXECUTE FUNCTION processar_regras_notificacao()"
+  },
+  {
+    "table": "activities",
+    "trigger_name": "trg_notificacao_activities",
+    "action_statement": "EXECUTE FUNCTION processar_regras_notificacao()"
+  },
+  {
+    "table": "pedidos_compra",
+    "trigger_name": "trg_auto_notificacao_pedidos_compra",
+    "action_statement": "EXECUTE FUNCTION processar_regras_notificacao()"
+  },
+  {
+    "table": "pedidos_compra",
+    "trigger_name": "trg_auto_notificacao_pedidos_compra",
+    "action_statement": "EXECUTE FUNCTION processar_regras_notificacao()"
+  },
+  {
+    "table": "pedidos_compra",
+    "trigger_name": "trg_auto_notificacao_pedidos_compra",
+    "action_statement": "EXECUTE FUNCTION processar_regras_notificacao()"
+  },
+  {
+    "table": "contratos",
+    "trigger_name": "trg_auto_notificacao_contratos",
+    "action_statement": "EXECUTE FUNCTION processar_regras_notificacao()"
+  },
+  {
+    "table": "contratos",
+    "trigger_name": "trg_auto_notificacao_contratos",
+    "action_statement": "EXECUTE FUNCTION processar_regras_notificacao()"
+  },
+  {
+    "table": "contratos",
+    "trigger_name": "trg_auto_notificacao_contratos",
+    "action_statement": "EXECUTE FUNCTION processar_regras_notificacao()"
+  },
+  {
+    "table": "whatsapp_messages",
+    "trigger_name": "trg_auto_notificacao_whatsapp_messages",
+    "action_statement": "EXECUTE FUNCTION processar_regras_notificacao()"
+  },
+  {
+    "table": "whatsapp_messages",
+    "trigger_name": "trg_auto_notificacao_whatsapp_messages",
+    "action_statement": "EXECUTE FUNCTION processar_regras_notificacao()"
+  },
+  {
+    "table": "sys_chat_mural_posts",
+    "trigger_name": "trg_auto_notificacao_sys_chat_mural_posts",
+    "action_statement": "EXECUTE FUNCTION processar_regras_notificacao()"
+  },
+  {
+    "table": "sys_chat_mural_posts",
+    "trigger_name": "trg_auto_notificacao_sys_chat_mural_posts",
+    "action_statement": "EXECUTE FUNCTION processar_regras_notificacao()"
+  },
+  {
+    "table": "feedback",
+    "trigger_name": "trg_auto_notificacao_feedback",
+    "action_statement": "EXECUTE FUNCTION processar_regras_notificacao()"
+  },
+  {
+    "table": "feedback",
+    "trigger_name": "trg_auto_notificacao_feedback",
+    "action_statement": "EXECUTE FUNCTION processar_regras_notificacao()"
+  },
+  {
+    "table": "usuarios",
+    "trigger_name": "trg_auto_notificacao_usuarios",
+    "action_statement": "EXECUTE FUNCTION processar_regras_notificacao()"
+  },
+  {
+    "table": "usuarios",
+    "trigger_name": "trg_auto_notificacao_usuarios",
+    "action_statement": "EXECUTE FUNCTION processar_regras_notificacao()"
+  },
+  {
+    "table": "usuarios",
+    "trigger_name": "trg_auto_notificacao_usuarios",
+    "action_statement": "EXECUTE FUNCTION processar_regras_notificacao()"
+  }
+]
