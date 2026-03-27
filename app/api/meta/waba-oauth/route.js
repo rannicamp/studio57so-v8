@@ -27,8 +27,8 @@ export async function POST(request) {
             return NextResponse.json({ error: 'Org não encontrada' }, { status: 400 });
         }
 
-        const appId = process.env.NEXT_PUBLIC_FACEBOOK_APP_ID_WA || '1459952825742829';
-        const appSecret = process.env.FACEBOOK_APP_SECRET_WA; 
+        const appId = process.env.NEXT_PUBLIC_FACEBOOK_APP_ID;
+        const appSecret = process.env.FACEBOOK_CLIENT_SECRET; 
 
         let longLivedToken = shortLivedToken;
 
@@ -46,7 +46,7 @@ export async function POST(request) {
                 console.warn('⚠️ Falha ao obter Token Long-Lived. Usando o original temporário.', exchangeData);
             }
         } else {
-            console.warn('⚠️ FACEBOOK_APP_SECRET_WA não configurado. Pulando a turbinação do token, usando temporário.');
+            console.warn('⚠️ FACEBOOK_CLIENT_SECRET não configurado. Pulando a turbinação do token, usando temporário.');
         }
 
         const supabaseAdmin = createAdminClient(
@@ -58,7 +58,7 @@ export async function POST(request) {
         // 2. Descobrindo a WABA criada no Embedded Signup (Via Graph API)
         // No fluxo Embedded Signup oficial, o Cliente logou com o User dele.
         console.log('🔍 Inspecionando ecossistema de Negócios (Business Managers)...');
-        const bmUrl = `https://graph.facebook.com/v21.0/me/businesses?access_token=${longLivedToken}&fields=id,name`;
+        const bmUrl = `https://graph.facebook.com/v22.0/me/businesses?access_token=${longLivedToken}&fields=id,name`;
         const bmRes = await fetch(bmUrl);
         const bmData = await bmRes.json();
 
@@ -67,14 +67,14 @@ export async function POST(request) {
 
         if (bmData.data && bmData.data.length > 0) {
             for (const bm of bmData.data) {
-                const wabaUrl = `https://graph.facebook.com/v21.0/${bm.id}/owned_whatsapp_business_accounts?access_token=${longLivedToken}&fields=id,name`;
+                const wabaUrl = `https://graph.facebook.com/v22.0/${bm.id}/owned_whatsapp_business_accounts?access_token=${longLivedToken}&fields=id,name`;
                 const wabaRes = await fetch(wabaUrl);
                 const wabaData = await wabaRes.json();
 
                 if (wabaData.data && wabaData.data.length > 0) {
                     wabaEncontrada = wabaData.data[0]; // Pega a primeira WABA
 
-                    const phoneUrl = `https://graph.facebook.com/v21.0/${wabaEncontrada.id}/phone_numbers?access_token=${longLivedToken}&fields=id,display_phone_number,verified_name`;
+                    const phoneUrl = `https://graph.facebook.com/v22.0/${wabaEncontrada.id}/phone_numbers?access_token=${longLivedToken}&fields=id,display_phone_number,verified_name`;
                     const phoneRes = await fetch(phoneUrl);
                     const phoneData = await phoneRes.json();
                     
@@ -117,9 +117,9 @@ export async function POST(request) {
         }
 
         // 4. Salvar na Tabela `configuracoes_whatsapp`
-        // Tenta buscar o systemUserToken da nossa plataforma (imortal) para operarmos na WABA deles
-        const systemUserToken = process.env.WHATSAPP_SYSTEM_USER_TOKEN;
-        const bestToken = systemUserToken || longLivedToken;
+        // IMPORTANTE: Jamais fazer fallback para processo.env.WHATSAPP_SYSTEM_USER_TOKEN no banco!
+        // A arquitetura SaaS exige que cada DB Row possua EXCLUSIVAMENTE o token daquele cliente.
+        const bestToken = longLivedToken;
 
         const { data: empresaPadrao } = await supabaseAdmin
             .from('cadastro_empresa')

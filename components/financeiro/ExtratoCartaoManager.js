@@ -266,6 +266,39 @@ export default function ExtratoCartaoManager({ contasCartao }) {
         }
     }, [contasCartao, contaSelecionadaId]);
 
+    // =====================================================================
+    // LISTENER REALTIME: Escuta o término do processamento em background (IA)
+    // =====================================================================
+    useEffect(() => {
+        if (!organizacaoId) return;
+
+        const channel = supabase.channel('banco_arquivos_cartao_ia')
+            .on('postgres_changes', { 
+                event: 'UPDATE', 
+                schema: 'public', 
+                table: 'banco_arquivos_ofx',
+                filter: `organizacao_id=eq.${organizacaoId}` 
+            }, (payload) => {
+                const { new: newRec, old: oldRec } = payload;
+                if (oldRec.status === 'Processando...' && newRec.status === 'Processado IA') {
+                    toast.success(`✨ A Fatura Mágica "${newRec.nome_arquivo}" foi processada pela IA!`);
+                    queryClient.invalidateQueries({ queryKey: ['todas_faturas_ia'] });
+                    queryClient.invalidateQueries({ queryKey: ['faturasCartao_extrato'] });
+                    queryClient.invalidateQueries({ queryKey: ['ofx_arquivos_cartao'] });
+                    queryClient.invalidateQueries({ queryKey: ['extrato_cartao'] });
+                    queryClient.invalidateQueries({ queryKey: ['contasCartao'] });
+                } else if (oldRec.status === 'Processando...' && newRec.status === 'Falha Leitura') {
+                    toast.error(`⚠️ Falha na Nuvem ao ler a fatura "${newRec.nome_arquivo}". A fatura ficou no Gerenciador.`);
+                    queryClient.invalidateQueries({ queryKey: ['todas_faturas_ia'] });
+                }
+            })
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [organizacaoId, supabase, queryClient]);
+
     const handleSelectConta = (id) => {
         setContaSelecionadaId(id);
         if (typeof window !== 'undefined') localStorage.setItem('studio57_last_conta_cartao_id', id);
@@ -614,32 +647,21 @@ export default function ExtratoCartaoManager({ contasCartao }) {
         const fileArray = Array.isArray(files) ? files : [files];
         if (fileArray.length === 0) return;
 
-        setIsExtractingPDF(true);
-        const toastId = toast.loading(arqBaseId ? `Reprocessando fatura na Nuvem...` : `Processando ${fileArray.length} fatura(s) com IA...`);
-
-        let totalInjected = 0;
-        let firstDataVencimento = null;
-        const cartoesNaoEncontrados = [];
+        // O processo agora é assíncrono. O spinner de loading do botão pode girar rápido
+        // e logo liberar a tela, mas mantemos o toast informativo.
+        const toastId = toast.loading(arqBaseId ? `Enviando fatura para reprocessar na Nuvem...` : `Enviando ${fileArray.length} fatura(s) para a Inteligência Artificial...`);
 
         for (let i = 0; i < fileArray.length; i++) {
             const file = fileArray[i];
-            if (!arqBaseId) toast.loading(`🧠 IA enviando fatura ${i + 1} de ${fileArray.length}: ${file.name}`, { id: toastId });
-
-            if (i > 0) {
-                toast.loading(`⏳ Aguardando 4s para evitar limite da IA...`, { id: toastId });
-                await new Promise(r => setTimeout(r, 4000));
-                toast.loading(`🧠 Processando fatura ${i + 1} de ${fileArray.length}...`, { id: toastId });
-            }
-
-            // --- 1. PERSISTÊNCIA INICIAL (Fallback Anti-perda) ---
+            
+            // --- 1. UPLOAD E PERSISTÊNCIA INICIAL ---
             let currentArqId = arqBaseId;
+            let arquivoUrl = null;
             const safeDataVenc = faturaSelecionadaVencimento || new Date().toISOString().split('T')[0];
             const safeContaId = contaSelecionadaId || null;
             const nomeArq = file.name || `Fatura_Cartao_Venc_${safeDataVenc}.pdf`;
 
             if (!currentArqId) {
-                // Sobe o arquivo INCONDICIONALMENTE (mesmo que a IA exploda)
-                let arquivoUrl = null;
                 const safeName = file.name ? file.name.replace(/[^a-zA-Z0-9.-]/g, '_') : 'fatura.pdf';
                 const storagePath = `faturas-cartao/${organizacaoId}/fallback_${Date.now()}_${safeName}`;
                 
@@ -648,12 +670,12 @@ export default function ExtratoCartaoManager({ contasCartao }) {
                     const { data: urlData } = supabase.storage.from('documentos-financeiro').getPublicUrl(storagePath);
                     arquivoUrl = urlData?.publicUrl || null;
                 } else {
-                    console.warn("Falha no upload preventivo do Storage:", uploadError.message);
+                    console.warn("Falha no upload do Storage:", uploadError.message);
                 }
 
                 const { data: arqHeader, error: arqError } = await supabase.from('banco_arquivos_ofx').insert({
                     organizacao_id: organizacaoId, conta_id: safeContaId,
-                    nome_arquivo: nomeArq, status: 'Falha Leitura', // Pessimismo inicial
+                    nome_arquivo: nomeArq, status: 'Processando...', 
                     periodo_inicio: safeDataVenc, periodo_fim: safeDataVenc,
                     arquivo_url: arquivoUrl
                 }).select('*').single();
@@ -662,154 +684,36 @@ export default function ExtratoCartaoManager({ contasCartao }) {
             } else {
                 // Em Reprocessamento: Apaga rastro velho pra reescrever limpo
                 await supabase.from('banco_transacoes_ofx').delete().eq('arquivo_id', currentArqId);
-                await supabase.from('banco_arquivos_ofx').update({ status: 'Processando...' }).eq('id', currentArqId);
+                const { data: oldArq } = await supabase.from('banco_arquivos_ofx')
+                    .update({ status: 'Processando...' }).eq('id', currentArqId).select('arquivo_url').single();
+                if (oldArq) arquivoUrl = oldArq.arquivo_url;
             }
 
-            // --- 2. COMUNICAÇÃO COM A IA ---
+            // --- 2. COMUNICAÇÃO FIRE-AND-FORGET COM A API ---
             try {
-                const formData = new FormData();
-                formData.append('file', file);
-                const res = await fetch('/api/cartoes/extrair-fatura', { method: 'POST', body: formData });
+                // Sem "await" propositalmente. Envia pra fila e libera a interface!
+                fetch('/api/cartoes/extrair-fatura', { 
+                    method: 'POST', 
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        arquivoId: currentArqId,
+                        arquivoUrl: arquivoUrl,
+                        organizacaoId: organizacaoId,
+                        contaSelecionadaId: safeContaId
+                    })
+                }).catch(e => console.error("Falha silenciosa de rede:", e));
                 
-                // Validação de erro HTML (Ex: Timeout HTTP 504)
-                const contentType = res.headers.get("content-type");
-                if (contentType && contentType.indexOf("application/json") === -1) {
-                    const errorText = await res.text();
-                    console.error(`Status HTTP Erro (Não-JSON):`, errorText);
-                    toast.error(`⚠️ O servidor estourou o limite de tempo na IA. O PDF foi salvo no Gerenciador para tentar mais tarde.`, { duration: 10000 });
-                    continue;
-                }
-                
-                let result;
-                try { result = await res.json(); } catch (e) { toast.error("⚠️ Resposta IA corrompida. Arquivo guardado no Gestor."); continue; }
-                if (!res.ok) { toast.error(`⚠️ Erro: ${result.error || 'Falha na inteligência'} (Salvo no Gestor)`); continue; }
-
-                // --- 3. PROCESSAMENTO DA RESPOSTA (Se tudo deu certo) ---
-                if (result.extratos && result.extratos.length > 0) {
-                    for (let eIndex = 0; eIndex < result.extratos.length; eIndex++) {
-                        const extrato = result.extratos[eIndex];
-                        const finalDigits = extrato.cartao_final ? String(extrato.cartao_final).trim() : '';
-                        let matchedContaId = null;
-
-                        if (finalDigits.length >= 4) {
-                            const found = contasCartao?.find(c => c.numero_conta && String(c.numero_conta).endsWith(finalDigits));
-                            if (found) matchedContaId = found.id;
-                            if (!matchedContaId) {
-                                const { data: contaBD } = await supabase.from('contas_financeiras').select('id, nome, numero_conta').eq('organizacao_id', organizacaoId).ilike('numero_conta', `%${finalDigits}`).limit(1).single();
-                                if (contaBD) matchedContaId = contaBD.id;
-                            }
-                        }
-
-                        if (!matchedContaId && finalDigits) {
-                            const nomeContaIA = `${extrato.bandeira || 'Cartão'} Final ${finalDigits} - ${extrato.titular || 'Titular'}`;
-                            const diaFechamento = extrato.data_fechamento_fatura ? parseInt(extrato.data_fechamento_fatura.split('-')[2]) : null;
-                            const diaPagamento = extrato.data_vencimento_fatura ? parseInt(extrato.data_vencimento_fatura.split('-')[2]) : null;
-
-                            const { data: novaConta, error: errConta } = await supabase.from('contas_financeiras').insert({
-                                nome: `⚠️ ${nomeContaIA}`, tipo: 'Cartão de Crédito', numero_conta: finalDigits,
-                                instituicao: extrato.instituicao || extrato.bandeira || null,
-                                dia_fechamento_fatura: diaFechamento, dia_pagamento_fatura: diaPagamento,
-                                limite_credito: extrato.limite_credito || null, saldo_inicial: 0, organizacao_id: organizacaoId,
-                            }).select('*').single();
-
-                            if (!errConta && novaConta) {
-                                matchedContaId = novaConta.id;
-                                cartoesNaoEncontrados.push({ cartao: finalDigits, titular: extrato.titular, nomeConta: novaConta.nome, contaCriada: true });
-                                queryClient.invalidateQueries({ queryKey: ['contasCartao'] });
-                                queryClient.invalidateQueries({ queryKey: ['contas'] });
-                            } else {
-                                matchedContaId = contaSelecionadaId;
-                                cartoesNaoEncontrados.push({ cartao: finalDigits, titular: extrato.titular, contaFallback: contaSelecionada?.nome, contaCriada: false });
-                            }
-                        } else if (!matchedContaId) {
-                            matchedContaId = contaSelecionadaId;
-                        }
-
-                        // Se não tem lançamentos neste cartão, pula
-                        if (!extrato.lancamentos || extrato.lancamentos.length === 0) continue;
-
-                        const dataVencimentoIA = extrato.data_vencimento_fatura || safeDataVenc;
-                        if (!firstDataVencimento) firstDataVencimento = dataVencimentoIA;
-
-                        const mesRef = dataVencimentoIA.substring(0, 7);
-                        await supabase.from('faturas_cartao').upsert({
-                            conta_id: Number(matchedContaId), organizacao_id: organizacaoId, mes_referencia: mesRef,
-                            data_vencimento: dataVencimentoIA, data_fechamento: dataVencimentoIA, status: 'Fechada'
-                        }, { onConflict: 'conta_id,mes_referencia', ignoreDuplicates: true });
-
-                        // ATUALIZAÇÃO DO ARQUIVO PERSISTIDO (Vínculo)
-                        let useArqId = currentArqId;
-                        if (eIndex === 0 && currentArqId) {
-                            await supabase.from('banco_arquivos_ofx').update({
-                                conta_id: matchedContaId, status: 'Processado IA',
-                                periodo_inicio: dataVencimentoIA, periodo_fim: dataVencimentoIA
-                            }).eq('id', currentArqId);
-                        } else if (currentArqId) {
-                            // IA devolveu >1 cartão num mesmo PDF (dependentes), clona o cabeçalho base 
-                            const { data: oldArq } = await supabase.from('banco_arquivos_ofx').select('*').eq('id', currentArqId).single();
-                            if (oldArq) {
-                                const { data: arqClone } = await supabase.from('banco_arquivos_ofx').insert({
-                                    organizacao_id: organizacaoId, conta_id: matchedContaId, nome_arquivo: oldArq.nome_arquivo, 
-                                    status: 'Processado IA', periodo_inicio: dataVencimentoIA, periodo_fim: dataVencimentoIA, arquivo_url: oldArq.arquivo_url
-                                }).select('id').single();
-                                if (arqClone) useArqId = arqClone.id;
-                            }
-                        }
-
-                        // INJEÇÃO DAS TRANSAÇÕES
-                        const payloadTransacoes = extrato.lancamentos.map((l, index) => {
-                            const safeDateTrans = l.data_transacao || dataVencimentoIA;
-                            const dateTransStr = safeDateTrans.replace(/-/g, '');
-                            const dateVencStr = dataVencimentoIA.replace(/-/g, '');
-                            const tipoLetra = l.tipo === 'Despesa' ? 'D' : 'R';
-                            const fitidFormatado = `CC-${finalDigits || '0000'}-${dateVencStr}-${dateTransStr}-${l.valor}-${tipoLetra}-${index}`;
-
-                            return {
-                                fitid: fitidFormatado, arquivo_id: useArqId, organizacao_id: organizacaoId, conta_id: matchedContaId,
-                                data_transacao: safeDateTrans, valor: l.tipo === 'Despesa' ? -Math.abs(l.valor) : Math.abs(l.valor),
-                                tipo: l.tipo, descricao_banco: l.descricao || 'Compra Cartão', memo_banco: `Fatura IA: ${extrato.titular || 'Titular'}`
-                            };
-                        });
-
-                        if (payloadTransacoes.length > 0) {
-                            const { error: trError } = await supabase.from('banco_transacoes_ofx').upsert(payloadTransacoes, { onConflict: 'fitid' });
-                            if (!trError) {
-                                totalInjected++;
-                                // Se o reprocessamento foi chamado e injetou com sucesso num arquivo que tava em Processando, force success nele tbm
-                                await supabase.from('banco_arquivos_ofx').update({ status: 'Processado IA' }).eq('id', useArqId);
-                            }
-                        }
-                    }
-                } else {
-                    toast.error("O arquivo subiu com sucesso pro Gestor, mas a IA devolveu 0 lançamentos! Use o Botão Reprocessar mais tarde.");
-                }
-
             } catch (err) {
-                console.error(`Falha fatal ao fatiar JSON/Network da fatura ${file.name}:`, err);
+                console.error(`Falha ao despachar o Worker da IA para ${file.name}:`, err);
+                toast.error(`Falha de rede ao contatar a IA para ${file.name}.`);
+                await supabase.from('banco_arquivos_ofx').update({ status: 'Falha Leitura' }).eq('id', currentArqId);
             }
         }
-
-        const contasCriadas = cartoesNaoEncontrados.filter(c => c.contaCriada);
-        const contasFalha = cartoesNaoEncontrados.filter(c => !c.contaCriada);
-
-        if (contasCriadas.length > 0 || contasFalha.length > 0) {
-            toast.success(`✅ ${fileArray.length} fatura(s) rastreadas!`, { id: toastId });
-            contasCriadas.forEach(c => toast.warning(`🆕 Conta nova "${c.nomeConta}" criada sozinha!`, { duration: 12000 }));
-            contasFalha.forEach(c => toast.error(`❌ Conta "${c.cartao}" não vinculou. Lançamentos em Fallback.`, { duration: 10000 }));
-        } else if (totalInjected > 0) {
-            toast.success(`✅ PDF Validado! ${totalInjected} lista(s) de lançamentos foram preenchidas com precisão. 🎉`, { id: toastId });
-        } else {
-            toast.success(arqBaseId ? `⚠️ Reprocessado sem Sucesso. A IA insiste que o papel está em branco/incompatível.` : `⚠️ Documento salvo no Gestor como Falha de Leitura ou Órfão.`, { id: toastId });
-        }
-
-        if (firstDataVencimento) setFaturaSelecionadaVencimento(firstDataVencimento);
-
-        queryClient.invalidateQueries({ queryKey: ['faturasCartao_extrato'] });
+        
+        // Tela liberada!
+        toast.success(`📤 Sucesso! A fatura está na nuvem. Você será avisado magicamente quando a IA terminar!`, { id: toastId, duration: 6000 });
         queryClient.invalidateQueries({ queryKey: ['todas_faturas_ia'] });
         queryClient.invalidateQueries({ queryKey: ['ofx_arquivos_cartao'] });
-        queryClient.invalidateQueries({ queryKey: ['extrato_cartao'] });
-
-        setIsExtractingPDF(false);
     };
 
     // =====================================================================

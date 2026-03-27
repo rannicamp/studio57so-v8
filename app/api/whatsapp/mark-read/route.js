@@ -35,7 +35,7 @@ export async function POST(request) {
             .from('whatsapp_conversations')
             .update({ unread_count: 0 })
             .eq('contato_id', contact_id)
-            .eq('organizacao_id', organizacaoId);
+            .eq('organizacao_id', organizacao_id); // 🔥 CORRIGIDO: estava originacaoId
 
         if (error) {
             console.error('[Mark Read API] Erro ao atualizar conversa:', error);
