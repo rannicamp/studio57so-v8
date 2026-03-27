@@ -259,7 +259,8 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
     const monthlyBalance = useMemo(() => {
         const dailyBalances = {};
         let total = 0;
-        if (!month || !employee || isProcessing) return { dailyBalances, total };
+        let totalTrabalhadas = 0;
+        if (!month || !employee || isProcessing) return { dailyBalances, total, totalTrabalhadas };
         const [year, monthNum] = month.split('-');
         const today = new Date(); today.setHours(0, 0, 0, 0);
         const lastDayOfMonth = new Date(Date.UTC(year, monthNum, 0));
@@ -281,6 +282,8 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
             const totalWorkedStr = calculateTotalHours(dayData);
             const [h, m] = totalWorkedStr.split(':').map(Number);
             const totalWorkedMinutes = isNaN(h) ? 0 : (h * 60) + m;
+            
+            totalTrabalhadas += totalWorkedMinutes;
 
             if (d > today) {
                 saldoFinalDoDia = 0;
@@ -316,7 +319,7 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
             dailyBalances[dateString] = Math.round(saldoFinalDoDia);
             total += Math.round(saldoFinalDoDia);
         }
-        return { dailyBalances, total };
+        return { dailyBalances, total, totalTrabalhadas };
     }, [month, employee, timesheetData, holidays, abonosData, calculateTotalHours, isProcessing]);
 
     const getDiariaParaData = useCallback((dateString, historico) => {
@@ -693,29 +696,14 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
                 </div>
             </div>
 
-            <div className="flex justify-between items-start no-print">
-                <div className="flex items-center gap-6">
-                    {employee.foto_url ? (<img src={employee.foto_url} alt="Foto" className="w-24 h-24 rounded-full object-cover" />) : (<FontAwesomeIcon icon={faUserCircle} className="w-24 h-24 text-gray-300" />)}
-                    <div>
-                        <h3 className="text-3xl font-bold">{employee.full_name}</h3>
-                        <p className="text-gray-600">{employee.contract_role}</p>
-                    </div>
-                </div>
-                <div className="flex flex-col items-end">
-                    <select value={selectedSignatoryId} onChange={(e) => setSelectedSignatoryId(e.target.value)} className="p-2 border rounded-md text-sm">
-                        <option value="">Assinatura do Responsável</option>
-                        {proprietarios.map(p => <option key={p.id} value={p.id}>{p.nome} {p.sobrenome}</option>)}
-                    </select>
-                    <button onClick={() => window.print()} className="mt-2 bg-gray-700 text-white px-4 py-2 rounded-md hover:bg-gray-800"><FontAwesomeIcon icon={faPrint} /> Imprimir</button>
-                </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 no-print">
-                <KpiCard title="Férias Gozadas (Ano)" value={`${feriasGozadas} / 30`} icon={faUmbrellaBeach} color="yellow" />
-                <KpiCard title="Saldo Banco de Horas (Total)" value={formatMinutesToHours(saldoBancoHoras)} icon={faHistory} color="purple" />
-                <KpiCard title="Valor a Pagar (Mês)" value={kpiData.valorAPagar} icon={faDollarSign} color="blue" />
-                <KpiCard title="Dias (Trab. / Úteis)" value={kpiData.dias} icon={faCalendarCheck} color="green" />
-                <KpiCard title="Faltas (no período)" value={kpiData.faltas} icon={faCalendarXmark} color="red" />
+            <div className="flex justify-end items-center gap-3 no-print mb-4">
+                <select value={selectedSignatoryId} onChange={(e) => setSelectedSignatoryId(e.target.value)} className="p-2 border border-gray-300 rounded-lg text-sm bg-white shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                    <option value="">Assinatura do Responsável</option>
+                    {proprietarios.map(p => <option key={p.id} value={p.id}>{p.nome} {p.sobrenome}</option>)}
+                </select>
+                <button onClick={() => window.print()} className="bg-gray-800 text-white px-4 py-2 rounded-lg hover:bg-gray-900 transition-colors flex items-center gap-2 font-medium shadow-sm">
+                    <FontAwesomeIcon icon={faPrint} /> Imprimir Ponto
+                </button>
             </div>
 
             <div className="overflow-x-auto">
@@ -792,11 +780,15 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
                         })}
                     </tbody>
                     <tfoot >
-                        <tr className="bg-gray-200 font-bold">
-                            <td colSpan="7" className="text-right px-4 py-2 uppercase text-sm">Total Saldo do Mês:</td>
-                            <td colSpan="3" className={`text-center px-4 py-2 text-lg ${monthlyBalance.total > 0 ? 'text-green-700' : (monthlyBalance.total < 0 ? 'text-red-700' : 'text-gray-800')}`}>
+                        <tr className="bg-gray-200 font-bold border-t-2 border-gray-400">
+                            <td colSpan="6" className="text-right px-4 py-2 uppercase text-sm text-gray-700">Total do Período:</td>
+                            <td className="border p-2 text-center text-lg text-blue-800" title="Total de horas trabalhadas no período">
+                                {formatMinutesToHours(monthlyBalance.totalTrabalhadas).replace('+', '')}
+                            </td>
+                            <td className={`border p-2 text-center text-lg ${monthlyBalance.total > 0 ? 'text-green-700' : (monthlyBalance.total < 0 ? 'text-red-700' : 'text-gray-800')}`} title="Saldo total do banco de horas no período">
                                 {formatMinutesToHours(monthlyBalance.total)}
                             </td>
+                            <td colSpan="2" className="border p-2"></td>
                         </tr>
                     </tfoot>
                 </table>

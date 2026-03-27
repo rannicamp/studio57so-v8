@@ -59,19 +59,32 @@ export default function RHManager() {
         ]);
 
         if (funcionariosRes.data) {
-            setEmployees(funcionariosRes.data);
+            const mappedEmployees = funcionariosRes.data.map(e => {
+                let finalUrl = e.foto_url;
+                if (finalUrl && !finalUrl.startsWith('http')) {
+                    finalUrl = supabase.storage.from('funcionarios-documentos').getPublicUrl(finalUrl).data?.publicUrl;
+                }
+                return { ...e, foto_url: finalUrl };
+            });
+            setEmployees(mappedEmployees);
         } else {
             console.error("Erro ao carregar funcionários:", funcionariosRes.error);
         }
 
         if (contatosRes.data) {
-            const mappedCandidates = contatosRes.data.map(c => ({
-                id: c.id,
-                full_name: c.nome || c.razao_social,
-                foto_url: c.foto_url,
-                contract_role: c.cargo || 'Candidato',
-                status: 'Candidato'
-            }));
+            const mappedCandidates = contatosRes.data.map(c => {
+                let finalUrl = c.foto_url;
+                if (finalUrl && !finalUrl.startsWith('http')) {
+                    finalUrl = supabase.storage.from('avatares').getPublicUrl(finalUrl).data?.publicUrl;
+                }
+                return {
+                    id: c.id,
+                    full_name: c.nome || c.razao_social,
+                    foto_url: finalUrl,
+                    contract_role: c.cargo || 'Candidato',
+                    status: 'Candidato'
+                }
+            });
             setCandidates(mappedCandidates);
         }
 
@@ -261,7 +274,8 @@ export default function RHManager() {
                 <div className="lg:col-span-3 h-full">
                      <ColaboradorDetailPanel 
                          selectedId={selectedEmployeeId} 
-                         isCandidateSelected={isCandidateSelected} 
+                         isCandidateSelected={isCandidateSelected}
+                         onEmployeeUpdate={fetchAllData}
                      />
                 </div>
             </div>

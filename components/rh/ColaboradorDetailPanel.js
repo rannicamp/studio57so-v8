@@ -108,11 +108,28 @@ export default function ColaboradorDetailPanel({ selectedId, isCandidateSelected
     const handleFuncionarioSaved = () => {
         setIsFuncionarioModalOpen(false);
         getEmployeeData();
+        if (onEmployeeUpdate) onEmployeeUpdate();
     };
 
     const handleOpenEditModal = (lancamento) => {
         setEditingLancamento(lancamento);
         setIsLancamentoModalOpen(true);
+    };
+
+    const handleDemitir = async () => {
+        if (!confirm(`Tem certeza que deseja inativar/demitir o colaborador ${employee?.full_name}?`)) return;
+        try {
+            const { error } = await supabase.from('funcionarios').update({
+                status: 'Demitido',
+                demission_date: new Date().toISOString().split('T')[0]
+            }).eq('id', employee.id);
+            if (error) throw error;
+            toast.success('Funcionário inativado com sucesso!');
+            getEmployeeData();
+            if (onEmployeeUpdate) onEmployeeUpdate();
+        } catch (error) {
+            toast.error(`Erro ao inativar/demitir: ${error.message}`);
+        }
     };
 
     if (!selectedId && !employee) {
@@ -142,24 +159,6 @@ export default function ColaboradorDetailPanel({ selectedId, isCandidateSelected
 
     return (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden animate-in fade-in flex flex-col h-full min-h-[600px] xl:min-h-[800px]">
-            {/* Header / Toolbar Interna */}
-            <header className="px-6 py-5 border-b flex justify-between items-center bg-gray-50 shrink-0">
-                <div>
-                     <h1 className="text-xl md:text-2xl font-black text-gray-900 tracking-tight">Ficha Funcional Detalhada</h1>
-                     <p className="text-xs md:text-sm text-gray-500">Documentação legal, espelho de ponto e holerites da organização.</p>
-                </div>
-                <div className="flex items-center gap-4">
-                    {!isCandidateSelected && (
-                        <button
-                            onClick={() => setIsFuncionarioModalOpen(true)}
-                            className="bg-blue-600 hover:bg-blue-700 text-white text-xs md:text-sm font-bold px-4 py-2 rounded-md shadow-sm flex items-center gap-2 transition-transform hover:scale-105"
-                        >
-                            <FontAwesomeIcon icon={faPen} /> Atualizar Cadastro
-                        </button>
-                    )}
-                </div>
-            </header>
-
             {/* Conteudo Interno da Ficha Escalonável */}
             <div className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 custom-scrollbar">
                 {/* Modais Retros */}
@@ -193,6 +192,8 @@ export default function ColaboradorDetailPanel({ selectedId, isCandidateSelected
                             allAbonos={abonos}
                             onUpdate={getEmployeeData}
                             onEditLancamento={handleOpenEditModal}
+                            onEditClick={() => setIsFuncionarioModalOpen(true)}
+                            onDemitirClick={handleDemitir}
                         />
                     )}
                 </div>

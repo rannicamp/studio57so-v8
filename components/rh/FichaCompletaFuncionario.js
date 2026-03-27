@@ -10,11 +10,12 @@ import {
     faUserCircle, faSpinner, faUpload, faEye, faTrash, faFilePdf, faFileImage, faFileWord, faFile,
     faAddressCard, faFileContract, faFileLines, faCheckCircle, faTimesCircle, faDollarSign,
     faCalendarCheck, faCalendarXmark, faBusinessTime, faEdit, faSort, faSortUp, faSortDown,
-    faFileInvoiceDollar, faPrint
+    faFileInvoiceDollar, faPrint, faPen, faUserTimes
 } from '@fortawesome/free-solid-svg-icons';
 import KpiCard from '@/components/shared/KpiCard';
 import UppyListUploader from '@/components/ui/UppyListUploader';
 import FileListView from '@/components/ui/FileListView';
+import FolhaPonto from './FolhaPonto';
 import { toast } from 'sonner';
 
 // --- HELPERS DE FORMATAÇÃO DE DATA ---
@@ -498,10 +499,16 @@ const ContrachequeSection = ({ employee, salarioAtual, organizacaoId }) => {
 
 
 // Componente Principal
-export default function FichaCompletaFuncionario({ employee, allDocuments, allPontos, allAbonos, onUpdate, onEditLancamento }) {
+export default function FichaCompletaFuncionario({ employee, allDocuments, allPontos, allAbonos, onUpdate, onEditLancamento, onEditClick, onDemitirClick }) {
     const [activeTab, setActiveTab] = useState('pessoal');
     const [lancamentos, setLancamentos] = useState([]);
     const [holidays, setHolidays] = useState(new Set());
+    
+    const [selectedMonthForPonto, setSelectedMonthForPonto] = useState(() => {
+        const now = new Date();
+        return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    });
+
     const supabase = createClient();
     const { user } = useAuth();
     const organizacaoId = user?.organizacao_id;
@@ -656,12 +663,31 @@ export default function FichaCompletaFuncionario({ employee, allDocuments, allPo
                 }
             `}</style>
 
-            <div className="flex flex-col md:flex-row gap-6 items-start no-print">
-                {employee.foto_url ? (<img src={employee.foto_url} alt="Foto do Funcionário" className="w-28 h-28 rounded-full object-cover border-4 border-white shadow-lg" />) : (<FontAwesomeIcon icon={faUserCircle} className="w-28 h-28 text-gray-300" />)}
-                <div className="flex-grow">
-                    <h2 className="text-3xl font-bold text-gray-900">{employee.full_name}</h2>
-                    <p className="text-lg text-gray-600">{employee.contract_role}</p>
-                    <span className={`mt-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${employee.status === 'Ativo' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}> {employee.status} </span>
+            <div className="flex flex-col md:flex-row gap-6 items-start justify-between no-print">
+                <div className="flex gap-6 items-start flex-grow">
+                    {employee.foto_url ? (<img src={employee.foto_url} alt="Foto do Funcionário" className="w-28 h-28 rounded-full object-cover border-4 border-white shadow-lg shrink-0" />) : (<FontAwesomeIcon icon={faUserCircle} className="w-28 h-28 text-gray-300 shrink-0" />)}
+                    <div className="flex-grow">
+                        <h2 className="text-3xl font-bold text-gray-900">{employee.full_name}</h2>
+                        <p className="text-lg text-gray-600">{employee.contract_role}</p>
+                        <span className={`mt-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${employee.status === 'Ativo' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}> {employee.status} </span>
+                    </div>
+                </div>
+                
+                <div className="flex flex-col gap-2 w-full md:w-auto mt-4 md:mt-0 items-end shrink-0">
+                    <button 
+                        onClick={onEditClick}
+                        className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 py-2 rounded-lg shadow-sm flex items-center justify-center gap-2 transition-transform hover:scale-105 min-w-[200px]"
+                    >
+                        <FontAwesomeIcon icon={faPen} /> Atualizar Cadastro
+                    </button>
+                    {employee.status !== 'Demitido' && (
+                        <button 
+                            onClick={onDemitirClick}
+                            className="bg-transparent hover:bg-red-50 text-red-600 hover:text-red-700 font-semibold px-4 py-2 border border-red-200 hover:border-red-300 rounded-lg shadow-sm flex items-center justify-center gap-2 transition-colors min-w-[200px]"
+                        >
+                            <FontAwesomeIcon icon={faUserTimes} /> Demitir / Inativar
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -680,6 +706,7 @@ export default function FichaCompletaFuncionario({ employee, allDocuments, allPo
                         <TabButton tabName="documentos" label="Documentos" icon={faFileLines} />
                         <TabButton tabName="financeiro" label="Financeiro" icon={faDollarSign} />
                         <TabButton tabName="checklist" label="Checklist" icon={faCheckCircle} />
+                        <TabButton tabName="folha_ponto" label="Folha de Ponto" icon={faCalendarCheck} />
                     </nav>
                 </div>
                 <div className="p-4 bg-gray-50 rounded-lg">
@@ -715,6 +742,26 @@ export default function FichaCompletaFuncionario({ employee, allDocuments, allPo
                     {activeTab === 'documentos' && (<DocumentosSection documentos={allDocuments} employeeId={employee.id} employeeName={employee.full_name} organizacaoId={employee.organizacao_id} user={user} onUpdate={onUpdate} />)}
                     {activeTab === 'financeiro' && (<FinanceiroSection lancamentos={lancamentos} onEditLancamento={onEditLancamento} />)}
                     {activeTab === 'checklist' && (<CadastroChecklist employee={employee} documents={allDocuments} />)}
+                    {activeTab === 'folha_ponto' && (
+                        <div className="space-y-4 animate-in fade-in run-in">
+                            <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-white p-4 rounded-xl shadow-sm border border-gray-200 gap-4 no-print">
+                                <div>
+                                    <h3 className="font-bold text-gray-800 text-lg">Espelho de Ponto Eletrônico</h3>
+                                    <p className="text-xs text-gray-500">Controle completo de jornada, intervalos e histórico da competência.</p>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Competência:</label>
+                                    <input 
+                                        type="month" 
+                                        value={selectedMonthForPonto} 
+                                        onChange={(e) => setSelectedMonthForPonto(e.target.value)} 
+                                        className="border border-gray-300 p-2 rounded-lg bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:outline-none font-bold text-blue-700 cursor-pointer shadow-inner" 
+                                    />
+                                </div>
+                            </div>
+                            <FolhaPonto employeeId={employee.id} month={selectedMonthForPonto} canEdit={true} />
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
