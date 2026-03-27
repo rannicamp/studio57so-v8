@@ -11,11 +11,20 @@ export default function MinhasNotificacoes() {
   const supabase = createClient();
   const queryClient = useQueryClient();
 
-  // 1. Busca regras ativas
+  // 1. Busca regras ativas permitidas para a FUNÇÃO do usuário
   const { data: regras = [], isLoading: loadingRegras } = useQuery({
     queryKey: ['regras_disponiveis'],
     queryFn: async () => {
-      const { data } = await supabase.from('regras_notificacao').select('*').eq('ativo', true).order('nome_regra');
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return [];
+      
+      const { data: orgData } = await supabase.from('usuarios').select('organizacao_id').eq('id', user.id).single();
+      if (!orgData?.organizacao_id) return [];
+
+      const { data, error } = await supabase.rpc('get_user_allowed_notifications', {
+        p_user_id: user.id,
+        p_organizacao_id: orgData.organizacao_id
+      });
       return data || [];
     }
   });
@@ -37,28 +46,29 @@ export default function MinhasNotificacoes() {
       if (!user) return [];
       
       const { data } = await supabase
-        .from('usuario_preferencias_notificacao')
+        .from('sys_user_notification_prefs')
         .select('*')
         .eq('usuario_id', user.id);
       return data || [];
     }
   });
 
-  // 4. Mutation CORRIGIDA (Usa Upsert)
+  // 4. Mutation CORRIGIDA (Usa Upsert na nova Tabela)
   const toggleChannel = useMutation({
     mutationFn: async ({ regraId, canal, novoStatus }) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuário não autenticado");
 
       // Verifica o estado atual local para garantir que enviamos todos os campos
-      // Caso o registro não exista ainda no banco, assumimos TRUE para o outro canal
-      const atual = preferencias.find(p => p.regra_id === regraId);
+      const atual = preferencias.find(p => p.template_id === regraId);
+      
+      // Localiza a organização do usuário logado
+      const { data: orgData } = await supabase.from('usuarios').select('organizacao_id').eq('id', user.id).single();
       
       const payload = {
         usuario_id: user.id,
-        regra_id: regraId,
-        organizacao_id: regras.find(r => r.id === regraId)?.organizacao_id,
-        ativo: true, // Mantém o registro "mãe" ativo
+        template_id: regraId,
+        organizacao_id: orgData?.organizacao_id,
         // Se já existe, mantém o valor do banco. Se não, começa True.
         canal_sistema: atual ? atual.canal_sistema : true,
         canal_push: atual ? atual.canal_push : true
@@ -68,10 +78,10 @@ export default function MinhasNotificacoes() {
       payload[canal] = novoStatus;
       payload.updated_at = new Date();
 
-      // UPSERT MÁGICO: Cria ou Atualiza baseado no (usuario_id, regra_id)
+      // UPSERT MÁGICO: Cria ou Atualiza baseado na constraint (usuario_id, template_id)
       const { error } = await supabase
-        .from('usuario_preferencias_notificacao')
-        .upsert(payload, { onConflict: 'usuario_id, regra_id' });
+        .from('sys_user_notification_prefs')
+        .upsert(payload, { onConflict: 'usuario_id, template_id' });
 
       if (error) throw error;
     },
@@ -81,14 +91,14 @@ export default function MinhasNotificacoes() {
       const previousPrefs = queryClient.getQueryData(['minhas_preferencias']);
 
       queryClient.setQueryData(['minhas_preferencias'], (old) => {
-        const exists = old?.find(p => p.regra_id === regraId);
+        const exists = old?.find(p => p.template_id === regraId);
         if (exists) {
             // Atualiza localmente
-          return old.map(p => p.regra_id === regraId ? { ...p, [canal]: novoStatus } : p);
+          return old.map(p => p.template_id === regraId ? { ...p, [canal]: novoStatus } : p);
         } else {
             // Cria localmente
           return [...(old || []), { 
-            regra_id: regraId, 
+            template_id: regraId, 
             [canal]: novoStatus, 
             // Mock dos outros valores
             canal_sistema: canal === 'canal_sistema' ? novoStatus : true,
@@ -206,7 +216,7 @@ export default function MinhasNotificacoes() {
 
                 <div className="grid gap-3">
                 {regrasAgrupadas[grupo].map((regra) => {
-                    const pref = preferencias.find(p => p.regra_id === regra.id);
+                    const pref = preferencias.find(p => p.template_id === regra.id);
                     // Se não existir preferência, o padrão é TRUE (ligado)
                     const webAtivo = pref ? pref.canal_sistema : true; 
                     const pushAtivo = pref ? pref.canal_push : true;

@@ -6,9 +6,14 @@ export async function middleware(req) {
   // 1. Configuração Inicial do Supabase
   const { supabase, response } = createClient(req)
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  let user = null;
+  try {
+    const { data } = await supabase.auth.getUser()
+    user = data?.user;
+  } catch (err) {
+    console.error('Edge Middleware Auth Fetch Error:', err.message);
+    // Em caso de falha severa da rede no Edge, assumimos usuário offline
+  }
 
   const url = req.nextUrl.clone()
   const path = url.pathname
@@ -68,12 +73,16 @@ export async function middleware(req) {
       let funcaoId = req.cookies.get('sys_user_role')?.value;
 
       if (!funcaoId) {
-        const { data: profile } = await supabase
-          .from('usuarios')
-          .select('funcao_id')
-          .eq('id', user.id)
-          .single()
-        funcaoId = profile?.funcao_id;
+        try {
+          const { data: profile } = await supabase
+            .from('usuarios')
+            .select('funcao_id')
+            .eq('id', user.id)
+            .single()
+          funcaoId = profile?.funcao_id;
+        } catch (dbErr) {
+          console.error("Erro ao buscar funcaoId (login path):", dbErr.message);
+        }
       } else {
         funcaoId = parseInt(funcaoId, 10);
       }
@@ -89,18 +98,25 @@ export async function middleware(req) {
     let isSuperAdmin = req.cookies.get('sys_is_admin')?.value;
 
     if (!funcaoId || isSuperAdmin === undefined) {
-      const { data: profile } = await supabase
-        .from('usuarios')
-        .select('funcao_id, is_superadmin')
-        .eq('id', user.id)
-        .single()
+      try {
+        const { data: profile } = await supabase
+          .from('usuarios')
+          .select('funcao_id, is_superadmin')
+          .eq('id', user.id)
+          .single()
 
-      funcaoId = profile?.funcao_id;
-      isSuperAdmin = profile?.is_superadmin ? 'true' : 'false';
+        funcaoId = profile?.funcao_id;
+        isSuperAdmin = profile?.is_superadmin ? 'true' : 'false';
 
-      // Salva no cookie para que as próximas 100 requisições (e prefetchs) não batam no banco de dados!
-      response.cookies.set('sys_user_role', String(funcaoId || ''), { maxAge: 60 * 30 }); // 30 minutos
-      response.cookies.set('sys_is_admin', isSuperAdmin, { maxAge: 60 * 30 });
+        // Salva no cookie para que as próximas 100 requisições (e prefetchs) não batam no banco de dados!
+        response.cookies.set('sys_user_role', String(funcaoId || ''), { maxAge: 60 * 30 }); // 30 minutos
+        response.cookies.set('sys_is_admin', isSuperAdmin, { maxAge: 60 * 30 });
+      } catch (dbErr) {
+         console.error("Erro ao buscar profile (edge):", dbErr.message);
+         // Default fallback securely
+         funcaoId = null;
+         isSuperAdmin = false;
+      }
     } else {
       funcaoId = parseInt(funcaoId, 10);
       isSuperAdmin = isSuperAdmin === 'true';

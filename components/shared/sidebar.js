@@ -28,6 +28,7 @@ export default function Sidebar({ isOpen, closeSidebar }) {
                 { href: '/empresas', label: 'Empresas', icon: faBuilding, recurso: 'empresas' },
                 { href: '/empreendimentos', label: 'Empreendimentos', icon: faProjectDiagram, recurso: 'empreendimentos' },
                 { href: '/contratos', label: 'Contratos', icon: faFileSignature, recurso: 'contratos' },
+                { href: '/relatorios', label: 'Relatórios', icon: faChartLine, recurso: 'relatorios' },
                 { href: '/financeiro/indices', label: 'Índices Financeiros', icon: faChartLine, recurso: 'financeiro' },
             ]
         },
@@ -63,6 +64,13 @@ export default function Sidebar({ isOpen, closeSidebar }) {
     const logoUrl = "/marca/logo-elo57-horizontal.svg";
     const logoIconUrl = "/marca/icone-elo57.svg";
 
+    const isProprietario = 
+        user?.funcao_id === 1 ||             
+        user?.funcao_id === 9 ||             
+        user?.funcao === 'Proprietário' ||   
+        user?.nome_funcao === 'Proprietário' || 
+        user?.role === 'Proprietário';
+
     const isHorizontal = sidebarPosition === 'top' || sidebarPosition === 'bottom';
 
     if (isHorizontal) {
@@ -76,7 +84,9 @@ export default function Sidebar({ isOpen, closeSidebar }) {
                 </div>
                 <nav className="flex items-center gap-2 overflow-x-auto flex-nowrap no-scrollbar py-2 max-w-[80vw]">
                     {allItems.map((item) => {
-                        const canViewItem = hasPermission(item.recurso, 'pode_ver') || ['painel', 'perfil', 'caixa_de_entrada'].includes(item.recurso);
+                        let canViewItem = hasPermission(item.recurso, 'pode_ver') || ['painel', 'perfil', 'caixa_de_entrada'].includes(item.recurso);
+                        if (item.recurso === 'relatorios') canViewItem = isProprietario;
+                        
                         if (!item || !canViewItem) return null;
                         return (
                             <Tooltip key={item.label} label={item.label} position={sidebarPosition === 'top' ? 'bottom' : 'top'}>
@@ -121,9 +131,10 @@ export default function Sidebar({ isOpen, closeSidebar }) {
                     <ul>
                         {navSections.map((section) => {
                             const sectionItems = section.items || [];
-                            const visibleItems = sectionItems.filter(item =>
-                                hasPermission(item.recurso, 'pode_ver') || ['painel', 'perfil', 'caixa_de_entrada'].includes(item.recurso)
-                            );
+                            const visibleItems = sectionItems.filter(item => {
+                                if (item.recurso === 'relatorios') return isProprietario;
+                                return hasPermission(item.recurso, 'pode_ver') || ['painel', 'perfil', 'caixa_de_entrada'].includes(item.recurso);
+                            });
 
                             if (visibleItems.length === 0) return null;
 
