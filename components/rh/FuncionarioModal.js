@@ -314,7 +314,7 @@ export default function FuncionarioModal({ isOpen, onClose, employeeToEdit, onSa
 
             const {
                 id, created_at, cadastro_empresa, empreendimentos, documentos_funcionarios,
-                salario_base, valor_diaria, cargos: cargoInfo, ...dbData
+                salario_base, valor_diaria, cargos: cargoInfo, jornada, ...dbData
             } = {
                 ...dataToSave,
                 foto_url: finalFotoPath,

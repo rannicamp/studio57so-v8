@@ -132,13 +132,10 @@ export default function ProfileForm() {
     // 4. Upload de Avatar via UppyAvatarUploader
     const handleAvatarUpload = async (newUrl) => {
         try {
-            // Se o upload retornou uma URL válida, atualiza o banco do usuário
-            if (newUrl) {
-                await supabase
-                    .from('usuarios')
-                    .update({ avatar_url: newUrl })
-                    .eq('id', user.id);
-            }
+            await supabase
+                .from('usuarios')
+                .update({ avatar_url: newUrl })
+                .eq('id', user.id);
 
             setFormData(prev => ({ ...prev, avatar_url: newUrl }));
             if (refreshUser) await refreshUser();
@@ -170,8 +167,8 @@ export default function ProfileForm() {
                             <UppyAvatarUploader
                                 url={formData.avatar_url}
                                 onUpload={handleAvatarUpload}
-                                bucketName="public-assets"
-                                folderPath="avatars"
+                                bucketName="avatars"
+                                folderPath={`usuarios/${user.id}`}
                                 label=""
                                 aspectRatio="aspect-square"
                                 className="w-full h-full rounded-full overflow-hidden [&_.uppy-avatar-container]:rounded-full"

@@ -65,6 +65,7 @@
     "postgres": "^3.4.8",
     "react": "^19.2.1",
     "react-dom": "^19.2.1",
+    "react-easy-crop": "^5.5.7",
     "react-google-charts": "^5.2.1",
     "react-grid-layout": "^1.5.2",
     "react-imask": "^7.6.1",

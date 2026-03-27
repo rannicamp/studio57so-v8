@@ -75,7 +75,7 @@ export default function RHManager() {
             const mappedCandidates = contatosRes.data.map(c => {
                 let finalUrl = c.foto_url;
                 if (finalUrl && !finalUrl.startsWith('http')) {
-                    finalUrl = supabase.storage.from('avatares').getPublicUrl(finalUrl).data?.publicUrl;
+                    finalUrl = supabase.storage.from('avatars').getPublicUrl(finalUrl).data?.publicUrl;
                 }
                 return {
                     id: c.id,

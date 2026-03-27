@@ -9,7 +9,7 @@ import FuncionarioModal from './FuncionarioModal';
 import LancamentoFormModal from '../financeiro/LancamentoFormModal';
 import { toast } from 'sonner';
 
-export default function ColaboradorDetailPanel({ selectedId, isCandidateSelected }) {
+export default function ColaboradorDetailPanel({ selectedId, isCandidateSelected, onEmployeeUpdate }) {
     const supabase = createClient();
     const [employee, setEmployee] = useState(null);
     const [documents, setDocuments] = useState([]);
@@ -36,10 +36,16 @@ export default function ColaboradorDetailPanel({ selectedId, isCandidateSelected
                 .select('*')
                 .eq('id', selectedId)
                 .single();
-             
              if(candData){
+                 let candFoto = candData.foto_url;
+                 if (candFoto && !candFoto.startsWith('http')) {
+                     const { data } = supabase.storage.from('avatars').getPublicUrl(candFoto);
+                     if (data?.publicUrl) candFoto = data.publicUrl;
+                 }
+
                  setEmployee({
                      ...candData,
+                     foto_url: candFoto,
                      id: candData.id,
                      original_id: candData.id,
                      full_name: candData.nome || candData.razao_social,
@@ -75,12 +81,12 @@ export default function ColaboradorDetailPanel({ selectedId, isCandidateSelected
             return;
         }
 
-        if (employeeData.foto_url) {
-            const { data: photoData, error: urlError } = await supabase.storage
+        if (employeeData.foto_url && !employeeData.foto_url.startsWith('http')) {
+            const { data } = supabase.storage
                 .from('funcionarios-documentos')
-                .createSignedUrl(employeeData.foto_url, 3600);
-            if (!urlError && photoData?.signedUrl) {
-                employeeData.foto_url = photoData.signedUrl;
+                .getPublicUrl(employeeData.foto_url);
+            if (data?.publicUrl) {
+                employeeData.foto_url = data.publicUrl;
             } else {
                 employeeData.foto_url = null;
             }
