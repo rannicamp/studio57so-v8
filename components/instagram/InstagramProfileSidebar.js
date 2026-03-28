@@ -214,42 +214,47 @@ export default function InstagramProfileSidebar({ conv, organizacaoId, onClose }
                             )}
                         </div>
 
-                        {/* ─── Seção: Feed do Instagram (embed) ─── */}
+                        {/* ─── Seção: Ver Feed no Instagram ─── */}
                         {username && (
                             <div className="p-4 border-b border-gray-100">
-                                <div className="flex items-center justify-between mb-3">
-                                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-                                        Feed público
-                                    </p>
-                                    <a
-                                        href={`https://www.instagram.com/${username}/`}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="text-[10px] text-blue-500 hover:underline font-bold"
-                                    >
-                                        Ver tudo
-                                    </a>
-                                </div>
-
-                                {/* Widget embed via SnapWidget ou link direto */}
-                                <div className="grid grid-cols-3 gap-1">
-                                    {/* Últimos posts via SnapWidget (grátis, sem API) */}
-                                    {[1, 2, 3, 4, 5, 6].map((i) => (
-                                        <a
-                                            key={i}
-                                            href={`https://www.instagram.com/${username}/`}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="aspect-square rounded-md overflow-hidden bg-gray-100 border border-gray-200 hover:opacity-80 transition-opacity flex items-center justify-center"
-                                            title="Ver posts no Instagram"
-                                        >
-                                            <FontAwesomeIcon icon={faInstagram} className="text-gray-300 text-lg" />
-                                        </a>
-                                    ))}
-                                </div>
-                                <p className="text-[10px] text-gray-400 text-center mt-2">
-                                    Clique para ver o feed completo ↗
+                                <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3">
+                                    Feed público
                                 </p>
+
+                                {/* Card de acesso ao feed — a API Instagram não permite miniaturas de terceiros */}
+                                <a
+                                    href={`https://www.instagram.com/${username}/`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="group block rounded-xl overflow-hidden border border-gray-200 hover:border-gray-300 transition-all shadow-sm hover:shadow-md"
+                                >
+                                    {/* Faixa visual com gradiente Instagram */}
+                                    <div
+                                        className="h-16 flex items-center justify-center gap-2"
+                                        style={{ background: 'linear-gradient(135deg, #833ab4 0%, #fd1d1d 50%, #fcb045 100%)' }}
+                                    >
+                                        <FontAwesomeIcon icon={faInstagram} className="text-white text-2xl" />
+                                        <div className="flex gap-0.5">
+                                            {[...Array(9)].map((_, i) => (
+                                                <div
+                                                    key={i}
+                                                    className="w-4 h-4 rounded-sm opacity-30 bg-white"
+                                                    style={{ opacity: 0.15 + (i % 3) * 0.15 }}
+                                                />
+                                            ))}
+                                        </div>
+                                    </div>
+                                    {/* Rodapé do card */}
+                                    <div className="bg-white px-3 py-2.5 flex items-center justify-between">
+                                        <div>
+                                            <p className="text-xs font-bold text-gray-700">@{username}</p>
+                                            <p className="text-[10px] text-gray-400">Ver posts e reels</p>
+                                        </div>
+                                        <div className="w-7 h-7 rounded-lg bg-gray-50 border border-gray-200 flex items-center justify-center group-hover:bg-blue-50 group-hover:border-blue-200 transition-colors">
+                                            <FontAwesomeIcon icon={faExternalLinkAlt} className="text-gray-400 group-hover:text-blue-500 text-[10px] transition-colors" />
+                                        </div>
+                                    </div>
+                                </a>
                             </div>
                         )}
 
