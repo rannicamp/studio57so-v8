@@ -17,10 +17,16 @@ L.Marker.prototype.options.icon = DefaultIcon;
 function MapController({ coords }) {
     const map = useMap();
     useEffect(() => {
-        if (coords) {
+        if (coords && map) {
             map.setView(coords, 16, { animate: true }); // Animação suave
             // Ajuste crucial para mobile (evita mapa cinza)
-            setTimeout(() => { map.invalidateSize(); }, 300);
+            const timeoutId = setTimeout(() => { 
+                // Verifica se o mapa ainda está renderizado para evitar erro de '_leaflet_pos'
+                if (map && map._container) {
+                    map.invalidateSize(); 
+                }
+            }, 300);
+            return () => clearTimeout(timeoutId);
         }
     }, [coords, map]);
     return null;

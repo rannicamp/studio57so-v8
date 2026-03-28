@@ -6,7 +6,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
     faTimes, faExternalLinkAlt, faSpinner, faEnvelope,
     faCalendarAlt, faComments, faUser, faLink, faUnlink,
-    faStar
+    faStar, faCheckCircle
 } from '@fortawesome/free-solid-svg-icons';
 import { faInstagram } from '@fortawesome/free-brands-svg-icons';
 import Link from 'next/link';
