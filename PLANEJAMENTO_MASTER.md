@@ -16,6 +16,7 @@ O **Studio 57** é o ambiente de desenvolvimento e laboratório central. O **Elo
 - [x] Checklist Legal: Revisar textos das Políticas Públicas.
 - [x] **RLS Global Aplicado no Banco de Dados (07/03) — 121 tabelas protegidas.**
 - [x] **Padronizar o Sistema de Upload (07/03) — CONCLUÍDO.** `UppyAvatarUploader`, `UppyFileImporter` e todo o sistema reescritos no padrão nativo.
+- [ ] **Manuais do Sistema:** Desenvolver o manual de instrução/documentação detalhada para CADA módulo do sistema (para onboarding de clientes SaaS).
 
 ## 🏗️ Módulos Críticos para o Lançamento
 ### 1. Compliance e Segurança (95%)

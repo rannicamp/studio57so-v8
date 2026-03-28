@@ -43,8 +43,8 @@ export async function POST(request) {
             return NextResponse.json({ error: 'Conta do Instagram não configurada.' }, { status: 404 });
         }
 
-        // Buscar conversas — incluindo o "id" da conversa no Instagram
-        const url = `https://graph.instagram.com/v21.0/${igAccountId}/conversations?platform=instagram&fields=id,participants,snippet,unread_count,updated_time&access_token=${accessToken}`;
+        // Buscar conversas — incluindo o "id" da conversa no Instagram e ultimas mensagens
+        const url = `https://graph.instagram.com/v21.0/${igAccountId}/conversations?platform=instagram&fields=id,participants,updated_time,messages.limit(25){id,message,from,created_time}&access_token=${accessToken}`;
         const response = await fetch(url);
         const metaData = await response.json();
 
@@ -62,8 +62,20 @@ export async function POST(request) {
             if (!participant) continue;
 
             const threadId = `${igAccountId}_${participant.id}`;
+            const msgsList = conv.messages?.data || [];
+            
+            let snippet = null;
+            let lastMessageAt = conv.updated_time ? new Date(conv.updated_time).toISOString() : new Date().toISOString();
+            
+            if (msgsList.length > 0) {
+                const latestMsg = msgsList[0];
+                snippet = latestMsg.message ? latestMsg.message.substring(0, 100) : null;
+                if (latestMsg.created_time) {
+                    lastMessageAt = new Date(latestMsg.created_time).toISOString();
+                }
+            }
 
-            await supabase.from('instagram_conversations').upsert({
+            const { data: savedConv } = await supabase.from('instagram_conversations').upsert({
                 organizacao_id,
                 thread_id: threadId,
                 instagram_account_id: igAccountId,
@@ -71,11 +83,40 @@ export async function POST(request) {
                 participant_id: participant.id,
                 participant_name: participant.name || `Usuário ${String(participant.id).slice(-6)}`,
                 participant_username: participant.username || null,
-                snippet: conv.snippet || null,
-                unread_count: conv.unread_count || 0,
-                last_message_at: conv.updated_time ? new Date(conv.updated_time).toISOString() : new Date().toISOString(),
+                snippet: snippet,
+                last_message_at: lastMessageAt,
                 updated_at: new Date().toISOString(),
-            }, { onConflict: 'thread_id' });
+            }, { onConflict: 'thread_id' }).select('id').single();
+
+            // Sincronizar as mensagens diretamente para o banco
+            if (savedConv && msgsList.length > 0) {
+                // Reverter a lista para inserir em ordem cronológica (mais antigas primeiro)
+                for (const msg of [...msgsList].reverse()) {
+                    const isOutbound = msg.from?.id === igAccountId || msg.from?.username === 'arqstudio57';
+                    const direction = isOutbound ? 'outbound' : 'inbound';
+                    
+                    const { data: existingMsg } = await supabase
+                        .from('instagram_messages')
+                        .select('id')
+                        .eq('message_id', msg.id)
+                        .maybeSingle();
+
+                    if (!existingMsg) {
+                        await supabase.from('instagram_messages').insert({
+                            organizacao_id,
+                            conversation_id: savedConv.id,
+                            message_id: msg.id,
+                            from_id: msg.from?.id,
+                            from_name: msg.from?.name || msg.from?.username || 'Usuário',
+                            content: msg.message || '',
+                            message_type: 'text',
+                            direction,
+                            is_read: true,
+                            sent_at: msg.created_time ? new Date(msg.created_time).toISOString() : new Date().toISOString(),
+                        });
+                    }
+                }
+            }
 
             synced++;
         }

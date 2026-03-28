@@ -7,7 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
     faSearch, faEnvelope, faSpinner, faPaperPlane,
-    faArrowLeft, faRotateRight, faCircle
+    faArrowLeft, faRotateRight, faCircle, faBolt
 } from '@fortawesome/free-solid-svg-icons';
 import { faInstagram, faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 import { useDebounce } from 'use-debounce';
@@ -60,7 +60,6 @@ function Avatar({ name, picUrl, size = 10 }) {
 
 // Item da lista de conversas
 function ConversationItem({ conv, isSelected, onClick }) {
-    // Se o nome é genérico ("Usuário XXXXX"), usa o @username como nome principal
     const isGenericName = !conv.participant_name || conv.participant_name.startsWith('Usuário ');
     const displayName = isGenericName
         ? (conv.participant_username ? `@${conv.participant_username}` : conv.participant_name)
@@ -99,12 +98,14 @@ function ConversationItem({ conv, isSelected, onClick }) {
 }
 
 
-// Painel de mensagens
+// ─── PAINEL DE MENSAGENS ────────────────────────────────────────────────────
 function MessagePanel({ conv, organizacaoId, onBack }) {
     const [text, setText] = useState('');
     const messagesEndRef = useRef(null);
     const queryClient = useQueryClient();
+    const supabase = createClient();
 
+    // Busca as mensagens — SEM refetchInterval (o Realtime cuida disso agora!)
     const { data: messages = [], isLoading } = useQuery({
         queryKey: ['instagramMessages', conv.id],
         queryFn: async () => {
@@ -113,12 +114,57 @@ function MessagePanel({ conv, organizacaoId, onBack }) {
             return res.json();
         },
         enabled: !!conv.id,
-        refetchInterval: 10000, // atualiza a cada 10s
+        staleTime: 1000 * 30,       // Considera dados válidos por 30s (Realtime cobre o resto)
+        refetchOnWindowFocus: true, // Atualiza se o usuário voltar a focar a janela
     });
 
+    // Scroll automático ao chegar mensagem nova
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
+
+    // ⚡ REALTIME: Escutar novas mensagens desta conversa ESPECÍFICA
+    // (Igual ao WhatsApp — `postgres_changes` dispara instantaneamente)
+    useEffect(() => {
+        if (!conv.id) return;
+
+        const channel = supabase
+            .channel(`instagram-messages-${conv.id}`)
+            .on('postgres_changes',
+                {
+                    event: 'INSERT',
+                    schema: 'public',
+                    table: 'instagram_messages',
+                    filter: `conversation_id=eq.${conv.id}`,
+                },
+                (payload) => {
+                    console.log('[Instagram MessagePanel] Nova mensagem via Realtime!', payload.new?.id);
+                    // Adiciona a mensagem direto no cache sem precisar refetch completo
+                    queryClient.setQueryData(['instagramMessages', conv.id], (old = []) => {
+                        const alreadyExists = old.some(m => m.id === payload.new.id);
+                        if (alreadyExists) return old;
+                        return [...old, payload.new];
+                    });
+                    // Atualiza também o snippet da lista de conversas
+                    queryClient.invalidateQueries({ queryKey: ['instagramConversations', organizacaoId] });
+                }
+            )
+            .subscribe();
+
+        return () => supabase.removeChannel(channel);
+    }, [conv.id, organizacaoId, queryClient, supabase]);
+
+    // Marcar como lidas ao abrir a conversa
+    useEffect(() => {
+        if (!conv.id || conv.unread_count <= 0) return;
+        supabase
+            .from('instagram_conversations')
+            .update({ unread_count: 0 })
+            .eq('id', conv.id)
+            .then(() => {
+                queryClient.invalidateQueries({ queryKey: ['instagramConversations', organizacaoId] });
+            });
+    }, [conv.id]);
 
     const sendMutation = useMutation({
         mutationFn: async (messageText) => {
@@ -183,6 +229,11 @@ function MessagePanel({ conv, organizacaoId, onBack }) {
                     );
                 })()}
                 <div className="ml-auto flex items-center gap-2">
+                    {/* Indicador de Realtime ativo */}
+                    <span className="flex items-center gap-1 text-[10px] text-green-500 font-bold uppercase tracking-wider">
+                        <FontAwesomeIcon icon={faBolt} className="text-[10px]" />
+                        Ao vivo
+                    </span>
                     <FontAwesomeIcon icon={faInstagram} className="text-xl"
                         style={{ color: '#e1306c' }} />
                 </div>
@@ -257,6 +308,7 @@ export default function InstagramInbox({ onChangeTab }) {
     const [selectedConv, setSelectedConv] = useState(cachedState?.selectedConv || null);
     const [searchTerm, setSearchTerm] = useState('');
     const [isSyncing, setIsSyncing] = useState(false);
+    const [realtimeStatus, setRealtimeStatus] = useState('connecting'); // 'connecting' | 'SUBSCRIBED' | 'error'
 
     const [debouncedUiState] = useDebounce({ selectedConv }, 1000);
     useEffect(() => {
@@ -274,31 +326,64 @@ export default function InstagramInbox({ onChangeTab }) {
             return res.json();
         },
         enabled: !!organizacaoId,
+        staleTime: 1000 * 30,
         refetchOnWindowFocus: true,
     });
 
-    // Realtime: atualiza ao receber nova mensagem
+    // ⚡ REALTIME PRINCIPAL: Escutar instagram_conversations (igual ao WhatsApp)
+    // Quando o webhook insere ou atualiza uma conversa, a lista atualiza instantaneamente
     useEffect(() => {
         if (!organizacaoId) return;
-        const channel = supabase.channel('instagram-realtime')
+
+        const channel = supabase
+            .channel('instagram-inbox-realtime')
             .on('postgres_changes',
-                { event: '*', schema: 'public', table: 'instagram_conversations', filter: `organizacao_id=eq.${organizacaoId}` },
-                () => queryClient.invalidateQueries({ queryKey: ['instagramConversations', organizacaoId] })
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: 'instagram_conversations',
+                    filter: `organizacao_id=eq.${organizacaoId}`,
+                },
+                (payload) => {
+                    console.log('[Instagram Inbox] Conversa atualizada via Realtime!', payload.eventType);
+                    queryClient.invalidateQueries({ queryKey: ['instagramConversations', organizacaoId] });
+                }
             )
             .on('postgres_changes',
-                { event: 'INSERT', schema: 'public', table: 'instagram_messages', filter: `organizacao_id=eq.${organizacaoId}` },
+                {
+                    event: 'INSERT',
+                    schema: 'public',
+                    table: 'instagram_messages',
+                    filter: `organizacao_id=eq.${organizacaoId}`,
+                },
                 (payload) => {
+                    console.log('[Instagram Inbox] Nova mensagem via Realtime (Global)!', payload.new?.id);
+                    // Invalida a lista de conversas (para atualizar snippet e unread_count)
                     queryClient.invalidateQueries({ queryKey: ['instagramConversations', organizacaoId] });
-                    if (selectedConv && payload.new.conversation_id === selectedConv.id) {
-                        queryClient.invalidateQueries({ queryKey: ['instagramMessages', selectedConv.id] });
+                    // Invalida o painel de mensagens da conversa afetada
+                    if (payload.new?.conversation_id) {
+                        queryClient.invalidateQueries({
+                            queryKey: ['instagramMessages', payload.new.conversation_id]
+                        });
                     }
                 }
             )
-            .subscribe();
-        return () => supabase.removeChannel(channel);
-    }, [organizacaoId, queryClient, selectedConv]);
+            .subscribe((status) => {
+                setRealtimeStatus(status);
+                if (status === 'SUBSCRIBED') {
+                    console.log('[Instagram Inbox] ✅ Realtime conectado! Mensagens chegarão instantaneamente.');
+                } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+                    console.warn('[Instagram Inbox] ⚠️ Realtime com problema:', status);
+                }
+            });
 
-    // Sincronizar com a Meta manualmente
+        return () => {
+            supabase.removeChannel(channel);
+            setRealtimeStatus('connecting');
+        };
+    }, [organizacaoId, queryClient, supabase]);
+
+    // Sincronizar com a Meta manualmente (botão de backup)
     const handleSync = async () => {
         setIsSyncing(true);
         try {
@@ -361,10 +446,20 @@ export default function InstagramInbox({ onChangeTab }) {
                         />
                         <FontAwesomeIcon icon={faSearch} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs" />
                     </div>
+                    {/* Indicador de status do Realtime */}
+                    <div
+                        title={realtimeStatus === 'SUBSCRIBED' ? 'Realtime ativo — mensagens chegam instantaneamente' : `Status: ${realtimeStatus}`}
+                        className="shrink-0"
+                    >
+                        <FontAwesomeIcon
+                            icon={faCircle}
+                            className={`text-[10px] ${realtimeStatus === 'SUBSCRIBED' ? 'text-green-500' : 'text-yellow-400 animate-pulse'}`}
+                        />
+                    </div>
                     <button
                         onClick={handleSync}
                         disabled={isSyncing}
-                        title="Sincronizar conversas da Meta"
+                        title="Sincronizar conversas da Meta (backup manual)"
                         className="w-9 h-9 rounded-lg border border-gray-200 flex items-center justify-center text-gray-500 hover:bg-gray-100 transition-colors disabled:opacity-50 shrink-0"
                     >
                         <FontAwesomeIcon icon={faRotateRight} className={isSyncing ? 'animate-spin' : ''} />
@@ -381,7 +476,8 @@ export default function InstagramInbox({ onChangeTab }) {
                         <div className="flex flex-col items-center justify-center h-full p-6 text-center text-gray-400">
                             <FontAwesomeIcon icon={faInstagram} className="text-5xl mb-4" style={{ color: '#e1306c', opacity: 0.3 }} />
                             <p className="text-sm font-medium text-gray-500">Nenhuma conversa ainda</p>
-                            <p className="text-xs mt-1">Clique em 🔄 para sincronizar</p>
+                            <p className="text-xs mt-1">Novas mensagens chegam automaticamente ⚡</p>
+                            <p className="text-xs mt-0.5 text-gray-400">ou clique em 🔄 para sincronizar manualmente</p>
                         </div>
                     ) : (
                         filteredConvs.map(conv => (
@@ -416,18 +512,13 @@ export default function InstagramInbox({ onChangeTab }) {
                                 <FontAwesomeIcon icon={faInstagram} className="text-5xl text-white" />
                             </div>
                             <h2 className="text-2xl font-extrabold text-gray-800 mb-3">Mensagens do Instagram</h2>
-                            <p className="text-gray-500 text-sm mb-8 leading-relaxed">
-                                Selecione uma conversa ao lado para responder diretamente pelo CRM, sem precisar abrir o Instagram.
+                            <p className="text-gray-500 text-sm mb-2 leading-relaxed">
+                                Selecione uma conversa ao lado para responder diretamente pelo CRM.
                             </p>
-                            <button
-                                onClick={handleSync}
-                                disabled={isSyncing}
-                                className="w-full py-3 rounded-xl text-white font-bold flex items-center justify-center gap-2 transition-all shadow-md"
-                                style={{ background: 'linear-gradient(135deg, #833ab4, #fd1d1d, #fcb045)' }}
-                            >
-                                <FontAwesomeIcon icon={faRotateRight} className={isSyncing ? 'animate-spin' : ''} />
-                                {isSyncing ? 'Sincronizando...' : 'Sincronizar Conversas'}
-                            </button>
+                            <div className="flex items-center justify-center gap-1.5 mt-4">
+                                <FontAwesomeIcon icon={faBolt} className="text-green-500 text-xs" />
+                                <span className="text-xs text-green-600 font-semibold">Mensagens chegam em tempo real</span>
+                            </div>
                         </div>
                     </div>
                 )}
