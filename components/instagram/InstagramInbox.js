@@ -7,11 +7,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
     faSearch, faEnvelope, faSpinner, faPaperPlane,
-    faArrowLeft, faRotateRight, faCircle, faBolt
+    faArrowLeft, faRotateRight, faCircle, faBolt, faUser
 } from '@fortawesome/free-solid-svg-icons';
 import { faInstagram, faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 import { useDebounce } from 'use-debounce';
 import { toast } from 'sonner';
+import InstagramProfileSidebar from '@/components/instagram/InstagramProfileSidebar';
 
 const INSTA_UI_STATE_KEY = 'instagramUiState';
 
@@ -99,7 +100,7 @@ function ConversationItem({ conv, isSelected, onClick }) {
 
 
 // ─── PAINEL DE MENSAGENS ────────────────────────────────────────────────────
-function MessagePanel({ conv, organizacaoId, onBack }) {
+function MessagePanel({ conv, organizacaoId, onBack, showProfile, onToggleProfile }) {
     const [text, setText] = useState('');
     const messagesEndRef = useRef(null);
     const queryClient = useQueryClient();
@@ -234,6 +235,18 @@ function MessagePanel({ conv, organizacaoId, onBack }) {
                         <FontAwesomeIcon icon={faBolt} className="text-[10px]" />
                         Ao vivo
                     </span>
+                    {/* Botão de perfil */}
+                    <button
+                        onClick={onToggleProfile}
+                        title={showProfile ? 'Fechar perfil' : 'Ver perfil do contato'}
+                        className={`w-8 h-8 inline-flex items-center justify-center rounded-lg border transition-all shadow-sm ${
+                            showProfile
+                            ? 'bg-blue-600 border-blue-600 text-white'
+                            : 'bg-white border-gray-200 text-gray-400 hover:text-blue-600 hover:border-blue-300 hover:bg-blue-50'
+                        }`}
+                    >
+                        <FontAwesomeIcon icon={faUser} size="xs" />
+                    </button>
                     <FontAwesomeIcon icon={faInstagram} className="text-xl"
                         style={{ color: '#e1306c' }} />
                 </div>
@@ -308,6 +321,7 @@ export default function InstagramInbox({ onChangeTab }) {
     const [selectedConv, setSelectedConv] = useState(cachedState?.selectedConv || null);
     const [searchTerm, setSearchTerm] = useState('');
     const [isSyncing, setIsSyncing] = useState(false);
+    const [showProfile, setShowProfile] = useState(false);
     const [realtimeStatus, setRealtimeStatus] = useState('connecting'); // 'connecting' | 'SUBSCRIBED' | 'error'
 
     const [debouncedUiState] = useDebounce({ selectedConv }, 1000);
@@ -492,21 +506,25 @@ export default function InstagramInbox({ onChangeTab }) {
                 </div>
             </div>
 
-            {/* ─── ÁREA PRINCIPAL (Chat ou Empty State) ─── */}
+            {/* ─── ÁREA PRINCIPAL (Chat + Sidebar de Perfil) ─── */}
             <div className={`
                 ${hasSelection ? 'flex' : 'hidden md:flex'}
-                flex-grow flex-col h-full overflow-hidden min-h-0
+                flex-grow h-full overflow-hidden min-h-0
             `}>
+                {/* Painel de mensagens */}
+                <div className="flex flex-col flex-grow h-full overflow-hidden min-h-0">
                 {selectedConv ? (
                     <MessagePanel
                         conv={selectedConv}
                         organizacaoId={organizacaoId}
-                        onBack={() => setSelectedConv(null)}
+                        onBack={() => { setSelectedConv(null); setShowProfile(false); }}
+                        showProfile={showProfile}
+                        onToggleProfile={() => setShowProfile(p => !p)}
                     />
                 ) : (
                     <div className="flex flex-col items-center justify-center h-full bg-gray-50 p-6">
-                        <div className="bg-white rounded-3xl shadow-lg border border-gray-100 p-10 max-w-md text-center">
-                            {/* Ícone do Instagram com gradiente */}
+                        <div className="bg-white rounded-3xl shadow-sm border border-gray-200 p-10 max-w-md text-center">
+                            {/* Ícone do Instagram */}
                             <div className="w-24 h-24 rounded-full mx-auto mb-6 flex items-center justify-center"
                                 style={{ background: 'linear-gradient(135deg, #833ab4, #fd1d1d, #fcb045)' }}>
                                 <FontAwesomeIcon icon={faInstagram} className="text-5xl text-white" />
@@ -521,6 +539,16 @@ export default function InstagramInbox({ onChangeTab }) {
                             </div>
                         </div>
                     </div>
+                )}
+                </div>
+
+                {/* ─── TERCEIRA COLUNA: Sidebar de Perfil (desktop only) ─── */}
+                {showProfile && selectedConv && (
+                    <InstagramProfileSidebar
+                        conv={selectedConv}
+                        organizacaoId={organizacaoId}
+                        onClose={() => setShowProfile(false)}
+                    />
                 )}
             </div>
         </div>
