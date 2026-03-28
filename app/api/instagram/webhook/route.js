@@ -203,7 +203,7 @@ async function saveInstaMessage(supabase, { senderIgId, recipientIgId, messageId
             const timeoutId = setTimeout(() => controller.abort(), 4000);
 
             const profileRes = await fetch(
-                `https://graph.facebook.com/v20.0/${senderIgId}?fields=name,username,profile_pic&access_token=${accessToken}`,
+                `https://graph.instagram.com/v21.0/${senderIgId}?fields=name,username,profile_pic&access_token=${accessToken}`,
                 { signal: controller.signal }
             );
             clearTimeout(timeoutId);
