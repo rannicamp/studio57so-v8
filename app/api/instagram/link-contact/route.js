@@ -1,6 +1,9 @@
 // app/api/instagram/link-contact/route.js
 // GET  → Match inteligente: busca contatos similares pelo nome/username do participante
 // PATCH → Vincula um contato ao participante Instagram (e propaga foto se contato não tiver)
+//
+// IMPORTANTE: contatos.id é BIGINT (número), não UUID.
+// O contato_id nesta tabela também deve ser BIGINT.
 
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';

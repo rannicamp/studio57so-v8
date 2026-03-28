@@ -8,20 +8,9 @@ import {
     faCheckCircle, faPlus, faStar
 } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
+import { createClient } from '@/utils/supabase/client';
 
-// Busca contatos (match automático ou busca manual)
-async function fetchContatos({ organizacaoId, name, username, search }) {
-    const params = new URLSearchParams({ organizacao_id: organizacaoId });
-    if (search) params.set('search', search);
-    else {
-        if (name) params.set('name', name);
-        if (username) params.set('username', username);
-    }
-    const res = await fetch(`/api/instagram/link-contact?${params}`);
-    if (!res.ok) throw new Error('Erro ao buscar contatos');
-    return res.json();
-}
-
+// ─── Avatares ─────────────────────────────────────────────────────────────────
 function AvatarContato({ contato }) {
     const [err, setErr] = useState(false);
     const nome = contato.nome || contato.razao_social || '?';
@@ -31,7 +20,7 @@ function AvatarContato({ contato }) {
                 src={contato.foto_url}
                 alt={nome}
                 onError={() => setErr(true)}
-                className="w-10 h-10 rounded-full object-cover border border-gray-200"
+                className="w-10 h-10 rounded-full object-cover border border-gray-200 shrink-0"
             />
         );
     }
@@ -56,38 +45,77 @@ function ConfidenceBadge({ confidence }) {
     );
 }
 
+// ─── Componente Principal ─────────────────────────────────────────────────────
 export default function VincularContatoModal({
-    conv,           // conversa instagram selecionada
+    conv,
     organizacaoId,
-    profilePicUrl,  // foto do instagram para propagar
+    profilePicUrl,
     onClose,
-    onVinculado,    // callback ao vincular com sucesso
+    onVinculado,
 }) {
     const [search, setSearch] = useState('');
-    const [etapa, setEtapa] = useState('sugestao'); // 'sugestao' | 'busca'
+    const [etapa, setEtapa] = useState('sugestao');
     const queryClient = useQueryClient();
+    const supabase = createClient();
 
-    // ── Match Inteligente (automático) ──
-    const { data: matchData, isLoading: isLoadingMatch } = useQuery({
+    // ── Match Inteligente: busca direta no Supabase (client-side, igual ao EmpreendimentoForm) ──
+    const { data: sugestoes = [], isLoading: isLoadingMatch } = useQuery({
         queryKey: ['contactMatch', conv?.participant_id, conv?.participant_name, organizacaoId],
-        queryFn: () => fetchContatos({
-            organizacaoId,
-            name: conv?.participant_name,
-            username: conv?.participant_username,
-        }),
-        enabled: !!conv && !!organizacaoId && etapa === 'sugestao',
+        queryFn: async () => {
+            const firstName = (conv?.participant_name || '').split(' ')[0];
+            if (!firstName || firstName.length < 2) return [];
+
+            const { data, error } = await supabase
+                .from('contatos')
+                .select('id, nome, razao_social, foto_url, telefone, emails(email), telefones(telefone)')
+                .eq('organizacao_id', organizacaoId)
+                .or(`nome.ilike.%${firstName}%,razao_social.ilike.%${firstName}%`)
+                .order('nome')
+                .limit(5);
+
+            if (error) {
+                console.error('[VincularModal] Erro match:', error.message);
+                return [];
+            }
+
+            // Calcula confiança: nome exato = 95%, parcial = 70%
+            const nameLower = (conv?.participant_name || '').toLowerCase();
+            return (data || []).map(c => {
+                const nomeLower = (c.nome || c.razao_social || '').toLowerCase();
+                const confidence = nomeLower === nameLower ? 95 : 70;
+                return { ...c, confidence };
+            }).sort((a, b) => b.confidence - a.confidence);
+        },
+        enabled: !!conv && !!organizacaoId,
         staleTime: 1000 * 60 * 2,
     });
 
-    // ── Busca manual ──
-    const { data: searchData, isLoading: isLoadingSearch } = useQuery({
+    // ── Busca manual: mesmo padrão do EmpreendimentoForm.js ──
+    const { data: resultadosBusca = [], isLoading: isLoadingSearch } = useQuery({
         queryKey: ['contactSearch', search, organizacaoId],
-        queryFn: () => fetchContatos({ organizacaoId, search }),
-        enabled: search.length >= 2 && etapa === 'busca',
+        queryFn: async () => {
+            const term = search.trim();
+            if (term.length < 2) return [];
+
+            const { data, error } = await supabase
+                .from('contatos')
+                .select('id, nome, razao_social, foto_url, telefone, emails(email), telefones(telefone)')
+                .eq('organizacao_id', organizacaoId)
+                .or(`nome.ilike.%${term}%,razao_social.ilike.%${term}%`)
+                .order('nome')
+                .limit(10);
+
+            if (error) {
+                console.error('[VincularModal] Erro busca:', error.message);
+                return [];
+            }
+            return data || [];
+        },
+        enabled: search.trim().length >= 2 && etapa === 'busca',
         staleTime: 0,
     });
 
-    // ── Mutação de vincular ──
+    // ── Vincular: chama a API que atualiza o banco e propaga a foto ──
     const vincularMutation = useMutation({
         mutationFn: async (contatoId) => {
             const res = await fetch('/api/instagram/link-contact', {
@@ -105,8 +133,7 @@ export default function VincularContatoModal({
         },
         onSuccess: (_, contatoId) => {
             toast.success('Contato vinculado! ✨');
-            queryClient.invalidateQueries(['instagramConversations']);
-            queryClient.invalidateQueries(['instagramConversation', conv.id]);
+            queryClient.invalidateQueries({ queryKey: ['instagramConversations'] });
             onVinculado?.(contatoId);
             onClose();
         },
@@ -114,8 +141,8 @@ export default function VincularContatoModal({
     });
 
     const isLoading = etapa === 'sugestao' ? isLoadingMatch : isLoadingSearch;
-    const resultados = etapa === 'sugestao' ? (matchData?.results || []) : (searchData?.results || []);
-    const temSugestoes = (matchData?.results || []).length > 0;
+    const resultados = etapa === 'sugestao' ? sugestoes : resultadosBusca;
+    const temSugestoes = sugestoes.length > 0;
 
     return (
         <div className="fixed inset-0 bg-black/60 z-[70] flex items-center justify-center p-4" onClick={onClose}>
@@ -142,7 +169,7 @@ export default function VincularContatoModal({
                     </button>
                 </div>
 
-                {/* ── Abas: Sugestão / Busca ── */}
+                {/* ── Abas ── */}
                 <div className="flex border-b bg-gray-50">
                     <button
                         onClick={() => setEtapa('sugestao')}
@@ -156,7 +183,7 @@ export default function VincularContatoModal({
                         Sugestões automáticas
                         {temSugestoes && (
                             <span className="bg-blue-500 text-white text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
-                                {matchData.results.length}
+                                {sugestoes.length}
                             </span>
                         )}
                     </button>
@@ -173,7 +200,7 @@ export default function VincularContatoModal({
                     </button>
                 </div>
 
-                {/* ── Campo de busca (só na aba busca) ── */}
+                {/* ── Campo de busca (aba manual) ── */}
                 {etapa === 'busca' && (
                     <div className="px-4 pt-4">
                         <div className="relative">
@@ -181,16 +208,16 @@ export default function VincularContatoModal({
                             <input
                                 autoFocus
                                 type="text"
-                                placeholder="Digite o nome ou telefone..."
+                                placeholder="Digite o nome do contato..."
                                 value={search}
                                 onChange={e => setSearch(e.target.value)}
-                                className="w-full bg-white border border-gray-200 rounded-xl pl-9 pr-4 py-2.5 text-sm font-semibold text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all shadow-sm placeholder-gray-400"
+                                className="w-full bg-white border border-gray-200 rounded-xl pl-9 pr-4 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all shadow-sm placeholder-gray-400"
                             />
                         </div>
                     </div>
                 )}
 
-                {/* ── Lista de Resultados ── */}
+                {/* ── Resultados ── */}
                 <div className="p-4 max-h-72 overflow-y-auto custom-scrollbar space-y-2">
                     {isLoading && (
                         <div className="flex items-center justify-center py-8 gap-2 text-gray-400">
@@ -202,7 +229,7 @@ export default function VincularContatoModal({
                     {!isLoading && etapa === 'sugestao' && !temSugestoes && (
                         <div className="text-center py-6">
                             <FontAwesomeIcon icon={faUser} className="text-gray-200 text-3xl mb-2" />
-                            <p className="text-sm text-gray-400">Nenhuma sugestão automática encontrada.</p>
+                            <p className="text-sm text-gray-400">Nenhuma sugestão encontrada pelo nome.</p>
                             <button
                                 onClick={() => setEtapa('busca')}
                                 className="mt-3 text-xs text-blue-500 hover:underline font-bold"
@@ -212,11 +239,13 @@ export default function VincularContatoModal({
                         </div>
                     )}
 
-                    {!isLoading && etapa === 'busca' && search.length < 2 && (
-                        <p className="text-xs text-gray-400 text-center py-6">Digite pelo menos 2 caracteres para buscar</p>
+                    {!isLoading && etapa === 'busca' && search.trim().length < 2 && (
+                        <p className="text-xs text-gray-400 text-center py-6">
+                            Digite pelo menos 2 caracteres para buscar
+                        </p>
                     )}
 
-                    {resultados.map(contato => (
+                    {!isLoading && resultados.map(contato => (
                         <div
                             key={contato.id}
                             className="flex items-center gap-3 p-3 bg-white border border-gray-200 rounded-xl hover:border-blue-200 hover:bg-blue-50/30 transition-all group"
@@ -230,7 +259,10 @@ export default function VincularContatoModal({
                                     <ConfidenceBadge confidence={contato.confidence} />
                                 </div>
                                 <p className="text-xs text-gray-400 truncate">
-                                    {contato.telefone || contato.telefones?.[0]?.telefone || contato.emails?.[0]?.email || 'Sem contato'}
+                                    {contato.telefone
+                                        || contato.telefones?.[0]?.telefone
+                                        || contato.emails?.[0]?.email
+                                        || 'Sem contato cadastrado'}
                                 </p>
                             </div>
                             <button
@@ -238,11 +270,9 @@ export default function VincularContatoModal({
                                 disabled={vincularMutation.isPending}
                                 className="shrink-0 bg-blue-600 text-white px-3 py-1.5 rounded-lg text-xs font-extrabold shadow-sm hover:bg-blue-700 transition-colors flex items-center gap-1.5 disabled:opacity-50"
                             >
-                                {vincularMutation.isPending ? (
-                                    <FontAwesomeIcon icon={faSpinner} spin />
-                                ) : (
-                                    <FontAwesomeIcon icon={faCheckCircle} />
-                                )}
+                                {vincularMutation.isPending
+                                    ? <FontAwesomeIcon icon={faSpinner} spin />
+                                    : <FontAwesomeIcon icon={faCheckCircle} />}
                                 Vincular
                             </button>
                         </div>
