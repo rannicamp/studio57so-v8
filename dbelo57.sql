@@ -1061,7 +1061,8 @@ CREATE TABLE public.instagram_conversations (
     is_archived boolean DEFAULT false,
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now(),
-    instagram_conversation_id text
+    instagram_conversation_id text,
+    contato_id bigint
 );
 
 CREATE TABLE public.instagram_messages (
@@ -1792,6 +1793,17 @@ CREATE TABLE public.sys_org_notification_settings (
     funcoes_ids ARRAY DEFAULT '{}'::bigint[],
     enviar_push boolean DEFAULT true,
     created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.sys_user_notification_prefs (
+    id bigint NOT NULL,
+    usuario_id uuid NOT NULL,
+    template_id bigint NOT NULL,
+    canal_sistema boolean NOT NULL DEFAULT true,
+    canal_push boolean NOT NULL DEFAULT true,
+    organizacao_id bigint NOT NULL,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
 );
 
 CREATE TABLE public.tabelas_sistema (
