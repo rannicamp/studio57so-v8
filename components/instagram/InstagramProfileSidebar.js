@@ -46,23 +46,71 @@ function SidebarSemVinculo({ conv, profile, organizacaoId, onVincular }) {
     const pic = profile?.profile_pic || conv.participant_profile_pic;
     const [imgError, setImgError] = useState(false);
 
-    // ── Check de sugestão automática (badge) ──
-    const { data: matchData } = useQuery({
+    // ── Check de sugestão automática (badge no sidebar) — busca trifásica com score ──
+    const { data: sugestoes = [] } = useQuery({
         queryKey: ['contactMatch', conv?.participant_id, conv?.participant_name, organizacaoId],
         queryFn: async () => {
-            const params = new URLSearchParams({
-                organizacao_id: organizacaoId,
-                name: conv?.participant_name || '',
-                username: conv?.participant_username || '',
-            });
-            const res = await fetch(`/api/instagram/link-contact?${params}`);
-            return res.json();
+            const fullName = (conv?.participant_name || '').trim();
+            if (!fullName || fullName.length < 2) return [];
+            const { createClient } = await import('@/utils/supabase/client');
+            const supabase = createClient();
+
+            const nameParts = fullName.split(' ').filter(p => p.length > 1);
+            const firstName = nameParts[0] || '';
+            const lastName = nameParts[nameParts.length - 1] || '';
+            const nameLower = fullName.toLowerCase();
+
+            const { data: porNomeCompleto } = await supabase
+                .from('contatos')
+                .select('id, nome, razao_social, foto_url')
+                .in('organizacao_id', [organizacaoId, 1])
+                .ilike('nome', `%${fullName}%`)
+                .order('nome').limit(5);
+
+            const { data: porPrimeiroNome } = await supabase
+                .from('contatos')
+                .select('id, nome, razao_social, foto_url')
+                .in('organizacao_id', [organizacaoId, 1])
+                .ilike('nome', `%${firstName}%`)
+                .order('nome').limit(8);
+
+            let porSobrenome = [];
+            if (lastName && lastName !== firstName) {
+                const { data: res } = await supabase
+                    .from('contatos')
+                    .select('id, nome, razao_social, foto_url')
+                    .in('organizacao_id', [organizacaoId, 1])
+                    .ilike('nome', `%${lastName}%`)
+                    .order('nome').limit(5);
+                porSobrenome = res || [];
+            }
+
+            const todosIds = new Set();
+            const mapa = new Map();
+            const adicionar = (lista, baseConfidence) => {
+                (lista || []).forEach(c => {
+                    if (!todosIds.has(c.id)) {
+                        todosIds.add(c.id);
+                        const nomeLower = (c.nome || c.razao_social || '').toLowerCase();
+                        let confidence = baseConfidence;
+                        if (nomeLower === nameLower) confidence = 98;
+                        else if (nomeLower.startsWith(firstName.toLowerCase())) confidence = Math.max(confidence, 82);
+                        mapa.set(c.id, { ...c, confidence });
+                    }
+                });
+            };
+            adicionar(porNomeCompleto, 85);
+            adicionar(porPrimeiroNome, 70);
+            adicionar(porSobrenome, 65);
+
+            return Array.from(mapa.values())
+                .sort((a, b) => b.confidence - a.confidence)
+                .slice(0, 3);
         },
         enabled: !!conv && !!organizacaoId,
         staleTime: 1000 * 60 * 2,
     });
 
-    const sugestoes = matchData?.results || [];
     const melhorSugestao = sugestoes[0];
 
     return (
@@ -134,7 +182,7 @@ function SidebarSemVinculo({ conv, profile, organizacaoId, onVincular }) {
                         <div className="flex items-center gap-1.5 mb-2">
                             <FontAwesomeIcon icon={faStar} className="text-amber-500 text-xs" />
                             <p className="text-[10px] font-bold text-amber-700 uppercase tracking-wider">
-                                Vínculo sugerido • {melhorSugestao.confidence}% match
+                                Vínculo sugerido{melhorSugestao.confidence ? ` • ${melhorSugestao.confidence}% match` : ''}
                             </p>
                         </div>
                         <div className="flex items-center gap-2.5 mb-3">

@@ -9,6 +9,7 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 import { createClient } from '@/utils/supabase/client';
+import { useDebounce } from 'use-debounce';
 
 // ─── Avatares ─────────────────────────────────────────────────────────────────
 function AvatarContato({ contato }) {
@@ -54,60 +55,91 @@ export default function VincularContatoModal({
     onVinculado,
 }) {
     const [search, setSearch] = useState('');
+    const [debouncedSearch] = useDebounce(search, 500);
     const [etapa, setEtapa] = useState('sugestao');
     const queryClient = useQueryClient();
     const supabase = createClient();
 
-    // ── Match Inteligente: busca pelo primeiro nome usando a mesma RPC do módulo de contatos ──
+    // ── Match Inteligente: busca direta por nome, sem RPC (mais confiável para matching) ──
+    // Estratégia: busca pelo nome completo, primeiro nome e último nome separadamente
+    // e une os resultados, atribuindo score de confiança a cada um.
     const { data: sugestoes = [], isLoading: isLoadingMatch } = useQuery({
-        queryKey: ['contactMatch', conv?.participant_id, conv?.participant_name, organizacaoId],
+        queryKey: ['contactMatchModal', conv?.participant_id, conv?.participant_name, organizacaoId],
         queryFn: async () => {
-            const firstName = (conv?.participant_name || '').split(' ')[0];
-            if (!firstName || firstName.length < 2) return [];
+            const fullName = (conv?.participant_name || '').trim();
+            if (!fullName || fullName.length < 2) return [];
 
-            // Usa a mesma RPC do módulo de contatos (filtrar_ids_contatos)
-            const { data: idsEncontrados, error: rpcError } = await supabase.rpc('filtrar_ids_contatos', {
-                p_organizacao_id: organizacaoId,
-                p_search_term: firstName,
-                p_type_filter: null,
-            });
+            const nameParts = fullName.split(' ').filter(p => p.length > 1);
+            const firstName = nameParts[0] || '';
+            const lastName = nameParts[nameParts.length - 1] || '';
+            const nameLower = fullName.toLowerCase();
 
-            let ids = [];
-            if (rpcError || !idsEncontrados || idsEncontrados.length === 0) {
-                // Fallback: .ilike() direto
-                const { data: fallback } = await supabase
-                    .from('contatos')
-                    .select('id, nome, razao_social, foto_url, telefone, emails(email), telefones(telefone)')
-                    .eq('organizacao_id', organizacaoId)
-                    .or(`nome.ilike.%${firstName}%,razao_social.ilike.%${firstName}%`)
-                    .order('nome')
-                    .limit(5);
-                return (fallback || []).map(c => ({ ...c, confidence: 70 }));
-            }
-
-            ids = idsEncontrados.map(i => i.id);
-            const { data } = await supabase
+            // Busca por nome completo contido (mais preciso)
+            const { data: porNomeCompleto } = await supabase
                 .from('contatos')
-                .select('id, nome, razao_social, foto_url, telefone, emails(email), telefones(telefone)')
-                .in('id', ids)
+                .select('id, nome, razao_social, foto_url, emails(email), telefones(telefone)')
+                .in('organizacao_id', [organizacaoId, 1])
+                .ilike('nome', `%${fullName}%`)
+                .order('nome')
                 .limit(5);
 
-            const nameLower = (conv?.participant_name || '').toLowerCase();
-            return (data || []).map(c => {
-                const nomeLower = (c.nome || c.razao_social || '').toLowerCase();
-                const confidence = nomeLower === nameLower ? 95 : 70;
-                return { ...c, confidence };
-            }).sort((a, b) => b.confidence - a.confidence);
+            // Busca por primeiro nome (mais amplo)
+            const { data: porPrimeiroNome } = await supabase
+                .from('contatos')
+                .select('id, nome, razao_social, foto_url, emails(email), telefones(telefone)')
+                .in('organizacao_id', [organizacaoId, 1])
+                .ilike('nome', `%${firstName}%`)
+                .order('nome')
+                .limit(8);
+
+            // Busca por sobrenome (se for diferente do primeiro nome)
+            let porSobrenome = [];
+            if (lastName && lastName !== firstName) {
+                const { data: res } = await supabase
+                    .from('contatos')
+                    .select('id, nome, razao_social, foto_url, emails(email), telefones(telefone)')
+                    .in('organizacao_id', [organizacaoId, 1])
+                    .ilike('nome', `%${lastName}%`)
+                    .order('nome')
+                    .limit(5);
+                porSobrenome = res || [];
+            }
+
+            // Une resultados, elimina duplicatas e calcula score de confiança
+            const todosIds = new Set();
+            const mapa = new Map();
+
+            const adicionar = (lista, baseConfidence) => {
+                (lista || []).forEach(c => {
+                    if (!todosIds.has(c.id)) {
+                        todosIds.add(c.id);
+                        const nomeLower = (c.nome || c.razao_social || '').toLowerCase();
+                        // Aumenta confiança se o nome for muito similar
+                        let confidence = baseConfidence;
+                        if (nomeLower === nameLower) confidence = 98;
+                        else if (nomeLower.startsWith(firstName.toLowerCase())) confidence = Math.max(confidence, 82);
+                        mapa.set(c.id, { ...c, confidence });
+                    }
+                });
+            };
+
+            adicionar(porNomeCompleto, 85);
+            adicionar(porPrimeiroNome, 70);
+            adicionar(porSobrenome, 65);
+
+            return Array.from(mapa.values())
+                .sort((a, b) => b.confidence - a.confidence)
+                .slice(0, 6);
         },
-        enabled: !!conv && !!organizacaoId,
+        enabled: !!conv?.participant_name && !!organizacaoId,
         staleTime: 1000 * 60 * 2,
     });
 
     // ── Busca manual: mesma RPC do módulo de contatos ──
     const { data: resultadosBusca = [], isLoading: isLoadingSearch } = useQuery({
-        queryKey: ['contactSearch', search, organizacaoId],
+        queryKey: ['contactSearch', debouncedSearch, organizacaoId],
         queryFn: async () => {
-            const term = search.trim();
+            const term = debouncedSearch.trim();
             if (term.length < 2) return [];
 
             const { data: idsEncontrados, error: rpcError } = await supabase.rpc('filtrar_ids_contatos', {
@@ -117,27 +149,27 @@ export default function VincularContatoModal({
             });
 
             if (rpcError || !idsEncontrados || idsEncontrados.length === 0) {
-                // Fallback .ilike()
-                const { data: fallback } = await supabase
+                // Fallback .ilike() / .or()
+                const { data: fallback, error: fbErr2 } = await supabase
                     .from('contatos')
-                    .select('id, nome, razao_social, foto_url, telefone, emails(email), telefones(telefone)')
-                    .eq('organizacao_id', organizacaoId)
-                    .ilike('nome', `%${term}%`)
+                    .select('id, nome, razao_social, foto_url, emails(email), telefones(telefone)')
+                    .in('organizacao_id', [organizacaoId, 1])
+                    .or(`nome.ilike.%${term}%,razao_social.ilike.%${term}%`)
                     .order('nome')
                     .limit(10);
                 return fallback || [];
             }
 
             const ids = idsEncontrados.map(i => i.id);
-            const { data } = await supabase
+            const { data, error: dtErr2 } = await supabase
                 .from('contatos')
-                .select('id, nome, razao_social, foto_url, telefone, emails(email), telefones(telefone)')
+                .select('id, nome, razao_social, foto_url, emails(email), telefones(telefone)')
                 .in('id', ids)
                 .order('nome')
                 .limit(10);
             return data || [];
         },
-        enabled: search.trim().length >= 2 && etapa === 'busca',
+        enabled: debouncedSearch.trim().length >= 2 && etapa === 'busca',
         staleTime: 0,
     });
 

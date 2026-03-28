@@ -219,7 +219,22 @@ const fetchContactProfileData = async (supabase, contatoId, organizacaoId) => {
         ? supabase.from('historico_movimentacao_funil').select('*, coluna_anterior:coluna_anterior_id(nome), coluna_nova:coluna_nova_id(nome), usuario:usuario_id(nome, sobrenome)').eq('contato_no_funil_id', funilEntryId).eq('organizacao_id', organizacaoId).order('data_movimentacao', { ascending: false })
         : Promise.resolve({ data: [] });
 
-    const [{ data: notes }, { data: activities }, { data: simulations }, { data: history }] = await Promise.all([notesPromise, activitiesPromise, simulationsPromise, historyPromise]);
+    // 4. Verifica se tem Instagram vinculado
+    const instagramPromise = supabase
+        .from('instagram_conversations')
+        .select('participant_username')
+        .eq('contato_id', contatoId)
+        .not('participant_username', 'is', null)
+        .limit(1)
+        .maybeSingle();
+
+    const [
+        { data: notes }, 
+        { data: activities }, 
+        { data: simulations }, 
+        { data: history },
+        { data: instagramData }
+    ] = await Promise.all([notesPromise, activitiesPromise, simulationsPromise, historyPromise, instagramPromise]);
 
     return { 
         contactDetails: contactDetails || {}, 
@@ -228,7 +243,8 @@ const fetchContactProfileData = async (supabase, contatoId, organizacaoId) => {
         notes: notes || [], 
         activities: activities || [], 
         simulations: simulations || [],
-        history: history || []
+        history: history || [],
+        instagramProfile: instagramData || null
     };
 };
 
@@ -273,7 +289,7 @@ export default function ContactProfile({ contact }) {
         enabled: !!organizacaoId
     });
     
-    const { notes = [], activities = [], simulations = [], history = [], funilEntry, contactDetails, funilEntryId } = profileData || {};
+    const { notes = [], activities = [], simulations = [], history = [], funilEntry, contactDetails, funilEntryId, instagramProfile } = profileData || {};
     
     const displayContact = { ...contact, ...contactDetails };
 
@@ -456,6 +472,36 @@ export default function ContactProfile({ contact }) {
                 )}
 
                 {displayContact.cargo && <p className="text-xs text-gray-400 font-medium mt-2 uppercase tracking-wide">{displayContact.cargo}</p>}
+
+                {/* ── Botões de Perfil ── */}
+                <div className="flex flex-wrap items-center justify-center gap-2 mt-3">
+                    {/* Botão Instagram (se vinculado) */}
+                    {instagramProfile?.participant_username && (
+                        <a
+                            href={`https://www.instagram.com/${instagramProfile.participant_username}/`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 text-xs font-bold text-white shadow-sm hover:shadow-md px-3 py-1.5 rounded-lg transition-all"
+                            style={{ background: 'linear-gradient(135deg, #833ab4, #fd1d1d, #fcb045)' }}
+                        >
+                            <FontAwesomeIcon icon={faInstagram} className="text-[12px]" />
+                            Instagram
+                        </a>
+                    )}
+
+                    {/* Botão CRM */}
+                    {contact?.contato_id && (
+                        <a
+                            href={`/contatos?id=${contact.contato_id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 border border-blue-200 hover:border-blue-300 px-3 py-1.5 rounded-lg transition-all"
+                        >
+                            <FontAwesomeIcon icon={faExternalLinkAlt} className="text-[10px]" />
+                            CRM
+                        </a>
+                    )}
+                </div>
             </div>
 
             <main className="flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar">
