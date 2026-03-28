@@ -234,47 +234,18 @@ function SidebarComVinculo({ conv, contatoId, organizacaoId, onDesvincular }) {
 
     return (
         <div className="flex flex-col h-full">
-            {/* ── Mini-header com info Instagram + links ── */}
-            <div className="px-4 py-3 bg-gradient-to-r from-purple-50 to-pink-50 border-b border-gray-100 shrink-0">
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                        <div className="w-5 h-5 rounded-full flex items-center justify-center"
-                            style={{ background: 'linear-gradient(135deg, #833ab4, #fd1d1d, #fcb045)' }}>
-                            <FontAwesomeIcon icon={faInstagram} className="text-white text-[9px]" />
-                        </div>
-                        {username ? (
-                            <a
-                                href={`https://www.instagram.com/${username}/`}
-                                target="_blank" rel="noopener noreferrer"
-                                className="text-xs font-bold text-purple-700 hover:underline flex items-center gap-1"
-                            >
-                                @{username}
-                                <FontAwesomeIcon icon={faExternalLinkAlt} className="text-[9px]" />
-                            </a>
-                        ) : (
-                            <span className="text-xs font-bold text-purple-700">Instagram vinculado</span>
-                        )}
-                    </div>
-                    <div className="flex items-center gap-2">
-                        {/* Botão Ver perfil completo */}
-                        <Link
-                            href={`/contatos/${contatoId}`}
-                            target="_blank"
-                            className="flex items-center gap-1 text-[10px] font-bold text-blue-600 hover:text-blue-800 bg-white border border-blue-200 px-2 py-1 rounded-md hover:bg-blue-50 transition-all"
-                        >
-                            <FontAwesomeIcon icon={faExternalLinkAlt} className="text-[9px]" />
-                            Ver perfil
-                        </Link>
-                        {/* Desvincular */}
-                        <button
-                            onClick={onDesvincular}
-                            title="Desvincular contato"
-                            className="w-6 h-6 inline-flex items-center justify-center rounded-md border border-gray-200 text-gray-300 hover:text-red-500 hover:border-red-200 hover:bg-red-50 transition-all"
-                        >
-                            <FontAwesomeIcon icon={faUnlink} className="text-[9px]" />
-                        </button>
-                    </div>
-                </div>
+            {/* ── Barra de Desvinculação ── */}
+            <div className="px-4 py-2 flex items-center justify-between border-b border-gray-100 bg-gray-50/50 shrink-0">
+                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <FontAwesomeIcon icon={faCheckCircle} className="text-blue-500" /> Contato Integrado
+                </span>
+                <button
+                    onClick={onDesvincular}
+                    title="Desvincular contato"
+                    className="flex items-center gap-1.5 text-[10px] font-bold text-gray-400 hover:text-red-600 hover:bg-red-50 px-2 py-1 rounded transition-all"
+                >
+                    <FontAwesomeIcon icon={faUnlink} /> Desvincular
+                </button>
             </div>
 
             {/* ── ContactProfile do WhatsApp reutilizado ── */}

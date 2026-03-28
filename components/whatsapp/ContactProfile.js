@@ -12,6 +12,7 @@ import {
     faHistory, faTimes, faBriefcase, faSave, faFunnelDollar, faMoneyBillWave,
     faPiggyBank, faBullseye, faCheck, faTimesCircle
 } from '@fortawesome/free-solid-svg-icons';
+import { faInstagram } from '@fortawesome/free-brands-svg-icons';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -486,19 +487,6 @@ export default function ContactProfile({ contact }) {
                         >
                             <FontAwesomeIcon icon={faInstagram} className="text-[12px]" />
                             Instagram
-                        </a>
-                    )}
-
-                    {/* Botão CRM */}
-                    {contact?.contato_id && (
-                        <a
-                            href={`/contatos?id=${contact.contato_id}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 border border-blue-200 hover:border-blue-300 px-3 py-1.5 rounded-lg transition-all"
-                        >
-                            <FontAwesomeIcon icon={faExternalLinkAlt} className="text-[10px]" />
-                            CRM
                         </a>
                     )}
                 </div>
