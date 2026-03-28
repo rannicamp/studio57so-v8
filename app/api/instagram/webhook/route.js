@@ -197,21 +197,33 @@ async function saveInstaMessage(supabase, { senderIgId, recipientIgId, messageId
 
     if (accessToken) {
         try {
+            // Usa AbortController + setTimeout (compatível com TODAS as versões do Node.js)
+            // AbortSignal.timeout() não é suportado no Node.js < 19
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 4000);
+
             const profileRes = await fetch(
                 `https://graph.facebook.com/v20.0/${senderIgId}?fields=name,username,profile_pic&access_token=${accessToken}`,
-                { signal: AbortSignal.timeout(4000) } // 4s timeout, nunca bloqueia
+                { signal: controller.signal }
             );
+            clearTimeout(timeoutId);
+
             if (profileRes.ok) {
                 const profileData = await profileRes.json();
                 if (!profileData.error) {
                     senderName = profileData.name || senderName;
                     senderUsername = profileData.username || null;
                     senderPicUrl = profileData.profile_pic || null;
+                    console.log(`[Instagram Webhook] Perfil obtido: ${senderName} @${senderUsername}`);
+                } else {
+                    console.warn(`[Instagram Webhook] Graph API retornou erro de perfil:`, profileData.error?.message);
                 }
+            } else {
+                console.warn(`[Instagram Webhook] Graph API status ${profileRes.status} ao buscar perfil de ${senderIgId}`);
             }
         } catch (e) {
-            // Timeout ou erro de rede — continua com o nome padrão
-            console.warn('[Instagram Webhook] Perfil não obtido (timeout/erro):', e.message);
+            // Timeout ou erro de rede — continua com o nome padrão (não quebra o fluxo)
+            console.warn('[Instagram Webhook] Perfil não obtido:', e.message);
         }
     }
 
