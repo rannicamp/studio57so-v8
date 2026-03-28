@@ -167,8 +167,9 @@ export default function VincularContatoModal({
     });
 
     const isLoading = etapa === 'sugestao' ? isLoadingMatch : isLoadingSearch;
-    const resultados = etapa === 'sugestao' ? sugestoes : resultadosBusca;
-    const temSugestoes = sugestoes.length > 0;
+    const _raw = etapa === 'sugestao' ? sugestoes : resultadosBusca;
+    const resultados = Array.isArray(_raw) ? _raw : [];
+    const temSugestoes = Array.isArray(sugestoes) && sugestoes.length > 0;
 
     return (
         <div className="fixed inset-0 bg-black/60 z-[70] flex items-center justify-center p-4" onClick={onClose}>
