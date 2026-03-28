@@ -245,7 +245,8 @@ const fetchContactProfileData = async (supabase, contatoId, organizacaoId) => {
         activities: activities || [], 
         simulations: simulations || [],
         history: history || [],
-        instagramProfile: instagramData || null
+        instagramProfile: instagramData || null,
+        instagramManual: contactDetails?.instagram_username || null
     };
 };
 
@@ -259,6 +260,8 @@ export default function ContactProfile({ contact }) {
 
     // Estados locais
     const [isEditModalOpen, setIsEditModalOpen] = useState(false); 
+    const [isEditingInsta, setIsEditingInsta] = useState(false);
+    const [instaInput, setInstaInput] = useState('');
     const [isEditing, setIsEditing] = useState(false); 
     const [editData, setEditData] = useState({});
     
@@ -290,7 +293,7 @@ export default function ContactProfile({ contact }) {
         enabled: !!organizacaoId
     });
     
-    const { notes = [], activities = [], simulations = [], history = [], funilEntry, contactDetails, funilEntryId, instagramProfile } = profileData || {};
+    const { notes = [], activities = [], simulations = [], history = [], funilEntry, contactDetails, funilEntryId, instagramProfile, instagramManual } = profileData || {};
     
     const displayContact = { ...contact, ...contactDetails };
 
@@ -447,6 +450,20 @@ export default function ContactProfile({ contact }) {
     const createDeleteHandler = (itemType, itemId) => { if(confirm("Tem certeza que deseja excluir?")) crudMutation.mutate({ action: 'delete', table: itemType, id: itemId }); };
     const handleSaveSuccessModal = () => { setIsEditModalOpen(false); queryClient.invalidateQueries({ queryKey: ['contactProfileData', contact.contato_id] }); queryClient.invalidateQueries({ queryKey: ['conversations', organizacaoId] }); };
 
+    // Salvar o Instagram Manual do Usuário
+    const handleSaveInstagram = () => {
+        let cleanUsername = instaInput.trim();
+        if (cleanUsername.startsWith('@')) cleanUsername = cleanUsername.substring(1); // remove o @
+        
+        crudMutation.mutate({ 
+            action: 'update', 
+            table: 'contatos', 
+            id: contact.contato_id, 
+            data: { instagram_username: cleanUsername } 
+        });
+        setIsEditingInsta(false);
+    };
+
     if (!contact) return <div className="p-4 text-center text-sm text-gray-500">Selecione uma conversa.</div>;
     if (isLoading) return <div className="p-8 text-center text-gray-500"><FontAwesomeIcon icon={faSpinner} spin size="2x" className="mb-2 text-[#00a884]"/><p>Carregando perfil...</p></div>;
 
@@ -474,20 +491,81 @@ export default function ContactProfile({ contact }) {
 
                 {displayContact.cargo && <p className="text-xs text-gray-400 font-medium mt-2 uppercase tracking-wide">{displayContact.cargo}</p>}
 
-                {/* ── Botões de Perfil ── */}
-                <div className="flex flex-wrap items-center justify-center gap-2 mt-3">
-                    {/* Botão Instagram (se vinculado) */}
-                    {instagramProfile?.participant_username && (
-                        <a
-                            href={`https://www.instagram.com/${instagramProfile.participant_username}/`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1.5 text-xs font-bold text-white shadow-sm hover:shadow-md px-3 py-1.5 rounded-lg transition-all"
-                            style={{ background: 'linear-gradient(135deg, #833ab4, #fd1d1d, #fcb045)' }}
-                        >
-                            <FontAwesomeIcon icon={faInstagram} className="text-[12px]" />
-                            Instagram
-                        </a>
+                {/* ── Botões de Perfil / Instagram ── */}
+                <div className="flex flex-col items-center justify-center gap-2 mt-4 w-full px-4">
+                    
+                    {/* Botão Bonito se tiver Instagram (via inbox ou manual) E NÃO estiver editando */}
+                    {(!isEditingInsta && (instagramProfile?.participant_username || instagramManual)) ? (
+                        <div className="flex flex-col w-full h-full justify-center relative group">
+                            <a
+                                href={`https://www.instagram.com/${instagramProfile?.participant_username || instagramManual}/`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex justify-center items-center gap-2 text-[11px] font-bold text-white shadow-sm hover:shadow-md px-4 py-2 rounded-xl transition-all w-full mb-2 truncate"
+                                style={{ background: 'linear-gradient(135deg, #833ab4, #fd1d1d, #fcb045)' }}
+                            >
+                                <FontAwesomeIcon icon={faInstagram} className="text-lg shrink-0" />
+                                <span className="truncate">@{instagramProfile?.participant_username || instagramManual}</span>
+                            </a>
+                            
+                            {/* Botão de editar caso seja vínculo manual (aparece no hover) */}
+                            {!instagramProfile?.participant_username && instagramManual && (
+                                <button
+                                    onClick={() => {
+                                        setInstaInput(instagramManual);
+                                        setIsEditingInsta(true);
+                                    }}
+                                    title="Editar arroba"
+                                    className="absolute -right-1 -top-1 bg-white border border-gray-200 text-gray-500 hover:text-blue-600 rounded-full w-6 h-6 flex items-center justify-center shadow-sm opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                                >
+                                    <FontAwesomeIcon icon={faPen} className="text-[10px]" />
+                                </button>
+                            )}
+                        </div>
+                    ) : (
+                        /* Busca Semi-Automática se NÃO tiver instagram */
+                        <div className="flex flex-col w-full gap-2">
+                            {isEditingInsta ? (
+                                <div className="flex items-center w-full shadow-sm">
+                                    <span className="bg-gray-100 border border-gray-300 border-r-0 rounded-l-lg px-3 py-1.5 text-xs font-bold text-gray-500">@</span>
+                                    <input
+                                        type="text"
+                                        placeholder="usuario.do.insta"
+                                        className="flex-1 border border-gray-300 px-3 py-1.5 text-xs text-gray-700 outline-none focus:border-purple-400 focus:ring-1 focus:ring-purple-400 transition-all font-medium"
+                                        value={instaInput}
+                                        onChange={(e) => setInstaInput(e.target.value)}
+                                        onKeyDown={(e) => e.key === 'Enter' && handleSaveInstagram()}
+                                        autoFocus
+                                    />
+                                    <button
+                                        onClick={handleSaveInstagram}
+                                        className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-r-lg border border-purple-600 transition-colors"
+                                    >
+                                        <FontAwesomeIcon icon={faCheck} className="text-[10px]" />
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="flex flex-row w-full justify-center items-center gap-2">
+                                    <a
+                                        href={`https://www.google.com/search?q=site:instagram.com+"${encodeURIComponent(displayContact.nome || '')}"`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="flex-1 inline-flex justify-center items-center gap-2 text-xs font-bold text-gray-700 hover:text-purple-600 bg-white hover:bg-purple-50 border border-gray-200 hover:border-purple-300 px-3 py-2 rounded-xl transition-all shadow-sm"
+                                    >
+                                        <FontAwesomeIcon icon={faInstagram} className="text-[#fd1d1d]" />
+                                        Buscar perfil
+
+                                    </a>
+                                    <button
+                                        onClick={() => setIsEditingInsta(true)}
+                                        title="Inserir o @ manualmente"
+                                        className="inline-flex justify-center items-center gap-2 text-xs font-bold text-gray-500 hover:text-gray-700 bg-gray-50 hover:bg-gray-100 border border-gray-200 px-3 py-2 rounded-xl transition-all shadow-sm"
+                                    >
+                                        <FontAwesomeIcon icon={faPen} />
+                                    </button>
+                                </div>
+                            )}
+                        </div>
                     )}
                 </div>
             </div>
