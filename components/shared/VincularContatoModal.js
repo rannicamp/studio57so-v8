@@ -58,27 +58,40 @@ export default function VincularContatoModal({
     const queryClient = useQueryClient();
     const supabase = createClient();
 
-    // ── Match Inteligente: busca direta no Supabase (client-side, igual ao EmpreendimentoForm) ──
+    // ── Match Inteligente: busca pelo primeiro nome usando a mesma RPC do módulo de contatos ──
     const { data: sugestoes = [], isLoading: isLoadingMatch } = useQuery({
         queryKey: ['contactMatch', conv?.participant_id, conv?.participant_name, organizacaoId],
         queryFn: async () => {
             const firstName = (conv?.participant_name || '').split(' ')[0];
             if (!firstName || firstName.length < 2) return [];
 
-            const { data, error } = await supabase
-                .from('contatos')
-                .select('id, nome, razao_social, foto_url, telefone, emails(email), telefones(telefone)')
-                .eq('organizacao_id', organizacaoId)
-                .or(`nome.ilike.%${firstName}%,razao_social.ilike.%${firstName}%`)
-                .order('nome')
-                .limit(5);
+            // Usa a mesma RPC do módulo de contatos (filtrar_ids_contatos)
+            const { data: idsEncontrados, error: rpcError } = await supabase.rpc('filtrar_ids_contatos', {
+                p_organizacao_id: organizacaoId,
+                p_search_term: firstName,
+                p_type_filter: null,
+            });
 
-            if (error) {
-                console.error('[VincularModal] Erro match:', error.message);
-                return [];
+            let ids = [];
+            if (rpcError || !idsEncontrados || idsEncontrados.length === 0) {
+                // Fallback: .ilike() direto
+                const { data: fallback } = await supabase
+                    .from('contatos')
+                    .select('id, nome, razao_social, foto_url, telefone, emails(email), telefones(telefone)')
+                    .eq('organizacao_id', organizacaoId)
+                    .or(`nome.ilike.%${firstName}%,razao_social.ilike.%${firstName}%`)
+                    .order('nome')
+                    .limit(5);
+                return (fallback || []).map(c => ({ ...c, confidence: 70 }));
             }
 
-            // Calcula confiança: nome exato = 95%, parcial = 70%
+            ids = idsEncontrados.map(i => i.id);
+            const { data } = await supabase
+                .from('contatos')
+                .select('id, nome, razao_social, foto_url, telefone, emails(email), telefones(telefone)')
+                .in('id', ids)
+                .limit(5);
+
             const nameLower = (conv?.participant_name || '').toLowerCase();
             return (data || []).map(c => {
                 const nomeLower = (c.nome || c.razao_social || '').toLowerCase();
@@ -90,25 +103,38 @@ export default function VincularContatoModal({
         staleTime: 1000 * 60 * 2,
     });
 
-    // ── Busca manual: mesmo padrão do EmpreendimentoForm.js ──
+    // ── Busca manual: mesma RPC do módulo de contatos ──
     const { data: resultadosBusca = [], isLoading: isLoadingSearch } = useQuery({
         queryKey: ['contactSearch', search, organizacaoId],
         queryFn: async () => {
             const term = search.trim();
             if (term.length < 2) return [];
 
-            const { data, error } = await supabase
+            const { data: idsEncontrados, error: rpcError } = await supabase.rpc('filtrar_ids_contatos', {
+                p_organizacao_id: organizacaoId,
+                p_search_term: term,
+                p_type_filter: null,
+            });
+
+            if (rpcError || !idsEncontrados || idsEncontrados.length === 0) {
+                // Fallback .ilike()
+                const { data: fallback } = await supabase
+                    .from('contatos')
+                    .select('id, nome, razao_social, foto_url, telefone, emails(email), telefones(telefone)')
+                    .eq('organizacao_id', organizacaoId)
+                    .ilike('nome', `%${term}%`)
+                    .order('nome')
+                    .limit(10);
+                return fallback || [];
+            }
+
+            const ids = idsEncontrados.map(i => i.id);
+            const { data } = await supabase
                 .from('contatos')
                 .select('id, nome, razao_social, foto_url, telefone, emails(email), telefones(telefone)')
-                .eq('organizacao_id', organizacaoId)
-                .or(`nome.ilike.%${term}%,razao_social.ilike.%${term}%`)
+                .in('id', ids)
                 .order('nome')
                 .limit(10);
-
-            if (error) {
-                console.error('[VincularModal] Erro busca:', error.message);
-                return [];
-            }
             return data || [];
         },
         enabled: search.trim().length >= 2 && etapa === 'busca',
