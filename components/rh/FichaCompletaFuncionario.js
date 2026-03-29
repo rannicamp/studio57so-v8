@@ -14,7 +14,9 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import KpiCard from '@/components/shared/KpiCard';
 import UppyListUploader from '@/components/ui/UppyListUploader';
-import FileListView from '@/components/ui/FileListView';
+import GerenciadorAnexosGlobal from '@/components/shared/GerenciadorAnexosGlobal';
+import FilePreviewModal from '@/components/shared/FilePreviewModal';
+import ModalEditarAnexo from '@/components/shared/ModalEditarAnexo';
 import FolhaPonto from './FolhaPonto';
 import { toast } from 'sonner';
 
@@ -86,6 +88,10 @@ const DocumentosSection = ({ documentos: initialDocuments, employeeId, employeeN
     const [loading, setLoading] = useState(true);
 
     const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+    
+    // Estados Ouro
+    const [previewAnexo, setPreviewAnexo] = useState(null);
+    const [anexoParaEditar, setAnexoParaEditar] = useState(null);
 
     useEffect(() => {
         setDocumentos(initialDocuments || []);
@@ -129,9 +135,29 @@ const DocumentosSection = ({ documentos: initialDocuments, employeeId, employeeN
     };
 
     const handleView = async (doc) => {
-        const { data } = await supabase.storage.from('funcionarios-documentos').createSignedUrl(doc.caminho_arquivo, 3600);
-        if (data?.signedUrl) window.open(data.signedUrl, '_blank');
-        else toast.error('Não foi possível gerar a URL do documento.');
+        setPreviewAnexo(doc);
+    };
+
+    const handleDownload = async (doc) => {
+        let filePath = doc.caminho_arquivo || doc;
+        const { data } = supabase.storage.from('funcionarios-documentos').getPublicUrl(filePath);
+        const a = document.createElement('a');
+        a.href = data.publicUrl;
+        a.download = doc.nome_documento || 'documento';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    };
+
+    const handleCopyLink = async (doc) => {
+        let filePath = doc.caminho_arquivo || doc;
+        const { data } = supabase.storage.from('funcionarios-documentos').getPublicUrl(filePath);
+        try {
+            await navigator.clipboard.writeText(data.publicUrl);
+            toast.success("Link público copiado!");
+        } catch (err) {
+            toast.error("Erro ao copiar o link!");
+        }
     };
 
     const handleDelete = async (doc) => {
@@ -209,27 +235,67 @@ const DocumentosSection = ({ documentos: initialDocuments, employeeId, employeeN
             )}
 
             <div className="space-y-3">
-                {loading ? <p>Carregando...</p> :
-                    <FileListView
-                        files={documentos.map(doc => ({
-                            id: doc.id,
-                            nome_arquivo: doc.nome_documento,
-                            caminho_arquivo: doc.caminho_arquivo,
-                            tamanho_bytes: null,
-                            tipo: { descricao: 'Documento' }
-                        }))}
-                        onDelete={(file) => {
-                            const originalDoc = documentos.find(d => d.id === file.id);
-                            if (originalDoc) handleDelete(originalDoc);
-                        }}
-                        onView={(file) => {
-                            const originalDoc = documentos.find(d => d.id === file.id);
-                            if (originalDoc) handleView(originalDoc);
-                        }}
-                        emptyMessage="Nenhum documento anexado."
-                    />
+                {loading ? <p className="text-gray-500 text-center py-4">Carregando...</p> :
+                    <div className="bg-white rounded-lg">
+                        <GerenciadorAnexosGlobal 
+                            anexos={documentos.map(doc => ({
+                                id: doc.id,
+                                nome_arquivo: doc.nome_documento,
+                                caminho_arquivo: doc.caminho_arquivo,
+                                tamanho_bytes: doc.tamanho_bytes || 0,
+                                tipo: doc.tipo || { descricao: 'Documento Pessoal' },
+                                public_url: supabase.storage.from('funcionarios-documentos').getPublicUrl(doc.caminho_arquivo).data.publicUrl
+                            }))}
+                            tiposDocumento={tiposDocumento}
+                            storageBucket="funcionarios-documentos"
+                            viewMode="list"
+                            onPreview={(anexo) => setPreviewAnexo({
+                                ...anexo,
+                                nome_documento: anexo.nome_arquivo
+                            })}
+                            onDownload={(anexo) => handleDownload(anexo)}
+                            onCopyLink={(anexo) => handleCopyLink(anexo)}
+                            onEdit={(anexo) => setAnexoParaEditar({
+                                id: anexo.id,
+                                nome_documento: anexo.nome_arquivo, // Adapter
+                                caminho_arquivo: anexo.caminho_arquivo,
+                                tipo_documento_id: anexo.tipo_documento_id
+                            })}
+                            onDelete={(anexo) => {
+                                const originalDoc = documentos.find(d => d.id === anexo.id);
+                                if (originalDoc) handleDelete(originalDoc);
+                            }}
+                        />
+                    </div>
                 }
             </div>
+
+            {/* MODAL DE PREVIEW OURO */}
+            <FilePreviewModal 
+                isOpen={!!previewAnexo}
+                onClose={() => setPreviewAnexo(null)}
+                file={previewAnexo ? {
+                    ...previewAnexo,
+                    nome_arquivo: previewAnexo.nome_documento || previewAnexo.nome_arquivo
+                } : null}
+                onDownload={() => handleDownload(previewAnexo)}
+            />
+
+            {/* MODAL DE EDIÇÃO OURO */}
+            {anexoParaEditar && (
+                <ModalEditarAnexo 
+                    anexo={{
+                        ...anexoParaEditar,
+                        nome_arquivo: anexoParaEditar.nome_documento, // Adapter para o componente padrão
+                        descricao: anexoParaEditar.nome_documento // O Funcionarios usa nome_documento como descrição principal
+                    }}
+                    isOpen={!!anexoParaEditar}
+                    onClose={() => setAnexoParaEditar(null)}
+                    onSuccess={() => { setAnexoParaEditar(null); onUpdate(); }}
+                    tableName="documentos_funcionarios"
+                    tiposDocumento={tiposDocumento}
+                />
+            )}
         </div>
     );
 };

@@ -588,14 +588,7 @@ export default function EmpreendimentoDetails({ empreendimento, corporateEntitie
                         <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-100 flex flex-col sm:flex-row justify-between items-center gap-4">
                             <AnexoUploader parentId={empreendimento.id} storageBucket="empreendimento-anexos" tableName="empreendimento_anexos" allowedTipos={documentoTipos} onUploadSuccess={handleUploadSuccess} categoria={activeTab === 'projetos_engenharia' ? 'engenharia' : activeTab === 'documentos_juridicos' ? 'juridico' : activeTab === 'marketing' ? 'marketing' : 'geral'} organizacaoId={organizacaoId} />
                             
-                            <div className="flex bg-gray-100 p-1 rounded-lg">
-                                <button onClick={() => setViewMode('grid')} className={`px-4 py-2 rounded-md transition-all text-sm font-semibold flex items-center gap-2 ${viewMode === 'grid' ? 'bg-white text-blue-600 shadow' : 'text-gray-500 hover:text-gray-700'}`} title="Modo Grade (Miniaturas)">
-                                    <FontAwesomeIcon icon={faTableCellsLarge} /> Grade
-                                </button>
-                                <button onClick={() => setViewMode('list')} className={`px-4 py-2 rounded-md transition-all text-sm font-semibold flex items-center gap-2 ${viewMode === 'list' ? 'bg-white text-blue-600 shadow' : 'text-gray-500 hover:text-gray-700'}`} title="Modo Lista (Compacto)">
-                                    <FontAwesomeIcon icon={faBars} /> Lista
-                                </button>
-                            </div>
+                            {/* O Toggle de Visualização Grid/Lista agora é gerenciado internamente pelo GerenciadorAnexosGlobal */}
                         </div>
 
                         {/* Super Componente Visualizador com Abas Interligadas */}

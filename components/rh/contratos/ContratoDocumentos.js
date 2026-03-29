@@ -10,7 +10,9 @@ import {
 import { toast } from 'sonner';
 
 import UppyListUploader from '@/components/ui/UppyListUploader';
-import FileListView from '@/components/ui/FileListView';
+import GerenciadorAnexosGlobal from '@/components/shared/GerenciadorAnexosGlobal';
+import FilePreviewModal from '@/components/shared/FilePreviewModal';
+import ModalEditarAnexo from '@/components/shared/ModalEditarAnexo';
 
 export default function ContratoDocumentos({ contratoId }) {
     const supabase = createClient();
@@ -23,6 +25,10 @@ export default function ContratoDocumentos({ contratoId }) {
 
     // Estados do Modal
     const [isModalOpen, setIsModalOpen] = useState(false);
+    
+    // Estados do Padrão Ouro (Gerenciamento de Anexos)
+    const [previewAnexo, setPreviewAnexo] = useState(null);
+    const [anexoParaEditar, setAnexoParaEditar] = useState(null);
 
     // --- DATA FETCHING ---
     const fetchData = async () => {
@@ -117,8 +123,25 @@ export default function ContratoDocumentos({ contratoId }) {
     };
 
     const handleDownload = async (file) => {
-        const { data } = supabase.storage.from('contratos-documentos').getPublicUrl(file.caminho_arquivo);
-        window.open(data.publicUrl, '_blank');
+        let filePath = file.caminho_arquivo || file;
+        const { data } = supabase.storage.from('contratos-documentos').getPublicUrl(filePath);
+        // Tenta baixar no navegador 
+        const a = document.createElement('a');
+        a.href = data.publicUrl;
+        a.download = file.nome_arquivo || 'documento';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    };
+
+    const handleCopyLink = async (filePath) => {
+        const { data } = supabase.storage.from('contratos-documentos').getPublicUrl(filePath);
+        try {
+            await navigator.clipboard.writeText(data.publicUrl);
+            toast.success("Link público copiado!");
+        } catch (err) {
+            toast.error("Erro ao copiar o link!");
+        }
     };
 
     return (
@@ -141,24 +164,21 @@ export default function ContratoDocumentos({ contratoId }) {
                 </button>
             </div>
 
-            {/* Lista de Arquivos com FileListView Global */}
+            {/* Lista de Arquivos Global - Padrão Ouro */}
             <div className="bg-white rounded-lg">
                 {loadingData ? (
-                    <div className="text-center py-10 text-gray-400">Carregando...</div>
+                    <div className="text-center py-10 text-gray-400">Carregando recursos...</div>
                 ) : (
-                    <FileListView
-                        files={anexos.map(anexo => ({
-                            id: anexo.id,
-                            nome_arquivo: anexo.nome_arquivo,
-                            caminho_arquivo: anexo.caminho_arquivo,
-                            tamanho_bytes: anexo.tamanho_bytes,
-                            tipo: { descricao: anexo.tipo?.descricao || 'Documento' },
-                            public_url: supabase.storage.from('contratos-documentos').getPublicUrl(anexo.caminho_arquivo).data.publicUrl
-                        }))}
-                        onDelete={handleDelete}
+                    <GerenciadorAnexosGlobal 
+                        anexos={anexos.map(anexo => ({ ...anexo, public_url: supabase.storage.from('contratos-documentos').getPublicUrl(anexo.caminho_arquivo).data.publicUrl }))}
+                        tiposDocumento={tiposDocumento}
+                        storageBucket="contratos-documentos"
+                        viewMode="list"
+                        onPreview={(anexo) => setPreviewAnexo(anexo)}
                         onDownload={handleDownload}
-                        onView={handleDownload}
-                        emptyMessage="Nenhum documento anexado ainda. Clique em Adicionar Documento para começar."
+                        onCopyLink={handleCopyLink}
+                        onEdit={(anexo) => setAnexoParaEditar(anexo)}
+                        onDelete={handleDelete}
                     />
                 )}
             </div>
@@ -191,6 +211,26 @@ export default function ContratoDocumentos({ contratoId }) {
 
                     </div>
                 </div>
+            )}
+
+            {/* MODAL DE PREVIEW OURO */}
+            <FilePreviewModal 
+                isOpen={!!previewAnexo}
+                onClose={() => setPreviewAnexo(null)}
+                file={previewAnexo}
+                onDownload={() => handleDownload(previewAnexo)}
+            />
+
+            {/* MODAL DE EDIÇÃO OURO */}
+            {anexoParaEditar && (
+                <ModalEditarAnexo 
+                    anexo={anexoParaEditar}
+                    isOpen={!!anexoParaEditar}
+                    onClose={() => setAnexoParaEditar(null)}
+                    onSuccess={() => { setAnexoParaEditar(null); fetchData(); }}
+                    tableName="contratos_terceirizados_anexos"
+                    tiposDocumento={tiposDocumento}
+                />
             )}
         </div>
     );

@@ -9,7 +9,10 @@ export default function FilePreviewModal({ anexo, onClose }) {
 
     if (!anexo) return null;
 
-    const ext = anexo.nome_arquivo?.split('.').pop().toLowerCase();
+    // A extensão SEMPRE deve vir do caminho original do BD para ignorar nomes abstratos.
+    const fullName = anexo.caminho_arquivo || anexo.nome_arquivo || '';
+    const ext = fullName.split('.').pop().toLowerCase();
+    
     const isPdf = ext === 'pdf';
     const isVideo = ['mp4', 'webm', 'ogg', 'mov'].includes(ext);
     const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext);
