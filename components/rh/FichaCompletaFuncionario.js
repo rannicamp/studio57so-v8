@@ -274,7 +274,7 @@ const DocumentosSection = ({ documentos: initialDocuments, employeeId, employeeN
             <FilePreviewModal 
                 isOpen={!!previewAnexo}
                 onClose={() => setPreviewAnexo(null)}
-                file={previewAnexo ? {
+                anexo={previewAnexo ? {
                     ...previewAnexo,
                     nome_arquivo: previewAnexo.nome_documento || previewAnexo.nome_arquivo
                 } : null}

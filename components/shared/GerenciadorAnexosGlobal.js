@@ -46,6 +46,39 @@ export default function GerenciadorAnexosGlobal({
         }
     };
 
+    const handleDownloadBase = async (anexo) => {
+        if (onDownload) {
+            onDownload(anexo);
+            return;
+        }
+        
+        // Comportamento fallback nativo para forçar 'Salvar como'
+        try {
+            toast.promise(
+                fetch(anexo.public_url)
+                    .then(res => res.blob())
+                    .then(blob => {
+                        const url = window.URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.style.display = 'none';
+                        a.href = url;
+                        a.download = anexo.nome_arquivo || 'documento';
+                        document.body.appendChild(a);
+                        a.click();
+                        window.URL.revokeObjectURL(url);
+                        document.body.removeChild(a);
+                    }),
+                {
+                    loading: 'Preparando download...',
+                    success: 'Download iniciado!',
+                    error: 'Erro ao baixar o arquivo.'
+                }
+            );
+        } catch (error) {
+            console.error("Erro no download:", error);
+        }
+    };
+
     const getFileType = (anexo) => {
         // Usa o caminho original real para garantir a extensão, caindo para nome_arquivo se falhar
         const fullName = anexo.caminho_arquivo || anexo.nome_arquivo || '';
@@ -137,9 +170,9 @@ export default function GerenciadorAnexosGlobal({
                                     </button>
                                 )}
                                 
-                                <a href={anexo.public_url} download={anexo.nome_arquivo} title="Baixar Original" className="p-2 text-gray-400 hover:text-blue-600 transition-colors flex items-center justify-center">
+                                <button onClick={(e) => { e.stopPropagation(); handleDownloadBase(anexo); }} title="Baixar" className="p-2 text-gray-400 hover:text-blue-600 transition-colors flex items-center justify-center">
                                     <FontAwesomeIcon icon={faDownload} className="text-lg" />
-                                </a>
+                                </button>
                                 <button onClick={() => handleCopyLink(anexo.caminho_arquivo)} title="Copiar link público" className="p-2 text-gray-400 hover:text-blue-600 transition-colors flex items-center justify-center">
                                     <FontAwesomeIcon icon={faLink} className="text-lg" />
                                 </button>
@@ -149,7 +182,7 @@ export default function GerenciadorAnexosGlobal({
                                     </button>
                                 )}
                                 {onEdit && (
-                                    <button onClick={() => onEdit(anexo)} title="Editar Arquivo" className="p-2 text-gray-400 hover:text-orange-500 transition-colors flex items-center justify-center">
+                                    <button onClick={(e) => { e.stopPropagation(); onEdit(anexo); }} title="Editar Arquivo" className="p-2 text-gray-400 hover:text-gray-800 transition-colors flex items-center justify-center">
                                         <FontAwesomeIcon icon={faPen} className="text-lg" />
                                     </button>
                                 )}
@@ -158,7 +191,7 @@ export default function GerenciadorAnexosGlobal({
                                         <FontAwesomeIcon icon={faEye} className="text-lg" />
                                     </button>
                                 )}
-                                <button onClick={() => onDelete(anexo)} title="Excluir" className="p-2 text-gray-400 hover:text-red-500 transition-colors flex items-center justify-center ml-2">
+                                <button onClick={(e) => { e.stopPropagation(); onDelete(anexo); }} title="Excluir" className="p-2 text-gray-400 hover:text-red-500 transition-colors flex items-center justify-center ml-2">
                                     <FontAwesomeIcon icon={faTrash} className="text-lg" />
                                 </button>
                             </div>
@@ -221,9 +254,9 @@ export default function GerenciadorAnexosGlobal({
                                             <FontAwesomeIcon icon={isToggling ? faSpinner : faUserTie} className={`${isToggling ? 'animate-spin' : ''} text-sm`} />
                                         </button>
                                     )}
-                                    <a href={anexo.public_url} download={anexo.nome_arquivo} onClick={e => e.stopPropagation()} title="Baixar" className="bg-white/90 text-gray-700 hover:text-blue-600 h-8 w-8 flex items-center justify-center rounded-full shadow-lg transition-transform hover:scale-110">
-                                        <FontAwesomeIcon icon={faDownload} />
-                                    </a>
+                                    <button onClick={(e) => { e.stopPropagation(); handleDownloadBase(anexo); }} title="Baixar" className="bg-white/90 text-gray-700 hover:text-blue-600 h-8 w-8 flex items-center justify-center rounded-full shadow-lg transition-transform hover:scale-110">
+                                        <FontAwesomeIcon icon={faDownload} className="text-sm" />
+                                    </button>
                                     <button onClick={(e) => { e.stopPropagation(); handleCopyLink(anexo.caminho_arquivo); }} title="Copiar Link" className="bg-white/90 text-gray-700 hover:text-blue-600 h-8 w-8 flex items-center justify-center rounded-full shadow-lg transition-transform hover:scale-110">
                                         <FontAwesomeIcon icon={faLink} />
                                     </button>
@@ -233,11 +266,11 @@ export default function GerenciadorAnexosGlobal({
                                         </button>
                                     )}
                                     {onEdit && (
-                                        <button onClick={(e) => { e.stopPropagation(); onEdit(anexo); }} title="Editar Arquivo" className="bg-white/90 text-gray-700 hover:text-orange-500 h-8 w-8 flex items-center justify-center rounded-full shadow-lg transition-transform hover:scale-110">
+                                        <button onClick={(e) => { e.stopPropagation(); onEdit(anexo); }} title="Editar Arquivo" className="bg-white/90 text-gray-700 hover:text-gray-900 h-8 w-8 flex items-center justify-center rounded-full shadow-lg transition-transform hover:scale-110">
                                             <FontAwesomeIcon icon={faPen} className="text-sm" />
                                         </button>
                                     )}
-                                    <button onClick={(e) => { e.stopPropagation(); onDelete(anexo.id || anexo); }} title="Excluir" className="bg-white/90 text-red-500 hover:text-red-700 h-8 w-8 flex items-center justify-center rounded-full shadow-lg transition-transform hover:scale-110">
+                                    <button onClick={(e) => { e.stopPropagation(); onDelete(anexo); }} title="Excluir" className="bg-white/90 text-red-500 hover:text-red-700 h-8 w-8 flex items-center justify-center rounded-full shadow-lg transition-transform hover:scale-110">
                                         <FontAwesomeIcon icon={faTrash} className="text-sm" />
                                     </button>
                                 </div>

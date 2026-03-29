@@ -8,6 +8,8 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faUpload, faTrash, faEye, faFileLines, faPaperclip } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 import UppyListUploader from '@/components/ui/UppyListUploader';
+import GerenciadorAnexosGlobal from '@/components/shared/GerenciadorAnexosGlobal';
+import FilePreviewModal from '@/components/shared/FilePreviewModal';
 
 export default function ContratoAnexos({ contratoId, onUpdate }) {
     const supabase = createClient();
@@ -17,6 +19,7 @@ export default function ContratoAnexos({ contratoId, onUpdate }) {
     const [anexos, setAnexos] = useState([]);
     const [loadingAnexos, setLoadingAnexos] = useState(true);
     const [showUploader, setShowUploader] = useState(false);
+    const [previewFile, setPreviewFile] = useState(null);
 
     useEffect(() => {
         const fetchAnexos = async () => {
@@ -32,7 +35,15 @@ export default function ContratoAnexos({ contratoId, onUpdate }) {
             if (error) {
                 toast.error("Erro ao carregar anexos: " + error.message);
             } else {
-                setAnexos(data || []);
+                const signedPromises = (data || []).map(a => 
+                    supabase.storage.from('empreendimento-anexos').createSignedUrl(a.caminho_arquivo, 3600)
+                );
+                const signedResults = await Promise.all(signedPromises);
+                const anexosComUrl = (data || []).map((a, i) => ({
+                    ...a,
+                    public_url: signedResults[i].data?.signedUrl || null,
+                }));
+                setAnexos(anexosComUrl);
             }
             setLoadingAnexos(false);
         };
@@ -56,7 +67,12 @@ export default function ContratoAnexos({ contratoId, onUpdate }) {
         if (dbError) {
             toast.error(`Erro ao registrar anexo: ${dbError.message}`);
         } else {
-            setAnexos(prev => [newAnexo, ...prev]);
+            const { data: urlData } = await supabase.storage.from('empreendimento-anexos').createSignedUrl(newAnexo.caminho_arquivo, 3600);
+            const anexoComUrl = {
+                ...newAnexo,
+                public_url: urlData?.signedUrl
+            };
+            setAnexos(prev => [anexoComUrl, ...prev]);
             toast.success(`Anexo "${result.fileName}" adicionado!`);
             setShowUploader(false);
         }
@@ -99,13 +115,17 @@ export default function ContratoAnexos({ contratoId, onUpdate }) {
 
     return (
         <div className="bg-white p-6 rounded-lg shadow-md border space-y-4">
+            <FilePreviewModal
+                anexo={previewFile}
+                onClose={() => setPreviewFile(null)}
+            />
             <div className="flex justify-between items-center">
                 <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
                     <FontAwesomeIcon icon={faPaperclip} /> Anexos do Contrato
                 </h3>
                 <button
                     onClick={() => setShowUploader(v => !v)}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-bold rounded-lg hover:bg-blue-700 shadow-sm transition"
+                    className="flex items-center gap-2 px-4 py-2 bg-gray-800 text-white text-sm font-bold rounded-lg hover:bg-black shadow-sm transition"
                 >
                     <FontAwesomeIcon icon={faUpload} />
                     {showUploader ? 'Cancelar' : 'Novo Documento'}
@@ -126,26 +146,14 @@ export default function ContratoAnexos({ contratoId, onUpdate }) {
             <div>
                 {loadingAnexos ? (
                     <p className="text-center text-gray-500 py-4">Carregando anexos...</p>
-                ) : anexos.length === 0 ? (
-                    <p className="text-center text-gray-500 py-4">Nenhum anexo encontrado.</p>
                 ) : (
-                    <ul className="divide-y border rounded-md mt-2">
-                        {anexos.map(anexo => (
-                            <li key={anexo.id} className="p-3 flex justify-between items-center text-sm hover:bg-gray-50">
-                                <div className="flex items-center gap-3">
-                                    <FontAwesomeIcon icon={faFileLines} className="text-gray-400" />
-                                    <div>
-                                        <p className="font-medium">{anexo.nome_arquivo}</p>
-                                        <p className="text-xs text-gray-500">{anexo.tipo_documento}</p>
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-4">
-                                    <button onClick={() => handleView(anexo.caminho_arquivo)} className="text-blue-600 hover:text-blue-800" title="Visualizar"><FontAwesomeIcon icon={faEye} /></button>
-                                    <button onClick={() => handleDelete(anexo)} className="text-red-500 hover:text-red-700" title="Excluir"><FontAwesomeIcon icon={faTrash} /></button>
-                                </div>
-                            </li>
-                        ))}
-                    </ul>
+                    <GerenciadorAnexosGlobal
+                        anexos={anexos}
+                        viewMode="list"
+                        storageBucket="empreendimento-anexos"
+                        onDelete={handleDelete}
+                        onPreview={setPreviewFile}
+                    />
                 )}
             </div>
         </div>

@@ -217,7 +217,10 @@ export default function ContratoDocumentos({ contratoId }) {
             <FilePreviewModal 
                 isOpen={!!previewAnexo}
                 onClose={() => setPreviewAnexo(null)}
-                file={previewAnexo}
+                anexo={previewAnexo ? {
+                    ...previewAnexo,
+                    nome_arquivo: previewAnexo.nome_documento || previewAnexo.nome_arquivo
+                } : null}
                 onDownload={() => handleDownload(previewAnexo)}
             />
 

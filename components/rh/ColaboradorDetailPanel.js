@@ -21,13 +21,13 @@ export default function ColaboradorDetailPanel({ selectedId, isCandidateSelected
     const [isLancamentoModalOpen, setIsLancamentoModalOpen] = useState(false);
     const [editingLancamento, setEditingLancamento] = useState(null);
 
-    const getEmployeeData = useCallback(async () => {
+    const getEmployeeData = useCallback(async (silent = false) => {
         if (!selectedId) {
             setEmployee(null);
             return;
         }
 
-        setLoading(true);
+        if (!silent) setLoading(true);
 
         // Se for um candidato do Banco de Talentos
         if (isCandidateSelected) {
@@ -59,7 +59,7 @@ export default function ColaboradorDetailPanel({ selectedId, isCandidateSelected
                  setPontos([]);
                  setAbonos([]);
              }
-             setLoading(false);
+             if (!silent) setLoading(false);
              return;
         }
 
@@ -77,7 +77,7 @@ export default function ColaboradorDetailPanel({ selectedId, isCandidateSelected
 
         if (error || !employeeData) {
             toast.error("Erro ao carregar dados do funcionário.");
-            setLoading(false);
+            if (!silent) setLoading(false);
             return;
         }
 
@@ -104,7 +104,7 @@ export default function ColaboradorDetailPanel({ selectedId, isCandidateSelected
         setPontos(pontosData || []);
         setAbonos(abonosData || []);
 
-        setLoading(false);
+        if (!silent) setLoading(false);
     }, [supabase, selectedId, isCandidateSelected]);
 
     useEffect(() => {
@@ -196,7 +196,7 @@ export default function ColaboradorDetailPanel({ selectedId, isCandidateSelected
                             allDocuments={documents}
                             allPontos={pontos}
                             allAbonos={abonos}
-                            onUpdate={getEmployeeData}
+                            onUpdate={() => getEmployeeData(true)}
                             onEditLancamento={handleOpenEditModal}
                             onEditClick={() => setIsFuncionarioModalOpen(true)}
                             onDemitirClick={handleDemitir}

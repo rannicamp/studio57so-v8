@@ -9,8 +9,8 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faBuilding, faPen } from '@fortawesome/free-solid-svg-icons';
 
 import AnexoUploader from '../shared/AnexoUploader';
-import ListaAnexos from '../shared/ListaAnexos';
-import GaleriaMarketing from '../shared/GaleriaMarketing';
+import GerenciadorAnexosGlobal from '../shared/GerenciadorAnexosGlobal';
+import FilePreviewModal from '../shared/FilePreviewModal';
 
 // Componente para exibir campos de informação simples
 function InfoField({ label, value }) {
@@ -32,6 +32,7 @@ function InfoField({ label, value }) {
 export default function EmpresaDetails({ empresa, initialAnexos, documentoTipos, organizacaoId }) {
     const [activeTab, setActiveTab] = useState('ficha');
     const [anexos, setAnexos] = useState(initialAnexos || []);
+    const [previewFile, setPreviewFile] = useState(null);
     const supabase = createClient();
 
     useEffect(() => { setAnexos(initialAnexos || []); }, [initialAnexos]);
@@ -101,6 +102,12 @@ export default function EmpresaDetails({ empresa, initialAnexos, documentoTipos,
                 </nav>
             </div>
 
+            {/* Modal de Pre-visualização */}
+            <FilePreviewModal 
+                anexo={previewFile}
+                onClose={() => setPreviewFile(null)}
+            />
+
             <div className="bg-white rounded-lg shadow p-6">
                 {activeTab === 'ficha' && (
                     <div className="space-y-8 animate-fade-in">
@@ -151,14 +158,26 @@ export default function EmpresaDetails({ empresa, initialAnexos, documentoTipos,
                 {activeTab === 'contabil' && (
                     <div className="space-y-6 animate-fade-in">
                         <AnexoUploader parentId={empresa.id} storageBucket="empresa-anexos" tableName="empresa_anexos" allowedTipos={documentoTipos} onUploadSuccess={handleUploadSuccess} categoria="contabil" organizacaoId={organizacaoId} />
-                        <ListaAnexos anexos={anexos.filter(a => a.categoria_aba === 'contabil')} onDelete={handleDeleteAnexo} />
+                        <GerenciadorAnexosGlobal 
+                            anexos={anexos.filter(a => a.categoria_aba === 'contabil')} 
+                            viewMode="list"
+                            storageBucket="empresa-anexos"
+                            onDelete={handleDeleteAnexo}
+                            onPreview={setPreviewFile}
+                        />
                     </div>
                 )}
 
                 {activeTab === 'marketing' && (
                     <div className="space-y-6 animate-fade-in">
                         <AnexoUploader parentId={empresa.id} storageBucket="empresa-anexos" tableName="empresa_anexos" allowedTipos={documentoTipos} onUploadSuccess={handleUploadSuccess} categoria="marketing" organizacaoId={organizacaoId} />
-                        <GaleriaMarketing anexos={anexos.filter(a => a.categoria_aba === 'marketing')} storageBucket="empresa-anexos" onDelete={handleDeleteAnexo} />
+                        <GerenciadorAnexosGlobal 
+                            anexos={anexos.filter(a => a.categoria_aba === 'marketing')} 
+                            viewMode="grid"
+                            storageBucket="empresa-anexos"
+                            onDelete={handleDeleteAnexo}
+                            onPreview={setPreviewFile}
+                        />
                     </div>
                 )}
             </div>

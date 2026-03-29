@@ -13,6 +13,8 @@ import {
     faExpand, faCompress, faChevronLeft, faChevronRight, faHardHat
 } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
+import GerenciadorAnexosGlobal from '@/components/shared/GerenciadorAnexosGlobal';
+import FilePreviewModal from '@/components/shared/FilePreviewModal';
 
 // --- FUNÇÕES AUXILIARES ---
 const formatDateString = (dateStr) => {
@@ -46,77 +48,6 @@ const InfoField = ({ label, value, icon, valueClassName = '' }) => (
         <dd className={`mt-1 text-sm text-gray-800 ${valueClassName}`}>{value || 'N/A'}</dd>
     </div>
 );
-
-// Componente de Anexos
-const AnexosSection = ({ anexos, onPreview }) => {
-    if (!anexos || anexos.length === 0) return <InfoField label="Anexos" value="Nenhum anexo." icon={faFileLines} />;
-
-    return (
-        <div>
-            <dt className="text-xs font-semibold text-gray-500 flex items-center gap-2 uppercase mb-2">
-                <FontAwesomeIcon icon={faFileLines} className="w-4" /> Anexos Disponíveis
-            </dt>
-            <div className="space-y-2">
-                {anexos.map(anexo => (
-                    <button
-                        key={anexo.id}
-                        onClick={() => onPreview(anexo)}
-                        className="w-full flex items-center gap-3 p-2 bg-gray-100 rounded hover:bg-blue-50 border border-transparent hover:border-blue-200 text-left text-sm transition-all group"
-                    >
-                        <div className="bg-white p-1.5 rounded text-blue-500 shadow-sm group-hover:text-blue-600">
-                            <FontAwesomeIcon icon={faEye} />
-                        </div>
-                        <span className="truncate flex-1 font-medium text-gray-700 group-hover:text-blue-800">
-                            {anexo.nome_arquivo || 'Documento sem nome'}
-                        </span>
-                        <span className="text-[10px] uppercase font-bold text-gray-400 bg-gray-200 px-1.5 py-0.5 rounded">
-                            {anexo.nome_arquivo?.split('.').pop() || '?'}
-                        </span>
-                    </button>
-                ))}
-            </div>
-        </div>
-    );
-};
-
-// --- PAINEL DE VISUALIZAÇÃO DE ARQUIVO ---
-const FilePreviewPanel = ({ fileUrl, fileName, fileType, onClose }) => {
-    if (!fileUrl) return null;
-
-    return (
-        <div
-            className="fixed top-0 right-[500px] h-full bg-gray-900 shadow-2xl z-[110] flex flex-col border-r border-gray-700 transform transition-all duration-300 ease-in-out w-full md:w-[calc(100%-500px)] lg:w-[800px]"
-        >
-            <div className="flex justify-between items-center p-3 bg-gray-800 text-white border-b border-gray-700 shadow-md">
-                <h3 className="text-sm font-semibold truncate flex items-center gap-2">
-                    <FontAwesomeIcon icon={fileType === 'pdf' ? faFileInvoice : faFileLines} />
-                    {fileName}
-                </h3>
-                <div className="flex gap-2">
-                    <a href={fileUrl} target="_blank" rel="noopener noreferrer" className="p-1.5 hover:bg-gray-700 rounded text-gray-400 hover:text-white transition-colors" title="Abrir em nova aba">
-                        <FontAwesomeIcon icon={faExpand} />
-                    </a>
-                    <button onClick={onClose} className="p-1.5 hover:bg-red-600 rounded text-gray-400 hover:text-white transition-colors">
-                        <FontAwesomeIcon icon={faTimes} />
-                    </button>
-                </div>
-            </div>
-
-            <div className="flex-1 bg-gray-800 flex items-center justify-center overflow-hidden relative">
-                {fileType === 'image' ? (
-                    <img src={fileUrl} alt="Preview" className="max-w-full max-h-full object-contain shadow-lg" />
-                ) : fileType === 'pdf' ? (
-                    <iframe src={`${fileUrl}#toolbar=0`} className="w-full h-full border-none bg-white" title="PDF Preview" />
-                ) : (
-                    <div className="text-center text-gray-400">
-                        <p className="mb-2">Visualização não suportada para este formato.</p>
-                        <a href={fileUrl} target="_blank" rel="noreferrer" className="text-blue-400 hover:underline">Baixar Arquivo</a>
-                    </div>
-                )}
-            </div>
-        </div>
-    );
-};
 
 // --- COMPONENTE PRINCIPAL ---
 export default function LancamentoDetalhesSidebar({ open, onClose, lancamento }) {
@@ -185,20 +116,18 @@ export default function LancamentoDetalhesSidebar({ open, onClose, lancamento })
 
     // --- 2. LÓGICA DE PREVIEW ---
     const handlePreviewAnexo = (anexo) => {
-        if (!anexo.caminho_arquivo) return;
-
-        const { data } = supabase.storage.from('documentos-financeiro').getPublicUrl(anexo.caminho_arquivo);
-        const type = getFileType(anexo.nome_arquivo);
-
-        if (data?.publicUrl) {
-            setPreviewFile({
-                url: data.publicUrl,
-                name: anexo.nome_arquivo,
-                type: type
-            });
-        } else {
-            toast.error("Erro ao carregar arquivo.");
+        // Garantimos que a URL publica já existe (formatada no carregamento legado)
+        let anexoAdaptado = { ...anexo };
+        
+        // Se já vier com 'caminho_arquivo' mas não tiver 'public_url', injetamos ela para o Gestor ler (Legado)
+        if (anexo.caminho_arquivo && !anexo.public_url) {
+            const { data } = supabase.storage.from('documentos-financeiro').getPublicUrl(anexo.caminho_arquivo);
+            if (data?.publicUrl) {
+                anexoAdaptado.public_url = data.publicUrl;
+            }
         }
+        
+        setPreviewFile(anexoAdaptado);
     };
 
     // --- 3. LÓGICA DE APROVAÇÃO E EDIÇÃO ---
@@ -282,14 +211,11 @@ export default function LancamentoDetalhesSidebar({ open, onClose, lancamento })
                 onClick={onClose}
             ></div>
 
-            {previewFile && (
-                <FilePreviewPanel
-                    fileUrl={previewFile.url}
-                    fileName={previewFile.name}
-                    fileType={previewFile.type}
-                    onClose={() => setPreviewFile(null)}
-                />
-            )}
+            {/* Modal de Pré-Visualização Global Padrão Ouro */}
+            <FilePreviewModal 
+                anexo={previewFile}
+                onClose={() => setPreviewFile(null)}
+            />
 
             <div
                 className="fixed top-0 right-0 h-full w-full md:w-[500px] bg-white shadow-2xl z-[100] transform transition-transform duration-300 ease-in-out flex flex-col border-l border-gray-200 !m-0"
@@ -458,9 +384,20 @@ export default function LancamentoDetalhesSidebar({ open, onClose, lancamento })
                         </div>
                     </dl>
 
-                    {/* Anexos */}
+                    {/* Anexos (Componente Global Padrão Ouro) */}
                     <div className="pt-4 border-t border-gray-200">
-                        <AnexosSection anexos={lancamento.anexos} onPreview={handlePreviewAnexo} />
+                        <dt className="text-xs font-semibold text-gray-500 flex items-center gap-2 uppercase mb-4">
+                            <FontAwesomeIcon icon={faFileLines} className="w-4" /> Comprovantes e Notas
+                        </dt>
+                        <GerenciadorAnexosGlobal 
+                            anexos={lancamento.anexos?.map(a => ({
+                                ...a,
+                                public_url: a.public_url || supabase.storage.from('documentos-financeiro').getPublicUrl(a.caminho_arquivo).data.publicUrl
+                            })) || []}
+                            viewMode="list"
+                            storageBucket="documentos-financeiro"
+                            onPreview={handlePreviewAnexo}
+                        />
                     </div>
                 </main>
             </div>

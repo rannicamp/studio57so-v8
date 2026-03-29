@@ -18,6 +18,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { notificarGrupo } from '@/utils/notificacoes';
 import UppyListUploader from '@/components/ui/UppyListUploader';
+import GerenciadorAnexosGlobal from '@/components/shared/GerenciadorAnexosGlobal';
+import FilePreviewModal from '@/components/shared/FilePreviewModal';
 
 
 const formatDuration = (milliseconds) => {
@@ -56,6 +58,17 @@ const fetchPedidoData = async (supabase, pedidoId, organizacaoId) => {
         .single();
 
     if (pedidoError) throw new Error(`Ao carregar o pedido: ${pedidoError.message}`);
+
+    if (pedidoData && pedidoData.anexos) {
+        const signedPromises = pedidoData.anexos.map(a => 
+            supabase.storage.from('pedidos-anexos').createSignedUrl(a.caminho_arquivo, 3600)
+        );
+        const signedResults = await Promise.all(signedPromises);
+        pedidoData.anexos = pedidoData.anexos.map((a, i) => ({
+            ...a,
+            public_url: signedResults[i].data?.signedUrl || null
+        }));
+    }
 
     const { data: etapasData, error: etapasError } = await supabase.from('etapa_obra').select('id, nome_etapa').eq('organizacao_id', organizacaoId);
     if (etapasError) throw new Error(`Ao carregar etapas: ${etapasError.message}`);
@@ -99,6 +112,7 @@ export default function PedidoForm({ pedidoId }) {
     const [sortConfig, setSortConfig] = useState({ key: 'descricao_item', direction: 'ascending' });
     const [selectedItems, setSelectedItems] = useState(new Set());
     const [selectedFornecedorBulk, setSelectedFornecedorBulk] = useState('');
+    const [previewFile, setPreviewFile] = useState(null);
 
 
     const { data, isLoading, isError, error } = useQuery({
@@ -599,10 +613,21 @@ export default function PedidoForm({ pedidoId }) {
                         </div>
                     )}
                     <div>
-                        {anexos.length === 0 ? <p className="text-sm text-gray-500 mt-2">Nenhum anexo encontrado.</p> : (<ul className="divide-y border rounded-md mt-2">{anexos.map(anexo => (<li key={anexo.id} className="p-3 flex justify-between items-center text-sm"><div><p className="font-medium">{anexo.nome_arquivo}</p><p className="text-xs text-gray-600">{anexo.descricao || 'Sem descrição'}</p></div><div className="flex items-center gap-4"><button onClick={() => handleDownloadAnexo(anexo.caminho_arquivo)} className="text-blue-600 hover:text-blue-800" title="Baixar"><FontAwesomeIcon icon={faDownload} /></button><button onClick={() => handleRemoveAnexo(anexo)} className="text-red-500 hover:text-red-700" title="Remover"><FontAwesomeIcon icon={faTrash} /></button></div></li>))}</ul>)}
+                        <GerenciadorAnexosGlobal
+                            anexos={anexos}
+                            viewMode="list"
+                            storageBucket="pedidos-anexos"
+                            onDelete={handleRemoveAnexo}
+                            onPreview={setPreviewFile}
+                        />
                     </div>
                 </div>
             </div>
+            {/* Modal de Pre-visualização */}
+            <FilePreviewModal 
+                anexo={previewFile}
+                onClose={() => setPreviewFile(null)}
+            />
         </>
     );
 }

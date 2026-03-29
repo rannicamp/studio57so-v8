@@ -10,13 +10,14 @@ import { faSpinner, faExclamationTriangle } from '@fortawesome/free-solid-svg-ic
 import { toast } from 'sonner';
 
 import AnexoUploader from '../shared/AnexoUploader';
-import ListaAnexos from '../shared/ListaAnexos';
-import GaleriaMarketing from '../shared/GaleriaMarketing';
+import GerenciadorAnexosGlobal from '../shared/GerenciadorAnexosGlobal';
+import FilePreviewModal from '../shared/FilePreviewModal';
 
 export default function EmpresaAnexosTab({ empresaId, categoria }) {
     const supabase = createClient();
     const { user } = useAuth();
     const organizacaoId = user?.organizacao_id;
+    const [previewFile, setPreviewFile] = useState(null);
 
     // Busca Tipos e Anexos juntos
     const { data, isLoading, isError, error, refetch } = useQuery({
@@ -107,6 +108,12 @@ export default function EmpresaAnexosTab({ empresaId, categoria }) {
 
     return (
         <div className="space-y-6 animate-fade-in-up">
+            {/* Modal de Pre-visualização */}
+            <FilePreviewModal 
+                anexo={previewFile}
+                onClose={() => setPreviewFile(null)}
+            />
+
             <AnexoUploader
                 parentId={empresaId}
                 storageBucket="empresa-anexos"
@@ -117,18 +124,13 @@ export default function EmpresaAnexosTab({ empresaId, categoria }) {
                 organizacaoId={organizacaoId}
             />
 
-            {categoria === 'marketing' ? (
-                <GaleriaMarketing
-                    anexos={anexos}
-                    storageBucket="empresa-anexos"
-                    onDelete={handleDeleteAnexo}
-                />
-            ) : (
-                <ListaAnexos
-                    anexos={anexos}
-                    onDelete={handleDeleteAnexo}
-                />
-            )}
+            <GerenciadorAnexosGlobal 
+                anexos={anexos} 
+                viewMode={categoria === 'marketing' ? 'grid' : 'list'}
+                storageBucket="empresa-anexos"
+                onDelete={handleDeleteAnexo}
+                onPreview={setPreviewFile}
+            />
         </div>
     );
 }

@@ -13,32 +13,8 @@ import LancamentoDetalhesSidebar from './LancamentoDetalhesSidebar';
 import PanelConciliacaoCartao from './PanelConciliacaoCartao';
 import { v4 as uuidv4 } from 'uuid';
 import UppyFileImporter from '@/components/ui/UppyFileImporter';
+import FilePreviewModal from '@/components/shared/FilePreviewModal';
 
-// --- VISUALIZADOR DE PDF DA FATURA (igual ao LancamentoDetalhesSidebar) ---
-const FaturaPreviewPanel = ({ fileUrl, fileName, onClose }) => {
-    if (!fileUrl) return null;
-    return (
-        <div className="fixed top-0 right-0 h-full bg-gray-900 shadow-2xl z-[110] flex flex-col border-l border-gray-700 w-full md:w-[calc(100%-420px)] lg:w-[800px]">
-            <div className="flex justify-between items-center p-3 bg-gray-800 text-white border-b border-gray-700">
-                <h3 className="text-sm font-semibold truncate flex items-center gap-2">
-                    <FontAwesomeIcon icon={faFileAlt} />
-                    {fileName}
-                </h3>
-                <div className="flex gap-2">
-                    <a href={fileUrl} target="_blank" rel="noopener noreferrer" className="p-1.5 hover:bg-gray-700 rounded text-gray-400 hover:text-white transition-colors" title="Abrir em nova aba">
-                        <FontAwesomeIcon icon={faExpand} />
-                    </a>
-                    <button onClick={onClose} className="p-1.5 hover:bg-red-600 rounded text-gray-400 hover:text-white transition-colors">
-                        <FontAwesomeIcon icon={faTimes} />
-                    </button>
-                </div>
-            </div>
-            <div className="flex-1 bg-gray-800 overflow-hidden">
-                <iframe src={`${fileUrl}#toolbar=0`} className="w-full h-full border-none bg-white" title="Fatura PDF" />
-            </div>
-        </div>
-    );
-};
 
 // --- GERENCIADOR GLOBAL DE FATURAS E RE-VINCULAÇÃO ---
 const FaturasGerenciadorModal = ({ isOpen, onClose, organizacaoId, contasCartao, onPreviewRequest, onReprocessRequest }) => {
@@ -735,10 +711,13 @@ export default function ExtratoCartaoManager({ contasCartao }) {
 
     return (
         <>
-            {/* VISUALIZADOR PDF DA FATURA */}
-            <FaturaPreviewPanel
-                fileUrl={previewFatura?.url}
-                fileName={previewFatura?.nome}
+            {/* VISUALIZADOR PDF DA FATURA (PADRÃO OURO) */}
+            <FilePreviewModal
+                anexo={previewFatura ? {
+                    public_url: previewFatura.url,
+                    nome_arquivo: previewFatura.nome,
+                    caminho_arquivo: previewFatura.nome
+                } : null}
                 onClose={() => setPreviewFatura(null)}
             />
             {previewFatura && (
