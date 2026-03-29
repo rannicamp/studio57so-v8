@@ -1,0 +1,1422 @@
+[
+  {
+    "id": 28,
+    "nome_antigo": "Certidão Simplificada - Primeira Incorporação.pdf",
+    "aba_antiga": "juridico",
+    "sigla_antiga": "CT",
+    "NOVO_NOME": "[CT] - Certidão Simplificada - Primeira Incorporação.pdf",
+    "NOVA_ABA": "juridico",
+    "NOVA_SIGLA_DB": "CT",
+    "NOVO_TIPO_ID": 35
+  },
+  {
+    "id": 25,
+    "nome_antigo": "POST PLANTA HUMANIZADA.jpg",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "IMG",
+    "NOVO_NOME": "[IMG] - POST PLANTA HUMANIZADA.jpg",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "IMG",
+    "NOVO_TIPO_ID": 25
+  },
+  {
+    "id": 26,
+    "nome_antigo": "BRINDE EXCLUSIVO.jpg",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "IMG",
+    "NOVO_NOME": "[IMG] - BRINDE EXCLUSIVO.jpg",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "IMG",
+    "NOVO_TIPO_ID": 25
+  },
+  {
+    "id": 31,
+    "nome_antigo": "Primeira Incorporacao - Contrato Social.pdf",
+    "aba_antiga": "juridico",
+    "sigla_antiga": "CON",
+    "NOVO_NOME": "[CON] - Primeira Incorporacao - Contrato Social.pdf",
+    "NOVA_ABA": "juridico",
+    "NOVA_SIGLA_DB": "CON",
+    "NOVO_TIPO_ID": 27
+  },
+  {
+    "id": 1,
+    "nome_antigo": "RESIDENCIAL ALFA_ISO A4.pdf",
+    "aba_antiga": "Nenhuma (NULL)",
+    "sigla_antiga": "AAD",
+    "NOVO_NOME": "[AAD] - ISO A4.pdf",
+    "NOVA_ABA": "Nenhuma (NULL)",
+    "NOVA_SIGLA_DB": "AAD",
+    "NOVO_TIPO_ID": 18
+  },
+  {
+    "id": 2,
+    "nome_antigo": "README.md",
+    "aba_antiga": "Nenhuma (NULL)",
+    "sigla_antiga": "VTN",
+    "NOVO_NOME": "[VTN] - README.md",
+    "NOVA_ABA": "Nenhuma (NULL)",
+    "NOVA_SIGLA_DB": "VTN",
+    "NOVO_TIPO_ID": 23
+  },
+  {
+    "id": 11,
+    "nome_antigo": "RESIDENCIAL ALFA_PROJETO APROVADO 2024.pdf",
+    "aba_antiga": "juridico",
+    "sigla_antiga": "PROJ",
+    "NOVO_NOME": "[PROJ] - PROJETO APROVADO 2024.pdf",
+    "NOVA_ABA": "engenharia",
+    "NOVA_SIGLA_DB": "PROJ",
+    "NOVO_TIPO_ID": 30
+  },
+  {
+    "id": 8,
+    "nome_antigo": "RESIDENCIAL ALFA_ISO A4.pdf",
+    "aba_antiga": "juridico",
+    "sigla_antiga": "CON",
+    "NOVO_NOME": "[CON] - ISO A4.pdf",
+    "NOVA_ABA": "juridico",
+    "NOVA_SIGLA_DB": "CON",
+    "NOVO_TIPO_ID": 27
+  },
+  {
+    "id": 10,
+    "nome_antigo": "RESIDENCIAL ALFA_MEMORIAL DESCRITIVO.pdf",
+    "aba_antiga": "juridico",
+    "sigla_antiga": "CON",
+    "NOVO_NOME": "[PROJ] - MEMORIAL DESCRITIVO.pdf",
+    "NOVA_ABA": "engenharia",
+    "NOVA_SIGLA_DB": "PROJ",
+    "NOVO_TIPO_ID": 30
+  },
+  {
+    "id": 7,
+    "nome_antigo": "RESIDENCIAL ALFA CONVENÇÃO DE CONDOMÍNIO.pdf",
+    "aba_antiga": "juridico",
+    "sigla_antiga": "CON",
+    "NOVO_NOME": "[CON] - RESIDENCIAL ALFA CONVENÇÃO DE CONDOMÍNIO.pdf",
+    "NOVA_ABA": "juridico",
+    "NOVA_SIGLA_DB": "CON",
+    "NOVO_TIPO_ID": 27
+  },
+  {
+    "id": 9,
+    "nome_antigo": "RESIDENCIAL ALFA_MATRÍCULA_24920.pdf",
+    "aba_antiga": "juridico",
+    "sigla_antiga": "MAT",
+    "NOVO_NOME": "[MAT] - MATRÍCULA_24920.pdf",
+    "NOVA_ABA": "juridico",
+    "NOVA_SIGLA_DB": "MAT",
+    "NOVO_TIPO_ID": 29
+  },
+  {
+    "id": 17,
+    "nome_antigo": "PLANTAS ALFA.pdf",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "IMG",
+    "NOVO_NOME": "[PROJ] - PLANTAS ALFA.pdf",
+    "NOVA_ABA": "engenharia",
+    "NOVA_SIGLA_DB": "PROJ",
+    "NOVO_TIPO_ID": 30
+  },
+  {
+    "id": 14,
+    "nome_antigo": "250131_GUIA BÁSICO PARA CORRETORES.pdf",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "TAB",
+    "NOVO_NOME": "[TAB] - 250131_GUIA BÁSICO PARA CORRETORES.pdf",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "TAB",
+    "NOVO_TIPO_ID": 28
+  },
+  {
+    "id": 6,
+    "nome_antigo": "RESIDENCIAL ALFA_COMPRA E VENDA PADRÃO.pdf",
+    "aba_antiga": "juridico",
+    "sigla_antiga": "CON",
+    "NOVO_NOME": "[CON] - COMPRA E VENDA PADRÃO.pdf",
+    "NOVA_ABA": "juridico",
+    "NOVA_SIGLA_DB": "CON",
+    "NOVO_TIPO_ID": 27
+  },
+  {
+    "id": 4,
+    "nome_antigo": "25_01_15_ALFA_FEED_LAJE NERVURADA.jpg",
+    "aba_antiga": "Nenhuma (NULL)",
+    "sigla_antiga": "IMG",
+    "NOVO_NOME": "[IMG] - 25_01_15_ALFA_FEED_LAJE NERVURADA.jpg",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "IMG",
+    "NOVO_TIPO_ID": 25
+  },
+  {
+    "id": 3,
+    "nome_antigo": "RESIDENCIAL ALFA_COMPRA E VENDA PADRÃO.pdf",
+    "aba_antiga": "Nenhuma (NULL)",
+    "sigla_antiga": "CON",
+    "NOVO_NOME": "[CON] - COMPRA E VENDA PADRÃO.pdf",
+    "NOVA_ABA": "juridico",
+    "NOVA_SIGLA_DB": "CON",
+    "NOVO_TIPO_ID": 27
+  },
+  {
+    "id": 15,
+    "nome_antigo": "2025_xxx_SONIA_MARIA_REFORMA AP.jpg",
+    "aba_antiga": "geral",
+    "sigla_antiga": "IMG",
+    "NOVO_NOME": "[IMG] - 2025_xxx_SONIA_MARIA_REFORMA AP.jpg",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "IMG",
+    "NOVO_TIPO_ID": 25
+  },
+  {
+    "id": 35,
+    "nome_antigo": "LOTE QG28 - MATRÍCULA 14108.pdf",
+    "aba_antiga": "juridico",
+    "sigla_antiga": "MAT",
+    "NOVO_NOME": "[MAT] - LOTE QG28 - MATRÍCULA 14108.pdf",
+    "NOVA_ABA": "juridico",
+    "NOVA_SIGLA_DB": "MAT",
+    "NOVO_TIPO_ID": 29
+  },
+  {
+    "id": 32,
+    "nome_antigo": "CHÁCARAS REFÚGIO - ANTEPROJETO.pdf",
+    "aba_antiga": "geral",
+    "sigla_antiga": "BOK",
+    "NOVO_NOME": "[PROJ] - CHÁCARAS REFÚGIO - ANTEPROJETO.pdf",
+    "NOVA_ABA": "engenharia",
+    "NOVA_SIGLA_DB": "PROJ",
+    "NOVO_TIPO_ID": 30
+  },
+  {
+    "id": 33,
+    "nome_antigo": "LOTE F QG17a19 24a26 - MATRÍCULA 46954.pdf",
+    "aba_antiga": "juridico",
+    "sigla_antiga": "MAT",
+    "NOVO_NOME": "[MAT] - LOTE F QG17a19 24a26 - MATRÍCULA 46954.pdf",
+    "NOVA_ABA": "juridico",
+    "NOVA_SIGLA_DB": "MAT",
+    "NOVO_TIPO_ID": 29
+  },
+  {
+    "id": 34,
+    "nome_antigo": "LOTE QG27 E 31 - MATRÍCULA 36975.pdf",
+    "aba_antiga": "juridico",
+    "sigla_antiga": "MAT",
+    "NOVO_NOME": "[MAT] - LOTE QG27 E 31 - MATRÍCULA 36975.pdf",
+    "NOVA_ABA": "juridico",
+    "NOVA_SIGLA_DB": "MAT",
+    "NOVO_TIPO_ID": 29
+  },
+  {
+    "id": 36,
+    "nome_antigo": "LOTE QG29 - MATRÍCULA 14109.pdf",
+    "aba_antiga": "juridico",
+    "sigla_antiga": "MAT",
+    "NOVO_NOME": "[MAT] - LOTE QG29 - MATRÍCULA 14109.pdf",
+    "NOVA_ABA": "juridico",
+    "NOVA_SIGLA_DB": "MAT",
+    "NOVO_TIPO_ID": 29
+  },
+  {
+    "id": 37,
+    "nome_antigo": "LOTE QG30 - MATRÍCULA 14110.pdf",
+    "aba_antiga": "juridico",
+    "sigla_antiga": "MAT",
+    "NOVO_NOME": "[MAT] - LOTE QG30 - MATRÍCULA 14110.pdf",
+    "NOVA_ABA": "juridico",
+    "NOVA_SIGLA_DB": "MAT",
+    "NOVO_TIPO_ID": 29
+  },
+  {
+    "id": 38,
+    "nome_antigo": "LOTE QG32 - MATRÍCULA 14112.pdf",
+    "aba_antiga": "juridico",
+    "sigla_antiga": "MAT",
+    "NOVO_NOME": "[MAT] - LOTE QG32 - MATRÍCULA 14112.pdf",
+    "NOVA_ABA": "juridico",
+    "NOVA_SIGLA_DB": "MAT",
+    "NOVO_TIPO_ID": 29
+  },
+  {
+    "id": 39,
+    "nome_antigo": "LOTE QG33 - MATRÍCULA 14113.pdf",
+    "aba_antiga": "juridico",
+    "sigla_antiga": "MAT",
+    "NOVO_NOME": "[MAT] - LOTE QG33 - MATRÍCULA 14113.pdf",
+    "NOVA_ABA": "juridico",
+    "NOVA_SIGLA_DB": "MAT",
+    "NOVO_TIPO_ID": 29
+  },
+  {
+    "id": 40,
+    "nome_antigo": "CONTRATO_REFUGIO BRAUNAS.pdf",
+    "aba_antiga": "juridico",
+    "sigla_antiga": "CON",
+    "NOVO_NOME": "[CON] - CONTRATO_REFUGIO BRAUNAS.pdf",
+    "NOVA_ABA": "juridico",
+    "NOVA_SIGLA_DB": "CON",
+    "NOVO_TIPO_ID": 27
+  },
+  {
+    "id": 41,
+    "nome_antigo": "REGISTRO_AUXILIAR.pdf",
+    "aba_antiga": "juridico",
+    "sigla_antiga": "OUT",
+    "NOVO_NOME": "[OUT] - REGISTRO_AUXILIAR.pdf",
+    "NOVA_ABA": "juridico",
+    "NOVA_SIGLA_DB": "OUT",
+    "NOVO_TIPO_ID": 31
+  },
+  {
+    "id": 27,
+    "nome_antigo": "WhatsApp Video 2025-09-22 at 10.22.53.mp4",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "VID",
+    "NOVO_NOME": "[VID] - WhatsApp Video 2025-09-22 at 10.22.53.mp4",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "VID",
+    "NOVO_TIPO_ID": 24
+  },
+  {
+    "id": 42,
+    "nome_antigo": "SEGUNDO_ADITIVO_CONTRATO_CESSÃO_QUOTAS_EMPRESARIAIS.pdf",
+    "aba_antiga": "juridico",
+    "sigla_antiga": "CON",
+    "NOVO_NOME": "[CON] - SEGUNDO_ADITIVO_CONTRATO_CESSÃO_QUOTAS_EMPRESARIAIS.pdf",
+    "NOVA_ABA": "juridico",
+    "NOVA_SIGLA_DB": "CON",
+    "NOVO_TIPO_ID": 27
+  },
+  {
+    "id": 43,
+    "nome_antigo": "DECLARAÇÃO DE AUTENTICIDADE EMPRESA DA CONSTRUÇÃO CIVIL ASS.pdf",
+    "aba_antiga": "juridico",
+    "sigla_antiga": "OUT",
+    "NOVO_NOME": "[OUT] - DECLARAÇÃO DE AUTENTICIDADE EMPRESA DA CONSTRUÇÃO CIVIL ASS.pdf",
+    "NOVA_ABA": "juridico",
+    "NOVA_SIGLA_DB": "OUT",
+    "NOVO_TIPO_ID": 31
+  },
+  {
+    "id": 44,
+    "nome_antigo": "QUADROS NBR RESIDENCIAL ALFA ASSINADO ASS.pdf",
+    "aba_antiga": "juridico",
+    "sigla_antiga": "OUT",
+    "NOVO_NOME": "[PROJ] - QUADROS NBR RESIDENCIAL ALFA ASSINADO ASS.pdf",
+    "NOVA_ABA": "engenharia",
+    "NOVA_SIGLA_DB": "PROJ",
+    "NOVO_TIPO_ID": 30
+  },
+  {
+    "id": 45,
+    "nome_antigo": "marca com sombra.png",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "IMG",
+    "NOVO_NOME": "[IMG] - marca com sombra.png",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "IMG",
+    "NOVO_TIPO_ID": 25
+  },
+  {
+    "id": 64,
+    "nome_antigo": "foto beto.png",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "IMG",
+    "NOVO_NOME": "[IMG] - foto beto.png",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "IMG",
+    "NOVO_TIPO_ID": 25
+  },
+  {
+    "id": 65,
+    "nome_antigo": "INVESTIDORESROGERINHO.png",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "IMG",
+    "NOVO_NOME": "[IMG] - INVESTIDORESROGERINHO.png",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "IMG",
+    "NOVO_TIPO_ID": 25
+  },
+  {
+    "id": 67,
+    "nome_antigo": "STUDIO 57 PRETO - RETANGULAR.PNG",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "IMG",
+    "NOVO_NOME": "[IMG] - STUDIO 57 PRETO - RETANGULAR.PNG",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "IMG",
+    "NOVO_TIPO_ID": 25
+  },
+  {
+    "id": 69,
+    "nome_antigo": "S57 PRETO QUADRADO.png",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "IMG",
+    "NOVO_NOME": "[IMG] - S57 PRETO QUADRADO.png",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "IMG",
+    "NOVO_TIPO_ID": 25
+  },
+  {
+    "id": 71,
+    "nome_antigo": "icon-512x512.png",
+    "aba_antiga": "marca",
+    "sigla_antiga": "IMG",
+    "NOVO_NOME": "[IMG] - icon-512x512.png",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "IMG",
+    "NOVO_TIPO_ID": 25
+  },
+  {
+    "id": 72,
+    "nome_antigo": "FUNDO SEM MARCA.png",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "IMG",
+    "NOVO_NOME": "[IMG] - FUNDO SEM MARCA.png",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "IMG",
+    "NOVO_TIPO_ID": 25
+  },
+  {
+    "id": 73,
+    "nome_antigo": "tati com pasta do studio.png",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "IMG",
+    "NOVO_NOME": "[IMG] - tati com pasta do studio.png",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "IMG",
+    "NOVO_TIPO_ID": 25
+  },
+  {
+    "id": 75,
+    "nome_antigo": "EM BREVE STUDIOS (1).png",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "IMG",
+    "NOVO_NOME": "[IMG] - EM BREVE STUDIOS (1).png",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "IMG",
+    "NOVO_TIPO_ID": 25
+  },
+  {
+    "id": 76,
+    "nome_antigo": "Manual_de_Identidade_Studio_57.pdf",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "RLT",
+    "NOVO_NOME": "[RLT] - Manual_de_Identidade_Studio_57.pdf",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "RLT",
+    "NOVO_TIPO_ID": 8
+  },
+  {
+    "id": 50,
+    "nome_antigo": "8.png",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "IMG",
+    "NOVO_NOME": "[IMG] - 8.png",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "IMG",
+    "NOVO_TIPO_ID": 25
+  },
+  {
+    "id": 78,
+    "nome_antigo": "Certidão_Negativa_de_Protesto.pdf",
+    "aba_antiga": "juridico",
+    "sigla_antiga": "CT",
+    "NOVO_NOME": "[CT] - Certidão_Negativa_de_Protesto.pdf",
+    "NOVA_ABA": "juridico",
+    "NOVA_SIGLA_DB": "CT",
+    "NOVO_TIPO_ID": 35
+  },
+  {
+    "id": 79,
+    "nome_antigo": "CND PRIMEIRA INCORPORACAO LTDA.pdf",
+    "aba_antiga": "juridico",
+    "sigla_antiga": "CT",
+    "NOVO_NOME": "[CT] - CND PRIMEIRA INCORPORACAO LTDA.pdf",
+    "NOVA_ABA": "juridico",
+    "NOVA_SIGLA_DB": "CT",
+    "NOVO_TIPO_ID": 35
+  },
+  {
+    "id": 80,
+    "nome_antigo": "Recibo_Certidão_Negativa_Protesto.pdf",
+    "aba_antiga": "juridico",
+    "sigla_antiga": "OUT",
+    "NOVO_NOME": "[CT] - Recibo_Certidão_Negativa_Protesto.pdf",
+    "NOVA_ABA": "juridico",
+    "NOVA_SIGLA_DB": "CT",
+    "NOVO_TIPO_ID": 35
+  },
+  {
+    "id": 81,
+    "nome_antigo": "ART LUCAS.pdf",
+    "aba_antiga": "geral",
+    "sigla_antiga": "ART",
+    "NOVO_NOME": "[ART] - ART LUCAS.pdf",
+    "NOVA_ABA": "engenharia",
+    "NOVA_SIGLA_DB": "ART",
+    "NOVO_TIPO_ID": 38
+  },
+  {
+    "id": 82,
+    "nome_antigo": "ART QUADROS NBR.pdf",
+    "aba_antiga": "geral",
+    "sigla_antiga": "ART",
+    "NOVO_NOME": "[ART] - ART QUADROS NBR.pdf",
+    "NOVA_ABA": "engenharia",
+    "NOVA_SIGLA_DB": "ART",
+    "NOVO_TIPO_ID": 38
+  },
+  {
+    "id": 52,
+    "nome_antigo": "9.png",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "IMG",
+    "NOVO_NOME": "[IMG] - 9.png",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "IMG",
+    "NOVO_TIPO_ID": 25
+  },
+  {
+    "id": 53,
+    "nome_antigo": "10.png",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "IMG",
+    "NOVO_NOME": "[IMG] - 10.png",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "IMG",
+    "NOVO_TIPO_ID": 25
+  },
+  {
+    "id": 54,
+    "nome_antigo": "11.png",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "IMG",
+    "NOVO_NOME": "[IMG] - 11.png",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "IMG",
+    "NOVO_TIPO_ID": 25
+  },
+  {
+    "id": 55,
+    "nome_antigo": "12.png",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "IMG",
+    "NOVO_NOME": "[IMG] - 12.png",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "IMG",
+    "NOVO_TIPO_ID": 25
+  },
+  {
+    "id": 56,
+    "nome_antigo": "13.png",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "IMG",
+    "NOVO_NOME": "[IMG] - 13.png",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "IMG",
+    "NOVO_TIPO_ID": 25
+  },
+  {
+    "id": 57,
+    "nome_antigo": "14.png",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "IMG",
+    "NOVO_NOME": "[IMG] - 14.png",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "IMG",
+    "NOVO_TIPO_ID": 25
+  },
+  {
+    "id": 58,
+    "nome_antigo": "15.png",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "IMG",
+    "NOVO_NOME": "[IMG] - 15.png",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "IMG",
+    "NOVO_TIPO_ID": 25
+  },
+  {
+    "id": 59,
+    "nome_antigo": "16.png",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "IMG",
+    "NOVO_NOME": "[IMG] - 16.png",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "IMG",
+    "NOVO_TIPO_ID": 25
+  },
+  {
+    "id": 60,
+    "nome_antigo": "17.png",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "IMG",
+    "NOVO_NOME": "[IMG] - 17.png",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "IMG",
+    "NOVO_TIPO_ID": 25
+  },
+  {
+    "id": 61,
+    "nome_antigo": "18.png",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "IMG",
+    "NOVO_NOME": "[IMG] - 18.png",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "IMG",
+    "NOVO_TIPO_ID": 25
+  },
+  {
+    "id": 62,
+    "nome_antigo": "19.png",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "IMG",
+    "NOVO_NOME": "[IMG] - 19.png",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "IMG",
+    "NOVO_TIPO_ID": 25
+  },
+  {
+    "id": 63,
+    "nome_antigo": "20.png",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "IMG",
+    "NOVO_NOME": "[IMG] - 20.png",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "IMG",
+    "NOVO_TIPO_ID": 25
+  },
+  {
+    "id": 47,
+    "nome_antigo": "250304_Análise de rentabilidade_wa.pdf",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "RLT",
+    "NOVO_NOME": "[RLT] - 250304_Análise de rentabilidade_wa.pdf",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "RLT",
+    "NOVO_TIPO_ID": 8
+  },
+  {
+    "id": 152,
+    "nome_antigo": "AGENDAMENTO PROCESSO 29925-2025 IGOR.pdf",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "API",
+    "NOVO_NOME": "[API] - AGENDAMENTO PROCESSO 29925-2025 IGOR.pdf",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "API",
+    "NOVO_TIPO_ID": 15
+  },
+  {
+    "id": 154,
+    "nome_antigo": "CAIXA_2cores_negativa.png",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "IMG",
+    "NOVO_NOME": "[IMG] - CAIXA_2cores_negativa.png",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "IMG",
+    "NOVO_TIPO_ID": 25
+  },
+  {
+    "id": 48,
+    "nome_antigo": "LOCALIZAÇÃO FEED.png",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "IMG",
+    "NOVO_NOME": "[IMG] - LOCALIZAÇÃO FEED.png",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "IMG",
+    "NOVO_TIPO_ID": 25
+  },
+  {
+    "id": 49,
+    "nome_antigo": "25_01_22_ALFA_FEED_VENDAS.png",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "IMG",
+    "NOVO_NOME": "[IMG] - 25_01_22_ALFA_FEED_VENDAS.png",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "IMG",
+    "NOVO_TIPO_ID": 25
+  },
+  {
+    "id": 83,
+    "nome_antigo": "ART_ELETRICA ASS.pdf",
+    "aba_antiga": "geral",
+    "sigla_antiga": "ART",
+    "NOVO_NOME": "[ART] - ART_ELETRICA ASS.pdf",
+    "NOVA_ABA": "geral",
+    "NOVA_SIGLA_DB": "ART",
+    "NOVO_TIPO_ID": 38
+  },
+  {
+    "id": 84,
+    "nome_antigo": "RRT ARQUITETURA.pdf",
+    "aba_antiga": "geral",
+    "sigla_antiga": "RRT",
+    "NOVO_NOME": "[RRT] - RRT ARQUITETURA.pdf",
+    "NOVA_ABA": "engenharia",
+    "NOVA_SIGLA_DB": "RRT",
+    "NOVO_TIPO_ID": 39
+  },
+  {
+    "id": 85,
+    "nome_antigo": "RRT_EXEC_RANNIERE.pdf",
+    "aba_antiga": "geral",
+    "sigla_antiga": "RRT",
+    "NOVO_NOME": "[RRT] - RRT_EXEC_RANNIERE.pdf",
+    "NOVA_ABA": "engenharia",
+    "NOVA_SIGLA_DB": "RRT",
+    "NOVO_TIPO_ID": 39
+  },
+  {
+    "id": 86,
+    "nome_antigo": "EM BREVE STUDIOS FEED.mp4",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "VID",
+    "NOVO_NOME": "[VID] - EM BREVE STUDIOS FEED.mp4",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "VID",
+    "NOVO_TIPO_ID": 24
+  },
+  {
+    "id": 88,
+    "nome_antigo": "EM BREVE STUDIOS STORY 2.mp4",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "VID",
+    "NOVO_NOME": "[VID] - EM BREVE STUDIOS STORY 2.mp4",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "VID",
+    "NOVO_TIPO_ID": 24
+  },
+  {
+    "id": 89,
+    "nome_antigo": "EM BREVE STUDIOS WILDESCREEN.mp4",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "VID",
+    "NOVO_NOME": "[VID] - EM BREVE STUDIOS WILDESCREEN.mp4",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "VID",
+    "NOVO_TIPO_ID": 24
+  },
+  {
+    "id": 91,
+    "nome_antigo": "2025_000_STUDIOS BETA_VOLUMETRIA_V2_TABELA ÁREA.pdf",
+    "aba_antiga": "geral",
+    "sigla_antiga": "OUT",
+    "NOVO_NOME": "[OUT] - 2025_000_STUDIOS BETA_VOLUMETRIA_V2_TABELA ÁREA.pdf",
+    "NOVA_ABA": "geral",
+    "NOVA_SIGLA_DB": "OUT",
+    "NOVO_TIPO_ID": 31
+  },
+  {
+    "id": 112,
+    "nome_antigo": "FEED PRÉ LANÇAMENTO.jpg",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "IMG",
+    "NOVO_NOME": "[IMG] - FEED PRÉ LANÇAMENTO.jpg",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "IMG",
+    "NOVO_TIPO_ID": 25
+  },
+  {
+    "id": 96,
+    "nome_antigo": "BRAÚNAS_IMAGEM FUNDO SITE_VERDE.png",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "IMG",
+    "NOVO_NOME": "[IMG] - BRAÚNAS_IMAGEM FUNDO SITE_VERDE.png",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "IMG",
+    "NOVO_TIPO_ID": 25
+  },
+  {
+    "id": 97,
+    "nome_antigo": "BRAÚNAS_PNG.png",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "LOGO-P",
+    "NOVO_NOME": "[IMG] - BRAÚNAS_PNG.png",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "IMG",
+    "NOVO_TIPO_ID": 25
+  },
+  {
+    "id": 99,
+    "nome_antigo": "IMPLANTAÇÃO_BOOK DE VENDAS- REFUGIO BRAUNAS.png",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "IMG",
+    "NOVO_NOME": "[PROJ] - IMPLANTAÇÃO_BOOK DE VENDAS- REFUGIO BRAUNAS.png",
+    "NOVA_ABA": "engenharia",
+    "NOVA_SIGLA_DB": "PROJ",
+    "NOVO_TIPO_ID": 30
+  },
+  {
+    "id": 101,
+    "nome_antigo": "fundo_BG PAGE.png",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "IMG",
+    "NOVO_NOME": "[IMG] - fundo_BG PAGE.png",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "IMG",
+    "NOVO_TIPO_ID": 25
+  },
+  {
+    "id": 87,
+    "nome_antigo": "EM BREVE STUDIOS STORY.mp4",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "VID",
+    "NOVO_NOME": "[VID] - EM BREVE STUDIOS STORY.mp4",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "VID",
+    "NOVO_TIPO_ID": 24
+  },
+  {
+    "id": 92,
+    "nome_antigo": "VIDEO ORBITA 2.mp4",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "VID",
+    "NOVO_NOME": "[VID] - VIDEO ORBITA 2.mp4",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "VID",
+    "NOVO_TIPO_ID": 24
+  },
+  {
+    "id": 98,
+    "nome_antigo": "mapa_BOOK DE VENDAS- REFUGIO BRAUNAS.png",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "IMG",
+    "NOVO_NOME": "[IMG] - mapa_BOOK DE VENDAS- REFUGIO BRAUNAS.png",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "IMG",
+    "NOVO_TIPO_ID": 25
+  },
+  {
+    "id": 107,
+    "nome_antigo": "RRT DE EXECUÇÃO.pdf",
+    "aba_antiga": "geral",
+    "sigla_antiga": "RRT",
+    "NOVO_NOME": "[RRT] - RRT DE EXECUÇÃO.pdf",
+    "NOVA_ABA": "engenharia",
+    "NOVA_SIGLA_DB": "RRT",
+    "NOVO_TIPO_ID": 39
+  },
+  {
+    "id": 103,
+    "nome_antigo": "BOOK DE VENDAS- REFUGIO BRAUNAS_studio57.pdf",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "BOK",
+    "NOVO_NOME": "[BOK] - BOOK DE VENDAS- REFUGIO BRAUNAS_studio57.pdf",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "BOK",
+    "NOVO_TIPO_ID": 26
+  },
+  {
+    "id": 104,
+    "nome_antigo": "2025_000_PROTOCOLO PREFEITURA.pdf",
+    "aba_antiga": "geral",
+    "sigla_antiga": "OUT",
+    "NOVO_NOME": "[OUT] - 2025_000_PROTOCOLO PREFEITURA.pdf",
+    "NOVA_ABA": "geral",
+    "NOVA_SIGLA_DB": "OUT",
+    "NOVO_TIPO_ID": 31
+  },
+  {
+    "id": 105,
+    "nome_antigo": "2025_000_STUDIOS BETA_REQUERIMENTO.pdf",
+    "aba_antiga": "geral",
+    "sigla_antiga": "OUT",
+    "NOVO_NOME": "[OUT] - 2025_000_STUDIOS BETA_REQUERIMENTO.pdf",
+    "NOVA_ABA": "geral",
+    "NOVA_SIGLA_DB": "OUT",
+    "NOVO_TIPO_ID": 31
+  },
+  {
+    "id": 108,
+    "nome_antigo": "RRT DE PROJETO.pdf",
+    "aba_antiga": "geral",
+    "sigla_antiga": "RRT",
+    "NOVO_NOME": "[RRT] - RRT DE PROJETO.pdf",
+    "NOVA_ABA": "engenharia",
+    "NOVA_SIGLA_DB": "RRT",
+    "NOVO_TIPO_ID": 39
+  },
+  {
+    "id": 109,
+    "nome_antigo": "BCI.pdf",
+    "aba_antiga": "geral",
+    "sigla_antiga": "OUT",
+    "NOVO_NOME": "[CT] - BCI.pdf",
+    "NOVA_ABA": "juridico",
+    "NOVA_SIGLA_DB": "CT",
+    "NOVO_TIPO_ID": 35
+  },
+  {
+    "id": 110,
+    "nome_antigo": "1.png",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "IMG",
+    "NOVO_NOME": "[IMG] - 1.png",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "IMG",
+    "NOVO_TIPO_ID": 25
+  },
+  {
+    "id": 153,
+    "nome_antigo": "PLANO DE FUNDO CAIXA.png",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "IMG",
+    "NOVO_NOME": "[IMG] - PLANO DE FUNDO CAIXA.png",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "IMG",
+    "NOVO_TIPO_ID": 25
+  },
+  {
+    "id": 113,
+    "nome_antigo": "REELS PRÉ LANÇAMENTO.mp4",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "VID",
+    "NOVO_NOME": "[VID] - REELS PRÉ LANÇAMENTO.mp4",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "VID",
+    "NOVO_TIPO_ID": 24
+  },
+  {
+    "id": 111,
+    "nome_antigo": "ANÁLISE COMPARATIVA DE MERCADO.pdf",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "OUT",
+    "NOVO_NOME": "[OUT] - ANÁLISE COMPARATIVA DE MERCADO.pdf",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "OUT",
+    "NOVO_TIPO_ID": 31
+  },
+  {
+    "id": 116,
+    "nome_antigo": "BETA LOGO BRANCA.png",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "LOGO-P",
+    "NOVO_NOME": "[IMG] - BETA LOGO BRANCA.png",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "IMG",
+    "NOVO_TIPO_ID": 25
+  },
+  {
+    "id": 117,
+    "nome_antigo": "STUDIO 57 INCORPORAÇÕES -  2ª ALTERAÇÃO CONTRATUAL CONSOLIDADA.pdf",
+    "aba_antiga": "juridico",
+    "sigla_antiga": "CS",
+    "NOVO_NOME": "[CS] - STUDIO 57 INCORPORAÇÕES -  2ª ALTERAÇÃO CONTRATUAL CONSOLIDADA.pdf",
+    "NOVA_ABA": "juridico",
+    "NOVA_SIGLA_DB": "CS",
+    "NOVO_TIPO_ID": 42
+  },
+  {
+    "id": 114,
+    "nome_antigo": "BETA PORTIFÓLIO - 2025.pdf",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "BOK",
+    "NOVO_NOME": "[BOK] - BETA PORTIFÓLIO - 2025.pdf",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "BOK",
+    "NOVO_TIPO_ID": 26
+  },
+  {
+    "id": 155,
+    "nome_antigo": "CAIXA_2cores_positiva.png",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "IMG",
+    "NOVO_NOME": "[IMG] - CAIXA_2cores_positiva.png",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "IMG",
+    "NOVO_TIPO_ID": 25
+  },
+  {
+    "id": 115,
+    "nome_antigo": "BETA LOGO PRETA.png",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "LOGO-P",
+    "NOVO_NOME": "[IMG] - BETA LOGO PRETA.png",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "IMG",
+    "NOVO_TIPO_ID": 25
+  },
+  {
+    "id": 90,
+    "nome_antigo": "EM BREVE STUDIOS 16x9.jpg",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "IMG",
+    "NOVO_NOME": "[IMG] - EM BREVE STUDIOS 16x9.jpg",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "IMG",
+    "NOVO_TIPO_ID": 25
+  },
+  {
+    "id": 100,
+    "nome_antigo": "REFUGIO BRAUNA LOGO D&B.png",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "LOGO-P",
+    "NOVO_NOME": "[IMG] - REFUGIO BRAUNA LOGO D&B.png",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "IMG",
+    "NOVO_TIPO_ID": 25
+  },
+  {
+    "id": 95,
+    "nome_antigo": "BRAÚNAS_PNG.png",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "LOGO-P",
+    "NOVO_NOME": "[IMG] - BRAÚNAS_PNG.png",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "IMG",
+    "NOVO_TIPO_ID": 25
+  },
+  {
+    "id": 118,
+    "nome_antigo": "STUDIO 57 INCORPORAÇÕES - CARTÃO CNPJ.pdf",
+    "aba_antiga": "juridico",
+    "sigla_antiga": "CNPJ",
+    "NOVO_NOME": "[CNPJ] - STUDIO 57 INCORPORAÇÕES - CARTÃO CNPJ.pdf",
+    "NOVA_ABA": "juridico",
+    "NOVA_SIGLA_DB": "CNPJ",
+    "NOVO_TIPO_ID": 36
+  },
+  {
+    "id": 119,
+    "nome_antigo": "STUDIO 57 INCORPORAÇÕES - CERTIDÃO CIVIL - TJMG.pdf",
+    "aba_antiga": "juridico",
+    "sigla_antiga": "CND",
+    "NOVO_NOME": "[CT] - STUDIO 57 INCORPORAÇÕES - CERTIDÃO CIVIL - TJMG.pdf",
+    "NOVA_ABA": "juridico",
+    "NOVA_SIGLA_DB": "CT",
+    "NOVO_TIPO_ID": 35
+  },
+  {
+    "id": 120,
+    "nome_antigo": "STUDIO 57 INCORPORAÇÕES - CERTIDÃO FALÊNCIA E CONCORDATA - TJMG.pdf",
+    "aba_antiga": "juridico",
+    "sigla_antiga": "CND",
+    "NOVO_NOME": "[CT] - STUDIO 57 INCORPORAÇÕES - CERTIDÃO FALÊNCIA E CONCORDATA - TJMG.pdf",
+    "NOVA_ABA": "juridico",
+    "NOVA_SIGLA_DB": "CT",
+    "NOVO_TIPO_ID": 35
+  },
+  {
+    "id": 121,
+    "nome_antigo": "STUDIO 57 INCORPORAÇÕES - Certificado de Regularidade FGTS - CRF.pdf",
+    "aba_antiga": "juridico",
+    "sigla_antiga": "CND",
+    "NOVO_NOME": "[CND] - STUDIO 57 INCORPORAÇÕES - Certificado de Regularidade FGTS - CRF.pdf",
+    "NOVA_ABA": "juridico",
+    "NOVA_SIGLA_DB": "CND",
+    "NOVO_TIPO_ID": 45
+  },
+  {
+    "id": 122,
+    "nome_antigo": "STUDIO 57 INCORPORAÇÕES - CND - RECEITA FEDERAL.pdf",
+    "aba_antiga": "juridico",
+    "sigla_antiga": "CND",
+    "NOVO_NOME": "[CT] - STUDIO 57 INCORPORAÇÕES - CND - RECEITA FEDERAL.pdf",
+    "NOVA_ABA": "juridico",
+    "NOVA_SIGLA_DB": "CT",
+    "NOVO_TIPO_ID": 35
+  },
+  {
+    "id": 123,
+    "nome_antigo": "STUDIO 57 INCORPORAÇÕES - CND - FAZENDA ESTADUAL.pdf",
+    "aba_antiga": "juridico",
+    "sigla_antiga": "CND",
+    "NOVO_NOME": "[CT] - STUDIO 57 INCORPORAÇÕES - CND - FAZENDA ESTADUAL.pdf",
+    "NOVA_ABA": "juridico",
+    "NOVA_SIGLA_DB": "CT",
+    "NOVO_TIPO_ID": 35
+  },
+  {
+    "id": 124,
+    "nome_antigo": "STUDIO 57 INCORPORAÇÕES - CERTIDAO SIMPLIFICADA - JUCEMG.pdf",
+    "aba_antiga": "juridico",
+    "sigla_antiga": "CT",
+    "NOVO_NOME": "[CT] - STUDIO 57 INCORPORAÇÕES - CERTIDAO SIMPLIFICADA - JUCEMG.pdf",
+    "NOVA_ABA": "juridico",
+    "NOVA_SIGLA_DB": "CT",
+    "NOVO_TIPO_ID": 35
+  },
+  {
+    "id": 125,
+    "nome_antigo": "CAPA SITE SEM MARCA.png",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "IMG",
+    "NOVO_NOME": "[IMG] - CAPA SITE SEM MARCA.png",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "IMG",
+    "NOVO_TIPO_ID": 25
+  },
+  {
+    "id": 126,
+    "nome_antigo": "07 BETA PORTIFOLIO - HALL.png",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "IMG",
+    "NOVO_NOME": "[IMG] - 07 BETA PORTIFOLIO - HALL.png",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "IMG",
+    "NOVO_TIPO_ID": 25
+  },
+  {
+    "id": 127,
+    "nome_antigo": "08 BETA PORTIFOLIO - HALL 2.png",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "IMG",
+    "NOVO_NOME": "[IMG] - 08 BETA PORTIFOLIO - HALL 2.png",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "IMG",
+    "NOVO_TIPO_ID": 25
+  },
+  {
+    "id": 128,
+    "nome_antigo": "10 BETA PORTIFOLIO - LAVANDERIA.png",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "IMG",
+    "NOVO_NOME": "[IMG] - 10 BETA PORTIFOLIO - LAVANDERIA.png",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "IMG",
+    "NOVO_TIPO_ID": 25
+  },
+  {
+    "id": 129,
+    "nome_antigo": "12 BETA PORTIFOLIO - COZINHA.png",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "IMG",
+    "NOVO_NOME": "[IMG] - 12 BETA PORTIFOLIO - COZINHA.png",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "IMG",
+    "NOVO_TIPO_ID": 25
+  },
+  {
+    "id": 130,
+    "nome_antigo": "13 BETA PORTIFOLIO - QUARTO.png",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "IMG",
+    "NOVO_NOME": "[IMG] - 13 BETA PORTIFOLIO - QUARTO.png",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "IMG",
+    "NOVO_TIPO_ID": 25
+  },
+  {
+    "id": 131,
+    "nome_antigo": "14 BETA PORTIFOLIO - SALA.png",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "IMG",
+    "NOVO_NOME": "[IMG] - 14 BETA PORTIFOLIO - SALA.png",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "IMG",
+    "NOVO_TIPO_ID": 25
+  },
+  {
+    "id": 132,
+    "nome_antigo": "16 BETA PORTIFOLIO - ACADEMIA.png",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "IMG",
+    "NOVO_NOME": "[IMG] - 16 BETA PORTIFOLIO - ACADEMIA.png",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "IMG",
+    "NOVO_TIPO_ID": 25
+  },
+  {
+    "id": 133,
+    "nome_antigo": "17 BETA PORTIFOLIO - terraço.png",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "IMG",
+    "NOVO_NOME": "[IMG] - 17 BETA PORTIFOLIO - terraço.png",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "IMG",
+    "NOVO_TIPO_ID": 25
+  },
+  {
+    "id": 134,
+    "nome_antigo": "18 BETA PORTIFOLIO - ROOF TOP 2.png",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "IMG",
+    "NOVO_NOME": "[IMG] - 18 BETA PORTIFOLIO - ROOF TOP 2.png",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "IMG",
+    "NOVO_TIPO_ID": 25
+  },
+  {
+    "id": 135,
+    "nome_antigo": "20 BETA PORTIFOLIO  - estudo solar.png",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "IMG",
+    "NOVO_NOME": "[IMG] - 20 BETA PORTIFOLIO  - estudo solar.png",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "IMG",
+    "NOVO_TIPO_ID": 25
+  },
+  {
+    "id": 136,
+    "nome_antigo": "21 BETA PORTIFOLIO  - diagrama unidades.png",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "IMG",
+    "NOVO_NOME": "[IMG] - 21 BETA PORTIFOLIO  - diagrama unidades.png",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "IMG",
+    "NOVO_TIPO_ID": 25
+  },
+  {
+    "id": 137,
+    "nome_antigo": "PLANTA HUMANIZADA APARTAMENTOS STUDIOS BETA.png",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "IMG",
+    "NOVO_NOME": "[IMG] - PLANTA HUMANIZADA APARTAMENTOS STUDIOS BETA.png",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "IMG",
+    "NOVO_TIPO_ID": 25
+  },
+  {
+    "id": 138,
+    "nome_antigo": "PLANTA HUMANIZADA PAV. 1 STUDIOS BETA.png",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "IMG",
+    "NOVO_NOME": "[IMG] - PLANTA HUMANIZADA PAV. 1 STUDIOS BETA.png",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "IMG",
+    "NOVO_TIPO_ID": 25
+  },
+  {
+    "id": 139,
+    "nome_antigo": "PLANTA HUMANIZADA TÉRREO STUDIOS BETA.png",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "IMG",
+    "NOVO_NOME": "[IMG] - PLANTA HUMANIZADA TÉRREO STUDIOS BETA.png",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "IMG",
+    "NOVO_TIPO_ID": 25
+  },
+  {
+    "id": 140,
+    "nome_antigo": "PLANTA HUMANIZADA ROOFTOP STUDIOS BETA.png",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "IMG",
+    "NOVO_NOME": "[IMG] - PLANTA HUMANIZADA ROOFTOP STUDIOS BETA.png",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "IMG",
+    "NOVO_TIPO_ID": 25
+  },
+  {
+    "id": 141,
+    "nome_antigo": "foto insercao site.png",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "IMG",
+    "NOVO_NOME": "[IMG] - foto insercao site.png",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "IMG",
+    "NOVO_TIPO_ID": 25
+  },
+  {
+    "id": 142,
+    "nome_antigo": "BETA STORYS - ANIMADO.mp4",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "VID",
+    "NOVO_NOME": "[VID] - BETA STORYS - ANIMADO.mp4",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "VID",
+    "NOVO_TIPO_ID": 24
+  },
+  {
+    "id": 143,
+    "nome_antigo": "BETA FEED 01 B.png",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "IMG",
+    "NOVO_NOME": "[IMG] - BETA FEED 01 B.png",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "IMG",
+    "NOVO_TIPO_ID": 25
+  },
+  {
+    "id": 144,
+    "nome_antigo": "BETA FEED 01.png",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "IMG",
+    "NOVO_NOME": "[IMG] - BETA FEED 01.png",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "IMG",
+    "NOVO_TIPO_ID": 25
+  },
+  {
+    "id": 145,
+    "nome_antigo": "BETA FEED 02 B.png",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "IMG",
+    "NOVO_NOME": "[IMG] - BETA FEED 02 B.png",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "IMG",
+    "NOVO_TIPO_ID": 25
+  },
+  {
+    "id": 148,
+    "nome_antigo": "BOOK ALFA - 2025_COMP..pdf",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "BOK",
+    "NOVO_NOME": "[BOK] - BOOK ALFA - 2025_COMP..pdf",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "BOK",
+    "NOVO_TIPO_ID": 26
+  },
+  {
+    "id": 149,
+    "nome_antigo": "CAIXA.mp4",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "VID",
+    "NOVO_NOME": "[VID] - CAIXA.mp4",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "VID",
+    "NOVO_TIPO_ID": 24
+  },
+  {
+    "id": 151,
+    "nome_antigo": "1.png",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "IMG",
+    "NOVO_NOME": "[IMG] - 1.png",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "IMG",
+    "NOVO_TIPO_ID": 25
+  },
+  {
+    "id": 150,
+    "nome_antigo": "1.png",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "IMG",
+    "NOVO_NOME": "[IMG] - 1.png",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "IMG",
+    "NOVO_TIPO_ID": 25
+  },
+  {
+    "id": 158,
+    "nome_antigo": "VIDEO ORBITA 3.mp4",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "VID",
+    "NOVO_NOME": "[VID] - VIDEO ORBITA 3.mp4",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "VID",
+    "NOVO_TIPO_ID": 24
+  },
+  {
+    "id": 159,
+    "nome_antigo": "TABELA DE VENDAS_BETA_050326.pdf",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "TAB",
+    "NOVO_NOME": "[TAB] - TABELA DE VENDAS_BETA_050326.pdf",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "TAB",
+    "NOVO_TIPO_ID": 28
+  },
+  {
+    "id": 160,
+    "nome_antigo": "TABELA DE VENDAS - ALFA.jpeg",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "TAB",
+    "NOVO_NOME": "[TAB] - TABELA DE VENDAS - ALFA.jpeg",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "TAB",
+    "NOVO_TIPO_ID": 28
+  },
+  {
+    "id": 161,
+    "nome_antigo": "VAGAS DE GARAGEM_ALFA.pdf",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "OUT",
+    "NOVO_NOME": "[OUT] - VAGAS DE GARAGEM_ALFA.pdf",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "OUT",
+    "NOVO_TIPO_ID": 31
+  },
+  {
+    "id": 46,
+    "nome_antigo": "marca com sombra.png",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "IMG",
+    "NOVO_NOME": "[IMG] - marca com sombra.png",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "IMG",
+    "NOVO_TIPO_ID": 25
+  },
+  {
+    "id": 74,
+    "nome_antigo": "fachada alfa quadrada.png",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "IMG",
+    "NOVO_NOME": "[IMG] - fachada alfa quadrada.png",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "IMG",
+    "NOVO_TIPO_ID": 25
+  },
+  {
+    "id": 162,
+    "nome_antigo": "para receber informações antecipadas.mp4",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "VID",
+    "NOVO_NOME": "[VID] - para receber informações antecipadas.mp4",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "VID",
+    "NOVO_TIPO_ID": 24
+  },
+  {
+    "id": 163,
+    "nome_antigo": "para receber informações antecipadas_página 2.mp4",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "VID",
+    "NOVO_NOME": "[VID] - para receber informações antecipadas_página 2.mp4",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "VID",
+    "NOVO_TIPO_ID": 24
+  },
+  {
+    "id": 166,
+    "nome_antigo": "VIDEO ORBITA BETA.mp4",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "VID",
+    "NOVO_NOME": "[VID] - VIDEO ORBITA BETA.mp4",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "VID",
+    "NOVO_TIPO_ID": 24
+  },
+  {
+    "id": 167,
+    "nome_antigo": "VIDEO BETA VERTICAL.mp4",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "VID",
+    "NOVO_NOME": "[VID] - VIDEO BETA VERTICAL.mp4",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "VID",
+    "NOVO_TIPO_ID": 24
+  },
+  {
+    "id": 165,
+    "nome_antigo": "PLANTA HUMANIZADA_UNIDADES DISPONÍVEIS.png",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "PROJ",
+    "NOVO_NOME": "[PROJ] - PLANTA HUMANIZADA_UNIDADES DISPONÍVEIS.png",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "PROJ",
+    "NOVO_TIPO_ID": 30
+  },
+  {
+    "id": 164,
+    "nome_antigo": "CHÁCARAS REFUGIO BRAÚNAS_CURVAS DE NÍVEIS.pdf",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "PROJ",
+    "NOVO_NOME": "[PROJ] - CHÁCARAS REFUGIO BRAÚNAS_CURVAS DE NÍVEIS.pdf",
+    "NOVA_ABA": "marketing",
+    "NOVA_SIGLA_DB": "PROJ",
+    "NOVO_TIPO_ID": 30
+  },
+  {
+    "id": 168,
+    "nome_antigo": "REFÚGIO BRAÚNAS - DIVISÃO DOS LOTES S57 E MARIA EMILIA.pdf",
+    "aba_antiga": "marketing",
+    "sigla_antiga": "OUTROS",
+    "NOVO_NOME": "[MAT] - REFÚGIO BRAÚNAS - DIVISÃO DOS LOTES S57 E MARIA EMILIA.pdf",
+    "NOVA_ABA": "juridico",
+    "NOVA_SIGLA_DB": "MAT",
+    "NOVO_TIPO_ID": 29
+  }
+]

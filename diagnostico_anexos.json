@@ -1,0 +1,996 @@
+[
+  {
+    "id": 28,
+    "nome_atual": "Certidão Simplificada - Primeira Incorporação.pdf",
+    "aba_atual": "juridico",
+    "tipo_atual_sigla": "CT",
+    "tipo_atual_desc": "CERTIDÕES"
+  },
+  {
+    "id": 25,
+    "nome_atual": "POST PLANTA HUMANIZADA.jpg",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "IMG",
+    "tipo_atual_desc": "IMAGEM"
+  },
+  {
+    "id": 26,
+    "nome_atual": "BRINDE EXCLUSIVO.jpg",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "IMG",
+    "tipo_atual_desc": "IMAGEM"
+  },
+  {
+    "id": 31,
+    "nome_atual": "Primeira Incorporacao - Contrato Social.pdf",
+    "aba_atual": "juridico",
+    "tipo_atual_sigla": "CON",
+    "tipo_atual_desc": "CONTRATO"
+  },
+  {
+    "id": 1,
+    "nome_atual": "RESIDENCIAL ALFA_ISO A4.pdf",
+    "aba_atual": "Nenhuma (NULL)",
+    "tipo_atual_sigla": "AAD",
+    "tipo_atual_desc": "ASO ADMISSIONAL"
+  },
+  {
+    "id": 2,
+    "nome_atual": "README.md",
+    "aba_atual": "Nenhuma (NULL)",
+    "tipo_atual_sigla": "VTN ",
+    "tipo_atual_desc": "DECLARAÇÃO VALE TRANSPORTE"
+  },
+  {
+    "id": 11,
+    "nome_atual": "RESIDENCIAL ALFA_PROJETO APROVADO 2024.pdf",
+    "aba_atual": "juridico",
+    "tipo_atual_sigla": "PROJ",
+    "tipo_atual_desc": "PROJETO"
+  },
+  {
+    "id": 8,
+    "nome_atual": "RESIDENCIAL ALFA_ISO A4.pdf",
+    "aba_atual": "juridico",
+    "tipo_atual_sigla": "CON",
+    "tipo_atual_desc": "CONTRATO"
+  },
+  {
+    "id": 10,
+    "nome_atual": "RESIDENCIAL ALFA_MEMORIAL DESCRITIVO.pdf",
+    "aba_atual": "juridico",
+    "tipo_atual_sigla": "CON",
+    "tipo_atual_desc": "CONTRATO"
+  },
+  {
+    "id": 7,
+    "nome_atual": "RESIDENCIAL ALFA CONVENÇÃO DE CONDOMÍNIO.pdf",
+    "aba_atual": "juridico",
+    "tipo_atual_sigla": "CON",
+    "tipo_atual_desc": "CONTRATO"
+  },
+  {
+    "id": 9,
+    "nome_atual": "RESIDENCIAL ALFA_MATRÍCULA_24920.pdf",
+    "aba_atual": "juridico",
+    "tipo_atual_sigla": "MAT ",
+    "tipo_atual_desc": "MATRÍCULA"
+  },
+  {
+    "id": 17,
+    "nome_atual": "PLANTAS ALFA.pdf",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "IMG",
+    "tipo_atual_desc": "IMAGEM"
+  },
+  {
+    "id": 14,
+    "nome_atual": "250131_GUIA BÁSICO PARA CORRETORES.pdf",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "TAB",
+    "tipo_atual_desc": "TABELA "
+  },
+  {
+    "id": 6,
+    "nome_atual": "RESIDENCIAL ALFA_COMPRA E VENDA PADRÃO.pdf",
+    "aba_atual": "juridico",
+    "tipo_atual_sigla": "CON",
+    "tipo_atual_desc": "CONTRATO"
+  },
+  {
+    "id": 4,
+    "nome_atual": "25_01_15_ALFA_FEED_LAJE NERVURADA.jpg",
+    "aba_atual": "Nenhuma (NULL)",
+    "tipo_atual_sigla": "IMG",
+    "tipo_atual_desc": "IMAGEM"
+  },
+  {
+    "id": 3,
+    "nome_atual": "RESIDENCIAL ALFA_COMPRA E VENDA PADRÃO.pdf",
+    "aba_atual": "Nenhuma (NULL)",
+    "tipo_atual_sigla": "CON",
+    "tipo_atual_desc": "CONTRATO"
+  },
+  {
+    "id": 15,
+    "nome_atual": "2025_xxx_SONIA_MARIA_REFORMA AP.jpg",
+    "aba_atual": "geral",
+    "tipo_atual_sigla": "IMG",
+    "tipo_atual_desc": "IMAGEM"
+  },
+  {
+    "id": 35,
+    "nome_atual": "LOTE QG28 - MATRÍCULA 14108.pdf",
+    "aba_atual": "juridico",
+    "tipo_atual_sigla": "MAT ",
+    "tipo_atual_desc": "MATRÍCULA"
+  },
+  {
+    "id": 32,
+    "nome_atual": "CHÁCARAS REFÚGIO - ANTEPROJETO.pdf",
+    "aba_atual": "geral",
+    "tipo_atual_sigla": "BOK",
+    "tipo_atual_desc": "BOOK DE VENDAS"
+  },
+  {
+    "id": 33,
+    "nome_atual": "LOTE F QG17a19 24a26 - MATRÍCULA 46954.pdf",
+    "aba_atual": "juridico",
+    "tipo_atual_sigla": "MAT ",
+    "tipo_atual_desc": "MATRÍCULA"
+  },
+  {
+    "id": 34,
+    "nome_atual": "LOTE QG27 E 31 - MATRÍCULA 36975.pdf",
+    "aba_atual": "juridico",
+    "tipo_atual_sigla": "MAT ",
+    "tipo_atual_desc": "MATRÍCULA"
+  },
+  {
+    "id": 36,
+    "nome_atual": "LOTE QG29 - MATRÍCULA 14109.pdf",
+    "aba_atual": "juridico",
+    "tipo_atual_sigla": "MAT ",
+    "tipo_atual_desc": "MATRÍCULA"
+  },
+  {
+    "id": 37,
+    "nome_atual": "LOTE QG30 - MATRÍCULA 14110.pdf",
+    "aba_atual": "juridico",
+    "tipo_atual_sigla": "MAT ",
+    "tipo_atual_desc": "MATRÍCULA"
+  },
+  {
+    "id": 38,
+    "nome_atual": "LOTE QG32 - MATRÍCULA 14112.pdf",
+    "aba_atual": "juridico",
+    "tipo_atual_sigla": "MAT ",
+    "tipo_atual_desc": "MATRÍCULA"
+  },
+  {
+    "id": 39,
+    "nome_atual": "LOTE QG33 - MATRÍCULA 14113.pdf",
+    "aba_atual": "juridico",
+    "tipo_atual_sigla": "MAT ",
+    "tipo_atual_desc": "MATRÍCULA"
+  },
+  {
+    "id": 40,
+    "nome_atual": "CONTRATO_REFUGIO BRAUNAS.pdf",
+    "aba_atual": "juridico",
+    "tipo_atual_sigla": "CON",
+    "tipo_atual_desc": "CONTRATO"
+  },
+  {
+    "id": 41,
+    "nome_atual": "REGISTRO_AUXILIAR.pdf",
+    "aba_atual": "juridico",
+    "tipo_atual_sigla": "OUT",
+    "tipo_atual_desc": "OUTROS"
+  },
+  {
+    "id": 27,
+    "nome_atual": "WhatsApp Video 2025-09-22 at 10.22.53.mp4",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "VID ",
+    "tipo_atual_desc": "VÍDEO "
+  },
+  {
+    "id": 42,
+    "nome_atual": "SEGUNDO_ADITIVO_CONTRATO_CESSÃO_QUOTAS_EMPRESARIAIS.pdf",
+    "aba_atual": "juridico",
+    "tipo_atual_sigla": "CON",
+    "tipo_atual_desc": "CONTRATO"
+  },
+  {
+    "id": 43,
+    "nome_atual": "DECLARAÇÃO DE AUTENTICIDADE EMPRESA DA CONSTRUÇÃO CIVIL ASS.pdf",
+    "aba_atual": "juridico",
+    "tipo_atual_sigla": "OUT",
+    "tipo_atual_desc": "OUTROS"
+  },
+  {
+    "id": 44,
+    "nome_atual": "QUADROS NBR RESIDENCIAL ALFA ASSINADO ASS.pdf",
+    "aba_atual": "juridico",
+    "tipo_atual_sigla": "OUT",
+    "tipo_atual_desc": "OUTROS"
+  },
+  {
+    "id": 45,
+    "nome_atual": "marca com sombra.png",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "IMG",
+    "tipo_atual_desc": "IMAGEM"
+  },
+  {
+    "id": 64,
+    "nome_atual": "foto beto.png",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "IMG",
+    "tipo_atual_desc": "IMAGEM"
+  },
+  {
+    "id": 65,
+    "nome_atual": "INVESTIDORESROGERINHO.png",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "IMG",
+    "tipo_atual_desc": "IMAGEM"
+  },
+  {
+    "id": 67,
+    "nome_atual": "STUDIO 57 PRETO - RETANGULAR.PNG",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "IMG",
+    "tipo_atual_desc": "IMAGEM"
+  },
+  {
+    "id": 69,
+    "nome_atual": "S57 PRETO QUADRADO.png",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "IMG",
+    "tipo_atual_desc": "IMAGEM"
+  },
+  {
+    "id": 71,
+    "nome_atual": "icon-512x512.png",
+    "aba_atual": "marca",
+    "tipo_atual_sigla": "IMG",
+    "tipo_atual_desc": "IMAGEM"
+  },
+  {
+    "id": 72,
+    "nome_atual": "FUNDO SEM MARCA.png",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "IMG",
+    "tipo_atual_desc": "IMAGEM"
+  },
+  {
+    "id": 73,
+    "nome_atual": "tati com pasta do studio.png",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "IMG",
+    "tipo_atual_desc": "IMAGEM"
+  },
+  {
+    "id": 75,
+    "nome_atual": "EM BREVE STUDIOS (1).png",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "IMG",
+    "tipo_atual_desc": "IMAGEM"
+  },
+  {
+    "id": 76,
+    "nome_atual": "Manual_de_Identidade_Studio_57.pdf",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "RLT",
+    "tipo_atual_desc": "RELATÓRIO"
+  },
+  {
+    "id": 50,
+    "nome_atual": "8.png",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "IMG",
+    "tipo_atual_desc": "IMAGEM"
+  },
+  {
+    "id": 78,
+    "nome_atual": "Certidão_Negativa_de_Protesto.pdf",
+    "aba_atual": "juridico",
+    "tipo_atual_sigla": "CT",
+    "tipo_atual_desc": "CERTIDÕES"
+  },
+  {
+    "id": 79,
+    "nome_atual": "CND PRIMEIRA INCORPORACAO LTDA.pdf",
+    "aba_atual": "juridico",
+    "tipo_atual_sigla": "CT",
+    "tipo_atual_desc": "CERTIDÕES"
+  },
+  {
+    "id": 80,
+    "nome_atual": "Recibo_Certidão_Negativa_Protesto.pdf",
+    "aba_atual": "juridico",
+    "tipo_atual_sigla": "OUT",
+    "tipo_atual_desc": "OUTROS"
+  },
+  {
+    "id": 81,
+    "nome_atual": "ART LUCAS.pdf",
+    "aba_atual": "geral",
+    "tipo_atual_sigla": "ART",
+    "tipo_atual_desc": "ANOTAÇÃO DE RESPONSABILIDADE TÉCNICA"
+  },
+  {
+    "id": 82,
+    "nome_atual": "ART QUADROS NBR.pdf",
+    "aba_atual": "geral",
+    "tipo_atual_sigla": "ART",
+    "tipo_atual_desc": "ANOTAÇÃO DE RESPONSABILIDADE TÉCNICA"
+  },
+  {
+    "id": 52,
+    "nome_atual": "9.png",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "IMG",
+    "tipo_atual_desc": "IMAGEM"
+  },
+  {
+    "id": 53,
+    "nome_atual": "10.png",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "IMG",
+    "tipo_atual_desc": "IMAGEM"
+  },
+  {
+    "id": 54,
+    "nome_atual": "11.png",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "IMG",
+    "tipo_atual_desc": "IMAGEM"
+  },
+  {
+    "id": 55,
+    "nome_atual": "12.png",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "IMG",
+    "tipo_atual_desc": "IMAGEM"
+  },
+  {
+    "id": 56,
+    "nome_atual": "13.png",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "IMG",
+    "tipo_atual_desc": "IMAGEM"
+  },
+  {
+    "id": 57,
+    "nome_atual": "14.png",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "IMG",
+    "tipo_atual_desc": "IMAGEM"
+  },
+  {
+    "id": 58,
+    "nome_atual": "15.png",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "IMG",
+    "tipo_atual_desc": "IMAGEM"
+  },
+  {
+    "id": 59,
+    "nome_atual": "16.png",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "IMG",
+    "tipo_atual_desc": "IMAGEM"
+  },
+  {
+    "id": 60,
+    "nome_atual": "17.png",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "IMG",
+    "tipo_atual_desc": "IMAGEM"
+  },
+  {
+    "id": 61,
+    "nome_atual": "18.png",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "IMG",
+    "tipo_atual_desc": "IMAGEM"
+  },
+  {
+    "id": 62,
+    "nome_atual": "19.png",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "IMG",
+    "tipo_atual_desc": "IMAGEM"
+  },
+  {
+    "id": 63,
+    "nome_atual": "20.png",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "IMG",
+    "tipo_atual_desc": "IMAGEM"
+  },
+  {
+    "id": 47,
+    "nome_atual": "250304_Análise de rentabilidade_wa.pdf",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "RLT",
+    "tipo_atual_desc": "RELATÓRIO"
+  },
+  {
+    "id": 152,
+    "nome_atual": "AGENDAMENTO PROCESSO 29925-2025 IGOR.pdf",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "API",
+    "tipo_atual_desc": "AVISO PRÉVIO INDEZINADO"
+  },
+  {
+    "id": 154,
+    "nome_atual": "CAIXA_2cores_negativa.png",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "IMG",
+    "tipo_atual_desc": "IMAGEM"
+  },
+  {
+    "id": 48,
+    "nome_atual": "LOCALIZAÇÃO FEED.png",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "IMG",
+    "tipo_atual_desc": "IMAGEM"
+  },
+  {
+    "id": 49,
+    "nome_atual": "25_01_22_ALFA_FEED_VENDAS.png",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "IMG",
+    "tipo_atual_desc": "IMAGEM"
+  },
+  {
+    "id": 83,
+    "nome_atual": "ART_ELETRICA ASS.pdf",
+    "aba_atual": "geral",
+    "tipo_atual_sigla": "ART",
+    "tipo_atual_desc": "ANOTAÇÃO DE RESPONSABILIDADE TÉCNICA"
+  },
+  {
+    "id": 84,
+    "nome_atual": "RRT ARQUITETURA.pdf",
+    "aba_atual": "geral",
+    "tipo_atual_sigla": "RRT",
+    "tipo_atual_desc": "REGISTRO DE RESPONSABILIDADE TÉCNICA"
+  },
+  {
+    "id": 85,
+    "nome_atual": "RRT_EXEC_RANNIERE.pdf",
+    "aba_atual": "geral",
+    "tipo_atual_sigla": "RRT",
+    "tipo_atual_desc": "REGISTRO DE RESPONSABILIDADE TÉCNICA"
+  },
+  {
+    "id": 86,
+    "nome_atual": "EM BREVE STUDIOS FEED.mp4",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "VID ",
+    "tipo_atual_desc": "VÍDEO "
+  },
+  {
+    "id": 88,
+    "nome_atual": "EM BREVE STUDIOS STORY 2.mp4",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "VID ",
+    "tipo_atual_desc": "VÍDEO "
+  },
+  {
+    "id": 89,
+    "nome_atual": "EM BREVE STUDIOS WILDESCREEN.mp4",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "VID ",
+    "tipo_atual_desc": "VÍDEO "
+  },
+  {
+    "id": 91,
+    "nome_atual": "2025_000_STUDIOS BETA_VOLUMETRIA_V2_TABELA ÁREA.pdf",
+    "aba_atual": "geral",
+    "tipo_atual_sigla": "OUT",
+    "tipo_atual_desc": "OUTROS"
+  },
+  {
+    "id": 112,
+    "nome_atual": "FEED PRÉ LANÇAMENTO.jpg",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "IMG",
+    "tipo_atual_desc": "IMAGEM"
+  },
+  {
+    "id": 96,
+    "nome_atual": "BRAÚNAS_IMAGEM FUNDO SITE_VERDE.png",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "IMG",
+    "tipo_atual_desc": "IMAGEM"
+  },
+  {
+    "id": 97,
+    "nome_atual": "BRAÚNAS_PNG.png",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "LOGO-P",
+    "tipo_atual_desc": "Logotipo Principal"
+  },
+  {
+    "id": 99,
+    "nome_atual": "IMPLANTAÇÃO_BOOK DE VENDAS- REFUGIO BRAUNAS.png",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "IMG",
+    "tipo_atual_desc": "IMAGEM"
+  },
+  {
+    "id": 101,
+    "nome_atual": "fundo_BG PAGE.png",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "IMG",
+    "tipo_atual_desc": "IMAGEM"
+  },
+  {
+    "id": 87,
+    "nome_atual": "EM BREVE STUDIOS STORY.mp4",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "VID ",
+    "tipo_atual_desc": "VÍDEO "
+  },
+  {
+    "id": 92,
+    "nome_atual": "VIDEO ORBITA 2.mp4",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "VID ",
+    "tipo_atual_desc": "VÍDEO "
+  },
+  {
+    "id": 98,
+    "nome_atual": "mapa_BOOK DE VENDAS- REFUGIO BRAUNAS.png",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "IMG",
+    "tipo_atual_desc": "IMAGEM"
+  },
+  {
+    "id": 107,
+    "nome_atual": "RRT DE EXECUÇÃO.pdf",
+    "aba_atual": "geral",
+    "tipo_atual_sigla": "RRT",
+    "tipo_atual_desc": "REGISTRO DE RESPONSABILIDADE TÉCNICA"
+  },
+  {
+    "id": 103,
+    "nome_atual": "BOOK DE VENDAS- REFUGIO BRAUNAS_studio57.pdf",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "BOK",
+    "tipo_atual_desc": "BOOK DE VENDAS"
+  },
+  {
+    "id": 104,
+    "nome_atual": "2025_000_PROTOCOLO PREFEITURA.pdf",
+    "aba_atual": "geral",
+    "tipo_atual_sigla": "OUT",
+    "tipo_atual_desc": "OUTROS"
+  },
+  {
+    "id": 105,
+    "nome_atual": "2025_000_STUDIOS BETA_REQUERIMENTO.pdf",
+    "aba_atual": "geral",
+    "tipo_atual_sigla": "OUT",
+    "tipo_atual_desc": "OUTROS"
+  },
+  {
+    "id": 108,
+    "nome_atual": "RRT DE PROJETO.pdf",
+    "aba_atual": "geral",
+    "tipo_atual_sigla": "RRT",
+    "tipo_atual_desc": "REGISTRO DE RESPONSABILIDADE TÉCNICA"
+  },
+  {
+    "id": 109,
+    "nome_atual": "BCI.pdf",
+    "aba_atual": "geral",
+    "tipo_atual_sigla": "OUT",
+    "tipo_atual_desc": "OUTROS"
+  },
+  {
+    "id": 110,
+    "nome_atual": "1.png",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "IMG",
+    "tipo_atual_desc": "IMAGEM"
+  },
+  {
+    "id": 153,
+    "nome_atual": "PLANO DE FUNDO CAIXA.png",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "IMG",
+    "tipo_atual_desc": "IMAGEM"
+  },
+  {
+    "id": 113,
+    "nome_atual": "REELS PRÉ LANÇAMENTO.mp4",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "VID ",
+    "tipo_atual_desc": "VÍDEO "
+  },
+  {
+    "id": 111,
+    "nome_atual": "ANÁLISE COMPARATIVA DE MERCADO.pdf",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "OUT",
+    "tipo_atual_desc": "OUTROS"
+  },
+  {
+    "id": 116,
+    "nome_atual": "BETA LOGO BRANCA.png",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "LOGO-P",
+    "tipo_atual_desc": "Logotipo Principal"
+  },
+  {
+    "id": 117,
+    "nome_atual": "STUDIO 57 INCORPORAÇÕES -  2ª ALTERAÇÃO CONTRATUAL CONSOLIDADA.pdf",
+    "aba_atual": "juridico",
+    "tipo_atual_sigla": "CS",
+    "tipo_atual_desc": "Contrato Social"
+  },
+  {
+    "id": 114,
+    "nome_atual": "BETA PORTIFÓLIO - 2025.pdf",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "BOK",
+    "tipo_atual_desc": "BOOK DE VENDAS"
+  },
+  {
+    "id": 155,
+    "nome_atual": "CAIXA_2cores_positiva.png",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "IMG",
+    "tipo_atual_desc": "IMAGEM"
+  },
+  {
+    "id": 115,
+    "nome_atual": "BETA LOGO PRETA.png",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "LOGO-P",
+    "tipo_atual_desc": "Logotipo Principal"
+  },
+  {
+    "id": 90,
+    "nome_atual": "EM BREVE STUDIOS 16x9.jpg",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "IMG",
+    "tipo_atual_desc": "IMAGEM"
+  },
+  {
+    "id": 100,
+    "nome_atual": "REFUGIO BRAUNA LOGO D&B.png",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "LOGO-P",
+    "tipo_atual_desc": "Logotipo Principal"
+  },
+  {
+    "id": 95,
+    "nome_atual": "BRAÚNAS_PNG.png",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "LOGO-P",
+    "tipo_atual_desc": "Logotipo Principal"
+  },
+  {
+    "id": 118,
+    "nome_atual": "STUDIO 57 INCORPORAÇÕES - CARTÃO CNPJ.pdf",
+    "aba_atual": "juridico",
+    "tipo_atual_sigla": "CNPJ",
+    "tipo_atual_desc": "CADASTRO NACIONAL DA PESSOA JURÍDICA"
+  },
+  {
+    "id": 119,
+    "nome_atual": "STUDIO 57 INCORPORAÇÕES - CERTIDÃO CIVIL - TJMG.pdf",
+    "aba_atual": "juridico",
+    "tipo_atual_sigla": "CND",
+    "tipo_atual_desc": "Certidão Negativa"
+  },
+  {
+    "id": 120,
+    "nome_atual": "STUDIO 57 INCORPORAÇÕES - CERTIDÃO FALÊNCIA E CONCORDATA - TJMG.pdf",
+    "aba_atual": "juridico",
+    "tipo_atual_sigla": "CND",
+    "tipo_atual_desc": "Certidão Negativa"
+  },
+  {
+    "id": 121,
+    "nome_atual": "STUDIO 57 INCORPORAÇÕES - Certificado de Regularidade FGTS - CRF.pdf",
+    "aba_atual": "juridico",
+    "tipo_atual_sigla": "CND",
+    "tipo_atual_desc": "Certidão Negativa"
+  },
+  {
+    "id": 122,
+    "nome_atual": "STUDIO 57 INCORPORAÇÕES - CND - RECEITA FEDERAL.pdf",
+    "aba_atual": "juridico",
+    "tipo_atual_sigla": "CND",
+    "tipo_atual_desc": "Certidão Negativa"
+  },
+  {
+    "id": 123,
+    "nome_atual": "STUDIO 57 INCORPORAÇÕES - CND - FAZENDA ESTADUAL.pdf",
+    "aba_atual": "juridico",
+    "tipo_atual_sigla": "CND",
+    "tipo_atual_desc": "Certidão Negativa"
+  },
+  {
+    "id": 124,
+    "nome_atual": "STUDIO 57 INCORPORAÇÕES - CERTIDAO SIMPLIFICADA - JUCEMG.pdf",
+    "aba_atual": "juridico",
+    "tipo_atual_sigla": "CT",
+    "tipo_atual_desc": "CERTIDÕES"
+  },
+  {
+    "id": 125,
+    "nome_atual": "CAPA SITE SEM MARCA.png",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "IMG",
+    "tipo_atual_desc": "IMAGEM"
+  },
+  {
+    "id": 126,
+    "nome_atual": "07 BETA PORTIFOLIO - HALL.png",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "IMG",
+    "tipo_atual_desc": "IMAGEM"
+  },
+  {
+    "id": 127,
+    "nome_atual": "08 BETA PORTIFOLIO - HALL 2.png",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "IMG",
+    "tipo_atual_desc": "IMAGEM"
+  },
+  {
+    "id": 128,
+    "nome_atual": "10 BETA PORTIFOLIO - LAVANDERIA.png",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "IMG",
+    "tipo_atual_desc": "IMAGEM"
+  },
+  {
+    "id": 129,
+    "nome_atual": "12 BETA PORTIFOLIO - COZINHA.png",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "IMG",
+    "tipo_atual_desc": "IMAGEM"
+  },
+  {
+    "id": 130,
+    "nome_atual": "13 BETA PORTIFOLIO - QUARTO.png",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "IMG",
+    "tipo_atual_desc": "IMAGEM"
+  },
+  {
+    "id": 131,
+    "nome_atual": "14 BETA PORTIFOLIO - SALA.png",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "IMG",
+    "tipo_atual_desc": "IMAGEM"
+  },
+  {
+    "id": 132,
+    "nome_atual": "16 BETA PORTIFOLIO - ACADEMIA.png",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "IMG",
+    "tipo_atual_desc": "IMAGEM"
+  },
+  {
+    "id": 133,
+    "nome_atual": "17 BETA PORTIFOLIO - terraço.png",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "IMG",
+    "tipo_atual_desc": "IMAGEM"
+  },
+  {
+    "id": 134,
+    "nome_atual": "18 BETA PORTIFOLIO - ROOF TOP 2.png",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "IMG",
+    "tipo_atual_desc": "IMAGEM"
+  },
+  {
+    "id": 135,
+    "nome_atual": "20 BETA PORTIFOLIO  - estudo solar.png",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "IMG",
+    "tipo_atual_desc": "IMAGEM"
+  },
+  {
+    "id": 136,
+    "nome_atual": "21 BETA PORTIFOLIO  - diagrama unidades.png",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "IMG",
+    "tipo_atual_desc": "IMAGEM"
+  },
+  {
+    "id": 137,
+    "nome_atual": "PLANTA HUMANIZADA APARTAMENTOS STUDIOS BETA.png",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "IMG",
+    "tipo_atual_desc": "IMAGEM"
+  },
+  {
+    "id": 138,
+    "nome_atual": "PLANTA HUMANIZADA PAV. 1 STUDIOS BETA.png",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "IMG",
+    "tipo_atual_desc": "IMAGEM"
+  },
+  {
+    "id": 139,
+    "nome_atual": "PLANTA HUMANIZADA TÉRREO STUDIOS BETA.png",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "IMG",
+    "tipo_atual_desc": "IMAGEM"
+  },
+  {
+    "id": 140,
+    "nome_atual": "PLANTA HUMANIZADA ROOFTOP STUDIOS BETA.png",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "IMG",
+    "tipo_atual_desc": "IMAGEM"
+  },
+  {
+    "id": 141,
+    "nome_atual": "foto insercao site.png",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "IMG",
+    "tipo_atual_desc": "IMAGEM"
+  },
+  {
+    "id": 142,
+    "nome_atual": "BETA STORYS - ANIMADO.mp4",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "VID ",
+    "tipo_atual_desc": "VÍDEO "
+  },
+  {
+    "id": 143,
+    "nome_atual": "BETA FEED 01 B.png",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "IMG",
+    "tipo_atual_desc": "IMAGEM"
+  },
+  {
+    "id": 144,
+    "nome_atual": "BETA FEED 01.png",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "IMG",
+    "tipo_atual_desc": "IMAGEM"
+  },
+  {
+    "id": 145,
+    "nome_atual": "BETA FEED 02 B.png",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "IMG",
+    "tipo_atual_desc": "IMAGEM"
+  },
+  {
+    "id": 148,
+    "nome_atual": "BOOK ALFA - 2025_COMP..pdf",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "BOK",
+    "tipo_atual_desc": "BOOK DE VENDAS"
+  },
+  {
+    "id": 149,
+    "nome_atual": "CAIXA.mp4",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "VID ",
+    "tipo_atual_desc": "VÍDEO "
+  },
+  {
+    "id": 151,
+    "nome_atual": "1.png",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "IMG",
+    "tipo_atual_desc": "IMAGEM"
+  },
+  {
+    "id": 150,
+    "nome_atual": "1.png",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "IMG",
+    "tipo_atual_desc": "IMAGEM"
+  },
+  {
+    "id": 158,
+    "nome_atual": "VIDEO ORBITA 3.mp4",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "VID ",
+    "tipo_atual_desc": "VÍDEO "
+  },
+  {
+    "id": 159,
+    "nome_atual": "TABELA DE VENDAS_BETA_050326.pdf",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "TAB",
+    "tipo_atual_desc": "TABELA "
+  },
+  {
+    "id": 160,
+    "nome_atual": "TABELA DE VENDAS - ALFA.jpeg",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "TAB",
+    "tipo_atual_desc": "TABELA "
+  },
+  {
+    "id": 161,
+    "nome_atual": "VAGAS DE GARAGEM_ALFA.pdf",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "OUT",
+    "tipo_atual_desc": "OUTROS"
+  },
+  {
+    "id": 46,
+    "nome_atual": "marca com sombra.png",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "IMG",
+    "tipo_atual_desc": "IMAGEM"
+  },
+  {
+    "id": 74,
+    "nome_atual": "fachada alfa quadrada.png",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "IMG",
+    "tipo_atual_desc": "IMAGEM"
+  },
+  {
+    "id": 162,
+    "nome_atual": "para receber informações antecipadas.mp4",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "VID ",
+    "tipo_atual_desc": "VÍDEO "
+  },
+  {
+    "id": 163,
+    "nome_atual": "para receber informações antecipadas_página 2.mp4",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "VID ",
+    "tipo_atual_desc": "VÍDEO "
+  },
+  {
+    "id": 166,
+    "nome_atual": "VIDEO ORBITA BETA.mp4",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "VID ",
+    "tipo_atual_desc": "VÍDEO "
+  },
+  {
+    "id": 167,
+    "nome_atual": "VIDEO BETA VERTICAL.mp4",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "VID ",
+    "tipo_atual_desc": "VÍDEO "
+  },
+  {
+    "id": 165,
+    "nome_atual": "PLANTA HUMANIZADA_UNIDADES DISPONÍVEIS.png",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "PROJ",
+    "tipo_atual_desc": "PROJETO"
+  },
+  {
+    "id": 164,
+    "nome_atual": "CHÁCARAS REFUGIO BRAÚNAS_CURVAS DE NÍVEIS.pdf",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "PROJ",
+    "tipo_atual_desc": "PROJETO"
+  },
+  {
+    "id": 168,
+    "nome_atual": "REFÚGIO BRAÚNAS - DIVISÃO DOS LOTES S57 E MARIA EMILIA.pdf",
+    "aba_atual": "marketing",
+    "tipo_atual_sigla": "OUTROS",
+    "tipo_atual_desc": "Outros"
+  }
+]

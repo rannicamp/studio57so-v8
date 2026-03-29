@@ -4,7 +4,8 @@
 // --- Imports ---
 import UppyAvatarUploader from '@/components/ui/UppyAvatarUploader';
 import AnexoUploader from '@/components/shared/AnexoUploader';
-import GaleriaMarketingShared from '@/components/shared/GaleriaMarketing';
+import GerenciadorAnexosGlobal from '@/components/shared/GerenciadorAnexosGlobal';
+import FilePreviewModal from '@/components/shared/FilePreviewModal';
 import { useState, useMemo, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -13,7 +14,7 @@ import {
     faBuilding, faRulerCombined, faBoxOpen, faFileLines, faUpload,
     faSpinner, faTrash, faEye, faSort, faSortUp, faSortDown,
     faCloudUploadAlt, faWandMagicSparkles, faLink, faDownload,
-    faRightLeft, faPlus, faPen, faTimes, faFileContract,
+    faRightLeft, faPlus, faPen, faTimes, faFileContract, faTableCellsLarge, faBars,
     faBold, faItalic, faListUl, faListOl, faUndo, faRedo,
     faUserTie // <-- Ícone do Corretor
 } from '@fortawesome/free-solid-svg-icons';
@@ -112,46 +113,150 @@ const TabelaVendas = ({ produtos, empreendimentoId, sortConfig, onSortChange }) 
     return (<div className="animate-fade-in"> <div className="flex justify-between items-center mb-4"> <h2 className="text-2xl font-semibold text-gray-800">Tabela de Vendas</h2> <Link href={`/empreendimentos/${empreendimentoId}/produtos`} className="text-blue-500 hover:underline font-semibold"> Gerenciar Produtos e Condições &rarr; </Link> </div> <div className="overflow-x-auto shadow-md rounded-lg"> <table className="min-w-full bg-white"> <thead className="bg-gray-100"> <tr> <SortableHeader label="Unidade" sortKey="unidade" className="text-left" /> <SortableHeader label="Tipo" sortKey="tipo" className="text-left" /> <SortableHeader label="Área Privativa" sortKey="area_privativa" className="text-right" /> <SortableHeader label="Status" sortKey="status" className="text-center" /> <SortableHeader label="Valor de Venda" sortKey="valor_venda_calculado" className="text-right" /> </tr> </thead> <tbody className="divide-y divide-gray-200"> {sortedProdutos.map(produto => (<tr key={produto.id} className="hover:bg-gray-50"> <td className="py-3 px-4 font-medium">{produto.unidade}</td> <td className="py-3 px-4 text-gray-600">{produto.tipo}</td> <td className="py-3 px-4 text-right text-gray-600">{produto.area_privativa} m²</td> <td className="py-3 px-4 text-center"> <span className={`px-2 py-1 text-xs font-semibold rounded-full ${statusColors[produto.status] || 'bg-gray-100 text-gray-800'}`}> {produto.status} </span> </td> <td className="py-3 px-4 text-right font-semibold text-gray-800">{formatCurrency(produto.valor_venda_calculado)}</td> </tr>))} </tbody> <tfoot className="bg-gray-100 font-bold"> <tr> <td colSpan="2" className="py-3 px-4 text-left">Total: {tableSummary.total} unidades</td> <td className="py-3 px-4 text-right">Disponíveis: {tableSummary.disponiveis}</td> <td className="py-3 px-4 text-center">Vendidos: {tableSummary.vendidos}</td> <td className="py-3 px-4 text-right">VGV Total: {tableSummary.vgv}</td> </tr> </tfoot> </table> </div> </div>);
 };
 
-// --- ListaAnexos com o botão de toggle ---
-const ListaAnexos = ({ anexos, onDelete, onToggleCorretor, isToggling }) => {
-    if (!anexos || anexos.length === 0) return <p className="text-center text-gray-500 py-4 mt-4">Nenhum documento nesta categoria.</p>;
+// --- ModalMoverAnexo ---
+const ModalMoverAnexo = ({ isOpen, onClose, anexoInfo, documentoTipos, onSave }) => {
+    const supabase = createClient();
+    const [categoria, setCategoria] = useState('');
+    const [tipoId, setTipoId] = useState('');
+    const [isSaving, setIsSaving] = useState(false);
+
+    useEffect(() => {
+        if(isOpen && anexoInfo) {
+            setCategoria(anexoInfo.categoria_aba || '');
+            setTipoId(anexoInfo.tipo_documento_id || '');
+        }
+    }, [isOpen, anexoInfo]);
+
+    if (!isOpen || !anexoInfo) return null;
+
+    const handleSave = async () => {
+        setIsSaving(true);
+        const { error, data } = await supabase
+            .from('empreendimento_anexos')
+            .update({ categoria_aba: categoria, tipo_documento_id: tipoId || null })
+            .eq('id', anexoInfo.id)
+            .select().single();
+            
+        setIsSaving(false);
+        if(error) { toast.error("Erro ao mover: " + error.message); return; }
+        toast.success("Arquivo movido com sucesso!");
+        onSave(data);
+        onClose();
+    };
+
     return (
-        <div className="space-y-3 mt-4">
-            {anexos.map(anexo => (
-                <div key={anexo.id} className="bg-white p-3 rounded-md border flex items-center justify-between gap-4 hover:bg-gray-50 transition-colors">
-                    {/* Detalhes do Anexo */}
-                    <div className="flex items-center gap-4 min-w-0">
-                        <FontAwesomeIcon icon={faFileLines} className="text-xl text-gray-500 flex-shrink-0" />
-                        <div className="flex-grow min-w-0">
-                            <p className="font-medium text-gray-800 truncate" title={anexo.nome_arquivo}>{anexo.nome_arquivo}</p>
-                            <p className="text-xs text-gray-500">{anexo.descricao || anexo.tipo?.descricao || 'Sem descrição'}</p>
-                        </div>
-                    </div>
-                    {/* Botões de Ação */}
-                    <div className="flex items-center gap-4 flex-shrink-0">
-                        {/* Botão de Toggle Corretor */}
-                        <button
-                            onClick={() => onToggleCorretor(anexo)}
-                            disabled={isToggling}
-                            title={anexo.disponivel_corretor ? "Disponível para Corretores (Clique para remover)" : "Indisponível para Corretores (Clique para publicar)"}
-                            className={`p-2 w-8 h-8 flex items-center justify-center rounded-full transition-colors ${anexo.disponivel_corretor
-                                ? 'text-white bg-blue-600 hover:bg-blue-700'
-                                : 'text-gray-500 bg-gray-200 hover:bg-gray-300'
-                                }`}
-                        >
-                            <FontAwesomeIcon icon={isToggling ? faSpinner : faUserTie} className={`${isToggling ? 'animate-spin' : ''} text-sm`} />
-                        </button>
-                        {/* Outros botões */}
-                        <a href={anexo.public_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800" title="Visualizar"><FontAwesomeIcon icon={faEye} /></a>
-                        <button onClick={() => onDelete(anexo.id)} className="text-red-500 hover:text-red-700" title="Excluir"><FontAwesomeIcon icon={faTrash} /></button>
-                    </div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 animate-in fade-in duration-200">
+            <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-2xl">
+                <h3 className="text-lg font-bold mb-4 text-gray-800 flex items-center gap-2">
+                    <FontAwesomeIcon icon={faRightLeft} className="text-indigo-500" /> Mover Arquivo
+                </h3>
+                
+                <div className="mb-4">
+                    <label className="block text-sm font-medium mb-1 text-gray-700">Nova Categoria/Aba</label>
+                    <select value={categoria} onChange={e => setCategoria(e.target.value)} className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500">
+                        <option value="engenharia">Projetos e Engenharia</option>
+                        <option value="juridico">Documentos Jurídicos</option>
+                        <option value="geral">Documentos Gerais</option>
+                        <option value="marketing">Marketing</option>
+                    </select>
                 </div>
-            ))}
+
+                <div className="mb-6">
+                    <label className="block text-sm font-medium mb-1 text-gray-700">Realinhar Tipo do Documento (Opcional)</label>
+                    <select value={tipoId} onChange={e => setTipoId(e.target.value)} className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500">
+                        <option value="">Nenhum / Não classificado</option>
+                        {documentoTipos?.map(t => (
+                            <option key={t.id} value={t.id}>{t.sigla} - {t.descricao}</option>
+                        ))}
+                    </select>
+                </div>
+
+                <div className="flex justify-end gap-3 mt-8">
+                    <button onClick={onClose} disabled={isSaving} className="px-5 py-2.5 rounded-lg text-gray-600 hover:bg-gray-100 font-semibold transition-colors">Cancelar</button>
+                    <button onClick={handleSave} disabled={isSaving} className="px-5 py-2.5 bg-indigo-600 text-white rounded-lg shadow-md hover:bg-indigo-700 font-bold transition-colors">
+                        {isSaving ? <FontAwesomeIcon icon={faSpinner} spin /> : "Transferir"}
+                    </button>
+                </div>
+            </div>
         </div>
     );
 };
 
-// GaleriaMarketing inline foi removido. Usando components/shared/GaleriaMarketing.js
+// --- ModalEditarAnexo ---
+const ModalEditarAnexo = ({ isOpen, onClose, anexoInfo, onSave }) => {
+    const supabase = createClient();
+    const [nome, setNome] = useState('');
+    const [descricao, setDescricao] = useState('');
+    const [isSaving, setIsSaving] = useState(false);
+
+    useEffect(() => {
+        if(isOpen && anexoInfo) {
+            setNome(anexoInfo.nome_arquivo || '');
+            setDescricao(anexoInfo.descricao || '');
+        }
+    }, [isOpen, anexoInfo]);
+
+    if (!isOpen || !anexoInfo) return null;
+
+    const handleSave = async () => {
+        if(!nome.trim()){
+            toast.error("O nome do arquivo não pode ficar vazio.");
+            return;
+        }
+
+        setIsSaving(true);
+        const { error, data } = await supabase
+            .from('empreendimento_anexos')
+            .update({ nome_arquivo: nome, descricao: descricao })
+            .eq('id', anexoInfo.id)
+            .select().single();
+            
+        setIsSaving(false);
+        if(error) { toast.error("Erro ao salvar: " + error.message); return; }
+        toast.success("Arquivo atualizado com sucesso!");
+        onSave(data);
+        onClose();
+    };
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 animate-in fade-in duration-200">
+            <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-2xl">
+                <h3 className="text-lg font-bold mb-4 text-gray-800 flex items-center gap-2">
+                    <FontAwesomeIcon icon={faPen} className="text-orange-500" /> Editar Arquivo
+                </h3>
+                
+                <div className="mb-4">
+                    <label className="block text-sm font-medium mb-1 text-gray-700">Nome do Arquivo</label>
+                    <input 
+                        type="text" 
+                        value={nome} 
+                        onChange={e => setNome(e.target.value)} 
+                        placeholder="Ex: Contrato de Compra.pdf"
+                        className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-orange-500"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Recomendamos manter a extensão (.pdf, .png)</p>
+                </div>
+
+                <div className="mb-6">
+                    <label className="block text-sm font-medium mb-1 text-gray-700">Descrição (Opcional)</label>
+                    <textarea 
+                        value={descricao} 
+                        onChange={e => setDescricao(e.target.value)}
+                        placeholder="Adicione um detalhe, observação ou ano..."
+                        className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-orange-500 min-h-[80px]"
+                    />
+                </div>
+
+                <div className="flex justify-end gap-3 mt-8">
+                    <button onClick={onClose} disabled={isSaving} className="px-5 py-2.5 rounded-lg text-gray-600 hover:bg-gray-100 font-semibold transition-colors">Cancelar</button>
+                    <button onClick={handleSave} disabled={isSaving} className="px-5 py-2.5 bg-orange-500 text-white rounded-lg shadow-md hover:bg-orange-600 font-bold transition-colors">
+                        {isSaving ? <FontAwesomeIcon icon={faSpinner} spin /> : "Salvar Alterações"}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
 
 
 // --- COMPONENTE DO MODAL ---
@@ -276,6 +381,11 @@ export default function EmpreendimentoDetails({ empreendimento, corporateEntitie
     });
 
     const [anexos, setAnexos] = useState(initialAnexos); // Estado local para os anexos
+    const [viewMode, setViewMode] = useState('grid');
+    const [previewAnexo, setPreviewAnexo] = useState(null);
+    const [moveAnexoTarget, setMoveAnexoTarget] = useState(null);
+    const [editAnexoTarget, setEditAnexoTarget] = useState(null);
+
     const supabase = createClient();
     const router = useRouter();
     const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
@@ -400,6 +510,22 @@ export default function EmpreendimentoDetails({ empreendimento, corporateEntitie
         setAnexos(currentAnexos => [anexoCompleto, ...currentAnexos]);
     };
 
+    const handleMoveSave = (updatedAnexo) => {
+        setAnexos(currentAnexos => currentAnexos.map(a => 
+            a.id === updatedAnexo.id 
+                ? { ...a, categoria_aba: updatedAnexo.categoria_aba, tipo_documento_id: updatedAnexo.tipo_documento_id, tipo: documentoTipos.find(t=>t.id === updatedAnexo.tipo_documento_id) } 
+                : a
+        ));
+    };
+
+    const handleEditSave = (updatedAnexo) => {
+        setAnexos(currentAnexos => currentAnexos.map(a => 
+            a.id === updatedAnexo.id 
+                ? { ...a, nome_arquivo: updatedAnexo.nome_arquivo, descricao: updatedAnexo.descricao } 
+                : a
+        ));
+    };
+
     // TabButton (sem mudanças)
     const TabButton = ({ tabId, label }) => (
         <button onClick={() => setActiveTab(tabId)} className={`whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm ${activeTab === tabId ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}>{label}</button>
@@ -437,7 +563,7 @@ export default function EmpreendimentoDetails({ empreendimento, corporateEntitie
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8"><KpiCard title="Status Atual" value={empreendimento.status || 'N/A'} icon={faBuilding} /><KpiCard title="Total de Unidades" value={kpiData.totalUnidades} icon={faBoxOpen} /><KpiCard title="Unidades Vendidas" value={kpiData.unidadesVendidas} icon={faBoxOpen} colorClass="text-green-500" /><KpiCard title="VGV Total" value={kpiData.vgvTotal} icon={faRulerCombined} /></div>
 
             {/* Barra de Abas */}
-            <div className="border-b border-gray-200 mb-6"><nav className="-mb-px flex space-x-8 overflow-x-auto" aria-label="Tabs"><TabButton tabId="dados_gerais" label="Dados Gerais" /><TabButton tabId="produtos" label="Produtos" /><TabButton tabId="gerenciamento_contratos" label="Gerenciamento de Contratos" /><TabButton tabId="documentos_juridicos" label="Documentos Jurídicos" /><TabButton tabId="documentos_gerais" label="Documentos Gerais" /><TabButton tabId="marketing" label="Marketing" /></nav></div>
+            <div className="border-b border-gray-200 mb-6"><nav className="-mb-px flex space-x-8 overflow-x-auto" aria-label="Tabs"><TabButton tabId="dados_gerais" label="Dados Gerais" /><TabButton tabId="produtos" label="Produtos" /><TabButton tabId="gerenciamento_contratos" label="Gerenciamento de Contratos" /><TabButton tabId="documentos_juridicos" label="Documentos Jurídicos" /><TabButton tabId="projetos_engenharia" label="Projetos e Engenharia" /><TabButton tabId="documentos_gerais" label="Documentos Gerais" /><TabButton tabId="marketing" label="Marketing" /></nav></div>
 
             {/* Conteúdo das Abas */}
             <div>
@@ -454,14 +580,37 @@ export default function EmpreendimentoDetails({ empreendimento, corporateEntitie
                 )}
 
                 {activeTab === 'gerenciamento_contratos' && (<GerenciamentoModelosContrato empreendimentoId={empreendimento.id} organizacaoId={organizacaoId} />)}
-                {['documentos_juridicos', 'documentos_gerais', 'marketing'].includes(activeTab) && (
+                
+                {['documentos_juridicos', 'projetos_engenharia', 'documentos_gerais', 'marketing'].includes(activeTab) && (
                     <div className="space-y-6 animate-fade-in mt-6">
-                        {activeTab === 'documentos_juridicos' && (<> <AnexoUploader parentId={empreendimento.id} storageBucket="empreendimento-anexos" tableName="empreendimento_anexos" allowedTipos={documentoTipos} onUploadSuccess={handleUploadSuccess} categoria="juridico" organizacaoId={organizacaoId} /> <ListaAnexos anexos={anexos.filter(a => a.categoria_aba === 'juridico')} onDelete={handleDeleteAnexo} onToggleCorretor={toggleCorretorVisibility} isToggling={isToggling} /> </>)}
-                        {activeTab === 'documentos_gerais' && (<> <AnexoUploader parentId={empreendimento.id} storageBucket="empreendimento-anexos" tableName="empreendimento_anexos" allowedTipos={documentoTipos} onUploadSuccess={handleUploadSuccess} categoria="geral" organizacaoId={organizacaoId} /> <ListaAnexos anexos={anexos.filter(a => a.categoria_aba === 'geral')} onDelete={handleDeleteAnexo} onToggleCorretor={toggleCorretorVisibility} isToggling={isToggling} /> </>)}
-                        {activeTab === 'marketing' && (<> <AnexoUploader parentId={empreendimento.id} storageBucket="empreendimento-anexos" tableName="empreendimento_anexos" allowedTipos={documentoTipos} onUploadSuccess={handleUploadSuccess} categoria="marketing" organizacaoId={organizacaoId} /> <GaleriaMarketingShared anexos={anexos.filter(a => a.categoria_aba === 'marketing')} storageBucket="empreendimento-anexos" onDelete={(id) => handleDeleteAnexo(id)} onToggleCorretor={toggleCorretorVisibility} isToggling={isToggling} /> </>)}
+                        
+                        {/* Header de Ações Padrão Ouro para Gestão de Arquivos */}
+                        <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-100 flex flex-col sm:flex-row justify-between items-center gap-4">
+                            <AnexoUploader parentId={empreendimento.id} storageBucket="empreendimento-anexos" tableName="empreendimento_anexos" allowedTipos={documentoTipos} onUploadSuccess={handleUploadSuccess} categoria={activeTab === 'projetos_engenharia' ? 'engenharia' : activeTab === 'documentos_juridicos' ? 'juridico' : activeTab === 'marketing' ? 'marketing' : 'geral'} organizacaoId={organizacaoId} />
+                            
+                            <div className="flex bg-gray-100 p-1 rounded-lg">
+                                <button onClick={() => setViewMode('grid')} className={`px-4 py-2 rounded-md transition-all text-sm font-semibold flex items-center gap-2 ${viewMode === 'grid' ? 'bg-white text-blue-600 shadow' : 'text-gray-500 hover:text-gray-700'}`} title="Modo Grade (Miniaturas)">
+                                    <FontAwesomeIcon icon={faTableCellsLarge} /> Grade
+                                </button>
+                                <button onClick={() => setViewMode('list')} className={`px-4 py-2 rounded-md transition-all text-sm font-semibold flex items-center gap-2 ${viewMode === 'list' ? 'bg-white text-blue-600 shadow' : 'text-gray-500 hover:text-gray-700'}`} title="Modo Lista (Compacto)">
+                                    <FontAwesomeIcon icon={faBars} /> Lista
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Super Componente Visualizador com Abas Interligadas */}
+                        {activeTab === 'documentos_juridicos' && (<GerenciadorAnexosGlobal anexos={anexos.filter(a => a.categoria_aba === 'juridico')} viewMode={viewMode} onDelete={(id) => handleDeleteAnexo(id.id || id)} onToggleCorretor={toggleCorretorVisibility} isToggling={isToggling} onPreview={setPreviewAnexo} onMove={setMoveAnexoTarget} onEdit={setEditAnexoTarget} />)}
+                        {activeTab === 'projetos_engenharia' && (<GerenciadorAnexosGlobal anexos={anexos.filter(a => a.categoria_aba === 'engenharia')} viewMode={viewMode} onDelete={(id) => handleDeleteAnexo(id.id || id)} onToggleCorretor={toggleCorretorVisibility} isToggling={isToggling} onPreview={setPreviewAnexo} onMove={setMoveAnexoTarget} onEdit={setEditAnexoTarget} />)}
+                        {activeTab === 'documentos_gerais' && (<GerenciadorAnexosGlobal anexos={anexos.filter(a => a.categoria_aba === 'geral')} viewMode={viewMode} onDelete={(id) => handleDeleteAnexo(id.id || id)} onToggleCorretor={toggleCorretorVisibility} isToggling={isToggling} onPreview={setPreviewAnexo} onMove={setMoveAnexoTarget} onEdit={setEditAnexoTarget} />)}
+                        {activeTab === 'marketing' && (<GerenciadorAnexosGlobal anexos={anexos.filter(a => a.categoria_aba === 'marketing')} viewMode={viewMode} onDelete={(id) => handleDeleteAnexo(id.id || id)} onToggleCorretor={toggleCorretorVisibility} isToggling={isToggling} onPreview={setPreviewAnexo} onMove={setMoveAnexoTarget} onEdit={setEditAnexoTarget} />)}
                     </div>
                 )}
             </div>
+
+            {/* Modais Padrão Ouro */}
+            <FilePreviewModal anexo={previewAnexo} onClose={() => setPreviewAnexo(null)} />
+            <ModalMoverAnexo isOpen={!!moveAnexoTarget} onClose={() => setMoveAnexoTarget(null)} anexoInfo={moveAnexoTarget} documentoTipos={documentoTipos} onSave={handleMoveSave} />
+            <ModalEditarAnexo isOpen={!!editAnexoTarget} onClose={() => setEditAnexoTarget(null)} anexoInfo={editAnexoTarget} onSave={handleEditSave} />
         </div>
     );
 }

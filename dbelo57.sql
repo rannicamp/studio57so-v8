@@ -482,7 +482,8 @@ CREATE TABLE public.contatos (
     terceirizado_ativo boolean DEFAULT false,
     fgts boolean DEFAULT false,
     mais_de_3_anos_clt boolean DEFAULT false,
-    meta_adset_id text
+    meta_adset_id text,
+    instagram_username text
 );
 
 CREATE TABLE public.contatos_no_funil (
