@@ -46,7 +46,7 @@ const fetchListasBasicas = async (supabase, organizacaoId) => {
     if (!organizacaoId) return { empresas: [], contas: [], categorias: [], empreendimentos: [] };
     const [empresasRes, contasRes, categoriasRes, empreendimentosRes] = await Promise.all([
         supabase.from('cadastro_empresa').select('id, nome_fantasia, razao_social').eq('organizacao_id', organizacaoId),
-        supabase.from('contas_financeiras').select('id, nome').eq('organizacao_id', organizacaoId),
+        supabase.from('contas_financeiras').select('id, nome, tipo, conta_pai_id').eq('organizacao_id', organizacaoId),
         supabase.from('categorias_financeiras').select('id, nome, parent_id').in('organizacao_id', [organizacaoId, 1]),
         supabase.from('empreendimentos').select('id, nome').eq('organizacao_id', organizacaoId)
     ]);
@@ -108,6 +108,31 @@ export default function FiltroFinanceiro({
 
     const empresas = propEmpresas || listasInternas?.empresas || [];
     const contas = propContas || listasInternas?.contas || [];
+
+    const contasTree = useMemo(() => {
+        if (!contas.length) return [];
+        // Filtra "filhas" (apenas exibe contas pai) conforme solicitado
+        const contasPrincipais = contas.filter(c => !c.conta_pai_id);
+        
+        const grouped = {};
+        contasPrincipais.forEach(c => {
+            const tipo = c.tipo || 'Outros';
+            if (!grouped[tipo]) grouped[tipo] = [];
+            grouped[tipo].push(c);
+        });
+
+        // Ordenar as chaves pro select ficar bonitinho
+        const sortedTipos = Object.keys(grouped).sort();
+
+        const tree = sortedTipos.map(tipo => ({
+            id: `grp_conta_${tipo}`,
+            nome: tipo, 
+            isGroupLabel: true,
+            children: grouped[tipo]
+        }));
+
+        return [{ id: NULL_ID, nome: '⚠ Sem Conta' }, ...tree];
+    }, [contas]);
     const categorias = propCategorias || listasInternas?.categorias || [];
     const empreendimentos = propEmpreendimentos || listasInternas?.empreendimentos || [];
     const etapas = etapasInternas?.length ? etapasInternas : [];
@@ -347,7 +372,7 @@ export default function FiltroFinanceiro({
                             )}
                         </div>
                         <MultiSelectDropdown label="Empresas" options={withNullOption(empresas, 'Sem Empresa')} selectedIds={filters.empresaIds} onChange={(selected) => handleFilterChange('empresaIds', selected)} />
-                        <MultiSelectDropdown label="Contas" options={withNullOption(contas, 'Sem Conta')} selectedIds={filters.contaIds} onChange={(selected) => handleFilterChange('contaIds', selected)} />
+                        <MultiSelectDropdown label="Contas" options={contasTree} selectedIds={filters.contaIds} onChange={(selected) => handleFilterChange('contaIds', selected)} />
                         <MultiSelectDropdown label="Categorias" options={categoryTree} selectedIds={filters.categoriaIds} onChange={(selected) => handleFilterChange('categoriaIds', selected)} />
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">

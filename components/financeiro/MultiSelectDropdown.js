@@ -18,6 +18,32 @@ const getAllChildIds = (option) => {
 const Option = ({ option, selectedIds, onSelectionChange, level = 0 }) => {
     const getDisplayName = (opt) => opt.nome || opt.nome_fantasia || opt.razao_social || opt.text;
 
+    if (option.isGroupLabel) {
+        return (
+            <>
+                <div
+                    className="flex items-center px-4 py-1.5 mt-2 bg-gray-50/80 border-y border-gray-100"
+                    style={{ paddingLeft: `${1 + level * 1.5}rem` }}
+                >
+                    <span className="text-[10px] font-extrabold text-blue-500 uppercase tracking-widest">{getDisplayName(option)}</span>
+                </div>
+                {option.children && option.children.length > 0 && (
+                    <div className="pb-1">
+                        {option.children.map(child => (
+                            <Option
+                                key={child.id}
+                                option={child}
+                                selectedIds={selectedIds}
+                                onSelectionChange={onSelectionChange}
+                                level={level}
+                            />
+                        ))}
+                    </div>
+                )}
+            </>
+        );
+    }
+
     return (
         <>
             <label
@@ -30,7 +56,7 @@ const Option = ({ option, selectedIds, onSelectionChange, level = 0 }) => {
                     onChange={() => onSelectionChange(option)}
                     className="h-4 w-4 rounded-md border-gray-300 text-blue-600 focus:ring-blue-500 transition-colors cursor-pointer"
                 />
-                <span className="ml-3 text-sm font-semibold text-gray-700 group-hover:text-blue-700 transition-colors">{getDisplayName(option)}</span>
+                <span className="ml-3 text-sm font-semibold text-gray-700 group-hover:text-blue-700 transition-colors flex-1 truncate">{getDisplayName(option)}</span>
             </label>
             {option.children && option.children.length > 0 && (
                 <div>
@@ -104,7 +130,7 @@ export default function MultiSelectDropdown({
     const getDisplayName = (option) => option.nome || option.nome_fantasia || option.razao_social || option.text;
 
     const displayLabel = selectedIds.length > 0
-        ? allOptionsFlat.filter(o => selectedIds.includes(o.id)).map(getDisplayName).join(', ')
+        ? allOptionsFlat.filter(o => !o.isGroupLabel && selectedIds.includes(o.id)).map(getDisplayName).join(', ')
         : placeholder;
 
     const filterOptions = (opts, term) => {
