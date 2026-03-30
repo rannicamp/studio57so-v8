@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { GoogleAIFileManager } from '@google/generative-ai/server';
 import crypto from 'crypto';
+import { enviarNotificacao } from '@/utils/notificacoes';
 
 // Força ambiente Node.js para suportar o fs e módulos nativos
 export const runtime = 'nodejs';
@@ -21,7 +22,7 @@ const fileManager = new GoogleAIFileManager(apiKey);
 export async function POST(request) {
     try {
         const body = await request.json();
-        const { arquivoId, arquivoUrl, organizacaoId, contaSelecionadaId } = body;
+        const { arquivoId, arquivoUrl, organizacaoId, contaSelecionadaId, usuarioId } = body;
 
         if (!arquivoId || !arquivoUrl || !organizacaoId) {
             return NextResponse.json({ error: 'Dados insuficientes fornecidos.' }, { status: 400 });
@@ -29,7 +30,7 @@ export async function POST(request) {
 
         // ─── PASSO 1: FIRE AND FORGET (Desacoplamento Assíncrono) ────────────
         // Iniciamos a rotina pesada sem esperar que ela termine
-        processarFaturaBackground({ arquivoId, arquivoUrl, organizacaoId, contaSelecionadaId })
+        processarFaturaBackground({ arquivoId, arquivoUrl, organizacaoId, contaSelecionadaId, usuarioId })
             .catch(err => console.error(`[FaturaBackground] Falha fatal no worker para arquivo ${arquivoId}:`, err));
 
         // ─── PASSO 2: RETORNAR RESPOSTA IMEDIATA (202 Accepted) ────────────
@@ -44,7 +45,7 @@ export async function POST(request) {
 // =========================================================================
 // WORKER DE BACKGROUND (Roda de forma assíncrona aliviando a interface)
 // =========================================================================
-async function processarFaturaBackground({ arquivoId, arquivoUrl, organizacaoId, contaSelecionadaId }) {
+async function processarFaturaBackground({ arquivoId, arquivoUrl, organizacaoId, contaSelecionadaId, usuarioId }) {
     console.log(`[FaturaBackground] Iniciando processamento do arquivo ${arquivoId}`);
     
     let geminiFileUri = null;
@@ -250,11 +251,35 @@ A estrutura DEVE SER EXATAMENTE ESTA:
         
         console.log(`[FaturaBackground] Sucesso Total! ${totalEnviados} transações processadas.`);
 
+        if (usuarioId) {
+            await enviarNotificacao({ 
+                userId: usuarioId, 
+                titulo: 'Fatura Lida com Sucesso! 🤖', 
+                mensagem: `A IA extraiu ${totalEnviados} lançamentos e eles já estão no seu painel.`, 
+                link: '/financeiro', 
+                tipo: 'financeiro', 
+                organizacaoId, 
+                supabaseClient: supabaseAdmin 
+            });
+        }
+
     } catch (err) {
         console.error(`[FaturaBackground] Ocorreu um erro no processamento do arquivo ${arquivoId}:`, err);
         await supabaseAdmin.from('banco_arquivos_ofx').update({
             status: 'Falha Leitura'
         }).eq('id', arquivoId);
+
+        if (usuarioId) {
+            await enviarNotificacao({ 
+                userId: usuarioId, 
+                titulo: 'Falha ao processar Fatura 🚨', 
+                mensagem: `A IA não conseguiu ler o PDF: ${err.message || 'Arquivo ilegível'}.`, 
+                link: '/financeiro', 
+                tipo: 'financeiro', 
+                organizacaoId, 
+                supabaseClient: supabaseAdmin 
+            });
+        }
     } finally {
         // Exclusão do arquivo da nuvem da Gemini 
         if (geminiFileName) {

@@ -623,6 +623,10 @@ export default function ExtratoCartaoManager({ contasCartao }) {
         const fileArray = Array.isArray(files) ? files : [files];
         if (fileArray.length === 0) return;
 
+        // Recuperar sessão do usuário logado para vinculação de notificações de background
+        const { data: sessionData } = await supabase.auth.getSession();
+        const usuarioId = sessionData?.session?.user?.id;
+
         // O processo agora é assíncrono. O spinner de loading do botão pode girar rápido
         // e logo liberar a tela, mas mantemos o toast informativo.
         const toastId = toast.loading(arqBaseId ? `Enviando fatura para reprocessar na Nuvem...` : `Enviando ${fileArray.length} fatura(s) para a Inteligência Artificial...`);
@@ -675,7 +679,8 @@ export default function ExtratoCartaoManager({ contasCartao }) {
                         arquivoId: currentArqId,
                         arquivoUrl: arquivoUrl,
                         organizacaoId: organizacaoId,
-                        contaSelecionadaId: safeContaId
+                        contaSelecionadaId: safeContaId,
+                        usuarioId: usuarioId
                     })
                 }).catch(e => console.error("Falha silenciosa de rede:", e));
                 
