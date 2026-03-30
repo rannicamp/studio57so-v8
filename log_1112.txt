@@ -1,0 +1,77 @@
+=== BUSCA MATHEUS E ALSENIR ===
+
+--- ALSENIR (Alvo: 2026-03-05 | 4205.83) ---
+ID:5435 | Venc:2025-03-06 | R$4205.83 | Nome:Alsenir Duarte Monte Alto de Oliveira Rezende
+ID:5640 | Venc:2025-05-06 | R$4205.83 | Nome:Alsenir Duarte Monte Alto de Oliveira Rezende
+ID:5962 | Venc:2025-06-06 | R$4205.83 | Nome:Alsenir Duarte Monte Alto de Oliveira Rezende
+ID:6497 | Venc:2025-07-08 | R$4205.83 | Nome:Alsenir Duarte Monte Alto de Oliveira Rezende
+ID:7029 | Venc:2025-08-06 | R$4205.83 | Nome:Alsenir Duarte Monte Alto de Oliveira Rezende
+ID:7447 | Venc:2025-09-03 | R$4205.83 | Nome:Alsenir Duarte Monte Alto de Oliveira Rezende
+ID:7870 | Venc:2025-10-05 | R$4205.83 | Nome:Alsenir Duarte Monte Alto de Oliveira Rezende
+ID:10698 | Venc:2025-12-05 | R$4205.83 | Nome:Alsenir Duarte Monte Alto de Oliveira Rezende
+ID:10699 | Venc:2026-01-05 | R$4205.83 | Nome:Alsenir Duarte Monte Alto de Oliveira Rezende
+ID:10700 | Venc:2026-02-05 | R$4205.83 | Nome:Alsenir Duarte Monte Alto de Oliveira Rezende
+ID:16566 | Venc:2026-03-04 | R$4205.83 | Nome:n/a
+ID:10701 | Venc:2026-03-05 | R$4205.83 | Nome:Alsenir Duarte Monte Alto de Oliveira Rezende
+ID:16557 | Venc:2026-03-06 | R$4205.83 | Nome:n/a
+ID:16545 | Venc:2026-03-13 | R$4205.83 | Nome:n/a
+ID:16546 | Venc:2026-03-13 | R$4205.83 | Nome:n/a
+ID:10702 | Venc:2026-04-05 | R$4205.83 | Nome:Alsenir Duarte Monte Alto de Oliveira Rezende
+ID:10703 | Venc:2026-06-05 | R$4205.83 | Nome:Alsenir Duarte Monte Alto de Oliveira Rezende
+ID:10704 | Venc:2026-07-05 | R$4205.83 | Nome:Alsenir Duarte Monte Alto de Oliveira Rezende
+ID:10705 | Venc:2026-08-05 | R$4205.83 | Nome:Alsenir Duarte Monte Alto de Oliveira Rezende
+ID:10706 | Venc:2026-09-05 | R$4205.83 | Nome:Alsenir Duarte Monte Alto de Oliveira Rezende
+ID:10707 | Venc:2026-10-05 | R$4205.83 | Nome:Alsenir Duarte Monte Alto de Oliveira Rezende
+ID:10708 | Venc:2026-11-05 | R$4205.83 | Nome:Alsenir Duarte Monte Alto de Oliveira Rezende
+ID:10709 | Venc:2027-01-05 | R$4205.83 | Nome:Alsenir Duarte Monte Alto de Oliveira Rezende
+ID:10710 | Venc:2027-02-05 | R$4205.83 | Nome:Alsenir Duarte Monte Alto de Oliveira Rezende
+ID:10711 | Venc:2027-03-05 | R$4205.83 | Nome:Alsenir Duarte Monte Alto de Oliveira Rezende
+ID:10712 | Venc:2027-04-05 | R$4205.83 | Nome:Alsenir Duarte Monte Alto de Oliveira Rezende
+ID:10713 | Venc:2027-05-05 | R$4205.83 | Nome:Alsenir Duarte Monte Alto de Oliveira Rezende
+ID:10714 | Venc:2027-06-05 | R$4205.83 | Nome:Alsenir Duarte Monte Alto de Oliveira Rezende
+ID:10715 | Venc:2027-07-05 | R$4205.83 | Nome:Alsenir Duarte Monte Alto de Oliveira Rezende
+
+--- MATHEUS (Alvo: 2026-04-10 | 4276.91) ---
+
+--- BOLETOS ENTRE 4275 e 4280 ---
+ID:8789 | Venc:2025-11-10 | R$4276.91 | Nome:Matheus Vinicius de Almeida Silva 
+ID:8790 | Venc:2025-12-10 | R$4276.91 | Nome:Matheus Vinicius de Almeida Silva 
+ID:8791 | Venc:2026-01-10 | R$4276.91 | Nome:Matheus Vinicius de Almeida Silva 
+ID:8792 | Venc:2026-02-10 | R$4276.91 | Nome:Matheus Vinicius de Almeida Silva 
+ID:16572 | Venc:2026-03-04 | R$4276.91 | Nome:n/a
+ID:16563 | Venc:2026-03-06 | R$4276.91 | Nome:n/a
+ID:16554 | Venc:2026-03-10 | R$4276.91 | Nome:n/a
+ID:8793 | Venc:2026-03-10 | R$4276.91 | Nome:Matheus Vinicius de Almeida Silva 
+ID:16365 | Venc:2026-03-11 | R$4276.91 | Nome:Matheus Vinicius de Almeida Silva 
+ID:16548 | Venc:2026-03-13 | R$4276.91 | Nome:n/a
+ID:8794 | Venc:2026-04-10 | R$4276.91 | Nome:Matheus Vinicius de Almeida Silva 
+ID:8795 | Venc:2026-05-10 | R$4276.91 | Nome:Matheus Vinicius de Almeida Silva 
+ID:8796 | Venc:2026-06-10 | R$4276.91 | Nome:Matheus Vinicius de Almeida Silva 
+ID:8797 | Venc:2026-07-10 | R$4276.91 | Nome:Matheus Vinicius de Almeida Silva 
+ID:8798 | Venc:2026-08-10 | R$4276.91 | Nome:Matheus Vinicius de Almeida Silva 
+ID:8799 | Venc:2026-09-10 | R$4276.91 | Nome:Matheus Vinicius de Almeida Silva 
+ID:8800 | Venc:2026-10-10 | R$4276.91 | Nome:Matheus Vinicius de Almeida Silva 
+ID:8801 | Venc:2026-11-10 | R$4276.91 | Nome:Matheus Vinicius de Almeida Silva 
+ID:8802 | Venc:2026-12-10 | R$4276.91 | Nome:Matheus Vinicius de Almeida Silva 
+ID:8803 | Venc:2027-01-10 | R$4276.91 | Nome:Matheus Vinicius de Almeida Silva 
+ID:8804 | Venc:2027-02-10 | R$4276.91 | Nome:Matheus Vinicius de Almeida Silva 
+ID:8805 | Venc:2027-03-10 | R$4276.91 | Nome:Matheus Vinicius de Almeida Silva 
+ID:8806 | Venc:2027-04-10 | R$4276.91 | Nome:Matheus Vinicius de Almeida Silva 
+ID:8807 | Venc:2027-05-10 | R$4276.91 | Nome:Matheus Vinicius de Almeida Silva 
+ID:8808 | Venc:2027-06-10 | R$4276.91 | Nome:Matheus Vinicius de Almeida Silva 
+ID:8809 | Venc:2027-07-10 | R$4276.91 | Nome:Matheus Vinicius de Almeida Silva 
+ID:8810 | Venc:2027-08-10 | R$4276.91 | Nome:Matheus Vinicius de Almeida Silva 
+ID:8811 | Venc:2027-09-10 | R$4276.91 | Nome:Matheus Vinicius de Almeida Silva 
+ID:8812 | Venc:2027-10-10 | R$4276.91 | Nome:Matheus Vinicius de Almeida Silva 
+ID:8813 | Venc:2027-11-10 | R$4276.91 | Nome:Matheus Vinicius de Almeida Silva 
+ID:8814 | Venc:2027-12-10 | R$4276.91 | Nome:Matheus Vinicius de Almeida Silva 
+ID:8815 | Venc:2028-01-10 | R$4276.91 | Nome:Matheus Vinicius de Almeida Silva 
+ID:8816 | Venc:2028-02-10 | R$4276.91 | Nome:Matheus Vinicius de Almeida Silva 
+ID:8817 | Venc:2028-03-10 | R$4276.91 | Nome:Matheus Vinicius de Almeida Silva 
+ID:8818 | Venc:2028-04-10 | R$4276.91 | Nome:Matheus Vinicius de Almeida Silva 
+ID:8819 | Venc:2028-05-10 | R$4276.91 | Nome:Matheus Vinicius de Almeida Silva 
+ID:8820 | Venc:2028-06-10 | R$4276.91 | Nome:Matheus Vinicius de Almeida Silva 
+ID:8821 | Venc:2028-07-10 | R$4276.91 | Nome:Matheus Vinicius de Almeida Silva 
+ID:8822 | Venc:2028-08-10 | R$4276.91 | Nome:Matheus Vinicius de Almeida Silva 
+ID:8823 | Venc:2028-09-10 | R$4276.91 | Nome:Matheus Vinicius de Almeida Silva 
+ID:8824 | Venc:2028-10-10 | R$4276.91 | Nome:Matheus Vinicius de Almeida Silva 

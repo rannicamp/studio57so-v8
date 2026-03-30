@@ -1,0 +1,21 @@
+﻿[dotenv@17.3.1] injecting env (33) from .env.local -- tip: ­ƒöÉ encrypt with Dotenvx: https://dotenvx.com
+­ƒÜÜ Iniciando Movimenta├º├úo e Investiga├º├úo do Lote 07/11/2025
+Ô£à 3 boletos transferidos com sucesso para a conta 756 - SICOOB CREDI RIODOCE ANTECIPA├ç├òES !
+   -> Movido [ID 7746]: R$ 4333.33 (2026-01-22)
+   -> Movido [ID 7779]: R$ 26000 (2026-01-22)
+   -> Movido [ID 8227]: R$ 7706.37 (2026-01-15)
+
+­ƒöì Investigando hist├│rico do AP 502 (buscando o que aconteceu com as parcelas de 4.495,12)...
+B├║ssola encontrada (ID 8162). N├úo h├í Venda ID registrado, buscando todas as parcelas "AP 502"...
+node : ReferenceError: require is not defined
+No linha:1 caractere:1
++ node scripts/mover_e_investigar_0711.mjs 2>&1 | Out-File -Encoding ut ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (ReferenceError: require is not def 
+   ined:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+    at main 
+(file:///C:/Projetos/studio57so-v8/scripts/mover_e_investigar_0711.mjs:62:13)
+    at process.processTicksAndRejections 
+(node:internal/process/task_queues:105:5)
