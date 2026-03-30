@@ -240,23 +240,23 @@ export default function EmailListPanel({
             {onChangeTab && (
                 <div className="flex border-b bg-gray-50 shrink-0 md:hidden">
                     {canViewWhatsapp && (
-                        <>
-                            <button
-                                onClick={() => onChangeTab('whatsapp')}
-                                className="flex-1 py-3 text-sm font-medium flex justify-center items-center gap-2 border-b-2 border-transparent text-gray-500 active:bg-gray-100 touch-manipulation"
-                            >
-                                <FontAwesomeIcon icon={faWhatsapp} className="text-base" /> WhatsApp
-                            </button>
-                            <button
-                                onClick={() => onChangeTab('instagram')}
-                                className="flex-1 py-3 text-sm font-medium flex justify-center items-center gap-2 border-b-2 border-transparent text-gray-500 active:bg-gray-100 touch-manipulation"
-                            >
-                                <FontAwesomeIcon icon={faInstagram} className="text-base" style={{ color: '#e1306c' }} /> Insta
-                            </button>
-                        </>
+                        <button
+                            onClick={() => onChangeTab('whatsapp')}
+                            className="flex-1 py-4 text-sm font-medium flex justify-center items-center gap-2 border-b-2 border-transparent text-gray-500 hover:bg-gray-100 transition-colors touch-manipulation"
+                        >
+                            <FontAwesomeIcon icon={faWhatsapp} className="text-lg" /> WhatsApp
+                        </button>
                     )}
-                    <button className="flex-1 py-3 text-sm font-bold flex justify-center items-center gap-2 border-b-2 border-blue-600 text-blue-600 bg-white touch-manipulation">
-                        <FontAwesomeIcon icon={faEnvelope} className="text-base" /> E-mail
+                    {canViewWhatsapp && (
+                        <button
+                            onClick={() => onChangeTab('instagram')}
+                            className="flex-1 py-4 text-sm font-medium flex justify-center items-center gap-2 border-b-2 border-transparent text-gray-500 hover:bg-gray-100 transition-colors touch-manipulation"
+                        >
+                            <FontAwesomeIcon icon={faInstagram} className="text-lg" style={{ color: '#e1306c' }} /> Insta
+                        </button>
+                    )}
+                    <button className="flex-1 py-4 text-sm font-bold flex justify-center items-center gap-2 border-b-2 border-blue-600 text-blue-600 bg-white transition-colors touch-manipulation">
+                        <FontAwesomeIcon icon={faEnvelope} className="text-lg" /> E-mail
                     </button>
                 </div>
             )}

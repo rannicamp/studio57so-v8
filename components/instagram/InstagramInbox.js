@@ -321,7 +321,7 @@ export default function InstagramInbox({ onChangeTab }) {
     const [selectedConv, setSelectedConv] = useState(cachedState?.selectedConv || null);
     const [searchTerm, setSearchTerm] = useState('');
     const [isSyncing, setIsSyncing] = useState(false);
-    const [showProfile, setShowProfile] = useState(false);
+    const [showProfile, setShowProfile] = useState(true);
     const [realtimeStatus, setRealtimeStatus] = useState('connecting'); // 'connecting' | 'SUBSCRIBED' | 'error'
 
     const [debouncedUiState] = useDebounce({ selectedConv }, 1000);
@@ -434,18 +434,18 @@ export default function InstagramInbox({ onChangeTab }) {
                 {/* Seletor de canal */}
                 <div className="flex border-b bg-gray-50 shrink-0">
                     {onChangeTab && (
-                        <>
-                            <button onClick={() => onChangeTab('whatsapp')} className="flex-1 py-3 text-xs font-medium flex justify-center items-center gap-1.5 border-b-2 border-transparent text-gray-500 hover:bg-gray-100 transition-colors">
-                                <FontAwesomeIcon icon={faWhatsapp} className="text-base" /> WhatsApp
-                            </button>
-                            <button onClick={() => onChangeTab('email')} className="flex-1 py-3 text-xs font-medium flex justify-center items-center gap-1.5 border-b-2 border-transparent text-gray-500 hover:bg-gray-100 transition-colors">
-                                <FontAwesomeIcon icon={faEnvelope} className="text-base" /> E-mail
-                            </button>
-                        </>
+                        <button onClick={() => onChangeTab('whatsapp')} className="flex-1 py-4 text-sm font-medium flex justify-center items-center gap-2 border-b-2 transition-colors border-transparent text-gray-500 hover:bg-gray-100">
+                            <FontAwesomeIcon icon={faWhatsapp} className="text-lg" /> WhatsApp
+                        </button>
                     )}
-                    <button className="flex-1 py-3 text-xs font-bold flex justify-center items-center gap-1.5 border-b-2 border-[#e1306c] text-[#e1306c] bg-white transition-colors">
-                        <FontAwesomeIcon icon={faInstagram} className="text-base" /> Instagram
+                    <button className="flex-1 py-4 text-sm font-bold flex justify-center items-center gap-2 border-b-2 transition-colors border-[#e1306c] text-[#e1306c] bg-white">
+                        <FontAwesomeIcon icon={faInstagram} className="text-lg" /> Instagram
                     </button>
+                    {onChangeTab && (
+                        <button onClick={() => onChangeTab('email')} className="flex-1 py-4 text-sm font-medium flex justify-center items-center gap-2 border-b-2 transition-colors border-transparent text-gray-500 hover:bg-gray-100">
+                            <FontAwesomeIcon icon={faEnvelope} className="text-lg" /> E-mail
+                        </button>
+                    )}
                 </div>
 
                 {/* Header com busca e sync */}

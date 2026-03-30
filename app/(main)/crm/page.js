@@ -366,8 +366,6 @@ export default function CrmPage() {
             if (updateError) throw updateError;
 
             fetch('/api/crm', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contatoNoFunilId, novaColunaId: newColumnId, organizacaoId }) }).catch(err => console.error("Erro background automação:", err));
-            const { error: historyError } = await supabase.from('historico_movimentacao_funil').insert({ contato_no_funil_id: contatoNoFunilId, coluna_anterior_id: oldColumnId, coluna_nova_id: newColumnId, usuario_id: user.id, organizacao_id: organizacaoId });
-            if (historyError) { console.error("Erro ao registrar histórico de movimentação:", historyError); }
             return "Card movido com sucesso!";
         },
         onSuccess: (message) => { toast.success(message); queryClient.invalidateQueries({ queryKey: ['funilData', organizacaoId, debouncedFilters] }); },

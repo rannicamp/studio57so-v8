@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -260,6 +260,12 @@ function SidebarComVinculo({ conv, contatoId, organizacaoId, onDesvincular }) {
 export default function InstagramProfileSidebar({ conv, organizacaoId, onClose }) {
     const [showModal, setShowModal] = useState(false);
     const [contatoVinculado, setContatoVinculado] = useState(conv?.contato_id || null);
+    
+    // Atualiza o estado local sempre que a propriedade conv mudar
+    useEffect(() => {
+        setContatoVinculado(conv?.contato_id || null);
+    }, [conv]);
+
     const queryClient = useQueryClient();
 
     // Busca dados básicos do perfil Instagram (para o estado sem vínculo)
