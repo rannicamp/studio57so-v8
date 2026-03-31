@@ -1,0 +1,227 @@
+[
+  {
+    "id": 31,
+    "sigla": "OUT",
+    "descricao": "OUTROS"
+  },
+  {
+    "id": 35,
+    "sigla": "CT",
+    "descricao": "CERTIDÕES"
+  },
+  {
+    "id": 36,
+    "sigla": "CNPJ",
+    "descricao": "CADASTRO NACIONAL DA PESSOA JURÍDICA"
+  },
+  {
+    "id": 37,
+    "sigla": "REQ",
+    "descricao": "REQUERIMENTO"
+  },
+  {
+    "id": 38,
+    "sigla": "ART",
+    "descricao": "ANOTAÇÃO DE RESPONSABILIDADE TÉCNICA"
+  },
+  {
+    "id": 39,
+    "sigla": "RRT",
+    "descricao": "REGISTRO DE RESPONSABILIDADE TÉCNICA"
+  },
+  {
+    "id": 19,
+    "sigla": "CTPS",
+    "descricao": "CARTEIRA DE TRABALHO E PREVIDÊNCIA SOCIAL"
+  },
+  {
+    "id": 42,
+    "sigla": "CS",
+    "descricao": "Contrato Social"
+  },
+  {
+    "id": 44,
+    "sigla": "BP",
+    "descricao": "Balanço Patrimonial"
+  },
+  {
+    "id": 45,
+    "sigla": "CND",
+    "descricao": "Certidão Negativa"
+  },
+  {
+    "id": 46,
+    "sigla": "LOGO-P",
+    "descricao": "Logotipo Principal"
+  },
+  {
+    "id": 47,
+    "sigla": "LOGO-S",
+    "descricao": "Logotipo Secundário"
+  },
+  {
+    "id": 48,
+    "sigla": "BRAND",
+    "descricao": "Manual da Marca"
+  },
+  {
+    "id": 49,
+    "sigla": "PPT",
+    "descricao": "Apresentação Institucional"
+  },
+  {
+    "id": 50,
+    "sigla": "OUTROS",
+    "descricao": "Outros"
+  },
+  {
+    "id": 51,
+    "sigla": "NFS",
+    "descricao": "NOTA FISCAL DE SERVIÇO"
+  },
+  {
+    "id": 6,
+    "sigla": "NFE",
+    "descricao": "NOTA FISCAL DE COMPRA"
+  },
+  {
+    "id": 1,
+    "sigla": "BOL",
+    "descricao": "BOLETO"
+  },
+  {
+    "id": 2,
+    "sigla": "CPG",
+    "descricao": "COMPROVANTE DE PAGAMENTO"
+  },
+  {
+    "id": 3,
+    "sigla": "CRC",
+    "descricao": "COMPROVANTE DE RECEBIMENTO"
+  },
+  {
+    "id": 4,
+    "sigla": "EXT",
+    "descricao": "EXTRATO"
+  },
+  {
+    "id": 5,
+    "sigla": "MED",
+    "descricao": "MEDIÇÃO"
+  },
+  {
+    "id": 7,
+    "sigla": "CAG",
+    "descricao": "COMPROVANTE DE AGENDAMENTO"
+  },
+  {
+    "id": 8,
+    "sigla": "RLT",
+    "descricao": "RELATÓRIO"
+  },
+  {
+    "id": 9,
+    "sigla": "DAV",
+    "descricao": "DOCUMENTO AUXILIAR DE VENDA"
+  },
+  {
+    "id": 10,
+    "sigla": "CRE",
+    "descricao": "CONTROLE DE RECEBIMENTO DE EPI"
+  },
+  {
+    "id": 11,
+    "sigla": "CTE",
+    "descricao": "CONTRATO DE EXPERIÊNCIA"
+  },
+  {
+    "id": 12,
+    "sigla": "DAE",
+    "descricao": "DOC. DE ARRECADAÇÃO ESTADUAL"
+  },
+  {
+    "id": 13,
+    "sigla": "DCQ",
+    "descricao": "DECLARAÇÃO DE QUITAÇÃO"
+  },
+  {
+    "id": 14,
+    "sigla": "ATM",
+    "descricao": "ATESTADO MÉDICO"
+  },
+  {
+    "id": 15,
+    "sigla": "API",
+    "descricao": "AVISO PRÉVIO INDEZINADO"
+  },
+  {
+    "id": 16,
+    "sigla": "TRC",
+    "descricao": "TERMO DE RECISÃO DE CONTRATO"
+  },
+  {
+    "id": 17,
+    "sigla": "DCR",
+    "descricao": "DECLARAÇÃO DE RECEBIMENTO"
+  },
+  {
+    "id": 18,
+    "sigla": "AAD",
+    "descricao": "ASO ADMISSIONAL"
+  },
+  {
+    "id": 20,
+    "sigla": "CRES",
+    "descricao": "COMPROVANTE DE RESIDENCIA"
+  },
+  {
+    "id": 21,
+    "sigla": "CNH ",
+    "descricao": "CARTEIRA NACIONAL DE HABILITAÇÃO"
+  },
+  {
+    "id": 22,
+    "sigla": "RG",
+    "descricao": "REGISTRO GERAL "
+  },
+  {
+    "id": 23,
+    "sigla": "VTN ",
+    "descricao": "DECLARAÇÃO VALE TRANSPORTE"
+  },
+  {
+    "id": 24,
+    "sigla": "VID ",
+    "descricao": "VÍDEO "
+  },
+  {
+    "id": 25,
+    "sigla": "IMG",
+    "descricao": "IMAGEM"
+  },
+  {
+    "id": 26,
+    "sigla": "BOK",
+    "descricao": "BOOK DE VENDAS"
+  },
+  {
+    "id": 27,
+    "sigla": "CON",
+    "descricao": "CONTRATO"
+  },
+  {
+    "id": 28,
+    "sigla": "TAB",
+    "descricao": "TABELA "
+  },
+  {
+    "id": 29,
+    "sigla": "MAT ",
+    "descricao": "MATRÍCULA"
+  },
+  {
+    "id": 30,
+    "sigla": "PROJ",
+    "descricao": "PROJETO"
+  }
+]

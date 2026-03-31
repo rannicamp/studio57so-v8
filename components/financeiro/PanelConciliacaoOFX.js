@@ -38,19 +38,40 @@ const daysBetween = (date1, date2) => {
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 };
 
-// --- Funções de Busca (Data Fetching) ---
 const fetchLancamentosSistema = async (supabase, contaId, organizacaoId, startDate, endDate) => {
     if (!contaId || !organizacaoId || !startDate || !endDate) return [];
-    const { data, error } = await supabase
-        .from('lancamentos')
-        .select(`*, favorecido:favorecido_contato_id ( id, nome, razao_social )`)
-        .eq('conta_id', contaId)
-        .eq('organizacao_id', organizacaoId)
-        .or(`data_pagamento.gte.${startDate},data_vencimento.gte.${startDate},data_transacao.gte.${startDate}`)
-        .or(`data_pagamento.lte.${endDate},data_vencimento.lte.${endDate},data_transacao.lte.${endDate}`);
+    
+    let allData = [];
+    let from = 0;
+    const step = 999;
+    let hasMore = true;
 
-    if (error) throw new Error(error.message);
-    return data;
+    while (hasMore) {
+        const { data, error } = await supabase
+            .from('lancamentos')
+            .select(`*, favorecido:favorecido_contato_id ( id, nome, razao_social )`)
+            .eq('conta_id', contaId)
+            .eq('organizacao_id', organizacaoId)
+            .or(`data_pagamento.gte.${startDate},data_vencimento.gte.${startDate},data_transacao.gte.${startDate}`)
+            .or(`data_pagamento.lte.${endDate},data_vencimento.lte.${endDate},data_transacao.lte.${endDate}`)
+            .order('data_pagamento', { ascending: false })
+            .range(from, from + step);
+
+        if (error) throw new Error(error.message);
+        
+        if (!data || data.length === 0) {
+            hasMore = false;
+        } else {
+            allData = [...allData, ...data];
+            if (data.length < (step + 1)) {
+                hasMore = false;
+            } else {
+                from += step + 1;
+            }
+        }
+    }
+    
+    return allData;
 };
 
 const fetchTransacoesOfx = async (supabase, arrayDeArquivoIds) => {
@@ -90,6 +111,7 @@ export default function PanelConciliacaoOFX({ contaId, isCartaoCredito, arquivos
     // Estado Geral da Conciliação
     const [conciliationState, setConciliationState] = useState({ extrato: [], sistema: [], matches: [], dateFilter: { startDate: '', endDate: '' } });
     const [extratoPeriodo, setExtratoPeriodo] = useState({ startDate: null, endDate: null });
+    const [searchTerm, setSearchTerm] = useState('');
 
     // Estados de Seleção (Interação)
     const [selectedExtratoId, setSelectedExtratoId] = useState(null);
@@ -119,6 +141,22 @@ export default function PanelConciliacaoOFX({ contaId, isCartaoCredito, arquivos
     };
 
     // --- Queries ---
+
+    // Sempre que o filtro visual mudar, buscamos no DB com uma grande margem de segurança (15 dias pras bordas)
+    useEffect(() => {
+        if (conciliationState.dateFilter.startDate && conciliationState.dateFilter.endDate) {
+            const d1 = new Date(conciliationState.dateFilter.startDate);
+            const d2 = new Date(conciliationState.dateFilter.endDate);
+            // Corrige possível fuso horário antes de somar
+            d1.setUTCHours(12); d2.setUTCHours(12);
+            d1.setDate(d1.getDate() - 15);
+            d2.setDate(d2.getDate() + 15);
+            setExtratoPeriodo({
+                startDate: d1.toISOString().split('T')[0],
+                endDate: d2.toISOString().split('T')[0]
+            });
+        }
+    }, [conciliationState.dateFilter.startDate, conciliationState.dateFilter.endDate]);
 
     const { data: transacoesOfxData, isLoading: isLoadingTransacoesOfx } = useQuery({
         queryKey: ['transacoesOfxConciliacao', arquivosOfxIds],
@@ -213,7 +251,6 @@ export default function PanelConciliacaoOFX({ contaId, isCartaoCredito, arquivos
                     visualFim = `${ultimoDia.getFullYear()}-${String(ultimoDia.getMonth() + 1).padStart(2, '0')}-${String(ultimoDia.getDate()).padStart(2, '0')}`;
                 }
 
-                setExtratoPeriodo({ startDate: dataInicio, endDate: dataFim });
                 setConciliationState({ extrato: mappedExtrato, sistema: [], matches: [], dateFilter: { startDate: visualInicio, endDate: visualFim } });
             }
         } else if (transacoesOfxData && transacoesOfxData.length === 0) {
@@ -576,15 +613,24 @@ export default function PanelConciliacaoOFX({ contaId, isCartaoCredito, arquivos
             });
         };
 
-        let filteredSistema = filterByDate(conciliationState.sistema, 'sistema');
-        // REMOVIDO: o filterByFocus foi removido porque estava sumindo com os lançamentos e confundindo o usuario.
+        const filterByText = (items) => {
+            if (!searchTerm) return items;
+            const term = searchTerm.toLowerCase();
+            return items.filter(item => {
+                const searchString = `${item.descricao || ''} ${item.valor || ''} ${item.fitid_banco || ''} ${item.fitid || ''}`.toLowerCase();
+                return searchString.includes(term);
+            });
+        };
+
+        let filteredSistema = filterByText(filterByDate(conciliationState.sistema, 'sistema'));
+        let filteredExtrato = filterByText(filterByDate(conciliationState.extrato, 'extrato'));
 
         const fullSortedSistema = classifyAndSort(filteredSistema, 'sistema');
-        const fullSortedExtrato = classifyAndSort(filterByDate(conciliationState.extrato, 'extrato'), 'extrato');
+        const fullSortedExtrato = classifyAndSort(filteredExtrato, 'extrato');
 
         if (!showConciliados) return { sortedSistema: fullSortedSistema.filter(item => item.conciliationStatus !== 'dbConciliated'), sortedExtrato: fullSortedExtrato.filter(item => item.conciliationStatus !== 'dbConciliated'), };
         return { sortedSistema: fullSortedSistema, sortedExtrato: fullSortedExtrato, };
-    }, [conciliationState, showConciliados, selectedExtratoId, selectedSistemaIds, isCartaoCredito]);
+    }, [conciliationState, showConciliados, selectedExtratoId, selectedSistemaIds, isCartaoCredito, searchTerm]);
 
     const handleItemClick = (item, listName) => {
         if (item.conciliationStatus === 'pendente') {
@@ -750,6 +796,17 @@ export default function PanelConciliacaoOFX({ contaId, isCartaoCredito, arquivos
                         <input type="date" value={conciliationState.dateFilter.endDate} onChange={(e) => handleDateFilterChange('endDate', e.target.value)} className="w-32 p-1 border rounded text-xs focus:ring-1 focus:ring-indigo-400 bg-white" />
                     </div>
                 </div>
+
+                <div className="flex-1 min-w-[200px] max-w-sm px-2">
+                    <input 
+                        type="text" 
+                        placeholder="Buscar descrições ou valores..." 
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full p-2 border border-indigo-200 rounded text-xs focus:ring-1 focus:ring-indigo-400 bg-white shadow-inner"
+                    />
+                </div>
+
                 <button onClick={() => setShowConciliados(!showConciliados)} className={`text-xs border px-3 py-1 rounded-md flex items-center gap-2 font-bold transition-all ${showConciliados ? 'bg-indigo-600 text-white shadow-sm' : 'bg-white hover:bg-gray-100 text-gray-600'}`}>
                     <FontAwesomeIcon icon={showConciliados ? faEyeSlash : faEye} /> {showConciliados ? 'Ocultar Conciliados' : 'Mostrar Conciliados'}
                 </button>

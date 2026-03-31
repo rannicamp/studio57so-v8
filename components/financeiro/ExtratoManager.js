@@ -150,19 +150,35 @@ export default function ExtratoManager({ contas, empresas }) {
 
             const saldoAnterior = saldoAnteriorAux || 0;
 
-            // 2. Busca Lançamentos Oficiais do Mês
-            const { data: lancamentos, error: lancamentosError } = await supabase
-                .from('lancamentos')
-                .select('*, favorecido:contatos!favorecido_contato_id(*), categoria:categorias_financeiras(*), anexos:lancamentos_anexos(*)')
-                .eq('conta_id', Number(contaSelecionadaId))
-                .eq('organizacao_id', organizacaoId)
-                .gte('data_pagamento', startDate)
-                .lte('data_pagamento', endDate)
-                .in('status', ['Pago', 'Conciliado'])
-                .order('data_pagamento', { ascending: true })
-                .order('created_at', { ascending: true });
+            // 2. Busca Lançamentos Oficiais do Mês (C/ Paginação Robusta para Contas Volumosas)
+            let lancamentos = [];
+            let from = 0;
+            const step = 999;
+            let hasMore = true;
 
-            if (lancamentosError) throw lancamentosError;
+            while (hasMore) {
+                const { data, error: lancamentosError } = await supabase
+                    .from('lancamentos')
+                    .select('*, favorecido:contatos!favorecido_contato_id(*), categoria:categorias_financeiras(*), anexos:lancamentos_anexos(*)')
+                    .eq('conta_id', Number(contaSelecionadaId))
+                    .eq('organizacao_id', organizacaoId)
+                    .gte('data_pagamento', startDate)
+                    .lte('data_pagamento', endDate)
+                    .in('status', ['Pago', 'Conciliado'])
+                    .order('data_pagamento', { ascending: true })
+                    .order('created_at', { ascending: true })
+                    .range(from, from + step);
+
+                if (lancamentosError) throw lancamentosError;
+
+                if (!data || data.length === 0) {
+                    hasMore = false;
+                } else {
+                    lancamentos = [...lancamentos, ...data];
+                    if (data.length < (step + 1)) hasMore = false;
+                    else from += step + 1;
+                }
+            }
 
             // 3. Agrupamento de Borderô (agrupamento_id) e Totais
             let saldoCorrente = saldoAnterior;
