@@ -8,6 +8,12 @@ Sempre que o usuário pedir para **Auditar, Fechar ou Conciliar um Lote de Antec
 
 ---
 
+## 🧠 0. Ponto de Partida Obrigatório (Memória Financeira da IA)
+⚠️ **REGRA ZERO:** Antes de iniciar qualquer análise, varredura ou operação financeira complexa do Studio 57 (incluindo conciliações de OFX, borderôs e debug de painéis de lançamentos), a IA DEVE obrigatoriamente resgatar e revisar a grande conversa de fundação financeira.
+- **ID Obrigatório da Conversa:** `39938ccc-f495-4960-88da-52a37cb7b449`
+- Nesta conversa residem os conhecimentos e artefatos vitais e inegociáveis sobre: paginação severa de contas volumosas (como a Crediriodoce engolindo e ocultando > 1000 registros), truncamento de dízimas periódicas no banco (`NUMERIC(15,2)`), margens dinâmicas de 15 dias no filtro OFX e a busca textual no painel dual. Consulte-a antes de escrever qualquer código.
+
+---
 ## 🧭 1. A Fonte da Verdade (Os Borderôs Originais)
 ⚠️ **REGRA DE OURO:** NUNCA confie cegamente em tabelas markdown, relatórios de IA anteriores ou planilhas de pendências. A **ÚNICA** fonte da verdade são os arquivos de borderô físicos extraídos no sistema (geralmente localizados em `TXT_EXTRAIDOS/`).
 - Se um Lote "aparecer" na lista de pendências mas você não encontrar o `.txt` dele, o Lote é uma **Alucinação** e deve ser ignorado.

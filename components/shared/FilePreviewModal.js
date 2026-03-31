@@ -9,13 +9,14 @@ export default function FilePreviewModal({ anexo, onClose }) {
 
     if (!anexo) return null;
 
-    // A extensão SEMPRE deve vir do caminho original do BD para ignorar nomes abstratos.
-    const fullName = anexo.caminho_arquivo || anexo.nome_arquivo || '';
-    const ext = fullName.split('.').pop().toLowerCase();
+    // A extensão deve priorizar o nome_arquivo (mais seguro pós-upload dinâmico).
+    const nameToUse = anexo.nome_arquivo || anexo.caminho_arquivo || '';
+    const ext = nameToUse.split('.').pop().toLowerCase();
     
     const isPdf = ext === 'pdf';
-    const isVideo = ['mp4', 'webm', 'ogg', 'mov'].includes(ext);
+    const isVideo = ['mp4', 'webm', 'ogg', 'mov', 'avi'].includes(ext);
     const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext);
+    const isUnsupported = !isPdf && !isVideo && !isImage;
 
     return (
         <>
@@ -46,7 +47,7 @@ export default function FilePreviewModal({ anexo, onClose }) {
                 </div>
 
                 <div className="flex-1 bg-gray-800 flex items-center justify-center overflow-hidden relative">
-                    {isLoading && !isVideo && (
+                    {isLoading && !isVideo && !isUnsupported && (
                         <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-800 z-10">
                             <FontAwesomeIcon icon={faSpinner} spin className="text-gray-400 text-4xl mb-3" />
                         </div>

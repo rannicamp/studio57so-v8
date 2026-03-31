@@ -1,0 +1,26 @@
+[
+  {
+    "id": 5,
+    "cnpj": "04.419.458/0001-30",
+    "razao_social": "STUDIO 57 ARQUITETURA INTEGRADA LTDA.",
+    "nome_fantasia": ""
+  },
+  {
+    "id": 7,
+    "cnpj": "46.191.690/0001-04",
+    "razao_social": "SC IMOVEIS LTDA",
+    "nome_fantasia": ""
+  },
+  {
+    "id": 8,
+    "cnpj": "00.000.000/0000-00",
+    "razao_social": "Elo 57 ltda",
+    "nome_fantasia": ""
+  },
+  {
+    "id": 4,
+    "cnpj": "41.464.589/0001-66",
+    "razao_social": "STUDIO 57 INCORPORACOES LTDA",
+    "nome_fantasia": ""
+  }
+]

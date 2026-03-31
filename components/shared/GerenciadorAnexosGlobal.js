@@ -83,11 +83,11 @@ export default function GerenciadorAnexosGlobal({
     };
 
     const getFileType = (anexo) => {
-        // Usa o caminho original real para garantir a extensão, caindo para nome_arquivo se falhar
-        const fullName = anexo.caminho_arquivo || anexo.nome_arquivo || '';
-        const ext = fullName.split('.').pop().toLowerCase();
-        if (['mp4', 'webm', 'ogg', 'mov'].includes(ext)) return 'video';
-        if (ext === 'pdf') return 'pdf';
+        // Puxa a extensão preferencial do nome do arquivo (mais confiável)
+        const nameToUse = anexo.nome_arquivo || anexo.caminho_arquivo || '';
+        const ext = nameToUse.split('.').pop().toLowerCase();
+        if (['mp4', 'webm', 'ogg', 'mov', 'avi'].includes(ext)) return 'video';
+        if (['pdf'].includes(ext)) return 'pdf';
         return 'image';
     };
 
@@ -239,8 +239,13 @@ export default function GerenciadorAnexosGlobal({
                                         alt={anexo.nome_arquivo}
                                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                                         onError={(e) => {
-                                            e.target.onerror = null;
-                                            e.target.outerHTML = `<div class="text-gray-400 flex flex-col items-center justify-center w-full h-full bg-gray-100"><FontAwesomeIcon icon={faFileLines} class="text-3xl mb-2" /><span class="text-[10px] px-2 text-center break-all">${anexo.nome_arquivo}</span></div>`;
+                                            e.target.style.display = 'none';
+                                            if (e.target.parentElement) {
+                                                const fallback = document.createElement('div');
+                                                fallback.className = "text-gray-400 flex flex-col items-center justify-center w-full h-full bg-gray-100 p-4";
+                                                fallback.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512" class="w-12 h-12 mb-3 fill-current opacity-50"><path d="M64 0C28.7 0 0 28.7 0 64V448c0 35.3 28.7 64 64 64H320c35.3 0 64-28.7 64-64V160H256c-17.7 0-32-14.3-32-32V0H64zM256 0V128H384L256 0zM112 256H272c8.8 0 16 7.2 16 16s-7.2 16-16 16H112c-8.8 0-16-7.2-16-16s7.2-16 16-16zm0 64H272c8.8 0 16 7.2 16 16s-7.2 16-16 16H112c-8.8 0-16-7.2-16-16s7.2-16 16-16zm0 64H272c8.8 0 16 7.2 16 16s-7.2 16-16 16H112c-8.8 0-16-7.2-16-16s7.2-16 16-16z"/></svg><span class="text-xs text-center w-full truncate font-medium text-gray-500">${anexo.nome_arquivo}</span>`;
+                                                e.target.parentElement.appendChild(fallback);
+                                            }
                                         }}
                                     />
                                 )}
