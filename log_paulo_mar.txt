@@ -1,0 +1,13 @@
+=== TODOS OS BOOLEANOS DO AP 603 EM 2026 ===
+[ID  7907] Venc: 2026-01-10 | Pagou: 2026-01-29 | Conta: 31 | R$  3590.72 | Desc: Parcela 16/32 - AP 603 | Residencial Alfa 
+[ID  7909] Venc: 2026-01-10 | Pagou: 2026-03-05 | Conta: 33 | R$   3498.6 | Desc: Parcela 18/32 - AP 603 | Residencial Alfa 
+[ID  7908] Venc: 2026-02-10 | Pagou: NÃO PAGO  | Conta: 33 | R$   3498.6 | Desc: Parcela 17/32 - AP 603 | Residencial Alfa 
+[ID  7910] Venc: 2026-04-10 | Pagou: NÃO PAGO  | Conta: 31 | R$   3498.6 | Desc: Parcela 19/32 - AP 603 | Residencial Alfa 
+[ID  7911] Venc: 2026-05-10 | Pagou: NÃO PAGO  | Conta: 31 | R$   3498.6 | Desc: Parcela 20/32 - AP 603 | Residencial Alfa 
+[ID  7912] Venc: 2026-06-10 | Pagou: NÃO PAGO  | Conta: 31 | R$   3498.6 | Desc: Parcela 21/32 - AP 603 | Residencial Alfa 
+[ID  7913] Venc: 2026-07-10 | Pagou: NÃO PAGO  | Conta: 31 | R$   3498.6 | Desc: Parcela 22/32 - AP 603 | Residencial Alfa 
+[ID  7914] Venc: 2026-08-10 | Pagou: NÃO PAGO  | Conta: 31 | R$   3498.6 | Desc: Parcela 23/32 - AP 603 | Residencial Alfa 
+[ID  7915] Venc: 2026-09-10 | Pagou: NÃO PAGO  | Conta: 31 | R$   3498.6 | Desc: Parcela 24/32 - AP 603 | Residencial Alfa 
+[ID  7916] Venc: 2026-10-10 | Pagou: NÃO PAGO  | Conta: 31 | R$   3498.6 | Desc: Parcela 25/32 - AP 603 | Residencial Alfa 
+[ID  7917] Venc: 2026-11-10 | Pagou: NÃO PAGO  | Conta: 31 | R$   3498.6 | Desc: Parcela 26/32 - AP 603 | Residencial Alfa 
+[ID  7918] Venc: 2026-12-10 | Pagou: NÃO PAGO  | Conta: 31 | R$   3498.6 | Desc: Parcela 27/32 - AP 603 | Residencial Alfa 

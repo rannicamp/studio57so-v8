@@ -8,57 +8,52 @@ Sempre que o usuário pedir para **Auditar, Fechar ou Conciliar um Lote de Antec
 
 ---
 
-## 🧭 1. Entendimento do Borderô Mestre
-Todo lote Sicoob tem um Borderô base Mestre (em PDF ou `.txt` exportado no diretório `TXT_EXTRAIDOS`).
-- Extraia do borderô o **Valor Bruto Total** (a ser cravado).
+## 🧭 1. A Fonte da Verdade (Os Borderôs Originais)
+⚠️ **REGRA DE OURO:** NUNCA confie cegamente em tabelas markdown, relatórios de IA anteriores ou planilhas de pendências. A **ÚNICA** fonte da verdade são os arquivos de borderô físicos extraídos no sistema (geralmente localizados em `TXT_EXTRAIDOS/`).
+- Se um Lote "aparecer" na lista de pendências mas você não encontrar o `.txt` dele, o Lote é uma **Alucinação** e deve ser ignorado.
+- Extraia do borderô o **Valor Bruto Total** (a soma exata que deve bater).
 - Liste as **Vítimas (Boletos Antecipados)** com `Nome`, `Vencimento` e `Valor de Face`.
-- Consiga com o usuário o `transferencia_id` (a despesa raiz da taxa/antecipação no BD do Studio57) que representará o grupo (Campo: `antecipacao_grupo_id`).
 
 ---
 
-## 🔍 2. A Caça aos "Fantasmas" (Busca Flexível)
-Nunca tente buscar um boleto usando exatamente `.eq('valor', 4495.12)` ou `.eq('data_vencimento', '2026-03-20')`. Use **sempre range flexível** nas suas queries, senão boletos parecerão "perdidos" (Fantasmas):
+## 🔍 2. A Caça aos "Fantasmas" (Busca Larga e Matemática)
+Nunca tente buscar um boleto usando matching exato como `.eq('valor', 4495.12)` ou `.ilike('descricao', '%Nome%')`. O banco de dados do Studio 57 possui fantasmas gerados por fatores migratórios silenciosos:
 
-1. **Dízimas Periódicas (INCC/Juros):** Durante o percurso, o Studio 57 pode ter corrigido a parcela (ex: de `4495.12` virar `4495.1172222...`). 
-   - **Tática**: Use `gte(valor - 2)` e `lte(valor + 2)`. Identifique o boleto e anote para reverter/assentar o valor cravado do Borderô no final.
-2. **Dias Derrapados (Finais de Semana):** O vencimento do BD pode divergir do Sicoob em 1 ou 2 dias por conta de sábados/domingos. 
-   - **Tática**: Ordene por data de vencimento e procure um `diff` no range de 5 dias do mesmo valor para o contanto aproximado.
-3. **Contratos Conjuntos (Fatiamento de Cota Gorda):** Se o Sicoob pagou `14.380` da "Angela", mas a busca só retorna valores de `28.760` no mês para aquele contrato...
-   - **Tática**: Significa que o apartamento tem múltiplos donos (Ex: Angela e Alessandra). O Sicoob comprou só a metade da Angela! O boleto no sistema terá que ser **Fatiado**.
-
----
-
-## 🔪 3. Execução Círugica (O Patch Node.js)
-Após encontrar os registros, a IA deve escrever um script pontual (`patch_lote_DDMM.mjs`) que aplique as regras financeiras:
-
-1. **Reversão Cúbica:** Qualquer boleto vítima de dízima ou diferença de centavos, deve sofrer um `.update({ valor: VALOR_CRAVADO_BORDEO })`. Do contrário, a Conta 33 nunca baterá na vírgula final.
-2. **O Fatiamento (Caso ocorra Boletos Conjuntos):**
-   - Busque a Parcela Gorda Mestre (`ex: 28.760`).
-   - Clone as propriedades para uma const `novaParcela`. Remova `id` e `created_at`.
-   - Atualize `novaParcela.valor` para a metade remanescente (`14.380`) e relacione ao `contato_id` do segundo comprador (no passivo). Faça o `.insert()`.
-   - Pegue o boleto original e `.update()` o seu valor para a cota comprada do mês (`14.380`).
+1. **A Sujeita Decimal (Dízimas Periódicas):** Devido ao recálculo do INCC e divisões de parcelas, valores como `4333.33` no borderô muitas vezes estão gravados no Supabase como floats flutuantes (`4333.333333333333`). 
+   - **Tática**: Use ALVOS MATEMÁTICOS. Busque com margem de segurança: `.gte('valor', alvo - 2).lte('valor', alvo + 2)`.
+2. **O Cliente Invisível (Boletos Sem Nome):** Em muitos casos antigos, a coluna descricao/nome do cliente ficou totalmente vazia (`""`). Buscar por `.ilike('descricao', '%Marcelo%')` falhará miseravelmente. O único farol é o cruzamento da Data (Mês) e o Valor Aproximado.
+3. **Lotes Gêmeos (Coincidências Perigosas):** O Sicoob pode ter dois borderôs em dias quase consecutivos (ex: 04/03 e 06/03) contendo os **mesmos clientes** e exato **mesmo valor contábil** (ex: R$ 30.688,02), apenas adiantando meses consecutivos (Agosto e logo após Setembro). Não caia no erro de somar os dois lotes achando que é um "rombo" de R$ 60 Mil. Trate-os estritamente de acordo com a Data de Vencimento do mês em questão.
+4. **Fatiamento Gêmeo (Boletos Conjuntos):** Se o Sicoob antecipou `14.380` da "Angela", mas no BD a parcela está `28.760`, significa que o apartamento tem 2 compradores. Clone a parcela (`insert`), divida o valor ao meio e vincule aos seus devidos `contato_id`.
 
 ---
 
-## 🔒 4. O Selo de Ouro (Conta 33 e Categoria 351)
-Para todos os boletos do grupo, deve-se assinar e mover os fundos (no mass `.update()`):
+## 🧩 3. Tratamento de Atrasos e Débitos do Sicoob (A Roda de Cura)
+Quando um boleto antecipado **não é pago na data pelo cliente**, o Sicoob executa o débito automático (D+3) direto na **Conta Corrente** do Studio. Dias depois, o cliente paga atrasado com *Juros e Multa* na Conta Corrente.
 
-```javascript
-// Exemplo de atualização de todos os boletos validados da Antecipação
-await supabase.from('lancamentos').update({ 
-    conta_id: 33, // CAIXA FORTE: Conta Antecipações Sicoob Crediriodoce
-    categoria_id: 351, // CATEGORIA BI: Antecipação de Recebíveis
-    antecipacao_grupo_id: 'UUID_DA_TRANSFERENCIA_MASTER',
-    conciliado: false, // Deixar false para fluir no DRE e não se cruzar com pagamentos padrão
-    data_pagamento: null // Boleto de antecipação ainda existe pro cliente pagar, não está pago!
-}).in('id', arrayDosBoletosAuditos);
-```
-> **Não esqueça**: A `Transferência Mestre` (A despesa gigantesca que puxou o dinheiro ou fez as taxas e que forneceu o `antecipacao_grupo_id`), TAMBÉM deve forçadamente ser atualizada para `categoria_id: 351`. 
+1. **Conta 33 é uma Carteira (Wallet):** Não a trate com funções de "Transferência Financeira" nativas pra debito. Todo trâmite é um jogo pareado de Despesa/Receita (Categoria 351).
+2. **Caçando o Débito:** Procure na **Conta Corrente (31)** a Despesa correspondente.
+3. **Reposição do Lote (A Compensação):**
+   - Crie uma **Receita** na **Conta 33** no exato valor do borderô, com descrição `Débito por Atraso - Parcela X`. Associe o mesmo `antecipacao_grupo_id`.
+4. **Respeito ao Saldo Devedor do Terceiro (Cisão de Juros):**
+   - O cliente pagou com juros na Conta Corrente. Reverta esse lançamento para o **Valor Base Original**.
+   - Crie um novo registro de `Juros e Multa -` contendo a diferença monetária do ágio. Faça o `.insert()` atrelando a um `agrupamento_id` comum (para agrupar visualmente no extrato).
 
 ---
 
-## ✅ 5. Prova Real (Check Final de Matemática)
-Ao final do seu Patch script Node.js, inclua um redutor que cruza a soma:
+## 🔪 4. A Matriz de Atualização (O Patch Node.js)
+Após rastrear todos os responsáveis do Lote, o script cirúrgico final deve sempre seguir essas leis imutáveis:
+
+1. **Purificação Decimal:** TODO boleto inserido num lote DEVE sofrer `.update({ valor: MATH_EXACT })` forçando o arredondamento (ex: de `4333.333333` para `4333.33`).
+2. **O Grande Movimento:** Atualizar `conta_id: 33` (Carteira Antecipações), `categoria_id: 351` e injetar o `antecipacao_grupo_id` (a UUID Mestra do Lote).
+3. **Armadilhas de OFX (Criação de Mestres de Lastro):**
+   - Se os boletos existirem, mas o Lote é muito recente e a Transação "Mestre" do Sicoob ainda não caiu no Extrato OFX (Conta Corrente), a IA **deve pré-criar a Transferência Mestra**.
+   - **Mestre Perfeito:** `.insert({ tipo: 'Receita', valor: TOTAL_LOTE, descricao: 'TRANSFERÊNCIA - SICOOB (LOTE XX/YY) [Mestre IA]', conta_id: 31, categoria_id: 351, antecipacao_grupo_id: UUID, transferencia_id: UUID, conciliado: false })`
+   - Essa "Armadilha" aguardará placidamente. Quando o usuário realizar o upload do arquivo base do banco real (OFX), o Studio 57 dará *Match Perfeitamente* com a nossa linha sem criar duplicidade, blindando o fluxo!
+
+---
+
+## ✅ 5. Prova Real Final
+Ao final do seu Patch, o script SEMPRE deve validar o agrupamento cruzando a soma limpa:
 
 ```javascript
 const { data: auditoria } = await supabase.from('lancamentos')
@@ -70,8 +65,9 @@ const somaReal = auditoria.reduce((acc, cr) => acc + Number(cr.valor), 0);
 if (Math.abs(somaReal - VALOR_BRUTO_BORDERÔ) < 0.05) {
    console.log("🏆 MATEMÁTICA BATEU NA VÍRGULA!");
 } else {
-   console.log("⚠️ ATENÇÃO: Discrepância de Centavos/Verificar IDs não linkados!");
+   console.error(`⚠️ ATENÇÃO: Discrepância Fatal! Esperado: ${VALOR_BRUTO_BORDERÔ} | Recebido: ${somaReal}`);
+   // ABORTAR OU REVERTAR OPERAÇÃO
 }
 ```
-
-Nenhum lote deve ser dado como **RESOLVIDO** ou **🟢 VERDE** se a prova real final apresentar *Discrepância* diferente de `Zero/R$ 0,00`.
+Se a Prova Real falhar, o Lote NUNCA deve ser dado como **🟢 RESOLVIDO**. 
+A matemática dos centavos deve reinar.

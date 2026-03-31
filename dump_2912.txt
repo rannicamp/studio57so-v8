@@ -1,0 +1,45 @@
+=== DUMP LOTE 29/12 ===
+
+--- Alvo: MATHEUS (4276.91 | 10/03/2026) ---
+🟡 DERRAPADO -> ID: 16572 | Venc: 2026-03-04 | R$ 4276.91 | Fav: n/a
+🟡 DERRAPADO -> ID: 16563 | Venc: 2026-03-06 | R$ 4276.91 | Fav: n/a
+🎯 CRAVADO  -> ID: 16554 | Venc: 2026-03-10 | R$ 4276.91 | Fav: n/a
+🎯 CRAVADO  -> ID: 8793 | Venc: 2026-03-10 | R$ 4276.91 | Fav: Matheus Vinicius de Almeida Silva 
+🟡 DERRAPADO -> ID: 16365 | Venc: 2026-03-11 | R$ 4276.91 | Fav: Matheus Vinicius de Almeida Silva 
+🟡 DERRAPADO -> ID: 16548 | Venc: 2026-03-13 | R$ 4276.91 | Fav: n/a
+
+--- Alvo: CAROLINA (1833.93 | 15/03/2026) ---
+🟡 DERRAPADO -> ID: 16568 | Venc: 2026-03-04 | R$ 1833.93 | Fav: n/a
+🟡 DERRAPADO -> ID: 16559 | Venc: 2026-03-06 | R$ 1833.93 | Fav: n/a
+🟡 DERRAPADO -> ID: 16551 | Venc: 2026-03-10 | R$ 1833.93 | Fav: n/a
+🎯 CRAVADO  -> ID: 7978 | Venc: 2026-03-15 | R$ 1833.93 | Fav: Carolina Drumond Coelho Garcia
+
+--- Alvo: PAULO (3498.60 | 10/03/2026) ---
+❌ NENHUM BOLETO PERTO DE MAR/2026!
+   ⚠️ Buscando no ano todo de 2026: Encontrados 11 boletos com esse valor (provável deslocamento crônico de mês)
+   -> ID: 7909 | Venc: 2026-01-10 | R$ 3498.6
+   -> ID: 7908 | Venc: 2026-02-10 | R$ 3498.6
+   -> ID: 7910 | Venc: 2026-04-10 | R$ 3498.6
+   -> ID: 7911 | Venc: 2026-05-10 | R$ 3498.6
+   -> ID: 7912 | Venc: 2026-06-10 | R$ 3498.6
+   -> ID: 7913 | Venc: 2026-07-10 | R$ 3498.6
+   -> ID: 7914 | Venc: 2026-08-10 | R$ 3498.6
+   -> ID: 7915 | Venc: 2026-09-10 | R$ 3498.6
+   -> ID: 7916 | Venc: 2026-10-10 | R$ 3498.6
+   -> ID: 7917 | Venc: 2026-11-10 | R$ 3498.6
+   -> ID: 7918 | Venc: 2026-12-10 | R$ 3498.6
+
+--- Alvo: DARLENE (4170.83 | 10/03/2026) ---
+🟡 DERRAPADO -> ID: 16567 | Venc: 2026-03-04 | R$ 4170.83 | Fav: n/a
+🟡 DERRAPADO -> ID: 16558 | Venc: 2026-03-06 | R$ 4170.83 | Fav: n/a
+🎯 CRAVADO  -> ID: 8050 | Venc: 2026-03-10 | R$ 4170.83 | Fav: Darlene Ribeiro Souza
+🟡 DERRAPADO -> ID: 16547 | Venc: 2026-03-13 | R$ 4170.83 | Fav: n/a
+
+--- Alvo: MONTE ALTO (7706.37 | 15/03/2026) ---
+🎯 CRAVADO  -> ID: 8229 | Venc: 2026-03-15 | R$ 7706.37 | Fav: Monte Alto Empreendimentos Imobiliarios Ltda
+
+--- Alvo: JOSÉ ROGERIO 1 (4289.13 | 19/03/2026) ---
+🎯 CRAVADO  -> ID: 7837 | Venc: 2026-03-19 | R$ 4289.133333333333 | Fav: José Rogério de Paiva Filho
+
+--- Alvo: JOSÉ ROGERIO 2 (4246.67 | 19/03/2026) ---
+🎯 CRAVADO  -> ID: 10020 | Venc: 2026-03-19 | R$ 4246.67 | Fav: José Rogério de Paiva Filho
