@@ -48,6 +48,11 @@ export default function ModalEditarAnexo({
       if (tableName === "documentos_funcionarios") {
         updates.nome_documento = formData.nome_arquivo || formData.descricao;
         if (formData.tipo_documento_id) updates.tipo_documento_id = formData.tipo_documento_id;
+      } else if (tableName === "contrato_anexos") {
+        updates.nome_arquivo = formData.nome_arquivo;
+        if (formData.tipo_documento_id) {
+          updates.tipo_documento = tiposDocumento.find(t => t.id == formData.tipo_documento_id)?.descricao || "";
+        }
       } else {
         updates.nome_arquivo = formData.nome_arquivo;
         updates.descricao = formData.descricao;
@@ -107,7 +112,7 @@ export default function ModalEditarAnexo({
             />
           </div>
 
-          {tableName !== "documentos_funcionarios" && (
+          {tableName !== "documentos_funcionarios" && tableName !== "contrato_anexos" && (
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1">
                 Descrição Extra

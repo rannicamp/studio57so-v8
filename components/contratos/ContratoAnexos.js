@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import { createClient } from '../../utils/supabase/client';
 import { useAuth } from '../../contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner, faUpload, faTrash, faEye, faFileLines, faPaperclip } from '@fortawesome/free-solid-svg-icons';
+import { faSpinner, faUpload, faTrash, faEye, faFileLines, faPaperclip, faTimesCircle } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 import UppyListUploader from '@/components/ui/UppyListUploader';
 import GerenciadorAnexosGlobal from '@/components/shared/GerenciadorAnexosGlobal';
@@ -17,11 +17,22 @@ export default function ContratoAnexos({ contratoId, onUpdate }) {
     const organizacaoId = user?.organizacao_id;
 
     const [anexos, setAnexos] = useState([]);
+    const [tiposDocumento, setTiposDocumento] = useState([]);
     const [loadingAnexos, setLoadingAnexos] = useState(true);
     const [showUploader, setShowUploader] = useState(false);
+    
+    // Estados do Padrão Ouro Modal
     const [previewFile, setPreviewFile] = useState(null);
+    const [anexoParaEditar, setAnexoParaEditar] = useState(null);
 
     useEffect(() => {
+        const fetchTipos = async () => {
+            if (organizacaoId) {
+                const { data } = await supabase.from('documento_tipos').select('*').order('descricao');
+                setTiposDocumento(data || []);
+            }
+        };
+
         const fetchAnexos = async () => {
             if (!contratoId || !organizacaoId) return;
             setLoadingAnexos(true);
@@ -47,17 +58,33 @@ export default function ContratoAnexos({ contratoId, onUpdate }) {
             }
             setLoadingAnexos(false);
         };
+        fetchTipos();
         fetchAnexos();
     }, [contratoId, supabase, organizacaoId]);
 
+    const fetchOnlyAnexos = async () => {
+        setLoadingAnexos(true);
+        const { data } = await supabase.from('contrato_anexos').select('*').eq('contrato_id', contratoId).eq('organizacao_id', organizacaoId).order('created_at', { ascending: false });
+        if (data) {
+            const signedPromises = data.map(a => supabase.storage.from('empreendimento-anexos').createSignedUrl(a.caminho_arquivo, 3600));
+            const signedResults = await Promise.all(signedPromises);
+            setAnexos(data.map((a, i) => ({ ...a, public_url: signedResults[i].data?.signedUrl || null })));
+        }
+        setLoadingAnexos(false);
+    };
+
     const handleUploadSuccess = async (result) => {
+        const tipoId = result.tipoDocumento;
+        const tipoSelecionado = tiposDocumento.find(t => t.id == tipoId);
+        const classificacao = tipoSelecionado ? tipoSelecionado.descricao : (result.descricao || 'Documento');
+
         const { error: dbError, data: newAnexo } = await supabase
             .from('contrato_anexos')
             .insert({
                 contrato_id: contratoId,
                 caminho_arquivo: result.path,
                 nome_arquivo: result.fileName,
-                tipo_documento: result.descricao || 'Documento',
+                tipo_documento: classificacao,
                 usuario_id: user.id,
                 organizacao_id: organizacaoId
             })
@@ -133,13 +160,35 @@ export default function ContratoAnexos({ contratoId, onUpdate }) {
             </div>
 
             {showUploader && (
-                <div className="border border-blue-100 rounded-xl overflow-hidden shadow-sm">
-                    <UppyListUploader
-                        bucketName="empreendimento-anexos"
-                        folderPath={`${organizacaoId}/contratos/${contratoId}`}
-                        hideClassificacao={false}
-                        onUploadSuccess={handleUploadSuccess}
-                    />
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4 animate-in fade-in duration-200">
+                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl h-[85vh] flex flex-col overflow-hidden relative">
+                        {/* Header do Modal */}
+                        <div className="px-6 py-4 border-b flex justify-between items-center bg-gray-50 shrink-0">
+                            <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                                <FontAwesomeIcon icon={faUpload} className="text-blue-600" />
+                                Lista Pessoal e Otimizada de Envios
+                            </h2>
+                            <button
+                                onClick={() => setShowUploader(false)}
+                                className="text-white/70 hover:text-white transition-colors p-1 rounded-md bg-gray-400 hover:bg-red-500"
+                                title="Fechar"
+                            >
+                                <FontAwesomeIcon icon={faTimesCircle} className="w-6 h-6" />
+                            </button>
+                        </div>
+
+                        {/* Corpo do Modal em Lista - O Uploader List é Self Contained em height */}
+                        <div className="p-6 bg-gray-50 flex-1 overflow-hidden">
+                            <UppyListUploader
+                                bucketName="empreendimento-anexos"
+                                folderPath={`${organizacaoId}/contratos/${contratoId}`}
+                                hideClassificacao={false}
+                                onUploadSuccess={handleUploadSuccess}
+                                tiposDocumento={tiposDocumento}
+                                onUploadComplete={() => setShowUploader(false)}
+                            />
+                        </div>
+                    </div>
                 </div>
             )}
 
@@ -148,14 +197,30 @@ export default function ContratoAnexos({ contratoId, onUpdate }) {
                     <p className="text-center text-gray-500 py-4">Carregando anexos...</p>
                 ) : (
                     <GerenciadorAnexosGlobal
-                        anexos={anexos}
+                        anexos={anexos.map(anexo => ({ ...anexo, descricao: anexo.tipo_documento }))}
+                        tiposDocumento={tiposDocumento}
                         viewMode="list"
                         storageBucket="empreendimento-anexos"
                         onDelete={handleDelete}
                         onPreview={setPreviewFile}
+                        onEdit={setAnexoParaEditar}
                     />
                 )}
             </div>
+
+            {anexoParaEditar && (
+                <ModalEditarAnexo 
+                    anexo={{
+                        ...anexoParaEditar,
+                        tipo_documento_id: tiposDocumento.find(t => t.descricao === anexoParaEditar.tipo_documento)?.id || "",
+                    }}
+                    isOpen={!!anexoParaEditar}
+                    onClose={() => setAnexoParaEditar(null)}
+                    onSuccess={() => { setAnexoParaEditar(null); fetchOnlyAnexos(); }}
+                    tableName="contrato_anexos"
+                    tiposDocumento={tiposDocumento}
+                />
+            )}
         </div>
     );
 }

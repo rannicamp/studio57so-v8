@@ -281,17 +281,14 @@ export default function UppyListUploader({
                         </thead>
                         <tbody className="divide-y divide-gray-100">
                             {fileList.map((file) => (
-                                <tr key={file.id} className="bg-white hover:bg-slate-50 relative">
-                                    {/* Linha de progresso no fundo */}
-                                    {file.status === 'uploading' && (
-                                        <div className="absolute bottom-0 left-0 h-1 bg-blue-500 transition-all duration-300" style={{ width: `${file.progress}%` }}></div>
-                                    )}
-                                    {file.status === 'success' && (
-                                        <div className="absolute inset-0 bg-green-50 z-0 pointer-events-none opacity-50"></div>
-                                    )}
-
+                                <tr key={file.id} className={`hover:bg-slate-50 relative ${file.status === 'success' ? 'bg-green-50' : 'bg-white'}`}>
                                     {/* Células Overtop */}
-                                    <td className="px-4 py-3 relative z-10">
+                                    <td className="px-4 py-3 relative z-10 w-1/3">
+                                        {/* Linhas animadas (progress) movidas para dentro do primeiro TD para evitar Hydration Error */}
+                                        {file.status === 'uploading' && (
+                                            <div className="absolute bottom-0 left-0 h-1 bg-blue-500 transition-all duration-300" style={{ width: `${file.progress}%` }}></div>
+                                        )}
+
                                         <div className="flex flex-col truncate max-w-[200px]" title={file.name}>
                                             <span className="font-medium text-gray-800 truncate">{file.name}</span>
                                             <span className="text-xs text-gray-500">{formatSize(file.size)}</span>

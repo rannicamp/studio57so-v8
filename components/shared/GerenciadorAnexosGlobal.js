@@ -26,6 +26,9 @@ export default function GerenciadorAnexosGlobal({
         setViewMode(initialViewMode);
     }, [initialViewMode]);
 
+    // Funcionalidade de Busca Embutida Padrão Ouro
+    const [searchTerm, setSearchTerm] = useState('');
+    
     if (!anexos || anexos.length === 0) return (
         <div className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-gray-200 rounded-lg bg-gray-50 mt-4">
             <span className="text-gray-400 text-lg font-medium">Nenhum arquivo encontrado nesta aba.</span>
@@ -88,9 +91,7 @@ export default function GerenciadorAnexosGlobal({
         return 'image';
     };
 
-    // Funcionalidade de Busca Embutida Padrão Ouro
-    const [searchTerm, setSearchTerm] = useState('');
-    
+    // Busca movida para o topo para evitar Hooks condicinais
     const filteredAnexos = anexos.filter(a => {
         const search = searchTerm.toLowerCase();
         const nome = (a.nome_arquivo || '').toLowerCase();
