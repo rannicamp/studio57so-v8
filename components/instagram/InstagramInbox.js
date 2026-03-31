@@ -545,6 +545,7 @@ export default function InstagramInbox({ onChangeTab }) {
                 {/* ─── TERCEIRA COLUNA: Sidebar de Perfil (desktop only) ─── */}
                 {showProfile && selectedConv && (
                     <InstagramProfileSidebar
+                        key={selectedConv.id}
                         conv={selectedConv}
                         organizacaoId={organizacaoId}
                         onClose={() => setShowProfile(false)}

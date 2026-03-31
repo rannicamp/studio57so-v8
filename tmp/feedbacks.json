@@ -1,0 +1,62 @@
+[
+  {
+    "id": 81,
+    "created_at": "2026-03-28T20:42:30.032158+00:00",
+    "usuario_id": "3bfde802-b916-4ea6-a871-7436481bfd3f",
+    "pagina": "/caixa-de-entrada",
+    "descricao": "corrigir abas de instagram whats e email elas mudam de posição quando alterno entre elas, isto é na caixa de entrda ",
+    "status": "Novo",
+    "captura_de_tela_url": null,
+    "organizacao_id": 2,
+    "link_opcional": null,
+    "imagem_url": null,
+    "diagnostico": null,
+    "plano_solucao": null,
+    "organizacao_nome": "STUDIO 57"
+  },
+  {
+    "id": 82,
+    "created_at": "2026-03-28T20:54:04.431986+00:00",
+    "usuario_id": "3bfde802-b916-4ea6-a871-7436481bfd3f",
+    "pagina": "/caixa-de-entrada",
+    "descricao": "o sidebar do instagram não ataliza automaticamente quando troco de conversa ele deve atualizar automaticamente ",
+    "status": "Novo",
+    "captura_de_tela_url": null,
+    "organizacao_id": 2,
+    "link_opcional": null,
+    "imagem_url": null,
+    "diagnostico": null,
+    "plano_solucao": null,
+    "organizacao_nome": "STUDIO 57"
+  },
+  {
+    "id": 83,
+    "created_at": "2026-03-31T11:21:42.218253+00:00",
+    "usuario_id": "3bfde802-b916-4ea6-a871-7436481bfd3f",
+    "pagina": "/contratos",
+    "descricao": "não estou conseguindo abrir o contratos \n\nErro ao carregar contratos: column contratos.empreendimento_nome does not exist",
+    "status": "Novo",
+    "captura_de_tela_url": null,
+    "organizacao_id": 2,
+    "link_opcional": null,
+    "imagem_url": null,
+    "diagnostico": null,
+    "plano_solucao": null,
+    "organizacao_nome": "STUDIO 57"
+  },
+  {
+    "id": 80,
+    "created_at": "2026-03-28T20:40:47.769087+00:00",
+    "usuario_id": "3bfde802-b916-4ea6-a871-7436481bfd3f",
+    "pagina": "/caixa-de-entrada",
+    "descricao": "o historico de movimentação do usuario no crm, ta mostrando a mesma movimentação duas vezes quando abro o sidebar la em historico mostra a mesma movimentação duas vezes ",
+    "status": "Novo",
+    "captura_de_tela_url": null,
+    "organizacao_id": 2,
+    "link_opcional": null,
+    "imagem_url": null,
+    "diagnostico": null,
+    "plano_solucao": null,
+    "organizacao_nome": "STUDIO 57"
+  }
+]

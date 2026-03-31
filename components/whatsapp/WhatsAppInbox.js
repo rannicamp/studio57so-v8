@@ -144,12 +144,16 @@ export default function WhatsAppInbox({ onChangeTab }) {
                     <button className="flex-1 py-4 text-sm font-bold flex justify-center items-center gap-2 border-b-2 transition-colors border-[#00a884] text-[#00a884] bg-white">
                         <FontAwesomeIcon icon={faWhatsapp} className="text-lg" /> WhatsApp
                     </button>
-                    <button onClick={() => onChangeTab('instagram')} className="flex-1 py-4 text-sm font-medium flex justify-center items-center gap-2 border-b-2 transition-colors border-transparent text-gray-500 hover:bg-gray-100">
-                        <FontAwesomeIcon icon={faInstagram} className="text-lg" style={{ color: '#e1306c' }} /> Instagram
-                    </button>
-                    <button onClick={() => onChangeTab('email')} className="flex-1 py-4 text-sm font-medium flex justify-center items-center gap-2 border-b-2 transition-colors border-transparent text-gray-500 hover:bg-gray-100">
-                        <FontAwesomeIcon icon={faEnvelope} className="text-lg" /> E-mail
-                    </button>
+                    {onChangeTab && (
+                        <button onClick={() => onChangeTab('instagram')} className="flex-1 py-4 text-sm font-medium flex justify-center items-center gap-2 border-b-2 transition-colors border-transparent text-gray-500 hover:bg-gray-100">
+                            <FontAwesomeIcon icon={faInstagram} className="text-lg" /> Instagram
+                        </button>
+                    )}
+                    {onChangeTab && (
+                        <button onClick={() => onChangeTab('email')} className="flex-1 py-4 text-sm font-medium flex justify-center items-center gap-2 border-b-2 transition-colors border-transparent text-gray-500 hover:bg-gray-100">
+                            <FontAwesomeIcon icon={faEnvelope} className="text-lg" /> E-mail
+                        </button>
+                    )}
                 </div>
 
                 {/* Corpo da Coluna 1 */}

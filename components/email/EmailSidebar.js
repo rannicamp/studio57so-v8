@@ -12,7 +12,7 @@ import {
     faCheckDouble, faEraser, faSync, faWandMagicSparkles,
     faEye, faEyeSlash, faTimes
 } from '@fortawesome/free-solid-svg-icons';
-import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
+import { faWhatsapp, faInstagram } from '@fortawesome/free-brands-svg-icons';
 import { toast } from 'sonner';
 import EmailAutoSync from './EmailAutoSync';
 
@@ -483,9 +483,18 @@ export default function EmailSidebar({
         <div className={`flex flex-col border-r bg-white h-full overflow-hidden min-h-0 ${className} relative`}>
             <div className="flex border-b bg-gray-50 shrink-0">
                 {canViewWhatsapp && (
-                    <button onClick={() => onChangeTab('whatsapp')} className="flex-1 py-4 text-sm font-medium flex justify-center items-center gap-2 border-b-2 transition-colors border-transparent text-gray-500 hover:bg-gray-100"><FontAwesomeIcon icon={faWhatsapp} className="text-lg" /> WhatsApp</button>
+                    <button onClick={() => onChangeTab('whatsapp')} className="flex-1 py-4 text-sm font-medium flex justify-center items-center gap-2 border-b-2 transition-colors border-transparent text-gray-500 hover:bg-gray-100">
+                        <FontAwesomeIcon icon={faWhatsapp} className="text-lg" /> WhatsApp
+                    </button>
                 )}
-                <button className="flex-1 py-4 text-sm font-medium flex justify-center items-center gap-2 border-b-2 transition-colors border-blue-600 text-blue-600 bg-white"><FontAwesomeIcon icon={faEnvelope} className="text-lg" /> E-mail</button>
+                {canViewWhatsapp && onChangeTab && (
+                    <button onClick={() => onChangeTab('instagram')} className="flex-1 py-4 text-sm font-medium flex justify-center items-center gap-2 border-b-2 transition-colors border-transparent text-gray-500 hover:bg-gray-100">
+                        <FontAwesomeIcon icon={faInstagram} className="text-lg" /> Instagram
+                    </button>
+                )}
+                <button className="flex-1 py-4 text-sm font-bold flex justify-center items-center gap-2 border-b-2 transition-colors border-blue-600 text-blue-600 bg-white">
+                    <FontAwesomeIcon icon={faEnvelope} className="text-lg" /> E-mail
+                </button>
             </div>
 
             <div className="p-4 pb-0">

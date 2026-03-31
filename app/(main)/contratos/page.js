@@ -192,21 +192,39 @@ export default function ContratosPage() {
             if (debouncedFilters.startDate) query = query.gte('data_venda', debouncedFilters.startDate);
             if (debouncedFilters.endDate) query = query.lte('data_venda', debouncedFilters.endDate);
 
-            if (sortConfig.key) {
-                if (sortConfig.key === 'contato_nome') {
-                    query = query.order('created_at', { ascending: false });
-                } else {
-                    query = query.order(sortConfig.key, { ascending: sortConfig.direction === 'ascending' });
-                }
+            if (sortConfig.key && sortConfig.key !== 'contato_nome' && sortConfig.key !== 'empreendimento_nome') {
+                query = query.order(sortConfig.key, { ascending: sortConfig.direction === 'ascending' });
             }
 
             const { data, error } = await query;
             if (error) throw error;
 
-            return data.map(c => ({
+            let mappedData = data.map(c => ({
                 ...c,
                 produto: c.produto?.[0]?.produtos_empreendimento || null
             }));
+
+            // Ordenação em memória para colunas de tabelas relacionadas (JOINs)
+            if (sortConfig.key === 'contato_nome' || sortConfig.key === 'empreendimento_nome') {
+                mappedData.sort((a, b) => {
+                    let valA = '';
+                    let valB = '';
+                    
+                    if (sortConfig.key === 'contato_nome') {
+                        valA = (a.contato?.nome || a.contato?.razao_social || '').toLowerCase();
+                        valB = (b.contato?.nome || b.contato?.razao_social || '').toLowerCase();
+                    } else if (sortConfig.key === 'empreendimento_nome') {
+                        valA = (a.empreendimento?.nome || '').toLowerCase();
+                        valB = (b.empreendimento?.nome || '').toLowerCase();
+                    }
+
+                    if (valA < valB) return sortConfig.direction === 'ascending' ? -1 : 1;
+                    if (valA > valB) return sortConfig.direction === 'ascending' ? 1 : -1;
+                    return 0;
+                });
+            }
+
+            return mappedData;
         },
         enabled: !!organizacaoId
     });

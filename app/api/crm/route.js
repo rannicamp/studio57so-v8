@@ -77,14 +77,8 @@ export async function PUT(req) {
         console.log(`🔄 [CRM] Movendo card ${params.contatoNoFunilId} para coluna ${params.novaColunaId}`);
 
         try {
-            // 1. ATUALIZAÇÃO NO BANCO (Move o Card)
-            const { error: moveError } = await supabaseAdmin
-                .from('contatos_no_funil')
-                .update({ coluna_id: params.novaColunaId, updated_at: new Date().toISOString() })
-                .eq('id', params.contatoNoFunilId)
-                .eq('organizacao_id', organizacaoId);
-
-            if (moveError) throw moveError;
+            // 1. O CARD JÁ FOI MOVIDO PELO FRONTEND.
+            // Apenas prosseguimos com a busca de dados interligados para disparo do Meta Pixel e WhatsApp.
 
             // 2. BUSCA DE DADOS COMPLETOS
             // Usamos a notação !...fkey para especificar a relação correta
