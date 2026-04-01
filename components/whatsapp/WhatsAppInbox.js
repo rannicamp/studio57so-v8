@@ -28,7 +28,7 @@ const getCachedData = () => {
     }
 };
 
-export default function WhatsAppInbox({ onChangeTab }) {
+export default function WhatsAppInbox({ onChangeTab, initialContactId }) {
     const cachedState = getCachedData();
     const router = useRouter();
 
@@ -112,6 +112,23 @@ export default function WhatsAppInbox({ onChangeTab }) {
             queryClient.invalidateQueries({ queryKey: ['conversations', organizacaoId] });
         }
     };
+
+    // --- ROTEAMENTO AUTOMÁTICO VIA URL (NOTIFICAÇÃO) ---
+    useEffect(() => {
+        if (initialContactId && conversations && conversations.length > 0) {
+            // Pode ser o ID do contato propriamente dito
+            const target = conversations.find(c => String(c.contato_id) === String(initialContactId));
+            if (target && selectedContact?.contato_id !== target.contato_id) {
+                // Remove o query param manipulando a URL silenciosamente pra não entrar em loop infinito se o usuario trocar de contato
+                if (typeof window !== 'undefined') {
+                    const novaUrl = new URL(window.location.href);
+                    novaUrl.searchParams.delete('contato');
+                    window.history.replaceState({}, '', novaUrl.toString());
+                }
+                handleSelectContact(target);
+            }
+        }
+    }, [initialContactId, conversations]);
 
     const handleSelectList = (list) => {
         setSelectedContact(null);

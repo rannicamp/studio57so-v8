@@ -7,15 +7,16 @@ async function run() {
   const supabase = createClient(supabaseUrl, serviceKey);
 
   const { data: tickets, error } = await supabase
-    .from('sys_notification_templates')
-    .select('*');
+    .from('notificacoes')
+    .select('link');
 
   if (error) {
-    console.error('Error fetching templates:', error);
+    console.error('Error fetching tickets:', error);
     return;
   }
 
-  console.log('Templates:', JSON.stringify(tickets.map(t => ({ id: t.id, link: t.action_link })), null, 2));
+  const uniqueLinks = [...new Set(tickets.map(t => t.link))];
+  console.log('Unique Links in notificacoes:', uniqueLinks);
 }
 
 run().catch(console.error);

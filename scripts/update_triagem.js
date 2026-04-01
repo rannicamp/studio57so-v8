@@ -1,59 +1,22 @@
 require('dotenv').config({ path: '.env.local' });
 const { createClient } = require('@supabase/supabase-js');
 
-async function runAtualizacao(id, diagnostico, solucao, novoStatus = null) {
+async function runAtualizacao() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  const supabase = createClient(supabaseUrl, supabaseKey);
-  
-  let updateData = { diagnostico: diagnostico, plano_solucao: solucao };
-  if (novoStatus) {
-      updateData.status = novoStatus;
-  }
-  
-  const { error } = await supabase.from('feedback').update(updateData).eq('id', id);
-  if (error) {
-     console.error(`Erro ao atualizar Ticket ${id}:`, error.message);
-  } else {
-     console.log(`Ticket ${id} atualizado.`);
-  }
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const supabase = createClient(supabaseUrl, serviceKey);
+
+  // Ticket 84
+  const diag84 = "O ExtratoManager.js atualmente busca as transações usando apenas o parâmetro do Mês completo. O sistema não permite delimitar um range de dias específicos localmente para recalcular as entradas, saídas e o saldo no período isolado.";
+  const sol84 = "Adicionar seletores de Data Inicial e Data Final no cabeçalho do Extrato. Essas datas devem ser enviadas à query/API para que o banco traga o saldo consolidado apenas até a data inicial, e exiba/calcule os sub-totais apenas do intervalo de dias escolhido.";
+  await supabase.from('feedback').update({ diagnostico: diag84, plano_solucao: sol84 }).eq('id', 84);
+
+  // Ticket 85
+  const diag85 = "O atributo 'link' cadastrado nas Notificações salvas do banco de dados (ex: '/crm/funil' ou caminhos desatualizados) está apontando para rotas que não existem mais na nova arquitetura App Router, gerando erro 404 ao usuário clicar pelo sininho.";
+  const sol85 = "Rastrear o gatilho da API ou Webhook que gera as notificações e atualizar as URLs chumbadas (ex: trocar '/crm/funil' para '/crm'). Executar um UPDATE histórico na tabela 'notificacoes' corrigindo os 'links' corrompidos e unificar as rotas base do sistema.";
+  await supabase.from('feedback').update({ diagnostico: diag85, plano_solucao: sol85 }).eq('id', 85);
+
+  console.log("Atualização de triagem concluída usando supabase-js!");
 }
 
-async function start() {
-    // Ticket 75 (Resolvido)
-    await runAtualizacao(75, 
-      "A trava ocorria devido à ausência de foreign keys específicas ('empresa_id') da arquitetura Multi-Tenant imposta pela migração SaaS, impedindo a engine de delegar os leads para a organização correta.", 
-      "Garantido o preenchimento da chave 'empresa_id' e ajustes no workflow para refletir o roteamento correto no pipeline. Correção estrutural já efetuada.",
-      "Implementado"
-    );
-
-    // Ticket 76 (Resolvido)
-    await runAtualizacao(76, 
-      "O webhook do Facebook/Meta disparava eventos em massa e a API do Next.js processava notificações redundantes ao encontrar UUIDs duplicados ou por falta de debounce.", 
-      "Adicionado bloqueio de cache/verificação de idempotência no processamento do Lead para ignorar pacotes duplicados vindos da Meta. Correção já efetuada.",
-      "Implementado"
-    );
-
-    // Ticket 77 (Resolvido)
-    await runAtualizacao(77, 
-      "A falha de comunicação WABA (WhatsApp) interrompeu o websocket e a rota de API devido a tokens expirados e falhas no Embedded Signup, provocando erro 401 Unauthorized da Meta.", 
-      "Migração do WhatsApp completada com sucesso para arquitetura SaaS. Tokens permanentes de Sistema atestados e Handshake Oauth da Meta reestabelecido e roteado pela organização. Correção já efetuada.",
-      "Implementado"
-    );
-
-    // Ticket 78 (Resolvido)
-    await runAtualizacao(78, 
-      "Erro de Constraint e Rollback: A RPC tentava excluir os contatos secundários sem antes reatribuir tabelas filhas mais profundas (lançamentos, contratos, orçamentos, simulações). O banco ejetava e abortava a transação inteira.", 
-      "Reescrita na íntegra a função 'merge_contacts_and_relink_all_references' para usar o sistema de Exception Atômica do Postgres. Agora as 13 tabelas relacionadas aos contatos têm suas foreign keys substituídas e o sistema continua a transferências se houver tabelas vazias, blindando o Rollback e matando o ticket.",
-      "Implementado"
-    );
-
-    // Ticket 79 (Resolvido)
-    await runAtualizacao(79, 
-      "SaaS Migration Side-effect: A tabela individual 'usuario_preferencias_notificacao' foi removida na migração do módulo global. A página do usuário quebrou pois a query ainda apontava para lá.", 
-      "Criada nova tabela individual chamada 'sys_user_notification_prefs'. Refatorado o front 'MinhasNotificacoes.js' para consultar uma nova RPC via Supabase RLS ('get_user_allowed_notifications') que compara o Cargo do funcionário logado com a array 'funcoes_ids' definidas pelo Administrador.",
-      "Implementado"
-    );
-}
-
-start();
+runAtualizacao().catch(console.error);

@@ -1,0 +1,80 @@
+{
+  "concreto_m3": 237.83,
+  "forma_m2": 1197.9,
+  "aco_detalhado": [
+    {
+      "bitola": "5.0",
+      "peso_kg": 213.1,
+      "total_linear_m": 13860.5
+    },
+    {
+      "bitola": "6.3",
+      "peso_kg": 129.2,
+      "total_linear_m": 5268.0
+    },
+    {
+      "bitola": "8.0",
+      "peso_kg": 470.3,
+      "total_linear_m": 11845.9
+    },
+    {
+      "bitola": "10.0",
+      "peso_kg": 658.7,
+      "total_linear_m": 9758.1
+    },
+    {
+      "bitola": "12.5",
+      "peso_kg": 688.6,
+      "total_linear_m": 7171.0
+    },
+    {
+      "bitola": "16.0",
+      "peso_kg": 615.5,
+      "total_linear_m": 3901.0
+    },
+    {
+      "bitola": "20.0",
+      "peso_kg": 252.4,
+      "total_linear_m": 1030.0
+    }
+  ],
+  "aco_kg": 3032.2,
+  "paginas_com_resumo": [
+    "DETALHAMENTO DOS PILARES E SAPATAS DA CONTENÇÃO",
+    "PLANTA DE FORMA DO NÍVEL -20 / -10 - TERREO",
+    "VIGAS - MODIFICADAS OU ADICIONAIS",
+    "DETALHAMENTO DAS SAPATAS DA EDIFICAÇÃO - 1/4",
+    "DETALHAMENTO DAS SAPATAS DA EDIFICAÇÃO - 2/4",
+    "DETALHAMENTO DAS SAPATAS DA EDIFICAÇÃO - 3/4",
+    "DETALHAMENTO DAS SAPATAS DA EDIFICAÇÃO - 4/4",
+    "DETALHAMENTO DAS VIGAS DO PAVIMENTO TERREO - 1/4",
+    "DETALHAMENTO DAS VIGAS DO PAVIMENTO TERREO - 2/4",
+    "DETALHAMENTO DAS VIGAS DO PAVIMENTO TERREO - 3/4",
+    "DETALHAMENTO DAS VIGAS DO PAVIMENTO TERREO - 4/4",
+    "DETALHAMENTO DOS PILARES DO NÍVEL +280",
+    "DETALHAMENTO DAS VIGAS DO NÍVEL +280 - 1/3",
+    "DETALHAMENTO DAS VIGAS DO NÍVEL +280 - 2/3",
+    "DETALHAMENTO DAS VIGAS DO NÍVEL +280 - 3/3",
+    "ARMADURA POSITIVA DAS NERVURAS DO NÍVEL +280",
+    "ARMADURA NEGATIVA DAS NERVURAS DO NÍVEL +280",
+    "ARMADURA POSITIVA DOS CAPITEIS DO NÍVEL +280",
+    "DETALHAMENTO DOS PILARES DO NÍVEL +610",
+    "DETALHAMENTO DAS VIGAS DOS NÍVEIS +610/+940/+1270/+1600/+1930 - 1/2",
+    "DETALHAMENTO DAS VIGAS DOS NÍVEIS +610/+940/+1270/+1600/+1930 - 2/2",
+    "ARMADURA POSITIVA X DAS NERVURAS DOS NIVEIS +610/+940/+1270/+1600/+1930",
+    "ARMADURA NEGATIVA X DAS NERVURAS DOS NIVEIS +610/+940/+1270/+1600/+1930",
+    "ARMADURA POSITIVA DOS CAPITEIS DOS NIVEIS +610/+940/+1270/+1600/+1930",
+    "DETALHAMENTO DOS PILARES DO NÍVEL +940",
+    "DETALHAMENTO DOS PILARES DO NÍVEL +1930",
+    "DETALHAMENTO DAS VIGAS DO NÍVEL +2260 1/2",
+    "DETALHAMENTO DAS VIGAS DO NÍVEL +2260 2/2",
+    "ARMADURA POSITIVA X DAS NERVURAS DO NÍVEL +2260",
+    "ARMADURA POSITIVA DOS CAPITEIS DO NÍVEL +2260",
+    "DETALHAMENTO DOS PILARES DO NÍVEL +2630",
+    "PLANTA DE FORMA DO NÍVEL +2630",
+    "DETALHAMENTO DAS VIGAS DO NÍVEL +2630 - 2/2",
+    "ARMADURA POSITIVA DAS LAJES DO NÍVEL +2370",
+    "DETALHAMENTO DOS PILARES DO NÍVEL +2830",
+    "CORTE A-A ESC. 1:50"
+  ]
+}
