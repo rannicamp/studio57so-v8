@@ -86,6 +86,8 @@ function MainLayoutContent({ children }) {
         setIsLoadingModalData(false);
     }, [supabase, organizacao_id]);
 
+    // [TICKET #88] Atalho Ctrl+A desativado temporariamente para não conflitar com "Selecionar Tudo" nativo
+    /*
     useEffect(() => {
         const handleKeyDown = (event) => {
             if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'a') {
@@ -97,6 +99,7 @@ function MainLayoutContent({ children }) {
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [fetchModalData]);
+    */
 
     const toggleSidebar = () => setIsSidebarOpen(prev => !prev);
     const closeSidebar = () => setIsSidebarOpen(false);

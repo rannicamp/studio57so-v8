@@ -2,21 +2,40 @@ require('dotenv').config({ path: '.env.local' });
 const { createClient } = require('@supabase/supabase-js');
 
 async function runAtualizacao() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  const supabase = createClient(supabaseUrl, serviceKey);
+  const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+  
+  const updates = [
+      {
+          id: 86,
+          diagnostico: "Falha de ciclo de vida da extensão MarkupsCore do Autodesk Viewer. Quando o usuário clica em 'Cancelar', a função leaveEditMode() é chamada, mas a ferramenta interativa (EditModeTool) ainda prende os eventos da câmera, mantendo a tela congelada sem permitir orbit.",
+          solucao: "Refatorar 'useBimMarkup.js'. Em 'leaveMarkupMode', liberar o tool explicitamente com changeEditMode(null) e resetar a navegação da câmera do viewer para restaurar os controles normais, além de chamar o hide() na extensão do Markup antes de sair do modo de edição."
+      },
+      {
+          id: 87,
+          diagnostico: "O esquema de Pedidos e Compras assume que todo pedimento é um material físico (equipamento ou insumo). Serviços comprados caem na mesma fila de baixa física do almoxarifado, o que logicamente é incorreto pois serviços não entram ou saem de estoque (recebimento virtual).",
+          solucao: "O módulo de Pedidos de Compra precisa urgentemente criar conceito de que Pedido de tipo 'Material' abriga só Itens físicos, e aceitar Pedidos tipo 'Serviço'. Ao entregar um 'Serviço', a baixa do estoque e registro de material_historico tem de ser abortado e substituído apenas pela liberação da fatura a pagar (Contas a Pagar)."
+      },
+      {
+          id: 88,
+          diagnostico: "O atalho 'Ctrl+A' que invoca a adição expressa de atividades está interceptando o evento com 'event.preventDefault()' de forma global em 'MainLayoutClient.js', destruindo a funcionalidade nativa do navegador que os redatores usam para 'Selecionar Tudo' em textos longos.",
+          solucao: "Remover a instrução 'event.preventDefault()' e o disparo do modal atrelado a (event.ctrlKey || event.metaKey) && event.key === 'a' dentro do useEffect do arquivo 'MainLayoutClient.js'."
+      },
+      {
+          id: 89,
+          diagnostico: "Erro de assinatura Hash do Next.js (Failed to find Server Action). Trata-se de uma anomalia client-side onde o cliente possui um form ou função referenciando uma Server Action que teve seu hash reempacotado num build mais recente.",
+          solucao: "O usuário precisa simplesmente realizar um Hard Reload (Ctrl+F5) para deletar o script de cache antigo, ou executar o script local 'npm run clean' se estiver usando o ambiente de desenvolvimento. O ticket pode ser marcado como Implementado pois não é um erro físico do Studio 57."
+      }
+  ];
 
-  // Ticket 84
-  const diag84 = "O ExtratoManager.js atualmente busca as transações usando apenas o parâmetro do Mês completo. O sistema não permite delimitar um range de dias específicos localmente para recalcular as entradas, saídas e o saldo no período isolado.";
-  const sol84 = "Adicionar seletores de Data Inicial e Data Final no cabeçalho do Extrato. Essas datas devem ser enviadas à query/API para que o banco traga o saldo consolidado apenas até a data inicial, e exiba/calcule os sub-totais apenas do intervalo de dias escolhido.";
-  await supabase.from('feedback').update({ diagnostico: diag84, plano_solucao: sol84 }).eq('id', 84);
-
-  // Ticket 85
-  const diag85 = "O atributo 'link' cadastrado nas Notificações salvas do banco de dados (ex: '/crm/funil' ou caminhos desatualizados) está apontando para rotas que não existem mais na nova arquitetura App Router, gerando erro 404 ao usuário clicar pelo sininho.";
-  const sol85 = "Rastrear o gatilho da API ou Webhook que gera as notificações e atualizar as URLs chumbadas (ex: trocar '/crm/funil' para '/crm'). Executar um UPDATE histórico na tabela 'notificacoes' corrigindo os 'links' corrompidos e unificar as rotas base do sistema.";
-  await supabase.from('feedback').update({ diagnostico: diag85, plano_solucao: sol85 }).eq('id', 85);
-
-  console.log("Atualização de triagem concluída usando supabase-js!");
+  for(const item of updates) {
+      const { error } = await supabase
+          .from('feedback')
+          .update({ diagnostico: item.diagnostico, plano_solucao: item.solucao })
+          .eq('id', item.id);
+          
+      if(error) console.error(`Erro no Ticket ${item.id}:`, error);
+      else console.log(`Ticket ${item.id} atualizado.`);
+  }
 }
 
 runAtualizacao().catch(console.error);
