@@ -143,7 +143,18 @@ export default function ProdutoList({ initialProdutos, empreendimentoId, initial
             const cleanValue = parseFloat(String(value).replace(/[^0-9,.]/g, '').replace(',', '.')) || 0;
 
             // Lida com a atualização dos campos e suas interdependências
-            if (field === 'preco_m2' && area > 0) {
+            if (field === 'area_m2') {
+                updatedValues.area_m2 = cleanValue;
+                const precoM2 = parseFloat(produtoOriginal.preco_m2) || 0;
+                if (precoM2 > 0) {
+                    updatedValues.valor_base = cleanValue * precoM2;
+                } else {
+                    const valorBase = parseFloat(produtoOriginal.valor_base) || 0;
+                    if (valorBase > 0 && cleanValue > 0) {
+                        updatedValues.preco_m2 = valorBase / cleanValue;
+                    }
+                }
+            } else if (field === 'preco_m2' && area > 0) {
                 updatedValues.preco_m2 = cleanValue;
                 updatedValues.valor_base = area * cleanValue;
             } else if (field === 'valor_base' && area > 0) {
@@ -151,8 +162,8 @@ export default function ProdutoList({ initialProdutos, empreendimentoId, initial
                 updatedValues.preco_m2 = cleanValue / area;
             } else if (field === 'fator_reajuste_percentual') {
                 updatedValues.fator_reajuste_percentual = cleanValue;
-            } else if (field === 'status') {
-                updatedValues.status = value; // status é texto
+            } else if (field === 'status' || field === 'matricula' || field === 'unidade' || field === 'tipo') {
+                updatedValues[field] = value; // campos de texto
             }
 
             // Sempre recalcula o valor de venda final com base nos valores mais atuais (novos ou existentes)
@@ -205,7 +216,9 @@ export default function ProdutoList({ initialProdutos, empreendimentoId, initial
 
         if (editingCell?.rowId === produto.id && editingCell?.field === field) {
             if (field === 'status') { return (<select defaultValue={produto[field]} onBlur={(e) => handleInlineUpdate(produto.id, field, e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === 'Tab') e.target.blur(); if (e.key === 'Escape') setEditingCell(null); }} autoFocus className="p-1 border rounded-md w-full bg-yellow-50 text-black"> <option>Disponível</option> <option>Reservado</option> <option>Vendido</option> </select>); }
-            return (<input type="text" defaultValue={produto[field]} onBlur={(e) => handleInlineUpdate(produto.id, field, e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === 'Tab') e.target.blur(); if (e.key === 'Escape') setEditingCell(null); }} autoFocus className="p-1 border rounded-md w-full bg-yellow-50 text-right text-black" />);
+            
+            const textAlignClass = ['unidade', 'tipo', 'matricula'].includes(field) ? 'text-left' : 'text-right';
+            return (<input type="text" defaultValue={produto[field]} onBlur={(e) => handleInlineUpdate(produto.id, field, e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === 'Tab') e.target.blur(); if (e.key === 'Escape') setEditingCell(null); }} autoFocus className={`p-1 border rounded-md w-full bg-yellow-50 text-black ${textAlignClass}`} />);
         }
         return <div className="cursor-pointer p-1 hover:bg-gray-100 rounded" onClick={() => handleCellClick(produto.id, field)}>{formatFn ? formatFn(produto[field]) : produto[field]}</div>;
     };
@@ -239,6 +252,7 @@ export default function ProdutoList({ initialProdutos, empreendimentoId, initial
                             <th className="px-4 py-3"><input type="checkbox" onChange={handleSelectAll} checked={sortedProdutos.length > 0 && selectedProdutos.size === sortedProdutos.length} /></th>
                             <SortableHeader sortKey="unidade" label="Unidade" className="text-left" />
                             <SortableHeader sortKey="tipo" label="Tipo" className="text-left" />
+                            <SortableHeader sortKey="matricula" label="Matrícula" className="text-left" />
                             <SortableHeader sortKey="area_m2" label="Área (m²)" className="text-right" />
                             <SortableHeader sortKey="preco_m2" label="Preço/m²" className="text-right" />
                             <SortableHeader sortKey="valor_base" label="Preço Base" className="text-right" />
@@ -255,9 +269,10 @@ export default function ProdutoList({ initialProdutos, empreendimentoId, initial
                             sortedProdutos.map(produto => (
                                 <tr key={produto.id} className={`hover:bg-gray-50 transition-colors ${produto.status === 'Vendido' ? 'bg-red-50 hover:bg-red-100' : produto.status === 'Reservado' ? 'bg-yellow-50 hover:bg-yellow-100' : ''} ${selectedProdutos.has(produto.id) ? 'bg-blue-50' : ''}`}>
                                     <td className="px-4 py-2"><input type="checkbox" checked={selectedProdutos.has(produto.id)} onChange={() => handleSelectProduto(produto.id)} /></td>
-                                    <td className="px-4 py-2 font-semibold">{produto.unidade}</td>
-                                    <td className="px-4 py-2">{produto.tipo}</td>
-                                    <td className="px-4 py-2 text-right">{formatArea(produto.area_m2)}</td>
+                                    <td className="px-4 py-2 font-semibold whitespace-nowrap">{renderEditableCell(produto, 'unidade')}</td>
+                                    <td className="px-4 py-2 whitespace-nowrap">{renderEditableCell(produto, 'tipo')}</td>
+                                    <td className="px-4 py-2 text-gray-500 text-sm whitespace-nowrap">{renderEditableCell(produto, 'matricula')}</td>
+                                    <td className="px-4 py-2 text-right">{renderEditableCell(produto, 'area_m2', formatArea)}</td>
                                     <td className="px-4 py-2 text-right font-medium text-blue-800 bg-blue-50/50">{renderEditableCell(produto, 'preco_m2', formatCurrency)}</td>
                                     <td className="px-4 py-2 text-right text-gray-600">{renderEditableCell(produto, 'valor_base', formatCurrency)}</td>
                                     <td className="px-4 py-2 text-right">{renderEditableCell(produto, 'fator_reajuste_percentual', formatPercent)}</td>

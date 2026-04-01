@@ -17,6 +17,7 @@ export default function ProdutoFormModal({ isOpen, onClose, onSave, produtoToEdi
             setFormData(isEditing ? produtoToEdit : {
                 unidade: '',
                 tipo: '',
+                matricula: '',
                 area_m2: '',
                 preco_m2: '', // Novo campo
                 valor_base: '',
@@ -165,13 +166,19 @@ export default function ProdutoFormModal({ isOpen, onClose, onSave, produtoToEdi
                         </div>
                     </div>
 
-                    <div>
-                        <label className="block text-sm font-medium">Status Inicial</label>
-                        <select name="status" value={formData.status || 'Disponível'} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md">
-                            <option>Disponível</option>
-                            <option>Reservado</option>
-                            <option>Vendido</option>
-                        </select>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium">Status Inicial</label>
+                            <select name="status" value={formData.status || 'Disponível'} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md">
+                                <option>Disponível</option>
+                                <option>Reservado</option>
+                                <option>Vendido</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium">Matrícula (Cartório)</label>
+                            <input type="text" name="matricula" value={formData.matricula || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md" placeholder="Ex: 12345" />
+                        </div>
                     </div>
                     <div className="flex justify-end gap-4 pt-4 border-t">
                         <button type="button" onClick={onClose} className="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300">Cancelar</button>

@@ -263,7 +263,8 @@ CREATE TABLE public.cadastro_empresa (
     objeto_social text,
     capital_social numeric,
     natureza_juridica text,
-    logo_url text
+    logo_url text,
+    responsavel_id bigint
 );
 
 CREATE TABLE public.campos_sistema (
