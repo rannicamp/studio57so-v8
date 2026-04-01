@@ -15,9 +15,6 @@ export default function CadastroContatoPage() {
 
   return (
     <div className="space-y-6">
-       <Link href="/contatos" className="text-blue-500 hover:underline mb-4 inline-block">
-            &larr; Voltar para a Lista de Contatos
-        </Link>
       {/* O título <h1> foi removido daqui */}
       <div className="bg-white rounded-lg shadow p-6">
         <ContatoForm />

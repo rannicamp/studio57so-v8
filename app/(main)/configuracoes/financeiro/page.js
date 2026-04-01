@@ -125,9 +125,6 @@ export default function ConfigFinanceiroPage() {
             {/* Cabeçalho */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
                 <div>
-                    <Link href="/configuracoes" className="text-gray-500 hover:text-blue-600 text-xs font-bold uppercase tracking-wide flex items-center gap-2 mb-1 transition-colors">
-                        <FontAwesomeIcon icon={faArrowLeft} /> Voltar para Configurações
-                    </Link>
                     <h1 className="text-2xl font-bold text-gray-800">Central Financeira</h1>
                     <p className="text-sm text-gray-500">Gerencie categorias, importações e ferramentas avançadas.</p>
                 </div>

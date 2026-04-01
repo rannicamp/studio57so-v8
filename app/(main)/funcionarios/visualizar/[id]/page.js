@@ -116,12 +116,6 @@ export default function VisualizarFuncionarioPage() {
 
     return (
         <div className="space-y-6">
-            <Link
-                href="/recursos-humanos"
-                className="text-blue-600 hover:text-blue-700 font-medium flex items-center gap-2 mb-4 transition-colors"
-            >
-                ← Voltar para Recursos Humanos
-            </Link>
             {/* Modal de Financeiro */}
             <LancamentoFormModal
                 isOpen={isLancamentoModalOpen}

@@ -102,9 +102,6 @@ export default function ProdutosPage() {
 
     return (
         <div className="space-y-6">
-            <Link href="/empreendimentos" className="inline-flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-blue-600 transition-colors mb-4">
-                ← Voltar para Empreendimentos
-            </Link>
             <div className="flex justify-between items-center">
                 <h1 className="text-3xl font-bold text-gray-900">
                     Comercialização de: <span className="text-blue-600">{empreendimento.nome}</span>

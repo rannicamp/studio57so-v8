@@ -96,12 +96,6 @@ export default async function ContratoPageCorretor({ params }) {
 
         return (
             <div className="p-4 md:p-6 lg:p-8 space-y-6">
-                <div className="print:hidden">
-                    <Link href="/portal-contratos" className="text-blue-600 hover:underline mb-4 inline-flex items-center gap-2">
-                        <FontAwesomeIcon icon={faArrowLeft} />
-                        Voltar para Meus Contratos
-                    </Link>
-                </div>
                 
                 {/* 3. Passamos o objeto 'combinedUser' */}
                 <FichaContrato

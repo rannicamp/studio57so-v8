@@ -45,9 +45,6 @@ export default async function EditarEmpreendimentoPage({ params }) {
 
     return (
         <div className="space-y-6">
-            <Link href="/empreendimentos" className="inline-flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-blue-600 transition-colors mb-4">
-                ← Voltar para Empreendimentos
-            </Link>
             <div className="bg-white rounded-lg shadow p-6">
                 <EmpreendimentoForm
                     empreendimento={empreendimento}

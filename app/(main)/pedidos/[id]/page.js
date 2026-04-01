@@ -19,12 +19,7 @@ export default function EdicaoPedidoPage() {
 
     return (
         <div className="space-y-4">
-            <div>
-                <button onClick={() => router.push('/pedidos')} className="text-blue-600 hover:text-blue-700 font-medium flex items-center gap-2 mb-2 transition-colors">
-                    <FontAwesomeIcon icon={faArrowLeft} />
-                    Voltar para o Painel de Compras
-                </button>
-            </div>
+
             {/* Usando o componente de formulário real e passando o ID do pedido */}
             <PedidoForm pedidoId={id} />
         </div>

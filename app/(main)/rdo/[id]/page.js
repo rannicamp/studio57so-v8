@@ -32,12 +32,6 @@ export default async function RdoEditPage({ params }) {
 
   return (
     <div className="space-y-6">
-      <Link
-        href="/rdo/gerenciador"
-        className="text-blue-600 hover:text-blue-700 font-medium flex items-center gap-2 mb-4 transition-colors print:hidden"
-      >
-        ← Voltar para o Gerenciador de RDOs
-      </Link>
 
       {/* CORREÇÃO 4: Passamos o 'user' (que contém o ID e dados) para o RdoForm.
          O RdoForm deverá repassar isso para o RdoAutoGenerator.

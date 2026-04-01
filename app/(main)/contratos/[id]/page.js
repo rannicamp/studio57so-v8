@@ -88,12 +88,6 @@ export default async function ContratoPage({ params }) {
             // REMOVIDO: max-w-7xl mx-auto
             // Mantido apenas o padding e background para ocupar a tela toda
             <div className="bg-gray-50 min-h-screen p-4 md:p-6 lg:p-8 space-y-6">
-                <div className="print:hidden">
-                    <Link href="/contratos" className="text-gray-500 hover:text-blue-600 mb-4 inline-flex items-center gap-2 transition-colors font-medium text-sm">
-                        <FontAwesomeIcon icon={faArrowLeft} />
-                        Voltar para a Lista de Contratos
-                    </Link>
-                </div>
                 
                 <FichaContrato
                     initialContratoData={contratoData}

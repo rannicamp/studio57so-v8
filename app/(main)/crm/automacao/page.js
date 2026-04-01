@@ -310,7 +310,6 @@ export default function AutomacaoPage() {
                         Define regras para mover leads automaticamente do <strong>Funil de Entrada</strong> para funis específicos.
                     </p>
                 </div>
-                <Link href="/crm" className="text-sm text-blue-600 hover:underline">← Voltar ao CRM</Link>
             </div>
 
             {/* Como funciona */}

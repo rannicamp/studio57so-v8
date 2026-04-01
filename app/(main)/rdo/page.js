@@ -48,9 +48,6 @@ export default function RdoPage() {
   // A edição de RDOs antigos é feita pela página de gerenciamento.
   return (
     <div className="space-y-6">
-      <Link href="/rdo/gerenciador" className="text-blue-600 hover:text-blue-700 font-medium flex items-center gap-2 mb-4 transition-colors">
-        ← Voltar para o Gerenciador
-      </Link>
       <div className="bg-white p-4 rounded-lg shadow">
         <h1 className="text-3xl font-bold text-gray-900">Criar Novo Relatório Diário de Obra (RDO)</h1>
         <p className="text-sm text-gray-600 mt-1">O RDO será criado para a data de hoje.</p>

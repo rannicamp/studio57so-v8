@@ -31,13 +31,6 @@ export default function CategoriasPage() {
             {/* Header Melhorado */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-4 rounded-lg shadow-sm border border-gray-100">
                 <div className="flex items-center gap-4">
-                    <Link 
-                        href="/financeiro" 
-                        className="group bg-gray-50 hover:bg-blue-50 text-gray-400 hover:text-blue-600 w-10 h-10 flex items-center justify-center rounded-full transition-all duration-200 border border-gray-200 hover:border-blue-200" 
-                        title="Voltar para Financeiro"
-                    >
-                        <FontAwesomeIcon icon={faArrowLeft} className="transform group-hover:-translate-x-1 transition-transform" />
-                    </Link>
                     <div>
                         <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2 uppercase tracking-tight">
                             <FontAwesomeIcon icon={faTags} className="text-orange-500" />
