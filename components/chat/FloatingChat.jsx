@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faComments, faTimes, faPaperPlane, faUserFriends, faBullhorn, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
@@ -17,6 +18,26 @@ export default function FloatingChat() {
     
     const [activeView, setActiveView] = useState('list'); // 'list', 'room', ou 'memo_create'
     const [activeRoomUser, setActiveRoomUser] = useState(null);
+    
+    const searchParams = useSearchParams();
+
+    // Auto-open chat from Notifications
+    useEffect(() => {
+        const openChatId = searchParams?.get('open_chat');
+        const openChatName = searchParams?.get('chat_name');
+        
+        if (openChatId && openChatName) {
+            setIsOpen(true);
+            setActiveRoomUser({ id: openChatId, nome: openChatName });
+            setActiveView('room');
+            
+            // Remove as queries da URL para não reabrir após refresh da página
+            const url = new URL(window.location.href);
+            url.searchParams.delete('open_chat');
+            url.searchParams.delete('chat_name');
+            window.history.replaceState({}, '', url.toString());
+        }
+    }, [searchParams]);
     
     // Lógica para Botão Arrastável — Ticket #51
     // Usa refs em vez de estado para evitar closure stale nos event listeners
