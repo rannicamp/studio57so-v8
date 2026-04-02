@@ -1,0 +1,856 @@
+[
+  {
+    "id": 16873,
+    "data_transacao": "2026-03-20",
+    "descricao": "Tranf. de 756 - SICOOB Ac Credi Incorporação: DÉB.TIT.COMPE EFETIVADO",
+    "valor": 214.38,
+    "fatura_id": 59,
+    "conta_id": 29,
+    "categorias_financeiras": {
+      "nome": "Transferência"
+    },
+    "contas_financeiras": {
+      "nome": "0 - CARTÃO - BANCO DO BRASIL IGOR (0753)"
+    }
+  },
+  {
+    "id": 16875,
+    "data_transacao": "2026-03-20",
+    "descricao": "Tranf. de 756 - SICOOB Crediriodoce Incorporação: PAGAMENTO CARTÃO CAIXA - REF MAR26 (PARCIAL)",
+    "valor": 1000,
+    "fatura_id": 7,
+    "conta_id": 33,
+    "categorias_financeiras": {
+      "nome": "Transferência"
+    },
+    "contas_financeiras": {
+      "nome": "0 - CARTÃO - CAIXA (2399)"
+    }
+  },
+  {
+    "id": 16890,
+    "data_transacao": "2026-03-11",
+    "descricao": "Tranf. de 756 - SICOOB Ac Credi Incorporação: PAGAMENTO CARTÃO - SICOOB AC CREDI - REF MAR26",
+    "valor": 1460.16,
+    "fatura_id": 38,
+    "conta_id": 34,
+    "categorias_financeiras": {
+      "nome": "Transferência"
+    },
+    "contas_financeiras": {
+      "nome": "0 - CARTÃO - SICOOBCARD AC CREDI (7841)"
+    }
+  },
+  {
+    "id": 16843,
+    "data_transacao": "2026-03-09",
+    "descricao": "Tranf. de 756 - SICOOB Crediriodoce Incorporação: DÉB. PAGAMENTO DE BOLETO INTERCREDIS",
+    "valor": 4718.97,
+    "fatura_id": 65,
+    "conta_id": 40,
+    "categorias_financeiras": {
+      "nome": "Transferência"
+    },
+    "contas_financeiras": {
+      "nome": "0 - CARTÃO - SICOOB CREDIORIODOCE (6482)"
+    }
+  },
+  {
+    "id": 13733,
+    "data_transacao": "2026-02-20",
+    "descricao": "Tranf. de undefined: PAGAMENTO CARTÃO - BANCO DO BRASIL - REF FEV26",
+    "valor": 458.41,
+    "fatura_id": 59,
+    "conta_id": 29,
+    "categorias_financeiras": {
+      "nome": "Transferência"
+    },
+    "contas_financeiras": {
+      "nome": "0 - CARTÃO - BANCO DO BRASIL IGOR (0753)"
+    }
+  },
+  {
+    "id": 13735,
+    "data_transacao": "2026-02-20",
+    "descricao": "Tranf. de undefined: PAGAMENTO CARTÃO CAIXA - REF FEV26",
+    "valor": 3102.74,
+    "fatura_id": 7,
+    "conta_id": 33,
+    "categorias_financeiras": {
+      "nome": "Transferência"
+    },
+    "contas_financeiras": {
+      "nome": "0 - CARTÃO - CAIXA (2399)"
+    }
+  },
+  {
+    "id": 13464,
+    "data_transacao": "2026-02-11",
+    "descricao": "Tranf. de undefined: PAGAMENTO CARTÃO - SICOOB AC CREDI - REF FEV26",
+    "valor": 734.4,
+    "fatura_id": 38,
+    "conta_id": 34,
+    "categorias_financeiras": {
+      "nome": "Transferência"
+    },
+    "contas_financeiras": {
+      "nome": "0 - CARTÃO - SICOOBCARD AC CREDI (7841)"
+    }
+  },
+  {
+    "id": 13875,
+    "data_transacao": "2026-02-11",
+    "descricao": "Tranf. de undefined: PAGAMENTO CARTÃO - SICOOB AC CREDI S57 ARQUITETURA - REF FEV26",
+    "valor": 698.28,
+    "fatura_id": 62,
+    "conta_id": 47,
+    "categorias_financeiras": {
+      "nome": "Transferência"
+    },
+    "contas_financeiras": {
+      "nome": "756 - SICOOB"
+    }
+  },
+  {
+    "id": 13477,
+    "data_transacao": "2026-02-09",
+    "descricao": "Tranf. de undefined: PAGAMENTO CARTÃO - SICOOB CREDIRIODOCE - REF FEV26",
+    "valor": 5602.84,
+    "fatura_id": 65,
+    "conta_id": 40,
+    "categorias_financeiras": {
+      "nome": "Transferência"
+    },
+    "contas_financeiras": {
+      "nome": "0 - CARTÃO - SICOOB CREDIORIODOCE (6482)"
+    }
+  },
+  {
+    "id": 13871,
+    "data_transacao": "2026-02-04",
+    "descricao": "Tranf. de undefined: PAGAMENTO CARTÃO - INTER S57 ARQUITETURA - REF FEV26",
+    "valor": 101.16,
+    "fatura_id": 61,
+    "conta_id": 44,
+    "categorias_financeiras": {
+      "nome": "Transferência"
+    },
+    "contas_financeiras": {
+      "nome": "1 - CARTÃO INTER S7 ARQUITETURA"
+    }
+  },
+  {
+    "id": 12812,
+    "data_transacao": "2026-01-20",
+    "descricao": "Tranf. de undefined: PAGAMENTO CARTÃO CAIXA - REF JAN26",
+    "valor": 939.18,
+    "fatura_id": 6,
+    "conta_id": 33,
+    "categorias_financeiras": {
+      "nome": "Transferência"
+    },
+    "contas_financeiras": {
+      "nome": "0 - CARTÃO - CAIXA (2399)"
+    }
+  },
+  {
+    "id": 12810,
+    "data_transacao": "2026-01-20",
+    "descricao": "Tranf. de undefined: PAGAMENTO CARTÃO BANCO DO BRASIL REF JAN26",
+    "valor": 2506.41,
+    "fatura_id": 58,
+    "conta_id": 29,
+    "categorias_financeiras": {
+      "nome": "Transferência"
+    },
+    "contas_financeiras": {
+      "nome": "0 - CARTÃO - BANCO DO BRASIL IGOR (0753)"
+    }
+  },
+  {
+    "id": 12692,
+    "data_transacao": "2026-01-13",
+    "descricao": "Tranf. de undefined: PAGAMENTO CARTÃO SICOOB AC CREDI - REF JAN26",
+    "valor": 1589.57,
+    "fatura_id": 57,
+    "conta_id": 34,
+    "categorias_financeiras": {
+      "nome": "Transferência"
+    },
+    "contas_financeiras": {
+      "nome": "0 - CARTÃO - SICOOBCARD AC CREDI (7841)"
+    }
+  },
+  {
+    "id": 12722,
+    "data_transacao": "2026-01-07",
+    "descricao": "Tranf. de undefined: PAGAMENTO CARTÃO - SICOOB CREDIRIODOCE - REF JAN26",
+    "valor": 3568.98,
+    "fatura_id": 5,
+    "conta_id": 40,
+    "categorias_financeiras": {
+      "nome": "Transferência"
+    },
+    "contas_financeiras": {
+      "nome": "0 - CARTÃO - SICOOB CREDIORIODOCE (6482)"
+    }
+  },
+  {
+    "id": 12029,
+    "data_transacao": "2025-12-22",
+    "descricao": "Tranf. de undefined: PAGAMENTO CARTÃO BANCO DO BRASIL - REF DEZ25",
+    "valor": 2687.75,
+    "fatura_id": 17,
+    "conta_id": 29,
+    "categorias_financeiras": {
+      "nome": "Transferência"
+    },
+    "contas_financeiras": {
+      "nome": "0 - CARTÃO - BANCO DO BRASIL IGOR (0753)"
+    }
+  },
+  {
+    "id": 12215,
+    "data_transacao": "2025-12-22",
+    "descricao": "Tranf. de undefined: PAGAMENTO CARTÃO - CAIXA - REF DEZ25",
+    "valor": 193.85,
+    "fatura_id": 1,
+    "conta_id": 33,
+    "categorias_financeiras": {
+      "nome": "Transferência"
+    },
+    "contas_financeiras": {
+      "nome": "0 - CARTÃO - CAIXA (2399)"
+    }
+  },
+  {
+    "id": 10728,
+    "data_transacao": "2025-12-11",
+    "descricao": "Tranf. de undefined: PAGAMENTO CARTÃO - SICOOB AC CREDI - REF DEZ25",
+    "valor": 3084.7,
+    "fatura_id": 11,
+    "conta_id": 34,
+    "categorias_financeiras": {
+      "nome": "Transferência"
+    },
+    "contas_financeiras": {
+      "nome": "0 - CARTÃO - SICOOBCARD AC CREDI (7841)"
+    }
+  },
+  {
+    "id": 10664,
+    "data_transacao": "2025-12-08",
+    "descricao": "Tranf. de undefined: PAGAMENTO CARTÃO SICOOB CREDIRIODOCE REF DEZ25",
+    "valor": 5700.32,
+    "fatura_id": 4,
+    "conta_id": 40,
+    "categorias_financeiras": {
+      "nome": "Transferência"
+    },
+    "contas_financeiras": {
+      "nome": "0 - CARTÃO - SICOOB CREDIORIODOCE (6482)"
+    }
+  },
+  {
+    "id": 10564,
+    "data_transacao": "2025-11-27",
+    "descricao": "Tranf. de undefined: PAGAMENTO CARTÃO - EMPRESARIAL ELO - COMPLEMENTO",
+    "valor": 75.05,
+    "fatura_id": 31,
+    "conta_id": 29,
+    "categorias_financeiras": {
+      "nome": "Transferência"
+    },
+    "contas_financeiras": {
+      "nome": "0 - CARTÃO - BANCO DO BRASIL IGOR (0753)"
+    }
+  },
+  {
+    "id": 10562,
+    "data_transacao": "2025-11-21",
+    "descricao": "Tranf. de undefined: PAGAMENTO CARTÃO DE CRÉDITO - EMPRESARIAL ELO BANCO DO BRASIL",
+    "valor": 3115.33,
+    "fatura_id": 31,
+    "conta_id": 29,
+    "categorias_financeiras": {
+      "nome": "Transferência"
+    },
+    "contas_financeiras": {
+      "nome": "0 - CARTÃO - BANCO DO BRASIL IGOR (0753)"
+    }
+  },
+  {
+    "id": 10225,
+    "data_transacao": "2025-11-11",
+    "descricao": "Tranf. de undefined: PAGAMENTO CARTÃO - SICOOB AC CREDI - REF NOV25",
+    "valor": 2963.33,
+    "fatura_id": 2,
+    "conta_id": 34,
+    "categorias_financeiras": {
+      "nome": "Transferência"
+    },
+    "contas_financeiras": {
+      "nome": "0 - CARTÃO - SICOOBCARD AC CREDI (7841)"
+    }
+  },
+  {
+    "id": 9919,
+    "data_transacao": "2025-11-07",
+    "descricao": "Tranf. de undefined: PAGAMENTO CARTÃO - SICOOBCARD CREDIRIODOCE - REF OUT25",
+    "valor": 6385.69,
+    "fatura_id": 9,
+    "conta_id": 40,
+    "categorias_financeiras": {
+      "nome": "Transferência"
+    },
+    "contas_financeiras": {
+      "nome": "0 - CARTÃO - SICOOB CREDIORIODOCE (6482)"
+    }
+  },
+  {
+    "id": 9995,
+    "data_transacao": "2025-10-13",
+    "descricao": "Tranf. de undefined: PAGAMENTO CARTÃO - SICOOB AC CREDI - REF OUT25",
+    "valor": 3534.44,
+    "fatura_id": 18,
+    "conta_id": 34,
+    "categorias_financeiras": {
+      "nome": "Transferência"
+    },
+    "contas_financeiras": {
+      "nome": "0 - CARTÃO - SICOOBCARD AC CREDI (7841)"
+    }
+  },
+  {
+    "id": 9854,
+    "data_transacao": "2025-10-07",
+    "descricao": "Tranf. de undefined: PAGAMENTO CARTÃO - SICOOB CREDIRIODOCE - REF OUT25",
+    "valor": 1803.14,
+    "fatura_id": 32,
+    "conta_id": 40,
+    "categorias_financeiras": {
+      "nome": "Transferência"
+    },
+    "contas_financeiras": {
+      "nome": "0 - CARTÃO - SICOOB CREDIORIODOCE (6482)"
+    }
+  },
+  {
+    "id": 9268,
+    "data_transacao": "2025-09-29",
+    "descricao": "Tranf. de undefined: TRANSFERÊNCIA - PAGAMENTO CARTÃO BANCO DO BRASIL OUT25 COMPLEMENTO",
+    "valor": 91.47,
+    "fatura_id": 29,
+    "conta_id": 29,
+    "categorias_financeiras": {
+      "nome": "Transferência "
+    },
+    "contas_financeiras": {
+      "nome": "0 - CARTÃO - BANCO DO BRASIL IGOR (0753)"
+    }
+  },
+  {
+    "id": 8160,
+    "data_transacao": "2025-09-22",
+    "descricao": "Tranf. de undefined: PAGAMENTO CARTÃO - CAIXA REF SET25",
+    "valor": 6738.58,
+    "fatura_id": 20,
+    "conta_id": 33,
+    "categorias_financeiras": {
+      "nome": "Transferência"
+    },
+    "contas_financeiras": {
+      "nome": "0 - CARTÃO - CAIXA (2399)"
+    }
+  },
+  {
+    "id": 9266,
+    "data_transacao": "2025-09-22",
+    "descricao": "Tranf. de undefined: TRANSFERÊNCIA - PAGAMENTO CARTÃO BANCO DO BRASIL - REF OUT25",
+    "valor": 2156.51,
+    "fatura_id": 29,
+    "conta_id": 29,
+    "categorias_financeiras": {
+      "nome": "Transferência"
+    },
+    "contas_financeiras": {
+      "nome": "0 - CARTÃO - BANCO DO BRASIL IGOR (0753)"
+    }
+  },
+  {
+    "id": 8118,
+    "data_transacao": "2025-09-11",
+    "descricao": "Tranf. de undefined: PAGAMENTO CARTÃO SICOOB AC CREDI - REF SET25",
+    "valor": 2024.65,
+    "fatura_id": 41,
+    "conta_id": 34,
+    "categorias_financeiras": {
+      "nome": "Transferência"
+    },
+    "contas_financeiras": {
+      "nome": "0 - CARTÃO - SICOOBCARD AC CREDI (7841)"
+    }
+  },
+  {
+    "id": 7264,
+    "data_transacao": "2025-08-20",
+    "descricao": "Transferência de: 02 - BANCO DO BRASIL",
+    "valor": 1865.16,
+    "fatura_id": 34,
+    "conta_id": 29,
+    "categorias_financeiras": {
+      "nome": "Transferência"
+    },
+    "contas_financeiras": {
+      "nome": "0 - CARTÃO - BANCO DO BRASIL IGOR (0753)"
+    }
+  },
+  {
+    "id": 7249,
+    "data_transacao": "2025-08-20",
+    "descricao": "Transferência de: 01 - CREDIRIODOCE SICOOB",
+    "valor": 7259.74,
+    "fatura_id": 24,
+    "conta_id": 33,
+    "categorias_financeiras": {
+      "nome": "Transferência"
+    },
+    "contas_financeiras": {
+      "nome": "0 - CARTÃO - CAIXA (2399)"
+    }
+  },
+  {
+    "id": 7236,
+    "data_transacao": "2025-08-11",
+    "descricao": "Transferência de: 01 - CREDIRIODOCE SICOOB",
+    "valor": 1619.16,
+    "fatura_id": 46,
+    "conta_id": 34,
+    "categorias_financeiras": {
+      "nome": "Transferência"
+    },
+    "contas_financeiras": {
+      "nome": "0 - CARTÃO - SICOOBCARD AC CREDI (7841)"
+    }
+  },
+  {
+    "id": 7289,
+    "data_transacao": "2025-07-20",
+    "descricao": "Transferência de: 02 - BANCO DO BRASIL",
+    "valor": 165.76,
+    "fatura_id": 44,
+    "conta_id": 27,
+    "categorias_financeiras": {
+      "nome": "Transferência"
+    },
+    "contas_financeiras": {
+      "nome": "0 - CARTÃO - BANCO DO BRASIL SÔNIA (4724)"
+    }
+  },
+  {
+    "id": 7299,
+    "data_transacao": "2025-07-20",
+    "descricao": "Transferência de: 04 - AC CREDI SICOOB",
+    "valor": 9207.01,
+    "fatura_id": 33,
+    "conta_id": 33,
+    "categorias_financeiras": {
+      "nome": "Transferência"
+    },
+    "contas_financeiras": {
+      "nome": "0 - CARTÃO - CAIXA (2399)"
+    }
+  },
+  {
+    "id": 7288,
+    "data_transacao": "2025-07-20",
+    "descricao": "Transferência de: 02 - BANCO DO BRASIL",
+    "valor": 1967.74,
+    "fatura_id": 40,
+    "conta_id": 29,
+    "categorias_financeiras": {
+      "nome": "Transferência"
+    },
+    "contas_financeiras": {
+      "nome": "0 - CARTÃO - BANCO DO BRASIL IGOR (0753)"
+    }
+  },
+  {
+    "id": 7270,
+    "data_transacao": "2025-07-11",
+    "descricao": "Transferência de: 04 - AC CREDI SICOOB",
+    "valor": 1474.04,
+    "fatura_id": 15,
+    "conta_id": 34,
+    "categorias_financeiras": {
+      "nome": "Transferência"
+    },
+    "contas_financeiras": {
+      "nome": "0 - CARTÃO - SICOOBCARD AC CREDI (7841)"
+    }
+  },
+  {
+    "id": 7632,
+    "data_transacao": "2025-06-27",
+    "descricao": "Tranf. de undefined: Pagamento cartão BANCO DO BRASIL OUROCARD ELO SÔNIA - REF JUN25",
+    "valor": 153.02,
+    "fatura_id": 23,
+    "conta_id": 27,
+    "categorias_financeiras": {
+      "nome": "Transferência"
+    },
+    "contas_financeiras": {
+      "nome": "0 - CARTÃO - BANCO DO BRASIL SÔNIA (4724)"
+    }
+  },
+  {
+    "id": 7630,
+    "data_transacao": "2025-06-27",
+    "descricao": "Tranf. de undefined: Pagamento cartão BANCO DO BRASIL OUROCARD ELO IGOR - REF JUN25",
+    "valor": 2719.83,
+    "fatura_id": 37,
+    "conta_id": 29,
+    "categorias_financeiras": {
+      "nome": "Transferência"
+    },
+    "contas_financeiras": {
+      "nome": "0 - CARTÃO - BANCO DO BRASIL IGOR (0753)"
+    }
+  },
+  {
+    "id": 7458,
+    "data_transacao": "2025-06-20",
+    "descricao": "Tranf. de undefined: Pagamento cartão CAIXA ELO EMPRESARIAL - REF JUN25",
+    "valor": 8233.54,
+    "fatura_id": 22,
+    "conta_id": 33,
+    "categorias_financeiras": {
+      "nome": "Transferência"
+    },
+    "contas_financeiras": {
+      "nome": "0 - CARTÃO - CAIXA (2399)"
+    }
+  },
+  {
+    "id": 7563,
+    "data_transacao": "2025-06-11",
+    "descricao": "Tranf. de undefined: Pagamento cartão SICOOB CARD MASTER",
+    "valor": 329.31,
+    "fatura_id": 36,
+    "conta_id": 34,
+    "categorias_financeiras": {
+      "nome": "Transferência"
+    },
+    "contas_financeiras": {
+      "nome": "0 - CARTÃO - SICOOBCARD AC CREDI (7841)"
+    }
+  },
+  {
+    "id": 7628,
+    "data_transacao": "2025-05-20",
+    "descricao": "Tranf. de undefined: Pagamento cartão BANCO DO BRASIL OUROCARD ELO IGOR - REF MAI25",
+    "valor": 2578.06,
+    "fatura_id": 35,
+    "conta_id": 29,
+    "categorias_financeiras": {
+      "nome": "Transferência"
+    },
+    "contas_financeiras": {
+      "nome": "0 - CARTÃO - BANCO DO BRASIL IGOR (0753)"
+    }
+  },
+  {
+    "id": 7454,
+    "data_transacao": "2025-05-20",
+    "descricao": "Tranf. de undefined: Pagamento cartão CAIXA ELO EMPRESARIAL - REF MAI25",
+    "valor": 6962.46,
+    "fatura_id": 16,
+    "conta_id": 33,
+    "categorias_financeiras": {
+      "nome": "Transferência"
+    },
+    "contas_financeiras": {
+      "nome": "0 - CARTÃO - CAIXA (2399)"
+    }
+  },
+  {
+    "id": 7626,
+    "data_transacao": "2025-05-20",
+    "descricao": "Tranf. de undefined: Pagamento cartão BANCO DO BRASIL OUROCARD ELO SÔNIA - REF MAI25",
+    "valor": 160.77,
+    "fatura_id": 13,
+    "conta_id": 27,
+    "categorias_financeiras": {
+      "nome": "Transferência"
+    },
+    "contas_financeiras": {
+      "nome": "0 - CARTÃO - BANCO DO BRASIL SÔNIA (4724)"
+    }
+  },
+  {
+    "id": 7557,
+    "data_transacao": "2025-05-12",
+    "descricao": "Tranf. de undefined: Pagamento cartão SICOOB CARD MASTER",
+    "valor": 644.97,
+    "fatura_id": 19,
+    "conta_id": 34,
+    "categorias_financeiras": {
+      "nome": "Transferência"
+    },
+    "contas_financeiras": {
+      "nome": "0 - CARTÃO - SICOOBCARD AC CREDI (7841)"
+    }
+  },
+  {
+    "id": 7551,
+    "data_transacao": "2025-04-24",
+    "descricao": "Tranf. de undefined: Pagamento cartão CAIXA ELO EMPRESARIAL",
+    "valor": 4282.2,
+    "fatura_id": 42,
+    "conta_id": 33,
+    "categorias_financeiras": {
+      "nome": "Transferência"
+    },
+    "contas_financeiras": {
+      "nome": "0 - CARTÃO - CAIXA (2399)"
+    }
+  },
+  {
+    "id": 7622,
+    "data_transacao": "2025-04-22",
+    "descricao": "Tranf. de undefined: Pagamento cartão BANCO DO BRASIL OUROCARD ELO SÔNIA - ABR25",
+    "valor": 160.77,
+    "fatura_id": 8,
+    "conta_id": 27,
+    "categorias_financeiras": {
+      "nome": "Transferência"
+    },
+    "contas_financeiras": {
+      "nome": "0 - CARTÃO - BANCO DO BRASIL SÔNIA (4724)"
+    }
+  },
+  {
+    "id": 7624,
+    "data_transacao": "2025-04-22",
+    "descricao": "Tranf. de undefined: Pagamento cartão BANCO DO BRASIL OUROCARD ELO IGOR - REF ABR25 ",
+    "valor": 3123.4,
+    "fatura_id": 10,
+    "conta_id": 29,
+    "categorias_financeiras": {
+      "nome": "Transferência"
+    },
+    "contas_financeiras": {
+      "nome": "0 - CARTÃO - BANCO DO BRASIL IGOR (0753)"
+    }
+  },
+  {
+    "id": 7549,
+    "data_transacao": "2025-04-11",
+    "descricao": "Tranf. de undefined: Pagamento cartão SICOOB CARD MASTER",
+    "valor": 1116.84,
+    "fatura_id": 30,
+    "conta_id": 34,
+    "categorias_financeiras": {
+      "nome": "Transferência"
+    },
+    "contas_financeiras": {
+      "nome": "0 - CARTÃO - SICOOBCARD AC CREDI (7841)"
+    }
+  },
+  {
+    "id": 7618,
+    "data_transacao": "2025-03-20",
+    "descricao": "Tranf. de undefined: Pagamento cartão OUROCARD ELO IGOR - MAR25",
+    "valor": 1950.88,
+    "fatura_id": 49,
+    "conta_id": 29,
+    "categorias_financeiras": {
+      "nome": "Transferência"
+    },
+    "contas_financeiras": {
+      "nome": "0 - CARTÃO - BANCO DO BRASIL IGOR (0753)"
+    }
+  },
+  {
+    "id": 7620,
+    "data_transacao": "2025-03-20",
+    "descricao": "Tranf. de undefined: Pagamento cartão OUROCARD ELO SÔNIA - MAR25",
+    "valor": 160.77,
+    "fatura_id": 3,
+    "conta_id": 27,
+    "categorias_financeiras": {
+      "nome": "Transferência"
+    },
+    "contas_financeiras": {
+      "nome": "0 - CARTÃO - BANCO DO BRASIL SÔNIA (4724)"
+    }
+  },
+  {
+    "id": 7542,
+    "data_transacao": "2025-03-11",
+    "descricao": "Tranf. de undefined: Pagamento cartão SICOOB CARD MASTER",
+    "valor": 743.57,
+    "fatura_id": 25,
+    "conta_id": 34,
+    "categorias_financeiras": {
+      "nome": "Transferência"
+    },
+    "contas_financeiras": {
+      "nome": "0 - CARTÃO - SICOOBCARD AC CREDI (7841)"
+    }
+  },
+  {
+    "id": 7616,
+    "data_transacao": "2025-02-20",
+    "descricao": "Tranf. de undefined: Pagamento cartão OUROCARD ELO SÔNIA - REF FEV25",
+    "valor": 160.77,
+    "fatura_id": 52,
+    "conta_id": 27,
+    "categorias_financeiras": {
+      "nome": "Transferência"
+    },
+    "contas_financeiras": {
+      "nome": "0 - CARTÃO - BANCO DO BRASIL SÔNIA (4724)"
+    }
+  },
+  {
+    "id": 7614,
+    "data_transacao": "2025-02-20",
+    "descricao": "Tranf. de undefined: Pagamento cartão OUROCARD ELO IGOR - REF FEV25",
+    "valor": 3151.01,
+    "fatura_id": 47,
+    "conta_id": 29,
+    "categorias_financeiras": {
+      "nome": "Transferência"
+    },
+    "contas_financeiras": {
+      "nome": "0 - CARTÃO - BANCO DO BRASIL IGOR (0753)"
+    }
+  },
+  {
+    "id": 7476,
+    "data_transacao": "2025-02-11",
+    "descricao": "Tranf. de undefined: Pagamento cartão SICOOB CARD MASTER",
+    "valor": 2447.95,
+    "fatura_id": 39,
+    "conta_id": 34,
+    "categorias_financeiras": {
+      "nome": "Transferência"
+    },
+    "contas_financeiras": {
+      "nome": "0 - CARTÃO - SICOOBCARD AC CREDI (7841)"
+    }
+  },
+  {
+    "id": 7612,
+    "data_transacao": "2025-01-20",
+    "descricao": "Tranf. de undefined: Pagamento cartão OUROCARD ELO SÔNIA - REF JAN25",
+    "valor": 160.77,
+    "fatura_id": 51,
+    "conta_id": 27,
+    "categorias_financeiras": {
+      "nome": "Transferência"
+    },
+    "contas_financeiras": {
+      "nome": "0 - CARTÃO - BANCO DO BRASIL SÔNIA (4724)"
+    }
+  },
+  {
+    "id": 7610,
+    "data_transacao": "2025-01-20",
+    "descricao": "Tranf. de undefined: Pagamento cartão OUROCARD ELO IGOR - REF JAN25",
+    "valor": 2194.4,
+    "fatura_id": 12,
+    "conta_id": 29,
+    "categorias_financeiras": {
+      "nome": "Transferência"
+    },
+    "contas_financeiras": {
+      "nome": "0 - CARTÃO - BANCO DO BRASIL IGOR (0753)"
+    }
+  },
+  {
+    "id": 7470,
+    "data_transacao": "2025-01-11",
+    "descricao": "Tranf. de undefined:  Pagamento cartão SICOOB CARD MASTER",
+    "valor": 604.59,
+    "fatura_id": 21,
+    "conta_id": 34,
+    "categorias_financeiras": {
+      "nome": "Transferência"
+    },
+    "contas_financeiras": {
+      "nome": "0 - CARTÃO - SICOOBCARD AC CREDI (7841)"
+    }
+  },
+  {
+    "id": 7605,
+    "data_transacao": "2024-12-20",
+    "descricao": "Tranf. de undefined: Pagamento cartão OUROCARD ELO IGOR - REF DEZ24",
+    "valor": 2305.6,
+    "fatura_id": 55,
+    "conta_id": 29,
+    "categorias_financeiras": {
+      "nome": "Transferência"
+    },
+    "contas_financeiras": {
+      "nome": "0 - CARTÃO - BANCO DO BRASIL IGOR (0753)"
+    }
+  },
+  {
+    "id": 7607,
+    "data_transacao": "2024-12-20",
+    "descricao": "Tranf. de undefined: Pagamento cartão OUROCARD ELO SÔNIA - REF DEZ24",
+    "valor": 493.77,
+    "fatura_id": 28,
+    "conta_id": 27,
+    "categorias_financeiras": {
+      "nome": "Transferência"
+    },
+    "contas_financeiras": {
+      "nome": "0 - CARTÃO - BANCO DO BRASIL SÔNIA (4724)"
+    }
+  },
+  {
+    "id": 7602,
+    "data_transacao": "2024-11-21",
+    "descricao": "Tranf. de undefined: Pagamento cartão OUROCARD ELO SONIA - REF NOV25",
+    "valor": 507.6,
+    "fatura_id": 54,
+    "conta_id": 27,
+    "categorias_financeiras": {
+      "nome": "Transferência"
+    },
+    "contas_financeiras": {
+      "nome": "0 - CARTÃO - BANCO DO BRASIL SÔNIA (4724)"
+    }
+  },
+  {
+    "id": 7600,
+    "data_transacao": "2024-11-11",
+    "descricao": "Tranf. de undefined: Pagamento cartão OUROCARD ELO IGOR - REF NOV24",
+    "valor": 77.33,
+    "fatura_id": 50,
+    "conta_id": 29,
+    "categorias_financeiras": {
+      "nome": "Transferência"
+    },
+    "contas_financeiras": {
+      "nome": "0 - CARTÃO - BANCO DO BRASIL IGOR (0753)"
+    }
+  },
+  {
+    "id": 7596,
+    "data_transacao": "2024-10-21",
+    "descricao": "Tranf. de undefined:  Pagamento cartão OUROCARD ELO",
+    "valor": 493.79,
+    "fatura_id": 48,
+    "conta_id": 27,
+    "categorias_financeiras": {
+      "nome": "Transferência"
+    },
+    "contas_financeiras": {
+      "nome": "0 - CARTÃO - BANCO DO BRASIL SÔNIA (4724)"
+    }
+  }
+]

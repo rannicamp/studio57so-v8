@@ -45,17 +45,20 @@ export default function PagamentoFaturaModal({ isOpen, onClose, onSuccess, conta
         const organizacaoId = user.organizacao_id;
 
         try {
+            const transferenciaId = crypto.randomUUID();
+
             // 1. Saída da Conta Corrente (Despesa)
             const lancamentoOrigem = {
                 descricao: `Pagamento Fatura ${contaCartao.nome}`,
                 valor: formData.valor,
                 tipo: 'Despesa',
+                categoria_id: 370,
                 conta_id: formData.conta_origem_id,
                 data_transacao: formData.data_pagamento,
                 data_pagamento: formData.data_pagamento,
                 status: 'Pago',
                 conciliado: true, // Já nasce conciliado pois é interno
-                // transferencia_id: transferenciaId, ---> REMOVIDO: Para não sumir quando o usuário filtrar "Ocultar Transferências"
+                transferencia_id: transferenciaId, // Restaurado! Cria o vínculo invulnerável da regra de ouro
                 organizacao_id: organizacaoId,
                 observacao: formData.observacao
             };
@@ -65,12 +68,13 @@ export default function PagamentoFaturaModal({ isOpen, onClose, onSuccess, conta
                 descricao: `Pagamento Recebido - Fatura`,
                 valor: formData.valor,
                 tipo: 'Receita',
+                categoria_id: 370,
                 conta_id: contaCartao.id,
                 data_transacao: formData.data_pagamento,
                 data_pagamento: formData.data_pagamento,
                 status: 'Pago',
                 conciliado: true,
-                // transferencia_id: transferenciaId, ---> REMOVIDO pelo mesmo motivo da despesa
+                transferencia_id: transferenciaId, // O Gêmeo no Cartão de Crédito
                 organizacao_id: organizacaoId,
                 observacao: formData.observacao
             };

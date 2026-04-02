@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '../../utils/supabase/client';
 import { useAuth } from '../../contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner, faLandmark, faArrowUp, faArrowDown, faAngleRight, faTrash, faHandHoldingDollar, faCheckCircle, faExclamationTriangle, faFileAlt, faChevronDown, faChevronRight, faTimes, faCheck, faMagic, faEye, faExpand, faFolderOpen, faExchangeAlt, faSearch, faSort, faSync } from '@fortawesome/free-solid-svg-icons';
+import { faSpinner, faLandmark, faArrowUp, faArrowDown, faAngleRight, faTrash, faHandHoldingDollar, faCheckCircle, faExclamationTriangle, faFileAlt, faChevronDown, faChevronRight, faTimes, faCheck, faMagic, faEye, faExpand, faFolderOpen, faExchangeAlt, faSearch, faSort, faSync, faArrowRightArrowLeft } from '@fortawesome/free-solid-svg-icons';
 import { format, parseISO, isBefore, startOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
@@ -331,14 +331,88 @@ export default function ExtratoCartaoManager({ contasCartao }) {
                 await supabase.from('faturas_cartao').upsert(upserts, { onConflict: 'conta_id,mes_referencia', ignoreDuplicates: true });
             }
 
-            const { data, error } = await supabase
+            const { data: faturasDB, error } = await supabase
                 .from('faturas_cartao')
                 .select('*')
                 .eq('conta_id', contaSelecionadaId)
-                .order('data_vencimento', { ascending: false });
+                .order('data_vencimento', { ascending: true }); // Crescente para calc cascata
 
             if (error) throw error;
-            return data || [];
+
+            // Busca TODOS os lançamentos da conta de cartão para montarmos os balanços
+            const { data: lancsData } = await supabase
+                .from('lancamentos')
+                .select('fatura_id, valor, tipo, categoria_id, categorias_financeiras(nome)')
+                .eq('conta_id', contaSelecionadaId)
+                .eq('organizacao_id', organizacaoId);
+
+            const lancsPorFatura = {};
+            (lancsData || []).forEach(l => {
+                if (!l.fatura_id) return;
+                
+                // Tratar retorno relacional do Supabase (Array ou Objeto)
+                let nomeCat = '';
+                if (l.categorias_financeiras) {
+                    nomeCat = (Array.isArray(l.categorias_financeiras) ? l.categorias_financeiras[0]?.nome : l.categorias_financeiras.nome) || '';
+                }
+
+                const isPagamento = l.categoria_id === 370 || nomeCat.toLowerCase().includes('pagamento de fatura');
+                
+                if (!lancsPorFatura[l.fatura_id]) {
+                    lancsPorFatura[l.fatura_id] = { gastos: 0, pagamentos: 0 };
+                }
+                
+                const v = Math.abs(Number(l.valor) || 0);
+                if (isPagamento) {
+                    if (l.tipo === 'Receita') lancsPorFatura[l.fatura_id].pagamentos += v;
+                    else if (l.tipo === 'Despesa') lancsPorFatura[l.fatura_id].pagamentos -= v;
+                } else {
+                    if (l.tipo === 'Despesa') lancsPorFatura[l.fatura_id].gastos += v;
+                    if (l.tipo === 'Receita') lancsPorFatura[l.fatura_id].gastos -= v;
+                }
+            });
+
+            let saldoRolado = 0;
+            const faturasCresc = (faturasDB || []).map(f => {
+                const ag = lancsPorFatura[f.id] || { gastos: 0, pagamentos: 0 };
+                const saldoAnterior = saldoRolado;
+                const saldoAtual = saldoAnterior + ag.gastos - ag.pagamentos;
+                saldoRolado = saldoAtual;
+
+                return {
+                    ...f,
+                    saldoAnterior,
+                    gastosMes: ag.gastos,
+                    pgmtosMes: ag.pagamentos,
+                    saldoAtual
+                };
+            });
+
+            // Cachoeira Retroativa (Waterfall de Dívida)
+            // Se o usuário paga faturas mais tarde, o pagamento limpa as faturas passadas primeiro (LIFO de crédito).
+            let remainingDebt = Math.max(0, saldoRolado);
+
+            const faturasEnriquecidas = faturasCresc.reverse().map(f => {
+                let isPaga = true;
+
+                // Se houver dívida global pendente escorrendo pra trás, a fatura atual absorve essa dívida baseada nos gastos que ela causou.
+                if (remainingDebt > 0.05) {
+                    isPaga = false; // A dívida global ainda a afeta
+                    remainingDebt -= f.gastosMes; 
+                }
+
+                // Proteção: Se a foto congelada da fatura NAQUELA época já era <= 0, ela está inquestionavelmente paga.
+                if (f.saldoAtual <= 0.05) {
+                    isPaga = true;
+                }
+
+                return {
+                    ...f,
+                    isPaga
+                };
+            });
+
+            return faturasEnriquecidas;
         },
         enabled: !!contaSelecionadaId && !!organizacaoId
     });
@@ -386,8 +460,14 @@ export default function ExtratoCartaoManager({ contasCartao }) {
                 const valorAbsoluto = Math.abs(Number(lanc.valor));
                 const entrada = lanc.tipo === 'Receita' ? valorAbsoluto : 0;
                 const saida = lanc.tipo === 'Despesa' ? valorAbsoluto : 0;
-                totalDespesas += saida;
-                totalCreditos += entrada;
+
+                // Regra de Ouro: Pagamento de Fatura de Cartão (ID 370) entra na listagem visual,
+                // mas NÃO é somado nos KPIs de "Créditos/Estornos" para não zerar o card "Total da Fatura" que o usuário quer enxergar.
+                const isPagamentoCartao = lanc.categoria_id === 370 || (lanc.categoria?.nome && typeof lanc.categoria.nome === 'string' && lanc.categoria.nome.toLowerCase().includes('pagamento de fatura'));
+                if (!isPagamentoCartao) {
+                    totalDespesas += saida;
+                    totalCreditos += entrada;
+                }
 
                 const status_exibicao = lanc.fitid_banco ? 'Conciliado' : lanc.status;
                 const l = { ...lanc, entrada, saida, status_exibicao };
@@ -889,17 +969,19 @@ export default function ExtratoCartaoManager({ contasCartao }) {
                                                     Venc. {format(parseISO(fatura.data_vencimento), 'dd/MM/yyyy')}
                                                 </div>
                                                 <div className="mt-1 flex gap-1 flex-wrap">
-                                                    {isAtrasada && fatura.status !== 'Pago' ? (
+                                                    {isAtrasada && !fatura.isPaga ? (
                                                         <span className="px-2.5 py-1 text-[10px] font-bold rounded-full bg-red-50 text-red-700 border border-red-200 uppercase">Atrasada</span>
                                                     ) : isFaturaAtual ? (
-                                                        <span className="px-2.5 py-1 text-[10px] font-bold rounded-full bg-green-50 text-green-700 border border-green-200 uppercase">Atual (Aberta)</span>
+                                                        <span className="px-2.5 py-1 text-[10px] font-bold rounded-full bg-blue-50 text-blue-700 border border-blue-200 uppercase">Atual (Aberta)</span>
                                                     ) : (
                                                         <span className="px-2.5 py-1 text-[10px] font-bold rounded-full bg-gray-50 text-gray-500 border border-gray-200 uppercase">
-                                                            {isInFuturo && fatura.status !== 'Pago' ? 'Futura' : 'Anterior'}
+                                                            {isInFuturo && !fatura.isPaga ? 'Futura' : 'Anterior'}
                                                         </span>
                                                     )}
-                                                    {fatura.status === 'Pago' && (
-                                                        <span className="px-2.5 py-1 text-[10px] font-bold rounded-full bg-green-50 text-green-700 border border-green-200 uppercase">Paga</span>
+                                                    {fatura.isPaga && (
+                                                        <span className="px-2.5 py-1 text-[10px] font-bold rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 uppercase flex items-center gap-1 shadow-sm">
+                                                            <FontAwesomeIcon icon={faCheckCircle} /> Paga
+                                                        </span>
                                                     )}
                                                     {arquivosFatura.length > 0 && (
                                                         <span className="text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wide bg-purple-100 text-purple-700">
@@ -1016,7 +1098,7 @@ export default function ExtratoCartaoManager({ contasCartao }) {
                                 </h2>
                                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                                     <div className="bg-red-50 p-3 rounded-lg border border-red-100 shadow-sm">
-                                        <p className="text-[10px] font-bold text-red-700 uppercase"><FontAwesomeIcon icon={faArrowDown} className="mr-1" /> Despesas</p>
+                                        <p className="text-[10px] font-bold text-red-700 uppercase"><FontAwesomeIcon icon={faArrowDown} className="mr-1" /> Despesas (Mês)</p>
                                         <p className="text-sm font-semibold text-red-700 mt-1">-{formatCurrency(extratoData.saidas)}</p>
                                     </div>
                                     <div className="bg-green-50 p-3 rounded-lg border border-green-100 shadow-sm">
@@ -1024,9 +1106,9 @@ export default function ExtratoCartaoManager({ contasCartao }) {
                                         <p className="text-sm font-semibold text-green-700 mt-1">+{formatCurrency(extratoData.entradas)}</p>
                                     </div>
                                     <div className="bg-blue-50 p-3 rounded-lg border border-blue-200 shadow-sm">
-                                        <p className="text-[10px] font-bold text-blue-700 uppercase">Total a Pagar</p>
-                                        <p className={`text-sm font-bold mt-1 ${extratoData.saldoFatura < 0 ? 'text-red-600' : 'text-blue-800'}`}>
-                                            {formatCurrency(extratoData.saldoFatura)}
+                                        <p className="text-[10px] font-bold text-blue-700 uppercase">Total A Pagar (Acumulado)</p>
+                                        <p className={`text-sm font-bold mt-1 text-blue-800`}>
+                                            {formatCurrency(faturaAtiva?.saldoAtual)}
                                         </p>
                                     </div>
                                 </div>
@@ -1054,7 +1136,30 @@ export default function ExtratoCartaoManager({ contasCartao }) {
                             )}
 
                             {/* Lista de Movimentações */}
-                            <div className="divide-y divide-gray-100">
+                            <div className="divide-y divide-gray-100 relative">
+                                
+                                {/* Linha Fantasma: Saldo Herdado do Mês Anterior */}
+                                {faturaAtiva && faturaAtiva.saldoAnterior > 0.05 && (
+                                    <div className="flex items-center justify-between p-4 bg-orange-50/80 border-b border-orange-100 z-10 shadow-[0_2px_4px_-1px_rgba(0,0,0,0.02)]">
+                                        <div className="flex items-center gap-3">
+                                            <div className="flex-shrink-0 w-8 md:w-16 text-center text-orange-400">
+                                                <FontAwesomeIcon icon={faArrowRightArrowLeft} />
+                                            </div>
+                                            <div className="flex-1">
+                                                <p className="text-xs uppercase font-bold text-orange-800 tracking-wide">Rolagem de Dívida: Saldo Fatura Anterior</p>
+                                                <p className="text-[10px] text-orange-600">Este valor foi repassado integralmente para este mês.</p>
+                                            </div>
+                                        </div>
+                                        <div className="text-right flex-shrink-0">
+                                            <p className="text-sm font-bold text-red-600">
+                                                -{formatCurrency(faturaAtiva.saldoAnterior)}
+                                            </p>
+                                        </div>
+                                        {/* Espaçadores vazios para simular as colunas no mobile/desktop iguais à row comum */}
+                                        <div className="hidden sm:block flex-shrink-0 w-16 invisible"></div>
+                                    </div>
+                                )}
+
                                 {extratoData.itens.length === 0 ? (
                                     <div className="p-8 text-center text-gray-500">
                                         Nenhuma movimentação encontrada nesta fatura.

@@ -1,0 +1,7 @@
+{
+  "artifactType":  "ARTIFACT_TYPE_IMPLEMENTATION_PLAN",
+  "summary":  "Plano de implementação de rolagem de saldo em cascata para faturas de cartão. Transformando as faturas lógicas em um modelo contábil de passivos contínuos, com saldo anterior e abatimento automático através de pagamento parciais ou totais.",
+  "updatedAt":  "2026-04-02T20:01:19.568296Z",
+  "version":  "2",
+  "requestFeedback":  true
+}

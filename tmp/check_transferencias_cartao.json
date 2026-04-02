@@ -1,0 +1,207 @@
+{
+  "total": 157,
+  "comTransferencia": 62,
+  "comFatura": 157,
+  "comCategoria": [
+    [
+      "Transferência",
+      60
+    ],
+    [
+      "Cashback",
+      2
+    ],
+    [
+      "Crédito parcelamento lojista",
+      19
+    ],
+    [
+      "Residencial Alfa",
+      17
+    ],
+    [
+      "Nenhuma",
+      7
+    ],
+    [
+      "Estorno",
+      20
+    ],
+    [
+      "Descontos obtidos",
+      5
+    ],
+    [
+      "Receitas Financeiras",
+      8
+    ],
+    [
+      "Antecipação de Recebíveis",
+      10
+    ],
+    [
+      "Transferência ",
+      1
+    ],
+    [
+      "Ajuste crédito lojista",
+      1
+    ],
+    [
+      "Financeiras",
+      7
+    ]
+  ],
+  "amostra": [
+    {
+      "id": 16873,
+      "descricao": "Tranf. de 756 - SICOOB Ac Credi Incorporação: DÉB.TIT.COMPE EFETIVADO",
+      "valor": 214.38,
+      "data_transacao": "2026-03-20",
+      "status": "Conciliado",
+      "transferencia_id": "4f0a25b3-8735-4263-949e-41ebf872fd7a",
+      "fatura_id": 59,
+      "contas_financeiras": {
+        "nome": "0 - CARTÃO - BANCO DO BRASIL IGOR (0753)"
+      },
+      "categorias_financeiras": {
+        "nome": "Transferência"
+      }
+    },
+    {
+      "id": 16875,
+      "descricao": "Tranf. de 756 - SICOOB Crediriodoce Incorporação: PAGAMENTO CARTÃO CAIXA - REF MAR26 (PARCIAL)",
+      "valor": 1000,
+      "data_transacao": "2026-03-20",
+      "status": "Conciliado",
+      "transferencia_id": "cf96ee97-a5ea-4629-a325-a66bfe8e2ad8",
+      "fatura_id": 7,
+      "contas_financeiras": {
+        "nome": "0 - CARTÃO - CAIXA (2399)"
+      },
+      "categorias_financeiras": {
+        "nome": "Transferência"
+      }
+    },
+    {
+      "id": 16890,
+      "descricao": "Tranf. de 756 - SICOOB Ac Credi Incorporação: PAGAMENTO CARTÃO - SICOOB AC CREDI - REF MAR26",
+      "valor": 1460.16,
+      "data_transacao": "2026-03-11",
+      "status": "Conciliado",
+      "transferencia_id": "b7b70f62-e18f-4c80-a133-61b54ff14191",
+      "fatura_id": 38,
+      "contas_financeiras": {
+        "nome": "0 - CARTÃO - SICOOBCARD AC CREDI (7841)"
+      },
+      "categorias_financeiras": {
+        "nome": "Transferência"
+      }
+    },
+    {
+      "id": 13630,
+      "descricao": "CASHBACK ANUIDADE GASTOS ADIC",
+      "valor": 15,
+      "data_transacao": "2026-03-10",
+      "status": "Pago",
+      "transferencia_id": null,
+      "fatura_id": 7,
+      "contas_financeiras": {
+        "nome": "0 - CARTÃO - CAIXA (2399)"
+      },
+      "categorias_financeiras": {
+        "nome": "Cashback"
+      }
+    },
+    {
+      "id": 16843,
+      "descricao": "Tranf. de 756 - SICOOB Crediriodoce Incorporação: DÉB. PAGAMENTO DE BOLETO INTERCREDIS",
+      "valor": 4718.97,
+      "data_transacao": "2026-03-09",
+      "status": "Conciliado",
+      "transferencia_id": "2b4870e1-29c6-4781-8002-868b3438c6f1",
+      "fatura_id": 65,
+      "contas_financeiras": {
+        "nome": "0 - CARTÃO - SICOOB CREDIORIODOCE (6482)"
+      },
+      "categorias_financeiras": {
+        "nome": "Transferência"
+      }
+    },
+    {
+      "id": 16699,
+      "descricao": "AJUSTE CREDITO PARC. LOJISTAA",
+      "valor": 0.08,
+      "data_transacao": "2026-02-26",
+      "status": "Pago",
+      "transferencia_id": null,
+      "fatura_id": 7,
+      "contas_financeiras": {
+        "nome": "0 - CARTÃO - CAIXA (2399)"
+      },
+      "categorias_financeiras": {
+        "nome": "Crédito parcelamento lojista"
+      }
+    },
+    {
+      "id": 16700,
+      "descricao": "AJUSTE CREDITO PARC. LOJISTAA",
+      "valor": 0.05,
+      "data_transacao": "2026-02-25",
+      "status": "Pago",
+      "transferencia_id": null,
+      "fatura_id": 7,
+      "contas_financeiras": {
+        "nome": "0 - CARTÃO - CAIXA (2399)"
+      },
+      "categorias_financeiras": {
+        "nome": "Crédito parcelamento lojista"
+      }
+    },
+    {
+      "id": 16697,
+      "descricao": "AJUSTE CREDITO PARC. LOJISTAA",
+      "valor": 0.02,
+      "data_transacao": "2026-02-24",
+      "status": "Pago",
+      "transferencia_id": null,
+      "fatura_id": 7,
+      "contas_financeiras": {
+        "nome": "0 - CARTÃO - CAIXA (2399)"
+      },
+      "categorias_financeiras": {
+        "nome": "Crédito parcelamento lojista"
+      }
+    },
+    {
+      "id": 16696,
+      "descricao": "AJUSTE CREDITO PARC. LOJISTAA",
+      "valor": 0.05,
+      "data_transacao": "2026-02-24",
+      "status": "Pago",
+      "transferencia_id": null,
+      "fatura_id": 7,
+      "contas_financeiras": {
+        "nome": "0 - CARTÃO - CAIXA (2399)"
+      },
+      "categorias_financeiras": {
+        "nome": "Crédito parcelamento lojista"
+      }
+    },
+    {
+      "id": 16694,
+      "descricao": "AJUSTE CREDITO PARC. LOJISTAA",
+      "valor": 0.02,
+      "data_transacao": "2026-02-23",
+      "status": "Pago",
+      "transferencia_id": null,
+      "fatura_id": 7,
+      "contas_financeiras": {
+        "nome": "0 - CARTÃO - CAIXA (2399)"
+      },
+      "categorias_financeiras": {
+        "nome": "Crédito parcelamento lojista"
+      }
+    }
+  ]
+}

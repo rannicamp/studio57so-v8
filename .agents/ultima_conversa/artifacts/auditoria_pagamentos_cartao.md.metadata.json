@@ -1,0 +1,6 @@
+{
+  "artifactType":  "ARTIFACT_TYPE_OTHER",
+  "summary":  "Levantamento e auditoria em tabela de todas as receitas de cartão de crédito. Dividido detalhadamente por categoria para identificar estornos, transferências e ajustes.",
+  "updatedAt":  "2026-04-02T18:58:55.622261800Z",
+  "version":  "1"
+}
