@@ -138,6 +138,7 @@ export function useChatMessages(conversationId) {
 // 3. Hook Mutation para Enviar msg 
 export function useSendMessage() {
     const supabase = createClient();
+    const queryClient = useQueryClient();
 
     return useMutation({
         mutationFn: async ({ conversationId, senderId, conteudo }) => {
@@ -155,6 +156,18 @@ export function useSendMessage() {
 
             if (error) throw error;
             return data;
+        },
+        onSuccess: (data) => {
+            if (data && data.conversation_id) {
+                // Atualiza a tela de mensagens instantaneamente
+                queryClient.setQueryData(['chat_messages', data.conversation_id], (oldData) => {
+                    if (!oldData) return [data];
+                    if (oldData.find(msg => msg.id === data.id)) return oldData;
+                    return [...oldData, data];
+                });
+                // Invalida a lista de conversas para atualizar a última mensagem
+                queryClient.invalidateQueries({ queryKey: ['chat_conversations_list'] });
+            }
         }
     });
 }
