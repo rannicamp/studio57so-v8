@@ -70,7 +70,60 @@ export default function ReciboModal({ isOpen, onClose, lancamento: initialLancam
     const valorPorExtenso = useMemo(() => numeroParaExtenso(lancamentoCompleto?.valor), [lancamentoCompleto]);
 
     const handlePrint = () => {
-        window.print();
+        const printContent = document.getElementById('recibo-imprimivel');
+        if (!printContent) {
+            window.print();
+            return;
+        }
+
+        // Criamos um iframe invisível. Isso isola o recibo do resto da página,
+        // garantindo que as 7 folhas fantasmas da tabela de fundo NÃO sejam impressas!
+        const iframe = document.createElement('iframe');
+        iframe.style.position = 'absolute';
+        iframe.style.width = '0px';
+        iframe.style.height = '0px';
+        iframe.style.border = 'none';
+        document.body.appendChild(iframe);
+
+        // Copiamos os estilos (Tailwind) do projeto para dentro do iframe
+        const styleLinks = Array.from(document.querySelectorAll('link[rel="stylesheet"], style'))
+            .map(node => node.outerHTML)
+            .join('\n');
+
+        const doc = iframe.contentWindow?.document;
+        if (doc) {
+            doc.open();
+            doc.write(`
+                <html>
+                    <head>
+                        <title>Recibo</title>
+                        ${styleLinks}
+                        <style>
+                            @page { size: auto; margin: 15mm; }
+                            body { margin: 0; background: white !important; -webkit-print-color-adjust: exact; }
+                            /* Sobrescrevemos o comportamento do globals.css para evitar que a s57-print-area quebre no iframe */
+                            .s57-print-area { position: relative !important; top: auto !important; left: auto !important; width: 100% !important; margin: 0 auto !important; box-shadow: none !important; }
+                        </style>
+                    </head>
+                    <body>
+                        ${printContent.outerHTML}
+                    </body>
+                </html>
+            `);
+            doc.close();
+
+            // Damos 250ms pro navegador aplicar os estilos antes de abrir o diálogo
+            setTimeout(() => {
+                iframe.contentWindow?.focus();
+                iframe.contentWindow?.print();
+                
+                // Removemos o iframe da memória depois de um tempo
+                setTimeout(() => document.body.removeChild(iframe), 2000);
+            }, 250);
+        } else {
+            // Fallback se o navegador bloquear o iframe
+            window.print();
+        }
     };
 
     if (!isOpen) return null;
