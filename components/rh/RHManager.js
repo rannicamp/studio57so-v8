@@ -6,10 +6,11 @@ import { useAuth } from '../../contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
     faSpinner, faUsers, faUpload, faUserCheck, faUserSlash, 
-    faUserTie, faUserCircle, faBriefcase, faSearch, faChevronDown
+    faUserTie, faUserCircle, faBriefcase, faSearch, faChevronDown, faPlus
 } from '@fortawesome/free-solid-svg-icons';
 import ColaboradorDetailPanel from './ColaboradorDetailPanel';
 import PontoImporter from './PontoImporter'; 
+import FuncionarioModal from './FuncionarioModal';
 
 export default function RHManager() {
     const supabase = createClient();
@@ -33,8 +34,9 @@ export default function RHManager() {
     const [selectedEmployeeId, setSelectedEmployeeId] = useState(null);
     const [isCandidateSelected, setIsCandidateSelected] = useState(false);
 
-    // Modal Global de Importação de Ponto
+    // Modal Global de Importação de Ponto e Novo Colaborador
     const [isPontoModalOpen, setIsPontoModalOpen] = useState(false);
+    const [isFuncionarioModalOpen, setIsFuncionarioModalOpen] = useState(false);
 
     const fetchAllData = useCallback(async () => {
         if (!organizacaoId) return;
@@ -158,7 +160,13 @@ export default function RHManager() {
                     </div>
                 </div>
 
-                <div className="text-right flex items-center gap-4 w-full md:w-auto mt-2 md:mt-0">
+                <div className="text-right flex flex-col md:flex-row items-center gap-3 w-full md:w-auto mt-2 md:mt-0">
+                    <button
+                        onClick={() => setIsFuncionarioModalOpen(true)}
+                        className="bg-blue-600 hover:bg-blue-700 text-white text-xs md:text-sm font-bold px-5 py-2.5 rounded-xl shadow-md flex items-center gap-2 transition-transform hover:-translate-y-0.5 w-full justify-center md:w-auto"
+                    >
+                        <FontAwesomeIcon icon={faPlus} /> Novo Colaborador
+                    </button>
                     <button
                         onClick={() => setIsPontoModalOpen(true)}
                         className="bg-purple-600 hover:bg-purple-700 text-white text-xs md:text-sm font-bold px-5 py-2.5 rounded-xl shadow-md flex items-center gap-2 transition-transform hover:-translate-y-0.5 w-full justify-center md:w-auto"
@@ -280,7 +288,7 @@ export default function RHManager() {
                 </div>
             </div>
 
-            {/* Modal de Importação Ponto continua sendo modal por ser funcionalidade Externa/Global */}
+            {/* Modal Global de Importação Ponto continua sendo modal por ser funcionalidade Externa/Global */}
             {isPontoModalOpen && (
                 <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-300">
                     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl h-[90vh] flex flex-col overflow-hidden relative transform transition-all scale-100">
@@ -301,6 +309,16 @@ export default function RHManager() {
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* Modal de Criação de Novo Funcionário / Candidato */}
+            {isFuncionarioModalOpen && (
+                <FuncionarioModal
+                    isOpen={isFuncionarioModalOpen}
+                    onClose={() => setIsFuncionarioModalOpen(false)}
+                    initialData={null} // null significa que é uma criação nova
+                    onSaveSuccess={fetchAllData}
+                />
             )}
         </div>
     );

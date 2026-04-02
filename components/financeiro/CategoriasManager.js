@@ -145,6 +145,18 @@ export default function CategoriasManager() {
         setIsFormModalOpen(true);
     };
 
+    // Função para adicionar uma filha direta à categoria selecionada
+    const handleOpenAddSubModal = (parentCategoria) => {
+        // Envia como "initialData" parcial com a dica do pai e do tipo, não sendo uma edição real de um ID.
+        setEditingCategoria({
+            nome: '',
+            tipo: parentCategoria.tipo,
+            parent_id: parentCategoria.id
+        });
+        setDefaultModalType(parentCategoria.tipo);
+        setIsFormModalOpen(true);
+    };
+
     const CategoryList = ({ categories, level = 0 }) => (
         <ul className="divide-y border rounded-md">
             {categories.length === 0 && (
@@ -163,6 +175,13 @@ export default function CategoriasManager() {
                         <div className="flex items-center gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                             {cat.organizacao_id !== 1 && (
                                 <>
+                                    <button
+                                        onClick={() => handleOpenAddSubModal(cat)}
+                                        className="p-1.5 text-green-500 hover:text-green-700 hover:bg-green-50 rounded-md transition-colors"
+                                        title="Nova Subcategoria"
+                                    >
+                                        <FontAwesomeIcon icon={faPlus} />
+                                    </button>
                                     <button
                                         onClick={() => handleOpenEditModal(cat)}
                                         className="p-1.5 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-md transition-colors"

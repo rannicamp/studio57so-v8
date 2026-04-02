@@ -1,47 +1,29 @@
-const { createClient } = require('@supabase/supabase-js');
-const fs = require('fs');
 require('dotenv').config({ path: '.env.local' });
+const { Client } = require('pg');
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY; // Bypass RLS
-const supabase = createClient(supabaseUrl, supabaseKey);
+async function run() {
+  const password = process.env.SUPABASE_DB_PASSWORD;
+  const baseHost = process.env.NEXT_PUBLIC_SUPABASE_URL.replace('https://', '').split('/')[0];
+  const projectId = baseHost.split('.')[0];
+  const host = `db.${projectId}.supabase.co`;
+  const connStr = `postgres://postgres:${password}@${host}:6543/postgres`;
 
-async function getFeedbacks() {
-  const { data: feedbacks, error } = await supabase
-    .from('feedback')
-    .select('*')
-    .in('status', ['Novo', 'Em Análise'])
-    .is('diagnostico', null);
-
-  if (error) {
-    console.error("Erro ao buscar feedbacks:", error);
-    return;
-  }
-
-  // Fetch author details
-  for (const fb of feedbacks) {
-    if (fb.usuario_id || fb.autor_id) {
-       const u_id = fb.usuario_id || fb.autor_id;
-       const { data: funcInfo } = await supabase.from('funcionarios').select('nome').eq('usuario_id', u_id).single();
-       if (funcInfo) {
-           fb.autor_nome = funcInfo.nome;
-       }
-    }
-    
-    if (fb.organizacao_id) {
-       const { data: orgInfo } = await supabase.from('organizacoes').select('entidade_principal_id, nome').eq('id', fb.organizacao_id).single();
-       if (orgInfo) {
-           fb.organizacao_nome = orgInfo.nome;
-           if (orgInfo.entidade_principal_id) {
-               const { data: empInfo } = await supabase.from('cadastro_empresa').select('razao_social, nome_fantasia').eq('id', orgInfo.entidade_principal_id).single();
-               if(empInfo) fb.empresa_nome = empInfo.razao_social || empInfo.nome_fantasia;
-           }
-       }
-    }
-  }
-
-  fs.writeFileSync('./tmp/feedbacks.json', JSON.stringify(feedbacks, null, 2));
-  console.log("Feedbacks saved to ./tmp/feedbacks.json");
+  const client = new Client({ connectionString: connStr });
+  await client.connect();
+  
+  const query = `
+    SELECT f.id, f.titulo, f.descricao, f.pagina, f.screenshot_url, f.status, f.diagnostico, f.criado_em,
+           f.criado_por_usuario_id,
+           u.raw_user_meta_data->>'name' as user_name,
+           u.email as user_email
+    FROM feedback f
+    LEFT JOIN auth.users u ON f.criado_por_usuario_id = u.id
+    WHERE f.status = 'Novo' AND (f.diagnostico IS NULL OR f.diagnostico = '')
+  `;
+  
+  const res = await client.query(query);
+  console.log(JSON.stringify(res.rows, null, 2));
+  
+  await client.end();
 }
-
-getFeedbacks();
+run().catch(console.error);
