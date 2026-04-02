@@ -1,0 +1,42 @@
+[
+  {
+    "id": 93,
+    "created_at": "2026-04-02T17:21:34.554819+00:00",
+    "usuario_id": "d7f4fa0d-419d-4950-adb3-ba2ebaa1527f",
+    "pagina": "/financeiro",
+    "descricao": "RECIBO IMPRIMINDO 4 FOLHAS IGUAIS",
+    "status": "Novo",
+    "captura_de_tela_url": null,
+    "organizacao_id": 2,
+    "link_opcional": null,
+    "imagem_url": "https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/feedbacks/prints/1775150490655-40pp4d-Captura%20de%20tela%202026-04-02%20142029.png",
+    "diagnostico": null,
+    "plano_solucao": null,
+    "usuarios": {
+      "nome": "ANA CAROLINA",
+      "organizacoes": {
+        "nome": "STUDIO 57"
+      }
+    }
+  },
+  {
+    "id": 94,
+    "created_at": "2026-04-02T17:28:08.873208+00:00",
+    "usuario_id": "d7f4fa0d-419d-4950-adb3-ba2ebaa1527f",
+    "pagina": "/financeiro",
+    "descricao": "DIMINUIR TAMANHO DO RECIBO, PRA PODER CABER DOIS RECIBOS EM UMA FOLHA NA HORA DA IMPRESSAO",
+    "status": "Novo",
+    "captura_de_tela_url": null,
+    "organizacao_id": 2,
+    "link_opcional": null,
+    "imagem_url": "https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/feedbacks/prints/1775150883002-wen5vii-Captura%20de%20tela%202026-04-02%20142029.png",
+    "diagnostico": null,
+    "plano_solucao": null,
+    "usuarios": {
+      "nome": "ANA CAROLINA",
+      "organizacoes": {
+        "nome": "STUDIO 57"
+      }
+    }
+  }
+]
