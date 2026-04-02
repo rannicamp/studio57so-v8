@@ -45,5 +45,5 @@ async function runAtualizacao(id, diagnostico, solucao) {
 4. Apresentar Relatório Gerencial
 - Ao finalizar a atualização do banco, gere um relatório completo usando Artifact. O nome deverá ser `feedbacks_pendentes.md`.
 - Ele deve conter os detalhes de cada ticket juntamente com as soluções mapeadas por você, **incluindo obrigatoriamente o nome de quem fez a solicitação e o nome respectivo da Organização (pesquisando pelas tabelas `auth.users`, `funcionarios` e `cadastro_empresa`).**
-- Quando um chamado for corrigido na hora ou não proceder, você deve alterar o status para `Implementado`. NUNCA utilize "Concluído" ou "Resolvido", pois o componente Kanban React do frontend da Studio 57 está hardcoded para mover os cards finalizados exclusivamente para a coluna de ID `Implementado`.
-- Finalmente, pergunte ao Ranniere qual daqueles planos de solução o sistema deve executar neste instante.
+- **REGRA DE OURO CRÍTICA: JAMAIS IMPLEMENTE A SOLUÇÃO AUTOMATICAMENTE SEM AUTORIZAÇÃO PRÉVIA.** A sua função na triagem é estritamente DIÁGNOSTICO e PLANEJAMENTO. Você é expressamente proibido de editar, refatorar ou modificar os arquivos de código `.js` ou `.css` do projeto durante este passo. O plano de solução deve ir apenas para o banco de dados e para o relatório.
+- Finalmente, pergunte ao Ranniere qual daqueles planos de solução o sistema deve executar neste instante. Após a confirmação dele, aí sim você estará autorizado a alterar o código.
