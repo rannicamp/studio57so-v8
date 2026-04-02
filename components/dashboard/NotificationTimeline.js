@@ -60,6 +60,21 @@ const getNotificationStyle = (titulo = '', mensagem = '') => {
     return { icon: faBell, color: 'text-gray-500', bg: 'bg-gray-100', border: 'border-gray-200' };
 };
 
+const formatNotificationMessage = (texto) => {
+    if (!texto) return '';
+    let formatado = texto.replace(/\b(\d{4})-(\d{2})-(\d{2})\b/g, '$3/$2/$1');
+    
+    // Captura números crus com ponto e duas casas decimais cercados por espaços ou como última palavra 
+    // converte para moeda R$ 1.234,56
+    formatado = formatado.replace(/(^|\s)(\d+)\.(\d{2})(?=\s|[.,!?]|$)/g, (match, prefix, inteiros, decimais) => {
+        const num = parseFloat(`${inteiros}.${decimais}`);
+        const cur = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(num);
+        return `${prefix}${cur}`;
+    });
+
+    return formatado;
+};
+
 export default function NotificationTimeline() {
     const { user } = useAuth();
     const scrollRef = useRef(null);
@@ -175,7 +190,7 @@ export default function NotificationTimeline() {
                                         </div>
                                         
                                         <p className="text-sm text-gray-600 leading-relaxed group-hover:text-gray-900 transition-colors">
-                                            {notif.mensagem}
+                                            {formatNotificationMessage(notif.mensagem)}
                                         </p>
                                         
                                         {notif.link && (
