@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { useConversationsList } from './ChatHooks';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faComments, faTimes, faPaperPlane, faUserFriends, faBullhorn, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
 import ChatContacts from './ChatContacts';
@@ -48,6 +49,9 @@ export default function FloatingChat() {
     const isDraggingRef = useRef(false);   // ref síncrona para os listeners
     const hasMoved = useRef(false);        // distingue click de drag
     const MOVE_THRESHOLD = 6;             // pixels mínimos para considerar drag
+
+    const { data: conversations } = useConversationsList();
+    const totalUnread = conversations?.reduce((acc, conv) => acc + (conv.unread_count || 0), 0) || 0;
 
     const handlePointerDown = (e) => {
         e.preventDefault();
@@ -128,10 +132,16 @@ export default function FloatingChat() {
                         if (!hasMoved.current) setIsOpen(true);
                     }}
                     style={{ touchAction: 'none' }}
-                    className={`w-14 h-14 bg-gradient-to-r from-gray-900 to-black text-white rounded-full flex items-center justify-center shadow-2xl hover:scale-105 select-none ${isDragging ? 'cursor-grabbing scale-105' : 'cursor-grab'}`}
+                    className={`w-14 h-14 bg-gradient-to-r from-gray-900 to-black text-white rounded-full flex items-center justify-center shadow-2xl hover:scale-105 select-none relative ${isDragging ? 'cursor-grabbing scale-105' : 'cursor-grab'}`}
                     title="Comunicação e Memorandos"
                 >
                     <FontAwesomeIcon icon={faComments} className="text-2xl drop-shadow-md" />
+                    
+                    {totalUnread > 0 && (
+                        <div className="absolute -top-1 -right-1 min-w-[20px] h-[20px] rounded-full bg-red-500 text-white flex items-center justify-center text-[11px] font-bold shadow-lg border-2 border-white px-1 animate-pulse">
+                            {totalUnread > 99 ? '99+' : totalUnread}
+                        </div>
+                    )}
                 </div>
             ) : (
                 <div className="w-[380px] h-[650px] max-h-[85vh] bg-white/70 backdrop-blur-2xl border border-white/50 shadow-2xl rounded-2xl flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-300">
