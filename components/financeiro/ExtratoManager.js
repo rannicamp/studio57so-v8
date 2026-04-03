@@ -696,7 +696,7 @@ export default function ExtratoManager({ contas, empresas }) {
  ) : extratoData ? (
  <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
  {/* Resumo do Mês (TopBar) */}
- <div className="p-6 border-b bg-blue-600 text-white to-white">
+ <div className="p-6 border-b bg-white">
  <h2 className="text-xl font-bold text-gray-800 capitalize mb-4">
  Movimentações de {format(mesSelecionado, 'MMMM / yyyy', { locale: ptBR })}
  </h2>
@@ -766,7 +766,7 @@ export default function ExtratoManager({ contas, empresas }) {
  key={l.id}
  onClick={() => handleRowClick(l)}
  className={`p-4 cursor-pointer transition-colors flex items-center justify-between group ${selectedIds.includes(l.id) ? 'bg-indigo-50/50 hover:bg-indigo-50 border-l-4 border-l-indigo-400' :
- l.isOfxStandalone ? 'bg-blue-600/50 hover:bg-blue-600 border-l-4 border-l-orange-400' : 'hover:bg-slate-50 border-l-4 border-l-transparent'}
+ l.isOfxStandalone ? 'bg-orange-50 hover:bg-orange-100 border-l-4 border-l-orange-500' : 'hover:bg-slate-50 border-l-4 border-l-transparent'}
  ${isFilho ? 'pl-12 bg-gray-50/50 border-t border-dashed' : ''}
  `}
  >
@@ -787,14 +787,14 @@ export default function ExtratoManager({ contas, empresas }) {
 
  {/* Data */}
  <div className="flex-shrink-0 w-16 text-center">
- <div className={`text-sm font-bold ${l.isOfxStandalone ? 'text-blue-600' : 'text-gray-700'}`}>
+ <div className={`text-sm font-bold ${l.isOfxStandalone ? 'text-orange-600' : 'text-gray-700'}`}>
  {format(parseISO(l.data_pagamento), 'dd')}
  </div>
- <div className={`text-[10px] uppercase font-semibold ${l.isOfxStandalone ? 'text-blue-600' : 'text-gray-400'}`}>
+ <div className={`text-[10px] uppercase font-semibold ${l.isOfxStandalone ? 'text-orange-600' : 'text-gray-400'}`}>
  {format(parseISO(l.data_pagamento), 'MMM', { locale: ptBR })}
  </div>
  {l.isOfxStandalone && (
- <div className="text-[10px] text-blue-600 mt-1" title="Apenas no OFX">
+ <div className="text-[10px] text-orange-600 mt-1" title="Apenas no OFX">
  <FontAwesomeIcon icon={faExclamationTriangle} /> OFX
  </div>
  )}

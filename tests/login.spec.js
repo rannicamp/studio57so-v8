@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 // Utilizaremos o usuário teste fornecido
 const TEST_EMAIL = 'rannierecampos1@gmail.com';
-const TEST_PASSWORD = '123456';
+const TEST_PASSWORD = '123456789';
 
 test.describe('Autenticação e Navegação Básica', () => {
   test('Deve realizar o login com sucesso e ir para o dashboard', async ({ page }) => {
@@ -22,10 +22,8 @@ test.describe('Autenticação e Navegação Básica', () => {
     });
 
     // 4. Aguardar o login concluir e a página redirecionar para a interface restrita
-    // Isso é verificado checando se alguma URL base como /dashboard ou a logo do header carregaram
-    // Uma forma genérica que não quebra fácil: Checar se não estamos mais no login e "Central" ou "Visão" ou algo do tipo aparece, 
-    // Ou aguardar a URL mudar
-    await page.waitForURL('**/dashboard**');
+    // Nosso robô agora é Proprietário Normal, ele vai pra /painel
+    await page.waitForURL('**/painel**', { timeout: 15000 });
     
     // 5. Validar que na página tem algo da interface (por exemplo um link para "Deslogar" ou o nome do usuário)
     const title = await page.title();

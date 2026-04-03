@@ -1,0 +1,72 @@
+[
+  {
+    "id": 1,
+    "nome_funcao": "Proprietário",
+    "descricao": null,
+    "created_at": "2025-06-25T21:27:10.724342+00:00",
+    "organizacao_id": 1
+  },
+  {
+    "id": 2,
+    "nome_funcao": "Engenheiro",
+    "descricao": null,
+    "created_at": "2025-06-25T21:27:10.724342+00:00",
+    "organizacao_id": 1
+  },
+  {
+    "id": 3,
+    "nome_funcao": "Fiscal",
+    "descricao": null,
+    "created_at": "2025-06-25T21:27:10.724342+00:00",
+    "organizacao_id": 1
+  },
+  {
+    "id": 4,
+    "nome_funcao": "Projetista",
+    "descricao": null,
+    "created_at": "2025-06-25T21:27:10.724342+00:00",
+    "organizacao_id": 1
+  },
+  {
+    "id": 5,
+    "nome_funcao": "Administrativo",
+    "descricao": null,
+    "created_at": "2025-06-25T21:27:10.724342+00:00",
+    "organizacao_id": 1
+  },
+  {
+    "id": 6,
+    "nome_funcao": "Estagiário",
+    "descricao": null,
+    "created_at": "2025-06-25T21:27:10.724342+00:00",
+    "organizacao_id": 1
+  },
+  {
+    "id": 7,
+    "nome_funcao": "Comercial",
+    "descricao": null,
+    "created_at": "2025-08-04T16:24:55.631799+00:00",
+    "organizacao_id": 1
+  },
+  {
+    "id": 8,
+    "nome_funcao": "Analista Meta",
+    "descricao": null,
+    "created_at": "2025-08-06T20:21:20.525099+00:00",
+    "organizacao_id": 1
+  },
+  {
+    "id": 20,
+    "nome_funcao": "Corretor",
+    "descricao": "Função para usuários corretores de imóveis, com acesso restrito.",
+    "created_at": "2025-10-17T18:31:44.936348+00:00",
+    "organizacao_id": 1
+  },
+  {
+    "id": 21,
+    "nome_funcao": "Gerente de Corretagem",
+    "descricao": null,
+    "created_at": "2026-03-21T17:07:05.12732+00:00",
+    "organizacao_id": 1
+  }
+]

@@ -207,10 +207,10 @@ export default function ChatMuralWidget() {
  };
 
  return (
- <div className="bg-white shadow-sm border border-gray-200 rounded-2xl overflow-hidden flex flex-col mt-6">
- <div className="p-5 md:p-6 border-b border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-blue-600 text-white to-white">
+ <div className="bg-white shadow-sm border border-gray-200 rounded-2xl overflow-hidden flex flex-col">
+ <div className="p-5 md:p-6 border-b border-gray-100 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white">
  <div className="flex items-center gap-3">
- <div className="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center shadow-inner">
+ <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shadow-inner">
  <FontAwesomeIcon icon={faBullhorn} className="text-xl" />
  </div>
  <div>
@@ -249,7 +249,7 @@ export default function ChatMuralWidget() {
  <button type="button"
  onClick={handleAiMagic}
  disabled={!conteudo.trim() || aiMutation.isPending}
- className="px-5 py-3.5 bg-blue-600 text-white to-indigo-500 text-white rounded-xl font-bold shadow-sm text-[13px] hover:shadow-md hover:text-white hover:to-indigo-600 disabled:opacity-50 transition-all flex items-center justify-center gap-2 group"
+ className="px-5 py-3.5 bg-blue-600 text-white rounded-xl font-bold shadow-sm text-[13px] hover:shadow-md hover:bg-blue-700 disabled:opacity-50 transition-all flex items-center justify-center gap-2 group"
  >
  {aiMutation.isPending ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faWandMagicSparkles} className="group-hover:rotate-12 transition-transform" />} Magia IA (Corrigir e Melhorar)
  </button>
@@ -279,7 +279,7 @@ export default function ChatMuralWidget() {
  <p className="text-[14.5px] text-gray-500 max-w-sm">Ninguém publicou nada ainda. Seja o primeiro a deixar um recado inspirador para o time!</p>
  </div>
  ) : (
- <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 md:gap-6">
+ <div className="grid grid-cols-1 gap-5 md:gap-6">
  {posts.map(post => <MuralPostCard key={post.id} post={post} user={user} onConvertPost={setPostToConvert} />)}
  </div>
  )}

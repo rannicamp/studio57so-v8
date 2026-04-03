@@ -46,18 +46,22 @@ export default function AtualizarSenhaPage() {
 
  setIsLoading(true);
 
- const { error } = await supabase.auth.updateUser({
- password: password
- });
+ try {
+ const { updatePasswordAction } = await import('./actions');
+ const response = await updatePasswordAction(password);
 
- if (error) {
- console.error("Erro ao atualizar senha:", error);
- toast.error("Erro ao atualizar", { description: error.message });
+ if (response?.error) {
+ toast.error("Erro ao atualizar", { description: response.error });
  setIsLoading(false);
  } else {
  toast.success("Senha atualizada!", { description: "Você já pode acessar o sistema." });
  setTimeout(() => {
  router.push('/painel'); }, 1500);
+ }
+ } catch (err) {
+ console.error(err);
+ toast.error("Erro de conexão", { description: "Não foi possível comunicar o servidor." });
+ setIsLoading(false);
  }
  };
 

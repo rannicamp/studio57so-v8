@@ -7,6 +7,7 @@ import { Toaster } from 'sonner';
 import Script from 'next/script';
 
 import ServiceWorkerRegistrar from '@/components/shared/ServiceWorkerRegistrar';
+import ErrorTelemetry from '@/components/shared/ErrorTelemetry';
 // Se este arquivo não existir, comente a linha abaixo para testar
 // import '@/components/financeiro/pdfPolyfill'; 
 const inter = Inter({ subsets: ['latin'] });
@@ -43,6 +44,7 @@ export default function RootLayout({ children }) {
  <ServiceWorkerRegistrar />
 
  <Providers>
+ <ErrorTelemetry />
  {children}
  </Providers>
 

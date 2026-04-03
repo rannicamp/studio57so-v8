@@ -529,7 +529,14 @@ O **Studio 57** é o ambiente de desenvolvimento e laboratório central. O **Elo
 
 ---
 
-### 15. 🧠 Arquitetura Assíncrona de IA (Faturas) - *MÓDULO CONCLUÍDO COM EXCELÊNCIA*
+### 15. 🧪 Testes E2E (População e Faturamento Real) - *A FAZER (FUTURAMENTE)*
+- [ ] **Ambiente de Homologação Isolado:** O Robô de Testes deverá atuar em uma organização isolada (ex: `organizacao_id = 999`) para realizar testes agressivos de gravação no banco sem afetar as métricas da Matriz.
+- [ ] **Testes de Fluxo Completo (T2/T3):** Fazer o robô não apenas ler, mas CADASTRAR um Lead, converter para Cliente, fechar Contrato e gerar a Cobrança no Board do CRM.
+- [ ] **Tear-down Automático:** Implementar rotina de exclusão (limpeza) imediata dos dados após o fim do relatório de testes.
+
+---
+
+### 16. 🧠 Arquitetura Assíncrona de IA (Faturas) - *MÓDULO CONCLUÍDO COM EXCELÊNCIA*
 - [x] **Diagnóstico:** Resolvidos os gargalos de 504 Gateway Timeout e congelamento de tela com arquivos pesados.
 - [x] **Migração para Background Worker:** Processo de leitura da IA desacoplado do ciclo de vida da requisição síncrona usando a rota Next.js com retorno `202 Accepted` ultrarápido.
 - [x] **Fluxo Desacoplado (Background Job):** Implementado upload puramente raw (File API Gemini). A fatura sobe instantaneamente liberando o frontend. O robô atua em background mastigando e roteando as faturas.

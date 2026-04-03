@@ -1065,7 +1065,7 @@ export default function ExtratoCartaoManager({ contasCartao }) {
  ) : extratoData ? (
  <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
  {/* Resumo da Fatura (TopBar) */}
- <div className="p-6 border-b bg-blue-600 text-white to-white">
+ <div className="p-6 border-b bg-white text-gray-800">
  <h2 className="text-xl font-bold text-gray-800 capitalize mb-4">
  Lançamentos da Fatura — Venc. {faturaSelecionadaVencimento ? format(parseISO(faturaSelecionadaVencimento), 'dd/MM/yyyy') : ''}
  </h2>
@@ -1112,14 +1112,14 @@ export default function ExtratoCartaoManager({ contasCartao }) {
  <div className="divide-y divide-gray-100 relative">
  {/* Linha Fantasma: Saldo Herdado do Mês Anterior */}
  {faturaAtiva && faturaAtiva.saldoAnterior > 0.05 && (
- <div className="flex items-center justify-between p-4 bg-blue-600/80 border-b border-blue-600 z-10 shadow-[0_2px_4px_-1px_rgba(0,0,0,0.02)]">
+ <div className="flex items-center justify-between p-4 bg-white hover:bg-gray-50 border-b border-gray-100 border-l-4 border-l-blue-500 z-10 transition-colors shadow-sm">
  <div className="flex items-center gap-3">
- <div className="flex-shrink-0 w-8 md:w-16 text-center text-blue-600">
+ <div className="flex-shrink-0 w-8 md:w-16 text-center text-blue-500">
  <FontAwesomeIcon icon={faArrowRightArrowLeft} />
  </div>
  <div className="flex-1">
- <p className="text-xs uppercase font-bold text-blue-600 tracking-wide">Rolagem de Dívida: Saldo Fatura Anterior</p>
- <p className="text-[10px] text-blue-600">Este valor foi repassado integralmente para este mês.</p>
+ <p className="text-xs uppercase font-bold text-blue-700 tracking-wide">Rolagem de Dívida: Saldo Fatura Anterior</p>
+ <p className="text-[10px] text-gray-500 mt-0.5">Valor residual não pago repassado para este mês.</p>
  </div>
  </div>
  <div className="text-right flex-shrink-0">
@@ -1198,7 +1198,7 @@ export default function ExtratoCartaoManager({ contasCartao }) {
  {/* Ações */}
  <div className="flex-shrink-0 flex items-center gap-2 text-gray-300 group-hover:text-blue-500 transition-colors">
  {isFilho ? (
- <button onClick={(e) => handleRemoverDoBordero(e, l.id)} className="p-1.5 text-gray-300 hover:text-blue-600 hover:bg-blue-600 rounded-full transition-all" title="Desvincular do Borderô">
+ <button onClick={(e) => handleRemoverDoBordero(e, l.id)} className="p-1.5 text-gray-300 hover:text-indigo-600 hover:bg-indigo-100 rounded-full transition-all" title="Desvincular do Borderô">
  <p className="text-[10px] font-bold uppercase">Sair</p>
  </button>
  ) : (
