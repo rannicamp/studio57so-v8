@@ -19,6 +19,19 @@ export function AuthProvider({ children }) {
     const [organizacao_id, setOrganizacaoId] = useState(null);
 
     const forceLogout = useCallback(async () => {
+        if (typeof window !== 'undefined') {
+            const path = window.location.pathname;
+            const isAuthRoute = path.startsWith('/atualizar-senha') || 
+                                path.startsWith('/recuperar-senha') || 
+                                path.startsWith('/cadastro');
+            
+            if (isAuthRoute) {
+                console.warn("AuthContext: Evitando forceLogout/redirecionamento porque o usuário está em uma rota pública de autenticação.");
+                setLoading(false);
+                return;
+            }
+        }
+
         await supabase.auth.signOut();
         setUser(null);
         setPermissions({});
