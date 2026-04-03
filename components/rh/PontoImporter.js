@@ -7,351 +7,351 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-  faCloud,
-  faCheckCircle,
-  faExclamationTriangle,
-  faSpinner,
-  faFileImport,
-  faBug,
-  faUserCheck,
-  faTimes,
-  faUpload
+ faCloud,
+ faCheckCircle,
+ faExclamationTriangle,
+ faSpinner,
+ faFileImport,
+ faBug,
+ faUserCheck,
+ faTimes,
+ faUpload
 } from '@fortawesome/free-solid-svg-icons';
 
 import UppyListUploader from '../ui/UppyListUploader';
 
 const StatusIndicator = ({ status, message }) => {
-  if (status === 'success') return <span className="text-green-600 flex items-center gap-1 text-xs"><FontAwesomeIcon icon={faCheckCircle} /> Pronto</span>;
-  if (status === 'error') return <span className="text-red-500 flex items-center gap-1 text-xs" title={message}><FontAwesomeIcon icon={faExclamationTriangle} /> Erro</span>;
-  return <span className="text-gray-400 text-xs">...</span>;
+ if (status === 'success') return <span className="text-green-600 flex items-center gap-1 text-xs"><FontAwesomeIcon icon={faCheckCircle} /> Pronto</span>;
+ if (status === 'error') return <span className="text-red-500 flex items-center gap-1 text-xs" title={message}><FontAwesomeIcon icon={faExclamationTriangle} /> Erro</span>;
+ return <span className="text-gray-400 text-xs">...</span>;
 };
 
 const formatDbStringToBr = (dbString) => {
-  if (!dbString) return '-';
-  const [datePart, timePart] = dbString.split(' ');
-  if (!datePart) return '-';
-  const [year, month, day] = datePart.split('-');
-  return `${day}/${month}/${year} ${timePart?.slice(0, 5)}`;
+ if (!dbString) return '-';
+ const [datePart, timePart] = dbString.split(' ');
+ if (!datePart) return '-';
+ const [year, month, day] = datePart.split('-');
+ return `${day}/${month}/${year} ${timePart?.slice(0, 5)}`;
 };
 
 export default function PontoImporter({ onImport }) {
-  const supabase = createClient();
-  const queryClient = useQueryClient();
-  const BUCKET_NAME = 'arquivos-ponto';
+ const supabase = createClient();
+ const queryClient = useQueryClient();
+ const BUCKET_NAME = 'arquivos-ponto';
 
-  const latestEmployees = useRef([]);
+ const latestEmployees = useRef([]);
 
-  const [processedRecords, setProcessedRecords] = useState([]);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [summary, setSummary] = useState({ ready: 0, errors: 0 });
-  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+ const [processedRecords, setProcessedRecords] = useState([]);
+ const [isProcessing, setIsProcessing] = useState(false);
+ const [summary, setSummary] = useState({ ready: 0, errors: 0 });
+ const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
 
-  // Debug para te dar segurança
-  const [debugInfo, setDebugInfo] = useState('');
+ // Debug para te dar segurança
+ const [debugInfo, setDebugInfo] = useState('');
 
-  // 1. BUSCAR FUNCIONÁRIOS (Para não depender de props e ser autônomo)
-  const { data: employees = [] } = useQuery({
-    queryKey: ['funcionarios_ponto_fixo_v3'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('funcionarios')
-        .select('id, full_name, numero_ponto, organizacao_id')
-        .not('numero_ponto', 'is', null);
-      if (error) throw error;
-      return data;
-    },
-    staleTime: 0
-  });
+ // 1. BUSCAR FUNCIONÁRIOS (Para não depender de props e ser autônomo)
+ const { data: employees = [] } = useQuery({
+ queryKey: ['funcionarios_ponto_fixo_v3'],
+ queryFn: async () => {
+ const { data, error } = await supabase
+ .from('funcionarios')
+ .select('id, full_name, numero_ponto, organizacao_id')
+ .not('numero_ponto', 'is', null);
+ if (error) throw error;
+ return data;
+ },
+ staleTime: 0
+ });
 
-  useEffect(() => {
-    if (employees) {
-      latestEmployees.current = employees;
-    }
-  }, [employees]);
+ useEffect(() => {
+ if (employees) {
+ latestEmployees.current = employees;
+ }
+ }, [employees]);
 
-  // --- 2. UPLOAD SUCCESS HANDLER ---
-  const handleUploadSuccess = async (result) => {
-    try {
-      setIsUploadModalOpen(false); // Fecha o modal imediatamente
-      setIsProcessing(true);
-      setProcessedRecords([]);
-      setDebugInfo('Baixando métricas do arquivo base...');
+ // --- 2. UPLOAD SUCCESS HANDLER ---
+ const handleUploadSuccess = async (result) => {
+ try {
+ setIsUploadModalOpen(false); // Fecha o modal imediatamente
+ setIsProcessing(true);
+ setProcessedRecords([]);
+ setDebugInfo('Baixando métricas do arquivo base...');
 
-      // 2. Baixar Conteúdo
-      const { data: publicData } = supabase.storage.from(BUCKET_NAME).getPublicUrl(result.path);
-      const response = await fetch(publicData.publicUrl);
-      const textContent = await response.text();
+ // 2. Baixar Conteúdo
+ const { data: publicData } = supabase.storage.from(BUCKET_NAME).getPublicUrl(result.path);
+ const response = await fetch(publicData.publicUrl);
+ const textContent = await response.text();
 
-      // 3. CHAMAR SUA LÓGICA
-      processFileContent(textContent);
+ // 3. CHAMAR SUA LÓGICA
+ processFileContent(textContent);
 
-    } catch (err) {
-      console.error(err);
-      toast.error(`Falha: ${err.message}`);
-      setIsProcessing(false);
-    }
-  };
+ } catch (err) {
+ console.error(err);
+ toast.error(`Falha: ${err.message}`);
+ setIsProcessing(false);
+ }
+ };
 
-  // --- 5. SUA LÓGICA EXATA (ADAPTADA PARA RECEBER TEXTO) ---
-  const processFileContent = (content) => {
-    const currentEmployees = latestEmployees.current;
+ // --- 5. SUA LÓGICA EXATA (ADAPTADA PARA RECEBER TEXTO) ---
+ const processFileContent = (content) => {
+ const currentEmployees = latestEmployees.current;
 
-    // Recria o Mapa exatamente como no seu código
-    const employeeMap = new Map(currentEmployees.map(emp => [emp.numero_ponto, {
-      id: emp.id,
-      name: emp.full_name,
-      organizacao_id: emp.organizacao_id // Adicionei isso pois é necessário para o insert
-    }]));
+ // Recria o Mapa exatamente como no seu código
+ const employeeMap = new Map(currentEmployees.map(emp => [emp.numero_ponto, {
+ id: emp.id,
+ name: emp.full_name,
+ organizacao_id: emp.organizacao_id // Adicionei isso pois é necessário para o insert
+ }]));
 
-    // Lógica de Linhas do seu código (Filtra vazias e que tenham TAB)
-    const lines = content.split(/\r\n|\n/).filter(line => line.trim() !== '' && line.includes('\t'));
+ // Lógica de Linhas do seu código (Filtra vazias e que tenham TAB)
+ const lines = content.split(/\r\n|\n/).filter(line => line.trim() !== '' && line.includes('\t'));
 
-    setDebugInfo(`Linhas válidas (com TAB): ${lines.length}`);
+ setDebugInfo(`Linhas válidas (com TAB): ${lines.length}`);
 
-    if (lines.length === 0) {
-      toast.warning("Arquivo sem linhas válidas ou separador incorreto (TAB).");
-      setIsProcessing(false);
-      return;
-    }
+ if (lines.length === 0) {
+ toast.warning("Arquivo sem linhas válidas ou separador incorreto (TAB).");
+ setIsProcessing(false);
+ return;
+ }
 
-    const recordsFromFile = [];
+ const recordsFromFile = [];
 
-    // Pula o cabeçalho (slice 1) igual ao seu código
-    lines.slice(1).forEach((line, index) => {
-      const parts = line.split('\t');
-      if (parts.length < 4) return;
+ // Pula o cabeçalho (slice 1) igual ao seu código
+ lines.slice(1).forEach((line, index) => {
+ const parts = line.split('\t');
+ if (parts.length < 4) return;
 
-      // Pega ID da coluna 0
-      const numeroPonto = parseInt(parts[0], 10);
-      // Pega Data da coluna 3 (Seu segredo!)
-      const dateTimeString = parts[3].trim();
-      const [datePart, timePart] = dateTimeString.split(/\s+/);
+ // Pega ID da coluna 0
+ const numeroPonto = parseInt(parts[0], 10);
+ // Pega Data da coluna 3 (Seu segredo!)
+ const dateTimeString = parts[3].trim();
+ const [datePart, timePart] = dateTimeString.split(/\s+/);
 
-      if (datePart && timePart && datePart.includes('/')) {
-        const [day, month, year] = datePart.split('/');
+ if (datePart && timePart && datePart.includes('/')) {
+ const [day, month, year] = datePart.split('/');
 
-        // Formato ISO para o banco
-        const data_hora_texto = `${year}-${month}-${day} ${timePart}`;
+ // Formato ISO para o banco
+ const data_hora_texto = `${year}-${month}-${day} ${timePart}`;
 
-        const employeeInfo = employeeMap.get(numeroPonto);
+ const employeeInfo = employeeMap.get(numeroPonto);
 
-        recordsFromFile.push({
-          numero_ponto: numeroPonto,
-          employee_name: employeeInfo?.name,
-          funcionario_id: employeeInfo?.id,
-          organizacao_id: employeeInfo?.organizacao_id,
-          data_hora_texto: data_hora_texto,
-          original_line: index + 2,
-          status: employeeInfo ? 'success' : 'error',
-          error_message: employeeInfo ? null : `Func. Nº ${numeroPonto} não encontrado.`
-        });
-      }
-    });
+ recordsFromFile.push({
+ numero_ponto: numeroPonto,
+ employee_name: employeeInfo?.name,
+ funcionario_id: employeeInfo?.id,
+ organizacao_id: employeeInfo?.organizacao_id,
+ data_hora_texto: data_hora_texto,
+ original_line: index + 2,
+ status: employeeInfo ? 'success' : 'error',
+ error_message: employeeInfo ? null : `Func. Nº ${numeroPonto} não encontrado.`
+ });
+ }
+ });
 
-    // Seu Agrupamento
-    const groupedByEmployeeAndDay = recordsFromFile.reduce((acc, record) => {
-      if (record.status !== 'success') return acc;
-      const dayKey = record.data_hora_texto.split(' ')[0];
-      const key = `${record.funcionario_id}-${dayKey}`;
-      if (!acc[key]) acc[key] = [];
-      acc[key].push(record);
-      return acc;
-    }, {});
+ // Seu Agrupamento
+ const groupedByEmployeeAndDay = recordsFromFile.reduce((acc, record) => {
+ if (record.status !== 'success') return acc;
+ const dayKey = record.data_hora_texto.split(' ')[0];
+ const key = `${record.funcionario_id}-${dayKey}`;
+ if (!acc[key]) acc[key] = [];
+ acc[key].push(record);
+ return acc;
+ }, {});
 
-    const finalRecords = [];
-    const tipos = ['Entrada', 'Inicio_Intervalo', 'Fim_Intervalo', 'Saida'];
+ const finalRecords = [];
+ const tipos = ['Entrada', 'Inicio_Intervalo', 'Fim_Intervalo', 'Saida'];
 
-    for (const key in groupedByEmployeeAndDay) {
-      const dayRecords = groupedByEmployeeAndDay[key].sort((a, b) => a.data_hora_texto.localeCompare(b.data_hora_texto));
-      const recordsToProcess = dayRecords.slice(0, 4);
+ for (const key in groupedByEmployeeAndDay) {
+ const dayRecords = groupedByEmployeeAndDay[key].sort((a, b) => a.data_hora_texto.localeCompare(b.data_hora_texto));
+ const recordsToProcess = dayRecords.slice(0, 4);
 
-      recordsToProcess.forEach((record, index) => {
-        finalRecords.push({ ...record, tipo_registro: tipos[index] });
-      });
-    }
+ recordsToProcess.forEach((record, index) => {
+ finalRecords.push({ ...record, tipo_registro: tipos[index] });
+ });
+ }
 
-    // Mistura processados com erros para exibir
-    const allDisplayRecords = [
-      ...finalRecords,
-      ...recordsFromFile.filter(r => r.status === 'error')
-    ].sort((a, b) => a.original_line - b.original_line);
+ // Mistura processados com erros para exibir
+ const allDisplayRecords = [
+ ...finalRecords,
+ ...recordsFromFile.filter(r => r.status === 'error')
+ ].sort((a, b) => a.original_line - b.original_line);
 
-    setProcessedRecords(allDisplayRecords);
-    const readyCount = allDisplayRecords.filter(r => r.status === 'success').length;
-    setSummary({ ready: readyCount, errors: allDisplayRecords.length - readyCount });
-    setIsProcessing(false);
+ setProcessedRecords(allDisplayRecords);
+ const readyCount = allDisplayRecords.filter(r => r.status === 'success').length;
+ setSummary({ ready: readyCount, errors: allDisplayRecords.length - readyCount });
+ setIsProcessing(false);
 
-    if (readyCount > 0) {
-      toast.success(`${readyCount} registros processados!`);
-    } else {
-      toast.warning("Nenhum registro correspondente.");
-    }
-  };
+ if (readyCount > 0) {
+ toast.success(`${readyCount} registros processados!`);
+ } else {
+ toast.warning("Nenhum registro correspondente.");
+ }
+ };
 
-  const importMutation = useMutation({
-    mutationFn: async (records) => {
-      const { data: { user } } = await supabase.auth.getUser();
-      // Fallback para user org caso não ache no funcionário (segurança)
-      const userOrg = user?.user_metadata?.organizacao_id;
+ const importMutation = useMutation({
+ mutationFn: async (records) => {
+ const { data: { user } } = await supabase.auth.getUser();
+ // Fallback para user org caso não ache no funcionário (segurança)
+ const userOrg = user?.user_metadata?.organizacao_id;
 
-      const payload = records.map(r => ({
-        funcionario_id: r.funcionario_id,
-        data_hora: r.data_hora_texto,
-        tipo_registro: r.tipo_registro,
-        observacao: 'Importado via Uppy (Mobile)',
-        organizacao_id: r.organizacao_id || userOrg,
-      }));
+ const payload = records.map(r => ({
+ funcionario_id: r.funcionario_id,
+ data_hora: r.data_hora_texto,
+ tipo_registro: r.tipo_registro,
+ observacao: 'Importado via Uppy (Mobile)',
+ organizacao_id: r.organizacao_id || userOrg,
+ }));
 
-      const batchSize = 50;
-      for (let i = 0; i < payload.length; i += batchSize) {
-        const { error } = await supabase.rpc('importar_registros_ponto_se_vazio', {
-          novos_registros: payload.slice(i, i + batchSize)
-        });
-        if (error) throw error;
-      }
-    },
-    onSuccess: () => {
-      toast.success("Importação concluída com sucesso!");
-      queryClient.invalidateQueries(['pontos']);
-      queryClient.invalidateQueries(['registros_ponto']);
-      setProcessedRecords([]);
-      if (onImport) onImport();
-    },
-    onError: (e) => toast.error(`Erro: ${e.message}`)
-  });
+ const batchSize = 50;
+ for (let i = 0; i < payload.length; i += batchSize) {
+ const { error } = await supabase.rpc('importar_registros_ponto_se_vazio', {
+ novos_registros: payload.slice(i, i + batchSize)
+ });
+ if (error) throw error;
+ }
+ },
+ onSuccess: () => {
+ toast.success("Importação concluída com sucesso!");
+ queryClient.invalidateQueries(['pontos']);
+ queryClient.invalidateQueries(['registros_ponto']);
+ setProcessedRecords([]);
+ if (onImport) onImport();
+ },
+ onError: (e) => toast.error(`Erro: ${e.message}`)
+ });
 
-  return (
-    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+ return (
+ <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
 
-      {/* CABEÇALHO DO IMPORTADOR */}
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-            <FontAwesomeIcon icon={faCloud} className="text-blue-600" />
-            Importador de Ponto Digital
-          </h3>
-          <p className="text-sm text-gray-500 mt-1">Selecione o arquivo text do relógio para conciliação de horas.</p>
-        </div>
-        <button
-          onClick={() => setIsUploadModalOpen(true)}
-          className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-5 rounded-lg shadow-md transition-colors flex items-center gap-2"
-        >
-          <FontAwesomeIcon icon={faUpload} /> Importar Arquivo TXT
-        </button>
-      </div>
+ {/* CABEÇALHO DO IMPORTADOR */}
+ <div className="flex justify-between items-center mb-6">
+ <div>
+ <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+ <FontAwesomeIcon icon={faCloud} className="text-blue-600" />
+ Importador de Ponto Digital
+ </h3>
+ <p className="text-sm text-gray-500 mt-1">Selecione o arquivo text do relógio para conciliação de horas.</p>
+ </div>
+ <button
+ onClick={() => setIsUploadModalOpen(true)}
+ className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-5 rounded-lg shadow-md transition-colors flex items-center gap-2"
+ >
+ <FontAwesomeIcon icon={faUpload} /> Importar Arquivo TXT
+ </button>
+ </div>
 
-      {debugInfo && (
-        <div className="text-xs text-blue-600 font-mono bg-blue-50 p-2 rounded mb-4 border border-blue-100">
-          {debugInfo}
-        </div>
-      )}
+ {debugInfo && (
+ <div className="text-xs text-blue-600 font-mono bg-blue-50 p-2 rounded mb-4 border border-blue-100">
+ {debugInfo}
+ </div>
+ )}
 
-      {/* MODAL DO UPLOADER */}
-      {isUploadModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4 animate-in fade-in duration-200">
-          <div className="bg-white w-full h-full md:h-auto md:max-w-2xl flex flex-col overflow-hidden relative md:rounded-xl shadow-2xl">
-            <div className="px-4 py-4 md:px-6 md:py-4 border-b flex justify-between items-center bg-gray-50 flex-shrink-0">
-              <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-                <FontAwesomeIcon icon={faUpload} className="text-blue-600" />
-                Selecionar Arquivo de Ponto
-              </h2>
-              <button
-                onClick={() => setIsUploadModalOpen(false)}
-                className="text-gray-400 hover:text-red-500 transition-colors"
-              >
-                <FontAwesomeIcon icon={faTimes} className="w-6 h-6" />
-              </button>
-            </div>
-            <div className="p-4 md:p-6 overflow-y-auto flex-1">
-              <div className="border border-blue-100 rounded-xl bg-white shadow-sm p-4 h-full min-h-[400px]">
-                <UppyListUploader
-                  bucketName="arquivos-ponto"
-                  folderPath="importacoes"
-                  allowedFileTypes={['.txt', '.csv', 'text/*']}
-                  maxNumberOfFiles={1}
-                  hideClassificacao={true}
-                  onUploadSuccess={handleUploadSuccess}
-                  note="Solte seu relatório gerado pelo relógio ponto (.txt)"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+ {/* MODAL DO UPLOADER */}
+ {isUploadModalOpen && (
+ <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4 animate-in fade-in duration-200">
+ <div className="bg-white w-full h-full md:h-auto md:max-w-2xl flex flex-col overflow-hidden relative md:rounded-xl shadow-2xl">
+ <div className="px-4 py-4 md:px-6 md:py-4 border-b flex justify-between items-center bg-gray-50 flex-shrink-0">
+ <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+ <FontAwesomeIcon icon={faUpload} className="text-blue-600" />
+ Selecionar Arquivo de Ponto
+ </h2>
+ <button
+ onClick={() => setIsUploadModalOpen(false)}
+ className="text-gray-400 hover:text-red-500 transition-colors"
+ >
+ <FontAwesomeIcon icon={faTimes} className="w-6 h-6" />
+ </button>
+ </div>
+ <div className="p-4 md:p-6 overflow-y-auto flex-1">
+ <div className="border border-blue-100 rounded-xl bg-white shadow-sm p-4 h-full min-h-[400px]">
+ <UppyListUploader
+ bucketName="arquivos-ponto"
+ folderPath="importacoes"
+ allowedFileTypes={['.txt', '.csv', 'text/*']}
+ maxNumberOfFiles={1}
+ hideClassificacao={true}
+ onUploadSuccess={handleUploadSuccess}
+ note="Solte seu relatório gerado pelo relógio ponto (.txt)"
+ />
+ </div>
+ </div>
+ </div>
+ </div>
+ )}
 
-      {isProcessing && (
-        <div className="flex items-center justify-center py-8 text-blue-600 bg-blue-50 rounded-lg mb-4">
-          <FontAwesomeIcon icon={faSpinner} spin className="mr-3 text-xl" />
-          <span className="font-medium animate-pulse">Processando dados...</span>
-        </div>
-      )}
+ {isProcessing && (
+ <div className="flex items-center justify-center py-8 text-blue-600 bg-blue-50 rounded-lg mb-4">
+ <FontAwesomeIcon icon={faSpinner} spin className="mr-3 text-xl" />
+ <span className="font-medium animate-pulse">Processando dados...</span>
+ </div>
+ )}
 
-      {processedRecords.length > 0 && (
-        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 mt-6">
-          <div className="flex justify-between items-center mb-4 border-b pb-2">
-            <div className="flex items-center gap-3">
-              <h3 className="font-bold text-gray-800 text-lg">Pré-visualização</h3>
-            </div>
-            <div className="text-xs space-x-2">
-              <span className="text-green-600 font-bold bg-green-50 px-2 py-1 rounded">{summary.ready} OK</span>
-              {summary.errors > 0 && <span className="text-red-500 font-bold bg-red-50 px-2 py-1 rounded">{summary.errors} Erros</span>}
-            </div>
-          </div>
+ {processedRecords.length > 0 && (
+ <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 mt-6">
+ <div className="flex justify-between items-center mb-4 border-b pb-2">
+ <div className="flex items-center gap-3">
+ <h3 className="font-bold text-gray-800 text-lg">Pré-visualização</h3>
+ </div>
+ <div className="text-xs space-x-2">
+ <span className="text-green-600 font-bold bg-green-50 px-2 py-1 rounded">{summary.ready} OK</span>
+ {summary.errors > 0 && <span className="text-red-500 font-bold bg-red-50 px-2 py-1 rounded">{summary.errors} Erros</span>}
+ </div>
+ </div>
 
-          <div className="border rounded-lg overflow-hidden mb-6 max-h-[300px] overflow-y-auto shadow-inner bg-slate-50">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-100 sticky top-0 z-10 shadow-sm">
-                <tr>
-                  <th className="px-4 py-3 text-left font-bold text-slate-600">Funcionário</th>
-                  <th className="px-4 py-3 text-left font-bold text-slate-600">Data e Hora</th>
-                  <th className="px-4 py-3 text-left font-bold text-slate-600">Registro</th>
-                  <th className="px-4 py-3 text-right font-bold text-slate-600">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {processedRecords.map((rec, i) => (
-                  <tr key={i} className={rec.status === 'error' ? 'bg-red-50' : 'bg-white hover:bg-blue-50'}>
-                    <td className="px-4 py-2 font-medium text-slate-700">
-                      {rec.employee_name ? (
-                        <span className="flex items-center gap-2 text-green-700 font-bold">
-                          <FontAwesomeIcon icon={faUserCheck} /> {rec.employee_name.split(' ')[0]}
-                        </span>
-                      ) : <span className="text-gray-400 italic">#{rec.numero_ponto}</span>}
-                    </td>
-                    <td className="px-4 py-2 text-slate-600">
-                      {formatDbStringToBr(rec.data_hora_texto)}
-                    </td>
-                    <td className="px-4 py-2 text-slate-600 font-bold text-xs uppercase tracking-wide">
-                      {rec.tipo_registro || '-'}
-                    </td>
-                    <td className="px-4 py-2 text-right"><StatusIndicator status={rec.status} message={rec.error_message} /></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+ <div className="border rounded-lg overflow-hidden mb-6 max-h-[300px] overflow-y-auto shadow-inner bg-slate-50">
+ <table className="w-full text-sm">
+ <thead className="bg-slate-100 sticky top-0 z-10 shadow-sm">
+ <tr>
+ <th className="px-4 py-3 text-left font-bold text-slate-600">Funcionário</th>
+ <th className="px-4 py-3 text-left font-bold text-slate-600">Data e Hora</th>
+ <th className="px-4 py-3 text-left font-bold text-slate-600">Registro</th>
+ <th className="px-4 py-3 text-right font-bold text-slate-600">Status</th>
+ </tr>
+ </thead>
+ <tbody className="divide-y divide-gray-200">
+ {processedRecords.map((rec, i) => (
+ <tr key={i} className={rec.status === 'error' ? 'bg-red-50' : 'bg-white hover:bg-blue-50'}>
+ <td className="px-4 py-2 font-medium text-slate-700">
+ {rec.employee_name ? (
+ <span className="flex items-center gap-2 text-green-700 font-bold">
+ <FontAwesomeIcon icon={faUserCheck} /> {rec.employee_name.split(' ')[0]}
+ </span>
+ ) : <span className="text-gray-400 italic">#{rec.numero_ponto}</span>}
+ </td>
+ <td className="px-4 py-2 text-slate-600">
+ {formatDbStringToBr(rec.data_hora_texto)}
+ </td>
+ <td className="px-4 py-2 text-slate-600 font-bold text-xs uppercase tracking-wide">
+ {rec.tipo_registro || '-'}
+ </td>
+ <td className="px-4 py-2 text-right"><StatusIndicator status={rec.status} message={rec.error_message} /></td>
+ </tr>
+ ))}
+ </tbody>
+ </table>
+ </div>
 
-          <div className="flex gap-3">
-            <button
-              onClick={() => setProcessedRecords([])}
-              className="flex-1 py-3 rounded-lg border border-gray-300 text-gray-600 font-semibold hover:bg-gray-50 transition-colors"
-            >
-              Cancelar
-            </button>
-            <button
-              onClick={() => importMutation.mutate(processedRecords.filter(r => r.status === 'success'))}
-              disabled={importMutation.isPending || summary.ready === 0}
-              className="flex-[2] bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 font-bold shadow-lg shadow-blue-200 transition-all transform active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {importMutation.isPending ? (
-                <><FontAwesomeIcon icon={faSpinner} spin /> Processando...</>
-              ) : (
-                <><FontAwesomeIcon icon={faFileImport} /> Confirmar ({summary.ready})</>
-              )}
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
+ <div className="flex gap-3">
+ <button
+ onClick={() => setProcessedRecords([])}
+ className="flex-1 py-3 rounded-lg border border-gray-300 text-gray-600 font-semibold hover:bg-gray-50 transition-colors"
+ >
+ Cancelar
+ </button>
+ <button
+ onClick={() => importMutation.mutate(processedRecords.filter(r => r.status === 'success'))}
+ disabled={importMutation.isPending || summary.ready === 0}
+ className="flex-[2] bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 font-bold shadow-lg shadow-blue-200 transition-all transform active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+ >
+ {importMutation.isPending ? (
+ <><FontAwesomeIcon icon={faSpinner} spin /> Processando...</>
+ ) : (
+ <><FontAwesomeIcon icon={faFileImport} /> Confirmar ({summary.ready})</>
+ )}
+ </button>
+ </div>
+ </div>
+ )}
+ </div>
+ );
 }

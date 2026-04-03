@@ -25,160 +25,160 @@ import { useAuth } from '../../contexts/AuthContext';
 // --------------------------------------------------------------------------------
 // Removemos 'initialEmpreendimentos' dos props, pois o componente agora busca seus próprios dados.
 export default function EmpreendimentoList() {
-  // --------------------------------------------------------------------------------
-  // ESTADOS E HOOKS
-  // --------------------------------------------------------------------------------
-  // Estado para armazenar o que o usuário digita no campo de busca
-  const [searchTerm, setSearchTerm] = useState('');
-  // Instância do cliente Supabase
-  const supabase = createClient();
-  // Hook para pegar os dados do usuário logado, principalmente o 'organizacao_id'
-  const { userData } = useAuth();
+ // --------------------------------------------------------------------------------
+ // ESTADOS E HOOKS
+ // --------------------------------------------------------------------------------
+ // Estado para armazenar o que o usuário digita no campo de busca
+ const [searchTerm, setSearchTerm] = useState('');
+ // Instância do cliente Supabase
+ const supabase = createClient();
+ // Hook para pegar os dados do usuário logado, principalmente o 'organizacao_id'
+ const { userData } = useAuth();
 
-  // --------------------------------------------------------------------------------
-  // BUSCA DE DADOS COM useQuery (A FORMA MODERNA)
-  // --------------------------------------------------------------------------------
-  // Esta é a principal mudança. Usamos useQuery para buscar os empreendimentos.
-  // - queryKey: Uma chave única para esta busca. O TanStack Query usa isso para cache.
-  //   Incluímos o 'organizacao_id' na chave para que, se o usuário mudar de organização,
-  //   uma nova busca seja feita automaticamente.
-  // - queryFn: A função assíncrona que realmente busca os dados no Supabase.
-  // - enabled: A busca só será executada quando 'userData.organizacao_id' existir.
-  //
-  // O useQuery nos dá de graça:
-  // - 'data': Os dados buscados (renomeamos para 'empreendimentos' e demos um valor padrão de []).
-  // - 'isLoading': Um booleano que é true enquanto os dados estão sendo buscados.
-  // - 'isError': Um booleano que é true se a busca falhar.
-  const { data: empreendimentos = [], isLoading, isError } = useQuery({
-    queryKey: ['empreendimentos', userData?.organizacao_id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('empreendimentos')
-        .select(`
-          id,
-          nome,
-          status,
-          empresa_proprietaria:contatos ( razao_social )
-        `)
-        .eq('organizacao_id', userData.organizacao_id)
-        .order('created_at', { ascending: false });
+ // --------------------------------------------------------------------------------
+ // BUSCA DE DADOS COM useQuery (A FORMA MODERNA)
+ // --------------------------------------------------------------------------------
+ // Esta é a principal mudança. Usamos useQuery para buscar os empreendimentos.
+ // - queryKey: Uma chave única para esta busca. O TanStack Query usa isso para cache.
+ // Incluímos o 'organizacao_id' na chave para que, se o usuário mudar de organização,
+ // uma nova busca seja feita automaticamente.
+ // - queryFn: A função assíncrona que realmente busca os dados no Supabase.
+ // - enabled: A busca só será executada quando 'userData.organizacao_id' existir.
+ //
+ // O useQuery nos dá de graça:
+ // - 'data': Os dados buscados (renomeamos para 'empreendimentos' e demos um valor padrão de []).
+ // - 'isLoading': Um booleano que é true enquanto os dados estão sendo buscados.
+ // - 'isError': Um booleano que é true se a busca falhar.
+ const { data: empreendimentos = [], isLoading, isError } = useQuery({
+ queryKey: ['empreendimentos', userData?.organizacao_id],
+ queryFn: async () => {
+ const { data, error } = await supabase
+ .from('empreendimentos')
+ .select(`
+ id,
+ nome,
+ status,
+ empresa_proprietaria:contatos ( razao_social )
+ `)
+ .eq('organizacao_id', userData.organizacao_id)
+ .order('created_at', { ascending: false });
 
-      if (error) {
-        throw new Error(error.message);
-      }
-      return data;
-    },
-    enabled: !!userData?.organizacao_id,
-  });
+ if (error) {
+ throw new Error(error.message);
+ }
+ return data;
+ },
+ enabled: !!userData?.organizacao_id,
+ });
 
-  // --------------------------------------------------------------------------------
-  // LÓGICA DE FILTRO E ESTILIZAÇÃO
-  // --------------------------------------------------------------------------------
-  // Filtra a lista de empreendimentos com base no termo de busca digitado.
-  // Esta lógica permanece a mesma, mas agora opera sobre os dados "ao vivo" do useQuery.
-  const filteredEmpreendimentos = empreendimentos.filter(empreendimento =>
-    empreendimento.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (empreendimento.empresa_proprietaria?.razao_social && empreendimento.empresa_proprietaria.razao_social.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+ // --------------------------------------------------------------------------------
+ // LÓGICA DE FILTRO E ESTILIZAÇÃO
+ // --------------------------------------------------------------------------------
+ // Filtra a lista de empreendimentos com base no termo de busca digitado.
+ // Esta lógica permanece a mesma, mas agora opera sobre os dados "ao vivo" do useQuery.
+ const filteredEmpreendimentos = empreendimentos.filter(empreendimento =>
+ empreendimento.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
+ (empreendimento.empresa_proprietaria?.razao_social && empreendimento.empresa_proprietaria.razao_social.toLowerCase().includes(searchTerm.toLowerCase()))
+ );
 
-  // Função para retornar a classe CSS correta com base no status do empreendimento
-  const getStatusClass = (status) => {
-    switch (status) {
-      case 'Em Obras':
-        return 'bg-blue-100 text-blue-800';
-      case 'Em Lançamento':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'Entregue':
-        return 'bg-green-100 text-green-800';
-      case 'Cancelado':
-        return 'bg-red-100 text-red-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
+ // Função para retornar a classe CSS correta com base no status do empreendimento
+ const getStatusClass = (status) => {
+ switch (status) {
+ case 'Em Obras':
+ return 'bg-blue-100 text-blue-800';
+ case 'Em Lançamento':
+ return 'bg-yellow-100 text-yellow-800';
+ case 'Entregue':
+ return 'bg-green-100 text-green-800';
+ case 'Cancelado':
+ return 'bg-red-100 text-red-800';
+ default:
+ return 'bg-gray-100 text-gray-800';
+ }
+ };
 
-  // --------------------------------------------------------------------------------
-  // RENDERIZAÇÃO CONDICIONAL
-  // --------------------------------------------------------------------------------
-  // Exibe uma mensagem de carregamento enquanto os dados estão sendo buscados.
-  if (isLoading) {
-    return (
-      <div className="flex justify-center items-center p-8">
-        <FontAwesomeIcon icon={faSpinner} spin size="2x" className="text-gray-500" />
-        <span className="ml-4 text-lg text-gray-600">Carregando empreendimentos...</span>
-      </div>
-    );
-  }
+ // --------------------------------------------------------------------------------
+ // RENDERIZAÇÃO CONDICIONAL
+ // --------------------------------------------------------------------------------
+ // Exibe uma mensagem de carregamento enquanto os dados estão sendo buscados.
+ if (isLoading) {
+ return (
+ <div className="flex justify-center items-center p-8">
+ <FontAwesomeIcon icon={faSpinner} spin size="2x" className="text-gray-500" />
+ <span className="ml-4 text-lg text-gray-600">Carregando empreendimentos...</span>
+ </div>
+ );
+ }
 
-  // Exibe uma mensagem de erro se a busca falhar.
-  if (isError) {
-    return (
-      <div className="flex justify-center items-center p-8 bg-red-50 border border-red-200 rounded-md">
-        <FontAwesomeIcon icon={faExclamationTriangle} size="2x" className="text-red-500" />
-        <span className="ml-4 text-lg text-red-700">Ocorreu um erro ao buscar os dados.</span>
-      </div>
-    );
-  }
+ // Exibe uma mensagem de erro se a busca falhar.
+ if (isError) {
+ return (
+ <div className="flex justify-center items-center p-8 bg-red-50 border border-red-200 rounded-md">
+ <FontAwesomeIcon icon={faExclamationTriangle} size="2x" className="text-red-500" />
+ <span className="ml-4 text-lg text-red-700">Ocorreu um erro ao buscar os dados.</span>
+ </div>
+ );
+ }
 
-  // --------------------------------------------------------------------------------
-  // RENDERIZAÇÃO PRINCIPAL (JSX)
-  // --------------------------------------------------------------------------------
-  return (
-    <div className="p-4">
-      <div className="relative mb-4">
-        <input
-          type="text"
-          placeholder="Buscar por nome do empreendimento ou empresa..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full pl-3 pr-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors"
-        />
-      </div>
-      <div className="overflow-x-auto">
-        <table className="min-w-full bg-white">
-          <thead className="bg-gray-50 border-b border-gray-200">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nome do Empreendimento</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Empresa Proprietária</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200">
-            {filteredEmpreendimentos.length > 0 ? (
-              filteredEmpreendimentos.map((empreendimento) => (
-                <tr key={empreendimento.id} className="hover:bg-gray-50 group">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{empreendimento.nome}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{empreendimento.empresa_proprietaria?.razao_social || 'N/A'}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2.5 py-1 text-xs font-medium rounded-full border ${getStatusClass(empreendimento.status)}`}>
-                      {empreendimento.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right">
-                    <div className="flex items-center justify-end gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Link href={`/empreendimentos/${empreendimento.id}`} title="Visualizar" className="text-blue-500 hover:text-blue-700 transition-colors">
-                        <FontAwesomeIcon icon={faEye} />
-                      </Link>
-                      <Link href={`/empreendimentos/editar/${empreendimento.id}`} title="Editar" className="text-blue-500 hover:text-blue-700 transition-colors">
-                        <FontAwesomeIcon icon={faPen} />
-                      </Link>
-                    </div>
-                  </td>
-                </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan="4" className="text-center py-8 text-gray-500">
-                  Nenhum empreendimento encontrado.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
+ // --------------------------------------------------------------------------------
+ // RENDERIZAÇÃO PRINCIPAL (JSX)
+ // --------------------------------------------------------------------------------
+ return (
+ <div className="p-4">
+ <div className="relative mb-4">
+ <input
+ type="text"
+ placeholder="Buscar por nome do empreendimento ou empresa..."
+ value={searchTerm}
+ onChange={(e) => setSearchTerm(e.target.value)}
+ className="w-full pl-3 pr-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors"
+ />
+ </div>
+ <div className="overflow-x-auto">
+ <table className="min-w-full bg-white">
+ <thead className="bg-gray-50 border-b border-gray-200">
+ <tr>
+ <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nome do Empreendimento</th>
+ <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Empresa Proprietária</th>
+ <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+ <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
+ </tr>
+ </thead>
+ <tbody className="divide-y divide-gray-200">
+ {filteredEmpreendimentos.length > 0 ? (
+ filteredEmpreendimentos.map((empreendimento) => (
+ <tr key={empreendimento.id} className="hover:bg-gray-50 group">
+ <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{empreendimento.nome}</td>
+ <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{empreendimento.empresa_proprietaria?.razao_social || 'N/A'}</td>
+ <td className="px-6 py-4 whitespace-nowrap">
+ <span className={`px-2.5 py-1 text-xs font-medium rounded-full border ${getStatusClass(empreendimento.status)}`}>
+ {empreendimento.status}
+ </span>
+ </td>
+ <td className="px-6 py-4 whitespace-nowrap text-right">
+ <div className="flex items-center justify-end gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
+ <Link href={`/empreendimentos/${empreendimento.id}`} title="Visualizar" className="text-blue-500 hover:text-blue-700 transition-colors">
+ <FontAwesomeIcon icon={faEye} />
+ </Link>
+ <Link href={`/empreendimentos/editar/${empreendimento.id}`} title="Editar" className="text-blue-500 hover:text-blue-700 transition-colors">
+ <FontAwesomeIcon icon={faPen} />
+ </Link>
+ </div>
+ </td>
+ </tr>
+ ))
+ ) : (
+ <tr>
+ <td colSpan="4" className="text-center py-8 text-gray-500">
+ Nenhum empreendimento encontrado.
+ </td>
+ </tr>
+ )}
+ </tbody>
+ </table>
+ </div>
+ </div>
+ );
 }
 
 
@@ -189,15 +189,15 @@ export default function EmpreendimentoList() {
 //
 // Funcionalidades Principais:
 // - Busca de dados dinâmica: Em vez de receber uma lista estática, o componente
-//   agora usa o hook `useQuery` para buscar os dados diretamente do Supabase em
-//   tempo real, filtrando-os pelo `organizacao_id` do usuário logado.
+// agora usa o hook `useQuery` para buscar os dados diretamente do Supabase em
+// tempo real, filtrando-os pelo `organizacao_id` do usuário logado.
 // - Reatividade automática: Graças ao `useQuery`, a lista se atualiza
-//   automaticamente quando um novo empreendimento é criado ou alterado em outro
-//   lugar do sistema (como no `EmpreendimentoForm`), sem a necessidade de recarregar a página.
+// automaticamente quando um novo empreendimento é criado ou alterado em outro
+// lugar do sistema (como no `EmpreendimentoForm`), sem a necessidade de recarregar a página.
 // - Feedback ao usuário: Exibe indicadores visuais de "carregando" e "erro",
-//   melhorando a experiência do usuário durante a busca de dados.
+// melhorando a experiência do usuário durante a busca de dados.
 // - Busca e Filtragem: Possui um campo de busca que filtra a lista pelo nome
-//   do empreendimento ou pela razão social da empresa proprietária.
+// do empreendimento ou pela razão social da empresa proprietária.
 // - Ações Rápidas: Fornece links diretos para visualizar os detalhes ou editar
-//   cada empreendimento da lista.
+// cada empreendimento da lista.
 // --------------------------------------------------------------------------------

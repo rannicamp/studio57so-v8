@@ -4,31 +4,30 @@ import SimuladorTabs from '@/app/(corretor)/simuladores/SimuladorTabs';
 export const dynamic = 'force-dynamic';
 
 export default async function SimuladorFinanciamentoPage() {
-    const supabase = await createClient();
+ const supabase = await createClient();
 
-    // Busca de empreendimentos para o Simulador Padrão
-    const { data: empreendimentos, error } = await supabase
-        .from('empreendimentos')
-        .select('id, nome, status')
-        .eq('listado_para_venda', true)
-        .order('nome');
+ // Busca de empreendimentos para o Simulador Padrão
+ const { data: empreendimentos, error } = await supabase
+ .from('empreendimentos')
+ .select('id, nome, status')
+ .eq('listado_para_venda', true)
+ .order('nome');
 
-    if (error) {
-        console.error("Erro ao buscar empreendimentos para o simulador:", error);
-    }
+ if (error) {
+ console.error("Erro ao buscar empreendimentos para o simulador:", error);
+ }
 
-    return (
-        <div className="max-w-7xl mx-auto space-y-6 pt-6 px-4 pb-10">
-            <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100 mb-6">
-                <h1 className="text-2xl font-bold text-gray-800">
-                    Calculadora e Simuladores
-                </h1>
-                <p className="text-gray-500 mt-1">
-                    Ferramentas de simulação de financiamento e parcelamento direto para clientes.
-                </p>
-            </div>
-            
-            <SimuladorTabs empreendimentos={empreendimentos || []} />
-        </div>
-    );
+ return (
+ <div className="max-w-7xl mx-auto space-y-6 pt-6 px-4 pb-10">
+ <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100 mb-6">
+ <h1 className="text-2xl font-bold text-gray-800">
+ Calculadora e Simuladores
+ </h1>
+ <p className="text-gray-500 mt-1">
+ Ferramentas de simulação de financiamento e parcelamento direto para clientes.
+ </p>
+ </div>
+ <SimuladorTabs empreendimentos={empreendimentos || []} />
+ </div>
+ );
 }

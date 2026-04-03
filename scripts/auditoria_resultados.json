@@ -1,0 +1,413 @@
+{
+  "RLS_NULL": [],
+  "BAD_ICONS": [
+    "app\\(corretor)\\clientes\\page.js",
+    "app\\(landingpages)\\betasuites\\BetaSuitesClient.js",
+    "app\\(landingpages)\\refugiobraunas\\RefugioBraunasClient.js",
+    "app\\(landingpages)\\residencialalfa\\ResidencialAlfaClient.js",
+    "app\\(main)\\automacao\\page.js",
+    "app\\(main)\\contatos\\page.js",
+    "app\\(main)\\funcionarios\\visualizar\\[id]\\page.js",
+    "app\\(main)\\rdo\\gerenciador\\page.js",
+    "app\\cadastro-corretor\\page.js",
+    "components\\almoxarifado\\AdicionarMaterialManualModal.js",
+    "components\\atividades\\ActivityCopilot.js",
+    "components\\atividades\\AtividadeAnexos.js",
+    "components\\atividades\\AtividadeDetalhesSidebar.js",
+    "components\\bim\\BimEditModal.js",
+    "components\\bim\\BimFileItem.js",
+    "components\\bim\\BimMarkupToolbar.js",
+    "components\\configuracoes\\rh\\CargosManager.js",
+    "components\\configuracoes\\TipoDocumentoManager.js",
+    "components\\configuracoes\\UserManagementForm.js",
+    "components\\contatos\\ContatoForm.js",
+    "components\\contatos\\ContatoList.js",
+    "components\\crm\\CrmDetalhesSidebar.js",
+    "components\\email\\EmailComposeModal.js",
+    "components\\empreendimentos\\EmpreendimentoDetails.js",
+    "components\\empreendimentos\\EmpreendimentoList.js",
+    "components\\empresas\\EmpresaDetails.js",
+    "components\\financeiro\\conciliacao\\ConciliacaoWorkbench.js",
+    "components\\financeiro\\ConciliacaoManager.js",
+    "components\\financeiro\\LancamentoDetalhesSidebar.js",
+    "components\\financeiro\\LancamentoForm\\FormAnexos.js",
+    "components\\financeiro\\PanelConciliacaoCartao.js",
+    "components\\financeiro\\PanelConciliacaoOFX.js",
+    "components\\gerenciador-de-arquivos\\AdicionarArquivoModal.js",
+    "components\\orcamento\\OrcamentoDetalhes.js",
+    "components\\painel\\KpiBuilderModal.js",
+    "components\\painel\\SmartChartCard.js",
+    "components\\pedidos\\PedidoDetalhesSidebar.js",
+    "components\\pedidos\\PedidoForm.js",
+    "components\\rh\\ColaboradorDetailPanel.js",
+    "components\\rh\\EmployeeList.js",
+    "components\\rh\\FichaCompletaFuncionario.js",
+    "components\\shared\\GerenciadorAnexosGlobal.js",
+    "components\\shared\\ModalEditarAnexo.js",
+    "components\\TabelaVenda.js",
+    "components\\ui\\UppyAvatarUploader.js",
+    "components\\ui\\UppyFileImporter.js",
+    "components\\whatsapp\\ChatMediaViewer.js",
+    "components\\whatsapp\\ContactProfile.js",
+    "components\\ZoomableImageModal.js"
+  ],
+  "DESIGN_ORANGE": [
+    "app\\(corretor)\\clientes\\page.js",
+    "app\\(landingpages)\\apresentacaoelo\\components\\PwaSection.js",
+    "app\\(landingpages)\\betasuites\\BetaSuitesClient.js",
+    "app\\(landingpages)\\betasuites\\FormularioDeContatoBeta.js",
+    "app\\(landingpages)\\components\\PwaSection.js",
+    "app\\(landingpages)\\migracao\\page.js",
+    "app\\(landingpages)\\sobre-nos\\page.js",
+    "app\\(main)\\configuracoes\\page.js",
+    "app\\(main)\\contatos\\formatar-telefones\\page.js",
+    "app\\(main)\\contatos\\page.js",
+    "app\\(main)\\financeiro\\categorias\\page.js",
+    "app\\(main)\\relatorios\\comercial\\page.js",
+    "app\\(main)\\relatorios\\rh\\RankingWidget.js",
+    "app\\(main)\\teste-bim\\page.js",
+    "app\\cadastro\\page.js",
+    "components\\almoxarifado\\AlmoxarifadoManager.js",
+    "components\\almoxarifado\\EstornoMovimentacaoModal.js",
+    "components\\almoxarifado\\PainelMovimentacoes.js",
+    "components\\atividades\\form\\ActivityAssignment.js",
+    "components\\atividades\\form\\ActivitySchedule.js",
+    "components\\bim\\AutodeskViewer.js",
+    "components\\bim\\BimNotesList.js",
+    "components\\bim\\BimUploader.js",
+    "components\\bim\\ProjectList.js",
+    "components\\comercial\\KpiAnuncios.js",
+    "components\\configuracoes\\GerenciadorMateriais.js",
+    "components\\contatos\\ContatoList.js",
+    "components\\contratos\\ExtratoFinanceiroCliente.js",
+    "components\\crm\\MetaFormMappingModal.js",
+    "components\\email\\EmailActionMenu.js",
+    "components\\email\\EmailRulesConfig.js",
+    "components\\empreendimentos\\EmpreendimentoDetails.js",
+    "components\\empreendimentos\\EmpreendimentoForm.js",
+    "components\\empresas\\EmpresaDetails.js",
+    "components\\financeiro\\AuditoriaKanban.js",
+    "components\\financeiro\\conciliacao\\ConciliacaoHeader.js",
+    "components\\financeiro\\conciliacao\\ConciliacaoItem.js",
+    "components\\financeiro\\conciliacao\\ConciliacaoWorkbench.js",
+    "components\\financeiro\\ConciliacaoManager.js",
+    "components\\financeiro\\ContasManager.js",
+    "components\\financeiro\\ExtratoCartaoManager.js",
+    "components\\financeiro\\FiltroFinanceiro.js",
+    "components\\financeiro\\LancamentoDetalhesSidebar.js",
+    "components\\financeiro\\LancamentosManager.js",
+    "components\\financeiro\\PagamentoFaturaModal.js",
+    "components\\financeiro\\PanelConciliacaoCartao.js",
+    "components\\financeiro\\PanelConciliacaoOFX.js",
+    "components\\materiais\\MaterialManager.js",
+    "components\\notificacao\\ConfiguracaoNotificacoes.js",
+    "components\\notificacao\\GerenciadorNotificacoes.js",
+    "components\\notificacao\\RegraForm.js",
+    "components\\pedidos\\PedidoCard.js",
+    "components\\pedidos\\PedidoItensTable.js",
+    "components\\radar\\RadarDashboard.js",
+    "components\\relatorios\\financeiro\\FinanceiroDashboard.js",
+    "components\\relatorios\\financeiro\\FinanceiroDRE.js",
+    "components\\relatorios\\RelatorioContratosBase.js",
+    "components\\relatorios\\TabelaRelatorioContratos.js",
+    "components\\shared\\CotacoesBar.js",
+    "components\\shared\\ModalEditarAnexo.js",
+    "components\\whatsapp\\BroadcastPanel.js",
+    "components\\whatsapp\\ContactProfile.js"
+  ],
+  "DESIGN_GRADIENT": [
+    "app\\(landingpages)\\apresentacaoelo\\components\\CaseSection.js",
+    "app\\(landingpages)\\apresentacaoelo\\components\\CtaSection.js",
+    "app\\(landingpages)\\apresentacaoelo\\components\\OriginSection.js",
+    "app\\(landingpages)\\apresentacaoelo\\components\\PwaSection.js",
+    "app\\(landingpages)\\betasuites\\FormularioDeContatoBeta.js",
+    "app\\(landingpages)\\components\\CaseSection.js",
+    "app\\(landingpages)\\components\\CtaSection.js",
+    "app\\(landingpages)\\components\\OriginSection.js",
+    "app\\(landingpages)\\components\\PwaSection.js",
+    "app\\(landingpages)\\migracao\\page.js",
+    "app\\(landingpages)\\residencialalfa\\anuncios\\page.js",
+    "app\\(main)\\atividades\\page.js",
+    "app\\(main)\\crm\\automacao\\page.js",
+    "components\\bim\\BimNotesList.js",
+    "components\\chat\\ChatContacts.jsx",
+    "components\\chat\\ChatConversations.jsx",
+    "components\\chat\\ChatMemoCreate.jsx",
+    "components\\chat\\ChatMural.jsx",
+    "components\\chat\\FloatingChat.jsx",
+    "components\\configuracoes\\PermissionManager.js",
+    "components\\financeiro\\AuditoriaFinanceira.js",
+    "components\\financeiro\\conciliacao\\ConciliacaoWorkbench.js",
+    "components\\financeiro\\ConciliacaoManager.js",
+    "components\\financeiro\\ContasManager.js",
+    "components\\financeiro\\ExtratoCartaoManager.js",
+    "components\\financeiro\\PanelConciliacaoCartao.js",
+    "components\\instagram\\InstagramInbox.js",
+    "components\\notificacao\\ConfiguracaoNotificacoes.js",
+    "components\\notificacao\\GerenciadorNotificacoes.js",
+    "components\\notificacao\\RegraForm.js",
+    "components\\notificacao\\VariableManagerModal.js",
+    "components\\painel\\widgets\\ChatMuralWidget.jsx",
+    "components\\relatorios\\financeiro\\FinanceiroDRE.js",
+    "components\\shared\\GerenciadorAnexosGlobal.js",
+    "components\\tutoriais\\TutoriaisManager.js",
+    "components\\whatsapp\\ChatMediaViewer.js",
+    "components\\whatsapp\\panel\\ChatInput.js"
+  ],
+  "CONSOLE_LOGS": [
+    {
+      "file": "app\\(corretor)\\actions.js",
+      "count": 2
+    },
+    {
+      "file": "app\\(landingpages)\\_actions\\leadActions.js",
+      "count": 2
+    },
+    {
+      "file": "app\\(main)\\atividades\\actions-ai.js",
+      "count": 2
+    },
+    {
+      "file": "app\\(main)\\configuracoes\\usuarios\\inviteAction.js",
+      "count": 3
+    },
+    {
+      "file": "app\\(main)\\configuracoes\\waba-saas\\page.js",
+      "count": 1
+    },
+    {
+      "file": "app\\(main)\\crm\\actions-meta-mapping.js",
+      "count": 2
+    },
+    {
+      "file": "app\\(main)\\crm\\capiActions.js",
+      "count": 3
+    },
+    {
+      "file": "app\\(main)\\teste-bim\\page.js",
+      "count": 2
+    },
+    {
+      "file": "app\\api\\admin\\check-users\\invite-user\\actions.js",
+      "count": 2
+    },
+    {
+      "file": "app\\api\\aps\\upload\\route.js",
+      "count": 1
+    },
+    {
+      "file": "app\\api\\aps\\upload-url\\route.js",
+      "count": 1
+    },
+    {
+      "file": "app\\api\\auth\\[...nextauth]\\route.js",
+      "count": 2
+    },
+    {
+      "file": "app\\api\\cartoes\\extrair-fatura\\route.js",
+      "count": 7
+    },
+    {
+      "file": "app\\api\\crm\\route.js",
+      "count": 8
+    },
+    {
+      "file": "app\\api\\cron\\process-broadcasts\\route.js",
+      "count": 4
+    },
+    {
+      "file": "app\\api\\cron\\sync-indices\\route.js",
+      "count": 2
+    },
+    {
+      "file": "app\\api\\debug-env\\route.js",
+      "count": 3
+    },
+    {
+      "file": "app\\api\\email\\folders\\actions\\route.js",
+      "count": 1
+    },
+    {
+      "file": "app\\api\\email\\rules\\apply\\route.js",
+      "count": 1
+    },
+    {
+      "file": "app\\api\\email\\send\\route.js",
+      "count": 1
+    },
+    {
+      "file": "app\\api\\empreendimentos\\process-anexo\\route.js",
+      "count": 5
+    },
+    {
+      "file": "app\\api\\final-test\\route.js",
+      "count": 4
+    },
+    {
+      "file": "app\\api\\generate-pdf-thumbnail\\route.js",
+      "count": 15
+    },
+    {
+      "file": "app\\api\\instagram\\link-contact\\route.js",
+      "count": 1
+    },
+    {
+      "file": "app\\api\\instagram\\webhook\\route.js",
+      "count": 4
+    },
+    {
+      "file": "app\\api\\meta\\callback\\route.js",
+      "count": 4
+    },
+    {
+      "file": "app\\api\\meta\\conectar\\route.js",
+      "count": 6
+    },
+    {
+      "file": "app\\api\\meta\\pages\\route.js",
+      "count": 4
+    },
+    {
+      "file": "app\\api\\meta\\waba-oauth\\route.js",
+      "count": 6
+    },
+    {
+      "file": "app\\api\\meta\\webhook\\route.js",
+      "count": 8
+    },
+    {
+      "file": "app\\api\\meta\\whatsapp-discover\\route.js",
+      "count": 7
+    },
+    {
+      "file": "app\\api\\notifications\\push\\route.js",
+      "count": 1
+    },
+    {
+      "file": "app\\api\\notifications\\send\\route.js",
+      "count": 2
+    },
+    {
+      "file": "app\\api\\test-lead\\route.js",
+      "count": 2
+    },
+    {
+      "file": "app\\api\\whatsapp\\broadcast\\send\\route.js",
+      "count": 1
+    },
+    {
+      "file": "app\\api\\whatsapp\\chat-manager\\route.js",
+      "count": 1
+    },
+    {
+      "file": "app\\api\\whatsapp\\lists\\sync\\route.js",
+      "count": 2
+    },
+    {
+      "file": "app\\api\\whatsapp\\send\\route.js",
+      "count": 1
+    },
+    {
+      "file": "app\\api\\whatsapp\\templates\\route.js",
+      "count": 1
+    },
+    {
+      "file": "app\\api\\whatsapp\\webhook\\route.js",
+      "count": 1
+    },
+    {
+      "file": "app\\api\\whatsapp\\webhook\\services\\crm.js",
+      "count": 2
+    },
+    {
+      "file": "app\\api\\whatsapp\\webhook\\services\\media.js",
+      "count": 1
+    },
+    {
+      "file": "app\\api\\whatsapp\\webhook\\services\\message.js",
+      "count": 1
+    },
+    {
+      "file": "app\\cadastro-corretor\\actions.js",
+      "count": 6
+    },
+    {
+      "file": "components\\bim\\AutodeskViewerAPI.js",
+      "count": 1
+    },
+    {
+      "file": "components\\bim\\BimContextMenu.js",
+      "count": 3
+    },
+    {
+      "file": "components\\bim\\BimElementPlanning.js",
+      "count": 1
+    },
+    {
+      "file": "components\\bim\\BimNotesList.js",
+      "count": 1
+    },
+    {
+      "file": "components\\bim\\BimSidebar.js",
+      "count": 1
+    },
+    {
+      "file": "components\\bim\\BimUploadModal.js",
+      "count": 1
+    },
+    {
+      "file": "components\\bim\\BimVinculoMaterialModal.js",
+      "count": 1
+    },
+    {
+      "file": "components\\contatos\\actions.js",
+      "count": 5
+    },
+    {
+      "file": "components\\contatos\\DuplicateContactsManager.js",
+      "count": 2
+    },
+    {
+      "file": "components\\crm\\FiltroCrm.js",
+      "count": 1
+    },
+    {
+      "file": "components\\email\\EmailInbox.js",
+      "count": 1
+    },
+    {
+      "file": "components\\email\\EmailViewPanel.js",
+      "count": 2
+    },
+    {
+      "file": "components\\instagram\\InstagramInbox.js",
+      "count": 4
+    },
+    {
+      "file": "components\\integracoes\\WhatsappButton.js",
+      "count": 1
+    },
+    {
+      "file": "components\\rh\\GerenciamentoPonto.js",
+      "count": 1
+    },
+    {
+      "file": "components\\shared\\ServiceWorkerRegistrar.js",
+      "count": 2
+    },
+    {
+      "file": "components\\whatsapp\\panel\\useAudioRecorder.js",
+      "count": 1
+    }
+  ],
+  "EDGE_VULNERABILITY": [
+    "app\\(corretor)\\clientes\\actions.js",
+    "app\\(corretor)\\portal-contratos\\actions.js",
+    "app\\(main)\\caixa-de-entrada\\actions.js",
+    "app\\(main)\\configuracoes\\politicas\\actions.js",
+    "app\\api\\instagram\\messages\\route.js",
+    "app\\api\\whatsapp\\webhook\\services\\message.js",
+    "app\\auth\\callback\\route.js",
+    "app\\cadastro\\actions.js"
+  ]
+}

@@ -6,21 +6,21 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowLeft } from '@fortawesome/free-solid-svg-icons';
 
 export default function BotaoVoltar() {
-  const router = useRouter();
+ const router = useRouter();
 
-  // Função que será chamada ao clicar no botão
-  const handleVoltar = () => {
-    router.back(); // Navega para a página anterior no histórico do navegador
-  };
+ // Função que será chamada ao clicar no botão
+ const handleVoltar = () => {
+ router.back(); // Navega para a página anterior no histórico do navegador
+ };
 
-  return (
-    <button
-      onClick={handleVoltar}
-      className="mb-4 inline-flex items-center text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors duration-200"
-      aria-label="Voltar para a página anterior"
-    >
-      <FontAwesomeIcon icon={faArrowLeft} className="mr-2 h-4 w-4" />
-      Voltar
-    </button>
-  );
+ return (
+ <button
+ onClick={handleVoltar}
+ className="mb-4 inline-flex items-center text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors duration-200"
+ aria-label="Voltar para a página anterior"
+ >
+ <FontAwesomeIcon icon={faArrowLeft} className="mr-2 h-4 w-4" />
+ Voltar
+ </button>
+ );
 }

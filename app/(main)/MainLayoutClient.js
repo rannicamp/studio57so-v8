@@ -18,169 +18,169 @@ import { config } from '@fortawesome/fontawesome-svg-core';
 config.autoAddCss = false;
 
 function MainLayoutContent({ children }) {
-    const pathname = usePathname();
-    const isCaixaDeEntrada = pathname === '/caixa-de-entrada';
+ const pathname = usePathname();
+ const isCaixaDeEntrada = pathname === '/caixa-de-entrada';
 
-    // ##### MEMÓRIA DA INTERFACE (ESTILO BIM) #####
-    // Tentamos buscar no navegador se o menu estava aberto antes
-    const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
-        if (typeof window !== 'undefined') {
-            const saved = localStorage.getItem('s57_sidebar_state');
-            return saved === 'true';
-        }
-        return false;
-    });
+ // ##### MEMÓRIA DA INTERFACE (ESTILO BIM) #####
+ // Tentamos buscar no navegador se o menu estava aberto antes
+ const [isSidebarOpen, setIsSidebarOpen] = useState(() => {
+ if (typeof window !== 'undefined') {
+ const saved = localStorage.getItem('s57_sidebar_state');
+ return saved === 'true';
+ }
+ return false;
+ });
 
-    const { user, isProprietario, loading: authLoading, organizacao_id } = useAuth();
-    const sidebarPosition = user?.sidebar_position || 'left';
+ const { user, isProprietario, loading: authLoading, organizacao_id } = useAuth();
+ const sidebarPosition = user?.sidebar_position || 'left';
 
-    // Referência para evitar o "piscar" do carregamento se o usuário já estiver na tela
-    const hasLoadedOnce = useRef(false);
-    if (user && !authLoading) {
-        hasLoadedOnce.current = true;
-    }
+ // Referência para evitar o "piscar" do carregamento se o usuário já estiver na tela
+ const hasLoadedOnce = useRef(false);
+ if (user && !authLoading) {
+ hasLoadedOnce.current = true;
+ }
 
-    const { empreendimentos } = useEmpreendimento();
-    const router = useRouter();
+ const { empreendimentos } = useEmpreendimento();
+ const router = useRouter();
 
-    const [isGlobalActivityModalOpen, setIsGlobalActivityModalOpen] = useState(false);
-    const [modalData, setModalData] = useState({ funcionarios: [], empresas: [] });
-    const [isLoadingModalData, setIsLoadingModalData] = useState(false);
+ const [isGlobalActivityModalOpen, setIsGlobalActivityModalOpen] = useState(false);
+ const [modalData, setModalData] = useState({ funcionarios: [], empresas: [] });
+ const [isLoadingModalData, setIsLoadingModalData] = useState(false);
 
-    const supabase = createClient();
-    const isCotacoesBarVisible = user?.mostrar_barra_cotacoes && user?.cotacoes_visiveis?.length > 0;
+ const supabase = createClient();
+ const isCotacoesBarVisible = user?.mostrar_barra_cotacoes && user?.cotacoes_visiveis?.length > 0;
 
-    // Persiste a escolha do menu lateral para não fechar sozinho
-    useEffect(() => {
-        localStorage.setItem('s57_sidebar_state', isSidebarOpen);
-    }, [isSidebarOpen]);
+ // Persiste a escolha do menu lateral para não fechar sozinho
+ useEffect(() => {
+ localStorage.setItem('s57_sidebar_state', isSidebarOpen);
+ }, [isSidebarOpen]);
 
-    // Rastreamento de Presença
-    useEffect(() => {
-        if (!user?.id) return;
-        const updateOnlineStatus = async () => {
-            try {
-                await supabase.from('usuarios').update({ ultimo_acesso: new Date().toISOString() }).eq('id', user.id);
-            } catch (error) { /* Silencioso */ }
-        };
-        updateOnlineStatus();
-        const interval = setInterval(updateOnlineStatus, 3 * 60 * 1000); // 3 min
-        return () => clearInterval(interval);
-    }, [user?.id, supabase]);
+ // Rastreamento de Presença
+ useEffect(() => {
+ if (!user?.id) return;
+ const updateOnlineStatus = async () => {
+ try {
+ await supabase.from('usuarios').update({ ultimo_acesso: new Date().toISOString() }).eq('id', user.id);
+ } catch (error) { /* Silencioso */ }
+ };
+ updateOnlineStatus();
+ const interval = setInterval(updateOnlineStatus, 3 * 60 * 1000); // 3 min
+ return () => clearInterval(interval);
+ }, [user?.id, supabase]);
 
-    // Verificação de Sessão
-    useEffect(() => {
-        if (!authLoading && !user && hasLoadedOnce.current) {
-            router.push('/login');
-        }
-    }, [authLoading, user, router]);
+ // Verificação de Sessão
+ useEffect(() => {
+ if (!authLoading && !user && hasLoadedOnce.current) {
+ router.push('/login');
+ }
+ }, [authLoading, user, router]);
 
-    const fetchModalData = useCallback(async () => {
-        if (!organizacao_id) return;
-        setIsLoadingModalData(true);
-        const [funcRes, empRes] = await Promise.all([
-            supabase.from('funcionarios').select('id, full_name').eq('organizacao_id', organizacao_id).order('full_name'),
-            supabase.from('cadastro_empresa').select('id, razao_social').eq('organizacao_id', organizacao_id).order('razao_social')
-        ]);
-        setModalData({ funcionarios: funcRes.data || [], empresas: empRes.data || [] });
-        setIsLoadingModalData(false);
-    }, [supabase, organizacao_id]);
+ const fetchModalData = useCallback(async () => {
+ if (!organizacao_id) return;
+ setIsLoadingModalData(true);
+ const [funcRes, empRes] = await Promise.all([
+ supabase.from('funcionarios').select('id, full_name').eq('organizacao_id', organizacao_id).order('full_name'),
+ supabase.from('cadastro_empresa').select('id, razao_social').eq('organizacao_id', organizacao_id).order('razao_social')
+ ]);
+ setModalData({ funcionarios: funcRes.data || [], empresas: empRes.data || [] });
+ setIsLoadingModalData(false);
+ }, [supabase, organizacao_id]);
 
-    // [TICKET #88] Atalho Ctrl+A desativado temporariamente para não conflitar com "Selecionar Tudo" nativo
-    /*
-    useEffect(() => {
-        const handleKeyDown = (event) => {
-            if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'a') {
-                event.preventDefault();
-                fetchModalData();
-                setIsGlobalActivityModalOpen(true);
-            }
-        };
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [fetchModalData]);
-    */
+ // [TICKET #88] Atalho Ctrl+A desativado temporariamente para não conflitar com "Selecionar Tudo" nativo
+ /*
+ useEffect(() => {
+ const handleKeyDown = (event) => {
+ if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'a') {
+ event.preventDefault();
+ fetchModalData();
+ setIsGlobalActivityModalOpen(true);
+ }
+ };
+ window.addEventListener('keydown', handleKeyDown);
+ return () => window.removeEventListener('keydown', handleKeyDown);
+ }, [fetchModalData]);
+ */
 
-    const toggleSidebar = () => setIsSidebarOpen(prev => !prev);
-    const closeSidebar = () => setIsSidebarOpen(false);
+ const toggleSidebar = () => setIsSidebarOpen(prev => !prev);
+ const closeSidebar = () => setIsSidebarOpen(false);
 
-    if (authLoading && !hasLoadedOnce.current) {
-        return <div className="flex items-center justify-center h-screen bg-white">Carregando...</div>;
-    }
+ if (authLoading && !hasLoadedOnce.current) {
+ return <div className="flex items-center justify-center h-screen bg-white">Carregando...</div>;
+ }
 
-    if (!user && !authLoading) return null;
+ if (!user && !authLoading) return null;
 
-    // --- LÓGICA DE LAYOUT CORRIGIDA PELO DEVONILDO ---
-    const isLateral = sidebarPosition === 'left' || sidebarPosition === 'right';
+ // --- LÓGICA DE LAYOUT CORRIGIDA PELO DEVONILDO ---
+ const isLateral = sidebarPosition === 'left' || sidebarPosition === 'right';
 
-    const mainStyles = (() => {
-        // Altura do cabeçalho calculada dinamicamente
-        const topPadding = isCotacoesBarVisible ? '89px' : '65px';
+ const mainStyles = (() => {
+ // Altura do cabeçalho calculada dinamicamente
+ const topPadding = isCotacoesBarVisible ? '89px' : '65px';
 
-        if (isCaixaDeEntrada) {
-            // AQUI ESTAVA O PROBLEMA! O layout ignorava o Header na Caixa de Entrada.
-            // Agora garantimos que o conteúdo seja empurrado para baixo dele.
-            return { paddingTop: topPadding };
-        }
-        if (isLateral) {
-            return {
-                paddingTop: topPadding,
-                paddingBottom: '20px',
-                width: '100%'
-            };
-        } else if (sidebarPosition === 'top') {
-            return { paddingTop: '140px', paddingBottom: '20px' };
-        } else {
-            return { paddingTop: '80px', paddingBottom: '80px' };
-        }
-    })();
+ if (isCaixaDeEntrada) {
+ // AQUI ESTAVA O PROBLEMA! O layout ignorava o Header na Caixa de Entrada.
+ // Agora garantimos que o conteúdo seja empurrado para baixo dele.
+ return { paddingTop: topPadding };
+ }
+ if (isLateral) {
+ return {
+ paddingTop: topPadding,
+ paddingBottom: '20px',
+ width: '100%'
+ };
+ } else if (sidebarPosition === 'top') {
+ return { paddingTop: '140px', paddingBottom: '20px' };
+ } else {
+ return { paddingTop: '80px', paddingBottom: '80px' };
+ }
+ })();
 
-    const content = (
-        <>
-            <div className="print:hidden">
-                <Header toggleSidebar={toggleSidebar} />
-            </div>
-            <div className="print:hidden">
-                <Sidebar isOpen={isSidebarOpen} closeSidebar={closeSidebar} isAdmin={isProprietario} />
-            </div>
+ const content = (
+ <>
+ <div className="print:hidden">
+ <Header toggleSidebar={toggleSidebar} />
+ </div>
+ <div className="print:hidden">
+ <Sidebar isOpen={isSidebarOpen} closeSidebar={closeSidebar} isAdmin={isProprietario} />
+ </div>
 
-            <main
-                className={`${isCaixaDeEntrada ? 'flex-1 w-full relative overflow-hidden flex flex-col' : 'flex-grow p-4 transition-all duration-300 print:p-0 print:m-0'}`}
-                style={mainStyles}
-            >
-                <div className={isCaixaDeEntrada ? "h-full w-full" : "w-full"}>
-                    {children}
-                </div>
-            </main>
+ <main
+ className={`${isCaixaDeEntrada ? 'flex-1 w-full relative overflow-hidden flex flex-col' : 'flex-grow p-4 transition-all duration-300 print:p-0 print:m-0'}`}
+ style={mainStyles}
+ >
+ <div className={isCaixaDeEntrada ? "h-full w-full" : "w-full"}>
+ {children}
+ </div>
+ </main>
 
-            {isGlobalActivityModalOpen && (
-                <AtividadeModal
-                    isOpen={isGlobalActivityModalOpen}
-                    onClose={() => setIsGlobalActivityModalOpen(false)}
-                    onActivityAdded={() => { setIsGlobalActivityModalOpen(false); toast.success('Atividade rápida criada!'); }}
-                    funcionarios={modalData.funcionarios}
-                    allEmpreendimentos={empreendimentos}
-                    allEmpresas={modalData.empresas}
-                />
-            )}
-        </>
-    );
+ {isGlobalActivityModalOpen && (
+ <AtividadeModal
+ isOpen={isGlobalActivityModalOpen}
+ onClose={() => setIsGlobalActivityModalOpen(false)}
+ onActivityAdded={() => { setIsGlobalActivityModalOpen(false); toast.success('Atividade rápida criada!'); }}
+ funcionarios={modalData.funcionarios}
+ allEmpreendimentos={empreendimentos}
+ allEmpresas={modalData.empresas}
+ />
+ )}
+ </>
+ );
 
-    return (
-        <div className={isCaixaDeEntrada ? "flex flex-col h-screen w-full bg-white overflow-hidden" : "min-h-screen bg-white flex flex-col"}>
-            {content}
-        </div>
-    );
+ return (
+ <div className={isCaixaDeEntrada ? "flex flex-col h-screen w-full bg-white overflow-hidden" : "min-h-screen bg-white flex flex-col"}>
+ {content}
+ </div>
+ );
 }
 
 export default function MainLayoutClient({ children }) {
-    return (
-        <LayoutProvider>
-            <EmpreendimentoProvider>
-                <TermsUpdateEnforcer />
-                <MainLayoutContent>{children}</MainLayoutContent>
-                <FloatingChat />
-            </EmpreendimentoProvider>
-        </LayoutProvider>
-    );
+ return (
+ <LayoutProvider>
+ <EmpreendimentoProvider>
+ <TermsUpdateEnforcer />
+ <MainLayoutContent>{children}</MainLayoutContent>
+ <FloatingChat />
+ </EmpreendimentoProvider>
+ </LayoutProvider>
+ );
 }

@@ -13,43 +13,42 @@ const sdkManager = SdkManagerBuilder.create().build();
 const authClient = new AuthenticationClient(sdkManager);
 
 export async function POST(request) {
-    try {
-        const { uploadKey, objectKey } = await request.json();
+ try {
+ const { uploadKey, objectKey } = await request.json();
 
-        if (!uploadKey || !objectKey) {
-            return NextResponse.json({ error: 'Parâmetros ausentes.' }, { status: 400 });
-        }
+ if (!uploadKey || !objectKey) {
+ return NextResponse.json({ error: 'Parâmetros ausentes.' }, { status: 400 });
+ }
 
-        // 1. Autenticação Autodesk
-        const credentials = await authClient.getTwoLeggedToken(
-            APS_CLIENT_ID,
-            APS_CLIENT_SECRET,
-            [Scopes.DataRead, Scopes.DataWrite, Scopes.BucketCreate, Scopes.BucketRead]
-        );
-        const accessToken = credentials.access_token;
+ // 1. Autenticação Autodesk
+ const credentials = await authClient.getTwoLeggedToken(
+ APS_CLIENT_ID,
+ APS_CLIENT_SECRET,
+ [Scopes.DataRead, Scopes.DataWrite, Scopes.BucketCreate, Scopes.BucketRead]
+ );
+ const accessToken = credentials.access_token;
 
-        // 2. Finaliza S3 Upload na Autodesk
-        const s3Url = `https://developer.api.autodesk.com/oss/v2/buckets/${BUCKET_KEY}/objects/${objectKey}/signeds3upload`;
-        const finalizeRes = await fetch(s3Url, {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ uploadKey: uploadKey })
-        });
-        
-        if (!finalizeRes.ok) {
-            throw new Error(`Erro ao finalizar S3 Upload: ${await finalizeRes.text()}`);
-        }
+ // 2. Finaliza S3 Upload na Autodesk
+ const s3Url = `https://developer.api.autodesk.com/oss/v2/buckets/${BUCKET_KEY}/objects/${objectKey}/signeds3upload`;
+ const finalizeRes = await fetch(s3Url, {
+ method: 'POST',
+ headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+ body: JSON.stringify({ uploadKey: uploadKey })
+ });
+ if (!finalizeRes.ok) {
+ throw new Error(`Erro ao finalizar S3 Upload: ${await finalizeRes.text()}`);
+ }
 
-        const objectDetails = await finalizeRes.json();
+ const objectDetails = await finalizeRes.json();
 
-        // 3. Gera URN Seguro
-        const objectId = objectDetails.objectId;
-        const urn = Buffer.from(objectId).toString('base64').replace(/=/g, '');
+ // 3. Gera URN Seguro
+ const objectId = objectDetails.objectId;
+ const urn = Buffer.from(objectId).toString('base64').replace(/=/g, '');
 
-        return NextResponse.json({ success: true, urn: urn });
+ return NextResponse.json({ success: true, urn: urn });
 
-    } catch (error) {
-        console.error('[APS FINALIZE UPLOAD ERROR]:', error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
-    }
+ } catch (error) {
+ console.error('[APS FINALIZE UPLOAD ERROR]:', error);
+ return NextResponse.json({ error: error.message }, { status: 500 });
+ }
 }

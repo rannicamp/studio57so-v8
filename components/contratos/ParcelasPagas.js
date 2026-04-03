@@ -19,84 +19,84 @@ const formatDate = (dateStr) => dateStr ? new Date(dateStr).toLocaleDateString('
 // organização correta sejam retornados.
 // =================================================================================
 const fetchLancamentosPagos = async (supabase, contatoId, organizacaoId) => {
-    if (!contatoId || !organizacaoId) return [];
+ if (!contatoId || !organizacaoId) return [];
 
-    const { data, error } = await supabase
-        .from('lancamentos')
-        .select('*, categoria:categorias_financeiras(*), conta:contas_financeiras(*)')
-        .eq('favorecido_contato_id', contatoId)
-        .eq('organizacao_id', organizacaoId) // <-- FILTRO DE SEGURANÇA!
-        .eq('status', 'Pago')
-        .order('data_pagamento', { ascending: false });
+ const { data, error } = await supabase
+ .from('lancamentos')
+ .select('*, categoria:categorias_financeiras(*), conta:contas_financeiras(*)')
+ .eq('favorecido_contato_id', contatoId)
+ .eq('organizacao_id', organizacaoId) // <-- FILTRO DE SEGURANÇA!
+ .eq('status', 'Pago')
+ .order('data_pagamento', { ascending: false });
 
-    if (error) {
-        console.error("Erro ao buscar lançamentos pagos:", error);
-        throw new Error("Falha ao buscar o histórico de pagamentos.");
-    }
-    return data || [];
+ if (error) {
+ console.error("Erro ao buscar lançamentos pagos:", error);
+ throw new Error("Falha ao buscar o histórico de pagamentos.");
+ }
+ return data || [];
 };
 
 export default function ParcelasPagas({ contatoId }) {
-    const supabase = createClient();
-    const { user } = useAuth(); // 3. Obter o usuário para o organizacaoId
-    const organizacaoId = user?.organizacao_id;
+ const supabase = createClient();
+ const { user } = useAuth(); // 3. Obter o usuário para o organizacaoId
+ const organizacaoId = user?.organizacao_id;
 
-    // =================================================================================
-    // ATUALIZAÇÃO DE PADRÃO (useState + useEffect -> useQuery)
-    // O PORQUÊ: Substituímos a lógica antiga por useQuery. Ele gerencia o loading,
-    // erros e o cache dos dados de forma automática, deixando o código mais limpo.
-    // A `queryKey` inclui o `organizacaoId` para um cache seguro.
-    // =================================================================================
-    const { data: lancamentosPagos = [], isLoading, isError, error } = useQuery({
-        queryKey: ['lancamentosPagos', contatoId, organizacaoId],
-        queryFn: () => fetchLancamentosPagos(supabase, contatoId, organizacaoId),
-        enabled: !!contatoId && !!organizacaoId, // A busca só é ativada quando ambos os IDs existem
-    });
+ // =================================================================================
+ // ATUALIZAÇÃO DE PADRÃO (useState + useEffect -> useQuery)
+ // O PORQUÊ: Substituímos a lógica antiga por useQuery. Ele gerencia o loading,
+ // erros e o cache dos dados de forma automática, deixando o código mais limpo.
+ // A `queryKey` inclui o `organizacaoId` para um cache seguro.
+ // =================================================================================
+ const { data: lancamentosPagos = [], isLoading, isError, error } = useQuery({
+ queryKey: ['lancamentosPagos', contatoId, organizacaoId],
+ queryFn: () => fetchLancamentosPagos(supabase, contatoId, organizacaoId),
+ enabled: !!contatoId && !!organizacaoId, // A busca só é ativada quando ambos os IDs existem
+ });
 
-    if (isLoading) {
-        return <div className="text-center p-10"><FontAwesomeIcon icon={faSpinner} spin size="2x" /> Carregando histórico de pagamentos...</div>;
-    }
+ if (isLoading) {
+ return <div className="text-center p-10"><FontAwesomeIcon icon={faSpinner} spin size="2x" /> Carregando histórico de pagamentos...</div>;
+ }
 
-    if (isError) {
-        return <div className="text-center p-10 text-red-500">{error.message}</div>;
-    }
+ if (isError) {
+ return <div className="text-center p-10 text-red-500">{error.message}</div>;
+ }
 
-    return (
-        <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100 flex-shrink-0 space-y-6 animate-fade-in">
-            <h3 className="text-xl font-extrabold text-gray-800 tracking-tight flex items-center gap-2">
-                <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div> Histórico de Pagamentos
-            </h3>
+ return (
+ <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100 flex-shrink-0 space-y-6 animate-fade-in">
+ <h3 className="text-xl font-extrabold text-gray-800 tracking-tight flex items-center gap-2">
+ <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div> Histórico de Pagamentos
+ </h3>
 
-            <div className="overflow-x-auto border border-gray-100 rounded-2xl shadow-inner scrollbar-hide">
-                <table className="min-w-full divide-y divide-gray-100 text-sm">
-                    <thead className="bg-gray-50/80">
-                        <tr>
-                            <th className="px-4 py-3 text-left font-extrabold text-[10px] text-gray-500 uppercase tracking-widest">Data do Pagamento</th>
-                            <th className="px-4 py-3 text-left font-extrabold text-[10px] text-gray-500 uppercase tracking-widest">Descrição</th>
-                            <th className="px-4 py-3 text-left font-extrabold text-[10px] text-gray-500 uppercase tracking-widest">Categoria</th>
-                            <th className="px-4 py-3 text-right font-extrabold text-[10px] text-gray-500 uppercase tracking-widest">Valor Pago</th>
-                        </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-50">
-                        {lancamentosPagos.length > 0 ? (
-                            lancamentosPagos.map(lancamento => (
-                                <tr key={lancamento.id} className="hover:bg-blue-50/30 transition-colors">
-                                    <td className="px-4 py-3 whitespace-nowrap font-medium text-gray-600">{formatDate(lancamento.data_pagamento)}</td>
-                                    <td className="px-4 py-3 font-semibold text-gray-800">{lancamento.descricao}</td>
-                                    <td className="px-4 py-3 text-gray-600">{lancamento.categoria?.nome || 'N/A'}</td>
-                                    <td className="px-4 py-3 text-right font-bold text-gray-800">{formatCurrency(lancamento.valor)}</td>
-                                </tr>
-                            ))
-                        ) : (
-                            <tr>
-                                <td colSpan="4" className="text-center py-10 font-medium text-gray-400">
-                                    Nenhum pagamento registrado para este cliente.
-                                </td>
-                            </tr>
-                        )}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    );
+ <div className="overflow-x-auto border border-gray-100 rounded-2xl shadow-inner scrollbar-hide">
+ <table className="min-w-full divide-y divide-gray-100 text-sm">
+ <thead className="bg-gray-50/80">
+ <tr>
+ <th className="px-4 py-3 text-left font-extrabold text-[10px] text-gray-500 uppercase tracking-widest">Data do Pagamento</th>
+ <th className="px-4 py-3 text-left font-extrabold text-[10px] text-gray-500 uppercase tracking-widest">Descrição</th>
+ <th className="px-4 py-3 text-left font-extrabold text-[10px] text-gray-500 uppercase tracking-widest">Categoria</th>
+ <th className="px-4 py-3 text-right font-extrabold text-[10px] text-gray-500 uppercase tracking-widest">Valor Pago</th>
+ </tr>
+ </thead>
+ <tbody className="bg-white divide-y divide-gray-50">
+ {lancamentosPagos.length > 0 ? (
+ lancamentosPagos.map(lancamento => (
+ <tr key={lancamento.id} className="hover:bg-blue-50/30 transition-colors">
+ <td className="px-4 py-3 whitespace-nowrap font-medium text-gray-600">{formatDate(lancamento.data_pagamento)}</td>
+ <td className="px-4 py-3 font-semibold text-gray-800">{lancamento.descricao}</td>
+ <td className="px-4 py-3 text-gray-600">{lancamento.categoria?.nome || 'N/A'}</td>
+ <td className="px-4 py-3 text-right font-bold text-gray-800">{formatCurrency(lancamento.valor)}</td>
+ </tr>
+ ))
+ ) : (
+ <tr>
+ <td colSpan="4" className="text-center py-10 font-medium text-gray-400">
+ Nenhum pagamento registrado para este cliente.
+ </td>
+ </tr>
+ )}
+ </tbody>
+ </table>
+ </div>
+ </div>
+ );
 }

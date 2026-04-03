@@ -9,15 +9,13 @@ export const dynamic = 'force-dynamic'
 import { useLayout } from '@/contexts/LayoutContext'
 
 export default function PainelCorretor() {
-  
-  // AQUI ESTÁ A CORREÇÃO FINAL!
-  // Removemos o || {} porque o useLayout() agora funciona!
-  const { user } = useLayout()
-  
-  return (
-    <div>
-      <h2 className="text-xl font-semibold">Painel do Corretor</h2>
-      <p>Aqui ficará o dashboard de performance do corretor.</p>
-    </div>
-  )
+ // AQUI ESTÁ A CORREÇÃO FINAL!
+ // Removemos o || {} porque o useLayout() agora funciona!
+ const { user } = useLayout()
+ return (
+ <div>
+ <h2 className="text-xl font-semibold">Painel do Corretor</h2>
+ <p>Aqui ficará o dashboard de performance do corretor.</p>
+ </div>
+ )
 }

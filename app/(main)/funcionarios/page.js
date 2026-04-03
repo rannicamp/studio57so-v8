@@ -3,5 +3,5 @@
 import { redirect } from 'next/navigation';
 
 export default function FuncionariosRedirectPage() {
-    redirect('/recursos-humanos');
+ redirect('/recursos-humanos');
 }

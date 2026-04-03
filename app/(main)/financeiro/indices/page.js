@@ -8,17 +8,17 @@ import { useLayout } from '@/contexts/LayoutContext'
 import IndicesManager from '@/components/configuracoes/IndicesManager'
 
 export default function IndicesPage() {
-    const { setPageTitle } = useLayout()
+ const { setPageTitle } = useLayout()
 
-    useEffect(() => {
-        if (setPageTitle) {
-            setPageTitle('Gestão de Índices Financeiros')
-        }
-    }, [setPageTitle])
+ useEffect(() => {
+ if (setPageTitle) {
+ setPageTitle('Gestão de Índices Financeiros')
+ }
+ }, [setPageTitle])
 
-    return (
-        <div className="w-full max-w-7xl mx-auto p-4 space-y-6">
-            <IndicesManager />
-        </div>
-    )
+ return (
+ <div className="w-full max-w-7xl mx-auto p-4 space-y-6">
+ <IndicesManager />
+ </div>
+ )
 }

@@ -33,372 +33,372 @@ const UPPY_CSS_URL = "https://releases.transloadit.com/uppy/v5.2.1/uppy.min.css"
 const sanitizeFileName = (fileName) => fileName.normalize('NFD').replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, '_').replace(/[^a-zA-Z0-9._-]/g, '');
 const cleanPhoneNumber = (phone) => phone ? phone.replace(/[^0-9]/g, '') : null;
 const getAttachmentType = (fileType) => {
-    if (fileType.startsWith('image/')) return 'image';
-    if (fileType.startsWith('video/')) return 'video';
-    if (fileType.startsWith('audio/')) return 'audio';
-    return 'document';
+ if (fileType.startsWith('image/')) return 'image';
+ if (fileType.startsWith('video/')) return 'video';
+ if (fileType.startsWith('audio/')) return 'audio';
+ return 'document';
 };
 
 const pt_BR_Uppy = {
-    strings: {
-        addMore: 'Adicionar mais', cancel: 'Cancelar', dashboardTitle: 'Enviar Arquivo',
-        dropPasteFiles: 'Arraste arquivos aqui ou %{browse}', browse: 'selecione',
-        editFile: 'Adicionar Legenda', removeFile: 'Remover arquivo', save: 'Salvar Legenda', uploading: 'Enviando...',
-        complete: 'Concluído'
-    }
+ strings: {
+ addMore: 'Adicionar mais', cancel: 'Cancelar', dashboardTitle: 'Enviar Arquivo',
+ dropPasteFiles: 'Arraste arquivos aqui ou %{browse}', browse: 'selecione',
+ editFile: 'Adicionar Legenda', removeFile: 'Remover arquivo', save: 'Salvar Legenda', uploading: 'Enviando...',
+ complete: 'Concluído'
+ }
 };
 
 export default function MessagePanel({ contact, onBack }) {
-    const queryClient = useQueryClient();
-    const [newMessage, setNewMessage] = usePersistentState(`whatsapp_draft_${contact?.contato_id}`, '');
-    const supabase = createClient();
-    const { user } = useAuth();
-    const organizacaoId = user?.organizacao_id;
+ const queryClient = useQueryClient();
+ const [newMessage, setNewMessage] = usePersistentState(`whatsapp_draft_${contact?.contato_id}`, '');
+ const supabase = createClient();
+ const { user } = useAuth();
+ const organizacaoId = user?.organizacao_id;
 
-    // Estados Visuais
-    const [selectedFile, setSelectedFile] = useState(null);
-    const [isFilePreviewOpen, setIsFilePreviewOpen] = useState(false);
-    const [viewerMedia, setViewerMedia] = useState(null);
-    const [isViewerOpen, setIsViewerOpen] = useState(false);
-    const [isUploaderOpen, setIsUploaderOpen] = useState(false);
-    const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
-    const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
-    // Ticket #52: Perfil do contato em mobile
-    const [isProfileOpen, setIsProfileOpen] = useState(false);
+ // Estados Visuais
+ const [selectedFile, setSelectedFile] = useState(null);
+ const [isFilePreviewOpen, setIsFilePreviewOpen] = useState(false);
+ const [viewerMedia, setViewerMedia] = useState(null);
+ const [isViewerOpen, setIsViewerOpen] = useState(false);
+ const [isUploaderOpen, setIsUploaderOpen] = useState(false);
+ const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
+ const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
+ // Ticket #52: Perfil do contato em mobile
+ const [isProfileOpen, setIsProfileOpen] = useState(false);
 
-    // Estado de Contato
-    const [recipientPhone, setRecipientPhone] = useState(null);
-    const recipientPhoneRef = useRef(recipientPhone);
-    const dashboardContainerRef = useRef(null);
+ // Estado de Contato
+ const [recipientPhone, setRecipientPhone] = useState(null);
+ const recipientPhoneRef = useRef(recipientPhone);
+ const dashboardContainerRef = useRef(null);
 
-    // --- Uppy Setup ---
-    const [uppy] = useState(() => {
-        if (typeof window === 'undefined') return null;
-        const uppyInstance = new Uppy({
-            id: 'whatsapp-uploader-v4-ptbr', locale: pt_BR_Uppy, autoProceed: false,
-            restrictions: { maxFileSize: 64 * 1024 * 1024, maxNumberOfFiles: 1 },
-            meta: { caption: '' }
-        });
-        uppyInstance.use(GoldenRetriever, { serviceWorker: false, indexedDB: true });
-        return uppyInstance;
-    });
+ // --- Uppy Setup ---
+ const [uppy] = useState(() => {
+ if (typeof window === 'undefined') return null;
+ const uppyInstance = new Uppy({
+ id: 'whatsapp-uploader-v4-ptbr', locale: pt_BR_Uppy, autoProceed: false,
+ restrictions: { maxFileSize: 64 * 1024 * 1024, maxNumberOfFiles: 1 },
+ meta: { caption: '' }
+ });
+ uppyInstance.use(GoldenRetriever, { serviceWorker: false, indexedDB: true });
+ return uppyInstance;
+ });
 
-    // --- Queries ---
-    const { data: messages, isLoading } = useQuery({
-        queryKey: ['messages', organizacaoId, contact?.contato_id],
-        queryFn: () => getMessages(supabase, organizacaoId, contact?.contato_id),
-        enabled: !!organizacaoId && !!contact,
-        refetchInterval: 5000,
-    });
+ // --- Queries ---
+ const { data: messages, isLoading } = useQuery({
+ queryKey: ['messages', organizacaoId, contact?.contato_id],
+ queryFn: () => getMessages(supabase, organizacaoId, contact?.contato_id),
+ enabled: !!organizacaoId && !!contact,
+ refetchInterval: 5000,
+ });
 
-    // Determine Recipient Phone
-    useEffect(() => {
-        if (messages && messages.length > 0) {
-            const inboundMsg = messages.find(m => m.direction === 'inbound');
-            if (inboundMsg?.sender_id) { setRecipientPhone(inboundMsg.sender_id); return; }
-            const outboundMsg = messages.find(m => m.direction === 'outbound');
-            if (outboundMsg?.receiver_id) { setRecipientPhone(outboundMsg.receiver_id); }
-        } else if (contact?.phone_number || contact?.telefone) {
-            setRecipientPhone(contact.phone_number || contact.telefone);
-        }
-    }, [messages, contact]);
+ // Determine Recipient Phone
+ useEffect(() => {
+ if (messages && messages.length > 0) {
+ const inboundMsg = messages.find(m => m.direction === 'inbound');
+ if (inboundMsg?.sender_id) { setRecipientPhone(inboundMsg.sender_id); return; }
+ const outboundMsg = messages.find(m => m.direction === 'outbound');
+ if (outboundMsg?.receiver_id) { setRecipientPhone(outboundMsg.receiver_id); }
+ } else if (contact?.phone_number || contact?.telefone) {
+ setRecipientPhone(contact.phone_number || contact.telefone);
+ }
+ }, [messages, contact]);
 
-    useEffect(() => { recipientPhoneRef.current = recipientPhone; }, [recipientPhone]);
+ useEffect(() => { recipientPhoneRef.current = recipientPhone; }, [recipientPhone]);
 
-    // Mark as Read
-    const markReadMutation = useMutation({
-        mutationFn: async () => {
-            if (!contact?.contato_id || !organizacaoId) return;
-            await fetch('/api/whatsapp/mark-read', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ contact_id: contact.contato_id, organizacaoId: organizacaoId })
-            });
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['conversations', organizacaoId] });
-            queryClient.invalidateQueries({ queryKey: ['messages', organizacaoId, contact?.contato_id] });
-        }
-    });
+ // Mark as Read
+ const markReadMutation = useMutation({
+ mutationFn: async () => {
+ if (!contact?.contato_id || !organizacaoId) return;
+ await fetch('/api/whatsapp/mark-read', {
+ method: 'POST', headers: { 'Content-Type': 'application/json' },
+ body: JSON.stringify({ contact_id: contact.contato_id, organizacaoId: organizacaoId })
+ });
+ },
+ onSuccess: () => {
+ queryClient.invalidateQueries({ queryKey: ['conversations', organizacaoId] });
+ queryClient.invalidateQueries({ queryKey: ['messages', organizacaoId, contact?.contato_id] });
+ }
+ });
 
-    useEffect(() => {
-        if (contact?.contato_id && messages) {
-            const hasUnread = messages.some(m => m.direction === 'inbound' && m.is_read === false);
-            if (hasUnread) markReadMutation.mutate();
-        }
-    }, [contact?.contato_id, messages]);
+ useEffect(() => {
+ if (contact?.contato_id && messages) {
+ const hasUnread = messages.some(m => m.direction === 'inbound' && m.is_read === false);
+ if (hasUnread) markReadMutation.mutate();
+ }
+ }, [contact?.contato_id, messages]);
 
-    // Realtime
-    useEffect(() => {
-        if (!contact || !organizacaoId) return;
-        const channel = supabase.channel(`whatsapp_messages_org_${organizacaoId}`)
-            .on('postgres_changes',
-                { event: '*', schema: 'public', table: 'whatsapp_messages', filter: `organizacao_id=eq.${organizacaoId}` },
-                (payload) => {
-                    const isRelevant = payload.new.contato_id === contact.contato_id || payload.new.sender_id === recipientPhone;
-                    if (isRelevant) queryClient.invalidateQueries({ queryKey: ['messages', organizacaoId, contact.contato_id] });
-                    queryClient.invalidateQueries({ queryKey: ['conversations', organizacaoId] });
-                }
-            ).subscribe();
-        return () => { supabase.removeChannel(channel); };
-    }, [contact, organizacaoId, recipientPhone, supabase, queryClient]);
+ // Realtime
+ useEffect(() => {
+ if (!contact || !organizacaoId) return;
+ const channel = supabase.channel(`whatsapp_messages_org_${organizacaoId}`)
+ .on('postgres_changes',
+ { event: '*', schema: 'public', table: 'whatsapp_messages', filter: `organizacao_id=eq.${organizacaoId}` },
+ (payload) => {
+ const isRelevant = payload.new.contato_id === contact.contato_id || payload.new.sender_id === recipientPhone;
+ if (isRelevant) queryClient.invalidateQueries({ queryKey: ['messages', organizacaoId, contact.contato_id] });
+ queryClient.invalidateQueries({ queryKey: ['conversations', organizacaoId] });
+ }
+ ).subscribe();
+ return () => { supabase.removeChannel(channel); };
+ }, [contact, organizacaoId, recipientPhone, supabase, queryClient]);
 
-    // --- MUTAÇÕES ---
+ // --- MUTAÇÕES ---
 
-    // 1. Enviar Texto
-    const sendMessageMutation = useMutation({
-        mutationFn: async (messageContent) => {
-            if (!recipientPhone) throw new Error("Número do destinatário não encontrado.");
-            const response = await fetch('/api/whatsapp/send', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ to: cleanPhoneNumber(recipientPhone), type: 'text', text: messageContent, contact_id: contact.contato_id, organizacao_id: organizacaoId }),
-            });
-            if (!response.ok) throw new Error('Falha ao enviar mensagem');
-            return response.json();
-        },
-        onSuccess: () => {
-            setNewMessage('');
-            queryClient.invalidateQueries({ queryKey: ['messages', organizacaoId, contact?.contato_id] });
-        },
-        onError: (e) => toast.error(e.message)
-    });
+ // 1. Enviar Texto
+ const sendMessageMutation = useMutation({
+ mutationFn: async (messageContent) => {
+ if (!recipientPhone) throw new Error("Número do destinatário não encontrado.");
+ const response = await fetch('/api/whatsapp/send', {
+ method: 'POST', headers: { 'Content-Type': 'application/json' },
+ body: JSON.stringify({ to: cleanPhoneNumber(recipientPhone), type: 'text', text: messageContent, contact_id: contact.contato_id, organizacao_id: organizacaoId }),
+ });
+ if (!response.ok) throw new Error('Falha ao enviar mensagem');
+ return response.json();
+ },
+ onSuccess: () => {
+ setNewMessage('');
+ queryClient.invalidateQueries({ queryKey: ['messages', organizacaoId, contact?.contato_id] });
+ },
+ onError: (e) => toast.error(e.message)
+ });
 
-    // 2. Enviar Anexo
-    const sendAttachmentMutation = useMutation({
-        mutationFn: async ({ file, caption }) => {
-            const rawPhone = recipientPhoneRef.current || contact?.phone_number || contact?.telefone;
-            const targetPhone = cleanPhoneNumber(rawPhone);
-            if (!targetPhone) throw new Error("Número do destinatário não encontrado.");
+ // 2. Enviar Anexo
+ const sendAttachmentMutation = useMutation({
+ mutationFn: async ({ file, caption }) => {
+ const rawPhone = recipientPhoneRef.current || contact?.phone_number || contact?.telefone;
+ const targetPhone = cleanPhoneNumber(rawPhone);
+ if (!targetPhone) throw new Error("Número do destinatário não encontrado.");
 
-            const cleanName = sanitizeFileName(file.name);
-            const uniqueName = `upload_${Date.now()}_${cleanName}`;
-            const date = new Date();
-            const filePath = `chat/${contact.contato_id}/${date.getFullYear()}/${String(date.getMonth() + 1).padStart(2, '0')}/${uniqueName}`;
+ const cleanName = sanitizeFileName(file.name);
+ const uniqueName = `upload_${Date.now()}_${cleanName}`;
+ const date = new Date();
+ const filePath = `chat/${contact.contato_id}/${date.getFullYear()}/${String(date.getMonth() + 1).padStart(2, '0')}/${uniqueName}`;
 
-            const { error: uploadError } = await supabase.storage.from('whatsapp-media').upload(filePath, file, { contentType: file.type });
-            if (uploadError) throw new Error(`Erro upload: ${uploadError.message}`);
+ const { error: uploadError } = await supabase.storage.from('whatsapp-media').upload(filePath, file, { contentType: file.type });
+ if (uploadError) throw new Error(`Erro upload: ${uploadError.message}`);
 
-            const { data: urlData } = supabase.storage.from('whatsapp-media').getPublicUrl(filePath);
+ const { data: urlData } = supabase.storage.from('whatsapp-media').getPublicUrl(filePath);
 
-            const response = await fetch('/api/whatsapp/send', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    to: targetPhone, type: getAttachmentType(file.type), link: urlData.publicUrl, filename: cleanName, caption: caption || '',
-                    contact_id: contact.contato_id, organizacao_id: organizacaoId
-                }),
-            });
-            const apiResult = await response.json();
-            if (!response.ok) throw new Error(apiResult.error);
+ const response = await fetch('/api/whatsapp/send', {
+ method: 'POST', headers: { 'Content-Type': 'application/json' },
+ body: JSON.stringify({
+ to: targetPhone, type: getAttachmentType(file.type), link: urlData.publicUrl, filename: cleanName, caption: caption || '',
+ contact_id: contact.contato_id, organizacao_id: organizacaoId
+ }),
+ });
+ const apiResult = await response.json();
+ if (!response.ok) throw new Error(apiResult.error);
 
-            await fetch('/api/whatsapp/save-attachment', {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contato_id: contact.contato_id, message_id: apiResult.data?.messages?.[0]?.id,
-                    storage_path: filePath, public_url: urlData.publicUrl, file_name: cleanName,
-                    file_type: file.type, file_size: file.size, organizacao_id: organizacaoId
-                })
-            });
-            return apiResult;
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['messages', organizacaoId, contact?.contato_id] });
-        },
-        onError: (e) => toast.error(e.message)
-    });
+ await fetch('/api/whatsapp/save-attachment', {
+ method: 'POST', headers: { 'Content-Type': 'application/json' },
+ body: JSON.stringify({
+ contato_id: contact.contato_id, message_id: apiResult.data?.messages?.[0]?.id,
+ storage_path: filePath, public_url: urlData.publicUrl, file_name: cleanName,
+ file_type: file.type, file_size: file.size, organizacao_id: organizacaoId
+ })
+ });
+ return apiResult;
+ },
+ onSuccess: () => {
+ queryClient.invalidateQueries({ queryKey: ['messages', organizacaoId, contact?.contato_id] });
+ },
+ onError: (e) => toast.error(e.message)
+ });
 
-    // 3. Enviar Localização (CORRIGIDO)
-    const sendLocationMutation = useMutation({
-        mutationFn: async ({ latitude, longitude }) => {
-            const rawPhone = recipientPhoneRef.current || contact?.phone_number || contact?.telefone;
-            const targetPhone = cleanPhoneNumber(rawPhone);
-            if (!targetPhone) throw new Error("Número não encontrado.");
+ // 3. Enviar Localização (CORRIGIDO)
+ const sendLocationMutation = useMutation({
+ mutationFn: async ({ latitude, longitude }) => {
+ const rawPhone = recipientPhoneRef.current || contact?.phone_number || contact?.telefone;
+ const targetPhone = cleanPhoneNumber(rawPhone);
+ if (!targetPhone) throw new Error("Número não encontrado.");
 
-            const result = await sendWhatsAppLocation(
-                targetPhone,
-                latitude,
-                longitude,
-                "Localização Fixada",
-                "",
-                contact.contato_id
-            );
+ const result = await sendWhatsAppLocation(
+ targetPhone,
+ latitude,
+ longitude,
+ "Localização Fixada",
+ "",
+ contact.contato_id
+ );
 
-            if (!result.success) throw new Error(result.error);
-            return result;
-        },
-        onSuccess: () => {
-            toast.success("Localização enviada!");
-            queryClient.invalidateQueries({ queryKey: ['messages', organizacaoId, contact?.contato_id] });
-        },
-        onError: (e) => toast.error("Erro ao enviar local: " + e.message)
-    });
+ if (!result.success) throw new Error(result.error);
+ return result;
+ },
+ onSuccess: () => {
+ toast.success("Localização enviada!");
+ queryClient.invalidateQueries({ queryKey: ['messages', organizacaoId, contact?.contato_id] });
+ },
+ onError: (e) => toast.error("Erro ao enviar local: " + e.message)
+ });
 
-    // 4. NOVA: Enviar Template
-    const sendTemplateMutation = useMutation({
-        mutationFn: async (templateData) => {
-            const rawPhone = recipientPhoneRef.current || contact?.phone_number || contact?.telefone;
-            const targetPhone = cleanPhoneNumber(rawPhone);
+ // 4. NOVA: Enviar Template
+ const sendTemplateMutation = useMutation({
+ mutationFn: async (templateData) => {
+ const rawPhone = recipientPhoneRef.current || contact?.phone_number || contact?.telefone;
+ const targetPhone = cleanPhoneNumber(rawPhone);
 
-            if (!targetPhone) throw new Error("Número do destinatário não encontrado.");
+ if (!targetPhone) throw new Error("Número do destinatário não encontrado.");
 
-            // CORRECAO: a API route espera templateName, languageCode e components
-            // como campos no NIVEL RAIZ do body — não aninhados dentro de 'template'.
-            const response = await fetch('/api/whatsapp/send', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    to: targetPhone,
-                    type: 'template',
-                    templateName: templateData.name,
-                    languageCode: templateData.language?.code || (typeof templateData.language === 'string' ? templateData.language : 'pt_BR'),
-                    components: templateData.components || [],
-                    custom_content: templateData.fullText || `Template: ${templateData.name}`,
-                    contact_id: contact.contato_id,
-                    organizacao_id: organizacaoId
-                }),
-            });
+ // CORRECAO: a API route espera templateName, languageCode e components
+ // como campos no NIVEL RAIZ do body — não aninhados dentro de 'template'.
+ const response = await fetch('/api/whatsapp/send', {
+ method: 'POST',
+ headers: { 'Content-Type': 'application/json' },
+ body: JSON.stringify({
+ to: targetPhone,
+ type: 'template',
+ templateName: templateData.name,
+ languageCode: templateData.language?.code || (typeof templateData.language === 'string' ? templateData.language : 'pt_BR'),
+ components: templateData.components || [],
+ custom_content: templateData.fullText || `Template: ${templateData.name}`,
+ contact_id: contact.contato_id,
+ organizacao_id: organizacaoId
+ }),
+ });
 
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.error || 'Erro ao enviar modelo.');
-            return data;
-        },
-        onSuccess: () => {
-            toast.success('Modelo enviado com sucesso!');
-            setIsTemplateModalOpen(false);
-            queryClient.invalidateQueries({ queryKey: ['messages', organizacaoId, contact?.contato_id] });
-        },
-        onError: (e) => toast.error(`Erro: ${e.message}`)
-    });
+ const data = await response.json();
+ if (!response.ok) throw new Error(data.error || 'Erro ao enviar modelo.');
+ return data;
+ },
+ onSuccess: () => {
+ toast.success('Modelo enviado com sucesso!');
+ setIsTemplateModalOpen(false);
+ queryClient.invalidateQueries({ queryKey: ['messages', organizacaoId, contact?.contato_id] });
+ },
+ onError: (e) => toast.error(`Erro: ${e.message}`)
+ });
 
-    // Handlers
-    const handleSendMessage = (e) => { e.preventDefault(); if (newMessage.trim()) sendMessageMutation.mutate(newMessage); };
-    const handleSendAudio = async ({ file, caption }) => { sendAttachmentMutation.mutate({ file, caption }); };
-    const recorder = useAudioRecorder(handleSendAudio);
-    const handleMediaClick = (media) => { setViewerMedia(media); setIsViewerOpen(true); };
-    const handlePasteFile = (file) => { setSelectedFile(file); setIsFilePreviewOpen(true); };
+ // Handlers
+ const handleSendMessage = (e) => { e.preventDefault(); if (newMessage.trim()) sendMessageMutation.mutate(newMessage); };
+ const handleSendAudio = async ({ file, caption }) => { sendAttachmentMutation.mutate({ file, caption }); };
+ const recorder = useAudioRecorder(handleSendAudio);
+ const handleMediaClick = (media) => { setViewerMedia(media); setIsViewerOpen(true); };
+ const handlePasteFile = (file) => { setSelectedFile(file); setIsFilePreviewOpen(true); };
 
-    // Uppy Effects
-    useEffect(() => {
-        if (!uppy || !dashboardContainerRef.current) return;
-        if (!uppy.getPlugin('Dashboard')) {
-            uppy.use(DashboardPlugin, {
-                id: 'Dashboard', target: dashboardContainerRef.current, inline: true, width: '100%', height: 380,
-                showProgressDetails: true, hideUploadButton: false, note: "Para legenda, clique no lápis.",
-                metaFields: [{ id: 'caption', name: 'Legenda', placeholder: 'Legenda...' }]
-            });
-        }
-    }, [uppy, isUploaderOpen]);
+ // Uppy Effects
+ useEffect(() => {
+ if (!uppy || !dashboardContainerRef.current) return;
+ if (!uppy.getPlugin('Dashboard')) {
+ uppy.use(DashboardPlugin, {
+ id: 'Dashboard', target: dashboardContainerRef.current, inline: true, width: '100%', height: 380,
+ showProgressDetails: true, hideUploadButton: false, note: "Para legenda, clique no lápis.",
+ metaFields: [{ id: 'caption', name: 'Legenda', placeholder: 'Legenda...' }]
+ });
+ }
+ }, [uppy, isUploaderOpen]);
 
-    useEffect(() => {
-        if (!uppy) return;
-        const uploaderFunction = async (fileIDs) => {
-            if (fileIDs.length === 0) return Promise.resolve();
-            const promises = fileIDs.map(async (id) => {
-                const file = uppy.getFile(id);
-                try {
-                    await sendAttachmentMutation.mutateAsync({ file: file.data, caption: file.meta.caption });
-                    uppy.emit('upload-success', file, { status: 200 });
-                    uppy.removeFile(id);
-                    setIsUploaderOpen(false);
-                } catch (err) {
-                    uppy.emit('upload-error', file, err);
-                    throw err;
-                }
-            });
-            return Promise.all(promises);
-        };
-        uppy.addUploader(uploaderFunction);
-    }, [uppy, sendAttachmentMutation]);
+ useEffect(() => {
+ if (!uppy) return;
+ const uploaderFunction = async (fileIDs) => {
+ if (fileIDs.length === 0) return Promise.resolve();
+ const promises = fileIDs.map(async (id) => {
+ const file = uppy.getFile(id);
+ try {
+ await sendAttachmentMutation.mutateAsync({ file: file.data, caption: file.meta.caption });
+ uppy.emit('upload-success', file, { status: 200 });
+ uppy.removeFile(id);
+ setIsUploaderOpen(false);
+ } catch (err) {
+ uppy.emit('upload-error', file, err);
+ throw err;
+ }
+ });
+ return Promise.all(promises);
+ };
+ uppy.addUploader(uploaderFunction);
+ }, [uppy, sendAttachmentMutation]);
 
-    // Renders
-    if (!contact) return <div className="flex flex-col items-center justify-center h-full bg-[#efeae2] border-l border-gray-300"><div className="text-center"><FontAwesomeIcon icon={faUserCircle} className="text-gray-300 text-6xl mb-4" /><h2 className="text-xl text-gray-500 font-light">Selecione uma conversa</h2></div></div>;
-    if (isLoading) return <div className="flex items-center justify-center h-full bg-[#efeae2]"><FontAwesomeIcon icon={faSpinner} spin size="2x" className="text-[#00a884]" /></div>;
+ // Renders
+ if (!contact) return <div className="flex flex-col items-center justify-center h-full bg-[#efeae2] border-l border-gray-300"><div className="text-center"><FontAwesomeIcon icon={faUserCircle} className="text-gray-300 text-6xl mb-4" /><h2 className="text-xl text-gray-500 font-light">Selecione uma conversa</h2></div></div>;
+ if (isLoading) return <div className="flex items-center justify-center h-full bg-[#efeae2]"><FontAwesomeIcon icon={faSpinner} spin size="2x" className="text-[#00a884]" /></div>;
 
-    return (
-        <>
-            {/* AGORA PASSAMOS A FUNÇÃO onSendTemplate CORRETAMENTE */}
-            <TemplateMessageModal
-                isOpen={isTemplateModalOpen}
-                onClose={() => setIsTemplateModalOpen(false)}
-                contactName={contact?.nome}
-                onSendTemplate={(data) => sendTemplateMutation.mutate(data)}
-            />
+ return (
+ <>
+ {/* AGORA PASSAMOS A FUNÇÃO onSendTemplate CORRETAMENTE */}
+ <TemplateMessageModal
+ isOpen={isTemplateModalOpen}
+ onClose={() => setIsTemplateModalOpen(false)}
+ contactName={contact?.nome}
+ onSendTemplate={(data) => sendTemplateMutation.mutate(data)}
+ />
 
-            <FilePreviewModal isOpen={isFilePreviewOpen} onClose={() => setIsFilePreviewOpen(false)} file={selectedFile} onSend={(f, c) => sendAttachmentMutation.mutate({ file: f, caption: c })} />
-            <ChatMediaViewer isOpen={isViewerOpen} onClose={() => setIsViewerOpen(false)} mediaUrl={viewerMedia?.url} mediaType={viewerMedia?.type} fileName={viewerMedia?.name} />
+ <FilePreviewModal isOpen={isFilePreviewOpen} onClose={() => setIsFilePreviewOpen(false)} file={selectedFile} onSend={(f, c) => sendAttachmentMutation.mutate({ file: f, caption: c })} />
+ <ChatMediaViewer isOpen={isViewerOpen} onClose={() => setIsViewerOpen(false)} mediaUrl={viewerMedia?.url} mediaType={viewerMedia?.type} fileName={viewerMedia?.name} />
 
-            <LocationPickerModal
-                isOpen={isLocationModalOpen}
-                onClose={() => setIsLocationModalOpen(false)}
-                onSend={(loc) => sendLocationMutation.mutate(loc)}
-            />
+ <LocationPickerModal
+ isOpen={isLocationModalOpen}
+ onClose={() => setIsLocationModalOpen(false)}
+ onSend={(loc) => sendLocationMutation.mutate(loc)}
+ />
 
-            <link href={UPPY_CSS_URL} rel="stylesheet" />
+ <link href={UPPY_CSS_URL} rel="stylesheet" />
 
-            {isUploaderOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-                    <div className="bg-white rounded-lg shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
-                        <div className="flex justify-between items-center p-4 border-b bg-gray-50">
-                            <h3 className="font-bold text-gray-700 flex items-center gap-2"><FontAwesomeIcon icon={faCloudUploadAlt} className="text-blue-500" /> Enviar Arquivo</h3>
-                            <button onClick={() => setIsUploaderOpen(false)} className="text-gray-400 hover:text-red-500 transition-colors p-2"><FontAwesomeIcon icon={faTimes} size="lg" /></button>
-                        </div>
-                        <div className="p-2 bg-white flex-grow overflow-y-auto"><div ref={dashboardContainerRef} /></div>
-                    </div>
-                </div>
-            )}
+ {isUploaderOpen && (
+ <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+ <div className="bg-white rounded-lg shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
+ <div className="flex justify-between items-center p-4 border-b bg-gray-50">
+ <h3 className="font-bold text-gray-700 flex items-center gap-2"><FontAwesomeIcon icon={faCloudUploadAlt} className="text-blue-500" /> Enviar Arquivo</h3>
+ <button onClick={() => setIsUploaderOpen(false)} className="text-gray-400 hover:text-red-500 transition-colors p-2"><FontAwesomeIcon icon={faTimes} size="lg" /></button>
+ </div>
+ <div className="p-2 bg-white flex-grow overflow-y-auto"><div ref={dashboardContainerRef} /></div>
+ </div>
+ </div>
+ )}
 
-            {/* --- BOTTOM SHEET: PERFIL DO CONTATO (MOBILE/TABLET) --- */}
-            {isProfileOpen && (
-                <>
-                    {/* Overlay escurecido ao fundo */}
-                    <div
-                        className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm lg:hidden animate-in fade-in duration-200"
-                        onClick={() => setIsProfileOpen(false)}
-                    />
-                    {/* Drawer deslizando de baixo */}
-                    <div className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-2xl shadow-2xl lg:hidden flex flex-col max-h-[85svh] animate-in slide-in-from-bottom duration-300">
-                        {/* Handle + Header */}
-                        <div className="flex items-center justify-between px-4 py-3 border-b bg-[#f0f2f5] rounded-t-2xl shrink-0">
-                            <h2 className="text-base font-bold text-gray-700">Dados do Contato</h2>
-                            <button
-                                onClick={() => setIsProfileOpen(false)}
-                                className="text-gray-400 hover:text-gray-600 p-2 rounded-full hover:bg-black/5 transition-colors"
-                            >
-                                <FontAwesomeIcon icon={faChevronDown} className="text-lg" />
-                            </button>
-                        </div>
-                        {/* Conteúdo rolável */}
-                        <div className="overflow-y-auto flex-grow">
-                            <ContactProfile contact={contact} />
-                        </div>
-                    </div>
-                </>
-            )}
+ {/* --- BOTTOM SHEET: PERFIL DO CONTATO (MOBILE/TABLET) --- */}
+ {isProfileOpen && (
+ <>
+ {/* Overlay escurecido ao fundo */}
+ <div
+ className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm lg:hidden animate-in fade-in duration-200"
+ onClick={() => setIsProfileOpen(false)}
+ />
+ {/* Drawer deslizando de baixo */}
+ <div className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-2xl shadow-2xl lg:hidden flex flex-col max-h-[85svh] animate-in slide-in-from-bottom duration-300">
+ {/* Handle + Header */}
+ <div className="flex items-center justify-between px-4 py-3 border-b bg-[#f0f2f5] rounded-t-2xl shrink-0">
+ <h2 className="text-base font-bold text-gray-700">Dados do Contato</h2>
+ <button
+ onClick={() => setIsProfileOpen(false)}
+ className="text-gray-400 hover:text-gray-600 p-2 rounded-full hover:bg-black/5 transition-colors"
+ >
+ <FontAwesomeIcon icon={faChevronDown} className="text-lg" />
+ </button>
+ </div>
+ {/* Conteúdo rolável */}
+ <div className="overflow-y-auto flex-grow">
+ <ContactProfile contact={contact} />
+ </div>
+ </div>
+ </>
+ )}
 
-            <div className="flex flex-col h-full bg-[#efeae2] relative pt-0">
-                <ChatHeader
-                    contact={contact}
-                    recipientPhone={recipientPhone}
-                    onBack={onBack}
-                    onToggleProfile={() => setIsProfileOpen(prev => !prev)}
-                />
+ <div className="flex flex-col h-full bg-[#efeae2] relative pt-0">
+ <ChatHeader
+ contact={contact}
+ recipientPhone={recipientPhone}
+ onBack={onBack}
+ onToggleProfile={() => setIsProfileOpen(prev => !prev)}
+ />
 
-                <MessageList messages={messages} onMediaClick={handleMediaClick} />
+ <MessageList messages={messages} onMediaClick={handleMediaClick} />
 
-                <ChatInput
-                    newMessage={newMessage}
-                    setNewMessage={setNewMessage}
-                    onSendMessage={handleSendMessage}
-                    onOpenUploader={() => setIsUploaderOpen(true)}
-                    onOpenTemplate={() => setIsTemplateModalOpen(true)}
+ <ChatInput
+ newMessage={newMessage}
+ setNewMessage={setNewMessage}
+ onSendMessage={handleSendMessage}
+ onOpenUploader={() => setIsUploaderOpen(true)}
+ onOpenTemplate={() => setIsTemplateModalOpen(true)}
 
-                    // Passamos a função para abrir o modal de mapa
-                    onOpenLocation={() => setIsLocationModalOpen(true)}
+ // Passamos a função para abrir o modal de mapa
+ onOpenLocation={() => setIsLocationModalOpen(true)}
 
-                    recorder={recorder}
-                    uploadingOrProcessing={sendAttachmentMutation.isPending || sendLocationMutation.isPending}
-                    onPasteFile={handlePasteFile}
-                    recipientPhone={cleanPhoneNumber(recipientPhone)}
-                />
-            </div>
-        </>
-    );
+ recorder={recorder}
+ uploadingOrProcessing={sendAttachmentMutation.isPending || sendLocationMutation.isPending}
+ onPasteFile={handlePasteFile}
+ recipientPhone={cleanPhoneNumber(recipientPhone)}
+ />
+ </div>
+ </>
+ );
 }

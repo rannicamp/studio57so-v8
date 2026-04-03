@@ -12,180 +12,179 @@ import { toast } from 'sonner'; // <-- Adicionado para notificações mais elega
 
 
 export default function CondicoesPagamento({ empreendimentoId, initialConfig, onUpdate }) {
-    const supabase = createClient();
-    const { userData } = useAuth(); // <--- 2. PEGAMOS OS DADOS DO USUÁRIO LOGADO
-    const [config, setConfig] = useState(initialConfig || {});
-    const [parcelasAdicionais, setParcelasAdicionais] = useState(initialConfig?.parcelas_adicionais || []);
-    const [novaParcela, setNovaParcela] = useState({ valor: '', data_pagamento: '' });
+ const supabase = createClient();
+ const { userData } = useAuth(); // <--- 2. PEGAMOS OS DADOS DO USUÁRIO LOGADO
+ const [config, setConfig] = useState(initialConfig || {});
+ const [parcelasAdicionais, setParcelasAdicionais] = useState(initialConfig?.parcelas_adicionais || []);
+ const [novaParcela, setNovaParcela] = useState({ valor: '', data_pagamento: '' });
 
-    const [saving, setSaving] = useState(false);
+ const [saving, setSaving] = useState(false);
 
-    useEffect(() => {
-        const initial = initialConfig || {
-            desconto_percentual: 0,
-            entrada_percentual: 20,
-            parcelas_obra_percentual: 40,
-            saldo_remanescente_percentual: 40,
-            num_parcelas_entrada: 3,
-            num_parcelas_obra: 36,
-        };
-        setConfig(initial);
-        setParcelasAdicionais(initialConfig?.parcelas_adicionais || []);
-    }, [initialConfig]);
+ useEffect(() => {
+ const initial = initialConfig || {
+ desconto_percentual: 0,
+ entrada_percentual: 20,
+ parcelas_obra_percentual: 40,
+ saldo_remanescente_percentual: 40,
+ num_parcelas_entrada: 3,
+ num_parcelas_obra: 36,
+ };
+ setConfig(initial);
+ setParcelasAdicionais(initialConfig?.parcelas_adicionais || []);
+ }, [initialConfig]);
 
-    const handleChange = (e) => {
-        const { name, value } = e.target;
-        setConfig(prev => ({ ...prev, [name]: value === '' ? null : parseFloat(value) || 0 }));
-    };
+ const handleChange = (e) => {
+ const { name, value } = e.target;
+ setConfig(prev => ({ ...prev, [name]: value === '' ? null : parseFloat(value) || 0 }));
+ };
 
-    const handleNovaParcelaChange = (e) => {
-        const { name, value } = e.target;
-        setNovaParcela(prev => ({ ...prev, [name]: value }));
-    };
+ const handleNovaParcelaChange = (e) => {
+ const { name, value } = e.target;
+ setNovaParcela(prev => ({ ...prev, [name]: value }));
+ };
 
-    const handleAddParcelaAdicional = async () => {
-        if (!novaParcela.valor || !novaParcela.data_pagamento || !config.id) {
-            toast.warning('Para adicionar uma parcela, primeiro salve as condições de pagamento gerais e depois preencha o valor e a data da parcela adicional.');
-            return;
-        }
+ const handleAddParcelaAdicional = async () => {
+ if (!novaParcela.valor || !novaParcela.data_pagamento || !config.id) {
+ toast.warning('Para adicionar uma parcela, primeiro salve as condições de pagamento gerais e depois preencha o valor e a data da parcela adicional.');
+ return;
+ }
 
-        const { error } = await supabase
-            .from('parcelas_adicionais')
-            .insert({
-                configuracao_venda_id: config.id,
-                valor: parseFloat(String(novaParcela.valor).replace(/[^0-9,.]/g, '').replace(',', '.')) || 0,
-                data_pagamento: novaParcela.data_pagamento
-            });
+ const { error } = await supabase
+ .from('parcelas_adicionais')
+ .insert({
+ configuracao_venda_id: config.id,
+ valor: parseFloat(String(novaParcela.valor).replace(/[^0-9,.]/g, '').replace(',', '.')) || 0,
+ data_pagamento: novaParcela.data_pagamento
+ });
 
-        if (error) {
-            toast.error('Erro ao adicionar parcela: ' + error.message);
-        } else {
-            toast.success('Parcela adicional adicionada!');
-            setNovaParcela({ valor: '', data_pagamento: '' });
-            onUpdate();
-        }
-    };
+ if (error) {
+ toast.error('Erro ao adicionar parcela: ' + error.message);
+ } else {
+ toast.success('Parcela adicional adicionada!');
+ setNovaParcela({ valor: '', data_pagamento: '' });
+ onUpdate();
+ }
+ };
 
-    const handleRemoveParcelaAdicional = async (id) => {
-        const { error } = await supabase.from('parcelas_adicionais').delete().eq('id', id);
-        if (error) {
-            toast.error('Erro ao remover parcela: ' + error.message);
-        } else {
-            toast.success('Parcela adicional removida.');
-            onUpdate();
-        }
-    };
+ const handleRemoveParcelaAdicional = async (id) => {
+ const { error } = await supabase.from('parcelas_adicionais').delete().eq('id', id);
+ if (error) {
+ toast.error('Erro ao remover parcela: ' + error.message);
+ } else {
+ toast.success('Parcela adicional removida.');
+ onUpdate();
+ }
+ };
 
-    const handleSave = async () => {
-        setSaving(true);
+ const handleSave = async () => {
+ setSaving(true);
 
-        // ---> 3. AQUI ESTÁ A MUDANÇA MÁGICA <---
-        if (!userData?.organizacao_id) {
-            toast.error('Erro de segurança: Organização do usuário não encontrada. Por favor, faça login novamente.');
-            setSaving(false);
-            return;
-        }
+ // ---> 3. AQUI ESTÁ A MUDANÇA MÁGICA <---
+ if (!userData?.organizacao_id) {
+ toast.error('Erro de segurança: Organização do usuário não encontrada. Por favor, faça login novamente.');
+ setSaving(false);
+ return;
+ }
 
-        const { id, created_at, parcelas_adicionais, ...dataToUpsert } = config;
+ const { id, created_at, parcelas_adicionais, ...dataToUpsert } = config;
 
-        // Adicionamos o "carimbo" da organização aos dados que serão salvos.
-        dataToUpsert.organizacao_id = userData.organizacao_id;
+ // Adicionamos o "carimbo" da organização aos dados que serão salvos.
+ dataToUpsert.organizacao_id = userData.organizacao_id;
 
-        const { error } = await supabase
-            .from('configuracoes_venda')
-            .upsert({ ...dataToUpsert, empreendimento_id: empreendimentoId }, { onConflict: 'empreendimento_id' });
+ const { error } = await supabase
+ .from('configuracoes_venda')
+ .upsert({ ...dataToUpsert, empreendimento_id: empreendimentoId }, { onConflict: 'empreendimento_id' });
 
-        if (error) {
-            toast.error('Erro ao salvar: ' + error.message);
-        } else {
-            toast.success('Condições de pagamento salvas com sucesso!');
-            onUpdate();
-        }
-        setSaving(false);
-    };
+ if (error) {
+ toast.error('Erro ao salvar: ' + error.message);
+ } else {
+ toast.success('Condições de pagamento salvas com sucesso!');
+ onUpdate();
+ }
+ setSaving(false);
+ };
 
-    const totalPercent = useMemo(() => {
-        return (
-            Number(config.entrada_percentual || 0) +
-            Number(config.parcelas_obra_percentual || 0) +
-            Number(config.saldo_remanescente_percentual || 0)
-        );
-    }, [config]);
+ const totalPercent = useMemo(() => {
+ return (
+ Number(config.entrada_percentual || 0) +
+ Number(config.parcelas_obra_percentual || 0) +
+ Number(config.saldo_remanescente_percentual || 0)
+ );
+ }, [config]);
 
-    return (
-        <div className="space-y-6">
-            <div className="space-y-8">
-                <fieldset>
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">Desconto (%):</label>
-                            <input type="number" name="desconto_percentual" value={config.desconto_percentual || 0} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md bg-gray-50" />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">Entrada (%):</label>
-                            <input type="number" name="entrada_percentual" value={config.entrada_percentual || 0} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md" />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">Parcelas Obra (%):</label>
-                            <input type="number" name="parcelas_obra_percentual" value={config.parcelas_obra_percentual || 0} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md" />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700">Saldo Rem. (%):</label>
-                            <input type="number" name="saldo_remanescente_percentual" value={config.saldo_remanescente_percentual || 0} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md" />
-                        </div>
-                    </div>
-                    {totalPercent !== 100 && (
-                        <div className="mt-3 text-right text-sm flex items-center justify-end gap-2 text-yellow-700 bg-yellow-50 p-2 rounded-md">
-                            <FontAwesomeIcon icon={faInfoCircle} />
-                            <span>A soma dos percentuais (Entrada, Obra, Saldo) é de <strong>{totalPercent}%</strong>. O ideal é que a soma seja 100%.</span>
-                        </div>
-                    )}
-                </fieldset>
+ return (
+ <div className="space-y-6">
+ <div className="space-y-8">
+ <fieldset>
+ <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-end">
+ <div>
+ <label className="block text-sm font-medium text-gray-700">Desconto (%):</label>
+ <input type="number" name="desconto_percentual" value={config.desconto_percentual || 0} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md bg-gray-50" />
+ </div>
+ <div>
+ <label className="block text-sm font-medium text-gray-700">Entrada (%):</label>
+ <input type="number" name="entrada_percentual" value={config.entrada_percentual || 0} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md" />
+ </div>
+ <div>
+ <label className="block text-sm font-medium text-gray-700">Parcelas Obra (%):</label>
+ <input type="number" name="parcelas_obra_percentual" value={config.parcelas_obra_percentual || 0} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md" />
+ </div>
+ <div>
+ <label className="block text-sm font-medium text-gray-700">Saldo Rem. (%):</label>
+ <input type="number" name="saldo_remanescente_percentual" value={config.saldo_remanescente_percentual || 0} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md" />
+ </div>
+ </div>
+ {totalPercent !== 100 && (
+ <div className="mt-3 text-right text-sm flex items-center justify-end gap-2 text-yellow-700 bg-yellow-50 p-2 rounded-md">
+ <FontAwesomeIcon icon={faInfoCircle} />
+ <span>A soma dos percentuais (Entrada, Obra, Saldo) é de <strong>{totalPercent}%</strong>. O ideal é que a soma seja 100%.</span>
+ </div>
+ )}
+ </fieldset>
 
-                <fieldset className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 border-t pt-6">
-                    <div>
-                        <legend className="text-base font-semibold text-gray-800 mb-2">Detalhes da Entrada</legend>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700">Nº de Parcelas:</label>
-                                <input type="number" name="num_parcelas_entrada" value={config.num_parcelas_entrada || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md" />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700">Data da 1ª Parcela:</label>
-                                <input type="date" name="data_primeira_parcela_entrada" value={config.data_primeira_parcela_entrada || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md" />
-                            </div>
-                        </div>
-                    </div>
-                    <div>
-                        <legend className="text-base font-semibold text-gray-800 mb-2">Detalhes das Parcelas da Obra</legend>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700">Nº de Parcelas:</label>
-                                <input type="number" name="num_parcelas_obra" value={config.num_parcelas_obra || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md" />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700">Data da 1ª Parcela:</label>
-                                <input type="date" name="data_primeira_parcela_obra" value={config.data_primeira_parcela_obra || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md" />
-                            </div>
-                        </div>
-                    </div>
-                </fieldset>
+ <fieldset className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6 border-t pt-6">
+ <div>
+ <legend className="text-base font-semibold text-gray-800 mb-2">Detalhes da Entrada</legend>
+ <div className="grid grid-cols-2 gap-4">
+ <div>
+ <label className="block text-sm font-medium text-gray-700">Nº de Parcelas:</label>
+ <input type="number" name="num_parcelas_entrada" value={config.num_parcelas_entrada || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md" />
+ </div>
+ <div>
+ <label className="block text-sm font-medium text-gray-700">Data da 1ª Parcela:</label>
+ <input type="date" name="data_primeira_parcela_entrada" value={config.data_primeira_parcela_entrada || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md" />
+ </div>
+ </div>
+ </div>
+ <div>
+ <legend className="text-base font-semibold text-gray-800 mb-2">Detalhes das Parcelas da Obra</legend>
+ <div className="grid grid-cols-2 gap-4">
+ <div>
+ <label className="block text-sm font-medium text-gray-700">Nº de Parcelas:</label>
+ <input type="number" name="num_parcelas_obra" value={config.num_parcelas_obra || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md" />
+ </div>
+ <div>
+ <label className="block text-sm font-medium text-gray-700">Data da 1ª Parcela:</label>
+ <input type="date" name="data_primeira_parcela_obra" value={config.data_primeira_parcela_obra || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md" />
+ </div>
+ </div>
+ </div>
+ </fieldset>
 
-                {/* A SEÇÃO DE PARCELAS ADICIONAIS FOI OCULTADA/REMOVIDA A PEDIDO DE NEGÓCIO 
-                <fieldset>
-                     <legend className="text-lg font-semibold text-gray-800 border-t pt-4 mb-4">Parcelas Adicionais / Intermediárias</legend>
+ {/* A SEÇÃO DE PARCELAS ADICIONAIS FOI OCULTADA/REMOVIDA A PEDIDO DE NEGÓCIO <fieldset>
+ <legend className="text-lg font-semibold text-gray-800 border-t pt-4 mb-4">Parcelas Adicionais / Intermediárias</legend>
 ...
-                </fieldset>
-                */}
+ </fieldset>
+ */}
 
-                <div className="flex justify-end pt-6 border-t">
-                    <button onClick={handleSave} disabled={saving} className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400">
-                        {saving ? <><FontAwesomeIcon icon={faSpinner} spin className="mr-2" /> Salvando...</> : 'Salvar Condições'}
-                    </button>
-                </div>
-            </div>
-        </div>
-    );
+ <div className="flex justify-end pt-6 border-t">
+ <button onClick={handleSave} disabled={saving} className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-400">
+ {saving ? <><FontAwesomeIcon icon={faSpinner} spin className="mr-2" /> Salvando...</> : 'Salvar Condições'}
+ </button>
+ </div>
+ </div>
+ </div>
+ );
 }
 
 // --------------------------------------------------------------------------------

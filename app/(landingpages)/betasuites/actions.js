@@ -5,10 +5,8 @@
 import { processarLeadUniversal } from '../_actions/leadActions';
 
 export async function salvarLeadBeta(formData) {
-  // Envia para a central e redireciona para o obrigado do Beta
-  await processarLeadUniversal(
-    formData, 
-    '/betasuites/obrigado', 
-    'Landing Page - Beta Suítes'
-  );
+ // Envia para a central e redireciona para o obrigado do Beta
+ await processarLeadUniversal(
+ formData, '/betasuites/obrigado', 'Landing Page - Beta Suítes'
+ );
 }

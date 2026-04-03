@@ -9,19 +9,19 @@ import { faArrowLeft } from '@fortawesome/free-solid-svg-icons';
 import PedidoForm from '../../../../components/pedidos/PedidoForm'; // Importando o formulário real
 
 export default function EdicaoPedidoPage() {
-    const { id } = useParams();
-    const router = useRouter();
-    const { setPageTitle } = useLayout();
+ const { id } = useParams();
+ const router = useRouter();
+ const { setPageTitle } = useLayout();
 
-    useEffect(() => {
-        setPageTitle(`Editando Pedido de Compra #${id}`);
-    }, [id, setPageTitle]);
+ useEffect(() => {
+ setPageTitle(`Editando Pedido de Compra #${id}`);
+ }, [id, setPageTitle]);
 
-    return (
-        <div className="space-y-4">
+ return (
+ <div className="space-y-4">
 
-            {/* Usando o componente de formulário real e passando o ID do pedido */}
-            <PedidoForm pedidoId={id} />
-        </div>
-    );
+ {/* Usando o componente de formulário real e passando o ID do pedido */}
+ <PedidoForm pedidoId={id} />
+ </div>
+ );
 }

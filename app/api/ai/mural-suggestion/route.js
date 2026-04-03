@@ -2,34 +2,34 @@ import { GoogleGenerativeAI, SchemaType } from '@google/generative-ai';
 import { NextResponse } from 'next/server';
 
 export async function POST(req) {
-    try {
-        const { text, assuntoAtual } = await req.json();
+ try {
+ const { text, assuntoAtual } = await req.json();
 
-        if (!text) {
-            return NextResponse.json({ error: 'O conteúdo principal do texto é obrigatório para ser corrigido.' }, { status: 400 });
-        }
+ if (!text) {
+ return NextResponse.json({ error: 'O conteúdo principal do texto é obrigatório para ser corrigido.' }, { status: 400 });
+ }
 
-        const apiKey = process.env.GEMINI_API_KEY;
-        if (!apiKey) {
-            return NextResponse.json({ error: 'GEMINI_API_KEY não configurada no servidor.' }, { status: 500 });
-        }
+ const apiKey = process.env.GEMINI_API_KEY;
+ if (!apiKey) {
+ return NextResponse.json({ error: 'GEMINI_API_KEY não configurada no servidor.' }, { status: 500 });
+ }
 
-        const genAI = new GoogleGenerativeAI(apiKey);
-        const generationConfig = {
-            responseMimeType: "application/json",
-            responseSchema: {
-                type: SchemaType.OBJECT,
-                properties: {
-                    assunto: { type: SchemaType.STRING, description: "Novo assunto sugerido" },
-                    conteudo: { type: SchemaType.STRING, description: "Texto corrigido e formatado" },
-                },
-                required: ["assunto", "conteudo"],
-            },
-        };
+ const genAI = new GoogleGenerativeAI(apiKey);
+ const generationConfig = {
+ responseMimeType: "application/json",
+ responseSchema: {
+ type: SchemaType.OBJECT,
+ properties: {
+ assunto: { type: SchemaType.STRING, description: "Novo assunto sugerido" },
+ conteudo: { type: SchemaType.STRING, description: "Texto corrigido e formatado" },
+ },
+ required: ["assunto", "conteudo"],
+ },
+ };
 
-        const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash', generationConfig });
+ const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash', generationConfig });
 
-        const prompt = `
+ const prompt = `
 Você é o assistente "Devonildo" operando nos bastidores de um Mural de Recados Corporativo.
 Sua única tarefa é atuar como um REVISOR ORTOGRÁFICO E GRAMATICAL LEVE. O texto final deve permanecer extremamente fiel à versão original escrita pelo usuário.
 
@@ -45,24 +45,23 @@ Assunto Atual: "${assuntoAtual || ''}"
 Conteúdo: "${text}"
 `;
 
-        const result = await model.generateContent(prompt);
-        const response = await result.response;
-        
-        let parsedJson;
-        try {
-            parsedJson = JSON.parse(response.text());
-        } catch(e) {
-            console.error("Falha ao parsear output da IA:", response.text());
-            return NextResponse.json({ error: "Resposta inválida da Inteligência Artificial." }, { status: 500 });
-        }
+ const result = await model.generateContent(prompt);
+ const response = await result.response;
+ let parsedJson;
+ try {
+ parsedJson = JSON.parse(response.text());
+ } catch(e) {
+ console.error("Falha ao parsear output da IA:", response.text());
+ return NextResponse.json({ error: "Resposta inválida da Inteligência Artificial." }, { status: 500 });
+ }
 
-        return NextResponse.json({
-            assunto: parsedJson.assunto || assuntoAtual,
-            conteudo: parsedJson.conteudo || text
-        });
+ return NextResponse.json({
+ assunto: parsedJson.assunto || assuntoAtual,
+ conteudo: parsedJson.conteudo || text
+ });
 
-    } catch (error) {
-        console.error("Erro na chamada de IA no Mural:", error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
-    }
+ } catch (error) {
+ console.error("Erro na chamada de IA no Mural:", error);
+ return NextResponse.json({ error: error.message }, { status: 500 });
+ }
 }

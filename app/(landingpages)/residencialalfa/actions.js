@@ -5,6 +5,6 @@
 import { processarLeadUniversal } from '../_actions/leadActions';
 
 export async function salvarLead(formData) {
-  // Passa os dados e diz para onde ir depois (Página de Obrigado do Alfa)
-  await processarLeadUniversal(formData, '/residencialalfa/obrigado', 'Landing Page - Residencial Alfa');
+ // Passa os dados e diz para onde ir depois (Página de Obrigado do Alfa)
+ await processarLeadUniversal(formData, '/residencialalfa/obrigado', 'Landing Page - Residencial Alfa');
 }

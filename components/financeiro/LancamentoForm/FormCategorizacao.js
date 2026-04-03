@@ -5,200 +5,200 @@ import SelectConta from '../SelectConta';
 const formatCurrency = (v) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
 
 const HighlightedText = ({ text = '', highlight = '' }) => {
-    if (!highlight.trim()) return <span>{text}</span>;
-    const regex = new RegExp(`(${highlight.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-    const parts = text.split(regex);
-    return (
-        <span>
-            {parts.map((part, i) =>
-                regex.test(part) ? <mark key={i} className="bg-yellow-200 px-0 rounded">{part}</mark> : <span key={i}>{part}</span>
-            )}
-        </span>
-    );
+ if (!highlight.trim()) return <span>{text}</span>;
+ const regex = new RegExp(`(${highlight.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+ const parts = text.split(regex);
+ return (
+ <span>
+ {parts.map((part, i) =>
+ regex.test(part) ? <mark key={i} className="bg-yellow-200 px-0 rounded">{part}</mark> : <span key={i}>{part}</span>
+ )}
+ </span>
+ );
 };
 
 const CategoryOption = ({ category, level = 0 }) => (
-    <>
-        <option key={category.id} value={category.id}>
-            {'\u00A0'.repeat(level * 4)}
-            {category.nome}
-        </option>
-        {category.children && category.children.map(child => (
-            <CategoryOption key={child.id} category={child} level={level + 1} />
-        ))}
-    </>
+ <>
+ <option key={category.id} value={category.id}>
+ {'\u00A0'.repeat(level * 4)}
+ {category.nome}
+ </option>
+ {category.children && category.children.map(child => (
+ <CategoryOption key={child.id} category={child} level={level + 1} />
+ ))}
+ </>
 );
 
 export default function FormCategorizacao({
-    formData, handleChange, dropdownData, empresas,
-    favorecidoSearchTerm, handleFavorecidoSearch, handleClearFavorecido,
-    handleSelectFavorecido, favorecidoSearchResults, hierarchicalCategorias,
-    ativosDisponiveis = [], contratosDisponiveis = []
+ formData, handleChange, dropdownData, empresas,
+ favorecidoSearchTerm, handleFavorecidoSearch, handleClearFavorecido,
+ handleSelectFavorecido, favorecidoSearchResults, hierarchicalCategorias,
+ ativosDisponiveis = [], contratosDisponiveis = []
 }) {
-    // Filtragem Top-Down
-    const filterByEmpresa = (list) => {
-        if (!formData.empresa_id) return []; // Retorna vazio forçando seleção de empresa primeiro
-        return (list || []).filter(item => !item.empresa_id || String(item.empresa_id) === String(formData.empresa_id));
-    };
+ // Filtragem Top-Down
+ const filterByEmpresa = (list) => {
+ if (!formData.empresa_id) return []; // Retorna vazio forçando seleção de empresa primeiro
+ return (list || []).filter(item => !item.empresa_id || String(item.empresa_id) === String(formData.empresa_id));
+ };
 
-    const contasFiltradas = filterByEmpresa(dropdownData?.contas);
-    const empreendimentosFiltrados = filterByEmpresa(dropdownData?.empreendimentos);
+ const contasFiltradas = filterByEmpresa(dropdownData?.contas);
+ const empreendimentosFiltrados = filterByEmpresa(dropdownData?.empreendimentos);
 
-    return (
-        <div className="space-y-4 pt-4 border-t mt-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                    <label className="block text-sm font-medium">Status</label>
-                    <select name="status" value={formData.status || 'Pendente'} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md">
-                        <option value="Pendente">Pendente</option>
-                        <option value="Pago">Pago</option>
-                    </select>
-                </div>
-                {formData.status === 'Pago' && (
-                    <div className="animate-fade-in">
-                        <label className="block text-sm font-medium">Data do Pagamento</label>
-                        <input type="date" name="data_pagamento" value={formData.data_pagamento || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md bg-green-50" />
-                    </div>
-                )}
-            </div>
+ return (
+ <div className="space-y-4 pt-4 border-t mt-4">
+ <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+ <div>
+ <label className="block text-sm font-medium">Status</label>
+ <select name="status" value={formData.status || 'Pendente'} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md">
+ <option value="Pendente">Pendente</option>
+ <option value="Pago">Pago</option>
+ </select>
+ </div>
+ {formData.status === 'Pago' && (
+ <div className="animate-fade-in">
+ <label className="block text-sm font-medium">Data do Pagamento</label>
+ <input type="date" name="data_pagamento" value={formData.data_pagamento || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md bg-green-50" />
+ </div>
+ )}
+ </div>
 
-            {formData.form_type === 'transferencia' ? (
-                <fieldset className="p-3 border rounded-lg bg-gray-50 animate-fade-in">
-                    <legend className="font-semibold text-sm">Contas</legend>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
-                        <div>
-                            <label className="block text-sm font-medium mb-1">De (Origem)*</label>
-                            <SelectConta
-                                name="conta_origem_id"
-                                value={formData.conta_origem_id}
-                                onChange={handleChange}
-                                contas={contasFiltradas}
-                                required={true}
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium mb-1">Para (Destino)*</label>
-                            <SelectConta
-                                name="conta_destino_id"
-                                value={formData.conta_destino_id}
-                                onChange={handleChange}
-                                contas={contasFiltradas.filter(c => c.id !== formData.conta_origem_id)}
-                                required={true}
-                            />
-                        </div>
-                    </div>
-                </fieldset>
-            ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label className="block text-sm font-medium mb-1">Conta*</label>
-                        <SelectConta
-                            name="conta_id"
-                            value={formData.conta_id}
-                            onChange={handleChange}
-                            contas={contasFiltradas.filter(c => c.tipo !== 'Conta de Ativo' && c.tipo !== 'Conta de Passivo')}
-                            required={true}
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium">Categoria</label>
-                        <select name="categoria_id" value={formData.categoria_id || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md">
-                            <option value="">Selecione...</option>
-                            {hierarchicalCategorias.map(c => <CategoryOption key={c.id} category={c} />)}
-                        </select>
-                    </div>
-                    <div className="md:col-span-2 relative">
-                        <label className="block text-sm font-medium">Favorecido / Fornecedor</label>
-                        <input type="text" value={favorecidoSearchTerm} onChange={handleFavorecidoSearch} disabled={!!formData.favorecido_contato_id} placeholder={formData.favorecido_contato_id ? '' : 'Digite para buscar...'} className="mt-1 w-full p-2 border rounded-md" />
-                        {formData.favorecido_contato_id && (
-                            <button type="button" onClick={handleClearFavorecido} className="absolute right-2 top-8 text-gray-500 hover:text-red-600">
-                                <FontAwesomeIcon icon={faTimes} />
-                            </button>
-                        )}
-                        {favorecidoSearchTerm && !formData.favorecido_contato_id && (
-                            <ul className="absolute z-10 w-full bg-white border rounded-md mt-1 max-h-48 overflow-y-auto shadow-lg">
-                                {favorecidoSearchResults.map(contato => (
-                                    <li key={contato.id} onClick={() => handleSelectFavorecido(contato)} className="px-4 py-2 hover:bg-gray-100 cursor-pointer">
-                                        <HighlightedText text={contato.nome || contato.razao_social} highlight={favorecidoSearchTerm} />
-                                    </li>
-                                ))}
-                            </ul>
-                        )}
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium">Empreendimento</label>
-                        <select name="empreendimento_id" value={formData.empreendimento_id || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md disabled:bg-gray-100" disabled={!formData.empresa_id}>
-                            <option value="">Nenhum</option>
-                            {empreendimentosFiltrados.map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}
-                        </select>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium">Etapa da Obra</label>
-                        <select name="etapa_id" value={formData.etapa_id || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md" disabled={!formData.empreendimento_id}>
-                            <option value="">Nenhuma</option>
-                            {dropdownData?.etapas.map(e => <option key={e.id} value={e.id}>{e.nome_etapa}</option>)}
-                        </select>
-                    </div>
-                </div>
-            )}
+ {formData.form_type === 'transferencia' ? (
+ <fieldset className="p-3 border rounded-lg bg-gray-50 animate-fade-in">
+ <legend className="font-semibold text-sm">Contas</legend>
+ <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+ <div>
+ <label className="block text-sm font-medium mb-1">De (Origem)*</label>
+ <SelectConta
+ name="conta_origem_id"
+ value={formData.conta_origem_id}
+ onChange={handleChange}
+ contas={contasFiltradas}
+ required={true}
+ />
+ </div>
+ <div>
+ <label className="block text-sm font-medium mb-1">Para (Destino)*</label>
+ <SelectConta
+ name="conta_destino_id"
+ value={formData.conta_destino_id}
+ onChange={handleChange}
+ contas={contasFiltradas.filter(c => c.id !== formData.conta_origem_id)}
+ required={true}
+ />
+ </div>
+ </div>
+ </fieldset>
+ ) : (
+ <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+ <div>
+ <label className="block text-sm font-medium mb-1">Conta*</label>
+ <SelectConta
+ name="conta_id"
+ value={formData.conta_id}
+ onChange={handleChange}
+ contas={contasFiltradas.filter(c => c.tipo !== 'Conta de Ativo' && c.tipo !== 'Conta de Passivo')}
+ required={true}
+ />
+ </div>
+ <div>
+ <label className="block text-sm font-medium">Categoria</label>
+ <select name="categoria_id" value={formData.categoria_id || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md">
+ <option value="">Selecione...</option>
+ {hierarchicalCategorias.map(c => <CategoryOption key={c.id} category={c} />)}
+ </select>
+ </div>
+ <div className="md:col-span-2 relative">
+ <label className="block text-sm font-medium">Favorecido / Fornecedor</label>
+ <input type="text" value={favorecidoSearchTerm} onChange={handleFavorecidoSearch} disabled={!!formData.favorecido_contato_id} placeholder={formData.favorecido_contato_id ? '' : 'Digite para buscar...'} className="mt-1 w-full p-2 border rounded-md" />
+ {formData.favorecido_contato_id && (
+ <button type="button" onClick={handleClearFavorecido} className="absolute right-2 top-8 text-gray-500 hover:text-red-600">
+ <FontAwesomeIcon icon={faTimes} />
+ </button>
+ )}
+ {favorecidoSearchTerm && !formData.favorecido_contato_id && (
+ <ul className="absolute z-10 w-full bg-white border rounded-md mt-1 max-h-48 overflow-y-auto shadow-lg">
+ {favorecidoSearchResults.map(contato => (
+ <li key={contato.id} onClick={() => handleSelectFavorecido(contato)} className="px-4 py-2 hover:bg-gray-100 cursor-pointer">
+ <HighlightedText text={contato.nome || contato.razao_social} highlight={favorecidoSearchTerm} />
+ </li>
+ ))}
+ </ul>
+ )}
+ </div>
+ <div>
+ <label className="block text-sm font-medium">Empreendimento</label>
+ <select name="empreendimento_id" value={formData.empreendimento_id || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md disabled:bg-gray-100" disabled={!formData.empresa_id}>
+ <option value="">Nenhum</option>
+ {empreendimentosFiltrados.map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}
+ </select>
+ </div>
+ <div>
+ <label className="block text-sm font-medium">Etapa da Obra</label>
+ <select name="etapa_id" value={formData.etapa_id || ''} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md" disabled={!formData.empreendimento_id}>
+ <option value="">Nenhuma</option>
+ {dropdownData?.etapas.map(e => <option key={e.id} value={e.id}>{e.nome_etapa}</option>)}
+ </select>
+ </div>
+ </div>
+ )}
 
-            {/* Vincular a Contrato — aparece só para Receitas */}
-            {formData.tipo === 'Receita' && contratosDisponiveis.length > 0 && (
-                <div className="p-3 border border-blue-200 rounded-lg bg-blue-50 mt-4">
-                    <label className="block text-[11px] font-bold text-blue-700 uppercase tracking-wider mb-1.5">
-                        📝 Vincular a um Contrato de Venda (opcional)
-                    </label>
-                    <p className="text-xs text-blue-600 mb-2">
-                        Se este lançamento for parcela de um contrato existente, selecione-o abaixo.
-                    </p>
-                    <select
-                        name="contrato_id"
-                        value={formData.contrato_id || ''}
-                        onChange={handleChange}
-                        className="w-full p-2 bg-white border border-blue-300 rounded-md text-sm font-medium text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors"
-                    >
-                        <option value="">— Não vincular —</option>
-                        {contratosDisponiveis.map(c => {
-                            const clienteNome = c.cliente?.nome || c.cliente?.razao_social || 'Sem Cliente';
-                            return (
-                                <option key={c.id} value={c.id}>
-                                    Contrato #{c.numero_contrato || c.id} - {clienteNome} ({formatCurrency(c.valor_final_venda)})
-                                </option>
-                            );
-                        })}
-                    </select>
-                </div>
-            )}
+ {/* Vincular a Contrato — aparece só para Receitas */}
+ {formData.tipo === 'Receita' && contratosDisponiveis.length > 0 && (
+ <div className="p-3 border border-blue-200 rounded-lg bg-blue-50 mt-4">
+ <label className="block text-[11px] font-bold text-blue-700 uppercase tracking-wider mb-1.5">
+ 📝 Vincular a um Contrato de Venda (opcional)
+ </label>
+ <p className="text-xs text-blue-600 mb-2">
+ Se este lançamento for parcela de um contrato existente, selecione-o abaixo.
+ </p>
+ <select
+ name="contrato_id"
+ value={formData.contrato_id || ''}
+ onChange={handleChange}
+ className="w-full p-2 bg-white border border-blue-300 rounded-md text-sm font-medium text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors"
+ >
+ <option value="">— Não vincular —</option>
+ {contratosDisponiveis.map(c => {
+ const clienteNome = c.cliente?.nome || c.cliente?.razao_social || 'Sem Cliente';
+ return (
+ <option key={c.id} value={c.id}>
+ Contrato #{c.numero_contrato || c.id} - {clienteNome} ({formatCurrency(c.valor_final_venda)})
+ </option>
+ );
+ })}
+ </select>
+ </div>
+ )}
 
-            {/* Vincular a Ativo Patrimonial — aparece só para Receitas */}
-            {formData.tipo === 'Receita' && ativosDisponiveis.length > 0 && (
-                <div className="p-3 border border-green-200 rounded-lg bg-green-50 mt-4">
-                    <label className="block text-[11px] font-bold text-green-700 uppercase tracking-wider mb-1.5">
-                        📈 Vincular a Ativo Patrimonial (opcional)
-                    </label>
-                    <p className="text-xs text-green-600 mb-2">
-                        Esta receita é proveniente da venda de um ativo? Vincule aqui e o valor será descontado do patrimônio automaticamente.
-                    </p>
-                    <select
-                        name="lancamento_ativo_id"
-                        value={formData.lancamento_ativo_id || ''}
-                        onChange={handleChange}
-                        className="w-full p-2 bg-white border border-green-300 rounded-md text-sm font-medium text-gray-700 focus:outline-none focus:ring-1 focus:ring-green-500 transition-colors"
-                    >
-                        <option value="">— Não vincular —</option>
-                        {ativosDisponiveis.map(a => (
-                            <option key={a.id} value={a.id}>
-                                {a.descricao} ({formatCurrency(a.valor)})
-                            </option>
-                        ))}
-                    </select>
-                </div>
-            )}
+ {/* Vincular a Ativo Patrimonial — aparece só para Receitas */}
+ {formData.tipo === 'Receita' && ativosDisponiveis.length > 0 && (
+ <div className="p-3 border border-green-200 rounded-lg bg-green-50 mt-4">
+ <label className="block text-[11px] font-bold text-green-700 uppercase tracking-wider mb-1.5">
+ 📈 Vincular a Ativo Patrimonial (opcional)
+ </label>
+ <p className="text-xs text-green-600 mb-2">
+ Esta receita é proveniente da venda de um ativo? Vincule aqui e o valor será descontado do patrimônio automaticamente.
+ </p>
+ <select
+ name="lancamento_ativo_id"
+ value={formData.lancamento_ativo_id || ''}
+ onChange={handleChange}
+ className="w-full p-2 bg-white border border-green-300 rounded-md text-sm font-medium text-gray-700 focus:outline-none focus:ring-1 focus:ring-green-500 transition-colors"
+ >
+ <option value="">— Não vincular —</option>
+ {ativosDisponiveis.map(a => (
+ <option key={a.id} value={a.id}>
+ {a.descricao} ({formatCurrency(a.valor)})
+ </option>
+ ))}
+ </select>
+ </div>
+ )}
 
-            <div className="md:col-span-2 pt-2">
-                <label className="block text-sm font-medium">Observações</label>
-                <textarea name="observacoes" value={formData.observacoes || ''} onChange={handleChange} rows="3" placeholder="Detalhes..." className="mt-1 w-full p-2 border rounded-md"></textarea>
-            </div>
-        </div>
-    );
+ <div className="md:col-span-2 pt-2">
+ <label className="block text-sm font-medium">Observações</label>
+ <textarea name="observacoes" value={formData.observacoes || ''} onChange={handleChange} rows="3" placeholder="Detalhes..." className="mt-1 w-full p-2 border rounded-md"></textarea>
+ </div>
+ </div>
+ );
 }
