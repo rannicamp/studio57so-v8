@@ -2,14 +2,44 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPaperPlane, faSpinner, faCheckDouble } from '@fortawesome/free-solid-svg-icons';
+import { faPaperPlane, faSpinner, faCheckDouble, faWandMagicSparkles, faUndo } from '@fortawesome/free-solid-svg-icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useConversation, useChatMessages, useSendMessage, useMarkAsRead } from './ChatHooks';
+import { useMutation } from '@tanstack/react-query';
+import { toast } from 'sonner';
 
 export default function ChatRoom({ contact }) {
  const { user } = useAuth();
  const [newMessage, setNewMessage] = useState('');
+ const [originalMessage, setOriginalMessage] = useState(null);
  const messagesEndRef = useRef(null);
+
+ const aiMutation = useMutation({
+ mutationFn: async (text) => {
+ const res = await fetch('/api/ai/chat-suggestion', {
+ method: 'POST',
+ headers: { 'Content-Type': 'application/json' },
+ body: JSON.stringify({ text }),
+ });
+ if (!res.ok) {
+ const error = await res.json();
+ throw new Error(error.error || "Falha na IA");
+ }
+ return res.json();
+ },
+ onSuccess: (data) => {
+ setOriginalMessage(newMessage); // guarda original
+ setNewMessage(data.conteudo); // substitui pelo magic
+ },
+ onError: (err) => {
+ toast.error('Erro ao corrigir: ' + err.message);
+ }
+ });
+
+ const handleAIMagic = () => {
+ if (!newMessage.trim() || aiMutation.isPending) return;
+ aiMutation.mutate(newMessage);
+ };
 
  // Hooks Padrão Ouro para comunicação Realtime
  const targetUserId = contact.isBroadcast ? null : contact.id; const { data: conversationId, isLoading: loadingConv } = useConversation(targetUserId);
@@ -43,6 +73,7 @@ export default function ChatRoom({ contact }) {
  if (!newMessage.trim() || !conversationId) return;
  const texto = newMessage.trim();
  setNewMessage(''); // Limpa o input otimisticamente
+ setOriginalMessage(null); // Zera o backup da IA
  sendMessageMutation.mutate({
  conversationId: conversationId,
  senderId: user.id,
@@ -99,7 +130,18 @@ export default function ChatRoom({ contact }) {
  </div>
 
  {/* Input de Envio estilo Elegante */}
- <div className="p-3 bg-white border-t border-gray-200 shrink-0">
+ <div className="p-3 bg-white border-t border-gray-200 shrink-0 relative">
+ 
+ {/* BOTÃO DESFAZER IA (Flutuante sobre o chat interno) */}
+ {originalMessage && (
+ <button type="button"
+ onClick={() => { setNewMessage(originalMessage); setOriginalMessage(null); }}
+ className="absolute -top-10 right-4 text-[11px] bg-red-100 text-red-600 px-3 py-1.5 rounded-full shadow border border-red-200 hover:bg-red-200 transition-colors flex items-center gap-1 z-30 font-bold"
+ >
+ <FontAwesomeIcon icon={faUndo} /> Desfazer Correção
+ </button>
+ )}
+
  <form onSubmit={handleSend} className="flex items-end gap-2 bg-gray-100 rounded-2xl p-1.5 focus-within:bg-white focus-within:ring-2 focus-within:ring-blue-500/20 transition-all border border-transparent focus-within:border-blue-300">
  <textarea value={newMessage}
  onChange={(e) => setNewMessage(e.target.value)}
@@ -113,9 +155,16 @@ export default function ChatRoom({ contact }) {
  }
  }}
  />
+ {/* BOTÃO MAGIA IA */}
+ <button type="button" onClick={handleAIMagic} disabled={!newMessage.trim() || aiMutation.isPending} title="Corrigir Gramática (IA)"
+ className="p-3 text-indigo-500 hover:text-indigo-600 disabled:opacity-30 disabled:hover:scale-100 transition-transform hover:scale-110 active:scale-95 mb-0.5"
+ >
+ {aiMutation.isPending ? <FontAwesomeIcon icon={faSpinner} spin size="lg" /> : <FontAwesomeIcon icon={faWandMagicSparkles} size="lg" />}
+ </button>
+
  <button type="submit"
  disabled={!newMessage.trim() || contact.isBroadcast}
- className="w-10 h-10 shrink-0 bg-blue-600 text-white rounded-full flex items-center justify-center shadow hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+ className="w-10 h-10 shrink-0 bg-blue-600 text-white rounded-full flex items-center justify-center shadow hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-bold"
  >
  <FontAwesomeIcon icon={faPaperPlane} className="text-[14px] ml-[-2px]" />
  </button>

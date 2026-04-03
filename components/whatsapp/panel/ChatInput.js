@@ -3,13 +3,43 @@
 import { useEffect, useRef, useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPaperclip, faFileLines, faMicrophone, faPaperPlane, faSmile, faTimes, faStop, faImage, faMapMarkerAlt,
- faTrash, faCheck } from '@fortawesome/free-solid-svg-icons';
+ faTrash, faCheck, faWandMagicSparkles, faUndo, faSpinner } from '@fortawesome/free-solid-svg-icons';
+import { useMutation } from '@tanstack/react-query';
+import { toast } from 'sonner';
 
 export default function ChatInput({ newMessage, setNewMessage, onSendMessage, onOpenUploader, onOpenTemplate, onOpenLocation, recorder, uploadingOrProcessing, onPasteFile
 }) {
  const textareaRef = useRef(null);
  const [isMenuOpen, setIsMenuOpen] = useState(false);
  const [isRecording, setIsRecording] = useState(false);
+ const [originalMessage, setOriginalMessage] = useState(null);
+
+ const aiMutation = useMutation({
+ mutationFn: async (text) => {
+ const res = await fetch('/api/ai/chat-suggestion', {
+ method: 'POST',
+ headers: { 'Content-Type': 'application/json' },
+ body: JSON.stringify({ text }),
+ });
+ if (!res.ok) {
+ const error = await res.json();
+ throw new Error(error.error || "Falha na IA");
+ }
+ return res.json();
+ },
+ onSuccess: (data) => {
+ setOriginalMessage(newMessage);
+ setNewMessage(data.conteudo);
+ },
+ onError: (err) => {
+ toast.error('Erro ao corrigir: ' + err.message);
+ }
+ });
+
+ const handleAIMagic = () => {
+ if (!newMessage.trim() || aiMutation.isPending) return;
+ aiMutation.mutate(newMessage);
+ };
 
  // Ajusta altura do textarea
  useEffect(() => {
@@ -41,6 +71,7 @@ export default function ChatInput({ newMessage, setNewMessage, onSendMessage, on
  if (e.key === 'Enter' && !e.shiftKey) {
  e.preventDefault();
  onSendMessage(e);
+ setOriginalMessage(null);
  }
  };
 
@@ -138,14 +169,31 @@ export default function ChatInput({ newMessage, setNewMessage, onSendMessage, on
  className="w-full max-h-[120px] resize-none outline-none text-gray-700 bg-transparent custom-scrollbar leading-6"
  rows={1}
  />
- <button className="text-gray-400 hover:text-gray-600 mb-1 ml-2">
+ <button type="button" className="text-gray-400 hover:text-gray-600 mb-1 ml-2">
  <FontAwesomeIcon icon={faSmile} size="lg" />
  </button>
  </div>
 
+ {/* BOTÃO DESFAZER IA (Flutuante) */}
+ {originalMessage && (
+ <button type="button"
+ onClick={() => { setNewMessage(originalMessage); setOriginalMessage(null); }}
+ className="absolute -top-7 right-4 text-[12px] bg-red-100 text-red-600 px-3 py-1 rounded-full shadow border border-red-200 hover:bg-red-200 transition-colors flex items-center gap-1 z-30"
+ >
+ <FontAwesomeIcon icon={faUndo} /> Desfazer Correção
+ </button>
+ )}
+
+ {/* BOTÃO MAGIA IA */}
+ <button type="button" onClick={handleAIMagic} disabled={!newMessage.trim() || aiMutation.isPending} title="Corrigir Gramática (IA)"
+ className="p-3 text-indigo-500 hover:text-indigo-600 disabled:opacity-30 disabled:hover:scale-100 transition-transform hover:scale-110 active:scale-95 mb-1"
+ >
+ {aiMutation.isPending ? <FontAwesomeIcon icon={faSpinner} spin size="lg" /> : <FontAwesomeIcon icon={faWandMagicSparkles} size="lg" />}
+ </button>
+
  {/* BOTÃO ENVIAR OU MICROFONE */}
  {newMessage.trim() ? (
- <button onClick={onSendMessage} disabled={uploadingOrProcessing}
+ <button onClick={(e) => { onSendMessage(e); setOriginalMessage(null); }} disabled={uploadingOrProcessing}
  className="p-3 bg-[#00a884] text-white rounded-full shadow-md hover:bg-[#008f6f] transition-all mb-1 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:scale-100"
  >
  <FontAwesomeIcon icon={faPaperPlane} />
