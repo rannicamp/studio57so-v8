@@ -462,25 +462,44 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
  )}
 
  {/* ══════════════ HEADER ══════════════ */}
- <header className="bg-white border-b border-gray-200 px-5 py-3 flex items-center justify-between gap-4 flex-shrink-0 shadow-sm">
- <div className="flex items-center gap-3">
- <div className="w-9 h-9 bg-emerald-600 rounded-xl flex items-center justify-center shadow-sm">
- <FontAwesomeIcon icon={faFileInvoiceDollar} className="text-white text-base" />
+ <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between gap-4 flex-shrink-0 shadow-sm relative overflow-hidden">
+ 
+ <div className="flex items-center gap-4 relative z-10">
+ <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl flex items-center justify-center shadow-sm border border-emerald-400/30">
+ <FontAwesomeIcon icon={faBuilding} className="text-white text-xl" />
  </div>
- <div>
- <h1 className="text-base font-bold text-gray-800 leading-tight">Orçamentação & Quantitativos BIM</h1>
- <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wide">
- {empreendimentoSelecionado?.nome || 'Empreendimento'}
- {' · '} {modelosSelecionados && modelosSelecionados.length > 0 ? (modelosSelecionados.length === 1 ? modelosSelecionados[0].nome_arquivo : `${modelosSelecionados.length} Modelos Selecionados`) : 'Carregando...'}
+ <div className="flex flex-col">
+ <p className="text-[10px] text-emerald-600 font-black uppercase tracking-widest mb-1 flex items-center gap-2">
+ <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)] animate-pulse"></span>
+ Empreendimento Ativo
+ </p>
+ <h1 className="text-xl font-extrabold text-gray-800 leading-none flex items-center gap-2 tracking-tight">
+ {empreendimentoSelecionado?.nome || 'Nenhum Empreendimento Vinculado'}
+ </h1>
+ <p className="text-xs text-gray-500 font-medium tracking-wide mt-1.5 flex items-center gap-2">
+ <FontAwesomeIcon icon={faFileInvoiceDollar} className="text-gray-400" />
+ Orçamentação BIM {' · '} 
+ {modelosSelecionados && modelosSelecionados.length > 0 ? (
+   <span className="text-gray-700 font-bold">{modelosSelecionados.length === 1 ? modelosSelecionados[0]?.nome_arquivo : `${modelosSelecionados.length} Modelos 3D Carregados`}</span>
+ ) : (
+   <span className="text-gray-400">Aguardando definição do modelo...</span>
+ )}
  </p>
  </div>
  </div>
 
  {/* Ações direita do header */}
- <div className="ml-auto flex items-center gap-2">
- <button onClick={onClose} className="px-3 py-2 rounded-lg border border-gray-200 text-gray-400 hover:text-red-600 hover:bg-red-50 hover:border-red-200 transition-all text-sm font-bold flex items-center gap-2" title="Fechar Orçamento">
- <span>Fechar Orçamento</span>
- <span className="text-lg leading-none">×</span>
+ <div className="ml-auto flex items-center gap-4 relative z-10">
+ <div className="bg-slate-50 border border-slate-200 rounded-lg px-4 py-2 hidden md:flex items-center gap-3">
+     <FontAwesomeIcon icon={faLayerGroup} className="text-slate-400" />
+     <div className="flex flex-col">
+         <span className="text-[9px] text-slate-500 uppercase font-bold tracking-wider">Mapeamentos</span>
+         <span className="text-sm font-bold text-slate-700">{kpisMaterial?.totalMapeados || 0}</span>
+     </div>
+ </div>
+ <button onClick={onClose} className="px-5 py-2.5 rounded-xl border border-gray-200 bg-white text-gray-600 hover:text-red-600 hover:bg-red-50 hover:border-red-200 transition-all text-sm font-bold flex items-center gap-2 shadow-sm group" title="Sair da Orçamentação">
+ <span>Salvar e Fechar</span>
+ <span className="text-xl leading-none font-light group-hover:rotate-90 transition-transform">×</span>
  </button>
  </div>
  </header>
@@ -809,7 +828,7 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
  )}
 
  {/* ─── ABA: ELEMENTOS BIM (original) ─── */}
- {(abaAtiva === 'elementos' || !modeloSelecionado) && (
+ {(abaAtiva === 'elementos' || !modelosSelecionadosIds || modelosSelecionadosIds.length === 0) && (
  <>
  {carregandoElementos ? (
  <div className="flex flex-col items-center justify-center h-full text-blue-400 gap-3">

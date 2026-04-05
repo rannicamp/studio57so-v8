@@ -51,7 +51,20 @@ A paleta base foca em:
 **NUNCA utilize caixas de cabeçalho coloridas enormes** (ex: `bg-blue-700 p-10 rounded-3xl` com título gigante branco). Isso já foi expressamente considerado "brega" e inadequado para o Studio 57. 
 A inspiração máxima do design corporativo do painel logado é a tela de **Contatos** (`app/(main)/contatos/page.js`), que utiliza uma interface muito mais "clean" e profissional.
 
-### 2. Cabeçalho de Módulo Padrão (Obrigatório)
+### 2. 🚨 PROIBIÇÃO ABSOLUTA: Cabeçalhos Pretos e "Dark Mode" Injetado
+**NUNCA insira cabeçalhos pretos, fundos cinza-escuro (gray-900/gray-800) com textos brancos ou elementos no estilo "Dark Mode Premium"**. O usuário reprova categoricamente esse estilo visual alienígena ao restante do painel. Toda a interface logada deve ser predominantemente clara (White / Light Mode) e coesa.
+
+**O QUE NÃO FAZER (CÓDIGO EXPRESSAMENTE PROIBIDO):**
+```jsx
+{/* ❌ NUNCA CRIE CABEÇALHOS ASSIM! O usuário ODEIA. Causa suspensão imediata de uso. */}
+<header className="bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 border-gray-800 p-6 overflow-hidden relative">
+  {/* Glows em fundos escuros também são sumariamente proibidos */}
+  <div className="absolute top-0 left-0 w-full h-full from-emerald-900/40 via-transparent"></div>
+  <h1 className="text-white drop-shadow-sm">Título em Painel Dark Mode</h1>
+</header>
+```
+
+### 3. Cabeçalho de Módulo Padrão (Obrigatório)
 Todas as telas e módulos do sistema devem, sem exceção, usar o modelo simples e direto de texto escuro sob o fundo padrão da página:
 
 ```jsx

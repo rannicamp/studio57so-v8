@@ -18,7 +18,7 @@ import { faTags, faFileImport, faHandshake, faArrowLeft, faShieldAlt,
 import CategoriasManager from '@/components/financeiro/CategoriasManager';
 import ImportacaoFinanceiraManager from '@/components/financeiro/ImportacaoFinanceiraManager';
 import ConciliacaoManager from '@/components/financeiro/ConciliacaoManager';
-
+import AuditoriaManager from '@/components/financeiro/AuditoriaManager';
 const CONFIG_FINANCEIRO_UI_STATE_KEY = 'configFinanceiroUiState';
 
 // Função para buscar dados iniciais (necessário para Conciliação)
@@ -116,9 +116,7 @@ export default function ConfigFinanceiroPage() {
  </div>
  {/* Botões de Ação Rápida (Ferramentas de Topo) */}
  <div className="flex gap-2">
- <Link href="/financeiro/auditoria" className="bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300 hover:text-indigo-600 text-sm font-medium py-2 px-4 rounded-lg shadow-sm flex items-center transition-all">
- <FontAwesomeIcon icon={faShieldAlt} className="mr-2 text-indigo-500" /> Auditoria
- </Link>
+ 
  </div>
  </div>
 
@@ -128,6 +126,7 @@ export default function ConfigFinanceiroPage() {
  <TabButton tabName="categorias" label="Categorias e Plano de Contas" icon={faTags} />
  <TabButton tabName="importacao" label="Assistente de Importação" icon={faFileImport} />
  <TabButton tabName="conciliacao" label="Ferramenta de Conciliação" icon={faHandshake} />
+            <TabButton tabName="auditoria" label="Trilha de Auditoria" icon={faShieldAlt} />
  </nav>
  </div>
 
@@ -164,7 +163,16 @@ export default function ConfigFinanceiroPage() {
  </div>
  )}
 
- </div>
- </div>
- );
+         {activeTab === 'auditoria' && (
+          <div className="animate-fade-in">
+            <div className="mb-6 pb-4 border-b border-gray-100">
+              <h2 className="text-lg font-bold text-gray-800">Trilha de Auditoria</h2>
+              <p className="text-sm text-gray-500">Histórico completo e imutável de todas as alterações realizadas nos lançamentos da organização.</p>
+            </div>
+            <AuditoriaManager />
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }

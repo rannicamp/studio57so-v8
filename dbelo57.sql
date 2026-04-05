@@ -1227,6 +1227,17 @@ CREATE TABLE public.latest_ad_snapshots (
     adset_name text
 );
 
+CREATE TABLE public.logs_erros_ui (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    created_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
+    mensagem text NOT NULL,
+    detalhes text,
+    usuario_id uuid,
+    url_atual text,
+    organizacao_id bigint,
+    browser_info text
+);
+
 CREATE TABLE public.marcas_uploads (
     id bigint NOT NULL,
     descricao text,
