@@ -138,6 +138,9 @@ export async function generateActivityPlan(messagesHistory, organizacaoId, usuar
  const model = genAI.getGenerativeModel({
  model: "gemini-2.5-flash",
  tools: [{ functionDeclarations: [buscarAtividadesTool] }],
+    generationConfig: {
+      responseMimeType: 'application/json',
+    },
  systemInstruction: `
  VOCÊ DEVE RESPONDER EXATAMENTE COM UM JSON VÁLIDO (SEJA NO FINAL DO SEU RACIOCÍNIO DE FERRAMENTA OU DIRETAMENTE).
  NÃO USE MARCADORES MARKDOWN COMO \`\`\`json. APENAS O OBJETO JSON PURO SEGUINDO A ESTRUTURA ABAIXO:
