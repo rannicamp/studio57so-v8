@@ -1,0 +1,29 @@
+[
+  {
+    "id": 97,
+    "pagina": "/caixa-de-entrada",
+    "descricao": "Corrigir indice de reajuste na tabela de simulação em pdf do Beta",
+    "imagem_url": null,
+    "status": "Novo",
+    "diagnostico": null,
+    "usuario_id": "e48b4e12-afa9-4672-b56b-45e5c9a8fd5a"
+  },
+  {
+    "id": 98,
+    "pagina": "/configuracoes/materiais",
+    "descricao": "Erro na unificação, não deixa unificar dois materiais iguais mas com descrição diferentes ",
+    "imagem_url": null,
+    "status": "Novo",
+    "diagnostico": null,
+    "usuario_id": "1abb13ac-0f59-483b-a16e-6a2db9918d72"
+  },
+  {
+    "id": 99,
+    "pagina": "/financeiro",
+    "descricao": "Falha ao excluir lançamentos no financeiro (lançamentos automáticos de salário)",
+    "imagem_url": "https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/feedbacks/prints/1775482316654-2rc2ee-Captura%20de%20tela%202026-04-06%20103029.png",
+    "status": "Novo",
+    "diagnostico": null,
+    "usuario_id": "4046a5ad-f198-4309-99ab-3b8fed59cad1"
+  }
+]
