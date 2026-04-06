@@ -349,9 +349,7 @@ export default function AtividadesPage() {
  Filtros
  </button>
 
- {
-
- {canCreate && (
+  {canCreate && (
  <button onClick={() => handleEditClick(null)} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow flex items-center transition duration-200"
  >
  <FontAwesomeIcon icon={faPlus} className="mr-2" /> Nova Atividade
