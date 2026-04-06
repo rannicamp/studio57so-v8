@@ -71,11 +71,16 @@ export default function ActivityCopilot({ isOpen, onClose, organizacaoId, usuari
 
  // --- FUNÇÕES DE LISTA ---
  async function loadSessions() {
- setLoadingList(true)
- const list = await listUserSessions(organizacaoId, usuarioId)
- setSessionList(list)
- setLoadingList(false)
- }
+    setLoadingList(true)
+    try {
+      const list = await listUserSessions(organizacaoId, usuarioId)
+      setSessionList(list)
+    } catch (e) {
+      console.error('Error loadSessions =>', e)
+    } finally {
+      setLoadingList(false)
+    }
+  }
 
  async function handleNewChat() {
  const title = prompt("Nome do Planejamento:", "Novo Planejamento")
@@ -91,16 +96,21 @@ export default function ActivityCopilot({ isOpen, onClose, organizacaoId, usuari
  }
 
  async function enterChat(sessionSummary) {
- setLoadingChat(true)
- setView('chat')
- const result = await getSessionById(sessionSummary.id)
- if (result.success) {
- setCurrentSession(result.session)
- setMessages(result.session.messages || [])
- setProposedPlan(result.session.current_plan)
- }
- setLoadingChat(false)
- }
+    setLoadingChat(true)
+    setView('chat')
+    try {
+      const result = await getSessionById(sessionSummary.id)
+      if (result.success) {
+        setCurrentSession(result.session)
+        setMessages(result.session.messages || [])
+        setProposedPlan(result.session.current_plan)
+      }
+    } catch (e) {
+      console.error('Error enterChat =>', e)
+    } finally {
+      setLoadingChat(false)
+    }
+  }
 
  async function handleDeleteSession(e, id) {
  e.stopPropagation()

@@ -119,6 +119,11 @@ export async function generateActivityPlan(messagesHistory, organizacaoId, usuar
  hora_inicio: { type: "string", description: "HH:MM:SS - OBRIGATÓRIO PARA EVENTOS.", nullable: true },
  duracao_horas: { type: "number", description: "Duração em horas. OBRIGATÓRIO PARA EVENTOS.", nullable: true },
  duracao_dias: { type: "number", description: "Duração em dias. OBRIGATÓRIO PARA TAREFAS.", nullable: true },
+              is_recorrente: { type: "boolean", description: "Atividade repete (true/false)?", nullable: true },
+              recorrencia_tipo: { type: "string", description: "diaria, semanal, mensal, ou anual.", nullable: true },
+              recorrencia_intervalo: { type: "integer", description: "De quanto em quanto tempo se repete (ex: 1 = toda semana).", nullable: true },
+              recorrencia_dias_semana: { type: "array", items: { type: "integer" }, description: "Array numérico: Segunda = 1, Terca = 2, Sexta = 5.", nullable: true },
+              recorrencia_fim: { type: "string", description: "Data limite YYYY-MM-DD, opcional.", nullable: true },
  empreendimento_id: { type: "integer", nullable: true },
  funcionario_id: { type: "string", description: "OBRIGATÓRIO: 'id' NUMÉRICO do array de funcionários, ou a string 'SELF'.", nullable: true },
  responsavel_texto: { type: "string", nullable: true }
@@ -148,7 +153,14 @@ export async function generateActivityPlan(messagesHistory, organizacaoId, usuar
         - Usuário quer para si ("pra mim"): funcionario_id: "SELF", responsavel_texto: "Eu (${contextData.nome_usuario})".
         - Usuário citou alguém (Ex: "Atribui pra Mikaelly"): Procure no JSON (Funcionários Gerais). Pegue estritamente O NUMERO do 'id' (Ex: "14") e cole em 'funcionario_id'. NUNCA DEIXE STRING COM NOME EXTENSO NISSO.
 
- REGRA #3 - EDIÇÃO EXIGE BUSCA (TOOL CALLING):
+ REGRA #4 - ATIVIDADES RECORRENTES / ROTINAS:
+        Se o usuário falar em rotina diária/semanal/mensal (ex: "verificar ordens de compra de segunda a sexta"), configure:
+        - 'is_recorrente' = true.
+        - 'recorrencia_tipo' = "semanal".
+        - 'recorrencia_intervalo' = 1.
+        - 'recorrencia_dias_semana' = [1, 2, 3, 4, 5] (para seg a sex).
+
+        REGRA #3 - EDIÇÃO EXIGE BUSCA (TOOL CALLING):
  Se o usuário quiser mudar uma tarefa antiga (ex: "mude o responsável das minhas tarefas de alvenaria para o Fulano"),
  você NÃO sabe de cabeça quais são essas tarefas.
  VOCÊ DEVE: Chamar a ferramenta "buscar_atividades" para resgatar essas tarefas do banco (descobrir o 'id' real delas).
@@ -208,15 +220,22 @@ export async function generateActivityPlan(messagesHistory, organizacaoId, usuar
  }
  }
 
- let rawText = response.response.text();
- rawText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
- let result = JSON.parse(rawText);
+  let rawText = response.response.text();
+  rawText = rawText.replace(/```json/g, '').replace(/```/g, '').trim();
+  
+  let result;
+  try {
+    result = JSON.parse(rawText);
+  } catch (parseError) {
+    console.error("Falha ao parsear JSON da IA:", rawText);
+    return { success: true, type: 'message', message: rawText };
+  }
 
- if (result.activities && result.activities.length > 0) {
- return { success: true, type: 'plan', data: result.activities, thought: result.thought_process, message: result.message };
- } else {
- return { success: true, type: 'message', message: result.message || "Entendido." };
- }
+  if (result.activities && result.activities.length > 0) {
+    return { success: true, type: 'plan', data: result.activities, thought: result.thought_process, message: result.message };
+  } else {
+    return { success: true, type: 'message', message: result.message || "Entendido." };
+  }
 
  } catch (error) {
  return { type: 'message', message: `Oops: ${error.message}` };
@@ -329,6 +348,12 @@ export async function confirmActivityPlan(activitiesList, organizacaoId, userId,
  duracao_dias: isEvent ? 0 : (activity.duracao_dias || 1),
  hora_inicio: isEvent ? activity.hora_inicio : null,
  duracao_horas: isEvent ? (activity.duracao_horas || 1) : null,
+
+  is_recorrente: activity.is_recorrente || false,
+  recorrencia_tipo: activity.recorrencia_tipo || null,
+  recorrencia_intervalo: activity.recorrencia_intervalo || null,
+  recorrencia_dias_semana: activity.recorrencia_dias_semana ? JSON.stringify(activity.recorrencia_dias_semana) : null,
+  recorrencia_fim: activity.recorrencia_fim || null,
 
  empreendimento_id: activity.empreendimento_id || null,
  funcionario_id: finalFuncionarioId || null,
