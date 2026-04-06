@@ -408,7 +408,6 @@ export default function AtividadesPage() {
  />
  )}
 
- {
  </div>
- );
+  );
 }
