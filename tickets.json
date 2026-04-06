@@ -1,0 +1,518 @@
+[
+  {
+    "id": 73,
+    "status": "Implementado",
+    "descricao": "Está dando erro ao carregar modelo de mensagem.",
+    "pagina": "/crm"
+  },
+  {
+    "id": 81,
+    "status": "Implementado",
+    "descricao": "corrigir abas de instagram whats e email elas mudam de posição quando alterno entre elas, isto é na caixa de entrda ",
+    "pagina": "/caixa-de-entrada"
+  },
+  {
+    "id": 85,
+    "status": "Implementado",
+    "descricao": "Toda vez que clico em alguma notificação, para me direcionar para a caixa de entrada ou funil, aparece o erro em anexo. Acontece tanto no computador quanto no celular.",
+    "pagina": "/caixa-de-entrada"
+  },
+  {
+    "id": 74,
+    "status": "Implementado",
+    "descricao": "Verificar faturas de cartão da conta Caixa ref fev e mar/26. Sistema não está reconhecendo automaticamente e não criou nova conta.\n",
+    "pagina": "/financeiro"
+  },
+  {
+    "id": 92,
+    "status": "Implementado",
+    "descricao": "Antecipações estão sendo criadas com a categoria \"crédito parcelamento lojista\" automaticamente.",
+    "pagina": "/financeiro"
+  },
+  {
+    "id": 71,
+    "status": "Implementado",
+    "descricao": "teste de anexo ",
+    "pagina": "/configuracoes/feedback/visualizar"
+  },
+  {
+    "id": 97,
+    "status": "Resolvido",
+    "descricao": "Corrigir indice de reajuste na tabela de simulação em pdf do Beta",
+    "pagina": "/caixa-de-entrada"
+  },
+  {
+    "id": 35,
+    "status": "Implementado",
+    "descricao": "Acrescentar opção de duplicar ou clonar lançamento",
+    "pagina": "FINANCEIRO"
+  },
+  {
+    "id": 27,
+    "status": "Implementado",
+    "descricao": "Edição dados de contatos; Anexar contrato de venda feita. ",
+    "pagina": "Cadastro "
+  },
+  {
+    "id": 65,
+    "status": "Implementado",
+    "descricao": "Página de simulador está fora do ar. (page not found)",
+    "pagina": "/painel"
+  },
+  {
+    "id": 59,
+    "status": "Implementado",
+    "descricao": "Ter que filtrar toda vez para poder atualizar e eu ver os leads que chegaram.",
+    "pagina": "/crm"
+  },
+  {
+    "id": 6,
+    "status": "Implementado",
+    "descricao": "nao consigo colocar o fornecedor",
+    "pagina": "pedidos de compra"
+  },
+  {
+    "id": 10,
+    "status": "Implementado",
+    "descricao": "Erro para adicionar novo pedido",
+    "pagina": "Pedidos de Compra"
+  },
+  {
+    "id": 86,
+    "status": "Implementado",
+    "descricao": "tem um problema no visualizador bim, pois ao utlizar a ferramenta de desenhar por cima se eu cancelar a navegação trava acho que o sistema acha que a ferramenta ainda tá sendo utlizada e não entende que fechou. ",
+    "pagina": "/painel"
+  },
+  {
+    "id": 98,
+    "status": "Novo",
+    "descricao": "Erro na unificação, não deixa unificar dois materiais iguais mas com descrição diferentes ",
+    "pagina": "/configuracoes/materiais"
+  },
+  {
+    "id": 75,
+    "status": "Implementado",
+    "descricao": "As automações do funil de vendas não estão funcionando para rotiamento. ",
+    "pagina": "/crm"
+  },
+  {
+    "id": 72,
+    "status": "Implementado",
+    "descricao": "Os 3 lançamentos do cartão Caixa de 11/25 não estão conciliados. (não consegui anexar a imagem do print, segue descrição)\nErro: record \"new\" has no field \"conta_origem_id\"\n",
+    "pagina": "/financeiro"
+  },
+  {
+    "id": 60,
+    "status": "Implementado",
+    "descricao": "A função de mandar emojis na conversa na caixa de entrada nao funciona.",
+    "pagina": "/caixa-de-entrada"
+  },
+  {
+    "id": 32,
+    "status": "Implementado",
+    "descricao": "Não fica salva as observações escritas no ponto ",
+    "pagina": "Controle de ponto"
+  },
+  {
+    "id": 18,
+    "status": "Implementado",
+    "descricao": "Ser possível editar os informativos.",
+    "pagina": "Diário de obra"
+  },
+  {
+    "id": 12,
+    "status": "Implementado",
+    "descricao": "Definir empresa ao importar os lançamentos\nVerificar o erro de transferência (tipo) e contra transferência\nNo caso de transferências, fica sem contato definido (precisa alterar para a empresa referente)\n",
+    "pagina": "FINANCEIRO"
+  },
+  {
+    "id": 30,
+    "status": "Implementado",
+    "descricao": "Ajuste da máscara dos valores. Valores de 150,00 aparecem na edição como 1.500,00",
+    "pagina": "FINANCEIRO"
+  },
+  {
+    "id": 61,
+    "status": "Implementado",
+    "descricao": "Quando clica na ''casinha'' de ínicio a conta desloga.",
+    "pagina": "/painel"
+  },
+  {
+    "id": 82,
+    "status": "Implementado",
+    "descricao": "o sidebar do instagram não ataliza automaticamente quando troco de conversa ele deve atualizar automaticamente ",
+    "pagina": "/caixa-de-entrada"
+  },
+  {
+    "id": 66,
+    "status": "Implementado",
+    "descricao": "Ao enviar um arquivo estou tendo que clicar mais de uma vez em ''upload 1 file'' para conseguir envia-lo. ",
+    "pagina": "/caixa-de-entrada"
+  },
+  {
+    "id": 91,
+    "status": "Implementado",
+    "descricao": "Não está sendo possível criar ou editar subcategorias no Financeiro. Só é possível utilizar as categorias principais já criadas.",
+    "pagina": "/configuracoes/financeiro"
+  },
+  {
+    "id": 99,
+    "status": "Novo",
+    "descricao": "Falha ao excluir lançamentos no financeiro (lançamentos automáticos de salário)",
+    "pagina": "/financeiro"
+  },
+  {
+    "id": 76,
+    "status": "Implementado",
+    "descricao": "Notificação de lead chegando duplicada.",
+    "pagina": "/crm"
+  },
+  {
+    "id": 5,
+    "status": "Implementado",
+    "descricao": "falta a maozinha pra arrastar na pagina",
+    "pagina": "painel de atividades"
+  },
+  {
+    "id": 7,
+    "status": "Implementado",
+    "descricao": "Erro na hora de fazer upload dos recibos dos funcionários  ",
+    "pagina": "Gestão financeira"
+  },
+  {
+    "id": 83,
+    "status": "Implementado",
+    "descricao": "não estou conseguindo abrir o contratos \n\nErro ao carregar contratos: column contratos.empreendimento_nome does not exist",
+    "pagina": "/contratos"
+  },
+  {
+    "id": 67,
+    "status": "Implementado",
+    "descricao": "Opção de anexar/enviar mais de um arquivo por vez na conversa.",
+    "pagina": "/caixa-de-entrada"
+  },
+  {
+    "id": 87,
+    "status": "Implementado",
+    "descricao": "hoje em pedidos, em comprars pedido de compra não tem serviçao ou seja o pedido \"material\" só pode ser equipamento ou unsumo e não pode ser um serviço temos que criar uma logica pra serviço, só que ao ser entregue o serviço não vai pro estoque pois serviços não podem ser estocados",
+    "pagina": "/painel"
+  },
+  {
+    "id": 3,
+    "status": "Implementado",
+    "descricao": "Local destinado a Inserir os recibos de pagamento dos funcionários",
+    "pagina": "Funcionários"
+  },
+  {
+    "id": 2,
+    "status": "Implementado",
+    "descricao": "Não aparecer as tarefas concluídas no RDO",
+    "pagina": "Diário de Obra "
+  },
+  {
+    "id": 1,
+    "status": "Implementado",
+    "descricao": "Editar o empreendimento da atividade",
+    "pagina": "Painel de atividades"
+  },
+  {
+    "id": 11,
+    "status": "Implementado",
+    "descricao": "Pedidos cancelados estão aparecendo no diário de obras ",
+    "pagina": "PEDIDO DE COMPRA"
+  },
+  {
+    "id": 9,
+    "status": "Implementado",
+    "descricao": "Não aparece nenhum empreendimento para ser selecionado",
+    "pagina": "ATIVIDADES"
+  },
+  {
+    "id": 29,
+    "status": "Implementado",
+    "descricao": "Em lançamentos criados não é possível lançar a data do pagamento efetivado em data retroativa. Criar uma forma de definir a data efetiva do pagamento, não somente do vencimento.",
+    "pagina": "FINANCEIRO"
+  },
+  {
+    "id": 15,
+    "status": "Implementado",
+    "descricao": "Adicionar ",
+    "pagina": "Contatos"
+  },
+  {
+    "id": 19,
+    "status": "Implementado",
+    "descricao": "Ter como colocar observações ",
+    "pagina": "Controle de ponto"
+  },
+  {
+    "id": 14,
+    "status": "Implementado",
+    "descricao": "Escrita com ''enter'' ",
+    "pagina": "Whatsapp"
+  },
+  {
+    "id": 62,
+    "status": "Implementado",
+    "descricao": "O erro ''444...'' aparece quando eu clico na mensagem pelas notificações.",
+    "pagina": "/painel"
+  },
+  {
+    "id": 53,
+    "status": "Implementado",
+    "descricao": "Na caixa de entrada, ao enviar aquivos, quando envio um arquivo é preciso atualizar a página para conseguir enviar outro em seguida. A opção de anexar some se não atualizar. ",
+    "pagina": "/caixa-de-entrada"
+  },
+  {
+    "id": 77,
+    "status": "Implementado",
+    "descricao": "As mensagens dos clientes não estão chegando  no sistema. ",
+    "pagina": "/caixa-de-entrada"
+  },
+  {
+    "id": 80,
+    "status": "Implementado",
+    "descricao": "o historico de movimentação do usuario no crm, ta mostrando a mesma movimentação duas vezes quando abro o sidebar la em historico mostra a mesma movimentação duas vezes ",
+    "pagina": "/caixa-de-entrada"
+  },
+  {
+    "id": 68,
+    "status": "Implementado",
+    "descricao": "Ficou em espaço no topo da conversa do WhatsApp somente para celular ",
+    "pagina": "/caixa-de-entrada"
+  },
+  {
+    "id": 96,
+    "status": "Novo",
+    "descricao": "Ao gerar a simulação em PDF a descrição da vaga de garagem adicionada não aparece no arquivo. So aparece a descrição da unidade de suíte e o valor das duas (suite e garagem) somados.",
+    "pagina": "/simulador-financiamento"
+  },
+  {
+    "id": 20,
+    "status": "Implementado",
+    "descricao": "Notificação",
+    "pagina": "Whatsapp"
+  },
+  {
+    "id": 13,
+    "status": "Implementado",
+    "descricao": "Escrita em negrito",
+    "pagina": "Whatsapp"
+  },
+  {
+    "id": 94,
+    "status": "Implementado",
+    "descricao": "DIMINUIR TAMANHO DO RECIBO, PRA PODER CABER DOIS RECIBOS EM UMA FOLHA NA HORA DA IMPRESSAO",
+    "pagina": "/financeiro"
+  },
+  {
+    "id": 88,
+    "status": "Implementado",
+    "descricao": "Ctrl+A não está funcionando bem como atalho pra atividades pois o mesmo atalho serve pra selecionar todo o texto e tá gerando conflitos vamos tirar este atalho por enquanto e depois decidimos um sistema de atalhos melhor ",
+    "pagina": "/painel"
+  },
+  {
+    "id": 28,
+    "status": "Implementado",
+    "descricao": "Na edição de lançamentos não é possível mudar se é despesa ou receita",
+    "pagina": "FINANCEIRO"
+  },
+  {
+    "id": 25,
+    "status": "Implementado",
+    "descricao": "Não estou conseguindo cadastrar o contato. E a tela atualiza, perdendo os dados, toda vez que saio dela. ",
+    "pagina": "Contatos"
+  },
+  {
+    "id": 93,
+    "status": "Implementado",
+    "descricao": "RECIBO IMPRIMINDO 4 FOLHAS IGUAIS",
+    "pagina": "/financeiro"
+  },
+  {
+    "id": 78,
+    "status": "Implementado",
+    "descricao": "Ao unir contato está dando muita falha. Preciso tentar várias vezes para conseguir.",
+    "pagina": "/contatos"
+  },
+  {
+    "id": 50,
+    "status": "Implementado",
+    "descricao": "Não consigo visualizar a origem do lead (anuncio) no card na lateral da conversa na caixa de entrada.",
+    "pagina": "/caixa-de-entrada"
+  },
+  {
+    "id": 24,
+    "status": "Implementado",
+    "descricao": "nao consigo criar um novo funcionario \"erro de contato\"",
+    "pagina": "funcionarios"
+  },
+  {
+    "id": 23,
+    "status": "Implementado",
+    "descricao": "Adicionar exportação em PDF ou XLS para conferência do ponto e assinatura do funcionário.",
+    "pagina": "FOLHA DE PONTO"
+  },
+  {
+    "id": 4,
+    "status": "Implementado",
+    "descricao": "Ajustar as porcentagens da ficha de cadastro dos funcionários ",
+    "pagina": "Funcioários"
+  },
+  {
+    "id": 8,
+    "status": "Implementado",
+    "descricao": "adicionei o pedido: FERRAGEM VIGA NIVEL +280, nele criei os itens: \"AÇO CA-60 5.0mm\" e os demais itens do pedido.\nQuando fui criar o pedido: FERRAGEM LAJE NÍVEL +280, na busca de itens, os insumos que que eu criei, não apareceram, para ganharmos agilidade, lancei novamente.\n\nResumo: os itens adicionados manualmente não aparecem no banco de dados.",
+    "pagina": "Pedido de compras"
+  },
+  {
+    "id": 16,
+    "status": "Implementado",
+    "descricao": "Permitir terceiros adicionar leads",
+    "pagina": "CRM"
+  },
+  {
+    "id": 17,
+    "status": "Implementado",
+    "descricao": "NOVOS CARDS ESTÃO SEM NUMEROS ",
+    "pagina": "CRM "
+  },
+  {
+    "id": 34,
+    "status": "Implementado",
+    "descricao": "Acrescentar saldo de conta (inicial/início mês) e saldo considerando os lançamentos.",
+    "pagina": "Financeiro"
+  },
+  {
+    "id": 33,
+    "status": "Implementado",
+    "descricao": "Alterar no pedidos o botão de registro/lançamento de pagamento para ser igual aos novos pedidos no Financeiro",
+    "pagina": "PEDIDOS / PAGAMENTO"
+  },
+  {
+    "id": 31,
+    "status": "Implementado",
+    "descricao": "Ao mover um contato de ''entrada'' para ''avaliação'' ele vai para baixo da lista. ",
+    "pagina": "Funil de vendas"
+  },
+  {
+    "id": 26,
+    "status": "Implementado",
+    "descricao": "aparece essa mensagem\n\nErro ao salvar contato: invalid input syntax for type date: \"\"",
+    "pagina": "REGISTRO DE CONTATO"
+  },
+  {
+    "id": 22,
+    "status": "Implementado",
+    "descricao": "Não consigo mover as pessoas no painel.",
+    "pagina": "Funil de vendas"
+  },
+  {
+    "id": 89,
+    "status": "Implementado",
+    "descricao": "Server Action \"402600f445785d7cefc30c8b3a6cabf19432cb88da\" was not found on the server. Read more: https://nextjs.org/docs/messages/failed-to-find-server-action",
+    "pagina": "/atividades"
+  },
+  {
+    "id": 84,
+    "status": "Implementado",
+    "descricao": "Ideia: Colocar uma seleção de datas para o extrato, verificar saldo em um período específico dentro de um mês. É importante para verificação de lançamentos errados.",
+    "pagina": "/financeiro"
+  },
+  {
+    "id": 58,
+    "status": "Implementado",
+    "descricao": "Somente alguns contatos aparecem o cronometro de janela aberta. Os outros constam tudo como fechada, mesmo eu estando conversando come eles.",
+    "pagina": "/caixa-de-entrada"
+  },
+  {
+    "id": 64,
+    "status": "Implementado",
+    "descricao": "No meu celular pareceu uma mensagem de cliente em notificações mas ele não aparece na lista de conversas do WhatsApp acho que não tá atualizando rápido, precisa verificar o WhatsApp ",
+    "pagina": "/caixa-de-entrada"
+  },
+  {
+    "id": 70,
+    "status": "Implementado",
+    "descricao": "lançamentos criados no OFX não permite editar valor ou excluir",
+    "pagina": "/financeiro"
+  },
+  {
+    "id": 52,
+    "status": "Implementado",
+    "descricao": "No celular, poderia aparecer as informações do card na caixa de entrada. Essa função só aparece no computador. ",
+    "pagina": "/caixa-de-entrada"
+  },
+  {
+    "id": 49,
+    "status": "Implementado",
+    "descricao": "ta chegando duas notificações de ideias e bugs, notificações duplicadas ",
+    "pagina": "/painel"
+  },
+  {
+    "id": 21,
+    "status": "Implementado",
+    "descricao": "Quando o pedido é entregue para de aparecer no painel de atividades, aparecer no titulo do pedido de entrega o que ele é ",
+    "pagina": "Pedidos de compra"
+  },
+  {
+    "id": 90,
+    "status": "Implementado",
+    "descricao": "Não tem como adicionar novo funcionario, o botão de adicionar sumiu em alguma atualização ",
+    "pagina": "/recursos-humanos"
+  },
+  {
+    "id": 79,
+    "status": "Implementado",
+    "descricao": "Um painel de controle onde eu escolho qual tipo de notificações quero receber. ",
+    "pagina": "/painel"
+  },
+  {
+    "id": 95,
+    "status": "Novo",
+    "descricao": "Mensagem não para de piscar, mesmo você já tendo visto ela ",
+    "pagina": "/painel"
+  },
+  {
+    "id": 55,
+    "status": "Implementado",
+    "descricao": "IMAGEM DE ANEXO ESTA ATRAS ",
+    "pagina": "/financeiro"
+  },
+  {
+    "id": 56,
+    "status": "Implementado",
+    "descricao": "Os leads chegarem direto na caixa de entrada do funil de vendas.",
+    "pagina": "/crm"
+  },
+  {
+    "id": 57,
+    "status": "Implementado",
+    "descricao": "Erro ''404 - this page could not be found.'' as vezes quando vou para caixa de entrada. Tanto PC quanto cel.",
+    "pagina": "/caixa-de-entrada"
+  },
+  {
+    "id": 54,
+    "status": "Implementado",
+    "descricao": "Quando clico no sininho das notificações a caixa que aparece fica meio fora da tela no celular, então precisamos corrigir isto pois atrapalha a experiência ",
+    "pagina": "/painel"
+  },
+  {
+    "id": 51,
+    "status": "Implementado",
+    "descricao": "No iphone, a bolinha da caixa de conversa não é fléxivel para movimentar. ",
+    "pagina": "/caixa-de-entrada"
+  },
+  {
+    "id": 63,
+    "status": "Implementado",
+    "descricao": "Ainda tem notificações duplicadas aparecendo precisamos investigar a causa raiz ",
+    "pagina": "/painel"
+  },
+  {
+    "id": 69,
+    "status": "Implementado",
+    "descricao": "Os lançamentos parcelados nos cartões permanecem retornando à fatura da data de compra ao conciliar. Existe uma forma de, ao conciliar, entender que deve ficar ancorado à fatura que foi lançado?",
+    "pagina": "/financeiro"
+  }
+]

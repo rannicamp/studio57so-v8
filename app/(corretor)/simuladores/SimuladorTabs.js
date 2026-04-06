@@ -45,7 +45,7 @@ export default function SimuladorTabs({ empreendimentos }) {
  )}
  {activeTab === 'braunas' && (
  <div className="animate-in fade-in duration-300">
- <SimuladorBraunas />
+ <SimuladorBraunas empreendimentos={empreendimentos} />
  </div>
  )}
  </div>

@@ -9,7 +9,7 @@ const SimuladorPrintView = React.forwardRef(({ simulacao, produtos, empreendimen
 
  if (!simulacao || !resumo) return null;
 
- const logoUrl = empreendimento?.logo_url || empreendimento?.proprietaria?.logo_url || '/marca/logo-elo57-horizontal.svg';
+
 
  const formatCurrency = (value) => {
  if (typeof value !== 'number' && isNaN(parseFloat(value))) return 'R$ 0,00';
@@ -20,19 +20,45 @@ const SimuladorPrintView = React.forwardRef(({ simulacao, produtos, empreendimen
  <div ref={ref} className="print-view p-8 bg-white text-gray-800 font-sans text-[11px]">
 
  {/* ── Cabeçalho ─────────────────────────────────── */}
- <header className="flex justify-between items-center border-b-2 pb-4 mb-6">
- <div className="text-left">
- <img src={logoUrl} alt={`Logo ${empreendimento?.nome || 'Empresa'}`} className="h-10 object-contain" />
- <p className="text-xs mt-2">CNPJ: 41.464.589/0001-66</p>
- <p className="text-xs">Av. Rio Doce, 1825 - Ilha dos Araújos</p>
- <p className="text-xs">Governador Valadares, MG - CEP: 35020-500</p>
- </div>
- <div className="text-right">
- <h1 className="text-xl font-bold text-gray-700">Proposta de Compra</h1>
- <p className="text-xs mt-2">Data: {format(new Date(), 'dd/MM/yyyy', { locale: ptBR })}</p>
- <p className="text-xs">Proposta Nº: {simulacao.id}</p>
- </div>
- </header>
+      <header className="flex justify-between items-center border-b-2 border-gray-200 pb-4 mb-4">
+        <div className="w-1/3 flex flex-col justify-start items-start">
+          {empreendimento?.proprietaria?.logo_url ? (
+            <img
+              src={empreendimento.proprietaria.logo_url}
+              alt="Logo da Empresa Proprietária"
+              className="h-10 object-contain block mb-2"
+              crossOrigin="anonymous"
+            />
+          ) : (
+            <img
+              src="/marca/logo-elo57-horizontal.svg"
+              alt="Logo Elo 57"
+              className="h-10 object-contain block mb-2"
+            />
+          )}
+          <p className="text-[10px] text-gray-500">Data: {format(new Date(), 'dd/MM/yyyy', { locale: ptBR })}</p>
+          <p className="text-[10px] text-gray-500">Proposta Nº: {simulacao.id}</p>
+        </div>
+
+        <div className="w-1/3 flex justify-center items-center">
+          <h1 className="text-xl font-bold text-gray-800 uppercase text-center">Proposta Comercial</h1>
+        </div>
+
+        <div className="w-1/3 flex justify-end">
+          {empreendimento?.logo_url ? (
+            <img
+              src={empreendimento.logo_url}
+              alt={`Logo ${empreendimento.nome || 'Empreendimento'}`}
+              className="h-12 w-auto object-contain block"
+              crossOrigin="anonymous"
+            />
+          ) : (
+            <div className="flex flex-col items-end justify-center h-8">
+              <span className="text-lg font-bold text-gray-800 uppercase">{empreendimento?.nome}</span>
+            </div>
+          )}
+        </div>
+      </header>
 
  <main>
 
@@ -78,15 +104,6 @@ const SimuladorPrintView = React.forwardRef(({ simulacao, produtos, empreendimen
  </div>
  </section>
 
- {/* ── ⚠️ Avisos e Observações ───────────────────────── */}
-        {empreendimento?.observacoes && (
-          <section className="mb-5">
-            <div className="border border-amber-300 bg-amber-50 rounded p-3 text-xs text-amber-900">
-              <p className="font-bold mb-1">⚠️ AVISOS E CONDIÇÕES DO EMPREENDIMENTO</p>
-              <div className="whitespace-pre-wrap leading-relaxed">{empreendimento.observacoes}</div>
-            </div>
-          </section>
-        )}
 
  {/* ── Cronograma Detalhado ──────────────────── */}
  <section>
@@ -149,6 +166,12 @@ const SimuladorPrintView = React.forwardRef(({ simulacao, produtos, empreendimen
  </div>
  </section>
 
+        {/* ── ⚠️ Avisos e Observações ───────────────────────── */}
+        <section className="mt-8 text-center pb-4">
+          <p className="whitespace-pre-wrap text-[10px] text-gray-500 leading-relaxed">
+            {empreendimento?.observacoes || '*Correção mensal pelo INCC até a entrega das chaves, após entrega IGP-M + 1% a.m.\n**Sujeito a alteração sem aviso prévio.'}
+          </p>
+        </section>
  </main>
 
  <footer className="text-center text-[10px] text-gray-400 mt-8 pt-3 border-t">

@@ -41,10 +41,10 @@ const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'curre
 const formatDateForDisplay = (dateStr) => dateStr ? new Date(dateStr + 'T00:00:00Z').toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : 'N/A';
 
 // ════════════════════════════════════════════════════════════════
-export default function SimuladorBraunas() {
+export default function SimuladorBraunas({ empreendimentos = [] }) {
  const supabase = createClient();
  const { user: usuarioLogado } = useAuth();
- const empreendimentoFixo = { id: REFUGIO_BRAUNAS_ID, nome: REFUGIO_BRAUNAS_NOME };
+ const empreendimentoFixo = empreendimentos.find(e => e.id === REFUGIO_BRAUNAS_ID) || { id: REFUGIO_BRAUNAS_ID, nome: REFUGIO_BRAUNAS_NOME };
 
  const [produtos, setProdutos] = useState([]);
  const [selectedProdutos, setSelectedProdutos] = useState([]);
@@ -411,7 +411,7 @@ export default function SimuladorBraunas() {
 
  return {
  simulacao: simulacaoParaImpressao,
- produto: selectedProdutos[0],
+ produtos: selectedProdutos,
  empreendimento: empreendimentoFixo,
  contato: cliente,
  corretor: corretor,
@@ -429,7 +429,7 @@ export default function SimuladorBraunas() {
  <SimuladorPrintView
  ref={printRef}
  simulacao={printViewData?.simulacao}
- produto={printViewData?.produto}
+ produtos={printViewData?.produtos}
  empreendimento={printViewData?.empreendimento}
  contato={printViewData?.contato}
  corretor={printViewData?.corretor}
