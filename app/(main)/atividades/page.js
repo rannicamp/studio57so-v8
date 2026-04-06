@@ -9,8 +9,7 @@ import { useDebounce } from 'use-debounce'; import { FontAwesomeIcon } from '@fo
 import { faExclamationTriangle, faCheckCircle, faTasks, faUserClock, faHistory, faLock, faSpinner,
  faSearch,
  faFilter,
- faPlus,
- faRobot // <--- Ícone da IA
+ faPlus
 } from '@fortawesome/free-solid-svg-icons';
 
 import { createClient } from '@/utils/supabase/client';
@@ -27,7 +26,6 @@ import ActivityCalendar from '@/components/atividades/ActivityCalendar';
 import AtividadeFiltros from '@/components/atividades/AtividadeFiltros';
 import KpiCard from '@/components/shared/KpiCard';
 import AtividadeDetalhesSidebar from '@/components/atividades/AtividadeDetalhesSidebar';
-import ActivityCopilot from '@/components/atividades/ActivityCopilot'; // <--- Importação do Copiloto
 
 const STORAGE_KEY = 'STUDIO57_ACTIVITIES_UI_V1';
 
@@ -103,8 +101,6 @@ export default function AtividadesPage() {
  const [editingActivity, setEditingActivity] = useState(null);
  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
  const [selectedActivityForSidebar, setSelectedActivityForSidebar] = useState(null);
- // --- ESTADO DO COPILOTO IA ---
- const [isCopilotOpen, setIsCopilotOpen] = useState(false);
 
  const [debouncedFilters] = useDebounce(filters, 500);
 
@@ -353,15 +349,7 @@ export default function AtividadesPage() {
  Filtros
  </button>
 
- {/* --- BOTÃO ASSISTENTE IA (NOVO) --- */}
- <button
- onClick={() => setIsCopilotOpen(true)}
- className="bg-blue-600 text-white to-indigo-600 hover:text-white hover:to-indigo-700 text-white px-4 py-2 rounded-lg shadow-md hover:shadow-lg transition-all flex items-center gap-2 text-sm font-medium mr-2"
- title="Abrir Planejador IA"
- >
- <FontAwesomeIcon icon={faRobot} />
- Assistente IA
- </button>
+ {
 
  {canCreate && (
  <button onClick={() => handleEditClick(null)} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow flex items-center transition duration-200"
