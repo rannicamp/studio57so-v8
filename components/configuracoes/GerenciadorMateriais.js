@@ -293,12 +293,13 @@ export default function GerenciadorMateriais() {
  try {
  for (const oldId of selectedIds) {
  if (oldId === selectedTarget.id) continue;
- const { error } = await supabase.rpc('unificar_materiais', { old_material_id: oldId, new_material_id: selectedTarget.id });
+ const { error } = await supabase.rpc('unificar_materiais_final', { p_material_antigo_id: oldId, p_material_novo_id: selectedTarget.id });
  if (error) throw error;
  }
  toast.success('Unificação concluída!');
  setIsMergeModalOpen(false); setSelectedIds([]); setSelectedTarget(null); setTargetSearch(''); reloadList();
- } catch (error) { toast.error('Erro na unificação.'); } finally { setLoading(false); }
+ } catch (error) { toast.error('Falha de RPC Supabase: ' + (error?.message || JSON.stringify(error)));
+      console.error(error); } finally { setLoading(false); }
  };
 
  const openMergeModal = (specificId = null) => {
@@ -331,7 +332,7 @@ export default function GerenciadorMateriais() {
 
  <div className="flex items-center gap-3 w-full md:w-auto">
  {selectedIds.length > 0 && (
- <button onClick={() => openMergeModal()} className="bg-blue-600 text-blue-600 px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-blue-600 transition-all flex items-center gap-2 animate-pulse shadow-sm shadow-orange-500/10">
+ <button onClick={() => openMergeModal()} className="bg-gray-900 text-white px-4 py-2.5 rounded-xl text-sm font-bold hover:bg-black transition-all flex items-center gap-2 animate-pulse shadow-sm shadow-gray-500/30">
  <FontAwesomeIcon icon={faExchangeAlt} /> Unificar {selectedIds.length} Itens
  </button>
  )}
@@ -461,10 +462,10 @@ export default function GerenciadorMateriais() {
  {isMergeModalOpen && (
  <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
  <div className="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-lg">
- <h3 className="text-xl font-bold mb-4 flex items-center gap-3 text-gray-800"><div className="bg-blue-600 text-blue-600 p-2 rounded-lg"><FontAwesomeIcon icon={faLayerGroup} /></div> Unificar Materiais</h3>
- <div className="bg-blue-600 border border-blue-600 p-4 rounded-xl mb-6 text-sm text-blue-600 leading-relaxed shadow-sm">⚠️ Você selecionou <strong>{selectedIds.length} itens</strong> para serem unificados. Eles serão excluídos e substituídos por um único item que você buscar abaixo. As referências do sistema serão migradas.</div>
- <div className="mb-6"><label className="block text-sm font-bold text-gray-700 mb-2 uppercase tracking-wider">Qual será o Material Destino?</label><div className="relative"><input type="text" placeholder="Buscar material final..." className="w-full pl-11 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none transition-all text-sm" value={targetSearch} onChange={e => setTargetSearch(e.target.value)} autoFocus /><FontAwesomeIcon icon={faSearch} className="absolute left-4 top-3.5 text-gray-400" /></div>{targetList.length > 0 && (<ul className="mt-2 border border-gray-100 rounded-xl max-h-48 overflow-y-auto bg-white shadow-lg overflow-hidden divide-y divide-gray-50 absolute w-full z-10">{targetList.map(t => (<li key={t.id} onClick={() => { setSelectedTarget(t); setTargetList([]); setTargetSearch(t.nome); }} className={`p-4 cursor-pointer hover:bg-blue-600 transition-colors flex justify-between items-center ${selectedTarget?.id === t.id ? 'bg-blue-600 border-l-4 border-blue-600' : ''}`}><span className="font-medium text-gray-800 text-sm">{t.nome}</span><span className="text-xs font-bold bg-gray-100 text-gray-600 px-2 py-1 rounded-md">{t.unidade_medida}</span></li>))}</ul>)}</div>
- <div className="flex justify-end gap-3 pt-2"><button onClick={() => setIsMergeModalOpen(false)} className="px-5 py-2.5 font-bold text-gray-600 hover:bg-gray-100 rounded-xl transition-colors text-sm">Cancelar</button><button onClick={handleMerge} disabled={!selectedTarget || loading} className="px-6 py-2.5 bg-blue-600 text-white rounded-xl font-bold border-b-2 border-blue-600 hover:bg-blue-600 hover:border-blue-600 active:border-b-0 active:mt-[2px] shadow-sm disabled:opacity-50 disabled:cursor-not-allowed transition-all text-sm">Confirmar Fusão Suprema</button></div>
+ <h3 className="text-xl font-bold mb-4 flex items-center gap-3 text-gray-800"><div className="bg-gray-100 text-gray-800 p-2 rounded-lg"><FontAwesomeIcon icon={faLayerGroup} /></div> Unificar Materiais</h3>
+ <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl mb-6 text-sm text-amber-800 leading-relaxed shadow-sm"><FontAwesomeIcon icon={faExclamationTriangle} className="mr-1" /> Você selecionou <strong>{selectedIds.length} itens</strong> para serem unificados. Eles serão excluídos e substituídos por um único item que você buscar abaixo. As referências do sistema serão migradas.</div>
+ <div className="mb-6"><label className="block text-sm font-bold text-gray-700 mb-2 uppercase tracking-wider">Qual será o Material Destino?</label><div className="relative"><input type="text" placeholder="Buscar material final..." className="w-full pl-11 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-black outline-none transition-all text-sm" value={targetSearch} onChange={e => setTargetSearch(e.target.value)} autoFocus /><FontAwesomeIcon icon={faSearch} className="absolute left-4 top-3.5 text-gray-400" /></div>{targetList.length > 0 && (<ul className="mt-2 border border-gray-100 rounded-xl max-h-48 overflow-y-auto bg-white shadow-lg overflow-hidden divide-y divide-gray-50 absolute w-full z-10">{targetList.map(t => (<li key={t.id} onClick={() => { setSelectedTarget(t); setTargetList([]); setTargetSearch(t.nome); }} className={`p-4 cursor-pointer hover:bg-gray-50 transition-colors flex justify-between items-center ${selectedTarget?.id === t.id ? 'bg-gray-50 border-l-4 border-black' : ''}`}><span className="font-medium text-gray-800 text-sm">{t.nome}</span><span className="text-xs font-bold bg-gray-100 text-gray-600 px-2 py-1 rounded-md">{t.unidade_medida}</span></li>))}</ul>)}</div>
+ <div className="flex justify-end gap-3 pt-2"><button onClick={() => setIsMergeModalOpen(false)} className="px-5 py-2.5 font-bold text-gray-600 hover:bg-gray-100 rounded-xl transition-colors text-sm">Cancelar</button><button onClick={handleMerge} disabled={!selectedTarget || loading} className="px-6 py-2.5 bg-gray-900 text-white rounded-xl font-bold border-b-2 border-black hover:bg-black hover:border-black active:border-b-0 active:mt-[2px] shadow-sm disabled:opacity-50 disabled:cursor-not-allowed transition-all text-sm">Confirmar Fusão Suprema</button></div>
  </div>
  </div>
  )}

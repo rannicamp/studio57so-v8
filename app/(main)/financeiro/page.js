@@ -176,7 +176,7 @@ export default function FinanceiroPage() {
 
  const deleteLancamentoMutation = useMutation({
  mutationFn: async ({ id, organizacaoId }) => {
- const { error } = await supabase.from('lancamentos').delete().eq('id', id).eq('organizacao_id', organizacaoId);
+ const { error } = await supabase.rpc('excluir_lancamento_financeiro', { p_lancamento_id: id, p_organizacao_id: organizacaoId });
  if (error) throw new Error(error.message);
  },
  onSuccess: () => {

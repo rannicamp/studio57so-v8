@@ -1,29 +1,32 @@
 [
   {
-    "id": 97,
-    "pagina": "/caixa-de-entrada",
-    "descricao": "Corrigir indice de reajuste na tabela de simulação em pdf do Beta",
-    "imagem_url": null,
+    "id": 95,
     "status": "Novo",
-    "diagnostico": null,
-    "usuario_id": "e48b4e12-afa9-4672-b56b-45e5c9a8fd5a"
+    "descricao": "Mensagem não para de piscar, mesmo você já tendo visto ela ",
+    "diagnostico": "A notificação vermelha pulsante não apaga em FloatingChat.jsx porque a contagem totalUnread é extraída do hook useConversationsList(). Quando a mensagem é lida, o cache do React Query deste hook não está sendo invalidado corretamente ou a atualização de banco para marcar_lido está sem sincronia assíncrona de cache."
+  },
+  {
+    "id": 96,
+    "status": "Novo",
+    "descricao": "Ao gerar a simulação em PDF a descrição da vaga de garagem adicionada não aparece no arquivo. So aparece a descrição da unidade de suíte e o valor das duas (suite e garagem) somados.",
+    "diagnostico": "O SimuladorFinanceiroPublico aloca perfeitamente os valores matemáticos, mas envia paramêtros ao SimuladorPrintView.js como produto: selectedProdutos[0]. Devido a este hardcode de index primário (0), as configurações textuais do segundo produto da fila (Vaga de Garagem) são podadas do PDF impresso."
+  },
+  {
+    "id": 97,
+    "status": "Resolvido",
+    "descricao": "Corrigir indice de reajuste na tabela de simulação em pdf do Beta",
+    "diagnostico": "Trata-se do Ticket relacionado à sobreposição do Módulo \"Braúnas\" sendo injetado nos demais simuladores Beta na tela Cxa Entrada."
   },
   {
     "id": 98,
-    "pagina": "/configuracoes/materiais",
-    "descricao": "Erro na unificação, não deixa unificar dois materiais iguais mas com descrição diferentes ",
-    "imagem_url": null,
     "status": "Novo",
-    "diagnostico": null,
-    "usuario_id": "1abb13ac-0f59-483b-a16e-6a2db9918d72"
+    "descricao": "Erro na unificação, não deixa unificar dois materiais iguais mas com descrição diferentes ",
+    "diagnostico": "Ocorreu uma exceção SQL no backend ao executar o RPC unificar_materiais. O erro foi suprimido por um toast genérico do front-end. A causa provável é a violação de Unicidade em tabelas filhas (como orcamentos ou estoque) quando ambos os materiais mesclados já existiam no mesmo contexto, gerando colisões de ID."
   },
   {
     "id": 99,
-    "pagina": "/financeiro",
-    "descricao": "Falha ao excluir lançamentos no financeiro (lançamentos automáticos de salário)",
-    "imagem_url": "https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/feedbacks/prints/1775482316654-2rc2ee-Captura%20de%20tela%202026-04-06%20103029.png",
     "status": "Novo",
-    "diagnostico": null,
-    "usuario_id": "4046a5ad-f198-4309-99ab-3b8fed59cad1"
+    "descricao": "Falha ao excluir lançamentos no financeiro (lançamentos automáticos de salário)",
+    "diagnostico": "Falha de chave estrangeira (Foreign Key Constraint). Lançamentos gerados por folha de pagamento/distribuição possuem vínculos em outras tabelas do sistema. O comando frontend .delete() falha para evitar orfandade no banco."
   }
 ]
