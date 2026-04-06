@@ -375,7 +375,7 @@ export default function SimuladorFinanceiroPublico({ empreendimentos }) {
  return {
  simulacao: simulacaoParaImpressao,
  produtos: selectedProdutos,
- empreendimento: empreendimentos.find(e => e.id == selectedEmpreendimentoId),
+ empreendimento: empreendimentos.find(e => e.id == (selectedEmpreendimentoId || (selectedProdutos.length > 0 ? selectedProdutos[0].empreendimento_id : null))),
  contato: cliente,
  corretor: corretor,
  planoProposta: planoPropostaParaImpressao,

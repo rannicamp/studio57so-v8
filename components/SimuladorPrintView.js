@@ -79,32 +79,14 @@ const SimuladorPrintView = React.forwardRef(({ simulacao, produtos, empreendimen
  </section>
 
  {/* ── ⚠️ Avisos e Observações ───────────────────────── */}
-        <section className="mb-5">
-        <div className="border border-amber-300 bg-amber-50 rounded p-3 text-xs text-amber-900">
-        <p className="font-bold mb-1">⚠️ AVISOS E CONDIÇÕES DO EMPREENDIMENTO</p>
-        {empreendimento?.observacoes ? (
-          <div className="whitespace-pre-wrap leading-relaxed">{empreendimento.observacoes}</div>
-        ) : (
-          <>
-            <p>
-            Os valores de correção apresentados neste documento são uma <strong>projeção estimada</strong> com base
-            no acumulado dos últimos 12 meses do índice INCC, acrescido de 11% ao ano conforme
-            cláusula contratual. O INCC é divulgado mensalmente pela Fundação Getulio Vargas (FGV)
-            e <strong>pode variar significativamente</strong> ao longo do tempo.
-            </p>
-            <p className="mt-1">
-            Em caso de INCC negativo no período, a correção mínima aplicada será de <strong>11% ao ano</strong>.
-            Os valores reais das parcelas futuras serão recalculados anualmente na data de aniversário
-            do contrato, podendo diferir dos valores projetados nesta simulação.
-            </p>
-            <p className="mt-1 font-semibold">
-            Esta simulação não constitui proposta firme de contrato. Os valores definitivos serão
-            estabelecidos no instrumento contratual assinado pelas partes.
-            </p>
-          </>
+        {empreendimento?.observacoes && (
+          <section className="mb-5">
+            <div className="border border-amber-300 bg-amber-50 rounded p-3 text-xs text-amber-900">
+              <p className="font-bold mb-1">⚠️ AVISOS E CONDIÇÕES DO EMPREENDIMENTO</p>
+              <div className="whitespace-pre-wrap leading-relaxed">{empreendimento.observacoes}</div>
+            </div>
+          </section>
         )}
-        </div>
-        </section>
 
  {/* ── Cronograma Detalhado ──────────────────── */}
  <section>
