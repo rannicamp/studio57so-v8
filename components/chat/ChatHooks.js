@@ -174,18 +174,22 @@ export function useSendMessage() {
 
 // 4. Hook Mutation para Marcar como Lido (Visto Azul Whatsapp)
 export function useMarkAsRead() {
- const supabase = createClient();
+  const supabase = createClient();
+  const queryClient = useQueryClient();
 
- return useMutation({
- mutationFn: async ({ conversationId, userId }) => {
- if (!conversationId || !userId) return;
- const { error } = await supabase.rpc('mark_messages_as_read', {
- p_conversation_id: conversationId,
- p_user_id: userId
- });
- if (error) throw error;
- }
- });
+  return useMutation({
+    mutationFn: async ({ conversationId, userId }) => {
+      if (!conversationId || !userId) return;
+      const { error } = await supabase.rpc('mark_messages_as_read', {
+        p_conversation_id: conversationId,
+        p_user_id: userId
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['chat_conversations_list'] });
+    }
+  });
 }
 
 // 5. Hook para listar as conversas ativas do usuario
