@@ -408,16 +408,7 @@ export default function AtividadesPage() {
  />
  )}
 
- {/* --- COMPONENTE DO COPILOTO IA --- */}
- <ActivityCopilot isOpen={isCopilotOpen}
- onClose={() => setIsCopilotOpen(false)}
- organizacaoId={organizacaoId}
- usuarioId={user?.id}
- onSuccess={() => {
- // Atualiza a lista de atividades (Kanban, Lista, etc) instantaneamente
- queryClient.invalidateQueries(['atividades', organizacaoId])
- }}
- />
+ {
  </div>
  );
 }
