@@ -991,6 +991,19 @@ CREATE TABLE public.funis (
     is_sistema boolean DEFAULT false
 );
 
+CREATE TABLE public.historico_lancamentos_financeiros (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    lancamento_id bigint NOT NULL,
+    organizacao_id bigint NOT NULL,
+    acao text NOT NULL,
+    campo_alterado text,
+    valor_antigo text,
+    valor_novo text,
+    usuario_id uuid,
+    criado_em timestamp with time zone DEFAULT now(),
+    alterado_apos_conciliacao boolean DEFAULT false
+);
+
 CREATE TABLE public.historico_movimentacao_funil (
     id uuid NOT NULL DEFAULT gen_random_uuid(),
     contato_no_funil_id uuid NOT NULL,

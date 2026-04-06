@@ -18,25 +18,25 @@ async function getContextForAI(organizacaoId, userId) {
  });
  if (!error && rpcData) baseContext = rpcData;
 
- // 2. Tenta buscar o nome do usuario na tabela funcionarios para personalização
- let nomeUsuario = "Amigo(a)";
- let funcionarioId = null;
- const { data: funcData } = await supabase
- .from('funcionarios')
- .select('id, nome')
- .eq('usuario_id', userId)
- .eq('organizacao_id', organizacaoId)
- .limit(1)
- .maybeSingle();
+  // 2. Tenta buscar o nome do usuario na tabela funcionarios para personalização
+  let nomeUsuario = "Amigo(a)";
+  let funcionarioId = null;
+  const { data: funcData } = await supabase
+    .from('funcionarios')
+    .select('id, full_name')
+    .eq('usuario_id', userId)
+    .eq('organizacao_id', organizacaoId)
+    .limit(1)
+    .maybeSingle();
 
- if (funcData) {
- nomeUsuario = funcData.nome.split(' ')[0]; // Pega primeiro nome
- funcionarioId = funcData.id;
- } else {
- // Se não for funcionario, busca na tabela de usuarios
- const { data: userData } = await supabase.from('usuarios').select('nome').eq('id', userId).maybeSingle();
- if (userData && userData.nome) nomeUsuario = userData.nome.split(' ')[0];
- }
+  if (funcData) {
+    nomeUsuario = funcData.full_name.split(' ')[0]; // Pega primeiro nome
+    funcionarioId = funcData.id;
+  } else {
+    // Se não for funcionario, busca na tabela de usuarios
+    const { data: userData } = await supabase.from('usuarios').select('nome').eq('id', userId).maybeSingle();
+    if (userData && userData.nome) nomeUsuario = userData.nome.split(' ')[0];
+  }
 
  // 3. Buscar a Agenda do Usuário (Próximos 30 dias) - SEGURANÇA MÁXIMA
  let agendaContext = [];
@@ -144,9 +144,9 @@ export async function generateActivityPlan(messagesHistory, organizacaoId, usuar
  REGRA #1 - PERGUNTAS DE ENTREVISTA:
  NUNCA crie tarefas (array activities VAZIO) SE o usuário NÃO te forneceu: 1) Data de Início; 2) Duração (dias ou horas); 3) Responsável (Se disser "pra mim", atribua a ele).
 
- REGRA #2 - MAPEAMENTO DE ID DE FUNCIONÁRIO (CRÍTICO):
- - Usuário quer para si ("pra mim"): funcionario_id: "SELF", responsavel_texto: "Eu (${contextData.nome_usuario})".
- - Usuário citou alguém (Ex: "Atribui pra Mikaelly"): Procure no JSON (Funcionários Gerais). Pegue o numero do 'id' e cole em 'funcionario_id'. NUNCA DEIXE STRING COM NOME NISSO.
+        REGRA #2 - MAPEAMENTO DE ID DE FUNCIONÁRIO (CRÍTICO):
+        - Usuário quer para si ("pra mim"): funcionario_id: "SELF", responsavel_texto: "Eu (${contextData.nome_usuario})".
+        - Usuário citou alguém (Ex: "Atribui pra Mikaelly"): Procure no JSON (Funcionários Gerais). Pegue estritamente O NUMERO do 'id' (Ex: "14") e cole em 'funcionario_id'. NUNCA DEIXE STRING COM NOME EXTENSO NISSO.
 
  REGRA #3 - EDIÇÃO EXIGE BUSCA (TOOL CALLING):
  Se o usuário quiser mudar uma tarefa antiga (ex: "mude o responsável das minhas tarefas de alvenaria para o Fulano"),
@@ -271,28 +271,29 @@ export async function confirmActivityPlan(activitiesList, organizacaoId, userId,
  let finalFuncionarioId = activity.funcionario_id;
  let finalRespTexto = activity.responsavel_texto;
 
- if (finalFuncionarioId && finalFuncionarioId !== 'SELF') {
- const parsedId = parseInt(finalFuncionarioId);
- if (isNaN(parsedId)) {
- // A IA desobedeceu e enviou um nome literal em vez do ID. Tentamos resgatar no banco:
- const searchTerm = finalFuncionarioId.trim();
- const { data: fallbackUser } = await supabase
- .from('funcionarios')
- .select('id, nome')
- .eq('organizacao_id', organizacaoId)
- .ilike('nome', `%${searchTerm}%`)
- .limit(1)
- .maybeSingle();
+    if (finalFuncionarioId && finalFuncionarioId !== 'SELF') {
+      const parsedId = parseInt(finalFuncionarioId);
+      if (isNaN(parsedId)) {
+        // A IA desobedeceu e enviou um nome literal em vez do ID. Tentamos resgatar no banco:
+        const searchTerm = finalFuncionarioId.trim();
+        const { data: fallbackUser } = await supabase
+          .from('funcionarios')
+          .select('id, full_name')
+          .eq('organizacao_id', organizacaoId)
+          .ilike('full_name', `%${searchTerm}%`)
+          .limit(1)
+          .maybeSingle();
 
- if (fallbackUser) {
- finalFuncionarioId = fallbackUser.id;
- if (!finalRespTexto) finalRespTexto = fallbackUser.nome;
- } else {
- finalFuncionarioId = null; }
- } else {
- finalFuncionarioId = parsedId;
- }
- }
+        if (fallbackUser) {
+          finalFuncionarioId = fallbackUser.id;
+          if (!finalRespTexto) finalRespTexto = fallbackUser.full_name;
+        } else {
+          finalFuncionarioId = null; 
+        }
+      } else {
+        finalFuncionarioId = parsedId;
+      }
+    }
 
  if (finalFuncionarioId === 'SELF') {
  if (myEmployeeId) {
