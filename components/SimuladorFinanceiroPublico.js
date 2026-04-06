@@ -374,7 +374,7 @@ export default function SimuladorFinanceiroPublico({ empreendimentos }) {
 
  return {
  simulacao: simulacaoParaImpressao,
- produto: selectedProdutos[0],
+ produtos: selectedProdutos,
  empreendimento: empreendimentos.find(e => e.id == selectedEmpreendimentoId),
  contato: cliente,
  corretor: corretor,
@@ -392,7 +392,7 @@ export default function SimuladorFinanceiroPublico({ empreendimentos }) {
  <SimuladorPrintView
  ref={printRef}
  simulacao={printViewData?.simulacao}
- produto={printViewData?.produto}
+ produtos={printViewData?.produtos}
  empreendimento={printViewData?.empreendimento}
  contato={printViewData?.contato}
  corretor={printViewData?.corretor}

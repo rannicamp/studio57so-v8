@@ -5,11 +5,11 @@ import React from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
-const SimuladorPrintView = React.forwardRef(({ simulacao, produto, empreendimento, contato, corretor, planoProposta, resumo }, ref) => {
+const SimuladorPrintView = React.forwardRef(({ simulacao, produtos, empreendimento, contato, corretor, planoProposta, resumo }, ref) => {
 
  if (!simulacao || !resumo) return null;
 
- const logoUrl = empreendimento?.logo_url || '/marca/logo-elo57-horizontal.svg';
+ const logoUrl = empreendimento?.logo_url || empreendimento?.proprietaria?.logo_url || '/marca/logo-elo57-horizontal.svg';
 
  const formatCurrency = (value) => {
  if (typeof value !== 'number' && isNaN(parseFloat(value))) return 'R$ 0,00';
@@ -48,15 +48,20 @@ const SimuladorPrintView = React.forwardRef(({ simulacao, produto, empreendiment
  </section>
 
  {/* ── Detalhes do Imóvel ────────────────────── */}
- <section className="mb-5">
- <h2 className="text-sm font-semibold border-b pb-1 mb-2">Detalhes do Imóvel</h2>
- <div className="grid grid-cols-2 gap-x-8 gap-y-1">
- <div><strong>Empreendimento:</strong> {empreendimento?.nome || 'N/A'}</div>
- <div><strong>Unidade:</strong> {produto?.unidade || 'N/A'}</div>
- <div><strong>Tipo:</strong> {produto?.tipo || 'N/A'}</div>
- <div><strong>Área:</strong> {produto?.area_m2 ? `${parseFloat(produto.area_m2).toLocaleString('pt-BR', { maximumFractionDigits: 0 })} m²` : 'N/A'}</div>
- </div>
- </section>
+        <section className="mb-5">
+          <h2 className="text-sm font-semibold border-b pb-1 mb-2">Detalhes do Imóvel</h2>
+          <div className="mb-2 text-xs">
+            <strong>Empreendimento:</strong> {empreendimento?.nome || 'N/A'}
+          </div>
+          <div className="grid grid-cols-1 gap-1 border border-gray-100 rounded p-2 bg-gray-50">
+             {produtos?.map((p, i) => (
+                <div key={i} className="flex justify-between border-b border-gray-200 pb-1 mb-1 last:border-0 last:mb-0 last:pb-0">
+                  <div><strong>{p.tipo} {p.unidade}</strong> ({parseFloat(p.area_m2 || 0).toLocaleString('pt-BR', { maximumFractionDigits: 0 })} m²)</div>
+                  <div className="font-medium">{typeof p.valor_venda_calculado !== 'undefined' ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(p.valor_venda_calculado) : 'R$ 0,00'}</div>
+                </div>
+             ))}
+          </div>
+        </section>
 
  {/* ── Resumo Financeiro ─────────────────────── */}
  <section className="mb-5">
@@ -73,27 +78,33 @@ const SimuladorPrintView = React.forwardRef(({ simulacao, produto, empreendiment
  </div>
  </section>
 
- {/* ── ⚠️ Aviso Legal ───────────────────────── */}
- <section className="mb-5">
- <div className="border border-amber-300 bg-amber-50 rounded p-3 text-xs text-amber-900">
- <p className="font-bold mb-1">⚠️ AVISO IMPORTANTE — ESTA É UMA SIMULAÇÃO</p>
- <p>
- Os valores de correção apresentados neste documento são uma <strong>projeção estimada</strong> com base
- no acumulado dos últimos 12 meses do índice INCC, acrescido de 11% ao ano conforme
- cláusula contratual. O INCC é divulgado mensalmente pela Fundação Getulio Vargas (FGV)
- e <strong>pode variar significativamente</strong> ao longo do tempo.
- </p>
- <p className="mt-1">
- Em caso de INCC negativo no período, a correção mínima aplicada será de <strong>11% ao ano</strong>.
- Os valores reais das parcelas futuras serão recalculados anualmente na data de aniversário
- do contrato, podendo diferir dos valores projetados nesta simulação.
- </p>
- <p className="mt-1 font-semibold">
- Esta simulação não constitui proposta firme de contrato. Os valores definitivos serão
- estabelecidos no instrumento contratual assinado pelas partes.
- </p>
- </div>
- </section>
+ {/* ── ⚠️ Avisos e Observações ───────────────────────── */}
+        <section className="mb-5">
+        <div className="border border-amber-300 bg-amber-50 rounded p-3 text-xs text-amber-900">
+        <p className="font-bold mb-1">⚠️ AVISOS E CONDIÇÕES DO EMPREENDIMENTO</p>
+        {empreendimento?.observacoes ? (
+          <div className="whitespace-pre-wrap leading-relaxed">{empreendimento.observacoes}</div>
+        ) : (
+          <>
+            <p>
+            Os valores de correção apresentados neste documento são uma <strong>projeção estimada</strong> com base
+            no acumulado dos últimos 12 meses do índice INCC, acrescido de 11% ao ano conforme
+            cláusula contratual. O INCC é divulgado mensalmente pela Fundação Getulio Vargas (FGV)
+            e <strong>pode variar significativamente</strong> ao longo do tempo.
+            </p>
+            <p className="mt-1">
+            Em caso de INCC negativo no período, a correção mínima aplicada será de <strong>11% ao ano</strong>.
+            Os valores reais das parcelas futuras serão recalculados anualmente na data de aniversário
+            do contrato, podendo diferir dos valores projetados nesta simulação.
+            </p>
+            <p className="mt-1 font-semibold">
+            Esta simulação não constitui proposta firme de contrato. Os valores definitivos serão
+            estabelecidos no instrumento contratual assinado pelas partes.
+            </p>
+          </>
+        )}
+        </div>
+        </section>
 
  {/* ── Cronograma Detalhado ──────────────────── */}
  <section>
