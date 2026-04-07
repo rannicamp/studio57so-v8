@@ -9,7 +9,7 @@ import { faSpinner, faTimes, faSave, faChartLine, faChartBar } from '@fortawesom
 import { IMaskInput } from 'react-imask';
 import { toast } from 'sonner';
 
-export default function AtivoFormModal({ isOpen, onClose, onSuccess, contasPatrimoniais = [], initialData }) {
+export default function AtivoFormModal({ isOpen, onClose, onSuccess, contasPatrimoniais = [], initialData, defaultTipo = 'Ativo' }) {
  const supabase = createClient();
  const queryClient = useQueryClient();
  const { user, organizacao_id: organizacaoId } = useAuth();
@@ -17,7 +17,7 @@ export default function AtivoFormModal({ isOpen, onClose, onSuccess, contasPatri
  const isEditing = Boolean(initialData?.id);
 
  const getInitialState = () => ({
- tipo: 'Ativo',
+ tipo: defaultTipo,
  descricao: '',
  valor: '',
  data_transacao: new Date().toISOString().split('T')[0],

@@ -22,6 +22,7 @@ import { useDebounce } from 'use-debounce';
 import LancamentosManager from '../../../components/financeiro/LancamentosManager';
 import ContasManager from '../../../components/financeiro/ContasManager';
 import AtivosManager from '../../../components/financeiro/AtivosManager';
+import PassivosManager from '../../../components/financeiro/PassivosManager';
 import LancamentoFormModal from '../../../components/financeiro/LancamentoFormModal';
 import ExtratoManager from '../../../components/financeiro/ExtratoManager';
 import ExtratoCartaoManager from '../../../components/financeiro/ExtratoCartaoManager';
@@ -260,7 +261,7 @@ export default function FinanceiroPage() {
  </div>
  </div>
 
- {showFilters && activeTab !== 'contas' && activeTab !== 'ativos' && activeTab !== 'planejamento' && (
+ {showFilters && activeTab !== 'contas' && activeTab !== 'ativos' && activeTab !== 'passivos' && activeTab !== 'planejamento' && (
  <FiltroFinanceiro filters={filters} setFilters={setFilters} empresas={empresas} contas={contas} categorias={categorias} empreendimentos={empreendimentos} allContacts={allContacts} />
  )}
 
@@ -273,6 +274,7 @@ export default function FinanceiroPage() {
  <TabButton tabName="documentos" label="Documentos" icon={faFolderOpen} />
  <TabButton tabName="contas" label="Contas" icon={faBuilding} />
  <TabButton tabName="ativos" label="Ativos" icon={faLandmark} />
+ <TabButton tabName="passivos" label="Passivos" icon={faBalanceScale} />
  </nav>
  </div>
  </div>
@@ -318,6 +320,7 @@ export default function FinanceiroPage() {
  )}
  {activeTab === 'contas' && <ContasManager initialContas={contas} onUpdate={handleSuccessForm} empresas={empresas} onVerExtrato={handleIrParaExtrato} />}
  {activeTab === 'ativos' && <AtivosManager contas={contas} />}
+ {activeTab === 'passivos' && <PassivosManager contas={contas} />}
  </div>
  </div>
  );

@@ -12,7 +12,7 @@ import AtivoFormModal from './AtivoFormModal';
 const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
 const formatDate = (dateStr) => dateStr ? new Date(dateStr + 'T00:00:00Z').toLocaleDateString('pt-BR', { timeZone: 'UTC' }) : '—';
 
-export default function AtivosManager({ contas }) {
+export default function PassivosManager({ contas }) {
  const supabase = createClient();
  const queryClient = useQueryClient();
  const { user, hasPermission } = useAuth();
@@ -20,7 +20,7 @@ export default function AtivosManager({ contas }) {
 
  const contasPatrimoniais = useMemo(() => {
  if (!contas) return [];
- return contas.filter(c => c.tipo === 'Conta de Ativo');
+ return contas.filter(c => c.tipo === 'Conta de Passivo');
  }, [contas]);
 
  const contasAgrupadas = useMemo(() => {
@@ -70,7 +70,7 @@ export default function AtivosManager({ contas }) {
  `)
  .eq('organizacao_id', organizacaoId)
  .eq('conta_id', contaSelecionadaId)
- .eq('tipo', 'Ativo')
+ .eq('tipo', 'Passivo')
  .order('data_transacao', { ascending: false });
  if (error) throw new Error(error.message);
  if (!ativos?.length) return [];
@@ -153,7 +153,7 @@ export default function AtivosManager({ contas }) {
  </div>
  <h3 className="text-sm font-bold text-gray-700 mb-1">Nenhuma conta patrimonial cadastrada</h3>
  <p className="text-xs text-gray-500 font-medium max-w-xs">
- Vá em <strong>Contas</strong>, crie uma conta do tipo <strong>"Conta de Ativo"</strong>.
+ Vá em <strong>Contas</strong>, crie uma conta do tipo <strong>"Conta de Passivo"</strong>.
  </p>
  </div>
  );
@@ -305,7 +305,7 @@ export default function AtivosManager({ contas }) {
  <td className="px-4 py-3 text-gray-500 font-medium whitespace-nowrap">{formatDate(l.data_transacao)}</td>
  <td className="px-4 py-3 font-semibold text-gray-700">{l.descricao}</td>
  <td className="px-4 py-3">
- <span className={`px-2.5 py-1 text-[10px] font-bold rounded-full border bg-green-50 text-green-700 border-green-200`}>
+ <span className={`px-2.5 py-1 text-[10px] font-bold rounded-full border bg-red-50 text-red-700 border-red-200`}>
  {l.tipo}
  </span>
  </td>
@@ -396,7 +396,7 @@ export default function AtivosManager({ contas }) {
  }}
  contasPatrimoniais={contasPatrimoniais}
  initialData={editingLancamento}
- defaultTipo="Ativo"
+ defaultTipo="Passivo"
  />
  </div>
  );

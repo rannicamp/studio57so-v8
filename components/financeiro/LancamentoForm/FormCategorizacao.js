@@ -96,7 +96,7 @@ export default function FormCategorizacao({
  name="conta_id"
  value={formData.conta_id}
  onChange={handleChange}
- contas={contasFiltradas.filter(c => c.tipo !== 'Conta de Ativo' && c.tipo !== 'Conta de Passivo')}
+ contas={contasFiltradas}
  required={true}
  />
  </div>
