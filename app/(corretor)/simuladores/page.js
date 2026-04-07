@@ -10,7 +10,7 @@ export default async function SimuladoresHubPage() {
  // Busca de empreendimentos para o Simulador Padrão
  const { data: empreendimentos, error } = await supabase
  .from('empreendimentos')
- .select('id, nome, status')
+ .select('id, nome, status, logo_url, observacoes, proprietaria:cadastro_empresa!empresa_proprietaria_id(logo_url)')
  .eq('listado_para_venda', true)
  .order('nome');
 

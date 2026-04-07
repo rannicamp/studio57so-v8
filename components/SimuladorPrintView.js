@@ -147,9 +147,6 @@ const SimuladorPrintView = React.forwardRef(({ simulacao, produtos, empreendimen
  ))}
  </tbody>
  </table>
- <p className="text-[10px] text-gray-500 mt-1">
- ★ Linhas destacadas = mês de aniversário do contrato com correção anual aplicada (INCC + 11% a.a.)
- </p>
  </section>
 
  {/* ── Assinaturas ───────────────────────────── */}
@@ -169,7 +166,7 @@ const SimuladorPrintView = React.forwardRef(({ simulacao, produtos, empreendimen
         {/* ── ⚠️ Avisos e Observações ───────────────────────── */}
         <section className="mt-8 text-center pb-4">
           <p className="whitespace-pre-wrap text-[10px] text-gray-500 leading-relaxed">
-            {empreendimento?.observacoes || '*Correção mensal pelo INCC até a entrega das chaves, após entrega IGP-M + 1% a.m.\n**Sujeito a alteração sem aviso prévio.'}
+            {empreendimento?.observacoes || ''}
           </p>
         </section>
  </main>
