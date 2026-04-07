@@ -1,0 +1,656 @@
+[
+  {
+    "id": 10387,
+    "nomeOriginal": "Aço Mecânico 06.35 . 1/4”",
+    "nomeNovo": "Aço Mecânico 06.35 . 1/4” 6m",
+    "sugerida": "un"
+  },
+  {
+    "id": 10138,
+    "nomeOriginal": "Outras Despesas",
+    "nomeNovo": "Outras Despesas",
+    "sugerida": "un"
+  },
+  {
+    "id": 10143,
+    "nomeOriginal": "Peneira de Areia",
+    "nomeNovo": "Peneira de Areia",
+    "sugerida": "un"
+  },
+  {
+    "id": 10386,
+    "nomeOriginal": "Perf.retang . 20 X 30 X 18 Ind-pc",
+    "nomeNovo": "Perf.retang . 20 X 30 X 18 Ind-pc",
+    "sugerida": "un"
+  },
+  {
+    "id": 10045,
+    "nomeOriginal": "Perfil Redondo 1/2 Aco Inox",
+    "nomeNovo": "Perfil Redondo 1/2 Aco Inox 6m",
+    "sugerida": "un"
+  },
+  {
+    "id": 10332,
+    "nomeOriginal": "Pino Fêmea 10a",
+    "nomeNovo": "Pino Fêmea 10a",
+    "sugerida": "un"
+  },
+  {
+    "id": 10076,
+    "nomeOriginal": "Pino Femea Triangular 2p 20a Padrao Cinza Fame",
+    "nomeNovo": "Pino Femea Triangular 2p 20a Padrao Cinza Fame",
+    "sugerida": "un"
+  },
+  {
+    "id": 10331,
+    "nomeOriginal": "Pino Macho 10a",
+    "nomeNovo": "Pino Macho 10a",
+    "sugerida": "un"
+  },
+  {
+    "id": 10156,
+    "nomeOriginal": "Pino Macho Gigante",
+    "nomeNovo": "Pino Macho Gigante",
+    "sugerida": "un"
+  },
+  {
+    "id": 10075,
+    "nomeOriginal": "Pino Macho Triangular 2p 20a Padrao Cinza Fame",
+    "nomeNovo": "Pino Macho Triangular 2p 20a Padrao Cinza Fame",
+    "sugerida": "un"
+  },
+  {
+    "id": 10327,
+    "nomeOriginal": "Pino Trava Guincho Elétrico",
+    "nomeNovo": "Pino Trava Guincho Elétrico",
+    "sugerida": "un"
+  },
+  {
+    "id": 10022,
+    "nomeOriginal": "Pinus 6x6 com 3m",
+    "nomeNovo": "Pinus 6x6 com 3m",
+    "sugerida": "un"
+  },
+  {
+    "id": 10125,
+    "nomeOriginal": "Plataforma",
+    "nomeNovo": "Plataforma",
+    "sugerida": "un"
+  },
+  {
+    "id": 10282,
+    "nomeOriginal": "Pneu Carrinho de Mão",
+    "nomeNovo": "Pneu Carrinho de Mão",
+    "sugerida": "un"
+  },
+  {
+    "id": 10281,
+    "nomeOriginal": "Pó de Brita - Caminhão Toco",
+    "nomeNovo": "Pó de Brita - Caminhão Toco 5m³",
+    "sugerida": "un"
+  },
+  {
+    "id": 10061,
+    "nomeOriginal": "Porca Inox 1/4\"",
+    "nomeNovo": "Porca Inox 1/4\"",
+    "sugerida": "un"
+  },
+  {
+    "id": 10374,
+    "nomeOriginal": "Porca para Parafuso",
+    "nomeNovo": "Porca para Parafuso",
+    "sugerida": "un"
+  },
+  {
+    "id": 10377,
+    "nomeOriginal": "Porca Sextavada 1/2",
+    "nomeNovo": "Porca Sextavada 1/2",
+    "sugerida": "un"
+  },
+  {
+    "id": 10279,
+    "nomeOriginal": "Porca Tp 5/8",
+    "nomeNovo": "Porca Tp 5/8",
+    "sugerida": "un"
+  },
+  {
+    "id": 10154,
+    "nomeOriginal": "Porta Cadeado S",
+    "nomeNovo": "Porta Cadeado S",
+    "sugerida": "un"
+  },
+  {
+    "id": 10432,
+    "nomeOriginal": "Projeto Conjunto de Baixa Tensão Cemig",
+    "nomeNovo": "Projeto Conjunto de Baixa Tensão Cemig",
+    "sugerida": "cj"
+  },
+  {
+    "id": 10435,
+    "nomeOriginal": "Projeto de Cftv",
+    "nomeNovo": "Projeto de Cftv",
+    "sugerida": "cj"
+  },
+  {
+    "id": 10436,
+    "nomeOriginal": "Projeto de Spda",
+    "nomeNovo": "Projeto de Spda",
+    "sugerida": "cj"
+  },
+  {
+    "id": 10434,
+    "nomeOriginal": "Projeto de Voz e Dados",
+    "nomeNovo": "Projeto de Voz e Dados",
+    "sugerida": "cj"
+  },
+  {
+    "id": 10433,
+    "nomeOriginal": "Projeto Elétrico",
+    "nomeNovo": "Projeto Elétrico",
+    "sugerida": "cj"
+  },
+  {
+    "id": 10451,
+    "nomeOriginal": "Projeto Estrutural",
+    "nomeNovo": "Projeto Estrutural",
+    "sugerida": "cj"
+  },
+  {
+    "id": 10429,
+    "nomeOriginal": "Projeto Executivo de Instalações de Água Fria",
+    "nomeNovo": "Projeto Executivo de Instalações de Água Fria",
+    "sugerida": "cj"
+  },
+  {
+    "id": 10431,
+    "nomeOriginal": "Projeto Executivo de Instalações de Drenagem Pluvial",
+    "nomeNovo": "Projeto Executivo de Instalações de Drenagem Pluvial",
+    "sugerida": "cj"
+  },
+  {
+    "id": 10430,
+    "nomeOriginal": "Projeto Executivo de Instalações de Esgoto Sanitário",
+    "nomeNovo": "Projeto Executivo de Instalações de Esgoto Sanitário",
+    "sugerida": "cj"
+  },
+  {
+    "id": 10428,
+    "nomeOriginal": "Projeto Hidrossanitário",
+    "nomeNovo": "Projeto Hidrossanitário",
+    "sugerida": "cj"
+  },
+  {
+    "id": 10038,
+    "nomeOriginal": "Protetor Auditivo",
+    "nomeNovo": "Protetor Auditivo",
+    "sugerida": "un"
+  },
+  {
+    "id": 10177,
+    "nomeOriginal": "Protetor de Vergalhão",
+    "nomeNovo": "Protetor de Vergalhão",
+    "sugerida": "un"
+  },
+  {
+    "id": 10178,
+    "nomeOriginal": "Protetor de Vergalhão 4.2mm 25.4mm",
+    "nomeNovo": "Protetor de Vergalhão 4.2mm 25.4mm",
+    "sugerida": "un"
+  },
+  {
+    "id": 10287,
+    "nomeOriginal": "Quadro de Avisos",
+    "nomeNovo": "Quadro de Avisos",
+    "sugerida": "un"
+  },
+  {
+    "id": 10260,
+    "nomeOriginal": "Quadro Triangular 100 X  100cm com Pino",
+    "nomeNovo": "Quadro Triangular 100 X  100cm com Pino",
+    "sugerida": "un"
+  },
+  {
+    "id": 10272,
+    "nomeOriginal": "Quadro Triangular 100 X  100cm sem Pino",
+    "nomeNovo": "Quadro Triangular 100 X  100cm sem Pino",
+    "sugerida": "un"
+  },
+  {
+    "id": 10261,
+    "nomeOriginal": "Quadro Triangular 120 X  100cm com Pino",
+    "nomeNovo": "Quadro Triangular 120 X  100cm com Pino",
+    "sugerida": "un"
+  },
+  {
+    "id": 10273,
+    "nomeOriginal": "Quadro Triangular 120 X  100cm sem Pino",
+    "nomeNovo": "Quadro Triangular 120 X  100cm sem Pino",
+    "sugerida": "un"
+  },
+  {
+    "id": 10309,
+    "nomeOriginal": "Rádio de Comunicação",
+    "nomeNovo": "Rádio de Comunicação",
+    "sugerida": "un"
+  },
+  {
+    "id": 10155,
+    "nomeOriginal": "Rebite Repuxo 3x",
+    "nomeNovo": "Rebite Repuxo 3x",
+    "sugerida": "un"
+  },
+  {
+    "id": 10253,
+    "nomeOriginal": "Regua Complementar 75mm X 1m",
+    "nomeNovo": "Regua Complementar 75mm X 1m",
+    "sugerida": "un"
+  },
+  {
+    "id": 10254,
+    "nomeOriginal": "Regua Linear 75mm X 1,5m",
+    "nomeNovo": "Regua Linear 75mm X 1,5m",
+    "sugerida": "un"
+  },
+  {
+    "id": 10252,
+    "nomeOriginal": "Regua Linear 75mm X 1m",
+    "nomeNovo": "Regua Linear 75mm X 1m",
+    "sugerida": "un"
+  },
+  {
+    "id": 10255,
+    "nomeOriginal": "Regua Linear 75mm X 3m",
+    "nomeNovo": "Regua Linear 75mm X 3m",
+    "sugerida": "un"
+  },
+  {
+    "id": 10166,
+    "nomeOriginal": "Revelação de Tela para Silk",
+    "nomeNovo": "Revelação de Tela para Silk",
+    "sugerida": "un"
+  },
+  {
+    "id": 10353,
+    "nomeOriginal": "Roldana Porcelana para Rex 72x72",
+    "nomeNovo": "Roldana Porcelana para Rex 72x72",
+    "sugerida": "un"
+  },
+  {
+    "id": 10106,
+    "nomeOriginal": "Rolo de Lã",
+    "nomeNovo": "Rolo de Lã",
+    "sugerida": "un"
+  },
+  {
+    "id": 10395,
+    "nomeOriginal": "Rolo de Lã 15 Cm",
+    "nomeNovo": "Rolo de Lã 15 Cm",
+    "sugerida": "un"
+  },
+  {
+    "id": 10198,
+    "nomeOriginal": "Sabonete",
+    "nomeNovo": "Sabonete",
+    "sugerida": "un"
+  },
+  {
+    "id": 10320,
+    "nomeOriginal": "Sabonete Liquido",
+    "nomeNovo": "Sabonete Liquido",
+    "sugerida": "un"
+  },
+  {
+    "id": 10113,
+    "nomeOriginal": "Saco de Cimento Cp3",
+    "nomeNovo": "Saco de Cimento Cp3",
+    "sugerida": "sc"
+  },
+  {
+    "id": 10380,
+    "nomeOriginal": "Saco de Lixo 200l Reforçado",
+    "nomeNovo": "Saco de Lixo 200l Reforçado",
+    "sugerida": "sc"
+  },
+  {
+    "id": 10195,
+    "nomeOriginal": "Saco de Lixo 50l",
+    "nomeNovo": "Saco de Lixo 50l",
+    "sugerida": "sc"
+  },
+  {
+    "id": 10196,
+    "nomeOriginal": "Saco de Lixo Preto",
+    "nomeNovo": "Saco de Lixo Preto",
+    "sugerida": "sc"
+  },
+  {
+    "id": 10262,
+    "nomeOriginal": "Sapata Ajustavel 50 Cm",
+    "nomeNovo": "Sapata Ajustavel 50 Cm",
+    "sugerida": "un"
+  },
+  {
+    "id": 10043,
+    "nomeOriginal": "Sapata Regulavel para Andaime",
+    "nomeNovo": "Sapata Regulavel para Andaime",
+    "sugerida": "un"
+  },
+  {
+    "id": 10206,
+    "nomeOriginal": "Sarrafo 10cm X 3m",
+    "nomeNovo": "Sarrafo 10cm X 3m",
+    "sugerida": "un"
+  },
+  {
+    "id": 10452,
+    "nomeOriginal": "Sarrafo de 03 Metros",
+    "nomeNovo": "Sarrafo de 03 Metros",
+    "sugerida": "un"
+  },
+  {
+    "id": 10205,
+    "nomeOriginal": "Sarrafo de 10",
+    "nomeNovo": "Sarrafo de 10",
+    "sugerida": "un"
+  },
+  {
+    "id": 10283,
+    "nomeOriginal": "Serrote de Poda",
+    "nomeNovo": "Serrote de Poda",
+    "sugerida": "un"
+  },
+  {
+    "id": 10041,
+    "nomeOriginal": "Serviço de Bombeamento",
+    "nomeNovo": "Serviço de Bombeamento",
+    "sugerida": "un"
+  },
+  {
+    "id": 10425,
+    "nomeOriginal": "Serviço de Demarcação de Lotes com Piquetes.",
+    "nomeNovo": "Serviço de Demarcação de Lotes com Piquetes.",
+    "sugerida": "un"
+  },
+  {
+    "id": 10426,
+    "nomeOriginal": "Serviço de Limpeza de Terreno",
+    "nomeNovo": "Serviço de Limpeza de Terreno",
+    "sugerida": "un"
+  },
+  {
+    "id": 10376,
+    "nomeOriginal": "Serviço de Solda para Armário",
+    "nomeNovo": "Serviço de Solda para Armário",
+    "sugerida": "un"
+  },
+  {
+    "id": 10067,
+    "nomeOriginal": "Sikadur",
+    "nomeNovo": "Sikadur",
+    "sugerida": "un"
+  },
+  {
+    "id": 10070,
+    "nomeOriginal": "Sikadur 32",
+    "nomeNovo": "Sikadur 32",
+    "sugerida": "un"
+  },
+  {
+    "id": 10169,
+    "nomeOriginal": "Silk Grande em Camisa",
+    "nomeNovo": "Silk Grande em Camisa",
+    "sugerida": "un"
+  },
+  {
+    "id": 10167,
+    "nomeOriginal": "Silk Pequeno em Calça",
+    "nomeNovo": "Silk Pequeno em Calça",
+    "sugerida": "un"
+  },
+  {
+    "id": 10168,
+    "nomeOriginal": "Silk Pequeno em Camisa",
+    "nomeNovo": "Silk Pequeno em Camisa",
+    "sugerida": "un"
+  },
+  {
+    "id": 10326,
+    "nomeOriginal": "Solda de Alça de Carrinho de Mão",
+    "nomeNovo": "Solda de Alça de Carrinho de Mão",
+    "sugerida": "un"
+  },
+  {
+    "id": 10114,
+    "nomeOriginal": "Supercal Ch3",
+    "nomeNovo": "Supercal Ch3",
+    "sugerida": "un"
+  },
+  {
+    "id": 10197,
+    "nomeOriginal": "Tablet",
+    "nomeNovo": "Tablet",
+    "sugerida": "un"
+  },
+  {
+    "id": 10280,
+    "nomeOriginal": "Tábua de 30cm",
+    "nomeNovo": "Tábua de 30cm",
+    "sugerida": "un"
+  },
+  {
+    "id": 10325,
+    "nomeOriginal": "Tabua de Pinos 15cmx3m",
+    "nomeNovo": "Tabua de Pinos 15cmx3m",
+    "sugerida": "un"
+  },
+  {
+    "id": 10204,
+    "nomeOriginal": "Tábuas de 20cm",
+    "nomeNovo": "Tábuas de 20cm",
+    "sugerida": "un"
+  },
+  {
+    "id": 10050,
+    "nomeOriginal": "Talabarte Y c/ Abs",
+    "nomeNovo": "Talabarte Y c/ Abs",
+    "sugerida": "un"
+  },
+  {
+    "id": 10179,
+    "nomeOriginal": "Tambor de Pvc 200l para Lixo",
+    "nomeNovo": "Tambor de Pvc 200l para Lixo",
+    "sugerida": "un"
+  },
+  {
+    "id": 10354,
+    "nomeOriginal": "Tampao Aluminio 76mm",
+    "nomeNovo": "Tampao Aluminio 76mm",
+    "sugerida": "un"
+  },
+  {
+    "id": 10360,
+    "nomeOriginal": "Tampao Cemig P/terra 25x25",
+    "nomeNovo": "Tampao Cemig P/terra 25x25",
+    "sugerida": "m³"
+  },
+  {
+    "id": 10412,
+    "nomeOriginal": "Teclado",
+    "nomeNovo": "Teclado",
+    "sugerida": "un"
+  },
+  {
+    "id": 10413,
+    "nomeOriginal": "Teclado Slim",
+    "nomeNovo": "Teclado Slim",
+    "sugerida": "un"
+  },
+  {
+    "id": 10186,
+    "nomeOriginal": "Tela Azul Fachadeira 3x20",
+    "nomeNovo": "Tela Azul Fachadeira 3x20",
+    "sugerida": "un"
+  },
+  {
+    "id": 10207,
+    "nomeOriginal": "Tela Azul Fachadeira 3x50",
+    "nomeNovo": "Tela Azul Fachadeira 3x50",
+    "sugerida": "un"
+  },
+  {
+    "id": 10290,
+    "nomeOriginal": "Telha Galvanizada",
+    "nomeNovo": "Telha Galvanizada",
+    "sugerida": "un"
+  },
+  {
+    "id": 10349,
+    "nomeOriginal": "Terminal Pressao 16mm",
+    "nomeNovo": "Terminal Pressao 16mm",
+    "sugerida": "un"
+  },
+  {
+    "id": 10366,
+    "nomeOriginal": "Terminal Tub. 16mm",
+    "nomeNovo": "Terminal Tub. 16mm",
+    "sugerida": "un"
+  },
+  {
+    "id": 10028,
+    "nomeOriginal": "Tijolo 9x19x29",
+    "nomeNovo": "Tijolo 9x19x29",
+    "sugerida": "un"
+  },
+  {
+    "id": 10289,
+    "nomeOriginal": "Tinta Esmaltada Preta",
+    "nomeNovo": "Tinta Esmaltada Preta",
+    "sugerida": "un"
+  },
+  {
+    "id": 10368,
+    "nomeOriginal": "Tinta Esmalte Cor Cinza Claro",
+    "nomeNovo": "Tinta Esmalte Cor Cinza Claro",
+    "sugerida": "un"
+  },
+  {
+    "id": 10072,
+    "nomeOriginal": "Tomada Industrial (steck) 63a Fêmea - para Cabo",
+    "nomeNovo": "Tomada Industrial (steck) 63a Fêmea - para Cabo",
+    "sugerida": "un"
+  },
+  {
+    "id": 10145,
+    "nomeOriginal": "Tomada Sobrep Red 20a",
+    "nomeNovo": "Tomada Sobrep Red 20a",
+    "sugerida": "un"
+  },
+  {
+    "id": 10042,
+    "nomeOriginal": "Torre de Andaime 150x150 com 6,0 Metros de Altura",
+    "nomeNovo": "Torre de Andaime 150x150 com 6,0 Metros de Altura",
+    "sugerida": "un"
+  },
+  {
+    "id": 10157,
+    "nomeOriginal": "Touca Árabe",
+    "nomeNovo": "Touca Árabe",
+    "sugerida": "un"
+  },
+  {
+    "id": 10185,
+    "nomeOriginal": "Trava Quedas Retrátil 08m",
+    "nomeNovo": "Trava Quedas Retrátil 08m",
+    "sugerida": "un"
+  },
+  {
+    "id": 10031,
+    "nomeOriginal": "Trava-quedas",
+    "nomeNovo": "Trava-quedas",
+    "sugerida": "un"
+  },
+  {
+    "id": 10342,
+    "nomeOriginal": "Trena 10 Metros",
+    "nomeNovo": "Trena 10 Metros",
+    "sugerida": "un"
+  },
+  {
+    "id": 10341,
+    "nomeOriginal": "Trena de 8 Metros com Trava",
+    "nomeNovo": "Trena de 8 Metros com Trava",
+    "sugerida": "un"
+  },
+  {
+    "id": 10396,
+    "nomeOriginal": "Trincha 2.1/2",
+    "nomeNovo": "Trincha 2.1/2",
+    "sugerida": "un"
+  },
+  {
+    "id": 10236,
+    "nomeOriginal": "Troca de Fechadura e Serviço de Solda",
+    "nomeNovo": "Troca de Fechadura e Serviço de Solda",
+    "sugerida": "un"
+  },
+  {
+    "id": 10317,
+    "nomeOriginal": "Tubo 3/4 Soldável",
+    "nomeNovo": "Tubo 3/4 Soldável 6m",
+    "sugerida": "un"
+  },
+  {
+    "id": 10055,
+    "nomeOriginal": "Tubo de 100",
+    "nomeNovo": "Tubo de 100 6m",
+    "sugerida": "un"
+  },
+  {
+    "id": 10173,
+    "nomeOriginal": "Tubo de Descida 40mm",
+    "nomeNovo": "Tubo de Descida 40mm 6m",
+    "sugerida": "un"
+  },
+  {
+    "id": 10164,
+    "nomeOriginal": "Tubo de Esgoto 100mm",
+    "nomeNovo": "Tubo de Esgoto 100mm 6m",
+    "sugerida": "un"
+  },
+  {
+    "id": 10165,
+    "nomeOriginal": "Tubo de Esgoto 100mm Pvc",
+    "nomeNovo": "Tubo de Esgoto 100mm Pvc 6m",
+    "sugerida": "un"
+  },
+  {
+    "id": 10365,
+    "nomeOriginal": "Tubo Galv. 76mm X 5m",
+    "nomeNovo": "Tubo Galv. 76mm X 5m",
+    "sugerida": "un"
+  },
+  {
+    "id": 10030,
+    "nomeOriginal": "Tubo Galvanizado 6m",
+    "nomeNovo": "Tubo Galvanizado 6m",
+    "sugerida": "un"
+  },
+  {
+    "id": 10318,
+    "nomeOriginal": "Tubo Pvc 100mm Esgoto",
+    "nomeNovo": "Tubo Pvc 100mm Esgoto 6m",
+    "sugerida": "un"
+  },
+  {
+    "id": 10295,
+    "nomeOriginal": "Tubo Pvc 40mm",
+    "nomeNovo": "Tubo Pvc 40mm 6m",
+    "sugerida": "un"
+  },
+  {
+    "id": 10073,
+    "nomeOriginal": "Tubo Pvc Rígido 2\" - Soldável",
+    "nomeNovo": "Tubo Pvc Rígido 2\" - Soldável 6m",
+    "sugerida": "un"
+  }
+]
