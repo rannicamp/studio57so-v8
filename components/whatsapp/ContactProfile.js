@@ -7,7 +7,7 @@ import { createClient } from '@/utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faStickyNote, faTasks, faSpinner, faPlus, faPhone, faEnvelope, faIdCard, faGlobe, faPen, faTrash, faCheckCircle, faBullhorn, faUserTie, faCalculator, faExternalLinkAlt,
  faHistory, faTimes, faBriefcase, faSave, faFunnelDollar, faMoneyBillWave,
- faPiggyBank, faBullseye, faCheck, faTimesCircle
+ faPiggyBank, faBullseye, faCheck, faTimesCircle, faRobot, faSyncAlt
 } from '@fortawesome/free-solid-svg-icons';
 import { faInstagram } from '@fortawesome/free-brands-svg-icons';
 import { toast } from 'sonner';
@@ -415,7 +415,32 @@ export default function ContactProfile({ contact }) {
  setIsEditingInsta(false);
  };
 
- if (!contact) return <div className="p-4 text-center text-sm text-gray-500">Selecione uma conversa.</div>;
+  // --- AI ANALYSIS MUTATION ---
+  const aiAnalysisMutation = useMutation({
+    mutationFn: async (forceUpdate = false) => {
+      const response = await fetch('/api/ai/chat-analysis', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contato_id: contact.contato_id,
+          organizacao_id: organizacaoId,
+          force: forceUpdate
+        })
+      });
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || 'Erro ao gerar análise');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['contactProfileData', contact.contato_id] });
+      toast.success("Análise de IA concluída!");
+    },
+    onError: (e) => toast.error(e.message)
+  });
+
+  if (!contact) return <div className="p-4 text-center text-sm text-gray-500">Selecione uma conversa.</div>;
  if (isLoading) return <div className="p-8 text-center text-gray-500"><FontAwesomeIcon icon={faSpinner} spin size="2x" className="mb-2 text-[#00a884]"/><p>Carregando perfil...</p></div>;
 
  return (
@@ -519,7 +544,82 @@ export default function ContactProfile({ contact }) {
  </div>
 
  <main className="flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar">
- {funilEntry && (
+
+        {/* --- NOVA SEÇÃO: ANÁLISE IA --- */}
+        <section className="animate-in fade-in slide-in-from-top-4 duration-300">
+          <div className="flex justify-between items-center mb-3">
+            <h4 className="font-semibold text-purple-700 text-sm uppercase tracking-wide flex items-center gap-2">
+              <FontAwesomeIcon icon={faRobot} className="text-purple-600" /> Análise IA
+            </h4>
+            <button 
+              onClick={() => aiAnalysisMutation.mutate(true)}
+              disabled={aiAnalysisMutation.isPending}
+              className="text-xs bg-purple-100 text-purple-700 hover:bg-purple-200 px-3 py-1.5 rounded-full font-bold transition-colors flex items-center gap-1.5 shadow-sm border border-purple-200"
+              title="Ler conversas e analisar lead com Gemini 3.1 Pro"
+            >
+              <FontAwesomeIcon icon={aiAnalysisMutation.isPending ? faSpinner : faSyncAlt} spin={aiAnalysisMutation.isPending} /> 
+              {displayContact.ai_analysis ? 'Atualizar' : 'Gerar Análise'}
+            </button>
+          </div>
+          
+          <div className="bg-gradient-to-br from-purple-50 to-white p-4 rounded-xl border border-purple-100 shadow-sm relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-purple-200 to-transparent rounded-full opacity-20 -mr-10 -mt-10 pointer-events-none"></div>
+            
+            {aiAnalysisMutation.isPending ? (
+              <div className="flex flex-col items-center justify-center py-6 text-purple-500">
+                <FontAwesomeIcon icon={faSpinner} spin size="2x" className="mb-3" />
+                <p className="text-xs font-medium animate-pulse text-purple-600">Lendo histórico e cruzando com CRM...</p>
+              </div>
+            ) : displayContact.ai_analysis ? (
+              <div className="space-y-4 relative z-10">
+                <div className="flex items-center gap-3">
+                  <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold border shadow-sm ${
+                      displayContact.ai_analysis.temperatura === 'Quente' ? 'bg-orange-100 text-orange-700 border-orange-200' :
+                      displayContact.ai_analysis.temperatura === 'Morno' ? 'bg-yellow-100 text-yellow-700 border-yellow-200' :
+                      'bg-blue-100 text-blue-700 border-blue-200'
+                    }`}>
+                    {displayContact.ai_analysis.temperatura === 'Quente' ? '🔥 Quente' :
+                     displayContact.ai_analysis.temperatura === 'Morno' ? '😐 Morno' : '🧊 Frio'}
+                  </span>
+                  {displayContact.ai_analysis.last_updated && (
+                     <span className="text-[10px] text-gray-400 font-medium whitespace-nowrap">
+                       <FontAwesomeIcon icon={faSyncAlt} className="mr-1 opacity-60" />
+                       Atualizado em {format(new Date(displayContact.ai_analysis.last_updated), "dd/MM 'às' HH:mm")}
+                     </span>
+                  )}
+                </div>
+                
+                <div>
+                  <h5 className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                    <FontAwesomeIcon icon={faStickyNote} className="text-gray-400" /> Diagnóstico
+                  </h5>
+                  <p className="text-xs text-gray-800 font-medium leading-relaxed bg-white/70 p-2.5 rounded-lg border border-purple-50 shadow-sm align-middle whitespace-pre-wrap">
+                    {displayContact.ai_analysis.resumo_interacao}
+                  </p>
+                </div>
+                
+                <div>
+                  <h5 className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5 flex items-center gap-1.5 mt-0.5">
+                     <FontAwesomeIcon icon={faCheckCircle} className="text-gray-400"/> Próximo Passo
+                  </h5>
+                  <div className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-xs p-3 rounded-lg font-medium shadow-sm flex items-start gap-2.5">
+                    <FontAwesomeIcon icon={faRobot} className="mt-0.5 opacity-90 text-sm shrink-0" />
+                    <p className="leading-snug">{displayContact.ai_analysis.proxima_acao_sugerida}</p>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-6 bg-white/40 rounded-lg">
+                <FontAwesomeIcon icon={faRobot} className="text-purple-200 text-4xl mb-3" />
+                <p className="text-xs text-gray-500 max-w-xs mx-auto font-medium">
+                  IA Inativa. Clique no botão "Gerar Análise" para ler a conversa e diagnosticar este lead.
+                </p>
+              </div>
+            )}
+          </div>
+        </section>
+
+        {funilEntry && (
  <section className="animate-in fade-in slide-in-from-top-4 duration-300">
  <h4 className="font-semibold text-gray-700 mb-2 flex items-center gap-2 text-sm uppercase tracking-wide">
  <FontAwesomeIcon icon={faFunnelDollar} /> CRM / Funil

@@ -7,8 +7,8 @@ description: Como criar novos Agentes ou integrações com o Gemini no projeto d
 Sempre que o usuário solicitar a criação de uma nova feature utilizando Inteligência Artificial (Gemini API) no projeto Studio 57, você DEVE seguir as seguintes regras, sob penalidade de quebrar módulos sensíveis. Essa padronização evita erros silenciosos e modelos defasados.
 
 ## 1. Escolha Correta do Modelo
-- Utilize **obrigatoriamente** as versões da família `gemini-2.0` ou `gemini-2.5` (ex: `gemini-2.5-flash` ou `gemini-2.0-flash`).
-- **NUNCA utilize a versão `gemini-1.5-flash`**, pois essa versão sofre rotineiramente erros de permissão/404 na API v1beta ou dependendo da infraestrutura ativa do projeto.
+- Utilize **obrigatoriamente** o novo modelo de elite `gemini-3.1-pro-preview` para demandas que exijam máxima inteligência e precisão em workflows complexos.
+- **NUNCA utilize as versões antigas `gemini-1.5-flash` ou `gemini-2.5-flash`**, pois perderemos as capacidades de pensamento avançado, grounding e workflow agêntico do 3.1.
 
 ## 2. Retorno Restrito com JSON (SchemaType)
 Se o prompt exigir um retorno estruturado (JSON), **NÃO** confie apenas no comando em texto puro pedindo um objeto (ex: "Me retorne em formato JSON"). O Google Gemini possui uma funcionalidade nativa que deve ser usada para blindar a aplicação contra quebras de parsing:
@@ -30,7 +30,7 @@ Se o prompt exigir um retorno estruturado (JSON), **NÃO** confie apenas no coma
       }
   };
   
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash', generationConfig });
+  const model = genAI.getGenerativeModel({ model: 'gemini-3.1-pro-preview', generationConfig });
   ```
 
 ## 3. Feedback Visual de Erros na UI (Toasts)
