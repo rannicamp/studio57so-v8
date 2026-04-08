@@ -2,6 +2,8 @@
 import { getTextContent, logWebhook } from './helpers';
 import { processIncomingMedia } from './media';
 
+import { transcribeAudioSync } from './ai';
+
 // Trata Reações (Joinha, Coração, etc)
 export async function handleReaction(supabaseAdmin, reaction, from) {
  try {
@@ -56,10 +58,21 @@ export async function handleMessageInsert(supabaseAdmin, message, config, contat
   mediaData = await processIncomingMedia(supabaseAdmin, message, config, contatoId);
 
   if (mediaData && finalMessageId) {
+  // 1. Hook de Transcrição para Áudios (Gemini)
+  let finalContent = content; // texto original se houver legenda 
+  if (['audio', 'voice'].includes(message.type)) {
+     const transcricao = await transcribeAudioSync(mediaData.publicUrl, mediaData.mimeType);
+     if (transcricao) {
+        finalContent = `🎙️ *Transcrição:* _${transcricao}_`;
+     } else {
+        finalContent = null; // vazio pra ficar igual whatsapp nativo se falhar
+     }
+  }
+
   // Atualiza com o link final
   await supabaseAdmin.from('whatsapp_messages').update({
   media_url: mediaData.publicUrl,
-  content: content // Reafirma o conteúdo correto
+  content: finalContent // Reafirma o conteúdo (seja transcrito ou normal)
   }).eq('id', finalMessageId);
   // Salva na tabela de anexos para galeria
   await supabaseAdmin.from('whatsapp_attachments').insert({
@@ -78,19 +91,19 @@ export async function handleMessageInsert(supabaseAdmin, message, config, contat
   finalMessageId = insertedMsg?.id;
   }
 
-  // Atualiza o contador da conversa e o snippet da última mensagem
+  // Atualiza o snippet da última mensagem e incrementa o contador PARA TODOS os usuários
   if (conversationRecordId && finalMessageId) {
-  // Busca contador atual para incrementar atomicamente (ou quase)
-  const { data: currentConv } = await supabaseAdmin
-  .from('whatsapp_conversations')
-  .select('unread_count')
-  .eq('id', conversationRecordId)
-  .single();
-  const currentCount = currentConv?.unread_count || 0;
+  // Chama a nova RPC inteligente que cria bolinhas individuais para todos da Organização
+  await supabaseAdmin.rpc('increment_whatsapp_unreads', {
+     v_conversation_id: conversationRecordId,
+     v_org_id: config.organizacao_id
+  });
 
+  // Atualiza apenas a last_message para a UI
   await supabaseAdmin.from('whatsapp_conversations')
-  .update({ last_message_id: finalMessageId,
-  unread_count: currentCount + 1, updated_at: new Date().toISOString()
+  .update({ 
+     last_message_id: finalMessageId, 
+     updated_at: new Date().toISOString()
   })
   .eq('id', conversationRecordId);
   }

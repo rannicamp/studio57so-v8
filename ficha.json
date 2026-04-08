@@ -22,7 +22,8 @@
     "objeto_social",
     "capital_social",
     "natureza_juridica",
-    "logo_url"
+    "logo_url",
+    "responsavel_id"
   ],
   "dados": {
     "id": 4,
@@ -47,6 +48,7 @@
     "objeto_social": null,
     "capital_social": 100000,
     "natureza_juridica": null,
-    "logo_url": "https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empresas/0.47738345241535884.PNG"
+    "logo_url": "https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empresas/0.47738345241535884.PNG",
+    "responsavel_id": null
   }
 }

@@ -4,6 +4,8 @@ description: Como criar novos Agentes ou integrações com o Gemini no projeto d
 
 # Diretriz de Padronização para Criar Agentes/Integrações com Gemini
 
+leia docs\guiadesenvolvedoresgemini3.1.md
+
 Sempre que o usuário solicitar a criação de uma nova feature utilizando Inteligência Artificial (Gemini API) no projeto Studio 57, você DEVE seguir as seguintes regras, sob penalidade de quebrar módulos sensíveis. Essa padronização evita erros silenciosos e modelos defasados.
 
 ## 1. Escolha Correta do Modelo
@@ -50,3 +52,5 @@ Se o prompt exigir um retorno estruturado (JSON), **NÃO** confie apenas no coma
       error: (err) => \`Erro ao gerar: \${err.message}\`
   });
   ```
+
+

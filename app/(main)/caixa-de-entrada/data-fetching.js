@@ -1,7 +1,7 @@
 import { createClient } from '@/utils/supabase/client';
 
-export const getConversations = async (supabase, organizacaoId) => {
- if (!organizacaoId) return [];
+export const getConversations = async (supabase, organizacaoId, userId) => {
+ if (!organizacaoId || !userId) return [];
 
  try {
  // --- QUERY HÍBRIDA ---
@@ -53,9 +53,7 @@ export const getConversations = async (supabase, organizacaoId) => {
  nomeEtapa = dadosFunil?.coluna?.nome;
  }
 
- // --- 2. LÓGICA DO CRONÔMETRO (TICKET #58) ---
- // Usa customer_window_start_at (atualizado APENAS quando o cliente envia mensagem)
- // Fallback para cálculo via join de mensagens recentes (para conversas migradas sem o campo)
+ // --- 2. LÓGICA DO CRONÔMETRO ---
  const lastInboundMsg = conv.recent_msgs?.find(m => m.direction === 'inbound');
  const lastInboundAt = conv.customer_window_start_at || (lastInboundMsg ? lastInboundMsg.sent_at : null);
 
@@ -65,7 +63,8 @@ export const getConversations = async (supabase, organizacaoId) => {
  phone_number: conv.phone_number,
  nome: conv.contatos?.nome || conv.phone_number,
  avatar_url: conv.contatos?.foto_url,
- unread_count: conv.unread_count || 0,
+ // AQUI ACONTECE A MÁGICA COLABORATIVA: Busca o count apenas deste usuário, ou 0 se nulo
+ unread_count: conv.user_unread_counts?.[userId] || 0,
  last_message_content: conv.last_message?.content,
  // Status da última mensagem para saber se falhou
  last_message_status: conv.last_message?.status,
@@ -120,23 +119,25 @@ export const getMessages = async (supabase, organizacaoId, contatoId) => {
  .eq('contato_id', contatoId)
  .order('sent_at', { ascending: true });
 
- if (error) {
- console.error('Erro ao buscar mensagens:', error);
- return [];
- }
+  if (error) {
+  console.error('Erro ao buscar mensagens:', error?.message || error, JSON.stringify(error, Object.getOwnPropertyNames(error)));
+  return [];
+  }
 
  return data;
 };
 
 // --- FUNÇÃO: MARCAR COMO LIDA ---
-export const markMessagesAsRead = async (supabase, organizacaoId, contatoId) => {
- if (!organizacaoId || !contatoId) return;
+export const markMessagesAsRead = async (supabase, organizacaoId, contatoId, conversationId, userId) => {
+ if (!organizacaoId || !contatoId || !conversationId || !userId) return;
 
- await supabase
- .from('whatsapp_conversations')
- .update({ unread_count: 0 })
- .eq('organizacao_id', organizacaoId)
- .eq('contato_id', contatoId);
+ // 1. Zera a bolinha INVIDIDUAL via RPC
+ await supabase.rpc('reset_whatsapp_unreads', {
+   v_conversation_id: conversationId,
+   v_user_id: userId
+ });
+
+ // 2. Opcional: mantém o is_read true globalmente na mensagem pro "visto" azul do cliente (WhatsApp behaviour)
  await supabase
  .from('whatsapp_messages')
  .update({ is_read: true })

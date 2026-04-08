@@ -60,9 +60,9 @@ export default function WhatsAppInbox({ onChangeTab, initialContactId }) {
 
  // 2. Busca conversas (só ativa se tiver config)
  const { data: rawConversations, isLoading: isLoadingConversations } = useQuery({
- queryKey: ['conversations', organizacaoId],
- queryFn: () => getConversations(supabase, organizacaoId),
- enabled: !!organizacaoId && !!whatsappConfig,
+ queryKey: ['conversations', organizacaoId, user?.id],
+ queryFn: () => getConversations(supabase, organizacaoId, user?.id),
+ enabled: !!organizacaoId && !!whatsappConfig && !!user?.id,
  refetchOnWindowFocus: true,
  });
 
@@ -108,7 +108,7 @@ export default function WhatsAppInbox({ onChangeTab, initialContactId }) {
  setSelectedList(null);
  setSelectedContact(contact);
  if (contact && contact.unread_count > 0) {
- await markMessagesAsRead(supabase, organizacaoId, contact.contato_id);
+ await markMessagesAsRead(supabase, organizacaoId, contact.contato_id, contact.conversation_id, user?.id);
  queryClient.invalidateQueries({ queryKey: ['conversations', organizacaoId] });
  }
  };
