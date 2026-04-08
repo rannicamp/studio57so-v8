@@ -171,7 +171,39 @@ export default function BroadcastPanel({ list, onBack }) {
  // Funções de ação
  const handleListUpdated = () => { fetchData(); toast.success("Lista atualizada!"); };
  const handleSyncList = async () => { setSyncing(true); try { await fetch('/api/whatsapp/lists/sync', { method: 'POST', body: JSON.stringify({ list_id: list.id }) }); toast.success("Atualizada!"); fetchData(); } catch(e){ toast.error(e.message); } finally { setSyncing(false); } };
- const handleSendBroadcast = async (t, l, v, f, c, s, eid) => { setSending(true); try { const url = eid ? '/api/whatsapp/scheduled-broadcasts' : '/api/whatsapp/broadcast/send'; const method = eid ? 'PUT' : 'POST'; await fetch(url, { method, body: JSON.stringify({ id: eid, list_id: list.id, template_name: t, language: l, variables: v, full_text_base: f, components: c, scheduled_at: s }) }); toast.success("Salvo!"); setIsTemplateModalOpen(false); setEditingBroadcast(null); fetchData(); } catch(e){ toast.error(e.message); } finally { setSending(false); } };
+ const handleSendBroadcast = async (payload) => {
+    setSending(true); 
+    try { 
+        const eid = payload.id;
+        const url = eid ? '/api/whatsapp/scheduled-broadcasts' : '/api/whatsapp/broadcast/send'; 
+        const method = eid ? 'PUT' : 'POST'; 
+        const response = await fetch(url, { 
+            method, 
+            body: JSON.stringify({ 
+                id: eid, 
+                list_id: list.id, 
+                template_name: payload.name, 
+                language: payload.language?.code || (typeof payload.language === 'string' ? payload.language : 'pt_BR'), 
+                variables: payload.variables, 
+                full_text_base: payload.fullText, 
+                components: payload.components, 
+                scheduled_at: payload.scheduledAt 
+            }) 
+        }); 
+        if (!response.ok) { 
+            const errData = await response.json().catch(() => ({})); 
+            throw new Error(errData.error || "Erro interno do servidor ao iniciar disparo."); 
+        } 
+        toast.success("Salvo!"); 
+        setIsTemplateModalOpen(false); 
+        setEditingBroadcast(null); 
+        fetchData(); 
+    } catch(e){ 
+        toast.error("Falha no Envio: " + e.message); 
+    } finally { 
+        setSending(false); 
+    } 
+ };
  const handleDeleteBroadcast = async (id) => { if(!confirm("Excluir agendamento?")) return; await fetch(`/api/whatsapp/scheduled-broadcasts?id=${id}`, { method: 'DELETE' }); fetchData(); };
  const handleProcessQueue = async () => { setIsProcessingQueue(true); await fetch('/api/cron/process-broadcasts'); fetchData(); setIsProcessingQueue(false); };
  const handleEditBroadcast = (b) => { setEditingBroadcast(b); setIsTemplateModalOpen(true); };

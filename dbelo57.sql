@@ -484,7 +484,8 @@ CREATE TABLE public.contatos (
     fgts boolean DEFAULT false,
     mais_de_3_anos_clt boolean DEFAULT false,
     meta_adset_id text,
-    instagram_username text
+    instagram_username text,
+    ai_analysis jsonb
 );
 
 CREATE TABLE public.contatos_no_funil (

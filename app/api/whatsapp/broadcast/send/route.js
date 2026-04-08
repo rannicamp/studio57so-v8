@@ -13,7 +13,7 @@ export async function POST(request) {
  const body = await request.json();
  const { list_id, template_name, language, variables, full_text_base, components, scheduled_at } = body;
  // --- BLINDAGEM MULTI-TENANT: Amarrar Config à Organização da Lista ---
- const { data: lista } = await supabaseAdmin.from('whatsapp_lists').select('organizacao_id').eq('id', list_id).single();
+ const { data: lista } = await supabaseAdmin.from('whatsapp_broadcast_lists').select('organizacao_id').eq('id', list_id).single();
  if (!lista || !lista.organizacao_id) return NextResponse.json({ error: 'Lista não encontrada ou sem organização.' }, { status: 404 });
 
  const { data: config } = await supabaseAdmin

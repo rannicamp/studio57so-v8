@@ -190,6 +190,7 @@ export default function TemplateMessageModal({ isOpen, onClose, onSendTemplate, 
  name: selectedTemplate.name,
  language: { code: selectedTemplate.language },
  components: components,
+ variables: variables,
  fullText: fullText,
  scheduledAt: finalDate,
  id: initialData?.id

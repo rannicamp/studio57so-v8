@@ -95,6 +95,22 @@ export async function processBroadcast(supabaseAdmin, config, targetContacts, te
             if (!response.ok) {
                 console.error(`[Processor] Falha para ${target.nome}:`, resData);
                 failCount++;
+                
+                // Grava a falha oficilamente no banco para o painel exibir
+                const errorMessage = resData.error?.message || resData.error_data?.details || JSON.stringify(resData);
+                await supabaseAdmin.from('whatsapp_messages').insert({
+                    contato_id: target.id,
+                    sender_id: config.whatsapp_phone_number_id,
+                    receiver_id: target.telefone,
+                    content: personalizedText,
+                    sent_at: new Date().toISOString(),
+                    direction: 'outbound',
+                    status: 'failed',
+                    error_message: errorMessage.substring(0, 500), // Limita tamanho da mensagem de erro
+                    raw_payload: JSON.stringify(payload),
+                    organizacao_id: config.organizacao_id,
+                    broadcast_id: jobId
+                });
             } else {
                 successCount++;
                 const newMessageId = resData.messages?.[0]?.id;
