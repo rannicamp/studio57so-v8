@@ -148,6 +148,15 @@ export default function ComprasKanban({ pedidos, fases = [], // Agora recebemos 
  { value: 'data_solicitacao_asc', label: 'Solicitação (Mais Antiga)' },
  ];
 
+  const calculaTotalColuna = (pedidosColuna) => {
+  if (!pedidosColuna) return 0;
+  return pedidosColuna.reduce((acc, pedido) => {
+  const itens = pedido.itens || [];
+  const totalItens = itens.reduce((soma, item) => soma + (parseFloat(item.custo_total_real) || 0), 0);
+  return acc + totalItens;
+  }, 0);
+  };
+
  const handleSortChange = (colunaId, sortValue) => {
  if (!sortValue) { const newSorting = { ...sorting }; delete newSorting[colunaId]; setSorting(newSorting); } else { const lastUnderscoreIndex = sortValue.lastIndexOf('_'); const sortBy = sortValue.substring(0, lastUnderscoreIndex); const order = sortValue.substring(lastUnderscoreIndex + 1); setSorting(prev => ({ ...prev, [colunaId]: { sortBy, order } })); }
  setOpenSortMenu(null);
@@ -211,12 +220,17 @@ export default function ComprasKanban({ pedidos, fases = [], // Agora recebemos 
  onDrop={(e) => handleDrop(e, fase.id)}
  >
  <div className="p-3 text-sm font-semibold text-gray-700 border-b bg-gray-50 rounded-t-lg flex justify-between items-center">
- <div className="flex items-center gap-2">
- <span>{fase.nome}</span>
- <span className="bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full text-xs">
- {pedidosPorColuna[fase.id]?.length || 0}
- </span>
- </div>
+  <div className="flex flex-col">
+  <div className="flex items-center gap-2">
+  <span>{fase.nome}</span>
+  <span className="bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full text-xs">
+  {pedidosPorColuna[fase.id]?.length || 0}
+  </span>
+  </div>
+  <span className="text-xs text-gray-500 font-normal mt-0.5" title="Valor total dos itens na coluna">
+  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(calculaTotalColuna(pedidosPorColuna[fase.id]))}
+  </span>
+  </div>
  <div className="flex items-center gap-3">
  {/* Botão de Excluir apenas para fases marcadas como "finalizado" e nome "Cancelado" (ou lógica específica) */}
  {canDelete && fase.nome === 'Cancelado' && (pedidosPorColuna[fase.id]?.length || 0) > 0 && (
