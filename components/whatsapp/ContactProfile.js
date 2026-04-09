@@ -19,8 +19,36 @@ import { format } from 'date-fns';
 import ContatoForm from '@/components/contatos/ContatoForm';
 // Importa o Card do CRM para integração
 import ContatoCardCRM from '@/components/crm/ContatoCardCRM';
+import AtividadeModal from '@/components/atividades/AtividadeModal';
 
 // --- COMPONENTES AUXILIARES ---
+
+const parseDateFromAiText = (text) => {
+  if (!text) return '';
+  const lowerText = text.toLowerCase();
+  let daysToAdd = 0;
+  
+  if (lowerText.includes('amanhã') || lowerText.includes('24h') || lowerText.includes('24 horas')) {
+    daysToAdd = 1;
+  } else if (lowerText.includes('hoje')) {
+    daysToAdd = 0;
+  } else if (lowerText.includes('48h') || lowerText.includes('48 horas')) {
+    daysToAdd = 2;
+  } else if (lowerText.includes('72h') || lowerText.includes('72 horas')) {
+    daysToAdd = 3;
+  } else {
+    const match = lowerText.match(/(\d+)\s*dias?/);
+    if (match && match[1]) {
+      daysToAdd = parseInt(match[1], 10);
+    }
+  }
+  
+  const date = new Date();
+  if (daysToAdd > 0) {
+      date.setDate(date.getDate() + daysToAdd);
+  }
+  return date.toISOString().split('T')[0];
+};
 
 const formatCurrency = (value) => {
  if (value === null || value === undefined || value === '') return null;
@@ -238,6 +266,8 @@ export default function ContactProfile({ contact }) {
  const [newNoteContent, setNewNoteContent] = useState('');
  const [editingNoteId, setEditingNoteId] = useState(null);
  const [editingNoteContent, setEditingNoteContent] = useState('');
+ const [isActivityModalOpen, setIsActivityModalOpen] = useState(false);
+ const [activityInitialData, setActivityInitialData] = useState(null);
 
  const { data: profileData, isLoading } = useQuery({
  queryKey: ['contactProfileData', contact?.contato_id, organizacaoId],
@@ -602,9 +632,27 @@ export default function ContactProfile({ contact }) {
                   <h5 className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1.5 flex items-center gap-1.5 mt-0.5">
                      <FontAwesomeIcon icon={faCheckCircle} className="text-gray-400"/> Próximo Passo
                   </h5>
-                  <div className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-xs p-3 rounded-lg font-medium shadow-sm flex items-start gap-2.5">
-                    <FontAwesomeIcon icon={faRobot} className="mt-0.5 opacity-90 text-sm shrink-0" />
-                    <p className="leading-snug">{displayContact.ai_analysis.proxima_acao_sugerida}</p>
+                  <div className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-xs p-3 rounded-lg font-medium shadow-sm flex flex-col gap-3">
+                    <div className="flex items-start gap-2.5">
+                      <FontAwesomeIcon icon={faRobot} className="mt-0.5 opacity-90 text-sm shrink-0" />
+                      <p className="leading-snug">{displayContact.ai_analysis.proxima_acao_sugerida}</p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setActivityInitialData({
+                          nome: `Ação Sugerida: ${displayContact.nome}`,
+                          descricao: displayContact.ai_analysis.proxima_acao_sugerida,
+                          contato_id: contact.contato_id,
+                          funcionario_id: user?.funcionario_id || null,
+                          data_inicio_prevista: parseDateFromAiText(displayContact.ai_analysis.proxima_acao_sugerida)
+                        });
+                        setIsActivityModalOpen(true);
+                      }}
+                      className="bg-white/20 hover:bg-white/30 text-white text-[10px] px-3 py-2 rounded uppercase tracking-wider font-bold shadow-sm transition-colors flex items-center justify-center gap-1.5 w-full mt-1"
+                      title="Criar atividade"
+                    >
+                      <FontAwesomeIcon icon={faTasks} /> Transformar em Atividade
+                    </button>
                   </div>
                 </div>
               </div>
@@ -872,6 +920,21 @@ export default function ContactProfile({ contact }) {
  </div>
  </div>
  )}
+
+ {isActivityModalOpen && (
+   <AtividadeModal
+     isOpen={isActivityModalOpen}
+     onClose={() => {
+       setIsActivityModalOpen(false);
+       setActivityInitialData(null);
+     }}
+     initialData={activityInitialData}
+     onSuccess={() => {
+       queryClient.invalidateQueries(['atividades']);
+     }}
+   />
+ )}
+
  </div>
  );
 }
