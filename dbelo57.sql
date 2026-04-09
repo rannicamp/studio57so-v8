@@ -1967,7 +1967,8 @@ CREATE TABLE public.whatsapp_conversations (
     last_direction text DEFAULT 'inbound'::text,
     last_status text DEFAULT 'delivered'::text,
     last_message_direction text DEFAULT 'inbound'::text,
-    customer_window_start_at timestamp with time zone
+    customer_window_start_at timestamp with time zone,
+    user_unread_counts jsonb DEFAULT '{}'::jsonb
 );
 
 CREATE TABLE public.whatsapp_list_members (

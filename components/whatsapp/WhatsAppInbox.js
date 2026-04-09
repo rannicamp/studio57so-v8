@@ -93,13 +93,13 @@ export default function WhatsAppInbox({ onChangeTab, initialContactId }) {
  if (!organizacaoId || !whatsappConfig) return;
  const channel = supabase.channel('whatsapp-realtime-dashboard')
  .on('postgres_changes', { event: '*', schema: 'public', table: 'contatos', filter: `organizacao_id=eq.${organizacaoId}` }, (payload) => {
- queryClient.invalidateQueries(['conversations', organizacaoId]);
+ queryClient.invalidateQueries({ queryKey: ['conversations', organizacaoId] });
  if (selectedContact?.contato_id === payload.new?.id) {
  setSelectedContact(prev => ({ ...prev, nome: payload.new.nome, avatar_url: payload.new.foto_url }));
  }
  })
- .on('postgres_changes', { event: '*', schema: 'public', table: 'whatsapp_conversations', filter: `organizacao_id=eq.${organizacaoId}` }, () => queryClient.invalidateQueries(['conversations', organizacaoId]))
- .on('postgres_changes', { event: '*', schema: 'public', table: 'whatsapp_broadcast_lists', filter: `organizacao_id=eq.${organizacaoId}` }, () => queryClient.invalidateQueries(['broadcastLists', organizacaoId]))
+ .on('postgres_changes', { event: '*', schema: 'public', table: 'whatsapp_conversations', filter: `organizacao_id=eq.${organizacaoId}` }, () => queryClient.invalidateQueries({ queryKey: ['conversations', organizacaoId] }))
+ .on('postgres_changes', { event: '*', schema: 'public', table: 'whatsapp_broadcast_lists', filter: `organizacao_id=eq.${organizacaoId}` }, () => queryClient.invalidateQueries({ queryKey: ['broadcastLists', organizacaoId] }))
  .subscribe();
  return () => { supabase.removeChannel(channel); };
  }, [organizacaoId, queryClient, selectedContact?.contato_id, whatsappConfig]);

@@ -108,10 +108,10 @@ export default function MessagePanel({ contact, onBack }) {
  // Mark as Read
  const markReadMutation = useMutation({
  mutationFn: async () => {
- if (!contact?.contato_id || !organizacaoId) return;
+ if (!contact?.contato_id || !organizacaoId || !user?.id || !contact.conversation_id) return;
  await fetch('/api/whatsapp/mark-read', {
  method: 'POST', headers: { 'Content-Type': 'application/json' },
- body: JSON.stringify({ contact_id: contact.contato_id, organizacaoId: organizacaoId })
+ body: JSON.stringify({ contact_id: contact.contato_id, organizacao_id: organizacaoId, user_id: user.id, conversation_id: contact.conversation_id })
  });
  },
  onSuccess: () => {
@@ -121,11 +121,11 @@ export default function MessagePanel({ contact, onBack }) {
  });
 
  useEffect(() => {
- if (contact?.contato_id && messages) {
- const hasUnread = messages.some(m => m.direction === 'inbound' && m.is_read === false);
+ if (contact?.contato_id && messages && user?.id) {
+ const hasUnread = messages.some(m => m.direction === 'inbound' && m.read_receipts?.[user.id] !== true);
  if (hasUnread) markReadMutation.mutate();
  }
- }, [contact?.contato_id, messages]);
+ }, [contact?.contato_id, messages, user?.id]);
 
  // Realtime
  useEffect(() => {
