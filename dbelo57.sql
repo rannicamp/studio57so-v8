@@ -2000,7 +2000,8 @@ CREATE TABLE public.whatsapp_messages (
     broadcast_id bigint,
     nome_remetente text,
     error_message text,
-    reaction_data jsonb
+    reaction_data jsonb,
+    read_receipts jsonb DEFAULT '{}'::jsonb
 );
 
 CREATE TABLE public.whatsapp_scheduled_broadcasts (

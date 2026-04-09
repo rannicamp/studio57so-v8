@@ -100,6 +100,12 @@ export default function PedidoItemModal({ isOpen, onClose, onSave, itemToEdit })
 
  const [newMaterialClassification, setNewMaterialClassification] = useState('Insumo');
 
+ useEffect(() => {
+  if (newMaterialClassification === 'Serviço') {
+  setItem(prev => ({ ...prev, tipo_operacao: 'Contratação' }));
+  }
+ }, [newMaterialClassification]);
+
  const { data: etapas = [], isLoading: isLoadingEtapas } = useQuery({
  queryKey: ['etapas', organizacaoId],
  queryFn: () => fetchEtapas(supabase, organizacaoId),
@@ -440,6 +446,7 @@ export default function PedidoItemModal({ isOpen, onClose, onSave, itemToEdit })
  >
  <option value="Insumo">Insumo (Consumível)</option>
  <option value="Equipamento">Equipamento (Retornável)</option>
+ <option value="Serviço">Serviço</option>
  </select>
  </div>
  <button
@@ -474,6 +481,7 @@ export default function PedidoItemModal({ isOpen, onClose, onSave, itemToEdit })
  <select name="tipo_operacao" value={item.tipo_operacao} onChange={handleChange} className="mt-1 w-full p-2 border rounded-md">
  <option value="Compra">Compra</option>
  <option value="Aluguel">Aluguel</option>
+ <option value="Contratação">Contratação</option>
  </select>
  </div>
  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

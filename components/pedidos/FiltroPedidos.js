@@ -11,7 +11,7 @@ import { toast } from 'sonner';
 export const initialFilterState = {
  // searchTerm é gerenciado pelo componente pai (Page)
  empreendimentoIds: [], solicitanteIds: [], fornecedorIds: [],
- etapaIds: [], subetapaIds: [], status: [], tipoOperacao: [],
+ etapaIds: [], subetapaIds: [], status: [], tipoOperacao: [], classificacao: [],
  dataSolicitacaoStart: '', dataSolicitacaoEnd: '',
  dataEntregaStart: '', dataEntregaEnd: '',
 };
@@ -120,10 +120,17 @@ export default function FiltroPedidos({
  ];
 
  const tipoOperacaoOptions = [
- { id: 'Compra', nome: 'Compra' },
- { id: 'Serviço', nome: 'Serviço' },
- { id: 'Locação', nome: 'Locação' }
- ];
+    { id: 'Compra', nome: 'Compra' },
+    { id: 'Serviço', nome: 'Serviço' },
+    { id: 'Locação', nome: 'Locação' },
+    { id: 'Contratação', nome: 'Contratação' }
+  ];
+
+  const classificacaoOptions = [
+    { id: 'Insumo', nome: 'Insumo' },
+    { id: 'Equipamento', nome: 'Equipamento' },
+    { id: 'Serviço', nome: 'Serviço' }
+  ];
 
  return (
  <div className="bg-gray-50 border-b border-gray-200 p-4 animate-slide-down shadow-inner rounded-lg mb-4">
@@ -176,6 +183,7 @@ export default function FiltroPedidos({
  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-4 items-end">
  <MultiSelectDropdown label="Etapa" options={etapas?.map(e => ({...e, nome: e.nome_etapa}))} selectedIds={filters.etapaIds} onChange={(s) => handleFilterChange('etapaIds', s)} />
  <MultiSelectDropdown label="Tipo Operação" options={tipoOperacaoOptions} selectedIds={filters.tipoOperacao} onChange={(s) => handleFilterChange('tipoOperacao', s)} />
+  <MultiSelectDropdown label="Classificação" options={classificacaoOptions} selectedIds={filters.classificacao} onChange={(s) => handleFilterChange('classificacao', s)} />
  <div className="grid grid-cols-2 gap-2">
  <div>
  <label className="text-xs uppercase font-medium text-gray-500 mb-1 block">Solic. De</label>

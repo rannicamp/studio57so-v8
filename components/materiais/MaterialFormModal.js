@@ -74,6 +74,7 @@ export default function MaterialFormModal({ isOpen, onClose, onSave, material, f
  >
  <option value="Insumo">Insumo (Consumível)</option>
  <option value="Equipamento">Equipamento (Retornável)</option>
+ <option value="Serviço">Serviço</option>
  </select>
  </div>
  <div>

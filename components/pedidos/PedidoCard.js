@@ -52,8 +52,8 @@ export default function PedidoCard({ pedido, onStatusChange, onDuplicate, allSta
  };
  } else if (diffDays >= 1) {
  return {
- containerClass: 'bg-blue-600 border-l-4 border-blue-600',
- badge: <span className="text-[10px] font-bold bg-blue-600 text-blue-600 px-1.5 py-0.5 rounded flex items-center gap-1"><FontAwesomeIcon icon={faClock}/> {diffDays}d</span>
+ containerClass: 'bg-blue-50 border-l-4 border-blue-500',
+ badge: <span className="text-[10px] font-bold bg-blue-200 text-blue-800 px-1.5 py-0.5 rounded flex items-center gap-1"><FontAwesomeIcon icon={faClock}/> {diffDays}d</span>
  };
  }
  return {

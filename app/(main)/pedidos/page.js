@@ -74,7 +74,7 @@ const fetchPainelData = async (supabase, organizacaoId, empreendimentoId) => {
  turno_entrega,
  empreendimentos(nome, empresa_proprietaria_id),
  solicitante:solicitante_id(id, nome),
- itens:pedidos_compra_itens(*, fornecedor:fornecedor_id(nome, razao_social), etapa:etapa_id(nome_etapa), subetapa:subetapa_id(nome_subetapa)
+ itens:pedidos_compra_itens(*, fornecedor:fornecedor_id(nome, razao_social), etapa:etapa_id(nome_etapa), subetapa:subetapa_id(nome_subetapa), material:material_id(classificacao)
  ),
  anexos:pedidos_compra_anexos(*),
  lancamentos:lancamentos(id) `)
@@ -181,7 +181,7 @@ export default function PedidosPage() {
  if (debouncedFilters.status.length > 0 && !debouncedFilters.status.includes(pedido.status)) return false;
  if (debouncedFilters.empreendimentoIds.length > 0 && !debouncedFilters.empreendimentoIds.includes(pedido.empreendimento_id)) return false;
  if (debouncedFilters.solicitanteIds.length > 0 && !debouncedFilters.solicitanteIds.includes(pedido.solicitante_id)) return false;
- const hasItemFilters = debouncedFilters.fornecedorIds.length > 0 || debouncedFilters.etapaIds.length > 0 || debouncedFilters.subetapaIds.length > 0 || debouncedFilters.tipoOperacao.length > 0;
+ const hasItemFilters = debouncedFilters.fornecedorIds.length > 0 || debouncedFilters.etapaIds.length > 0 || debouncedFilters.subetapaIds.length > 0 || debouncedFilters.tipoOperacao.length > 0 || debouncedFilters.classificacao?.length > 0;
  if (hasItemFilters && itens.length === 0) return false;
  if (hasItemFilters) {
  const match = itens.some(item => {
