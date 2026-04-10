@@ -248,12 +248,19 @@ export default function PanelConciliacaoCartao({ contas, initialContaId, faturaV
  const { data: arquivosOfxMes, isLoading: isLoadingArquivos } = useQuery({
  queryKey: ['arquivosOfxCartaoConciliacao', accountIds, organizacaoId, faturaVencimento],
  queryFn: async () => {
+ const anoMes = faturaVencimento.substring(0, 7);
+ const startMonth = `${anoMes}-01`;
+ const splitData = anoMes.split('-');
+ const lastDay = new Date(Number(splitData[0]), Number(splitData[1]), 0).getDate();
+ const endMonth = `${anoMes}-${String(lastDay).padStart(2, '0')}`;
+
  const { data, error } = await supabase
  .from('banco_arquivos_ofx')
  .select('id')
  .in('conta_id', accountIds)
  .eq('organizacao_id', organizacaoId)
- .eq('periodo_inicio', faturaVencimento); // Usamos periodo_inicio para rastrear a fatura q ele pertence
+ .gte('periodo_inicio', startMonth)
+ .lte('periodo_inicio', endMonth); // Compara pelo mês da fatura, não pelo dia exato que varia!
  if (error) throw error;
  return data.map(d => d.id) || [];
  },

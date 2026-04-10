@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenerativeAI, SchemaType } from '@google/generative-ai';
 import { GoogleAIFileManager } from '@google/generative-ai/server';
 import crypto from 'crypto';
 import { enviarNotificacao } from '@/utils/notificacoes';
@@ -21,7 +21,7 @@ const fileManager = new GoogleAIFileManager(apiKey);
 export async function POST(request) {
  try {
  const body = await request.json();
- const { arquivoId, arquivoUrl, organizacaoId, contaSelecionadaId, usuarioId } = body;
+ const { arquivoId, arquivoUrl, organizacaoId, contaSelecionadaId, usuarioId, faturaSelecionadaVencimento } = body;
 
  if (!arquivoId || !arquivoUrl || !organizacaoId) {
  return NextResponse.json({ error: 'Dados insuficientes fornecidos.' }, { status: 400 });
@@ -29,7 +29,7 @@ export async function POST(request) {
 
  // ─── PASSO 1: FIRE AND FORGET (Desacoplamento Assíncrono) ────────────
  // Iniciamos a rotina pesada sem esperar que ela termine
- processarFaturaBackground({ arquivoId, arquivoUrl, organizacaoId, contaSelecionadaId, usuarioId })
+ processarFaturaBackground({ arquivoId, arquivoUrl, organizacaoId, contaSelecionadaId, usuarioId, faturaSelecionadaVencimento })
  .catch(err => console.error(`[FaturaBackground] Falha fatal no worker para arquivo ${arquivoId}:`, err));
 
  // ─── PASSO 2: RETORNAR RESPOSTA IMEDIATA (202 Accepted) ────────────
@@ -44,7 +44,7 @@ export async function POST(request) {
 // =========================================================================
 // WORKER DE BACKGROUND (Roda de forma assíncrona aliviando a interface)
 // =========================================================================
-async function processarFaturaBackground({ arquivoId, arquivoUrl, organizacaoId, contaSelecionadaId, usuarioId }) {
+async function processarFaturaBackground({ arquivoId, arquivoUrl, organizacaoId, contaSelecionadaId, usuarioId, faturaSelecionadaVencimento }) {
  console.log(`[FaturaBackground] Iniciando processamento do arquivo ${arquivoId}`);
  let geminiFileUri = null;
  let geminiFileName = null;
@@ -75,16 +75,52 @@ async function processarFaturaBackground({ arquivoId, arquivoUrl, organizacaoId,
  try { fs.unlinkSync(tempFilePath); } catch(e){}
 
  // ─── ETAPA B: Geração do Conteúdo IA ────────────
- console.log(`[FaturaBackground] Chamando Modelo Gemini 2.5 Flash...`);
- const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+ console.log(`[FaturaBackground] Chamando Modelo Gemini 3.1 Pro Preview...`);
+  
+ const generationConfig = {
+   responseMimeType: "application/json",
+   responseSchema: {
+     type: SchemaType.ARRAY,
+     description: "Lista de faturas e cartões extraídos do documento",
+     items: {
+       type: SchemaType.OBJECT,
+       properties: {
+         cartao_final: { type: SchemaType.STRING, description: "Os últimos 4 dígitos numéricos do cartão" },
+         titular: { type: SchemaType.STRING, description: "Nome do titular do cartão" },
+         bandeira: { type: SchemaType.STRING, description: "Bandeira do cartão (ex: Elo, Visa)" },
+         instituicao: { type: SchemaType.STRING, description: "Nome do Banco ou Instituição" },
+         data_vencimento_fatura: { type: SchemaType.STRING, description: "Formato rígido YYYY-MM-DD" },
+         data_fechamento_fatura: { type: SchemaType.STRING, description: "Formato rígido YYYY-MM-DD" },
+         limite_credito: { type: SchemaType.NUMBER, description: "Valor do limite, em número positivo sem formatação monetária" },
+         lancamentos: {
+           type: SchemaType.ARRAY,
+           description: "Todas as transações validadas pertencentes a este cartão nesta fatura",
+           items: {
+             type: SchemaType.OBJECT,
+             properties: {
+               data_transacao: { type: SchemaType.STRING, description: "Formato rígido YYYY-MM-DD" },
+               descricao: { type: SchemaType.STRING, description: "Nome do estabelecimento limpo" },
+               valor: { type: SchemaType.NUMBER, description: "Valor absoluto e sempre positivo, seja compra ou estorno" },
+               tipo: { type: SchemaType.STRING, enum: ["Despesa", "Receita"], description: "Despesa para compras, Receita para descontos/estornos" }
+             },
+             required: ["data_transacao", "descricao", "valor", "tipo"]
+           }
+         }
+       },
+       required: ["cartao_final", "titular", "data_vencimento_fatura", "lancamentos"]
+     }
+   }
+ };
+
+ const model = genAI.getGenerativeModel({ model: 'gemini-3.1-pro-preview', generationConfig });
 
  const prompt = `Você é um assistente especializado em contabilidade e processamento de dados financeiros para o sistema "Studio 57".
-Sua única função é analisar ESTE PDF de uma fatura de cartão de crédito e extrair os dados em formato JSON estruturado.
+Sua única função é analisar ESTE PDF de uma fatura de cartão de crédito e extrair os dados. DEVOLVA APENAS OS DADOS SEGUINDO A ESTRUTURA DECLARADA.
 
 🚫 REGRAS RÍGIDAS — O QUE IGNORAR (LIXO):
-- IGNORE FORTEMENTE PAGAMENTOS DA FATURA: Qualquer linha indicando que a fatura foi paga deve ser DESCARTADA (ex: "PGTO DEBITO CONTA", "PAGAMENTO DE FATURA", "PGTO EM LOTERICA", "PAGAMENTO EFETUADO", "SALDO FATURA ANTERIOR", "PAGAMENTO TITULO"). Isso NÃO é uma receita, é a baixa da fatura anterior.
-- IGNORE: Juros de Financiamento, Encargos, Multa, IOF, Limite de Crédito, Saldo Atual, Resumo da Fatura.
-- IGNORE: Detalhamentos de limite e tabelas de parcelas pendentes (ex: "Parcela 02/05 a vencer"). - EXTRAIA APENAS: Compras, Serviços, Estornos e Transações reais efetivadas e cobradas NESTA fatura.
+- INCLUIR PAGAMENTOS DA FATURA COMO RECEITA MINUCIOSAMENTE: O pagamento da fatura anterior DEVE OBRIGATORIAMENTE ser extraído e classificado como 'Receita'. Procure em todo o documento (inclusive dentro de quadros de Resumo Fatura) por linhas como ("PGTO DEBITO CONTA", "PAGAMENTO DE FATURA", "PGTO EM LOTERICA", "PGTO. TITULO", "PAGAMENTO EFETUADO"). Jamais omita o pagamento da fatura!
+ - IGNORE: Juros de Financiamento, Encargos, Multa, IOF, Limite de Crédito, Saldo Atual, Mensagens Institucionais.
+ - IGNORE: Detalhamentos de limite e tabelas parceladas. EXTRAIA APENAS compras e OBRIGATORIAMENTE o(s) pagamento(s) / baixa(s) desta fatura.
 
 📅 TRATAMENTO DE DATA E TRANSAÇÕES ANTIGAS (MUITO IMPORTANTE):
 - REGRA DE OURO PARA DATAS (EX: CAIXA): Jamais invente um ano futuro (ex: 2027) se não estiver expressamente escrito. Se a compra não tem ano, deduza pelo cabeçalho da fatura (ex: Vencimento "FEV26" pertence a 2026 e Janeiro a Fev26 pertencem a 2026).
@@ -100,39 +136,14 @@ Sua única função é analisar ESTE PDF de uma fatura de cartão de crédito e 
 🃏 CARTÕES MÚLTIPLOS E DEPENDENTES:
 - Faturas frequentemente contêm compras do "Titular" e de "Cartões Adicionais". - Separe em objetos distintos se o cartão final FOR DIFERENTE.
 - Associe cada lançamento rigorosamente ao titular e final de cartão correspondente na fatura.
-- ATENÇÃO: Se um cartão na fatura NÃO TEM NENHUM LANÇAMENTO ou zerado no detalhamento, NÃO RETORNE ELE DE MANEIRA ALGUMA. Retorne apenas cartões listados no JSON que possuírem compras validadas incluídas no array de "lancamentos".
-
-Retorne EXCLUSIVAMENTE um Array JSON válido, SEM markdown, SEM texto extra, SEM blocos de código. Apenas o JSON puro.
-
-A estrutura DEVE SER EXATAMENTE ESTA:
-[
- {
- "cartao_final": "0753",
- "titular": "Igor M A Rezende",
- "bandeira": "Elo",
- "instituicao": "Banco do Brasil",
- "data_vencimento_fatura": "2026-02-10",
- "data_fechamento_fatura": "2026-01-07",
- "limite_credito": 5000.00,
- "lancamentos": [
- {
- "data_transacao": "2026-01-15",
- "descricao": "NOME DO ESTABELECIMENTO",
- "valor": 150.00,
- "tipo": "Despesa"
- }
- ]
- }
-]`;
+- ATENÇÃO: Se um cartão na fatura NÃO TEM NENHUM LANÇAMENTO ou zerado no detalhamento, NÃO RETORNE ELE DE MANEIRA ALGUMA. Retorne apenas cartões que possuírem compras validadas incluídas no array de "lancamentos".`;
 
  const result = await model.generateContent([
  { fileData: { mimeType: 'application/pdf', fileUri: geminiFileUri } },
  prompt
  ]);
 
- const responseText = await result.response.text();
- let cleanJson = responseText.replace(/```json/gi, '').replace(/```/g, '').trim();
- const extratos = JSON.parse(cleanJson);
+ const extratos = JSON.parse(result.response.text());
 
  if (!extratos || extratos.length === 0) {
  throw new Error("A IA não encontrou nenhum lançamento válido na fatura.");
@@ -140,98 +151,54 @@ A estrutura DEVE SER EXATAMENTE ESTA:
 
  console.log(`[FaturaBackground] JSON extraído com sucesso. Contém ${extratos.length} cartão(ões).`);
 
- // ─── ETAPA C: Processar DB Supabase (O Trabalho Centralizado) ────────────
+ // ─── ETAPA C: Processar DB Supabase (Centralização Forte na Fatura Atual) ────────────
  let totalEnviados = 0;
- let primeiroVencimento = null;
 
- // Recupera o arquivo original para clonagem (se a fatura tiver múltiplos cartões)
- const { data: originalArq } = await supabaseAdmin.from('banco_arquivos_ofx')
- .select('*').eq('id', arquivoId).single();
+ const matchedContaId = Number(contaSelecionadaId);
+ const dataVencimentoReal = faturaSelecionadaVencimento || extratos[0]?.data_vencimento_fatura || new Date().toISOString().split('T')[0];
 
- for (let eIndex = 0; eIndex < extratos.length; eIndex++) {
- const extrato = extratos[eIndex];
- if (!extrato.lancamentos || extrato.lancamentos.length === 0) continue;
-
- const finalDigits = extrato.cartao_final ? String(extrato.cartao_final).trim() : '';
- let matchedContaId = contaSelecionadaId;
-
- // Tentativa de Roteamento de Cartões Dependentes
- if (finalDigits.length >= 4) {
- const { data: contaExistente } = await supabaseAdmin.from('contas_financeiras')
- .select('id').eq('organizacao_id', organizacaoId)
- .ilike('numero_conta', `%${finalDigits}%`).limit(1).single();
- if (contaExistente) {
- matchedContaId = contaExistente.id;
- } else {
- // Auto Criar Cartão
- const nomeContaIA = `⚠️ Cartão Final ${finalDigits} - ${extrato.titular || 'Titular IA'}`;
- const dFechamento = extrato.data_fechamento_fatura ? parseInt(extrato.data_fechamento_fatura.split('-')[2]) : null;
- const dPagamento = extrato.data_vencimento_fatura ? parseInt(extrato.data_vencimento_fatura.split('-')[2]) : null;
-
- const { data: novaConta } = await supabaseAdmin.from('contas_financeiras').insert({
- nome: nomeContaIA, tipo: 'Cartão de Crédito', numero_conta: finalDigits,
- instituicao: extrato.instituicao || extrato.bandeira || null,
- dia_fechamento_fatura: dFechamento, dia_pagamento_fatura: dPagamento,
- limite_credito: extrato.limite_credito || null, saldo_inicial: 0, organizacao_id: organizacaoId,
- }).select('id').single();
-
- if (novaConta) matchedContaId = novaConta.id;
- }
- }
-
- const dataVencimentoIA = extrato.data_vencimento_fatura || new Date().toISOString().split('T')[0];
- if (!primeiroVencimento) primeiroVencimento = dataVencimentoIA;
-
- // Criar Fatura (se não existir, cria a casca batendo o mês)
- const mesRef = dataVencimentoIA.substring(0, 7);
- await supabaseAdmin.from('faturas_cartao').upsert({
- conta_id: Number(matchedContaId), organizacao_id: organizacaoId, mes_referencia: mesRef,
- data_vencimento: dataVencimentoIA, data_fechamento: extrato.data_fechamento_fatura || dataVencimentoIA, status: 'Fechada'
- }, { onConflict: 'conta_id,mes_referencia', ignoreDuplicates: true });
-
- // GERENCIAMENTO DO ARQUIVO CABEÇALHO (Vínculo Visual na UI)
- let useArqId = arquivoId;
- if (eIndex === 0) {
- // O primeiro cartão atualiza o arquivo base que o usuário subiu
+ // 1. Atualizar o CABEÇALHO do Arquivo único enviado
  await supabaseAdmin.from('banco_arquivos_ofx').update({
- conta_id: Number(matchedContaId),
+ conta_id: matchedContaId,
  status: 'Processado IA',
- periodo_inicio: dataVencimentoIA,
- periodo_fim: dataVencimentoIA
+ periodo_inicio: dataVencimentoReal,
+ periodo_fim: dataVencimentoReal
  }).eq('id', arquivoId);
- } else if (originalArq) {
- // IA achou cartões extras no mesmo PDF. Cria um clone da "capa" na UI.
- const { data: arqClone } = await supabaseAdmin.from('banco_arquivos_ofx').insert({
- organizacao_id: organizacaoId,
- conta_id: Number(matchedContaId),
- nome_arquivo: originalArq.nome_arquivo,
- status: 'Processado IA',
- periodo_inicio: dataVencimentoIA,
- periodo_fim: dataVencimentoIA,
- arquivo_url: originalArq.arquivo_url
- }).select('id').single();
- if (arqClone) useArqId = arqClone.id;
- }
 
- // Preparar Transações com MD5 Hashing Robusto Anti-Duplicata
- const payloadTransacoes = extrato.lancamentos.map((l, index) => {
- const dataTrans = l.data_transacao || dataVencimentoIA;
+ // 2. Achatamento (Flatten) de todos os cartões num array único
+ const allLancamentosToProcess = [];
+ extratos.forEach((extrato) => {
+ if (!extrato.lancamentos || extrato.lancamentos.length === 0) return;
+ const finalDigits = extrato.cartao_final ? String(extrato.cartao_final).trim() : '';
+ extrato.lancamentos.forEach((l) => {
+ allLancamentosToProcess.push({
+ finalDigits,
+ titular: extrato.titular,
+ ...l
+ });
+ });
+ });
+
+ // 3. Preparar Transações com Hashing Robusto Anti-Duplicata
+ const payloadTransacoes = allLancamentosToProcess.map((l, index) => {
+ const dataTrans = l.data_transacao || dataVencimentoReal;
  const tipoLetra = l.tipo === 'Despesa' ? 'D' : 'R';
- const baseHashText = `${finalDigits}-${dataTrans}-${l.valor}-${tipoLetra}-${index}`;
+ const baseHashText = `${l.finalDigits}-${dataTrans}-${l.valor}-${tipoLetra}-${index}`;
  const robustHash = crypto.createHash('md5').update(baseHashText).digest('hex').substring(0, 16);
- const fitidFormatado = `CC-${finalDigits || '00'}-${robustHash}`;
+ const fitidFormatado = `CC-${l.finalDigits || '00'}-${robustHash}`;
 
  return {
- fitid: fitidFormatado, arquivo_id: useArqId, organizacao_id: organizacaoId, conta_id: matchedContaId,
+ fitid: fitidFormatado, arquivo_id: arquivoId, organizacao_id: organizacaoId, conta_id: matchedContaId,
  data_transacao: dataTrans, valor: l.tipo === 'Despesa' ? -Math.abs(l.valor) : Math.abs(l.valor),
- tipo: l.tipo, descricao_banco: l.descricao || 'Compra Cartão', memo_banco: `Fatura IA: ${extrato.titular || 'Titular'}`
+ tipo: l.tipo, descricao_banco: l.descricao || 'Compra Cartão', memo_banco: `Cartão ${l.finalDigits} (${l.titular || 'Adicional'})`
  };
  });
 
+ // 4. Insert Massivo na Conta Unificada
  if (payloadTransacoes.length > 0) {
  const { error } = await supabaseAdmin.from('banco_transacoes_ofx').upsert(payloadTransacoes, { onConflict: 'fitid' });
- if(!error) totalEnviados += payloadTransacoes.length;
- }
+ if (!error) totalEnviados = payloadTransacoes.length;
+ else console.error("[FaturaBackground] Erro Upsert:", error);
  }
  console.log(`[FaturaBackground] Sucesso Total! ${totalEnviados} transações processadas.`);
 

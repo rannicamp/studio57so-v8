@@ -5,7 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '../../utils/supabase/client';
 import { useAuth } from '../../contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner, faLandmark, faArrowUp, faArrowDown, faAngleRight, faTrash, faHandHoldingDollar, faCheckCircle, faExclamationTriangle, faFileAlt, faChevronDown, faChevronRight, faTimes, faCheck, faMagic, faEye, faExpand, faFolderOpen, faExchangeAlt, faSearch, faSort, faSync, faArrowRightArrowLeft } from '@fortawesome/free-solid-svg-icons';
+import { faSpinner, faLandmark, faArrowUp, faArrowDown, faAngleRight, faTrash, faHandHoldingDollar, faCheckCircle, faExclamationTriangle, faFileAlt, faChevronDown, faChevronRight, faTimes, faCheck, faMagic, faEye, faExpand, faFolderOpen, faExchangeAlt, faSearch, faSort, faSync, faArrowRightArrowLeft, faPaperclip } from '@fortawesome/free-solid-svg-icons';
 import { format, parseISO, isBefore, startOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
@@ -871,14 +871,6 @@ export default function ExtratoCartaoManager({ contasCartao }) {
  <FontAwesomeIcon icon={faFolderOpen} className="text-gray-500" />
  <span className="hidden sm:inline">Gestão de </span>Arquivos
  </button>
- <button
- onClick={() => setIsUppyOpen(true)}
- disabled={isExtractingPDF}
- className="flex-1 md:flex-none items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-sm transition-all disabled:opacity-60"
- >
- {isExtractingPDF ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faMagic} />}
- Importar Fatura (IA)
- </button>
  </div>
 
  {/* Cards de Totais da Fatura */}
@@ -927,8 +919,8 @@ export default function ExtratoCartaoManager({ contasCartao }) {
  const isFaturaAtual = fatura.id === idFaturaAtualOficial;
  const isInFuturo = !isAtrasada && !isFaturaAtual;
 
- // Arquivos IA para esta fatura (compara pelo periodo_inicio)
- const arquivosFatura = (arquivosOfxMes || []).filter(a => a.periodo_inicio === fatura.data_vencimento);
+ // Arquivos IA para esta fatura (compara apenas o mês/ano, já que o dia de vencimento flutua em feriados/finais de semana)
+ const arquivosFatura = (arquivosOfxMes || []).filter(a => a.periodo_inicio && fatura.data_vencimento && a.periodo_inicio.substring(0, 7) === fatura.data_vencimento.substring(0, 7));
  const ofxAberto = ofxPainelAberto === faturaKey;
 
  return (
@@ -980,6 +972,21 @@ export default function ExtratoCartaoManager({ contasCartao }) {
  <span className="hidden sm:inline">Conciliar</span>
  </button>
  )}
+
+ {/* Botão Anexar PDF Padrão (Novo Fluxo: Sem automação de orphans) */}
+ <button
+ onClick={(e) => {
+ e.stopPropagation();
+ setFaturaSelecionadaVencimento(fatura.data_vencimento);
+ setIsUppyOpen(true);
+ }}
+ disabled={isExtractingPDF}
+ className="mr-2 px-3 py-1.5 transition-all text-xs font-bold rounded-lg border bg-white text-purple-600 border-purple-200 hover:bg-purple-50 flex items-center gap-1 shadow-sm disabled:opacity-60"
+ title="Anexar e extrair PDF nesta fatura"
+ >
+ {isExtractingPDF ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faPaperclip} />}
+ <span className="hidden sm:inline">Anexar PDF</span>
+ </button>
 
  {/* Seta de arquivos IA */}
  {arquivosFatura.length > 0 && (
