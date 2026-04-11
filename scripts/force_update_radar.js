@@ -1,6 +1,9 @@
+const fs = require('fs');
+
+const content = `// Código completo e restaurado do Radar Studio
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getRadarStats, resolveMetaIds, getDicionarioContatos } from './actions';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -42,7 +45,7 @@ export default function RadarPage() {
          const fallbackIds = [];
          queryData.topCampanhas.forEach(camp => {
              const idAnuncio = camp.anuncio_id;
-             if (idAnuncio && /^\d{15,}$/.test(idAnuncio) && !dictNomes[idAnuncio]) {
+             if (idAnuncio && /^\\d{15,}$/.test(idAnuncio) && !dictNomes[idAnuncio]) {
                  fallbackIds.push(idAnuncio);
              }
          });
@@ -54,8 +57,8 @@ export default function RadarPage() {
 
          queryData.topCampanhas = queryData.topCampanhas.map(camp => {
             let nomeAnuncio = dictNomes[camp.anuncio_id] || camp.anuncio_id || 'Não especificado';
-            if (/^\d{15,}$/.test(nomeAnuncio)) {
-               nomeAnuncio = `ID: ${nomeAnuncio} (Excluído / Órfão)`;
+            if (/^\\d{15,}$/.test(nomeAnuncio)) {
+               nomeAnuncio = \\\`ID: \\\${nomeAnuncio} (Excluído / Órfão)\\\`;
             }
             return {
                ...camp,
@@ -105,8 +108,8 @@ export default function RadarPage() {
 
   if (activeTab === 'ads') {
     return (
-      <div className="p-4 md:p-6 lg:p-8 bg-gray-50/50 min-h-screen animate-fade-in-up flex flex-col w-full">
-        <div className="w-full mb-6 flex flex-col md:flex-row items-center justify-between gap-4 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+      <div className="p-4 md:p-6 lg:p-8 bg-gray-50/50 min-h-screen animate-fade-in-up">
+        <div className="max-w-7xl mx-auto mb-6 flex flex-col md:flex-row items-center justify-between gap-4 bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
           <div>
             <h1 className="text-2xl font-black text-gray-900 tracking-tight flex items-center">
               <FontAwesomeIcon icon={faMeta} className="text-blue-600 mr-3 text-3xl" />
@@ -123,14 +126,14 @@ export default function RadarPage() {
             </button>
           </div>
         </div>
-        <div className="w-full h-full flex flex-col flex-1"><AdsManager /></div>
+        <div className="max-w-7xl mx-auto"><AdsManager /></div>
       </div>
     );
   }
 
   return (
-    <div className="p-4 md:p-6 lg:p-8 min-h-screen bg-gray-50/50 flex flex-col w-full">
-      <div className="w-full">
+    <div className="p-4 md:p-6 lg:p-8 min-h-screen bg-gray-50/50 flex justify-center w-full">
+      <div className="max-w-7xl w-full">
         
         {/* CABEÇALHO */}
         <div className="mb-8 p-6 bg-white rounded-2xl shadow-sm border border-gray-100 flex flex-col md:flex-row justify-between items-center gap-4">
@@ -151,7 +154,7 @@ export default function RadarPage() {
               </button>
             </div>
             <div className="flex gap-2 bg-gray-100 p-1 rounded-lg">
-              <button onClick={() => setSomenteMarketing(!somenteMarketing)} className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${somenteMarketing ? 'bg-indigo-100 text-indigo-700' : 'bg-white text-gray-600'}`}>
+              <button onClick={() => setSomenteMarketing(!somenteMarketing)} className={\`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors \${somenteMarketing ? 'bg-indigo-100 text-indigo-700' : 'bg-white text-gray-600'}\`}>
                 <FontAwesomeIcon icon={faFilter} className={somenteMarketing ? 'text-indigo-500' : ''} />
                 {somenteMarketing ? 'Filtro Marketing' : 'Geral'}
               </button>
@@ -238,7 +241,7 @@ export default function RadarPage() {
                       <div><span className="font-semibold text-gray-800">{item.visitas_obrigado}</span> Leads (Obrigado)</div>
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-1.5 mt-3">
-                      <div className="bg-emerald-500 h-1.5 rounded-full" style={{ width: `${item.taxa_conversao}%` }}></div>
+                      <div className="bg-emerald-500 h-1.5 rounded-full" style={{ width: \\\`\\\${item.taxa_conversao}%\\\` }}></div>
                     </div>
                   </div>
                 ))}
@@ -268,7 +271,7 @@ export default function RadarPage() {
                         nameKey="ecossistema"
                       >
                         {ecossistemas.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                          <Cell key={\\\`cell-\\\${index}\\\`} fill={COLORS[index % COLORS.length]} />
                         ))}
                       </Pie>
                       <Tooltip contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)'}} />
@@ -295,7 +298,7 @@ export default function RadarPage() {
                       <Tooltip cursor={{fill: 'transparent'}} contentStyle={{borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)'}} />
                       <Bar dataKey="qtd" barSize={20} radius={[0, 4, 4, 0]}>
                         {paginas.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={index === 0 ? '#2563eb' : '#94a3b8'} />
+                          <Cell key={\\\`cell-\\\${index}\\\`} fill={index === 0 ? '#2563eb' : '#94a3b8'} />
                         ))}
                       </Bar>
                     </BarChart>
@@ -399,3 +402,5 @@ export default function RadarPage() {
     </div>
   );
 }
+`;
+fs.writeFileSync('app/(main)/relatorios/radar/page.js', content);

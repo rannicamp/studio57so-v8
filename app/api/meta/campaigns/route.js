@@ -27,8 +27,8 @@ export async function GET(request) {
  const account = new AdAccount(adAccountId);
 
  // Busca com limite para ser rápido
- const campaigns = await account.getCampaigns(['name', 'status'], { limit: 100 });
- const adsets = await account.getAdSets(['name', 'status', 'campaign_id'], { limit: 100 });
+ const campaigns = await account.getCampaigns(['name', 'status'], { limit: 500 });
+ const adsets = await account.getAdSets(['name', 'status', 'campaign_id'], { limit: 500 });
 
  return NextResponse.json({
  campaigns: campaigns.map(c => ({ id: c.id, name: c.name, status: c.status })),

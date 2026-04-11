@@ -49,7 +49,7 @@ export async function GET(request) {
  insightsField // Injetamos a regra de período certa aqui!
  ];
 
- const adsData = await account.getAds(fields, { limit: 200 });
+ const adsData = await account.getAds(fields, { limit: 500 });
 
  const adsFormatted = adsData.map((ad) => {
  let stat = null;

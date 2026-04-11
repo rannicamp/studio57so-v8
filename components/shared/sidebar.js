@@ -38,7 +38,6 @@ export default function Sidebar({ isOpen, closeSidebar }) {
  { href: '/caixa-de-entrada', label: 'Caixa de Entrada', icon: faInbox, recurso: 'caixa_de_entrada' },
  { href: '/crm', label: 'Funil de Vendas', icon: faBullseye, recurso: 'crm' },
  { href: '/comercial/tabela-de-vendas', label: 'Tabela de Vendas', icon: faTags, recurso: 'tabela_vendas' },
- { href: '/comercial/anuncios', label: 'Anúncios', icon: faMeta, recurso: 'anuncios' },
  { href: '/contatos', label: 'Contatos', icon: faAddressBook, recurso: 'contatos' },
  { href: '/simulador-financiamento', label: 'Simulador', icon: faCalculator, recurso: 'simulador' },
  ]
