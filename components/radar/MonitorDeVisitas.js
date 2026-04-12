@@ -1,17 +1,14 @@
 // Caminho: components/radar/MonitorDeVisitas.js
 'use client';
 
-import { useEffect, Suspense } from 'react';
+import { useEffect, Suspense, useRef } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { registrarVisita } from '@/app/_actions/monitorActions';
 
-// Função auxiliar para gerar ID único (funciona em qualquer lugar)
 const gerarIDUnico = () => {
- // 1. Tenta usar o método moderno e seguro do navegador
  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
  return crypto.randomUUID();
  }
- // 2. Plano B: Método manual para quando acessa pelo IP da rede (http://192...)
  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
  var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
  return v.toString(16);
@@ -20,26 +17,30 @@ const gerarIDUnico = () => {
 
 function MonitorLogico() {
  const pathname = usePathname();
- const searchParams = useSearchParams(); useEffect(() => {
- // 1. Gerenciamento de Sessão (O "Crachá" do visitante)
+ const searchParams = useSearchParams();
+ const tempoInicial = useRef(Date.now());
+ const sessaoRef = useRef(null);
+
+ useEffect(() => {
+ // Ponto zero do cronômetro quando a URL muda
+ tempoInicial.current = Date.now();
+
  let sessionId = localStorage.getItem('studio57_session_id');
  if (!sessionId) {
- sessionId = gerarIDUnico(); // Usamos nossa função blindada aqui
+ sessionId = gerarIDUnico();
  localStorage.setItem('studio57_session_id', sessionId);
  }
+ sessaoRef.current = sessionId;
 
- // 2. Detecta Dispositivo
  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
  const tipoDispositivo = isMobile ? 'Celular' : 'Computador';
 
- // 3. Captura Inteligente de Origem (UTMs e Referrer)
  let origem = document.referrer;
  if (!origem) origem = 'Acesso Direto';
  else if (origem.includes('google')) origem = 'Google Orgânico';
  else if (origem.includes('instagram')) origem = 'Instagram';
  else if (origem.includes('facebook')) origem = 'Facebook';
 
- // UTMs têm prioridade sobre o referrer padrão
  const utmSource = searchParams.get('utm_source');
  const utmMedium = searchParams.get('utm_medium');
  const utmCampaign = searchParams.get('utm_campaign');
@@ -47,25 +48,71 @@ function MonitorLogico() {
 
  if (utmSource) origem = `Anúncio (${utmSource})`;
 
- // 4. Prepara o pacote completo de dados
+ const urlAtual = window.location.href;
+
  const dadosDaVisita = {
  pagina: pathname,
  origem: origem,
  dispositivo: tipoDispositivo,
  session_id: sessionId,
- url_completa: window.location.href,
+ url_completa: urlAtual,
  utm_medium: utmMedium,
  utm_campaign: utmCampaign,
  utm_content: utmContent
  };
 
- // 5. Envia para o servidor
- // Usamos um pequeno timeout para não travar o carregamento inicial da página
+ // Registra "Entrada" (PageView)
  const timeoutId = setTimeout(() => {
  registrarVisita(dadosDaVisita);
  }, 1000);
 
- return () => clearTimeout(timeoutId);
+ // -------------------------------------------------------------
+ // MOTOR DE RETENÇÃO (Dwell Time)
+ // -------------------------------------------------------------
+ 
+ const dispararSaltoTemporal = () => {
+    if (!sessaoRef.current) return;
+    const duracaoSegundos = Math.floor((Date.now() - tempoInicial.current) / 1000);
+    if (duracaoSegundos < 2) return; // Ignora se ficou menos de 2s
+
+    const payload = JSON.stringify({
+       session_id: sessaoRef.current,
+       url_completa: urlAtual,
+       tempo_permanencia_segundos: duracaoSegundos
+    });
+
+    // Usa sendBeacon (funciona mesmo se a página estiver morrendo)
+    if (navigator.sendBeacon) {
+       navigator.sendBeacon('/api/tracker', payload);
+    } else {
+       // Fallback simples
+       fetch('/api/tracker', { method: 'POST', body: payload, keepalive: true }).catch(() => {});
+    }
+ };
+
+ // Evento 1: Antes de Descarregar (Sair do Site/Aba)
+ window.addEventListener('beforeunload', dispararSaltoTemporal);
+ 
+ // Evento 2: Visibilidade Mobile (minimizar app do safari/chrome)
+ const tratarVisibilidade = () => {
+    if (document.visibilityState === 'hidden') {
+       dispararSaltoTemporal();
+    }
+ };
+ document.addEventListener('visibilitychange', tratarVisibilidade);
+
+ // Evento 3: Heartbeat. Para usuários que ficam com aba aberta mas letárgicos
+ // Pings de segurança a cada 30 segundos
+ const heartbeat = setInterval(dispararSaltoTemporal, 30000);
+
+ return () => {
+   clearTimeout(timeoutId);
+   clearInterval(heartbeat);
+   window.removeEventListener('beforeunload', dispararSaltoTemporal);
+   document.removeEventListener('visibilitychange', tratarVisibilidade);
+   // Quando esse componente desmontar (mudar de rota dentro do site/SPA), enviamos os segundos retidos
+   dispararSaltoTemporal();
+ };
 
  }, [pathname, searchParams]);
 
