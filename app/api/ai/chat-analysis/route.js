@@ -116,7 +116,13 @@ Com base SOMENTE neste histórico recente, escreva um JSON rigoroso nos seguinte
     try {
       // Limpeza de blocos de marcação, caso a API teimosamente os envie
       const cleanString = textOutput.replace(/```json/gi, '').replace(/```/gi, '').trim();
-      parsedResult = JSON.parse(cleanString);
+      let rawJson = JSON.parse(cleanString);
+      
+      if (Array.isArray(rawJson)) {
+        parsedResult = rawJson[0] || {};
+      } else {
+        parsedResult = rawJson;
+      }
       
       // Adiciona o timestamp da análise
       parsedResult.last_updated = new Date().toISOString();
