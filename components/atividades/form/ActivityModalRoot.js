@@ -324,4 +324,5 @@ export default function ActivityModalRoot({
  </div>
  </div>
  );
+  return createPortal(modalContent, document.body);
 }
