@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getMessages } from '@/app/(main)/caixa-de-entrada/data-fetching';
 import { useAuth } from '@/contexts/AuthContext';
@@ -58,6 +58,16 @@ export default function MessagePanel({ contact, onBack }) {
  // Estados Visuais
  const [selectedFile, setSelectedFile] = useState(null);
  const [isFilePreviewOpen, setIsFilePreviewOpen] = useState(false);
+
+ // Lógica de Janela 24h
+ const isWindowOpen = useMemo(() => {
+   if (!contact?.last_inbound_at) return false;
+   const now = new Date();
+   const inboundDate = new Date(contact.last_inbound_at);
+   const diffMs = now - inboundDate;
+   const diffHours = diffMs / (1000 * 60 * 60);
+   return diffHours < 24;
+ }, [contact?.last_inbound_at]);
  const [viewerMedia, setViewerMedia] = useState(null);
  const [isViewerOpen, setIsViewerOpen] = useState(false);
  const [isUploaderOpen, setIsUploaderOpen] = useState(false);
@@ -158,7 +168,8 @@ export default function MessagePanel({ contact, onBack }) {
  onSuccess: () => {
  setNewMessage('');
  queryClient.invalidateQueries({ queryKey: ['messages', organizacaoId, contact?.contato_id] });
- },
+ queryClient.invalidateQueries({ queryKey: ['conversations', organizacaoId] });
+},
  onError: (e) => toast.error(e.message)
  });
 
@@ -201,7 +212,8 @@ export default function MessagePanel({ contact, onBack }) {
  },
  onSuccess: () => {
  queryClient.invalidateQueries({ queryKey: ['messages', organizacaoId, contact?.contato_id] });
- },
+ queryClient.invalidateQueries({ queryKey: ['conversations', organizacaoId] });
+},
  onError: (e) => toast.error(e.message)
  });
 
@@ -228,7 +240,8 @@ export default function MessagePanel({ contact, onBack }) {
  onSuccess: () => {
  toast.success("Localização enviada!");
  queryClient.invalidateQueries({ queryKey: ['messages', organizacaoId, contact?.contato_id] });
- },
+ queryClient.invalidateQueries({ queryKey: ['conversations', organizacaoId] });
+},
  onError: (e) => toast.error("Erro ao enviar local: " + e.message)
  });
 
@@ -391,13 +404,13 @@ export default function MessagePanel({ contact, onBack }) {
  onOpenUploader={() => setIsUploaderOpen(true)}
  onOpenTemplate={() => setIsTemplateModalOpen(true)}
 
- // Passamos a função para abrir o modal de mapa
  onOpenLocation={() => setIsLocationModalOpen(true)}
 
  recorder={recorder}
  uploadingOrProcessing={sendAttachmentMutation.isPending || sendLocationMutation.isPending}
  onPasteFile={handlePasteFile}
  recipientPhone={cleanPhoneNumber(recipientPhone)}
+ isWindowOpen={isWindowOpen}
  />
  </div>
  </>

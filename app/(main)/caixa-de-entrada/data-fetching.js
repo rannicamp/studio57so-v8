@@ -110,14 +110,15 @@ export const getBroadcastLists = async (supabase, organizacaoId) => {
 
 // --- FUNÇÃO: BUSCAR MENSAGENS DO CHAT ---
 export const getMessages = async (supabase, organizacaoId, contatoId) => {
- if (!organizacaoId || !contatoId) return [];
+  if (!organizacaoId || !contatoId) return [];
 
- const { data, error } = await supabase
- .from('whatsapp_messages')
- .select('*') // ISSO É VITAL: Traz raw_payload e tudo mais
- .eq('organizacao_id', organizacaoId)
- .eq('contato_id', contatoId)
- .order('sent_at', { ascending: true });
+  const { data, error } = await supabase
+  .from('whatsapp_messages')
+  .select('*') // ISSO É VITAL: Traz raw_payload e tudo mais
+  .eq('organizacao_id', organizacaoId)
+  .eq('contato_id', contatoId)
+  .order('sent_at', { ascending: true })
+  .order('id', { ascending: true });
 
   if (error) {
   console.error('Erro ao buscar mensagens:', error?.message || error, JSON.stringify(error, Object.getOwnPropertyNames(error)));

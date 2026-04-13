@@ -1,39 +1,39 @@
-// app/api/whatsapp/webhook/services/crm.js
 import { logWebhook, getTextContent } from './helpers';
+import { formatarParaWhatsAppBR } from '@/utils/phoneUtils';
 
 export async function findOrCreateContactAndConversation(supabaseAdmin, message, config) {
- const from = message.from;
+ const rawFrom = message.from;
  const orgId = config.organizacao_id;
  let contatoId = null;
  let conversationRecordId = null;
- let contatoNome = `Lead (${from})`;
+ let contatoNome = `Lead (${rawFrom})`;
 
- // 1. Tenta achar pelo telefone (últimos 8 dígitos para evitar erro de 9º dígito)
- const phoneSuffix = from.slice(-8);
+ // GARANTIA DE UNICIDADE DO 9º DÍGITO
+ const from = formatarParaWhatsAppBR(rawFrom);
 
- // Busca na tabela de telefones
- const { data: telefoneExistente } = await supabaseAdmin
- .from('telefones')
- .select('contato_id')
- .eq('organizacao_id', orgId)
- .ilike('telefone', `%${phoneSuffix}%`)
- .limit(1)
- .maybeSingle();
-
- if (telefoneExistente) {
- contatoId = telefoneExistente.contato_id;
- } else {
- // Fallback: Busca na conversa existente
- const { data: conversaExistente } = await supabaseAdmin
- .from('whatsapp_conversations')
- .select('contato_id')
- .eq('phone_number', from)
- .eq('organizacao_id', orgId)
- .maybeSingle();
-
- if (conversaExistente?.contato_id) {
- contatoId = conversaExistente.contato_id;
+ // 1. Tentar achar o contato inteligentemente
+ try {
+   const { data } = await supabaseAdmin.rpc('find_contact_smart', { 
+       phone_input: from,
+       v_org_id: orgId
+   });
+   contatoId = data;
+ } catch (error) {
+   console.warn('[CRM] Erro ao buscar via RPC', error);
  }
+ 
+ if (!contatoId) {
+   // Fallback: Busca na conversa existente
+   const { data: conversaExistente } = await supabaseAdmin
+   .from('whatsapp_conversations')
+   .select('contato_id')
+   .eq('phone_number', from)
+   .eq('organizacao_id', orgId)
+   .maybeSingle();
+
+   if (conversaExistente?.contato_id) {
+     contatoId = conversaExistente.contato_id;
+   }
  }
 
  // 2. Se não achou, CRIA TUDO (Lead, Telefone, Funil)
@@ -149,7 +149,7 @@ export async function findOrCreateContactAndConversation(supabaseAdmin, message,
  // =========================================================================
  const isInbound = !message.from_me; // Mensagens do cliente não têm from_me === true
  const upsertData = {
- phone_number: from,
+ phone_number: from, // Usando 12 dígitos normalizado
  updated_at: new Date().toISOString(),
  contato_id: contatoId,
  organizacao_id: orgId,
@@ -158,7 +158,7 @@ export async function findOrCreateContactAndConversation(supabaseAdmin, message,
 
  // 3. Garante que a Conversa existe (Upsert)
  const { data: conversationData } = await supabaseAdmin.from('whatsapp_conversations')
- .upsert(upsertData, { onConflict: 'phone_number' })
+ .upsert(upsertData, { onConflict: 'phone_number', ignoreDuplicates: false })
  .select()
  .single();
 
