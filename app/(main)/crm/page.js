@@ -243,11 +243,6 @@ export default function CrmPage() {
  const [showFilters, setShowFilters] = useState(false);
  const [debouncedFilters] = useDebounce(filters, 500);
 
- useEffect(() => {
- if (typeof window !== 'undefined') {
- localStorage.setItem(CRM_UI_STATE_KEY, JSON.stringify({ filters, sorting, selectedFunilId }));
- }
- }, [filters, sorting, selectedFunilId]);
 
  const [isAddContactModalOpen, setIsAddContactModalOpen] = useState(false);
  const [searchResults, setSearchResults] = useState([]);
@@ -267,6 +262,11 @@ export default function CrmPage() {
 
  // --- SELEÇÃO DE FUNIL ---
  const [selectedFunilId, setSelectedFunilId] = useState(cachedState?.selectedFunilId || null);
+ useEffect(() => {
+ if (typeof window !== 'undefined') {
+ localStorage.setItem(CRM_UI_STATE_KEY, JSON.stringify({ filters, sorting, selectedFunilId }));
+ }
+ }, [filters, sorting, selectedFunilId]);
  const [isNovoFunilOpen, setIsNovoFunilOpen] = useState(false);
  const [novoFunilNome, setNovoFunilNome] = useState('');
  const [isFunilDropdownOpen, setIsFunilDropdownOpen] = useState(false);
