@@ -25,7 +25,7 @@ const getDefaultFilterState = () => ({
  startDate: '',
  endDate: '', // VAZIO = Mostra tudo até o momento atual
  isDynamicEndDate: false, // Desligado por padrão para evitar confusão
-  hasTasks: false,
+ activityStatus: 'Todas',
 });
 
 export default function FiltroCrm({ filters, setFilters, unidades, origens, campaigns, ads, corretores
@@ -105,7 +105,26 @@ export default function FiltroCrm({ filters, setFilters, unidades, origens, camp
 
  return (
  <div className="bg-gray-50 border-b border-gray-200 p-4 animate-slide-down shadow-inner">
- <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+ <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+  {/* Status de Atividade */}
+  <div>
+    <label className="text-xs uppercase font-medium text-gray-600 block mb-1">Status de Atividade</label>
+    <select
+      value={filters.activityStatus || 'Todas'}
+      onChange={(e) => handleFilterChange('activityStatus', e.target.value)}
+      className="w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm p-2 bg-white"
+    >
+      <option value="Todas">Todas (Padrão)</option>
+      <option value="Com Atividades">Com Atividades</option>
+      <option value="Sem Atividades">Sem Atividades</option>
+      <option value="Não Iniciado">Não Iniciado</option>
+      <option value="Em Andamento">Em Andamento</option>
+      <option value="Aguardando">Aguardando</option>
+      <option value="Concluído">Concluído</option>
+      <option value="Cancelado">Cancelado</option>
+    </select>
+  </div>
+
  {/* Corretores */}
  <div>
  <MultiSelectDropdown label="Corretor Responsável" options={corretores || []} selectedIds={filters.corretorIds} onChange={(selected) => handleFilterChange('corretorIds', selected)} placeholder="Todos os Corretores" />

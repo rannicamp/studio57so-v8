@@ -173,8 +173,18 @@ const fetchFunilData = async (supabase, organizacaoId, funilId, filters) => {
  if (contatosError) throw contatosError;
 
  let finalContatos = (contatosNoFunilRaw || []).filter(item => item.contatos?.id);
-  if (filters.hasTasks) {
-    finalContatos = finalContatos.filter(item => item.contatos.activities && item.contatos.activities.length > 0);
+  if (filters.activityStatus && filters.activityStatus !== 'Todas') {
+    if (filters.activityStatus === 'Com Atividades') {
+      finalContatos = finalContatos.filter(item => item.contatos.activities && item.contatos.activities.length > 0);
+    } else if (filters.activityStatus === 'Sem Atividades') {
+      finalContatos = finalContatos.filter(item => !item.contatos.activities || item.contatos.activities.length === 0);
+    } else {
+      // Filtrar por status de atividade específico
+      finalContatos = finalContatos.filter(item => 
+        item.contatos.activities && 
+        item.contatos.activities.some(act => act.status === filters.activityStatus)
+      );
+    }
   }
   return { colunasDoFunil: todasColunas, contatosNoFunil: finalContatos };
 };
@@ -236,7 +246,7 @@ export default function CrmPage() {
  const queryClient = useQueryClient();
 
  const cachedState = getCachedUiState();
- const defaultFilters = { searchTerm: '', corretorIds: [], origens: [], unidadeIds: [], campaignIds: [], adIds: [], startDate: '', endDate: '', hasTasks: false };
+ const defaultFilters = { searchTerm: '', corretorIds: [], origens: [], unidadeIds: [], campaignIds: [], adIds: [], startDate: '', endDate: '', activityStatus: 'Todas' };
 
  const [filters, setFilters] = useState(cachedState?.filters || defaultFilters);
  const [sorting, setSorting] = useState(cachedState?.sorting || {});
