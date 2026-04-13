@@ -126,20 +126,21 @@ export default function ContatoCardCRM({
  const isMetaLead = contato.origem === 'Meta Lead Ad';
   
   // LÓGICA DO BANNER DE ATIVIDADES
-  const atividadesPendentes = (contato.activities || []).filter(a => a.status !== 'Concluído');
+  const allActivities = contato.activities || [];
+  const atividadesPendentes = allActivities.filter(a => a.status !== 'Concluído');
   const todayStr = new Date().toLocaleDateString('en-CA');
   const atividadeAtrasada = atividadesPendentes.find(a => a.data_fim_prevista && a.data_fim_prevista < todayStr);
   const isOverdueTask = !!atividadeAtrasada;
+  const hasTasks = allActivities.length > 0;
   const hasActiveTasks = atividadesPendentes.length > 0;
 
+  const currentColumn = useMemo(() => allColumns.find(c => c.id === currentColumnId), [allColumns, currentColumnId]);
+  const currentFunilId = currentColumn?.funil_id;
+  const sameFunnelColumns = useMemo(() => allColumns.filter(c => (!currentFunilId || c.funil_id === currentFunilId) && c.id !== currentColumnId), [allColumns, currentFunilId, currentColumnId]);
 
- const currentColumn = useMemo(() => allColumns.find(c => c.id === currentColumnId), [allColumns, currentColumnId]);
- const currentFunilId = currentColumn?.funil_id;
- const sameFunnelColumns = useMemo(() => allColumns.filter(c => (!currentFunilId || c.funil_id === currentFunilId) && c.id !== currentColumnId), [allColumns, currentFunilId, currentColumnId]);
-
- const adName = contato?.anuncio?.nome || contato?.meta_ad_name;
- const adsetName = contato?.adset?.nome || contato?.meta_adset_name;
- const campaignName = contato?.campanha?.nome || contato?.meta_campaign_name;
+  const adName = contato?.anuncio?.nome || contato?.meta_ad_name;
+  const adsetName = contato?.adset?.nome || contato?.meta_adset_name;
+  const campaignName = contato?.campanha?.nome || contato?.meta_campaign_name;
 
  const handleAddProduct = () => {
  if (!selectedProductId) {
@@ -185,6 +186,14 @@ export default function ContatoCardCRM({
 
  return (
  <div draggable onDragStart={handleCardDragStart} onClick={() => onCardClick(funilEntry)} className="relative bg-white p-3 rounded-md shadow border-l-4 border-blue-500 cursor-pointer hover:shadow-lg transition-shadow duration-200 text-left group">
+
+  {/* LÓGICA DO BANNER DE ATIVIDADES */}
+  {hasTasks && (
+    <div className={`mb-2 text-xs font-bold p-1 rounded-md flex items-center justify-center gap-2 ${isOverdueTask ? 'bg-red-100 text-red-700 border border-red-200' : hasActiveTasks ? 'bg-indigo-100 text-indigo-700 border border-indigo-200' : 'bg-green-100 text-green-700 border border-green-200'}`}>
+      <FontAwesomeIcon icon={isOverdueTask ? faTimes : faTasks} className={isOverdueTask ? 'text-red-600' : hasActiveTasks ? 'text-indigo-600' : 'text-green-600'} />
+      <span>{isOverdueTask ? 'TAREFA ATRASADA PENDENTE' : hasActiveTasks ? `${atividadesPendentes.length} TAREFAS ATIVAS` : `${allActivities.length} TAREFAS (CONCLUÍDAS)`}</span>
+    </div>
+  )}
 
  {/* Cabeçalho com Nome e Menu */}
  <div className="flex justify-between items-start mb-2">

@@ -113,22 +113,42 @@ export default function WhatsAppInbox({ onChangeTab, initialContactId }) {
  }
  };
 
- // --- ROTEAMENTO AUTOMÁTICO VIA URL (NOTIFICAÇÃO) ---
- useEffect(() => {
- if (initialContactId && conversations && conversations.length > 0) {
- // Pode ser o ID do contato propriamente dito
- const target = conversations.find(c => String(c.contato_id) === String(initialContactId));
- if (target && selectedContact?.contato_id !== target.contato_id) {
- // Remove o query param manipulando a URL silenciosamente pra não entrar em loop infinito se o usuario trocar de contato
- if (typeof window !== 'undefined') {
- const novaUrl = new URL(window.location.href);
- novaUrl.searchParams.delete('contato');
- window.history.replaceState({}, '', novaUrl.toString());
- }
- handleSelectContact(target);
- }
- }
- }, [initialContactId, conversations]);
+  // --- ROTEAMENTO AUTOMÁTICO VIA URL (NOTIFICAÇÃO / CRM) ---
+  useEffect(() => {
+    if (initialContactId && conversations !== undefined) { // Permite rodar mesmo se conversations.length == 0
+      const target = conversations?.find(c => String(c.contato_id) === String(initialContactId));
+      if (target && selectedContact?.contato_id !== target.contato_id) {
+        if (typeof window !== 'undefined') {
+          const novaUrl = new URL(window.location.href);
+          novaUrl.searchParams.delete('contato');
+          window.history.replaceState({}, '', novaUrl.toString());
+        }
+        handleSelectContact(target);
+      } else if (!target && selectedContact?.contato_id !== initialContactId) {
+        // Chat Virtual: Contato não tem histórico, carrega infos do BD para renderizar MessagePanel
+        const resolveVirtualChat = async () => {
+          const { data: bCont } = await supabase.from('contatos').select('id, nome, telefones(telefone)').eq('id', initialContactId).single();
+          if (bCont) {
+            const phone = bCont.telefones?.[0]?.telefone || null;
+            const virtualContact = {
+              contato_id: bCont.id,
+              nome: bCont.nome || 'Cliente',
+              phone_number: phone,
+              unread_count: 0,
+              is_virtual: true
+            };
+            if (typeof window !== 'undefined') {
+              const novaUrl = new URL(window.location.href);
+              novaUrl.searchParams.delete('contato');
+              window.history.replaceState({}, '', novaUrl.toString());
+            }
+            handleSelectContact(virtualContact);
+          }
+        };
+        resolveVirtualChat();
+      }
+    }
+  }, [initialContactId, conversations]);
 
  const handleSelectList = (list) => {
  setSelectedContact(null);

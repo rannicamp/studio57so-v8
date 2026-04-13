@@ -19,12 +19,12 @@ import { useDebounce } from 'use-debounce';
 
 import FunilKanban from '@/components/crm/FunilKanban';
 import CrmNotesModal from '@/components/crm/CrmNotesModal';
-import CrmDetalhesSidebar from '@/components/crm/CrmDetalhesSidebar';
+import ContactProfile from '@/components/whatsapp/ContactProfile';
 import AtividadeModal from '@/components/atividades/AtividadeModal';
 import KpiCard from '@/components/shared/KpiCard';
 import FiltroCrm from '@/components/crm/FiltroCrm';
-import NewConversationModal from '@/components/whatsapp/NewConversationModal';
 import MetaFormMappingModal from '@/components/crm/MetaFormMappingModal';
+import { useRouter } from 'next/navigation';
 
 // --- CHAVE ÚNICA PARA O LOCALSTORAGE (PERSISTÊNCIA) ---
 const CRM_UI_STATE_KEY = 'STUDIO57_CRM_UI_STATE_V1';
@@ -449,13 +449,25 @@ export default function CrmPage() {
  if (!contact) return;
  const phone = contact.telefones?.[0]?.telefone || contact.telefones?.[0] || contact.telefone;
  if (!phone) { toast.error("Este contato não possui telefone cadastrado."); return; }
- setContactForWhats({ id: contact.id, nome: contact.nome || contact.razao_social || 'Cliente', telefones: [{ telefone: phone }] });
- setIsWhatsModalOpen(true);
+ router.push('/caixa-de-entrada?contato=' + contact.id);
  };
 
  return (
  <div className="h-full flex flex-col bg-gray-100">
- <CrmDetalhesSidebar open={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} funilEntry={selectedContactForSidebar} onAddActivity={(c) => { setContactForNewActivity(c); setIsActivityModalOpen(true); }} onEditActivity={(a) => { setActivityToEdit(a); setIsActivityModalOpen(true); }} onContactUpdate={() => queryClient.invalidateQueries({ queryKey: ['funilData', organizacaoId, selectedFunilId, debouncedFilters] })} refreshKey={sidebarRefreshKey} />
+  {isSidebarOpen && selectedContactForSidebar && (
+    <>
+      <div className="fixed inset-0 bg-black/20 z-40" onClick={() => setIsSidebarOpen(false)} />
+      <div 
+        className="fixed top-0 right-0 h-full w-full md:w-[450px] bg-[#f0f2f5] shadow-2xl z-50 transform transition-transform duration-300 ease-in-out"
+        style={{ transform: isSidebarOpen ? 'translateX(0)' : 'translateX(100%)' }}
+      >
+        <ContactProfile 
+          contatoId={selectedContactForSidebar.contatos?.id} 
+          onClose={() => setIsSidebarOpen(false)} 
+        />
+      </div>
+    </>
+  )}
  {isActivityModalOpen && (<AtividadeModal isOpen={isActivityModalOpen} onClose={() => { setIsActivityModalOpen(false); setContactForNewActivity(null); setActivityToEdit(null); }} onActivityAdded={() => { if (isSidebarOpen) setSidebarRefreshKey(p => p + 1); }} activityToEdit={activityToEdit} initialContatoId={contactForNewActivity?.id} funcionarios={funcionarios} allEmpresas={empresas} />)}
 
  <div className="flex-shrink-0 bg-white shadow-sm p-6 space-y-6">
