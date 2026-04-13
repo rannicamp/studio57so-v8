@@ -884,10 +884,13 @@ export default function ContactProfile({ contact }) {
  <div className="space-y-2 max-h-48 overflow-y-auto border rounded-lg p-2 bg-gray-50 custom-scrollbar">
  {activities.length > 0 ? activities.map(act => (
  <div key={act.id} className="p-3 bg-white rounded border border-l-4 border-l-blue-400 group relative">
- <div className="flex justify-between items-start">
- <p className="font-semibold text-sm text-gray-800">{act.nome}</p>
- <button onClick={() => createDeleteHandler('activities', act.id)} className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100"><FontAwesomeIcon icon={faTrash} size="xs"/></button>
- </div>
+  <div className="flex justify-between items-start">
+  <p className="font-semibold text-sm text-gray-800 pr-2">{act.nome}</p>
+  <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+    <button onClick={() => { setActivityInitialData(act); setIsActivityModalOpen(true); }} className="text-gray-400 hover:text-blue-600 transition-colors" title="Ver / Editar"><FontAwesomeIcon icon={faPen} size="sm"/></button>
+    <button onClick={() => createDeleteHandler('activities', act.id)} className="text-gray-400 hover:text-red-500 transition-colors" title="Excluir"><FontAwesomeIcon icon={faTrash} size="sm"/></button>
+  </div>
+  </div>
  <div className="flex justify-between mt-1 items-center">
  <p className="text-xs text-gray-500">Prazo: {act.data_fim_prevista ? format(new Date(act.data_fim_prevista), 'dd/MM') : 'S/D'}</p>
  <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${act.status === 'Concluído' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>{act.status}</span>
