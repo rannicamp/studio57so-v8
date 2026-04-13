@@ -36,6 +36,8 @@ function addBusinessDays(startDate, days) {
  return currentDate.toISOString().split('T')[0];
 }
 
+import { createPortal } from 'react-dom';
+
 export default function ActivityModalRoot({
  isOpen,
  onClose,
@@ -245,9 +247,9 @@ export default function ActivityModalRoot({
  }
  };
 
- if (!isOpen) return null;
+ if (!isOpen || typeof document === 'undefined') return null;
 
- return (
+ const modalContent = (
  <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-200">
  <div className="bg-white w-full max-w-4xl rounded-lg shadow-2xl flex flex-col max-h-[95vh]">
 

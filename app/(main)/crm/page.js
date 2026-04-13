@@ -140,7 +140,7 @@ const fetchFunilData = async (supabase, organizacaoId, funilId, filters) => {
 
  let query = supabase.from('contatos_no_funil').select(`
  id, coluna_id, numero_card, corretor_id, created_at,
- contatos:contato_id!inner(*, telefones(telefone, tipo), emails(email, tipo),
+ contatos:contato_id!inner(*, activities(*), telefones(telefone, tipo), emails(email, tipo),
  campanha:meta_ativos!fk_meta_campaign(nome, empreendimento_id),
  adset:meta_ativos!fk_meta_adset(nome, empreendimento_id),
  anuncio:meta_ativos!fk_meta_ad(nome, empreendimento_id)
@@ -174,7 +174,7 @@ const fetchFunilData = async (supabase, organizacaoId, funilId, filters) => {
 
  let finalContatos = (contatosNoFunilRaw || []).filter(item => item.contatos?.id);
   if (filters.hasTasks) {
-    finalContatos = finalContatos.filter(item => item.contatos.activities && item.contatos.activities.some(a => a.status !== 'Concluído'));
+    finalContatos = finalContatos.filter(item => item.contatos.activities && item.contatos.activities.length > 0);
   }
   return { colunasDoFunil: todasColunas, contatosNoFunil: finalContatos };
 };
@@ -449,7 +449,7 @@ export default function CrmPage() {
  if (!contact) return;
  const phone = contact.telefones?.[0]?.telefone || contact.telefones?.[0] || contact.telefone;
  if (!phone) { toast.error("Este contato não possui telefone cadastrado."); return; }
- router.push('/caixa-de-entrada?contato=' + contact.id);
+ window.location.href = '/caixa-de-entrada?contato=' + contact.id;
  };
 
  return (
@@ -462,7 +462,7 @@ export default function CrmPage() {
         style={{ transform: isSidebarOpen ? 'translateX(0)' : 'translateX(100%)' }}
       >
         <ContactProfile 
-          contatoId={selectedContactForSidebar.contatos?.id} 
+          contact={{ contato_id: selectedContactForSidebar.contatos?.id }} 
           onClose={() => setIsSidebarOpen(false)} 
         />
       </div>
@@ -610,7 +610,7 @@ export default function CrmPage() {
  </div>
  <AddContactModal isOpen={isAddContactModalOpen} onClose={() => setIsAddContactModalOpen(false)} onSearch={handleSearch} results={searchResults} onAddContact={(id) => addContactMutation.mutate(id)} existingContactIds={(contatosNoFunil || []).map(c => c.contatos?.id).filter(Boolean)} />
  <CrmNotesModal isOpen={isNotesModalOpen} onClose={() => setIsNotesModalOpen(false)} contatoNoFunilId={currentContactFunilIdForNotes} contatoId={currentContactIdForNotes} />
- <NewConversationModal isOpen={isWhatsModalOpen} onClose={() => setIsWhatsModalOpen(false)} preSelectedContact={contactForWhats} />
+
  <MetaFormMappingModal isOpen={isMetaMappingOpen} onClose={() => setIsMetaMappingOpen(false)} organizacaoId={organizacaoId} />
 
  {/* Backdrop para fechar o dropdown de funis */}

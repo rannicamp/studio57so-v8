@@ -115,7 +115,9 @@ export default function WhatsAppInbox({ onChangeTab, initialContactId }) {
 
   // --- ROTEAMENTO AUTOMÁTICO VIA URL (NOTIFICAÇÃO / CRM) ---
   useEffect(() => {
-    if (initialContactId && conversations !== undefined) { // Permite rodar mesmo se conversations.length == 0
+    if (initialContactId && !isLoadingConversations && conversations !== undefined) {
+      // É 100% vital aguardar !isLoadingConversations senão ele não acha a conversa pq a const ta vazia
+      // e cria um Chat Virtual fake que fica preso.
       const target = conversations?.find(c => String(c.contato_id) === String(initialContactId));
       if (target && selectedContact?.contato_id !== target.contato_id) {
         if (typeof window !== 'undefined') {
@@ -125,7 +127,7 @@ export default function WhatsAppInbox({ onChangeTab, initialContactId }) {
         }
         handleSelectContact(target);
       } else if (!target && selectedContact?.contato_id !== initialContactId) {
-        // Chat Virtual: Contato não tem histórico, carrega infos do BD para renderizar MessagePanel
+        // Chat Virtual: Contato não tem histórico VERDADEIRO
         const resolveVirtualChat = async () => {
           const { data: bCont } = await supabase.from('contatos').select('id, nome, telefones(telefone)').eq('id', initialContactId).single();
           if (bCont) {
@@ -148,7 +150,7 @@ export default function WhatsAppInbox({ onChangeTab, initialContactId }) {
         resolveVirtualChat();
       }
     }
-  }, [initialContactId, conversations]);
+  }, [initialContactId, conversations, isLoadingConversations]);
 
  const handleSelectList = (list) => {
  setSelectedContact(null);
