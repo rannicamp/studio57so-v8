@@ -1,46 +1,45 @@
 require('dotenv').config({ path: '.env.local' });
-const { createClient } = require('@supabase/supabase-js');
+const { Client } = require('pg');
 
-async function getFeedbacks() {
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (!url || !key) return;
+async function run() {
+  const password = process.env.SUPABASE_DB_PASSWORD;
+  const baseHost = process.env.NEXT_PUBLIC_SUPABASE_URL.replace('https://', '').split('/')[0];
+  const projectId = baseHost.split('.')[0];
+  const host = `db.${projectId}.supabase.co`;
+  const connStr = `postgres://postgres:${password}@${host}:6543/postgres`;
 
-    const supabase = createClient(url, key);
-    
-    // Fetch feedbacks including author info
-    const { data: feedbacks, error } = await supabase
-        .from('feedback')
-        .select('*')
-        .in('status', ['Novo', 'Em Análise'])
-        .or('diagnostico.is.null,diagnostico.eq.""');
-        
-    if (error) {
-        console.error("Error fetching feedbacks:", error);
-        return;
+  const client = new Client({ connectionString: connStr });
+  await client.connect();
+  
+  try {
+    const res = await client.query(`
+      SELECT f.*,
+             (SELECT p.nome FROM funcionarios p WHERE p.user_id = f.usuario_id LIMIT 1) as user_nome,
+             (SELECT c.nome_fantasia FROM cadastro_empresa c WHERE c.organizacao_id = f.organizacao_id LIMIT 1) as org_nome
+      FROM feedback f
+      WHERE f.status IN ('Novo', 'Em Análise') 
+      AND (f.diagnostico IS NULL OR f.diagnostico = '')
+    `);
+    console.log(JSON.stringify(res.rows, null, 2));
+  } catch (err) {
+    if (err.message.includes('usuario_id')) {
+        const res2 = await client.query(`
+          SELECT f.*,
+                 (SELECT p.nome FROM funcionarios p WHERE p.user_id = f.created_by LIMIT 1) as user_nome,
+                 (SELECT c.nome_fantasia FROM cadastro_empresa c WHERE c.organizacao_id = f.organizacao_id LIMIT 1) as org_nome
+          FROM feedback f
+          WHERE f.status IN ('Novo', 'Em Análise') 
+          AND (f.diagnostico IS NULL OR f.diagnostico = '')
+        `);
+        console.log(JSON.stringify(res2.rows, null, 2));
+    } else {
+        console.error("SQL Error: ", err.message);
+        const resTables = await client.query(`
+          SELECT column_name FROM information_schema.columns WHERE table_name = 'feedback'
+        `);
+        console.log("Feedback columns: ", JSON.stringify(resTables.rows, null, 2));
     }
-    
-    console.log("Found", feedbacks.length, "pending feedbacks.");
-    
-    // Fetch names manually due to cross-table joins being complex with RLS/Auth
-    for (let f of feedbacks) {
-        if (f.usuario_id) {
-            const { data: user } = await supabase.from('funcionarios').select('nome').eq('usuario_id', f.usuario_id).maybeSingle();
-            f.autor = user ? user.nome : f.usuario_id;
-        } else {
-            f.autor = "Unknown";
-        }
-        if (f.organizacao_id) {
-            const { data: org } = await supabase.from('cadastro_empresa').select('nome_fantasia, razao_social').eq('id', f.organizacao_id).maybeSingle();
-            f.organizacao = org ? (org.nome_fantasia || org.razao_social) : f.organizacao_id;
-        } else {
-            f.organizacao = "Unknown";
-        }
-    }
-    
-    const fs = require('fs');
-    fs.writeFileSync('./scripts/pending_feedbacks.json', JSON.stringify(feedbacks, null, 2));
-    console.log("Saved pending_feedbacks.json");
+  }
+  await client.end();
 }
-
-getFeedbacks();
+run().catch(console.error);

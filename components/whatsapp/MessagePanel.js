@@ -207,7 +207,7 @@ export default function MessagePanel({ contact, onBack }) {
 
  // 3. Enviar Localização (CORRIGIDO)
  const sendLocationMutation = useMutation({
- mutationFn: async ({ latitude, longitude }) => {
+ mutationFn: async ([latitude, longitude]) => {
  const rawPhone = recipientPhoneRef.current || contact?.phone_number || contact?.telefone;
  const targetPhone = cleanPhoneNumber(rawPhone);
  if (!targetPhone) throw new Error("Número não encontrado.");
@@ -218,7 +218,8 @@ export default function MessagePanel({ contact, onBack }) {
  longitude,
  "Localização Fixada",
  "",
- contact.contato_id
+ contact.contato_id,
+ organizacaoId
  );
 
  if (!result.success) throw new Error(result.error);

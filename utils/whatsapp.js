@@ -9,7 +9,7 @@
  * @param {number|string} [contact_id] - ID do contato para vincular a mensagem no banco.
  * @returns {Promise<{success: boolean, error?: string}>} - Retorna um objeto indicando sucesso ou falha.
  */
-export async function sendWhatsAppTemplate(to, templateName, languageCode, components = [], contact_id = null) {
+export async function sendWhatsAppTemplate(to, templateName, languageCode, components = [], contact_id = null, organizacao_id = null) {
     try {
         const response = await fetch('/api/whatsapp/send', {
             method: 'POST',
@@ -22,7 +22,8 @@ export async function sendWhatsAppTemplate(to, templateName, languageCode, compo
                 templateName,
                 languageCode,
                 components,
-                contact_id // ✅ Adicionado
+                contact_id, // ✅ Adicionado
+                organizacao_id // ✅ Regra Ouro (Trava Multitenant)
             }),
         });
 
@@ -48,7 +49,7 @@ export async function sendWhatsAppTemplate(to, templateName, languageCode, compo
  * @param {number|string} [contact_id] - ID do contato para vincular a mensagem no banco.
  * @returns {Promise<{success: boolean, error?: string}>} - Retorna um objeto indicando sucesso ou falha.
  */
-export async function sendWhatsAppText(to, text, contact_id = null) {
+export async function sendWhatsAppText(to, text, contact_id = null, organizacao_id = null) {
     try {
         const response = await fetch('/api/whatsapp/send', {
             method: 'POST',
@@ -59,7 +60,8 @@ export async function sendWhatsAppText(to, text, contact_id = null) {
                 type: 'text', // Indica que é uma mensagem de texto
                 to,
                 text,
-                contact_id // ✅ Adicionado
+                contact_id, // ✅ Adicionado
+                organizacao_id // ✅ Regra Ouro
             }),
         });
 
@@ -88,7 +90,7 @@ export async function sendWhatsAppText(to, text, contact_id = null) {
  * @param {number|string} [contact_id] - ID do contato para vincular a mensagem no banco.
  * @returns {Promise<{success: boolean, error?: string}>} - Retorna um objeto indicando sucesso ou falha.
  */
-export async function sendWhatsAppMedia(to, type, link, caption, filename, contact_id = null) {
+export async function sendWhatsAppMedia(to, type, link, caption, filename, contact_id = null, organizacao_id = null) {
     try {
         const response = await fetch('/api/whatsapp/send', {
             method: 'POST',
@@ -101,7 +103,8 @@ export async function sendWhatsAppMedia(to, type, link, caption, filename, conta
                 link,
                 caption,
                 filename,
-                contact_id // ✅ Adicionado
+                contact_id, // ✅ Adicionado
+                organizacao_id // ✅ Regra Ouro
             }),
         });
 
@@ -128,7 +131,7 @@ export async function sendWhatsAppMedia(to, type, link, caption, filename, conta
  * @param {string} [address] - Endereço do local (opcional).
  * @param {number|string} [contact_id] - ID do contato para vincular a mensagem no banco.
  */
-export async function sendWhatsAppLocation(to, latitude, longitude, name, address, contact_id = null) {
+export async function sendWhatsAppLocation(to, latitude, longitude, name, address, contact_id = null, organizacao_id = null) {
     try {
         const response = await fetch('/api/whatsapp/send', {
             method: 'POST',
@@ -144,7 +147,8 @@ export async function sendWhatsAppLocation(to, latitude, longitude, name, addres
                     name: name || 'Localização Atual',
                     address: address || ''
                 },
-                contact_id // ✅ AQUI ESTÁ A CORREÇÃO DE OURO!
+                contact_id, // ✅ AQUI ESTÁ A CORREÇÃO DE OURO!
+                organizacao_id // ✅ CORREÇÃO TICKET 106
             }),
         });
 
