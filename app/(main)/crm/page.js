@@ -245,9 +245,9 @@ export default function CrmPage() {
 
  useEffect(() => {
  if (typeof window !== 'undefined') {
- localStorage.setItem(CRM_UI_STATE_KEY, JSON.stringify({ filters, sorting }));
+ localStorage.setItem(CRM_UI_STATE_KEY, JSON.stringify({ filters, sorting, selectedFunilId }));
  }
- }, [filters, sorting]);
+ }, [filters, sorting, selectedFunilId]);
 
  const [isAddContactModalOpen, setIsAddContactModalOpen] = useState(false);
  const [searchResults, setSearchResults] = useState([]);
@@ -266,7 +266,7 @@ export default function CrmPage() {
  const [isMetaMappingOpen, setIsMetaMappingOpen] = useState(false);
 
  // --- SELEÇÃO DE FUNIL ---
- const [selectedFunilId, setSelectedFunilId] = useState(null);
+ const [selectedFunilId, setSelectedFunilId] = useState(cachedState?.selectedFunilId || null);
  const [isNovoFunilOpen, setIsNovoFunilOpen] = useState(false);
  const [novoFunilNome, setNovoFunilNome] = useState('');
  const [isFunilDropdownOpen, setIsFunilDropdownOpen] = useState(false);
@@ -283,9 +283,11 @@ export default function CrmPage() {
 
  // Auto-seleciona o primeiro funil quando a lista carrega
  useEffect(() => {
- if (todosFunis.length > 0 && !selectedFunilId) {
- setSelectedFunilId(todosFunis[0].id);
- }
+ if (todosFunis.length > 0) {
+        if (!selectedFunilId || !todosFunis.find(f => f.id === selectedFunilId)) {
+          setSelectedFunilId(todosFunis[0].id);
+        }
+      }
  }, [todosFunis, selectedFunilId]);
 
  const selectedFunilInfo = todosFunis.find(f => f.id === selectedFunilId);
