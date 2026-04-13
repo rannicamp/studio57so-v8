@@ -931,7 +931,8 @@ export default function ContactProfile({ contact }) {
        setIsActivityModalOpen(false);
        setActivityInitialData(null);
      }}
-     initialData={activityInitialData}
+     initialData={!activityInitialData?.id ? activityInitialData : null}
+      activityToEdit={activityInitialData?.id ? activityInitialData : null}
      onSuccess={() => {
        queryClient.invalidateQueries(['atividades']);
      }}
