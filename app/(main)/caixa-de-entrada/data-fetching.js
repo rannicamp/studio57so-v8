@@ -132,10 +132,11 @@ export const markMessagesAsRead = async (supabase, organizacaoId, contatoId, con
  if (!organizacaoId || !contatoId || !conversationId || !userId) return;
 
  // 1. Zera a bolinha INVIDIDUAL via RPC
- await supabase.rpc('reset_whatsapp_unreads', {
+ const { error: rpcError } = await supabase.rpc('reset_whatsapp_unreads', {
    v_conversation_id: conversationId,
    v_user_id: userId
  });
+ if (rpcError) console.error('Erro no reset_whatsapp_unreads:', rpcError);
 
  // 2. Opcional: mantém o is_read true globalmente na mensagem pro "visto" azul do cliente (WhatsApp behaviour)
  await supabase
