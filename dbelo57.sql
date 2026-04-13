@@ -1385,7 +1385,8 @@ CREATE TABLE public.monitor_visitas (
     utm_content text,
     url_completa text,
     ip text,
-    organizacao_id bigint
+    organizacao_id bigint,
+    tempo_permanencia_segundos integer DEFAULT 0
 );
 
 CREATE TABLE public.movimentacoes_estoque (
