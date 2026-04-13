@@ -1,6 +1,6 @@
 // public/custom-sw.js
 // ⚠️ VERSÃO DO CACHE: Atualize este número para forçar atualização no celular
-const CACHE_VERSION = 'v1.7';
+const CACHE_VERSION = 'v1.8';
 const CACHE_NAME = `elo57-cache-${CACHE_VERSION}`;
 
 self.addEventListener('install', (event) => {
@@ -88,64 +88,10 @@ self.addEventListener("notificationclick", function (event) {
   );
 });
 
-// --- FETCH: Network-first, com fallback offline APENAS para navegação ---
-// ⚠️ REGRAS DE SEGURANÇA:
-// 1. Nunca interceptar requisições POST (login, mutações)
-// 2. Nunca interceptar requisições para Supabase (auth, API)
-// 3. Nunca interceptar /auth/ ou /api/ (callbacks de autenticação)
+// --- FETCH: REGRA DE OURO — NÃO INTERCEPTAR NADA ---
+// Este SW existe APENAS para Push Notifications.
+// O cache de assets é gerenciado pelo Next.js nativamente.
+// NUNCA retornar 408, NUNCA bloquear navegação.
 self.addEventListener("fetch", (event) => {
-  const url = new URL(event.request.url);
-  const isSameOrigin = url.origin === self.location.origin;
-  const isPost = event.request.method !== 'GET';
-  const isAuthPath = url.pathname.startsWith('/auth/') || 
-                     url.pathname.startsWith('/api/') ||
-                     url.pathname.startsWith('/login') ||
-                     url.pathname.startsWith('/_next/');
-  const isSupabase = url.hostname.includes('supabase.co') || 
-                     url.hostname.includes('supabase.in');
-
-  // ✅ DEIXA PASSAR SEM INTERCEPTAR:
-  // - Requisições POST (login, formulários, mutações)
-  // - Supabase (auth, banco)
-  // - /auth/, /api/, /login, /_next/
-  // - Requisições cross-origin (exceto Supabase já coberto)
-  if (isPost || isSupabase || isAuthPath || !isSameOrigin) {
-    return; // Passa direto para a rede sem interceptar
-  }
-
-  // Para requisições GET de assets/páginas: network-first
-  event.respondWith(
-    fetch(event.request).catch(() => {
-      return caches.match(event.request).then((response) => {
-        if (response) return response;
-
-        // Só retorna offline page se for navegação HTML
-        if (event.request.mode === 'navigate') {
-          const offlineHtml = `
-            <!DOCTYPE html>
-            <html lang="pt-br">
-            <head>
-              <meta charset="utf-8">
-              <meta name="viewport" content="width=device-width, initial-scale=1">
-              <title>Offline | Elo 57</title>
-              <style>
-                body { font-family: sans-serif; text-align: center; margin-top: 20%; background:#000; color:#fff; }
-                h1 { color: #fff; }
-                p { color: #aaa; }
-              </style>
-            </head>
-            <body>
-              <h1>Elo 57</h1>
-              <p>Você está offline. Verifique sua conexão.</p>
-            </body>
-            </html>
-          `;
-          return new Response(offlineHtml, { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
-        }
-
-        // Para assets (imagens, JS, CSS): falha silenciosa
-        return new Response('', { status: 408 });
-      });
-    })
-  );
+  return; // Passa tudo direto para a rede sem interferir
 });
