@@ -25,6 +25,7 @@ const getDefaultFilterState = () => ({
  startDate: '',
  endDate: '', // VAZIO = Mostra tudo até o momento atual
  isDynamicEndDate: false, // Desligado por padrão para evitar confusão
+  hasTasks: false,
 });
 
 export default function FiltroCrm({ filters, setFilters, unidades, origens, campaigns, ads, corretores

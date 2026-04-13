@@ -172,7 +172,11 @@ const fetchFunilData = async (supabase, organizacaoId, funilId, filters) => {
  const { data: contatosNoFunilRaw, error: contatosError } = await query;
  if (contatosError) throw contatosError;
 
- return { colunasDoFunil: todasColunas, contatosNoFunil: (contatosNoFunilRaw || []).filter(item => item.contatos?.id) };
+ let finalContatos = (contatosNoFunilRaw || []).filter(item => item.contatos?.id);
+  if (filters.hasTasks) {
+    finalContatos = finalContatos.filter(item => item.contatos.activities && item.contatos.activities.some(a => a.status !== 'Concluído'));
+  }
+  return { colunasDoFunil: todasColunas, contatosNoFunil: finalContatos };
 };
 
 // --- LISTA TODOS OS FUNIS DA ORGANIZAÇÃO (o is_sistema aparece primeiro) ---
@@ -232,7 +236,7 @@ export default function CrmPage() {
  const queryClient = useQueryClient();
 
  const cachedState = getCachedUiState();
- const defaultFilters = { searchTerm: '', corretorIds: [], origens: [], unidadeIds: [], campaignIds: [], adIds: [], startDate: '', endDate: '' };
+ const defaultFilters = { searchTerm: '', corretorIds: [], origens: [], unidadeIds: [], campaignIds: [], adIds: [], startDate: '', endDate: '', hasTasks: false };
 
  const [filters, setFilters] = useState(cachedState?.filters || defaultFilters);
  const [sorting, setSorting] = useState(cachedState?.sorting || {});

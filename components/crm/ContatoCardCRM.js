@@ -124,6 +124,14 @@ export default function ContatoCardCRM({
  const cardNumber = funilEntry.numero_card;
  const currentColumnId = funilEntry.coluna_id;
  const isMetaLead = contato.origem === 'Meta Lead Ad';
+  
+  // LÓGICA DO BANNER DE ATIVIDADES
+  const atividadesPendentes = (contato.activities || []).filter(a => a.status !== 'Concluído');
+  const todayStr = new Date().toLocaleDateString('en-CA');
+  const atividadeAtrasada = atividadesPendentes.find(a => a.data_fim_prevista && a.data_fim_prevista < todayStr);
+  const isOverdueTask = !!atividadeAtrasada;
+  const hasActiveTasks = atividadesPendentes.length > 0;
+
 
  const currentColumn = useMemo(() => allColumns.find(c => c.id === currentColumnId), [allColumns, currentColumnId]);
  const currentFunilId = currentColumn?.funil_id;
