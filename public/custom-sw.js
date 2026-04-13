@@ -1,6 +1,6 @@
 // public/custom-sw.js
 // ⚠️ VERSÃO DO CACHE: Atualize este número para forçar atualização no celular
-const CACHE_VERSION = 'v1.6';
+const CACHE_VERSION = 'v1.7';
 const CACHE_NAME = `elo57-cache-${CACHE_VERSION}`;
 
 self.addEventListener('install', (event) => {
