@@ -4,6 +4,16 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTimes, faFilePdf, faDownload, faSpinner, faExpand, faFileLines } from '@fortawesome/free-solid-svg-icons';
 import { useState } from 'react';
 
+// Helper robusto para a URL pública (evita double-encoding)
+const getSafeUrl = (url) => {
+  if (!url) return '';
+  try {
+    return encodeURI(decodeURI(url));
+  } catch(e) {
+    return url;
+  }
+}
+
 export default function FilePreviewModal({ anexo, onClose }) {
  const [isLoading, setIsLoading] = useState(true);
 

@@ -388,7 +388,7 @@ export default function LancamentoDetalhesSidebar({ open, onClose, lancamento })
  </dt>
  <GerenciadorAnexosGlobal anexos={lancamento.anexos?.map(a => ({
  ...a,
- public_url: a.public_url || supabase.storage.from('documentos-financeiro').getPublicUrl(a.caminho_arquivo).data.publicUrl
+ public_url: a.public_url || (typeof a.caminho_arquivo === 'string' && a.caminho_arquivo.startsWith('http') ? a.caminho_arquivo : supabase.storage.from('documentos-financeiro').getPublicUrl(a.caminho_arquivo).data.publicUrl)
  })) || []}
  viewMode="list"
  storageBucket="documentos-financeiro"
