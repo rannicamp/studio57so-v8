@@ -20,7 +20,7 @@ Nós utilizamos um script Node.js customizado que se conecta ao banco de dados `
    
 ```bash
 // turbo
-node supabase/exportar-db.cjs
+node scripts/exportar-db.cjs
 ```
 
 3. **Verifique os arquivos:**

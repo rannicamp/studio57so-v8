@@ -14,20 +14,20 @@ Sempre que iniciarmos um novo dia de trabalho ou uma nova conversa do zero, siga
    - Se ele não mencionar nada sobre sincronizar ou se negar, **pule esta etapa** inteiramente para não apagar o trabalho em progresso.
 
 2. **Leia o Planejamento Global e de Curto Prazo:**
-   - Use a ferramenta `view_file` no arquivo `PLANEJAMENTO_MASTER.md` na raiz do projeto para entender o escopo geral, os padrões arquiteturais, o que já foi feito, a cronologia do dia (diário) e os próximos grandes passos.
+   - Use a ferramenta `view_file` no arquivo `.agents/PLANEJAMENTO_MASTER.md` para entender o escopo geral, os padrões arquiteturais, o que já foi feito, a cronologia do dia (diário) e os próximos grandes passos.
    - Verifique o histórico da conversa para saber rapidamente onde o desenvolvimento parou.
 
 3. **Atualize o Schema do Banco de Dados (`dbelo57.sql`):**
    - Execute o script de exportação para garantir que o mapeamento local do banco reflete o estado real do Supabase:
 // turbo
    ```bash
-   node supabase/exportar-db.cjs
+   node scripts/exportar-db.cjs
    ```
    - Após a execução bem-sucedida, o `dbelo57.sql` e o `functions.json` estarão atualizados na raiz do projeto.
    - Este arquivo é sua fonte de verdade sobre a estrutura do banco. Consulte-o **antes** de propor qualquer migração ou query SQL para evitar erros de tipo de dado (ex: `BIGINT` vs `UUID`).
 
-4. **Revise o Manual Supremo de UI/UX:**
-   - Use `view_file` no `DESIGN_SYSTEM.md` para relembrar nossa filosofia "Padrão Ouro" e o nosso sistema de componentes (cores, botões, modais). Este é o documento oficial e definitivo de Design do projeto.
+4. **Revise a Regra Suprema de UI/UX:**
+   - Use `view_file` no `.agents/rules/DESIGN_SYSTEM.md` para relembrar nossa filosofia "Padrão Ouro" e o nosso sistema de componentes (cores, botões, modais). Este é o documento oficial e definitivo de Design do projeto.
 
 5. **Estude o Código de Referência (Módulo Padrão Ouro):**
    - Use `view_file` para analisar o arquivo `app/(main)/contatos/page.js` e descubra/leia seus principais componentes associados.
@@ -53,3 +53,7 @@ Sempre que iniciarmos um novo dia de trabalho ou uma nova conversa do zero, siga
 
 11. **Sempre use Links Clicáveis para Arquivos:**
     - Ao citar arquivos de log, arquivos do banco ou artefatos no decorrer das conversas, certifique-se SEMPRE de fornecer um formato hiperlink markdown (ex: `[nome_do_arquivo.sql](file:///C:/caminho/absoluto/do/arquivo)`) para que o Ranniere consiga abrir o arquivo no VS Code com apenas um clique. Nunca cite nomes soltos.
+
+12. **Revisão do Relatório de Dívida Técnica:**
+    - Antes de começar tarefas complexas, saiba que temos um Dossiê Arquitetural guardado em `.agents/relatorios/analise_arquitetural_elo57.md`.
+    - Este relatório descreve as fortalezas e as pendências arquiteturais (Rate limits, Custos BIM, Monolito) do nosso projeto. Um dia vamos trabalhar para resolver essas dívidas técnicas, e é o Ranniere quem vai decidir o dia certo para isso. Siga trabalhando normalmente até ele puxar o assunto!

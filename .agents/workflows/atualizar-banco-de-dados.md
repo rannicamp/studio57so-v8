@@ -15,7 +15,7 @@ Use este workflow sempre que:
 
 // turbo
 ```bash
-node supabase/exportar-db.cjs
+node scripts/exportar-db.cjs
 ```
 
 Isso irá:
@@ -47,7 +47,7 @@ git push
 
 ## Como o script funciona internamente
 
-O script `supabase/exportar-db.cjs` conecta ao banco (porta `6543`) e:
+O script `scripts/exportar-db.cjs` conecta ao banco (porta `6543`) e:
 - Consulta `information_schema.columns` para montar o esquema pseudo-SQL de cada tabela
 - Consulta `information_schema.routines` para extrair o código-fonte das funções RPC
 - Salva os resultados localmente sobrescrevendo `dbelo57.sql` e `functions.json`
