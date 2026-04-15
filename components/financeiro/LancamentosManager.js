@@ -8,7 +8,7 @@ import {
  faSpinner, faTimes, faEdit, faTrash, faSort, faSortUp, faSortDown, faLayerGroup,
  faChevronLeft, faChevronRight, faRobot, faCheckCircle, faDollarSign, faCreditCard,
  faExchangeAlt, faCopy, faReceipt, faLink, faArrowUp, faArrowDown, faBalanceScale, faChevronDown,
- faHistory, faExclamationTriangle, faMoneyBillTransfer, faSearch, faPrint
+ faHistory, faExclamationTriangle, faMoneyBillTransfer, faSearch, faPrint, faDownload
 } from '@fortawesome/free-solid-svg-icons';
 import { createClient } from '../../utils/supabase/client';
 import { useAuth } from '../../contexts/AuthContext';
@@ -273,6 +273,32 @@ export default function LancamentosManager({
 
  return standaloneList;
  }, [lancamentos, isCompetenciaMode, sortConfig]);
+
+ const handleExportCSV = () => {
+ const headers = ['Data de Competência', 'Data de Caixa', 'Descrição', 'Favorecido', 'Conta', 'Empresa', 'Categoria', 'Valor', 'Tipo', 'Status', 'Conciliado'].join(';');
+ const flatList = [];
+ groupedLancamentos.forEach(item => { if (item.isFatura) flatList.push(...item.filhos); else flatList.push(item); });
+ const escapeCSV = (str) => `"${String(str ?? '').replace(/"/g, '""')}"`;
+ const rows = flatList.map(item => {
+ const dataComp = formatDate(item.data_transacao);
+ const dataCaixa = formatDate(item.data_pagamento || item.data_vencimento || item.data_transacao);
+ const fav = item.favorecido?.nome || item.favorecido?.razao_social || '';
+ const conta = item.conta?.nome || '';
+ const emp = item.conta?.empresa?.nome_fantasia || item.conta?.empresa?.razao_social || item.empresa?.nome_fantasia || '';
+ const cat = item.categoria?.nome || '';
+ const valor = Number(item.valor || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, useGrouping: false });
+ return [escapeCSV(dataComp), escapeCSV(dataCaixa), escapeCSV(item.descricao), escapeCSV(fav), escapeCSV(conta), escapeCSV(emp), escapeCSV(cat), escapeCSV(valor), escapeCSV(item.tipo), escapeCSV(item.status), escapeCSV(item.conciliado ? 'Sim' : 'Não')].join(';');
+ });
+ const blob = new Blob(["\uFEFF" + [headers, ...rows].join('\n')], { type: 'text/csv;charset=utf-8;' });
+ const url = URL.createObjectURL(blob);
+ const a = document.createElement('a');
+ a.href = url;
+ a.download = `lancamentos_studio57_${new Date().toISOString().slice(0,10)}.csv`;
+ a.click();
+ URL.revokeObjectURL(url);
+ toast.success('Arquivo CSV exportado com sucesso!');
+ };
+
  const totalPages = Math.ceil(totalCount / itemsPerPage);
 
  return (
@@ -294,7 +320,10 @@ export default function LancamentosManager({
   <div className="flex items-center gap-4">
   <span className="text-sm text-gray-700"> Mostrando <strong>{lancamentos.length}</strong> de <strong>{totalCount}</strong> lançamentos </span>
   <button onClick={() => window.print()} className="bg-white border border-gray-200 hover:bg-gray-50 text-gray-800 px-3 py-1.5 rounded-lg text-sm font-bold flex items-center gap-2 shadow-sm transition-colors">
-  <FontAwesomeIcon icon={faPrint} /> Imprimir Relatório
+  <FontAwesomeIcon icon={faPrint} /> Imprimir
+  </button>
+  <button onClick={handleExportCSV} className="bg-white border border-green-200 hover:bg-green-50 text-green-700 px-3 py-1.5 rounded-lg text-sm font-bold flex items-center gap-2 shadow-sm transition-colors">
+  <FontAwesomeIcon icon={faDownload} /> Excel (CSV)
   </button>
   </div>
   <div className="flex items-center gap-2">
