@@ -164,30 +164,69 @@ export default function LancamentoDetalhesSidebar({ open, onClose, lancamento })
  } catch (e) { toast.error("Erro ao salvar."); } finally { setIsSavingValue(false); }
  };
 
- const handleAjustarVencimento = async (mesesAAdicionar) => {
- if (!lancamento || !lancamento.data_vencimento) return toast.error("Data de vencimento não informada.");
- setIsChangingDate(true);
- try {
- const dataVencObj = parseISO(lancamento.data_vencimento);
- const novaDataCalc = addMonths(dataVencObj, mesesAAdicionar);
- const dataVencFormatada = format(novaDataCalc, 'yyyy-MM-dd');
+  const handleAjustarVencimento = async (mesesAAdicionar) => {
+    if (!lancamento || !lancamento.data_vencimento) return toast.error("Data de vencimento não informada.");
+    setIsChangingDate(true);
+    try {
+      const dataVencObj = parseISO(lancamento.data_vencimento);
+      const novaDataCalc = addMonths(dataVencObj, mesesAAdicionar);
+      const dataVencFormatada = format(novaDataCalc, 'yyyy-MM-dd');
 
- const { error } = await supabase.from('lancamentos').update({ data_vencimento: dataVencFormatada }).eq('id', lancamento.id);
- if (error) throw error;
+      let novaFaturaId = lancamento.fatura_id;
 
- toast.success("Vencimento ajustado com sucesso!");
- lancamento.data_vencimento = dataVencFormatada; // update local
- if (lancamento.conta_id) {
- queryClient.invalidateQueries({ queryKey: ['faturasCartao', lancamento.conta_id.toString()] });
- queryClient.invalidateQueries({ queryKey: ['extrato_cartao'] });
- queryClient.invalidateQueries({ queryKey: ['lancamentos'] });
- }
- } catch (e) {
- toast.error("Erro ao alterar vencimento.");
- } finally {
- setIsChangingDate(false);
- }
- };
+      // LÓGICA DE REATRIBUIÇÃO (Regra Ticket 115 - Faturas Migrantes)
+      if (lancamento.fatura_id && lancamento.conta_id) {
+        const mesVencFormated = dataVencFormatada.substring(0, 7); // yyyy-MM
+        const orgId = lancamento.organizacao_id;
+        
+        // 1. Busca a fatura existente no novo mês apontado
+        const { data: faturaEncontrada } = await supabase
+          .from('faturas_cartao')
+          .select('id')
+          .eq('conta_id', lancamento.conta_id)
+          .eq('mes_referencia', mesVencFormated)
+          .maybeSingle();
+
+        if (faturaEncontrada) {
+          novaFaturaId = faturaEncontrada.id;
+        } else {
+          // 2. Se a aba daquela fatura ainda não existe, cria ela "on the fly"
+          const { data: novaF } = await supabase
+            .from('faturas_cartao')
+            .insert({ 
+              conta_id: lancamento.conta_id, 
+              mes_referencia: mesVencFormated, 
+              data_vencimento: dataVencFormatada, 
+              organizacao_id: orgId 
+            })
+            .select('id')
+            .maybeSingle();
+          if (novaF) novaFaturaId = novaF.id;
+        }
+      }
+
+      const { error } = await supabase.from('lancamentos').update({ 
+        data_vencimento: dataVencFormatada,
+        fatura_id: novaFaturaId
+      }).eq('id', lancamento.id);
+      
+      if (error) throw error;
+
+      toast.success("Vencimento e fatura ajustados com sucesso!");
+      lancamento.data_vencimento = dataVencFormatada; // update local
+      lancamento.fatura_id = novaFaturaId; 
+      
+      if (lancamento.conta_id) {
+        queryClient.invalidateQueries({ queryKey: ['faturasCartao', lancamento.conta_id.toString()] });
+        queryClient.invalidateQueries({ queryKey: ['extrato_cartao'] });
+        queryClient.invalidateQueries({ queryKey: ['lancamentos'] });
+      }
+    } catch (e) {
+      toast.error("Erro ao alterar vencimento. " + e.message);
+    } finally {
+      setIsChangingDate(false);
+    }
+  };
 
  // --- 4. RENDERIZAÇÃO ---
  if (!open || !lancamento) return null;
