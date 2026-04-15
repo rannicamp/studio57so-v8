@@ -507,7 +507,13 @@ export default function LancamentosManager({
  )}
 
   {/* ── VISÃO DE IMPRESSÃO ────────────────────────────── */}
-  <div id="printable-lancamentos" className="hidden print:block font-serif text-black w-full text-[11px] print:p-4">
+  <div id="printable-lancamentos" className="hidden print:block font-serif text-black w-full text-[11px] print:p-0 s57-print-area">
+    <style type="text/css" media="print">
+      {`
+        @page { size: landscape; margin: 10mm; }
+        body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      `}
+    </style>
     <div className="border-b-2 border-gray-800 pb-4 mb-6">
       <h1 className="text-xl font-bold uppercase tracking-wide">Relatório de Lançamentos Financeiros</h1>
       <p className="text-xs text-gray-600">Emitido em: {new Date().toLocaleDateString('pt-BR')} às {new Date().toLocaleTimeString('pt-BR')}</p>
@@ -531,7 +537,7 @@ export default function LancamentosManager({
           if (item.isFatura) {
              return (
                <React.Fragment key={item.id}>
-                 <tr className="bg-gray-100 font-bold">
+                 <tr className="bg-gray-100 font-bold border-b border-gray-300 break-inside-avoid">
                    <td className="border border-gray-300 px-2 py-1">{formatDate(item.data_vencimento)}</td>
                    <td className="border border-gray-300 px-2 py-1">Fatura - {item.conta?.nome}</td>
                    <td className="border border-gray-300 px-2 py-1">-</td>
@@ -541,7 +547,7 @@ export default function LancamentosManager({
                    <td className="border border-gray-300 px-2 py-1 text-center uppercase">{getPaymentStatus(item).text}</td>
                  </tr>
                  {item.filhos.map(filho => (
-                   <tr key={filho.id}>
+                   <tr key={filho.id} className="break-inside-avoid">
                      <td className="border border-gray-300 px-2 py-1 pl-4 text-gray-600">{formatDate(isCompetenciaMode ? filho.data_transacao : (filho.data_vencimento || filho.data_transacao))}</td>
                      <td className="border border-gray-300 px-2 py-1 pl-4">{filho.descricao}</td>
                      <td className="border border-gray-300 px-2 py-1 text-gray-600">{filho.favorecido?.nome || filho.favorecido?.razao_social || '-'}</td>
@@ -556,7 +562,7 @@ export default function LancamentosManager({
           }
           const nomeFavorecido = item.favorecido?.nome || item.favorecido?.razao_social || '-';
           return (
-            <tr key={item.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+            <tr key={item.id} className={`${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} break-inside-avoid border-b border-gray-200`}>
               <td className="border border-gray-300 px-2 py-1">{formatDate(isCompetenciaMode ? item.data_transacao : (item.data_vencimento || item.data_transacao))}</td>
               <td className="border border-gray-300 px-2 py-1">{item.descricao}</td>
               <td className="border border-gray-300 px-2 py-1">{nomeFavorecido}</td>
@@ -570,7 +576,7 @@ export default function LancamentosManager({
       </tbody>
     </table>
     
-    <div className="mt-8 text-center text-xs text-gray-500">
+    <div className="mt-8 text-center text-xs text-gray-500 break-inside-avoid">
       <p>Studio 57 - Módulo Financeiro</p>
     </div>
   </div>
