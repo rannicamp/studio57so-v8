@@ -8,7 +8,7 @@ import {
  faSpinner, faTimes, faEdit, faTrash, faSort, faSortUp, faSortDown, faLayerGroup,
  faChevronLeft, faChevronRight, faRobot, faCheckCircle, faDollarSign, faCreditCard,
  faExchangeAlt, faCopy, faReceipt, faLink, faArrowUp, faArrowDown, faBalanceScale, faChevronDown,
- faHistory, faExclamationTriangle, faMoneyBillTransfer, faSearch
+ faHistory, faExclamationTriangle, faMoneyBillTransfer, faSearch, faPrint
 } from '@fortawesome/free-solid-svg-icons';
 import { createClient } from '../../utils/supabase/client';
 import { useAuth } from '../../contexts/AuthContext';
@@ -290,9 +290,14 @@ export default function LancamentosManager({
  contas={contas}
  />
 
- <div className="flex justify-between items-center bg-white p-4 border rounded-lg shadow-sm">
- <span className="text-sm text-gray-700"> Mostrando <strong>{lancamentos.length}</strong> de <strong>{totalCount}</strong> lançamentos </span>
- <div className="flex items-center gap-2">
+ <div className="flex justify-between border-b md:border-none flex-col md:flex-row items-start md:items-center bg-white p-4 gap-4 border rounded-lg shadow-sm print:hidden">
+  <div className="flex items-center gap-4">
+  <span className="text-sm text-gray-700"> Mostrando <strong>{lancamentos.length}</strong> de <strong>{totalCount}</strong> lançamentos </span>
+  <button onClick={() => window.print()} className="bg-white border border-gray-200 hover:bg-gray-50 text-gray-800 px-3 py-1.5 rounded-lg text-sm font-bold flex items-center gap-2 shadow-sm transition-colors">
+  <FontAwesomeIcon icon={faPrint} /> Imprimir Relatório
+  </button>
+  </div>
+  <div className="flex items-center gap-2">
  <label htmlFor="items-per-page" className="text-sm font-medium">Itens por página:</label>
  <input type="number" id="items-per-page" value={itemsPerPageInput} onChange={(e) => setItemsPerPageInput(e.target.value)} onBlur={handleItemsPerPageChange} onKeyDown={(e) => { if (e.key === 'Enter') e.target.blur() }} min="1" max="999" className="w-20 p-2 border rounded-md text-center" />
  <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1 || loading} className="p-2 border rounded-md disabled:opacity-50"> <FontAwesomeIcon icon={faChevronLeft} /> </button>
@@ -302,7 +307,7 @@ export default function LancamentosManager({
  </div>
 
  {selectedIds.size > 0 && (
- <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center justify-between animate-fade-in">
+ <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center justify-between animate-fade-in print:hidden">
  <span className="text-sm font-semibold text-blue-800 uppercase">{selectedIds.size} selecionado(s)</span>
  <div className="relative" ref={batchActionsRef}>
  <button onClick={() => setIsBatchActionsOpen(prev => !prev)} className="bg-blue-600 text-white px-4 py-1 rounded-md text-sm font-bold hover:bg-blue-700 uppercase flex items-center gap-2">
@@ -318,8 +323,8 @@ export default function LancamentosManager({
  </div>
  )}
 
- {loading ? (<div className="text-center p-10"><FontAwesomeIcon icon={faSpinner} spin size="2x" /></div>) : (
- <div className="bg-white shadow-md rounded-lg overflow-x-auto">
+ {loading ? (<div className="text-center p-10 print:hidden"><FontAwesomeIcon icon={faSpinner} spin size="2x" /></div>) : (
+ <div className="bg-white shadow-md rounded-lg overflow-x-auto print:hidden">
  <table className="min-w-full divide-y divide-gray-200 text-sm">
  <thead className="bg-gray-100">
  <tr>
@@ -500,6 +505,76 @@ export default function LancamentosManager({
  </table>
  </div>
  )}
+
+  {/* ── VISÃO DE IMPRESSÃO ────────────────────────────── */}
+  <div id="printable-lancamentos" className="hidden print:block font-serif text-black w-full text-[11px] print:p-4">
+    <div className="border-b-2 border-gray-800 pb-4 mb-6">
+      <h1 className="text-xl font-bold uppercase tracking-wide">Relatório de Lançamentos Financeiros</h1>
+      <p className="text-xs text-gray-600">Emitido em: {new Date().toLocaleDateString('pt-BR')} às {new Date().toLocaleTimeString('pt-BR')}</p>
+      <p className="text-xs font-bold mt-2">Registros Filtrados: {lancamentos.length}</p>
+    </div>
+    
+    <table className="w-full text-[10px] border-collapse border border-gray-300">
+      <thead>
+        <tr className="bg-gray-200">
+          <th className="border border-gray-300 px-2 py-1 text-left w-20">Data</th>
+          <th className="border border-gray-300 px-2 py-1 text-left">Descrição</th>
+          <th className="border border-gray-300 px-2 py-1 text-left">Favorecido</th>
+          <th className="border border-gray-300 px-2 py-1 text-left">Conta</th>
+          <th className="border border-gray-300 px-2 py-1 text-left">Categoria</th>
+          <th className="border border-gray-300 px-2 py-1 text-right w-24">Valor</th>
+          <th className="border border-gray-300 px-2 py-1 text-center w-20">Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {groupedLancamentos.map((item, idx) => {
+          if (item.isFatura) {
+             return (
+               <React.Fragment key={item.id}>
+                 <tr className="bg-gray-100 font-bold">
+                   <td className="border border-gray-300 px-2 py-1">{formatDate(item.data_vencimento)}</td>
+                   <td className="border border-gray-300 px-2 py-1">Fatura - {item.conta?.nome}</td>
+                   <td className="border border-gray-300 px-2 py-1">-</td>
+                   <td className="border border-gray-300 px-2 py-1">{item.conta?.nome}</td>
+                   <td className="border border-gray-300 px-2 py-1">-</td>
+                   <td className="border border-gray-300 px-2 py-1 text-right">{formatCurrency(item.valorTotal, 'Despesa')}</td>
+                   <td className="border border-gray-300 px-2 py-1 text-center uppercase">{getPaymentStatus(item).text}</td>
+                 </tr>
+                 {item.filhos.map(filho => (
+                   <tr key={filho.id}>
+                     <td className="border border-gray-300 px-2 py-1 pl-4 text-gray-600">{formatDate(isCompetenciaMode ? filho.data_transacao : (filho.data_vencimento || filho.data_transacao))}</td>
+                     <td className="border border-gray-300 px-2 py-1 pl-4">{filho.descricao}</td>
+                     <td className="border border-gray-300 px-2 py-1 text-gray-600">{filho.favorecido?.nome || filho.favorecido?.razao_social || '-'}</td>
+                     <td className="border border-gray-300 px-2 py-1 text-gray-600">-</td>
+                     <td className="border border-gray-300 px-2 py-1 text-gray-600">{filho.categoria?.nome}</td>
+                     <td className="border border-gray-300 px-2 py-1 text-right">{formatCurrency(filho.valor, filho.tipo)}</td>
+                     <td className="border border-gray-300 px-2 py-1 text-center uppercase">{getPaymentStatus(filho).text}</td>
+                   </tr>
+                 ))}
+               </React.Fragment>
+             )
+          }
+          const nomeFavorecido = item.favorecido?.nome || item.favorecido?.razao_social || '-';
+          return (
+            <tr key={item.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+              <td className="border border-gray-300 px-2 py-1">{formatDate(isCompetenciaMode ? item.data_transacao : (item.data_vencimento || item.data_transacao))}</td>
+              <td className="border border-gray-300 px-2 py-1">{item.descricao}</td>
+              <td className="border border-gray-300 px-2 py-1">{nomeFavorecido}</td>
+              <td className="border border-gray-300 px-2 py-1">{item.conta?.nome || '-'}</td>
+              <td className="border border-gray-300 px-2 py-1">{item.categoria?.nome || '-'}</td>
+              <td className="border border-gray-300 px-2 py-1 text-right">{formatCurrency(item.valor, item.tipo)}</td>
+              <td className="border border-gray-300 px-2 py-1 text-center uppercase">{getPaymentStatus(item).text}</td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+    
+    <div className="mt-8 text-center text-xs text-gray-500">
+      <p>Studio 57 - Módulo Financeiro</p>
+    </div>
+  </div>
+
  </div>
  );
 }

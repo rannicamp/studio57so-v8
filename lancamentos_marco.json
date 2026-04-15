@@ -1,0 +1,142 @@
+[
+  {
+    "id": 10701,
+    "contrato": "#13 (4) - Alsenir Duarte Monte Alto de Oliveira Rezende",
+    "descricao": "Parcela 19/36 - Un. 402, Garagem 05 | Residencial Alfa ",
+    "tipo": "Receita",
+    "status": "Pago",
+    "valor": 4205.83,
+    "data_vencimento": "2026-03-05",
+    "data_pagamento": "2026-03-03"
+  },
+  {
+    "id": 7909,
+    "contrato": "#10 (5) - Paulo Roberto Govea Filho",
+    "descricao": "Parcela 18/32 - Un. 603, Garagem 06 | Residencial Alfa ",
+    "tipo": "Receita",
+    "status": "Pago",
+    "valor": 3498.6,
+    "data_vencimento": "2026-03-10",
+    "data_pagamento": "2026-03-05"
+  },
+  {
+    "id": 8050,
+    "contrato": "#12 (10) - Darlene Ribeiro Souza",
+    "descricao": "Parcela 8/36 - Un. 304, Garagem 08 | Residencial Alfa ",
+    "tipo": "Receita",
+    "status": "Pago",
+    "valor": 4170.83,
+    "data_vencimento": "2026-03-09",
+    "data_pagamento": "N/A"
+  },
+  {
+    "id": 9004,
+    "contrato": "#41 (15) - Samuel Claudio Damaceno",
+    "descricao": "Parcela 5/36 - Un. 302, Garagem 15 | ",
+    "tipo": "Receita",
+    "status": "Pago",
+    "valor": 8017.19,
+    "data_vencimento": "2026-03-10",
+    "data_pagamento": "N/A"
+  },
+  {
+    "id": 16732,
+    "contrato": "#8 (12) - Angela Monte Alto Alvim",
+    "descricao": "Parcela Intermediária - Un. 602, Garagem 17 | Residencial Alfa ",
+    "tipo": "Receita",
+    "status": "Pago",
+    "valor": 14380,
+    "data_vencimento": "2026-03-10",
+    "data_pagamento": "N/A"
+  },
+  {
+    "id": 6758,
+    "contrato": "#8 (12) - Angela Monte Alto Alvim",
+    "descricao": "Parcela Intermediária - Un. 602, Garagem 17 | Residencial Alfa ",
+    "tipo": "Receita",
+    "status": "Pago",
+    "valor": 14380,
+    "data_vencimento": "2026-03-10",
+    "data_pagamento": "N/A"
+  },
+  {
+    "id": 8793,
+    "contrato": "#38 (14) - Matheus Vinicius de Almeida Silva ",
+    "descricao": "Parcela 5/36 - Un. 503, Garagem 13 | ",
+    "tipo": "Receita",
+    "status": "Pago",
+    "valor": 4276.91,
+    "data_vencimento": "2026-03-10",
+    "data_pagamento": "2026-03-11"
+  },
+  {
+    "id": 7978,
+    "contrato": "#14 (7) - Carolina Drumond Coelho Garcia",
+    "descricao": "Parcela 7/28 - Un. 604, Garagem 10 | Residencial Alfa ",
+    "tipo": "Receita",
+    "status": "Pago",
+    "valor": 1833.93,
+    "data_vencimento": "2026-03-15",
+    "data_pagamento": "2026-03-16"
+  },
+  {
+    "id": 8229,
+    "contrato": "#7 (6) - Monte Alto Empreendimentos Imobiliarios Ltda",
+    "descricao": "Parcela 15/39 - Un. 504, Garagem 09 | Residencial Alfa ",
+    "tipo": "Receita",
+    "status": "Pago",
+    "valor": 7706.37,
+    "data_vencimento": "2026-03-15",
+    "data_pagamento": "2026-03-16"
+  },
+  {
+    "id": 10020,
+    "contrato": "#19 (3) - José Rogério de Paiva Filho",
+    "descricao": "Parcela 24/40 - Un. 401, Garagem 03 | Residencial Alfa ",
+    "tipo": "Receita",
+    "status": "Pago",
+    "valor": 4246.67,
+    "data_vencimento": "2026-03-19",
+    "data_pagamento": "2026-03-19"
+  },
+  {
+    "id": 7837,
+    "contrato": "#17 (2) - José Rogério de Paiva Filho",
+    "descricao": "Parcela 21/34 - Un. 501, Garagem 02 | Residencial Alfa ",
+    "tipo": "Receita",
+    "status": "Pago",
+    "valor": 4289.13,
+    "data_vencimento": "2026-03-19",
+    "data_pagamento": "2026-03-19"
+  },
+  {
+    "id": 7748,
+    "contrato": "#25 (13) - Marcelo Alves José",
+    "descricao": "Parcela 6/36 - Un. 202, Garagem 19 | ",
+    "tipo": "Receita",
+    "status": "Pago",
+    "valor": 4333.33,
+    "data_vencimento": "2026-03-22",
+    "data_pagamento": "2026-03-23"
+  },
+  {
+    "id": 6722,
+    "contrato": "#20 (11) - Karina Lucas Cardoso Pinto",
+    "descricao": "Parcela 7/37 - Un. 502, Garagem 01 | Residencial Alfa ",
+    "tipo": "Receita",
+    "status": "Pago",
+    "valor": 4495.12,
+    "data_vencimento": "2026-03-20",
+    "data_pagamento": "2026-03-24"
+  },
+  {
+    "id": 16878,
+    "contrato": "#14 (7) - Carolina Drumond Coelho Garcia",
+    "descricao": "RECEBIMENTO - RESIDENCIAL ALFA - ADITIVO 001 (PERMUTA) - Un. 604, Garagem 10",
+    "tipo": "Receita",
+    "status": "Pago",
+    "valor": 160000,
+    "data_vencimento": "2026-03-27",
+    "data_pagamento": "2026-03-27"
+  }
+]
