@@ -286,10 +286,6 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
 
  if (d > today) {
  saldoFinalDoDia = 0;
- } else if (dayOfWeek === 0 || dayOfWeek === 6) {
- if (totalWorkedMinutes > 0) {
- saldoFinalDoDia = totalWorkedMinutes * 1.5;
- }
  } else {
  const jornadaDoDia = employee.jornada?.detalhes?.find(j => j.dia_semana === dayOfWeek);
  const isWorkday = jornadaDoDia && jornadaDoDia.horario_entrada && jornadaDoDia.horario_saida;
@@ -309,10 +305,8 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
  } else if (feriadoDoDia) {
  const minutosEsperadosNoFeriado = feriadoDoDia.tipo === 'Meio Período' ? minutosPrevistos / 2 : 0;
  saldoFinalDoDia = totalWorkedMinutes - minutosEsperadosNoFeriado;
- } else if (totalWorkedMinutes > 0) {
- saldoFinalDoDia = totalWorkedMinutes - minutosPrevistos;
  } else {
- saldoFinalDoDia = -minutosPrevistos;
+ saldoFinalDoDia = totalWorkedMinutes - minutosPrevistos;
  }
  }
  dailyBalances[dateString] = Math.round(saldoFinalDoDia);
@@ -359,7 +353,7 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
  const dayOfWeek = d.getUTCDay();
  const isHoliday = holidays.some(h => h.data_feriado === dateString);
  const jornadaDoDia = employee.jornada?.detalhes?.find(j => j.dia_semana === dayOfWeek);
- const isWorkday = jornadaDoDia && jornadaDoDia.horario_entrada && jornadaDoDia.horario_saida && !isHoliday && dayOfWeek !== 0 && dayOfWeek !== 6;
+ const isWorkday = jornadaDoDia && jornadaDoDia.horario_entrada && jornadaDoDia.horario_saida && !isHoliday;
 
  if (isWorkday) {
  diasUteisNoPeriodo++;
@@ -421,7 +415,6 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
  if (demissionDate && d > demissionDate) continue;
  const dateString = d.toISOString().split('T')[0];
  const dayOfWeek = d.getUTCDay();
- if (dayOfWeek === 0 || dayOfWeek === 6) continue;
  const jornadaDoDia = employee.jornada.detalhes.find(j => j.dia_semana === dayOfWeek);
  const isWorkdayCheck = jornadaDoDia && jornadaDoDia.horario_entrada && jornadaDoDia.horario_entrada.trim() !== '' && jornadaDoDia.horario_saida && jornadaDoDia.horario_saida.trim() !== '';
 
