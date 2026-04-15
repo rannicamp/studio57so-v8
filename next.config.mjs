@@ -3,6 +3,9 @@ const nextConfig = {
   reactStrictMode: true,
   // Desativa mapas de fonte em produção para build mais rápido
   productionBrowserSourceMaps: false,
+  
+  // Ignorar empacotamento Webpack para dependências nativas Node.js
+  serverExternalPackages: ['@mendable/firecrawl-js'],
 
   // --- 🆕 AQUI ESTÁ A PROTEÇÃO QUE FALTAVA ---
   experimental: {
