@@ -2,9 +2,8 @@
 // utils/firecrawlIndicesApi.js
 import FirecrawlApp from '@mendable/firecrawl-js';
 
-// Inicialização segura - Caso a API Key não esteja explícita no construtor, 
-// a lib buscará automaticamente do process.env.FIRECRAWL_API_KEY
-const app = new FirecrawlApp();
+// Inicialização segura - Só instanciamos no momento do uso para não quebrar o Build (Next.js pré-renderização)
+// caso a variável de ambiente não exista na máquina de compilação (Netlify/Vercel).
 
 /**
  * Raspa a página oficial do portal IBRE da FGV em busca da última divulgação do INCC-M.
@@ -23,6 +22,7 @@ export async function buscarUltimoInccFgv() {
     const url = "https://portalibre.fgv.br/incc-m";
 
     console.log("[Firecrawl] Iniciando varredura na FGV IBRE (INCC-M)...");
+    const app = new FirecrawlApp();
     
     // O recurso Extract instrui o LLM nativo do Firecrawl a encontrar as variáveis.
     const extractResult = await app.extract([url], {
