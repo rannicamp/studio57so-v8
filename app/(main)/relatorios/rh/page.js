@@ -3,9 +3,11 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner, faUsers, faMoneyBillWave, faCalendarCheck, faBusinessTime } from '@fortawesome/free-solid-svg-icons';
+import { faSpinner, faUsers, faMoneyBillWave, faCalendarCheck, faBusinessTime, faChartPie, faTable, faChartLine } from '@fortawesome/free-solid-svg-icons';
 import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import RHDashboard from './RHDashboard';
+import RHTendencias from './RHTendencias';
 
 const KpiCard = ({ title, value, subtext, icon, color, isLoading }) => (
   <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex items-start justify-between hover:shadow-md transition-shadow">
@@ -100,6 +102,7 @@ const calculateMasterSheet = (funcionarios, historicos, abonos, feriados, pontos
     let minutosExigidos = 0;
     let saldoMinutosPuro = 0;
     let faltas = 0;
+    let atrasos = 0;
 
     const admissionDate = emp.admission_date ? new Date(emp.admission_date + 'T00:00:00Z') : null;
     const demissionDate = emp.demission_date ? new Date(emp.demission_date + 'T00:00:00Z') : null;
@@ -136,6 +139,7 @@ const calculateMasterSheet = (funcionarios, historicos, abonos, feriados, pontos
        const dayData = timesheet[dtStr];
        let workedMinsDay = 0;
        let hasPunch = false;
+       let teveAtraso = false;
        
        if (dayData && (dayData.entrada || dayData.saida)) {
           hasPunch = true;
@@ -145,6 +149,17 @@ const calculateMasterSheet = (funcionarios, historicos, abonos, feriados, pontos
           const iIntAdj = adjustTime(dayData.inicio_intervalo, jDia?.horario_saida_intervalo, tolerancia);
           const fIntAdj = adjustTime(dayData.fim_intervalo, jDia?.horario_volta_intervalo, tolerancia);
           const saiAdj = adjustTime(dayData.saida, jDia?.horario_saida, tolerancia);
+
+          // Contagem de Atrasos (Entrada Real > Entrada Prevista + Tolerancia)
+          if (dayData.entrada && jDia?.horario_entrada) {
+              const bStr = '1970-01-01T';
+              const actIn = new Date(`${bStr}${dayData.entrada}:00Z`).getTime();
+              const schIn = new Date(`${bStr}${jDia.horario_entrada}Z`).getTime();
+              if (!isNaN(actIn) && !isNaN(schIn)) {
+                  const diffMinutes = (actIn - schIn) / 60000;
+                  if (diffMinutes > tolerancia) teveAtraso = true;
+              }
+          }
 
           const ent = parseTime(entAdj, baseDate);
           const sai = parseTime(saiAdj, baseDate);
@@ -180,6 +195,7 @@ const calculateMasterSheet = (funcionarios, historicos, abonos, feriados, pontos
            // Trabalho em dia não útil / feriado!
            saldoMinutosPuro += workedMinsDay; // Vai pro banco 100% livre
        }
+       if (teveAtraso) atrasos++;
     }
 
     let custoBruto = 0;
@@ -198,6 +214,7 @@ const calculateMasterSheet = (funcionarios, historicos, abonos, feriados, pontos
        diasTrabalhados,
        diasUteisExigidos,
        faltas,
+       atrasos,
        minutosTrabalhados,
        minutosExigidos,
        saldoMinutosPuro,
@@ -211,6 +228,7 @@ const PlanilhaRHPage = () => {
   const hoje = new Date();
   const [mesRef, setMesRef] = useState(new Date(hoje.getFullYear(), hoje.getMonth(), 1).toISOString().slice(0, 7)); // YYYY-MM
   const [filtroVinculo, setFiltroVinculo] = useState('Todos');
+  const [visaoGeral, setVisaoGeral] = useState('dashboard');
 
   const { data: fechamento, isLoading } = useQuery({
     queryKey: ['planilha-rh-fechamento', user?.organizacao_id, mesRef],
@@ -238,7 +256,7 @@ const PlanilhaRHPage = () => {
         .lte('data_hora', `${lastDay}T23:59:59`);
       
       const { data: feriados } = await supabase.from('feriados').select('*').in('organizacao_id', [1, user.organizacao_id]);
-      const { data: abonos } = await supabase.from('abonos').select('*')
+      const { data: abonos } = await supabase.from('abonos').select('*, abono_tipos(descricao)')
         .gte('data_abono', firstDay).lte('data_abono', lastDay);
 
       const ativosNoMes = (funcs || []).filter(f => {
@@ -247,7 +265,9 @@ const PlanilhaRHPage = () => {
          return dDate >= new Date(`${firstDay}T00:00:00Z`);
       });
 
-      return calculateMasterSheet(ativosNoMes, hists || [], abonos || [], feriados || [], pts || [], mesRef);
+      const processedArray = calculateMasterSheet(ativosNoMes, hists || [], abonos || [], feriados || [], pts || [], mesRef);
+      processedArray.__abonos_resumo = abonos || [];
+      return processedArray;
     },
     enabled: !!user?.organizacao_id
   });
@@ -278,8 +298,8 @@ const PlanilhaRHPage = () => {
       
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4 shrink-0">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-gray-900">Planilha Master Mensal</h1>
-          <p className="text-sm text-gray-500 mt-1">Fechamento cirúrgico de ponto e estimativa de pagamentos.</p>
+          <h1 className="text-2xl font-bold tracking-tight text-gray-900">Relatório Master de RH</h1>
+          <p className="text-sm text-gray-500 mt-1">Visão estratégica e fechamento cirúrgico da competência.</p>
         </div>
         <div className="flex bg-white rounded-xl shadow-sm border border-gray-200 p-1">
             <input 
@@ -288,7 +308,7 @@ const PlanilhaRHPage = () => {
               onChange={(e) => setMesRef(e.target.value)}
               className="mr-4 px-3 py-2 bg-transparent border-r border-gray-100 outline-none text-sm font-medium focus:ring-0"
             />
-            {['Todos', 'Diaristas', 'Mensalistas'].map(f => (
+            {visaoGeral === 'planilha' && ['Todos', 'Diaristas', 'Mensalistas'].map(f => (
                 <button
                    key={f}
                    onClick={() => setFiltroVinculo(f)}
@@ -300,6 +320,34 @@ const PlanilhaRHPage = () => {
         </div>
       </div>
 
+      {/* ABAS (TABS) DE NAVEGAÇÃO */}
+      <div className="flex bg-white rounded-lg shadow-sm border border-gray-100 p-1 mb-6 max-w-lg shrink-0 overflow-x-auto">
+        <button
+          onClick={() => setVisaoGeral('dashboard')}
+          className={`flex-1 flex justify-center items-center gap-2 py-2 px-4 rounded-md font-medium text-sm transition-colors whitespace-nowrap ${visaoGeral === 'dashboard' ? 'bg-blue-50 text-blue-700 shadow-sm border border-blue-100' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
+        >
+          <FontAwesomeIcon icon={faChartPie} /> Painel Mensal
+        </button>
+        <button
+          onClick={() => setVisaoGeral('tendencias')}
+          className={`flex-1 flex justify-center items-center gap-2 py-2 px-4 rounded-md font-medium text-sm transition-colors whitespace-nowrap ${visaoGeral === 'tendencias' ? 'bg-indigo-50 text-indigo-700 shadow-sm border border-indigo-100' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
+        >
+          <FontAwesomeIcon icon={faChartLine} /> Visão Histórica
+        </button>
+        <button
+          onClick={() => setVisaoGeral('planilha')}
+          className={`flex-1 flex justify-center items-center gap-2 py-2 px-4 rounded-md font-medium text-sm transition-colors whitespace-nowrap ${visaoGeral === 'planilha' ? 'bg-emerald-50 text-emerald-700 shadow-sm border border-emerald-100' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
+        >
+          <FontAwesomeIcon icon={faTable} /> Planilha Base
+        </button>
+      </div>
+
+      {visaoGeral === 'dashboard' ? (
+        <RHDashboard fechamento={fechamento} totais={totais} mesRef={mesRef} />
+      ) : visaoGeral === 'tendencias' ? (
+        <RHTendencias />
+      ) : (
+        <>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6 shrink-0">
          <KpiCard 
            title="Balanço Financeiro Bruto" 
@@ -440,6 +488,8 @@ const PlanilhaRHPage = () => {
             </table>
          </div>
       </div>
+      </>
+      )}
     </div>
   );
 };

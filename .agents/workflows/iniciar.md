@@ -57,3 +57,6 @@ Sempre que iniciarmos um novo dia de trabalho ou uma nova conversa do zero, siga
 12. **Revisão do Relatório de Dívida Técnica:**
     - Antes de começar tarefas complexas, saiba que temos um Dossiê Arquitetural guardado em `.agents/relatorios/analise_arquitetural_elo57.md`.
     - Este relatório descreve as fortalezas e as pendências arquiteturais (Rate limits, Custos BIM, Monolito) do nosso projeto. Um dia vamos trabalhar para resolver essas dívidas técnicas, e é o Ranniere quem vai decidir o dia certo para isso. Siga trabalhando normalmente até ele puxar o assunto!
+
+13. **Cristalização de Conhecimento Autônomo (Meta-Skill):**
+    - Lembre-se firmemente: Você é capaz de aprender dinamicamente. Existe uma "Skill Mãe" (Protocolo Gênesis) em `.agents/skills/mapeamento_operacional/SKILL.md`. Sempre que o Ranniere pedir para "cristalizar" ou "fazer a skill" do que vocês construíram no dia, leia esta Meta-Skill e extraia o conhecimento da conversa para gerar um novo manual definitivo sem alucinações.
