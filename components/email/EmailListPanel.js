@@ -359,7 +359,7 @@ export default function EmailListPanel({
  <h4 className={`text-sm truncate flex-1 ${isSelected || isActive ? 'text-blue-900' : 'text-gray-800'} ${!isRead ? 'font-bold' : ''}`}>
  <Highlight text={email.from} term={searchTerm} />
  </h4>
- <span className="text-[10px] text-gray-400 whitespace-nowrap shrink-0">{format(new Date(email.date), "dd/MM HH:mm", { locale: ptBR })}</span>
+ <span className="text-[10px] text-gray-400 whitespace-nowrap shrink-0">{new Date(email.date).getFullYear() !== new Date().getFullYear() ? format(new Date(email.date), "dd/MM/yyyy HH:mm", { locale: ptBR }) : format(new Date(email.date), "dd/MM HH:mm", { locale: ptBR })}</span>
  </div>
  <h3 className={`text-xs truncate mb-0.5 ${isSelected || isActive ? 'text-blue-800' : 'text-gray-600'} ${!isRead ? 'font-semibold' : ''}`}>
  <Highlight text={email.subject} term={searchTerm} />

@@ -221,7 +221,7 @@ export default function EmailViewPanel({ emailSummary, folder, onClose, onCreate
  <div className="min-w-0 flex flex-col">
  <p className="text-sm font-bold text-gray-900 truncate">{senderInfo.name}</p>
  {senderInfo.email ? (<button onClick={handleCopyEmail} className="text-xs text-gray-500 hover:text-blue-600 hover:bg-blue-50 px-1 -ml-1 rounded transition-all flex items-center gap-1.5 w-fit mt-0.5" title="Clique para copiar o e-mail">{senderInfo.email}<FontAwesomeIcon icon={faCopy} className="text-[10px] opacity-70" /></button>) : (isLoading && <span className="text-[10px] text-gray-400 animate-pulse">Carregando e-mail...</span>)}
- <p className="text-[10px] text-gray-400 mt-1">{format(new Date(emailSummary.date), "dd 'de' MMM 'às' HH:mm", { locale: ptBR })}</p>
+ <p className="text-[10px] text-gray-400 mt-1">{new Date(emailSummary.date).getFullYear() !== new Date().getFullYear() ? format(new Date(emailSummary.date), "dd 'de' MMM 'de' yyyy 'às' HH:mm", { locale: ptBR }) : format(new Date(emailSummary.date), "dd 'de' MMM 'às' HH:mm", { locale: ptBR })}</p>
  </div>
  </div>
  </div>

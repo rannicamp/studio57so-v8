@@ -57,10 +57,16 @@ export function useAudioRecorder(onSendAudio) {
  const stopRecording = async () => {
  if (!isRecording) return;
  setIsRecording(false); setIsProcessing(true);
+ 
+ // BUGFIX: Pegar o sampleRate real ANTES de destruir o audioContext (limpeza)
+ // Se pegar depois, vai cair sempre no 44100, arrastando o áudio se o PC/Celular gravar a 48000Hz.
+ const finalSampleRate = audioContextRef.current?.sampleRate || 44100;
+ 
  cleanupResources();
 
- try { const finalSampleRate = audioContextRef.current?.sampleRate || 44100; // Pega taxa antes de fechar totalmente se possível, ou usa padrão
- await convertAndSendMp3(audioDataRef.current, finalSampleRate); } catch (error) { toast.error("Erro ao processar áudio: " + error.message); } finally { setIsProcessing(false); audioDataRef.current = []; }
+ try { 
+ await convertAndSendMp3(audioDataRef.current, finalSampleRate); 
+ } catch (error) { toast.error("Erro ao processar áudio: " + error.message); } finally { setIsProcessing(false); audioDataRef.current = []; }
  };
 
  const cancelRecording = async () => {
