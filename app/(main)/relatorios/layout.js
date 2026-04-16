@@ -7,7 +7,8 @@ import {
  faChartPie,
  faUsers,
  faMoneyBillWave,
- faChartLine
+ faChartLine,
+ faBuilding
 } from '@fortawesome/free-solid-svg-icons';
 import { Suspense } from 'react';
 
@@ -21,6 +22,7 @@ function RelatoriosLayoutContent({ children }) {
     { label: 'Radar Studio', path: '/relatorios/radar', icon: faChartPie },
     { label: 'RH & Pessoas', path: '/relatorios/rh', icon: faUsers },
     { label: 'Financeiro', path: '/relatorios/financeiro', icon: faMoneyBillWave },
+    { label: 'Empreendimentos', path: '/relatorios/empreendimentos', icon: faBuilding },
   ];
 
  return (

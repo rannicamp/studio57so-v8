@@ -282,15 +282,6 @@ export default function RelatorioFinanceiroPage() {
  )}
  </section>
 
- <hr className="border-gray-200" />
-
- {/* DASHBOARD ANTIGO */}
- <section>
- <h2 className="text-lg font-bold text-gray-700 border-l-4 border-indigo-500 pl-3 mb-4">
- Análise Gráfica Detalhada
- </h2>
- <FinanceiroDashboard />
- </section>
  </>
  ) : visaoGeral === 'dre' ? (
  <section>
