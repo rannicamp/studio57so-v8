@@ -9,19 +9,19 @@ import {
  faMoneyBillWave,
  faChartLine
 } from '@fortawesome/free-solid-svg-icons';
+import { Suspense } from 'react';
 
-export default function RelatoriosLayout({ children }) {
- const pathname = usePathname();
+function RelatoriosLayoutContent({ children }) {
+  const pathname = usePathname();
 
- // Função para verificar se o link está ativo
- const isActive = (path) => pathname.includes(path);
+  // Função para verificar se o link está ativo
+  const isActive = (path) => pathname.includes(path);
 
- const navItems = [
- { label: 'Radar Studio', path: '/relatorios/radar', icon: faChartPie },
- { label: 'RH & Pessoas', path: '/relatorios/rh', icon: faUsers },
- { label: 'Comercial', path: '/relatorios/comercial', icon: faChartLine },
- { label: 'Financeiro', path: '/relatorios/financeiro', icon: faMoneyBillWave },
- ];
+  const navItems = [
+    { label: 'Radar Studio', path: '/relatorios/radar', icon: faChartPie },
+    { label: 'RH & Pessoas', path: '/relatorios/rh', icon: faUsers },
+    { label: 'Financeiro', path: '/relatorios/financeiro', icon: faMoneyBillWave },
+  ];
 
  return (
  <div className="flex flex-col space-y-6">
@@ -64,4 +64,12 @@ export default function RelatoriosLayout({ children }) {
  </div>
  </div>
  );
+}
+
+export default function RelatoriosLayout({ children }) {
+  return (
+    <Suspense fallback={<div className="p-4 text-center text-gray-500">Iniciando layout...</div>}>
+      <RelatoriosLayoutContent>{children}</RelatoriosLayoutContent>
+    </Suspense>
+  );
 }

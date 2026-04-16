@@ -99,7 +99,10 @@ export default function TabelaAnuncios({ ads, filters }) {
 
  const filteredAds = useMemo(() => {
  if (!ads) return [];
- return ads.filter(ad => {
+ return ads.map(ad => ({
+   ...ad,
+   cpm: Number(ad.impressions) > 0 ? (Number(ad.spend) / Number(ad.impressions)) * 1000 : 0
+ })).filter(ad => {
  if (filters?.searchTerm) {
  const term = filters.searchTerm.toLowerCase();
  const matchName = ad.name?.toLowerCase().includes(term);
@@ -199,6 +202,10 @@ export default function TabelaAnuncios({ ads, filters }) {
  Leads {renderSortIcon('leads')}
  </th>
 
+ <th className="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors" onClick={() => handleSort('cpm')}>
+ CPM {renderSortIcon('cpm')}
+ </th>
+
  <th className="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors" onClick={() => handleSort('cost_per_lead')}>
  CPL {renderSortIcon('cost_per_lead')}
  </th>
@@ -271,6 +278,10 @@ export default function TabelaAnuncios({ ads, filters }) {
  <span className="inline-block px-3 py-1 bg-blue-50 text-blue-700 rounded-lg font-bold text-sm border border-blue-100">
  {ad.leads}
  </span>
+ </td>
+
+ <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium text-gray-700">
+ {formatCurrency(ad.cpm)}
  </td>
 
  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-bold text-gray-700">

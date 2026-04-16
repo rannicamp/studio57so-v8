@@ -22,7 +22,7 @@ export default function DashboardGeralPage() {
  {
  titulo: "Comercial & Marketing",
  descricao: "Funil de vendas, conversão de Ads e performance de contratos.",
- href: "/relatorios/comercial",
+ href: "/relatorios/radar?tab=comercial",
  icon: faChartLine, // Ícone de Gráfico de Linha
  cor: "text-blue-600",
  bg: "bg-blue-50",

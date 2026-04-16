@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { getRadarStats, resolveMetaIds, getDicionarioContatos } from './actions';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -21,9 +22,11 @@ import { useRelatorioComercial } from '@/hooks/relatorios/useRelatorioComercial'
 const COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#64748b'];
 const COLORS_COMERCIAL = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#64748b'];
 
-export default function RadarPage() {
+function RadarPageContent() {
+  const params = useSearchParams();
+  const initTab = params.get('tab') || 'radar';
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState('radar'); // 'radar', 'comercial', 'ads'
+  const [activeTab, setActiveTab] = useState(initTab); // 'radar', 'comercial', 'ads'
   const [somenteMarketing, setSomenteMarketing] = useState(true);
 
   // Controle de Datas Unificado
@@ -656,5 +659,13 @@ export default function RadarPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function RadarPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-gray-500">Iniciando Radar...</div>}>
+      <RadarPageContent />
+    </Suspense>
   );
 }
