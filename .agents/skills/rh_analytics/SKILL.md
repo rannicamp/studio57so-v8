@@ -11,12 +11,30 @@ description: Ensina a IA a buscar, interpretar e extrair relatórios gerenciais 
   - `abono_tipos`: Dicionário dos Tipos (ex: Atestado Médico, Compensação de Horas).
   - `funcionarios`: Lista do pessoal (para checar vinculo, `jornada_id` e demissões).
 - **Regras de Extração e Multitenancy (Pegadinhas):**
-  1. **Relacionamento Crucial:** Dados de classificação sempre vêm do join `abono_tipos(descricao)`, referenciando `tipo_abono_id`.
+  1. **Relacionamento Crucial:** Dados de classificação sempre vêm do join `abono_tipos(descricao)`, referenciando a coluna `tipo_abono_id` (Cuidado: Jamais tente usar `tipo_id` no banco).
   2. **Filtro da Diretoria:** Diretores ou sócios sem `jornada_id` (Carga Horária) e funcionários desligados (`demission_date` < mês atual) **jamais** entram no total da operação, nas métricas de Absenteísmo ou de Custo (Massa Salarial). Eles causam ruído financeiro.
   3. **Atestados Constínuos (INSS):** O sistema cadastra cada dia de atestado como um registro separado. Por exemplo, 30 dias de Atestado geram 30 linhas individuais de `Atestado Médico` daquele funcionário por competência.
 
-## 2. Padrão Ouro de Extração (Node.js)
-Caso você (IA) seja solicitada a investigar algum vazamento de custo da folha ou gerar relatório raw customizado do RH, aplique o *sandbox* autônomo abaixo via script rápido (`run_command` do seu kernel):
+## 2. Visão Histórica e Tendências Anuais (Micro-RPCs)
+Sempre que a interface precisar consolidar dados ao longo de 12 meses (Ex: Gráficos de barra empilhada, linhas de absenteísmo contínuo, giro de funcionários), **jamais faça o processamento no Frontend com map/reduce**. O Studio 57 utiliza **Micro-RPCs** PostgreSQL nativas para absorver essa carga, retornando JSONs prontos para o Recharts.
+
+**RPCs Oficiais de RH:**
+1. `get_rh_tendencia_turnover`: Calcula Média Mensal de Mão de Obra e Movimentações (Entraram/Saíram). **Atenção (Postgres):** Utilize `NULLIF(data_demissao, '')::date` para evitar crashes de string format ao validar demissões vazias.
+2. `get_rh_tendencia_absenteismo`: Cruza (Média de Funcionários Ativos * 22 dias úteis médios mensais) e subtrai as entradas de falta da tabela `abonos`.
+3. `get_rh_tendencia_abonos`: Monta o *Stacked Bar* agrupando Ocorrências X Meses do ano. 
+
+**🔴 HOTFIX OBRIGATÓRIO EM GRÁFICOS STACKED (Recharts):**
+Ao utilizar o retorno de uma RPC para desenhar abonos agrupados (`<Bar dataKey="Atestado..." stackId="a" />`), se o Supabase não retornar **nenhum registro** em todo o ano pesquisado (Resultando em Array flat completamente limpo de chaves customizadas), o *Recharts* se autodestrói visualmente e esconde os Eixos X e Y. 
+**A solução oficial Front-end é sempre forçar a injeção:**
+```javascript
+  if (allAbonoTipos.size === 0) {
+      allAbonoTipos.add('Nenhum Registro'); // Força eixos a aparecerem na legenda
+  }
+  // No flatmap, garanta que todo objeto de mês possua 'Nenhum Registro': 0
+```
+
+## 3. Padrão Ouro de Extração Raw (Node.js)
+Caso você (IA) precise auditar um mês específico para encontrar "vazios financeiros" no fechamento do caixa da operação, use o modelo abaixo via kernel:
 
 ```javascript
 require('dotenv').config({ path: '.env.local' });
@@ -36,10 +54,9 @@ async function investigarAbonos() {
 
   if (error) { console.error("Falha na Extração", error); return; }
   
-  // Exemplo de Ranking Auditado
   const atestadosMap = {};
   abonos.forEach(ab => {
-      // REGRA DE OURO: Ignorar quem não tem jornada validada (Ex: Sócios e Diretores)
+      // IGNORAR quem não tem jornada validada (Ex: Sócios)
       if (!ab.funcionarios?.jornada_id) return;
       
       const tipo = ab.abono_tipos?.descricao || 'Não Classificado';
@@ -49,9 +66,7 @@ async function investigarAbonos() {
       atestadosMap[tipo][nome] = (atestadosMap[tipo][nome] || 0) + 1;
   });
 
-  console.log("Auditoria de Risco Mensal (Abonos Válidos da Operação):");
   console.dir(atestadosMap, { depth: null });
 }
-
 investigarAbonos();
 ```
