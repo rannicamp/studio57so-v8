@@ -265,6 +265,24 @@ export default function RelatorioEmpreendimentosPage() {
                 />
             </div>
 
+            {/* SEÇÃO EXTRA: Detalhamento VGV por Empreendimento */}
+            {empreendimentoSelecionadoId === 'ALL' && (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 shrink-0">
+                    <h3 className="text-sm font-bold text-gray-800 mb-3 uppercase tracking-wider flex items-center gap-2">
+                        <FontAwesomeIcon icon={faBuilding} className="text-gray-400" />
+                        Composição do VGV por Empreendimento
+                    </h3>
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                        {dataAgrupada.empreendimentos.map(emp => (
+                            <div key={emp.id} className="bg-gray-50 rounded-lg p-3 border border-gray-100 flex flex-col items-center justify-center text-center">
+                                <span className="text-xs text-gray-500 font-semibold mb-1 w-full truncate" title={emp.nome}>{emp.nome}</span>
+                                <span className="text-lg font-bold text-indigo-700">{formatCurrency(emp.estatisticas.vgvTotal)}</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
             {/* SEÇÃO 2: GRÁFICOS & LISTAGEM */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1">
                 
