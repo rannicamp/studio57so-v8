@@ -241,11 +241,11 @@ export default function RelatorioEmpreendimentosPage() {
                     tooltip="Soma estrita do valor de unidades disponíveis ou reservadas + montante dos contratos de venda efetivamente assinados."
                 />
                 <DashboardKpi 
-                    title="VGV Assegurado (Vendas)" 
+                    title="Vendas" 
                     value={formatCurrency(stats.vgvAssegurado)}
                     icon={faFileSignature} bgIcon="bg-emerald-50" colorIcon="text-emerald-600"
                     subtext={
-                        <span><span className="font-bold text-gray-600">{(stats.vgvConsolidado > 0 ? (stats.vgvAssegurado / stats.vgvConsolidado * 100) : 0).toFixed(1)}%</span> Realizado no Caixa</span>
+                        <span><span className="font-bold text-gray-600">{(stats.vgvConsolidado > 0 ? (stats.vgvAssegurado / stats.vgvConsolidado * 100) : 0).toFixed(1)}%</span> do vgv</span>
                     }
                     tooltip="Valor estrito blindado e trancafiado por contratos com status 'Assinado'. Totalmente intocável em casos de variação de tabela do corretor."
                 />
@@ -265,24 +265,6 @@ export default function RelatorioEmpreendimentosPage() {
                 />
             </div>
 
-            {/* SEÇÃO EXTRA: Detalhamento VGV por Empreendimento */}
-            {empreendimentoSelecionadoId === 'ALL' && (
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 shrink-0">
-                    <h3 className="text-sm font-bold text-gray-800 mb-3 uppercase tracking-wider flex items-center gap-2">
-                        <FontAwesomeIcon icon={faBuilding} className="text-gray-400" />
-                        Composição do VGV por Empreendimento
-                    </h3>
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                        {dataAgrupada.empreendimentos.map(emp => (
-                            <div key={emp.id} className="bg-gray-50 rounded-lg p-3 border border-gray-100 flex flex-col items-center justify-center text-center">
-                                <span className="text-xs text-gray-500 font-semibold mb-1 w-full truncate" title={emp.nome}>{emp.nome}</span>
-                                <span className="text-lg font-bold text-indigo-700">{formatCurrency(emp.estatisticas.vgvTotal)}</span>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            )}
-
             {/* SEÇÃO 2: GRÁFICOS & LISTAGEM */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1">
                 
@@ -298,17 +280,19 @@ export default function RelatorioEmpreendimentosPage() {
                                 <PieChart>
                                     <Pie 
                                         data={dataAgrupada.chartPizzaVGV} 
-                                        cx="50%" cy="50%" innerRadius={60} outerRadius={110} 
+                                        cx="45%" cy="50%" innerRadius={50} outerRadius={85} 
                                         paddingAngle={3} dataKey="value" stroke="none"
-                                        label={({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
-                                            if (percent < 0.05) return null;
+                                        labelLine={{ stroke: '#9ca3af', strokeWidth: 1 }}
+                                        label={({ cx, cy, midAngle, innerRadius, outerRadius, percent, value }) => {
                                             const RADIAN = Math.PI / 180;
-                                            const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+                                            const radius = outerRadius * 1.25;
                                             const x = cx + radius * Math.cos(-midAngle * RADIAN);
                                             const y = cy + radius * Math.sin(-midAngle * RADIAN);
+                                            
+                                            // Format text logic
                                             return (
-                                                <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" fontSize={12} fontWeight="bold" className="drop-shadow-md">
-                                                    {`${(percent * 100).toFixed(0)}%`}
+                                                <text x={x} y={y} fill="#4b5563" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" fontSize={10} fontWeight="bold">
+                                                    {`${(percent * 100).toFixed(0)}% - ${formatCurrency(value)}`}
                                                 </text>
                                             );
                                         }}
@@ -321,7 +305,7 @@ export default function RelatorioEmpreendimentosPage() {
                                       contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontWeight: 'bold' }}
                                       formatter={(value) => [formatCurrency(value), '']} 
                                     />
-                                    <Legend layout="horizontal" verticalAlign="bottom" align="center" wrapperStyle={{ fontSize: '11px', paddingTop: '20px' }} />
+                                    <Legend layout="vertical" verticalAlign="middle" align="right" wrapperStyle={{ fontSize: '11px', right: 0 }} />
                                 </PieChart>
                             </ResponsiveContainer>
                         ) : (
