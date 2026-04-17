@@ -174,6 +174,13 @@ export default function RelatorioEmpreendimentosPage() {
             produtosFormatados = produtosFormatados.filter(p => p.empreendimento_id === Number(empreendimentoSelecionadoId));
         }
 
+        const countTipos = {};
+        for (const p of produtosFormatados) {
+            const t = p.tipo || 'Não Informado';
+            countTipos[t] = (countTipos[t] || 0) + 1;
+        }
+        const chartPizzaTipologias = Object.entries(countTipos).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
+
         produtosFormatados.sort((a, b) => {
             if (a.empreendimento_id !== b.empreendimento_id) return a.empreendimento_id - b.empreendimento_id;
             return b.valor_atual - a.valor_atual;
@@ -193,7 +200,7 @@ export default function RelatorioEmpreendimentosPage() {
             qtdTotal: isAll ? totalQtd : (targetEmp?.estatisticas?.qtdTotal || 0),
         };
 
-        return { empreendimentos: empProcessados, chartPizzaVGV, produtosFormatados, estatisticasGlobais: statsFinal };
+        return { empreendimentos: empProcessados, chartPizzaVGV, chartPizzaTipologias, produtosFormatados, estatisticasGlobais: statsFinal };
     }, [rawData, empreendimentoSelecionadoId]);
 
     // === 3. INTERFACE PADRÃO OURO ===
@@ -266,11 +273,11 @@ export default function RelatorioEmpreendimentosPage() {
                 />
             </div>
 
-            {/* SEÇÃO 2: GRÁFICOS & LISTAGEM */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* SEÇÃO 2: GRÁFICOS */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 
                 {/* Gráfico Pizza de VGV */}
-                <div className="lg:col-span-1 bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col min-h-[350px]">
+                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col min-h-[350px]">
                     <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wider mb-4 border-b pb-2 flex items-center justify-between">
                         <span>Fatia de VGV / Obra</span>
                         <FontAwesomeIcon icon={faChartPie} className="text-indigo-400" />
@@ -313,8 +320,54 @@ export default function RelatorioEmpreendimentosPage() {
                     </div>
                 </div>
 
-                {/* Tabela de Produtos Detalhados */}
-                <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-100 flex flex-col overflow-hidden max-h-[450px]">
+                {/* Gráfico Pizza de Tipologias */}
+                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col min-h-[350px]">
+                    <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wider mb-4 border-b pb-2 flex items-center justify-between">
+                        <span>Distribuição de Tipologias</span>
+                        <FontAwesomeIcon icon={faChartPie} className="text-emerald-400" />
+                    </h3>
+                    <div className="flex-1 w-full h-[250px]">
+                        {dataAgrupada.chartPizzaTipologias && dataAgrupada.chartPizzaTipologias.length > 0 ? (
+                            <ResponsiveContainer width="100%" height="100%">
+                                <PieChart>
+                                    <Pie 
+                                        data={dataAgrupada.chartPizzaTipologias} 
+                                        cx="50%" cy="50%" innerRadius={50} outerRadius={100} 
+                                        paddingAngle={3} dataKey="value" stroke="none"
+                                        labelLine={false}
+                                        label={({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
+                                            if (percent < 0.05) return null;
+                                            const RADIAN = Math.PI / 180;
+                                            const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+                                            const x = cx + radius * Math.cos(-midAngle * RADIAN);
+                                            const y = cy + radius * Math.sin(-midAngle * RADIAN);
+                                            return (
+                                                <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" fontSize={14} fontWeight="bold" className="drop-shadow-md">
+                                                    {`${(percent * 100).toFixed(0)}%`}
+                                                </text>
+                                            );
+                                        }}
+                                    >
+                                        {dataAgrupada.chartPizzaTipologias.map((entry, index) => (
+                                            <Cell key={`cell-${index}`} fill={COLORS[(index + 3) % COLORS.length]} />
+                                        ))}
+                                    </Pie>
+                                    <Tooltip 
+                                      contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontWeight: 'bold' }}
+                                      formatter={(value) => [`${value} unidades`, 'Unidades']} 
+                                    />
+                                    <Legend layout="vertical" verticalAlign="middle" align="right" wrapperStyle={{ fontSize: '11px', fontWeight: '500' }} />
+                                </PieChart>
+                            </ResponsiveContainer>
+                        ) : (
+                            <p className="text-gray-400 text-sm">Sem dados de tipologia.</p>
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            {/* SEÇÃO 3: Tabela de Produtos Detalhados */}
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 flex flex-col overflow-hidden max-h-[450px]">
                      <div className="p-5 border-b border-gray-100 flex items-center justify-between bg-white shrink-0">
                         <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wider">
                             Micro-Auditoria: Produtos Listados
