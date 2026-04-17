@@ -5,7 +5,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSearch, faBuilding, faPlus } from '@fortawesome/free-solid-svg-icons';
 import EmpreendimentoDetailWrapper from './EmpreendimentoDetailWrapper';
-import Link from 'next/link';
+import EmpreendimentoFormModal from './EmpreendimentoFormModal';
+import { faCity, faHouse } from '@fortawesome/free-solid-svg-icons';
 
 export default function EmpreendimentoManager({ initialEmpreendimentos }) {
  const { user, hasPermission } = useAuth();
@@ -15,6 +16,7 @@ export default function EmpreendimentoManager({ initialEmpreendimentos }) {
  const [empreendimentos] = useState(initialEmpreendimentos || []);
  const [selectedEmpreendimentoId, setSelectedEmpreendimentoId] = useState(null);
  const [searchTerm, setSearchTerm] = useState('');
+ const [isModalOpen, setIsModalOpen] = useState(false);
 
  const filteredEmpreendimentos = useMemo(() => {
  if (!searchTerm) return empreendimentos;
@@ -43,9 +45,9 @@ export default function EmpreendimentoManager({ initialEmpreendimentos }) {
  <div className="flex justify-between items-center">
  <h2 className="text-xl font-bold tracking-tight text-gray-900">Empreendimentos</h2>
  {canCreate && (
- <Link href="/empreendimentos/cadastro" className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3 py-2 rounded-lg shadow-sm transition-all flex items-center gap-2 hover:shadow-md active:scale-95">
+ <button onClick={() => setIsModalOpen(true)} className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3 py-2 rounded-lg shadow-sm transition-all flex items-center gap-2 hover:shadow-md active:scale-95">
  <FontAwesomeIcon icon={faPlus} /> Novo
- </Link>
+ </button>
  )}
  </div>
 
@@ -93,7 +95,11 @@ export default function EmpreendimentoManager({ initialEmpreendimentos }) {
  <p className={`text-sm font-bold truncate ${isSelected ? 'text-blue-600' : 'text-gray-900'}`}>
  {empreendimento.nome}
  </p>
- <div className="flex items-center gap-1.5 mt-0.5">
+ <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+ <span className={`px-1.5 py-0.5 text-[10px] uppercase tracking-wider font-bold rounded flex items-center gap-1 bg-gray-100 text-gray-700`}>
+ <FontAwesomeIcon icon={empreendimento.categoria === 'Horizontal' ? faHouse : faCity} />
+ {empreendimento.categoria || 'Vertical'}
+ </span>
  <span className={`px-1.5 py-0.5 text-[10px] uppercase tracking-wider font-bold rounded ${statusColors[empreendimento.status] || 'bg-gray-100 text-gray-800'}`}>
  {empreendimento.status || 'Sem status'}
  </span>
@@ -124,6 +130,11 @@ export default function EmpreendimentoManager({ initialEmpreendimentos }) {
  <EmpreendimentoDetailWrapper empreendimentoId={selectedEmpreendimentoId} organizacaoId={organizacaoId} />
  )}
  </div>
+
+ <EmpreendimentoFormModal
+ isOpen={isModalOpen}
+ onClose={() => setIsModalOpen(false)}
+ />
  </div>
  );
 }

@@ -18,7 +18,7 @@ export default function UppyAvatarUploader({
  folderPath = 'capas',
  label = "Imagem de Capa (Thumbnail)",
  aspectRatio = "aspect-video",
- objectFit = "object-cover",
+ objectFit = "object-contain",
  className = ""
 }) {
  const supabase = createClient();

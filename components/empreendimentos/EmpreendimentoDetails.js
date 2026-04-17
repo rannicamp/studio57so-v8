@@ -10,6 +10,7 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import EmpreendimentoFormModal from './EmpreendimentoFormModal';
 import {
  faBuilding, faRulerCombined, faBoxOpen, faFileLines, faUpload,
  faSpinner, faTrash, faEye, faSort, faSortUp, faSortDown,
@@ -382,6 +383,7 @@ export default function EmpreendimentoDetails({ empreendimento, corporateEntitie
  const [previewAnexo, setPreviewAnexo] = useState(null);
  const [moveAnexoTarget, setMoveAnexoTarget] = useState(null);
  const [editAnexoTarget, setEditAnexoTarget] = useState(null);
+ const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
  const supabase = createClient();
  const router = useRouter();
@@ -534,6 +536,7 @@ export default function EmpreendimentoDetails({ empreendimento, corporateEntitie
  folderPath={`capas/${empreendimento.id}`}
  label=""
  aspectRatio="aspect-square" /* Logo style */
+ objectFit="object-contain"
  className="w-24 h-24 flex-shrink-0 mt-1"
  />
  <div>
@@ -543,7 +546,7 @@ export default function EmpreendimentoDetails({ empreendimento, corporateEntitie
  </div>
  <div className="flex items-center gap-2 flex-shrink-0">
  <button onClick={handleGerarResumo} disabled={isGeneratingSummary} className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors disabled:bg-gray-400"><FontAwesomeIcon icon={isGeneratingSummary ? faSpinner : faWandMagicSparkles} className={`mr-2 ${isGeneratingSummary ? 'animate-spin' : ''}`} />{isGeneratingSummary ? 'Gerando...' : 'Gerar Resumo com IA'}</button>
- <Link href={`/empreendimentos/editar/${empreendimento.id}`} className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors">Editar Empreendimento</Link>
+ <button onClick={() => setIsEditModalOpen(true)} className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors">Editar Empreendimento</button>
  </div>
  </div>
 
@@ -592,6 +595,7 @@ export default function EmpreendimentoDetails({ empreendimento, corporateEntitie
  <FilePreviewModal anexo={previewAnexo} onClose={() => setPreviewAnexo(null)} />
  <ModalMoverAnexo isOpen={!!moveAnexoTarget} onClose={() => setMoveAnexoTarget(null)} anexoInfo={moveAnexoTarget} documentoTipos={documentoTipos} onSave={handleMoveSave} />
  <ModalEditarAnexo isOpen={!!editAnexoTarget} onClose={() => setEditAnexoTarget(null)} anexoInfo={editAnexoTarget} onSave={handleEditSave} />
+ <EmpreendimentoFormModal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} empreendimentoToEdit={empreendimento} />
  </div>
  );
 }

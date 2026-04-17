@@ -9,7 +9,7 @@ import { toast } from 'sonner';
 
 export default function ThumbnailUploader({ url, onUpload, bucketName = 'empreendimentos', label = "Imagem de Capa (Thumbnail)",
  aspectRatio = "aspect-video", // 'aspect-video' (retangular) ou 'aspect-square' (quadrado/logo)
- objectFit = "object-cover" // 'object-cover' (preenche) ou 'object-contain' (ajusta sem cortar)
+ objectFit = "object-contain" // 'object-cover' (preenche) ou 'object-contain' (ajusta sem cortar)
 }) {
  const supabase = createClient();
  const [uploading, setUploading] = useState(false);
