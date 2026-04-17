@@ -4,11 +4,12 @@ import React, { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, Legend } from 'recharts';
+import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid, LabelList } from 'recharts';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
     faSpinner, faBuilding, faCube, faChartPie, 
-    faMoneyBillWave, faFileSignature, faInfoCircle, faCheckCircle
+    faMoneyBillWave, faFileSignature, faInfoCircle, faCheckCircle,
+    faMap, faCity, faTachometerAlt
 } from '@fortawesome/free-solid-svg-icons';
 
 const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#6366F1', '#EC4899', '#8B5CF6'];
@@ -53,7 +54,7 @@ export default function RelatorioEmpreendimentosPage() {
             if (!user?.organizacao_id) return null;
 
             const [empRes, prodRes, contRes, contProdRes] = await Promise.all([
-                supabase.from('empreendimentos').select('id, nome, listado_para_venda').eq('organizacao_id', user.organizacao_id),
+                supabase.from('empreendimentos').select('id, nome, listado_para_venda, categoria').eq('organizacao_id', user.organizacao_id),
                 supabase.from('produtos_empreendimento').select('id, empreendimento_id, unidade, tipo, area_m2, valor_venda_calculado, status').eq('organizacao_id', user.organizacao_id),
                 supabase.from('contratos').select('id, empreendimento_id, produto_id, valor_final_venda, status_contrato, tipo_documento').eq('organizacao_id', user.organizacao_id).eq('status_contrato', 'Assinado'),
                 supabase.from('contrato_produtos').select('contrato_id, produto_id').eq('organizacao_id', user.organizacao_id)
@@ -80,10 +81,16 @@ export default function RelatorioEmpreendimentosPage() {
         let totalEstoqueListado = 0;
         let totalAreaTotalM2 = 0;
         let totalAreaVendidaM2 = 0;
+        let totalAreaHorizontal = 0;
+        let totalVgvHorizontal = 0;
+        let totalAreaVertical = 0;
+        let totalVgvVertical = 0;
         let totalQtd = 0;
         let totalQtdVendida = 0;
         
         const chartPizzaVGV = [];
+        const chartPizzaM2Horizontal = [];
+        const chartPizzaM2Vertical = [];
         
         // Separação de Cálculo e Auditoria Estrutural
         const empProcessados = empreendimentos
@@ -117,6 +124,15 @@ export default function RelatorioEmpreendimentosPage() {
             }
 
             const areaTotalM2 = produtosVinculados.reduce((sum, p) => sum + (Number(p.area_m2) || 0), 0);
+            if (areaTotalM2 > 0) {
+                const isHorizontal = emp.categoria === 'Horizontal';
+                if (isHorizontal) {
+                    chartPizzaM2Horizontal.push({ name: emp.nome, value: areaTotalM2 });
+                } else {
+                    chartPizzaM2Vertical.push({ name: emp.nome, value: areaTotalM2 });
+                }
+            }
+
             const areaVendidaM2 = produtosVinculados.reduce((sum, p) => {
                 const temContrato = !!rawData.contratoProdutos.find(cp => cp.produto_id === p.id);
                 return (p.status === 'Vendido' || p.status === 'Permuta' || temContrato) ? sum + (Number(p.area_m2) || 0) : sum;
@@ -125,6 +141,14 @@ export default function RelatorioEmpreendimentosPage() {
             const areaEstoqueM2 = areaTotalM2 - areaVendidaM2;
             totalAreaTotalM2 += areaTotalM2;
             totalAreaVendidaM2 += areaVendidaM2;
+
+            if (emp.categoria === 'Horizontal') {
+                totalAreaHorizontal += areaTotalM2;
+                totalVgvHorizontal += vgvTotal;
+            } else {
+                totalAreaVertical += areaTotalM2;
+                totalVgvVertical += vgvTotal;
+            }
 
             const qtdVendidoReal = produtosVinculados.filter(p => {
                 const ligacao = rawData.contratoProdutos.find(cp => cp.produto_id === p.id);
@@ -159,13 +183,29 @@ export default function RelatorioEmpreendimentosPage() {
                 const ligacao = rawData.contratoProdutos.find(cp => cp.produto_id === prod.id);
                 const contratoDoProduto = ligacao ? contratos.find(c => c.id === ligacao.contrato_id && c.tipo_documento === 'CONTRATO') : null;
 
-                const valorAtual = contratoDoProduto ? contratoDoProduto.valor_final_venda : prod.valor_venda_calculado;
+                let valorAtualAjustado = Number(prod.valor_venda_calculado) || 0;
+
+                if (contratoDoProduto) {
+                    // Quando um contrato amarra MÚLTIPLOS produtos (Ex: Apto + Garagem de brinde)
+                    const todosLinksDoContrato = rawData.contratoProdutos.filter(cp => cp.contrato_id === contratoDoProduto.id);
+                    const produtosDoContrato = produtos.filter(p => todosLinksDoContrato.some(link => link.produto_id === p.id));
+                    
+                    const somaTabelaCombo = produtosDoContrato.reduce((acc, p) => acc + (Number(p.valor_venda_calculado) || 0), 0);
+
+                    if (somaTabelaCombo > 0) {
+                        const percentualDaFracao = (Number(prod.valor_venda_calculado) || 0) / somaTabelaCombo;
+                        valorAtualAjustado = Number(contratoDoProduto.valor_final_venda) * percentualDaFracao;
+                    } else {
+                        // Muito raro (Vendeu apenas garagens que valem 0 por um preço X)
+                        valorAtualAjustado = Number(contratoDoProduto.valor_final_venda) / produtosDoContrato.length;
+                    }
+                }
                 
                 produtosFormatados.push({
                     ...prod,
                     nome_empreendimento: emp.nome,
                     is_vendido: !!contratoDoProduto || prod.status === 'Vendido' || prod.status === 'Permuta',
-                    valor_atual: Number(valorAtual) || 0,
+                    valor_atual: valorAtualAjustado,
                 });
             }
         }
@@ -190,17 +230,22 @@ export default function RelatorioEmpreendimentosPage() {
         const isAll = empreendimentoSelecionadoId === 'ALL';
         const targetEmp = isAll ? null : empProcessados.find(e => e.id === Number(empreendimentoSelecionadoId));
 
+        const sumAreaTotal = isAll ? totalAreaTotalM2 : (targetEmp?.estatisticas?.areaTotalM2 || 0);
+        const sumVgv = isAll ? totalVGVGlobal : (targetEmp?.estatisticas?.vgvTotal || 0);
+
         const statsFinal = {
-            vgvConsolidado: isAll ? totalVGVGlobal : (targetEmp?.estatisticas?.vgvTotal || 0),
+            vgvConsolidado: sumVgv,
             vgvAssegurado: isAll ? totalValoresVendidos : (targetEmp?.estatisticas?.valorVendido || 0),
             m2Estoque: isAll ? (totalAreaTotalM2 - totalAreaVendidaM2) : (targetEmp?.estatisticas?.areaEstoqueM2 || 0),
             m2Vendido: isAll ? totalAreaVendidaM2 : (targetEmp?.estatisticas?.areaVendidaM2 || 0),
             qtdEstoque: isAll ? (totalQtd - totalQtdVendida) : (targetEmp?.estatisticas?.qtdDisponivel || 0),
             qtdVendida: isAll ? totalQtdVendida : (targetEmp?.estatisticas?.qtdVendido || 0),
             qtdTotal: isAll ? totalQtd : (targetEmp?.estatisticas?.qtdTotal || 0),
+            ticketMedioHorizontal: isAll ? (totalAreaHorizontal > 0 ? totalVgvHorizontal / totalAreaHorizontal : 0) : (targetEmp?.categoria === 'Horizontal' && sumAreaTotal > 0 ? sumVgv / sumAreaTotal : 0),
+            ticketMedioVertical: isAll ? (totalAreaVertical > 0 ? totalVgvVertical / totalAreaVertical : 0) : ((targetEmp?.categoria !== 'Horizontal') && sumAreaTotal > 0 ? sumVgv / sumAreaTotal : 0),
         };
 
-        return { empreendimentos: empProcessados, chartPizzaVGV, chartPizzaTipologias, produtosFormatados, estatisticasGlobais: statsFinal };
+        return { empreendimentos: empProcessados, chartPizzaVGV, chartPizzaM2Horizontal, chartPizzaM2Vertical, chartPizzaTipologias, produtosFormatados, estatisticasGlobais: statsFinal };
     }, [rawData, empreendimentoSelecionadoId]);
 
     // === 3. INTERFACE PADRÃO OURO ===
@@ -240,7 +285,7 @@ export default function RelatorioEmpreendimentosPage() {
             </div>
 
             {/* SEÇÃO 1: CARDS (KPIs Padrão RH) */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 shrink-0">
+            <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-6 gap-4 shrink-0">
                 <DashboardKpi 
                     title="VGV Total" 
                     value={formatCurrency(stats.vgvConsolidado)}
@@ -258,18 +303,32 @@ export default function RelatorioEmpreendimentosPage() {
                     tooltip="Valor estrito blindado e trancafiado por contratos com status 'Assinado'. Totalmente intocável em casos de variação de tabela do corretor."
                 />
                 <DashboardKpi 
-                    title="Inventário (Disp/Vend)" 
+                    title="Inventário (Físico)" 
                     value={`${stats.qtdEstoque} / ${stats.qtdVendida}`}
                     icon={faCube} bgIcon="bg-orange-50" colorIcon="text-orange-500"
                     subtext={<span>De um total de <span className="font-bold">{stats.qtdTotal} un.</span></span>}
                     tooltip="Relação de unidades em prateleira (Disponíveis) versus comercializadas (Vendidas)."
                 />
                 <DashboardKpi 
-                    title="Unidades em Prateleira" 
-                    value={stats.qtdEstoque.toString()}
-                    icon={faBuilding} bgIcon="bg-blue-50" colorIcon="text-blue-600"
-                    subtext={<span>Disponíveis em um Total de <span className="font-bold">{stats.qtdTotal} un.</span></span>}
-                    tooltip="Total de unidades de produtos listadas como 'Disponível' no portfólio selecionado."
+                    title="Índice VSO" 
+                    value={`${stats.qtdTotal > 0 ? ((stats.qtdVendida / stats.qtdTotal) * 100).toFixed(1) : 0}%`}
+                    icon={faTachometerAlt} bgIcon="bg-teal-50" colorIcon="text-teal-500"
+                    subtext={<span>Escoamento do Estoque</span>}
+                    tooltip="Vendas Sobre Oferta (Snaphot Acumulado). A fatia em percentual de tudo que já trancafiado em relação à oferta global total até o momento."
+                />
+                <DashboardKpi 
+                    title="Ticket Horizontal" 
+                    value={stats.ticketMedioHorizontal > 0 ? formatCurrency(stats.ticketMedioHorizontal) : '-'}
+                    icon={faMap} bgIcon="bg-amber-50" colorIcon="text-amber-500"
+                    subtext={<span>Preço Base/m² em Lotes</span>}
+                    tooltip="Valor médio cobrado pelo m² de área privativa (VGV sobre Área Total) focado em Loteamentos."
+                />
+                <DashboardKpi 
+                    title="Ticket Vertical" 
+                    value={stats.ticketMedioVertical > 0 ? formatCurrency(stats.ticketMedioVertical) : '-'}
+                    icon={faCity} bgIcon="bg-fuchsia-50" colorIcon="text-fuchsia-500"
+                    subtext={<span>Preço Base/m² em Prédios</span>}
+                    tooltip="Valor médio cobrado pelo m² de área privativa (VGV sobre Área Total) focado em Prédios."
                 />
             </div>
 
@@ -288,17 +347,17 @@ export default function RelatorioEmpreendimentosPage() {
                                 <PieChart>
                                     <Pie 
                                         data={dataAgrupada.chartPizzaVGV} 
-                                        cx="50%" cy="50%" innerRadius={50} outerRadius={100} 
+                                        cx="50%" cy="50%" innerRadius={45} outerRadius={75} 
                                         paddingAngle={3} dataKey="value" stroke="none"
-                                        labelLine={false}
-                                        label={({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
+                                        labelLine={{ stroke: '#9ca3af', strokeWidth: 1 }}
+                                        label={({ cx, cy, midAngle, innerRadius, outerRadius, percent, name }) => {
                                             const RADIAN = Math.PI / 180;
-                                            const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+                                            const radius = outerRadius * 1.2;
                                             const x = cx + radius * Math.cos(-midAngle * RADIAN);
                                             const y = cy + radius * Math.sin(-midAngle * RADIAN);
                                             return (
-                                                <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" fontSize={14} fontWeight="bold" className="drop-shadow-md">
-                                                    {`${(percent * 100).toFixed(0)}%`}
+                                                <text x={x} y={y} fill="#4b5563" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" fontSize={11} fontWeight="bold">
+                                                    {name} ({(percent * 100).toFixed(0)}%)
                                                 </text>
                                             );
                                         }}
@@ -309,9 +368,8 @@ export default function RelatorioEmpreendimentosPage() {
                                     </Pie>
                                     <Tooltip 
                                       contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontWeight: 'bold' }}
-                                      formatter={(value) => [formatCurrency(value), '']} 
+                                      formatter={(value) => [formatCurrency(value), 'VGV']} 
                                     />
-                                    <Legend layout="vertical" verticalAlign="middle" align="right" wrapperStyle={{ fontSize: '11px', fontWeight: '500' }} />
                                 </PieChart>
                             </ResponsiveContainer>
                         ) : (
@@ -320,7 +378,97 @@ export default function RelatorioEmpreendimentosPage() {
                     </div>
                 </div>
 
-                {/* Gráfico Pizza de Tipologias */}
+                {/* Gráfico Pizza de Área M2 - Horizontal */}
+                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col min-h-[350px]">
+                    <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wider mb-4 border-b pb-2 flex items-center justify-between">
+                        <span>Área Privativa Loteamentos</span>
+                        <FontAwesomeIcon icon={faChartPie} className="text-amber-500" />
+                    </h3>
+                    <div className="flex-1 w-full h-[250px]">
+                        {dataAgrupada.chartPizzaM2Horizontal && dataAgrupada.chartPizzaM2Horizontal.length > 0 ? (
+                            <ResponsiveContainer width="100%" height="100%">
+                                <PieChart>
+                                    <Pie 
+                                        data={dataAgrupada.chartPizzaM2Horizontal} 
+                                        cx="50%" cy="50%" innerRadius={45} outerRadius={75} 
+                                        paddingAngle={3} dataKey="value" stroke="none"
+                                        labelLine={{ stroke: '#9ca3af', strokeWidth: 1 }}
+                                        label={({ cx, cy, midAngle, innerRadius, outerRadius, percent, name }) => {
+                                            const RADIAN = Math.PI / 180;
+                                            const radius = outerRadius * 1.2;
+                                            const x = cx + radius * Math.cos(-midAngle * RADIAN);
+                                            const y = cy + radius * Math.sin(-midAngle * RADIAN);
+                                            return (
+                                                <text x={x} y={y} fill="#4b5563" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" fontSize={11} fontWeight="bold">
+                                                    {name} ({(percent * 100).toFixed(0)}%)
+                                                </text>
+                                            );
+                                        }}
+                                    >
+                                        {dataAgrupada.chartPizzaM2Horizontal.map((entry, index) => (
+                                            <Cell key={`cell-${index}`} fill={COLORS[(index + 4) % COLORS.length]} />
+                                        ))}
+                                    </Pie>
+                                    <Tooltip 
+                                      contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontWeight: 'bold' }}
+                                      formatter={(value) => [`${formatNumber(value)} m²`, 'Área (Lotes)']} 
+                                    />
+                                </PieChart>
+                            </ResponsiveContainer>
+                        ) : (
+                            <div className="flex w-full h-full justify-center items-center">
+                               <p className="text-gray-400 text-sm">Nenhum loteamento registrado.</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* Gráfico Pizza de Área M2 - Vertical */}
+                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col min-h-[350px]">
+                    <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wider mb-4 border-b pb-2 flex items-center justify-between">
+                        <span>Área Privativa Vertical</span>
+                        <FontAwesomeIcon icon={faChartPie} className="text-rose-400" />
+                    </h3>
+                    <div className="flex-1 w-full h-[250px]">
+                        {dataAgrupada.chartPizzaM2Vertical && dataAgrupada.chartPizzaM2Vertical.length > 0 ? (
+                            <ResponsiveContainer width="100%" height="100%">
+                                <PieChart>
+                                    <Pie 
+                                        data={dataAgrupada.chartPizzaM2Vertical} 
+                                        cx="50%" cy="50%" innerRadius={45} outerRadius={75} 
+                                        paddingAngle={3} dataKey="value" stroke="none"
+                                        labelLine={{ stroke: '#9ca3af', strokeWidth: 1 }}
+                                        label={({ cx, cy, midAngle, innerRadius, outerRadius, percent, name }) => {
+                                            const RADIAN = Math.PI / 180;
+                                            const radius = outerRadius * 1.2;
+                                            const x = cx + radius * Math.cos(-midAngle * RADIAN);
+                                            const y = cy + radius * Math.sin(-midAngle * RADIAN);
+                                            return (
+                                                <text x={x} y={y} fill="#4b5563" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" fontSize={11} fontWeight="bold">
+                                                    {name} ({(percent * 100).toFixed(0)}%)
+                                                </text>
+                                            );
+                                        }}
+                                    >
+                                        {dataAgrupada.chartPizzaM2Vertical.map((entry, index) => (
+                                            <Cell key={`cell-${index}`} fill={COLORS[(index + 2) % COLORS.length]} />
+                                        ))}
+                                    </Pie>
+                                    <Tooltip 
+                                      contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontWeight: 'bold' }}
+                                      formatter={(value) => [`${formatNumber(value)} m²`, 'Área (Aptos/Salas)']} 
+                                    />
+                                </PieChart>
+                            </ResponsiveContainer>
+                        ) : (
+                            <div className="flex w-full h-full justify-center items-center">
+                               <p className="text-gray-400 text-sm">Nenhum prédio registrado.</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* Gráfico Barras de Tipologias */}
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col min-h-[350px]">
                     <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wider mb-4 border-b pb-2 flex items-center justify-between">
                         <span>Distribuição de Tipologias</span>
@@ -329,35 +477,22 @@ export default function RelatorioEmpreendimentosPage() {
                     <div className="flex-1 w-full h-[250px]">
                         {dataAgrupada.chartPizzaTipologias && dataAgrupada.chartPizzaTipologias.length > 0 ? (
                             <ResponsiveContainer width="100%" height="100%">
-                                <PieChart>
-                                    <Pie 
-                                        data={dataAgrupada.chartPizzaTipologias} 
-                                        cx="50%" cy="50%" innerRadius={50} outerRadius={100} 
-                                        paddingAngle={3} dataKey="value" stroke="none"
-                                        labelLine={false}
-                                        label={({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
-                                            if (percent < 0.05) return null;
-                                            const RADIAN = Math.PI / 180;
-                                            const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
-                                            const x = cx + radius * Math.cos(-midAngle * RADIAN);
-                                            const y = cy + radius * Math.sin(-midAngle * RADIAN);
-                                            return (
-                                                <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" fontSize={14} fontWeight="bold" className="drop-shadow-md">
-                                                    {`${(percent * 100).toFixed(0)}%`}
-                                                </text>
-                                            );
-                                        }}
-                                    >
+                                <BarChart data={dataAgrupada.chartPizzaTipologias} margin={{ top: 20, right: 30, left: 0, bottom: 20 }}>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
+                                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 600, fill: '#6B7280' }} interval={0} />
+                                    <YAxis hide />
+                                    <Tooltip 
+                                      contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontWeight: 'bold' }}
+                                      formatter={(value) => [`${value} unidades`, 'Quantidade']} 
+                                      cursor={{ fill: '#F3F4F6' }}
+                                    />
+                                    <Bar dataKey="value" radius={[6, 6, 0, 0]} maxBarSize={60}>
                                         {dataAgrupada.chartPizzaTipologias.map((entry, index) => (
                                             <Cell key={`cell-${index}`} fill={COLORS[(index + 3) % COLORS.length]} />
                                         ))}
-                                    </Pie>
-                                    <Tooltip 
-                                      contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontWeight: 'bold' }}
-                                      formatter={(value) => [`${value} unidades`, 'Unidades']} 
-                                    />
-                                    <Legend layout="vertical" verticalAlign="middle" align="right" wrapperStyle={{ fontSize: '11px', fontWeight: '500' }} />
-                                </PieChart>
+                                        <LabelList dataKey="value" position="top" style={{ fontSize: '11px', fontWeight: 'bold', fill: '#4B5563' }} />
+                                    </Bar>
+                                </BarChart>
                             </ResponsiveContainer>
                         ) : (
                             <p className="text-gray-400 text-sm">Sem dados de tipologia.</p>
@@ -384,6 +519,7 @@ export default function RelatorioEmpreendimentosPage() {
                                    <th className="px-4 py-3 text-center">Tipo Físico</th>
                                    <th className="px-4 py-3 text-right">Área M²</th>
                                    <th className="px-4 py-3 text-right">Preço Efetivo</th>
+                                   <th className="px-4 py-3 text-right">Ticket (R$/m²)</th>
                                </tr>
                            </thead>
                            <tbody className="divide-y divide-gray-100">
@@ -396,15 +532,9 @@ export default function RelatorioEmpreendimentosPage() {
                                            </div>
                                        </td>
                                        <td className="px-4 py-3 text-center">
-                                           {p.is_vendido ? (
-                                                <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider">
-                                                    <FontAwesomeIcon icon={faCheckCircle} /> Faturado
-                                                </span>
-                                           ) : (
-                                                <span className="inline-block bg-blue-50 text-blue-600 border border-blue-100 px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider">
-                                                    {p.tipo || 'Lote'}
-                                                </span>
-                                           )}
+                                            <span className="inline-block bg-blue-50 text-blue-600 border border-blue-100 px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider">
+                                                {p.tipo || 'Lote'}
+                                            </span>
                                        </td>
                                        <td className="px-4 py-3 text-right font-mono text-gray-600">
                                            {formatNumber(p.area_m2)} <span className="text-[10px]">m²</span>
@@ -415,6 +545,13 @@ export default function RelatorioEmpreendimentosPage() {
                                            ) : (
                                                 <span className="font-medium text-gray-600">{formatCurrency(p.valor_atual)}</span>
                                            )}
+                                       </td>
+                                       <td className="px-4 py-3 text-right font-mono text-[11px] text-gray-500">
+                                           {p.area_m2 > 0 ? (
+                                              <span className="font-bold">
+                                                  {formatCurrency(p.valor_atual / p.area_m2)}
+                                              </span>
+                                           ) : '-'}
                                        </td>
                                    </tr>
                                ))}
@@ -429,8 +566,6 @@ export default function RelatorioEmpreendimentosPage() {
                         </table>
                     </div>
                 </div>
-
-            </div>
 
         </div>
     );
