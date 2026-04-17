@@ -55,7 +55,7 @@ export default function RelatorioEmpreendimentosPage() {
             const [empRes, prodRes, contRes, contProdRes] = await Promise.all([
                 supabase.from('empreendimentos').select('id, nome, listado_para_venda').eq('organizacao_id', user.organizacao_id),
                 supabase.from('produtos_empreendimento').select('id, empreendimento_id, unidade, tipo, area_m2, valor_venda_calculado, status').eq('organizacao_id', user.organizacao_id),
-                supabase.from('contratos').select('id, empreendimento_id, produto_id, valor_final_venda, status_contrato').eq('organizacao_id', user.organizacao_id).eq('status_contrato', 'Assinado'),
+                supabase.from('contratos').select('id, empreendimento_id, produto_id, valor_final_venda, status_contrato, tipo_documento').eq('organizacao_id', user.organizacao_id).eq('status_contrato', 'Assinado'),
                 supabase.from('contrato_produtos').select('contrato_id, produto_id').eq('organizacao_id', user.organizacao_id)
             ]);
 
@@ -92,18 +92,19 @@ export default function RelatorioEmpreendimentosPage() {
             const produtosVinculados = produtos.filter(p => p.empreendimento_id === emp.id);
             const contratosVinculados = contratos.filter(c => c.empreendimento_id === emp.id);
 
-            // Regra de Prata Aplicada Meticulosamente
+            // Regra de Ouro Aplicada: Soma as unidades Disponíveis ou Reservadas que não possuam Contrato Assinado
             const valorEstoqueListado = produtosVinculados.reduce((sum, p) => {
-                const temContrato = !!rawData.contratoProdutos.find(cp => cp.produto_id === p.id);
-                // Permutas ou unidades com contratos são blindadas na tabela e exclusas da soma de prateleira base
-                if (p.status !== 'Vendido' && p.status !== 'Permuta' && !temContrato) {
+                const ligacao = rawData.contratoProdutos.find(cp => cp.produto_id === p.id);
+                const temContratoFirme = ligacao ? contratos.some(c => c.id === ligacao.contrato_id && c.tipo_documento === 'CONTRATO') : false;
+                
+                if ((p.status === 'Disponível' || p.status === 'Reservado' || p.status === 'Reservada') && !temContratoFirme) {
                     return sum + (Number(p.valor_venda_calculado) || 0);
                 }
                 return sum;
             }, 0);
 
-            // Blindagem do que já é certo (Fixação de Preços do Passado)
-            const valorVendido = contratosVinculados.reduce((sum, c) => sum + (Number(c.valor_final_venda) || 0), 0);
+            // Blindagem do que já é certo: Apenas Contratos (exclui termos de interesse)
+            const valorVendido = contratosVinculados.reduce((sum, c) => c.tipo_documento === 'CONTRATO' ? sum + (Number(c.valor_final_venda) || 0) : sum, 0);
 
             const vgvTotal = valorEstoqueListado + valorVendido;
 
@@ -126,8 +127,9 @@ export default function RelatorioEmpreendimentosPage() {
             totalAreaVendidaM2 += areaVendidaM2;
 
             const qtdVendidoReal = produtosVinculados.filter(p => {
-                const temContrato = !!rawData.contratoProdutos.find(cp => cp.produto_id === p.id);
-                return p.status === 'Vendido' || p.status === 'Permuta' || temContrato;
+                const ligacao = rawData.contratoProdutos.find(cp => cp.produto_id === p.id);
+                const temContratoFirme = ligacao ? contratos.some(c => c.id === ligacao.contrato_id && c.tipo_documento === 'CONTRATO') : false;
+                return p.status === 'Vendido' || p.status === 'Permuta' || temContratoFirme;
             }).length;
 
             totalQtd += produtosVinculados.length;
@@ -155,7 +157,7 @@ export default function RelatorioEmpreendimentosPage() {
         for (const emp of empProcessados) {
             for (const prod of emp.produtos) {
                 const ligacao = rawData.contratoProdutos.find(cp => cp.produto_id === prod.id);
-                const contratoDoProduto = ligacao ? contratos.find(c => c.id === ligacao.contrato_id) : null;
+                const contratoDoProduto = ligacao ? contratos.find(c => c.id === ligacao.contrato_id && c.tipo_documento === 'CONTRATO') : null;
 
                 const valorAtual = contratoDoProduto ? contratoDoProduto.valor_final_venda : prod.valor_venda_calculado;
                 
@@ -232,11 +234,11 @@ export default function RelatorioEmpreendimentosPage() {
             {/* SEÇÃO 1: CARDS (KPIs Padrão RH) */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 shrink-0">
                 <DashboardKpi 
-                    title="VGV Total Projetado" 
+                    title="VGV Total" 
                     value={formatCurrency(stats.vgvConsolidado)}
                     icon={faMoneyBillWave} bgIcon="bg-indigo-50" colorIcon="text-indigo-600"
-                    subtext="Estoque de Prateleira + Contratos"
-                    tooltip="Soma dos valores de tabela das unidades restantes limpas + montantes totais contratuais das unidades já negociadas (Regra de Prata)."
+                    subtext="Unid. Disponíveis/Reservadas + Contratos"
+                    tooltip="Soma estrita do valor de unidades disponíveis ou reservadas + montante dos contratos de venda efetivamente assinados."
                 />
                 <DashboardKpi 
                     title="VGV Assegurado (Vendas)" 
