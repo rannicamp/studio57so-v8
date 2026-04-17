@@ -189,6 +189,7 @@ export default function RelatorioEmpreendimentosPage() {
             m2Estoque: isAll ? (totalAreaTotalM2 - totalAreaVendidaM2) : (targetEmp?.estatisticas?.areaEstoqueM2 || 0),
             m2Vendido: isAll ? totalAreaVendidaM2 : (targetEmp?.estatisticas?.areaVendidaM2 || 0),
             qtdEstoque: isAll ? (totalQtd - totalQtdVendida) : (targetEmp?.estatisticas?.qtdDisponivel || 0),
+            qtdVendida: isAll ? totalQtdVendida : (targetEmp?.estatisticas?.qtdVendido || 0),
             qtdTotal: isAll ? totalQtd : (targetEmp?.estatisticas?.qtdTotal || 0),
         };
 
@@ -250,11 +251,11 @@ export default function RelatorioEmpreendimentosPage() {
                     tooltip="Valor estrito blindado e trancafiado por contratos com status 'Assinado'. Totalmente intocável em casos de variação de tabela do corretor."
                 />
                 <DashboardKpi 
-                    title="Estoque de Inventário (m²)" 
-                    value={formatNumber(stats.m2Estoque)}
+                    title="Inventário (Disp/Vend)" 
+                    value={`${stats.qtdEstoque} / ${stats.qtdVendida}`}
                     icon={faCube} bgIcon="bg-orange-50" colorIcon="text-orange-500"
-                    subtext={<span>Já faturados: <span className="font-bold">{formatNumber(stats.m2Vendido)} m²</span></span>}
-                    tooltip="Área líquida em metros quadrados pronta e disponível para venda em inventário ativo."
+                    subtext={<span>De um total de <span className="font-bold">{stats.qtdTotal} un.</span></span>}
+                    tooltip="Relação de unidades em prateleira (Disponíveis) versus comercializadas (Vendidas)."
                 />
                 <DashboardKpi 
                     title="Unidades em Prateleira" 
