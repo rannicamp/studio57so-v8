@@ -17,27 +17,27 @@ const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#6366F1', '#EC4899', '#8B5CF6'
 const formatCurrency = (val) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(val || 0);
 const formatNumber = (val) => new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(val || 0);
 
-// Estilo de Componente Exato Extraído do RHDashboard.js (Padrão Ouro de Diretoria)
+// Estilo de Componente Exato Extrapolado para Responsividade Máxima (Fluid Text)
 const DashboardKpi = ({ title, value, icon, bgIcon, colorIcon, subtext, tooltip }) => (
-  <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-start justify-between">
-    <div>
-      <div className="flex items-center gap-1 mb-2">
-        <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">{title}</p>
+  <div className="bg-white p-4 2xl:p-6 rounded-2xl shadow-sm border border-gray-100 flex items-start justify-between min-w-0">
+    <div className="flex-1 min-w-0 pr-2" style={{ containerType: 'inline-size' }}>
+      <div className="flex items-center gap-1 mb-1.5">
+        <p className="text-[10px] md:text-xs font-bold text-gray-500 uppercase tracking-wider truncate">{title}</p>
         {tooltip && (
-          <div className="relative flex items-center group z-20">
+          <div className="relative flex items-center group z-20 shrink-0">
             <FontAwesomeIcon icon={faInfoCircle} className="text-gray-300 hover:text-blue-500 cursor-help transition-colors text-xs" />
             <div className="invisible group-hover:visible opacity-0 group-hover:opacity-100 transition-opacity absolute top-full left-0 mt-2 w-64 p-3 bg-gray-800 text-white text-xs rounded-xl shadow-xl normal-case font-medium pointer-events-none">
               <div className="absolute -top-1 left-2 w-2 h-2 bg-gray-800 transform rotate-45"></div>
-              {tooltip}
+              <span className="block whitespace-normal">{tooltip}</span>
             </div>
           </div>
         )}
       </div>
-      <h3 className="text-3xl font-extrabold text-gray-800">{value}</h3>
-      {subtext && <p className="text-xs text-gray-400 mt-2 font-medium">{subtext}</p>}
+      <h3 className="font-extrabold text-gray-800 whitespace-nowrap overflow-hidden text-ellipsis" style={{ fontSize: 'clamp(0.9rem, 15cqi, 1.875rem)' }}>{value}</h3>
+      {subtext && <p className="text-[10px] text-gray-400 mt-1.5 font-medium leading-tight line-clamp-2">{subtext}</p>}
     </div>
-    <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${bgIcon} ${colorIcon}`}>
-      <FontAwesomeIcon icon={icon} className="text-xl" />
+    <div className={`w-10 h-10 2xl:w-12 2xl:h-12 rounded-xl flex items-center justify-center shrink-0 ${bgIcon} ${colorIcon}`}>
+      <FontAwesomeIcon icon={icon} className="text-lg 2xl:text-xl" />
     </div>
   </div>
 );
