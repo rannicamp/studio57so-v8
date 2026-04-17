@@ -275,18 +275,18 @@ export default function RelatorioEmpreendimentosPage() {
                         <span>Fatia de VGV / Obra</span>
                         <FontAwesomeIcon icon={faChartPie} className="text-indigo-400" />
                     </h3>
-                    <div className="flex-1 w-full h-full min-h-[250px] flex items-center justify-center">
+                    <div className="flex-1 w-full h-[250px]">
                         {dataAgrupada.chartPizzaVGV.length > 0 ? (
-                            <ResponsiveContainer width="100%" height="80%">
+                            <ResponsiveContainer width="100%" height="100%">
                                 <PieChart>
                                     <Pie 
                                         data={dataAgrupada.chartPizzaVGV} 
-                                        cx="45%" cy="50%" innerRadius={50} outerRadius={85} 
+                                        cx="50%" cy="50%" innerRadius={50} outerRadius={100} 
                                         paddingAngle={3} dataKey="value" stroke="none"
                                         labelLine={{ stroke: '#9ca3af', strokeWidth: 1 }}
                                         label={({ cx, cy, midAngle, innerRadius, outerRadius, percent, value }) => {
                                             const RADIAN = Math.PI / 180;
-                                            const radius = outerRadius * 1.25;
+                                            const radius = outerRadius * 1.15;
                                             const x = cx + radius * Math.cos(-midAngle * RADIAN);
                                             const y = cy + radius * Math.sin(-midAngle * RADIAN);
                                             
