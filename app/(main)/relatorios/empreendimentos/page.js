@@ -267,7 +267,7 @@ export default function RelatorioEmpreendimentosPage() {
             </div>
 
             {/* SEÇÃO 2: GRÁFICOS & LISTAGEM */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-1">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 
                 {/* Gráfico Pizza de VGV */}
                 <div className="lg:col-span-1 bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col min-h-[350px]">
@@ -304,7 +304,7 @@ export default function RelatorioEmpreendimentosPage() {
                                       contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontWeight: 'bold' }}
                                       formatter={(value) => [formatCurrency(value), '']} 
                                     />
-                                    <Legend layout="vertical" verticalAlign="middle" align="right" wrapperStyle={{ fontSize: '11px', right: 0 }} />
+                                    <Legend layout="vertical" verticalAlign="middle" align="right" wrapperStyle={{ fontSize: '11px', fontWeight: '500' }} />
                                 </PieChart>
                             </ResponsiveContainer>
                         ) : (
