@@ -13,7 +13,7 @@ export default function EmpreendimentoManager({ initialEmpreendimentos }) {
  const organizacaoId = user?.organizacao_id;
  const canCreate = hasPermission('empreendimentos', 'pode_criar');
 
- const [empreendimentos] = useState(initialEmpreendimentos || []);
+ const empreendimentos = initialEmpreendimentos || [];
  const [selectedEmpreendimentoId, setSelectedEmpreendimentoId] = useState(null);
  const [searchTerm, setSearchTerm] = useState('');
  const [isModalOpen, setIsModalOpen] = useState(false);
