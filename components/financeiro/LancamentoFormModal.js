@@ -203,7 +203,8 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
  mutationFn: async ({ formData, updateScope = 'single' }) => {
  if (!user || !organizacaoId) throw new Error("Usuário não autenticado ou organização não encontrada.");
 
- const valorNumerico = parseFloat(String(formData.valor || '0').replace(',', '.')) || 0;
+ const valorNumericoBruto = parseFloat(String(formData.valor || '0').replace(',', '.')) || 0;
+ const valorNumerico = valorNumericoBruto;
 
  let favorecidoFinalId = formData.favorecido_contato_id;
  if (formData.novo_favorecido && formData.novo_favorecido.nome) {

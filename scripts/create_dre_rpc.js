@@ -52,12 +52,14 @@ BEGIN
     -- Empreendimentos
     IF (p_filtros->'empreendimentoIds') IS NOT NULL AND jsonb_array_length(p_filtros->'empreendimentoIds') > 0 THEN
         v_query := v_query || ' AND l.empreendimento_id IN (SELECT jsonb_array_elements_text(''' || (p_filtros->'empreendimentoIds') || ''')::bigint)';
+    ELSE
+        -- DRE de Obra exige que ao menos pertença a alguma obra quando vista no contexto global
+        v_query := v_query || ' AND l.empreendimento_id IS NOT NULL';
     END IF;
 
-    -- Ignorar Transferências e Estornos se solicitado (embora geralmente DRE ignore)
+    -- Ignorar Transferências internas (mas não Estornos vinculados à obra)
     v_query := v_query || ' AND (c.nome IS NULL OR NOT (
-        UNACCENT(c.nome) ILIKE UNACCENT(''Transferência%'') OR 
-        UNACCENT(c.nome) ILIKE UNACCENT(''Estorno%'')
+        UNACCENT(c.nome) ILIKE UNACCENT(''Transferência%'')
     ))';
 
     -- Agrupamento

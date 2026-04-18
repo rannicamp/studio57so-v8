@@ -40,7 +40,7 @@ export function useCustosObraDRE(filtros) {
                     ...filtrosParaBanco,
                     ignoreTransfers: true
                 }
-            });
+            }).limit(50000); // 🛡️ BURLAR O LIMITE DE 1000 LINHAS DO REST API!
 
             if (error) {
                 console.error("Erro ao buscar matriz DRE Obras no servidor:", error);
@@ -58,6 +58,18 @@ export function useCustosObraDRE(filtros) {
 
     const processarDREObras = () => {
         if (!categorias || !lancamentosAgrupados) return null;
+
+        // INJEÇÃO BRUTAL PARA INVESTIGAR NOVEMBRO/25 (MISTÉRIO DO ZERO)
+        console.log("⚠️ [DEBUG DRE OBRAS] Total de lançamentos brutos recebidos da RPC:", lancamentosAgrupados.length);
+        const debugFolha194 = lancamentosAgrupados.filter(l => Number(l.categoria_id) === 194 || l.categoria_id === '194');
+        console.log("⚠️ [DEBUG DRE OBRAS] Lançamentos EXATOS da Categoria 194 (Folha):", debugFolha194);
+        
+        let foundNov25 = debugFolha194.find(l => l.ano_mes === '2025-11');
+        if(!foundNov25) {
+             console.log("🔴 URGENTE: O servidor NÃO ENTREGOU O MÊS 2025-11 para o navegador!");
+        } else {
+             console.log("🟢 OK: O servidor ENTREGOU o mês 2025-11! O valor é:", foundNov25.total);
+        }
 
         // Dicionário rápido de categorias
         const catMap = {};
@@ -123,8 +135,9 @@ export function useCustosObraDRE(filtros) {
                 };
             }
 
-            // Converter para Number e tirar valor absoluto (caso lance despesa neg/pos)
-            const valor = Math.abs(Number(lancamentoAgrupado.total) || 0);
+            // Com o novo padrão estrutural, despesas vêm do banco negativas e receitas positivas.
+            // Para o DRE de Custos (que deve exibir custos como positivos), nós espelhamos/invertemos o resultado bruto (* -1)
+            const valor = (Number(lancamentoAgrupado.total) || 0) * -1;
 
             if(chaveMes) {
                 // Adiciona na Filha

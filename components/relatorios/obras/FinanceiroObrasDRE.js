@@ -1,9 +1,9 @@
 // components/relatorios/obras/FinanceiroObrasDRE.js
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faChevronRight, faChevronDown, faSpinner, faPrint, faFileCsv } from '@fortawesome/free-solid-svg-icons';
+import { faChevronRight, faChevronDown, faSpinner, faPrint, faFileCsv, faSort, faSortUp, faSortDown } from '@fortawesome/free-solid-svg-icons';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -27,7 +27,7 @@ const LinhaMestreMatriz = ({ titulo, valorTotal, mensal, colunasMeses, filhas, c
                 onClick={() => temFilhas && setIsOpen(!isOpen)}
             >
                 {/* COLUNA 1: DESCRIÇÃO CONGELADA */}
-                <td className="py-4 px-6 sticky left-0 z-10 bg-white border-r border-gray-200 whitespace-nowrap group-hover:bg-gray-50/90 transition-colors">
+                <td className="py-4 px-6 sticky left-0 z-10 bg-white border-r border-gray-200 whitespace-nowrap group-hover:bg-gray-50 transition-colors">
                     <div className="flex items-center">
                         <div className="w-6 flex justify-center text-gray-400 group-hover:text-blue-500 transition-colors">
                             {temFilhas && (
@@ -40,7 +40,7 @@ const LinhaMestreMatriz = ({ titulo, valorTotal, mensal, colunasMeses, filhas, c
                 
                 {/* COLUNA 2: ANÁLISE VERTICAL % CONGELADA */}
                 <td 
-                    className="py-4 px-4 sticky z-10 bg-slate-50 border-r border-gray-200 text-center font-bold text-slate-500 text-[11px] group-hover:bg-gray-100/80 transition-colors whitespace-nowrap"
+                    className="py-4 px-4 sticky z-10 bg-slate-50 border-r border-gray-200 text-center font-bold text-slate-500 text-[11px] group-hover:bg-gray-100 transition-colors whitespace-nowrap"
                     style={{ left: `${offsets.col2}px` }}
                 >
                     {avFormatada}
@@ -48,7 +48,7 @@ const LinhaMestreMatriz = ({ titulo, valorTotal, mensal, colunasMeses, filhas, c
 
                 {/* COLUNA 3: TOTAL GERAL R$ CONGELADA */}
                 <td 
-                    className="py-4 px-6 text-right font-bold text-gray-800 bg-slate-50 border-r border-gray-200 sticky z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] group-hover:bg-gray-100/80 transition-colors whitespace-nowrap"
+                    className="py-4 px-6 text-right font-bold text-gray-800 bg-slate-50 border-r border-gray-200 sticky z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] group-hover:bg-gray-100 transition-colors whitespace-nowrap"
                     style={{ left: `${offsets.col3}px` }}
                 >
                     {formatBR(valorTotal)}
@@ -88,7 +88,7 @@ const LinhaMestreMatriz = ({ titulo, valorTotal, mensal, colunasMeses, filhas, c
                     </td>
 
                     <td 
-                        className="py-2.5 px-6 text-right text-sm text-gray-700 font-semibold bg-gray-50/30 border-r border-gray-200 sticky z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] group-hover:bg-slate-50 transition-colors whitespace-nowrap"
+                        className="py-2.5 px-6 text-right text-sm text-gray-700 font-semibold bg-gray-50 border-r border-gray-200 sticky z-10 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] group-hover:bg-gray-100 transition-colors whitespace-nowrap"
                         style={{ left: `${offsets.col3}px` }}
                     >
                         {formatBR(filha.total)}
@@ -116,6 +116,48 @@ const LinhaMestreMatriz = ({ titulo, valorTotal, mensal, colunasMeses, filhas, c
 export default function FinanceiroObrasDRE({ dadosDRE, isLoading }) {
     const tableRef = useRef(null);
     const [offsets, setOffsets] = useState({ col2: 320, col3: 410 });
+    const [sortConfig, setSortConfig] = useState({ key: 'nome', direction: 'asc' });
+
+    const gruposListaSegura = dadosDRE?.gruposLista || [];
+    
+    const sortedGruposLista = useMemo(() => {
+        if (!gruposListaSegura.length) return [];
+        let sortable = [...gruposListaSegura];
+        
+        sortable.sort((a, b) => {
+            if (sortConfig.key === 'nome') {
+                return sortConfig.direction === 'asc' 
+                    ? a.mestre.nome.localeCompare(b.mestre.nome)
+                    : b.mestre.nome.localeCompare(a.mestre.nome);
+            }
+            if (sortConfig.key === 'total') {
+                return sortConfig.direction === 'asc'
+                    ? a.total - b.total
+                    : b.total - a.total;
+            }
+            return 0;
+        });
+
+        sortable = sortable.map(grupo => {
+            let sortedFilhas = [...grupo.filhasArray];
+            sortedFilhas.sort((a, b) => {
+                if (sortConfig.key === 'nome') {
+                    return sortConfig.direction === 'asc' 
+                        ? a.nome.localeCompare(b.nome)
+                        : b.nome.localeCompare(a.nome);
+                }
+                if (sortConfig.key === 'total') {
+                    return sortConfig.direction === 'asc'
+                        ? a.total - b.total
+                        : b.total - a.total;
+                }
+                return 0;
+            });
+            return { ...grupo, filhasArray: sortedFilhas };
+        });
+
+        return sortable;
+    }, [gruposListaSegura, sortConfig]);
 
     useEffect(() => {
         if (!tableRef.current) return;
@@ -151,6 +193,32 @@ export default function FinanceiroObrasDRE({ dadosDRE, isLoading }) {
         return () => observer.disconnect();
     }, [dadosDRE]);
 
+    // Efeito para centralizar a barra de rolagem no mês atual automaticamente
+    useEffect(() => {
+        if (!isLoading && dadosDRE?.colunasMeses?.length > 0) {
+            const timer = setTimeout(() => {
+                const container = document.getElementById('scroll-container-dre');
+                const targetCol = document.getElementById('mes-atual-col');
+                
+                if (container && targetCol) {
+                    const containerWidth = container.clientWidth;
+                    const colLeft = targetCol.offsetLeft;
+                    const colWidth = targetCol.offsetWidth;
+                    
+                    // Considera as colunas congeladas (offsets.col3) para achar o meio da área realmente visível
+                    const visibleAreaWidth = containerWidth - offsets.col3;
+                    const scrollPos = colLeft - offsets.col3 - (visibleAreaWidth / 2) + (colWidth / 2);
+                    
+                    container.scrollTo({
+                        left: Math.max(0, scrollPos),
+                        behavior: 'smooth'
+                    });
+                }
+            }, 300);
+            return () => clearTimeout(timer);
+        }
+    }, [isLoading, dadosDRE, offsets.col3]);
+
     if (isLoading) {
         return (
             <div className="flex flex-col items-center justify-center p-20 text-gray-500 bg-white rounded-xl shadow-sm border border-gray-200 mt-6 min-h-[400px]">
@@ -166,6 +234,14 @@ export default function FinanceiroObrasDRE({ dadosDRE, isLoading }) {
     const { rootCategory, gruposLista, totais, colunasMeses = [] } = dadosDRE;
     const mesAtualStr = format(new Date(), 'yyyy-MM');
 
+    const handleSort = (key) => {
+        let direction = 'asc';
+        if (sortConfig.key === key && sortConfig.direction === 'asc') {
+            direction = 'desc';
+        }
+        setSortConfig({ key, direction });
+    };
+
     let displayColumns = colunasMeses;
 
     const formatarNomeColuna = (yyyyMmStr) => {
@@ -179,12 +255,12 @@ export default function FinanceiroObrasDRE({ dadosDRE, isLoading }) {
     };
 
     const handleExportCSV = () => {
-        if (!gruposLista.length) return;
+        if (!sortedGruposLista.length) return;
 
         let colHeaders = displayColumns.map(formatarNomeColuna).join(';');
         let csvContent = `ESTRUTURA DE CUSTOS DE OBRAS;AV %;TOTAL CUSTEIO;${colHeaders}\n`;
 
-        gruposLista.forEach(grupo => {
+        sortedGruposLista.forEach(grupo => {
             const linhaGeral = displayColumns.map(m => (grupo.mensal[m] || 0).toFixed(2).replace('.', ',')).join(';');
             const av = totais.custoObraTotal > 0 ? ((grupo.total / totais.custoObraTotal) * 100).toFixed(2).replace('.', ',') + '%' : '0%';
             csvContent += `${grupo.mestre.nome};${av};${grupo.total.toFixed(2).replace('.', ',')};${linhaGeral}\n`;
@@ -248,33 +324,54 @@ export default function FinanceiroObrasDRE({ dadosDRE, isLoading }) {
             </div>
 
             {/* A MATRIZ SCROLLÁVEL HORIZONTE */}
-            <div className="overflow-x-auto relative w-full border-t border-gray-200 pb-2 custom-scrollbar">
+            <div id="scroll-container-dre" className="overflow-x-auto relative w-full border-t border-gray-200 pb-2 custom-scrollbar">
                 <table ref={tableRef} className="w-auto text-left border-collapse bg-white min-w-max">
                     <thead>
                         <tr className="bg-slate-100 border-b-2 border-slate-200 text-xs uppercase tracking-wider text-slate-600 font-bold whitespace-nowrap">
-                            <th className="calc-col-1 py-4 px-6 h-12 sticky left-0 z-20 bg-slate-100 border-r border-slate-200 whitespace-nowrap shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]">
+                            <th 
+                                className="calc-col-1 py-4 px-6 h-12 sticky left-0 z-20 bg-slate-100 border-r border-slate-200 whitespace-nowrap shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] cursor-pointer hover:bg-slate-200 transition-colors"
+                                onClick={() => handleSort('nome')}
+                            >
                                 Descrição do Padrão Construtivo
+                                <FontAwesomeIcon 
+                                    icon={sortConfig.key === 'nome' ? (sortConfig.direction === 'asc' ? faSortUp : faSortDown) : faSort} 
+                                    className={`ml-2 ${sortConfig.key === 'nome' ? 'text-blue-500' : 'text-slate-400'}`} 
+                                />
                             </th>
                             <th 
-                                className="calc-col-2 py-4 px-4 h-12 sticky z-20 text-center bg-slate-100 border-r border-slate-200 whitespace-nowrap"
+                                className="calc-col-2 py-4 px-4 h-12 sticky z-20 text-center bg-slate-100 border-r border-slate-200 whitespace-nowrap cursor-pointer hover:bg-slate-200 transition-colors"
                                 style={{ left: `${offsets.col2}px` }}
+                                onClick={() => handleSort('total')}
                             >
                                 AV %
+                                <FontAwesomeIcon 
+                                    icon={sortConfig.key === 'total' ? (sortConfig.direction === 'asc' ? faSortUp : faSortDown) : faSort} 
+                                    className={`ml-2 ${sortConfig.key === 'total' ? 'text-blue-500' : 'text-slate-400'}`} 
+                                />
                             </th>
                             <th 
-                                className="calc-col-3 py-4 px-6 h-12 text-right sticky z-20 whitespace-nowrap border-r border-slate-200 text-slate-800 bg-slate-200/50 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)]"
+                                className="calc-col-3 py-4 px-6 h-12 text-right sticky z-20 whitespace-nowrap border-r border-slate-200 text-slate-800 bg-slate-200 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.05)] cursor-pointer hover:bg-slate-300 transition-colors"
                                 style={{ left: `${offsets.col3}px` }}
+                                onClick={() => handleSort('total')}
                             >
                                 Total Custeio R$
+                                <FontAwesomeIcon 
+                                    icon={sortConfig.key === 'total' ? (sortConfig.direction === 'asc' ? faSortUp : faSortDown) : faSort} 
+                                    className={`ml-2 ${sortConfig.key === 'total' ? 'text-blue-500' : 'text-slate-400'}`} 
+                                />
                             </th>
                             {displayColumns.map(mes => {
                                 const isAtual = mes === mesAtualStr;
                                 return (
-                                    <th key={mes} className={`py-4 px-6 h-12 text-right whitespace-nowrap transition-colors ${
-                                        isAtual 
-                                        ? 'bg-blue-100 border-l-2 border-r-2 border-blue-500 text-blue-900 shadow-inner' 
-                                        : 'border-r border-slate-200'
-                                    }`}>
+                                    <th 
+                                        key={mes} 
+                                        id={isAtual ? "mes-atual-col" : undefined}
+                                        className={`py-4 px-6 h-12 text-right whitespace-nowrap transition-colors ${
+                                            isAtual 
+                                            ? 'bg-blue-100 border-l-2 border-r-2 border-blue-500 text-blue-900 shadow-inner' 
+                                            : 'border-r border-slate-200'
+                                        }`}
+                                    >
                                         {formatarNomeColuna(mes)}
                                         {isAtual && <div className="text-[10px] text-blue-600 block mt-0.5 tracking-tight">MÊS ATUAL</div>}
                                     </th>
@@ -283,14 +380,14 @@ export default function FinanceiroObrasDRE({ dadosDRE, isLoading }) {
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
-                        {gruposLista.length === 0 ? (
+                        {sortedGruposLista.length === 0 ? (
                             <tr>
                                 <td colSpan={displayColumns.length + 3} className="py-12 text-center text-gray-500 sticky left-0">
                                     Nenhum custo lançado ou efetivado no horizonte de pesquisa.
                                 </td>
                             </tr>
                         ) : (
-                            gruposLista.map((grupo, index) => (
+                            sortedGruposLista.map((grupo, index) => (
                                 <LinhaMestreMatriz
                                     key={grupo.mestre.id || index}
                                     titulo={grupo.mestre.nome}
@@ -307,7 +404,7 @@ export default function FinanceiroObrasDRE({ dadosDRE, isLoading }) {
                         )}
 
                         {/* RODAPÉ DO DRE: TOTAIS POR COLUNA */}
-                        {gruposLista.length > 0 && (
+                        {sortedGruposLista.length > 0 && (
                             <tr className="bg-slate-800 text-white shadow-inner font-extrabold text-sm border-t-4 border-slate-900 sticky bottom-0 z-30">
                                 <td className="py-5 px-6 sticky left-0 z-40 bg-slate-800 border-r border-slate-700 whitespace-nowrap">
                                     <div className="flex items-center">
