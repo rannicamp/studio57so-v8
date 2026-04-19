@@ -38,7 +38,8 @@ export function useCustosObraDRE(filtros) {
                 p_organizacao_id: filtros.organizacaoId,
                 p_filtros: {
                     ...filtrosParaBanco,
-                    ignoreTransfers: true
+                    ignoreTransfers: true,
+                    requireObra: true
                 }
             }).limit(50000); // 🛡️ BURLAR O LIMITE DE 1000 LINHAS DO REST API!
 

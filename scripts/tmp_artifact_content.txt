@@ -1,0 +1,161 @@
+# 🏦 Auditoria: Lançamentos de Empréstimos
+
+Foram encontrados **155** lançamentos associados às categorias de empréstimo (Pagamento empréstimo, Tarifas, Bancários, Sócios, Terceiros, etc.).
+
+| ID | Data Venc. | Descrição | Categoria | Tipo | Status | Valor (R$) |
+|:---|:---|:---|:---|:---|:---|:---|
+| 16350 | 15/02/2029 | SICOOB AC CREDI - REPACTUAÇÃO CRÉDTIDO PJ GIRO  (36/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 445,85 |
+| 16349 | 15/01/2029 | SICOOB AC CREDI - REPACTUAÇÃO CRÉDTIDO PJ GIRO  (35/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 445,85 |
+| 13533 | 18/12/2028 | PAGAMENTO EMPRÉSTIMO - PRONAMPE - S57 ARQUITETURA (36/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 1.242,70 |
+| 11981 | 15/12/2028 | SICOOB CREDIRIODOCE - EMPRÉSTIMO FAMPE - PARCELA  (36/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 8.170,33 |
+| 16348 | 15/12/2028 | SICOOB AC CREDI - REPACTUAÇÃO CRÉDTIDO PJ GIRO  (34/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 445,85 |
+| 13532 | 18/11/2028 | PAGAMENTO EMPRÉSTIMO - PRONAMPE - S57 ARQUITETURA (35/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 1.242,70 |
+| 16347 | 15/11/2028 | SICOOB AC CREDI - REPACTUAÇÃO CRÉDTIDO PJ GIRO  (33/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 445,85 |
+| 11980 | 15/11/2028 | SICOOB CREDIRIODOCE - EMPRÉSTIMO FAMPE - PARCELA  (35/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 8.170,33 |
+| 13531 | 18/10/2028 | PAGAMENTO EMPRÉSTIMO - PRONAMPE - S57 ARQUITETURA (34/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 1.242,70 |
+| 16346 | 15/10/2028 | SICOOB AC CREDI - REPACTUAÇÃO CRÉDTIDO PJ GIRO  (32/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 445,85 |
+| 11979 | 15/10/2028 | SICOOB CREDIRIODOCE - EMPRÉSTIMO FAMPE - PARCELA  (34/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 8.170,33 |
+| 13530 | 18/09/2028 | PAGAMENTO EMPRÉSTIMO - PRONAMPE - S57 ARQUITETURA (33/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 1.242,70 |
+| 16345 | 15/09/2028 | SICOOB AC CREDI - REPACTUAÇÃO CRÉDTIDO PJ GIRO  (31/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 445,85 |
+| 11978 | 15/09/2028 | SICOOB CREDIRIODOCE - EMPRÉSTIMO FAMPE - PARCELA  (33/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 8.170,33 |
+| 13529 | 18/08/2028 | PAGAMENTO EMPRÉSTIMO - PRONAMPE - S57 ARQUITETURA (32/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 1.242,70 |
+| 16344 | 15/08/2028 | SICOOB AC CREDI - REPACTUAÇÃO CRÉDTIDO PJ GIRO  (30/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 445,85 |
+| 11977 | 15/08/2028 | SICOOB CREDIRIODOCE - EMPRÉSTIMO FAMPE - PARCELA  (32/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 8.170,33 |
+| 13528 | 18/07/2028 | PAGAMENTO EMPRÉSTIMO - PRONAMPE - S57 ARQUITETURA (31/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 1.242,70 |
+| 11976 | 15/07/2028 | SICOOB CREDIRIODOCE - EMPRÉSTIMO FAMPE - PARCELA  (31/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 8.170,33 |
+| 16343 | 15/07/2028 | SICOOB AC CREDI - REPACTUAÇÃO CRÉDTIDO PJ GIRO  (29/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 445,85 |
+| 13527 | 18/06/2028 | PAGAMENTO EMPRÉSTIMO - PRONAMPE - S57 ARQUITETURA (30/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 1.242,70 |
+| 11975 | 15/06/2028 | SICOOB CREDIRIODOCE - EMPRÉSTIMO FAMPE - PARCELA  (30/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 8.170,33 |
+| 16342 | 15/06/2028 | SICOOB AC CREDI - REPACTUAÇÃO CRÉDTIDO PJ GIRO  (28/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 445,85 |
+| 13526 | 18/05/2028 | PAGAMENTO EMPRÉSTIMO - PRONAMPE - S57 ARQUITETURA (29/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 1.242,70 |
+| 16341 | 15/05/2028 | SICOOB AC CREDI - REPACTUAÇÃO CRÉDTIDO PJ GIRO  (27/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 445,85 |
+| 11974 | 15/05/2028 | SICOOB CREDIRIODOCE - EMPRÉSTIMO FAMPE - PARCELA  (29/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 8.170,33 |
+| 13525 | 18/04/2028 | PAGAMENTO EMPRÉSTIMO - PRONAMPE - S57 ARQUITETURA (28/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 1.242,70 |
+| 11973 | 15/04/2028 | SICOOB CREDIRIODOCE - EMPRÉSTIMO FAMPE - PARCELA  (28/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 8.170,33 |
+| 16340 | 15/04/2028 | SICOOB AC CREDI - REPACTUAÇÃO CRÉDTIDO PJ GIRO  (26/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 445,85 |
+| 13524 | 18/03/2028 | PAGAMENTO EMPRÉSTIMO - PRONAMPE - S57 ARQUITETURA (27/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 1.242,70 |
+| 11972 | 15/03/2028 | SICOOB CREDIRIODOCE - EMPRÉSTIMO FAMPE - PARCELA  (27/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 8.170,33 |
+| 16339 | 15/03/2028 | SICOOB AC CREDI - REPACTUAÇÃO CRÉDTIDO PJ GIRO  (25/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 445,85 |
+| 13523 | 18/02/2028 | PAGAMENTO EMPRÉSTIMO - PRONAMPE - S57 ARQUITETURA (26/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 1.242,70 |
+| 16338 | 15/02/2028 | SICOOB AC CREDI - REPACTUAÇÃO CRÉDTIDO PJ GIRO  (24/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 445,85 |
+| 11971 | 15/02/2028 | SICOOB CREDIRIODOCE - EMPRÉSTIMO FAMPE - PARCELA  (26/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 8.170,33 |
+| 13522 | 18/01/2028 | PAGAMENTO EMPRÉSTIMO - PRONAMPE - S57 ARQUITETURA (25/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 1.242,70 |
+| 11970 | 15/01/2028 | SICOOB CREDIRIODOCE - EMPRÉSTIMO FAMPE - PARCELA  (25/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 8.170,33 |
+| 16337 | 15/01/2028 | SICOOB AC CREDI - REPACTUAÇÃO CRÉDTIDO PJ GIRO  (23/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 445,85 |
+| 13521 | 18/12/2027 | PAGAMENTO EMPRÉSTIMO - PRONAMPE - S57 ARQUITETURA (24/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 1.242,70 |
+| 11969 | 15/12/2027 | SICOOB CREDIRIODOCE - EMPRÉSTIMO FAMPE - PARCELA  (24/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 8.170,33 |
+| 16336 | 15/12/2027 | SICOOB AC CREDI - REPACTUAÇÃO CRÉDTIDO PJ GIRO  (22/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 445,85 |
+| 13520 | 18/11/2027 | PAGAMENTO EMPRÉSTIMO - PRONAMPE - S57 ARQUITETURA (23/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 1.242,70 |
+| 16335 | 15/11/2027 | SICOOB AC CREDI - REPACTUAÇÃO CRÉDTIDO PJ GIRO  (21/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 445,85 |
+| 11968 | 15/11/2027 | SICOOB CREDIRIODOCE - EMPRÉSTIMO FAMPE - PARCELA  (23/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 8.170,33 |
+| 13519 | 18/10/2027 | PAGAMENTO EMPRÉSTIMO - PRONAMPE - S57 ARQUITETURA (22/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 1.242,70 |
+| 11967 | 15/10/2027 | SICOOB CREDIRIODOCE - EMPRÉSTIMO FAMPE - PARCELA  (22/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 8.170,33 |
+| 16334 | 15/10/2027 | SICOOB AC CREDI - REPACTUAÇÃO CRÉDTIDO PJ GIRO  (20/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 445,85 |
+| 13518 | 18/09/2027 | PAGAMENTO EMPRÉSTIMO - PRONAMPE - S57 ARQUITETURA (21/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 1.242,70 |
+| 16333 | 15/09/2027 | SICOOB AC CREDI - REPACTUAÇÃO CRÉDTIDO PJ GIRO  (19/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 445,85 |
+| 11966 | 15/09/2027 | SICOOB CREDIRIODOCE - EMPRÉSTIMO FAMPE - PARCELA  (21/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 8.170,33 |
+| 13517 | 18/08/2027 | PAGAMENTO EMPRÉSTIMO - PRONAMPE - S57 ARQUITETURA (20/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 1.242,70 |
+| 11965 | 15/08/2027 | SICOOB CREDIRIODOCE - EMPRÉSTIMO FAMPE - PARCELA  (20/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 8.170,33 |
+| 16332 | 15/08/2027 | SICOOB AC CREDI - REPACTUAÇÃO CRÉDTIDO PJ GIRO  (18/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 445,85 |
+| 13516 | 18/07/2027 | PAGAMENTO EMPRÉSTIMO - PRONAMPE - S57 ARQUITETURA (19/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 1.242,70 |
+| 16331 | 15/07/2027 | SICOOB AC CREDI - REPACTUAÇÃO CRÉDTIDO PJ GIRO  (17/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 445,85 |
+| 11964 | 15/07/2027 | SICOOB CREDIRIODOCE - EMPRÉSTIMO FAMPE - PARCELA  (19/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 8.170,33 |
+| 13515 | 18/06/2027 | PAGAMENTO EMPRÉSTIMO - PRONAMPE - S57 ARQUITETURA (18/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 1.242,70 |
+| 11963 | 15/06/2027 | SICOOB CREDIRIODOCE - EMPRÉSTIMO FAMPE - PARCELA  (18/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 8.170,33 |
+| 16330 | 15/06/2027 | SICOOB AC CREDI - REPACTUAÇÃO CRÉDTIDO PJ GIRO  (16/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 445,85 |
+| 13514 | 18/05/2027 | PAGAMENTO EMPRÉSTIMO - PRONAMPE - S57 ARQUITETURA (17/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 1.242,70 |
+| 16329 | 15/05/2027 | SICOOB AC CREDI - REPACTUAÇÃO CRÉDTIDO PJ GIRO  (15/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 445,85 |
+| 11962 | 15/05/2027 | SICOOB CREDIRIODOCE - EMPRÉSTIMO FAMPE - PARCELA  (17/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 8.170,33 |
+| 13513 | 18/04/2027 | PAGAMENTO EMPRÉSTIMO - PRONAMPE - S57 ARQUITETURA (16/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 1.242,70 |
+| 16328 | 15/04/2027 | SICOOB AC CREDI - REPACTUAÇÃO CRÉDTIDO PJ GIRO  (14/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 445,85 |
+| 11961 | 15/04/2027 | SICOOB CREDIRIODOCE - EMPRÉSTIMO FAMPE - PARCELA  (16/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 8.170,33 |
+| 13512 | 18/03/2027 | PAGAMENTO EMPRÉSTIMO - PRONAMPE - S57 ARQUITETURA (15/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 1.242,70 |
+| 16327 | 15/03/2027 | SICOOB AC CREDI - REPACTUAÇÃO CRÉDTIDO PJ GIRO  (13/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 445,85 |
+| 11960 | 15/03/2027 | SICOOB CREDIRIODOCE - EMPRÉSTIMO FAMPE - PARCELA  (15/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 8.170,33 |
+| 13511 | 18/02/2027 | PAGAMENTO EMPRÉSTIMO - PRONAMPE - S57 ARQUITETURA (14/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 1.242,70 |
+| 11959 | 15/02/2027 | SICOOB CREDIRIODOCE - EMPRÉSTIMO FAMPE - PARCELA  (14/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 8.170,33 |
+| 16326 | 15/02/2027 | SICOOB AC CREDI - REPACTUAÇÃO CRÉDTIDO PJ GIRO  (12/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 445,85 |
+| 13510 | 18/01/2027 | PAGAMENTO EMPRÉSTIMO - PRONAMPE - S57 ARQUITETURA (13/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 1.242,70 |
+| 16325 | 15/01/2027 | SICOOB AC CREDI - REPACTUAÇÃO CRÉDTIDO PJ GIRO  (11/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 445,85 |
+| 11958 | 15/01/2027 | SICOOB CREDIRIODOCE - EMPRÉSTIMO FAMPE - PARCELA  (13/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 8.170,33 |
+| 13509 | 18/12/2026 | PAGAMENTO EMPRÉSTIMO - PRONAMPE - S57 ARQUITETURA (12/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 1.242,70 |
+| 11957 | 15/12/2026 | SICOOB CREDIRIODOCE - EMPRÉSTIMO FAMPE - PARCELA  (12/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 8.170,33 |
+| 16324 | 15/12/2026 | SICOOB AC CREDI - REPACTUAÇÃO CRÉDTIDO PJ GIRO  (10/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 445,85 |
+| 13508 | 18/11/2026 | PAGAMENTO EMPRÉSTIMO - PRONAMPE - S57 ARQUITETURA (11/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 1.242,70 |
+| 11956 | 15/11/2026 | SICOOB CREDIRIODOCE - EMPRÉSTIMO FAMPE - PARCELA  (11/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 8.170,33 |
+| 16323 | 15/11/2026 | SICOOB AC CREDI - REPACTUAÇÃO CRÉDTIDO PJ GIRO  (9/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 445,85 |
+| 13507 | 18/10/2026 | PAGAMENTO EMPRÉSTIMO - PRONAMPE - S57 ARQUITETURA (10/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 1.242,70 |
+| 16322 | 15/10/2026 | SICOOB AC CREDI - REPACTUAÇÃO CRÉDTIDO PJ GIRO  (8/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 445,85 |
+| 11955 | 15/10/2026 | SICOOB CREDIRIODOCE - EMPRÉSTIMO FAMPE - PARCELA  (10/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 8.170,33 |
+| 13506 | 18/09/2026 | PAGAMENTO EMPRÉSTIMO - PRONAMPE - S57 ARQUITETURA (9/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 1.242,70 |
+| 16321 | 15/09/2026 | SICOOB AC CREDI - REPACTUAÇÃO CRÉDTIDO PJ GIRO  (7/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 445,85 |
+| 11954 | 15/09/2026 | SICOOB CREDIRIODOCE - EMPRÉSTIMO FAMPE - PARCELA  (9/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 8.170,33 |
+| 13505 | 18/08/2026 | PAGAMENTO EMPRÉSTIMO - PRONAMPE - S57 ARQUITETURA (8/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 1.242,70 |
+| 11953 | 15/08/2026 | SICOOB CREDIRIODOCE - EMPRÉSTIMO FAMPE - PARCELA  (8/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 8.170,33 |
+| 16320 | 15/08/2026 | SICOOB AC CREDI - REPACTUAÇÃO CRÉDTIDO PJ GIRO  (6/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 445,85 |
+| 13504 | 18/07/2026 | PAGAMENTO EMPRÉSTIMO - PRONAMPE - S57 ARQUITETURA (7/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 1.242,70 |
+| 17150 | 16/07/2026 | PAGAMENTO EMPRÉSTIMO - ALSENIR MONTE ALTO - DESPESAS REGISTRO MATRÍCULAS - CHÁCARAS BRAÚNAS - PARCELA 1 (4/4) | Pagamento empréstimo | Despesa | Pendente | -R$ 15.856,93 |
+| 11952 | 15/07/2026 | SICOOB CREDIRIODOCE - EMPRÉSTIMO FAMPE - PARCELA  (7/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 8.170,33 |
+| 16319 | 15/07/2026 | SICOOB AC CREDI - REPACTUAÇÃO CRÉDTIDO PJ GIRO  (5/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 445,85 |
+| 13503 | 18/06/2026 | PAGAMENTO EMPRÉSTIMO - PRONAMPE - S57 ARQUITETURA (6/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 1.242,70 |
+| 17149 | 16/06/2026 | PAGAMENTO EMPRÉSTIMO - ALSENIR MONTE ALTO - DESPESAS REGISTRO MATRÍCULAS - CHÁCARAS BRAÚNAS - PARCELA 1 (3/4) | Pagamento empréstimo | Despesa | Pendente | -R$ 15.856,93 |
+| 11951 | 15/06/2026 | SICOOB CREDIRIODOCE - EMPRÉSTIMO FAMPE - PARCELA  (6/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 8.170,33 |
+| 16318 | 15/06/2026 | SICOOB AC CREDI - REPACTUAÇÃO CRÉDTIDO PJ GIRO  (4/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 445,85 |
+| 13502 | 18/05/2026 | PAGAMENTO EMPRÉSTIMO - PRONAMPE - S57 ARQUITETURA (5/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 1.242,70 |
+| 17148 | 16/05/2026 | PAGAMENTO EMPRÉSTIMO - ALSENIR MONTE ALTO - DESPESAS REGISTRO MATRÍCULAS - CHÁCARAS BRAÚNAS - PARCELA 1 (2/4) | Pagamento empréstimo | Despesa | Pendente | -R$ 15.856,93 |
+| 16317 | 15/05/2026 | SICOOB AC CREDI - REPACTUAÇÃO CRÉDTIDO PJ GIRO  (3/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 445,85 |
+| 11950 | 15/05/2026 | SICOOB CREDIRIODOCE - EMPRÉSTIMO FAMPE - PARCELA  (5/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 8.170,33 |
+| 13501 | 18/04/2026 | PAGAMENTO EMPRÉSTIMO - PRONAMPE - S57 ARQUITETURA (4/36) | Pagamento empréstimo | Despesa | Pendente | -R$ 1.242,70 |
+| 17147 | 16/04/2026 | PAGAMENTO EMPRÉSTIMO - ALSENIR MONTE ALTO - DESPESAS REGISTRO MATRÍCULAS - CHÁCARAS BRAÚNAS - PARCELA (1/4) | Pagamento empréstimo | Despesa | Pago | -R$ 16.094,78 |
+| 11949 | 15/04/2026 | SICOOB CREDIRIODOCE - EMPRÉSTIMO FAMPE - PARCELA  (4/36) | Pagamento empréstimo | Despesa | Pago | -R$ 8.170,33 |
+| 17086 | 15/04/2026 | PAGAMENTO EMPRÉSTIMO - IGOR MONTE ALTO - REGISTRO MATRÍCULAS - REFÚGIO BRAÚNAS | Pagamento empréstimo | Despesa | Pago | -R$ 6.962,46 |
+| 16316 | 15/04/2026 | SICOOB AC CREDI - REPACTUAÇÃO CRÉDITO PJ GIRO  (2/36) | Pagamento empréstimo | Despesa | Pago | -R$ 445,85 |
+| 16953 | 07/04/2026 | EMPRÉSTIMO - VALOR EXCEDENTE - FINANCIAMENTO AP 101 PERO VAZ | Empréstimos bancários | Receita | Pago | R$ 16.000,00 |
+| 16977 | 07/04/2026 | PAGAMENTO EMPRÉSTIMO - ALSENIR MONTE ALTO - DESPESAS FINANCIAMENTO AP 101 PERO VAZ | Pagamento empréstimo | Despesa | Pago | -R$ 10.753,46 |
+| 17084 | 24/03/2026 | EMPRÉSTIMO ALSENIR - REGISTRO MATRÍCULAS - REFÚGIO BRAÚNAS | Empréstimo terceiros | Receita | Pago | R$ 63.427,73 |
+| 17083 | 24/03/2026 | EMPRÉSTIMO IGOR - REGISTRO MATRÍCULAS - REFÚGIO BRAÚNAS | Empréstimo sócios | Receita | Pago | R$ 6.946,38 |
+| 13500 | 18/03/2026 | PAGAMENTO EMPRÉSTIMO - PRONAMPE - S57 ARQUITETURA (3/36) | Pagamento empréstimo | Despesa | Pago | -R$ 1.832,36 |
+| 11948 | 15/03/2026 | SICOOB CREDIRIODOCE - EMPRÉSTIMO FAMPE - PARCELA  (3/36) | Pagamento empréstimo | Despesa | Pago | -R$ 8.170,33 |
+| 16315 | 15/03/2026 | SICOOB AC CREDI - REPACTUAÇÃO CRÉDITO PJ GIRO  (1/36) | Pagamento empréstimo | Despesa | Pago | -R$ 445,85 |
+| 16952 | 13/03/2026 | EMPRÉSTIMO IGOR - TAXA CAIXA - FINANCIAMENTO PERO VAZ | Empréstimos | Receita | Pago | R$ 2.171,00 |
+| 16950 | 13/03/2026 | EMPRÉSTIMO ALSENIR - PAGAMENTO DÍVIDA ATIVA IPTU E TAXA LIXO 2024 - AP PERO VAZ | Empréstimos | Receita | Pago | R$ 10.753,46 |
+| 16854 | 11/03/2026 | DÉB.PAGAMENTO TD - BOLETO EM ATRASO | Pagamento empréstimo | Despesa | Pago | -R$ 4.367,08 |
+| 17048 | 11/03/2026 | STUDIO 57 INCORPORAÇÕES - EMPRÉSTIMO | Pagamento empréstimo | Despesa | Pago | -R$ 1.400,00 |
+| 13884 | 23/02/2026 | DÉBITO PAGAMENTO - BOLETO ANTECIPADO - UNID 502 - RES. ALFA - REF FEV26 | Pagamento empréstimo | Despesa | Pago | -R$ 4.599,63 |
+| 13749 | 19/02/2026 | PAGAMENTO EMPRÉSTIMO PARCELA ANTECIPADA - UNIDADE 401 - REF FEV26 | Pagamento empréstimo | Despesa | Pago | -R$ 4.246,67 |
+| 13750 | 19/02/2026 | PAGAMENTO EMPRÉSTIMO PARCELA ANTECIPADA - UNIDADE 501 - REF FEV26 | Pagamento empréstimo | Despesa | Pago | -R$ 4.289,13 |
+| 13890 | 18/02/2026 | DÉBITO PAGAMENTO - BOLETO ANTECIPADO - UNID 603 - RES. ALFA - REF FEV26 | Pagamento empréstimo | Despesa | Pago | -R$ 3.598,87 |
+| 11947 | 15/02/2026 | SICOOB CREDIRIODOCE - EMPRÉSTIMO FAMPE - PARCELA  (2/36) | Pagamento empréstimo | Despesa | Pago | -R$ 8.170,33 |
+| 13880 | 12/02/2026 | IGOR MONTE ALTO - EMPRÉSTIMO SÓCIO | Empréstimo sócios | Receita | Pago | R$ 20,00 |
+| 13494 | 12/02/2026 | EMPÉSTIMO - PRONAMPE - REGULARIZAÇÃO PARCELAS REF DEZ25 - JAN26 E FEV26 | Pagamento empréstimo | Despesa | Pago | -R$ 4.224,87 |
+| 12832 | 22/01/2026 | SICOOB CREDIRIODOCE - DESCONTO NA CONTA DE BOLETO ANTECIPADO - REF UNID. 202 RES ALFA - PARCELA 3/3 ENTRADA  | Pagamento empréstimo | Despesa | Pago | -R$ 26.000,00 |
+| 12833 | 22/01/2026 | SICOOB CREDIRIODOCE - DESCONTO NA CONTA DE BOLETO ANTECIPADO - REF UNID. 202 RES ALFA - PARCELA 4/36 | Pagamento empréstimo | Despesa | Pago | -R$ 4.333,33 |
+| 12754 | 16/01/2026 | DÉBITO PAGAMENTO - BOLETO ANTECIPADO - UNID 504 - RESIDENCIAL ALFA | Pagamento empréstimo | Despesa | Pago | -R$ 7.706,37 |
+| 11946 | 15/01/2026 | SICOOB CREDIRIODOCE - EMPRÉSTIMO FAMPE - PARCELA  (1/36) | Pagamento empréstimo | Despesa | Pago | -R$ 8.170,33 |
+| 12718 | 13/01/2026 | DÉBITO TD - BOLETO ANTECIPADO INADIMPLENTE - UNID 603 RES. ALFA - PAULO GOVEA - REF JAN26 (VENC. 10/01/25) | Pagamento empréstimo | Despesa | Pago | -R$ 3.572,36 |
+| 11986 | 18/12/2025 | CAIXA - EMPRESTIMO FAMPE - QUITAÇÃO | Pagamento empréstimo | Despesa | Pago | -R$ 77.371,12 |
+| 11939 | 17/12/2025 | EMPRÉSTIMO SICOOB - FAMPE | Empréstimos | Receita | Pago | R$ 210.800,00 |
+| 11941 | 17/12/2025 | DÉBITO TAC - EMPRÉSTIMO FAMPE SICOO CREDIRIODOCE | Tarifas empréstimos | Despesa | Pago | -R$ 250,00 |
+| 9040 | 13/12/2025 | CAIXA - PAGAMENTO EMPRÉSTIMO FAMPE (3/34) | Pagamento empréstimo | Despesa | Pago | -R$ 2.214,27 |
+| 11878 | 08/12/2025 | EMPRÉSTIMO IGOR - S57 ARQUITETURA | Empréstimo sócios | Receita | Pago | R$ 6.150,00 |
+| 9039 | 13/11/2025 | CAIXA - PAGAMENTO EMPRÉSTIMO FAMPE (2/34) | Pagamento empréstimo | Despesa | Pago | -R$ 2.214,27 |
+| 10424 | 17/10/2025 | EMPRÉSTIMO - RANNIERE CAMPOS - VENDA LOTE 1 BRAÚNAS - PARTE 6 | Pagamento empréstimo | Despesa | Pago | -R$ 5.000,00 |
+| 10423 | 17/10/2025 | EMPRÉSTIMO - IGOR MONTE ALTO - VENDA LOTE 1 BRAÚNAS - PARTE 6 | Pagamento empréstimo | Despesa | Pago | -R$ 5.000,00 |
+| 10422 | 14/10/2025 | EMPRÉSTIMO - RANNIERE CAMPOS - VENDA LOTE 1 BRAÚNAS - PARTE 5 | Pagamento empréstimo | Despesa | Pago | -R$ 20.000,00 |
+| 9748 | 13/10/2025 | EMPRÉSTIMO - RANNIERE CAMPOS - VENDA LOTE 1 BRAÚNAS - PARTE 4 | Pagamento empréstimo | Despesa | Pago | -R$ 20.000,00 |
+| 9038 | 13/10/2025 | CAIXA - PAGAMENTO EMPRÉSTIMO FAMPE (1/34) | Pagamento empréstimo | Despesa | Pago | -R$ 2.214,27 |
+| 9749 | 13/10/2025 | EMPRÉSTIMO - IGOR MONTE ALTO - VENDA LOTE 1 BRAÚNAS - PARTE 4 | Pagamento empréstimo | Despesa | Pago | -R$ 20.000,00 |
+| 10421 | 13/10/2025 | EMPRÉSTIMO - IGOR MONTE ALTO - VENDA LOTE 1 BRAÚNAS - PARTE 5 | Pagamento empréstimo | Despesa | Pago | -R$ 20.000,00 |
+| 9747 | 11/10/2025 | EMPRÉSTIMO - IGOR MONTE ALTO - VENDA LOTE 1 BRAÚNAS - PARTE 3 | Pagamento empréstimo | Despesa | Pago | -R$ 20.000,00 |
+| 9744 | 10/10/2025 | EMPRÉSTIMO - RANNIERE CAMPOS - VENDA LOTE 1 BRAÚNAS - PARTE 3 | Pagamento empréstimo | Despesa | Pago | -R$ 20.000,00 |
+| 8833 | 03/10/2025 | EMPRÉSTIMO - IGOR MONTE ALTO - VENDA LOTE 1 BRAÚNAS - PARTE 2 | Pagamento empréstimo | Despesa | Pago | -R$ 25.000,00 |
+| 8520 | 03/10/2025 | EMPRÉSTIMO - IGOR MONTE ALTO - VENDA LOTE 1 BRAÚNAS | Pagamento empréstimo | Despesa | Pago | -R$ 5.000,00 |
+| 8832 | 03/10/2025 | EMPRÉSTIMO - RANNIERE CAMPOS - VENDA LOTE 1 BRAÚNAS - PARTE 2 | Pagamento empréstimo | Despesa | Pago | -R$ 25.000,00 |
+| 8519 | 03/10/2025 | EMPRÉSTIMO - RANNIERE CAMPOS - VENDA LOTE 1 BRAÚNAS | Pagamento empréstimo | Despesa | Pago | -R$ 5.000,00 |
+| 8209 | 15/09/2025 | CAIXA - PAGAMENTO EMPRÉSTIMO FAMPE | Pagamento empréstimo | Despesa | Pago | -R$ 2.214,27 |
+| 6517 | 11/07/2025 | IGOR MONTE ALTO - EMPRÉSTIMO SÓCIO  | Empréstimos | Receita | Pago | R$ 5.000,00 |
+| 6487 | 04/07/2025 | IGOR MONTE ALTO - EMPRÉSTIMO SÓCIO - PARTE 2/2  | Empréstimos | Receita | Pago | R$ 10.000,00 |
+| 6475 | 03/07/2025 | IGOR MONTE ALTO - EMPRÉSTIMO SÓCIO - PARTE 1/2  | Empréstimos | Receita | Pago | R$ 20.000,00 |
+| 6891 | 30/05/2025 | ACERTO DE CAIXA - DINHEIRO EM ESPÉCIE  | Empréstimos | Receita | Conciliado | R$ 3,00 |
+| 5190 | 14/01/2025 | EMPRÉSTIMO - GIROCAIXA  | Empréstimos | Receita | Pago | R$ 73.560,42 |
+| 6806 | 06/12/2024 | EMPRÉSTIMO IGOR - PAGAMENTO DE ARGENTINO E IVAN  | Empréstimos | Receita | Conciliado | R$ 3.800,00 |

@@ -11,7 +11,6 @@ import FinanceiroDRE from '@/components/relatorios/financeiro/FinanceiroDRE';
 import {
  startOfMonth, endOfMonth, format, addMonths, subMonths, isSameMonth
 } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
  faChevronLeft, faChevronRight, faCalendarAlt, faFilter
@@ -48,13 +47,6 @@ export default function RelatorioDREContainer() {
 
  const [filtrosAvancados, setFiltrosAvancados] = useState({
  empresaIds: [],
- contaIds: [],
- categoriaIds: [],
- empreendimentoIds: [],
- status: [],
- tipo: [],
- favorecidoId: null,
- searchTerm: '',
  startDate: '',
  endDate: '',
  useCompetencia: false
@@ -77,9 +69,7 @@ export default function RelatorioDREContainer() {
  const temDataEspecifica = filtrosAvancados.startDate && filtrosAvancados.endDate;
  return {
  organizacaoId: organizacaoId,
- ...filtrosAvancados,
- startDate: temDataEspecifica ? filtrosAvancados.startDate : startOfMonth(dataBase),
- endDate: temDataEspecifica ? filtrosAvancados.endDate : endOfMonth(dataBase),
+ ...filtrosAvancados
  };
  }, [dataBase, organizacaoId, filtrosAvancados]);
 
@@ -91,7 +81,8 @@ export default function RelatorioDREContainer() {
  const anteriorMes = () => navegarMes(subMonths(dataBase, 1));
  const irParaHoje = () => {
  setDataBase(new Date());
- setFiltrosAvancados(prev => ({ ...prev, startDate: '', endDate: '' }));
+ const anoAtual = new Date().getFullYear();
+ setFiltrosAvancados(prev => ({ ...prev, startDate: `${anoAtual}-01-01`, endDate: `${anoAtual}-12-31` }));
  };
 
  return (
@@ -110,67 +101,54 @@ export default function RelatorioDREContainer() {
  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 border ${mostrarFiltros ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}
  >
  <FontAwesomeIcon icon={faFilter} />
- Filtros {filtrosAvancados.status.length > 0 ? '(Ativos)' : ''}
+ Filtros
  </button>
  <button
  onClick={irParaHoje}
  className="px-4 py-2 rounded-lg text-sm font-medium bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 flex items-center gap-2"
  >
- <FontAwesomeIcon icon={faCalendarAlt} /> Hoje
+ <FontAwesomeIcon icon={faCalendarAlt} /> Ano Atual
  </button>
  </div>
  </div>
 
- {/* FILTROS AVANÇADOS */}
+ {/* FILTROS SIMPLIFICADOS PARA DRE */}
  {mostrarFiltros && (
- <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 animate-slide-down">
- <FiltroFinanceiro
- filters={filtrosAvancados}
- setFilters={setFiltrosAvancados}
- empresas={auxData?.empresas || []}
- contas={auxData?.contas || []}
- categorias={auxData?.categorias || []}
- empreendimentos={auxData?.empreendimentos || []}
- allContacts={auxData?.allContacts || []}
+ <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-200 animate-slide-down flex flex-col md:flex-row gap-4 max-w-3xl">
+ <div className="flex-1">
+ <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Empresa Referência</label>
+ <select
+ className="w-full p-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 transition-shadow outline-none bg-gray-50"
+ value={filtrosAvancados.empresaIds?.[0] || ''}
+ onChange={(e) => setFiltrosAvancados(p => ({ ...p, empresaIds: e.target.value ? [e.target.value] : [] }))}
+ >
+ <option value="">Todas as Empresas</option>
+ {auxData?.empresas?.map(emp => (
+ <option key={emp.id} value={emp.id}>{emp.nome_fantasia || emp.razao_social}</option>
+ ))}
+ </select>
+ </div>
+ 
+ <div className="w-full md:w-48">
+ <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Ano de Exercício</label>
+ <input
+ type="number"
+ className="w-full p-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 transition-shadow outline-none font-medium text-gray-700 bg-gray-50"
+ placeholder="Ex: 2026"
+ value={filtrosAvancados.startDate ? filtrosAvancados.startDate.substring(0, 4) : ''}
+ onChange={(e) => {
+ const ano = e.target.value;
+ if (ano.length === 4) {
+ setFiltrosAvancados(p => ({ ...p, startDate: `${ano}-01-01`, endDate: `${ano}-12-31` }));
+ } else {
+ setFiltrosAvancados(p => ({ ...p, startDate: '', endDate: '' }));
+ }
+ }}
  />
  </div>
+ </div>
  )}
 
- {/* CARROSSEL */}
- {(!filtrosAvancados.startDate || !filtrosAvancados.endDate) ? (
- <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-1 flex items-center justify-between">
- <button onClick={anteriorMes} className="w-10 h-10 flex items-center justify-center text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg">
- <FontAwesomeIcon icon={faChevronLeft} />
- </button>
- <div className="flex-1 flex justify-around items-center overflow-hidden gap-1">
- {menuMeses.map((mes, index) => {
- const isSelected = isSameMonth(mes, dataBase);
- const hiddenOnMobile = index === 0 || index === 4 ? 'hidden sm:block' : '';
- return (
- <button
- key={mes.toString()}
- onClick={() => navegarMes(mes)}
- className={`${hiddenOnMobile} flex flex-col items-center justify-center px-4 py-2 rounded-lg transition-all ${isSelected ? 'bg-indigo-50 text-indigo-700 scale-105 border border-indigo-100' : 'text-gray-400 hover:text-gray-600'}`}
- >
- <span className="text-xs font-semibold uppercase">{format(mes, 'yyyy', { locale: ptBR })}</span>
- <span className="text-sm font-bold capitalize">{format(mes, 'MMMM', { locale: ptBR })}</span>
- </button>
- );
- })}
- </div>
- <button onClick={proximoMes} className="w-10 h-10 flex items-center justify-center text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg">
- <FontAwesomeIcon icon={faChevronRight} />
- </button>
- </div>
- ) : (
- <div className="bg-indigo-50 border border-indigo-100 p-3 rounded-lg text-center text-indigo-700 text-sm font-medium flex justify-center items-center gap-2">
- <FontAwesomeIcon icon={faCalendarAlt} />
- Visualizando Período Personalizado
- <button onClick={() => setFiltrosAvancados(prev => ({ ...prev, startDate: '', endDate: '' }))} className="ml-2 underline hover:text-indigo-900">
- (Voltar para Mensal)
- </button>
- </div>
- )}
  </div>
 
  {/* TABELA CONTÁBIL DO DRE */}

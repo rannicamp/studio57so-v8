@@ -28,24 +28,22 @@ export function useRelatorioDRE(filtros) {
         staleTime: 5 * 60 * 1000 // 5 minutos de cache
     });
 
-    // 2. Buscar Lançamentos Filtrados do Período
-    const { data: lancamentos, isLoading: lancamentosLoading } = useQuery({
-        queryKey: ['lancamentos-dre', filtros.organizacaoId, filtrosParaBanco],
+    // 2. Buscar Matriz DRE Agrupada (RPC) Geral Otimizada
+    const { data: lancamentosAgrupados, isLoading: lancamentosLoading } = useQuery({
+        queryKey: ['dre_operacional', filtros.organizacaoId, filtrosParaBanco],
         queryFn: async () => {
             if (!filtros.organizacaoId) return [];
-            // Usamos a mesma RPC poderosa do painel para garantir que os filtros 
-            // de data, conta bancária, pessoa, etc sejam rigorosamente respeitados.
-            const { data, error } = await supabase.rpc('consultar_lancamentos_filtrados', {
+            
+            const { data, error } = await supabase.rpc('get_dre_operacional', {
                 p_organizacao_id: filtros.organizacaoId,
                 p_filtros: {
                     ...filtrosParaBanco,
-                    // Ignorar transferências reais e estornos para não inflar DRE
                     ignoreTransfers: true
                 }
-            });
+            }).limit(50000); 
 
             if (error) {
-                console.error("Erro ao buscar lançamentos DRE:", error);
+                console.error("Erro ao buscar matriz DRE otimizada no servidor:", error);
                 return [];
             }
             return data || [];
@@ -55,60 +53,68 @@ export function useRelatorioDRE(filtros) {
     });
 
     // ============================================================================
-    // 🧠 MOTOR DE PROCESSAMENTO DO DRE
+    // 🧠 MOTOR DE PROCESSAMENTO DO DRE GERAL MATRIZ
     // ============================================================================
 
     const processarDRE = () => {
-        if (!categorias || !lancamentos) return null;
+        if (!categorias || !lancamentosAgrupados) return null;
 
-        // Apenas lançamentos Pagos/Recebidos ("Realizado") para DRE de Caixa
-        // Ou se quiser DRE de Competência, teria que validar a Data. 
-        // Por padrão no financeiro, vamos somar os que estão PAGO/RECEBIDO
-        const lancamentosEfetivos = lancamentos.filter(l =>
-            l.status === 'Pago' || l.status === 'Conciliado' || l.conciliado === true
-        );
-
-        // Dicionário rápido de categorias para achar o Parent
         const catMap = {};
         categorias.forEach(c => { catMap[c.id] = c; });
 
-        // Estrutura Base do DRE com Fallback (caso a mestre tenha sido deletada ou falha na rede)
+        const colunasSet = new Set();
+
         const dre = {
-            receitaBruta: { mestre: categorias.find(c => c.nome.startsWith('1.')) || { nome: '1. Receita Bruta' }, total: 0, filhas: {} },
-            deducoes: { mestre: categorias.find(c => c.nome.startsWith('2.')) || { nome: '2. Deduções da Receita Bruta' }, total: 0, filhas: {} },
-            custos: { mestre: categorias.find(c => c.nome.startsWith('3.')) || { nome: '3. Custos Operacionais' }, total: 0, filhas: {} },
-            despesasOperacionais: { mestre: categorias.find(c => c.nome.startsWith('4.')) || { nome: '4. Despesas Operacionais' }, total: 0, filhas: {} },
-            receitasFinanceiras: { mestre: categorias.find(c => c.nome.startsWith('5.1')) || { nome: '5.1 Receitas Financeiras' }, total: 0, filhas: {} },
-            despesasFinanceiras: { mestre: categorias.find(c => c.nome.startsWith('5.2')) || { nome: '5.2 Despesas Financeiras' }, total: 0, filhas: {} },
-            impostosLucro: { mestre: categorias.find(c => c.nome.startsWith('6.')) || { nome: '6. IRPJ e CSLL' }, total: 0, filhas: {} },
-            naoClassificado: { mestre: { nome: 'Não Classificado/Sem Categoria' }, total: 0, filhas: {} }
+            receitaBruta: { mestre: categorias.find(c => c.nome.startsWith('1.')) || { nome: '1. Receita Bruta' }, total: 0, mensal: {}, filhas: {} },
+            deducoes: { mestre: categorias.find(c => c.nome.startsWith('2.')) || { nome: '2. Deduções' }, subtrair: true, total: 0, mensal: {}, filhas: {} },
+            custos: { mestre: categorias.find(c => c.nome.startsWith('3.')) || { nome: '3. Custos Operacionais' }, subtrair: true, total: 0, mensal: {}, filhas: {} },
+            despesasOperacionais: { mestre: categorias.find(c => c.nome.startsWith('4.')) || { nome: '4. Despesas Operacionais' }, subtrair: true, total: 0, mensal: {}, filhas: {} },
+            receitasFinanceiras: { mestre: categorias.find(c => c.nome.startsWith('5.1')) || { nome: '5.1 Receitas Financeiras' }, total: 0, mensal: {}, filhas: {} },
+            despesasFinanceiras: { mestre: categorias.find(c => c.nome.startsWith('5.2')) || { nome: '5.2 Despesas Financeiras' }, subtrair: true, total: 0, mensal: {}, filhas: {} },
+            impostosLucro: { mestre: categorias.find(c => c.nome.startsWith('6.')) || { nome: '6. IRPJ e CSLL' }, subtrair: true, total: 0, mensal: {}, filhas: {} },
+            naoClassificado: { mestre: { nome: 'Não Classificado/Sem Categoria' }, total: 0, mensal: {}, filhas: {} }
         };
 
-        // Função auxiliar para somar e alocar
-        const alocarLancamento = (lancamento, grupoString) => {
-            // Pega o id da categoria filha
-            const catId = lancamento.categoria_id;
+        let totaisMensais = {};
+
+        const alocarLancamento = (lancamentoAgrupado, grupoString) => {
+            const catId = lancamentoAgrupado.categoria_id;
             const categoria = catMap[catId];
             const nomeFilha = categoria ? categoria.nome : 'Sem Categoria';
 
-            if (!dre[grupoString].filhas[nomeFilha]) {
-                dre[grupoString].filhas[nomeFilha] = {
+            const chaveMes = lancamentoAgrupado.ano_mes;
+            if(chaveMes) colunasSet.add(chaveMes);
+
+            let alvo = dre[grupoString];
+
+            if (!alvo.filhas[nomeFilha]) {
+                alvo.filhas[nomeFilha] = {
                     id: catId,
                     nome: nomeFilha,
                     total: 0,
-                    // Aqui podemos guardar os lancamentos se quisermos um drill-down super detalhado no futuro
-                    lancamentos: []
+                    mensal: {}
                 };
             }
 
-            const valor = Number(lancamento.valor) || 0;
-            dre[grupoString].filhas[nomeFilha].total += valor;
-            dre[grupoString].filhas[nomeFilha].lancamentos.push(lancamento);
-            dre[grupoString].total += valor;
+            // BD envia Receitas (+), Despesas (-)
+            // Porem num relatorio contabil DRE Geral, o normal é tratar positivo e acumular nas chaves pra soma.
+            const valor = Number(lancamentoAgrupado.total) || 0;
+
+            if(chaveMes) {
+                // Adiciona na Filha
+                alvo.filhas[nomeFilha].total += valor;
+                if(!alvo.filhas[nomeFilha].mensal[chaveMes]) alvo.filhas[nomeFilha].mensal[chaveMes] = 0;
+                alvo.filhas[nomeFilha].mensal[chaveMes] += valor;
+    
+                // Adiciona no Grupo Pai
+                if(!alvo.mensal[chaveMes]) alvo.mensal[chaveMes] = 0;
+                alvo.mensal[chaveMes] += valor;
+            }
+
+            alvo.total += valor;
         };
 
-        // Distribuir os lançamentos
-        lancamentosEfetivos.forEach(lanc => {
+        lancamentosAgrupados.forEach(lanc => {
             const cat = catMap[lanc.categoria_id];
 
             if (!cat) {
@@ -116,10 +122,8 @@ export function useRelatorioDRE(filtros) {
                 return;
             }
 
-            // Descobrir a qual "Mestre" essa categoria pertence
             let raizId = cat.id;
             let iteracoes = 0;
-            // Sobe na árvore até achar o pai null
             while (catMap[raizId] && catMap[raizId].parent_id && iteracoes < 5) {
                 raizId = catMap[raizId].parent_id;
                 iteracoes++;
@@ -131,7 +135,6 @@ export function useRelatorioDRE(filtros) {
                 return;
             }
 
-            // Aloca conforme o nome ou ID da raiz
             if (raiz.nome.startsWith('1.')) alocarLancamento(lanc, 'receitaBruta');
             else if (raiz.nome.startsWith('2.')) alocarLancamento(lanc, 'deducoes');
             else if (raiz.nome.startsWith('3.')) alocarLancamento(lanc, 'custos');
@@ -142,39 +145,54 @@ export function useRelatorioDRE(filtros) {
             else alocarLancamento(lanc, 'naoClassificado');
         });
 
-        // Converter 'filhas' de Objeto para Array ordenado (por valor decrescente ou nome)
+        // Ordenar colunas baseadas nas chaves reais retornadas
+        const colunasOrdenadas = Array.from(colunasSet).sort();
+
+        // Object -> Array (Filhas)
         Object.keys(dre).forEach(key => {
-            dre[key].filhasArray = Object.values(dre[key].filhas).sort((a, b) => b.total - a.total);
+            dre[key].filhasArray = Object.values(dre[key].filhas).sort((a,b) => b.total - a.total);
         });
 
-        // Cálculos de Totalizações do DRE
-        const receitaLiquida = dre.receitaBruta.total - dre.deducoes.total;
-        const lucroBruto = receitaLiquida - dre.custos.total;
+        // Totais e Subtotalizações em Matriz
+        const totais = {
+            receitaLiquida: { total: 0, mensal: {} },
+            lucroBruto: { total: 0, mensal: {} },
+            resultadoOperacional: { total: 0, mensal: {} },
+            resultadoAntesImpostos: { total: 0, mensal: {} },
+            lucroLiquido: { total: 0, mensal: {} },
+            margemLiquidaGlobal: 0
+        };
 
-        // Resultado antes do Financeiro = Lucro Bruto - Despesas Operacionais
-        const resultadoOperacional = lucroBruto - dre.despesasOperacionais.total;
+        const somaAlgebrica = (c1, c2) => {
+             const m = {};
+             colunasOrdenadas.forEach(mes => {
+                 m[mes] = (c1.mensal[mes] || 0) + (c2.mensal[mes] || 0);
+             });
+             return { total: c1.total + c2.total, mensal: m };
+        };
 
-        // Resultado antes do IR/CSLL
-        const resultadoAntesImpostos = resultadoOperacional + dre.receitasFinanceiras.total - dre.despesasFinanceiras.total;
+        // Receita Liquida = 1 + 2
+        totais.receitaLiquida = somaAlgebrica(dre.receitaBruta, dre.deducoes);
+        
+        // Lucro Bruto = RecLiquida + 3
+        totais.lucroBruto = somaAlgebrica(totais.receitaLiquida, dre.custos);
 
-        // Lucro Líquido
-        const lucroLiquido = resultadoAntesImpostos - dre.impostosLucro.total;
+        // Res Operacional = LucroBruto + 4
+        totais.resultadoOperacional = somaAlgebrica(totais.lucroBruto, dre.despesasOperacionais);
 
-        // Margens
-        const margemBruta = dre.receitaBruta.total > 0 ? (lucroBruto / dre.receitaBruta.total) * 100 : 0;
-        const margemLiquida = dre.receitaBruta.total > 0 ? (lucroLiquido / dre.receitaBruta.total) * 100 : 0;
+        // Res Antes Impostos = ResOp + 5.1 + 5.2
+        const prov1 = somaAlgebrica(totais.resultadoOperacional, dre.receitasFinanceiras);
+        totais.resultadoAntesImpostos = somaAlgebrica(prov1, dre.despesasFinanceiras);
+
+        // Lucro Liquido = Antes Impostos + 6
+        totais.lucroLiquido = somaAlgebrica(totais.resultadoAntesImpostos, dre.impostosLucro);
+
+        totais.margemLiquidaGlobal = dre.receitaBruta.total > 0 ? (totais.lucroLiquido.total / dre.receitaBruta.total) * 100 : 0;
 
         return {
             grupos: dre,
-            totais: {
-                receitaLiquida,
-                lucroBruto,
-                resultadoOperacional,
-                resultadoAntesImpostos,
-                lucroLiquido,
-                margemBruta,
-                margemLiquida
-            }
+            colunasMeses: colunasOrdenadas,
+            totais
         };
     };
 

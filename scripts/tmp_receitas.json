@@ -1,0 +1,226 @@
+[
+  {
+    "id": 16953,
+    "descricao": "EMPRÉSTIMO - VALOR EXCEDENTE - FINANCIAMENTO AP 101 PERO VAZ",
+    "valor": 16000,
+    "tipo": "Receita",
+    "status": "Pago",
+    "data_vencimento": "2026-04-07",
+    "data_pagamento": "2026-04-07",
+    "categorias_financeiras": {
+      "nome": "Empréstimos bancários"
+    },
+    "contatos": {
+      "nome": null,
+      "razao_social": "Caixa Economica Federal"
+    }
+  },
+  {
+    "id": 17083,
+    "descricao": "EMPRÉSTIMO IGOR - REGISTRO MATRÍCULAS - REFÚGIO BRAÚNAS",
+    "valor": 6946.38,
+    "tipo": "Receita",
+    "status": "Pago",
+    "data_vencimento": "2026-03-24",
+    "data_pagamento": "2026-03-24",
+    "categorias_financeiras": {
+      "nome": "Empréstimo sócios"
+    },
+    "contatos": {
+      "nome": "Igor Monte Alto Rezende",
+      "razao_social": null
+    }
+  },
+  {
+    "id": 17084,
+    "descricao": "EMPRÉSTIMO ALSENIR - REGISTRO MATRÍCULAS - REFÚGIO BRAÚNAS",
+    "valor": 63427.73,
+    "tipo": "Receita",
+    "status": "Pago",
+    "data_vencimento": "2026-03-24",
+    "data_pagamento": "2026-03-24",
+    "categorias_financeiras": {
+      "nome": "Empréstimo terceiros"
+    },
+    "contatos": {
+      "nome": "Alsenir Duarte Monte Alto de Oliveira Rezende",
+      "razao_social": null
+    }
+  },
+  {
+    "id": 16950,
+    "descricao": "EMPRÉSTIMO ALSENIR - PAGAMENTO DÍVIDA ATIVA IPTU E TAXA LIXO 2024 - AP PERO VAZ",
+    "valor": 10753.46,
+    "tipo": "Receita",
+    "status": "Pago",
+    "data_vencimento": "2026-03-13",
+    "data_pagamento": "2026-03-13",
+    "categorias_financeiras": {
+      "nome": "Empréstimo terceiros"
+    },
+    "contatos": {
+      "nome": "Alsenir Duarte Monte Alto de Oliveira Rezende",
+      "razao_social": null
+    }
+  },
+  {
+    "id": 16952,
+    "descricao": "EMPRÉSTIMO IGOR - TAXA CAIXA - FINANCIAMENTO PERO VAZ",
+    "valor": 2171,
+    "tipo": "Receita",
+    "status": "Pago",
+    "data_vencimento": "2026-03-13",
+    "data_pagamento": "2026-03-13",
+    "categorias_financeiras": {
+      "nome": "Empréstimo sócios"
+    },
+    "contatos": {
+      "nome": "Igor Monte Alto Rezende",
+      "razao_social": null
+    }
+  },
+  {
+    "id": 13880,
+    "descricao": "IGOR MONTE ALTO - EMPRÉSTIMO SÓCIO",
+    "valor": 20,
+    "tipo": "Receita",
+    "status": "Pago",
+    "data_vencimento": "2026-02-12",
+    "data_pagamento": "2026-02-12",
+    "categorias_financeiras": {
+      "nome": "Empréstimo sócios"
+    },
+    "contatos": {
+      "nome": "Igor Monte Alto Rezende",
+      "razao_social": null
+    }
+  },
+  {
+    "id": 11939,
+    "descricao": "EMPRÉSTIMO SICOOB - FAMPE",
+    "valor": 210800,
+    "tipo": "Receita",
+    "status": "Pago",
+    "data_vencimento": "2025-12-17",
+    "data_pagamento": "2025-12-17",
+    "categorias_financeiras": {
+      "nome": "Empréstimos bancários"
+    },
+    "contatos": {
+      "nome": "Sicoob Crediriodoce",
+      "razao_social": null
+    }
+  },
+  {
+    "id": 11878,
+    "descricao": "EMPRÉSTIMO IGOR - S57 ARQUITETURA",
+    "valor": 6150,
+    "tipo": "Receita",
+    "status": "Pago",
+    "data_vencimento": "2025-12-08",
+    "data_pagamento": "2025-12-08",
+    "categorias_financeiras": {
+      "nome": "Empréstimo sócios"
+    },
+    "contatos": {
+      "nome": "Igor Monte Alto Rezende",
+      "razao_social": null
+    }
+  },
+  {
+    "id": 6517,
+    "descricao": "IGOR MONTE ALTO - EMPRÉSTIMO SÓCIO ",
+    "valor": 5000,
+    "tipo": "Receita",
+    "status": "Pago",
+    "data_vencimento": "2025-07-11",
+    "data_pagamento": "2025-07-11",
+    "categorias_financeiras": {
+      "nome": "Empréstimo sócios"
+    },
+    "contatos": {
+      "nome": "Igor Monte Alto Rezende",
+      "razao_social": null
+    }
+  },
+  {
+    "id": 6487,
+    "descricao": "IGOR MONTE ALTO - EMPRÉSTIMO SÓCIO - PARTE 2/2 ",
+    "valor": 10000,
+    "tipo": "Receita",
+    "status": "Pago",
+    "data_vencimento": "2025-07-04",
+    "data_pagamento": "2025-07-04",
+    "categorias_financeiras": {
+      "nome": "Empréstimo sócios"
+    },
+    "contatos": {
+      "nome": "Igor Monte Alto Rezende",
+      "razao_social": null
+    }
+  },
+  {
+    "id": 6475,
+    "descricao": "IGOR MONTE ALTO - EMPRÉSTIMO SÓCIO - PARTE 1/2 ",
+    "valor": 20000,
+    "tipo": "Receita",
+    "status": "Pago",
+    "data_vencimento": "2025-07-03",
+    "data_pagamento": "2025-07-03",
+    "categorias_financeiras": {
+      "nome": "Empréstimo sócios"
+    },
+    "contatos": {
+      "nome": "Igor Monte Alto Rezende",
+      "razao_social": null
+    }
+  },
+  {
+    "id": 6891,
+    "descricao": "ACERTO DE CAIXA - DINHEIRO EM ESPÉCIE ",
+    "valor": 3,
+    "tipo": "Receita",
+    "status": "Conciliado",
+    "data_vencimento": "2025-05-30",
+    "data_pagamento": "2025-05-30",
+    "categorias_financeiras": {
+      "nome": "Empréstimos"
+    },
+    "contatos": {
+      "nome": null,
+      "razao_social": "Studio 57 Arquitetura Integrada Ltda"
+    }
+  },
+  {
+    "id": 5190,
+    "descricao": "EMPRÉSTIMO - GIROCAIXA ",
+    "valor": 73560.42,
+    "tipo": "Receita",
+    "status": "Pago",
+    "data_vencimento": "2025-01-14",
+    "data_pagamento": "2025-01-14",
+    "categorias_financeiras": {
+      "nome": "Empréstimos bancários"
+    },
+    "contatos": {
+      "nome": "Caixa Econômica Federal",
+      "razao_social": null
+    }
+  },
+  {
+    "id": 6806,
+    "descricao": "EMPRÉSTIMO IGOR - PAGAMENTO DE ARGENTINO E IVAN ",
+    "valor": 3800,
+    "tipo": "Receita",
+    "status": "Conciliado",
+    "data_vencimento": "2024-12-06",
+    "data_pagamento": "2024-12-06",
+    "categorias_financeiras": {
+      "nome": "Empréstimo sócios"
+    },
+    "contatos": {
+      "nome": "Igor Monte Alto Rezende",
+      "razao_social": null
+    }
+  }
+]

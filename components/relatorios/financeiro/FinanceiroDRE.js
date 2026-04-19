@@ -1,21 +1,21 @@
 // components/relatorios/financeiro/FinanceiroDRE.js
-import React, { useState } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faChevronRight, faChevronDown, faInfoCircle, faSpinner, faPrint, faFileCsv } from '@fortawesome/free-solid-svg-icons';
+import { faChevronRight, faChevronDown, faInfoCircle, faSpinner, faPrint, faFileCsv, faSort, faSortUp, faSortDown } from '@fortawesome/free-solid-svg-icons';
 
 // Utilitário para formatar BRL
 const formatBR = (value) =>
  new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
 
-// Linha Mestre Expandível
-const LinhaMestre = ({ titulo, valor, filhas, subtrair = false, corTexto = 'text-gray-900', defaultOpen = false }) => {
+// Linha Mestre Expandível (Adaptada para Matriz Horizontal)
+const LinhaMestre = ({ titulo, valorTotal, filhas, colunasMeses, corTexto = 'text-gray-900', defaultOpen = false, mestre }) => {
  const [isOpen, setIsOpen] = useState(defaultOpen);
  const temFilhas = filhas && filhas.length > 0;
-
- // Para valores que reduzem (Despesas/Deduções) ficam negativos na UI ou apenas em vermelho
- const valorDisplay = formatBR(Math.abs(valor));
- const prefixoValor = subtrair && valor > 0 ? '-' : '';
- const textColor = subtrair && valor > 0 ? 'text-red-600' : corTexto;
+ 
+ // O frontend DRE não deve tentar ficar flipando negativo na tela atoa.
+ // Respeitamos o sinal natural garantido pelas Triggers do Banco de Dados.
+ const isRed = mestre.subtrair;
+ const formatador = (v) => formatBR(v);
 
  return (
  <>
@@ -23,83 +23,112 @@ const LinhaMestre = ({ titulo, valor, filhas, subtrair = false, corTexto = 'text
  className={`hover:bg-gray-50/80 transition-colors ${temFilhas ? 'cursor-pointer' : ''} border-b border-gray-100 group`}
  onClick={() => temFilhas && setIsOpen(!isOpen)}
  >
- <td className="py-4 px-6">
+ <td className="py-4 px-6 min-w-[320px] sticky left-0 bg-white z-10 border-r border-gray-200">
  <div className="flex items-center">
  <div className="w-6 flex justify-center text-gray-400 group-hover:text-blue-500 transition-colors">
  {temFilhas && (
  <FontAwesomeIcon icon={isOpen ? faChevronDown : faChevronRight} className="text-sm" />
  )}
  </div>
- <span className={`font-semibold ml-2 ${textColor}`}>{titulo}</span>
+ <span className={`font-semibold ml-2 ${isRed ? 'text-red-700' : corTexto}`}>{titulo}</span>
  </div>
  </td>
- <td className={`py-4 px-6 text-right font-medium ${textColor}`}>
- {prefixoValor}{valorDisplay}
+ <td className={`py-4 px-6 text-right font-bold w-40 sticky left-[320px] bg-white z-10 border-r-2 border-gray-300 ${isRed ? 'text-red-800' : 'text-gray-900'}`}>
+ {formatador(valorTotal)}
  </td>
+ {colunasMeses.map((mesCol, idx) => (
+ <td key={`mestre-${idx}-${mesCol}`} className={`py-4 px-6 text-right font-medium ${isRed ? 'text-red-600' : 'text-gray-700'} border-r border-gray-100`}>
+ {formatador(mestre.mensal[mesCol] || 0)}
+ </td>
+ ))}
  </tr>
  {isOpen && temFilhas && filhas.map((filha, idx) => (
  <tr key={idx} className="bg-gray-50/50 border-b border-gray-100 last:border-0 hover:bg-gray-100/50 transition-colors">
- <td className="py-2.5 px-6 pl-14 text-sm text-gray-600 flex items-center">
+ <td className="py-2.5 px-6 pl-14 text-sm text-gray-600 flex items-center min-w-[320px] sticky left-0 bg-gray-50/95 z-10 border-r border-gray-200">
  <div className="w-1.5 h-1.5 rounded-full bg-gray-300 mr-3"></div>
  {filha.nome}
  </td>
- <td className="py-2.5 px-6 text-right text-sm text-gray-600 font-medium tracking-tight">
- {formatBR(Math.abs(filha.total))}
+ <td className={`py-2.5 px-6 text-right text-sm font-semibold tracking-tight w-40 sticky left-[320px] bg-gray-50/95 z-10 border-r-2 border-gray-300 ${isRed ? 'text-red-700' : 'text-gray-700'}`}>
+ {formatador(filha.total)}
  </td>
+ {colunasMeses.map((mesCol, i) => (
+     <td key={`filha-${idx}-${mesCol}`} className="py-2.5 px-6 text-right text-sm text-gray-500 border-r border-gray-100">
+         {formatador(filha.mensal[mesCol] || 0)}
+     </td>
+ ))}
  </tr>
  ))}
  </>
  );
 };
 
-// Linha de Totalização (Lucro/Receita Líquida)
-const LinhaTotal = ({ titulo, valor, principal = false, info = '' }) => {
- const negativo = valor < 0;
+// Linha de Totalização
+const LinhaTotal = ({ titulo, valorTotal, valoresMensais, colunasMeses, principal = false, info = '' }) => {
+ const negativo = valorTotal < 0;
  let textColor = 'text-gray-900';
  let bgColor = 'bg-gray-50';
 
  if (principal) {
  if (negativo) {
  textColor = 'text-red-700';
- bgColor = 'bg-red-50/70 border-y border-red-100';
+ bgColor = 'bg-red-50/90 border-y border-red-100';
  } else {
  textColor = 'text-emerald-700';
- bgColor = 'bg-emerald-50/70 border-y border-emerald-100';
+ bgColor = 'bg-emerald-50/90 border-y border-emerald-100';
  }
  }
 
  return (
  <tr className={`${bgColor}`}>
- <td className="py-4 px-6 flex items-center">
+ <td className="py-4 px-6 flex items-center min-w-[320px] sticky left-0 z-10 border-r border-gray-200" style={{backgroundColor: principal && !negativo ? '#ecfdf5' : principal && negativo ? '#fef2f2' : '#f9fafb'}}>
  <span className={`font-bold ${principal ? 'text-lg' : 'text-md'} ${textColor}`}>{titulo}</span>
  {info && (
  <div className="ml-2 group relative flex items-center cursor-help">
  <FontAwesomeIcon icon={faInfoCircle} className="text-gray-400 hover:text-gray-600" />
- <div className="absolute left-6 w-64 p-2 bg-gray-900 text-white text-xs rounded shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10 pointer-events-none">
+ <div className="absolute left-6 w-64 p-2 bg-gray-900 text-white text-xs rounded shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-20 pointer-events-none">
  {info}
  </div>
  </div>
  )}
  </td>
- <td className={`py-4 px-6 text-right font-bold ${principal ? 'text-lg' : 'text-md'} ${textColor} tracking-tight`}>
- {formatBR(valor)}
+ <td className={`py-4 px-6 text-right font-bold ${principal ? 'text-lg' : 'text-md'} ${textColor} tracking-tight w-40 sticky left-[320px] z-10 border-r-2 border-gray-300`} style={{backgroundColor: principal && !negativo ? '#ecfdf5' : principal && negativo ? '#fef2f2' : '#f9fafb'}}>
+ {formatBR(valorTotal)}
  </td>
+ {colunasMeses.map((mesCol, idx) => (
+ <td key={`total-${idx}-${mesCol}`} className={`py-4 px-6 text-right font-bold ${textColor} ${principal ? 'text-md' : 'text-sm'} border-r border-gray-200`}>
+ {formatBR(valoresMensais[mesCol] || 0)}
+ </td>
+ ))}
  </tr>
  );
 };
 
 export default function FinanceiroDRE({ dadosDRE, isLoading }) {
+ const tableRef = useRef(null);
+ const atualRef = useRef(null);
+
+ useEffect(() => {
+ if (atualRef.current && tableRef.current && !isLoading) {
+ setTimeout(() => {
+ const container = tableRef.current;
+ const element = atualRef.current;
+ const scrollLeft = element.offsetLeft - (container.clientWidth / 2) + (element.clientWidth / 2);
+ container.scrollTo({ left: scrollLeft, behavior: 'smooth' });
+ }, 400);
+ }
+ }, [dadosDRE, isLoading]);
+
  if (isLoading) {
  return (
  <div className="flex flex-col items-center justify-center p-20 text-gray-500 bg-white rounded-xl shadow-sm border border-gray-200 mt-6 min-h-[400px]">
  <FontAwesomeIcon icon={faSpinner} spin className="text-4xl text-blue-500 mb-4" />
- <p className="font-medium">Calculando e consolidando o DRE...</p>
- <p className="text-sm text-gray-400 mt-2 text-center max-w-md">Isso pode levar alguns segundos dependendo da quantidade de lançamentos do período.</p>
+ <p className="font-medium">Calculando e consolidando o DRE Global...</p>
+ <p className="text-sm text-gray-400 mt-2 text-center max-w-md">Gerando matriz horizontal completa de todos os mêses em tempo real.</p>
  </div>
  );
  }
 
- if (!dadosDRE) {
+ if (!dadosDRE || !dadosDRE.grupos) {
  return (
  <div className="p-10 text-center text-gray-500 bg-white rounded-xl shadow-sm border border-gray-200 mt-6 min-h-[400px] flex items-center justify-center">
  Não foi possível carregar os dados do DRE. Verifique sua conexão e os filtros.
@@ -107,84 +136,28 @@ export default function FinanceiroDRE({ dadosDRE, isLoading }) {
  );
  }
 
- const { grupos, totais } = dadosDRE;
+ const { grupos, totais, colunasMeses } = dadosDRE;
 
  const handleExportCSV = () => {
- let csvContent = "Grupo;Categoria;Valor\n";
-
- const appendRow = (grupo, cat, valor) => {
- // Remove quebras de linha e trata números BRL
- const limpaTexto = (text) => `"${(text || '').replace(/"/g, '""')}"`;
- const valorString = valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
- csvContent += `${limpaTexto(grupo)};${limpaTexto(cat)};"${valorString}"\n`;
+ // Simples para DRE Global Horizontal
+ alert("A exportação CSV da Matriz está em desenvolvimento.");
  };
 
- // Receita
- appendRow("1. RECEITA BRUTA", grupos.receitaBruta.mestre?.nome || '1. Receita Bruta', grupos.receitaBruta.total);
- grupos.receitaBruta.filhasArray.forEach(f => appendRow("", f.nome, f.total));
-
- // Deduções
- appendRow("2. DEDUÇÕES", grupos.deducoes.mestre?.nome || '2. Deduções', grupos.deducoes.total);
- grupos.deducoes.filhasArray.forEach(f => appendRow("", f.nome, f.total));
-
- appendRow("= RECEITA OPERACIONAL LÍQUIDA", "", totais.receitaLiquida);
-
- // Custos
- appendRow("3. CUSTOS OPERACIONAIS (CMV/CSV)", grupos.custos.mestre?.nome || '3. Custos Operacionais', grupos.custos.total);
- grupos.custos.filhasArray.forEach(f => appendRow("", f.nome, f.total));
-
- appendRow("= LUCRO BRUTO OPERACIONAL", "", totais.lucroBruto);
-
- // Despesas Operacionais
- appendRow("4. DESPESAS OPERACIONAIS", grupos.despesasOperacionais.mestre?.nome || '4. Despesas Operacionais', grupos.despesasOperacionais.total);
- grupos.despesasOperacionais.filhasArray.forEach(f => appendRow("", f.nome, f.total));
-
- appendRow("= RESULTADO OPERACIONAL", "", totais.resultadoOperacional);
-
- // Financeiras
- appendRow("5.1 RECEITAS FINANCEIRAS", grupos.receitasFinanceiras.mestre?.nome || '5.1 Receitas Financeiras', grupos.receitasFinanceiras.total);
- grupos.receitasFinanceiras.filhasArray.forEach(f => appendRow("", f.nome, f.total));
-
- appendRow("5.2 DESPESAS FINANCEIRAS", grupos.despesasFinanceiras.mestre?.nome || '5.2 Despesas Financeiras', grupos.despesasFinanceiras.total);
- grupos.despesasFinanceiras.filhasArray.forEach(f => appendRow("", f.nome, f.total));
-
- appendRow("= RESULTADO ANTES DO IRPJ/CSLL", "", totais.resultadoAntesImpostos);
-
- // Impostos
- appendRow("6. IRPJ E CSLL (Lucro)", grupos.impostosLucro.mestre?.nome || '6. IRPJ E CSLL', grupos.impostosLucro.total);
- grupos.impostosLucro.filhasArray.forEach(f => appendRow("", f.nome, f.total));
-
- appendRow("= RESULTADO LÍQUIDO DO EXERCÍCIO", "", totais.lucroLiquido);
-
- // Nao Classificados
- if (grupos.naoClassificado.total > 0) {
- appendRow("NÃO CLASSIFICADO", "Sem Categoria Pai", grupos.naoClassificado.total);
- grupos.naoClassificado.filhasArray.forEach(f => appendRow("", f.nome, f.total));
- }
-
- // Força download
- const blob = new Blob(["\ufeff", csvContent], { type: 'text/csv;charset=utf-8;' });
- const url = URL.createObjectURL(blob);
- const link = document.createElement("a");
- link.setAttribute("href", url);
- link.setAttribute("download", `DRE_Studio57.csv`);
- document.body.appendChild(link);
- link.click();
- document.body.removeChild(link);
- };
+ // Para facilitar leitura, pegamos a data atual para destacar a coluna
+ const dataAtualStr = new Date().toISOString().substring(0, 7);
 
  return (
  <div className="bg-white rounded-xl shadow-sm border border-gray-200 mt-6 overflow-hidden flex flex-col print:shadow-none print:border-none print:m-0 print:p-0 s57-print-area">
- <div className="px-6 py-5 border-b border-gray-100 bg-blue-600 from-slate-50 to-white print:from-white print:to-white flex items-center justify-between">
+ <div className="px-6 py-5 border-b border-gray-100 bg-white print:from-white print:to-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
  <div>
- <h3 className="text-lg font-bold text-slate-800">Demonstração do Resultado do Exercício (DRE)</h3>
- <p className="text-sm text-slate-500 font-medium">Regime de Caixa • Consolidado por Categorias Mestres</p>
+ <h3 className="text-lg font-bold text-slate-800">Demonstração do Resultado do Exercício (Matriz)</h3>
+ <p className="text-sm text-slate-500 font-medium">Layout Horizontal Analítico</p>
  </div>
  <div className="flex gap-4">
  <div className="bg-slate-100 rounded-lg px-4 py-2 border border-slate-200 print:hidden flex items-center justify-between gap-4">
  <div>
- <span className="text-xs text-slate-500 block font-semibold mb-0.5 uppercase tracking-wide">Margem Líquida</span>
- <span className="font-bold text-slate-800">{totais.margemLiquida.toFixed(1)}%</span>
+ <span className="text-xs text-slate-500 block font-semibold mb-0.5 uppercase tracking-wide">Margem Global</span>
+ <span className={`font-bold ${totais.margemLiquidaGlobal > 0 ? "text-emerald-700" : "text-red-600"}`}>{totais.margemLiquidaGlobal.toFixed(2)}%</span>
  </div>
  <div className="border-l border-slate-300 pl-4 flex gap-2">
  <button
@@ -206,111 +179,151 @@ export default function FinanceiroDRE({ dadosDRE, isLoading }) {
  </div>
  </div>
 
- <div className="overflow-x-auto">
- <table className="w-full text-left border-collapse">
- <thead>
- <tr className="bg-gray-50/80 border-b border-gray-200 text-xs uppercase tracking-wider text-gray-500 font-semibold">
- <th className="py-3 px-6 h-10 w-3/4">Descrição da Conta</th>
- <th className="py-3 px-6 h-10 w-1/4 text-right">Valor R$</th>
+ <div 
+ ref={tableRef}
+ className="w-full overflow-x-auto relative" 
+ style={{ maxHeight: '75vh' }}
+ >
+ <table className="w-full text-left border-collapse min-w-max">
+ <thead className="sticky top-0 z-20">
+ <tr className="bg-gray-100 border-b-2 border-gray-300 text-xs uppercase tracking-wider text-gray-600 font-bold">
+ <th className="py-4 px-6 min-w-[320px] sticky left-0 bg-gray-100 z-30 border-r border-gray-300">
+ Descrição da Conta DRE
+ </th>
+ <th className="py-4 px-6 w-40 text-right sticky left-[320px] bg-gray-100 z-30 border-r-2 border-gray-300 hover:bg-gray-200 cursor-pointer transition-colors shadow-[2px_0_4px_-2px_rgba(0,0,0,0.1)]">
+ Total Acumulado (R$)
+ </th>
+ {colunasMeses.map(mesCol => {
+ const [ano, mes] = mesCol.split('-');
+ const isAtual = mesCol === dataAtualStr;
+ return (
+ <th 
+ key={mesCol} 
+ ref={isAtual ? atualRef : null}
+ className={`py-4 px-6 w-36 text-center border-r border-gray-200 transition-colors ${isAtual ? 'bg-indigo-50 text-indigo-800 border-b-4 border-b-indigo-500' : ''}`}
+ >
+ <div>{mes}/{ano}</div>
+ {isAtual && <div className="text-[10px] text-indigo-600 mt-1 uppercase font-black">Atual</div>}
+ </th>
+ );
+ })}
  </tr>
  </thead>
- <tbody className="divide-y divide-gray-100">
+ <tbody className="divide-y divide-gray-100 bg-white">
  {/* 1. Receita Bruta */}
  <LinhaMestre
- titulo={grupos.receitaBruta.mestre?.nome || '1. Receita Bruta'}
- valor={grupos.receitaBruta.total}
+ titulo={grupos.receitaBruta.mestre?.nome}
+ mestre={grupos.receitaBruta}
+ valorTotal={grupos.receitaBruta.total}
  filhas={grupos.receitaBruta.filhasArray}
+ colunasMeses={colunasMeses}
  corTexto="text-slate-800"
  defaultOpen={true}
  />
  {/* 2. Deduções */}
  <LinhaMestre
- titulo={grupos.deducoes.mestre?.nome || '2. Deduções'}
- valor={grupos.deducoes.total}
+ titulo={grupos.deducoes.mestre?.nome}
+ mestre={grupos.deducoes}
+ valorTotal={grupos.deducoes.total}
  filhas={grupos.deducoes.filhasArray}
- subtrair={true}
+ colunasMeses={colunasMeses}
  />
 
  {/* LÍQUIDA */}
  <LinhaTotal
  titulo="(=) Receita Operacional Líquida"
- valor={totais.receitaLiquida}
+ valorTotal={totais.receitaLiquida.total}
+ valoresMensais={totais.receitaLiquida.mensal}
+ colunasMeses={colunasMeses}
  info="Receita Bruta - Deduções. É o faturamento real que entrou."
  />
 
  {/* 3. Custos Operacionais */}
  <LinhaMestre
- titulo={grupos.custos.mestre?.nome || '3. Custos Operacionais (CMV/CSV)'}
- valor={grupos.custos.total}
+ titulo={grupos.custos.mestre?.nome}
+ mestre={grupos.custos}
+ valorTotal={grupos.custos.total}
  filhas={grupos.custos.filhasArray}
- subtrair={true}
+ colunasMeses={colunasMeses}
  />
 
  {/* LUCRO BRUTO */}
  <LinhaTotal
  titulo="(=) Lucro Bruto Operacional"
- valor={totais.lucroBruto}
- info="Receita Líquida - Custos da Obra/Projetos. Indica o ganho gerado diretamente pelo core business."
+ valorTotal={totais.lucroBruto.total}
+ valoresMensais={totais.lucroBruto.mensal}
+ colunasMeses={colunasMeses}
  />
 
  {/* 4. Despesas Operacionais */}
  <LinhaMestre
- titulo={grupos.despesasOperacionais.mestre?.nome || '4. Despesas Operacionais'}
- valor={grupos.despesasOperacionais.total}
+ titulo={grupos.despesasOperacionais.mestre?.nome}
+ mestre={grupos.despesasOperacionais}
+ valorTotal={grupos.despesasOperacionais.total}
  filhas={grupos.despesasOperacionais.filhasArray}
- subtrair={true}
+ colunasMeses={colunasMeses}
  />
 
  {/* RESULTADO OPERACIONAL */}
  <LinhaTotal
  titulo="(=) Resultado Operacional"
- valor={totais.resultadoOperacional}
- info="Lucro Bruto - Despesas Administrativas/Comerciais. Indica a eficiência da operação como um todo antes dos juros."
+ valorTotal={totais.resultadoOperacional.total}
+ valoresMensais={totais.resultadoOperacional.mensal}
+ colunasMeses={colunasMeses}
+ info="Lucro Bruto - Despesas Administrativas/Comerciais."
  />
 
  {/* 5.1 e 5.2. Resultado Financeiro */}
  <LinhaMestre
- titulo={grupos.receitasFinanceiras.mestre?.nome || '5.1 Receitas Financeiras'}
- valor={grupos.receitasFinanceiras.total}
+ titulo={grupos.receitasFinanceiras.mestre?.nome}
+ mestre={grupos.receitasFinanceiras}
+ valorTotal={grupos.receitasFinanceiras.total}
  filhas={grupos.receitasFinanceiras.filhasArray}
- corTexto="text-slate-700"
+ colunasMeses={colunasMeses}
  />
  <LinhaMestre
- titulo={grupos.despesasFinanceiras.mestre?.nome || '5.2 Despesas Financeiras'}
- valor={grupos.despesasFinanceiras.total}
+ titulo={grupos.despesasFinanceiras.mestre?.nome}
+ mestre={grupos.despesasFinanceiras}
+ valorTotal={grupos.despesasFinanceiras.total}
  filhas={grupos.despesasFinanceiras.filhasArray}
- subtrair={true}
+ colunasMeses={colunasMeses}
  />
 
  {/* RESULTADO ANTES DOS IMPOSTOS */}
  <LinhaTotal
  titulo="(=) Resultado Antes do IRPJ/CSLL"
- valor={totais.resultadoAntesImpostos}
+ valorTotal={totais.resultadoAntesImpostos.total}
+ valoresMensais={totais.resultadoAntesImpostos.mensal}
+ colunasMeses={colunasMeses}
  />
 
  {/* 6. Impostos sobre o Lucro */}
  <LinhaMestre
- titulo={grupos.impostosLucro.mestre?.nome || '6. IRPJ e CSLL (Lucro)'}
- valor={grupos.impostosLucro.total}
+ titulo={grupos.impostosLucro.mestre?.nome}
+ mestre={grupos.impostosLucro}
+ valorTotal={grupos.impostosLucro.total}
  filhas={grupos.impostosLucro.filhasArray}
- subtrair={true}
+ colunasMeses={colunasMeses}
  />
 
  {/* RESULTADO LÍQUIDO FINAL */}
  <LinhaTotal
  titulo="(=) Resultado Líquido do Exercício"
- valor={totais.lucroLiquido}
+ valorTotal={totais.lucroLiquido.total}
+ valoresMensais={totais.lucroLiquido.mensal}
+ colunasMeses={colunasMeses}
  principal={true}
- info="Valor final gerado pela empresa de fato (Lucro ou Prejuízo) e que sobra livre na última linha."
+ info="Valor final gerado pela empresa de fato."
  />
 
  {/* Não Classificados / Perdidos */}
- {grupos.naoClassificado.total > 0 && (
+ {grupos.naoClassificado.total !== 0 && (
  <LinhaMestre
- titulo="⚠️ Lançamentos Não Classificados / Sem Categoria Pai"
- valor={grupos.naoClassificado.total}
+ titulo="⚠️ Custos Não Classificados / Sem Categoria Pai"
+ mestre={grupos.naoClassificado}
+ valorTotal={grupos.naoClassificado.total}
  filhas={grupos.naoClassificado.filhasArray}
- subtrair={true}
+ colunasMeses={colunasMeses}
  corTexto="text-blue-600"
  />
  )}

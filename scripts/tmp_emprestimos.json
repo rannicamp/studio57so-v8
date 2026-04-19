@@ -1,0 +1,1862 @@
+[
+  {
+    "id": 16350,
+    "descricao": "SICOOB AC CREDI - REPACTUAÇÃO CRÉDTIDO PJ GIRO  (36/36)",
+    "valor": -445.85,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2029-02-15",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 16349,
+    "descricao": "SICOOB AC CREDI - REPACTUAÇÃO CRÉDTIDO PJ GIRO  (35/36)",
+    "valor": -445.85,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2029-01-15",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 13533,
+    "descricao": "PAGAMENTO EMPRÉSTIMO - PRONAMPE - S57 ARQUITETURA (36/36)",
+    "valor": -1242.7,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2028-12-18",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 11981,
+    "descricao": "SICOOB CREDIRIODOCE - EMPRÉSTIMO FAMPE - PARCELA  (36/36)",
+    "valor": -8170.33,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2028-12-15",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 16348,
+    "descricao": "SICOOB AC CREDI - REPACTUAÇÃO CRÉDTIDO PJ GIRO  (34/36)",
+    "valor": -445.85,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2028-12-15",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 13532,
+    "descricao": "PAGAMENTO EMPRÉSTIMO - PRONAMPE - S57 ARQUITETURA (35/36)",
+    "valor": -1242.7,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2028-11-18",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 16347,
+    "descricao": "SICOOB AC CREDI - REPACTUAÇÃO CRÉDTIDO PJ GIRO  (33/36)",
+    "valor": -445.85,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2028-11-15",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 11980,
+    "descricao": "SICOOB CREDIRIODOCE - EMPRÉSTIMO FAMPE - PARCELA  (35/36)",
+    "valor": -8170.33,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2028-11-15",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 13531,
+    "descricao": "PAGAMENTO EMPRÉSTIMO - PRONAMPE - S57 ARQUITETURA (34/36)",
+    "valor": -1242.7,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2028-10-18",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 16346,
+    "descricao": "SICOOB AC CREDI - REPACTUAÇÃO CRÉDTIDO PJ GIRO  (32/36)",
+    "valor": -445.85,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2028-10-15",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 11979,
+    "descricao": "SICOOB CREDIRIODOCE - EMPRÉSTIMO FAMPE - PARCELA  (34/36)",
+    "valor": -8170.33,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2028-10-15",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 13530,
+    "descricao": "PAGAMENTO EMPRÉSTIMO - PRONAMPE - S57 ARQUITETURA (33/36)",
+    "valor": -1242.7,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2028-09-18",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 16345,
+    "descricao": "SICOOB AC CREDI - REPACTUAÇÃO CRÉDTIDO PJ GIRO  (31/36)",
+    "valor": -445.85,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2028-09-15",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 11978,
+    "descricao": "SICOOB CREDIRIODOCE - EMPRÉSTIMO FAMPE - PARCELA  (33/36)",
+    "valor": -8170.33,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2028-09-15",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 13529,
+    "descricao": "PAGAMENTO EMPRÉSTIMO - PRONAMPE - S57 ARQUITETURA (32/36)",
+    "valor": -1242.7,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2028-08-18",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 16344,
+    "descricao": "SICOOB AC CREDI - REPACTUAÇÃO CRÉDTIDO PJ GIRO  (30/36)",
+    "valor": -445.85,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2028-08-15",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 11977,
+    "descricao": "SICOOB CREDIRIODOCE - EMPRÉSTIMO FAMPE - PARCELA  (32/36)",
+    "valor": -8170.33,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2028-08-15",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 13528,
+    "descricao": "PAGAMENTO EMPRÉSTIMO - PRONAMPE - S57 ARQUITETURA (31/36)",
+    "valor": -1242.7,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2028-07-18",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 11976,
+    "descricao": "SICOOB CREDIRIODOCE - EMPRÉSTIMO FAMPE - PARCELA  (31/36)",
+    "valor": -8170.33,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2028-07-15",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 16343,
+    "descricao": "SICOOB AC CREDI - REPACTUAÇÃO CRÉDTIDO PJ GIRO  (29/36)",
+    "valor": -445.85,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2028-07-15",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 13527,
+    "descricao": "PAGAMENTO EMPRÉSTIMO - PRONAMPE - S57 ARQUITETURA (30/36)",
+    "valor": -1242.7,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2028-06-18",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 11975,
+    "descricao": "SICOOB CREDIRIODOCE - EMPRÉSTIMO FAMPE - PARCELA  (30/36)",
+    "valor": -8170.33,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2028-06-15",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 16342,
+    "descricao": "SICOOB AC CREDI - REPACTUAÇÃO CRÉDTIDO PJ GIRO  (28/36)",
+    "valor": -445.85,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2028-06-15",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 13526,
+    "descricao": "PAGAMENTO EMPRÉSTIMO - PRONAMPE - S57 ARQUITETURA (29/36)",
+    "valor": -1242.7,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2028-05-18",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 16341,
+    "descricao": "SICOOB AC CREDI - REPACTUAÇÃO CRÉDTIDO PJ GIRO  (27/36)",
+    "valor": -445.85,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2028-05-15",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 11974,
+    "descricao": "SICOOB CREDIRIODOCE - EMPRÉSTIMO FAMPE - PARCELA  (29/36)",
+    "valor": -8170.33,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2028-05-15",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 13525,
+    "descricao": "PAGAMENTO EMPRÉSTIMO - PRONAMPE - S57 ARQUITETURA (28/36)",
+    "valor": -1242.7,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2028-04-18",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 11973,
+    "descricao": "SICOOB CREDIRIODOCE - EMPRÉSTIMO FAMPE - PARCELA  (28/36)",
+    "valor": -8170.33,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2028-04-15",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 16340,
+    "descricao": "SICOOB AC CREDI - REPACTUAÇÃO CRÉDTIDO PJ GIRO  (26/36)",
+    "valor": -445.85,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2028-04-15",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 13524,
+    "descricao": "PAGAMENTO EMPRÉSTIMO - PRONAMPE - S57 ARQUITETURA (27/36)",
+    "valor": -1242.7,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2028-03-18",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 11972,
+    "descricao": "SICOOB CREDIRIODOCE - EMPRÉSTIMO FAMPE - PARCELA  (27/36)",
+    "valor": -8170.33,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2028-03-15",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 16339,
+    "descricao": "SICOOB AC CREDI - REPACTUAÇÃO CRÉDTIDO PJ GIRO  (25/36)",
+    "valor": -445.85,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2028-03-15",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 13523,
+    "descricao": "PAGAMENTO EMPRÉSTIMO - PRONAMPE - S57 ARQUITETURA (26/36)",
+    "valor": -1242.7,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2028-02-18",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 16338,
+    "descricao": "SICOOB AC CREDI - REPACTUAÇÃO CRÉDTIDO PJ GIRO  (24/36)",
+    "valor": -445.85,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2028-02-15",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 11971,
+    "descricao": "SICOOB CREDIRIODOCE - EMPRÉSTIMO FAMPE - PARCELA  (26/36)",
+    "valor": -8170.33,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2028-02-15",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 13522,
+    "descricao": "PAGAMENTO EMPRÉSTIMO - PRONAMPE - S57 ARQUITETURA (25/36)",
+    "valor": -1242.7,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2028-01-18",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 11970,
+    "descricao": "SICOOB CREDIRIODOCE - EMPRÉSTIMO FAMPE - PARCELA  (25/36)",
+    "valor": -8170.33,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2028-01-15",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 16337,
+    "descricao": "SICOOB AC CREDI - REPACTUAÇÃO CRÉDTIDO PJ GIRO  (23/36)",
+    "valor": -445.85,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2028-01-15",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 13521,
+    "descricao": "PAGAMENTO EMPRÉSTIMO - PRONAMPE - S57 ARQUITETURA (24/36)",
+    "valor": -1242.7,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2027-12-18",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 11969,
+    "descricao": "SICOOB CREDIRIODOCE - EMPRÉSTIMO FAMPE - PARCELA  (24/36)",
+    "valor": -8170.33,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2027-12-15",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 16336,
+    "descricao": "SICOOB AC CREDI - REPACTUAÇÃO CRÉDTIDO PJ GIRO  (22/36)",
+    "valor": -445.85,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2027-12-15",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 13520,
+    "descricao": "PAGAMENTO EMPRÉSTIMO - PRONAMPE - S57 ARQUITETURA (23/36)",
+    "valor": -1242.7,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2027-11-18",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 16335,
+    "descricao": "SICOOB AC CREDI - REPACTUAÇÃO CRÉDTIDO PJ GIRO  (21/36)",
+    "valor": -445.85,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2027-11-15",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 11968,
+    "descricao": "SICOOB CREDIRIODOCE - EMPRÉSTIMO FAMPE - PARCELA  (23/36)",
+    "valor": -8170.33,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2027-11-15",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 13519,
+    "descricao": "PAGAMENTO EMPRÉSTIMO - PRONAMPE - S57 ARQUITETURA (22/36)",
+    "valor": -1242.7,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2027-10-18",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 11967,
+    "descricao": "SICOOB CREDIRIODOCE - EMPRÉSTIMO FAMPE - PARCELA  (22/36)",
+    "valor": -8170.33,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2027-10-15",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 16334,
+    "descricao": "SICOOB AC CREDI - REPACTUAÇÃO CRÉDTIDO PJ GIRO  (20/36)",
+    "valor": -445.85,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2027-10-15",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 13518,
+    "descricao": "PAGAMENTO EMPRÉSTIMO - PRONAMPE - S57 ARQUITETURA (21/36)",
+    "valor": -1242.7,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2027-09-18",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 16333,
+    "descricao": "SICOOB AC CREDI - REPACTUAÇÃO CRÉDTIDO PJ GIRO  (19/36)",
+    "valor": -445.85,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2027-09-15",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 11966,
+    "descricao": "SICOOB CREDIRIODOCE - EMPRÉSTIMO FAMPE - PARCELA  (21/36)",
+    "valor": -8170.33,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2027-09-15",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 13517,
+    "descricao": "PAGAMENTO EMPRÉSTIMO - PRONAMPE - S57 ARQUITETURA (20/36)",
+    "valor": -1242.7,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2027-08-18",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 11965,
+    "descricao": "SICOOB CREDIRIODOCE - EMPRÉSTIMO FAMPE - PARCELA  (20/36)",
+    "valor": -8170.33,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2027-08-15",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 16332,
+    "descricao": "SICOOB AC CREDI - REPACTUAÇÃO CRÉDTIDO PJ GIRO  (18/36)",
+    "valor": -445.85,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2027-08-15",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 13516,
+    "descricao": "PAGAMENTO EMPRÉSTIMO - PRONAMPE - S57 ARQUITETURA (19/36)",
+    "valor": -1242.7,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2027-07-18",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 16331,
+    "descricao": "SICOOB AC CREDI - REPACTUAÇÃO CRÉDTIDO PJ GIRO  (17/36)",
+    "valor": -445.85,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2027-07-15",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 11964,
+    "descricao": "SICOOB CREDIRIODOCE - EMPRÉSTIMO FAMPE - PARCELA  (19/36)",
+    "valor": -8170.33,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2027-07-15",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 13515,
+    "descricao": "PAGAMENTO EMPRÉSTIMO - PRONAMPE - S57 ARQUITETURA (18/36)",
+    "valor": -1242.7,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2027-06-18",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 11963,
+    "descricao": "SICOOB CREDIRIODOCE - EMPRÉSTIMO FAMPE - PARCELA  (18/36)",
+    "valor": -8170.33,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2027-06-15",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 16330,
+    "descricao": "SICOOB AC CREDI - REPACTUAÇÃO CRÉDTIDO PJ GIRO  (16/36)",
+    "valor": -445.85,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2027-06-15",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 13514,
+    "descricao": "PAGAMENTO EMPRÉSTIMO - PRONAMPE - S57 ARQUITETURA (17/36)",
+    "valor": -1242.7,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2027-05-18",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 16329,
+    "descricao": "SICOOB AC CREDI - REPACTUAÇÃO CRÉDTIDO PJ GIRO  (15/36)",
+    "valor": -445.85,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2027-05-15",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 11962,
+    "descricao": "SICOOB CREDIRIODOCE - EMPRÉSTIMO FAMPE - PARCELA  (17/36)",
+    "valor": -8170.33,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2027-05-15",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 13513,
+    "descricao": "PAGAMENTO EMPRÉSTIMO - PRONAMPE - S57 ARQUITETURA (16/36)",
+    "valor": -1242.7,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2027-04-18",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 16328,
+    "descricao": "SICOOB AC CREDI - REPACTUAÇÃO CRÉDTIDO PJ GIRO  (14/36)",
+    "valor": -445.85,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2027-04-15",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 11961,
+    "descricao": "SICOOB CREDIRIODOCE - EMPRÉSTIMO FAMPE - PARCELA  (16/36)",
+    "valor": -8170.33,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2027-04-15",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 13512,
+    "descricao": "PAGAMENTO EMPRÉSTIMO - PRONAMPE - S57 ARQUITETURA (15/36)",
+    "valor": -1242.7,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2027-03-18",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 16327,
+    "descricao": "SICOOB AC CREDI - REPACTUAÇÃO CRÉDTIDO PJ GIRO  (13/36)",
+    "valor": -445.85,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2027-03-15",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 11960,
+    "descricao": "SICOOB CREDIRIODOCE - EMPRÉSTIMO FAMPE - PARCELA  (15/36)",
+    "valor": -8170.33,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2027-03-15",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 13511,
+    "descricao": "PAGAMENTO EMPRÉSTIMO - PRONAMPE - S57 ARQUITETURA (14/36)",
+    "valor": -1242.7,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2027-02-18",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 11959,
+    "descricao": "SICOOB CREDIRIODOCE - EMPRÉSTIMO FAMPE - PARCELA  (14/36)",
+    "valor": -8170.33,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2027-02-15",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 16326,
+    "descricao": "SICOOB AC CREDI - REPACTUAÇÃO CRÉDTIDO PJ GIRO  (12/36)",
+    "valor": -445.85,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2027-02-15",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 13510,
+    "descricao": "PAGAMENTO EMPRÉSTIMO - PRONAMPE - S57 ARQUITETURA (13/36)",
+    "valor": -1242.7,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2027-01-18",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 16325,
+    "descricao": "SICOOB AC CREDI - REPACTUAÇÃO CRÉDTIDO PJ GIRO  (11/36)",
+    "valor": -445.85,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2027-01-15",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 11958,
+    "descricao": "SICOOB CREDIRIODOCE - EMPRÉSTIMO FAMPE - PARCELA  (13/36)",
+    "valor": -8170.33,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2027-01-15",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 13509,
+    "descricao": "PAGAMENTO EMPRÉSTIMO - PRONAMPE - S57 ARQUITETURA (12/36)",
+    "valor": -1242.7,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2026-12-18",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 11957,
+    "descricao": "SICOOB CREDIRIODOCE - EMPRÉSTIMO FAMPE - PARCELA  (12/36)",
+    "valor": -8170.33,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2026-12-15",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 16324,
+    "descricao": "SICOOB AC CREDI - REPACTUAÇÃO CRÉDTIDO PJ GIRO  (10/36)",
+    "valor": -445.85,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2026-12-15",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 13508,
+    "descricao": "PAGAMENTO EMPRÉSTIMO - PRONAMPE - S57 ARQUITETURA (11/36)",
+    "valor": -1242.7,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2026-11-18",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 11956,
+    "descricao": "SICOOB CREDIRIODOCE - EMPRÉSTIMO FAMPE - PARCELA  (11/36)",
+    "valor": -8170.33,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2026-11-15",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 16323,
+    "descricao": "SICOOB AC CREDI - REPACTUAÇÃO CRÉDTIDO PJ GIRO  (9/36)",
+    "valor": -445.85,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2026-11-15",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 13507,
+    "descricao": "PAGAMENTO EMPRÉSTIMO - PRONAMPE - S57 ARQUITETURA (10/36)",
+    "valor": -1242.7,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2026-10-18",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 16322,
+    "descricao": "SICOOB AC CREDI - REPACTUAÇÃO CRÉDTIDO PJ GIRO  (8/36)",
+    "valor": -445.85,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2026-10-15",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 11955,
+    "descricao": "SICOOB CREDIRIODOCE - EMPRÉSTIMO FAMPE - PARCELA  (10/36)",
+    "valor": -8170.33,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2026-10-15",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 13506,
+    "descricao": "PAGAMENTO EMPRÉSTIMO - PRONAMPE - S57 ARQUITETURA (9/36)",
+    "valor": -1242.7,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2026-09-18",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 16321,
+    "descricao": "SICOOB AC CREDI - REPACTUAÇÃO CRÉDTIDO PJ GIRO  (7/36)",
+    "valor": -445.85,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2026-09-15",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 11954,
+    "descricao": "SICOOB CREDIRIODOCE - EMPRÉSTIMO FAMPE - PARCELA  (9/36)",
+    "valor": -8170.33,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2026-09-15",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 13505,
+    "descricao": "PAGAMENTO EMPRÉSTIMO - PRONAMPE - S57 ARQUITETURA (8/36)",
+    "valor": -1242.7,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2026-08-18",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 11953,
+    "descricao": "SICOOB CREDIRIODOCE - EMPRÉSTIMO FAMPE - PARCELA  (8/36)",
+    "valor": -8170.33,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2026-08-15",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 16320,
+    "descricao": "SICOOB AC CREDI - REPACTUAÇÃO CRÉDTIDO PJ GIRO  (6/36)",
+    "valor": -445.85,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2026-08-15",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 13504,
+    "descricao": "PAGAMENTO EMPRÉSTIMO - PRONAMPE - S57 ARQUITETURA (7/36)",
+    "valor": -1242.7,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2026-07-18",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 17150,
+    "descricao": "PAGAMENTO EMPRÉSTIMO - ALSENIR MONTE ALTO - DESPESAS REGISTRO MATRÍCULAS - CHÁCARAS BRAÚNAS - PARCELA 1 (4/4)",
+    "valor": -15856.93,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2026-07-16",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 11952,
+    "descricao": "SICOOB CREDIRIODOCE - EMPRÉSTIMO FAMPE - PARCELA  (7/36)",
+    "valor": -8170.33,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2026-07-15",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 16319,
+    "descricao": "SICOOB AC CREDI - REPACTUAÇÃO CRÉDTIDO PJ GIRO  (5/36)",
+    "valor": -445.85,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2026-07-15",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 13503,
+    "descricao": "PAGAMENTO EMPRÉSTIMO - PRONAMPE - S57 ARQUITETURA (6/36)",
+    "valor": -1242.7,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2026-06-18",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 17149,
+    "descricao": "PAGAMENTO EMPRÉSTIMO - ALSENIR MONTE ALTO - DESPESAS REGISTRO MATRÍCULAS - CHÁCARAS BRAÚNAS - PARCELA 1 (3/4)",
+    "valor": -15856.93,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2026-06-16",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 11951,
+    "descricao": "SICOOB CREDIRIODOCE - EMPRÉSTIMO FAMPE - PARCELA  (6/36)",
+    "valor": -8170.33,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2026-06-15",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 16318,
+    "descricao": "SICOOB AC CREDI - REPACTUAÇÃO CRÉDTIDO PJ GIRO  (4/36)",
+    "valor": -445.85,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2026-06-15",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 13502,
+    "descricao": "PAGAMENTO EMPRÉSTIMO - PRONAMPE - S57 ARQUITETURA (5/36)",
+    "valor": -1242.7,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2026-05-18",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 17148,
+    "descricao": "PAGAMENTO EMPRÉSTIMO - ALSENIR MONTE ALTO - DESPESAS REGISTRO MATRÍCULAS - CHÁCARAS BRAÚNAS - PARCELA 1 (2/4)",
+    "valor": -15856.93,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2026-05-16",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 16317,
+    "descricao": "SICOOB AC CREDI - REPACTUAÇÃO CRÉDTIDO PJ GIRO  (3/36)",
+    "valor": -445.85,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2026-05-15",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 11950,
+    "descricao": "SICOOB CREDIRIODOCE - EMPRÉSTIMO FAMPE - PARCELA  (5/36)",
+    "valor": -8170.33,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2026-05-15",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 13501,
+    "descricao": "PAGAMENTO EMPRÉSTIMO - PRONAMPE - S57 ARQUITETURA (4/36)",
+    "valor": -1242.7,
+    "tipo": "Despesa",
+    "status": "Pendente",
+    "data_vencimento": "2026-04-18",
+    "data_pagamento": null,
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 17147,
+    "descricao": "PAGAMENTO EMPRÉSTIMO - ALSENIR MONTE ALTO - DESPESAS REGISTRO MATRÍCULAS - CHÁCARAS BRAÚNAS - PARCELA (1/4)",
+    "valor": -16094.78,
+    "tipo": "Despesa",
+    "status": "Pago",
+    "data_vencimento": "2026-04-16",
+    "data_pagamento": "2026-04-16",
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 11949,
+    "descricao": "SICOOB CREDIRIODOCE - EMPRÉSTIMO FAMPE - PARCELA  (4/36)",
+    "valor": -8170.33,
+    "tipo": "Despesa",
+    "status": "Pago",
+    "data_vencimento": "2026-04-15",
+    "data_pagamento": "2026-04-15",
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 17086,
+    "descricao": "PAGAMENTO EMPRÉSTIMO - IGOR MONTE ALTO - REGISTRO MATRÍCULAS - REFÚGIO BRAÚNAS",
+    "valor": -6962.46,
+    "tipo": "Despesa",
+    "status": "Pago",
+    "data_vencimento": "2026-04-15",
+    "data_pagamento": "2026-04-15",
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 16316,
+    "descricao": "SICOOB AC CREDI - REPACTUAÇÃO CRÉDITO PJ GIRO  (2/36)",
+    "valor": -445.85,
+    "tipo": "Despesa",
+    "status": "Pago",
+    "data_vencimento": "2026-04-15",
+    "data_pagamento": "2026-04-15",
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 16953,
+    "descricao": "EMPRÉSTIMO - VALOR EXCEDENTE - FINANCIAMENTO AP 101 PERO VAZ",
+    "valor": 16000,
+    "tipo": "Receita",
+    "status": "Pago",
+    "data_vencimento": "2026-04-07",
+    "data_pagamento": "2026-04-07",
+    "categorias_financeiras": {
+      "nome": "Empréstimos bancários"
+    }
+  },
+  {
+    "id": 16977,
+    "descricao": "PAGAMENTO EMPRÉSTIMO - ALSENIR MONTE ALTO - DESPESAS FINANCIAMENTO AP 101 PERO VAZ",
+    "valor": -10753.46,
+    "tipo": "Despesa",
+    "status": "Pago",
+    "data_vencimento": "2026-04-07",
+    "data_pagamento": "2026-04-07",
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 17084,
+    "descricao": "EMPRÉSTIMO ALSENIR - REGISTRO MATRÍCULAS - REFÚGIO BRAÚNAS",
+    "valor": 63427.73,
+    "tipo": "Receita",
+    "status": "Pago",
+    "data_vencimento": "2026-03-24",
+    "data_pagamento": "2026-03-24",
+    "categorias_financeiras": {
+      "nome": "Empréstimo terceiros"
+    }
+  },
+  {
+    "id": 17083,
+    "descricao": "EMPRÉSTIMO IGOR - REGISTRO MATRÍCULAS - REFÚGIO BRAÚNAS",
+    "valor": 6946.38,
+    "tipo": "Receita",
+    "status": "Pago",
+    "data_vencimento": "2026-03-24",
+    "data_pagamento": "2026-03-24",
+    "categorias_financeiras": {
+      "nome": "Empréstimo sócios"
+    }
+  },
+  {
+    "id": 13500,
+    "descricao": "PAGAMENTO EMPRÉSTIMO - PRONAMPE - S57 ARQUITETURA (3/36)",
+    "valor": -1832.36,
+    "tipo": "Despesa",
+    "status": "Pago",
+    "data_vencimento": "2026-03-18",
+    "data_pagamento": "2026-03-30",
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 11948,
+    "descricao": "SICOOB CREDIRIODOCE - EMPRÉSTIMO FAMPE - PARCELA  (3/36)",
+    "valor": -8170.33,
+    "tipo": "Despesa",
+    "status": "Pago",
+    "data_vencimento": "2026-03-15",
+    "data_pagamento": "2026-03-16",
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 16315,
+    "descricao": "SICOOB AC CREDI - REPACTUAÇÃO CRÉDITO PJ GIRO  (1/36)",
+    "valor": -445.85,
+    "tipo": "Despesa",
+    "status": "Pago",
+    "data_vencimento": "2026-03-15",
+    "data_pagamento": "2026-03-16",
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 16952,
+    "descricao": "EMPRÉSTIMO IGOR - TAXA CAIXA - FINANCIAMENTO PERO VAZ",
+    "valor": 2171,
+    "tipo": "Receita",
+    "status": "Pago",
+    "data_vencimento": "2026-03-13",
+    "data_pagamento": "2026-03-13",
+    "categorias_financeiras": {
+      "nome": "Empréstimos"
+    }
+  },
+  {
+    "id": 16950,
+    "descricao": "EMPRÉSTIMO ALSENIR - PAGAMENTO DÍVIDA ATIVA IPTU E TAXA LIXO 2024 - AP PERO VAZ",
+    "valor": 10753.46,
+    "tipo": "Receita",
+    "status": "Pago",
+    "data_vencimento": "2026-03-13",
+    "data_pagamento": "2026-03-13",
+    "categorias_financeiras": {
+      "nome": "Empréstimos"
+    }
+  },
+  {
+    "id": 16854,
+    "descricao": "DÉB.PAGAMENTO TD - BOLETO EM ATRASO",
+    "valor": -4367.08,
+    "tipo": "Despesa",
+    "status": "Pago",
+    "data_vencimento": "2026-03-11",
+    "data_pagamento": "2026-03-11",
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 17048,
+    "descricao": "STUDIO 57 INCORPORAÇÕES - EMPRÉSTIMO",
+    "valor": -1400,
+    "tipo": "Despesa",
+    "status": "Pago",
+    "data_vencimento": "2026-03-11",
+    "data_pagamento": "2026-03-11",
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 13884,
+    "descricao": "DÉBITO PAGAMENTO - BOLETO ANTECIPADO - UNID 502 - RES. ALFA - REF FEV26",
+    "valor": -4599.63,
+    "tipo": "Despesa",
+    "status": "Pago",
+    "data_vencimento": "2026-02-23",
+    "data_pagamento": "2026-02-23",
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 13749,
+    "descricao": "PAGAMENTO EMPRÉSTIMO PARCELA ANTECIPADA - UNIDADE 401 - REF FEV26",
+    "valor": -4246.67,
+    "tipo": "Despesa",
+    "status": "Pago",
+    "data_vencimento": "2026-02-19",
+    "data_pagamento": "2026-02-19",
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 13750,
+    "descricao": "PAGAMENTO EMPRÉSTIMO PARCELA ANTECIPADA - UNIDADE 501 - REF FEV26",
+    "valor": -4289.13,
+    "tipo": "Despesa",
+    "status": "Pago",
+    "data_vencimento": "2026-02-19",
+    "data_pagamento": "2026-02-19",
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 13890,
+    "descricao": "DÉBITO PAGAMENTO - BOLETO ANTECIPADO - UNID 603 - RES. ALFA - REF FEV26",
+    "valor": -3598.87,
+    "tipo": "Despesa",
+    "status": "Pago",
+    "data_vencimento": "2026-02-18",
+    "data_pagamento": "2026-02-18",
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 11947,
+    "descricao": "SICOOB CREDIRIODOCE - EMPRÉSTIMO FAMPE - PARCELA  (2/36)",
+    "valor": -8170.33,
+    "tipo": "Despesa",
+    "status": "Pago",
+    "data_vencimento": "2026-02-15",
+    "data_pagamento": "2026-02-18",
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 13880,
+    "descricao": "IGOR MONTE ALTO - EMPRÉSTIMO SÓCIO",
+    "valor": 20,
+    "tipo": "Receita",
+    "status": "Pago",
+    "data_vencimento": "2026-02-12",
+    "data_pagamento": "2026-02-12",
+    "categorias_financeiras": {
+      "nome": "Empréstimo sócios"
+    }
+  },
+  {
+    "id": 13494,
+    "descricao": "EMPÉSTIMO - PRONAMPE - REGULARIZAÇÃO PARCELAS REF DEZ25 - JAN26 E FEV26",
+    "valor": -4224.87,
+    "tipo": "Despesa",
+    "status": "Pago",
+    "data_vencimento": "2026-02-12",
+    "data_pagamento": "2026-02-12",
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 12832,
+    "descricao": "SICOOB CREDIRIODOCE - DESCONTO NA CONTA DE BOLETO ANTECIPADO - REF UNID. 202 RES ALFA - PARCELA 3/3 ENTRADA ",
+    "valor": -26000,
+    "tipo": "Despesa",
+    "status": "Pago",
+    "data_vencimento": "2026-01-22",
+    "data_pagamento": "2026-01-22",
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 12833,
+    "descricao": "SICOOB CREDIRIODOCE - DESCONTO NA CONTA DE BOLETO ANTECIPADO - REF UNID. 202 RES ALFA - PARCELA 4/36",
+    "valor": -4333.33,
+    "tipo": "Despesa",
+    "status": "Pago",
+    "data_vencimento": "2026-01-22",
+    "data_pagamento": "2026-01-22",
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 12754,
+    "descricao": "DÉBITO PAGAMENTO - BOLETO ANTECIPADO - UNID 504 - RESIDENCIAL ALFA",
+    "valor": -7706.37,
+    "tipo": "Despesa",
+    "status": "Pago",
+    "data_vencimento": "2026-01-16",
+    "data_pagamento": "2026-01-16",
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 11946,
+    "descricao": "SICOOB CREDIRIODOCE - EMPRÉSTIMO FAMPE - PARCELA  (1/36)",
+    "valor": -8170.33,
+    "tipo": "Despesa",
+    "status": "Pago",
+    "data_vencimento": "2026-01-15",
+    "data_pagamento": "2026-01-15",
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 12718,
+    "descricao": "DÉBITO TD - BOLETO ANTECIPADO INADIMPLENTE - UNID 603 RES. ALFA - PAULO GOVEA - REF JAN26 (VENC. 10/01/25)",
+    "valor": -3572.36,
+    "tipo": "Despesa",
+    "status": "Pago",
+    "data_vencimento": "2026-01-13",
+    "data_pagamento": "2026-01-13",
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 11986,
+    "descricao": "CAIXA - EMPRESTIMO FAMPE - QUITAÇÃO",
+    "valor": -77371.12,
+    "tipo": "Despesa",
+    "status": "Pago",
+    "data_vencimento": "2025-12-18",
+    "data_pagamento": "2025-12-18",
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 11939,
+    "descricao": "EMPRÉSTIMO SICOOB - FAMPE",
+    "valor": 210800,
+    "tipo": "Receita",
+    "status": "Pago",
+    "data_vencimento": "2025-12-17",
+    "data_pagamento": "2025-12-17",
+    "categorias_financeiras": {
+      "nome": "Empréstimos"
+    }
+  },
+  {
+    "id": 11941,
+    "descricao": "DÉBITO TAC - EMPRÉSTIMO FAMPE SICOO CREDIRIODOCE",
+    "valor": -250,
+    "tipo": "Despesa",
+    "status": "Pago",
+    "data_vencimento": "2025-12-17",
+    "data_pagamento": "2025-12-17",
+    "categorias_financeiras": {
+      "nome": "Tarifas empréstimos"
+    }
+  },
+  {
+    "id": 9040,
+    "descricao": "CAIXA - PAGAMENTO EMPRÉSTIMO FAMPE (3/34)",
+    "valor": -2214.27,
+    "tipo": "Despesa",
+    "status": "Pago",
+    "data_vencimento": "2025-12-13",
+    "data_pagamento": "2025-12-15",
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 11878,
+    "descricao": "EMPRÉSTIMO IGOR - S57 ARQUITETURA",
+    "valor": 6150,
+    "tipo": "Receita",
+    "status": "Pago",
+    "data_vencimento": "2025-12-08",
+    "data_pagamento": "2025-12-08",
+    "categorias_financeiras": {
+      "nome": "Empréstimo sócios"
+    }
+  },
+  {
+    "id": 9039,
+    "descricao": "CAIXA - PAGAMENTO EMPRÉSTIMO FAMPE (2/34)",
+    "valor": -2214.27,
+    "tipo": "Despesa",
+    "status": "Pago",
+    "data_vencimento": "2025-11-13",
+    "data_pagamento": "2025-11-13",
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 10424,
+    "descricao": "EMPRÉSTIMO - RANNIERE CAMPOS - VENDA LOTE 1 BRAÚNAS - PARTE 6",
+    "valor": -5000,
+    "tipo": "Despesa",
+    "status": "Pago",
+    "data_vencimento": "2025-10-17",
+    "data_pagamento": "2025-10-17",
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 10423,
+    "descricao": "EMPRÉSTIMO - IGOR MONTE ALTO - VENDA LOTE 1 BRAÚNAS - PARTE 6",
+    "valor": -5000,
+    "tipo": "Despesa",
+    "status": "Pago",
+    "data_vencimento": "2025-10-17",
+    "data_pagamento": "2025-10-17",
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 10422,
+    "descricao": "EMPRÉSTIMO - RANNIERE CAMPOS - VENDA LOTE 1 BRAÚNAS - PARTE 5",
+    "valor": -20000,
+    "tipo": "Despesa",
+    "status": "Pago",
+    "data_vencimento": "2025-10-14",
+    "data_pagamento": "2025-10-13",
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 9748,
+    "descricao": "EMPRÉSTIMO - RANNIERE CAMPOS - VENDA LOTE 1 BRAÚNAS - PARTE 4",
+    "valor": -20000,
+    "tipo": "Despesa",
+    "status": "Pago",
+    "data_vencimento": "2025-10-13",
+    "data_pagamento": "2025-10-11",
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 9038,
+    "descricao": "CAIXA - PAGAMENTO EMPRÉSTIMO FAMPE (1/34)",
+    "valor": -2214.27,
+    "tipo": "Despesa",
+    "status": "Pago",
+    "data_vencimento": "2025-10-13",
+    "data_pagamento": "2025-10-13",
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 9749,
+    "descricao": "EMPRÉSTIMO - IGOR MONTE ALTO - VENDA LOTE 1 BRAÚNAS - PARTE 4",
+    "valor": -20000,
+    "tipo": "Despesa",
+    "status": "Pago",
+    "data_vencimento": "2025-10-13",
+    "data_pagamento": "2025-10-11",
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 10421,
+    "descricao": "EMPRÉSTIMO - IGOR MONTE ALTO - VENDA LOTE 1 BRAÚNAS - PARTE 5",
+    "valor": -20000,
+    "tipo": "Despesa",
+    "status": "Pago",
+    "data_vencimento": "2025-10-13",
+    "data_pagamento": "2025-10-13",
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 9747,
+    "descricao": "EMPRÉSTIMO - IGOR MONTE ALTO - VENDA LOTE 1 BRAÚNAS - PARTE 3",
+    "valor": -20000,
+    "tipo": "Despesa",
+    "status": "Pago",
+    "data_vencimento": "2025-10-11",
+    "data_pagamento": "2025-10-14",
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 9744,
+    "descricao": "EMPRÉSTIMO - RANNIERE CAMPOS - VENDA LOTE 1 BRAÚNAS - PARTE 3",
+    "valor": -20000,
+    "tipo": "Despesa",
+    "status": "Pago",
+    "data_vencimento": "2025-10-10",
+    "data_pagamento": "2025-10-14",
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 8833,
+    "descricao": "EMPRÉSTIMO - IGOR MONTE ALTO - VENDA LOTE 1 BRAÚNAS - PARTE 2",
+    "valor": -25000,
+    "tipo": "Despesa",
+    "status": "Pago",
+    "data_vencimento": "2025-10-03",
+    "data_pagamento": "2025-10-10",
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 8520,
+    "descricao": "EMPRÉSTIMO - IGOR MONTE ALTO - VENDA LOTE 1 BRAÚNAS",
+    "valor": -5000,
+    "tipo": "Despesa",
+    "status": "Pago",
+    "data_vencimento": "2025-10-03",
+    "data_pagamento": "2025-10-03",
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 8832,
+    "descricao": "EMPRÉSTIMO - RANNIERE CAMPOS - VENDA LOTE 1 BRAÚNAS - PARTE 2",
+    "valor": -25000,
+    "tipo": "Despesa",
+    "status": "Pago",
+    "data_vencimento": "2025-10-03",
+    "data_pagamento": "2025-10-10",
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 8519,
+    "descricao": "EMPRÉSTIMO - RANNIERE CAMPOS - VENDA LOTE 1 BRAÚNAS",
+    "valor": -5000,
+    "tipo": "Despesa",
+    "status": "Pago",
+    "data_vencimento": "2025-10-03",
+    "data_pagamento": "2025-10-03",
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 8209,
+    "descricao": "CAIXA - PAGAMENTO EMPRÉSTIMO FAMPE",
+    "valor": -2214.27,
+    "tipo": "Despesa",
+    "status": "Pago",
+    "data_vencimento": "2025-09-15",
+    "data_pagamento": "2025-09-15",
+    "categorias_financeiras": {
+      "nome": "Pagamento empréstimo"
+    }
+  },
+  {
+    "id": 6517,
+    "descricao": "IGOR MONTE ALTO - EMPRÉSTIMO SÓCIO ",
+    "valor": 5000,
+    "tipo": "Receita",
+    "status": "Pago",
+    "data_vencimento": "2025-07-11",
+    "data_pagamento": "2025-07-11",
+    "categorias_financeiras": {
+      "nome": "Empréstimos"
+    }
+  },
+  {
+    "id": 6487,
+    "descricao": "IGOR MONTE ALTO - EMPRÉSTIMO SÓCIO - PARTE 2/2 ",
+    "valor": 10000,
+    "tipo": "Receita",
+    "status": "Pago",
+    "data_vencimento": "2025-07-04",
+    "data_pagamento": "2025-07-04",
+    "categorias_financeiras": {
+      "nome": "Empréstimos"
+    }
+  },
+  {
+    "id": 6475,
+    "descricao": "IGOR MONTE ALTO - EMPRÉSTIMO SÓCIO - PARTE 1/2 ",
+    "valor": 20000,
+    "tipo": "Receita",
+    "status": "Pago",
+    "data_vencimento": "2025-07-03",
+    "data_pagamento": "2025-07-03",
+    "categorias_financeiras": {
+      "nome": "Empréstimos"
+    }
+  },
+  {
+    "id": 6891,
+    "descricao": "ACERTO DE CAIXA - DINHEIRO EM ESPÉCIE ",
+    "valor": 3,
+    "tipo": "Receita",
+    "status": "Conciliado",
+    "data_vencimento": "2025-05-30",
+    "data_pagamento": "2025-05-30",
+    "categorias_financeiras": {
+      "nome": "Empréstimos"
+    }
+  },
+  {
+    "id": 5190,
+    "descricao": "EMPRÉSTIMO - GIROCAIXA ",
+    "valor": 73560.42,
+    "tipo": "Receita",
+    "status": "Pago",
+    "data_vencimento": "2025-01-14",
+    "data_pagamento": "2025-01-14",
+    "categorias_financeiras": {
+      "nome": "Empréstimos"
+    }
+  },
+  {
+    "id": 6806,
+    "descricao": "EMPRÉSTIMO IGOR - PAGAMENTO DE ARGENTINO E IVAN ",
+    "valor": 3800,
+    "tipo": "Receita",
+    "status": "Conciliado",
+    "data_vencimento": "2024-12-06",
+    "data_pagamento": "2024-12-06",
+    "categorias_financeiras": {
+      "nome": "Empréstimos"
+    }
+  }
+]
