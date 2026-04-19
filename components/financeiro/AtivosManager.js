@@ -36,7 +36,7 @@ export default function AtivosManager({ contas }) {
  }));
  }, [contasPatrimoniais]);
 
- const [contaSelecionadaId, setContaSelecionadaId] = useState(() => contasPatrimoniais[0]?.id || '');
+ const [contaSelecionadaId, setContaSelecionadaId] = useState('');
  const [isDropdownContaOpen, setIsDropdownContaOpen] = useState(false);
  const [isModalOpen, setIsModalOpen] = useState(false);
  const [editingLancamento, setEditingLancamento] = useState(null);
@@ -56,22 +56,27 @@ export default function AtivosManager({ contas }) {
  const contaSelecionada = contasPatrimoniais.find(c => c.id == contaSelecionadaId);
 
  const { data: lancamentos = [], isLoading, isError, error } = useQuery({
- queryKey: ['patrimonio', contaSelecionadaId, organizacaoId],
+ queryKey: ['ativos', contaSelecionadaId, organizacaoId],
  queryFn: async () => {
- if (!contaSelecionadaId || !organizacaoId) return [];
+ if (!organizacaoId) return [];
 
- // 1. Busca os lançamentos Ativo/Passivo da conta
- const { data: ativos, error } = await supabase
+ let query = supabase
  .from('lancamentos')
  .select(`
  *,
  categoria:categorias_financeiras(nome),
- contrato:contratos(id, numero_contrato)
+ contrato:contratos(id, numero_contrato),
+ conta:contas_financeiras(nome)
  `)
  .eq('organizacao_id', organizacaoId)
- .eq('conta_id', contaSelecionadaId)
  .eq('tipo', 'Ativo')
  .order('data_transacao', { ascending: false });
+
+ if (contaSelecionadaId) {
+ query = query.eq('conta_id', contaSelecionadaId);
+ }
+
+ const { data: ativos, error } = await query;
  if (error) throw new Error(error.message);
  if (!ativos?.length) return [];
 
@@ -104,24 +109,55 @@ export default function AtivosManager({ contas }) {
  receitasVinculadas,
  realizado,
  totalReceitas,
- saldo: parseFloat(a.valor || 0) - totalReceitas,
+ saldo: parseFloat(a.valor || 0) - realizado, // Saldo a Receber Real
  };
  });
  },
- enabled: !!contaSelecionadaId && !!organizacaoId,
+ enabled: !!organizacaoId,
  });
 
  const { data: kpisGlobais } = useQuery({
  queryKey: ['patrimonio-kpis', organizacaoId],
  queryFn: async () => {
- const { data } = await supabase
+ const { data: patrimonio } = await supabase
  .from('lancamentos')
- .select('tipo, valor')
+ .select('id, tipo, valor')
  .eq('organizacao_id', organizacaoId)
  .in('tipo', ['Ativo', 'Passivo']);
- const totalAtivos = (data || []).filter(l => l.tipo === 'Ativo').reduce((s, l) => s + parseFloat(l.valor || 0), 0);
- const totalPassivos = (data || []).filter(l => l.tipo === 'Passivo').reduce((s, l) => s + parseFloat(l.valor || 0), 0);
- return { totalAtivos, totalPassivos, liquido: totalAtivos - totalPassivos };
+
+ if (!patrimonio?.length) return { totalAtivos: 0, totalPassivos: 0, liquido: 0 };
+ const ids = patrimonio.map(p => p.id);
+
+ const { data: vinculos } = await supabase
+ .from('lancamentos')
+ .select('lancamento_ativo_id, tipo, valor')
+ .eq('organizacao_id', organizacaoId)
+ .eq('status', 'Pago')
+ .in('tipo', ['Receita', 'Despesa'])
+ .in('lancamento_ativo_id', ids);
+
+ const realizadoMap = {};
+ (vinculos || []).forEach(v => {
+ if (!realizadoMap[v.lancamento_ativo_id]) realizadoMap[v.lancamento_ativo_id] = 0;
+ // Soma o volume financeiro absoluto pago/recebido
+ realizadoMap[v.lancamento_ativo_id] += Math.abs(parseFloat(v.valor || 0));
+ });
+
+ let totalAtivos = 0;
+ let totalPassivos = 0;
+
+ patrimonio.forEach(p => {
+ const realizado = realizadoMap[p.id] || 0;
+ const originalValue = parseFloat(p.valor || 0);
+
+ if (p.tipo === 'Ativo') {
+ totalAtivos += (originalValue - realizado); // Ativo diminui com o que já recebeu
+ } else if (p.tipo === 'Passivo') {
+ totalPassivos += (originalValue + realizado); // Passivo (negativo) aumenta (em direção ao zero) com o que já pagou
+ }
+ });
+
+ return { totalAtivos, totalPassivos, liquido: totalAtivos + totalPassivos };
  },
  enabled: !!organizacaoId,
  });
@@ -209,7 +245,10 @@ export default function AtivosManager({ contas }) {
  <p className="text-sm font-semibold text-gray-800 truncate">{contaSelecionada.nome}</p>
  </>
  ) : (
- <p className="text-sm text-gray-500">Selecione uma conta patrimonial</p>
+ <>
+ <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider truncate">Global</p>
+ <p className="text-sm font-semibold text-gray-800 truncate">Todas as Contas (Panorama Geral)</p>
+ </>
  )}
  </div>
  <FontAwesomeIcon icon={faChevronDown} className={`text-gray-400 transition-transform flex-shrink-0 ${isDropdownContaOpen ? 'rotate-180' : ''}`} />
@@ -217,6 +256,15 @@ export default function AtivosManager({ contas }) {
 
  {isDropdownContaOpen && (
  <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-50 overflow-hidden max-h-64 overflow-y-auto">
+ <div className="p-2 border-b border-gray-100">
+ <button
+ onClick={() => { setContaSelecionadaId(''); setIsDropdownContaOpen(false); }}
+ className={`w-full flex items-center justify-between gap-2 rounded-md px-3 py-2 transition-colors text-left ${!contaSelecionadaId ? 'bg-blue-50 text-blue-700' : 'hover:bg-gray-50 text-gray-700'}`}
+ >
+ <span className="text-sm font-bold text-gray-800">Todas as Contas</span>
+ {!contaSelecionadaId && <FontAwesomeIcon icon={faCheck} className="text-blue-600 text-xs flex-shrink-0" />}
+ </button>
+ </div>
  {contasAgrupadas.map(grupo => (
  <div key={grupo.tipo} className="p-2">
  <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider px-2 mb-1">{grupo.tipo}</h4>
@@ -258,7 +306,7 @@ export default function AtivosManager({ contas }) {
  <th className="px-4 py-3 text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider w-8"></th>
  <th className="px-4 py-3 text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider">Data</th>
  <th className="px-4 py-3 text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider">Descrição</th>
- <th className="px-4 py-3 text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider">Tipo</th>
+ <th className="px-4 py-3 text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider">Conta / Tipo</th>
  <th className="px-4 py-3 text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider">Contrato</th>
  <th className="px-4 py-3 text-right text-[11px] font-bold text-gray-500 uppercase tracking-wider">Valor Original</th>
  <th className="px-4 py-3 text-right text-[11px] font-bold text-gray-500 uppercase tracking-wider">Realizado</th>
@@ -304,8 +352,9 @@ export default function AtivosManager({ contas }) {
  </td>
  <td className="px-4 py-3 text-gray-500 font-medium whitespace-nowrap">{formatDate(l.data_transacao)}</td>
  <td className="px-4 py-3 font-semibold text-gray-700">{l.descricao}</td>
- <td className="px-4 py-3">
- <span className={`px-2.5 py-1 text-[10px] font-bold rounded-full border bg-green-50 text-green-700 border-green-200`}>
+ <td className="px-4 py-3 flex flex-col gap-1 items-start">
+ {l.conta?.nome && <span className="text-[10px] font-bold text-gray-500 uppercase">{l.conta.nome}</span>}
+ <span className={`px-2.5 py-0.5 text-[10px] font-bold rounded-full border bg-green-50 text-green-700 border-green-200 inline-block`}>
  {l.tipo}
  </span>
  </td>
@@ -375,9 +424,15 @@ export default function AtivosManager({ contas }) {
  {lancamentos.length > 0 && (
  <tfoot className="bg-gray-50 border-t-2 border-gray-200">
  <tr>
- <td colSpan="5" className="px-4 py-3 text-right font-bold text-gray-600 text-sm">Total:</td>
+ <td colSpan="5" className="px-4 py-3 text-right font-bold text-gray-600 text-sm">Total da Conta:</td>
  <td className="px-4 py-3 text-right font-bold text-gray-800 text-sm whitespace-nowrap">
  {formatCurrency(lancamentos.reduce((s, l) => s + parseFloat(l.valor || 0), 0))}
+ </td>
+ <td className="px-4 py-3 text-right font-bold text-gray-800 text-sm whitespace-nowrap">
+ {formatCurrency(lancamentos.reduce((s, l) => s + (l.realizado || 0), 0))}
+ </td>
+ <td className="px-4 py-3 text-right font-bold text-gray-800 text-sm whitespace-nowrap">
+ {formatCurrency(lancamentos.reduce((s, l) => s + (l.saldo !== undefined ? l.saldo : parseFloat(l.valor || 0)), 0))}
  </td>
  <td />
  </tr>
