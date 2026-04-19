@@ -34,6 +34,28 @@ export default function OrcamentoDetalhes({ orcamento, onBack }) {
  const [editingItem, setEditingItem] = useState(null);
  const [draggedItem, setDraggedItem] = useState(null);
  const [isBimModalOpen, setIsBimModalOpen] = useState(false);
+ const [execucao, setExecucao] = useState(orcamento?.execucao_fisica || {});
+
+ const handleExecucaoChange = (etapaId, val) => {
+   let num = parseInt(val.replace(/\D/g, ''), 10);
+   if (isNaN(num)) num = 0;
+   if (num > 100) num = 100;
+   setExecucao(prev => ({ ...prev, [etapaId]: num }));
+ };
+
+ const handleExecucaoBlur = async () => {
+   if (!orcamento?.id || !organizacaoId) return;
+   const { error } = await supabase
+     .from('orcamentos')
+     .update({ execucao_fisica: execucao })
+     .eq('id', orcamento.id)
+     .eq('organizacao_id', organizacaoId);
+   if (error) {
+     toast.error('Erro ao salvar % de execução da etapa.');
+   } else {
+     toast.success('Progresso físico atualizado.', { duration: 1500 });
+   }
+ };
 
  const organizacaoId = orcamento?.organizacao_id;
  const empreendimentoId = orcamento?.empreendimento_id;
@@ -98,6 +120,7 @@ export default function OrcamentoDetalhes({ orcamento, onBack }) {
 
  if (!groups.has(etapaKey)) {
  groups.set(etapaKey, {
+ id: etapa?.id || 'SEM_ETAPA',
  codigo: etapa?.codigo_etapa?.split('.')[0] || '99',
  nome: etapa?.nome_etapa || 'Sem Etapa Definida',
  total: 0,
@@ -230,6 +253,12 @@ export default function OrcamentoDetalhes({ orcamento, onBack }) {
  const formatCurrency = (value) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
  const formatPercentage = (value) => { if (!custoTotal || custoTotal === 0) return '0.00%'; return `${((value / custoTotal) * 100).toFixed(2)}%`; };
 
+ const patrimonioExecutado = useMemo(() => {
+   return groupedItems.reduce((acc, g) => acc + (g.total * (execucao[g.id] || 0)) / 100, 0);
+ }, [groupedItems, execucao]);
+
+ const percentualTotalObra = custoTotal > 0 ? ((patrimonioExecutado / custoTotal) * 100) : 0;
+
  return (
  <>
  <OrcamentoItemModal
@@ -297,14 +326,15 @@ export default function OrcamentoDetalhes({ orcamento, onBack }) {
  <th className="px-6 py-3 text-right text-xs font-bold uppercase">Preço Unit.</th>
  <th className="px-6 py-3 text-right text-xs font-bold uppercase">Custo Total</th>
  <th className="px-6 py-3 text-right text-xs font-bold uppercase">% do Total</th>
+ <th className="px-6 py-3 text-center text-xs font-bold uppercase">% Executado</th>
  <th className="px-6 py-3 text-center text-xs font-bold uppercase">Ações</th>
  </tr>
  </thead>
  <tbody className="bg-white divide-y divide-gray-200">
  {loading ? (
- <tr><td colSpan="10" className="text-center py-10"><FontAwesomeIcon icon={faSpinner} spin size="2x" /></td></tr>
+ <tr><td colSpan="11" className="text-center py-10"><FontAwesomeIcon icon={faSpinner} spin size="2x" /></td></tr>
  ) : groupedItems.length === 0 ? (
- <tr><td colSpan="10" className="text-center py-10 text-gray-500">
+ <tr><td colSpan="11" className="text-center py-10 text-gray-500">
  Nenhum item adicionado. Clique em "Adicionar Item" ou "Importar do BIM".
  </td></tr>
  ) : (
@@ -316,6 +346,9 @@ export default function OrcamentoDetalhes({ orcamento, onBack }) {
  <td colSpan="7" className="px-6 py-3 border-t-4 border-gray-300">{group.codigo} - {group.nome}</td>
  <td className="px-6 py-3 text-right border-t-4 border-gray-300">{formatCurrency(group.total)}</td>
  <td className="px-6 py-3 text-right border-t-4 border-gray-300 text-blue-700">{formatPercentage(group.total)}</td>
+ <td className="px-6 py-2 border-t-4 border-gray-300 text-center">
+ <input type="text" className="w-16 text-center font-bold text-green-700 bg-white border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" value={execucao[group.id] !== undefined ? execucao[group.id] + '%' : '0%'} onChange={(e) => handleExecucaoChange(group.id, e.target.value)} onBlur={handleExecucaoBlur} />
+ </td>
  <td className="px-6 py-3 border-t-4 border-gray-300"></td>
  </tr>
  {group.subgrupos.map(subgroup => {
