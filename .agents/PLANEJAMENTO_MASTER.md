@@ -10,6 +10,7 @@ O **Studio 57** é o ambiente de desenvolvimento e laboratório central. O **Elo
 
 ## 🏁 Objetivos de Curto Prazo
 - [x] Finalizar Sincronia de Bancos de Dados (vhuvnutzklhskkwbpxdz -> alqzomckjnefsmhusnfu).
+- [ ] **Balanço Patrimonial Físico (EM DESENVOLVIMENTO D1):** Acoplar a medição de Execução Física (%) diretamente no módulo de Orçamento da Obra. Cruza o percentual evolutivo da obra com o custo total para calcular o Patrimônio real já executado no empreendimento.
 - [x] Refinar Página de Cadastro de Organização (UI/UX e Dados Completos).
 - [ ] Validar Fluxo de Cadastro e Login em dispositivos Mobile (PWA).
 - [ ] **Migração do WABA Oficial (Meta):** Transferir os tokens de acesso e IDs de webhook para o novo aplicativo oficial recém-aprovado, garantindo governança limpa de mensagens sem restrições.
