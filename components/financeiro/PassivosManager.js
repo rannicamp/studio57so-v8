@@ -36,7 +36,7 @@ export default function PassivosManager({ contas }) {
  }));
  }, [contasPatrimoniais]);
 
- const [contaSelecionadaId, setContaSelecionadaId] = useState('');
+ const [contaSelecionadaId, setContaSelecionadaId] = useState(() => contasPatrimoniais[0]?.id || '');
  const [isDropdownContaOpen, setIsDropdownContaOpen] = useState(false);
  const [isModalOpen, setIsModalOpen] = useState(false);
  const [editingLancamento, setEditingLancamento] = useState(null);
@@ -56,40 +56,35 @@ export default function PassivosManager({ contas }) {
  const contaSelecionada = contasPatrimoniais.find(c => c.id == contaSelecionadaId);
 
  const { data: lancamentos = [], isLoading, isError, error } = useQuery({
- queryKey: ['passivos', contaSelecionadaId, organizacaoId],
+ queryKey: ['patrimonio', contaSelecionadaId, organizacaoId],
  queryFn: async () => {
- if (!organizacaoId) return [];
+ if (!contaSelecionadaId || !organizacaoId) return [];
 
- let query = supabase
+ // 1. Busca os lançamentos Ativo/Passivo da conta
+ const { data: ativos, error } = await supabase
  .from('lancamentos')
  .select(`
  *,
  categoria:categorias_financeiras(nome),
- contrato:contratos(id, numero_contrato),
- conta:contas_financeiras(nome)
+ contrato:contratos(id, numero_contrato)
  `)
  .eq('organizacao_id', organizacaoId)
+ .eq('conta_id', contaSelecionadaId)
  .eq('tipo', 'Passivo')
  .order('data_transacao', { ascending: false });
-
- if (contaSelecionadaId) {
- query = query.eq('conta_id', contaSelecionadaId);
- }
-
- const { data: ativos, error } = await query;
  if (error) throw new Error(error.message);
  if (!ativos?.length) return [];
 
- // 2. Busca despesas (pagamentos) vinculadas a estes passivos
+ // 2. Busca receitas vinculadas a estes ativos
  const ativosIds = ativos.map(a => a.id);
  const { data: receitas } = await supabase
  .from('lancamentos')
  .select('id, descricao, valor, data_transacao, status, lancamento_ativo_id')
  .eq('organizacao_id', organizacaoId)
- .eq('tipo', 'Despesa')
+ .eq('tipo', 'Receita')
  .in('lancamento_ativo_id', ativosIds);
 
- // 3. Agrupa receitas (despesas) por ativo
+ // 3. Agrupa receitas por ativo
  const receitasPorAtivo = {};
  (receitas || []).forEach(r => {
  if (!receitasPorAtivo[r.lancamento_ativo_id]) receitasPorAtivo[r.lancamento_ativo_id] = [];
@@ -101,63 +96,32 @@ export default function PassivosManager({ contas }) {
  const receitasVinculadas = receitasPorAtivo[a.id] || [];
  const realizado = receitasVinculadas
  .filter(r => r.status === 'Pago')
- .reduce((s, r) => s + Math.abs(parseFloat(r.valor || 0)), 0);
+ .reduce((s, r) => s + parseFloat(r.valor || 0), 0);
  const totalReceitas = receitasVinculadas
- .reduce((s, r) => s + Math.abs(parseFloat(r.valor || 0)), 0);
+ .reduce((s, r) => s + parseFloat(r.valor || 0), 0);
  return {
  ...a,
  receitasVinculadas,
  realizado,
  totalReceitas,
- saldo: parseFloat(a.valor || 0) + realizado, // Saldo Devedor Real
+ saldo: parseFloat(a.valor || 0) - totalReceitas,
  };
  });
  },
- enabled: !!organizacaoId,
+ enabled: !!contaSelecionadaId && !!organizacaoId,
  });
 
  const { data: kpisGlobais } = useQuery({
  queryKey: ['patrimonio-kpis', organizacaoId],
  queryFn: async () => {
- const { data: patrimonio } = await supabase
+ const { data } = await supabase
  .from('lancamentos')
- .select('id, tipo, valor')
+ .select('tipo, valor')
  .eq('organizacao_id', organizacaoId)
  .in('tipo', ['Ativo', 'Passivo']);
-
- if (!patrimonio?.length) return { totalAtivos: 0, totalPassivos: 0, liquido: 0 };
- const ids = patrimonio.map(p => p.id);
-
- const { data: vinculos } = await supabase
- .from('lancamentos')
- .select('lancamento_ativo_id, tipo, valor')
- .eq('organizacao_id', organizacaoId)
- .eq('status', 'Pago')
- .in('tipo', ['Receita', 'Despesa'])
- .in('lancamento_ativo_id', ids);
-
- const realizadoMap = {};
- (vinculos || []).forEach(v => {
- if (!realizadoMap[v.lancamento_ativo_id]) realizadoMap[v.lancamento_ativo_id] = 0;
- // Soma o volume financeiro absoluto pago/recebido
- realizadoMap[v.lancamento_ativo_id] += Math.abs(parseFloat(v.valor || 0));
- });
-
- let totalAtivos = 0;
- let totalPassivos = 0;
-
- patrimonio.forEach(p => {
- const realizado = realizadoMap[p.id] || 0;
- const originalValue = parseFloat(p.valor || 0);
-
- if (p.tipo === 'Ativo') {
- totalAtivos += (originalValue - realizado); // Ativo diminui com o que já recebeu
- } else if (p.tipo === 'Passivo') {
- totalPassivos += (originalValue + realizado); // Passivo (negativo) aumenta (em direção ao zero) com o que já pagou
- }
- });
-
- return { totalAtivos, totalPassivos, liquido: totalAtivos + totalPassivos };
+ const totalAtivos = (data || []).filter(l => l.tipo === 'Ativo').reduce((s, l) => s + parseFloat(l.valor || 0), 0);
+ const totalPassivos = (data || []).filter(l => l.tipo === 'Passivo').reduce((s, l) => s + parseFloat(l.valor || 0), 0);
+ return { totalAtivos, totalPassivos, liquido: totalAtivos - totalPassivos };
  },
  enabled: !!organizacaoId,
  });
@@ -245,10 +209,7 @@ export default function PassivosManager({ contas }) {
  <p className="text-sm font-semibold text-gray-800 truncate">{contaSelecionada.nome}</p>
  </>
  ) : (
- <>
- <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider truncate">Global</p>
- <p className="text-sm font-semibold text-gray-800 truncate">Todas as Contas (Panorama Geral)</p>
- </>
+ <p className="text-sm text-gray-500">Selecione uma conta patrimonial</p>
  )}
  </div>
  <FontAwesomeIcon icon={faChevronDown} className={`text-gray-400 transition-transform flex-shrink-0 ${isDropdownContaOpen ? 'rotate-180' : ''}`} />
@@ -256,15 +217,6 @@ export default function PassivosManager({ contas }) {
 
  {isDropdownContaOpen && (
  <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-50 overflow-hidden max-h-64 overflow-y-auto">
- <div className="p-2 border-b border-gray-100">
- <button
- onClick={() => { setContaSelecionadaId(''); setIsDropdownContaOpen(false); }}
- className={`w-full flex items-center justify-between gap-2 rounded-md px-3 py-2 transition-colors text-left ${!contaSelecionadaId ? 'bg-blue-50 text-blue-700' : 'hover:bg-gray-50 text-gray-700'}`}
- >
- <span className="text-sm font-bold text-gray-800">Todas as Contas</span>
- {!contaSelecionadaId && <FontAwesomeIcon icon={faCheck} className="text-blue-600 text-xs flex-shrink-0" />}
- </button>
- </div>
  {contasAgrupadas.map(grupo => (
  <div key={grupo.tipo} className="p-2">
  <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-wider px-2 mb-1">{grupo.tipo}</h4>
@@ -306,7 +258,7 @@ export default function PassivosManager({ contas }) {
  <th className="px-4 py-3 text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider w-8"></th>
  <th className="px-4 py-3 text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider">Data</th>
  <th className="px-4 py-3 text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider">Descrição</th>
- <th className="px-4 py-3 text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider">Conta / Tipo</th>
+ <th className="px-4 py-3 text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider">Tipo</th>
  <th className="px-4 py-3 text-left text-[11px] font-bold text-gray-500 uppercase tracking-wider">Contrato</th>
  <th className="px-4 py-3 text-right text-[11px] font-bold text-gray-500 uppercase tracking-wider">Valor Original</th>
  <th className="px-4 py-3 text-right text-[11px] font-bold text-gray-500 uppercase tracking-wider">Realizado</th>
@@ -352,9 +304,8 @@ export default function PassivosManager({ contas }) {
  </td>
  <td className="px-4 py-3 text-gray-500 font-medium whitespace-nowrap">{formatDate(l.data_transacao)}</td>
  <td className="px-4 py-3 font-semibold text-gray-700">{l.descricao}</td>
- <td className="px-4 py-3 flex flex-col gap-1 items-start">
- {l.conta?.nome && <span className="text-[10px] font-bold text-gray-500 uppercase">{l.conta.nome}</span>}
- <span className={`px-2.5 py-0.5 text-[10px] font-bold rounded-full border bg-red-50 text-red-700 border-red-200 inline-block`}>
+ <td className="px-4 py-3">
+ <span className={`px-2.5 py-1 text-[10px] font-bold rounded-full border bg-red-50 text-red-700 border-red-200`}>
  {l.tipo}
  </span>
  </td>
@@ -372,7 +323,7 @@ export default function PassivosManager({ contas }) {
  ) : <span className="text-gray-400">—</span>}
  </td>
  <td className="px-4 py-3 text-right whitespace-nowrap">
- <span className={`font-bold ${saldo >= 0 ? 'text-gray-400' : saldo > parseFloat(l.valor || 0) ? 'text-amber-700' : 'text-gray-800'}`}>
+ <span className={`font-bold ${saldo <= 0 ? 'text-gray-400' : saldo < parseFloat(l.valor || 0) ? 'text-amber-700' : 'text-gray-800'}`}>
  {formatCurrency(saldo)}
  </span>
  </td>
@@ -392,13 +343,13 @@ export default function PassivosManager({ contas }) {
  {/* Linha expandida: receitas vinculadas */}
  {isExpanded && temReceitas && (
  <tr key={`${l.id}-receitas`}>
- <td colSpan="9" className="px-0 py-0 bg-red-50/50 border-b border-red-100">
+ <td colSpan="9" className="px-0 py-0 bg-green-50/50 border-b border-green-100">
  <div className="px-8 py-2">
- <p className="text-[10px] font-bold text-red-700 uppercase tracking-wider mb-1">Despesas vinculadas (amortização da dívida)</p>
+ <p className="text-[10px] font-bold text-green-700 uppercase tracking-wider mb-1">Receitas vinculadas (saídas do patrimônio)</p>
  <table className="w-full text-xs">
  <tbody>
  {l.receitasVinculadas.map(r => (
- <tr key={r.id} className="border-b border-red-100 last:border-0">
+ <tr key={r.id} className="border-b border-green-100 last:border-0">
  <td className="py-1.5 text-gray-500 whitespace-nowrap w-28">{formatDate(r.data_transacao)}</td>
  <td className="py-1.5 text-gray-700 font-medium">{r.descricao}</td>
  <td className="py-1.5 text-center">
@@ -407,7 +358,7 @@ export default function PassivosManager({ contas }) {
  : 'bg-amber-100 text-amber-700'
  }`}>{r.status}</span>
  </td>
- <td className="py-1.5 text-right font-bold text-red-700 whitespace-nowrap">{formatCurrency(r.valor)}</td>
+ <td className="py-1.5 text-right font-bold text-green-700 whitespace-nowrap">{formatCurrency(r.valor)}</td>
  </tr>
  ))}
  </tbody>
@@ -424,15 +375,9 @@ export default function PassivosManager({ contas }) {
  {lancamentos.length > 0 && (
  <tfoot className="bg-gray-50 border-t-2 border-gray-200">
  <tr>
- <td colSpan="5" className="px-4 py-3 text-right font-bold text-gray-600 text-sm">Total da Conta:</td>
+ <td colSpan="5" className="px-4 py-3 text-right font-bold text-gray-600 text-sm">Total:</td>
  <td className="px-4 py-3 text-right font-bold text-gray-800 text-sm whitespace-nowrap">
  {formatCurrency(lancamentos.reduce((s, l) => s + parseFloat(l.valor || 0), 0))}
- </td>
- <td className="px-4 py-3 text-right font-bold text-gray-800 text-sm whitespace-nowrap">
- {formatCurrency(lancamentos.reduce((s, l) => s + (l.realizado || 0), 0))}
- </td>
- <td className="px-4 py-3 text-right font-bold text-gray-800 text-sm whitespace-nowrap">
- {formatCurrency(lancamentos.reduce((s, l) => s + (l.saldo !== undefined ? l.saldo : parseFloat(l.valor || 0)), 0))}
  </td>
  <td />
  </tr>
