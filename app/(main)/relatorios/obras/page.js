@@ -6,9 +6,10 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faFileInvoiceDollar, faTasks, faTruckLoading, faCameraRetro, faHardHat } from '@fortawesome/free-solid-svg-icons';
 
 import RelatorioCustosObraContainer from '@/components/relatorios/obras/RelatorioCustosObraContainer';
+import RelatorioAlmoxarifadoContainer from '@/components/relatorios/obras/RelatorioAlmoxarifadoContainer';
 
 export default function RelatorioObrasPage() {
-    // sub-abas: 'custos', 'fisico', 'suprimentos', 'rdo'
+    // sub-abas: 'custos', 'fisico', 'almoxarifado', 'rdo'
     const [abaAtiva, setAbaAtiva] = useState('custos');
 
     return (
@@ -54,14 +55,14 @@ export default function RelatorioObrasPage() {
                 </button>
                 <button
                     className={`flex-1 flex justify-center items-center gap-2 py-2 px-4 rounded-md font-medium text-sm transition-colors ${
-                        abaAtiva === 'suprimentos' 
+                        abaAtiva === 'almoxarifado' 
                         ? 'bg-blue-50 text-blue-700 shadow-sm border border-blue-100' 
                         : 'text-gray-400 hover:text-gray-700 hover:bg-gray-50'
                     }`}
-                    onClick={() => setAbaAtiva('suprimentos')}
+                    onClick={() => setAbaAtiva('almoxarifado')}
                 >
                     <FontAwesomeIcon icon={faTruckLoading} />
-                    Suprimentos
+                    Almoxarifado (Estoque)
                 </button>
                 <button
                     className={`flex-1 flex justify-center items-center gap-2 py-2 px-4 rounded-md font-medium text-sm transition-colors ${
@@ -90,12 +91,8 @@ export default function RelatorioObrasPage() {
                     </div>
                 )}
 
-                {abaAtiva === 'suprimentos' && (
-                    <div className="flex flex-col items-center justify-center py-20 text-gray-500 bg-gray-50 rounded-2xl border border-gray-200 border-dashed">
-                        <FontAwesomeIcon icon={faTruckLoading} className="text-4xl mb-4 text-gray-400" />
-                        <h2 className="text-xl font-bold text-gray-700">Módulo de Suprimentos</h2>
-                        <p className="text-sm mt-2">Em breve: Monitoramento do Mapa de Pedidos de Compra.</p>
-                    </div>
+                {abaAtiva === 'almoxarifado' && (
+                    <RelatorioAlmoxarifadoContainer />
                 )}
 
                 {abaAtiva === 'rdo' && (
