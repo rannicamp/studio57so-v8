@@ -143,7 +143,7 @@ export default function RelatorioAlmoxarifadoContainer() {
                         <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={top_valiosos} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                                 <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#E5E7EB" />
-                                <XAxis type="number" tickFormatter={(val) => \`R$ \${val / 1000}k\`} />
+                                <XAxis type="number" tickFormatter={(val) => `R$ ${val / 1000}k`} />
                                 <YAxis dataKey="nome" type="category" width={180} tick={{fontSize: 10}} />
                                 <Tooltip
                                     formatter={(value) => formatCurrency(value)}
@@ -151,7 +151,7 @@ export default function RelatorioAlmoxarifadoContainer() {
                                 />
                                 <Bar dataKey="valor_total" name="Valor (R$)" fill="#3B82F6" radius={[0, 4, 4, 0]}>
                                     {top_valiosos.map((entry, index) => (
-                                        <Cell key={\`cell-\${index}\`} fill={COLORS[index % COLORS.length]} />
+                                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                     ))}
                                 </Bar>
                             </BarChart>
@@ -180,7 +180,7 @@ export default function RelatorioAlmoxarifadoContainer() {
                                         dataKey="value"
                                     >
                                         {distribuicao_valor.map((entry, index) => (
-                                            <Cell key={\`cell-\${index}\`} fill={entry.name === 'Equipamento' ? '#F59E0B' : '#10B981'} />
+                                            <Cell key={`cell-${index}`} fill={entry.name === 'Equipamento' ? '#F59E0B' : '#10B981'} />
                                         ))}
                                     </Pie>
                                     <Tooltip formatter={(value) => formatCurrency(value)} />
