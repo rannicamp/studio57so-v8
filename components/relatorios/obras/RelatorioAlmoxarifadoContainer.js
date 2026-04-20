@@ -137,7 +137,7 @@ export default function RelatorioAlmoxarifadoContainer() {
                 <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 lg:col-span-2">
                     <h3 className="text-sm font-bold text-gray-700 mb-4 flex items-center gap-2">
                         <FontAwesomeIcon icon={faTrophy} className="text-amber-500" />
-                        Curva ABC de Imobilizado (Top 10 Itens mais Valiosos)
+                        Top 10 Itens de Maior Valor Unitário
                     </h3>
                     <div className="h-80 w-full">
                         <ResponsiveContainer width="100%" height="100%">

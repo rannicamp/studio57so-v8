@@ -52,9 +52,9 @@ BEGIN
   top_valiosos AS (
     SELECT json_agg(row_to_json(t)) as top_v
     FROM (
-      SELECT nome, (qtd_disp + qtd_uso) as quantidade, valor_total
+      SELECT nome, (qtd_disp + qtd_uso) as quantidade, preco_recente as valor_total
       FROM ativos
-      ORDER BY valor_total DESC
+      ORDER BY preco_recente DESC
       LIMIT 10
     ) t
   ),
