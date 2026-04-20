@@ -6,7 +6,7 @@ import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner, faLayerGroup, faFileContract } from '@fortawesome/free-solid-svg-icons';
+import { faSpinner, faLayerGroup, faFileContract, faScaleBalanced } from '@fortawesome/free-solid-svg-icons';
 
 // Componentes
 import SmartKpiCard from '@/components/painel/SmartKpiCard';
@@ -16,6 +16,7 @@ import KpiBuilderModal from '@/components/painel/KpiBuilderModal';
 import FinanceiroDashboard from '@/components/relatorios/financeiro/FinanceiroDashboard';
 import RelatorioDREContainer from '@/components/relatorios/financeiro/RelatorioDREContainer';
 import RelatorioContratosBase from '@/components/relatorios/RelatorioContratosBase';
+import RelatorioBalancoPatrimonial from '@/components/relatorios/financeiro/RelatorioBalancoPatrimonial';
 
 export default function RelatorioFinanceiroPage() {
  const supabase = createClient();
@@ -195,6 +196,13 @@ export default function RelatorioFinanceiroPage() {
  <FontAwesomeIcon icon={faFileContract} />
  Contratos de Venda
  </button>
+ <button
+ className={`flex-1 flex justify-center items-center gap-2 py-2 px-4 rounded-md font-medium text-sm transition-colors ${visaoGeral === 'balanco' ? 'bg-emerald-50 text-emerald-700 shadow-sm border border-emerald-100' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'}`}
+ onClick={() => setVisaoGeral('balanco')}
+ >
+ <FontAwesomeIcon icon={faScaleBalanced} />
+ Balanço Patrimonial
+ </button>
  </div>
 
  {visaoGeral === 'dashboard' ? (
@@ -286,6 +294,10 @@ export default function RelatorioFinanceiroPage() {
  ) : visaoGeral === 'dre' ? (
  <section>
  <RelatorioDREContainer />
+ </section>
+ ) : visaoGeral === 'balanco' ? (
+ <section>
+ <RelatorioBalancoPatrimonial />
  </section>
  ) : (
  <section>
