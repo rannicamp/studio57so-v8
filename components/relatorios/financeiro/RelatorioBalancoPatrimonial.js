@@ -6,7 +6,7 @@ import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
-  faBuilding, faWallet, faMoneyBillTransfer, faScaleBalanced, faSpinner 
+  faBuilding, faWallet, faMoneyBillTransfer, faScaleBalanced, faSpinner, faChartLine
 } from '@fortawesome/free-solid-svg-icons';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, Legend } from 'recharts';
 
@@ -45,6 +45,7 @@ export default function RelatorioBalancoPatrimonial() {
   }
 
   const ativosCaixa = Number(balanco.ativos_caixa || 0);
+  const ativosImobilizados = Number(balanco.ativos_imobilizados || 0);
   const passivos = Math.abs(Number(balanco.passivos || 0));
   const vgvConstruido = Number(balanco.vgv_construido || 0);
   const patrimonioLiquido = Number(balanco.patrimonio_liquido || 0);
@@ -54,10 +55,11 @@ export default function RelatorioBalancoPatrimonial() {
   // Dados para o Gráfico de Composição dos Ativos
   const chartDataAtivos = [
     { name: 'Caixa e Bancos (Liquidez)', value: ativosCaixa, color: '#10B981' },
+    { name: 'Ativos Tangíveis (Físicos)', value: ativosImobilizados, color: '#F59E0B' },
     { name: 'VGV Construído (Estoque Físico)', value: vgvConstruido, color: '#3B82F6' },
   ].filter(d => d.value > 0);
 
-  const totalAtivos = ativosCaixa + vgvConstruido;
+  const totalAtivos = ativosCaixa + ativosImobilizados + vgvConstruido;
 
   return (
     <div className="space-y-6">
@@ -74,41 +76,53 @@ export default function RelatorioBalancoPatrimonial() {
       </div>
 
       {/* CARDS SUPERIORES */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Ativos Caixa */}
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-md transition-shadow">
           <div className="flex justify-between items-start mb-2">
-            <h3 className="text-gray-500 text-sm font-semibold uppercase tracking-wider">Disponibilidade (Caixa)</h3>
-            <div className="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600">
+            <h3 className="text-gray-500 text-xs font-semibold uppercase tracking-wider">Disponibilidade (Caixa)</h3>
+            <div className="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600 shrink-0">
               <FontAwesomeIcon icon={faWallet} />
             </div>
           </div>
-          <p className="text-3xl font-bold text-gray-800 tracking-tight">{formatCurrency(ativosCaixa)}</p>
-          <p className="text-xs text-gray-400 mt-2">Saldo bancário livre em contas de ativo originais.</p>
+          <p className="text-2xl font-bold text-gray-800 tracking-tight">{formatCurrency(ativosCaixa)}</p>
+          <p className="text-xs text-gray-400 mt-2">Saldo bancário livre em contas correntes.</p>
+        </div>
+
+        {/* Ativos Tangíveis */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-md transition-shadow">
+          <div className="flex justify-between items-start mb-2">
+            <h3 className="text-gray-500 text-xs font-semibold uppercase tracking-wider">Ativos (Tangíveis)</h3>
+            <div className="w-8 h-8 rounded-full bg-amber-50 flex items-center justify-center text-amber-500 shrink-0">
+              <FontAwesomeIcon icon={faChartLine} />
+            </div>
+          </div>
+          <p className="text-2xl font-bold text-gray-800 tracking-tight">{formatCurrency(ativosImobilizados)}</p>
+          <p className="text-xs text-gray-400 mt-2">Imobilizações como imóveis e bens registrados.</p>
         </div>
 
         {/* VGV Construido */}
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-md transition-shadow">
           <div className="flex justify-between items-start mb-2">
-            <h3 className="text-gray-500 text-sm font-semibold uppercase tracking-wider">Patrimônio Construído</h3>
-            <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center text-blue-600">
+            <h3 className="text-gray-500 text-xs font-semibold uppercase tracking-wider">P. Construído (VGV)</h3>
+            <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 shrink-0">
               <FontAwesomeIcon icon={faBuilding} />
             </div>
           </div>
-          <p className="text-3xl font-bold text-gray-800 tracking-tight">{formatCurrency(vgvConstruido)}</p>
-          <p className="text-xs text-gray-400 mt-2">Valor Geral de Vendas do estoque validado em obra.</p>
+          <p className="text-2xl font-bold text-gray-800 tracking-tight">{formatCurrency(vgvConstruido)}</p>
+          <p className="text-xs text-gray-400 mt-2">Volume do estoque validado em obras Físicas.</p>
         </div>
 
         {/* Passivos */}
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-red-100 flex flex-col justify-between hover:shadow-md transition-shadow">
           <div className="flex justify-between items-start mb-2">
-            <h3 className="text-red-500 text-sm font-semibold uppercase tracking-wider">Empréstimos / Passivos</h3>
-            <div className="w-8 h-8 rounded-full bg-red-50 flex items-center justify-center text-red-600">
+            <h3 className="text-red-500 text-xs font-semibold uppercase tracking-wider">Passivos</h3>
+            <div className="w-8 h-8 rounded-full bg-red-50 flex items-center justify-center text-red-600 shrink-0">
               <FontAwesomeIcon icon={faMoneyBillTransfer} />
             </div>
           </div>
-          <p className="text-3xl font-bold text-red-600 tracking-tight">{formatCurrency(passivos)}</p>
-          <p className="text-xs text-gray-400 mt-2">Volume consolidado de dívidas bancárias e alavancagem.</p>
+          <p className="text-2xl font-bold text-red-600 tracking-tight">{formatCurrency(passivos)}</p>
+          <p className="text-xs text-gray-400 mt-2">Volume consolidado de dívidas e alavancagem.</p>
         </div>
       </div>
 
