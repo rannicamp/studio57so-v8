@@ -6,7 +6,7 @@ import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
-  faBuilding, faWallet, faMoneyBillTransfer, faScaleBalanced, faSpinner, faChartLine
+  faBuilding, faWallet, faMoneyBillTransfer, faScaleBalanced, faSpinner, faChartLine, faHandHoldingDollar
 } from '@fortawesome/free-solid-svg-icons';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, Legend } from 'recharts';
 
@@ -48,6 +48,7 @@ export default function RelatorioBalancoPatrimonial() {
   const ativosImobilizados = Number(balanco.ativos_imobilizados || 0);
   const passivos = Math.abs(Number(balanco.passivos || 0));
   const vgvConstruido = Number(balanco.vgv_construido || 0);
+  const vendasRecebidas = Number(balanco.vendas_recebidas || 0);
   const patrimonioLiquido = Number(balanco.patrimonio_liquido || 0);
 
   const formatCurrency = (val) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
@@ -76,7 +77,7 @@ export default function RelatorioBalancoPatrimonial() {
       </div>
 
       {/* CARDS SUPERIORES */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         {/* Ativos Caixa */}
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-md transition-shadow">
           <div className="flex justify-between items-start mb-2">
@@ -111,6 +112,18 @@ export default function RelatorioBalancoPatrimonial() {
           </div>
           <p className="text-2xl font-bold text-gray-800 tracking-tight">{formatCurrency(vgvConstruido)}</p>
           <p className="text-xs text-gray-400 mt-2">Volume do estoque validado em obras Físicas.</p>
+        </div>
+
+        {/* Vendas Recebidas */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col justify-between hover:shadow-md transition-shadow">
+          <div className="flex justify-between items-start mb-2">
+            <h3 className="text-gray-500 text-xs font-semibold uppercase tracking-wider">Vendas (Recebido)</h3>
+            <div className="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-500 shrink-0">
+              <FontAwesomeIcon icon={faHandHoldingDollar} />
+            </div>
+          </div>
+          <p className="text-2xl font-bold text-emerald-600 tracking-tight">{formatCurrency(vendasRecebidas)}</p>
+          <p className="text-xs text-gray-400 mt-2">Volume financeiro que os clientes já quitaram.</p>
         </div>
 
         {/* Passivos */}
