@@ -39,7 +39,7 @@ BEGIN
   ativos AS (
     SELECT *, ((qtd_disp + qtd_uso) * preco_recente) as valor_total
     FROM precos_recentes 
-    WHERE (qtd_disp + qtd_uso) > 0
+    WHERE (qtd_disp + qtd_uso) > 0 AND classificacao != 'Serviço'
   ),
   totais AS (
     SELECT 
