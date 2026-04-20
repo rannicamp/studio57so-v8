@@ -33,7 +33,7 @@ const DashboardKpi = ({ title, value, icon, bgIcon, colorIcon, subtext, tooltip 
           </div>
         )}
       </div>
-      <h3 className="font-extrabold text-gray-800 whitespace-nowrap overflow-hidden text-ellipsis" style={{ fontSize: 'clamp(0.9rem, 15cqi, 1.875rem)' }}>{value}</h3>
+      <h3 className="font-extrabold text-gray-800 whitespace-nowrap" style={{ fontSize: 'clamp(0.8rem, 8cqi, 1.6rem)' }}>{value}</h3>
       {subtext && <p className="text-[10px] text-gray-400 mt-1.5 font-medium leading-tight line-clamp-2">{subtext}</p>}
     </div>
     <div className={`w-10 h-10 2xl:w-12 2xl:h-12 rounded-xl flex items-center justify-center shrink-0 ${bgIcon} ${colorIcon}`}>
@@ -54,7 +54,7 @@ export default function RelatorioEmpreendimentosPage() {
             if (!user?.organizacao_id) return null;
 
             const [empRes, prodRes, contRes, contProdRes] = await Promise.all([
-                supabase.from('empreendimentos').select('id, nome, listado_para_venda, categoria').eq('organizacao_id', user.organizacao_id),
+                supabase.from('empreendimentos').select('id, nome, listado_para_venda, categoria, orcamento_previsto, orcamento_executado, orcamento_percentual, patrimonio_vgv_construido').eq('organizacao_id', user.organizacao_id),
                 supabase.from('produtos_empreendimento').select('id, empreendimento_id, unidade, tipo, area_m2, valor_venda_calculado, status').eq('organizacao_id', user.organizacao_id),
                 supabase.from('contratos').select('id, empreendimento_id, produto_id, valor_final_venda, status_contrato, tipo_documento').eq('organizacao_id', user.organizacao_id).eq('status_contrato', 'Assinado'),
                 supabase.from('contrato_produtos').select('contrato_id, produto_id').eq('organizacao_id', user.organizacao_id)
@@ -91,6 +91,9 @@ export default function RelatorioEmpreendimentosPage() {
         const chartPizzaVGV = [];
         const chartPizzaM2Horizontal = [];
         const chartPizzaM2Vertical = [];
+        const chartBarraExecucaoFisica = [];
+        const chartBarraOrcamento = [];
+        const chartBarraPatrimonioVgv = [];
         
         // Separação de Cálculo e Auditoria Estrutural
         const empProcessados = empreendimentos
@@ -159,8 +162,26 @@ export default function RelatorioEmpreendimentosPage() {
             totalQtd += produtosVinculados.length;
             totalQtdVendida += qtdVendidoReal;
 
+            // Popular Gráficos Físico/Financeiro
+            const percentual = Number(emp.orcamento_percentual) || 0;
+            const patrimonioEmpVgv = Number(emp.patrimonio_vgv_construido) || 0;
+
+            if (percentual > 0) {
+                chartBarraExecucaoFisica.push({ name: emp.nome, percentual });
+            }
+            if (vgvTotal > 0) {
+                chartBarraPatrimonioVgv.push({ name: emp.nome, total: vgvTotal, construido: patrimonioEmpVgv });
+            }
+
+            const previsto = Number(emp.orcamento_previsto) || 0;
+            const executado = Number(emp.orcamento_executado) || 0;
+            if (previsto > 0) {
+                chartBarraOrcamento.push({ name: emp.nome, previsto, executado });
+            }
+
             return {
                 ...emp,
+                patrimonioConstruidoVGV: patrimonioEmpVgv,
                 produtos: produtosVinculados,
                 estatisticas: {
                     valorDisponivel: valorEstoqueListado,
@@ -226,15 +247,22 @@ export default function RelatorioEmpreendimentosPage() {
             return b.valor_atual - a.valor_atual;
         });
 
+        let totalPatrimonioConstruidoVGV = 0;
+        
         // Sumário Exato
         const isAll = empreendimentoSelecionadoId === 'ALL';
         const targetEmp = isAll ? null : empProcessados.find(e => e.id === Number(empreendimentoSelecionadoId));
+
+        for (const emp of empProcessados) {
+            totalPatrimonioConstruidoVGV += emp.patrimonioConstruidoVGV || 0;
+        }
 
         const sumAreaTotal = isAll ? totalAreaTotalM2 : (targetEmp?.estatisticas?.areaTotalM2 || 0);
         const sumVgv = isAll ? totalVGVGlobal : (targetEmp?.estatisticas?.vgvTotal || 0);
 
         const statsFinal = {
             vgvConsolidado: sumVgv,
+            patrimonioConstruidoVgvResult: isAll ? totalPatrimonioConstruidoVGV : (targetEmp?.patrimonioConstruidoVGV || 0),
             vgvAssegurado: isAll ? totalValoresVendidos : (targetEmp?.estatisticas?.valorVendido || 0),
             m2Estoque: isAll ? (totalAreaTotalM2 - totalAreaVendidaM2) : (targetEmp?.estatisticas?.areaEstoqueM2 || 0),
             m2Vendido: isAll ? totalAreaVendidaM2 : (targetEmp?.estatisticas?.areaVendidaM2 || 0),
@@ -245,7 +273,7 @@ export default function RelatorioEmpreendimentosPage() {
             ticketMedioVertical: isAll ? (totalAreaVertical > 0 ? totalVgvVertical / totalAreaVertical : 0) : ((targetEmp?.categoria !== 'Horizontal') && sumAreaTotal > 0 ? sumVgv / sumAreaTotal : 0),
         };
 
-        return { empreendimentos: empProcessados, chartPizzaVGV, chartPizzaM2Horizontal, chartPizzaM2Vertical, chartPizzaTipologias, produtosFormatados, estatisticasGlobais: statsFinal };
+        return { empreendimentos: empProcessados, chartPizzaVGV, chartPizzaM2Horizontal, chartPizzaM2Vertical, chartPizzaTipologias, chartBarraExecucaoFisica, chartBarraOrcamento, chartBarraPatrimonioVgv, produtosFormatados, estatisticasGlobais: statsFinal };
     }, [rawData, empreendimentoSelecionadoId]);
 
     // === 3. INTERFACE PADRÃO OURO ===
@@ -499,6 +527,108 @@ export default function RelatorioEmpreendimentosPage() {
                         )}
                     </div>
                 </div>
+            </div>
+
+            {/* SEÇÃO 2.5: GRÁFICOS DE EXECUÇÃO E ORÇAMENTO */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                
+                {/* Gráfico Barras: Andamento Físico */}
+                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col min-h-[350px]">
+                    <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wider mb-4 border-b pb-2 flex items-center justify-between">
+                        <span>Física: Andamento da Obra (%)</span>
+                        <FontAwesomeIcon icon={faCheckCircle} className="text-blue-500" />
+                    </h3>
+                    <div className="flex-1 w-full h-[250px]">
+                        {dataAgrupada.chartBarraExecucaoFisica && dataAgrupada.chartBarraExecucaoFisica.length > 0 ? (
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={dataAgrupada.chartBarraExecucaoFisica} layout="vertical" margin={{ top: 20, right: 40, left: 0, bottom: 5 }}>
+                                    <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#E5E7EB" />
+                                    <XAxis type="number" hide domain={[0, 100]} />
+                                    <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 600, fill: '#6B7280' }} width={110} />
+                                    <Tooltip 
+                                      contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontWeight: 'bold' }}
+                                      formatter={(value) => [`${value}%`, 'Concluído']} 
+                                      cursor={{ fill: '#F3F4F6' }}
+                                    />
+                                    <Bar dataKey="percentual" fill="#3B82F6" radius={[0, 6, 6, 0]} maxBarSize={30}>
+                                        <LabelList dataKey="percentual" position="right" formatter={(val) => `${val}%`} style={{ fontSize: '11px', fontWeight: 'bold', fill: '#4B5563' }} />
+                                    </Bar>
+                                </BarChart>
+                            </ResponsiveContainer>
+                        ) : (
+                            <div className="flex w-full h-full justify-center items-center">
+                               <p className="text-gray-400 text-sm">Nenhuma obra em andamento.</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* Gráfico Barras: Patrimônio (VGV Construído) */}
+                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col min-h-[350px]">
+                    <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wider mb-4 border-b pb-2 flex items-center justify-between">
+                        <span>Conversão: VGV Construído</span>
+                        <FontAwesomeIcon icon={faBuilding} className="text-purple-500" />
+                    </h3>
+                    <div className="flex-1 w-full h-[250px]">
+                        {dataAgrupada.chartBarraPatrimonioVgv && dataAgrupada.chartBarraPatrimonioVgv.length > 0 ? (
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={dataAgrupada.chartBarraPatrimonioVgv} layout="vertical" margin={{ top: 20, right: 60, left: 0, bottom: 5 }}>
+                                    <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#E5E7EB" />
+                                    <XAxis type="number" hide />
+                                    <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 600, fill: '#6B7280' }} width={110} />
+                                    <Tooltip 
+                                      contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontWeight: 'bold' }}
+                                      formatter={(value) => formatCurrency(value)} 
+                                      cursor={{ fill: '#F3F4F6' }}
+                                    />
+                                    <Legend wrapperStyle={{ fontSize: '12px', fontWeight: 'bold', paddingTop: '10px' }} />
+                                    <Bar dataKey="total" name="VGV Total" fill="#E5E7EB" radius={[0, 6, 6, 0]} maxBarSize={20} />
+                                    <Bar dataKey="construido" name="VGV Tangível (%)" fill="#A855F7" radius={[0, 6, 6, 0]} maxBarSize={20}>
+                                        <LabelList dataKey="construido" position="right" formatter={(val) => new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 0 }).format(val)} style={{ fontSize: '10px', fontWeight: 'bold', fill: '#6B7280' }} />
+                                    </Bar>
+                                </BarChart>
+                            </ResponsiveContainer>
+                        ) : (
+                            <div className="flex w-full h-full justify-center items-center">
+                               <p className="text-gray-400 text-sm">Sem correlação de VGV / Obra.</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* Gráfico Barras: Orçamento Previsto x Executado */}
+                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col min-h-[350px]">
+                    <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wider mb-4 border-b pb-2 flex items-center justify-between">
+                        <span>Financeira: Custo Interno</span>
+                        <FontAwesomeIcon icon={faMoneyBillWave} className="text-emerald-500" />
+                    </h3>
+                    <div className="flex-1 w-full h-[250px]">
+                        {dataAgrupada.chartBarraOrcamento && dataAgrupada.chartBarraOrcamento.length > 0 ? (
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={dataAgrupada.chartBarraOrcamento} layout="vertical" margin={{ top: 20, right: 60, left: 0, bottom: 5 }}>
+                                    <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#E5E7EB" />
+                                    <XAxis type="number" hide />
+                                    <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 600, fill: '#6B7280' }} width={110} />
+                                    <Tooltip 
+                                      contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', fontWeight: 'bold' }}
+                                      formatter={(value) => formatCurrency(value)} 
+                                      cursor={{ fill: '#F3F4F6' }}
+                                    />
+                                    <Legend wrapperStyle={{ fontSize: '12px', fontWeight: 'bold', paddingTop: '10px' }} />
+                                    <Bar dataKey="previsto" name="Previsto (Alvo)" fill="#E5E7EB" radius={[0, 6, 6, 0]} maxBarSize={20} />
+                                    <Bar dataKey="executado" name="Realizado" fill="#10B981" radius={[0, 6, 6, 0]} maxBarSize={20}>
+                                         <LabelList dataKey="executado" position="right" formatter={(val) => new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 0 }).format(val)} style={{ fontSize: '10px', fontWeight: 'bold', fill: '#6B7280' }} />
+                                    </Bar>
+                                </BarChart>
+                            </ResponsiveContainer>
+                        ) : (
+                            <div className="flex w-full h-full justify-center items-center">
+                               <p className="text-gray-400 text-sm">Sem dados de orçamento alvo.</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
             </div>
 
             {/* SEÇÃO 3: Tabela de Produtos Detalhados */}

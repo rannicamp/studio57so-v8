@@ -374,6 +374,7 @@ export default function OrcamentoDetalhes({ orcamento, onBack }) {
  <td className="px-6 py-4 text-sm text-right">{formatCurrency(item.preco_unitario)}</td>
  <td className="px-6 py-4 text-sm text-right font-semibold">{formatCurrency(item.custo_total)}</td>
  <td className="px-6 py-4 text-sm text-right font-semibold text-blue-600">{formatPercentage(item.custo_total)}</td>
+ <td className="px-6 py-4 text-sm text-center">-</td>
  <td className="px-6 py-4 text-sm text-center">
  <div className="flex items-center justify-center gap-3">
  <button onClick={() => handleOpenModal(item)} title="Editar" className="text-blue-500 hover:text-blue-700 transition-colors"><FontAwesomeIcon icon={faPen} /></button>
@@ -400,6 +401,7 @@ export default function OrcamentoDetalhes({ orcamento, onBack }) {
  <td className="px-6 py-4 text-sm text-right">{formatCurrency(item.preco_unitario)}</td>
  <td className="px-6 py-4 text-sm text-right font-semibold">{formatCurrency(item.custo_total)}</td>
  <td className="px-6 py-4 text-sm text-right font-semibold text-blue-600">{formatPercentage(item.custo_total)}</td>
+ <td></td>
  <td className="px-6 py-4 text-sm text-center">
  <div className="flex items-center justify-center gap-3">
  <button onClick={() => handleOpenModal(item)} title="Editar" className="text-blue-500 hover:text-blue-700 transition-colors"><FontAwesomeIcon icon={faPen} /></button>
@@ -420,8 +422,18 @@ export default function OrcamentoDetalhes({ orcamento, onBack }) {
  </tbody>
  <tfoot className="bg-gray-100">
  <tr>
- <td colSpan="9" className="px-6 py-3 text-right text-sm font-bold uppercase">Custo Total Previsto:</td>
- <td className="px-6 py-3 text-right text-base font-bold">{formatCurrency(custoTotal)}</td>
+ <td colSpan="7" className="px-6 py-3 text-right text-sm font-bold uppercase text-gray-500 border-b border-gray-200">Custo Total Previsto (Alvo):</td>
+ <td className="px-6 py-3 text-right text-base font-bold text-gray-700 border-b border-gray-200">{formatCurrency(custoTotal)}</td>
+ <td className="px-6 py-3 text-right text-sm font-bold text-gray-400 border-b border-gray-200">100.00%</td>
+ <td className="px-6 py-3 text-center text-sm font-bold text-gray-400 border-b border-gray-200">-</td>
+ <td className="px-6 py-3 border-b border-gray-200"></td>
+ </tr>
+ <tr className="bg-blue-50">
+ <td colSpan="7" className="px-6 py-4 text-right text-sm font-bold uppercase text-blue-800">Custo Total Executado (Realizado):</td>
+ <td className="px-6 py-4 text-right text-base font-bold text-green-700">{formatCurrency(patrimonioExecutado)}</td>
+ <td className="px-6 py-4 text-right text-sm font-bold text-gray-400">-</td>
+ <td className="px-6 py-4 text-center text-lg font-bold text-blue-700">{percentualTotalObra.toFixed(2)}%</td>
+ <td className="px-6 py-4"></td>
  </tr>
  </tfoot>
  </table>

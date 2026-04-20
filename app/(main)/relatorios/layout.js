@@ -11,10 +11,16 @@ import {
  faBuilding,
  faHardHat
 } from '@fortawesome/free-solid-svg-icons';
-import { Suspense } from 'react';
+import { Suspense, useEffect } from 'react';
+import { useLayout } from '@/contexts/LayoutContext';
 
 function RelatoriosLayoutContent({ children }) {
   const pathname = usePathname();
+  const { setPageTitle } = useLayout();
+
+  useEffect(() => {
+    setPageTitle('Relatórios Consolidados');
+  }, [setPageTitle]);
 
   // Função para verificar se o link está ativo
   const isActive = (path) => pathname.includes(path);
@@ -30,17 +36,7 @@ function RelatoriosLayoutContent({ children }) {
  return (
  <div className="flex flex-col space-y-6">
  <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
- <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-
- <div className="flex items-center gap-3">
- <div className="bg-blue-100 p-3 rounded-lg">
- <FontAwesomeIcon icon={faChartPie} className="text-blue-600 text-xl" />
- </div>
- <div>
- <h1 className="text-2xl font-bold text-gray-800">Relatórios Consolidados</h1>
- <p className="text-sm text-gray-500">Inteligência estratégica para tomada de decisão</p>
- </div>
- </div>
+ <div className="flex flex-col justify-between items-start gap-4">
 
  {/* Navegação entre Relatórios */}
  <nav className="flex bg-gray-50 p-1.5 rounded-lg overflow-x-auto max-w-full">
