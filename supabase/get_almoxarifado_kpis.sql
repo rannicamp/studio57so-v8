@@ -47,6 +47,24 @@ BEGIN
       AND p.status IN ('Entregue', 'Realizado', 'Em Negociação', 'Revisão do Responsável')
     GROUP BY pci.material_id
   ),
+  entradas_alugadas_manuais AS (
+    SELECT 
+      e.material_id,
+      SUM(m.quantidade) as qtd_historica_alugada
+    FROM public.movimentacoes_estoque m
+    JOIN public.estoque e ON e.id = m.estoque_id
+    WHERE m.organizacao_id = p_organizacao_id
+      AND m.tipo = 'Entrada por Compra' 
+      AND m.observacao LIKE '[ALUGUEL]%'
+    GROUP BY e.material_id
+  ),
+  entradas_alugadas_total AS (
+    SELECT 
+      COALESCE(ea.material_id, eam.material_id) as material_id,
+      COALESCE(ea.qtd_historica_alugada, 0) + COALESCE(eam.qtd_historica_alugada, 0) as qtd_historica_alugada
+    FROM entradas_alugadas ea
+    FULL OUTER JOIN entradas_alugadas_manuais eam ON ea.material_id = eam.material_id
+  ),
   estoque_dividido AS (
     SELECT 
       pr.material_id,
@@ -57,7 +75,7 @@ BEGIN
       LEAST(pr.qtd_disp + pr.qtd_uso, COALESCE(ea.qtd_historica_alugada, 0)) as qtd_alugada,
       (pr.qtd_disp + pr.qtd_uso) - LEAST(pr.qtd_disp + pr.qtd_uso, COALESCE(ea.qtd_historica_alugada, 0)) as qtd_propria
     FROM precos_recentes pr
-    LEFT JOIN entradas_alugadas ea ON ea.material_id = pr.material_id
+    LEFT JOIN entradas_alugadas_total ea ON ea.material_id = pr.material_id
   ),
   ativos_proprios AS (
     SELECT *, (qtd_propria * preco_recente) as valor_total

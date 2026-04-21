@@ -79,7 +79,7 @@ const adicionarMaterialEstoque = async ({ supabase, empreendimentoId, usuarioId,
  // ===============================================================
  quantidade: materialData.quantidade,
  usuario_id: usuarioId,
- observacao: `Adição manual de material: ${materialData.descricao}`,
+ observacao: materialData.tipo_operacao === 'Aluguel' ? `[ALUGUEL] Adição manual de material: ${materialData.descricao}` : `Adição manual de material: ${materialData.descricao}`,
  organizacao_id: organizacaoId, // <-- Segurança OK
  });
 
@@ -274,7 +274,7 @@ export default function AdicionarMaterialManualModal({ isOpen, onClose, onSucces
  )}
  </div>
 
- <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+ <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-2">
  <div>
  <label className="block text-sm font-medium">Quantidade</label>
  <input
