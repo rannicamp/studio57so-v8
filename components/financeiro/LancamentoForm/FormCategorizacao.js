@@ -65,7 +65,7 @@ export default function FormCategorizacao({
  {formData.form_type === 'transferencia' ? (
  <fieldset className="p-3 border rounded-lg bg-gray-50 animate-fade-in">
  <legend className="font-semibold text-sm">Contas</legend>
- <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+ <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
  <div>
  <label className="block text-sm font-medium mb-1">De (Origem)*</label>
  <SelectConta
@@ -85,6 +85,13 @@ export default function FormCategorizacao({
  contas={contasFiltradas.filter(c => c.id !== formData.conta_origem_id)}
  required={true}
  />
+ </div>
+ <div>
+ <label className="block text-sm font-medium mb-1">Categoria (Opcional)</label>
+ <select name="categoria_id" value={formData.categoria_id || ''} onChange={handleChange} className="w-full p-2 border rounded-md">
+ <option value="">Nenhuma / Automático</option>
+ {hierarchicalCategorias.filter(c => ['transferência', 'transferencia', 'pagamento de fatura de cartão', 'pagamento de cartão', 'cartão de crédito'].some(term => c.nome.toLowerCase().includes(term))).map(c => <CategoryOption key={c.id} category={c} />)}
+ </select>
  </div>
  </div>
  </fieldset>

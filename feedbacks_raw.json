@@ -1,0 +1,50 @@
+[
+  {
+    "id": 123,
+    "created_at": "2026-04-21T17:44:00.665953+00:00",
+    "usuario_id": "4046a5ad-f198-4309-99ab-3b8fed59cad1",
+    "pagina": "/financeiro",
+    "descricao": "BUG: Na conciliação, está dando erro para adicionar receita existente no OFX que não está lançado no sistema. Não ocorre com despesas.",
+    "status": "Novo",
+    "captura_de_tela_url": null,
+    "organizacao_id": 2,
+    "link_opcional": null,
+    "imagem_url": "https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/feedbacks/prints/1776793448968-38o4iu-Erro%20Elo%2057%201.png",
+    "diagnostico": null,
+    "plano_solucao": null,
+    "comentarios": null,
+    "autor_nome": "Igor"
+  },
+  {
+    "id": 121,
+    "created_at": "2026-04-17T12:27:46.04898+00:00",
+    "usuario_id": "e48b4e12-afa9-4672-b56b-45e5c9a8fd5a",
+    "pagina": "/crm",
+    "descricao": "Não estou conseguindo criar atividades. ",
+    "status": "Em Análise",
+    "captura_de_tela_url": null,
+    "organizacao_id": 2,
+    "link_opcional": null,
+    "imagem_url": "https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/feedbacks/prints/1776428865748-rtxie-erro.png",
+    "diagnostico": "Erro de 'Server Action was not found on the server' (visto em anexo). Causado pelo Next.js quando um ComponentClient evoca uma Server Action sem a flag `'use server'` forte no encapsulamento ou devida a descompasso de rota/cache pos-deploy no CRM.",
+    "plano_solucao": "Revisar funções de gravação das atividades assegurando `'use server'` como header obrigatório. Compilar e promover hot-reload do .next no servidor.",
+    "comentarios": "Descompasso Server/Client ou Bug Silencioso. Necessário que o CEO faça um teste real atualizando a página com F5. Se o erro persistir, deveremos mapear se a prop 'use server' sumiu no repositório.",
+    "autor_nome": "Ludimila"
+  },
+  {
+    "id": 117,
+    "created_at": "2026-04-15T20:37:42.872113+00:00",
+    "usuario_id": "4046a5ad-f198-4309-99ab-3b8fed59cad1",
+    "pagina": "/financeiro",
+    "descricao": "IDEIA: RELATÓRIO MENSAL DE VENDAS\nO relatório de vendas para enviar à contabilidade para calcular a RET deve ter as seguintes colunas:\nUnidade\nCliente\nParcela\nData de pagamento\nValor pago\nconta recebida (pra diferenciar das antecipações)",
+    "status": "Em Análise",
+    "captura_de_tela_url": null,
+    "organizacao_id": 2,
+    "link_opcional": null,
+    "imagem_url": "https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/feedbacks/prints/1776285467418-yb2zq8-Captura%20de%20tela%202026-04-15%20173712.png",
+    "diagnostico": "Solicitação de Feature / Ideia. O sistema necessita de sumarização de Vendas em grid dedicada à contabilidade (RET). O Painel financeiro atual não consolida relacionalmente `unidade` vs `lancamentos efetuados` em grid para exportação mensal.",
+    "plano_solucao": "Desenvolver roteamento `/relatorios/vendas-ret` cruzando em LEFT JOIN lançamentos tipo 'Receita' ao seu `contrato_id` base, exibindo colunas: Contrato, Cliente, Parcela, Valor, Conta Bancária.",
+    "comentarios": "Dúvida Estratégica: Perguntar para o Igor sobre requisitos exatos.",
+    "autor_nome": "Igor"
+  }
+]

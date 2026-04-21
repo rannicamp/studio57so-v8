@@ -465,7 +465,7 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
  queryClient.invalidateQueries({ queryKey: ['lancamentos'] });
  queryClient.invalidateQueries({ queryKey: ['painelCompras'] });
 
- if (onSuccess) onSuccess();
+ if (onSuccess) onSuccess(data && data.length > 0 ? data[0] : null, variables);
 
  const msgSucesso = isFutureUpdate ? 'Datas (Transação e Vencimento) atualizadas em série!' : 'Operação realizada com sucesso!';
  toast.success(msgSucesso);
