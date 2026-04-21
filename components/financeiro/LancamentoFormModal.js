@@ -107,7 +107,7 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
 
  // Ativos disponíveis para vínculo (apenas lançamentos de tipo Ativo)
  const { data: ativosDisponiveis = [] } = useQuery({
- queryKey: ['ativos-disponiveis', organizacaoId],
+ queryKey: ['ativos-passivos-disponiveis', organizacaoId],
  queryFn: async () => {
  const { data } = await supabase
  .from('lancamentos')
@@ -658,7 +658,8 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
  handleSelectFavorecido={handleSelectFavorecido}
  favorecidoSearchResults={favorecidoSearchResults}
  hierarchicalCategorias={hierarchicalCategorias}
- ativosDisponiveis={ativosDisponiveis}
+ ativosDisponiveis={ativosDisponiveis.filter(a => a.tipo === "Ativo")}
+        passivosDisponiveis={ativosDisponiveis.filter(a => a.tipo === "Passivo")}
  contratosDisponiveis={contratosDisponiveis}
  />
 
