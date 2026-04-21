@@ -186,7 +186,7 @@ export default function FormCategorizacao({
  className="w-full p-2 bg-white border border-green-300 rounded-md text-sm font-medium text-gray-700 focus:outline-none focus:ring-1 focus:ring-green-500 transition-colors"
  >
  <option value="">— Não vincular —</option>
- {ativosDisponiveis.map(a => (
+ {patrimoniosDisponiveis.map(a => (
  <option key={a.id} value={a.id}>
  {a.descricao} ({formatCurrency(a.valor)})
  </option>

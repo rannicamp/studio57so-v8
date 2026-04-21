@@ -111,9 +111,9 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
  queryFn: async () => {
  const { data } = await supabase
  .from('lancamentos')
- .select('id, descricao, valor')
+ .select('id, descricao, valor, tipo')
  .eq('organizacao_id', organizacaoId)
- .eq('tipo', 'Ativo')
+ .in('tipo', ['Ativo', 'Passivo'])
  .order('descricao');
  return data || [];
  },

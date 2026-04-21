@@ -861,7 +861,13 @@ CREATE TABLE public.empreendimentos (
     imagem_capa_url text,
     logo_url text,
     thumbnail_url text,
-    observacoes text
+    observacoes text,
+    categoria character varying(50) DEFAULT 'Vertical'::character varying,
+    orcamento_previsto numeric DEFAULT 0,
+    orcamento_executado numeric DEFAULT 0,
+    orcamento_percentual numeric DEFAULT 0,
+    patrimonio_vgv_construido numeric DEFAULT 0,
+    vgv_total_projetado numeric DEFAULT 0
 );
 
 CREATE TABLE public.empresa_anexos (
@@ -1475,7 +1481,8 @@ CREATE TABLE public.orcamentos (
     custo_total_previsto numeric DEFAULT 0,
     status text DEFAULT 'Em Elaboração'::text,
     created_at timestamp with time zone DEFAULT now(),
-    organizacao_id bigint NOT NULL
+    organizacao_id bigint NOT NULL,
+    execucao_fisica jsonb DEFAULT '{}'::jsonb
 );
 
 CREATE TABLE public.organizacoes (
