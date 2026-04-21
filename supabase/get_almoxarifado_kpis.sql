@@ -38,15 +38,14 @@ BEGIN
   ),
   entradas_alugadas AS (
     SELECT 
-      m.material_id,
-      SUM(m.quantidade) as qtd_historica_alugada
-    FROM public.movimentacoes_estoque m
-    JOIN public.pedidos_compra_itens pci 
-      ON pci.pedido_id = m.pedido_compra_id AND pci.material_id = m.material_id
-    WHERE m.tipo = 'Entrada por Compra' 
-      AND pci.tipo_operacao = 'Aluguel'
-      AND m.organizacao_id = p_organizacao_id
-    GROUP BY m.material_id
+      pci.material_id,
+      SUM(pci.quantidade_solicitada) as qtd_historica_alugada
+    FROM public.pedidos_compra_itens pci
+    JOIN public.pedidos_compra p ON p.id = pci.pedido_compra_id
+    WHERE pci.tipo_operacao = 'Aluguel'
+      AND p.organizacao_id = p_organizacao_id
+      AND p.status IN ('Entregue', 'Realizado', 'Em Negociação', 'Revisão do Responsável')
+    GROUP BY pci.material_id
   ),
   estoque_dividido AS (
     SELECT 
