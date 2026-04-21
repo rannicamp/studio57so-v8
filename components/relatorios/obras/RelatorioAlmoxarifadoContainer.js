@@ -8,7 +8,7 @@ import { useEmpreendimento } from '@/contexts/EmpreendimentoContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
     faSpinner, faWarehouse, faBoxes, faTools, faCoins,
-    faExclamationTriangle, faTrophy
+    faExclamationTriangle, faTrophy, faHandshake
 } from '@fortawesome/free-solid-svg-icons';
 import { 
     ResponsiveContainer, PieChart, Pie, Cell, Tooltip, Legend,
@@ -18,67 +18,18 @@ import {
 const formatCurrency = (val) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val || 0);
 const formatNumber = (val) => new Intl.NumberFormat('pt-BR').format(val || 0);
 
-export default function RelatorioAlmoxarifadoContainer() {
-    const supabase = createClient();
-    const { user } = useAuth();
-    const organizacaoId = user?.organizacao_id;
-    const { selectedEmpreendimento } = useEmpreendimento();
+const COLORS = ['#3B82F6', '#F59E0B', '#10B981', '#6366F1'];
 
-    const { data: kpis, isLoading, isError } = useQuery({
-        queryKey: ['almoxarifado_kpis', organizacaoId, selectedEmpreendimento],
-        queryFn: async () => {
-            if (!organizacaoId) return null;
-            const res = await supabase.rpc('get_almoxarifado_kpis', {
-                p_organizacao_id: organizacaoId,
-                p_empreendimento_id: selectedEmpreendimento || 'all'
-            });
-            if (res.error) throw res.error;
-            return res.data;
-        },
-        enabled: !!organizacaoId
-    });
-
-    if (isLoading) {
-        return (
-            <div className="flex flex-col items-center justify-center py-20 text-blue-600">
-                <FontAwesomeIcon icon={faSpinner} spin className="text-4xl mb-4 text-blue-500" />
-                <p className="font-semibold animate-pulse">Calculando valorização do estoque...</p>
-            </div>
-        );
-    }
-
-    if (isError || !kpis) {
-        return (
-            <div className="flex flex-col items-center justify-center py-20 text-red-500 bg-red-50 rounded-2xl border border-red-100">
-                <FontAwesomeIcon icon={faExclamationTriangle} className="text-4xl mb-2" />
-                <p className="font-bold">Erro ao processar fechamento do estoque.</p>
-            </div>
-        );
-    }
-
-    const {
-        valor_total,
-        quantidade_skus,
-        quantidade_fisica,
-        equipamentos_em_uso,
-        top_valiosos,
-        distribuicao_valor
-    } = kpis;
-
-    const COLORS = ['#3B82F6', '#F59E0B', '#10B981', '#6366F1'];
-
+const KpiSection = ({ data, title, icon, isLocacao }) => {
+    if (!data) return null;
+    const { valor_total, quantidade_skus, quantidade_fisica, equipamentos_em_uso, top_valiosos, distribuicao_valor } = data;
+    
     return (
-        <div className="space-y-6 animate-fade-in">
-            {/* INFORMAÇÃO DE FILTRO GLOBAL */}
-            {selectedEmpreendimento === 'all' && (
-                <div className="bg-gradient-to-r from-blue-600 to-blue-800 text-white p-4 rounded-xl shadow border border-blue-900 flex items-center gap-3">
-                    <FontAwesomeIcon icon={faWarehouse} className="text-2xl text-blue-200" />
-                    <div>
-                        <h3 className="font-bold">Visão Global de Estoques</h3>
-                        <p className="text-xs text-blue-100 mt-1">Os números abaixo representam a soma do patrimônio armazenado em <strong>Todas as Obras</strong> do Studio 57, como se fossem um único almoxarifado gigante.</p>
-                    </div>
-                </div>
-            )}
+        <div className="space-y-6 animate-fade-in mt-10">
+            <h2 className="text-xl font-black text-gray-800 flex items-center gap-2 border-b pb-2">
+                <FontAwesomeIcon icon={icon} className={isLocacao ? "text-amber-500" : "text-blue-600"} />
+                {title}
+            </h2>
 
             {/* KPIs SUPERIORES */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -87,7 +38,9 @@ export default function RelatorioAlmoxarifadoContainer() {
                         <FontAwesomeIcon icon={faCoins} className="text-6xl text-emerald-900" />
                     </div>
                     <div className="flex justify-between items-start mb-2 relative z-10">
-                        <h3 className="text-gray-500 text-xs font-semibold uppercase tracking-wider">Valor do Inventário</h3>
+                        <h3 className="text-gray-500 text-xs font-semibold uppercase tracking-wider">
+                            {isLocacao ? "Custo Estimado (Referência)" : "Valor do Inventário Próprio"}
+                        </h3>
                         <div className="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600 shrink-0">
                             <FontAwesomeIcon icon={faCoins} />
                         </div>
@@ -195,7 +148,72 @@ export default function RelatorioAlmoxarifadoContainer() {
                     </div>
                 </div>
             </div>
+        </div>
+    );
+}
 
+export default function RelatorioAlmoxarifadoContainer() {
+    const supabase = createClient();
+    const { user } = useAuth();
+    const organizacaoId = user?.organizacao_id;
+    const { selectedEmpreendimento } = useEmpreendimento();
+
+    const { data: kpis, isLoading, isError } = useQuery({
+        queryKey: ['almoxarifado_kpis_separado', organizacaoId, selectedEmpreendimento],
+        queryFn: async () => {
+            if (!organizacaoId) return null;
+            const res = await supabase.rpc('get_almoxarifado_kpis', {
+                p_organizacao_id: organizacaoId,
+                p_empreendimento_id: selectedEmpreendimento || 'all'
+            });
+            if (res.error) throw res.error;
+            
+            // Se o retorno for o antigo (sem separação), simula a estrutura nova para não quebrar a tela
+            if (!res.data.proprios) {
+                return { proprios: res.data, alugados: null };
+            }
+            
+            return res.data;
+        },
+        enabled: !!organizacaoId
+    });
+
+    if (isLoading) {
+        return (
+            <div className="flex flex-col items-center justify-center py-20 text-blue-600">
+                <FontAwesomeIcon icon={faSpinner} spin className="text-4xl mb-4 text-blue-500" />
+                <p className="font-semibold animate-pulse">Calculando valorização do estoque...</p>
+            </div>
+        );
+    }
+
+    if (isError || !kpis) {
+        return (
+            <div className="flex flex-col items-center justify-center py-20 text-red-500 bg-red-50 rounded-2xl border border-red-100">
+                <FontAwesomeIcon icon={faExclamationTriangle} className="text-4xl mb-2" />
+                <p className="font-bold">Erro ao processar fechamento do estoque.</p>
+            </div>
+        );
+    }
+
+    return (
+        <div className="space-y-6">
+            {/* INFORMAÇÃO DE FILTRO GLOBAL */}
+            {selectedEmpreendimento === 'all' && (
+                <div className="bg-gradient-to-r from-blue-600 to-blue-800 text-white p-4 rounded-xl shadow border border-blue-900 flex items-center gap-3">
+                    <FontAwesomeIcon icon={faWarehouse} className="text-2xl text-blue-200" />
+                    <div>
+                        <h3 className="font-bold">Visão Global de Estoques</h3>
+                        <p className="text-xs text-blue-100 mt-1">Os números abaixo representam a soma do patrimônio armazenado em <strong>Todas as Obras</strong> do Studio 57, como se fossem um único almoxarifado gigante.</p>
+                    </div>
+                </div>
+            )}
+
+            <KpiSection data={kpis.proprios} title="Patrimônio Próprio (Comprados)" icon={faWarehouse} isLocacao={false} />
+            
+            {kpis.alugados && kpis.alugados.quantidade_fisica > 0 && (
+                <KpiSection data={kpis.alugados} title="Equipamentos e Itens em Locação" icon={faHandshake} isLocacao={true} />
+            )}
         </div>
     );
 }

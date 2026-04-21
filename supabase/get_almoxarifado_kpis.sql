@@ -36,43 +36,108 @@ BEGIN
     FROM estoque_agrupado e
     JOIN public.materiais m ON m.id = e.material_id
   ),
-  ativos AS (
-    SELECT *, ((qtd_disp + qtd_uso) * preco_recente) as valor_total
-    FROM precos_recentes 
-    WHERE (qtd_disp + qtd_uso) > 0 AND classificacao != 'Serviço'
+  entradas_alugadas AS (
+    SELECT 
+      m.material_id,
+      SUM(m.quantidade) as qtd_historica_alugada
+    FROM public.movimentacoes_estoque m
+    JOIN public.pedidos_compra_itens pci 
+      ON pci.pedido_id = m.pedido_compra_id AND pci.material_id = m.material_id
+    WHERE m.tipo = 'Entrada por Compra' 
+      AND pci.tipo_operacao = 'Aluguel'
+      AND m.organizacao_id = p_organizacao_id
+    GROUP BY m.material_id
   ),
-  totais AS (
+  estoque_dividido AS (
+    SELECT 
+      pr.material_id,
+      pr.classificacao,
+      pr.nome,
+      pr.preco_recente,
+      (pr.qtd_disp + pr.qtd_uso) as qtd_total,
+      LEAST(pr.qtd_disp + pr.qtd_uso, COALESCE(ea.qtd_historica_alugada, 0)) as qtd_alugada,
+      (pr.qtd_disp + pr.qtd_uso) - LEAST(pr.qtd_disp + pr.qtd_uso, COALESCE(ea.qtd_historica_alugada, 0)) as qtd_propria
+    FROM precos_recentes pr
+    LEFT JOIN entradas_alugadas ea ON ea.material_id = pr.material_id
+  ),
+  ativos_proprios AS (
+    SELECT *, (qtd_propria * preco_recente) as valor_total
+    FROM estoque_dividido
+    WHERE qtd_propria > 0 AND classificacao != 'Serviço'
+  ),
+  ativos_alugados AS (
+    SELECT *, (qtd_alugada * preco_recente) as valor_total
+    FROM estoque_dividido
+    WHERE qtd_alugada > 0 AND classificacao != 'Serviço'
+  ),
+  totais_proprios AS (
     SELECT 
       COALESCE(SUM(valor_total), 0) as valor_estoque,
       COUNT(*) as total_skus,
-      COALESCE(SUM(qtd_disp + qtd_uso), 0) as total_fisico,
-      COALESCE(SUM(CASE WHEN classificacao = 'Equipamento' THEN qtd_uso ELSE 0 END), 0) as total_equipamentos_uso
-    FROM ativos
+      COALESCE(SUM(qtd_propria), 0) as total_fisico,
+      COALESCE(SUM(CASE WHEN classificacao = 'Equipamento' THEN qtd_propria ELSE 0 END), 0) as total_equipamentos
+    FROM ativos_proprios
   ),
-  top_valiosos AS (
+  totais_alugados AS (
+    SELECT 
+      COALESCE(SUM(valor_total), 0) as valor_estoque,
+      COUNT(*) as total_skus,
+      COALESCE(SUM(qtd_alugada), 0) as total_fisico,
+      COALESCE(SUM(CASE WHEN classificacao = 'Equipamento' THEN qtd_alugada ELSE 0 END), 0) as total_equipamentos
+    FROM ativos_alugados
+  ),
+  top_valiosos_proprios AS (
     SELECT json_agg(row_to_json(t)) as top_v
     FROM (
-      SELECT nome, (qtd_disp + qtd_uso) as quantidade, preco_recente as valor_total
-      FROM ativos
-      ORDER BY preco_recente DESC
+      SELECT nome, qtd_propria as quantidade, valor_total
+      FROM ativos_proprios
+      ORDER BY valor_total DESC
       LIMIT 10
     ) t
   ),
-  distribuicao AS (
+  top_valiosos_alugados AS (
+    SELECT json_agg(row_to_json(t)) as top_v
+    FROM (
+      SELECT nome, qtd_alugada as quantidade, valor_total
+      FROM ativos_alugados
+      ORDER BY valor_total DESC
+      LIMIT 10
+    ) t
+  ),
+  distribuicao_proprios AS (
     SELECT json_agg(row_to_json(d)) as dist
     FROM (
       SELECT classificacao as name, SUM(valor_total) as value
-      FROM ativos
+      FROM ativos_proprios
+      GROUP BY classificacao
+    ) d
+  ),
+  distribuicao_alugados AS (
+    SELECT json_agg(row_to_json(d)) as dist
+    FROM (
+      SELECT classificacao as name, SUM(valor_total) as value
+      FROM ativos_alugados
       GROUP BY classificacao
     ) d
   )
+  
   SELECT json_build_object(
-    'valor_total', ROUND((SELECT valor_estoque FROM totais), 2),
-    'quantidade_skus', (SELECT total_skus FROM totais),
-    'quantidade_fisica', ROUND((SELECT total_fisico FROM totais), 2),
-    'equipamentos_em_uso', ROUND((SELECT total_equipamentos_uso FROM totais), 2),
-    'top_valiosos', COALESCE((SELECT top_v FROM top_valiosos), '[]'::json),
-    'distribuicao_valor', COALESCE((SELECT dist FROM distribuicao), '[]'::json)
+    'proprios', json_build_object(
+      'valor_total', ROUND((SELECT valor_estoque FROM totais_proprios), 2),
+      'quantidade_skus', (SELECT total_skus FROM totais_proprios),
+      'quantidade_fisica', ROUND((SELECT total_fisico FROM totais_proprios), 2),
+      'equipamentos_em_uso', ROUND((SELECT total_equipamentos FROM totais_proprios), 2),
+      'top_valiosos', COALESCE((SELECT top_v FROM top_valiosos_proprios), '[]'::json),
+      'distribuicao_valor', COALESCE((SELECT dist FROM distribuicao_proprios), '[]'::json)
+    ),
+    'alugados', json_build_object(
+      'valor_total', ROUND((SELECT valor_estoque FROM totais_alugados), 2),
+      'quantidade_skus', (SELECT total_skus FROM totais_alugados),
+      'quantidade_fisica', ROUND((SELECT total_fisico FROM totais_alugados), 2),
+      'equipamentos_em_uso', ROUND((SELECT total_equipamentos FROM totais_alugados), 2),
+      'top_valiosos', COALESCE((SELECT top_v FROM top_valiosos_alugados), '[]'::json),
+      'distribuicao_valor', COALESCE((SELECT dist FROM distribuicao_alugados), '[]'::json)
+    )
   ) INTO v_result;
 
   RETURN v_result;
