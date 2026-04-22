@@ -10,7 +10,7 @@ Sempre que o usuário solicitar que você "leia os PDFs", "verifique os document
 Abandonamos a leitura primária via bibliotecas de OCR falhas (como `pdf-parse`) e saltamos diretamente para a **Auditoria Visual Nativa do Gemini 2.5 Flash**.
 
 ## 1. Regras de Ouro
-1. **NUNCA use `gemini-1.5-flash`** (Causa erros 404 e Forbidden). Sempre chame `gemini-2.5-flash` ou `gemini-2.0-flash`.
+1. **NUNCA use `gemini-1.5-flash`** (Causa erros 404 e Forbidden). Sempre chame `gemini-3.1`.
 2. **USE a File API (`GoogleAIFileManager`)**: PDFs e imagens não devem ser convertidos para Base64 no prompt se forem grandes. O upload direto pela File API é a ponte segura.
 3. **Mantenha Conformidade JSON**: Utilize `generationConfig` com `SchemaType` para blindar o retorno.
 
@@ -42,7 +42,7 @@ const generationConfig = {
     }
 };
 
-const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash", generationConfig });
+const model = genAI.getGenerativeModel({ model: "gemini-3.1", generationConfig });
 
 async function auditarPdf(caminhoArquivo) {
     try {
