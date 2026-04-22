@@ -929,7 +929,8 @@ CREATE TABLE public.feedback (
     link_opcional text,
     imagem_url text,
     diagnostico text,
-    plano_solucao text
+    plano_solucao text,
+    comentarios text
 );
 
 CREATE TABLE public.feriados (
