@@ -4,7 +4,7 @@
 import { useState } from 'react';
 import FormularioDeContatoBeta from './FormularioDeContatoBeta';
 import Image from 'next/image';
-import { Montserrat } from 'next/font/google';
+import { Montserrat, Roboto } from 'next/font/google';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 import {
@@ -26,6 +26,11 @@ import 'swiper/css/navigation';
 const montserrat = Montserrat({
  subsets: ['latin'],
  weight: ['200', '300', '400', '500', '700', '900'],
+});
+
+const roboto = Roboto({
+ subsets: ['latin'],
+ weight: ['100', '300', '400', '500', '700', '900'],
 });
 
 // --- CONFIGURAÇÕES DO BETA ---
@@ -136,36 +141,55 @@ export default function BetaSuitesClient() {
  }
  }
  `}</style>
- {/* --- HERO SECTION --- */}
- <section className="relative min-h-screen flex items-center justify-center bg-black text-white overflow-hidden">
- <div
- className="absolute inset-0 bg-no-repeat z-0"
- style={{
- backgroundImage: "url('https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/IMG_1765545243766.png')",
- backgroundSize: 'cover',
- backgroundPosition: 'left bottom'
- }}
- ></div>
- <div className="absolute inset-0 bg-black/70 z-10"></div>
- <div className="relative z-30 flex flex-col items-center p-4 w-full pt-16 sm:pt-0 text-center">
- <div className="mb-4 drop-shadow-2xl">
- <Image src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/LOGO-P_1764944035362.png"
- alt="Beta Suítes Logo"
- width={350}
- height={150}
- className="object-contain"
- priority
- />
- </div>
+  {/* --- HERO SECTION COM VÍDEO DINÂMICO --- */}
+  <section className="relative min-h-screen flex items-center justify-center bg-black text-white overflow-hidden">
+  <video 
+    autoPlay 
+    loop 
+    muted 
+    playsInline 
+    className="absolute inset-0 w-full h-full object-cover z-0 pointer-events-none"
+    poster="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/IMG_1765562188725.png"
+  >
+    <source src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/anexos/1774009421303_VIDEO_BETA_VERTICAL.mp4" media="(max-width: 767px)" type="video/mp4" />
+    <source src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/anexos/1774009421304_VIDEO_ORBITA_BETA.mp4" media="(min-width: 768px)" type="video/mp4" />
+  </video>
+  <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-black/40 to-black/90 z-10"></div>
+ <div className="relative z-30 flex flex-col items-center justify-center p-4 w-full h-full min-h-screen">
+  
+  {/* CONTAINER DO BLOCO ALINHADO (Max Width Controlado) */}
+  <div className="flex flex-col items-stretch w-full max-w-[340px] sm:max-w-[480px] md:max-w-[600px] lg:max-w-[680px] mx-auto -mt-20">
+    
+    {/* 1. LOGO ALONGADA (Ocupa 100% do Container) */}
+    <div className="mb-6 w-full">
+      <Image 
+        src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/LOGO-P_1764944035362.png"
+        alt="Beta Suítes Logo"
+        width={700}
+        height={200}
+        className="w-full h-auto object-contain drop-shadow-2xl"
+        priority
+      />
+    </div>
 
- <div className="mt-4 text-center max-w-2xl">
- <p className="text-lg md:text-xl font-light text-gray-100 drop-shadow-md uppercase tracking-wider">
- Suítes de 23 a 32m² no Alto Esplanada.
- </p>
- <p className="text-2xl md:text-3xl font-bold text-blue-600 mt-2 drop-shadow-md">
- A partir de R$ 190.000
- </p>
- </div>
+    {/* 2. TEXTO SUPERIOR COM ESPAÇAMENTO DISTRIBUÍDO PELO TRACKING */}
+    <p className="text-center w-full text-[10px] sm:text-xs md:text-sm font-bold text-gray-300 drop-shadow-lg uppercase tracking-[0.4em] sm:tracking-[0.5em] md:tracking-[0.6em] mb-4">
+      Alto Esplanada • Governador Valadares
+    </p>
+
+    {/* 3. TÍTULO PRINCIPAL COM ROBOTO E TRACKING MAXIMO (Esticando as letras) */}
+    <h1 className={`${roboto.className} text-center w-full text-[1.4rem] sm:text-3xl md:text-4xl lg:text-[3.2rem] whitespace-nowrap font-light text-white drop-shadow-2xl tracking-[0.05em] sm:tracking-[0.1em] md:tracking-[0.15em] lg:tracking-[0.22em] leading-tight mb-8 px-1`}>
+      Suítes de <span className="font-semibold">28 a 32m²</span>
+    </h1>
+
+    {/* 4. PILL ALONGADA (Botão ocupando a mesma largura) */}
+    <div className="w-full bg-white/10 backdrop-blur-md border border-white/20 py-4 rounded-xl flex justify-center items-center shadow-2xl transition-all hover:bg-white/15">
+      <p className="text-sm sm:text-lg md:text-xl font-light text-gray-100">
+        Investimento a partir de <strong className="font-bold text-white tracking-wider ml-2">R$ 189.979</strong>
+      </p>
+    </div>
+
+  </div>
  </div>
  </section>
  {/* --- SEGUNDA DOBRA: PRÉ-LANÇAMENTO (Efeito Vidro) --- */}
