@@ -214,7 +214,7 @@ export default function BetaSuitesClient() {
  <p className="text-gray-300 text-base md:text-lg mb-8 leading-relaxed">
  O Beta Suítes é o ativo imobiliário mais inteligente do Alto Esplanada. Projetado milimetricamente para o público estudantil de alta renda e profissionais de saúde.<br /><br />
  <span className="font-bold text-white">Rentabilidade Projetada: </span> 
- Baseado no estudo de viabilidade, uma unidade pode render no mínimo <strong className="text-white text-xl">R$ 4.200,00</strong> por mês, considerando um cenário conservador de apenas <strong className="text-white">70% de ocupação</strong>.
+ Baseado no estudo de viabilidade, uma unidade pode render no mínimo <strong className="text-white text-xl">R$ 4.200,00</strong> por mês, considerando um cenário conservador de apenas <strong className="text-white">70% de ocupação</strong> e uma diária média de <strong className="text-white">R$ 200,00</strong>.
  </p>
 
  {/* Cards Integrados */}
