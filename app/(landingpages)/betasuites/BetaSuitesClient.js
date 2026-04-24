@@ -205,7 +205,8 @@ export default function BetaSuitesClient() {
  </div>
  </section>
  {/* --- TESE DE INVESTIMENTO E CARACTERÍSTICAS (Split-Screen) --- */}
- <section className="flex flex-col lg:flex-row-reverse min-h-[100vh] bg-black relative">
+ <section className="flex flex-col lg:flex-row-reverse min-h-[100vh] bg-black relative border-t border-white/10">
+ <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-[#f25a2f]/50 to-transparent z-10"></div>
  <div className="w-full lg:w-1/2 p-8 md:p-12 lg:p-16 flex flex-col justify-center relative z-10">
 
  <h2 className={`${roboto.className} text-3xl sm:text-4xl md:text-5xl font-light text-gray-400 mb-6 tracking-[0.1em] md:tracking-[0.15em]`}>
@@ -270,6 +271,7 @@ export default function BetaSuitesClient() {
 
  {/* --- LOCALIZAÇÃO (Split-Screen) --- */}
  <section className="flex flex-col lg:flex-row min-h-[80vh] bg-black relative border-t border-white/10">
+ <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-[#f25a2f]/50 to-transparent z-10"></div>
  <div className="w-full lg:w-1/2 p-8 md:p-16 flex flex-col justify-center relative z-10">
  <h2 className={`${roboto.className} text-3xl sm:text-4xl md:text-5xl font-light text-gray-400 mb-12 tracking-[0.1em] md:tracking-[0.15em]`}>
  Localização <strong className="font-bold text-white">Estratégica</strong>
@@ -311,7 +313,8 @@ export default function BetaSuitesClient() {
  </section>
 
  {/* --- MAPA --- */}
- <section className="bg-black pt-16 md:pt-24 pb-16 md:pb-24">
+ <section className="bg-black pt-16 md:pt-24 pb-16 md:pb-24 relative border-t border-white/10">
+ <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-[#f25a2f]/50 to-transparent z-10"></div>
  <div className="w-full px-4 text-center">
  <h2 className={`${roboto.className} text-3xl md:text-4xl font-light text-gray-400 mb-4 tracking-tight`}>
  Explore o <strong className="font-bold text-white">Mapa</strong>
@@ -339,10 +342,7 @@ export default function BetaSuitesClient() {
  
  <div className="w-full max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-12 relative z-10">
  <div className="text-center mb-16">
- <div className="inline-block bg-white/5 border border-white/10 text-gray-300 px-5 py-2 rounded-full text-[10px] sm:text-xs font-bold uppercase tracking-[0.3em] mb-6 shadow-lg backdrop-blur-md">
- Arquitetura & Design
- </div>
- <h2 className={`${roboto.className} text-3xl md:text-5xl font-light text-gray-400 mb-6 tracking-tight`}>
+ <h2 className={`${roboto.className} text-3xl md:text-5xl font-light text-gray-400 mb-6 tracking-[0.1em] md:tracking-[0.15em]`}>
  Plantas <strong className="font-bold text-white">Humanizadas</strong>
  </h2>
  <p className="max-w-2xl mx-auto text-gray-400 text-lg font-light leading-relaxed">
@@ -481,6 +481,7 @@ export default function BetaSuitesClient() {
  </section>
  {/* --- CTA FINAL --- */}
  <section className="bg-black py-16 md:py-20 relative overflow-hidden border-t border-white/10">
+ <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-[#f25a2f]/50 to-transparent z-10"></div>
  <div className="absolute inset-0 bg-[#f25a2f]/5 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] text-white/10 via-black to-black pointer-events-none"></div>
  <div className="w-full px-4 text-center relative z-10">
  <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">Garanta condições de Pré-Lançamento</h2>
