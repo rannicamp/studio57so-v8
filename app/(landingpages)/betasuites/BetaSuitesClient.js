@@ -182,7 +182,12 @@ export default function BetaSuitesClient() {
     
     {/* 0. PRÉ-LANÇAMENTO COM UNDERLINE LARANJA NO "PRÉ" */}
     <div className="w-full flex justify-center mb-2 sm:mb-4">
-      <p className="text-gray-200 text-xs sm:text-base md:text-lg lg:text-xl tracking-[0.6em] sm:tracking-[0.8em] md:tracking-[1em] lg:tracking-[1.2em] pl-2 sm:pl-3 md:pl-4 lg:pl-5 uppercase font-light flex items-center drop-shadow-md">
+      {/* 
+        AJUSTE MANUAL DE TAMANHO (RANNIERE): 
+        Altere as classes "text-..." abaixo para ajustar o tamanho da fonte.
+        Opções comuns: text-xs, text-sm, text-base, text-lg, text-xl, text-2xl 
+      */}
+      <p className="text-gray-200 text-xs sm:text-sm md:text-base lg:text-lg tracking-[0.6em] sm:tracking-[0.8em] md:tracking-[1em] lg:tracking-[1.2em] uppercase font-light flex items-center justify-center drop-shadow-md">
         <span className="border-b-[2px] border-[#f25a2f] pb-[2px] mr-2 sm:mr-4">PRÉ</span>
         <span>- LANÇAMENTO</span>
       </p>
