@@ -275,6 +275,43 @@ export default function BetaSuitesClient() {
  />
  <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent lg:bg-gradient-to-l lg:from-black lg:via-black/20 lg:to-transparent"></div>
  </div>
+ </div>
+ </section>
+
+ {/* --- ARQUITETURA FINANCEIRA --- */}
+ <section className="bg-black py-16 md:py-24 relative border-t border-white/10">
+ <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-[#f25a2f]/50 to-transparent z-10"></div>
+ <div className="w-full max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-12 relative z-10">
+ <div className="flex flex-col md:flex-row items-center justify-between bg-white/5 border border-white/10 rounded-3xl p-8 md:p-16 backdrop-blur-md relative overflow-hidden">
+ {/* Glow Background */}
+ <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-[#f25a2f]/10 via-transparent to-transparent pointer-events-none"></div>
+ 
+ <div className="w-full md:w-1/2 mb-10 md:mb-0 relative z-10">
+ <h2 className={`${roboto.className} text-3xl md:text-5xl font-light text-gray-400 mb-6 tracking-[0.1em] md:tracking-[0.15em] uppercase`}>
+ Arquitetura <strong className="font-bold text-white">Financeira</strong>
+ </h2>
+ <p className="text-gray-300 text-lg md:text-xl leading-relaxed">
+ Você não precisa se descapitalizar para ter um imóvel no Alto Esplanada. Com um investimento inicial inteligente, o seu dinheiro volta muito mais rápido pro seu bolso.
+ </p>
+ </div>
+
+ <div className="w-full md:w-1/2 flex flex-col sm:flex-row gap-6 relative z-10 md:justify-end">
+ {/* Card 1 */}
+ <div className="bg-black/50 border border-[#f25a2f]/30 rounded-2xl p-8 text-center flex-1 shadow-[0_0_30px_rgba(242,90,47,0.15)] transform transition-transform duration-500 hover:-translate-y-2">
+ <p className="text-[#f25a2f] text-sm font-bold tracking-[0.2em] uppercase mb-2">Apenas</p>
+ <p className="text-white text-5xl md:text-6xl font-light tracking-tight mb-2">20%</p>
+ <p className="text-gray-400 text-sm uppercase tracking-widest">de Entrada</p>
+ </div>
+ 
+ {/* Card 2 */}
+ <div className="bg-black/50 border border-[#f25a2f]/30 rounded-2xl p-8 text-center flex-1 shadow-[0_0_30px_rgba(242,90,47,0.15)] transform transition-transform duration-500 hover:-translate-y-2">
+ <p className="text-[#f25a2f] text-sm font-bold tracking-[0.2em] uppercase mb-2">Parcelas a partir de</p>
+ <p className="text-white text-4xl md:text-5xl font-light tracking-tight mb-2">R$ 1.800</p>
+ <p className="text-gray-400 text-sm uppercase tracking-widest">Mensais</p>
+ </div>
+ </div>
+ </div>
+ </div>
  </section>
 
  {/* --- LOCALIZAÇÃO (Split-Screen) --- */}
