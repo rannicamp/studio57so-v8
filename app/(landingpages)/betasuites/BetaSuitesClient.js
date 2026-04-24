@@ -410,7 +410,9 @@ export default function BetaSuitesClient() {
  768: { slidesPerView: 2, spaceBetween: 30 },
  1024: { slidesPerView: 3, spaceBetween: 40 },
  }}
- loop={true}
+ slidesPerGroup={1}
+ centeredSlides={false}
+ loop={false}
  pagination={{ clickable: true, dynamicBullets: true }}
  navigation={true}
  modules={[Pagination, Navigation]}
