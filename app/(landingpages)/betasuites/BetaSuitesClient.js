@@ -303,7 +303,7 @@ export default function BetaSuitesClient() {
  {/* Dado 2 */}
  <div className="flex-1 text-center sm:text-left sm:border-l sm:border-white/20 sm:pl-8">
  <p className="text-[#f25a2f] text-sm md:text-base font-bold tracking-[0.2em] uppercase mb-2">A partir de</p>
- <p className="text-white text-5xl md:text-6xl font-light tracking-tighter mb-2 whitespace-nowrap">R$ 1.800</p>
+ <p className="text-white text-7xl md:text-8xl font-light tracking-tighter mb-2 whitespace-nowrap">R$ 1.800</p>
  <p className="text-gray-400 text-xs md:text-sm uppercase tracking-[0.15em]">Parcelas Mensais</p>
  </div>
  </div>
