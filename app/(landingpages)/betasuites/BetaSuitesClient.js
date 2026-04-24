@@ -23,6 +23,8 @@ import 'swiper/css/effect-coverflow';
 import 'swiper/css/pagination';
 import 'swiper/css/navigation';
 
+import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
+
 const montserrat = Montserrat({
  subsets: ['latin'],
  weight: ['200', '300', '400', '500', '700', '900'],
@@ -520,27 +522,37 @@ export default function BetaSuitesClient() {
  {/* --- MODAL DE IMAGEM --- */}
  {selectedImage && (
  <div
- className="fixed inset-0 bg-black/95 flex items-center justify-center z-50 p-4 backdrop-blur-sm"
+ className="fixed inset-0 bg-black/95 flex items-center justify-center z-[60] p-4 backdrop-blur-sm"
  onClick={closeModal}
  >
  <div
- className="relative max-w-5xl max-h-[90vh]"
+ className="relative w-full max-w-5xl max-h-[90vh] flex justify-center items-center cursor-grab active:cursor-grabbing"
  onClick={(e) => e.stopPropagation()}
  >
  <button
- className="absolute -top-12 right-0 text-gray-300 hover:text-[#f25a2f] transition-colors z-10"
+ className="absolute -top-12 right-0 md:-right-12 text-gray-300 hover:text-[#f25a2f] transition-colors z-[70]"
  onClick={closeModal}
  aria-label="Fechar imagem"
  >
  <FontAwesomeIcon icon={faXmark} size="2x" />
  </button>
+ 
+ <TransformWrapper
+ initialScale={1}
+ minScale={1}
+ maxScale={5}
+ centerOnInit={true}
+ >
+ <TransformComponent wrapperClass="!w-full !h-full flex items-center justify-center">
  <Image
  src={selectedImage}
  alt="Imagem Ampliada"
  width={1200}
  height={800}
- className="rounded-lg shadow-2xl object-contain max-h-[90vh] w-auto border border-white/10"
+ className="rounded-lg shadow-2xl object-contain max-h-[85vh] w-auto border border-white/10 pointer-events-none"
  />
+ </TransformComponent>
+ </TransformWrapper>
  </div>
  </div>
  )}
