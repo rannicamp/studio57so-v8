@@ -107,7 +107,7 @@ export default function BetaSuitesClient() {
 
  return (
  // FUNDO GERAL PRETO
- <div className={`${montserrat.className} bg-black text-gray-200 font-sans`}>
+ <div className={`${montserrat.className} bg-black text-gray-200`}>
 
  <style jsx global>{`
  /* Ajustes do Swiper para o modo Glass/Dark */
