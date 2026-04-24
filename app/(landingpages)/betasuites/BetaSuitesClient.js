@@ -437,10 +437,11 @@ export default function BetaSuitesClient() {
  </div>
  </section>
  {/* --- GALERIA COMPLETA --- */}
- <section className="bg-black py-16 md:py-24 text-white">
+ <section className="bg-black py-16 md:py-24 relative border-t border-white/10">
+ <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-[#f25a2f]/50 to-transparent z-10"></div>
  <div className="w-full px-4">
- <h2 className="text-3xl md:text-4xl font-bold text-center mb-12">
- Galeria de Imagens
+ <h2 className={`${roboto.className} text-3xl md:text-5xl font-light text-center text-gray-400 mb-12 tracking-[0.1em] md:tracking-[0.15em]`}>
+ Tour <strong className="font-bold text-white">Visual</strong>
  </h2>
  <div className="w-full">
  <Swiper
