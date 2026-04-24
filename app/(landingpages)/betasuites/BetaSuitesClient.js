@@ -180,6 +180,14 @@ export default function BetaSuitesClient() {
   {/* CONTAINER DO BLOCO ALINHADO (Max Width Controlado) */}
   <div className="flex flex-col items-stretch w-full max-w-[340px] sm:max-w-[480px] md:max-w-[600px] lg:max-w-[680px] mx-auto -mt-20">
     
+    {/* 0. PRÉ-LANÇAMENTO COM UNDERLINE LARANJA NO "PRÉ" */}
+    <div className="w-full flex justify-center mb-1">
+      <p className="text-gray-200 text-[10px] sm:text-xs md:text-sm tracking-[0.4em] sm:tracking-[0.5em] md:tracking-[0.6em] uppercase font-light flex items-center drop-shadow-md">
+        <span className="border-b-[1.5px] border-[#f25a2f] pb-[2px] mr-2">PRÉ</span>
+        <span>- LANÇAMENTO</span>
+      </p>
+    </div>
+
     {/* 1. LOGO ALONGADA (Ocupa 100% do Container) */}
     <div className="mb-6 w-full">
       <Image 
