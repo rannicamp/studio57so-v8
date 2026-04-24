@@ -181,9 +181,9 @@ export default function BetaSuitesClient() {
   <div className="flex flex-col items-stretch w-full max-w-[340px] sm:max-w-[480px] md:max-w-[600px] lg:max-w-[680px] mx-auto -mt-20">
     
     {/* 0. PRÉ-LANÇAMENTO COM UNDERLINE LARANJA NO "PRÉ" */}
-    <div className="w-full flex justify-center mb-1">
-      <p className="text-gray-200 text-[10px] sm:text-xs md:text-sm tracking-[0.4em] sm:tracking-[0.5em] md:tracking-[0.6em] uppercase font-light flex items-center drop-shadow-md">
-        <span className="border-b-[1.5px] border-[#f25a2f] pb-[2px] mr-2">PRÉ</span>
+    <div className="w-full flex justify-center mb-2 sm:mb-4">
+      <p className="text-gray-200 text-xs sm:text-base md:text-lg lg:text-xl tracking-[0.6em] sm:tracking-[0.8em] md:tracking-[1em] lg:tracking-[1.2em] pl-2 sm:pl-3 md:pl-4 lg:pl-5 uppercase font-light flex items-center drop-shadow-md">
+        <span className="border-b-[2px] border-[#f25a2f] pb-[2px] mr-2 sm:mr-4">PRÉ</span>
         <span>- LANÇAMENTO</span>
       </p>
     </div>
