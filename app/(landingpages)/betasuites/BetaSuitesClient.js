@@ -36,16 +36,22 @@ const roboto = Roboto({
 // --- CONFIGURAÇÕES DO BETA ---
 const primaryColor = '#f25a2f'; // --- DADOS DA GALERIA ---
 const galleryImages = [
- { id: 1, src: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/IMG_1765545243766.png', alt: 'Fachada Beta Suítes' },
- { id: 2, src: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/IMG_1765549015211.png', alt: 'Hall de Entrada' },
- { id: 3, src: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/IMG_1765549054789.png', alt: 'Hall Social' },
- { id: 4, src: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/IMG_1765549105693.png', alt: 'Lavanderia Compartilhada' },
- { id: 5, src: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/IMG_1765549145583.png', alt: 'Cozinha Compacta' },
- { id: 6, src: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/IMG_1765549893836.png', alt: 'Suíte Decorada' },
- { id: 7, src: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/IMG_1765549928135.png', alt: 'Vista da Suíte' },
- { id: 8, src: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/IMG_1765550073799.png', alt: 'Academia Equipada' },
- { id: 9, src: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/IMG_1765550115538.png', alt: 'Terraço Gourmet' },
- { id: 10, src: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/IMG_1765550163018.png', alt: 'Área de Lazer no Terraço' },
+  { id: 1, src: "https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/anexos/galeria_rev2/academia.jpeg", alt: "ACADEMIA" },
+  { id: 2, src: "https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/anexos/galeria_rev2/fachada..jpeg", alt: "FACHADA 1" },
+  { id: 3, src: "https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/anexos/galeria_rev2/fachada.jpeg", alt: "FACHADA 2" },
+  { id: 4, src: "https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/anexos/galeria_rev2/hall_entrada_1.jpeg", alt: "HALL ENTRADA 1" },
+  { id: 5, src: "https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/anexos/galeria_rev2/hall_entrada_2.jpeg", alt: "HALL ENTRADA 2" },
+  { id: 6, src: "https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/anexos/galeria_rev2/lavanderia_1.png", alt: "LAVANDERIA 1" },
+  { id: 7, src: "https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/anexos/galeria_rev2/lavanderia.png", alt: "LAVANDERIA 2" },
+  { id: 8, src: "https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/anexos/galeria_rev2/su_te_4..jpeg", alt: "SUÍTE 4 A" },
+  { id: 9, src: "https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/anexos/galeria_rev2/su_te_4.jpeg", alt: "SUÍTE 4 B" },
+  { id: 10, src: "https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/anexos/galeria_rev2/su_te_5..jpeg", alt: "SUÍTE 5 A" },
+  { id: 11, src: "https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/anexos/galeria_rev2/su_te_5.jpeg", alt: "SUÍTE 5 B" },
+  { id: 12, src: "https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/anexos/galeria_rev2/su_te_7..jpeg", alt: "SUÍTE 7 A" },
+  { id: 13, src: "https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/anexos/galeria_rev2/su_te_7.jpeg", alt: "SUÍTE 7 B" },
+  { id: 14, src: "https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/anexos/galeria_rev2/_rea_de_lazer_1.png", alt: "ÁREA DE LAZER 1" },
+  { id: 15, src: "https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/anexos/galeria_rev2/_rea_de_lazer_2.jpeg", alt: "ÁREA DE LAZER 2" },
+  { id: 16, src: "https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/anexos/galeria_rev2/_rea_de_lazer_3.png", alt: "ÁREA DE LAZER 3" }
 ];
 
 // --- DADOS DAS PLANTAS ---
