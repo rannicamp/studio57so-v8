@@ -297,7 +297,7 @@ export default function BetaSuitesClient() {
  </div>
  <div className="w-full lg:w-1/2 h-[50vh] lg:h-auto relative">
  <Image
- src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/IMG_1765557975005.png"
+ src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/anexos/beta_sunset_bairro.jpeg"
  alt="Beta Suítes - Inserção no Local"
  fill
  className="object-cover object-center"
