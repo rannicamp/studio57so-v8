@@ -34,7 +34,7 @@ const roboto = Roboto({
 });
 
 // --- CONFIGURAÇÕES DO BETA ---
-const primaryColor = '#2563EB'; // --- DADOS DA GALERIA ---
+const primaryColor = '#F97316'; // --- DADOS DA GALERIA ---
 const galleryImages = [
  { id: 1, src: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/IMG_1765545243766.png', alt: 'Fachada Beta Suítes' },
  { id: 2, src: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/IMG_1765549015211.png', alt: 'Hall de Entrada' },
@@ -49,11 +49,21 @@ const galleryImages = [
 ];
 
 // --- DADOS DAS PLANTAS ---
-const floorPlanImages = [
- { id: 1, src: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/IMG_1765556400555.png', alt: 'Planta Humanizada Opção 1' },
- { id: 2, src: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/IMG_1765556372569.png', alt: 'Planta Humanizada Opção 2' },
- { id: 3, src: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/IMG_1765556336345.png', alt: 'Planta Humanizada Opção 3' },
- { id: 4, src: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/IMG_1765556430412.png', alt: 'Planta Humanizada Opção 4' },
+const pavimentosImages = [
+ { id: 1, name: 'Planta Térreo', src: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/anexos/plantas/planta_humanizada_studios_beta_-_terreo.webp', alt: 'Planta Humanizada Térreo' },
+ { id: 2, name: 'Pavimento 1 (Garagem)', src: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/anexos/plantas/planta_humanizada_studios_beta_-_pav_1.webp', alt: 'Planta Humanizada Pavimento 1' },
+ { id: 3, name: 'Pavimentos Tipo (Aptos)', src: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/anexos/plantas/planta_humanizada_studios_beta_-_pav_apartamentos.webp', alt: 'Planta Humanizada Pavimentos Tipo' },
+ { id: 4, name: 'Pavimento Cobertura (Lazer)', src: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/anexos/plantas/planta_humanizada_studios_beta_-_cobertura.webp', alt: 'Planta Humanizada Cobertura' },
+];
+
+const suitesImages = [
+ { id: 1, name: 'Suíte 01', src: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/anexos/plantas/planta_humanizada_studios_beta_-_suite_01.webp', alt: 'Planta Humanizada Suíte 01' },
+ { id: 2, name: 'Suíte 02', src: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/anexos/plantas/planta_humanizada_studios_beta_-_suite_02.webp', alt: 'Planta Humanizada Suíte 02' },
+ { id: 3, name: 'Suíte 03', src: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/anexos/plantas/planta_humanizada_studios_beta_-_suite_03.webp', alt: 'Planta Humanizada Suíte 03' },
+ { id: 4, name: 'Suíte 04', src: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/anexos/plantas/planta_humanizada_studios_beta_-_suite_04.webp', alt: 'Planta Humanizada Suíte 04' },
+ { id: 5, name: 'Suíte 05', src: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/anexos/plantas/planta_humanizada_studios_beta_-_suite_05.webp', alt: 'Planta Humanizada Suíte 05' },
+ { id: 6, name: 'Suíte 06', src: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/anexos/plantas/planta_humanizada_studios_beta_-_suite_06.webp', alt: 'Planta Humanizada Suíte 06' },
+ { id: 7, name: 'Suíte 07', src: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/anexos/plantas/planta_humanizada_studios_beta_-_suite_07.webp', alt: 'Planta Humanizada Suíte 07' },
 ];
 
 // --- DADOS DE LOCALIZAÇÃO ---
@@ -75,6 +85,8 @@ const locationPoints = [
 const IconeLocalizacao = () => <svg fill="currentColor" viewBox="0 0 20 20" className="w-8 h-8"><path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd"></path></svg>;
 const IconeRentabilidade = () => <svg fill="currentColor" viewBox="0 0 20 20" className="w-8 h-8"><path d="M10.293 3.293a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L11 5.414V16a1 1 0 11-2 0V5.414L5.707 8.707a1 1 0 01-1.414-1.414l4-4z"></path></svg>;
 const IconeSeguranca = () => <svg fill="currentColor" viewBox="0 0 20 20" className="w-8 h-8"><path fillRule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path></svg>;
+
+const IconeTicket = () => <svg fill="currentColor" viewBox="0 0 20 20" className="w-8 h-8"><path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd"></path></svg>;
 
 export default function BetaSuitesClient() {
  const [selectedImage, setSelectedImage] = useState(null);
@@ -192,77 +204,80 @@ export default function BetaSuitesClient() {
   </div>
  </div>
  </section>
- {/* --- SEGUNDA DOBRA: PRÉ-LANÇAMENTO (Efeito Vidro) --- */}
- <section className="bg-black py-16 md:py-20 relative">
- <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-white/5 via-black to-black pointer-events-none"></div>
- <div className="w-full px-4 text-center relative z-10">
- <div className="max-w-3xl mx-auto bg-white/5 backdrop-blur-md p-8 rounded-2xl shadow-2xl border border-white/10">
- <div className="inline-block bg-blue-600/10 text-blue-600 px-4 py-1 rounded-full text-sm font-bold uppercase tracking-widest mb-6 border border-blue-600/20">
- Fase de Pré-Lançamento
+ {/* --- TESE DE INVESTIMENTO E CARACTERÍSTICAS (Split-Screen) --- */}
+ <section className="flex flex-col lg:flex-row-reverse min-h-[100vh] bg-black relative">
+ <div className="w-full lg:w-1/2 p-8 md:p-12 lg:p-16 flex flex-col justify-center relative z-10">
+
+ <h2 className={`${roboto.className} text-3xl sm:text-4xl md:text-5xl font-light text-gray-400 mb-6 tracking-tight`}>
+ Investimento <strong className="font-bold text-white">Inteligente</strong>
+ </h2>
+ <p className="text-gray-300 text-base md:text-lg mb-8 leading-relaxed">
+ O Beta Suítes é o ativo imobiliário mais inteligente do Alto Esplanada. Projetado milimetricamente para o público estudantil de alta renda e profissionais de saúde.<br /><br />
+ <span className="font-bold text-white">Rentabilidade Projetada: </span> 
+ Baseado no estudo de viabilidade, uma unidade pode render no mínimo <strong className="text-orange-500 text-xl">R$ 4.200,00</strong> por mês, considerando um cenário conservador de apenas <strong className="text-white">70% de ocupação</strong>.
+ </p>
+
+ {/* Cards Integrados */}
+ <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+ 
+ {/* Polo Regional */}
+ <div className="p-5 bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 hover:bg-white/10 transition-colors">
+ <div className="mb-3 text-white"><IconeLocalizacao /></div>
+ <h3 className="font-bold text-white text-sm mb-1">Polo Regional</h3>
+ <p className="text-gray-400 text-xs leading-relaxed">GV atrai fluxo constante de estudantes e profissionais de saúde.</p>
  </div>
 
- <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-6">
- Condições Especiais
- </h2>
- <p className="text-gray-300 text-lg mb-8 leading-relaxed">
- O Beta Suítes está em fase exclusiva de pré-lançamento. Aproveite este momento único para garantir sua unidade com <strong>tabela especial de investidor</strong> e máxima rentabilidade futura.
- </p>
- <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center mb-10">
- <div className="p-6 bg-black/40 rounded-xl shadow-sm border border-white/5 hover:border-white/20 transition-colors">
- <FontAwesomeIcon icon={faTag} className="text-3xl text-white mb-3"/>
- <p className="font-bold text-gray-200">Preço de Pré-Lançamento</p>
+ {/* Alta Demanda */}
+ <div className="p-5 bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 hover:bg-white/10 transition-colors">
+ <div className="mb-3 text-white"><IconeRentabilidade /></div>
+ <h3 className="font-bold text-white text-sm mb-1">Alta Demanda</h3>
+ <p className="text-gray-400 text-xs leading-relaxed">A poucos passos da UFJF-GV. Garantia de ocupação e valorização.</p>
  </div>
- <div className="p-6 bg-black/40 rounded-xl shadow-sm border border-white/5 hover:border-white/20 transition-colors">
- <FontAwesomeIcon icon={faGraduationCap} className="text-3xl text-white mb-3"/>
- <p className="font-bold text-gray-200">Alta Demanda Estudantil</p>
+
+ {/* Segurança Patrimonial */}
+ <div className="p-5 bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 hover:bg-white/10 transition-colors">
+ <div className="mb-3 text-white"><IconeSeguranca /></div>
+ <h3 className="font-bold text-white text-sm mb-1">Segurança Total</h3>
+ <p className="text-gray-400 text-xs leading-relaxed">Localização privilegiada e com total segurança patrimonial (Livre de enchentes).</p>
  </div>
- <div className="p-6 bg-black/40 rounded-xl shadow-sm border border-white/5 hover:border-white/20 transition-colors">
- <FontAwesomeIcon icon={faHouseMedical} className="text-3xl text-white mb-3"/>
- <p className="font-bold text-gray-200">Polo de Saúde</p>
+
+ {/* Zero Descapitalização */}
+ <div className="p-5 bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 hover:bg-white/10 transition-colors">
+ <div className="mb-3 text-white"><IconeTicket /></div>
+ <h3 className="font-bold text-white text-sm mb-1">Baixa Descapitalização</h3>
+ <p className="text-gray-400 text-xs leading-relaxed">Entrada de apenas 20% e parcelas diluídas. Sua rentabilidade paga a conta.</p>
  </div>
  </div>
- <div>
+
  <button
  onClick={openLeadModal}
- className="inline-block bg-blue-600 text-white font-bold py-4 px-10 rounded-lg hover:bg-blue-600 transition-colors duration-300 shadow-lg shadow-orange-500/20 uppercase tracking-wide transform hover:scale-105"
+ className="inline-block w-full sm:w-auto text-center bg-orange-600 text-white font-bold py-4 px-10 rounded-lg hover:bg-orange-500 transition-colors duration-300 shadow-lg shadow-orange-500/20 uppercase tracking-wide"
  >
  Quero Aproveitar a Oportunidade
  </button>
  </div>
- </div>
- </div>
- </section>
- {/* --- CARACTERÍSTICAS (Efeito Vidro) --- */}
- <section className="py-16 md:py-24 bg-black">
- <div className="w-full px-4">
- <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
- <div className="p-8 bg-white/5 backdrop-blur-sm rounded-xl text-center hover:bg-white/10 transition-all duration-300 border border-white/10 shadow-lg">
- <div className="mb-4 inline-block text-white"><IconeLocalizacao /></div>
- <h3 className="text-xl font-bold mb-2 text-white">Polo Regional</h3>
- <p className="text-gray-400">GV atrai fluxo constante de estudantes de medicina e profissionais de saúde das cidades vizinhas.</p>
- </div>
- <div className="p-8 bg-white/5 backdrop-blur-sm rounded-xl text-center hover:bg-white/10 transition-all duration-300 border border-white/10 shadow-lg">
- <div className="mb-4 inline-block text-white"><IconeRentabilidade /></div>
- <h3 className="text-xl font-bold mb-2 text-white">Alta Demanda</h3>
- <p className="text-gray-400">A poucos passos da UFJF-GV e hospitais. Garantia de alta taxa de ocupação para seu investimento.</p>
- </div>
- <div className="p-8 bg-white/5 backdrop-blur-sm rounded-xl text-center hover:bg-white/10 transition-all duration-300 border border-white/10 shadow-lg">
- <div className="mb-4 inline-block text-white"><IconeSeguranca /></div>
- <h3 className="text-xl font-bold mb-2 text-white">Segurança Patrimonial</h3>
- <p className="text-gray-400">O Alto Esplanada oferece segurança total contra sazonalidades climáticas (Livre de enchentes).</p>
- </div>
- </div>
+ <div className="w-full lg:w-1/2 h-[50vh] lg:h-auto relative">
+ <Image
+ src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/anexos/beta_sunset_fachada.jpeg"
+ alt="Beta Suítes Pôr do Sol"
+ fill
+ className="object-cover object-right-bottom"
+ sizes="(max-width: 1024px) 100vw, 50vw"
+ />
+ <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent lg:bg-gradient-to-l lg:from-black lg:via-black/20 lg:to-transparent"></div>
  </div>
  </section>
 
- {/* --- LOCALIZAÇÃO (Efeito Vidro) --- */}
- <section className="bg-black pb-16 md:pb-24 pt-16">
- <div className="w-full px-4">
- <div className="mt-0">
- <h3 className="text-2xl md:text-3xl font-bold text-white text-center mb-12">
- Localização Estratégica
- </h3>
- <div className="relative max-w-sm mx-auto">
+ {/* --- LOCALIZAÇÃO (Split-Screen) --- */}
+ <section className="flex flex-col lg:flex-row-reverse min-h-[80vh] bg-black relative border-t border-white/10">
+ <div className="w-full lg:w-1/2 p-8 md:p-16 flex flex-col justify-center relative z-10">
+ <div className="inline-block bg-orange-500/10 text-orange-500 px-4 py-1 rounded-full text-sm font-bold uppercase tracking-widest mb-6 border border-orange-500/20 self-start">
+ Alto Esplanada
+ </div>
+ <h2 className={`${roboto.className} text-3xl sm:text-4xl md:text-5xl font-light text-gray-400 mb-12 tracking-tight`}>
+ Localização <strong className="font-bold text-white">Estratégica</strong>
+ </h2>
+ <div className="relative max-w-sm">
  <div className="absolute left-2.5 top-2 bottom-2 w-0.5 bg-white/20"></div>
  {locationPoints.map((point, index) => (
  <div key={index} className={`relative pl-10 ${index === locationPoints.length - 1 ? '' : 'pb-8'}`}>
@@ -282,25 +297,28 @@ export default function BetaSuitesClient() {
  </div>
  ))}
  </div>
- <div className="mt-16 md:mt-24">
+ </div>
+ <div className="w-full lg:w-1/2 h-[50vh] lg:h-auto relative">
  <Image
- src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/IMG_1765557975005.png" alt="Beta Suítes - Inserção no Local"
- width={1200}
- height={800}
- className="w-full h-auto rounded-xl shadow-2xl border border-white/10"
+ src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/IMG_1765557975005.png"
+ alt="Beta Suítes - Inserção no Local"
+ fill
+ className="object-cover object-center"
+ sizes="(max-width: 1024px) 100vw, 50vw"
  />
- <p className="text-center text-sm text-gray-500 mt-4 italic">
+ <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent lg:bg-gradient-to-l lg:from-black lg:via-black/20 lg:to-transparent"></div>
+ <p className="absolute bottom-4 left-4 right-4 text-center text-xs text-gray-400 italic z-20 drop-shadow-md">
  Perspectiva ilustrativa de inserção no local.
  </p>
- </div>
- </div>
  </div>
  </section>
 
  {/* --- MAPA --- */}
  <section className="bg-black pt-16 md:pt-24 pb-16 md:pb-24">
  <div className="w-full px-4 text-center">
- <h2 className="text-3xl md:text-4xl font-bold mb-4 text-white">Mapa</h2>
+ <h2 className={`${roboto.className} text-3xl md:text-4xl font-light text-gray-400 mb-4 tracking-tight`}>
+ Explore o <strong className="font-bold text-white">Mapa</strong>
+ </h2>
  <p className="max-w-2xl mx-auto mb-8 text-gray-400">
  Explore a região do Alto Esplanada.
  </p>
@@ -317,83 +335,106 @@ export default function BetaSuitesClient() {
  </div>
  </div>
  </section>
- {/* --- LAYOUTS INTELIGENTES --- */}
- <section className="py-16 md:py-24 bg-black">
- <div className="w-full px-4 grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
- <div className="md:order-2">
- <h2 className="text-3xl md:text-4xl font-bold mb-4 text-white">Layouts Inteligentes</h2>
- <p className="mb-8 text-gray-300">
- Suítes de 23m² a 32m² projetadas para otimizar cada centímetro, oferecendo funcionalidade total para o dia a dia e áreas comuns completas.
+ {/* --- PLANTAS HUMANIZADAS --- */}
+ <section className="py-16 md:py-24 bg-black border-t border-white/10 relative overflow-hidden">
+ <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-orange-500/50 to-transparent"></div>
+ <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-orange-900/10 via-black to-black pointer-events-none -z-10"></div>
+ 
+ <div className="w-full max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-12 relative z-10">
+ <div className="text-center mb-16">
+ <div className="inline-block bg-white/5 border border-white/10 text-gray-300 px-5 py-2 rounded-full text-[10px] sm:text-xs font-bold uppercase tracking-[0.3em] mb-6 shadow-lg backdrop-blur-md">
+ Arquitetura & Design
+ </div>
+ <h2 className={`${roboto.className} text-3xl md:text-5xl font-light text-gray-400 mb-6 tracking-tight`}>
+ Plantas <strong className="font-bold text-white">Humanizadas</strong>
+ </h2>
+ <p className="max-w-2xl mx-auto text-gray-400 text-lg font-light leading-relaxed">
+ Explore a distribuição inteligente dos espaços. Desde a área de lazer no rooftop até o design focado em rentabilidade e conforto nas suítes.
  </p>
+ </div>
 
- <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-8 text-center bg-white/5 backdrop-blur-md p-8 rounded-xl shadow-lg border border-white/10">
- <div className="flex flex-col items-center">
- <FontAwesomeIcon icon={faRulerCombined} className="text-3xl text-white mb-2" />
- <span className="text-sm text-gray-300 font-medium">23m² a 32m²</span>
- </div>
- <div className="flex flex-col items-center">
- <FontAwesomeIcon icon={faBed} className="text-3xl text-white mb-2" />
- <span className="text-sm text-gray-300 font-medium">Suíte Integrada</span>
- </div>
- <div className="flex flex-col items-center">
- <FontAwesomeIcon icon={faCar} className="text-3xl text-white mb-2" />
- <span className="text-sm text-gray-300 font-medium">Vaga de Garagem</span>
- </div>
- <div className="flex flex-col items-center">
- <FontAwesomeIcon icon={faElevator} className="text-3xl text-white mb-2" />
- <span className="text-sm text-gray-300 font-medium">Elevador</span>
- </div>
- <div className="flex flex-col items-center">
- <FontAwesomeIcon icon={faJugDetergent} className="text-3xl text-white mb-2" />
- <span className="text-sm text-gray-300 font-medium">Lavanderia</span>
- </div>
- <div className="flex flex-col items-center">
- <FontAwesomeIcon icon={faDumbbell} className="text-3xl text-white mb-2" />
- <span className="text-sm text-gray-300 font-medium">Academia</span>
- </div>
- <div className="flex flex-col items-center">
- <FontAwesomeIcon icon={faWater} className="text-3xl text-white mb-2" />
- <span className="text-sm text-gray-300 font-medium">Piscina</span>
- </div>
- <div className="flex flex-col items-center">
- <FontAwesomeIcon icon={faUtensils} className="text-3xl text-white mb-2" />
- <span className="text-sm text-gray-300 font-medium">Área Gourmet</span>
- </div>
- </div>
- </div>
- <div className="md:order-1 relative">
- {/* SWIPER DE PLANTAS */}
- <div className="relative rounded-lg shadow-xl overflow-hidden bg-white/5 border border-white/10">
+ {/* PAVIMENTOS - Swiper 1 */}
+ <div className="mb-24">
+ <h3 className="text-xl md:text-2xl text-white font-medium mb-8 flex items-center">
+ <span className="w-8 h-[1px] bg-orange-500 mr-4"></span>
+ Plantas dos Pavimentos
+ </h3>
+ <div className="relative rounded-2xl shadow-2xl overflow-hidden bg-white/5 border border-white/10 p-2 md:p-6">
  <Swiper
  slidesPerView={1}
  loop={true}
- pagination={{ clickable: true }}
+ pagination={{ clickable: true, dynamicBullets: true }}
  navigation={true}
  modules={[Pagination, Navigation]}
  className="floorplan-swiper"
  >
- {floorPlanImages.map((plan) => (
+ {pavimentosImages.map((plan) => (
  <SwiperSlide key={plan.id}>
- <div className="relative group cursor-pointer"
+ <div className="relative group cursor-pointer flex flex-col items-center pb-12"
  onClick={() => openModal(plan.src)}
  >
+ <div className="w-full h-[300px] md:h-[600px] relative rounded-xl overflow-hidden mb-4">
  <Image
  src={plan.src}
  alt={plan.alt}
- width={500}
- height={500}
- className="w-full h-auto transition-transform duration-500 group-hover:scale-105"
+ fill
+ className="object-contain transition-transform duration-700 group-hover:scale-105"
+ sizes="(max-width: 1024px) 100vw, 80vw"
  />
- <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all flex items-center justify-center">
- <span className="text-white opacity-0 group-hover:opacity-100 font-bold bg-black/70 px-4 py-2 rounded-full border border-white/20">
- Ampliar Planta
- </span>
+ </div>
+ <div className="text-center">
+ <h4 className="text-white text-lg font-bold tracking-wider uppercase bg-black/60 px-6 py-2 rounded-full border border-white/10 backdrop-blur-md inline-block">
+ {plan.name}
+ </h4>
  </div>
  </div>
  </SwiperSlide>
  ))}
  </Swiper>
- <p className="text-center text-xs text-gray-400 py-2 bg-black/50">Arraste para ver mais opções</p>
+ </div>
+ </div>
+
+ {/* SUÍTES - Swiper 2 */}
+ <div>
+ <h3 className="text-xl md:text-2xl text-white font-medium mb-8 flex items-center">
+ <span className="w-8 h-[1px] bg-orange-500 mr-4"></span>
+ Layout das Unidades (Suítes)
+ </h3>
+ <div className="relative rounded-2xl shadow-2xl overflow-hidden bg-white/5 border border-white/10 p-2 md:p-6">
+ <Swiper
+ breakpoints={{
+ 320: { slidesPerView: 1, spaceBetween: 20 },
+ 768: { slidesPerView: 2, spaceBetween: 30 },
+ 1024: { slidesPerView: 3, spaceBetween: 40 },
+ }}
+ loop={true}
+ pagination={{ clickable: true, dynamicBullets: true }}
+ navigation={true}
+ modules={[Pagination, Navigation]}
+ className="floorplan-swiper pb-16"
+ >
+ {suitesImages.map((plan) => (
+ <SwiperSlide key={plan.id}>
+ <div className="relative group cursor-pointer flex flex-col items-center bg-black/40 rounded-xl p-4 border border-white/5 hover:border-orange-500/30 transition-all duration-300"
+ onClick={() => openModal(plan.src)}
+ >
+ <div className="w-full h-[250px] md:h-[350px] relative rounded-lg overflow-hidden mb-6">
+ <Image
+ src={plan.src}
+ alt={plan.alt}
+ fill
+ className="object-contain transition-transform duration-700 group-hover:scale-110"
+ sizes="(max-width: 768px) 100vw, 33vw"
+ />
+ </div>
+ <h4 className="text-white text-md font-bold tracking-wider uppercase mb-2">
+ {plan.name}
+ </h4>
+ <div className="w-12 h-1 bg-orange-600/50 rounded-full group-hover:w-full group-hover:bg-orange-500 transition-all duration-500"></div>
+ </div>
+ </SwiperSlide>
+ ))}
+ </Swiper>
  </div>
  </div>
  </div>
@@ -443,12 +484,12 @@ export default function BetaSuitesClient() {
  </section>
  {/* --- CTA FINAL --- */}
  <section className="bg-black py-16 md:py-20 relative overflow-hidden border-t border-white/10">
- <div className="absolute inset-0 bg-blue-600/5 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] text-white/10 via-black to-black pointer-events-none"></div>
+ <div className="absolute inset-0 bg-orange-600/5 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] text-white/10 via-black to-black pointer-events-none"></div>
  <div className="w-full px-4 text-center relative z-10">
  <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">Garanta condições de Pré-Lançamento</h2>
  <p className="text-gray-300 max-w-2xl mx-auto mb-10 text-lg">Cadastre-se para receber a tabela de vendas exclusiva e o book completo do Beta Suítes.</p>
  <button onClick={openLeadModal}
- className="inline-block bg-blue-600 text-white font-bold py-4 px-12 rounded-lg hover:bg-blue-600 transition-all duration-300 shadow-lg shadow-orange-500/30 transform hover:scale-105 uppercase tracking-wider text-lg"
+ className="inline-block bg-orange-600 text-white font-bold py-4 px-12 rounded-lg hover:bg-orange-600 transition-all duration-300 shadow-lg shadow-orange-500/30 transform hover:scale-105 uppercase tracking-wider text-lg"
  >
  Solicitar Tabela e Book
  </button>
@@ -480,7 +521,7 @@ export default function BetaSuitesClient() {
  onClick={(e) => e.stopPropagation()}
  >
  <button
- className="absolute -top-12 right-0 text-gray-300 hover:text-blue-600 transition-colors z-10"
+ className="absolute -top-12 right-0 text-gray-300 hover:text-orange-600 transition-colors z-10"
  onClick={closeModal}
  aria-label="Fechar imagem"
  >
