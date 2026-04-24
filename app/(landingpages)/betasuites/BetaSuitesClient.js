@@ -275,7 +275,6 @@ export default function BetaSuitesClient() {
  />
  <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent lg:bg-gradient-to-l lg:from-black lg:via-black/20 lg:to-transparent"></div>
  </div>
- </div>
  </section>
 
  {/* --- ARQUITETURA FINANCEIRA --- */}
