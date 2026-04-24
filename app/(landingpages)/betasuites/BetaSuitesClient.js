@@ -269,12 +269,9 @@ export default function BetaSuitesClient() {
  </section>
 
  {/* --- LOCALIZAÇÃO (Split-Screen) --- */}
- <section className="flex flex-col lg:flex-row-reverse min-h-[80vh] bg-black relative border-t border-white/10">
+ <section className="flex flex-col lg:flex-row min-h-[80vh] bg-black relative border-t border-white/10">
  <div className="w-full lg:w-1/2 p-8 md:p-16 flex flex-col justify-center relative z-10">
- <div className="inline-block bg-[#f25a2f]/10 text-[#f25a2f] px-4 py-1 rounded-full text-sm font-bold uppercase tracking-widest mb-6 border border-[#f25a2f]/20 self-start">
- Alto Esplanada
- </div>
- <h2 className={`${roboto.className} text-3xl sm:text-4xl md:text-5xl font-light text-gray-400 mb-12 tracking-tight`}>
+ <h2 className={`${roboto.className} text-3xl sm:text-4xl md:text-5xl font-light text-gray-400 mb-12 tracking-[0.1em] md:tracking-[0.15em]`}>
  Localização <strong className="font-bold text-white">Estratégica</strong>
  </h2>
  <div className="relative max-w-sm">
@@ -306,7 +303,7 @@ export default function BetaSuitesClient() {
  className="object-cover object-center"
  sizes="(max-width: 1024px) 100vw, 50vw"
  />
- <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent lg:bg-gradient-to-l lg:from-black lg:via-black/20 lg:to-transparent"></div>
+ <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent lg:bg-gradient-to-r lg:from-black lg:via-black/20 lg:to-transparent"></div>
  <p className="absolute bottom-4 left-4 right-4 text-center text-xs text-gray-400 italic z-20 drop-shadow-md">
  Perspectiva ilustrativa de inserção no local.
  </p>
