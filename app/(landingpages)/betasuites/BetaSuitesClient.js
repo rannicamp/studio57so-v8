@@ -34,7 +34,7 @@ const roboto = Roboto({
 });
 
 // --- CONFIGURAÇÕES DO BETA ---
-const primaryColor = '#F97316'; // --- DADOS DA GALERIA ---
+const primaryColor = '#f25a2f'; // --- DADOS DA GALERIA ---
 const galleryImages = [
  { id: 1, src: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/IMG_1765545243766.png', alt: 'Fachada Beta Suítes' },
  { id: 2, src: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/IMG_1765549015211.png', alt: 'Hall de Entrada' },
@@ -214,7 +214,7 @@ export default function BetaSuitesClient() {
  <p className="text-gray-300 text-base md:text-lg mb-8 leading-relaxed">
  O Beta Suítes é o ativo imobiliário mais inteligente do Alto Esplanada. Projetado milimetricamente para o público estudantil de alta renda e profissionais de saúde.<br /><br />
  <span className="font-bold text-white">Rentabilidade Projetada: </span> 
- Baseado no estudo de viabilidade, uma unidade pode render no mínimo <strong className="text-orange-500 text-xl">R$ 4.200,00</strong> por mês, considerando um cenário conservador de apenas <strong className="text-white">70% de ocupação</strong>.
+ Baseado no estudo de viabilidade, uma unidade pode render no mínimo <strong className="text-white text-xl">R$ 4.200,00</strong> por mês, considerando um cenário conservador de apenas <strong className="text-white">70% de ocupação</strong>.
  </p>
 
  {/* Cards Integrados */}
@@ -251,7 +251,7 @@ export default function BetaSuitesClient() {
 
  <button
  onClick={openLeadModal}
- className="inline-block w-full sm:w-auto text-center bg-orange-600 text-white font-bold py-4 px-10 rounded-lg hover:bg-orange-500 transition-colors duration-300 shadow-lg shadow-orange-500/20 uppercase tracking-wide"
+ className="inline-block w-full sm:w-auto text-center bg-white/10 backdrop-blur-md border border-white/20 text-white font-bold py-4 px-10 rounded-xl hover:bg-white/15 transition-all duration-300 shadow-2xl uppercase tracking-wide"
  >
  Quero Aproveitar a Oportunidade
  </button>
@@ -271,7 +271,7 @@ export default function BetaSuitesClient() {
  {/* --- LOCALIZAÇÃO (Split-Screen) --- */}
  <section className="flex flex-col lg:flex-row-reverse min-h-[80vh] bg-black relative border-t border-white/10">
  <div className="w-full lg:w-1/2 p-8 md:p-16 flex flex-col justify-center relative z-10">
- <div className="inline-block bg-orange-500/10 text-orange-500 px-4 py-1 rounded-full text-sm font-bold uppercase tracking-widest mb-6 border border-orange-500/20 self-start">
+ <div className="inline-block bg-[#f25a2f]/10 text-[#f25a2f] px-4 py-1 rounded-full text-sm font-bold uppercase tracking-widest mb-6 border border-[#f25a2f]/20 self-start">
  Alto Esplanada
  </div>
  <h2 className={`${roboto.className} text-3xl sm:text-4xl md:text-5xl font-light text-gray-400 mb-12 tracking-tight`}>
@@ -337,8 +337,8 @@ export default function BetaSuitesClient() {
  </section>
  {/* --- PLANTAS HUMANIZADAS --- */}
  <section className="py-16 md:py-24 bg-black border-t border-white/10 relative overflow-hidden">
- <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-orange-500/50 to-transparent"></div>
- <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-orange-900/10 via-black to-black pointer-events-none -z-10"></div>
+ <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-[#f25a2f]/50 to-transparent"></div>
+ <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#f25a2f]/10 via-black to-black pointer-events-none -z-10"></div>
  
  <div className="w-full max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-12 relative z-10">
  <div className="text-center mb-16">
@@ -356,7 +356,7 @@ export default function BetaSuitesClient() {
  {/* PAVIMENTOS - Swiper 1 */}
  <div className="mb-24">
  <h3 className="text-xl md:text-2xl text-white font-medium mb-8 flex items-center">
- <span className="w-8 h-[1px] bg-orange-500 mr-4"></span>
+ <span className="w-8 h-[1px] bg-[#f25a2f] mr-4"></span>
  Plantas dos Pavimentos
  </h3>
  <div className="relative rounded-2xl shadow-2xl overflow-hidden bg-white/5 border border-white/10 p-2 md:p-6">
@@ -397,7 +397,7 @@ export default function BetaSuitesClient() {
  {/* SUÍTES - Swiper 2 */}
  <div>
  <h3 className="text-xl md:text-2xl text-white font-medium mb-8 flex items-center">
- <span className="w-8 h-[1px] bg-orange-500 mr-4"></span>
+ <span className="w-8 h-[1px] bg-[#f25a2f] mr-4"></span>
  Layout das Unidades (Suítes)
  </h3>
  <div className="relative rounded-2xl shadow-2xl overflow-hidden bg-white/5 border border-white/10 p-2 md:p-6">
@@ -415,7 +415,7 @@ export default function BetaSuitesClient() {
  >
  {suitesImages.map((plan) => (
  <SwiperSlide key={plan.id}>
- <div className="relative group cursor-pointer flex flex-col items-center bg-black/40 rounded-xl p-4 border border-white/5 hover:border-orange-500/30 transition-all duration-300"
+ <div className="relative group cursor-pointer flex flex-col items-center bg-black/40 rounded-xl p-4 border border-white/5 hover:border-[#f25a2f]/30 transition-all duration-300"
  onClick={() => openModal(plan.src)}
  >
  <div className="w-full h-[250px] md:h-[350px] relative rounded-lg overflow-hidden mb-6">
@@ -430,7 +430,7 @@ export default function BetaSuitesClient() {
  <h4 className="text-white text-md font-bold tracking-wider uppercase mb-2">
  {plan.name}
  </h4>
- <div className="w-12 h-1 bg-orange-600/50 rounded-full group-hover:w-full group-hover:bg-orange-500 transition-all duration-500"></div>
+ <div className="w-12 h-1 bg-[#f25a2f]/50 rounded-full group-hover:w-full group-hover:bg-[#f25a2f] transition-all duration-500"></div>
  </div>
  </SwiperSlide>
  ))}
@@ -484,12 +484,12 @@ export default function BetaSuitesClient() {
  </section>
  {/* --- CTA FINAL --- */}
  <section className="bg-black py-16 md:py-20 relative overflow-hidden border-t border-white/10">
- <div className="absolute inset-0 bg-orange-600/5 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] text-white/10 via-black to-black pointer-events-none"></div>
+ <div className="absolute inset-0 bg-[#f25a2f]/5 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] text-white/10 via-black to-black pointer-events-none"></div>
  <div className="w-full px-4 text-center relative z-10">
  <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">Garanta condições de Pré-Lançamento</h2>
  <p className="text-gray-300 max-w-2xl mx-auto mb-10 text-lg">Cadastre-se para receber a tabela de vendas exclusiva e o book completo do Beta Suítes.</p>
  <button onClick={openLeadModal}
- className="inline-block bg-orange-600 text-white font-bold py-4 px-12 rounded-lg hover:bg-orange-600 transition-all duration-300 shadow-lg shadow-orange-500/30 transform hover:scale-105 uppercase tracking-wider text-lg"
+ className="inline-block bg-white/10 backdrop-blur-md border border-white/20 text-white font-bold py-4 px-12 rounded-xl hover:bg-white/15 transition-all duration-300 shadow-2xl transform hover:scale-105 uppercase tracking-wider text-lg"
  >
  Solicitar Tabela e Book
  </button>
@@ -521,7 +521,7 @@ export default function BetaSuitesClient() {
  onClick={(e) => e.stopPropagation()}
  >
  <button
- className="absolute -top-12 right-0 text-gray-300 hover:text-orange-600 transition-colors z-10"
+ className="absolute -top-12 right-0 text-gray-300 hover:text-[#f25a2f] transition-colors z-10"
  onClick={closeModal}
  aria-label="Fechar imagem"
  >
