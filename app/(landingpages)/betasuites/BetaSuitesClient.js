@@ -208,7 +208,7 @@ export default function BetaSuitesClient() {
  <section className="flex flex-col lg:flex-row-reverse min-h-[100vh] bg-black relative">
  <div className="w-full lg:w-1/2 p-8 md:p-12 lg:p-16 flex flex-col justify-center relative z-10">
 
- <h2 className={`${roboto.className} text-3xl sm:text-4xl md:text-5xl font-light text-gray-400 mb-6 tracking-tight`}>
+ <h2 className={`${roboto.className} text-3xl sm:text-4xl md:text-5xl font-light text-gray-400 mb-6 tracking-[0.1em] md:tracking-[0.15em]`}>
  Investimento <strong className="font-bold text-white">Inteligente</strong>
  </h2>
  <p className="text-gray-300 text-base md:text-lg mb-8 leading-relaxed">
