@@ -1,0 +1,35 @@
+{
+  "resumo_book": "O Beta Suítes é um empreendimento de pré-lançamento da Studio 57 Arquitetura e Incorporação, localizado no Alto Esplanada, em Governador Valadares. A região é destacada como um polo de saúde e educação, gerando alta demanda por moradias compactas. O Alto Esplanada é uma área nobre, livre de enchentes e próxima ao centro da cidade, à UFJF-GV, hospitais, supermercados e academias, garantindo alta liquidez e taxa de ocupação. O edifício foi projetado com arquitetura de alta performance, otimizando espaços para funcionalidade máxima e eficiência patrimonial. As suítes variam de 23m² a 32m², são compactas e possuem varanda, um quarto e um banheiro, com cozinha conjugada. O empreendimento oferece 25 vagas de garagem (comercializadas separadamente), um ponto comercial e diversas áreas de lazer concentradas no terraço, incluindo academia, piscina com borda infinita e área gourmet, muitas com vista para o Ibituruna. O térreo dispõe de hall, portaria, guarita, loja e vagas de garagem. O pavimento 1 também possui hall, lavanderia e vagas de garagem.",
+  "inconsistencias_encontradas": [
+    {
+      "descricao_do_erro": "Informação de preço inicial das suítes está ausente no book, embora seja um dado crucial para pré-lançamento.",
+      "topico": "Preço",
+      "valor_correto_esperado": "a partir de R$ 189.979",
+      "valor_no_book": "Não informado"
+    },
+    {
+      "descricao_do_erro": "Informação sobre a condição de entrada (percentual) está ausente no book.",
+      "topico": "Condição de Entrada",
+      "valor_correto_esperado": "Apenas 20% de Entrada",
+      "valor_no_book": "Não informado"
+    },
+    {
+      "descricao_do_erro": "Informação sobre o parcelamento mensal das suítes está ausente no book.",
+      "topico": "Parcelamento",
+      "valor_correto_esperado": "Parcelas a partir de R$ 1.800/mês",
+      "valor_no_book": "Não informado"
+    },
+    {
+      "descricao_do_erro": "O slogan ou descrição da empresa 'STUDIO 57' varia entre as páginas do book, criando uma inconsistência na marca.",
+      "topico": "Descrição da Empresa",
+      "valor_correto_esperado": "ARQUITETURA E INCORPORAÇÃO",
+      "valor_no_book": "ARQUITETURA INTEGRADA (Página 18)"
+    }
+  ],
+  "pontos_atencao": [
+    "Na página 1, a palavra 'LANÇAMENTO' no título 'PRÉ-LANÇAMENTO' utiliza a letra 'Ο' (Ômicron grego) em vez de 'O' (latino).",
+    "Na página 3, na seção 'Zona Livre de Enchentes', há um erro de digitação: '0 Alto Esplanada' deveria ser 'O Alto Esplanada'.",
+    "Na página 3, no mapa de localização, o nome do banco está incorreto: 'BANCO DO BARSIL' deveria ser 'BANCO DO BRASIL'.",
+    "Na página 5, a área 'LAV.' é apresentada como '1, 74m²', e na página 8, 'dml' como '1,73m²', utilizando uma vírgula antes da casa decimal, o que é uma formatação incomum para medidas em metros quadrados e pode ser confuso. O padrão comum seria '1.74m²' ou '1,74 m²'."
+  ]
+}
