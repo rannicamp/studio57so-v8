@@ -3,6 +3,8 @@
 import React from 'react';
 import Image from 'next/image';
 import { Montserrat, Roboto } from 'next/font/google';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faLocationDot, faSchool, faHouseMedical, faGraduationCap, faUsers, faHospital, faCartShopping, faLandmark, faBuilding, faCar, faWater, faTshirt, faAward } from '@fortawesome/free-solid-svg-icons';
 
 const montserrat = Montserrat({
   subsets: ['latin'],
@@ -20,17 +22,94 @@ const IconeRentabilidade = () => <svg fill="currentColor" viewBox="0 0 20 20" cl
 const IconeSeguranca = () => <svg fill="currentColor" viewBox="0 0 20 20" className="w-6 h-6"><path fillRule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path></svg>;
 const IconeTicket = () => <svg fill="currentColor" viewBox="0 0 20 20" className="w-6 h-6"><path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd"></path></svg>;
 
+const locationPoints = [
+  { name: 'Beta Suítes', time: 'Ponto de partida', icon: faLocationDot, highlight: true },
+  { name: 'Maple Bear', time: '1 min', icon: faSchool },
+  { name: 'Casa Unimed', time: '2 min', icon: faHouseMedical },
+  { name: 'UFJF-GV', time: '2 min', icon: faGraduationCap },
+  { name: 'Clube Filadélfia', time: '4 min', icon: faUsers },
+  { name: 'Hospital São Lucas', time: '5 min', icon: faHospital },
+  { name: 'Supermercado Big Mais', time: '5 min', icon: faCartShopping },
+  { name: 'Supermercado Coelho Diniz', time: '5 min', icon: faCartShopping },
+  { name: 'Colégio Ibituruna', time: '6 min', icon: faSchool },
+  { name: 'Hospital Municipal', time: '7 min', icon: faHospital },
+  { name: 'Caixa Serra Lima', time: '7 min', icon: faLandmark },
+];
+
 export default function BetaSuitesBookClient() {
   // Uma função para encapsular a Folha A4
   const FolhaA4Horizontal = ({ children }) => (
-    <section className="bg-black text-white relative flex-shrink-0 w-[297mm] h-[210mm] overflow-hidden print:w-[297mm] print:h-[210mm] print:break-after-page shadow-2xl mb-8 print:mb-0 print:shadow-none mx-auto border border-white/10 print:border-none">
-      {children}
-    </section>
+    <div className="relative mx-auto w-[297mm] h-[210mm] mb-8 print:mb-0 print:w-[297mm] print:h-[210mm] folha-page-wrapper print:overflow-hidden" style={{ pageBreakAfter: 'always', pageBreakInside: 'avoid' }}>
+      <div className="absolute -left-20 top-0 text-gray-500 text-sm font-bold tracking-widest uppercase print:hidden page-indicator"></div>
+      <section 
+        className="bg-[#0a0a0a] text-white relative w-[297mm] h-[210mm] overflow-hidden shadow-2xl print:shadow-none border border-white/10 print:border-none print:m-0 print:p-0"
+        style={{ WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}
+      >
+        {children}
+      </section>
+    </div>
   );
 
+  const handleDownloadPDF = async () => {
+    try {
+      const html2pdf = (await import('html2pdf.js')).default;
+      const element = document.getElementById('pdf-book-container');
+      
+      if (!element) return;
+
+      const opt = {
+        margin:       0,
+        filename:     'Book_Investidor_Beta_Suites.pdf',
+        image:        { type: 'jpeg', quality: 1 },
+        html2canvas:  { 
+          scale: 2, 
+          useCORS: true, 
+          allowTaint: true,
+          letterRendering: true, 
+          backgroundColor: '#0a0a0a',
+          scrollY: -window.scrollY, // Corrige bug do canvas em branco se a tela estiver rolada
+          windowWidth: element.scrollWidth,
+          windowHeight: element.scrollHeight
+        },
+        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'landscape' },
+        pagebreak:    { mode: 'css' }
+      };
+
+      // Gera o PDF diretamente sem alterar o DOM
+      await html2pdf().set(opt).from(element).save();
+
+    } catch (error) {
+      console.error("Erro ao gerar PDF:", error);
+      alert("Ocorreu um erro ao gerar o PDF. Tente novamente.");
+    }
+  };
+
   return (
-    <div className={`${montserrat.className} bg-zinc-900 min-h-screen py-8 print:py-0 print:bg-black`}>
+    <div className={`${montserrat.className} bg-zinc-900 min-h-screen py-8 print:py-0 print:m-0 print:p-0 print:bg-black print:min-h-0`}>
+      
+      {/* Botão de Impressão Flutuante */}
+      <button 
+        onClick={handleDownloadPDF} 
+        className="fixed top-28 right-8 z-50 bg-[#f25a2f] hover:bg-[#d94a24] text-white font-bold py-3 px-6 rounded-full shadow-2xl transition-all print:hidden flex items-center gap-3 uppercase tracking-widest text-xs"
+      >
+        <svg fill="currentColor" viewBox="0 0 20 20" className="w-4 h-4"><path fillRule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v3a2 2 0 002 2h1v2a2 2 0 002 2h6a2 2 0 002-2v-2h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7v4h6v-4z" clipRule="evenodd"></path></svg>
+        Baixar PDF Direto
+      </button>
+
+      <div id="pdf-book-container" className="w-full h-full">
+
       <style jsx global>{`
+        /* Contador de páginas para visualização em tela (NÃO IMPRIME) */
+        body {
+          counter-reset: page-counter;
+        }
+        .folha-page-wrapper {
+          counter-increment: page-counter;
+        }
+        .page-indicator::after {
+          content: "Pág " counter(page-counter);
+        }
+
         /* Configurações Globais de Impressão para A4 Paisagem */
         @media print {
           @page {
@@ -38,11 +117,13 @@ export default function BetaSuitesBookClient() {
             margin: 0;
           }
           body {
+            background-color: #0a0a0a !important;
+            margin: 0 !important;
+            padding: 0 !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
-            background-color: black !important;
           }
-          /* Esconder elementos desnecessários na hora de imprimir */
+          /* Esconder scrollbar na impressão */
           ::-webkit-scrollbar {
             display: none;
           }
@@ -52,12 +133,10 @@ export default function BetaSuitesBookClient() {
       {/* PÁGINA 1: CAPA (Idêntica à Hero do Site) */}
       <FolhaA4Horizontal>
         {/* Fundo da Capa (Imagem da Fachada Pôr do Sol que é bonita e estática) */}
-        <Image
-          src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/anexos/beta_sunset_fachada.jpeg"
-          alt="Fachada Beta Suítes"
-          fill
-          className="object-cover object-center z-0"
-          priority
+        <img 
+          src="/render_fachada.jpeg" 
+          alt="Fachada Beta Suítes" 
+          className="absolute inset-0 w-full h-full object-cover object-center z-0"
         />
         {/* 
           AJUSTE DE ESCURECIMENTO (RANNIERE): 
@@ -108,7 +187,51 @@ export default function BetaSuitesBookClient() {
         </div>
       </FolhaA4Horizontal>
 
-      {/* PÁGINA 2: TESE DE INVESTIMENTO */}
+      {/* PÁGINA 2: ARQUITETURA FINANCEIRA (Preços) */}
+      <FolhaA4Horizontal>
+        <div className="w-full h-full bg-[#0a0a0a] flex flex-col relative overflow-hidden">
+          {/* Decoração sutil de fundo */}
+          <div className="absolute top-0 right-0 w-full h-1/2 bg-gradient-to-b from-[#f25a2f]/5 to-transparent"></div>
+          
+          <div className="flex-1 flex flex-col justify-center items-center px-[25mm] z-10">
+            <div className="mb-16 text-center">
+              <h2 className={`${roboto.className} text-4xl font-light text-gray-400 tracking-[0.15em] uppercase mb-4`}>
+                Arquitetura <strong className="font-bold text-white">Financeira</strong>
+              </h2>
+              <p className="text-gray-400 text-sm tracking-wide">
+                Você não precisa se descapitalizar. Um investimento inteligente para o seu futuro.
+              </p>
+            </div>
+
+            <div className="flex flex-row gap-24 justify-center items-center">
+              {/* Dado 1 */}
+              <div className="flex flex-col items-center text-center">
+                <p className="text-[#f25a2f] text-sm font-bold tracking-[0.2em] uppercase mb-2">Apenas</p>
+                <p className="text-white text-8xl font-light tracking-tighter mb-2">20%</p>
+                <p className="text-gray-400 text-xs uppercase tracking-[0.15em]">de Entrada</p>
+              </div>
+
+              <div className="w-px h-32 bg-white/10"></div>
+
+              {/* Dado 2 */}
+              <div className="flex flex-col items-center text-center">
+                <p className="text-[#f25a2f] text-sm font-bold tracking-[0.2em] uppercase mb-2">A partir de</p>
+                <p className="text-white text-8xl font-light tracking-tighter mb-2 whitespace-nowrap">R$ 1.800</p>
+                <p className="text-gray-400 text-xs uppercase tracking-[0.15em]">Parcelas Mensais</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Aviso Legal (Rodapé) */}
+          <div className="absolute bottom-10 w-full text-center px-16 z-10">
+            <p className="text-gray-600 text-[8px] uppercase tracking-[0.2em] leading-relaxed">
+              * Valores referenciais de pré-lançamento sujeitos a alteração sem aviso prévio. Consulte sempre a Studio 57 para confirmar a disponibilidade de unidades, confirmar os preços e garantir as condições vigentes no ato da negociação.
+            </p>
+          </div>
+        </div>
+      </FolhaA4Horizontal>
+
+      {/* PÁGINA 3: TESE DE INVESTIMENTO */}
       <FolhaA4Horizontal>
         <div className="relative flex w-full h-full">
           
@@ -180,6 +303,584 @@ export default function BetaSuitesBookClient() {
           
         </div>
       </FolhaA4Horizontal>
+
+      {/* PÁGINA 3: INFRAESTRUTURA PREMIUM (ESTILO DE VIDA) */}
+      <FolhaA4Horizontal>
+        <div className="flex w-full h-full bg-[#0a0a0a]">
+          
+          {/* LADO ESQUERDO: TEXTOS E COPY */}
+          <div className="w-[35%] p-10 flex flex-col justify-center border-r border-white/10 z-20">
+            <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-[#f25a2f]/50 to-transparent"></div>
+            
+            <h2 className={`${roboto.className} text-4xl font-light text-gray-400 mb-6 tracking-[0.1em] leading-tight`}>
+              Estilo de Vida <br/><strong className="font-bold text-white">Premium</strong>
+            </h2>
+            
+            <p className="text-gray-300 text-[13px] mb-8 leading-relaxed text-justify">
+              Investidores compram tijolos, mas inquilinos alugam <strong>estilo de vida</strong>. O grande segredo da liquidez do Beta Suítes não está nas paredes, mas na experiência completa que o edifício entrega aos seus moradores.
+            </p>
+
+            <ul className="space-y-6">
+              <li>
+                <h3 className="font-bold text-white text-xs uppercase tracking-wider mb-1">Terraço Gourmet Panorâmico</h3>
+                <p className="text-gray-400 text-[11px] leading-relaxed">Uma área de lazer no topo do prédio com vista panorâmica do Ibituruna, perfeita para o descanso após o plantão ou aulas.</p>
+              </li>
+              <li>
+                <h3 className="font-bold text-white text-xs uppercase tracking-wider mb-1">Academia</h3>
+                <p className="text-gray-400 text-[11px] leading-relaxed">Academia moderna e equipada no próprio prédio, eliminando o custo e tempo de deslocamento do morador.</p>
+              </li>
+              <li>
+                <h3 className="font-bold text-white text-xs uppercase tracking-wider mb-1">Lavanderia</h3>
+                <p className="text-gray-400 text-[11px] leading-relaxed">Lavanderia compartilhada profissional, otimizando o espaço da suíte e oferecendo conveniência absoluta.</p>
+              </li>
+            </ul>
+          </div>
+
+          {/* LADO DIREITO: MOSAICO DE FOTOS */}
+          <div className="w-[65%] h-full flex flex-col">
+            
+            {/* FOTO SUPERIOR (TERRAÇO) - 60% DA ALTURA */}
+            <div className="w-full h-[60%] relative border-b border-white/10 group overflow-hidden">
+              <Image
+                src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/anexos/galeria_rev2/_rea_de_lazer_1.png"
+                alt="Terraço Gourmet Beta Suítes"
+                fill
+                className="object-cover object-center transition-transform duration-1000 group-hover:scale-105"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a]/80 via-transparent to-transparent pointer-events-none"></div>
+              <p className="absolute bottom-4 left-6 text-white text-xs uppercase tracking-[0.2em] font-light drop-shadow-md z-10">
+                Terraço Gourmet Panorâmico
+              </p>
+            </div>
+
+            {/* FOTOS INFERIORES (ACADEMIA E LAVANDERIA) - 40% DA ALTURA */}
+            <div className="w-full h-[40%] flex">
+              
+              {/* ACADEMIA (50% DA LARGURA) */}
+              <div className="w-1/2 h-full relative border-r border-white/10 group overflow-hidden">
+                <Image
+                  src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/anexos/galeria_rev2/academia.jpeg"
+                  alt="Academia Beta Suítes"
+                  fill
+                  className="object-cover object-center transition-transform duration-1000 group-hover:scale-105"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a]/80 via-transparent to-transparent pointer-events-none"></div>
+                <p className="absolute bottom-4 left-4 text-white text-[10px] uppercase tracking-[0.2em] font-light drop-shadow-md z-10">
+                  Academia
+                </p>
+              </div>
+
+              {/* LAVANDERIA (50% DA LARGURA) */}
+              <div className="w-1/2 h-full relative group overflow-hidden">
+                <Image
+                  src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/anexos/galeria_rev2/lavanderia_1.png"
+                  alt="Lavanderia Beta Suítes"
+                  fill
+                  className="object-cover object-center transition-transform duration-1000 group-hover:scale-105"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a]/80 via-transparent to-transparent pointer-events-none"></div>
+                <p className="absolute bottom-4 left-4 text-white text-[10px] uppercase tracking-[0.2em] font-light drop-shadow-md z-10">
+                  Lavanderia
+                </p>
+              </div>
+
+            </div>
+
+          </div>
+          
+        </div>
+      </FolhaA4Horizontal>
+
+      {/* PÁGINA 4: LOCALIZAÇÃO (O MAPA DO OURO) */}
+      <FolhaA4Horizontal>
+        <div className="flex w-full h-full bg-[#0a0a0a]">
+          
+          {/* LADO ESQUERDO: TEXTOS E TEMPOS DE DISTÂNCIA */}
+          <div className="w-[50%] p-12 flex flex-col justify-center relative z-20">
+            <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-[#f25a2f]/50 to-transparent"></div>
+            
+            <h2 className={`${roboto.className} text-4xl font-light text-gray-400 mb-6 tracking-[0.1em] leading-tight`}>
+              O Mapa do <strong className="font-bold text-white">Ouro</strong>
+            </h2>
+            
+            <p className="text-gray-300 text-[13px] mb-8 leading-relaxed text-justify pr-8">
+              O Beta Suítes está posicionado estrategicamente próximo a tudo que realmente importa. Inserido no Alto Esplanada, um dos bairros com maior índice de valorização em Governador Valadares, o empreendimento oferece acesso rápido ao maior polo de ensino superior da cidade e principais centros de saúde.
+            </p>
+
+            {/* TIMELINE DE DISTÂNCIAS - IDENTIDADE DA LANDING PAGE */}
+            <div className="relative max-w-sm mt-2">
+              <div className="absolute left-2.5 top-2 bottom-2 w-0.5 bg-white/20"></div>
+              {locationPoints.map((point, index) => (
+                <div key={index} className={`relative pl-10 ${index === locationPoints.length - 1 ? '' : 'pb-3'}`}>
+                  <div className={`absolute left-0 top-1 w-5 h-5 rounded-full border-4 border-[#0a0a0a] shadow-sm ${point.highlight ? 'bg-white' : 'bg-[#f25a2f]'
+                    }`}
+                  ></div>
+                  <div className="flex items-center">
+                    <FontAwesomeIcon icon={point.icon} className={`text-xl mr-4 ${point.highlight ? 'text-white' : 'text-gray-500'}`} />
+                    <div>
+                      <p className={`font-bold ${point.highlight ? 'text-white text-sm' : 'text-gray-400 text-xs'}`}>
+                        {point.name}
+                      </p>
+                      <p className="text-[10px] text-gray-500">{point.time}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+          </div>
+
+          {/* LADO DIREITO: FOTO DO BAIRRO (SANGRANDO COM GRADIENTE) */}
+          <div className="w-[50%] relative h-full">
+            <Image
+              src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/anexos/beta_sunset_bairro.jpeg"
+              alt="Vista Aérea do Alto Esplanada"
+              fill
+              className="object-cover object-center z-0"
+            />
+            {/* 
+              Gradiente duplo: 
+              1. Da esquerda para a direita (transição suave do fundo preto para a imagem)
+              2. De baixo para cima (para dar leitura ao texto da perspectiva)
+            */}
+            <div className="absolute inset-0 bg-gradient-to-r from-[#0a0a0a] via-[#0a0a0a]/60 to-transparent z-10"></div>
+            <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a]/90 via-transparent to-transparent z-10"></div>
+            
+            <p className="absolute bottom-6 right-8 text-gray-300 text-[10px] font-light tracking-[0.2em] uppercase text-right z-20">
+              Perspectiva ilustrada da inserção do empreendimento no Alto Esplanada.
+            </p>
+          </div>
+          
+        </div>
+      </FolhaA4Horizontal>
+
+      {/* PÁGINA 5: MASTERPLAN E TÉRREO */}
+      <FolhaA4Horizontal>
+        <div className="flex w-full h-full bg-[#161616]">
+          
+          {/* LADO ESQUERDO: TEXTOS E COPY */}
+          <div className="w-[35%] p-10 flex flex-col justify-center border-r border-white/10 z-20 bg-[#161616]">
+            <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-[#f25a2f]/50 to-transparent"></div>
+            
+            <h4 className="text-[#f25a2f] text-[10px] font-bold uppercase tracking-[0.3em] mb-4">
+              Acesso e Boas Vindas
+            </h4>
+            
+            <h2 className={`${roboto.className} text-4xl font-light text-gray-400 mb-6 tracking-[0.1em] leading-tight`}>
+              Planta <strong className="font-bold text-white">Térreo</strong>
+            </h2>
+            
+            <p className="text-gray-300 text-[13px] mb-8 leading-relaxed text-justify">
+              A primeira impressão é a que consolida o valor do imóvel. O pavimento térreo do Beta Suítes foi desenhado para oferecer uma recepção imponente, controle de acesso seguro e uma logística de garagem eficiente para os moradores.
+            </p>
+
+            <ul className="space-y-6">
+              <li>
+                <h3 className="font-bold text-white text-xs uppercase tracking-wider mb-1">Recepção Elegante</h3>
+                <p className="text-gray-400 text-[11px] leading-relaxed">Hall de entrada desenhado com acabamentos premium, garantindo que o inquilino sinta o alto padrão desde a calçada.</p>
+              </li>
+              <li>
+                <h3 className="font-bold text-white text-xs uppercase tracking-wider mb-1">Acesso Inteligente</h3>
+                <p className="text-gray-400 text-[11px] leading-relaxed">Eclusa de segurança e tecnologia de controle de acesso de última geração, essenciais para o público moderno.</p>
+              </li>
+            </ul>
+          </div>
+
+          {/* LADO DIREITO: PLANTA HUMANIZADA (TÉRREO ORIGINAL) */}
+          <div className="w-[65%] relative h-full bg-[#0a0a0a] p-12 flex flex-col items-center justify-center">
+            
+            {/* CONTAINER DA IMAGEM */}
+            <div className="relative w-full max-w-4xl shadow-2xl rounded-xl overflow-hidden border border-white/5">
+              <img 
+                src="/terreo_final.jpeg" 
+                alt="Planta Humanizada do Térreo" 
+                className="w-full h-auto block"
+              />
+            </div>
+
+            <p className="absolute bottom-6 right-8 text-gray-500 text-[10px] font-light tracking-[0.2em] uppercase text-right z-20">
+              *Imagens meramente ilustrativas. Planta sujeita a alterações técnicas.
+            </p>
+          </div>
+        </div>
+      </FolhaA4Horizontal>
+
+      {/* RENDER: FACHADA */}
+      <FolhaA4Horizontal>
+        <div className="w-full h-full bg-[#0a0a0a] relative p-12 flex flex-col items-center justify-center">
+          <img src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/anexos/beta_sunset_fachada.jpeg" alt="Fachada" className="max-w-full max-h-full object-contain shadow-2xl rounded-xl border border-white/5" />
+          <div className="absolute bottom-6 left-12 px-6 py-3 border-l-4 border-[#f25a2f] z-20">
+            <p className="text-white text-xs font-light tracking-[0.2em] uppercase">Fachada e Acesso Principal</p>
+          </div>
+        </div>
+      </FolhaA4Horizontal>
+
+      {/* RENDER: HALL DE ENTRADA */}
+      <FolhaA4Horizontal>
+        <div className="w-full h-full bg-[#0a0a0a] relative p-12 flex flex-col items-center justify-center">
+          <img src="/render_hall.jpeg" alt="Hall de Entrada" className="max-w-full max-h-full object-contain shadow-2xl rounded-xl border border-white/5" />
+          <div className="absolute bottom-6 left-12 px-6 py-3 border-l-4 border-[#f25a2f] z-20">
+            <p className="text-white text-xs font-light tracking-[0.2em] uppercase">Hall de Entrada Premium</p>
+          </div>
+        </div>
+      </FolhaA4Horizontal>
+
+      {/* PÁGINA 6: PAVIMENTO 1 */}
+      <FolhaA4Horizontal>
+        <div className="flex w-full h-full bg-[#161616]">
+          
+          {/* LADO ESQUERDO: TEXTOS E COPY */}
+          <div className="w-[35%] p-10 flex flex-col justify-center border-r border-white/10 z-20 bg-[#161616]">
+            <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-[#f25a2f]/50 to-transparent"></div>
+            
+
+            
+            <h2 className={`${roboto.className} text-4xl font-light text-gray-400 mb-6 tracking-[0.1em] leading-tight`}>
+              O <strong className="font-bold text-white">Pavimento 1</strong>
+            </h2>
+            
+            <p className="text-gray-300 text-[13px] mb-8 leading-relaxed text-justify">
+              O Pavimento 1 une a logística da garagem de acesso rápido com as facilidades do dia a dia, entregando aos inquilinos infraestrutura de apoio sem a necessidade de sair do prédio.
+            </p>
+
+            <ul className="space-y-6">
+              <li>
+                <h3 className="font-bold text-white text-xs uppercase tracking-wider mb-1">Lavanderia Compartilhada</h3>
+                <p className="text-gray-400 text-[11px] leading-relaxed">Equipada com máquinas de alta performance, liberando espaço útil nas suítes e centralizando o serviço de forma elegante e prática.</p>
+              </li>
+              <li>
+                <h3 className="font-bold text-white text-xs uppercase tracking-wider mb-1">Garagem Otimizada</h3>
+                <p className="text-gray-400 text-[11px] leading-relaxed">O uso de <strong>lajes nervuradas</strong> na estrutura permite vãos maiores entre os pilares, garantindo total liberdade de manobra e conforto.</p>
+              </li>
+            </ul>
+          </div>
+
+          {/* LADO DIREITO: PLANTA HUMANIZADA COM PINOS E LEGENDA */}
+          <div className="w-[65%] relative h-full bg-[#0a0a0a] p-12 flex flex-col items-center justify-center">
+            
+            {/* CONTAINER DA IMAGEM (Aspect Ratio perfeito para os Pinos) */}
+            <div className="relative w-full max-w-4xl shadow-2xl rounded-xl overflow-hidden border border-white/5">
+              <img 
+                src="/pav1_final_v3.png" 
+                alt="Planta Humanizada do Pavimento 1" 
+                className="w-full h-auto block"
+              />
+
+            </div>
+
+            <p className="absolute bottom-6 right-8 text-gray-500 text-[10px] font-light tracking-[0.2em] uppercase text-right z-20">
+              *Imagens meramente ilustrativas. Planta sujeita a alterações técnicas.
+            </p>
+          </div>
+          
+        </div>
+      </FolhaA4Horizontal>
+
+      {/* RENDER: LAVANDERIA */}
+      <FolhaA4Horizontal>
+        <div className="w-full h-full bg-[#0a0a0a] relative p-12 flex flex-col items-center justify-center">
+          <img src="/render_lavanderia.png" alt="Lavanderia Compartilhada" className="max-w-full max-h-full object-contain shadow-2xl rounded-xl border border-white/5" />
+          <div className="absolute bottom-6 left-12 px-6 py-3 border-l-4 border-[#f25a2f] z-20">
+            <p className="text-white text-xs font-light tracking-[0.2em] uppercase">Lavanderia Compartilhada</p>
+          </div>
+        </div>
+      </FolhaA4Horizontal>
+
+      {/* PÁGINA 7: PAVIMENTO TIPO (SUÍTES) */}
+      <FolhaA4Horizontal>
+        <div className="flex w-full h-full bg-[#0a0a0a]">
+          
+          {/* LADO ESQUERDO: TEXTOS E COPY */}
+          <div className="w-[35%] p-10 flex flex-col justify-center border-r border-white/10 z-20 bg-[#161616]">
+            <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-[#f25a2f]/50 to-transparent"></div>
+            
+            <h2 className={`${roboto.className} text-4xl font-light text-gray-400 mb-6 tracking-[0.1em] leading-tight`}>
+              Pavimento <strong className="font-bold text-white">Tipo</strong>
+            </h2>
+            
+            <p className="text-gray-300 text-[13px] mb-8 leading-relaxed text-justify">
+              Projetado para maximizar a rentabilidade do investidor e o conforto do inquilino. São <strong className="text-white">Suítes de 28 a 32m²</strong> com layout inteligente que garante ventilação, iluminação natural e total privacidade entre as unidades.
+            </p>
+
+            <ul className="space-y-6">
+              <li>
+                <h3 className="font-bold text-white text-xs uppercase tracking-wider mb-1">Rentabilidade por m²</h3>
+                <p className="text-gray-400 text-[11px] leading-relaxed">Plantas otimizadas sem corredores ociosos dentro das unidades, entregando exatamente o que o público-alvo busca pagar.</p>
+              </li>
+              <li>
+                <h3 className="font-bold text-white text-xs uppercase tracking-wider mb-1">Acústica e Privacidade</h3>
+                <p className="text-gray-400 text-[11px] leading-relaxed">Disposição estratégica das suítes para reduzir paredes de divisa seca e aumentar o conforto acústico.</p>
+              </li>
+            </ul>
+          </div>
+
+          {/* LADO DIREITO: PLANTA HUMANIZADA COM PINOS */}
+          <div className="w-[65%] relative h-full bg-[#0a0a0a] p-12 flex flex-col items-center justify-center">
+            
+            {/* CONTAINER DA IMAGEM */}
+            <div className="relative w-full max-w-4xl shadow-2xl rounded-xl overflow-hidden border border-white/5">
+              <img 
+                src="/pav_tipo.png" 
+                alt="Planta Humanizada do Pavimento Tipo" 
+                className="w-full h-auto block"
+              />
+            </div>
+
+            <p className="absolute bottom-6 right-8 text-gray-500 text-[10px] font-light tracking-[0.2em] uppercase text-right z-20">
+              *Imagens meramente ilustrativas. Planta sujeita a alterações técnicas.
+            </p>
+          </div>
+        </div>
+      </FolhaA4Horizontal>
+
+      {/* RENDER: DIAGRAMA DE ÁREAS (PLANTA ESQUEMÁTICA) */}
+      <FolhaA4Horizontal>
+        <div className="w-full h-full bg-[#0a0a0a] relative p-12 flex flex-col items-center justify-center">
+          <img src="/planta_diagrama.png" alt="Diagrama de Áreas e Tipologias" className="max-w-full max-h-full object-contain" />
+          <div className="absolute bottom-6 left-12 px-6 py-3 border-l-4 border-[#f25a2f] z-20">
+            <p className="text-white text-xs font-light tracking-[0.2em] uppercase drop-shadow-md">Diagrama de Áreas e Tipologias (Suítes)</p>
+          </div>
+        </div>
+      </FolhaA4Horizontal>
+
+      {/* RENDER: SUÍTE */}
+      <FolhaA4Horizontal>
+        <div className="w-full h-full bg-[#0a0a0a] relative p-12 flex flex-col items-center justify-center">
+          <img src="/render_suite.jpeg" alt="Interior da Suíte" className="max-w-full max-h-full object-contain shadow-2xl rounded-xl border border-white/5" />
+          <div className="absolute bottom-6 left-12 px-6 py-3 border-l-4 border-[#f25a2f] z-20">
+            <p className="text-white text-xs font-light tracking-[0.2em] uppercase">Interior - Suítes de 28 a 32m²</p>
+          </div>
+        </div>
+      </FolhaA4Horizontal>
+
+      {/* RENDER: SUÍTE OPÇÃO 2 */}
+      <FolhaA4Horizontal>
+        <div className="w-full h-full bg-[#0a0a0a] relative p-12 flex flex-col items-center justify-center">
+          <img src="/render_suite_4.jpeg" alt="Interior da Suíte 2" className="max-w-full max-h-full object-contain shadow-2xl rounded-xl border border-white/5" />
+          <div className="absolute bottom-6 left-12 px-6 py-3 border-l-4 border-[#f25a2f] z-20">
+            <p className="text-white text-xs font-light tracking-[0.2em] uppercase">Interior - Suítes de 28 a 32m²</p>
+          </div>
+        </div>
+      </FolhaA4Horizontal>
+
+      {/* RENDER: SUÍTE OPÇÃO 3 */}
+      <FolhaA4Horizontal>
+        <div className="w-full h-full bg-[#0a0a0a] relative p-12 flex flex-col items-center justify-center">
+          <img src="/render_suite_5.jpeg" alt="Interior da Suíte 3" className="max-w-full max-h-full object-contain shadow-2xl rounded-xl border border-white/5" />
+          <div className="absolute bottom-6 left-12 px-6 py-3 border-l-4 border-[#f25a2f] z-20">
+            <p className="text-white text-xs font-light tracking-[0.2em] uppercase">Interior - Suítes de 28 a 32m²</p>
+          </div>
+        </div>
+      </FolhaA4Horizontal>
+
+      {/* PÁGINA 8: PAVIMENTO DE LAZER (ROOFTOP) */}
+      <FolhaA4Horizontal>
+        <div className="flex w-full h-full bg-[#0a0a0a]">
+          
+          {/* LADO ESQUERDO: TEXTOS E COPY */}
+          <div className="w-[35%] p-10 flex flex-col justify-center border-r border-white/10 z-20 bg-[#161616]">
+            <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-[#f25a2f]/50 to-transparent"></div>
+            
+
+            
+            <h2 className={`${roboto.className} text-4xl font-light text-gray-400 mb-6 tracking-[0.1em] leading-tight`}>
+              Terraço <strong className="font-bold text-white">Gourmet</strong>
+            </h2>
+            
+            <p className="text-gray-300 text-[13px] mb-8 leading-relaxed text-justify">
+              O diferencial absoluto para locação por temporada. O Terraço Gourmet do Beta Suítes foi desenhado para ser o refúgio perfeito, unindo vista panorâmica e infraestrutura de clube.
+            </p>
+
+            <ul className="space-y-6">
+              <li>
+                <h3 className="font-bold text-white text-xs uppercase tracking-wider mb-1">Piscina de Borda Infinita</h3>
+                <p className="text-gray-400 text-[11px] leading-relaxed">Relaxamento com vista deslumbrante e definitiva para o Pico da Ibituruna, o cartão postal de Governador Valadares.</p>
+              </li>
+              <li>
+                <h3 className="font-bold text-white text-xs uppercase tracking-wider mb-1">Espaço Gourmet & Academia</h3>
+                <p className="text-gray-400 text-[11px] leading-relaxed">Ambientes integrados e equipados no topo do prédio. O inquilino tem tudo o que precisa sem precisar sair de casa.</p>
+              </li>
+            </ul>
+          </div>
+
+          {/* LADO DIREITO: PLANTA HUMANIZADA COM PINOS */}
+          <div className="w-[65%] relative h-full bg-[#0a0a0a] p-12 flex flex-col items-center justify-center">
+            
+            {/* CONTAINER DA IMAGEM */}
+            <div className="relative w-full max-w-4xl shadow-2xl rounded-xl overflow-hidden border border-white/5">
+              <img 
+                src="/lazer.png" 
+                alt="Planta Humanizada do Pavimento de Lazer" 
+                className="w-full h-auto block bg-black"
+              />
+            </div>
+
+            <p className="absolute bottom-6 right-8 text-gray-500 text-[10px] font-light tracking-[0.2em] uppercase text-right z-20">
+              *Imagens meramente ilustrativas. Planta sujeita a alterações técnicas.
+            </p>
+          </div>
+        </div>
+      </FolhaA4Horizontal>
+
+      {/* RENDER: ÁREA DE LAZER */}
+      <FolhaA4Horizontal>
+        <div className="w-full h-full bg-[#0a0a0a] relative p-12 flex flex-col items-center justify-center">
+          <img src="/render_lazer.jpeg" alt="Piscina de Borda Infinita" className="max-w-full max-h-full object-contain shadow-2xl rounded-xl border border-white/5" />
+          <div className="absolute bottom-6 left-12 px-6 py-3 border-l-4 border-[#f25a2f] z-20">
+            <p className="text-white text-xs font-light tracking-[0.2em] uppercase">Piscina de Borda Infinita & Terraço Gourmet</p>
+          </div>
+        </div>
+      </FolhaA4Horizontal>
+
+      {/* RENDER: ACADEMIA */}
+      <FolhaA4Horizontal>
+        <div className="w-full h-full bg-[#0a0a0a] relative p-12 flex flex-col items-center justify-center">
+          <img src="/render_academia.jpeg" alt="Academia Equipada" className="max-w-full max-h-full object-contain shadow-2xl rounded-xl border border-white/5" />
+          <div className="absolute bottom-6 left-12 px-6 py-3 border-l-4 border-[#f25a2f] z-20">
+            <p className="text-white text-xs font-light tracking-[0.2em] uppercase">Academia</p>
+          </div>
+        </div>
+      </FolhaA4Horizontal>
+      {/* RENDER: ANÁLISE SOLAR */}
+      <FolhaA4Horizontal>
+        <div className="w-full h-full relative bg-[#0a0a0a]">
+          <img 
+            src="/analise_solar.jpeg" 
+            alt="Estudo de Incidência Solar" 
+            className="absolute inset-0 w-full h-full object-cover object-center z-0"
+          />
+          <div className="absolute bottom-6 left-12 px-6 py-3 border-l-4 border-[#f25a2f] z-20">
+            <p className="text-white text-xs font-light tracking-[0.2em] uppercase drop-shadow-md">Estudo de Incidência Solar</p>
+          </div>
+        </div>
+      </FolhaA4Horizontal>
+
+      {/* PÁGINA 12: FICHA TÉCNICA */}
+      <FolhaA4Horizontal>
+        <div className="flex w-full h-full bg-[#161616]">
+          {/* LADO ESQUERDO: TÍTULO */}
+          <div className="w-[35%] p-10 flex flex-col justify-center border-r border-white/10 z-20 bg-[#0a0a0a]">
+            <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-[#f25a2f]/50 to-transparent"></div>
+            
+            <h2 className={`${roboto.className} text-4xl font-light text-gray-400 mb-6 tracking-[0.1em] leading-tight`}>
+              Ficha <strong className="font-bold text-white">Técnica</strong>
+            </h2>
+            
+            <p className="text-gray-300 text-[13px] mb-8 leading-relaxed text-justify">
+              O Beta Suítes foi milimetricamente arquitetado com precisão <strong className="text-white">BIM</strong> para garantir solidez e baixo custo de manutenção. Abaixo, as especificações cruciais do projeto.
+            </p>
+
+            <div className="mt-8 p-6 bg-white/5 border border-white/10 rounded-xl shadow-xl">
+              <p className="text-[10px] text-gray-400 uppercase tracking-widest mb-1 font-bold">Realização</p>
+              <h3 className="text-sm font-bold text-[#f25a2f] uppercase tracking-wide mb-2">STUDIO 57 INCORPORAÇÕES LTDA</h3>
+              <div className="text-[10px] text-gray-400 space-y-1">
+                <p><strong>CNPJ:</strong> 41.464.589/0001-66</p>
+                <p><strong>Sede:</strong> Av. Rio Doce, 1825, Loja A</p>
+                <p>Ilha dos Araújos • Gov. Valadares/MG</p>
+              </div>
+            </div>
+          </div>
+
+          {/* LADO DIREITO: GRID DE DADOS */}
+          <div className="w-[65%] p-12 flex flex-col justify-center relative bg-[#161616]">
+            <div className="grid grid-cols-2 gap-6">
+              
+              {/* O Empreendimento */}
+              <div className="p-5 bg-[#0a0a0a] rounded-xl border border-white/5 shadow-2xl hover:border-white/20 transition-colors">
+                <div className="mb-3 text-[#f25a2f] text-xl"><FontAwesomeIcon icon={faBuilding} /></div>
+                <h3 className="font-bold text-white text-xs mb-2 uppercase tracking-wide">O Empreendimento</h3>
+                <p className="text-gray-400 text-[11px] leading-relaxed">
+                  Composto por 42 suites de 28m² a 32m² e 1 ponto comercial estratégico localizado no térreo.
+                </p>
+              </div>
+
+              {/* Localização Premium */}
+              <div className="p-5 bg-[#0a0a0a] rounded-xl border border-white/5 shadow-2xl hover:border-white/20 transition-colors">
+                <div className="mb-3 text-[#f25a2f] text-xl"><FontAwesomeIcon icon={faLocationDot} /></div>
+                <h3 className="font-bold text-white text-xs mb-2 uppercase tracking-wide">Localização Premium</h3>
+                <p className="text-gray-400 text-[11px] leading-relaxed">
+                  Situado no bairro Alto Esplanada (Gov. Valadares/MG), com proximidade direta à UFJF-GV e ao Polo Médico da cidade.
+                </p>
+              </div>
+
+              {/* Garagem */}
+              <div className="p-5 bg-[#0a0a0a] rounded-xl border border-white/5 shadow-2xl hover:border-white/20 transition-colors">
+                <div className="mb-3 text-[#f25a2f] text-xl"><FontAwesomeIcon icon={faCar} /></div>
+                <h3 className="font-bold text-white text-xs mb-2 uppercase tracking-wide">Garagem</h3>
+                <p className="text-gray-400 text-[11px] leading-relaxed">
+                  Possui 21 vagas para carros e 15 vagas para motos com matrículas independentes, além de vãos amplos para facilitar manobras.
+                </p>
+              </div>
+
+              {/* Lazer */}
+              <div className="p-5 bg-[#0a0a0a] rounded-xl border border-white/5 shadow-2xl hover:border-white/20 transition-colors">
+                <div className="mb-3 text-[#f25a2f] text-xl"><FontAwesomeIcon icon={faWater} /></div>
+                <h3 className="font-bold text-white text-xs mb-2 uppercase tracking-wide">Terraço Gourmet</h3>
+                <p className="text-gray-400 text-[11px] leading-relaxed">
+                  Lazer exclusivo no topo do edifício com piscina de borda infinita (vista para a Ibituruna), academia e espaço gourmet.
+                </p>
+              </div>
+
+              {/* Conveniência */}
+              <div className="p-5 bg-[#0a0a0a] rounded-xl border border-white/5 shadow-2xl hover:border-white/20 transition-colors">
+                <div className="mb-3 text-[#f25a2f] text-xl"><FontAwesomeIcon icon={faTshirt} /></div>
+                <h3 className="font-bold text-white text-xs mb-2 uppercase tracking-wide">Conveniência</h3>
+                <p className="text-gray-400 text-[11px] leading-relaxed">
+                  Lavanderia compartilhada projetada para reduzir drasticamente o custo do condomínio e liberar espaço útil dentro das suítes.
+                </p>
+              </div>
+
+              {/* Técnica Construtiva */}
+              <div className="p-5 bg-[#0a0a0a] rounded-xl border border-white/5 shadow-2xl hover:border-white/20 transition-colors">
+                <div className="mb-3 text-[#f25a2f] text-xl"><FontAwesomeIcon icon={faAward} /></div>
+                <h3 className="font-bold text-white text-xs mb-2 uppercase tracking-wide">Técnica Construtiva</h3>
+                <p className="text-gray-400 text-[11px] leading-relaxed">
+                  Estrutura em concreto armado, lajes nervuradas e vedação em bloco cerâmico.
+                </p>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </FolhaA4Horizontal>
+
+      {/* PÁGINA FINAL: CONTRA-CAPA (STUDIO 57 + PARCEIROS) */}
+      <FolhaA4Horizontal>
+        <div className="w-full h-full bg-[#0a0a0a] relative flex flex-col items-center justify-center">
+          
+          {/* Logo Studio 57 e Slogan */}
+          <div className="flex flex-col items-center justify-center -mt-20">
+            <div className="w-[400px] mb-6">
+              <Image
+                src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/1/IMG_1759092334426.PNG"
+                alt="Logo Studio 57"
+                width={500}
+                height={125}
+                className="w-full h-auto object-contain filter brightness-0 invert opacity-90"
+              />
+            </div>
+            <h1 className={`${montserrat.className} text-sm font-light uppercase tracking-[0.3em] text-white text-center drop-shadow-md opacity-80`}>
+              excelência em cada detalhe
+            </h1>
+          </div>
+
+          {/* Marcas Parceiras */}
+          <div className="absolute bottom-16 w-full flex flex-col items-center">
+            <p className="text-gray-500 text-[9px] uppercase tracking-[0.3em] mb-6 font-bold">Projetos & Consultoria</p>
+            <div className="flex justify-center items-center gap-12">
+              <img src="/parceiros_beta/INTEC_png.png" alt="Intec" className="h-12 object-contain filter grayscale invert opacity-40 hover:opacity-100 transition-all duration-500 cursor-pointer" />
+              <img src="/parceiros_beta/BRIM Logomarca.png" alt="BRIM" className="h-12 object-contain filter grayscale invert opacity-40 hover:opacity-100 transition-all duration-500 cursor-pointer" />
+              <img src="/parceiros_beta/LZ ENGENHARIA.jpg" alt="LZ Engenharia" className="h-12 object-contain filter grayscale invert opacity-40 hover:opacity-100 transition-all duration-500 cursor-pointer" />
+              <img src="/parceiros_beta/TONZIRO.png" alt="Tonziro" className="h-12 object-contain filter grayscale invert opacity-40 hover:opacity-100 transition-all duration-500 cursor-pointer" />
+              <img src="/parceiros_beta/logo-horizontal-04.png" alt="Planizar" className="h-14 object-contain opacity-40 hover:opacity-100 transition-all duration-500 cursor-pointer" />
+            </div>
+          </div>
+
+        </div>
+      </FolhaA4Horizontal>
+
+      </div> {/* Fim do pdf-book-container */}
+
     </div>
   );
 }
