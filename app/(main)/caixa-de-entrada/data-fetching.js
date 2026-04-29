@@ -16,6 +16,8 @@ export const getConversations = async (supabase, organizacaoId, userId) => {
  tipo_contato,
  telefone_principal: telefones (telefone),
  funil: contatos_no_funil!contato_id (
+ corretor_id,
+ corretores: contatos!corretor_id(nome),
  coluna: colunas_funil (
  nome
  )
@@ -43,14 +45,20 @@ export const getConversations = async (supabase, organizacaoId, userId) => {
  }
 
  return data.map(conv => {
- // --- 1. LÓGICA DO FUNIL ---
+ // --- 1. LÓGICA DO FUNIL & CORRETOR ---
  let nomeEtapa = null;
+ let corretorId = null;
+ let corretorNome = null;
  const dadosFunil = conv.contatos?.funil;
 
  if (Array.isArray(dadosFunil) && dadosFunil.length > 0) {
  nomeEtapa = dadosFunil[0]?.coluna?.nome;
+ corretorId = dadosFunil[0]?.corretor_id;
+ corretorNome = dadosFunil[0]?.corretores?.nome;
  } else if (dadosFunil && typeof dadosFunil === 'object') {
  nomeEtapa = dadosFunil?.coluna?.nome;
+ corretorId = dadosFunil?.corretor_id;
+ corretorNome = dadosFunil?.corretores?.nome;
  }
 
  // --- 2. LÓGICA DO CRONÔMETRO ---
@@ -73,6 +81,8 @@ export const getConversations = async (supabase, organizacaoId, userId) => {
  // Dados Restaurados
  tipo_contato: conv.contatos?.tipo_contato,
  etapa_funil: nomeEtapa,
+ corretor_id: corretorId,
+ corretor_nome: corretorNome,
  // Cronômetro de Janela (fonte confiável: campo exclusivo de mensagens inbound)
  last_inbound_at: lastInboundAt
  };

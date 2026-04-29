@@ -35,13 +35,14 @@ export default function WhatsAppInbox({ onChangeTab, initialContactId }) {
  const [searchTerm, setSearchTerm] = useState(cachedState?.searchTerm || '');
  const [selectedContact, setSelectedContact] = useState(cachedState?.selectedContact || null);
  const [selectedList, setSelectedList] = useState(cachedState?.selectedList || null);
+ const [selectedCorretor, setSelectedCorretor] = useState(cachedState?.selectedCorretor || 'all');
 
  const queryClient = useQueryClient();
  const supabase = createClient();
  const { user } = useAuth();
  const organizacaoId = user?.organizacao_id;
 
- const uiStateToSave = { selectedContact, selectedList, searchTerm };
+ const uiStateToSave = { selectedContact, selectedList, searchTerm, selectedCorretor };
  const [debouncedUiState] = useDebounce(uiStateToSave, 1000);
 
  useEffect(() => {
@@ -162,10 +163,25 @@ export default function WhatsAppInbox({ onChangeTab, initialContactId }) {
  setSelectedList(null);
  };
 
- const filteredConversations = conversations?.filter(c =>
- c.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
- c.phone_number.includes(searchTerm)
- );
+ const filteredConversations = conversations?.filter(c => {
+   const matchesSearch = c.nome.toLowerCase().includes(searchTerm.toLowerCase()) || c.phone_number.includes(searchTerm);
+   const matchesCorretor = selectedCorretor === 'all' || 
+                           (selectedCorretor === 'unassigned' && !c.corretor_id) || 
+                           (String(c.corretor_id) === String(selectedCorretor));
+   return matchesSearch && matchesCorretor;
+ });
+
+ // Extrair corretores únicos para o filtro
+ const uniqueCorretores = React.useMemo(() => {
+   if (!conversations) return [];
+   const map = new Map();
+   conversations.forEach(c => {
+     if (c.corretor_id && c.corretor_nome) {
+       map.set(c.corretor_id, c.corretor_nome);
+     }
+   });
+   return Array.from(map.entries()).map(([id, nome]) => ({ id, nome }));
+ }, [conversations]);
 
  const hasSelection = selectedContact || selectedList;
 
@@ -213,12 +229,23 @@ export default function WhatsAppInbox({ onChangeTab, initialContactId }) {
  </div>
  ) : (
  <>
- {/* Busca Específica do WhatsApp */}
- <div className="h-16 border-b flex flex-col justify-center px-4 bg-white shrink-0 z-10">
+ {/* Busca Específica do WhatsApp e Filtro de Corretor */}
+ <div className="border-b flex flex-col justify-center p-3 bg-white shrink-0 z-10 gap-2">
  <div className="relative">
  <input type="text" placeholder="Pesquisar conversas..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg bg-gray-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm transition-all shadow-sm" />
  <FontAwesomeIcon icon={faSearch} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs" />
  </div>
+ <select 
+   value={selectedCorretor} 
+   onChange={(e) => setSelectedCorretor(e.target.value)}
+   className="w-full p-2 border border-gray-300 rounded-lg bg-gray-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm shadow-sm font-medium text-gray-700"
+ >
+   <option value="all">Todos os Corretores</option>
+   <option value="unassigned">Sem Corretor</option>
+   {uniqueCorretores.map(c => (
+     <option key={c.id} value={c.id}>{c.nome}</option>
+   ))}
+ </select>
  </div>
 
  {/* Listas */}

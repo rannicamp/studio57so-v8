@@ -20,7 +20,8 @@ import {
  faFilter,
  faClipboardList,
  faClock,
- faExclamationCircle // Ícone de alerta
+ faExclamationCircle, // Ícone de alerta
+ faUserTie
 } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 import { useQueryClient, useMutation } from '@tanstack/react-query';
@@ -146,6 +147,14 @@ const ConversationItem = ({ conversation, isSelected, onSelect, onAction, isArch
 
  {/* Info */}
  <div className="ml-4 flex-grow min-w-0 pr-8">
+ {conversation.corretor_nome && (
+   <div className="mb-0.5">
+     <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100 uppercase tracking-wide inline-flex items-center gap-1">
+       <FontAwesomeIcon icon={faUserTie} className="text-[9px]" />
+       {conversation.corretor_nome}
+     </span>
+   </div>
+ )}
  <div className="flex justify-between items-baseline">
  <h3 className={`font-semibold truncate pr-2 text-sm ${isFailed ? 'text-red-600' : 'text-gray-900'}`}>
  {contactName}

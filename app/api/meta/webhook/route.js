@@ -243,5 +243,35 @@ async function processWebhook(body) {
  } else {
  console.log(`[Org ${orgId}] ROTEADO! Resultado: ${roteamentoResult}`);
  }
+
+ // 3g. AUTOMACAO DE RODIZIO: Atribuir corretor automaticamente
+ const { data: configRodizio } = await supabase
+   .from('crm_rodizio_config')
+   .select('is_active')
+   .eq('organizacao_id', orgId)
+   .maybeSingle();
+
+ if (configRodizio?.is_active) {
+   const { data: rodizioResult, error: rodizioError } = await supabase
+   .rpc('fn_distribuir_lead_rodizio', { p_organizacao_id: orgId });
+
+   if (rodizioError) {
+   console.error(`[Org ${orgId}] Erro ao buscar corretor no rodizio:`, rodizioError.message);
+   } else if (rodizioResult && rodizioResult.length > 0 && rodizioResult[0].contato_id) {
+   const corretorAtribuidoId = rodizioResult[0].contato_id;
+   const { error: updateError } = await supabase
+     .from('contatos_no_funil')
+     .update({ corretor_id: corretorAtribuidoId })
+     .eq('id', funilEntry.id);
+     
+   if (updateError) {
+     console.error(`[Org ${orgId}] Erro ao vincular corretor do rodizio ao lead:`, updateError.message);
+   } else {
+     console.log(`[Org ${orgId}] Corretor (contato_id=${corretorAtribuidoId}) atribuido ao lead via Rodizio.`);
+   }
+   }
+ } else {
+   console.log(`[Org ${orgId}] Rodizio inativo. Nenhum corretor atribuido automaticamente.`);
+ }
  }
 }

@@ -11,7 +11,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
  faSpinner, faTimes, faSearch, faPlus, faUsers, faHandshake,
  faPercent, faSackDollar, faCalendarDay, faRobot, faFilter, faLayerGroup,
- faTable
+ faTable, faSync
 } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 import { differenceInCalendarDays, startOfDay } from 'date-fns';
@@ -24,6 +24,7 @@ import AtividadeModal from '@/components/atividades/AtividadeModal';
 import KpiCard from '@/components/shared/KpiCard';
 import FiltroCrm from '@/components/crm/FiltroCrm';
 import MetaFormMappingModal from '@/components/crm/MetaFormMappingModal';
+import RodizioConfigModal from '@/components/crm/RodizioConfigModal';
 import { useRouter } from 'next/navigation';
 
 // --- CHAVE ÚNICA PARA O LOCALSTORAGE (PERSISTÊNCIA) ---
@@ -269,6 +270,7 @@ export default function CrmPage() {
  const [isWhatsModalOpen, setIsWhatsModalOpen] = useState(false);
  const [contactForWhats, setContactForWhats] = useState(null);
  const [isMetaMappingOpen, setIsMetaMappingOpen] = useState(false);
+ const [isRodizioModalOpen, setIsRodizioModalOpen] = useState(false);
 
  // --- SELEÇÃO DE FUNIL ---
  const [selectedFunilId, setSelectedFunilId] = useState(cachedState?.selectedFunilId || null);
@@ -566,6 +568,13 @@ export default function CrmPage() {
  >
  <FontAwesomeIcon icon={faTable} className="text-blue-600" /> Mapear Meta
  </button>
+ <button
+ onClick={() => setIsRodizioModalOpen(true)}
+ className="bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 text-sm font-bold py-2 px-4 rounded-md shadow-sm flex items-center gap-2 transition-colors"
+ title="Configurar Rodízio de Leads"
+ >
+ <FontAwesomeIcon icon={faSync} className="text-blue-500" /> Rodízio
+ </button>
  <Link href="/crm/automacao" className="bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 text-sm font-bold py-2 px-4 rounded-md shadow-sm flex items-center gap-2 transition-colors">
  <FontAwesomeIcon icon={faRobot} className="text-purple-500" /> Automações
  </Link>
@@ -624,6 +633,7 @@ export default function CrmPage() {
  <CrmNotesModal isOpen={isNotesModalOpen} onClose={() => setIsNotesModalOpen(false)} contatoNoFunilId={currentContactFunilIdForNotes} contatoId={currentContactIdForNotes} />
 
  <MetaFormMappingModal isOpen={isMetaMappingOpen} onClose={() => setIsMetaMappingOpen(false)} organizacaoId={organizacaoId} />
+ <RodizioConfigModal isOpen={isRodizioModalOpen} onClose={() => setIsRodizioModalOpen(false)} organizacaoId={organizacaoId} />
 
  {/* Backdrop para fechar o dropdown de funis */}
  {isFunilDropdownOpen && (
