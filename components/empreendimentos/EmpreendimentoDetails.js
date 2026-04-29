@@ -557,7 +557,24 @@ export default function EmpreendimentoDetails({ empreendimento, corporateEntitie
  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8"><KpiCard title="Status Atual" value={empreendimento.status || 'N/A'} icon={faBuilding} /><KpiCard title="Total de Unidades" value={kpiData.totalUnidades} icon={faBoxOpen} /><KpiCard title="Unidades Vendidas" value={kpiData.unidadesVendidas} icon={faBoxOpen} colorClass="text-green-500" /><KpiCard title="VGV Total" value={kpiData.vgvTotal} icon={faRulerCombined} /></div>
 
  {/* Barra de Abas */}
- <div className="border-b border-gray-200 mb-6"><nav className="-mb-px flex space-x-8 overflow-x-auto" aria-label="Tabs"><TabButton tabId="dados_gerais" label="Dados Gerais" /><TabButton tabId="produtos" label="Produtos" /><TabButton tabId="gerenciamento_contratos" label="Gerenciamento de Contratos" /><TabButton tabId="documentos_juridicos" label="Documentos Jurídicos" /><TabButton tabId="projetos_engenharia" label="Projetos e Engenharia" /><TabButton tabId="documentos_gerais" label="Documentos Gerais" /><TabButton tabId="marketing" label="Marketing" /></nav></div>
+ <div className="border-b border-gray-200 mb-6">
+    <nav className="-mb-px flex space-x-6 sm:space-x-8 overflow-x-auto scrollbar-hide pb-2" aria-label="Tabs">
+      {TABS.map(tab => (
+        <button
+          key={tab.id}
+          type="button"
+          onClick={() => setActiveTab(tab.id)}
+          className={`whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm transition-colors cursor-pointer touch-manipulation flex-shrink-0 ${
+            activeTab === tab.id
+              ? "border-blue-500 text-blue-600"
+              : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+          }`}
+        >
+          {tab.label}
+        </button>
+      ))}
+    </nav>
+  </div>
 
  {/* Conteúdo das Abas */}
  <div>
