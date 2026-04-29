@@ -56,11 +56,13 @@ export default function BetaSuitesBookClient() {
     setIsGeneratingPdf(true);
 
     try {
-      // Import dinâmico para evitar SSR
-      const { pdf } = await import('@react-pdf/renderer');
-      const { default: BetaSuitesBookPDF } = await import('./BetaSuitesBookPDF');
-
-      const blob = await pdf(React.createElement(BetaSuitesBookPDF)).toBlob();
+      const pdfUrl = 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/book/Book_Investidor_Beta_Suites.pdf';
+      
+      // Baixa o PDF
+      const response = await fetch(pdfUrl);
+      if (!response.ok) throw new Error('PDF não encontrado. Solicite a geração à equipe.');
+      
+      const blob = await response.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -70,8 +72,8 @@ export default function BetaSuitesBookClient() {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch (error) {
-      console.error('Erro ao gerar PDF:', error);
-      alert('Erro ao gerar o PDF: ' + error.message);
+      console.error('Erro ao baixar PDF:', error);
+      alert('Erro ao baixar o PDF: ' + error.message);
     } finally {
       setIsGeneratingPdf(false);
     }

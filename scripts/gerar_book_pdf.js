@@ -18,7 +18,7 @@ const path = require('path');
 const os = require('os');
 
 const desktopPath = path.join(os.homedir(), 'OneDrive', 'Área de Trabalho');
-const outputPath = path.join(desktopPath, 'Book_Beta_Suites_V5.pdf');
+const outputPath = path.join(desktopPath, 'Book_Beta_Suites_V6.pdf');
 const BOOK_URL = 'http://localhost:3000/betasuites/book';
 const CHROME_PATH = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
 
@@ -152,8 +152,44 @@ const PX_TO_PT = PDF_W / VP_W;
       }
     }
 
-    console.log('💾 Salvando...');
-    fs.writeFileSync(outputPath, await pdfDoc.save());
+    console.log('💾 Salvando localmente...');
+    const pdfBytes = await pdfDoc.save();
+    fs.writeFileSync(outputPath, pdfBytes);
+
+    // Upload para o Supabase Storage
+    console.log('☁️  Enviando para o Supabase...');
+    const dotenvPath = path.join(__dirname, '..', '.env.local');
+    const envContent = fs.readFileSync(dotenvPath, 'utf-8');
+    const supabaseUrl = envContent.match(/NEXT_PUBLIC_SUPABASE_URL=(.+)/)?.[1]?.trim();
+    const serviceKey = envContent.match(/SUPABASE_SERVICE_ROLE_KEY=(.+)/)?.[1]?.trim();
+
+    if (supabaseUrl && serviceKey) {
+      const uploadUrl = `${supabaseUrl}/storage/v1/object/empreendimento-anexos/5/book/Book_Investidor_Beta_Suites.pdf`;
+      const fetch = (await import('node-fetch')).default;
+      
+      // Deleta versão anterior (se existir)
+      await fetch(uploadUrl, { method: 'DELETE', headers: { 'Authorization': `Bearer ${serviceKey}` } }).catch(() => {});
+
+      // Upload novo
+      const res = await fetch(uploadUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${serviceKey}`,
+          'Content-Type': 'application/pdf',
+          'x-upsert': 'true',
+        },
+        body: pdfBytes,
+      });
+
+      if (res.ok) {
+        const publicUrl = `${supabaseUrl}/storage/v1/object/public/empreendimento-anexos/5/book/Book_Investidor_Beta_Suites.pdf`;
+        console.log(`✅ Upload OK: ${publicUrl}`);
+      } else {
+        console.error('⚠️  Erro no upload:', await res.text());
+      }
+    } else {
+      console.warn('⚠️  Credenciais Supabase não encontradas, PDF salvo apenas localmente.');
+    }
 
     console.log('\n✅ ========================================');
     console.log('✅  PDF GERADO COM SUCESSO!');
