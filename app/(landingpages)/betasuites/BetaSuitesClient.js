@@ -688,7 +688,11 @@ export default function BetaSuitesClient() {
             />
           </div>
           <p className="text-gray-500 text-sm mb-2">© {new Date().getFullYear()} Studio 57 Arquitetura e Incorporação.</p>
-          <p className="text-gray-400 font-medium">Beta Suítes - Alto Esplanada, Governador Valadares.</p>
+          <p className="text-gray-400 font-medium mb-6">Beta Suítes - Alto Esplanada, Governador Valadares.</p>
+          
+          <a href="/betasuites/book-livreto" target="_blank" rel="noopener noreferrer" className="text-xs text-gray-600 hover:text-white transition-colors border-b border-gray-600 hover:border-white pb-1">
+            Visualizar Versão Gráfica para Impressão (Livreto A4)
+          </a>
         </div>
       </footer>
       {/* --- MODAL DE IMAGEM --- */}
