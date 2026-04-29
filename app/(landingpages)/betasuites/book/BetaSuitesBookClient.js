@@ -1,7 +1,7 @@
 'use client';
 
-import React from 'react';
-import Image from 'next/image';
+import React, { useState } from 'react';
+
 import { Montserrat, Roboto } from 'next/font/google';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faLocationDot, faSchool, faHouseMedical, faGraduationCap, faUsers, faHospital, faCartShopping, faLandmark, faBuilding, faCar, faWater, faTshirt, faAward } from '@fortawesome/free-solid-svg-icons';
@@ -39,61 +39,64 @@ const locationPoints = [
 export default function BetaSuitesBookClient() {
   // Uma função para encapsular a Folha A4
   const FolhaA4Horizontal = ({ children }) => (
-    <div className="relative mx-auto w-[297mm] h-[210mm] mb-8 print:mb-0 print:w-[297mm] print:h-[210mm] folha-page-wrapper print:overflow-hidden" style={{ pageBreakAfter: 'always', pageBreakInside: 'avoid' }}>
+    <div className="relative mx-auto w-[297mm] h-[210mm] mb-8 folha-page-wrapper" style={{ pageBreakAfter: 'always', pageBreakInside: 'avoid' }}>
       <div className="absolute -left-20 top-0 text-gray-500 text-sm font-bold tracking-widest uppercase print:hidden page-indicator"></div>
       <section 
-        className="bg-[#0a0a0a] text-white relative w-[297mm] h-[210mm] overflow-hidden shadow-2xl print:shadow-none border border-white/10 print:border-none print:m-0 print:p-0"
-        style={{ WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' }}
+        className="book-page bg-[#0a0a0a] text-white relative w-[297mm] h-[210mm] overflow-hidden shadow-2xl print:shadow-none border border-white/10 print:border-none"
       >
         {children}
       </section>
     </div>
   );
 
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+
   const handleDownloadPDF = async () => {
+    if (isGeneratingPdf) return;
+    setIsGeneratingPdf(true);
+
     try {
-      const html2pdf = (await import('html2pdf.js')).default;
-      const element = document.getElementById('pdf-book-container');
-      
-      if (!element) return;
+      // Import dinâmico para evitar SSR
+      const { pdf } = await import('@react-pdf/renderer');
+      const { default: BetaSuitesBookPDF } = await import('./BetaSuitesBookPDF');
 
-      const opt = {
-        margin:       0,
-        filename:     'Book_Investidor_Beta_Suites.pdf',
-        image:        { type: 'jpeg', quality: 1 },
-        html2canvas:  { 
-          scale: 2, 
-          useCORS: true, 
-          allowTaint: true,
-          letterRendering: true, 
-          backgroundColor: '#0a0a0a',
-          scrollY: -window.scrollY, // Corrige bug do canvas em branco se a tela estiver rolada
-          windowWidth: element.scrollWidth,
-          windowHeight: element.scrollHeight
-        },
-        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'landscape' },
-        pagebreak:    { mode: 'css' }
-      };
-
-      // Gera o PDF diretamente sem alterar o DOM
-      await html2pdf().set(opt).from(element).save();
-
+      const blob = await pdf(React.createElement(BetaSuitesBookPDF)).toBlob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'Book_Investidor_Beta_Suites.pdf';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
     } catch (error) {
-      console.error("Erro ao gerar PDF:", error);
-      alert("Ocorreu um erro ao gerar o PDF. Tente novamente.");
+      console.error('Erro ao gerar PDF:', error);
+      alert('Erro ao gerar o PDF: ' + error.message);
+    } finally {
+      setIsGeneratingPdf(false);
     }
   };
 
   return (
-    <div className={`${montserrat.className} bg-zinc-900 min-h-screen py-8 print:py-0 print:m-0 print:p-0 print:bg-black print:min-h-0`}>
+    <div className={`${montserrat.className} bg-zinc-900 min-h-screen py-8 print:py-0 print:m-0 print:p-0 print:bg-[#0a0a0a] print:min-h-0`}>
       
       {/* Botão de Impressão Flutuante */}
       <button 
-        onClick={handleDownloadPDF} 
-        className="fixed top-28 right-8 z-50 bg-[#f25a2f] hover:bg-[#d94a24] text-white font-bold py-3 px-6 rounded-full shadow-2xl transition-all print:hidden flex items-center gap-3 uppercase tracking-widest text-xs"
+        onClick={handleDownloadPDF}
+        disabled={isGeneratingPdf}
+        className={`fixed top-28 right-8 z-50 bg-[#f25a2f] hover:bg-[#d94a24] text-white font-bold py-3 px-6 rounded-full shadow-2xl transition-all print:hidden flex items-center gap-3 uppercase tracking-widest text-xs ${isGeneratingPdf ? 'opacity-75 cursor-wait animate-pulse' : ''}`}
       >
-        <svg fill="currentColor" viewBox="0 0 20 20" className="w-4 h-4"><path fillRule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v3a2 2 0 002 2h1v2a2 2 0 002 2h6a2 2 0 002-2v-2h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7v4h6v-4z" clipRule="evenodd"></path></svg>
-        Baixar PDF Direto
+        {isGeneratingPdf ? (
+          <>
+            <svg className="animate-spin w-4 h-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+            Gerando PDF...
+          </>
+        ) : (
+          <>
+            <svg fill="currentColor" viewBox="0 0 20 20" className="w-4 h-4"><path fillRule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v3a2 2 0 002 2h1v2a2 2 0 002 2h6a2 2 0 002-2v-2h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7v4h6v-4z" clipRule="evenodd"></path></svg>
+            Gerar PDF
+          </>
+        )}
       </button>
 
       <div id="pdf-book-container" className="w-full h-full">
@@ -110,20 +113,70 @@ export default function BetaSuitesBookClient() {
           content: "Pág " counter(page-counter);
         }
 
-        /* Configurações Globais de Impressão para A4 Paisagem */
+        /* ========================================= */
+        /* CONFIGURAÇÕES AGRESSIVAS DE IMPRESSÃO PDF */
+        /* ========================================= */
         @media print {
           @page {
-            size: A4 landscape;
+            size: 297mm 210mm;
             margin: 0;
           }
-          body {
-            background-color: #0a0a0a !important;
-            margin: 0 !important;
-            padding: 0 !important;
+
+          /* REGRA NUCLEAR: Forçar backgrounds em TODOS os elementos */
+          *, *::before, *::after {
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
+            color-adjust: exact !important;
           }
-          /* Esconder scrollbar na impressão */
+
+          html {
+            width: 297mm !important;
+            height: 210mm !important;
+          }
+
+          body {
+            background: #0a0a0a !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            width: 297mm !important;
+            overflow: visible !important;
+          }
+
+          /* REMOVER overflow-hidden de tudo no print */
+          .folha-page-wrapper {
+            width: 297mm !important;
+            height: 210mm !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: visible !important;
+            page-break-after: always;
+            page-break-inside: avoid;
+            break-after: page;
+            break-inside: avoid;
+          }
+
+          .folha-page-wrapper:last-child {
+            page-break-after: auto;
+            break-after: auto;
+          }
+
+          .book-page {
+            overflow: visible !important;
+            width: 297mm !important;
+            height: 210mm !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            border: none !important;
+            box-shadow: none !important;
+          }
+
+          /* Garantir que imagens apareçam */
+          img {
+            max-width: none !important;
+            display: block !important;
+          }
+
+          /* Esconder scrollbar */
           ::-webkit-scrollbar {
             display: none;
           }
@@ -161,13 +214,10 @@ export default function BetaSuitesBookClient() {
 
             {/* LOGO */}
             <div className="w-[450px] relative z-10">
-              <Image
+              <img
                 src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/LOGO-P_1764944035362.png"
                 alt="Beta Suítes Logo"
-                width={600}
-                height={200}
                 className="w-full h-auto object-contain drop-shadow-2xl"
-                priority
               />
             </div>
 
@@ -236,11 +286,10 @@ export default function BetaSuitesBookClient() {
         <div className="relative flex w-full h-full">
           
           {/* FOTO DE FUNDO FULL BLEED */}
-          <Image
+          <img
             src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/anexos/galeria_rev2/su_te_4..jpeg"
             alt="Estilo de Vida Beta Suítes"
-            fill
-            className="object-cover object-center z-0"
+            className="absolute inset-0 w-full h-full object-cover object-center z-0"
           />
           
           {/* GRADIENTE PESADO ESCURO */}
@@ -341,11 +390,10 @@ export default function BetaSuitesBookClient() {
             
             {/* FOTO SUPERIOR (TERRAÇO) - 60% DA ALTURA */}
             <div className="w-full h-[60%] relative border-b border-white/10 group overflow-hidden">
-              <Image
+              <img
                 src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/anexos/galeria_rev2/_rea_de_lazer_1.png"
                 alt="Terraço Gourmet Beta Suítes"
-                fill
-                className="object-cover object-center transition-transform duration-1000 group-hover:scale-105"
+                className="absolute inset-0 w-full h-full object-cover object-center transition-transform duration-1000 group-hover:scale-105"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a]/80 via-transparent to-transparent pointer-events-none"></div>
               <p className="absolute bottom-4 left-6 text-white text-xs uppercase tracking-[0.2em] font-light drop-shadow-md z-10">
@@ -358,11 +406,10 @@ export default function BetaSuitesBookClient() {
               
               {/* ACADEMIA (50% DA LARGURA) */}
               <div className="w-1/2 h-full relative border-r border-white/10 group overflow-hidden">
-                <Image
+                <img
                   src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/anexos/galeria_rev2/academia.jpeg"
                   alt="Academia Beta Suítes"
-                  fill
-                  className="object-cover object-center transition-transform duration-1000 group-hover:scale-105"
+                  className="absolute inset-0 w-full h-full object-cover object-center transition-transform duration-1000 group-hover:scale-105"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a]/80 via-transparent to-transparent pointer-events-none"></div>
                 <p className="absolute bottom-4 left-4 text-white text-[10px] uppercase tracking-[0.2em] font-light drop-shadow-md z-10">
@@ -372,11 +419,10 @@ export default function BetaSuitesBookClient() {
 
               {/* LAVANDERIA (50% DA LARGURA) */}
               <div className="w-1/2 h-full relative group overflow-hidden">
-                <Image
+                <img
                   src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/anexos/galeria_rev2/lavanderia_1.png"
                   alt="Lavanderia Beta Suítes"
-                  fill
-                  className="object-cover object-center transition-transform duration-1000 group-hover:scale-105"
+                  className="absolute inset-0 w-full h-full object-cover object-center transition-transform duration-1000 group-hover:scale-105"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a]/80 via-transparent to-transparent pointer-events-none"></div>
                 <p className="absolute bottom-4 left-4 text-white text-[10px] uppercase tracking-[0.2em] font-light drop-shadow-md z-10">
@@ -432,11 +478,10 @@ export default function BetaSuitesBookClient() {
 
           {/* LADO DIREITO: FOTO DO BAIRRO (SANGRANDO COM GRADIENTE) */}
           <div className="w-[50%] relative h-full">
-            <Image
+            <img
               src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/anexos/beta_sunset_bairro.jpeg"
               alt="Vista Aérea do Alto Esplanada"
-              fill
-              className="object-cover object-center z-0"
+              className="absolute inset-0 w-full h-full object-cover object-center z-0"
             />
             {/* 
               Gradiente duplo: 
@@ -851,11 +896,9 @@ export default function BetaSuitesBookClient() {
           {/* Logo Studio 57 e Slogan */}
           <div className="flex flex-col items-center justify-center -mt-20">
             <div className="w-[400px] mb-6">
-              <Image
+              <img
                 src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/1/IMG_1759092334426.PNG"
                 alt="Logo Studio 57"
-                width={500}
-                height={125}
                 className="w-full h-auto object-contain filter brightness-0 invert opacity-90"
               />
             </div>
