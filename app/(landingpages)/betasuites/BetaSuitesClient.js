@@ -10,7 +10,7 @@ import { faWhatsapp } from '@fortawesome/free-brands-svg-icons';
 import {
   faRulerCombined, faBed, faElevator,
   faHospital, faGraduationCap, faCartShopping, faLocationDot,
-  faSchool, faHouseMedical, faUsers, faXmark, faWater, faDumbbell, faUtensils, faTag, faLandmark, faCar, faJugDetergent
+  faSchool, faHouseMedical, faUsers, faXmark, faWater, faDumbbell, faUtensils, faTag, faLandmark, faCar, faJugDetergent, faBuilding, faAward
 } from '@fortawesome/free-solid-svg-icons';
 
 // Importações do Swiper
@@ -56,22 +56,60 @@ const galleryImages = [
   { id: 16, src: "https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/anexos/galeria_rev2/_rea_de_lazer_3.png", alt: "ÁREA DE LAZER 3" }
 ];
 
-// --- DADOS DAS PLANTAS ---
-const pavimentosImages = [
-  { id: 1, name: 'Planta Térreo', src: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/anexos/plantas/planta_humanizada_studios_beta_-_terreo.webp', alt: 'Planta Humanizada Térreo' },
-  { id: 2, name: 'Pavimento 1 (Garagem)', src: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/anexos/plantas/planta_humanizada_studios_beta_-_pav_1.webp', alt: 'Planta Humanizada Pavimento 1' },
-  { id: 3, name: 'Pavimentos Tipo (Aptos)', src: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/anexos/plantas/planta_humanizada_studios_beta_-_pav_apartamentos.webp', alt: 'Planta Humanizada Pavimentos Tipo' },
-  { id: 4, name: 'Pavimento Cobertura (Lazer)', src: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/anexos/plantas/planta_humanizada_studios_beta_-_cobertura.webp', alt: 'Planta Humanizada Cobertura' },
-];
-
-const suitesImages = [
-  { id: 1, name: 'Suíte 01', src: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/anexos/plantas/planta_humanizada_studios_beta_-_suite_01.webp', alt: 'Planta Humanizada Suíte 01' },
-  { id: 2, name: 'Suíte 02', src: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/anexos/plantas/planta_humanizada_studios_beta_-_suite_02.webp', alt: 'Planta Humanizada Suíte 02' },
-  { id: 3, name: 'Suíte 03', src: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/anexos/plantas/planta_humanizada_studios_beta_-_suite_03.webp', alt: 'Planta Humanizada Suíte 03' },
-  { id: 4, name: 'Suíte 04', src: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/anexos/plantas/planta_humanizada_studios_beta_-_suite_04.webp', alt: 'Planta Humanizada Suíte 04' },
-  { id: 5, name: 'Suíte 05', src: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/anexos/plantas/planta_humanizada_studios_beta_-_suite_05.webp', alt: 'Planta Humanizada Suíte 05' },
-  { id: 6, name: 'Suíte 06', src: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/anexos/plantas/planta_humanizada_studios_beta_-_suite_06.webp', alt: 'Planta Humanizada Suíte 06' },
-  { id: 7, name: 'Suíte 07', src: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/anexos/plantas/planta_humanizada_studios_beta_-_suite_07.webp', alt: 'Planta Humanizada Suíte 07' },
+// --- DADOS DAS PLANTAS (ALINHADAS COM O BOOK) ---
+const pavimentosInfo = [
+  {
+    id: 1,
+    subtitle: 'Acesso e Boas Vindas',
+    title: 'Planta',
+    strongTitle: 'Térreo',
+    text: 'A primeira impressão é a que consolida o valor do imóvel. O pavimento térreo do Beta Suítes foi desenhado para oferecer uma recepção imponente, controle de acesso seguro e uma logística de garagem eficiente.',
+    features: [
+      { name: 'Recepção Elegante', desc: 'Hall de entrada desenhado com acabamentos premium.' },
+      { name: 'Acesso Inteligente', desc: 'Eclusa de segurança e controle de acesso de última geração.' }
+    ],
+    src: '/terreo_final.jpeg',
+    alt: 'Planta Humanizada Térreo'
+  },
+  {
+    id: 2,
+    subtitle: 'Garagem & Conveniência',
+    title: 'O',
+    strongTitle: 'Pavimento 1',
+    text: 'O Pavimento 1 une a logística da garagem de acesso rápido com as facilidades do dia a dia, entregando aos inquilinos infraestrutura de apoio sem a necessidade de sair do prédio.',
+    features: [
+      { name: 'Lavanderia Compartilhada', desc: 'Equipada para centralizar o serviço de forma elegante e prática.' },
+      { name: 'Garagem Otimizada', desc: 'Uso de lajes nervuradas garantindo total liberdade de manobra e conforto.' }
+    ],
+    src: '/pav1_final_v3.png',
+    alt: 'Planta Humanizada Pavimento 1'
+  },
+  {
+    id: 3,
+    subtitle: 'Rentabilidade Otimizada',
+    title: 'Pavimento',
+    strongTitle: 'Tipo',
+    text: 'Projetado para maximizar a rentabilidade do investidor e o conforto do inquilino. São Suítes de 28 a 32m² com layout inteligente que garante ventilação, iluminação natural e total privacidade entre as unidades.',
+    features: [
+      { name: 'Rentabilidade por m²', desc: 'Plantas otimizadas sem corredores ociosos, focando no que o inquilino valoriza.' },
+      { name: 'Acústica e Privacidade', desc: 'Disposição estratégica para reduzir paredes de divisa seca.' }
+    ],
+    src: '/pav_tipo.png',
+    alt: 'Planta Humanizada Pavimento Tipo'
+  },
+  {
+    id: 4,
+    subtitle: 'Clube Privativo',
+    title: 'Terraço',
+    strongTitle: 'Gourmet',
+    text: 'O diferencial absoluto para locação por temporada. O Terraço Gourmet do Beta Suítes foi desenhado para ser o refúgio perfeito, unindo vista panorâmica e infraestrutura de clube no topo do edifício.',
+    features: [
+      { name: 'Piscina de Borda Infinita', desc: 'Relaxamento com vista deslumbrante e definitiva para a Ibituruna.' },
+      { name: 'Espaço Gourmet & Academia', desc: 'Ambientes integrados e equipados. O inquilino tem tudo sem sair de casa.' }
+    ],
+    src: '/lazer.png',
+    alt: 'Planta Humanizada Lazer'
+  }
 ];
 
 // --- DADOS DE LOCALIZAÇÃO ---
@@ -390,108 +428,79 @@ export default function BetaSuitesClient() {
           </div>
         </div>
       </section>
-      {/* --- PLANTAS HUMANIZADAS --- */}
-      <section className="py-16 md:py-24 bg-black border-t border-white/10 relative overflow-hidden">
-        <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-[#f25a2f]/50 to-transparent"></div>
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#f25a2f]/10 via-black to-black pointer-events-none -z-10"></div>
+      {/* --- PLANTAS HUMANIZADAS (SPLIT-SCREEN SWIPER) --- */}
+      <section className="bg-black border-t border-white/10 relative overflow-hidden">
+        <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-[#f25a2f]/50 to-transparent z-20"></div>
+        
+        <Swiper
+          slidesPerView={1}
+          loop={true}
+          pagination={{ clickable: true, dynamicBullets: true }}
+          navigation={true}
+          modules={[Pagination, Navigation]}
+          className="floorplan-full-swiper w-full"
+        >
+          {pavimentosInfo.map((plan) => (
+            <SwiperSlide key={plan.id}>
+              <div className="flex flex-col lg:flex-row w-full min-h-[100vh] bg-[#161616]">
+                
+                {/* LADO TEXTO (Mobile: embaixo, Desktop: Esquerda) */}
+                <div className="w-full lg:w-[35%] p-8 md:p-12 lg:p-16 flex flex-col justify-center border-t lg:border-t-0 lg:border-r border-white/10 z-20 order-2 lg:order-1 bg-[#161616] relative">
+                  <div className="hidden lg:block absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-[#f25a2f]/50 to-transparent"></div>
+                  
+                  <h2 className={`${roboto.className} text-4xl lg:text-5xl font-light text-gray-400 mb-6 tracking-[0.1em] leading-tight`}>
+                    {plan.title} <strong className="font-bold text-white">{plan.strongTitle}</strong>
+                  </h2>
+                  
+                  <p className="text-gray-300 text-sm md:text-base mb-8 leading-relaxed text-justify">
+                    {plan.text}
+                  </p>
 
-        <div className="w-full max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-12 relative z-10">
-          <div className="text-center mb-16">
-            <h2 className={`${roboto.className} text-3xl md:text-5xl font-light text-gray-400 mb-6 tracking-[0.1em] md:tracking-[0.15em]`}>
-              Plantas <strong className="font-bold text-white">Humanizadas</strong>
-            </h2>
-            <p className="max-w-2xl mx-auto text-gray-400 text-lg font-light leading-relaxed">
-              Explore a distribuição inteligente dos espaços. Desde a área de lazer no rooftop até o design focado em rentabilidade e conforto nas suítes.
-            </p>
-          </div>
+                  <ul className="space-y-6">
+                    {plan.features.map((feat, idx) => (
+                      <li key={idx}>
+                        <h3 className="font-bold text-white text-xs uppercase tracking-wider mb-1">{feat.name}</h3>
+                        <p className="text-gray-400 text-[11px] md:text-xs leading-relaxed">{feat.desc}</p>
+                      </li>
+                    ))}
+                  </ul>
+                  
+                  {/* Dica de usabilidade para mobile */}
+                  <div className="mt-12 lg:hidden text-center opacity-50">
+                    <p className="text-[10px] uppercase tracking-[0.2em] text-white">⟵ Deslize para ver os outros andares ⟶</p>
+                  </div>
+                </div>
 
-          {/* PAVIMENTOS - Swiper 1 */}
-          <div className="mb-24">
-            <h3 className="text-xl md:text-2xl text-white font-medium mb-8 flex items-center">
-              <span className="w-8 h-[1px] bg-[#f25a2f] mr-4"></span>
-              Plantas dos Pavimentos
-            </h3>
-            <div className="relative rounded-2xl shadow-2xl overflow-hidden bg-white/5 border border-white/10 p-2 md:p-6">
-              <Swiper
-                slidesPerView={1}
-                loop={true}
-                pagination={{ clickable: true, dynamicBullets: true }}
-                navigation={true}
-                modules={[Pagination, Navigation]}
-                className="floorplan-swiper"
-              >
-                {pavimentosImages.map((plan) => (
-                  <SwiperSlide key={plan.id}>
-                    <div className="relative group cursor-pointer flex flex-col items-center pb-12"
-                      onClick={() => openModal(plan.src)}
-                    >
-                      <div className="w-full h-[300px] md:h-[600px] relative rounded-xl overflow-hidden mb-4">
-                        <Image
-                          src={plan.src}
-                          alt={plan.alt}
-                          fill
-                          className="object-contain transition-transform duration-700 group-hover:scale-105"
-                          sizes="(max-width: 1024px) 100vw, 80vw"
-                        />
-                      </div>
-                      <div className="text-center">
-                        <h4 className="text-white text-lg font-bold tracking-wider uppercase bg-black/60 px-6 py-2 rounded-full border border-white/10 backdrop-blur-md inline-block">
-                          {plan.name}
-                        </h4>
-                      </div>
+                {/* LADO PLANTA (Mobile: Em cima, Desktop: Direita) */}
+                <div 
+                  className="w-full lg:w-[65%] relative min-h-[50vh] lg:min-h-[100vh] bg-[#0a0a0a] p-8 lg:p-16 flex flex-col items-center justify-center cursor-pointer order-1 lg:order-2 group"
+                  onClick={() => openModal(plan.src)}
+                >
+                  <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-[#f25a2f]/5 via-transparent to-transparent pointer-events-none z-0"></div>
+                  
+                  <div className="relative w-full max-w-3xl lg:max-w-5xl h-full min-h-[40vh] lg:min-h-[80vh] rounded-xl overflow-hidden z-10 transition-transform duration-500 group-hover:scale-[1.02]">
+                    <Image
+                      src={plan.src}
+                      alt={plan.alt}
+                      fill
+                      className="object-contain"
+                      sizes="(max-width: 1024px) 100vw, 65vw"
+                    />
+                    
+                    {/* Botão flutuante de Zoom */}
+                    <div className="absolute bottom-4 right-4 bg-black/60 backdrop-blur-md border border-white/20 text-white rounded-full p-3 opacity-70 group-hover:opacity-100 transition-opacity">
+                      <svg fill="currentColor" viewBox="0 0 20 20" className="w-6 h-6"><path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd"></path><path fillRule="evenodd" d="M8 6a1 1 0 011 1v1h1a1 1 0 110 2H9v1a1 1 0 11-2 0V10H6a1 1 0 110-2h1V7a1 1 0 011-1z" clipRule="evenodd"></path></svg>
                     </div>
-                  </SwiperSlide>
-                ))}
-              </Swiper>
-            </div>
-          </div>
+                  </div>
 
-          {/* SUÍTES - Swiper 2 */}
-          <div>
-            <h3 className="text-xl md:text-2xl text-white font-medium mb-8 flex items-center">
-              <span className="w-8 h-[1px] bg-[#f25a2f] mr-4"></span>
-              Layout das Unidades (Suítes)
-            </h3>
-            <div className="relative rounded-2xl shadow-2xl overflow-hidden bg-white/5 border border-white/10 p-2 md:p-6">
-              <Swiper
-                breakpoints={{
-                  320: { slidesPerView: 1, spaceBetween: 20 },
-                  768: { slidesPerView: 2, spaceBetween: 30 },
-                  1024: { slidesPerView: 3, spaceBetween: 40 },
-                }}
-                slidesPerGroup={1}
-                centeredSlides={false}
-                loop={false}
-                pagination={{ clickable: true, dynamicBullets: true }}
-                navigation={true}
-                modules={[Pagination, Navigation]}
-                className="floorplan-swiper pb-16"
-              >
-                {suitesImages.map((plan) => (
-                  <SwiperSlide key={plan.id}>
-                    <div className="relative group cursor-pointer flex flex-col items-center bg-black/40 rounded-xl p-4 border border-white/5 hover:border-[#f25a2f]/30 transition-all duration-300"
-                      onClick={() => openModal(plan.src)}
-                    >
-                      <div className="w-full h-[250px] md:h-[350px] relative rounded-lg overflow-hidden mb-6">
-                        <Image
-                          src={plan.src}
-                          alt={plan.alt}
-                          fill
-                          className="object-contain transition-transform duration-700 group-hover:scale-110"
-                          sizes="(max-width: 768px) 100vw, 33vw"
-                        />
-                      </div>
-                      <h4 className="text-white text-md font-bold tracking-wider uppercase mb-2">
-                        {plan.name}
-                      </h4>
-                      <div className="w-12 h-1 bg-[#f25a2f]/50 rounded-full group-hover:w-full group-hover:bg-[#f25a2f] transition-all duration-500"></div>
-                    </div>
-                  </SwiperSlide>
-                ))}
-              </Swiper>
-            </div>
-          </div>
-        </div>
+                  <p className="absolute bottom-6 right-8 text-gray-500 text-[10px] font-light tracking-[0.2em] uppercase text-right z-20">
+                    *Toque na planta para ampliar.
+                  </p>
+                </div>
+              </div>
+            </SwiperSlide>
+          ))}
+        </Swiper>
       </section>
       {/* --- GALERIA COMPLETA --- */}
       <section className="bg-black py-16 md:py-24 relative border-t border-white/10">
@@ -537,6 +546,122 @@ export default function BetaSuitesClient() {
           </div>
         </div>
       </section>
+      {/* --- FICHA TÉCNICA --- */}
+      <section className="bg-black py-16 md:py-24 border-t border-white/10 relative">
+        <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-[#f25a2f]/50 to-transparent"></div>
+        <div className="w-full max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-12 flex flex-col lg:flex-row gap-12">
+          {/* LADO ESQUERDO: TÍTULO */}
+          <div className="w-full lg:w-[35%] flex flex-col justify-center lg:border-r border-white/10 z-20">
+            <h2 className={`${roboto.className} text-3xl md:text-4xl lg:text-5xl font-light text-gray-400 mb-6 tracking-[0.1em] leading-tight`}>
+              Ficha <strong className="font-bold text-white">Técnica</strong>
+            </h2>
+            <p className="text-gray-300 text-sm mb-8 leading-relaxed lg:pr-8">
+              O Beta Suítes foi milimetricamente arquitetado com precisão <strong className="text-white">BIM</strong> para garantir solidez e baixo custo de manutenção. Abaixo, as especificações cruciais do projeto.
+            </p>
+
+            <div className="mt-4 p-6 bg-white/5 border border-white/10 rounded-xl shadow-xl lg:mr-8">
+              <p className="text-[10px] text-gray-400 uppercase tracking-widest mb-1 font-bold">Realização</p>
+              <h3 className="text-sm md:text-base font-bold text-[#f25a2f] uppercase tracking-wide mb-2">STUDIO 57 INCORPORAÇÕES LTDA</h3>
+              <div className="text-[10px] md:text-xs text-gray-400 space-y-1">
+                <p><strong>CNPJ:</strong> 41.464.589/0001-66</p>
+                <p><strong>Sede:</strong> Av. Rio Doce, 1825, Loja A</p>
+                <p>Ilha dos Araújos • Gov. Valadares/MG</p>
+              </div>
+            </div>
+          </div>
+
+          {/* LADO DIREITO: GRID DE DADOS */}
+          <div className="w-full lg:w-[65%] flex flex-col justify-center relative">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              
+              {/* O Empreendimento */}
+              <div className="p-5 bg-[#0a0a0a] rounded-xl border border-white/5 shadow-2xl hover:border-[#f25a2f]/50 transition-colors">
+                <div className="mb-3 text-white text-xl"><FontAwesomeIcon icon={faBuilding} /></div>
+                <h3 className="font-bold text-white text-xs mb-2 uppercase tracking-wide">O Empreendimento</h3>
+                <p className="text-gray-400 text-[11px] leading-relaxed">
+                  Composto por 42 suítes de 28m² a 32m² e 1 ponto comercial estratégico localizado no térreo.
+                </p>
+              </div>
+
+              {/* Localização Premium */}
+              <div className="p-5 bg-[#0a0a0a] rounded-xl border border-white/5 shadow-2xl hover:border-[#f25a2f]/50 transition-colors">
+                <div className="mb-3 text-white text-xl"><FontAwesomeIcon icon={faLocationDot} /></div>
+                <h3 className="font-bold text-white text-xs mb-2 uppercase tracking-wide">Localização Premium</h3>
+                <p className="text-gray-400 text-[11px] leading-relaxed">
+                  Situado no bairro Alto Esplanada (Gov. Valadares/MG), com proximidade direta à UFJF-GV e ao Polo Médico.
+                </p>
+              </div>
+
+              {/* Garagem */}
+              <div className="p-5 bg-[#0a0a0a] rounded-xl border border-white/5 shadow-2xl hover:border-[#f25a2f]/50 transition-colors">
+                <div className="mb-3 text-white text-xl"><FontAwesomeIcon icon={faCar} /></div>
+                <h3 className="font-bold text-white text-xs mb-2 uppercase tracking-wide">Garagem</h3>
+                <p className="text-gray-400 text-[11px] leading-relaxed">
+                  Possui 21 vagas para carros e 15 vagas para motos com matrículas independentes, além de vãos amplos.
+                </p>
+              </div>
+
+              {/* Lazer */}
+              <div className="p-5 bg-[#0a0a0a] rounded-xl border border-white/5 shadow-2xl hover:border-[#f25a2f]/50 transition-colors">
+                <div className="mb-3 text-white text-xl"><FontAwesomeIcon icon={faWater} /></div>
+                <h3 className="font-bold text-white text-xs mb-2 uppercase tracking-wide">Terraço Gourmet</h3>
+                <p className="text-gray-400 text-[11px] leading-relaxed">
+                  Lazer exclusivo no topo do edifício com piscina de borda infinita, academia e espaço gourmet.
+                </p>
+              </div>
+
+              {/* Conveniência */}
+              <div className="p-5 bg-[#0a0a0a] rounded-xl border border-white/5 shadow-2xl hover:border-[#f25a2f]/50 transition-colors">
+                <div className="mb-3 text-white text-xl"><FontAwesomeIcon icon={faJugDetergent} /></div>
+                <h3 className="font-bold text-white text-xs mb-2 uppercase tracking-wide">Conveniência</h3>
+                <p className="text-gray-400 text-[11px] leading-relaxed">
+                  Lavanderia compartilhada projetada para reduzir o custo do condomínio e liberar espaço nas suítes.
+                </p>
+              </div>
+
+              {/* Técnica Construtiva */}
+              <div className="p-5 bg-[#0a0a0a] rounded-xl border border-white/5 shadow-2xl hover:border-[#f25a2f]/50 transition-colors">
+                <div className="mb-3 text-white text-xl"><FontAwesomeIcon icon={faAward} /></div>
+                <h3 className="font-bold text-white text-xs mb-2 uppercase tracking-wide">Técnica Construtiva</h3>
+                <p className="text-gray-400 text-[11px] leading-relaxed">
+                  Estrutura em concreto armado, lajes nervuradas e vedação em bloco cerâmico de alta resistência acústica.
+                </p>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* --- MARCAS PARCEIRAS E REALIZAÇÃO --- */}
+      <section className="bg-black py-20 border-t border-white/10 relative overflow-hidden">
+         <div className="w-full flex flex-col items-center">
+            
+            {/* Logo Studio 57 e Slogan */}
+            <div className="flex flex-col items-center justify-center mb-16">
+              <div className="w-[200px] md:w-[300px] mb-4">
+                <img
+                  src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/1/IMG_1759092334426.PNG"
+                  alt="Logo Studio 57"
+                  className="w-full h-auto object-contain filter brightness-0 invert opacity-90"
+                />
+              </div>
+              <h1 className={`${montserrat.className} text-[9px] md:text-[11px] font-light uppercase tracking-[0.4em] text-white text-center drop-shadow-md opacity-80`}>
+                excelência em cada detalhe
+              </h1>
+            </div>
+
+            <p className="text-gray-500 text-[10px] md:text-xs uppercase tracking-[0.3em] mb-10 font-bold">Projetos & Consultoria</p>
+            <div className="flex flex-wrap justify-center items-center gap-8 md:gap-16 px-4">
+              <img src="/parceiros_beta/INTEC_png.png" alt="Intec" className="h-8 md:h-12 object-contain filter grayscale invert opacity-40 hover:opacity-100 transition-all duration-500 cursor-pointer" />
+              <img src="/parceiros_beta/BRIM Logomarca.png" alt="BRIM" className="h-8 md:h-12 object-contain filter grayscale invert opacity-40 hover:opacity-100 transition-all duration-500 cursor-pointer" />
+              <img src="/parceiros_beta/LZ ENGENHARIA.jpg" alt="LZ Engenharia" className="h-8 md:h-12 object-contain filter grayscale invert opacity-40 hover:opacity-100 transition-all duration-500 cursor-pointer" />
+              <img src="/parceiros_beta/TONZIRO.png" alt="Tonziro" className="h-8 md:h-12 object-contain filter grayscale invert opacity-40 hover:opacity-100 transition-all duration-500 cursor-pointer" />
+              <img src="/parceiros_beta/logo-horizontal-04.png" alt="Planizar" className="h-10 md:h-14 object-contain opacity-40 hover:opacity-100 transition-all duration-500 cursor-pointer" />
+            </div>
+          </div>
+      </section>
+
       {/* --- CTA FINAL --- */}
       <section className="bg-black py-16 md:py-20 relative overflow-hidden border-t border-white/10">
         <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-[#f25a2f]/50 to-transparent z-10"></div>

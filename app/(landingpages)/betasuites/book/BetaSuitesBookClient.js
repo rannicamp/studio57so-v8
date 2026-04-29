@@ -509,10 +509,6 @@ export default function BetaSuitesBookClient() {
           <div className="w-[35%] p-10 flex flex-col justify-center border-r border-white/10 z-20 bg-[#161616]">
             <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-[#f25a2f]/50 to-transparent"></div>
             
-            <h4 className="text-[#f25a2f] text-[10px] font-bold uppercase tracking-[0.3em] mb-4">
-              Acesso e Boas Vindas
-            </h4>
-            
             <h2 className={`${roboto.className} text-4xl font-light text-gray-400 mb-6 tracking-[0.1em] leading-tight`}>
               Planta <strong className="font-bold text-white">Térreo</strong>
             </h2>
@@ -834,16 +830,16 @@ export default function BetaSuitesBookClient() {
               
               {/* O Empreendimento */}
               <div className="p-5 bg-[#0a0a0a] rounded-xl border border-white/5 shadow-2xl hover:border-white/20 transition-colors">
-                <div className="mb-3 text-[#f25a2f] text-xl"><FontAwesomeIcon icon={faBuilding} /></div>
+                <div className="mb-3 text-white text-xl"><FontAwesomeIcon icon={faBuilding} /></div>
                 <h3 className="font-bold text-white text-xs mb-2 uppercase tracking-wide">O Empreendimento</h3>
                 <p className="text-gray-400 text-[11px] leading-relaxed">
-                  Composto por 42 suites de 28m² a 32m² e 1 ponto comercial estratégico localizado no térreo.
+                  Composto por 42 suítes de 28m² a 32m² e 1 ponto comercial estratégico localizado no térreo.
                 </p>
               </div>
 
               {/* Localização Premium */}
               <div className="p-5 bg-[#0a0a0a] rounded-xl border border-white/5 shadow-2xl hover:border-white/20 transition-colors">
-                <div className="mb-3 text-[#f25a2f] text-xl"><FontAwesomeIcon icon={faLocationDot} /></div>
+                <div className="mb-3 text-white text-xl"><FontAwesomeIcon icon={faLocationDot} /></div>
                 <h3 className="font-bold text-white text-xs mb-2 uppercase tracking-wide">Localização Premium</h3>
                 <p className="text-gray-400 text-[11px] leading-relaxed">
                   Situado no bairro Alto Esplanada (Gov. Valadares/MG), com proximidade direta à UFJF-GV e ao Polo Médico da cidade.
@@ -852,7 +848,7 @@ export default function BetaSuitesBookClient() {
 
               {/* Garagem */}
               <div className="p-5 bg-[#0a0a0a] rounded-xl border border-white/5 shadow-2xl hover:border-white/20 transition-colors">
-                <div className="mb-3 text-[#f25a2f] text-xl"><FontAwesomeIcon icon={faCar} /></div>
+                <div className="mb-3 text-white text-xl"><FontAwesomeIcon icon={faCar} /></div>
                 <h3 className="font-bold text-white text-xs mb-2 uppercase tracking-wide">Garagem</h3>
                 <p className="text-gray-400 text-[11px] leading-relaxed">
                   Possui 21 vagas para carros e 15 vagas para motos com matrículas independentes, além de vãos amplos para facilitar manobras.
@@ -861,7 +857,7 @@ export default function BetaSuitesBookClient() {
 
               {/* Lazer */}
               <div className="p-5 bg-[#0a0a0a] rounded-xl border border-white/5 shadow-2xl hover:border-white/20 transition-colors">
-                <div className="mb-3 text-[#f25a2f] text-xl"><FontAwesomeIcon icon={faWater} /></div>
+                <div className="mb-3 text-white text-xl"><FontAwesomeIcon icon={faWater} /></div>
                 <h3 className="font-bold text-white text-xs mb-2 uppercase tracking-wide">Terraço Gourmet</h3>
                 <p className="text-gray-400 text-[11px] leading-relaxed">
                   Lazer exclusivo no topo do edifício com piscina de borda infinita (vista para a Ibituruna), academia e espaço gourmet.
@@ -870,7 +866,7 @@ export default function BetaSuitesBookClient() {
 
               {/* Conveniência */}
               <div className="p-5 bg-[#0a0a0a] rounded-xl border border-white/5 shadow-2xl hover:border-white/20 transition-colors">
-                <div className="mb-3 text-[#f25a2f] text-xl"><FontAwesomeIcon icon={faTshirt} /></div>
+                <div className="mb-3 text-white text-xl"><FontAwesomeIcon icon={faTshirt} /></div>
                 <h3 className="font-bold text-white text-xs mb-2 uppercase tracking-wide">Conveniência</h3>
                 <p className="text-gray-400 text-[11px] leading-relaxed">
                   Lavanderia compartilhada projetada para reduzir drasticamente o custo do condomínio e liberar espaço útil dentro das suítes.
@@ -879,7 +875,7 @@ export default function BetaSuitesBookClient() {
 
               {/* Técnica Construtiva */}
               <div className="p-5 bg-[#0a0a0a] rounded-xl border border-white/5 shadow-2xl hover:border-white/20 transition-colors">
-                <div className="mb-3 text-[#f25a2f] text-xl"><FontAwesomeIcon icon={faAward} /></div>
+                <div className="mb-3 text-white text-xl"><FontAwesomeIcon icon={faAward} /></div>
                 <h3 className="font-bold text-white text-xs mb-2 uppercase tracking-wide">Técnica Construtiva</h3>
                 <p className="text-gray-400 text-[11px] leading-relaxed">
                   Estrutura em concreto armado, lajes nervuradas e vedação em bloco cerâmico.
