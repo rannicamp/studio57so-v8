@@ -206,3 +206,23 @@ export async function forceUnlockUser(userId) {
  return { success: false, message: 'Erro ao liberar o acesso do usuário.' };
  }
 }
+
+// ==============================================================================
+// 7. VINCULAR CONTATO (CRM / RODÍZIO)
+// ==============================================================================
+export async function linkUserToContact(userId, contactId) {
+  try {
+    const { error } = await supabaseAdmin
+      .from('usuarios')
+      .update({ contato_id: contactId === 'null' || !contactId ? null : contactId })
+      .eq('id', userId);
+
+    if (error) throw error;
+
+    revalidatePath('/configuracoes/usuarios');
+    return { success: true, message: 'Contato vinculado com sucesso!' };
+  } catch (error) {
+    console.error('Erro ao vincular contato:', error);
+    return { success: false, message: 'Erro ao vincular o contato ao usuário.' };
+  }
+}

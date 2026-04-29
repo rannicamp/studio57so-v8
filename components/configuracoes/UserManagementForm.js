@@ -2,9 +2,9 @@
 
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { updateUserAction, deleteUserAction, toggleUserStatus, resetUserPassword,
- forceUnlockUser } from '@/app/(main)/configuracoes/usuarios/actions'; import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+ forceUnlockUser, linkUserToContact } from '@/app/(main)/configuracoes/usuarios/actions'; import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTimes, faSpinner, faSearch, faFilter, faKey, faSort, faSortUp, faSortDown, faCalendarAlt, faUsers, faUserCheck, faUserSlash, faClock,
- faPen, faTrash, faUnlock, faExclamationTriangle } from '@fortawesome/free-solid-svg-icons';
+ faPen, faTrash, faUnlock, faExclamationTriangle, faLink } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@/utils/supabase/client';
@@ -45,7 +45,7 @@ const fetchUsers = async (organizationId) => {
  const { data, error } = await supabase
  .from('usuarios')
  .select(`
- id, nome, sobrenome, email, is_active, created_at, avatar_url, ultimo_acesso, funcao_id, funcionario_id,
+ id, nome, sobrenome, email, is_active, created_at, avatar_url, ultimo_acesso, funcao_id, funcionario_id, contato_id,
  funcao:funcoes ( id, nome_funcao ),
  funcionario:funcionarios ( id, full_name, cpf )
  `)
@@ -209,13 +209,24 @@ const ForceUnlockModal = ({ isOpen, onClose, user, organizationId }) => {
  const queryClient = useQueryClient();
  const [isLoading, setIsLoading] = useState(false);
 
- const handleUnlock = async () => {
- setIsLoading(true);
- const result = await forceUnlockUser(user.id);
- setIsLoading(false);
- if (result.success) { toast.success(result.message); queryClient.invalidateQueries({ queryKey: ['users', organizationId] });
- onClose(); } else { toast.error(result.message); }
- };
+  const handleUnlock = async () => {
+    setIsLoading(true);
+    try {
+      const result = await forceUnlockUser(user.id);
+      if (result.success) { 
+        toast.success(result.message); 
+        queryClient.invalidateQueries({ queryKey: ['users', organizationId] });
+        onClose(); 
+      } else { 
+        toast.error(result.message); 
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error('Ocorreu um erro de conexão. Tente novamente.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
  if (!isOpen || !user) return null;
 
@@ -255,12 +266,121 @@ const ForceUnlockModal = ({ isOpen, onClose, user, organizationId }) => {
  );
 };
 
+// --- Modal de Vinculação de Contato ---
+const LinkContactModal = ({ isOpen, onClose, user, organizationId }) => {
+  const queryClient = useQueryClient();
+  const [isLoading, setIsLoading] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [selectedContactId, setSelectedContactId] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      setSelectedContactId(user.contato_id || '');
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (!isOpen || !searchTerm) {
+      setSearchResults([]);
+      return;
+    }
+    const searchContacts = async () => {
+      setIsSearching(true);
+      const supabase = createClient();
+      const { data } = await supabase
+        .from('contatos')
+        .select('id, nome, telefone')
+        .ilike('nome', `%${searchTerm}%`)
+        .eq('organizacao_id', organizationId)
+        .limit(10);
+      setSearchResults(data || []);
+      setIsSearching(false);
+    };
+    const timer = setTimeout(searchContacts, 500);
+    return () => clearTimeout(timer);
+  }, [searchTerm, isOpen, organizationId]);
+
+  const handleLink = async (e) => {
+    e.preventDefault();
+    setIsLoading(true);
+    const result = await linkUserToContact(user.id, selectedContactId);
+    setIsLoading(false);
+    if (result.success) {
+      toast.success(result.message);
+      queryClient.invalidateQueries({ queryKey: ['users', organizationId] });
+      onClose();
+    } else {
+      toast.error(result.message);
+    }
+  };
+
+  if (!isOpen || !user) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in">
+      <div className="bg-white dark:bg-gray-800 p-8 rounded-xl shadow-2xl w-full max-w-lg border border-gray-200 dark:border-gray-700">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-xl font-bold text-gray-800 dark:text-white">Vincular Contato: {user.nome}</h2>
+          <button type="button" onClick={onClose} className="text-gray-400 hover:text-red-500"><FontAwesomeIcon icon={faTimes} /></button>
+        </div>
+        <form onSubmit={handleLink} className="space-y-4">
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Buscar Contato (CRM)</label>
+            <div className="relative">
+              <input 
+                type="text" 
+                value={searchTerm} 
+                onChange={(e) => setSearchTerm(e.target.value)} 
+                placeholder="Digite o nome do contato..." 
+                className="input-std" 
+              />
+              {isSearching && <FontAwesomeIcon icon={faSpinner} className="absolute right-3 top-3 animate-spin text-gray-400" />}
+            </div>
+          </div>
+
+          {searchResults.length > 0 && (
+            <div className="max-h-40 overflow-y-auto border border-gray-200 dark:border-gray-600 rounded-lg mb-4">
+              {searchResults.map(c => (
+                <div 
+                  key={c.id} 
+                  onClick={() => { setSelectedContactId(c.id); setSearchTerm(c.nome); setSearchResults([]); }}
+                  className="p-2 hover:bg-blue-50 dark:hover:bg-gray-700 cursor-pointer flex justify-between items-center border-b border-gray-100 dark:border-gray-700 last:border-0"
+                >
+                  <span className="text-sm font-medium text-gray-800 dark:text-gray-200">{c.nome}</span>
+                  <span className="text-xs text-gray-400">ID: {c.id}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div>
+             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">ID do Contato Selecionado</label>
+             <input type="text" value={selectedContactId} onChange={(e) => setSelectedContactId(e.target.value)} placeholder="Ex: 5323 ou deixe em branco para remover" className="input-std font-mono" />
+             <p className="text-xs text-gray-500 mt-1">Este ID é usado no Rodízio para atribuir leads a este usuário.</p>
+          </div>
+
+          <div className="pt-4 flex justify-end gap-3">
+            <button type="button" onClick={onClose} className="btn-secondary">Cancelar</button>
+            <button type="submit" disabled={isLoading} className="btn-primary flex items-center gap-2">
+              {isLoading && <FontAwesomeIcon icon={faSpinner} className="animate-spin" />} Salvar Vínculo
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
 // --- Componente Principal ---
 export default function UserManagementForm({ initialUsers, allEmployees, allRoles, organizationId }) {
  const queryClient = useQueryClient();
  // Estados dos Modais
  const [editingUser, setEditingUser] = useState(null); const [passwordModalUser, setPasswordModalUser] = useState(null);
- const [unlockModalUser, setUnlockModalUser] = useState(null); // Estado de UI
+ const [unlockModalUser, setUnlockModalUser] = useState(null);
+ const [contactModalUser, setContactModalUser] = useState(null); // Estado de UI
  const [uiState, setUiState] = usePersistentUiState({
  search: '',
  filterRole: 'all',
@@ -396,6 +516,7 @@ export default function UserManagementForm({ initialUsers, allEmployees, allRole
  <EditUserModal isOpen={!!editingUser} onClose={() => setEditingUser(null)} user={editingUser} allRoles={allRoles} allEmployees={allEmployees} organizationId={organizationId} />
  <ResetPasswordModal isOpen={!!passwordModalUser} onClose={() => setPasswordModalUser(null)} user={passwordModalUser} />
  <ForceUnlockModal isOpen={!!unlockModalUser} onClose={() => setUnlockModalUser(null)} user={unlockModalUser} organizationId={organizationId} />
+ <LinkContactModal isOpen={!!contactModalUser} onClose={() => setContactModalUser(null)} user={contactModalUser} organizationId={organizationId} />
 
  {/* --- SEÇÃO DE KPIs --- */}
  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-gray-50 dark:bg-gray-900/30 border-b border-gray-200 dark:border-gray-700">
@@ -538,6 +659,13 @@ export default function UserManagementForm({ initialUsers, allEmployees, allRole
  title="Redefinir Senha Manualmente"
  >
  <FontAwesomeIcon icon={faKey} />
+ </button>
+
+ <button onClick={() => setContactModalUser(user)}
+ className={`p-2 rounded-full transition-all tooltip ${user.contato_id ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30' : 'text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20'}`}
+ title={user.contato_id ? `Contato Vinculado (ID: ${user.contato_id}) - Clique para alterar` : "Vincular a um Contato (CRM)"}
+ >
+ <FontAwesomeIcon icon={faLink} />
  </button>
 
  <button onClick={() => handleDeleteClick(user.id)}
