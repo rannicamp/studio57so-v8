@@ -105,14 +105,23 @@ export default function BetaSuitesBookA5Client() {
           <div className="h-[35%] flex flex-col items-center justify-center p-8 bg-[#0a0a0a] relative">
             <div className="absolute top-0 inset-x-8 h-px bg-gradient-to-r from-transparent via-[#f25a2f]/50 to-transparent"></div>
             
-            <img src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/LOGO-P_1764944035362.png" alt="Beta Suítes" className="w-[85%] max-w-xs object-contain mb-6 drop-shadow-2xl" />
+            {/* PRÉ-LANÇAMENTO */}
+            <div className="mb-4 flex justify-center w-full">
+              <p className="text-gray-200 text-[9px] uppercase font-light flex items-center justify-center drop-shadow-md">
+                <span className="border-b-[1.5px] border-[#f25a2f] pb-[1px] tracking-[0.8em]">PRÉ</span>
+                <span className="tracking-[0.6em] ml-1.5">- LANÇAMENTO</span>
+              </p>
+            </div>
+
+            {/* LOGO */}
+            <img src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/LOGO-P_1764944035362.png" alt="Beta Suítes" className="w-[85%] max-w-xs object-contain mb-3 drop-shadow-2xl z-10" />
             
-            <h1 className={`${montserrat.className} text-sm font-light uppercase tracking-[0.3em] text-white text-center`}>
-              Investimento Inteligente
-            </h1>
-            <p className="text-gray-500 text-[10px] mt-3 tracking-[0.2em] uppercase font-bold">
-              Book do Investidor
-            </p>
+            {/* LOCALIZAÇÃO */}
+            <div className="flex justify-center relative z-20">
+              <p className="text-gray-400 text-[7px] font-bold uppercase tracking-[0.3em] drop-shadow-lg text-center">
+                ALTO ESPLANADA • GOVERNADOR VALADARES
+              </p>
+            </div>
           </div>
         </FolhaA5Retrato>
 
@@ -279,11 +288,11 @@ export default function BetaSuitesBookA5Client() {
             <div className="absolute top-0 inset-x-8 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
             
             <h2 className={`${roboto.className} text-2xl font-light text-gray-400 mb-4 tracking-[0.1em] leading-tight`}>
-              Estilo de Vida <strong className="font-bold text-white">Contemporâneo</strong>
+              Estilo de Vida <strong className="font-bold text-white">Premium</strong>
             </h2>
             
-            <p className="text-gray-300 text-[10px] leading-relaxed text-justify">
-              As suítes do Beta Suítes foram pensadas para entregar a melhor experiência de moradia compacta. Ambientes inteligentemente integrados que oferecem sensação de amplitude, banheiros modernos e acabamentos de primeiríssima linha.
+            <p className="text-gray-300 text-[9px] leading-relaxed text-justify">
+              Investidores compram tijolos, mas inquilinos alugam <strong className="text-white">estilo de vida</strong>. O grande segredo da liquidez do Beta Suítes não está nas paredes, mas na experiência completa que o edifício entrega aos seus moradores.
             </p>
           </div>
         </FolhaA5Retrato>
@@ -342,7 +351,7 @@ export default function BetaSuitesBookA5Client() {
             <ul className="space-y-4">
               <li>
                 <h3 className="font-bold text-white text-[10px] uppercase tracking-wider mb-0.5">Lazer e Conexão</h3>
-                <p className="text-gray-400 text-[9px] leading-relaxed">Ambientes integrados e equipados no topo do prédio para total conveniência.</p>
+                <p className="text-gray-400 text-[8px] leading-relaxed">Ambientes integrados e equipados no topo do prédio. O inquilino tem tudo o que precisa sem precisar sair de casa.</p>
               </li>
             </ul>
           </div>
@@ -397,41 +406,45 @@ export default function BetaSuitesBookA5Client() {
               Ficha <strong className="font-bold text-white">Técnica</strong>
             </h2>
             
+            <p className="text-gray-300 text-[9px] mb-6 leading-relaxed text-center px-4">
+              O Beta Suítes foi milimetricamente arquitetado com precisão <strong className="text-white">BIM</strong> para garantir solidez e baixo custo de manutenção. Abaixo, as especificações cruciais do projeto.
+            </p>
+
             <div className="grid grid-cols-2 gap-4">
               <div className="p-4 bg-[#161616] rounded-xl border border-white/5 text-center flex flex-col items-center">
                 <div className="mb-2 text-[#f25a2f] text-lg"><FontAwesomeIcon icon={faBuilding} /></div>
                 <h3 className="font-bold text-white text-[9px] mb-1 uppercase tracking-wide">O Empreendimento</h3>
-                <p className="text-gray-400 text-[8px] leading-relaxed">42 suítes (28 a 32m²) e 1 ponto comercial.</p>
+                <p className="text-gray-400 text-[8px] leading-relaxed">Composto por 42 suítes de 28m² a 32m² e 1 ponto comercial estratégico no térreo.</p>
               </div>
 
               <div className="p-4 bg-[#161616] rounded-xl border border-white/5 text-center flex flex-col items-center">
                 <div className="mb-2 text-[#f25a2f] text-lg"><FontAwesomeIcon icon={faLocationDot} /></div>
                 <h3 className="font-bold text-white text-[9px] mb-1 uppercase tracking-wide">Localização Premium</h3>
-                <p className="text-gray-400 text-[8px] leading-relaxed">Alto Esplanada, próximo à UFJF-GV.</p>
+                <p className="text-gray-400 text-[8px] leading-relaxed">Alto Esplanada, com proximidade direta à UFJF-GV e ao Polo Médico.</p>
               </div>
 
               <div className="p-4 bg-[#161616] rounded-xl border border-white/5 text-center flex flex-col items-center">
                 <div className="mb-2 text-[#f25a2f] text-lg"><FontAwesomeIcon icon={faCar} /></div>
                 <h3 className="font-bold text-white text-[9px] mb-1 uppercase tracking-wide">Garagem</h3>
-                <p className="text-gray-400 text-[8px] leading-relaxed">21 vagas de carros e 15 de motos.</p>
+                <p className="text-gray-400 text-[8px] leading-relaxed">21 vagas para carros e 15 para motos com matrículas independentes, além de vãos amplos.</p>
               </div>
 
               <div className="p-4 bg-[#161616] rounded-xl border border-white/5 text-center flex flex-col items-center">
                 <div className="mb-2 text-[#f25a2f] text-lg"><FontAwesomeIcon icon={faWater} /></div>
                 <h3 className="font-bold text-white text-[9px] mb-1 uppercase tracking-wide">Terraço Gourmet</h3>
-                <p className="text-gray-400 text-[8px] leading-relaxed">Piscina de borda infinita, academia e gourmet.</p>
+                <p className="text-gray-400 text-[8px] leading-relaxed">Lazer exclusivo com piscina de borda infinita, academia e espaço gourmet no rooftop.</p>
               </div>
 
               <div className="p-4 bg-[#161616] rounded-xl border border-white/5 text-center flex flex-col items-center">
                 <div className="mb-2 text-[#f25a2f] text-lg"><FontAwesomeIcon icon={faTshirt} /></div>
                 <h3 className="font-bold text-white text-[9px] mb-1 uppercase tracking-wide">Conveniência</h3>
-                <p className="text-gray-400 text-[8px] leading-relaxed">Lavanderia compartilhada.</p>
+                <p className="text-gray-400 text-[8px] leading-relaxed">Lavanderia compartilhada projetada para reduzir o custo de condomínio e liberar espaço útil.</p>
               </div>
 
               <div className="p-4 bg-[#161616] rounded-xl border border-white/5 text-center flex flex-col items-center">
                 <div className="mb-2 text-[#f25a2f] text-lg"><FontAwesomeIcon icon={faAward} /></div>
                 <h3 className="font-bold text-white text-[9px] mb-1 uppercase tracking-wide">Técnica</h3>
-                <p className="text-gray-400 text-[8px] leading-relaxed">Lajes nervuradas e isolamento acústico.</p>
+                <p className="text-gray-400 text-[8px] leading-relaxed">Estrutura em concreto armado, lajes nervuradas e vedação em bloco cerâmico.</p>
               </div>
             </div>
 
