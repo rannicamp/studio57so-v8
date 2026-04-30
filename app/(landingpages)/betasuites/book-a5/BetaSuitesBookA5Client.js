@@ -105,23 +105,35 @@ export default function BetaSuitesBookA5Client() {
           <div className="h-[35%] flex flex-col items-center justify-center p-8 bg-[#0a0a0a] relative">
             <div className="absolute top-0 inset-x-8 h-px bg-gradient-to-r from-transparent via-[#f25a2f]/50 to-transparent"></div>
             
-            {/* PRÉ-LANÇAMENTO */}
-            <div className="mb-4 flex justify-center w-full">
-              <p className="text-gray-200 text-[9px] uppercase font-light flex items-center justify-center drop-shadow-md">
-                <span className="border-b-[1.5px] border-[#f25a2f] pb-[1px] tracking-[0.8em]">PRÉ</span>
-                <span className="tracking-[0.6em] ml-1.5">- LANÇAMENTO</span>
-              </p>
+            {/* CONTAINER COM AS PROPORÇÕES MATEMATICAMENTE IDÊNTICAS AO BOOK A4 */}
+            <div className="flex flex-col items-start" style={{ transform: 'scale(0.65)', transformOrigin: 'center' }}>
+              
+              {/* PRÉ-LANÇAMENTO */}
+              <div className="w-[415px] ml-[15px] mb-6 flex justify-center">
+                <p className="text-gray-200 text-[12px] uppercase font-light flex items-center justify-center drop-shadow-md">
+                  <span className="border-b-[2px] border-[#f25a2f] pb-[2px] tracking-[1em]">PRÉ</span>
+                  <span className="tracking-[0.8em] ml-2">- LANÇAMENTO</span>
+                </p>
+              </div>
+
+              {/* LOGO */}
+              <div className="w-[450px] relative z-10">
+                <img
+                  src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/LOGO-P_1764944035362.png"
+                  alt="Beta Suítes Logo"
+                  className="w-full h-auto object-contain drop-shadow-2xl"
+                />
+              </div>
+
+              {/* LOCALIZAÇÃO */}
+              <div className="w-[415px] ml-[15px] flex justify-center -mt-1 relative z-20">
+                <p className="text-gray-300 text-[10px] font-bold uppercase tracking-[0.41em] drop-shadow-lg whitespace-nowrap pl-1">
+                  ALTO ESPLANADA • GOVERNADOR VALADARES
+                </p>
+              </div>
+
             </div>
 
-            {/* LOGO */}
-            <img src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/LOGO-P_1764944035362.png" alt="Beta Suítes" className="w-[85%] max-w-xs object-contain mb-3 drop-shadow-2xl z-10" />
-            
-            {/* LOCALIZAÇÃO */}
-            <div className="flex justify-center relative z-20">
-              <p className="text-gray-400 text-[7px] font-bold uppercase tracking-[0.3em] drop-shadow-lg text-center">
-                ALTO ESPLANADA • GOVERNADOR VALADARES
-              </p>
-            </div>
           </div>
         </FolhaA5Retrato>
 
