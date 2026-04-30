@@ -57,9 +57,17 @@ const PX_TO_PT = PDF_W / VP_W;
     });
     await new Promise(r => setTimeout(r, 2000));
 
-    // Esconde botão
+    // Esconde botão + badge Netlify + overlays do Next.js dev
     await page.evaluate(() => {
       document.querySelectorAll('button').forEach(b => b.style.display = 'none');
+      // Remove badge do Netlify (indicador vermelho "1 Issue")
+      document.querySelectorAll('[data-netlify], [class*="netlify"], iframe[src*="netlify"], [id*="netlify"]').forEach(el => el.remove());
+      // Remove indicadores do Next.js dev mode
+      document.querySelectorAll('nextjs-portal, [data-nextjs-toast], [data-nextjs-dialog], [id="__next-build-indicator"]').forEach(el => el.remove());
+      // Remove qualquer elemento fixed que não seja do Book (notificações, toasts, etc)
+      document.querySelectorAll('body > div[style*="position: fixed"], body > div[style*="position:fixed"]').forEach(el => {
+        if (!el.querySelector('.folha-page-wrapper')) el.remove();
+      });
     });
 
     const pageRects = await page.evaluate(() => {
