@@ -105,7 +105,7 @@ export default function BetaSuitesBookA5Client() {
           <div className="h-[35%] flex flex-col items-center justify-center p-8 bg-[#0a0a0a] relative">
             <div className="absolute top-0 inset-x-8 h-px bg-gradient-to-r from-transparent via-[#f25a2f]/50 to-transparent"></div>
             
-            <img src="/LogoBetaSuitesLight.png" alt="Beta Suítes" className="w-[85%] max-w-xs object-contain mb-6" />
+            <img src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/LOGO-P_1764944035362.png" alt="Beta Suítes" className="w-[85%] max-w-xs object-contain mb-6 drop-shadow-2xl" />
             
             <h1 className={`${montserrat.className} text-sm font-light uppercase tracking-[0.3em] text-white text-center`}>
               Investimento Inteligente
@@ -134,11 +134,11 @@ export default function BetaSuitesBookA5Client() {
             <div className="absolute top-0 inset-x-8 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent"></div>
             
             <h2 className={`${roboto.className} text-2xl font-light text-gray-400 mb-4 tracking-[0.1em] leading-tight`}>
-              A <strong className="font-bold text-white">Tese</strong> e o <strong className="font-bold text-white">Ouro</strong>
+              O Mapa do <strong className="font-bold text-white">Ouro</strong>
             </h2>
             
-            <p className="text-gray-300 text-[10px] mb-6 leading-relaxed text-justify">
-              Criado para o investidor de perfil arrojado e conservador. O Beta Suítes é um projeto 100% otimizado para short-stay e locação convencional. Localizado no Alto Esplanada, o empreendimento oferece acesso rápido ao maior polo de ensino superior da cidade (UFJF) e principais centros de saúde.
+            <p className="text-gray-300 text-[9px] mb-6 leading-relaxed text-justify">
+              O Beta Suítes está posicionado estrategicamente próximo a tudo que realmente importa. Inserido no Alto Esplanada, um dos bairros com maior índice de valorização em Governador Valadares, o empreendimento oferece acesso rápido ao maior polo de ensino superior da cidade e principais centros de saúde.
             </p>
 
             <div className="grid grid-cols-2 gap-4">
@@ -182,18 +182,18 @@ export default function BetaSuitesBookA5Client() {
               Planta <strong className="font-bold text-white">Térreo</strong>
             </h2>
             
-            <p className="text-gray-300 text-[10px] mb-6 leading-relaxed text-justify">
-              A primeira impressão é a que consolida o valor do imóvel. O pavimento térreo do Beta Suítes foi desenhado para oferecer uma recepção imponente, controle de acesso seguro e logística de garagem eficiente para os moradores.
+            <p className="text-gray-300 text-[9px] mb-6 leading-relaxed text-justify">
+              A primeira impressão é a que consolida o valor do imóvel. O pavimento térreo do Beta Suítes foi desenhado para oferecer uma recepção imponente, controle de acesso seguro e uma logística de garagem eficiente para os moradores.
             </p>
 
             <ul className="space-y-4">
               <li>
                 <h3 className="font-bold text-white text-[10px] uppercase tracking-wider mb-0.5">Recepção Elegante</h3>
-                <p className="text-gray-400 text-[9px] leading-relaxed">Hall de entrada desenhado com acabamentos premium.</p>
+                <p className="text-gray-400 text-[8px] leading-relaxed">Hall de entrada desenhado com acabamentos premium, garantindo que o inquilino sinta o alto padrão desde a calçada.</p>
               </li>
               <li>
                 <h3 className="font-bold text-white text-[10px] uppercase tracking-wider mb-0.5">Acesso Inteligente</h3>
-                <p className="text-gray-400 text-[9px] leading-relaxed">Eclusa de segurança e tecnologia de controle de acesso de última geração.</p>
+                <p className="text-gray-400 text-[8px] leading-relaxed">Eclusa de segurança e tecnologia de controle de acesso de última geração, essenciais para o público moderno.</p>
               </li>
             </ul>
           </div>
@@ -215,18 +215,18 @@ export default function BetaSuitesBookA5Client() {
               O <strong className="font-bold text-white">Pavimento 1</strong>
             </h2>
             
-            <p className="text-gray-300 text-[10px] mb-6 leading-relaxed text-justify">
+            <p className="text-gray-300 text-[9px] mb-6 leading-relaxed text-justify">
               O Pavimento 1 une a logística da garagem de acesso rápido com as facilidades do dia a dia, entregando aos inquilinos infraestrutura de apoio sem a necessidade de sair do prédio.
             </p>
 
             <ul className="space-y-4">
               <li>
                 <h3 className="font-bold text-white text-[10px] uppercase tracking-wider mb-0.5">Lavanderia Compartilhada</h3>
-                <p className="text-gray-400 text-[9px] leading-relaxed">Liberando espaço útil nas suítes e centralizando o serviço de forma elegante.</p>
+                <p className="text-gray-400 text-[8px] leading-relaxed">Equipada com máquinas de alta performance, liberando espaço útil nas suítes e centralizando o serviço.</p>
               </li>
               <li>
                 <h3 className="font-bold text-white text-[10px] uppercase tracking-wider mb-0.5">Garagem Otimizada</h3>
-                <p className="text-gray-400 text-[9px] leading-relaxed">Uso de lajes nervuradas permite vãos maiores entre os pilares.</p>
+                <p className="text-gray-400 text-[8px] leading-relaxed">O uso de lajes nervuradas permite vãos maiores entre os pilares, garantindo total liberdade de manobra e conforto.</p>
               </li>
             </ul>
           </div>
@@ -248,18 +248,18 @@ export default function BetaSuitesBookA5Client() {
               Pavimento <strong className="font-bold text-white">Tipo</strong>
             </h2>
             
-            <p className="text-gray-300 text-[10px] mb-6 leading-relaxed text-justify">
+            <p className="text-gray-300 text-[9px] mb-6 leading-relaxed text-justify">
               Projetado para maximizar a rentabilidade do investidor e o conforto do inquilino. São <strong className="text-white">Suítes de 28 a 32m²</strong> com layout inteligente que garante ventilação e iluminação natural.
             </p>
 
             <ul className="space-y-4">
               <li>
                 <h3 className="font-bold text-white text-[10px] uppercase tracking-wider mb-0.5">Rentabilidade por m²</h3>
-                <p className="text-gray-400 text-[9px] leading-relaxed">Plantas otimizadas sem corredores ociosos, entregando o que o público busca.</p>
+                <p className="text-gray-400 text-[8px] leading-relaxed">Plantas otimizadas sem corredores ociosos, entregando o que o público busca pagar.</p>
               </li>
               <li>
                 <h3 className="font-bold text-white text-[10px] uppercase tracking-wider mb-0.5">Acústica e Privacidade</h3>
-                <p className="text-gray-400 text-[9px] leading-relaxed">Disposição estratégica das suítes para reduzir paredes de divisa seca.</p>
+                <p className="text-gray-400 text-[8px] leading-relaxed">Disposição estratégica das suítes para reduzir paredes de divisa seca.</p>
               </li>
             </ul>
           </div>
