@@ -46,6 +46,16 @@ const getCachedUiState = () => {
  }
 };
 
+const TABS = [
+  { id: 'dados_gerais', label: 'Dados Gerais' },
+  { id: 'produtos', label: 'Tabela de Vendas' },
+  { id: 'gerenciamento_contratos', label: 'Modelos de Contrato' },
+  { id: 'documentos_juridicos', label: 'Docs. Jurídicos' },
+  { id: 'projetos_engenharia', label: 'Projetos e Engenharia' },
+  { id: 'marketing', label: 'Marketing' },
+  { id: 'documentos_gerais', label: 'Geral' }
+];
+
 // --- SUB-COMPONENTES ---
 function InfoField({ label, value, fullWidth = false }) {
  if (value === null || value === undefined || value === '') return null;

@@ -649,6 +649,16 @@ CREATE TABLE public.crm_notas (
     organizacao_id bigint
 );
 
+CREATE TABLE public.crm_rodizio_config (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    organizacao_id bigint NOT NULL,
+    is_active boolean DEFAULT true,
+    fila_usuarios_ids jsonb NOT NULL DEFAULT '[]'::jsonb,
+    ultimo_indice_atendido integer NOT NULL DEFAULT '-1'::integer,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
 CREATE TABLE public.debug_notificacoes (
     id integer NOT NULL DEFAULT nextval('debug_notificacoes_id_seq'::regclass),
     data_hora timestamp without time zone DEFAULT now(),
@@ -1922,7 +1932,8 @@ CREATE TABLE public.usuarios (
     preferencias_notificacao jsonb DEFAULT '{"sistema": true, "comercial": true, "financeiro": true, "operacional": true}'::jsonb,
     data_exclusao timestamp with time zone,
     ultimo_acesso timestamp with time zone,
-    is_superadmin boolean DEFAULT false
+    is_superadmin boolean DEFAULT false,
+    contato_id bigint
 );
 
 CREATE TABLE public.vales_agendados (
