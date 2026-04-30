@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSearch, faBuilding, faPlus } from '@fortawesome/free-solid-svg-icons';
+import { faSearch, faBuilding, faPlus, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
 import EmpreendimentoDetailWrapper from './EmpreendimentoDetailWrapper';
 import EmpreendimentoFormModal from './EmpreendimentoFormModal';
 import { faCity, faHouse } from '@fortawesome/free-solid-svg-icons';
@@ -38,7 +38,7 @@ export default function EmpreendimentoManager({ initialEmpreendimentos }) {
  <div className="flex h-[calc(100vh-80px)] overflow-hidden bg-gray-50/50 rounded-xl shadow-inner border border-gray-200 animate-fade-in">
 
  {/* PAINEL ESQUERDO: LISTA (MASTER) */}
- <div className="w-1/3 min-w-[320px] max-w-[400px] border-r border-gray-200 bg-white flex flex-col h-full shadow-sm z-10">
+ <div className={`border-r border-gray-200 bg-white flex flex-col h-full shadow-sm z-10 ${selectedEmpreendimentoId ? 'hidden md:flex md:w-1/3 md:min-w-[320px] md:max-w-[400px]' : 'w-full md:w-1/3 md:min-w-[320px] md:max-w-[400px]'}`}>
 
  {/* Cabeçalho da Lista */}
  <div className="p-5 border-b border-gray-100 space-y-4 shrink-0 bg-white">
@@ -115,7 +115,7 @@ export default function EmpreendimentoManager({ initialEmpreendimentos }) {
  </div>
 
  {/* PAINEL DIREITO: DETALHES (DETAIL) */}
- <div className="flex-1 bg-white overflow-y-auto custom-scrollbar relative">
+ <div className={`bg-white overflow-y-auto custom-scrollbar relative ${selectedEmpreendimentoId ? 'flex-1 w-full flex flex-col' : 'hidden md:flex flex-1 flex-col'}`}>
  {!selectedEmpreendimentoId ? (
  <div className="h-full flex flex-col items-center justify-center text-gray-400 p-8 space-y-4">
  <div className="w-24 h-24 rounded-full bg-gray-50 flex items-center justify-center shadow-inner mb-2">
@@ -127,7 +127,18 @@ export default function EmpreendimentoManager({ initialEmpreendimentos }) {
  </p>
  </div>
  ) : (
+ <>
+ {/* Cabeçalho Mobile de Voltar */}
+ <div className="md:hidden bg-white p-3 border-b border-gray-200 flex items-center gap-3 shadow-sm sticky top-0 z-20">
+ <button onClick={() => setSelectedEmpreendimentoId(null)} className="text-gray-600 px-3 py-2 hover:bg-gray-100 rounded-lg flex items-center gap-2 font-bold text-sm transition-colors">
+ <FontAwesomeIcon icon={faArrowLeft} /> Voltar
+ </button>
+ <h2 className="font-bold text-gray-800 flex-1 truncate text-sm">
+ {empreendimentos.find(e => e.id === selectedEmpreendimentoId)?.nome || 'Empreendimento'}
+ </h2>
+ </div>
  <EmpreendimentoDetailWrapper empreendimentoId={selectedEmpreendimentoId} organizacaoId={organizacaoId} />
+ </>
  )}
  </div>
 
