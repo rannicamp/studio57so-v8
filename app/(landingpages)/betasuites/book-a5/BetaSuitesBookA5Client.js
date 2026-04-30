@@ -94,12 +94,11 @@ export default function BetaSuitesBookA5Client() {
             PÁGINA 1: CAPA
         ======================================================== */}
         <FolhaA5Retrato>
-          {/* Fundo da Capa Ocupando 100% da Folha */}
           <div className="absolute inset-0 w-full h-full">
             <img 
               src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/anexos/beta_sunset_fachada.jpeg" 
               alt="Capa Beta Suítes" 
-              className="absolute inset-0 w-full h-full object-cover object-center"
+              className="absolute inset-0 w-full h-full object-cover object-[65%_center]"
             />
             {/* Sobreposição de escurecimento para dar contraste e ar premium à marca */}
             <div className="absolute inset-0 bg-black/40"></div>
