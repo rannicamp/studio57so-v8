@@ -102,22 +102,22 @@ export default function BetaSuitesBookA5Client() {
             />
             <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a] via-[#0a0a0a]/30 to-transparent"></div>
           </div>
-          <div className="h-[35%] flex flex-col items-center justify-center p-8 bg-[#0a0a0a] relative overflow-hidden">
+          <div className="h-[35%] flex flex-col items-center justify-center p-4 bg-[#0a0a0a] relative overflow-hidden">
             <div className="absolute top-0 inset-x-8 h-px bg-gradient-to-r from-transparent via-[#f25a2f]/50 to-transparent"></div>
             
-            {/* CONTAINER COM AS PROPORÇÕES MATEMATICAMENTE IDÊNTICAS À LANDING PAGE */}
-            <div className="flex flex-col items-stretch w-[500px]" style={{ transform: 'scale(0.55)', transformOrigin: 'center' }}>
-              
+            {/* CONTAINER DO BLOCO ALINHADO COM A MESMA RESPONSIVIDADE DA HERO */}
+            <div className="flex flex-col items-stretch w-full max-w-[340px] sm:max-w-[480px] md:max-w-[500px] mx-auto z-30" style={{ transform: 'scale(0.85)', transformOrigin: 'center' }}>
+
               {/* 0. PRÉ-LANÇAMENTO COM UNDERLINE LARANJA NO "PRÉ" */}
-              <div className="w-full flex justify-center mb-4">
-                <p className="text-gray-200 text-lg tracking-[1.5em] uppercase font-light flex items-center justify-center drop-shadow-md">
-                  <span className="border-b-[2px] border-[#f25a2f] pb-[2px] mr-4">PRÉ</span>
+              <div className="w-full flex justify-center mb-2 sm:mb-4">
+                <p className="text-gray-200 text-[10px] sm:text-xs md:text-sm tracking-[0.8em] sm:tracking-[1em] md:tracking-[1.2em] uppercase font-light flex items-center justify-center drop-shadow-md">
+                  <span className="border-b-[2px] border-[#f25a2f] pb-[2px] mr-2 sm:mr-4">PRÉ</span>
                   <span>- LANÇAMENTO</span>
                 </p>
               </div>
 
               {/* 1. LOGO ALONGADA (Ocupa 100% do Container) */}
-              <div className="mb-6 w-full">
+              <div className="mb-4 sm:mb-6 w-full">
                 <img
                   src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/LOGO-P_1764944035362.png"
                   alt="Beta Suítes Logo"
@@ -126,7 +126,7 @@ export default function BetaSuitesBookA5Client() {
               </div>
 
               {/* 2. TEXTO SUPERIOR COM ESPAÇAMENTO DISTRIBUÍDO PELO TRACKING */}
-              <p className="text-center w-full text-sm font-bold text-gray-300 drop-shadow-lg uppercase tracking-[0.6em] mb-4">
+              <p className="text-center w-full text-[8px] sm:text-[10px] md:text-xs font-bold text-gray-300 drop-shadow-lg uppercase tracking-[0.4em] sm:tracking-[0.5em] md:tracking-[0.6em] mb-4">
                 Alto Esplanada • Governador Valadares
               </p>
 
