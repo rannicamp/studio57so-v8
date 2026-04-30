@@ -94,16 +94,21 @@ export default function BetaSuitesBookA5Client() {
             PÁGINA 1: CAPA
         ======================================================== */}
         <FolhaA5Retrato>
-          <div className="h-[65%] relative">
+          {/* Fundo da Capa Ocupando 100% da Folha */}
+          <div className="absolute inset-0 w-full h-full">
             <img 
               src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/anexos/beta_sunset_fachada.jpeg" 
               alt="Capa Beta Suítes" 
-              className="absolute inset-0 w-full h-full object-cover"
+              className="absolute inset-0 w-full h-full object-cover object-center"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a] via-[#0a0a0a]/30 to-transparent"></div>
+            {/* Sobreposição de escurecimento para dar contraste e ar premium à marca */}
+            <div className="absolute inset-0 bg-black/40"></div>
+            {/* Vinheta fotográfica (mais escuro nas bordas) */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-black/60"></div>
           </div>
-          <div className="h-[35%] flex flex-col items-center justify-center p-8 bg-[#0a0a0a] relative overflow-hidden">
-            <div className="absolute top-0 inset-x-8 h-px bg-gradient-to-r from-transparent via-[#f25a2f]/50 to-transparent"></div>
+
+          {/* Conteúdo Centralizado */}
+          <div className="relative w-full h-full flex flex-col items-center justify-center p-8 z-10">
             
             {/* CONTAINER COM AS PROPORÇÕES MATEMATICAMENTE IDÊNTICAS AO BOOK A4 */}
             <div className="flex flex-col items-start w-[450px]" style={{ transform: 'scale(0.55)', transformOrigin: 'center' }}>
