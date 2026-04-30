@@ -67,7 +67,8 @@ export default function ReciboModal({ isOpen, onClose, lancamento: initialLancam
  const pagadorNome = isReceita ? (pagador?.nome || pagador?.razao_social) : pagador?.razao_social;
  const pagadorDocumento = isReceita ? (pagador?.cpf || pagador?.cnpj) : pagador?.cnpj;
 
- const valorPorExtenso = useMemo(() => numeroParaExtenso(lancamentoCompleto?.valor), [lancamentoCompleto]);
+ const valorAbsoluto = Math.abs(lancamentoCompleto?.valor || 0);
+ const valorPorExtenso = useMemo(() => numeroParaExtenso(valorAbsoluto), [valorAbsoluto]);
 
  const handlePrint = () => {
  const printContent = document.getElementById('recibo-imprimivel');
@@ -151,7 +152,7 @@ export default function ReciboModal({ isOpen, onClose, lancamento: initialLancam
  <p className="text-lg leading-relaxed mb-6 print:leading-snug print:text-base print:mb-4 text-justify">
  {isReceita ? "Recebemos de" : "Recebi(emos) de"} <strong>{pagadorNome || 'N/A'}</strong>,
  CPF/CNPJ nº <strong>{pagadorDocumento || 'N/A'}</strong>,
- a importância de <strong>R$ {new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2 }).format(lancamentoCompleto?.valor || 0)}</strong>
+ a importância de <strong>R$ {new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2 }).format(valorAbsoluto)}</strong>
  &nbsp;({valorPorExtenso}), referente a <strong>{lancamentoCompleto?.descricao}</strong>.
  </p>
 
