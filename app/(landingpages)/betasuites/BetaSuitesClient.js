@@ -234,7 +234,7 @@ export default function BetaSuitesClient() {
             {/* 1. LOGO ALONGADA (Ocupa 100% do Container) */}
             <div className="mb-6 w-full">
               <Image
-                src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/LOGO-P_1764944035362.png"
+                src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/anexos/1777578206822_BETA_LOGO_BRANCA.png"
                 alt="Beta Suítes Logo"
                 width={700}
                 height={200}

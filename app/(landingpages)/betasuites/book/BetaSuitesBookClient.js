@@ -217,7 +217,7 @@ export default function BetaSuitesBookClient() {
             {/* LOGO */}
             <div className="w-[450px] relative z-10">
               <img
-                src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/LOGO-P_1764944035362.png"
+                src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/anexos/1777578206822_BETA_LOGO_BRANCA.png"
                 alt="Beta Suítes Logo"
                 className="w-full h-auto object-contain drop-shadow-2xl"
               />
