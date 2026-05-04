@@ -52,7 +52,7 @@ export async function POST(request) {
         id,
         colunas_funil(nome),
         contatos_no_funil_produtos(
-          produto:produto_id(nome)
+          produto:produto_id(nome, empreendimento_id, area_m2, valor_venda_calculado)
         )
       `)
       .eq('contato_id', contato_id)
@@ -63,7 +63,8 @@ export async function POST(request) {
         resumo_interacao: "Não há mensagens suficientes no WhatsApp para análise.",
         temperatura: "Frio",
         fase_crm_atual: funil?.colunas_funil?.nome || "Nenhuma fase no funil",
-        proxima_acao_sugerida: "Inicie o contato com o cliente via WhatsApp."
+        proxima_acao_sugerida: "Inicie o contato com o cliente via WhatsApp.",
+        proxima_resposta_sugerida: "Olá! Notei seu interesse, como posso ajudar?"
       });
     }
 
@@ -80,6 +81,43 @@ export async function POST(request) {
     const produtosRaw = funil?.contatos_no_funil_produtos?.map(p => p.produto?.nome) || [];
     const produtos = produtosRaw.length > 0 ? produtosRaw.join(', ') : "Nenhum Produto Vinculado";
 
+    // NOVO: Extrair IDs de Empreendimentos para buscar anexos e contexto
+    const empIdsSet = new Set();
+    let detalhesUnidades = "";
+    if (funil?.contatos_no_funil_produtos) {
+      funil.contatos_no_funil_produtos.forEach(p => {
+        if (p.produto?.empreendimento_id) empIdsSet.add(p.produto.empreendimento_id);
+        if (p.produto?.nome) {
+          detalhesUnidades += `- Produto: ${p.produto.nome} | Área: ${p.produto.area_m2 || 'N/A'}m² | Valor Calculado: R$ ${p.produto.valor_venda_calculado || 'N/A'}\n`;
+        }
+      });
+    }
+    const empreendimentoIds = Array.from(empIdsSet);
+
+    let anexosContext = "Nenhum anexo público encontrado.";
+    let empContext = "";
+
+    if (empreendimentoIds.length > 0) {
+      const { data: empreendimentos } = await supabaseAdmin
+        .from('empreendimentos')
+        .select('id, nome')
+        .in('id', empreendimentoIds);
+
+      if (empreendimentos) {
+        empContext = "Empreendimentos de Interesse: " + empreendimentos.map(e => e.nome).join(', ');
+      }
+
+      const { data: anexos } = await supabaseAdmin
+        .from('empreendimento_anexos')
+        .select('nome_arquivo, descricao')
+        .in('empreendimento_id', empreendimentoIds)
+        .eq('pode_enviar_anexo', true);
+      
+      if (anexos && anexos.length > 0) {
+         anexosContext = anexos.map(a => `- Arquivo: [${a.nome_arquivo}] (${a.descricao || 'Sem descrição'})`).join('\n');
+      }
+    }
+
     // 4. Invocar a IA 
     // OBS: Usamos o identificador mais moderno: gemini-3.1-pro-preview
     const model = genAI.getGenerativeModel({
@@ -90,22 +128,30 @@ export async function POST(request) {
     });
 
     const prompt = `
-Você é DEVONILDO, o super Analista Comercial de Elite da Studio 57.
-Sua missão é classificar o lead e gerar um mini-report exato do status.
+Você é DEVONILDO, o super Analista Comercial de Elite e Assistente Copiloto da Studio 57.
+Sua missão é classificar o lead e gerar uma RESPOSTA SUGERIDA PRONTA para o corretor copiar e enviar ao cliente.
 
 # Dados Atuais Comerciais
 - Fase no Funil (CRM): ${crmStatus}
 - Produtos Interessados: ${produtos}
+${empContext}
+
+# Inteligência de Produtos (Caso o cliente pergunte de valores ou área)
+${detalhesUnidades}
+
+# Arquivos e Anexos Disponíveis (Se o cliente pedir material/fotos/plantas, sugira o envio de um destes)
+${anexosContext}
 
 # Histórico Recente de Conversa (WhatsApp)
 ${chatLog}
 
-Com base SOMENTE neste histórico recente, escreva um JSON rigoroso nos seguintes moldes:
+Com base SOMENTE neste histórico recente e contexto do projeto, escreva um JSON rigoroso nos seguintes moldes:
 {
   "resumo_interacao": "Texto conciso de até 3 linhas dizendo exatamente o ponto de temperatura da conversa.",
   "temperatura": "Quente" ou "Morno" ou "Frio",
   "fase_crm_atual": "${crmStatus}",
-  "proxima_acao_sugerida": "Dica direta e acionável para o corretor."
+  "proxima_acao_sugerida": "Dica direta e acionável para o corretor. Ex: Se o cliente pediu material, diga 'Envie o PDF do Book de Vendas que ele solicitou'.",
+  "proxima_resposta_sugerida": "A resposta exata e natural que o corretor deve copiar e enviar ao cliente para continuar o fechamento. Use as informações de unidades e anexos disponíveis para ser prestativo."
 }
 `;
 

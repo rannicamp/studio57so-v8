@@ -120,6 +120,22 @@ export async function POST(request) {
  await handleMessageInsert(supabaseAdmin, message, config, contatoId, conversationRecordId);
 
  await logWebhook(supabaseAdmin, 'INFO', `Msg recebida: ${message.type}`, { from: message.from, org_id: config.organizacao_id });
+
+ // D. Dispara atualização da IA em background (Fire and Forget)
+ try {
+   const protocol = request.headers.get('x-forwarded-proto') || 'http';
+   const host = request.headers.get('host');
+   if (host) {
+     const apiUrl = `${protocol}://${host}/api/ai/chat-analysis`;
+     fetch(apiUrl, {
+       method: 'POST',
+       headers: { 'Content-Type': 'application/json' },
+       body: JSON.stringify({ contato_id: contatoId, organizacao_id: config.organizacao_id, force: true })
+     }).catch(e => console.error('[Webhook] Async AI Error:', e));
+   }
+ } catch (e) {
+   console.error('[Webhook] Async AI Init Error:', e);
+ }
  }
 
  return NextResponse.json({ status: 'ok' });

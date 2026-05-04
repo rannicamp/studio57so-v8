@@ -7,7 +7,7 @@ import { createClient } from '@/utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faStickyNote, faTasks, faSpinner, faPlus, faPhone, faEnvelope, faIdCard, faGlobe, faPen, faTrash, faCheckCircle, faBullhorn, faUserTie, faCalculator, faExternalLinkAlt,
  faHistory, faTimes, faBriefcase, faSave, faFunnelDollar, faMoneyBillWave,
- faPiggyBank, faBullseye, faCheck, faTimesCircle, faRobot, faSyncAlt
+ faPiggyBank, faBullseye, faCheck, faTimesCircle, faRobot, faSyncAlt, faCopy, faReply
 } from '@fortawesome/free-solid-svg-icons';
 import { faInstagram } from '@fortawesome/free-brands-svg-icons';
 import { toast } from 'sonner';
@@ -655,6 +655,33 @@ export default function ContactProfile({ contact }) {
                     </button>
                   </div>
                 </div>
+                
+                {/* BLOCO DE RESPOSTA SUGERIDA */}
+                {displayContact.ai_analysis.proxima_resposta_sugerida && (
+                  <div className="mt-4 pt-4 border-t border-purple-100/50">
+                    <h5 className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                       <FontAwesomeIcon icon={faReply} className="text-gray-400"/> Resposta Sugerida
+                    </h5>
+                    <div className="bg-white text-gray-800 text-xs p-3 rounded-lg font-medium shadow-sm flex flex-col gap-3 border border-purple-100 relative">
+                      <div className="flex items-start gap-2.5">
+                        <p className="leading-relaxed whitespace-pre-wrap flex-1">{displayContact.ai_analysis.proxima_resposta_sugerida}</p>
+                      </div>
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(displayContact.ai_analysis.proxima_resposta_sugerida);
+                          toast.success("Resposta copiada para a área de transferência!");
+                        }}
+                        className="bg-purple-50 hover:bg-purple-100 text-purple-700 text-[10px] px-3 py-2 rounded uppercase tracking-wider font-bold transition-colors flex items-center justify-center gap-1.5 w-full mt-1 border border-purple-200"
+                        title="Copiar resposta"
+                      >
+                        <FontAwesomeIcon icon={faCopy} /> Copiar para Envio
+                      </button>
+                      <p className="text-[9px] text-gray-400 text-center italic mt-1 leading-tight">
+                        A IA formulou esta resposta baseada nos dados públicos e anexos do empreendimento vinculado a este lead.
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="text-center py-6 bg-white/40 rounded-lg">
