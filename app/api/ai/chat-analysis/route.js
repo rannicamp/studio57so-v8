@@ -128,7 +128,7 @@ export async function POST(request) {
     });
 
     const prompt = `
-Você é DEVONILDO, o super Analista Comercial de Elite e Assistente Copiloto da Studio 57.
+Você é Stella, a super Analista Comercial de Elite e Assistente Copiloto da Studio 57.
 Sua missão é classificar o lead e gerar uma RESPOSTA SUGERIDA PRONTA para o corretor copiar e enviar ao cliente.
 
 # Dados Atuais Comerciais

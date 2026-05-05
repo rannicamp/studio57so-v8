@@ -77,6 +77,19 @@ export default function EmpreendimentoFormModal({ isOpen, onClose, empreendiment
             cobertura_detalhes: empreendimentoToEdit?.cobertura_detalhes || '',
             dados_contrato: empreendimentoToEdit?.dados_contrato || '',
             indice_reajuste: empreendimentoToEdit?.indice_reajuste || '',
+            inscricao_imobiliaria: empreendimentoToEdit?.inscricao_imobiliaria || '',
+            lote: empreendimentoToEdit?.lote || '',
+            quadra: empreendimentoToEdit?.quadra || '',
+            area_total_construcao: empreendimentoToEdit?.area_total_construcao || '',
+            uso_edificacao: empreendimentoToEdit?.uso_edificacao || '',
+            numero_pavimentos: empreendimentoToEdit?.numero_pavimentos || '',
+            alvara_construcao_numero: empreendimentoToEdit?.alvara_construcao_numero || '',
+            alvara_construcao_data: empreendimentoToEdit?.alvara_construcao_data || '',
+            processo_administrativo: empreendimentoToEdit?.processo_administrativo || '',
+            registro_incorporacao: empreendimentoToEdit?.registro_incorporacao || '',
+            patrimonio_afetacao: empreendimentoToEdit?.patrimonio_afetacao || false,
+            resp_tecnico_projeto: empreendimentoToEdit?.resp_tecnico_projeto || '',
+            resp_tecnico_obra: empreendimentoToEdit?.resp_tecnico_obra || '',
             thumbnail_url: empreendimentoToEdit?.thumbnail_url || null,
             logo_url: empreendimentoToEdit?.logo_url || null,
             observacoes: empreendimentoToEdit?.observacoes || '*Correção mensal pelo INCC até a entrega das chaves, após entrega IGP-M + 1% a.m.\n**Sujeito a alteração sem aviso prévio.',
@@ -271,14 +284,49 @@ export default function EmpreendimentoFormModal({ isOpen, onClose, empreendiment
                             </div>
                         </fieldset>
 
-                        {/* DADOS REGISTRO */}
+                        {/* DADOS DO TERRENO E ZONEAMENTO */}
                         <fieldset>
-                            <legend className="text-lg font-bold text-gray-800 border-b pb-2 mb-4">Registro e Detalhes Construtivos</legend>
+                            <legend className="text-lg font-bold text-gray-800 border-b pb-2 mb-4">Dados do Terreno e Zoneamento</legend>
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                                <div><label className="block text-sm font-medium text-gray-700">Inscrição Imob. (CTM)</label><input type="text" name="inscricao_imobiliaria" value={formData.inscricao_imobiliaria || ''} onChange={handleChange} className="mt-1 w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" /></div>
+                                <div><label className="block text-sm font-medium text-gray-700">Quadra</label><input type="text" name="quadra" value={formData.quadra || ''} onChange={handleChange} className="mt-1 w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" /></div>
+                                <div><label className="block text-sm font-medium text-gray-700">Lote</label><input type="text" name="lote" value={formData.lote || ''} onChange={handleChange} className="mt-1 w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" /></div>
+                                <div><label className="block text-sm font-medium text-gray-700">Área Terreno (m²)</label><input type="text" name="terreno_area_total" value={formData.terreno_area_total || ''} onChange={handleChange} className="mt-1 w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" /></div>
+                                
+                                <div><label className="block text-sm font-medium text-gray-700">Uso da Edificação</label><input type="text" name="uso_edificacao" placeholder="Ex: Misto" value={formData.uso_edificacao || ''} onChange={handleChange} className="mt-1 w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" /></div>
+                                <div><label className="block text-sm font-medium text-gray-700">Nº de Pavimentos</label><input type="number" name="numero_pavimentos" value={formData.numero_pavimentos || ''} onChange={handleChange} className="mt-1 w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" /></div>
+                                <div><label className="block text-sm font-medium text-gray-700">Área Construída (m²)</label><input type="text" name="area_total_construcao" value={formData.area_total_construcao || ''} onChange={handleChange} className="mt-1 w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" /></div>
+                                <div><label className="block text-sm font-medium text-gray-700">Nome Oficial (Cartório)</label><input type="text" name="nome_empreendimento" value={formData.nome_empreendimento || ''} onChange={handleChange} className="mt-1 w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" /></div>
+                            </div>
+                        </fieldset>
+
+                        {/* APROVAÇÕES E LEGALIZAÇÃO */}
+                        <fieldset>
+                            <legend className="text-lg font-bold text-gray-800 border-b pb-2 mb-4">Aprovações e Legalização</legend>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                <div><label className="block text-sm font-medium text-gray-700">Área Terreno (m²)</label><input type="number" name="terreno_area_total" value={formData.terreno_area_total || ''} onChange={handleChange} className="mt-1 w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" /></div>
-                                <div className="md:col-span-2"><label className="block text-sm font-medium text-gray-700">Nome Oficial (Lançado no Cartório)</label><input type="text" name="nome_empreendimento" value={formData.nome_empreendimento || ''} onChange={handleChange} className="mt-1 w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" /></div>
-                                <div><label className="block text-sm font-medium text-gray-700">Nº da Matrícula Mãe</label><input type="text" name="matricula_numero" value={formData.matricula_numero || ''} onChange={handleChange} className="mt-1 w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" /></div>
-                                <div className="md:col-span-2"><label className="block text-sm font-medium text-gray-700">Cartório / Comarca</label><input type="text" name="matricula_cartorio" value={formData.matricula_cartorio || ''} onChange={handleChange} className="mt-1 w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" /></div>
+                                <div><label className="block text-sm font-medium text-gray-700">Nº Alvará de Construção</label><input type="text" name="alvara_construcao_numero" value={formData.alvara_construcao_numero || ''} onChange={handleChange} className="mt-1 w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" /></div>
+                                <div><label className="block text-sm font-medium text-gray-700">Data do Alvará</label><input type="date" name="alvara_construcao_data" value={formData.alvara_construcao_data || ''} onChange={handleChange} className="mt-1 w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" /></div>
+                                <div><label className="block text-sm font-medium text-gray-700">Processo Administrativo</label><input type="text" name="processo_administrativo" value={formData.processo_administrativo || ''} onChange={handleChange} className="mt-1 w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" /></div>
+                                
+                                <div><label className="block text-sm font-medium text-gray-700">Cartório da Matrícula</label><input type="text" name="matricula_cartorio" value={formData.matricula_cartorio || ''} onChange={handleChange} className="mt-1 w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" /></div>
+                                <div><label className="block text-sm font-medium text-gray-700">Matrícula Mãe</label><input type="text" name="matricula_numero" value={formData.matricula_numero || ''} onChange={handleChange} className="mt-1 w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" /></div>
+                                <div><label className="block text-sm font-medium text-gray-700">Registro de Incorporação (RI)</label><input type="text" name="registro_incorporacao" value={formData.registro_incorporacao || ''} onChange={handleChange} className="mt-1 w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" /></div>
+                                
+                                <div className="md:col-span-3 flex items-center mt-2">
+                                    <input type="checkbox" id="patrimonio_afetacao" name="patrimonio_afetacao" checked={formData.patrimonio_afetacao || false} onChange={(e) => setFormData(prev => ({ ...prev, patrimonio_afetacao: e.target.checked }))} className="h-5 w-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500" />
+                                    <label htmlFor="patrimonio_afetacao" className="ml-2 block text-sm font-bold text-gray-800">
+                                        Empreendimento possui Patrimônio de Afetação
+                                    </label>
+                                </div>
+                            </div>
+                        </fieldset>
+
+                        {/* RESPONSABILIDADE TÉCNICA E PRAZOS */}
+                        <fieldset>
+                            <legend className="text-lg font-bold text-gray-800 border-b pb-2 mb-4">Engenharia e Cronograma</legend>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div><label className="block text-sm font-medium text-gray-700">Resp. Técnico (Projeto)</label><input type="text" name="resp_tecnico_projeto" value={formData.resp_tecnico_projeto || ''} onChange={handleChange} className="mt-1 w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" /></div>
+                                <div><label className="block text-sm font-medium text-gray-700">Resp. Técnico (Obra)</label><input type="text" name="resp_tecnico_obra" value={formData.resp_tecnico_obra || ''} onChange={handleChange} className="mt-1 w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" /></div>
                                 <div><label className="block text-sm font-medium text-gray-700">Ínicio das Obras</label><input type="date" name="data_inicio" value={formData.data_inicio || ''} onChange={handleChange} className="mt-1 w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" /></div>
                                 <div><label className="block text-sm font-medium text-gray-700">Término Previsto</label><input type="date" name="data_fim_prevista" value={formData.data_fim_prevista || ''} onChange={handleChange} className="mt-1 w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" /></div>
                             </div>

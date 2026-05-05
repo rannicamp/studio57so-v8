@@ -624,7 +624,121 @@ export default function EmpreendimentoDetails({ empreendimento, corporateEntitie
 
  {/* Conteúdo das Abas */}
  <div>
- {activeTab === 'dados_gerais' && (<div className="space-y-8 animate-fade-in"><div><h2 className="text-2xl font-semibold text-gray-800 mb-4">Dados do Empreendimento</h2><div className="grid grid-cols-1 md:grid-cols-3 gap-6"><InfoField label="Nome Fantasia" value={empreendimento.nome} /><InfoField label="Nome Oficial (Cartório)" value={empreendimento.nome_empreendimento} /><InfoField label="Status" value={empreendimento.status} /><InfoField label="Empresa Proprietária" value={proprietaria ? (proprietaria.nome_fantasia || proprietaria.razao_social) : 'N/A'} /><InfoField label="Incorporadora" value={incorporadora ? `${incorporadora.nome || incorporadora.razao_social}` : 'N/A'} /><InfoField label="Construtora" value={construtora ? `${construtora.nome || construtora.razao_social}` : 'N/A'} /><InfoField label="Data de Início" value={empreendimento.data_inicio} /><InfoField label="Data Fim Prevista" value={empreendimento.data_fim_prevista} /><InfoField label="Prazo de Entrega" value={empreendimento.prazo_entrega} /><InfoField label="Valor Total" value={formattedValorTotal} /><InfoField label="Número da Matrícula" value={empreendimento.matricula_numero} /><InfoField label="Cartório da Matrícula" value={empreendimento.matricula_cartorio} /><InfoField label="Índice de Reajuste" value={empreendimento.indice_reajuste} /></div></div><div className="pt-6 border-t"><h3 className="text-xl font-semibold text-gray-800 mb-4">Endereço</h3><div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6"><InfoField label="CEP" value={empreendimento.cep} /><InfoField label="Rua" value={empreendimento.address_street} /><InfoField label="Número" value={empreendimento.address_number} /><InfoField label="Complemento" value={empreendimento.address_complement} /><InfoField label="Bairro" value={empreendimento.neighborhood} /><InfoField label="Cidade" value={empreendimento.city} /><InfoField label="Estado" value={empreendimento.state} /></div></div><div className="pt-6 border-t"><h3 className="text-xl font-semibold text-gray-800 mb-4">Características Construtivas</h3><div className="grid grid-cols-1 md:grid-cols-3 gap-6"><InfoField label="Área Total do Terreno" value={formattedTerrenoAreaTotal} /><InfoField label="Tipo de Estrutura" value={empreendimento.estrutura_tipo} /><InfoField label="Tipo de Alvenaria" value={empreendimento.alvenaria_tipo} /><InfoField label="Detalhes da Cobertura" value={empreendimento.cobertura_detalhes} fullWidth={true} /></div></div>{initialQuadroDeAreas && initialQuadroDeAreas.length > 0 && (<div className="pt-6 border-t"><h3 className="text-xl font-semibold text-gray-800 mb-4">Quadro de Áreas</h3><table className="min-w-full bg-white border rounded-lg"><thead className="bg-gray-100"><tr><th className="py-2 px-4 text-left text-sm font-semibold">Pavimento</th><th className="py-2 px-4 text-right text-sm font-semibold">Área (m²)</th></tr></thead><tbody>{initialQuadroDeAreas.map((item) => (<tr key={item.id} className="border-t"><td className="py-2 px-4">{item.pavimento_nome}</td><td className="py-2 px-4 text-right">{item.area_m2} m²</td></tr>))}<tr className="bg-gray-100 font-bold"><td className="py-2 px-4 text-left">Total</td><td className="py-2 px-4 text-right">{initialQuadroDeAreas.reduce((sum, item) => sum + parseFloat(item.area_m2 || 0), 0).toFixed(2)} m²</td></tr></tbody></table></div>)}</div>)}
+  {activeTab === 'dados_gerais' && (
+    <div className="space-y-8 animate-fade-in">
+      
+      {/* Dados do Empreendimento */}
+      <div>
+        <h2 className="text-2xl font-semibold text-gray-800 mb-4">Dados do Empreendimento</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <InfoField label="Nome Fantasia" value={empreendimento.nome} />
+          <InfoField label="Nome Oficial (Cartório)" value={empreendimento.nome_empreendimento} />
+          <InfoField label="Status" value={empreendimento.status} />
+          <InfoField label="Categoria" value={empreendimento.categoria || 'Vertical'} />
+          <InfoField label="Uso da Edificação" value={empreendimento.uso_edificacao || 'N/A'} />
+          <InfoField label="Valor Total" value={formattedValorTotal} />
+          <InfoField label="Empresa Proprietária" value={proprietaria ? (proprietaria.nome_fantasia || proprietaria.razao_social) : 'N/A'} />
+          <InfoField label="Incorporadora" value={incorporadora ? `${incorporadora.nome || incorporadora.razao_social}` : 'N/A'} />
+          <InfoField label="Construtora" value={construtora ? `${construtora.nome || construtora.razao_social}` : 'N/A'} />
+        </div>
+      </div>
+
+      {/* Endereço */}
+      <div className="pt-6 border-t">
+        <h3 className="text-xl font-semibold text-gray-800 mb-4">Endereço</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+          <InfoField label="CEP" value={empreendimento.cep} />
+          <InfoField label="Rua" value={empreendimento.address_street} />
+          <InfoField label="Número" value={empreendimento.address_number} />
+          <InfoField label="Complemento" value={empreendimento.address_complement} />
+          <InfoField label="Bairro" value={empreendimento.neighborhood} />
+          <InfoField label="Cidade" value={empreendimento.city} />
+          <InfoField label="Estado" value={empreendimento.state} />
+        </div>
+      </div>
+
+      {/* Dados do Terreno e Zoneamento */}
+      <div className="pt-6 border-t">
+        <h3 className="text-xl font-semibold text-gray-800 mb-4">Dados do Terreno e Zoneamento</h3>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <InfoField label="Inscrição Imobiliária (CTM)" value={empreendimento.inscricao_imobiliaria || 'N/A'} />
+          <InfoField label="Quadra" value={empreendimento.quadra || 'N/A'} />
+          <InfoField label="Lote" value={empreendimento.lote || 'N/A'} />
+          <InfoField label="Área Total do Terreno" value={formattedTerrenoAreaTotal} />
+          <InfoField label="Área Total de Construção" value={empreendimento.area_total_construcao ? `${empreendimento.area_total_construcao} m²` : 'N/A'} />
+          <InfoField label="Nº de Pavimentos" value={empreendimento.numero_pavimentos || 'N/A'} />
+        </div>
+      </div>
+
+      {/* Aprovações e Legalização */}
+      <div className="pt-6 border-t">
+        <h3 className="text-xl font-semibold text-gray-800 mb-4">Aprovações e Legalização</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <InfoField label="Nº Alvará de Construção" value={empreendimento.alvara_construcao_numero || 'N/A'} />
+          <InfoField label="Data do Alvará" value={empreendimento.alvara_construcao_data || 'N/A'} />
+          <InfoField label="Processo Administrativo" value={empreendimento.processo_administrativo || 'N/A'} />
+          <InfoField label="Cartório da Matrícula" value={empreendimento.matricula_cartorio || 'N/A'} />
+          <InfoField label="Matrícula Mãe" value={empreendimento.matricula_numero || 'N/A'} />
+          <InfoField label="Registro de Incorporação (RI)" value={empreendimento.registro_incorporacao || 'N/A'} />
+          <div className="md:col-span-3">
+             <span className={`px-3 py-1 rounded-full text-xs font-bold ${empreendimento.patrimonio_afetacao ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
+                {empreendimento.patrimonio_afetacao ? 'Possui Patrimônio de Afetação' : 'Sem Patrimônio de Afetação Declarado'}
+             </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Responsabilidade Técnica e Cronograma */}
+      <div className="pt-6 border-t">
+        <h3 className="text-xl font-semibold text-gray-800 mb-4">Engenharia e Cronograma</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <InfoField label="Resp. Técnico (Projeto)" value={empreendimento.resp_tecnico_projeto || 'N/A'} />
+          <InfoField label="Resp. Técnico (Obra)" value={empreendimento.resp_tecnico_obra || 'N/A'} />
+          <InfoField label="Índice de Reajuste" value={empreendimento.indice_reajuste || 'N/A'} />
+          <InfoField label="Data de Início" value={empreendimento.data_inicio || 'N/A'} />
+          <InfoField label="Término Previsto" value={empreendimento.data_fim_prevista || 'N/A'} />
+          <InfoField label="Prazo de Entrega" value={empreendimento.prazo_entrega || 'N/A'} />
+        </div>
+      </div>
+
+      {/* Características Construtivas */}
+      <div className="pt-6 border-t">
+        <h3 className="text-xl font-semibold text-gray-800 mb-4">Características Construtivas</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <InfoField label="Tipo de Estrutura" value={empreendimento.estrutura_tipo || 'N/A'} />
+          <InfoField label="Tipo de Alvenaria" value={empreendimento.alvenaria_tipo || 'N/A'} />
+          <InfoField label="Detalhes da Cobertura" value={empreendimento.cobertura_detalhes || 'N/A'} fullWidth={true} />
+        </div>
+      </div>
+
+      {/* Quadro de Áreas */}
+      {initialQuadroDeAreas && initialQuadroDeAreas.length > 0 && (
+        <div className="pt-6 border-t">
+          <h3 className="text-xl font-semibold text-gray-800 mb-4">Quadro de Áreas</h3>
+          <table className="min-w-full bg-white border rounded-lg">
+            <thead className="bg-gray-100">
+              <tr>
+                <th className="py-2 px-4 text-left text-sm font-semibold">Pavimento</th>
+                <th className="py-2 px-4 text-right text-sm font-semibold">Área (m²)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {initialQuadroDeAreas.map((item) => (
+                <tr key={item.id} className="border-t">
+                  <td className="py-2 px-4">{item.pavimento_nome}</td>
+                  <td className="py-2 px-4 text-right">{item.area_m2} m²</td>
+                </tr>
+              ))}
+              <tr className="bg-gray-100 font-bold">
+                <td className="py-2 px-4 text-left">Total</td>
+                <td className="py-2 px-4 text-right">{initialQuadroDeAreas.reduce((sum, item) => sum + parseFloat(item.area_m2 || 0), 0).toFixed(2)} m²</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )}
 
  {/* ATUALIZADO: Passando as props de sort para TabelaVendas */}
  {activeTab === 'produtos' && (
