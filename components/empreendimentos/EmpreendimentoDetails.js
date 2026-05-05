@@ -17,7 +17,7 @@ import {
  faCloudUploadAlt, faWandMagicSparkles, faLink, faDownload,
  faRightLeft, faPlus, faPen, faTimes, faFileContract, faTableCellsLarge, faBars,
  faBold, faItalic, faListUl, faListOl, faUndo, faRedo,
- faUserTie // <-- Ícone do Corretor
+ faUserTie, faArchive // <-- Ícone do Corretor e Arquivo
 } from '@fortawesome/free-solid-svg-icons';
 import { createClient } from '@/utils/supabase/client';
 import { toast } from 'sonner';
@@ -399,6 +399,40 @@ export default function EmpreendimentoDetails({ empreendimento, corporateEntitie
  const router = useRouter();
  const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
  const [summary, setSummary] = useState('');
+ const [isArchiving, setIsArchiving] = useState(false);
+ const [isDeleting, setIsDeleting] = useState(false);
+
+ const handleArchiveToggle = async () => {
+   const isArquivando = !empreendimento.arquivado;
+   const acao = isArquivando ? "arquivar" : "desarquivar";
+   if (!window.confirm(`Deseja realmente ${acao} este empreendimento?`)) return;
+   setIsArchiving(true);
+   const { error } = await supabase.from('empreendimentos').update({ arquivado: isArquivando }).eq('id', empreendimento.id);
+   setIsArchiving(false);
+   if (error) {
+     toast.error(`Erro ao ${acao}: ` + error.message);
+   } else {
+     toast.success(`Empreendimento ${isArquivando ? 'arquivado' : 'desarquivado'} com sucesso!`);
+     window.location.reload();
+   }
+ };
+
+ const handleDelete = async () => {
+   if (!window.confirm("CUIDADO: Excluir é definitivo. Deseja tentar excluir este empreendimento?")) return;
+   setIsDeleting(true);
+   const { error } = await supabase.from('empreendimentos').delete().eq('id', empreendimento.id);
+   setIsDeleting(false);
+   if (error) {
+     if (error.code === '23503') {
+       toast.error('Este empreendimento possui vínculos (despesas, clientes, produtos) e não pode ser excluído permanentemente para não quebrar o histórico. Em vez disso, clique no botão "Arquivar".', { duration: 7000 });
+     } else {
+       toast.error('Erro ao excluir: ' + error.message);
+     }
+   } else {
+     toast.success('Empreendimento excluído com sucesso!');
+     router.push('/empreendimentos');
+   }
+ };
 
  // --- LÓGICA DE PERSISTÊNCIA (SALVAR NO LOCALSTORAGE) ---
  const hasRestoredUiState = useRef(true);
@@ -554,10 +588,12 @@ export default function EmpreendimentoDetails({ empreendimento, corporateEntitie
  <p className="text-gray-500 font-medium">{empreendimento.status}</p>
  </div>
  </div>
- <div className="flex items-center gap-2 flex-shrink-0">
- <button onClick={handleGerarResumo} disabled={isGeneratingSummary} className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors disabled:bg-gray-400"><FontAwesomeIcon icon={isGeneratingSummary ? faSpinner : faWandMagicSparkles} className={`mr-2 ${isGeneratingSummary ? 'animate-spin' : ''}`} />{isGeneratingSummary ? 'Gerando...' : 'Gerar Resumo com IA'}</button>
- <button onClick={() => setIsEditModalOpen(true)} className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors">Editar Empreendimento</button>
- </div>
+ <div className="flex items-center gap-2 flex-shrink-0 flex-wrap justify-end">
+    <button onClick={handleGerarResumo} disabled={isGeneratingSummary} className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors disabled:bg-gray-400"><FontAwesomeIcon icon={isGeneratingSummary ? faSpinner : faWandMagicSparkles} className={`mr-2 ${isGeneratingSummary ? 'animate-spin' : ''}`} />{isGeneratingSummary ? 'Gerando...' : 'Resumo IA'}</button>
+    <button onClick={() => setIsEditModalOpen(true)} className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"><FontAwesomeIcon icon={faPen} className="mr-2" />Editar</button>
+    <button onClick={handleArchiveToggle} disabled={isArchiving} className={`px-4 py-2 text-white rounded-md transition-colors ${empreendimento.arquivado ? 'bg-green-500 hover:bg-green-600' : 'bg-gray-500 hover:bg-gray-600'}`}><FontAwesomeIcon icon={isArchiving ? faSpinner : (empreendimento.arquivado ? faBoxOpen : faArchive)} className={`mr-2 ${isArchiving ? 'animate-spin' : ''}`} />{empreendimento.arquivado ? 'Desarquivar' : 'Arquivar'}</button>
+    <button onClick={handleDelete} disabled={isDeleting} className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors"><FontAwesomeIcon icon={isDeleting ? faSpinner : faTrash} className={`mr-2 ${isDeleting ? 'animate-spin' : ''}`} />Excluir</button>
+  </div>
  </div>
 
  {/* Resumo IA */}

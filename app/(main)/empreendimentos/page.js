@@ -21,6 +21,7 @@ const fetchEmpreendimentos = async (supabase, organizacaoId) => {
  status,
  categoria,
  imagem_capa_url,
+ arquivado,
  listado_para_venda, empresa_proprietaria:empresa_proprietaria_id ( razao_social )
  `)
  .eq('organizacao_id', organizacaoId)

@@ -23,6 +23,7 @@ const fetchEmpreendimentos = async (supabase, organizacaoId) => {
  .from('empreendimentos')
  .select('id, nome')
  .eq('organizacao_id', organizacaoId)
+ .eq('arquivado', false)
  .order('nome');
  if (error) throw new Error("Falha ao buscar empreendimentos.");
  return data || [];

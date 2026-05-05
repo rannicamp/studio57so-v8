@@ -89,7 +89,8 @@ export default function ProdutoList({ initialProdutos, empreendimentoId, initial
  const sellProductMutation = useMutation({
  mutationFn: async (produto) => {
  if (!organizacaoId) throw new Error("Organização não identificada.");
- const { data: newContract, error: contractError } = await supabase.from('contratos').insert({ empreendimento_id: empreendimentoId, produto_id: produto.id, valor_final_venda: produto.valor_venda_calculado, status_contrato: 'Em assinatura', organizacao_id: organizacaoId }).select('id').single();
+ const valorVendaFinal = produto.valor_venda_calculado ?? (produto.valor_base ? (produto.valor_base * (1 + ((parseFloat(produto.fator_reajuste_percentual) || 0) / 100))) : null);
+ const { data: newContract, error: contractError } = await supabase.from('contratos').insert({ empreendimento_id: empreendimentoId, produto_id: produto.id, valor_final_venda: valorVendaFinal, status_contrato: 'Em assinatura', organizacao_id: organizacaoId }).select('id').single();
  if (contractError) throw new Error(`Erro ao criar o contrato: ${contractError.message}`);
  const { error: productError } = await supabase.from('produtos_empreendimento').update({ status: 'Vendido' }).eq('id', produto.id);
  if (productError) { await supabase.from('contratos').delete().eq('id', newContract.id); throw new Error(`Erro ao atualizar o produto: ${productError.message}`); }
@@ -144,17 +145,30 @@ export default function ProdutoList({ initialProdutos, empreendimentoId, initial
 
  // Lida com a atualização dos campos e suas interdependências
  if (field === 'area_m2') {
- updatedValues.area_m2 = cleanValue;
- const precoM2 = parseFloat(produtoOriginal.preco_m2) || 0;
- if (precoM2 > 0) {
- updatedValues.valor_base = cleanValue * precoM2;
- } else {
- const valorBase = parseFloat(produtoOriginal.valor_base) || 0;
- if (valorBase > 0 && cleanValue > 0) {
- updatedValues.preco_m2 = valorBase / cleanValue;
- }
- }
- } else if (field === 'preco_m2' && area > 0) {
+  updatedValues.area_m2 = cleanValue;
+  let precoM2 = parseFloat(produtoOriginal.preco_m2) || 0;
+  
+  // Se precoM2 não estiver cadastrado, calculamos o histórico
+  if (precoM2 <= 0) {
+    const valorBaseAntigo = parseFloat(produtoOriginal.valor_base) || 0;
+    const areaAntiga = parseFloat(produtoOriginal.area_m2) || 0;
+    if (valorBaseAntigo > 0 && areaAntiga > 0) {
+      precoM2 = valorBaseAntigo / areaAntiga;
+      updatedValues.preco_m2 = precoM2;
+    }
+  }
+
+  // Agora, com um precoM2 válido (cadastrado ou derivado), garantimos que o Preço Base escale
+  if (precoM2 > 0) {
+  updatedValues.valor_base = cleanValue * precoM2;
+  } else {
+  // Fallback extremo: se não tem Preço Base antigo, nem Preço/m² antigo, a única coisa a se fazer é setar o Preço/m²
+  const valorBase = parseFloat(produtoOriginal.valor_base) || 0;
+  if (valorBase > 0 && cleanValue > 0) {
+  updatedValues.preco_m2 = valorBase / cleanValue;
+  }
+  }
+  } else if (field === 'preco_m2' && area > 0) {
  updatedValues.preco_m2 = cleanValue;
  updatedValues.valor_base = area * cleanValue;
  } else if (field === 'valor_base' && area > 0) {
@@ -275,7 +289,7 @@ export default function ProdutoList({ initialProdutos, empreendimentoId, initial
  <td className="px-4 py-2 text-right font-medium text-blue-800 bg-blue-50/50">{renderEditableCell(produto, 'preco_m2', formatCurrency)}</td>
  <td className="px-4 py-2 text-right text-gray-600">{renderEditableCell(produto, 'valor_base', formatCurrency)}</td>
  <td className="px-4 py-2 text-right">{renderEditableCell(produto, 'fator_reajuste_percentual', formatPercent)}</td>
- <td className="px-4 py-2 text-right font-bold text-green-700 bg-green-50/30">{formatCurrency(produto.valor_venda_calculado)}</td>
+ <td className="px-4 py-2 text-right font-bold text-green-700 bg-green-50/30">{formatCurrency(produto.valor_venda_calculado ?? (produto.valor_base ? (produto.valor_base * (1 + ((parseFloat(produto.fator_reajuste_percentual) || 0) / 100))) : null))}</td>
  <td className="px-4 py-2 text-center">{renderEditableCell(produto, 'status')}</td>
  <td className="px-4 py-2 text-center space-x-2">
  {produto.status === 'Disponível' && (<button onClick={() => handleSellProduct(produto)} title="Vender esta Unidade" className="text-green-600 hover:text-green-800 transition-colors"><FontAwesomeIcon icon={faDollarSign} /></button>)}

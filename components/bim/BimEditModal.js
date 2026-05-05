@@ -26,7 +26,7 @@ export default function BimEditModal({ isOpen, onClose, fileToEdit, onSuccess })
  if (!organizacaoId) return null;
  const { data: emp } = await supabase.from('cadastro_empresa').select('id, nome_fantasia, razao_social').eq('organizacao_id', organizacaoId).order('nome_fantasia');
  const { data: disc } = await supabase.from('disciplinas_projetos').select('id, sigla, nome').eq('organizacao_id', organizacaoId).order('sigla');
- const { data: obr } = await supabase.from('empreendimentos').select('id, nome, empresa_proprietaria_id').eq('organizacao_id', organizacaoId).order('nome');
+ const { data: obr } = await supabase.from('empreendimentos').select('id, nome, empresa_proprietaria_id').eq('organizacao_id', organizacaoId).eq('arquivado', false).order('nome');
  return { empresas: emp || [], disciplinas: disc || [], todasObras: obr || [] };
  },
  enabled: isOpen && !!organizacaoId,

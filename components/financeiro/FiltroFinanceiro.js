@@ -48,7 +48,7 @@ const fetchListasBasicas = async (supabase, organizacaoId) => {
  supabase.from('cadastro_empresa').select('id, nome_fantasia, razao_social').eq('organizacao_id', organizacaoId),
  supabase.from('contas_financeiras').select('id, nome, tipo, conta_pai_id').eq('organizacao_id', organizacaoId),
  supabase.from('categorias_financeiras').select('id, nome, parent_id').in('organizacao_id', [organizacaoId, 1]),
- supabase.from('empreendimentos').select('id, nome').eq('organizacao_id', organizacaoId)
+ supabase.from('empreendimentos').select('id, nome').eq('organizacao_id', organizacaoId).eq('arquivado', false)
  ]);
  return {
  empresas: empresasRes.data?.map(e => ({ ...e, nome: e.nome_fantasia || e.razao_social })) || [],

@@ -27,7 +27,7 @@ export default function BimUploadModal({ isOpen, onClose, preSelectedContext, on
  if (!organizacaoId) return null;
  const { data: empresas } = await supabase.from('cadastro_empresa').select('id, nome_fantasia, razao_social').eq('organizacao_id', organizacaoId).order('razao_social');
  const { data: disciplinas } = await supabase.from('disciplinas_projetos').select('id, sigla, nome').eq('organizacao_id', organizacaoId).order('sigla');
- const { data: obras } = await supabase.from('empreendimentos').select('id, nome, empresa_proprietaria_id').eq('organizacao_id', organizacaoId).order('nome');
+ const { data: obras } = await supabase.from('empreendimentos').select('id, nome, empresa_proprietaria_id').eq('organizacao_id', organizacaoId).eq('arquivado', false).order('nome');
  return { empresas: empresas || [], disciplinas: disciplinas || [], todasObras: obras || [] };
  },
  enabled: isOpen && mode === 'create' && !!organizacaoId,

@@ -12,21 +12,32 @@ export default function ProdutoFormModal({ isOpen, onClose, onSave, produtoToEdi
  // Guarda qual campo foi o último a ser editado pelo usuário
  const [lastUserInput, setLastUserInput] = useState(null);
 
- useEffect(() => {
- if (isOpen) {
- setFormData(isEditing ? produtoToEdit : {
- unidade: '',
- tipo: '',
- matricula: '',
- area_m2: '',
- preco_m2: '', // Novo campo
- valor_base: '',
- fator_reajuste_percentual: 0,
- status: 'Disponível',
- });
- setLastUserInput(null); // Reseta o controle ao abrir o modal
- }
- }, [isOpen, produtoToEdit, isEditing]);
+  useEffect(() => {
+  if (isOpen) {
+  const initialData = isEditing ? { ...produtoToEdit } : {
+  unidade: '',
+  tipo: '',
+  matricula: '',
+  area_m2: '',
+  preco_m2: '',
+  valor_base: '',
+  fator_reajuste_percentual: 0,
+  status: 'Disponível',
+  };
+
+  // Derivar preco_m2 histórico caso esteja vazio (para garantir que a edição de área escale o valor base)
+  if (isEditing && (!initialData.preco_m2 || parseFloat(String(initialData.preco_m2).replace(/[^0-9,.]/g, '').replace(',', '.')) <= 0)) {
+    const area = parseFloat(String(initialData.area_m2).replace(/[^0-9,.]/g, '').replace(',', '.')) || 0;
+    const valorBase = parseFloat(String(initialData.valor_base).replace(/[^0-9,.]/g, '').replace(',', '.')) || 0;
+    if (area > 0 && valorBase > 0) {
+      initialData.preco_m2 = (valorBase / area).toFixed(2).replace('.', ',');
+    }
+  }
+
+  setFormData(initialData);
+  setLastUserInput(null);
+  }
+  }, [isOpen, produtoToEdit, isEditing]);
 
  // =================================================================================
  // LÓGICA DE CÁLCULO AUTOMÁTICO ADICIONADA AQUI

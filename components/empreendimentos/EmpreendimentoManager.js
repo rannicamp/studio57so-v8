@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSearch, faBuilding, faPlus, faArrowLeft } from '@fortawesome/free-solid-svg-icons';
+import { faSearch, faBuilding, faPlus, faArrowLeft, faChevronDown, faChevronRight, faArchive } from '@fortawesome/free-solid-svg-icons';
 import EmpreendimentoDetailWrapper from './EmpreendimentoDetailWrapper';
 import EmpreendimentoFormModal from './EmpreendimentoFormModal';
 import { faCity, faHouse } from '@fortawesome/free-solid-svg-icons';
@@ -18,14 +18,21 @@ export default function EmpreendimentoManager({ initialEmpreendimentos }) {
  const [searchTerm, setSearchTerm] = useState('');
  const [isModalOpen, setIsModalOpen] = useState(false);
 
- const filteredEmpreendimentos = useMemo(() => {
- if (!searchTerm) return empreendimentos;
- const lowerTerm = searchTerm.toLowerCase();
- return empreendimentos.filter(e =>
- e.nome?.toLowerCase().includes(lowerTerm) ||
- e.status?.toLowerCase().includes(lowerTerm)
- );
- }, [empreendimentos, searchTerm]);
+  const [isArchivedOpen, setIsArchivedOpen] = useState(false);
+
+  const filteredAtivos = useMemo(() => {
+    let ativos = empreendimentos.filter(e => !e.arquivado);
+    if (!searchTerm) return ativos;
+    const lowerTerm = searchTerm.toLowerCase();
+    return ativos.filter(e => e.nome?.toLowerCase().includes(lowerTerm) || e.status?.toLowerCase().includes(lowerTerm));
+  }, [empreendimentos, searchTerm]);
+
+  const filteredArquivados = useMemo(() => {
+    let arquivados = empreendimentos.filter(e => e.arquivado);
+    if (!searchTerm) return arquivados;
+    const lowerTerm = searchTerm.toLowerCase();
+    return arquivados.filter(e => e.nome?.toLowerCase().includes(lowerTerm) || e.status?.toLowerCase().includes(lowerTerm));
+  }, [empreendimentos, searchTerm]);
 
  const statusColors = {
  'Breve Lançamento': 'bg-purple-100 text-purple-800',
@@ -67,48 +74,77 @@ export default function EmpreendimentoManager({ initialEmpreendimentos }) {
 
  {/* Lista Scrollável */}
  <div className="flex-1 overflow-y-auto custom-scrollbar bg-gray-50/30">
- {filteredEmpreendimentos.length === 0 ? (
+ {filteredAtivos.length === 0 && filteredArquivados.length === 0 ? (
  <div className="p-8 text-center text-gray-400 flex flex-col items-center gap-3">
  <FontAwesomeIcon icon={faBuilding} className="text-4xl opacity-50" />
  <p className="text-sm font-medium">Nenhum empreendimento encontrado.</p>
  </div>
  ) : (
  <ul className="divide-y divide-gray-100 p-2 space-y-1">
- {filteredEmpreendimentos.map(empreendimento => {
+ {filteredAtivos.map(empreendimento => {
  const isSelected = selectedEmpreendimentoId === empreendimento.id;
  const initials = (empreendimento.nome || 'E').substring(0, 2).toUpperCase();
  return (
  <li key={empreendimento.id}>
- <button
- onClick={() => setSelectedEmpreendimentoId(empreendimento.id)}
- className={`w-full text-left p-3 rounded-xl transition-all duration-200 group flex gap-3 items-center
- ${isSelected
- ? 'bg-blue-50 border border-blue-200 shadow-sm ring-1 ring-blue-500/50'
- : 'bg-white border border-transparent hover:bg-white hover:border-gray-200 hover:shadow-sm'
- }`}
- >
- <div className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold text-sm shrink-0 transition-colors bg-cover bg-center
- ${isSelected ? 'shadow-inner' : 'group-hover:shadow-sm'}`} style={{ backgroundImage: empreendimento.imagem_capa_url ? `url(${empreendimento.imagem_capa_url})` : 'none', backgroundColor: !empreendimento.imagem_capa_url ? (isSelected ? '#2563EB' : '#F3F4F6') : undefined, color: !empreendimento.imagem_capa_url ? (isSelected ? 'white' : '#6B7280') : undefined }}>
+ <button onClick={() => setSelectedEmpreendimentoId(empreendimento.id)} className={`w-full text-left p-3 rounded-xl transition-all duration-200 group flex gap-3 items-center ${isSelected ? 'bg-blue-50 border border-blue-200 shadow-sm ring-1 ring-blue-500/50' : 'bg-white border border-transparent hover:bg-white hover:border-gray-200 hover:shadow-sm'}`}>
+ <div className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold text-sm shrink-0 transition-colors bg-cover bg-center ${isSelected ? 'shadow-inner' : 'group-hover:shadow-sm'}`} style={{ backgroundImage: empreendimento.imagem_capa_url ? `url(${empreendimento.imagem_capa_url})` : 'none', backgroundColor: !empreendimento.imagem_capa_url ? (isSelected ? '#2563EB' : '#F3F4F6') : undefined, color: !empreendimento.imagem_capa_url ? (isSelected ? 'white' : '#6B7280') : undefined }}>
  {!empreendimento.imagem_capa_url && initials}
  </div>
  <div className="min-w-0 flex-1">
- <p className={`text-sm font-bold truncate ${isSelected ? 'text-blue-600' : 'text-gray-900'}`}>
- {empreendimento.nome}
- </p>
+ <p className={`text-sm font-bold truncate ${isSelected ? 'text-blue-600' : 'text-gray-900'}`}>{empreendimento.nome}</p>
  <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
  <span className={`px-1.5 py-0.5 text-[10px] uppercase tracking-wider font-bold rounded flex items-center gap-1 bg-gray-100 text-gray-700`}>
- <FontAwesomeIcon icon={empreendimento.categoria === 'Horizontal' ? faHouse : faCity} />
- {empreendimento.categoria || 'Vertical'}
+ <FontAwesomeIcon icon={empreendimento.categoria === 'Horizontal' ? faHouse : faCity} /> {empreendimento.categoria || 'Vertical'}
  </span>
- <span className={`px-1.5 py-0.5 text-[10px] uppercase tracking-wider font-bold rounded ${statusColors[empreendimento.status] || 'bg-gray-100 text-gray-800'}`}>
- {empreendimento.status || 'Sem status'}
- </span>
+ <span className={`px-1.5 py-0.5 text-[10px] uppercase tracking-wider font-bold rounded ${statusColors[empreendimento.status] || 'bg-gray-100 text-gray-800'}`}>{empreendimento.status || 'Sem status'}</span>
  </div>
  </div>
  </button>
  </li>
  );
  })}
+
+ {filteredArquivados.length > 0 && (
+  <div className="mt-4 pt-4 border-t border-gray-200/60">
+    <button 
+      onClick={() => setIsArchivedOpen(!isArchivedOpen)}
+      className="w-full flex items-center justify-between px-3 py-2 text-gray-500 hover:text-gray-800 hover:bg-gray-100/80 rounded-lg transition-colors"
+    >
+      <div className="flex items-center gap-2">
+        <FontAwesomeIcon icon={faArchive} className="text-gray-400" />
+        <span className="text-xs font-bold uppercase tracking-wider">Arquivados ({filteredArquivados.length})</span>
+      </div>
+      <FontAwesomeIcon icon={isArchivedOpen ? faChevronDown : faChevronRight} className="text-xs text-gray-400" />
+    </button>
+    
+    {isArchivedOpen && (
+      <div className="mt-2 space-y-1">
+        {filteredArquivados.map(empreendimento => {
+          const isSelected = selectedEmpreendimentoId === empreendimento.id;
+          const initials = (empreendimento.nome || 'E').substring(0, 2).toUpperCase();
+          return (
+            <li key={empreendimento.id}>
+            <button onClick={() => setSelectedEmpreendimentoId(empreendimento.id)} className={`w-full text-left p-3 rounded-xl transition-all duration-200 group flex gap-3 items-center opacity-70 hover:opacity-100 ${isSelected ? 'bg-gray-100 border border-gray-300 shadow-sm ring-1 ring-gray-400' : 'bg-gray-50 border border-transparent hover:bg-gray-100 hover:border-gray-200'}`}>
+            <div className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold text-sm shrink-0 transition-colors bg-cover bg-center grayscale`} style={{ backgroundImage: empreendimento.imagem_capa_url ? `url(${empreendimento.imagem_capa_url})` : 'none', backgroundColor: !empreendimento.imagem_capa_url ? (isSelected ? '#4B5563' : '#E5E7EB') : undefined, color: !empreendimento.imagem_capa_url ? (isSelected ? 'white' : '#9CA3AF') : undefined }}>
+            {!empreendimento.imagem_capa_url && initials}
+            </div>
+            <div className="min-w-0 flex-1">
+            <p className={`text-sm font-bold truncate ${isSelected ? 'text-gray-800' : 'text-gray-500 line-through'}`}>{empreendimento.nome}</p>
+            <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+            <span className={`px-1.5 py-0.5 text-[10px] uppercase tracking-wider font-bold rounded flex items-center gap-1 bg-gray-200 text-gray-600`}>
+            <FontAwesomeIcon icon={empreendimento.categoria === 'Horizontal' ? faHouse : faCity} /> {empreendimento.categoria || 'Vertical'}
+            </span>
+            <span className={`px-1.5 py-0.5 text-[10px] uppercase tracking-wider font-bold rounded bg-gray-200 text-gray-600`}>Arquivado</span>
+            </div>
+            </div>
+            </button>
+            </li>
+          );
+        })}
+      </div>
+    )}
+  </div>
+ )}
  </ul>
  )}
  </div>

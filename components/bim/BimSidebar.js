@@ -62,7 +62,7 @@ export default function BimSidebar({ onSelectContext, onFileSelect, onToggleMode
  queryFn: async () => {
  if (!organizacaoId) return { tree: [], trash: [], allFiles: [] };
  const { data: emps } = await supabase.from('cadastro_empresa').select('id, nome_fantasia, razao_social').eq('organizacao_id', organizacaoId).order('nome_fantasia');
- const { data: obs } = await supabase.from('empreendimentos').select('id, nome, empresa_proprietaria_id').eq('organizacao_id', organizacaoId).order('nome');
+ const { data: obs } = await supabase.from('empreendimentos').select('id, nome, empresa_proprietaria_id').eq('organizacao_id', organizacaoId).eq('arquivado', false).order('nome');
  const { data: discs } = await supabase.from('disciplinas_projetos').select('id, sigla, nome').eq('organizacao_id', organizacaoId).order('sigla');
  const { data: files } = await supabase.from('projetos_bim').select('*').eq('organizacao_id', organizacaoId).order('criado_em', { ascending: false });
  const { data: sets } = await supabase.from('bim_vistas_federadas').select('*').eq('organizacao_id', organizacaoId);

@@ -299,7 +299,7 @@ export default function ContactProfile({ contact }) {
  const { data: empreendimentos = [] } = useQuery({
  queryKey: ['empreendimentos', organizacaoId],
  queryFn: async () => {
- const { data } = await supabase.from('empreendimentos').select('id, nome').eq('organizacao_id', organizacaoId).order('nome');
+ const { data } = await supabase.from('empreendimentos').select('id, nome').eq('organizacao_id', organizacaoId).eq('arquivado', false).order('nome');
  return data || [];
  },
  enabled: !!organizacaoId

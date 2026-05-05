@@ -1,0 +1,31 @@
+{
+  "Book Alfa": {
+    "tipo_apartamentos": "Apartamentos de 2 quartos, 1 banheiro, sala e cozinha integradas e varanda.",
+    "metragem_apartamentos": "Unidades residenciais de 49,76m² e 58,86m².",
+    "quantidade_total_unidades": "20 unidades residenciais. O edifício também possui uma unidade comercial no pavimento térreo.",
+    "andares_ou_pavimentos": "7 pavimentos no total, sendo: pavimento térreo com unidade comercial e 10 vagas de garagem cobertas; primeiro pavimento com área de lazer e 10 vagas de garagem semi-cobertas; e 5 andares residenciais.",
+    "area_de_lazer_detalhes": "Localizada no primeiro pavimento, a área de lazer possui 133,07m² e é equipada com churrasqueira e uma área gourmet completa, ideal para momentos de descontração e convivência.",
+    "diferenciais_arquitetonicos": "Edifício de uso misto, com arquitetura moderna e layouts de apartamentos bem distribuídos que otimizam a funcionalidade. Inclui varandas nas unidades residenciais, guarita preparada para portaria remota e elevador. A orientação solar estratégica garante conforto térmico, iluminação natural e economia de energia.",
+    "outros_dados_relevantes": "Localizado no Bairro Alto Esplanada em Governador Valadares, a 5 minutos do centro e próximo a supermercados, academias, hospitais e serviços essenciais. A localização elevada garante boa ventilação e iluminação, além de contar com uma grande área verde nos fundos. Oferece vista privilegiada para o Pico da Ibituruna e Rio Doce, sendo uma zona livre de enchentes. Total de 20 vagas de garagem. Registro de Incorporação: Nº 24.920/R-08."
+  },
+  "Tabela de Vendas": {
+    "preco_m2_medio": "R$ 7.647,74",
+    "ticket_medio_unidade": "R$ 428.118,57",
+    "condicoes_pagamento_resumo": "20% de entrada (dividido em 3 parcelas), 40% em até 36 parcelas reduzidas (durante a obra), e 40% de saldo remanescente.",
+    "indice_reajuste_obra": "INCC (correção trimestral)",
+    "indice_reajuste_pos_obra": "Não especificado na tabela"
+  },
+  "Matrícula e RI": {
+    "numero_matricula": "24920",
+    "cartorio": "2º Ofício Governador Valadares-MG",
+    "area_terreno_m2": "579,77",
+    "numero_registro_incorporacao": "R-08-24.920",
+    "dados_proprietario_incorporadora": "PRIMEIRA INCORPORAÇÃO LTDA, com sede na Avenida Piracicaba, nº 1133, Cidade Jardim Senhora do Carmo, Ilha dos Araújos, nesta cidade, inscrita no CNPJ nº 41.464.589/0001-66, devidamente registrada na JUCEMG sob o NIRE 3121219766-1, representada por Sônia Maria Campos."
+  },
+  "Patrimônio de Afetação": {
+    "solicitacao_patrimonio_afetacao": true,
+    "cnpj_spe": "41.464.589/0001-66",
+    "nome_spe": "PRIMEIRA INCORPORAÇÃO LTDA.",
+    "resumo_requerimento": "A PRIMEIRA INCORPORAÇÃO LTDA. solicita a averbação do patrimônio de afetação para o Condomínio Residencial Alfa, com o objetivo de separar os bens, terreno, acessões, direitos e obrigações da incorporação do patrimônio geral da incorporadora. Essa medida visa garantir que os recursos e bens sejam destinados exclusivamente à consecução do condomínio e à entrega das unidades imobiliárias aos futuros adquirentes, evitando o desvio para outras finalidades e cumprindo os termos da Lei n. 4.591/64."
+  }
+}

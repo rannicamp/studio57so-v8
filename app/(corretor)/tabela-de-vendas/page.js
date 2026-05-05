@@ -17,6 +17,8 @@ async function fetchEmpreendimentosAtivos(organizacaoId) {
  const { data, error } = await supabase
  .from('empreendimentos')
  .select('id, nome')
+ .eq('organizacao_id', organizacaoId)
+ .eq('arquivado', false)
  .eq('listado_para_venda', true)
  .order('nome', { ascending: true });
 
