@@ -1,0 +1,100 @@
+{
+  "I:\\2025_002_PERO VAZ\\25_02_BOOK AP PERO VAZ.pdf": {
+    "nome_empreendimento": "RESIDENCIAL PERO VAZ",
+    "localizacao": "Rua Fernão Dias, n° 265, Bairro Jardim Vera Cruz- Governador Valadares",
+    "caracteristicas_imovel": [
+      "Apartamento 101, Bloco 02",
+      "Área total de 54,58m²",
+      "Sala de Estar/Jantar com 13,86m²",
+      "Quarto 01 com 10,40m²",
+      "Quarto 02 com 8,90m²",
+      "Banheiro com 2,70m²",
+      "Hall com 1,08m²",
+      "Cozinha/Serviço com 6,30m²",
+      "Sacada com 3,03m²"
+    ],
+    "dados_matricula": {
+      "cartorio": "Não informado",
+      "numero": "Não informado",
+      "onus_reais": "Não informado",
+      "proprietarios": "Não informado"
+    },
+    "outros_detalhes_importantes": [
+      "Preço de venda: R$ 180.000,00",
+      "Corretor CRECI MGJ-7553"
+    ],
+    "area_m2": "54,58m²",
+    "areas_comuns_lazer": [
+      "Não especificado"
+    ],
+    "banheiros": "1",
+    "quartos": "2",
+    "vagas_garagem": "1"
+  },
+  "I:\\2025_002_PERO VAZ\\MATRÍCULA ATUALIZADA\\MATRICULA PERO VAZ ONUS REAIS.pdf": {
+    "nome_empreendimento": "RESIDENCIAL PERO VAZ",
+    "localizacao": "Apartamento residencial nº 101, pavimento térreo, Bloco 02, Rua Fernão Dias, nº 265, Bairro Jardim Vera Cruz, Governador Valadares/MG.",
+    "caracteristicas_imovel": [
+      "Apartamento residencial nº 101",
+      "Localizado no pavimento térreo do Bloco 02",
+      "Área privativa coberta: 51,00m2",
+      "Área privativa descoberta (pd) no terreno: 10,35m2",
+      "Área de uso comum coberta (hall, cx, esc. lazer, guaritas): 3,76m2",
+      "Área de uso comum descoberta (lazer, ter.): 22,03m2",
+      "Fração ideal de 0,020112 do terreno formado pela parte 'A' dos lotes nºs 01 a 20 da quadra nº 09, com área total de 2.246,94m2"
+    ],
+    "dados_matricula": {
+      "cartorio": "1º Ofício de Registro de Imóveis da Comarca de Governador Valadares",
+      "numero": "54630",
+      "onus_reais": "O imóvel encontra-se livre e desembaraçado de quaisquer ônus, sejam eles legais, reais ou convencionais.",
+      "proprietarios": "MONTE ALTO EMPREENDIMENTOS IMOBILIÁRIOS LTDA. - ME, CNPJ n.º 12.237.802/0001-07, com sede na Rua Afonso Pena, n.º 1.926, Centro, Governador Valadares/MG."
+    },
+    "outros_detalhes_importantes": [
+      "Convenção de Condomínio do RESIDENCIAL PERO VAZ registrada sob o n° 8.688 Lv.03-RA.",
+      "Não existe registro de ações reais e ações pessoais reipersecutórias sobre o imóvel.",
+      "Valor de compra e venda: R$44.000,00.",
+      "Avaliação Fiscal: R$44.166,19.",
+      "Certidão emitida em 24 de novembro de 2025."
+    ],
+    "area_m2": "87,14m2 (área total construída)",
+    "areas_comuns_lazer": [
+      "lazer",
+      "guaritas",
+      "hall",
+      "escada"
+    ],
+    "banheiros": "Não informado",
+    "quartos": "Não informado",
+    "vagas_garagem": "Não informado"
+  },
+  "I:\\2025_002_PERO VAZ\\CARTA SOLICITAÇÃO REANALISE PERO VAZ.pdf": {
+    "nome_empreendimento": "Residencial Pero Vaz",
+    "localizacao": "Unidade 101, Térreo, Bloco 2, Rua Fernão Dias, 265, Bairro Vera Cruz, Governador Valadares, MG",
+    "caracteristicas_imovel": [
+      "2 quartos",
+      "sala",
+      "cozinha-área de serviço conjugada",
+      "banheiro social",
+      "sacada/varanda",
+      "direito a uma vaga de garagem"
+    ],
+    "dados_matricula": {
+      "cartorio": "",
+      "numero": "",
+      "onus_reais": "",
+      "proprietarios": ""
+    },
+    "outros_detalhes_importantes": [
+      "Laudo de Avaliação n° 7376.3234.000206979/2025.01.01.01-000001 v.01, datado de 31/03/2025, estabeleceu o valor de avaliação em R$ 145.000,00",
+      "Valor de avaliação por m²: R$ 2.843,14/m²",
+      "Solicitação de reanálise do valor atribuído, considerado abaixo dos valores de mercado",
+      "Preço Médio de Mercado (amostra) de apartamentos comparáveis: R$ 186.128,57",
+      "Média de Preço por m² (amostra) de apartamentos comparáveis: R$ 3.698,66/m²"
+    ],
+    "area_m2": "51,00 m² privativa / 54,76 m² total construída",
+    "areas_comuns_lazer": [],
+    "banheiros": "1",
+    "quartos": "2",
+    "vagas_garagem": "1"
+  }
+}

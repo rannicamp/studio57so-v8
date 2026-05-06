@@ -1,0 +1,246 @@
+/**
+ * 🔥 GERADOR DE PDF HÍBRIDO v5 - RESIDENCIAL PERO VAZ
+ * 
+ * ESTRATÉGIA FINAL:
+ * 1. Screenshot de cada página COM texto em alta resolução (4x = ~384 DPI)
+ * 2. Texto INVISÍVEL por cima para seleção/busca (técnica de PDF escaneado)
+ * 
+ * Resultado: Visual PERFEITO + texto selecionável/pesquisável!
+ * 
+ * USO: node scripts/gerar_book_perovaz_pdf.js
+ */
+
+const puppeteer = require('puppeteer-core');
+const { PDFDocument, rgb } = require('pdf-lib');
+const fontkit = require('@pdf-lib/fontkit');
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
+
+const desktopPath = path.join(os.homedir(), 'OneDrive', 'Área de Trabalho');
+const outputPath = path.join(desktopPath, 'Book_Residencial_Pero_Vaz.pdf');
+const BOOK_URL = 'http://localhost:3000/perovaz/book';
+// Usando o caminho padrão do Chrome no Windows
+const CHROME_PATH = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
+
+const PDF_W = 841.89; // A4 Horizontal
+const PDF_H = 595.28;
+const VP_W = 1122;
+const VP_H = 794;
+const SCALE = 4; // 4x = ~384 DPI (qualidade de impressão profissional)
+const PX_TO_PT = PDF_W / VP_W;
+
+(async () => {
+  console.log('🚀 Gerador PDF v5 — Screenshot HD + Texto Invisível (Pero Vaz)');
+  console.log(`📂 Destino: ${outputPath}\n`);
+
+  let browser;
+  try {
+    browser = await puppeteer.launch({
+      executablePath: CHROME_PATH,
+      headless: 'new',
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--font-render-hinting=none'],
+    });
+
+    const page = await browser.newPage();
+    await page.setViewport({ width: VP_W, height: VP_H, deviceScaleFactor: SCALE });
+
+    console.log('📄 Carregando página...');
+    await page.goto(BOOK_URL, { waitUntil: 'networkidle0', timeout: 120000 });
+
+    // Espera imagens + fontes
+    await page.evaluate(async () => {
+      await Promise.all(Array.from(document.querySelectorAll('img')).map(img => {
+        if (img.complete && img.naturalHeight > 0) return;
+        return new Promise(r => { img.onload = r; img.onerror = r; setTimeout(r, 10000); });
+      }));
+      await document.fonts.ready;
+      
+      // FORÇA O RENDER DE ELEMENTOS FORA DA TELA (como o iframe na pág 6)
+      await new Promise((resolve) => {
+        let totalHeight = 0;
+        const distance = 200;
+        const timer = setInterval(() => {
+          window.scrollBy(0, distance);
+          totalHeight += distance;
+          if (totalHeight >= document.body.scrollHeight) {
+            clearInterval(timer);
+            resolve();
+          }
+        }, 100);
+      });
+      window.scrollTo(0, 0); // Volta pro topo
+    });
+    
+    // Aguarda o Google Maps (que agora está na tela) terminar de carregar os tiles
+    await new Promise(r => setTimeout(r, 8000));
+
+    // Esconde botão + badge Netlify + overlays do Next.js dev
+    await page.evaluate(() => {
+      document.querySelectorAll('button').forEach(b => b.style.display = 'none');
+      // Remove badge do Netlify (indicador vermelho "1 Issue")
+      document.querySelectorAll('[data-netlify], [class*="netlify"], iframe[src*="netlify"], [id*="netlify"]').forEach(el => el.remove());
+      // Remove indicadores do Next.js dev mode
+      document.querySelectorAll('nextjs-portal, [data-nextjs-toast], [data-nextjs-dialog], [id="__next-build-indicator"]').forEach(el => el.remove());
+      // Remove qualquer elemento fixed que não seja do Book (notificações, toasts, etc)
+      document.querySelectorAll('body > div[style*="position: fixed"], body > div[style*="position:fixed"]').forEach(el => {
+        if (!el.querySelector('.folha-page-wrapper')) el.remove();
+      });
+    });
+
+    const pageRects = await page.evaluate(() => {
+      return Array.from(document.querySelectorAll('.folha-page-wrapper')).map(w => {
+        const r = w.getBoundingClientRect();
+        return { x: r.x, y: r.y, width: r.width, height: r.height };
+      });
+    });
+
+    console.log(`📑 ${pageRects.length} páginas encontradas\n`);
+
+    const pagesData = [];
+    for (let i = 0; i < pageRects.length; i++) {
+      const rect = pageRects[i];
+      process.stdout.write(`   📸 Página ${i + 1}/${pageRects.length}...`);
+
+      // Extrai textos COM posição (para camada invisível)
+      const texts = await page.evaluate((idx) => {
+        const wrapper = document.querySelectorAll('.folha-page-wrapper')[idx];
+        const wr = wrapper.getBoundingClientRect();
+        const results = [];
+        const walker = document.createTreeWalker(wrapper, NodeFilter.SHOW_TEXT, null);
+        let node;
+        while (node = walker.nextNode()) {
+          const text = node.textContent.trim();
+          if (!text) continue;
+          const range = document.createRange();
+          range.selectNodeContents(node);
+          const r = range.getBoundingClientRect();
+          if (r.width === 0 || r.height === 0) continue;
+          const style = window.getComputedStyle(node.parentElement);
+          if (style.display === 'none' || style.visibility === 'hidden') continue;
+          results.push({
+            text,
+            x: r.x - wr.x,
+            y: r.y - wr.y,
+            w: r.width,
+            h: r.height,
+            fontSize: parseFloat(style.fontSize),
+          });
+        }
+        return results;
+      }, i);
+
+      // Screenshot COM texto (visual completo!)
+      const screenshot = await page.screenshot({
+        type: 'jpeg',
+        quality: 95,
+        clip: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
+      });
+
+      pagesData.push({ screenshot, texts });
+      console.log(` ✅ (${texts.length} textos)`);
+    }
+
+    // Monta o PDF
+    console.log('\n📝 Montando PDF...');
+    const pdfDoc = await PDFDocument.create();
+    pdfDoc.registerFontkit(fontkit);
+
+    // Fonte para camada invisível (qualquer uma serve, é transparente)
+    const fontsDir = path.join(__dirname, '..', 'public', 'fonts');
+    let fontData;
+    try {
+      fontData = fs.readFileSync(path.join(fontsDir, 'Montserrat-Regular.ttf'));
+    } catch (e) {
+      console.warn("⚠️ Fonte Montserrat não encontrada, tentando carregar fonte padrão...");
+      // Se não achar Montserrat, tentamos prosseguir sem fonte embutida ou o script falhará
+    }
+    const font = fontData ? await pdfDoc.embedFont(fontData) : await pdfDoc.embedStandardFont('Helvetica');
+
+    for (let i = 0; i < pagesData.length; i++) {
+      const { screenshot, texts } = pagesData[i];
+      const pdfPage = pdfDoc.addPage([PDF_W, PDF_H]);
+
+      // Fundo: screenshot em alta resolução
+      const bgImage = await pdfDoc.embedJpg(screenshot);
+      pdfPage.drawImage(bgImage, { x: 0, y: 0, width: PDF_W, height: PDF_H });
+
+      // Camada de texto invisível (para seleção/busca)
+      for (const t of texts) {
+        try {
+          const fontSize = Math.max(3, t.fontSize * PX_TO_PT * 0.85);
+          const pdfX = t.x * PX_TO_PT;
+          const pdfY = PDF_H - (t.y * PX_TO_PT) - fontSize;
+
+          // Texto 100% transparente — invisível mas selecionável
+          pdfPage.drawText(t.text, {
+            x: pdfX,
+            y: pdfY,
+            size: fontSize,
+            font,
+            color: rgb(0, 0, 0),
+            opacity: 0,
+          });
+        } catch (e) { /* ignora caracteres não suportados */ }
+      }
+    }
+
+    console.log('💾 Salvando localmente...');
+    const pdfBytes = await pdfDoc.save();
+    
+    // Fallback: se não achar o Desktop do OneDrive, salva na raiz
+    try {
+      fs.writeFileSync(outputPath, pdfBytes);
+    } catch(e) {
+      const fallbackPath = path.join(__dirname, '..', 'Book_Residencial_Pero_Vaz.pdf');
+      console.log(`⚠️ Erro ao salvar no OneDrive, salvando na raiz: ${fallbackPath}`);
+      fs.writeFileSync(fallbackPath, pdfBytes);
+    }
+
+    // Upload para o Supabase Storage (Empreendimento 10)
+    console.log('☁️  Enviando para o Supabase...');
+    const dotenvPath = path.join(__dirname, '..', '.env.local');
+    const envContent = fs.readFileSync(dotenvPath, 'utf-8');
+    const supabaseUrl = envContent.match(/NEXT_PUBLIC_SUPABASE_URL=(.+)/)?.[1]?.trim();
+    const serviceKey = envContent.match(/SUPABASE_SERVICE_ROLE_KEY=(.+)/)?.[1]?.trim();
+
+    if (supabaseUrl && serviceKey) {
+      const uploadUrl = `${supabaseUrl}/storage/v1/object/empreendimento-anexos/10/book/Book_Residencial_Pero_Vaz.pdf`;
+      const fetch = (await import('node-fetch')).default;
+      
+      // Deleta versão anterior (se existir)
+      await fetch(uploadUrl, { method: 'DELETE', headers: { 'Authorization': `Bearer ${serviceKey}` } }).catch(() => {});
+
+      // Upload novo
+      const res = await fetch(uploadUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${serviceKey}`,
+          'Content-Type': 'application/pdf',
+          'x-upsert': 'true',
+        },
+        body: pdfBytes,
+      });
+
+      if (res.ok) {
+        const publicUrl = `${supabaseUrl}/storage/v1/object/public/empreendimento-anexos/10/book/Book_Residencial_Pero_Vaz.pdf`;
+        console.log(`✅ Upload OK: ${publicUrl}`);
+      } else {
+        console.error('⚠️  Erro no upload:', await res.text());
+      }
+    } else {
+      console.warn('⚠️  Credenciais Supabase não encontradas, PDF salvo apenas localmente.');
+    }
+
+    console.log('\n✅ ========================================');
+    console.log('✅  PDF GERADO COM SUCESSO!');
+    console.log(`✅  ${pagesData.length} páginas • 384 DPI • Texto selecionável`);
+    console.log('✅ ========================================');
+
+  } catch (error) {
+    console.error('\n❌ ERRO:', error.message);
+  } finally {
+    if (browser) await browser.close();
+    process.exit(0);
+  }
+})();

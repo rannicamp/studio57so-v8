@@ -44,6 +44,7 @@ export async function middleware(req) {
     '/residencialalfa',
     '/studiosbeta',
     '/betasuites',
+    '/perovaz',               // Adicionado para acesso público e Puppeteer
     '/migracao',
     '/sobre-nos',
     '/cadastrocliente',

@@ -877,7 +877,21 @@ CREATE TABLE public.empreendimentos (
     orcamento_executado numeric DEFAULT 0,
     orcamento_percentual numeric DEFAULT 0,
     patrimonio_vgv_construido numeric DEFAULT 0,
-    vgv_total_projetado numeric DEFAULT 0
+    vgv_total_projetado numeric DEFAULT 0,
+    arquivado boolean DEFAULT false,
+    inscricao_imobiliaria text,
+    lote text,
+    quadra text,
+    area_total_construcao text,
+    uso_edificacao text,
+    numero_pavimentos text,
+    alvara_construcao_numero text,
+    alvara_construcao_data text,
+    processo_administrativo text,
+    registro_incorporacao text,
+    patrimonio_afetacao boolean DEFAULT false,
+    resp_tecnico_projeto text,
+    resp_tecnico_obra text
 );
 
 CREATE TABLE public.empresa_anexos (
@@ -1645,7 +1659,8 @@ CREATE TABLE public.produtos_empreendimento (
     created_at timestamp with time zone DEFAULT now(),
     organizacao_id bigint NOT NULL,
     matricula text,
-    preco_m2 numeric
+    preco_m2 numeric,
+    descricao text
 );
 
 CREATE TABLE public.projetos_bim (
