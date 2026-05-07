@@ -47,16 +47,16 @@ const empreendimentosData = [
  action: 'link'
  },
  {
- id: 3,
- nome: 'Refúgio Braúnas',
- status: 'LISTA DE ESPERA', // Estratégia de Hype
- statusColor: 'bg-amber-600', // Laranja para chamar atenção
- imagemUrl: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/6/IMG_1760619077139.png',
- logoUrl: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/6/LOGO-P_1760619039077.png',
- descricao: 'Lotes de 1.000m² a 10 minutos do centro. Cadastre-se agora para receber o aviso de lançamento.',
- link: null,
- action: 'modal' // Gatilho para abrir o modal
- },
+  id: 3,
+  nome: 'Refúgio Braúnas',
+  status: 'CONCLUÍDO',
+  statusColor: 'bg-[#2c5234]', // Verde Refúgio
+  imagemUrl: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/6/IMG_1760619077139.png',
+  logoUrl: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/6/LOGO-P_1760619039077.png',
+  descricao: 'Lotes de 1.000m² a 10 minutos do centro. Infraestrutura concluída e matrículas individualizadas.',
+  link: '/refugiobraunas',
+  action: 'link'
+  },
 ];
 
 export default function HomePage() {
