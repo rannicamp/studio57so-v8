@@ -22,19 +22,9 @@ export default function EmailConfigModal({ isOpen, onClose, initialTab = 'connec
  }
  }, [isOpen, initialTab]);
 
- const { data: existingConfig, isLoading } = useQuery({
- queryKey: ['emailConfig', user?.id],
- queryFn: async () => {
- const { data, error } = await supabase
- .from('email_configuracoes')
- .select('*')
- .eq('user_id', user.id)
- .single();
- if (error && error.code !== 'PGRST116') throw error;
- return data;
- },
- enabled: isOpen && !!user,
- });
+  // O fetch centralizado foi removido para evitar o erro PGRST116 (múltiplas linhas).
+  // Agora cada aba (Conexão, Assinatura, Regras) cuida do seu próprio fetch
+  // baseado no user.id.
 
  if (!isOpen) return null;
 
@@ -75,16 +65,12 @@ export default function EmailConfigModal({ isOpen, onClose, initialTab = 'connec
 
  {/* Conteúdo Dinâmico */}
  <div className="p-6 overflow-y-auto custom-scrollbar flex-grow bg-white h-[500px]">
- {isLoading ? (
- <div className="flex justify-center items-center h-40 text-gray-400">Carregando...</div>
- ) : (
  <>
- {activeTab === 'connection' && <EmailConnectionConfig initialData={existingConfig} onClose={onClose} />}
- {activeTab === 'signature' && <EmailSignatureConfig initialData={existingConfig} onClose={onClose} />}
+ {activeTab === 'connection' && <EmailConnectionConfig onClose={onClose} />}
+ {activeTab === 'signature' && <EmailSignatureConfig onClose={onClose} />}
  {/* Repassa o dado inteligente para o componente de regras */}
  {activeTab === 'rules' && <EmailRulesConfig prefillData={rulePrefill} />}
  </>
- )}
  </div>
  </div>
  </div>
