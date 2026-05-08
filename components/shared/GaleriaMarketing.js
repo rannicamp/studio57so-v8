@@ -43,11 +43,11 @@ export default function GaleriaMarketing({ anexos, storageBucket, onDelete, onTo
  <video src={anexo.public_url} className="w-full h-full max-h-full object-contain" preload="metadata"
  controls
  >
- Seu navegador não suporta vídeos. <a href={anexo.public_url + (anexo.public_url.includes('?') ? '&' : '?') + 'download=true'} className="text-blue-400">Clique aqui para ver</a>
+ Seu navegador não suporta vídeos. <a href={anexo.public_url + (anexo.public_url.includes('?') ? '&' : '?') + 'download=' + encodeURIComponent(anexo.nome_arquivo || 'documento')'} className="text-blue-400">Clique aqui para ver</a>
  </video>
  </div>
  ) : getFileType(anexo.nome_arquivo) === 'pdf' ? (
- <a href={anexo.public_url + (anexo.public_url.includes('?') ? '&' : '?') + 'download=true'} target="_blank" rel="noopener noreferrer" className="w-full h-full relative group/pdf flex items-center justify-center bg-white border-2 border-dashed border-red-200">
+ <a href={anexo.public_url + (anexo.public_url.includes('?') ? '&' : '?') + 'download=' + encodeURIComponent(anexo.nome_arquivo || 'documento')'} target="_blank" rel="noopener noreferrer" className="w-full h-full relative group/pdf flex items-center justify-center bg-white border-2 border-dashed border-red-200">
  {/* Uma visualização falsa/clara do PDF usando iframe com pointer-events-none pra não roubar o clique */}
  <iframe src={`${anexo.public_url}#toolbar=0&navpanes=0&scrollbar=0`} className="absolute inset-0 w-full h-full pointer-events-none opacity-50" title="PDF"
  />
@@ -57,7 +57,7 @@ export default function GaleriaMarketing({ anexos, storageBucket, onDelete, onTo
  </div>
  </a>
  ) : (
- <a href={anexo.public_url + (anexo.public_url.includes('?') ? '&' : '?') + 'download=true'} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center w-full h-full">
+ <a href={anexo.public_url + (anexo.public_url.includes('?') ? '&' : '?') + 'download=' + encodeURIComponent(anexo.nome_arquivo || 'documento')'} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center w-full h-full">
  <img
  src={anexo.thumbnail_url || anexo.public_url}
  alt={`Pré-visualização de ${anexo.nome_arquivo}`}
@@ -75,9 +75,9 @@ export default function GaleriaMarketing({ anexos, storageBucket, onDelete, onTo
  >
  <FontAwesomeIcon icon={isToggling ? faSpinner : faUserTie} className={`${isToggling ? 'animate-spin' : ''} text-sm`} />
  </button>
- <a href={anexo.public_url + (anexo.public_url.includes('?') ? '&' : '?') + 'download=true'} target="_blank" rel="noopener noreferrer" download={anexo.nome_arquivo} title="Baixar" className="text-white h-7 w-7 flex items-center justify-center hover:scale-110"><FontAwesomeIcon icon={faDownload} /></a>
+ <a href={anexo.public_url + (anexo.public_url.includes('?') ? '&' : '?') + 'download=' + encodeURIComponent(anexo.nome_arquivo || 'documento')'} target="_blank" rel="noopener noreferrer" download={anexo.nome_arquivo} title="Baixar" className="text-white h-7 w-7 flex items-center justify-center hover:scale-110"><FontAwesomeIcon icon={faDownload} /></a>
  <button onClick={() => handleCopyLink(anexo.caminho_arquivo)} title="Copiar link público" className="text-white h-7 w-7 flex items-center justify-center hover:scale-110"><FontAwesomeIcon icon={faLink} /></button>
- <a href={anexo.public_url + (anexo.public_url.includes('?') ? '&' : '?') + 'download=true'} target="_blank" rel="noopener noreferrer" title="Visualizar" className="text-white h-7 w-7 flex items-center justify-center hover:scale-110"><FontAwesomeIcon icon={faEye} /></a>
+ <a href={anexo.public_url + (anexo.public_url.includes('?') ? '&' : '?') + 'download=' + encodeURIComponent(anexo.nome_arquivo || 'documento')'} target="_blank" rel="noopener noreferrer" title="Visualizar" className="text-white h-7 w-7 flex items-center justify-center hover:scale-110"><FontAwesomeIcon icon={faEye} /></a>
  <button onClick={() => onDelete(anexo.id)} title="Excluir" className="text-white hover:text-red-400 h-7 w-7 flex items-center justify-center hover:scale-110"><FontAwesomeIcon icon={faTrash} /></button>
  </div>
  {(anexo.descricao || anexo.tipo?.descricao) && (

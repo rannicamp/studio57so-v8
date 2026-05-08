@@ -53,7 +53,11 @@ export default function GerenciadorAnexosGlobal({ anexos, viewMode: initialViewM
       const fileName = encodeURIComponent(anexo.nome_arquivo || 'documento');
       const separator = anexo.public_url.includes('?') ? '&' : '?';
       const downloadUrl = anexo.public_url + separator + 'download=' + fileName;
-      window.open(downloadUrl, '_blank');
+      const a = document.createElement('a');
+      a.href = downloadUrl;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
       toast.success('Download iniciado!');
     } catch (error) {
       console.error("Erro no download:", error);
