@@ -43,7 +43,7 @@ export default function FilePreviewModal({ anexo, onClose }) {
  <a href={anexo.public_url} target="_blank" rel="noopener noreferrer" className="p-1.5 hover:bg-gray-700 rounded text-gray-400 hover:text-white transition-colors" title="Abrir numa nova aba">
  <FontAwesomeIcon icon={faExpand} />
  </a>
- <a href={anexo.public_url} download={anexo.nome_arquivo} className="p-1.5 hover:bg-gray-700 rounded text-gray-400 hover:text-white transition-colors" title="Baixar">
+ <a href={anexo.public_url + (anexo.public_url.includes('?') ? '&' : '?') + 'download=true'} download={anexo.nome_arquivo} className="p-1.5 hover:bg-gray-700 rounded text-gray-400 hover:text-white transition-colors" title="Baixar">
  <FontAwesomeIcon icon={faDownload} />
  </a>
  <button onClick={onClose} className="p-1.5 hover:bg-red-600 rounded text-gray-400 hover:text-white transition-colors ml-2" title="Fechar">
@@ -76,7 +76,7 @@ export default function FilePreviewModal({ anexo, onClose }) {
  ) : (
  <div className="text-center text-gray-400 p-8">
  <p className="mb-4 text-lg">Visualização não suportada para este formato.</p>
- <a href={anexo.public_url} download className="bg-blue-600 text-white px-6 py-2 rounded shadow hover:bg-blue-700 transition">Baixar Arquivo ({ext})</a>
+ <a href={anexo.public_url + (anexo.public_url.includes('?') ? '&' : '?') + 'download=true'} download className="bg-blue-600 text-white px-6 py-2 rounded shadow hover:bg-blue-700 transition">Baixar Arquivo ({ext})</a>
  </div>
  )}
  </div>
