@@ -210,6 +210,7 @@ const fetchContactProfileData = async (supabase, contatoId, organizacaoId) => {
  .from('contatos_no_funil')
  .select(`
  *,
+ coluna:coluna_id(id, funil_id),
  corretores:corretor_id(id, nome, razao_social),
  produtos_interesse:contatos_no_funil_produtos(
  id,
@@ -785,38 +786,27 @@ export default function ContactProfile({ contact }) {
         {funilEntry && (
           <section className="pb-5 border-b border-gray-100">
             <h4 className="font-semibold text-gray-500 text-[11px] uppercase tracking-wider flex items-center gap-2 mb-3">
-              <FontAwesomeIcon icon={faFunnelDollar} className="text-[#00a884]" /> Gestão do Funil
+              <FontAwesomeIcon icon={faFunnelDollar} className="text-[#00a884]" /> Card do CRM
             </h4>
-            <div className="flex flex-col gap-2">
-              <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider ml-1">
-                Mover Lead para a Fase
-              </label>
-              <div className="relative">
-                <select
-                  className="w-full appearance-none bg-gray-50 border border-gray-200 text-gray-700 text-xs font-semibold rounded-lg pl-3 pr-8 py-2.5 outline-none focus:ring-2 focus:ring-[#00a884] focus:border-[#00a884] transition-shadow disabled:opacity-50 cursor-pointer"
-                  value={funilEntry.coluna_id}
-                  onChange={(e) => {
-                    const newColId = parseInt(e.target.value);
-                    if (newColId !== funilEntry.coluna_id) {
-                      moveCardMutation.mutate({ cardId: funilEntry.id, newColumnId: newColId });
-                    }
-                  }}
-                  disabled={moveCardMutation.isPending}
-                >
-                  {allColumns.map((col) => (
-                    <option key={col.id} value={col.id}>
-                      {col.nome}
-                    </option>
-                  ))}
-                </select>
-                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
-                  {moveCardMutation.isPending ? (
-                    <FontAwesomeIcon icon={faSpinner} spin className="text-[10px] text-[#00a884]" />
-                  ) : (
-                    <span className="text-[10px]">▼</span>
-                  )}
-                </div>
-              </div>
+            <div className="w-full">
+              <ContatoCardCRM
+                funilEntry={funilEntry}
+                allColumns={allColumns}
+                availableProducts={availableProducts}
+                onDragStart={(e) => {}}
+                onCardClick={() => {}}
+                onMoveToColumn={(cardId, newColumnId) => moveCardMutation.mutate({ cardId, newColumnId })}
+                onAssociateProduct={(cardId, productId) => associateProductMutation.mutate({ cardId, productId })}
+                onDissociateProduct={(itemId) => dissociateProductMutation.mutate(itemId)}
+                onAssociateCorretor={(cardId, corretorId) => associateCorretorMutation.mutate({ cardId, corretorId })}
+                onDeleteCard={(cardId) => deleteCardMutation.mutate(cardId)}
+                onOpenNotesModal={() => setActiveTab('notas')}
+                onAddActivity={() => {
+                  setActivityInitialData({ contato_id: contact.contato_id, funcionario_id: user?.funcionario_id || null });
+                  setIsActivityModalOpen(true);
+                }}
+                onStartWhatsApp={() => {}}
+              />
             </div>
           </section>
         )}
