@@ -74,6 +74,28 @@ const fetchPainelData = async (supabase, organizacaoId, empreendimentoId) => {
         const fasesMatriz = fasesData.filter(f => f.organizacao_id === 1);
         if (fasesMatriz.length > 0) fasesFiltradas = fasesMatriz;
         else fasesFiltradas = fasesData.filter(f => f.organizacao_id === 2);
+        
+        // --- SEED AUTOMÁTICO DA MATRIZ ---
+        // Se a organização está usando o fallback, vamos persistir (clonar) essas fases para ela,
+        // garantindo que ela seja dona de suas colunas e possa editá-las depois.
+        if (fasesFiltradas.length > 0) {
+            const novasFases = fasesFiltradas.map(f => ({
+                nome: f.nome,
+                slug: f.slug,
+                ordem: f.ordem,
+                finalizado: f.finalizado,
+                organizacao_id: organizacaoId
+            }));
+            const { data: insertedFases, error: insertError } = await supabase
+                .from('pedidos_fases')
+                .insert(novasFases)
+                .select()
+                .order('ordem', { ascending: true });
+                
+            if (!insertError && insertedFases) {
+                fasesFiltradas = insertedFases;
+            }
+        }
     }
  }
 
@@ -301,6 +323,58 @@ export default function PedidosPage() {
  onError: (error) => toast.error(`Falha ao excluir pedidos: ${error.message}`)
  });
 
+ const mutationOptions = {
+    onSuccess: (message) => {
+      queryClient.invalidateQueries({ queryKey: ['painelCompras'] });
+      toast.success(message);
+    },
+    onError: (error) => toast.error(`Erro: ${error.message}`)
+ };
+
+ const createColumnMutation = useMutation({
+    mutationFn: async (name) => {
+      const { error } = await supabase.from('pedidos_fases').insert({
+        nome: name,
+        slug: name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, ''),
+        ordem: fases.length + 1,
+        organizacao_id: organizacaoId,
+        finalizado: false
+      });
+      if (error) throw error;
+      return "Fase criada com sucesso!";
+    },
+    ...mutationOptions
+ });
+
+ const editColumnMutation = useMutation({
+    mutationFn: async ({ columnId, newName }) => {
+      const { error } = await supabase.from('pedidos_fases').update({ nome: newName }).eq('id', columnId).eq('organizacao_id', organizacaoId);
+      if (error) throw error;
+      return "Fase renomeada!";
+    },
+    ...mutationOptions
+ });
+
+ const reorderColumnsMutation = useMutation({
+    mutationFn: async (cols) => {
+      const updates = cols.map(c => supabase.from('pedidos_fases').update({ ordem: c.ordem }).eq('id', c.id));
+      await Promise.all(updates);
+      return "Ordem das fases salva!";
+    },
+    ...mutationOptions
+ });
+
+ const deleteColumnMutation = useMutation({
+    mutationFn: async (columnIdToDelete) => {
+      const hasPedidos = pedidos.some(p => p.fase_id === columnIdToDelete);
+      if (hasPedidos) throw new Error("A fase ainda tem pedidos! Mova-os antes de excluir.");
+      const { error } = await supabase.from('pedidos_fases').delete().eq('id', columnIdToDelete);
+      if (error) throw error;
+      return "Fase excluída!";
+    },
+    ...mutationOptions
+ });
+
  return (
  <div className="p-4 md:p-6 lg:p-8 space-y-6 bg-gray-50 min-h-screen">
  <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
@@ -368,6 +442,10 @@ export default function PedidosPage() {
  onDeleteAllCanceled={(ids) => deleteCanceledMutation.mutate(ids)}
  canDelete={canDelete}
  isDeleting={deleteCanceledMutation.isPending}
+ onCreateColumn={(name) => createColumnMutation.mutate(name)}
+ onEditColumn={(id, name) => editColumnMutation.mutate({ columnId: id, newName: name })}
+ onDeleteColumn={(id) => deleteColumnMutation.mutate(id)}
+ onReorderColumns={(cols) => reorderColumnsMutation.mutate(cols)}
  />
  ) : (
  <PedidoItensTable pedidos={filteredPedidosKanban} onCardClick={(p) => { setSelectedPedido(p); setIsSidebarOpen(true); }} />
