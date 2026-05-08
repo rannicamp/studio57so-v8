@@ -315,6 +315,7 @@ export default function ExtratoFinanceiroCliente({ contratoId, contrato }) {
  <thead className="bg-gray-50/80">
  <tr>
  <th className="px-4 py-3 text-left font-extrabold text-[10px] text-gray-500 uppercase tracking-widest">Vencimento</th>
+ <th className="px-4 py-3 text-left font-extrabold text-[10px] text-gray-500 uppercase tracking-widest">Pagamento</th>
  <th className="px-4 py-3 text-left font-extrabold text-[10px] text-gray-500 uppercase tracking-widest">Descrição</th>
  <th className="px-4 py-3 text-right font-extrabold text-[10px] text-gray-500 uppercase tracking-widest">Valor</th>
  <th className="px-4 py-3 text-right font-extrabold text-[10px] text-gray-500 uppercase tracking-widest">Saldo Devedor</th>
@@ -335,9 +336,21 @@ export default function ExtratoFinanceiroCliente({ contratoId, contrato }) {
  const temEvento = (l.correcao_evento || 0) > 0;
  const temSplit = (l.correcao_split || 0) > 0;
 
+ let pagamentoColor = 'text-gray-600';
+ if (l.data_pagamento && l.data_vencimento) {
+   const dtPagamento = new Date(l.data_pagamento + 'T00:00:00Z');
+   const dtVencimento = new Date(l.data_vencimento + 'T00:00:00Z');
+   if (dtPagamento > dtVencimento) {
+     pagamentoColor = 'text-red-600 font-bold'; // Pagamento com atraso
+   } else {
+     pagamentoColor = 'text-green-600 font-bold'; // Pagamento em dia ou antecipado
+   }
+ }
+
  return (
  <tr key={l.id} className={`hover:bg-blue-50/30 transition-colors ${temEvento ? 'bg-amber-50 border-l-2 border-amber-500' : temSplit ? 'border-l-2 border-amber-100' : ''}`}>
  <td className="px-4 py-3 font-medium text-gray-600 whitespace-nowrap">{formatDate(l.data_vencimento)}</td>
+ <td className={`px-4 py-3 text-sm whitespace-nowrap ${pagamentoColor}`}>{l.data_pagamento ? formatDate(l.data_pagamento) : '-'}</td>
  <td className="px-4 py-3 font-semibold text-gray-800">
  {l.descricao}
  <div className="text-xs font-medium text-gray-400 mt-0.5">{l.categoria?.nome}</div>
