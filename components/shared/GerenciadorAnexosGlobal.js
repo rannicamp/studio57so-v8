@@ -43,36 +43,23 @@ export default function GerenciadorAnexosGlobal({ anexos, viewMode: initialViewM
  };
 
  const handleDownloadBase = async (anexo) => {
- if (onDownload) {
- onDownload(anexo);
- return;
- }
- // Comportamento fallback nativo para forçar 'Salvar como'
- try {
- toast.promise(
- fetch(anexo.public_url)
- .then(res => res.blob())
- .then(blob => {
- const url = window.URL.createObjectURL(blob);
- const a = document.createElement('a');
- a.style.display = 'none';
- a.href = url;
- a.download = anexo.nome_arquivo || 'documento';
- document.body.appendChild(a);
- a.click();
- window.URL.revokeObjectURL(url);
- document.body.removeChild(a);
- }),
- {
- loading: 'Preparando download...',
- success: 'Download iniciado!',
- error: 'Erro ao baixar o arquivo.'
- }
- );
- } catch (error) {
- console.error("Erro no download:", error);
- }
- };
+    if (onDownload) {
+      onDownload(anexo);
+      return;
+    }
+    // Abre a URL pública com a flag download=true do Supabase em nova aba
+    // Isso delega o download nativamente para o navegador e evita crash de memória
+    try {
+      const fileName = encodeURIComponent(anexo.nome_arquivo || 'documento');
+      const separator = anexo.public_url.includes('?') ? '&' : '?';
+      const downloadUrl = anexo.public_url + separator + 'download=' + fileName;
+      window.open(downloadUrl, '_blank');
+      toast.success('Download iniciado!');
+    } catch (error) {
+      console.error("Erro no download:", error);
+      toast.error('Erro ao iniciar o download.');
+    }
+  };
 
  const getFileType = (anexo) => {
  // Puxa a extensão preferencial do nome do arquivo (mais confiável)
