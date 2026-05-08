@@ -42,7 +42,7 @@ export default function EmailSignatureConfig({ onClose }) {
   // Ao mudar de conta selecionada, carrega a assinatura dela
   useEffect(() => {
     if (accounts && selectedAccountId) {
-      const acc = accounts.find(a => a.id === selectedAccountId);
+      const acc = accounts.find(a => a.id.toString() === selectedAccountId.toString());
       if (acc) {
         setSignatureHtml(acc.assinatura_texto || '');
         setSettings({
