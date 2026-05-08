@@ -152,7 +152,7 @@ export default function TabelaVenda({ produtos, config, parcelasAdicionais, empr
  }
 
  /* Força apenas a Área de Impressão ser visível e ficar absoluta no topo! */
- .printable-content-area {
+ .printable-content-area {\n  text-rendering: optimizeLegibility !important;\n  -webkit-font-smoothing: antialiased !important;\n  -moz-osx-font-smoothing: grayscale !important;\n  transform: none !important;\n  filter: none !important;\n  backdrop-filter: none !important;\n  zoom: 1 !important;
  position: absolute;
  left: 0;
  top: 0;
