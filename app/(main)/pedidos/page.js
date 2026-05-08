@@ -61,9 +61,21 @@ const fetchPainelData = async (supabase, organizacaoId, empreendimentoId) => {
  const { data: fasesData, error: fasesError } = await supabase
  .from('pedidos_fases')
  .select('*')
- .eq('organizacao_id', organizacaoId)
+ .in('organizacao_id', [organizacaoId, 1, 2])
  .order('ordem', { ascending: true });
  if (fasesError) throw new Error(`Falha ao carregar fases: ${fasesError.message}`);
+
+ let fasesFiltradas = [];
+ if (fasesData && fasesData.length > 0) {
+    const fasesOrg = fasesData.filter(f => f.organizacao_id === organizacaoId);
+    if (fasesOrg.length > 0) {
+        fasesFiltradas = fasesOrg;
+    } else {
+        const fasesMatriz = fasesData.filter(f => f.organizacao_id === 1);
+        if (fasesMatriz.length > 0) fasesFiltradas = fasesMatriz;
+        else fasesFiltradas = fasesData.filter(f => f.organizacao_id === 2);
+    }
+ }
 
  // 3. Pedidos
  let query = supabase
@@ -85,6 +97,22 @@ const fetchPainelData = async (supabase, organizacaoId, empreendimentoId) => {
  }
  const { data: pedidosData, error: pedidosError } = await query.order('data_solicitacao', { ascending: false });
  if (pedidosError) throw new Error(`Falha ao carregar pedidos: "${pedidosError.message}"`);
+
+ // Fallback de normalização: Se o pedido não tem fase_id mas tem status em texto, tenta parear
+ const pedidosNormalizados = (pedidosData || []).map(p => {
+     if (!p.fase_id && p.status) {
+         const statusNormalizado = p.status.toLowerCase().trim();
+         const faseCorrespondente = fasesFiltradas.find(f => f.nome.toLowerCase().trim() === statusNormalizado);
+         if (faseCorrespondente) {
+             p.fase_id = faseCorrespondente.id;
+             p.status = faseCorrespondente.nome;
+         } else if (fasesFiltradas.length > 0) {
+             p.fase_id = fasesFiltradas[0].id;
+             p.status = fasesFiltradas[0].nome;
+         }
+     }
+     return p;
+ });
 
  // 4. Fornecedores
  const { data: fornData, error: fornError } = await supabase
@@ -109,8 +137,8 @@ const fetchPainelData = async (supabase, organizacaoId, empreendimentoId) => {
  .order('nome_subetapa');
  if (subetapaError) console.error("Erro ao buscar subetapas:", subetapaError);
 
- return { solicitantes: solData || [], pedidos: pedidosData || [],
- fases: fasesData || [], // Passando as fases novas
+ return { solicitantes: solData || [], pedidos: pedidosNormalizados,
+ fases: fasesFiltradas, // Passando as fases filtradas dinamicamente
  fornecedores: fornData || [],
  etapas: etapaData || [],
  subetapas: subetapaData || []
@@ -232,12 +260,12 @@ export default function PedidosPage() {
  mutationFn: async () => {
  if (!user || !user.id || !organizacaoId) throw new Error('Usuário ou Organização não autenticados.');
  if (!selectedEmpreendimento || selectedEmpreendimento === 'all') throw new Error('Selecione um empreendimento específico.');
- // ATENÇÃO: Pegando o ID da primeira fase (Solicitação) para o novo pedido
- // Isso garante que o pedido já nasça com fase_id
- const { data: faseInicial } = await supabase.from('pedidos_fases').select('id, nome').eq('organizacao_id', organizacaoId).order('ordem').limit(1).single();
+ 
+ // Utiliza a primeira fase dinâmica já carregada (respeitando o fallback da Matriz)
+ const faseInicial = fases[0];
  const novoPedido = {
- titulo: 'Nova Solicitação (Rascunho)', status: faseInicial?.nome || 'Solicitação', // Mantém texto para compatibilidade
- fase_id: faseInicial?.id, // ID novo
+ titulo: 'Nova Solicitação (Rascunho)', status: faseInicial?.nome || 'Solicitação',
+ fase_id: faseInicial?.id,
  solicitante_id: user.id,
  organizacao_id: organizacaoId, empreendimento_id: selectedEmpreendimento,
  data_solicitacao: new Date().toISOString(),

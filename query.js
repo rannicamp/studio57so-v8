@@ -1,27 +1,22 @@
-const { createClient } = require('@supabase/supabase-js');
+const { Client } = require('pg');
 require('dotenv').config({ path: '.env.local' });
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-const supabase = createClient(supabaseUrl, supabaseKey);
-
-async function check() {
-  const { data: estoque, error: eErr } = await supabase
-    .from('estoque')
-    .select('*, material:materiais(id, nome, classificacao, organizacao_id)')
-    .eq('organizacao_id', 2);
+async function run() {
+  const client = new Client({
+    connectionString: 'postgres://postgres:Srbr19010720%40@db.vhuvnutzklhskkwbpxdz.supabase.co:6543/postgres',
+    ssl: { rejectUnauthorized: false }
+  });
+  await client.connect();
   
-  if (eErr) console.error('Er estoque:', eErr.message);
-  else console.log('Estoque Rows: ', estoque.length);
+  console.log("--- PEDIDOS COM FASE NULA OU ERRO DE STRING ---");
+  let res = await client.query("SELECT id, titulo, status, fase_id, organizacao_id FROM public.pedidos_compra WHERE fase_id IS NULL");
+  console.log(res.rows);
 
-  // Lets see first 5 row sample
-  console.log('Sample:', JSON.stringify(estoque.slice(0,2), null, 2));
+  console.log("--- FASES CADASTRADAS POR ORG ---");
+  res = await client.query("SELECT organizacao_id, count(*) as count FROM public.pedidos_fases GROUP BY organizacao_id");
+  console.log(res.rows);
 
-  // Let's check how many total materiais we have
-  const { data: mat, error: mErr } = await supabase
-    .from('materiais')
-    .select('id, nome, classificacao, organizacao_id');
-  console.log('Materiais totais:', mat ? mat.length : 0);
+  await client.end();
 }
 
-check();
+run();
