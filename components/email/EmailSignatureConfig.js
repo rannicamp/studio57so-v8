@@ -43,11 +43,18 @@ export default function EmailSignatureConfig({ initialData, onClose }) {
  assinatura_incluir_foto: settings.incluir_foto
  };
  // Atualiza apenas os campos de assinatura, preservando os de conexão se já existirem
- const { error } = await supabase.from('email_configuracoes')
- .update(payload)
- .eq('user_id', user.id);
+ const { data, error } = await supabase.from('email_configuracoes')
+  .update(payload)
+  .eq('user_id', user.id)
+  .select();
 
- if (error) throw error;
+  if (error) throw error;
+
+  if (!data || data.length === 0) {
+    const { error: insertError } = await supabase.from('email_configuracoes')
+    .insert([payload]);
+    if (insertError) throw insertError;
+  }
  },
  onSuccess: () => {
  toast.success("Assinatura salva com sucesso!");
