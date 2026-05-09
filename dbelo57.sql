@@ -1692,6 +1692,26 @@ CREATE TABLE public.rdo_fotos_uploads (
     organizacao_id bigint
 );
 
+CREATE TABLE public.regras_notificacao (
+    id bigint NOT NULL,
+    nome_regra text NOT NULL,
+    tabela_alvo text NOT NULL,
+    evento text NOT NULL,
+    coluna_monitorada text,
+    valor_gatilho text,
+    funcoes_ids ARRAY,
+    enviar_para_dono boolean DEFAULT false,
+    titulo_template text NOT NULL,
+    mensagem_template text NOT NULL,
+    link_template text,
+    ativo boolean DEFAULT true,
+    organizacao_id bigint NOT NULL,
+    created_at timestamp with time zone DEFAULT now(),
+    enviar_push boolean DEFAULT false,
+    icone text DEFAULT 'fa-bell'::text,
+    regras_avancadas jsonb
+);
+
 CREATE TABLE public.regras_roteamento_funil (
     id bigint NOT NULL DEFAULT nextval('regras_roteamento_funil_id_seq'::regclass),
     organizacao_id bigint NOT NULL,

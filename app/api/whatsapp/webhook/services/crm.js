@@ -128,6 +128,19 @@ export async function findOrCreateContactAndConversation(supabaseAdmin, message,
  }
  }
  }
+ 
+ // =========================================================================
+ // GATILHO: SINCRONIZAÇÃO GOOGLE CONTACTS
+ // Chama a API de sync para agrupar e enviar o Lead criado para as agendas
+ // =========================================================================
+ try {
+ fetch(`${process.env.NEXT_PUBLIC_URL || 'http://localhost:3000'}/api/google/sync-contatos`, {
+ method: 'POST',
+ headers: { 'Content-Type': 'application/json' },
+ body: JSON.stringify({ contato_id: contatoId, organizacao_id: orgId })
+ }).catch(err => console.error('[CRM] Erro silencioso ao chamar sync Google:', err));
+ } catch(e) {}
+ 
  } else {
  // Se já existe, verifica se estamos esperando o nome dele
  const { data: existing } = await supabaseAdmin.from('contatos').select('nome, is_awaiting_name_response').eq('id', contatoId).single();

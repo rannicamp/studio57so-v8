@@ -216,6 +216,18 @@ export default function ActivityModalRoot({
  toast.success("Criado com sucesso!");
  }
 
+ // --- INTEGRAÇÃO GOOGLE CALENDAR ---
+ try {
+ fetch('/api/google/sync-activity', {
+ method: 'POST',
+ headers: { 'Content-Type': 'application/json' },
+ body: JSON.stringify({ activity: resultActivity }),
+ }).catch(err => console.error("Erro no fetch do Google Sync:", err));
+ } catch (err) {
+ console.error("Erro ao disparar sync do Google:", err);
+ }
+ // ----------------------------------
+
  queryClient.invalidateQueries(['atividades']);
  queryClient.invalidateQueries(['bimActivities']);
  queryClient.invalidateQueries(['bimElementLinks']);

@@ -2,83 +2,100 @@ export const dynamic = 'force-dynamic';
 import { createClient } from '@/utils/supabase/server';
 import { redirect } from 'next/navigation';
 import FacebookButton from '@/components/integracoes/FacebookButton';
-import WhatsappButton from '@/components/integracoes/WhatsappButton'; // <--- IMPORTANDO O BOTAO DO WHATSAPP
-import MetaSetupWizard from '@/components/integracoes/MetaSetupWizard'; // <--- IMPORTANDO O WIZARD MAGICO
+import WhatsappButton from '@/components/integracoes/WhatsappButton';
+import MetaSetupWizard from '@/components/integracoes/MetaSetupWizard';
+import GoogleCalendarButton from '@/components/integracoes/GoogleCalendarButton';
 
 export default async function IntegracoesPage() {
- const supabase = await createClient();
+  const supabase = await createClient();
 
- // 1. Verifica Usuário
- const { data: { user } } = await supabase.auth.getUser();
- if (!user) redirect('/login');
+  // 1. Verifica Usuário
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
 
- // 2. Pega ID da Organização
- const { data: usuario } = await supabase.from('usuarios').select('organizacao_id').eq('id', user.id).single();
- if (!usuario?.organizacao_id) return <div>Erro: Sem organização.</div>;
+  // 2. Pega ID da Organização
+  const { data: usuario } = await supabase.from('usuarios').select('organizacao_id').eq('id', user.id).single();
+  if (!usuario?.organizacao_id) return <div>Erro: Sem organização.</div>;
 
- const organizacaoId = usuario.organizacao_id;
+  const organizacaoId = usuario.organizacao_id;
 
- // 3. Busca se já está conectado no FACEBOOK
- const { data: integracaoMeta } = await supabase
- .from('integracoes_meta')
- .select('status, nome_conta')
- .eq('organizacao_id', organizacaoId)
- .single();
+  // 3. Busca se já está conectado no FACEBOOK
+  const { data: integracaoMeta } = await supabase
+    .from('integracoes_meta')
+    .select('status, nome_conta')
+    .eq('organizacao_id', organizacaoId)
+    .single();
 
- // 4. Busca se já está conectado no WHATSAPP (A MÁGICA ACONTECE AQUI)
- const { data: integracaoWhatsapp } = await supabase
- .from('configuracoes_whatsapp')
- .select('*')
- .eq('organizacao_id', organizacaoId)
- .single();
+  // 4. Busca se já está conectado no WHATSAPP (A MÁGICA ACONTECE AQUI)
+  const { data: integracaoWhatsapp } = await supabase
+    .from('configuracoes_whatsapp')
+    .select('*')
+    .eq('organizacao_id', organizacaoId)
+    .single();
 
- return (
- <div className="p-8 max-w-6xl mx-auto animate-in fade-in duration-300">
- <h1 className="text-3xl font-bold mb-2 text-gray-900">Central de Integrações</h1>
- <p className="text-gray-600 mb-8">Conecte suas contas de redes sociais e ferramentas externas ao Elo 57 para turbinar seus resultados.</p>
+  // 5. Busca as integrações do GOOGLE
+  const { data: integracoesGoogle } = await supabase
+    .from('integracoes_google')
+    .select('is_active, tipo_conexao')
+    .eq('user_id', user.id);
 
- {/* O Modal Mágico (Fica invisível até que a URL tenha ?step=select_page) */}
- <MetaSetupWizard organizacaoId={organizacaoId} />
+  const googleAgenda = integracoesGoogle?.find(i => i.tipo_conexao === 'agenda');
+  const googleDrive = integracoesGoogle?.find(i => i.tipo_conexao === 'drive');
+  const googleContatos = integracoesGoogle?.find(i => i.tipo_conexao === 'contatos');
 
- {/* Ajustei para 3 colunas em telas grandes (lg:grid-cols-3) para caberem os 3 cards lindamente */}
- <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+  return (
+    <div className="p-8 max-w-6xl mx-auto animate-in fade-in duration-300">
+      <h1 className="text-3xl font-bold mb-2 text-gray-900">Central de Integrações</h1>
+      <p className="text-gray-600 mb-8">Conecte suas contas de redes sociais e ferramentas externas ao Elo 57 para turbinar seus resultados.</p>
 
- {/* 🟢 Botão do Facebook */}
- <FacebookButton
- isConnected={!!integracaoMeta?.status}
- accountName={integracaoMeta?.nome_conta}
- />
+      {/* O Modal Mágico (Fica invisível até que a URL tenha ?step=select_page) */}
+      <MetaSetupWizard organizacaoId={organizacaoId} />
 
- {/* 🟢 Botão do WhatsApp Oficial */}
- <WhatsappButton
- initialData={integracaoWhatsapp}
- organizacaoId={organizacaoId}
- />
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+        <FacebookButton 
+          isConnected={!!integracaoMeta?.status} 
+          accountName={integracaoMeta?.nome_conta} 
+        />
+        <WhatsappButton 
+          initialData={integracaoWhatsapp}
+          organizacaoId={organizacaoId}
+        />
+      </div>
 
- {/* ⚪ Placeholder Google (Ajustei o design para ficar do mesmo tamanho dos outros) */}
- <div className="border border-gray-100 rounded-2xl p-8 shadow-sm bg-gray-50/50 opacity-70 flex flex-col justify-between animate-in fade-in zoom-in-95 duration-300 delay-150">
- <div>
- <div className="flex items-center gap-4 mb-6">
- <div className="w-14 h-14 bg-gray-200 rounded-2xl flex items-center justify-center text-gray-500 shadow-inner">
- <span className="text-xl font-bold">G</span>
- </div>
- <div>
- <h3 className="font-bold text-gray-900 text-lg">Google Ads</h3>
- <p className="text-sm text-gray-500">Search & YouTube</p>
- </div>
- </div>
- <p className="text-sm text-gray-600 mb-6 leading-relaxed">
- Conecte sua conta do Google para acompanhar métricas e importar leads de campanhas de pesquisa diretamente no dashboard.
- </p>
- </div>
- <div className="mt-auto pt-6 border-t border-gray-100">
- <button disabled className="w-full py-3 bg-gray-100 text-gray-400 border border-gray-200 rounded-xl font-bold uppercase tracking-wider text-sm flex justify-center items-center cursor-not-allowed">
- Em breve
- </button>
- </div>
- </div>
+      <h2 className="text-2xl font-bold mb-6 text-gray-900">Ecossistema Google Workspace</h2>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 
- </div>
- </div>
- );
+        {/* 🟢 Botão do Google Agenda */}
+        <GoogleCalendarButton
+          isConnected={!!googleAgenda?.is_active}
+          tipo="agenda"
+          title="Google Agenda"
+          description={!!googleAgenda?.is_active 
+            ? 'Suas atividades do Elo 57 estão sendo enviadas automaticamente para o seu Google Agenda.'
+            : 'Conecte sua conta para enviar automaticamente suas atividades para as agendas no seu celular.'}
+        />
+
+        {/* 🟢 Botão do Google Drive */}
+        <GoogleCalendarButton
+          isConnected={!!googleDrive?.is_active}
+          tipo="drive"
+          title="Google Drive (Cofre)"
+          description={!!googleDrive?.is_active 
+            ? 'Cofre conectado! O sistema fará backup de contratos e planilhas na nuvem.'
+            : 'Conecte o Drive Corporativo para criar um cofre de backup automático e seguro.'}
+        />
+
+        {/* 🟢 Botão do Google Contacts */}
+        <GoogleCalendarButton
+          isConnected={!!googleContatos?.is_active}
+          tipo="contatos"
+          title="Google Contatos"
+          description={!!googleContatos?.is_active 
+            ? 'Seus leads estão sendo sincronizados com a agenda do seu celular automaticamente.'
+            : 'Conecte para sincronizar os contatos e leads direto na agenda do seu celular.'}
+        />
+
+      </div>
+    </div>
+  );
 }
