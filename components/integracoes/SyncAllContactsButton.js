@@ -48,47 +48,38 @@ export default function SyncAllContactsButton({ organizacaoId }) {
         return;
       }
 
-      setProgress({ total: contatos.length, current: 0 });
-      setStatusText('Sincronizando...');
+      setStatusText('Enviando para a fila de processamento...');
 
-      // 2. Loop para sincronizar um a um (para evitar Rate Limits)
-      let sucesso = 0;
-      let falhas = 0;
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Usuário não autenticado');
 
-      for (let i = 0; i < contatos.length; i++) {
-        const contato = contatos[i];
-        try {
-          const res = await fetch('/api/google/sync-contatos', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ contato_id: contato.id, organizacao_id: organizacaoId }),
-          });
+      const contatosIds = contatos.map(c => c.id);
 
-          if (res.ok) {
-            sucesso++;
-          } else {
-            falhas++;
-          }
-        } catch (err) {
-          console.error(`Erro ao sincronizar contato ${contato.id}:`, err);
-          falhas++;
-        }
+      // Envia os IDs para a nossa rota de fila (Background Queue)
+      const res = await fetch('/api/google/queue-sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          contatosIds, 
+          organizacao_id: organizacaoId,
+          user_id: user.id
+        }),
+      });
 
-        setProgress({ total: contatos.length, current: i + 1 });
-        // Pausa rígida de 2 segundos para não estourar a cota da Google People API (que é de max 60 requests/minuto)
-        await new Promise(r => setTimeout(r, 2000));
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || 'Falha ao colocar na fila');
       }
 
-      setStatusText('Concluído!');
-      alert(`Sincronização finalizada!\nSucesso: ${sucesso}\nFalhas: ${falhas}`);
+      setStatusText('Fila Iniciada!');
+      alert(`Sucesso! ${contatos.length} contatos foram colocados na Fila de Sincronização em Segundo Plano.\n\nO servidor vai enviar 20 contatos por minuto para o Google. Você já pode fechar esta tela e continuar trabalhando livremente!`);
 
     } catch (error) {
       console.error('Erro geral no SyncAll:', error);
-      alert('Erro ao buscar contatos: ' + error.message);
+      alert('Erro ao enviar para a fila: ' + error.message);
     } finally {
       setTimeout(() => {
         setLoading(false);
-        setProgress({ total: 0, current: 0 });
         setStatusText('');
       }, 3000);
     }
