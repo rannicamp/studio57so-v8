@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 
-export default function GoogleCalendarButton({ isConnected, email, tipo = 'agenda', title = 'Google Agenda', description = '' }) {
+export default function GoogleCalendarButton({ isConnected, email, tipo = 'agenda', title = 'Google Agenda', description = '', children }) {
   const [loading, setLoading] = useState(false);
 
   const handleConnect = () => {
@@ -68,6 +68,13 @@ export default function GoogleCalendarButton({ isConnected, email, tipo = 'agend
           </button>
         )}
       </div>
+
+      {/* Área para botões extras, como o Sync All */}
+      {children && (
+        <div className="mt-4 pt-4 border-t border-gray-100 border-dashed">
+          {children}
+        </div>
+      )}
     </div>
   );
 }

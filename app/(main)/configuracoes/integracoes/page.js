@@ -5,6 +5,7 @@ import FacebookButton from '@/components/integracoes/FacebookButton';
 import WhatsappButton from '@/components/integracoes/WhatsappButton';
 import MetaSetupWizard from '@/components/integracoes/MetaSetupWizard';
 import GoogleCalendarButton from '@/components/integracoes/GoogleCalendarButton';
+import SyncAllContactsButton from '@/components/integracoes/SyncAllContactsButton';
 
 export default async function IntegracoesPage() {
   const supabase = await createClient();
@@ -93,7 +94,11 @@ export default async function IntegracoesPage() {
           description={!!googleContatos?.is_active 
             ? 'Seus leads estão sendo sincronizados com a agenda do seu celular automaticamente.'
             : 'Conecte para sincronizar os contatos e leads direto na agenda do seu celular.'}
-        />
+        >
+          {!!googleContatos?.is_active && (
+            <SyncAllContactsButton organizacaoId={organizacaoId} />
+          )}
+        </GoogleCalendarButton>
 
       </div>
     </div>
