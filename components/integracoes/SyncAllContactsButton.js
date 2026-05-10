@@ -75,8 +75,8 @@ export default function SyncAllContactsButton({ organizacaoId }) {
         }
 
         setProgress({ total: contatos.length, current: i + 1 });
-        // Pequena pausa para não afogar a API do Google
-        await new Promise(r => setTimeout(r, 500));
+        // Pausa rígida de 2 segundos para não estourar a cota da Google People API (que é de max 60 requests/minuto)
+        await new Promise(r => setTimeout(r, 2000));
       }
 
       setStatusText('Concluído!');
