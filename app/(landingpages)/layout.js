@@ -2,6 +2,7 @@
 
 import Script from 'next/script';
 import { Toaster } from 'sonner';
+import Link from 'next/link';
 import MenuPublico from './components/MenuPublico';
 // --- NOVO: Importando o nosso Analista Pessoal ---
 import MonitorDeVisitas from '@/components/radar/MonitorDeVisitas';
@@ -81,11 +82,16 @@ export default function PublicLayout({ children }) {
  <main className="flex-grow">
  {children}
  </main>
- {/* RODAPÉ */}
- <footer className="bg-gray-800 text-white py-8 mt-auto">
- <div className="w-full px-6 text-center">
- <p>© {new Date().getFullYear()} Studio 57. Todos os direitos reservados.</p>
- </div>
+ {/* RODAPÉ ÚNICO E OFICIAL */}
+ <footer className="bg-gray-900 text-gray-400 py-6 mt-auto border-t border-gray-800">
+  <div className="w-full px-6 flex flex-col md:flex-row items-center justify-between text-sm">
+  <p>© {new Date().getFullYear()} Studio 57 Arquitetura e Incorporação. Todos os direitos reservados.</p>
+  <div className="mt-4 md:mt-0">
+  <Link href="/politicas" className="hover:text-white transition-colors uppercase tracking-wider text-xs font-bold">
+  Política de Privacidade e Termos de Uso
+  </Link>
+  </div>
+  </div>
  </footer>
 
  </div>

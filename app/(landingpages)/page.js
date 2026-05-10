@@ -212,18 +212,6 @@ export default function HomePage() {
  </div>
  </section>
 
- {/* Footer Simples para Políticas e Direitos (Obrigatório Google) */}
- <footer className="bg-gray-900 py-6 border-t border-gray-800">
-  <div className="w-full px-6 flex flex-col md:flex-row items-center justify-between text-gray-400 text-sm">
-  <p>© {new Date().getFullYear()} Studio 57 Arquitetura e Incorporação. Todos os direitos reservados.</p>
-  <div className="mt-4 md:mt-0">
-  <Link href="/politicas" className="hover:text-white transition-colors uppercase tracking-wider text-xs font-bold">
-  Política de Privacidade e Termos de Uso
-  </Link>
-  </div>
-  </div>
- </footer>
-
  {/* --- MODAL DA LISTA DE ESPERA (Refúgio Braúnas) --- */}
  {isRefugioModalOpen && (
  <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm transition-opacity duration-300"
