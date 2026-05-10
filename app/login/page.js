@@ -143,6 +143,9 @@ export default function LoginPage() {
  </Link>
  </div>
  </form>
+ <div className="mt-8 pt-6 border-t border-gray-200 text-center">
+ <Link href="/politicas" className="text-xs font-semibold text-gray-500 hover:text-gray-800 transition-colors uppercase tracking-wider">Política de Privacidade e Termos de Uso</Link>
+ </div>
  </div>
  </div>
  </div>
