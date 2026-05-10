@@ -16,13 +16,31 @@ export default function SyncAllContactsButton({ organizacaoId }) {
     const supabase = createClient();
 
     try {
-      // 1. Pega todos os contatos da organização
-      const { data: contatos, error } = await supabase
-        .from('contatos')
-        .select('id, nome, razao_social')
-        .eq('organizacao_id', organizacaoId);
+      // 1. Pega todos os contatos da organização (com paginação para driblar o limite de 1000 do Supabase)
+      let allContatos = [];
+      let start = 0;
+      const pageSize = 1000;
+      let hasMore = true;
 
-      if (error) throw error;
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from('contatos')
+          .select('id, nome, razao_social')
+          .eq('organizacao_id', organizacaoId)
+          .range(start, start + pageSize - 1);
+
+        if (error) throw error;
+
+        if (data && data.length > 0) {
+          allContatos = [...allContatos, ...data];
+          start += pageSize;
+          if (data.length < pageSize) hasMore = false;
+        } else {
+          hasMore = false;
+        }
+      }
+      
+      const contatos = allContatos;
 
       if (!contatos || contatos.length === 0) {
         alert('Nenhum contato encontrado na base de dados.');
