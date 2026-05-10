@@ -85,8 +85,34 @@ export default function SyncAllContactsButton({ organizacaoId }) {
     }
   };
 
+  const handleCancelSync = async () => {
+    if (!confirm('Deseja realmente cancelar a sincronização em andamento? Isso removerá todos os contatos da fila de espera.')) return;
+
+    setLoading(true);
+    setStatusText('Cancelando fila...');
+
+    try {
+      const res = await fetch('/api/google/cancel-queue', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ organizacao_id: organizacaoId }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Erro ao cancelar');
+
+      alert(`Cancelamento concluído! ${data.count} contatos foram removidos da fila de espera.`);
+    } catch (error) {
+      console.error('Erro ao cancelar sync:', error);
+      alert('Erro ao cancelar: ' + error.message);
+    } finally {
+      setLoading(false);
+      setStatusText('');
+    }
+  };
+
   return (
-    <div className="w-full">
+    <div className="w-full space-y-3">
       <button
         onClick={handleSyncAll}
         disabled={loading}
@@ -110,6 +136,19 @@ export default function SyncAllContactsButton({ organizacaoId }) {
             Sincronizar Todos os Contatos
           </>
         )}
+      </button>
+
+      <button
+        onClick={handleCancelSync}
+        disabled={loading}
+        className={`w-full py-2 px-4 rounded-xl font-semibold text-sm transition-all duration-300 flex items-center justify-center gap-2 ${
+          loading ? 'opacity-50 cursor-not-allowed text-gray-400 bg-gray-50' : 'text-red-600 bg-red-50 hover:bg-red-100'
+        }`}
+      >
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+        </svg>
+        Parar Sincronização em Lote
       </button>
 
       {/* Barra de progresso */}
