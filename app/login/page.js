@@ -1,1 +1,150 @@
-⼯䌠浡湩潨›灡⽰潬楧⽮慰敧樮൳∊獵⁥汣敩瑮㬢਍਍浩潰瑲笠甠敳瑓瑡⁥⁽牦浯✠敲捡❴഻椊灭牯⁴⁻獵剥畯整⁲⁽牦浯✠敮瑸港癡杩瑡潩❮഻椊灭牯⁴⁻牣慥整汃敩瑮素映潲⁭⸧⼮⸮甯楴獬猯灵扡獡⽥汣敩瑮㬧਍浩潰瑲䤠慭敧映潲⁭渧硥⽴浩条❥഻椊灭牯⁴楌歮映潲⁭渧硥⽴楬歮㬧਍਍硥潰瑲搠晥畡瑬映湵瑣潩⁮潌楧偮条⡥ ൻ 潣獮⁴敛慭汩‬敳䕴慭汩⁝‽獵卥慴整✨⤧഻ 潣獮⁴灛獡睳牯Ɽ猠瑥慐獳潷摲⁝‽獵卥慴整✨⤧഻ 潣獮⁴敛牲牯‬敳䕴牲牯⁝‽獵卥慴整渨汵⥬഻ 潣獮⁴楛䱳慯楤杮‬敳䥴䱳慯楤杮⁝‽獵卥慴整昨污敳㬩਍挠湯瑳爠畯整⁲‽獵剥畯整⡲㬩਍挠湯瑳猠灵扡獡⁥‽牣慥整汃敩瑮⤨഻ഊ ⼯ⴠⴭ丠噏⁁佌佇䄠啔䱁婉䑁⁁ⴭഭ 潣獮⁴潬潧牕⁬‽⼢慭捲⽡潬潧攭潬㜵栭牯穩湯慴⹬癳≧഻ഊ 潣獮⁴慨摮敬潌楧⁮‽獡湹⁣攨 㸽笠਍攠瀮敲敶瑮敄慦汵⡴㬩਍猠瑥牅潲⡲畮汬㬩਍猠瑥獉潌摡湩⡧牴敵㬩਍਍挠湯瑳笠搠瑡㩡愠瑵䑨瑡ⱡ攠牲牯素㴠愠慷瑩猠灵扡獡⹥畡桴献杩䥮坮瑩偨獡睳牯⡤ൻ 浥楡ⱬ਍瀠獡睳牯Ɽ਍素㬩਍਍椠⁦攨牲牯 ൻ 敳䕴牲牯攨牲牯洮獥慳敧㬩਍猠瑥獉潌摡湩⡧慦獬⥥഻ ⁽汥敳笠਍氠瑥琠牡敧啴汲㴠✠瀯楡敮❬※⼯倠摡썲澣਍਍椠⁦愨瑵䑨瑡㽡甮敳㽲椮⥤笠਍挠湯瑳笠搠瑡㩡瀠潲楦敬素㴠愠慷瑩猠灵扡獡൥ 昮潲⡭甧畳牡潩❳ഩ 献汥捥⡴椧彳畳数慲浤湩⤧਍⸠煥✨摩Ⱗ愠瑵䑨瑡⹡獵牥椮⥤਍⸠楳杮敬⤨഻ഊ 晩⠠牰景汩㽥椮彳畳数慲浤湩 ൻ 慴杲瑥牕⁬‽⼧摡業❮഻ ൽ ൽഊ 潲瑵牥瀮獵⡨慴杲瑥牕⥬഻ 潲瑵牥爮晥敲桳⤨഻ ൽ 㭽਍਍爠瑥牵⁮ന 搼癩挠慬獳慎敭∽汦硥洠湩栭猭牣敥⁮汦硥挭汯椠整獭挭湥整⁲番瑳晩⵹散瑮牥戠ⵧ牧祡㔭‰⵰∴ാ 搼癩挠慬獳慎敭∽⵷畦汬洠硡眭洭≤ാ 搼癩挠慬獳慎敭∽杢眭楨整瀠㠭爠畯摮摥氭⁧桳摡睯洭≤ാ 搼癩挠慬獳慎敭∽扭㠭映敬⁸番瑳晩⵹散瑮牥㸢਍笠⨯䄠番瑳楥漠眠摩桴栯楥桧⁴慰慲朠牡湡楴⁲畱⁥⁡牰灯牯ꟃꏃ⁯楦畱⁥潢⁡⼪ൽ 䤼慭敧਍猠捲笽潬潧牕絬਍愠瑬∽潌潧䔠潬㔠∷਍眠摩桴笽〲細਍栠楥桧㵴㙻細਍瀠楲牯瑩൹ 瑳汹㵥筻眠摩桴›愢瑵≯‬敨杩瑨›愢瑵≯素ൽ 汣獡乳浡㵥漢橢捥⵴潣瑮楡≮⼠ 慇慲瑮⁥畱⁥⁡浩条浥渠ꏃ⁯楤瑳牯ꟃൡ 㸯਍㰠搯癩ാഊ 格′汣獡乳浡㵥洢ⵢ‶整瑸挭湥整⁲整瑸㈭汸琠硥⵴牧祡㤭〰映湯⵴桫湡⁤灵数捲獡⁥潦瑮氭杩瑨琠慲正湩ⵧ楷敤瑳㸢਍䄠散獳牡猠慵挠湯慴਍㰠栯㸲਍਍㰠潦浲漠卮扵業㵴桻湡汤䱥杯湩⁽汣獡乳浡㵥猢慰散礭㘭㸢਍㰠楤㹶਍㰠慬敢⁬瑨汭潆㵲攢慭汩•汣獡乳浡㵥戢潬正琠硥⵴浳映湯⵴敭楤浵琠硥⵴牧祡㜭〰㸢਍䔠慭汩਍㰠氯扡汥ാ 搼癩挠慬獳慎敭∽瑭ㄭ㸢਍㰠湩異൴ 摩∽浥楡≬਍渠浡㵥攢慭汩ഢ 祴数∽浥楡≬਍愠瑵䍯浯汰瑥㵥攢慭汩ഢ 敲畱物摥਍瘠污敵笽浥楡絬਍漠䍮慨杮㵥⡻⥥㴠‾敳䕴慭汩攨琮牡敧⹴慶畬⥥ൽ 汣獡乳浡㵥洢⵴‱汢捯⁫⵷畦汬瀠㈭戠牯敤⁲潢摲牥札慲⵹〳‰潲湵敤ⵤ摭猠慨潤⵷浳映捯獵爺湩ⵧ′潦畣㩳楲杮戭畬ⵥ〵‰潦畣㩳畯汴湩ⵥ潮敮ഢ 㸯਍㰠搯癩ാ ⼼楤㹶਍਍㰠楤㹶਍㰠慬敢⁬瑨汭潆㵲瀢獡睳牯≤挠慬獳慎敭∽汢捯⁫整瑸猭⁭潦瑮洭摥畩⁭整瑸札慲⵹〷∰ാ 敓桮ൡ ⼼慬敢㹬਍㰠楤⁶汣獡乳浡㵥洢⵴∱ാ 椼灮瑵਍椠㵤瀢獡睳牯≤਍渠浡㵥瀢獡睳牯≤਍琠灹㵥瀢獡睳牯≤਍愠瑵䍯浯汰瑥㵥挢牵敲瑮瀭獡睳牯≤਍爠煥極敲൤ 慶畬㵥灻獡睳牯絤਍漠䍮慨杮㵥⡻⥥㴠‾敳側獡睳牯⡤⹥慴杲瑥瘮污敵紩਍挠慬獳慎敭∽瑭ㄭ戠潬正眠昭汵⁬⵰′潢摲牥戠牯敤⵲牧祡㌭〰爠畯摮摥洭⁤桳摡睯猭⁭潦畣㩳楲杮㈭映捯獵爺湩ⵧ汢敵㔭〰映捯獵漺瑵楬敮渭湯≥਍⼠ാ ⼼楤㹶਍਍㰠楤⁶汣獡乳浡㵥昢敬⁸瑩浥⵳散瑮牥樠獵楴祦攭摮洠⵴∲ാ 搼癩挠慬獳慎敭∽整瑸猭≭ാ 䰼湩൫ 牨晥∽爯捥灵牥牡猭湥慨ഢ 汣獡乳浡㵥昢湯⵴敭楤浵琠硥⵴汢敵㘭〰栠癯牥琺硥⵴汢敵㔭〰ഢ ാ 獅畱捥略猠慵猠湥慨ി ⼼楌歮ാ ⼼楤㹶਍㰠搯癩ാ ⼼楤㹶਍਍笠牥潲⁲☦⠠਍㰠⁰汣獡乳浡㵥琢硥⵴浳琠硥⵴敲ⵤ〶‰整瑸挭湥整⁲杢爭摥㔭‰⵰′潲湵敤⁤潢摲牥戠牯敤⵲敲ⵤ〲∰ാ 敻牲牯㴠㴽∠湉慶楬⁤潬楧⁮牣摥湥楴污≳㼠∠ⵅ慭汩漠⁵敳桮⁡湩潣牲瑥獯∮㨠攠牲牯ൽ ⼼㹰਍⤠ൽഊ 搼癩ാ 戼瑵潴൮ 祴数∽畳浢瑩ഢ 楤慳汢摥笽獩潌摡湩絧਍挠慬獳慎敭∽汦硥眠昭汵⁬番瑳晩⵹散瑮牥爠畯摮摥洭⁤潢摲牥戠牯敤⵲牴湡灳牡湥⁴杢戭畬ⵥ〶‰祰㈭瀠⵸‴整瑸猭⁭潦瑮洭摥畩⁭整瑸眭楨整猠慨潤⵷浳栠癯牥戺ⵧ汢敵㜭〰映捯獵漺瑵楬敮渭湯⁥潦畣㩳楲杮㈭映捯獵爺湩ⵧ汢敵㔭〰映捯獵爺湩ⵧ景獦瑥㈭搠獩扡敬㩤灯捡瑩⵹〷搠獩扡敬㩤畣獲牯渭瑯愭汬睯摥琠慲獮瑩潩⵮潣潬獲ഢ ാ 楻䱳慯楤杮㼠∠湅牴湡潤⸮∮㨠∠湅牴牡索਍㰠戯瑵潴㹮਍㰠搯癩ാഊ 搼癩挠慬獳慎敭∽瑭㘭琠硥⵴散瑮牥琠硥⵴浳琠硥⵴牧祡㘭〰㸢਍倠楲敭物⁯捡獥潳笿‧紧਍㰠楌歮栠敲㵦⼢慣慤瑳潲•汣獡乳浡㵥昢湯⵴敳業潢摬琠硥⵴汢敵㘭〰栠癯牥琺硥⵴汢敵㔭〰琠慲獮瑩潩⵮潣潬獲㸢਍䌠摡獡牴ⵥ敳朠썲璡獩਍㰠䰯湩㹫਍㰠搯癩ാ ⼼潦浲ਾ㰠楤⁶汣獡乳浡㵥洢⵴‸瑰㘭戠牯敤⵲⁴潢摲牥札慲⵹〲‰整瑸挭湥整≲ਾ㰠楌歮栠敲㵦⼢潰楬楴慣≳挠慬獳慎敭∽整瑸砭⁳潦瑮猭浥扩汯⁤整瑸札慲⵹〵‰潨敶㩲整瑸札慲⵹〸‰牴湡楳楴湯挭汯牯⁳灵数捲獡⁥牴捡楫杮眭摩牥㸢潐楴慣搠⁥牐癩捡摩摡⁥⁥敔浲獯搠⁥獕㱯䰯湩㹫 ⼼楤㹶਍㰠搯癩ാ ⼼楤㹶਍㰠搯癩ാ 㬩਍ൽ
+// Caminho: app/login/page.js
+"use client";
+
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { createClient } from '../../utils/supabase/client';
+import Image from 'next/image';
+import Link from 'next/link';
+
+export default function LoginPage() {
+ const [email, setEmail] = useState('');
+ const [password, setPassword] = useState('');
+ const [error, setError] = useState(null);
+ const [isLoading, setIsLoading] = useState(false);
+ const router = useRouter();
+ const supabase = createClient();
+
+ // --- NOVA LOGO ATUALIZADA ---
+ const logoUrl = "/marca/logo-elo57-horizontal.svg";
+
+ const handleLogin = async (e) => {
+ e.preventDefault();
+ setError(null);
+ setIsLoading(true);
+
+ const { data: authData, error } = await supabase.auth.signInWithPassword({
+ email,
+ password,
+ });
+
+ if (error) {
+ setError(error.message);
+ setIsLoading(false);
+ } else {
+ let targetUrl = '/painel'; // Padrão
+
+ if (authData?.user?.id) {
+ const { data: profile } = await supabase
+ .from('usuarios')
+ .select('is_superadmin')
+ .eq('id', authData.user.id)
+ .single();
+
+ if (profile?.is_superadmin) {
+ targetUrl = '/admin';
+ }
+ }
+
+ router.push(targetUrl);
+ router.refresh();
+ }
+ };
+
+ return (
+ <div className="flex min-h-screen flex-col items-center justify-center bg-gray-50 p-4">
+ <div className="w-full max-w-md">
+ <div className="bg-white p-8 rounded-lg shadow-md">
+ <div className="mb-8 flex justify-center">
+ {/* Ajustei o width/height para garantir que a proporção fique boa */}
+ <Image
+ src={logoUrl}
+ alt="Logo Elo 57"
+ width={200}
+ height={60}
+ priority
+ style={{ width: "auto", height: "auto" }}
+ className="object-contain" // Garante que a imagem não distorça
+ />
+ </div>
+
+ <h2 className="mb-6 text-center text-2xl text-gray-900 font-khand uppercase font-light tracking-widest">
+ Acessar sua conta
+ </h2>
+
+ <form onSubmit={handleLogin} className="space-y-6">
+ <div>
+ <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+ Email
+ </label>
+ <div className="mt-1">
+ <input
+ id="email"
+ name="email"
+ type="email"
+ autoComplete="email"
+ required
+ value={email}
+ onChange={(e) => setEmail(e.target.value)}
+ className="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+ />
+ </div>
+ </div>
+
+ <div>
+ <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+ Senha
+ </label>
+ <div className="mt-1">
+ <input
+ id="password"
+ name="password"
+ type="password"
+ autoComplete="current-password"
+ required
+ value={password}
+ onChange={(e) => setPassword(e.target.value)}
+ className="mt-1 block w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+ />
+ </div>
+
+ <div className="flex items-center justify-end mt-2">
+ <div className="text-sm">
+ <Link
+ href="/recuperar-senha"
+ className="font-medium text-blue-600 hover:text-blue-500"
+ >
+ Esqueceu sua senha?
+ </Link>
+ </div>
+ </div>
+ </div>
+
+ {error && (
+ <p className="text-sm text-red-600 text-center bg-red-50 p-2 rounded border border-red-200">
+ {error === "Invalid login credentials" ? "E-mail ou senha incorretos." : error}
+ </p>
+ )}
+
+ <div>
+ <button
+ type="submit"
+ disabled={isLoading}
+ className="flex w-full justify-center rounded-md border border-transparent bg-blue-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-70 disabled:cursor-not-allowed transition-colors"
+ >
+ {isLoading ? "Entrando..." : "Entrar"}
+ </button>
+ </div>
+
+ <div className="mt-6 text-center text-sm text-gray-600">
+ Primeiro acesso?{' '}
+ <Link href="/cadastro" className="font-semibold text-blue-600 hover:text-blue-500 transition-colors">
+ Cadastre-se grátis
+ </Link>
+ </div>
+ </form> <div className="mt-8 pt-6 border-t border-gray-200 text-center"><Link href="/politicas" className="text-xs font-semibold text-gray-500 hover:text-gray-800 transition-colors uppercase tracking-wider">Pol�tica de Privacidade e Termos de Uso</Link></div>
+ </div>
+ </div>
+ </div>
+ );
+}
