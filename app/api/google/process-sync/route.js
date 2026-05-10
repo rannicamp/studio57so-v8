@@ -9,6 +9,14 @@ const createAdminClient = () => {
 };
 
 export async function GET(request) {
+  return processQueue(request);
+}
+
+export async function POST(request) {
+  return processQueue(request);
+}
+
+async function processQueue(request) {
   // Esse endpoint é chamado pelo Cron/Scheduler. 
   try {
     const supabase = createAdminClient();
