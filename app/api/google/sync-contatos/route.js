@@ -27,7 +27,6 @@ export async function POST(request) {
         id,
         nome,
         razao_social,
-        empresa,
         tipo_contato,
         organizacao_id,
         telefones ( telefone ),
@@ -37,6 +36,7 @@ export async function POST(request) {
       .single();
 
     if (contatoError || !contatoData) {
+      console.error('Erro na busca do contato:', contatoError);
       return NextResponse.json({ error: 'Contato não encontrado ou erro na busca.' }, { status: 404 });
     }
 
@@ -55,7 +55,7 @@ export async function POST(request) {
       nome: nomeExibicao,
       telefone: telefonePrincipal,
       email: emailPrincipal,
-      empresa: contatoData.empresa || 'Cliente Studio 57',
+      empresa: contatoData.razao_social || 'Cliente Studio 57',
       tipo_contato: contatoData.tipo_contato // Ex: 'Lead', 'Fornecedor', 'Corretor'
     };
 
