@@ -1138,7 +1138,11 @@ CREATE TABLE public.integracoes_google (
     calendar_id text,
     is_active boolean DEFAULT true,
     created_at timestamp with time zone DEFAULT now(),
-    updated_at timestamp with time zone DEFAULT now()
+    updated_at timestamp with time zone DEFAULT now(),
+    user_id uuid,
+    minhas_atividades_calendar_id text,
+    global_calendar_id text,
+    tipo_conexao text DEFAULT 'pessoal'::text
 );
 
 CREATE TABLE public.integracoes_meta (
@@ -1793,6 +1797,18 @@ CREATE TABLE public.subetapas (
     etapa_id bigint NOT NULL,
     created_at timestamp with time zone DEFAULT now(),
     organizacao_id bigint NOT NULL
+);
+
+CREATE TABLE public.sync_queue (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    contato_id bigint NOT NULL,
+    organizacao_id bigint NOT NULL,
+    user_id uuid,
+    status text NOT NULL DEFAULT 'pendente'::text,
+    tentativas integer DEFAULT 0,
+    mensagem_erro text,
+    created_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
+    updated_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now())
 );
 
 CREATE TABLE public.sys_chat_broadcast_lists (
