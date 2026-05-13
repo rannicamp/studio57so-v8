@@ -164,7 +164,7 @@ export default function PermissionManager({ initialFuncoes }) {
  if (permissaoIndex > -1) {
  newPermissoes[permissaoIndex] = { ...newPermissoes[permissaoIndex], [tipoPermissao]: valor };
  } else {
- newPermissoes.push({ funcao_id: funcaoId, recurso: recursoKey, [tipoPermissao]: valor });
+ newPermissoes.push({ funcao_id: funcaoId, recurso: recursoKey, [tipoPermissao]: valor, organizacao_id: user?.organizacao_id });
  }
  return { ...funcao, permissoes: newPermissoes };
  }
@@ -172,7 +172,7 @@ export default function PermissionManager({ initialFuncoes }) {
  })
  );
 
- const change = { funcao_id: funcaoId, recurso: recursoKey, [tipoPermissao]: valor };
+ const change = { funcao_id: funcaoId, recurso: recursoKey, [tipoPermissao]: valor, organizacao_id: user?.organizacao_id };
  const existingChangeIndex = pendingChanges.current.findIndex(c => c.funcao_id === funcaoId && c.recurso === recursoKey);
  if (existingChangeIndex > -1) {
  pendingChanges.current[existingChangeIndex] = { ...pendingChanges.current[existingChangeIndex], ...change };
