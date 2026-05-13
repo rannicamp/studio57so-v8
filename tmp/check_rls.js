@@ -1,15 +1,16 @@
-
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 dotenv.config({ path: '.env.local' });
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
-async function checkRLS() {
-  const { data } = await supabase.rpc('get_policies_for_table', { table_name: 'permissoes' }).catch(() => ({}));
-  if(data) console.log(data);
-  else {
-    const res = await supabase.from('permissoes').select('*').limit(1);
-    console.log(res);
+const supabaseAdmin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+
+async function checkPolicy() {
+  const { data, error } = await supabaseAdmin.rpc('run_sql', {
+    sql_query: "SELECT policyname, permissive, roles, cmd, qual, with_check FROM pg_policies WHERE tablename = 'permissoes';"
+  });
+  if (error) {
+    console.error('Error fetching policies:', error);
+  } else {
+    console.log(JSON.stringify(data, null, 2));
   }
 }
-checkRLS();
-
+checkPolicy();

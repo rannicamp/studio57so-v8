@@ -158,6 +158,8 @@ export default function PermissionManager({ initialFuncoes }) {
  const funcaoTarget = funcoes.find(f => f.id === funcaoId);
  const targetOrgId = funcaoTarget?.organizacao_id || user?.organizacao_id;
 
+ let fullPermission = { funcao_id: funcaoId, recurso: recursoKey, organizacao_id: targetOrgId };
+
  setFuncoes(currentFuncoes =>
  currentFuncoes.map(funcao => {
  if (funcao.id === funcaoId) {
@@ -166,8 +168,11 @@ export default function PermissionManager({ initialFuncoes }) {
 
  if (permissaoIndex > -1) {
  newPermissoes[permissaoIndex] = { ...newPermissoes[permissaoIndex], [tipoPermissao]: valor };
+ fullPermission = { ...newPermissoes[permissaoIndex] };
  } else {
- newPermissoes.push({ funcao_id: funcaoId, recurso: recursoKey, [tipoPermissao]: valor, organizacao_id: targetOrgId });
+ const newPerm = { funcao_id: funcaoId, recurso: recursoKey, [tipoPermissao]: valor, organizacao_id: targetOrgId };
+ newPermissoes.push(newPerm);
+ fullPermission = { ...newPerm };
  }
  return { ...funcao, permissoes: newPermissoes };
  }
@@ -175,12 +180,11 @@ export default function PermissionManager({ initialFuncoes }) {
  })
  );
 
- const change = { funcao_id: funcaoId, recurso: recursoKey, [tipoPermissao]: valor, organizacao_id: targetOrgId };
  const existingChangeIndex = pendingChanges.current.findIndex(c => c.funcao_id === funcaoId && c.recurso === recursoKey);
  if (existingChangeIndex > -1) {
- pendingChanges.current[existingChangeIndex] = { ...pendingChanges.current[existingChangeIndex], ...change };
+ pendingChanges.current[existingChangeIndex] = fullPermission;
  } else {
- pendingChanges.current.push(change);
+ pendingChanges.current.push(fullPermission);
  }
  };
 

@@ -1,19 +1,11 @@
-const { createClient } = require('@supabase/supabase-js');
-require('dotenv').config({ path: '.env.local' });
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const supabase = createClient(supabaseUrl, supabaseKey);
-
-async function check() {
-  const { data, error } = await supabase.rpc('execute_sql', {
-      query: `
-        SELECT event_manipulation, action_statement, action_timing
-        FROM information_schema.triggers
-        WHERE event_object_table = 'contatos_no_funil';
-      `
-  });
-  console.log(error || data);
+import { createClient } from '@supabase/supabase-js';
+import dotenv from 'dotenv';
+dotenv.config({ path: '.env.local' });
+const supabaseAdmin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+async function run() {
+  const { data, error } = await supabaseAdmin.from('permissoes').select('*').limit(1);
+  console.log('Permissoes exist?', data?.length > 0);
 }
+run();
 
-check();
