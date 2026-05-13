@@ -101,13 +101,8 @@ function MonitorLogico() {
  };
  document.addEventListener('visibilitychange', tratarVisibilidade);
 
- // Evento 3: Heartbeat. Para usuários que ficam com aba aberta mas letárgicos
- // Pings de segurança a cada 30 segundos
- const heartbeat = setInterval(dispararSaltoTemporal, 30000);
-
  return () => {
    clearTimeout(timeoutId);
-   clearInterval(heartbeat);
    window.removeEventListener('beforeunload', dispararSaltoTemporal);
    document.removeEventListener('visibilitychange', tratarVisibilidade);
    // Quando esse componente desmontar (mudar de rota dentro do site/SPA), enviamos os segundos retidos
