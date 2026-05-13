@@ -46,7 +46,7 @@ async function getRoles(organizacaoId) {
  const { data, error } = await supabase
  .from('funcoes')
  .select('id, nome_funcao')
- .in('organizacao_id', [1, organizacaoId])
+ .or(`organizacao_id.eq.${organizacaoId},nome_funcao.eq.Proprietário`)
  .order('nome_funcao', { ascending: true });
  if (error) return [];
  return data;
