@@ -92,7 +92,6 @@ const AccountFolderTree = ({ account, selectedFolder, onSelectFolder, expandedPa
  if (!res.ok) return { counts: {} };
  return res.json();
  },
- refetchInterval: 10000,
  });
 
  // 3. Atualiza o Mapa de Contagens (Com Normalização)
@@ -523,7 +522,7 @@ export default function EmailSidebar({
  </div>
  )}
  </div>
- <EmailAutoSync intervalMinutes={1} />
+ <EmailAutoSync intervalMinutes={5} />
  </div>
  );
 }
