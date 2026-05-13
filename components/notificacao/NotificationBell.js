@@ -55,8 +55,33 @@ export default function NotificationBell() {
  return data || [];
  },
  enabled: !!user,
- refetchInterval: 10000,
  });
+
+ useEffect(() => {
+ if (!user) return;
+
+ const channel = supabase
+ .channel('realtime_notificacoes_bell')
+ .on(
+ 'postgres_changes',
+ {
+ event: '*',
+ schema: 'public',
+ table: 'notificacoes',
+ filter: `user_id=eq.${user.id}`,
+ },
+ () => {
+ queryClient.invalidateQueries(['notificacoes']);
+ queryClient.invalidateQueries(['painel_notificacoes']);
+ queryClient.invalidateQueries(['notificacoes_nao_lidas']);
+ }
+ )
+ .subscribe();
+
+ return () => {
+ supabase.removeChannel(channel);
+ };
+ }, [user, queryClient, supabase]);
 
  useEffect(() => {
  if (notificacoes.length > 0) {

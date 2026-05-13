@@ -1,6 +1,7 @@
 // components/painel/widgets/NotificacoesWidget.js
 "use client";
 
+import { useEffect } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -28,8 +29,32 @@ export default function NotificacoesWidget({ userId }) {
  if (error) throw error;
  return data;
  },
- // Atualiza a cada 30 segundos sozinho
- refetchInterval: 30000 });
+ });
+
+ useEffect(() => {
+ if (!userId) return;
+
+ const channel = supabase
+ .channel('realtime_notificacoes_widget')
+ .on(
+ 'postgres_changes',
+ {
+ event: '*',
+ schema: 'public',
+ table: 'notificacoes',
+ filter: `user_id=eq.${userId}`,
+ },
+ () => {
+ queryClient.invalidateQueries(['painel_notificacoes']);
+ queryClient.invalidateQueries(['notificacoes_nao_lidas']);
+ }
+ )
+ .subscribe();
+
+ return () => {
+ supabase.removeChannel(channel);
+ };
+ }, [userId, queryClient, supabase]);
 
  // 2. Função para marcar como lida
  const markAsReadMutation = useMutation({
