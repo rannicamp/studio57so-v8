@@ -170,9 +170,8 @@ export default function ContatoCardCRM({
  const handleClearCorretor = () => onAssociateCorretor(funilEntry.id, null);
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
-    // Extrai a data ignorando a informação de timezone (Z/+00:00) para forçar leitura literal
-    const dataLiteral = dateString.substring(0, 19); 
-    return format(new Date(dataLiteral), 'dd/MM/yyyy HH:mm', { locale: ptBR });
+    // Repassa a string completa (com Z) para que o JS leia em UTC e converta para local
+    return format(new Date(dateString), 'dd/MM/yyyy HH:mm', { locale: ptBR });
   };
  const displayName = contato.razao_social || contato.nome || 'Nome Indisponível';
  const displayPhone = contato.telefones?.[0]?.telefone || contato.telefones?.[0] || 'Sem telefone'; // Proteção extra para telefone
