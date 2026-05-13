@@ -42,7 +42,7 @@ export default async function PermissoesPage() {
  *,
  permissoes(*)
  `)
- .eq('organizacao_id', organizacaoId) // <-- FILTRO DE SEGURANÇA!
+ .or(`organizacao_id.eq.${organizacaoId},organizacao_id.eq.1`) // <-- FILTRO DE SEGURANÇA CORRIGIDO (SAAS)!
  .order('id');
 
  if (funcoesError) {
