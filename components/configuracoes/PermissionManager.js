@@ -155,6 +155,9 @@ export default function PermissionManager({ initialFuncoes }) {
  ];
 
  const updateLocalPermission = (funcaoId, recursoKey, tipoPermissao, valor) => {
+ const funcaoTarget = funcoes.find(f => f.id === funcaoId);
+ const targetOrgId = funcaoTarget?.organizacao_id || user?.organizacao_id;
+
  setFuncoes(currentFuncoes =>
  currentFuncoes.map(funcao => {
  if (funcao.id === funcaoId) {
@@ -164,7 +167,7 @@ export default function PermissionManager({ initialFuncoes }) {
  if (permissaoIndex > -1) {
  newPermissoes[permissaoIndex] = { ...newPermissoes[permissaoIndex], [tipoPermissao]: valor };
  } else {
- newPermissoes.push({ funcao_id: funcaoId, recurso: recursoKey, [tipoPermissao]: valor, organizacao_id: user?.organizacao_id });
+ newPermissoes.push({ funcao_id: funcaoId, recurso: recursoKey, [tipoPermissao]: valor, organizacao_id: targetOrgId });
  }
  return { ...funcao, permissoes: newPermissoes };
  }
@@ -172,7 +175,7 @@ export default function PermissionManager({ initialFuncoes }) {
  })
  );
 
- const change = { funcao_id: funcaoId, recurso: recursoKey, [tipoPermissao]: valor, organizacao_id: user?.organizacao_id };
+ const change = { funcao_id: funcaoId, recurso: recursoKey, [tipoPermissao]: valor, organizacao_id: targetOrgId };
  const existingChangeIndex = pendingChanges.current.findIndex(c => c.funcao_id === funcaoId && c.recurso === recursoKey);
  if (existingChangeIndex > -1) {
  pendingChanges.current[existingChangeIndex] = { ...pendingChanges.current[existingChangeIndex], ...change };
