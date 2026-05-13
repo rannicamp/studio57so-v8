@@ -13,6 +13,7 @@ import {
 import { createClient } from '@/utils/supabase/client'
 import { toast } from 'sonner'
 import { useLayout } from '@/contexts/LayoutContext'
+import { useAuth } from '@/contexts/AuthContext'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import {
  faPlus, faSpinner, faTimes, faSearch,
@@ -88,13 +89,24 @@ export default function ContatosMain() {
  const router = useRouter()
  const queryClient = useQueryClient()
  const { user, isUserLoading, setPageTitle } = useLayout()
+ const { hasPermission, loading: authLoading } = useAuth()
  const organizacaoId = user?.organizacao_id
  const userId = user?.id
  const supabase = createClient()
 
+ const canView = hasPermission('contatos', 'pode_ver')
+
+ useEffect(() => {
+ if (!authLoading && !canView) {
+ router.push('/')
+ }
+ }, [authLoading, canView, router])
+
  useEffect(() => {
  if(setPageTitle) setPageTitle('Gestão de Contatos');
  }, [setPageTitle]);
+
+ if (authLoading || !canView) return null;
 
  // --- ESTADOS DOS MODAIS ---
  const [isModalOpen, setIsModalOpen] = useState(false)

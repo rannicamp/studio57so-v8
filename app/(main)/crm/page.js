@@ -241,10 +241,21 @@ const fetchActivityModalData = async (supabase, organizacaoId) => {
 
 export default function CrmPage() {
  const { setPageTitle } = useLayout();
- const { user, userData } = useAuth();
+ const { user, userData, hasPermission, loading: authLoading } = useAuth();
+ const router = useRouter();
  const organizacaoId = user?.organizacao_id;
  const supabase = createClient();
  const queryClient = useQueryClient();
+
+ const canView = hasPermission('crm', 'pode_ver');
+
+ useEffect(() => {
+ if (!authLoading && !canView) {
+ router.push('/');
+ }
+ }, [authLoading, canView, router]);
+
+ if (authLoading || !canView) return null;
 
  const cachedState = getCachedUiState();
  const defaultFilters = { searchTerm: '', corretorIds: [], origens: [], unidadeIds: [], campaignIds: [], adIds: [], startDate: '', endDate: '', activityStatus: 'Todas' };

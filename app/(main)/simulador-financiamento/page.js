@@ -1,5 +1,6 @@
 import { createClient } from '@/utils/supabase/server';
 import SimuladorTabs from '@/app/(corretor)/simuladores/SimuladorTabs';
+import ClientPermissionGuard from '@/components/shared/ClientPermissionGuard';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,6 +19,7 @@ export default async function SimuladorFinanciamentoPage() {
  }
 
  return (
+ <ClientPermissionGuard recurso="simulador">
  <div className="max-w-7xl mx-auto space-y-6 pt-6 px-4 pb-10">
  <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100 mb-6">
  <h1 className="text-2xl font-bold text-gray-800">
@@ -29,5 +31,6 @@ export default async function SimuladorFinanciamentoPage() {
  </div>
  <SimuladorTabs empreendimentos={empreendimentos || []} />
  </div>
+ </ClientPermissionGuard>
  );
 }

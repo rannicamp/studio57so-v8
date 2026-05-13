@@ -1,9 +1,24 @@
-//app\(main)\orcamento\page.js
 'use client';
 
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/contexts/AuthContext';
 import OrcamentoManager from '@/components/orcamento/OrcamentoManager';
 
 export default function OrcamentoPage() {
+ const { hasPermission, loading: authLoading } = useAuth();
+ const router = useRouter();
+
+ const canView = hasPermission('orcamento', 'pode_ver');
+
+ useEffect(() => {
+ if (!authLoading && !canView) {
+ router.push('/');
+ }
+ }, [authLoading, canView, router]);
+
+ if (authLoading || !canView) return null;
+
  return (
  <div className="p-4 md:p-6 lg:p-8">
  <div className="flex justify-between items-center mb-6">

@@ -110,7 +110,7 @@ export function AuthProvider({ children }) {
         setIsProprietario(isUserProprietario);
 
         if (isUserProprietario) {
-            const allResources = ['empresas', 'empreendimentos', 'funcionarios', 'atividades', 'rdo', 'usuarios', 'permissoes', 'financeiro', 'ponto', 'orcamento', 'pedidos', 'crm', 'contatos', 'simulador', 'contratos', 'caixa_de_entrada', 'anuncios', 'dashboard', 'funil'];
+            const allResources = ['painel', 'financeiro', 'recursos_humanos', 'funcionarios', 'funcionarios_salario_debug', 'ponto', 'empresas', 'empreendimentos', 'contratos', 'caixa_de_entrada', 'crm', 'tabela_vendas', 'anuncios', 'contatos', 'simulador', 'orcamento', 'pedidos', 'almoxarifado', 'rdo', 'atividades', 'bim', 'usuarios', 'permissoes', 'config_usuarios', 'config_permissoes', 'config_jornadas', 'config_tipos_documento', 'config_integracoes', 'config_materiais', 'config_treinamento_ia', 'config_kpi_builder', 'config_financeiro_importar', 'config_menu'];
             const allPermissions = allResources.reduce((acc, resource) => {
                 acc[resource] = { pode_criar: true, pode_excluir: true, pode_editar: true, pode_ver: true };
                 return acc;

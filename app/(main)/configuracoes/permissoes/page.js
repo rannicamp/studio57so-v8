@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic';
 import { createClient } from '../../../../utils/supabase/server';
 import PermissionManager from '../../../../components/configuracoes/PermissionManager';
 import { redirect } from 'next/navigation';
+import ClientPermissionGuard from '@/components/shared/ClientPermissionGuard';
 
 export default async function PermissoesPage() {
  const supabase = await createClient();
@@ -51,6 +52,7 @@ export default async function PermissoesPage() {
  }
 
  return (
+ <ClientPermissionGuard recurso="permissoes">
  <div className="space-y-6">
  <h1 className="text-3xl font-bold text-gray-900">Gerenciamento de Permissões</h1>
  <p className="text-gray-600">
@@ -61,5 +63,6 @@ export default async function PermissoesPage() {
  <PermissionManager initialFuncoes={funcoes || []} />
  </div>
  </div>
+ </ClientPermissionGuard>
  );
 }

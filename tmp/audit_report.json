@@ -1,0 +1,913 @@
+{
+  "resources": {
+    "atividades": [
+      {
+        "action": "pode_ver",
+        "file": "app\\(main)\\atividades\\page.js"
+      },
+      {
+        "action": "pode_criar",
+        "file": "app\\(main)\\atividades\\page.js"
+      },
+      {
+        "action": "pode_editar",
+        "file": "app\\(main)\\atividades\\page.js"
+      },
+      {
+        "action": "pode_excluir",
+        "file": "app\\(main)\\atividades\\page.js"
+      },
+      {
+        "action": "pode_criar",
+        "file": "components\\painel\\widgets\\QuickActionsWidget.js"
+      }
+    ],
+    "caixa_de_entrada": [
+      {
+        "action": "pode_ver",
+        "file": "app\\(main)\\caixa-de-entrada\\page.js"
+      }
+    ],
+    "financeiro": [
+      {
+        "action": "pode_ver",
+        "file": "app\\(main)\\configuracoes\\financeiro\\page.js"
+      },
+      {
+        "action": "pode_ver",
+        "file": "app\\(main)\\financeiro\\page.js"
+      },
+      {
+        "action": "pode_criar",
+        "file": "app\\(main)\\financeiro\\page.js"
+      },
+      {
+        "action": "pode_criar",
+        "file": "components\\financeiro\\ContasManager.js"
+      },
+      {
+        "action": "pode_editar",
+        "file": "components\\financeiro\\ContasManager.js"
+      },
+      {
+        "action": "pode_excluir",
+        "file": "components\\financeiro\\ExtratoCartaoManager.js"
+      },
+      {
+        "action": "pode_excluir",
+        "file": "components\\financeiro\\ExtratoManager.js"
+      },
+      {
+        "action": "pode_criar",
+        "file": "components\\painel\\widgets\\QuickActionsWidget.js"
+      }
+    ],
+    "config_kpi_builder": [
+      {
+        "action": "pode_ver",
+        "file": "app\\(main)\\configuracoes\\painel\\construtor\\page.js"
+      }
+    ],
+    "empreendimentos": [
+      {
+        "action": "pode_ver",
+        "file": "app\\(main)\\empreendimentos\\page.js"
+      },
+      {
+        "action": "pode_criar",
+        "file": "components\\empreendimentos\\EmpreendimentoManager.js"
+      }
+    ],
+    "pedidos": [
+      {
+        "action": "pode_excluir",
+        "file": "app\\(main)\\pedidos\\page.js"
+      },
+      {
+        "action": "pode_criar",
+        "file": "components\\painel\\widgets\\QuickActionsWidget.js"
+      }
+    ],
+    "empresas": [
+      {
+        "action": "pode_criar",
+        "file": "components\\empresas\\EmpresaManager.js"
+      }
+    ],
+    "rdo": [
+      {
+        "action": "pode_criar",
+        "file": "components\\rdo\\RdoForm.js"
+      },
+      {
+        "action": "pode_excluir",
+        "file": "components\\rdo\\RdoForm.js"
+      }
+    ],
+    "ponto": [
+      {
+        "action": "pode_criar",
+        "file": "components\\rh\\GerenciamentoPonto.js"
+      },
+      {
+        "action": "pode_editar",
+        "file": "components\\rh\\GerenciamentoPonto.js"
+      }
+    ]
+  },
+  "tables": {
+    "usuarios": [
+      "app\\(main)\\admin\\feedbacks\\page.js",
+      "app\\(main)\\comercial\\tabela-de-vendas\\page.js",
+      "app\\(main)\\configuracoes\\feedback\\page.js",
+      "app\\(main)\\configuracoes\\feedback\\visualizar\\page.js",
+      "app\\(main)\\configuracoes\\integracoes\\page.js",
+      "app\\(main)\\configuracoes\\permissoes\\page.js",
+      "app\\(main)\\configuracoes\\tipos-documento\\page.js",
+      "app\\(main)\\configuracoes\\usuarios\\actions.js",
+      "app\\(main)\\configuracoes\\usuarios\\inviteAction.js",
+      "app\\(main)\\configuracoes\\usuarios\\page.js",
+      "app\\(main)\\contratos\\actions.js",
+      "app\\(main)\\contratos\\[id]\\page.js",
+      "app\\(main)\\empresas\\page.js",
+      "app\\(main)\\MainLayoutClient.js",
+      "app\\(main)\\pedidos\\page.js",
+      "app\\(main)\\relatorios\\radar\\actions.js",
+      "app\\(main)\\teste-ia\\page.js",
+      "components\\chat\\ChatHooks.js",
+      "components\\compliance\\TermsUpdateEnforcer.js",
+      "components\\configuracoes\\CotacoesManager.js",
+      "components\\configuracoes\\GerenciadorMateriais.js",
+      "components\\configuracoes\\PoliticasModal.js",
+      "components\\configuracoes\\UserManagementForm.js",
+      "components\\contatos\\actions.js",
+      "components\\contratos\\CronogramaFinanceiro.js",
+      "components\\contratos\\GeradorContrato.js",
+      "components\\crm\\RodizioConfigModal.js",
+      "components\\financeiro\\AuditoriaManager.js",
+      "components\\financeiro\\LancamentoDetalhesSidebar.js",
+      "components\\gerenciador-de-arquivos\\AdicionarArquivoModal.js",
+      "components\\MenuSettingsForm.js",
+      "components\\notificacao\\ConfiguracaoNotificacoes.js",
+      "components\\notificacao\\VariableManagerModal.js",
+      "components\\perfil\\MinhasNotificacoes.js",
+      "components\\perfil\\PreferenciasInterface.js",
+      "components\\ProfileForm.js",
+      "components\\rh\\FolhaPonto.js"
+    ],
+    "feedback": [
+      "app\\(main)\\admin\\feedbacks\\page.js",
+      "app\\(main)\\configuracoes\\feedback\\visualizar\\page.js",
+      "components\\feedback\\FeedbackKanban.js"
+    ],
+    "activities": [
+      "app\\(main)\\atividades\\page.js",
+      "components\\atividades\\AtividadeDetalhesSidebar.js",
+      "components\\atividades\\form\\ActivityBasicInfo.js",
+      "components\\atividades\\form\\ActivityModalRoot.js",
+      "components\\crm\\CrmDetalhesSidebar.js",
+      "components\\painel\\widgets\\MinhasAtividadesWidget.js",
+      "components\\rdo\\RdoForm.js",
+      "components\\whatsapp\\ContactProfile.js"
+    ],
+    "funcionarios": [
+      "app\\(main)\\atividades\\page.js",
+      "app\\(main)\\configuracoes\\usuarios\\page.js",
+      "app\\(main)\\crm\\page.js",
+      "app\\(main)\\financeiro\\page.js",
+      "app\\(main)\\funcionarios\\visualizar\\[id]\\page.js",
+      "app\\(main)\\MainLayoutClient.js",
+      "app\\(main)\\relatorios\\rh\\page.js",
+      "components\\almoxarifado\\BaixaEstoqueModal.js",
+      "components\\almoxarifado\\PainelMovimentacoes.js",
+      "components\\almoxarifado\\RegistrarRetiradaModal.js",
+      "components\\configuracoes\\rh\\CargosManager.js",
+      "components\\contatos\\LinkEmployeesToContacts.js",
+      "components\\financeiro\\PlanejamentoFolha.js",
+      "components\\painel\\RhSection.js",
+      "components\\painel\\widgets\\MeuRhWidget.js",
+      "components\\rdo\\RdoForm.js",
+      "components\\rh\\ColaboradorDetailPanel.js",
+      "components\\rh\\EmployeeList.js",
+      "components\\rh\\FichaFuncionario.js",
+      "components\\rh\\FolhaPonto.js",
+      "components\\rh\\FuncionarioModal.js",
+      "components\\rh\\GerenciamentoFuncionarios.js",
+      "components\\rh\\GerenciamentoPonto.js",
+      "components\\rh\\PontoImporter.js",
+      "components\\rh\\RHManager.js"
+    ],
+    "cadastro_empresa": [
+      "app\\(main)\\atividades\\page.js",
+      "app\\(main)\\crm\\page.js",
+      "app\\(main)\\empresas\\page.js",
+      "app\\(main)\\financeiro\\conciliacao\\page.js",
+      "app\\(main)\\financeiro\\page.js",
+      "app\\(main)\\MainLayoutClient.js",
+      "components\\bim\\BimEditModal.js",
+      "components\\bim\\BimSidebar.js",
+      "components\\bim\\BimUploadModal.js",
+      "components\\contatos\\ContatoForm.js",
+      "components\\empreendimentos\\EmpreendimentoDetailWrapper.js",
+      "components\\empreendimentos\\EmpreendimentoFormModal.js",
+      "components\\empresas\\EmpresaDetails.js",
+      "components\\empresas\\EmpresaDetailWrapper.js",
+      "components\\empresas\\EmpresaFormModal.js",
+      "components\\financeiro\\FiltroFinanceiro.js",
+      "components\\financeiro\\ImportacaoFinanceiraManager.js",
+      "components\\financeiro\\LancamentoFormModal.js",
+      "components\\gerenciador-de-arquivos\\AdicionarArquivoModal.js",
+      "components\\materiais\\MaterialManager.js",
+      "components\\painel\\ConstrutorKpiForm.js",
+      "components\\relatorios\\financeiro\\FinanceiroDashboard.js",
+      "components\\relatorios\\financeiro\\RelatorioDREContainer.js",
+      "components\\relatorios\\obras\\RelatorioCustosObraContainer.js",
+      "components\\rh\\FuncionarioModal.js"
+    ],
+    "automacoes": [
+      "app\\(main)\\automacao\\page.js"
+    ],
+    "whatsapp_messages": [
+      "app\\(main)\\caixa-de-entrada\\actions.js",
+      "app\\(main)\\caixa-de-entrada\\data-fetching.js"
+    ],
+    "whatsapp_conversations": [
+      "app\\(main)\\caixa-de-entrada\\data-fetching.js"
+    ],
+    "whatsapp_broadcast_lists": [
+      "app\\(main)\\caixa-de-entrada\\data-fetching.js",
+      "components\\whatsapp\\CreateBroadcastModal.js"
+    ],
+    "configuracoes_whatsapp": [
+      "app\\(main)\\caixa-de-entrada\\data-fetching.js",
+      "app\\(main)\\configuracoes\\integracoes\\page.js",
+      "components\\configuracoes\\IntegrationsManager.js",
+      "components\\integracoes\\WhatsappButton.js"
+    ],
+    "produtos_empreendimento": [
+      "app\\(main)\\comercial\\tabela-de-vendas\\page.js",
+      "app\\(main)\\contratos\\actions.js",
+      "app\\(main)\\contratos\\page.js",
+      "app\\(main)\\crm\\page.js",
+      "app\\(main)\\empreendimentos\\[id]\\produtos\\page.js",
+      "app\\(main)\\relatorios\\empreendimentos\\page.js",
+      "components\\comercial\\TabelaVendaCorretorAba.js",
+      "components\\contratos\\ContratoForm.js",
+      "components\\contratos\\DetalhesVendaContrato.js",
+      "components\\empreendimentos\\EmpreendimentoDetailWrapper.js",
+      "components\\produtos\\ProdutoList.js",
+      "components\\simuladores\\SimuladorBraunas.js",
+      "components\\SimuladorFinanceiroPublico.js",
+      "components\\whatsapp\\ContactProfile.js"
+    ],
+    "contas_financeiras": [
+      "app\\(main)\\configuracoes\\financeiro\\page.js",
+      "app\\(main)\\financeiro\\conciliacao\\page.js",
+      "app\\(main)\\financeiro\\page.js",
+      "components\\contratos\\DetalhesVendaContrato.js",
+      "components\\financeiro\\ContasManager.js",
+      "components\\financeiro\\FiltroFinanceiro.js",
+      "components\\financeiro\\ImportacaoFinanceiraManager.js",
+      "components\\financeiro\\LancamentoFormModal.js",
+      "components\\financeiro\\LancamentoImporter.js",
+      "components\\financeiro\\OfxUploader.js",
+      "components\\painel\\ConstrutorKpiForm.js",
+      "components\\pedidos\\PedidoForm.js",
+      "components\\relatorios\\financeiro\\FinanceiroDashboard.js",
+      "components\\relatorios\\financeiro\\RelatorioDREContainer.js",
+      "components\\relatorios\\obras\\RelatorioCustosObraContainer.js",
+      "components\\rh\\AjusteSaldoModal.js",
+      "components\\rh\\LancarValeModal.js"
+    ],
+    "integracoes_meta": [
+      "app\\(main)\\configuracoes\\integracoes\\page.js",
+      "app\\(main)\\relatorios\\radar\\actions.js"
+    ],
+    "integracoes_google": [
+      "app\\(main)\\configuracoes\\integracoes\\page.js"
+    ],
+    "funcoes": [
+      "app\\(main)\\configuracoes\\permissoes\\page.js",
+      "app\\(main)\\configuracoes\\usuarios\\page.js",
+      "components\\configuracoes\\PermissionManager.js",
+      "components\\notificacao\\ConfiguracaoNotificacoes.js",
+      "components\\notificacao\\GerenciadorNotificacoes.js"
+    ],
+    "politicas_plataforma": [
+      "app\\(main)\\configuracoes\\politicas\\actions.js",
+      "components\\compliance\\TermsUpdateEnforcer.js"
+    ],
+    "usuario_aceite_politicas": [
+      "app\\(main)\\configuracoes\\politicas\\actions.js",
+      "components\\compliance\\TermsUpdateEnforcer.js"
+    ],
+    "permissoes": [
+      "app\\(main)\\configuracoes\\tipos-documento\\page.js",
+      "components\\configuracoes\\PermissionManager.js"
+    ],
+    "documento_tipos": [
+      "app\\(main)\\configuracoes\\tipos-documento\\page.js",
+      "components\\configuracoes\\TipoDocumentoManager.js",
+      "components\\contratos\\ContratoAnexos.js",
+      "components\\empreendimentos\\EmpreendimentoDetailWrapper.js",
+      "components\\empresas\\EmpresaDetailWrapper.js",
+      "components\\financeiro\\LancamentoFormModal.js",
+      "components\\gerenciador-de-arquivos\\AdicionarArquivoModal.js",
+      "components\\pedidos\\PedidoForm.js",
+      "components\\rh\\contratos\\ContratoDocumentos.js",
+      "components\\rh\\FichaCompletaFuncionario.js"
+    ],
+    "contatos": [
+      "app\\(main)\\contatos\\editar\\[id]\\page.js",
+      "app\\(main)\\contatos\\formatar-telefones\\page.js",
+      "app\\(main)\\contatos\\page.js",
+      "app\\(main)\\contratos\\page.js",
+      "app\\(main)\\crm\\actions-meta-mapping.js",
+      "app\\(main)\\crm\\automacao\\page.js",
+      "app\\(main)\\crm\\page.js",
+      "app\\(main)\\financeiro\\page.js",
+      "app\\(main)\\pedidos\\page.js",
+      "app\\(main)\\relatorios\\radar\\actions.js",
+      "components\\configuracoes\\UserManagementForm.js",
+      "components\\contatos\\actions.js",
+      "components\\contatos\\ContatoDetalhesSidebar.js",
+      "components\\contatos\\ContatoForm.js",
+      "components\\contatos\\ContatoImporter.js",
+      "components\\contatos\\PadronizacaoManager.js",
+      "components\\contratos\\DetalhesVendaContrato.js",
+      "components\\crm\\CrmDetalhesSidebar.js",
+      "components\\email\\EmailComposeModal.js",
+      "components\\empreendimentos\\EmpreendimentoFormModal.js",
+      "components\\financeiro\\FiltroFinanceiro.js",
+      "components\\financeiro\\ImportacaoFinanceiraManager.js",
+      "components\\financeiro\\LancamentoFormModal.js",
+      "components\\financeiro\\LancamentoImporter.js",
+      "components\\instagram\\InstagramProfileSidebar.js",
+      "components\\integracoes\\SyncAllContactsButton.js",
+      "components\\painel\\ConstrutorKpiForm.js",
+      "components\\painel\\widgets\\ComercialWidget.js",
+      "components\\pedidos\\PedidoItemModal.js",
+      "components\\relatorios\\financeiro\\FinanceiroDashboard.js",
+      "components\\relatorios\\financeiro\\RelatorioDREContainer.js",
+      "components\\relatorios\\obras\\RelatorioCustosObraContainer.js",
+      "components\\rh\\ColaboradorDetailPanel.js",
+      "components\\rh\\EmployeeList.js",
+      "components\\rh\\FuncionarioModal.js",
+      "components\\rh\\NovoContratoModal.js",
+      "components\\rh\\RHManager.js",
+      "components\\shared\\VincularContatoModal.js",
+      "components\\simuladores\\SimuladorBraunas.js",
+      "components\\SimuladorFinanceiroPublico.js",
+      "components\\whatsapp\\ContactProfile.js",
+      "components\\whatsapp\\CreateBroadcastModal.js",
+      "components\\whatsapp\\NewConversationModal.js",
+      "components\\whatsapp\\WhatsAppInbox.js"
+    ],
+    "telefones": [
+      "app\\(main)\\contatos\\editar\\[id]\\page.js",
+      "app\\(main)\\contatos\\formatar-telefones\\page.js",
+      "components\\contatos\\actions.js",
+      "components\\contatos\\ContatoForm.js",
+      "components\\contatos\\ContatoImporter.js",
+      "components\\contatos\\PadronizacaoManager.js",
+      "components\\crm\\CrmDetalhesSidebar.js",
+      "components\\simuladores\\SimuladorBraunas.js",
+      "components\\SimuladorFinanceiroPublico.js",
+      "components\\whatsapp\\ContactProfile.js"
+    ],
+    "emails": [
+      "app\\(main)\\contatos\\editar\\[id]\\page.js",
+      "components\\contatos\\actions.js",
+      "components\\contatos\\ContatoForm.js",
+      "components\\contatos\\ContatoImporter.js",
+      "components\\crm\\CrmDetalhesSidebar.js",
+      "components\\email\\EmailComposeModal.js",
+      "components\\whatsapp\\ContactProfile.js"
+    ],
+    "contratos": [
+      "app\\(main)\\contratos\\actions.js",
+      "app\\(main)\\contratos\\page.js",
+      "app\\(main)\\contratos\\[id]\\page.js",
+      "app\\(main)\\relatorios\\empreendimentos\\page.js",
+      "components\\contratos\\ContratoForm.js",
+      "components\\contratos\\ContratoList.js",
+      "components\\contratos\\DetalhesVendaContrato.js",
+      "components\\contratos\\ExtratoFinanceiroCliente.js",
+      "components\\contratos\\FichaContrato.js",
+      "components\\financeiro\\LancamentoFormModal.js",
+      "components\\produtos\\ProdutoList.js",
+      "components\\relatorios\\RelatorioContratosBase.js"
+    ],
+    "contrato_produtos": [
+      "app\\(main)\\contratos\\actions.js",
+      "app\\(main)\\contratos\\[id]\\page.js",
+      "app\\(main)\\relatorios\\empreendimentos\\page.js",
+      "components\\contratos\\ContratoForm.js",
+      "components\\contratos\\DetalhesVendaContrato.js",
+      "components\\contratos\\FichaContrato.js",
+      "components\\produtos\\ProdutoList.js"
+    ],
+    "empreendimentos": [
+      "app\\(main)\\contratos\\page.js",
+      "app\\(main)\\empreendimentos\\page.js",
+      "app\\(main)\\empreendimentos\\[id]\\produtos\\page.js",
+      "app\\(main)\\financeiro\\page.js",
+      "app\\(main)\\rdo\\page.js",
+      "app\\(main)\\relatorios\\empreendimentos\\page.js",
+      "app\\(main)\\simulador-financiamento\\page.js",
+      "components\\bim\\BimEditModal.js",
+      "components\\bim\\BimSidebar.js",
+      "components\\bim\\BimUploadModal.js",
+      "components\\comercial\\TabelaVendaCorretorAba.js",
+      "components\\contratos\\ContratoForm.js",
+      "components\\empreendimentos\\EmpreendimentoCard.js",
+      "components\\empreendimentos\\EmpreendimentoDetails.js",
+      "components\\empreendimentos\\EmpreendimentoDetailWrapper.js",
+      "components\\empreendimentos\\EmpreendimentoFormModal.js",
+      "components\\empreendimentos\\EmpreendimentoList.js",
+      "components\\financeiro\\FiltroFinanceiro.js",
+      "components\\financeiro\\ImportacaoFinanceiraManager.js",
+      "components\\financeiro\\LancamentoFormModal.js",
+      "components\\gerenciador-de-arquivos\\AdicionarArquivoModal.js",
+      "components\\painel\\ConstrutorKpiForm.js",
+      "components\\relatorios\\financeiro\\FinanceiroDashboard.js",
+      "components\\relatorios\\financeiro\\RelatorioDREContainer.js",
+      "components\\relatorios\\obras\\RelatorioCustosObraContainer.js",
+      "components\\rh\\FuncionarioModal.js",
+      "components\\TabelaVenda.js",
+      "components\\whatsapp\\ContactProfile.js"
+    ],
+    "meta_forms_catalog": [
+      "app\\(main)\\crm\\actions-meta-mapping.js"
+    ],
+    "meta_form_config": [
+      "app\\(main)\\crm\\actions-meta-mapping.js"
+    ],
+    "regras_roteamento_funil": [
+      "app\\(main)\\crm\\automacao\\page.js"
+    ],
+    "funis": [
+      "app\\(main)\\crm\\automacao\\page.js",
+      "app\\(main)\\crm\\page.js",
+      "components\\crm\\AutomacaoModal.js",
+      "components\\crm\\ContatoCardCRM.js",
+      "components\\whatsapp\\CreateBroadcastModal.js",
+      "components\\whatsapp\\QuickCardModal.js"
+    ],
+    "colunas_funil": [
+      "app\\(main)\\crm\\capiActions.js",
+      "app\\(main)\\crm\\page.js",
+      "components\\crm\\ContatoCardCRM.js",
+      "components\\whatsapp\\ContactProfile.js",
+      "components\\whatsapp\\CreateBroadcastModal.js",
+      "components\\whatsapp\\QuickCardModal.js"
+    ],
+    "contatos_no_funil": [
+      "app\\(main)\\crm\\capiActions.js",
+      "app\\(main)\\crm\\page.js",
+      "components\\whatsapp\\ContactProfile.js",
+      "components\\whatsapp\\QuickCardModal.js"
+    ],
+    "contatos_no_funil_produtos": [
+      "app\\(main)\\crm\\page.js",
+      "components\\whatsapp\\ContactProfile.js"
+    ],
+    "configuracoes_venda": [
+      "app\\(main)\\empreendimentos\\[id]\\produtos\\page.js",
+      "components\\comercial\\TabelaVendaCorretorAba.js",
+      "components\\CondicoesPagamento.js"
+    ],
+    "lancamentos": [
+      "app\\(main)\\financeiro\\conciliacao\\page.js",
+      "components\\contratos\\ExtratoFinanceiroCliente.js",
+      "components\\contratos\\ParcelasPagas.js",
+      "components\\financeiro\\AtivoFormModal.js",
+      "components\\financeiro\\AtivosManager.js",
+      "components\\financeiro\\AuditoriaFinanceira.js",
+      "components\\financeiro\\conciliacao\\index.js",
+      "components\\financeiro\\ConciliacaoManager.js",
+      "components\\financeiro\\ExtratoCartaoManager.js",
+      "components\\financeiro\\ExtratoManager.js",
+      "components\\financeiro\\ImportacaoFinanceiraManager.js",
+      "components\\financeiro\\LancamentoDetalhesSidebar.js",
+      "components\\financeiro\\LancamentoFormModal.js",
+      "components\\financeiro\\LancamentoImporter.js",
+      "components\\financeiro\\LancamentosManager.js",
+      "components\\financeiro\\PagamentoFaturaModal.js",
+      "components\\financeiro\\PanelConciliacaoCartao.js",
+      "components\\financeiro\\PanelConciliacaoOFX.js",
+      "components\\financeiro\\PassivosManager.js",
+      "components\\financeiro\\ReciboModal.js",
+      "components\\financeiro\\TransferenciaFinder.js",
+      "components\\painel\\widgets\\FinanceiroWidget.js",
+      "components\\rh\\contratos\\ContratoFinanceiro.js",
+      "components\\rh\\FichaCompletaFuncionario.js",
+      "components\\rh\\FolhaPonto.js"
+    ],
+    "categorias_financeiras": [
+      "app\\(main)\\financeiro\\page.js",
+      "components\\financeiro\\AtivoFormModal.js",
+      "components\\financeiro\\CategoriasManager.js",
+      "components\\financeiro\\FiltroFinanceiro.js",
+      "components\\financeiro\\ImportacaoFinanceiraManager.js",
+      "components\\financeiro\\LancamentoFormModal.js",
+      "components\\financeiro\\LancamentoImporter.js",
+      "components\\financeiro\\LancamentosManager.js",
+      "components\\painel\\ConstrutorKpiForm.js",
+      "components\\relatorios\\financeiro\\FinanceiroDashboard.js",
+      "components\\relatorios\\financeiro\\RelatorioDREContainer.js",
+      "components\\relatorios\\obras\\RelatorioCustosObraContainer.js",
+      "components\\rh\\AjusteSaldoModal.js"
+    ],
+    "etapa_obra": [
+      "app\\(main)\\financeiro\\page.js",
+      "app\\(main)\\pedidos\\page.js",
+      "components\\atividades\\form\\ActivityContextFields.js",
+      "components\\bim\\BimQuantitativosOverlay.js",
+      "components\\financeiro\\FiltroFinanceiro.js",
+      "components\\financeiro\\LancamentoFormModal.js",
+      "components\\orcamento\\OrcamentoDetalhes.js",
+      "components\\pedidos\\PedidoForm.js",
+      "components\\pedidos\\PedidoItemModal.js"
+    ],
+    "funcionarios-documentos": [
+      "app\\(main)\\funcionarios\\visualizar\\[id]\\page.js",
+      "components\\rh\\ColaboradorDetailPanel.js",
+      "components\\rh\\FichaCompletaFuncionario.js",
+      "components\\rh\\RHManager.js"
+    ],
+    "documentos_funcionarios": [
+      "app\\(main)\\funcionarios\\visualizar\\[id]\\page.js",
+      "components\\rh\\ColaboradorDetailPanel.js",
+      "components\\rh\\FichaCompletaFuncionario.js"
+    ],
+    "pontos": [
+      "app\\(main)\\funcionarios\\visualizar\\[id]\\page.js",
+      "app\\(main)\\relatorios\\rh\\page.js",
+      "components\\painel\\widgets\\MeuRhWidget.js",
+      "components\\rh\\ColaboradorDetailPanel.js",
+      "components\\rh\\FolhaPonto.js"
+    ],
+    "abonos": [
+      "app\\(main)\\funcionarios\\visualizar\\[id]\\page.js",
+      "app\\(main)\\relatorios\\rh\\page.js",
+      "components\\painel\\widgets\\MeuRhWidget.js",
+      "components\\rh\\ColaboradorDetailPanel.js",
+      "components\\rh\\FolhaPonto.js"
+    ],
+    "empreendimento_anexos": [
+      "app\\(main)\\gerenciador-de-arquivos\\page.js",
+      "components\\empreendimentos\\EmpreendimentoDetails.js",
+      "components\\empreendimentos\\EmpreendimentoDetailWrapper.js",
+      "components\\gerenciador-de-arquivos\\AdicionarArquivoModal.js",
+      "components\\whatsapp\\ContactProfile.js"
+    ],
+    "empreendimento-anexos": [
+      "app\\(main)\\gerenciador-de-arquivos\\page.js",
+      "components\\contratos\\ContratoAnexos.js",
+      "components\\empreendimentos\\EmpreendimentoDetails.js",
+      "components\\empreendimentos\\EmpreendimentoDetailWrapper.js",
+      "components\\gerenciador-de-arquivos\\AdicionarArquivoModal.js",
+      "components\\whatsapp\\ContactProfile.js"
+    ],
+    "pedidos_fases": [
+      "app\\(main)\\pedidos\\page.js"
+    ],
+    "pedidos_compra": [
+      "app\\(main)\\pedidos\\page.js",
+      "components\\pedidos\\ComprasKanban.js",
+      "components\\pedidos\\PedidoForm.js",
+      "components\\rdo\\RdoForm.js"
+    ],
+    "subetapas": [
+      "app\\(main)\\pedidos\\page.js",
+      "components\\atividades\\form\\ActivityContextFields.js",
+      "components\\orcamento\\BimImportModal.js",
+      "components\\orcamento\\OrcamentoItemModal.js",
+      "components\\pedidos\\PedidoItemModal.js"
+    ],
+    "diarios_obra": [
+      "app\\(main)\\rdo\\gerenciador\\page.js",
+      "app\\(main)\\rdo\\[id]\\page.js",
+      "components\\rdo\\RdoForm.js",
+      "components\\rdo\\RdoListManager.js"
+    ],
+    "rdo_fotos_uploads": [
+      "app\\(main)\\rdo\\gerenciador\\page.js",
+      "components\\rdo\\RdoForm.js"
+    ],
+    "contratos_terceirizados": [
+      "app\\(main)\\recursos-humanos\\contratos\\[id]\\page.js",
+      "components\\rh\\contratos\\ContratoGeral.js",
+      "components\\rh\\GerenciamentoTerceirizados.js",
+      "components\\rh\\NovoContratoModal.js"
+    ],
+    "kpis_personalizados": [
+      "app\\(main)\\relatorios\\financeiro\\page.js",
+      "components\\painel\\ConstrutorKpiForm.js",
+      "components\\painel\\ConstrutorKpiManager.js",
+      "components\\painel\\CustomKpiSection.js",
+      "components\\painel\\KpiBuilderModal.js",
+      "components\\painel\\SmartKpiCard.js"
+    ],
+    "historico_salarial": [
+      "app\\(main)\\relatorios\\rh\\page.js",
+      "components\\rh\\FichaCompletaFuncionario.js",
+      "components\\rh\\FolhaPonto.js",
+      "components\\rh\\FuncionarioModal.js"
+    ],
+    "feriados": [
+      "app\\(main)\\relatorios\\rh\\page.js",
+      "components\\configuracoes\\rh\\JornadasSection.js",
+      "components\\painel\\widgets\\MeuRhWidget.js",
+      "components\\rh\\FeriadoManager.js",
+      "components\\rh\\FolhaPonto.js"
+    ],
+    "materiais": [
+      "components\\almoxarifado\\AdicionarMaterialManualModal.js",
+      "components\\almoxarifado\\AlmoxarifadoManager.js",
+      "components\\bim\\BimInsumoAvulsoModal.js",
+      "components\\bim\\BimVinculoMaterialModal.js",
+      "components\\configuracoes\\GerenciadorMateriais.js",
+      "components\\materiais\\MaterialImporter.js",
+      "components\\materiais\\MaterialManager.js",
+      "components\\orcamento\\OrcamentoDetalhes.js",
+      "components\\pedidos\\PedidoItemModal.js"
+    ],
+    "estoque": [
+      "components\\almoxarifado\\AdicionarMaterialManualModal.js",
+      "components\\almoxarifado\\AlmoxarifadoManager.js"
+    ],
+    "movimentacoes_estoque": [
+      "components\\almoxarifado\\AdicionarMaterialManualModal.js",
+      "components\\almoxarifado\\HistoricoMovimentacoesModal.js"
+    ],
+    "activity_anexos": [
+      "components\\atividades\\AtividadeAnexos.js"
+    ],
+    "activity-anexos": [
+      "components\\atividades\\AtividadeAnexos.js",
+      "components\\atividades\\AtividadeDetalhesSidebar.js"
+    ],
+    "atividades_elementos": [
+      "components\\atividades\\form\\ActivityModalRoot.js",
+      "components\\bim\\BimElementPlanning.js"
+    ],
+    "disciplinas_projetos": [
+      "components\\bim\\BimEditModal.js",
+      "components\\bim\\BimSidebar.js",
+      "components\\bim\\BimUploadModal.js"
+    ],
+    "projetos_bim": [
+      "components\\bim\\BimEditModal.js",
+      "components\\bim\\BimFileItem.js",
+      "components\\bim\\BimSidebar.js",
+      "components\\bim\\BimUploader.js",
+      "components\\bim\\BimUploadModal.js",
+      "components\\bim\\ProjectList.js",
+      "components\\orcamento\\OrcamentoDetalhes.js"
+    ],
+    "orcamento_itens": [
+      "components\\bim\\BimElementBudget.js",
+      "components\\orcamento\\OrcamentoDetalhes.js"
+    ],
+    "elementos_bim": [
+      "components\\bim\\BimElementBudget.js",
+      "components\\bim\\BimFilterPanel.js",
+      "components\\bim\\BimProperties.js"
+    ],
+    "bim_mapeamentos_propriedades": [
+      "components\\bim\\BimGerenciarVinculosModal.js",
+      "components\\bim\\BimInsumoAvulsoModal.js"
+    ],
+    "sinapi": [
+      "components\\bim\\BimInsumoAvulsoModal.js",
+      "components\\bim\\BimVinculoMaterialModal.js"
+    ],
+    "bim_notas": [
+      "components\\bim\\BimNoteModal.js",
+      "components\\bim\\BimNotesList.js"
+    ],
+    "bim_notas_elementos": [
+      "components\\bim\\BimNoteModal.js"
+    ],
+    "bim_notas_comentarios": [
+      "components\\bim\\BimNotesList.js"
+    ],
+    "bim_vistas_federadas": [
+      "components\\bim\\BimSetModal.js",
+      "components\\bim\\BimSidebar.js"
+    ],
+    "sys_chat_messages": [
+      "components\\chat\\ChatHooks.js"
+    ],
+    "sys_chat_mural_posts": [
+      "components\\chat\\ChatMuralHooks.js"
+    ],
+    "sys_chat_mural_comments": [
+      "components\\chat\\ChatMuralHooks.js"
+    ],
+    "sys_chat_mural_likes": [
+      "components\\chat\\ChatMuralHooks.js"
+    ],
+    "parcelas_adicionais": [
+      "components\\CondicoesPagamento.js"
+    ],
+    "indices_governamentais": [
+      "components\\configuracoes\\IndicesManager.js",
+      "components\\contratos\\ExtratoFinanceiroCliente.js"
+    ],
+    "cargos": [
+      "components\\configuracoes\\rh\\CargosManager.js",
+      "components\\rh\\FuncionarioModal.js"
+    ],
+    "jornadas": [
+      "components\\configuracoes\\rh\\JornadasSection.js",
+      "components\\rh\\FuncionarioModal.js",
+      "components\\rh\\JornadaManager.js"
+    ],
+    "contrato_anexos": [
+      "components\\contratos\\ContratoAnexos.js"
+    ],
+    "contrato_parcelas": [
+      "components\\contratos\\CronogramaFinanceiro.js"
+    ],
+    "contrato_permutas": [
+      "components\\contratos\\CronogramaFinanceiro.js"
+    ],
+    "modelos_contrato": [
+      "components\\contratos\\FichaContrato.js",
+      "components\\contratos\\GeradorContrato.js",
+      "components\\empreendimentos\\EmpreendimentoDetails.js"
+    ],
+    "simulacoes": [
+      "components\\contratos\\PlanoPagamentoContrato.js",
+      "components\\crm\\CrmDetalhesSidebar.js",
+      "components\\whatsapp\\ContactProfile.js"
+    ],
+    "crm_notas": [
+      "components\\crm\\CrmDetalhesSidebar.js",
+      "components\\whatsapp\\ContactProfile.js"
+    ],
+    "historico_movimentacao_funil": [
+      "components\\crm\\CrmDetalhesSidebar.js",
+      "components\\whatsapp\\ContactProfile.js"
+    ],
+    "crm_rodizio_config": [
+      "components\\crm\\RodizioConfigModal.js"
+    ],
+    "notificacoes": [
+      "components\\dashboard\\NotificationTimeline.js",
+      "components\\notificacao\\NotificationBell.js",
+      "components\\painel\\widgets\\NotificacoesWidget.js"
+    ],
+    "email_configuracoes": [
+      "components\\email\\EmailComposeModal.js",
+      "components\\email\\EmailConnectionConfig.js",
+      "components\\email\\EmailRulesConfig.js",
+      "components\\email\\EmailSidebar.js",
+      "components\\email\\EmailSignatureConfig.js"
+    ],
+    "email_messages_cache": [
+      "components\\email\\EmailInbox.js"
+    ],
+    "quadro_de_areas": [
+      "components\\empreendimentos\\EmpreendimentoDetailWrapper.js"
+    ],
+    "empresa_anexos": [
+      "components\\empresas\\EmpresaDetails.js",
+      "components\\empresas\\EmpresaDetailWrapper.js"
+    ],
+    "empresa-anexos": [
+      "components\\empresas\\EmpresaDetails.js",
+      "components\\empresas\\EmpresaDetailWrapper.js"
+    ],
+    "feedbacks": [
+      "components\\feedback\\FeedbackModal.js"
+    ],
+    "historico_lancamentos_financeiros": [
+      "components\\financeiro\\AuditoriaManager.js"
+    ],
+    "banco_arquivos_ofx": [
+      "components\\financeiro\\ConciliacaoManager.js",
+      "components\\financeiro\\ExtratoCartaoManager.js",
+      "components\\financeiro\\ExtratoManager.js",
+      "components\\financeiro\\OfxUploader.js",
+      "components\\financeiro\\PanelConciliacaoCartao.js"
+    ],
+    "banco_transacoes_ofx": [
+      "components\\financeiro\\ConciliacaoManager.js",
+      "components\\financeiro\\ExtratoCartaoManager.js",
+      "components\\financeiro\\ExtratoManager.js",
+      "components\\financeiro\\OfxUploader.js",
+      "components\\financeiro\\PanelConciliacaoCartao.js",
+      "components\\financeiro\\PanelConciliacaoOFX.js"
+    ],
+    "documentos-financeiro": [
+      "components\\financeiro\\DocumentosManager.js",
+      "components\\financeiro\\ExtratoCartaoManager.js",
+      "components\\financeiro\\LancamentoDetalhesSidebar.js",
+      "components\\financeiro\\LancamentoFormModal.js"
+    ],
+    "faturas_cartao": [
+      "components\\financeiro\\ExtratoCartaoManager.js",
+      "components\\financeiro\\LancamentoDetalhesSidebar.js",
+      "components\\financeiro\\PanelConciliacaoCartao.js"
+    ],
+    "auditoria_ia_logs": [
+      "components\\financeiro\\LancamentoDetalhesSidebar.js"
+    ],
+    "lancamentos_anexos": [
+      "components\\financeiro\\LancamentoFormModal.js"
+    ],
+    "instagram_conversations": [
+      "components\\instagram\\InstagramInbox.js",
+      "components\\whatsapp\\ContactProfile.js"
+    ],
+    "sys_notification_templates": [
+      "components\\notificacao\\ConfiguracaoNotificacoes.js",
+      "components\\notificacao\\GerenciadorNotificacoes.js"
+    ],
+    "sys_org_notification_settings": [
+      "components\\notificacao\\ConfiguracaoNotificacoes.js"
+    ],
+    "tabelas_sistema": [
+      "components\\notificacao\\ConfiguracaoNotificacoes.js",
+      "components\\notificacao\\GerenciadorNotificacoes.js",
+      "components\\perfil\\MinhasNotificacoes.js"
+    ],
+    "campos_sistema": [
+      "components\\notificacao\\GerenciadorNotificacoes.js"
+    ],
+    "variaveis_virtuais": [
+      "components\\notificacao\\GerenciadorNotificacoes.js",
+      "components\\notificacao\\VariableManagerModal.js"
+    ],
+    "notification_subscriptions": [
+      "components\\notificacao\\NotificationManager.js"
+    ],
+    "orcamentos": [
+      "components\\orcamento\\OrcamentoDetalhes.js",
+      "components\\orcamento\\OrcamentoManager.js"
+    ],
+    "pedidos_compra_itens": [
+      "components\\pedidos\\ComprasKanban.js",
+      "components\\pedidos\\PedidoForm.js"
+    ],
+    "pedidos_compra_historico_fases": [
+      "components\\pedidos\\PedidoDetalhesSidebar.js"
+    ],
+    "pedidos-anexos": [
+      "components\\pedidos\\PedidoForm.js"
+    ],
+    "clientes": [
+      "components\\pedidos\\PedidoForm.js"
+    ],
+    "pedidos_compra_anexos": [
+      "components\\pedidos\\PedidoForm.js"
+    ],
+    "sys_user_notification_prefs": [
+      "components\\perfil\\MinhasNotificacoes.js"
+    ],
+    "rdo-pdfs": [
+      "components\\rdo\\RdoForm.js"
+    ],
+    "rdo-fotos": [
+      "components\\rdo\\RdoForm.js",
+      "components\\rdo\\RdoPhotoGallery.js"
+    ],
+    "ocorrencias": [
+      "components\\rdo\\RdoForm.js"
+    ],
+    "avatars": [
+      "components\\rh\\ColaboradorDetailPanel.js",
+      "components\\rh\\RHManager.js"
+    ],
+    "contratos_terceirizados_anexos": [
+      "components\\rh\\contratos\\ContratoDocumentos.js"
+    ],
+    "contratos-documentos": [
+      "components\\rh\\contratos\\ContratoDocumentos.js"
+    ],
+    "banco_de_horas": [
+      "components\\rh\\FolhaPonto.js"
+    ],
+    "abono_tipos": [
+      "components\\rh\\FolhaPonto.js"
+    ],
+    "jornada_detalhes": [
+      "components\\rh\\JornadaManager.js"
+    ],
+    "whatsapp_list_members": [
+      "components\\whatsapp\\BroadcastPanel.js",
+      "components\\whatsapp\\CreateBroadcastModal.js"
+    ],
+    "whatsapp_scheduled_broadcasts": [
+      "components\\whatsapp\\BroadcastPanel.js"
+    ],
+    "whatsapp-media": [
+      "components\\whatsapp\\MessagePanel.js",
+      "components\\whatsapp\\TemplateMessageModal.js"
+    ]
+  }
+}

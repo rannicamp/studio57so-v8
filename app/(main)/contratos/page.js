@@ -76,18 +76,29 @@ const fetchVgvPossivel = async (organizacaoId) => {
 export default function ContratosPage() {
  const supabase = createClient();
  const queryClient = useQueryClient();
- const { user } = useAuth();
-
+ const { user, hasPermission, loading: authLoading } = useAuth();
+ 
  // 2. USO DO HOOK DE LAYOUT (Para mudar o título)
  const { setPageTitle } = useLayout();
-
+ 
  const organizacaoId = user?.organizacao_id;
  const router = useRouter();
 
- // 3. EFEITO PARA DEFINIR O TÍTULO (O crachá da página)
+ const canView = hasPermission('contratos', 'pode_ver');
+
  useEffect(() => {
- setPageTitle('Gestão de Contratos');
+ if (!authLoading && !canView) {
+ router.push('/');
+ }
+ }, [authLoading, canView, router]);
+
+ useEffect(() => {
+ if (setPageTitle) {
+ setPageTitle("Gestão de Contratos");
+ }
  }, [setPageTitle]);
+
+ if (authLoading || !canView) return null;
 
  // --- ESTADOS COM PERSISTÊNCIA ---
  const cachedState = getCachedUiState();

@@ -3,6 +3,7 @@ import { createClient } from '@/utils/supabase/server';
 import { redirect } from 'next/navigation';
 import UserManagementForm from '@/components/configuracoes/UserManagementForm';
 import { InviteButton } from './InviteButton'; // <--- AQUI ESTÁ A CORREÇÃO (COM CHAVES)
+import ClientPermissionGuard from '@/components/shared/ClientPermissionGuard';
 
 // Funções de busca de dados iniciais (Server Side)
 async function getUsers(organizacaoId) {
@@ -78,6 +79,7 @@ export default async function UserManagementPage() {
  ]);
 
  return (
+ <ClientPermissionGuard recurso="usuarios">
  <div className="space-y-6 p-6">
  <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
  <div>
@@ -99,5 +101,6 @@ export default async function UserManagementPage() {
  />
  </div>
  </div>
+ </ClientPermissionGuard>
  );
 }
