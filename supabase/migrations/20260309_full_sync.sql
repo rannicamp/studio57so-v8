@@ -1,7 +1,7 @@
 -- ======================================================
 -- MIGRAÇÃO COMPLETA: Studio 57 → Elo 57
--- Gerada em: 2026-03-24T19:41:00.679Z
--- ✅ OK: 1064 | ❌ Erros: 70
+-- Gerada em: 2026-05-14T18:00:10.523Z
+-- ✅ OK: 1140 | ❌ Erros: 51
 -- ======================================================
 
 CREATE OR REPLACE FUNCTION public.delete_category_and_children(p_category_id bigint)
@@ -36,144 +36,6 @@ BEGIN
     
     RETURN NEW;
 END;
-$function$
-;
-
-CREATE OR REPLACE FUNCTION public.financeiro_montar_where(p_organizacao_id bigint, p_filtros jsonb)
- RETURNS text
- LANGUAGE plpgsql
- STABLE
-AS $function$
-declare
-  v_where text;
-  v_use_competencia boolean;
-  v_search_term text; -- 🔧 NOVO: variável local para o searchTerm
-begin
-  v_use_competencia := coalesce((p_filtros->>'useCompetencia')::boolean, false);
-  -- 🔧 NOVO: extrai o searchTerm UMA VEZ, antes de montar o WHERE dinâmico
-  v_search_term := trim(p_filtros->>'searchTerm');
-
-  v_where := ' where l.organizacao_id = ' || p_organizacao_id;
-
-  -- 1. Busca Textual (CORRIGIDO: usa v_search_term com valor real, não referência ao jsonb)
-  if v_search_term is not null and v_search_term <> '' then
-    v_where := v_where || ' and (';
-    v_where := v_where || ' l.descricao ilike ''%' || replace(v_search_term, '''', '''''') || '%''';
-    v_where := v_where || ' or cast(l.valor as text) ilike ''%' || replace(v_search_term, '''', '''''') || '%''';
-    v_where := v_where || ' or l.conta_id in (select id from contas_financeiras where nome ilike ''%' || replace(v_search_term, '''', '''''') || '%'')';
-    v_where := v_where || ' or l.favorecido_contato_id in (select id from contatos where nome ilike ''%' || replace(v_search_term, '''', '''''') || '%'' or razao_social ilike ''%' || replace(v_search_term, '''', '''''') || '%'')';
-    v_where := v_where || ' or l.empresa_id in (select id from cadastro_empresa where nome_fantasia ilike ''%' || replace(v_search_term, '''', '''''') || '%'' or razao_social ilike ''%' || replace(v_search_term, '''', '''''') || '%'')';
-    v_where := v_where || ')';
-  end if;
-
-  -- 2. Datas (Lei da Fernanda)
-  if (p_filtros->>'startDate') is not null and (p_filtros->>'startDate') <> '' then
-    if v_use_competencia then
-        v_where := v_where || ' and l.data_transacao >= ''' || (p_filtros->>'startDate') || '''';
-    else
-        v_where := v_where || ' and (CASE WHEN l.data_pagamento IS NOT NULL THEN l.data_pagamento WHEN l.data_vencimento IS NOT NULL THEN l.data_vencimento ELSE l.data_transacao END) >= ''' || (p_filtros->>'startDate') || '''';
-    end if;
-  end if;
-
-  if (p_filtros->>'endDate') is not null and (p_filtros->>'endDate') <> '' then
-    if v_use_competencia then
-        v_where := v_where || ' and l.data_transacao <= ''' || (p_filtros->>'endDate') || '''';
-    else
-        v_where := v_where || ' and (CASE WHEN l.data_pagamento IS NOT NULL THEN l.data_pagamento WHEN l.data_vencimento IS NOT NULL THEN l.data_vencimento ELSE l.data_transacao END) <= ''' || (p_filtros->>'endDate') || '''';
-    end if;
-  end if;
-
-  -- 3. Status
-  if (p_filtros->'status') is not null and jsonb_array_length(p_filtros->'status') > 0 then
-      declare
-        v_or_conditions text[] := array[]::text[];
-      begin
-        if p_filtros->'status' @> '["Pago"]' then
-          v_or_conditions := array_append(v_or_conditions, 'l.status in (''Pago'', ''Conciliado'')');
-        end if;
-        if p_filtros->'status' @> '["Pendente"]' then
-          v_or_conditions := array_append(v_or_conditions, '(l.status = ''Pendente'' and coalesce(l.data_vencimento, l.data_transacao) >= current_date)');
-        end if;
-        if p_filtros->'status' @> '["Atrasada"]' then
-          v_or_conditions := array_append(v_or_conditions, '(l.status = ''Pendente'' and coalesce(l.data_vencimento, l.data_transacao) < current_date)');
-        end if;
-
-        if array_length(v_or_conditions, 1) > 0 then
-           v_where := v_where || ' and (' || array_to_string(v_or_conditions, ' OR ') || ')';
-        end if;
-      end;
-  end if;
-
-  -- 4. Categorias (Chamada Segura da Função Recursiva)
-  if (p_filtros->'categoriaIds') is not null and jsonb_array_length(p_filtros->'categoriaIds') > 0 then
-      if p_filtros->'categoriaIds' @> '["IS_NULL"]' then
-        v_where := v_where || ' and (l.categoria_id in (select id from get_recursive_categories(''' || (p_filtros->'categoriaIds') || ''')) or l.categoria_id is null)';
-      else
-        v_where := v_where || ' and l.categoria_id in (select id from get_recursive_categories(''' || (p_filtros->'categoriaIds') || '''))';
-      end if;
-  end if;
-
-  -- 5. Contas (Lógica Segura sem referência externa)
-  if (p_filtros->'contaIds') is not null and jsonb_array_length(p_filtros->'contaIds') > 0 then
-      if p_filtros->'contaIds' @> '["IS_NULL"]' then
-        v_where := v_where || ' and (l.conta_id in (select (elem::text)::bigint from jsonb_array_elements(''' || (p_filtros->'contaIds') || ''') elem where (elem::text) <> ''"IS_NULL"'') or l.conta_id is null)';
-      else
-        v_where := v_where || ' and l.conta_id in (select (elem::text)::bigint from jsonb_array_elements(''' || (p_filtros->'contaIds') || ''') elem)';
-      end if;
-  end if;
-
-  -- 6. Empreendimentos
-  if (p_filtros->'empreendimentoIds') is not null and jsonb_array_length(p_filtros->'empreendimentoIds') > 0 then
-      if p_filtros->'empreendimentoIds' @> '["IS_NULL"]' then
-        v_where := v_where || ' and (l.empreendimento_id in (select (elem::text)::bigint from jsonb_array_elements(''' || (p_filtros->'empreendimentoIds') || ''') elem where (elem::text) <> ''"IS_NULL"'') or l.empreendimento_id is null)';
-      else
-        v_where := v_where || ' and l.empreendimento_id in (select (elem::text)::bigint from jsonb_array_elements(''' || (p_filtros->'empreendimentoIds') || ''') elem)';
-      end if;
-  end if;
-
-  -- 7. Empresas
-  if (p_filtros->'empresaIds') is not null and jsonb_array_length(p_filtros->'empresaIds') > 0 then
-      if p_filtros->'empresaIds' @> '["IS_NULL"]' then
-        v_where := v_where || ' and (l.empresa_id in (select (elem::text)::bigint from jsonb_array_elements(''' || (p_filtros->'empresaIds') || ''') elem where (elem::text) <> ''"IS_NULL"'') or l.empresa_id is null)';
-      else
-        v_where := v_where || ' and l.empresa_id in (select (elem::text)::bigint from jsonb_array_elements(''' || (p_filtros->'empresaIds') || ''') elem)';
-      end if;
-  end if;
-  
-  -- 8. Etapas
-  if (p_filtros->'etapaIds') is not null and jsonb_array_length(p_filtros->'etapaIds') > 0 then
-      if p_filtros->'etapaIds' @> '["IS_NULL"]' then
-        v_where := v_where || ' and (l.etapa_id in (select (elem::text)::bigint from jsonb_array_elements(''' || (p_filtros->'etapaIds') || ''') elem where (elem::text) <> ''"IS_NULL"'') or l.etapa_id is null)';
-      else
-        v_where := v_where || ' and l.etapa_id in (select (elem::text)::bigint from jsonb_array_elements(''' || (p_filtros->'etapaIds') || ''') elem)';
-      end if;
-  end if;
-
-  -- 9. Tipo (Receita/Despesa) - Tratamento Seguro
-  if (p_filtros->'tipo') is not null and jsonb_array_length(p_filtros->'tipo') > 0 then
-    v_where := v_where || ' and l.tipo in (select elem::text from jsonb_array_elements_text(''' || (p_filtros->'tipo') || ''') elem)';
-  end if;
-
-  -- 10. Favorecido
-  if (p_filtros->>'favorecidoId') is not null then
-    if (p_filtros->>'favorecidoId') = 'IS_NULL' then
-       v_where := v_where || ' and l.favorecido_contato_id is null';
-    else
-       v_where := v_where || ' and l.favorecido_contato_id = ' || (p_filtros->>'favorecidoId');
-    end if;
-  end if;
-
-  -- 11. Ignorar Especiais (A LÓGICA DE EXCLUSÃO IMPORTANTE)
-  if (p_filtros->>'ignoreTransfers')::boolean is true then
-    v_where := v_where || ' and l.transferencia_id is null';
-  end if;
-
-  if (p_filtros->>'ignoreChargebacks')::boolean is true then
-    v_where := v_where || ' and (l.categoria_id not in (189, 308) or l.categoria_id is null)';
-  end if;
-
-  return v_where;
-end;
 $function$
 ;
 
@@ -1384,6 +1246,33 @@ END;
 $function$
 ;
 
+CREATE OR REPLACE FUNCTION public.handle_contrato_trash_or_delete()
+ RETURNS trigger
+ LANGUAGE plpgsql
+AS $function$
+BEGIN
+    IF TG_OP = 'DELETE' THEN
+        IF OLD.produto_id IS NOT NULL THEN
+            UPDATE produtos_empreendimento SET status = 'Disponível' WHERE id = OLD.produto_id;
+        END IF;
+        UPDATE produtos_empreendimento SET status = 'Disponível' WHERE id IN (SELECT produto_id FROM contrato_produtos WHERE contrato_id = OLD.id);
+        RETURN OLD;
+    END IF;
+
+    IF TG_OP = 'UPDATE' THEN
+        IF NEW.lixeira = true AND (OLD.lixeira IS NULL OR OLD.lixeira = false) THEN
+            IF NEW.produto_id IS NOT NULL THEN
+                UPDATE produtos_empreendimento SET status = 'Disponível' WHERE id = NEW.produto_id;
+            END IF;
+            UPDATE produtos_empreendimento SET status = 'Disponível' WHERE id IN (SELECT produto_id FROM contrato_produtos WHERE contrato_id = NEW.id);
+        END IF;
+        RETURN NEW;
+    END IF;
+    RETURN NULL;
+END;
+$function$
+;
+
 CREATE OR REPLACE FUNCTION public.buscar_fornecedores(search_term text)
  RETURNS TABLE(id bigint, nome_exibicao text, detalhe text)
  LANGUAGE plpgsql
@@ -2171,6 +2060,41 @@ END;
 $function$
 ;
 
+CREATE OR REPLACE FUNCTION public.trg_auto_orcamento_empreendimento()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+AS $function$
+DECLARE
+  v_empreendimento_id BIGINT;
+BEGIN
+  IF TG_TABLE_NAME = 'orcamentos' THEN
+    IF TG_OP = 'INSERT' OR (TG_OP = 'UPDATE' AND NEW.execucao_fisica IS DISTINCT FROM OLD.execucao_fisica) THEN
+      v_empreendimento_id := NEW.empreendimento_id;
+    ELSE
+      RETURN NEW;
+    END IF;
+  ELSIF TG_TABLE_NAME = 'orcamento_itens' THEN
+    IF TG_OP = 'DELETE' THEN
+      SELECT empreendimento_id INTO v_empreendimento_id FROM public.orcamentos WHERE id = OLD.orcamento_id;
+    ELSE
+      IF TG_OP = 'UPDATE' AND NEW.custo_total IS NOT DISTINCT FROM OLD.custo_total AND NEW.etapa_id IS NOT DISTINCT FROM OLD.etapa_id AND NEW.orcamento_id IS NOT DISTINCT FROM OLD.orcamento_id THEN
+        RETURN NEW;
+      END IF;
+      SELECT empreendimento_id INTO v_empreendimento_id FROM public.orcamentos WHERE id = NEW.orcamento_id;
+    END IF;
+  END IF;
+
+  IF v_empreendimento_id IS NOT NULL THEN
+    PERFORM public.fn_autocalcular_orcamento_empreendimento(v_empreendimento_id);
+  END IF;
+
+  IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;
+  RETURN NEW;
+END;
+$function$
+;
+
 CREATE OR REPLACE FUNCTION public.safe_date(p_text text)
  RETURNS date
  LANGUAGE plpgsql
@@ -2180,105 +2104,6 @@ BEGIN
     RETURN p_text::date;
 EXCEPTION WHEN OTHERS THEN
     RETURN NULL; -- Se der qualquer erro (ex: 2024-02-31), devolve NULL em vez de travar
-END;
-$function$
-;
-
-CREATE OR REPLACE FUNCTION public.merge_contacts_and_relink_all_references(p_primary_contact_id bigint, p_secondary_contact_ids bigint[], p_final_data jsonb, p_final_telefones jsonb, p_final_emails jsonb, p_organizacao_id bigint)
- RETURNS void
- LANGUAGE plpgsql
- SECURITY DEFINER
-AS $function$
-DECLARE
-    secondary_id bigint;
-BEGIN
-    -- 1. ATUALIZAR DADOS DO VENCEDOR (Com os dados escolhidos no Modal)
-    UPDATE contatos
-    SET 
-        nome = COALESCE((p_final_data->>'nome'), nome),
-        razao_social = COALESCE((p_final_data->>'razao_social'), razao_social),
-        cpf = COALESCE((p_final_data->>'cpf'), cpf),
-        cnpj = COALESCE((p_final_data->>'cnpj'), cnpj),
-        rg = COALESCE((p_final_data->>'rg'), rg),
-        -- CORREÇÃO AQUI: Convertendo explicitamente para o tipo ENUM correto
-        tipo_contato = COALESCE((p_final_data->>'tipo_contato')::public.tipo_contato_enum, tipo_contato),
-        estado_civil = COALESCE((p_final_data->>'estado_civil'), estado_civil),
-        cargo = COALESCE((p_final_data->>'cargo'), cargo),
-        address_street = COALESCE((p_final_data->>'address_street'), address_street),
-        address_number = COALESCE((p_final_data->>'address_number'), address_number),
-        address_complement = COALESCE((p_final_data->>'address_complement'), address_complement),
-        neighborhood = COALESCE((p_final_data->>'neighborhood'), neighborhood),
-        city = COALESCE((p_final_data->>'city'), city),
-        state = COALESCE((p_final_data->>'state'), state),
-        cep = COALESCE((p_final_data->>'cep'), cep)
-    WHERE id = p_primary_contact_id;
-
-    -- 2. REFAZER TELEFONES (Remove os atuais e insere a lista final limpa do Modal)
-    DELETE FROM telefones WHERE contato_id = p_primary_contact_id;
-    
-    IF jsonb_array_length(p_final_telefones) > 0 THEN
-        INSERT INTO telefones (contato_id, telefone, tipo, country_code, organizacao_id)
-        SELECT 
-            p_primary_contact_id, 
-            t->>'telefone', 
-            COALESCE(t->>'tipo', 'Celular'), 
-            COALESCE(t->>'country_code', '+55'), 
-            p_organizacao_id
-        FROM jsonb_array_elements(p_final_telefones) as t;
-    END IF;
-
-    -- 3. REFAZER EMAILS
-    DELETE FROM emails WHERE contato_id = p_primary_contact_id;
-    
-    IF jsonb_array_length(p_final_emails) > 0 THEN
-        INSERT INTO emails (contato_id, email, tipo, organizacao_id)
-        SELECT 
-            p_primary_contact_id, 
-            e->>'email', 
-            COALESCE(e->>'tipo', 'Pessoal'), 
-            p_organizacao_id
-        FROM jsonb_array_elements(p_final_emails) as e;
-    END IF;
-
-    -- 4. PROCESSAR OS CONTATOS SECUNDÁRIOS (Relinkar referências com BLINDAGEM)
-    FOREACH secondary_id IN ARRAY p_secondary_contact_ids LOOP
-        
-        -- A. BLINDAGEM: LISTAS DE WHATSAPP (Evita erro unique_contato_na_lista)
-        -- Copia só o que o vencedor NÃO tem.
-        INSERT INTO whatsapp_list_members (lista_id, contato_id)
-        SELECT lista_id, p_primary_contact_id
-        FROM whatsapp_list_members
-        WHERE contato_id = secondary_id
-        AND NOT EXISTS (
-            SELECT 1 FROM whatsapp_list_members existing
-            WHERE existing.contato_id = p_primary_contact_id
-            AND existing.lista_id = whatsapp_list_members.lista_id
-        );
-        -- Apaga do secundário para liberar
-        DELETE FROM whatsapp_list_members WHERE contato_id = secondary_id;
-
-        -- B. BLINDAGEM: FUNIL DE VENDAS
-        -- Se o vencedor já tem card, deleta o do secundário. Se não, move.
-        IF EXISTS (SELECT 1 FROM contatos_no_funil WHERE contato_id = p_primary_contact_id) THEN
-            DELETE FROM contatos_no_funil WHERE contato_id = secondary_id;
-        ELSE
-            UPDATE contatos_no_funil SET contato_id = p_primary_contact_id WHERE contato_id = secondary_id;
-        END IF;
-
-        -- C. MOVER O RESTO (Conversas, Mensagens, Notas, etc)
-        UPDATE whatsapp_conversations SET contato_id = p_primary_contact_id WHERE contato_id = secondary_id;
-        UPDATE whatsapp_messages SET contato_id = p_primary_contact_id WHERE contato_id = secondary_id;
-        
-        BEGIN UPDATE crm_notas SET contato_id = p_primary_contact_id WHERE contato_id = secondary_id; EXCEPTION WHEN OTHERS THEN NULL; END;
-        BEGIN UPDATE whatsapp_attachments SET contato_id = p_primary_contact_id WHERE contato_id = secondary_id; EXCEPTION WHEN OTHERS THEN NULL; END;
-        
-        -- D. TCHAU SECUNDÁRIO 👋
-        DELETE FROM contatos WHERE id = secondary_id;
-        -- Limpeza final de tabelas dependentes
-        DELETE FROM telefones WHERE contato_id = secondary_id; 
-        DELETE FROM emails WHERE contato_id = secondary_id;
-
-    END LOOP;
 END;
 $function$
 ;
@@ -2591,29 +2416,6 @@ BEGIN
     ORDER BY 
         a.data_inicio_prevista ASC
     LIMIT 20;
-END;
-$function$
-;
-
-CREATE OR REPLACE FUNCTION public.trigger_limpar_provisoes_demissao()
- RETURNS trigger
- LANGUAGE plpgsql
-AS $function$
-DECLARE
-    v_mes_competencia_demissao date;
-BEGIN
-    -- Define o primeiro dia do mês em que a demissão ocorreu.
-    v_mes_competencia_demissao := date_trunc('month', NEW.demission_date)::date;
-
-    -- Deleta todos os lançamentos de salário provisionados (status 'Pendente')
-    -- para este funcionário, cujo mês de competência seja POSTERIOR
-    -- ao mês da demissão. O pagamento do último mês trabalhado é mantido.
-    DELETE FROM public.lancamentos
-    WHERE funcionario_id = NEW.id
-      AND status = 'Pendente'
-      AND mes_competencia > v_mes_competencia_demissao;
-
-    RETURN NEW;
 END;
 $function$
 ;
@@ -3238,22 +3040,6 @@ BEGIN
         COALESCE(md.dias_falta, 0)::INT
     FROM
         mes_dados md;
-END;
-$function$
-;
-
-CREATE OR REPLACE FUNCTION public.trigger_agendar_salarios_novofuncionario()
- RETURNS trigger
- LANGUAGE plpgsql
-AS $function$
-DECLARE
-    i integer;
-BEGIN
-    -- Cria a provisão para os próximos 12 meses a partir do mês atual
-    FOR i IN 0..11 LOOP
-        PERFORM public.agendar_salario_provisionado(NEW.id, (date_trunc('month', NOW()) + (i || ' months')::interval)::date);
-    END LOOP;
-    RETURN NEW;
 END;
 $function$
 ;
@@ -3984,6 +3770,102 @@ END;
 $function$
 ;
 
+CREATE OR REPLACE FUNCTION public.get_rh_tendencia_absenteismo(p_ano text, p_organizacao_id integer)
+ RETURNS json
+ LANGUAGE plpgsql
+AS $function$
+DECLARE
+    v_mes_atual integer;
+    v_mes_string text;
+    v_inicio_mes date;
+    v_fim_mes date;
+    v_dias_uteis_exigidos numeric;
+    v_total_faltas numeric;
+    v_absenteismo numeric;
+    v_resultado jsonb := '[]'::jsonb;
+    v_timezone text := 'America/Sao_Paulo';
+    -- Ajuste para travar contagem no "ontem" caso o mês seja o atual (não podemos cobrar faltas de hoje ou do futuro)
+    v_ontem date := (NOW() AT TIME ZONE v_timezone)::date - 1;
+BEGIN
+    FOR v_mes_atual IN 1..12 LOOP
+        v_mes_string := LPAD(v_mes_atual::text, 2, '0');
+        v_inicio_mes := (p_ano || '-' || v_mes_string || '-01')::date;
+        v_fim_mes := (v_inicio_mes + interval '1 month' - interval '1 day')::date;
+
+        -- Abrevia ano (ex: 2026 vira 26 para caber no label do gráfico)
+        v_mes_string := v_mes_string || '/' || SUBSTRING(p_ano, 3, 2);
+
+        -- Se o mês inteiro for no futuro (início_mes > ontem), pula para não sujar o %
+        IF v_inicio_mes > v_ontem THEN
+            v_resultado := v_resultado || jsonb_build_object(
+                'mes', v_mes_string,
+                'absenteismo_percentual', 0,
+                'total_faltas', 0,
+                'dias_exigidos', 0
+            );
+            CONTINUE;
+        END IF;
+
+        -- 1. DIAS ÚTEIS EXIGIDOS NO MÊS
+        SELECT COUNT(*)
+        INTO v_dias_uteis_exigidos
+        FROM generate_series(v_inicio_mes, LEAST(v_fim_mes, v_ontem), '1 day'::interval) AS cm(data_dia)
+        CROSS JOIN public.funcionarios f
+        INNER JOIN public.jornada_detalhes jd ON f.jornada_id = jd.jornada_id 
+             AND jd.dia_semana = EXTRACT(DOW FROM cm.data_dia)::integer
+             AND jd.horario_entrada IS NOT NULL
+        LEFT JOIN public.feriados fer ON fer.data_feriado = cm.data_dia AND fer.organizacao_id = p_organizacao_id
+        WHERE f.organizacao_id = p_organizacao_id
+          AND f.status = 'Ativo'
+          -- Empregado durante esse dia
+          AND (CASE WHEN f.admission_date IS NULL OR TRIM(f.admission_date::text) = '' THEN NULL ELSE f.admission_date::date END) <= cm.data_dia
+          AND ((CASE WHEN f.demission_date IS NULL OR TRIM(f.demission_date::text) = '' THEN NULL ELSE f.demission_date::date END) IS NULL 
+               OR (CASE WHEN f.demission_date IS NULL OR TRIM(f.demission_date::text) = '' THEN NULL ELSE f.demission_date::date END) >= cm.data_dia)
+          -- Sem feriado
+          AND fer.id IS NULL;
+
+        -- 2. FALTAS REAIS NAQUELE MÊS
+        SELECT COUNT(*)
+        INTO v_total_faltas
+        FROM generate_series(v_inicio_mes, LEAST(v_fim_mes, v_ontem), '1 day'::interval) AS cm(data_dia)
+        CROSS JOIN public.funcionarios f
+        INNER JOIN public.jornada_detalhes jd ON f.jornada_id = jd.jornada_id 
+             AND jd.dia_semana = EXTRACT(DOW FROM cm.data_dia)::integer
+             AND jd.horario_entrada IS NOT NULL
+        LEFT JOIN public.feriados fer ON fer.data_feriado = cm.data_dia AND fer.organizacao_id = p_organizacao_id
+        LEFT JOIN public.abonos a ON a.funcionario_id = f.id AND a.data_abono = cm.data_dia
+        LEFT JOIN public.pontos p ON p.funcionario_id = f.id AND (p.data_hora AT TIME ZONE v_timezone)::date = cm.data_dia
+        WHERE f.organizacao_id = p_organizacao_id
+          AND f.status = 'Ativo'
+          -- Empregado durante esse dia
+          AND (CASE WHEN f.admission_date IS NULL OR TRIM(f.admission_date::text) = '' THEN NULL ELSE f.admission_date::date END) <= cm.data_dia
+          AND ((CASE WHEN f.demission_date IS NULL OR TRIM(f.demission_date::text) = '' THEN NULL ELSE f.demission_date::date END) IS NULL 
+               OR (CASE WHEN f.demission_date IS NULL OR TRIM(f.demission_date::text) = '' THEN NULL ELSE f.demission_date::date END) >= cm.data_dia)
+          -- CONDIÇÃO DE FALTA NA VEIA:
+          AND fer.id IS NULL 
+          AND a.id IS NULL   
+          AND p.id IS NULL;
+
+        -- 3. CÁLCULO GERAL DO PERCENTUAL
+        IF COALESCE(v_dias_uteis_exigidos, 0) > 0 THEN
+            v_absenteismo := ROUND(((v_total_faltas / v_dias_uteis_exigidos) * 100::numeric), 1);
+        ELSE
+            v_absenteismo := 0;
+        END IF;
+
+        v_resultado := v_resultado || jsonb_build_object(
+            'mes', v_mes_string,
+            'absenteismo_percentual', v_absenteismo,
+            'total_faltas', v_total_faltas,
+            'dias_exigidos', v_dias_uteis_exigidos
+        );
+    END LOOP;
+
+    RETURN v_resultado::json;
+END;
+$function$
+;
+
 CREATE OR REPLACE FUNCTION public.buscar_movimentacoes_estoque(p_organizacao_id bigint, p_empreendimento_id bigint, p_termo_busca text DEFAULT NULL::text, p_tipo text DEFAULT 'Todos'::text, p_data_inicio timestamp with time zone DEFAULT NULL::timestamp with time zone, p_data_fim timestamp with time zone DEFAULT NULL::timestamp with time zone, p_funcionario_id bigint DEFAULT NULL::bigint)
  RETURNS TABLE(id bigint, tipo text, quantidade numeric, data_movimentacao timestamp with time zone, observacao text, pedido_compra_id bigint, material_nome text, unidade_medida text, funcionario_nome text, usuario_nome text)
  LANGUAGE plpgsql
@@ -4091,90 +3973,113 @@ END;
 $function$
 ;
 
-CREATE OR REPLACE FUNCTION public.agendar_salario_provisionado(p_funcionario_id bigint, p_mes_competencia date)
+CREATE OR REPLACE FUNCTION public.auto_merge_contacts_and_relink(p_contact_ids bigint[], p_organizacao_id bigint)
  RETURNS void
  LANGUAGE plpgsql
+ SECURITY DEFINER
 AS $function$
 DECLARE
-    v_funcionario record;
-    v_categoria_id bigint;
-    v_conta_id bigint;
-    v_valor_provisionado numeric;
-    v_dias_uteis integer;
-    v_data_vencimento date;
-    v_valor_diaria_numeric numeric;
-    v_salario_base_numeric numeric;
+    winner_id bigint;
+    loser_id bigint;
+    id_iter bigint;
 BEGIN
-    -- Busca os dados do funcionário que acabou de ser inserido
-    SELECT * INTO v_funcionario FROM public.funcionarios WHERE id = p_funcionario_id;
-    IF NOT FOUND THEN RETURN; END IF;
-
-    -- Converte os campos de texto (moeda BR) para número
-    v_valor_diaria_numeric := COALESCE(NULLIF(REPLACE(REPLACE(v_funcionario.daily_value, '.', ''), ',', '.'), '')::numeric, 0);
-    v_salario_base_numeric := COALESCE(NULLIF(REPLACE(REPLACE(v_funcionario.base_salary, '.', ''), ',', '.'), '')::numeric, 0);
-
-    -- Define o valor provisionado
-    IF v_valor_diaria_numeric > 0 THEN
-        -- Se houver uma função para calcular dias úteis, ela será usada. Caso contrário, assume 22 dias.
-        BEGIN
-            v_dias_uteis := public.calcular_dias_uteis(p_mes_competencia);
-        EXCEPTION WHEN undefined_function THEN
-            v_dias_uteis := 22; -- Valor padrão se a função não existir
-        END;
-        v_valor_provisionado := v_dias_uteis * v_valor_diaria_numeric;
-    ELSE
-        v_valor_provisionado := v_salario_base_numeric;
-    END IF;
-
-    -- Encontra o ID da categoria "Folha de Pagamento"
-    SELECT id INTO v_categoria_id 
-    FROM public.categorias_financeiras 
-    WHERE nome ILIKE 'Folha de Pagamento' AND organizacao_id = v_funcionario.organizacao_id;
-
-    -- Encontra uma conta bancária associada à empresa do funcionário
-    SELECT id INTO v_conta_id 
-    FROM public.contas_financeiras 
-    WHERE empresa_id = v_funcionario.empresa_id AND organizacao_id = v_funcionario.organizacao_id
+    -- 1. Identificar o Vencedor (O contato mais antigo criado)
+    SELECT id INTO winner_id
+    FROM public.contatos
+    WHERE id = ANY(p_contact_ids)
+    AND organizacao_id = p_organizacao_id
+    ORDER BY created_at ASC
     LIMIT 1;
 
-    IF v_conta_id IS NULL THEN
-        RAISE NOTICE 'Nenhuma conta financeira encontrada para a empresa ID: %. Não foi possível provisionar o salário.', v_funcionario.empresa_id;
-        RETURN; -- Não para a execução com erro, apenas avisa e retorna.
+    IF winner_id IS NULL THEN
+        RAISE EXCEPTION 'Nenhum contato válido encontrado para fusão.';
     END IF;
 
-    -- Calcula o vencimento para o 5º dia útil do mês seguinte
-    v_data_vencimento := (date_trunc('month', p_mes_competencia) + interval '1 month' + interval '4 days')::date;
+    -- 2. Loop para processar os "Perdedores"
+    FOREACH id_iter IN ARRAY p_contact_ids
+    LOOP
+        IF id_iter <> winner_id THEN
+            loser_id := id_iter;
 
-    -- Insere o lançamento provisionado com a conta_id e a organizacao_id
-    INSERT INTO public.lancamentos (
-        empresa_id,
-        empreendimento_id,
-        categoria_id,
-        conta_id,
-        descricao,
-        valor,
-        data_vencimento,
-        mes_competencia,
-        status,
-        tipo,
-        funcionario_id,
-        organizacao_id -- <<< CORREÇÃO APLICADA AQUI
-    )
-    VALUES (
-        v_funcionario.empresa_id,
-        v_funcionario.empreendimento_atual_id,
-        v_categoria_id,
-        v_conta_id,
-        'Salário Ref: ' || to_char(p_mes_competencia, 'MM/YYYY') || ' - ' || v_funcionario.full_name,
-        v_valor_provisionado,
-        v_data_vencimento,
-        p_mes_competencia,
-        'Pendente',
-        'Despesa',
-        p_funcionario_id,
-        v_funcionario.organizacao_id -- <<< CORREÇÃO APLICADA AQUI
-    );
+            -- =========================================================
+            -- 1. LISTAS DO WHATSAPP (Lógica Cirúrgica) 🧠
+            -- =========================================================
+            -- Passo A: Copiar o Vencedor para as listas do Perdedor
+            INSERT INTO public.whatsapp_list_members (lista_id, contato_id, created_at)
+            SELECT lista_id, winner_id, created_at
+            FROM public.whatsapp_list_members
+            WHERE contato_id = loser_id
+            AND lista_id NOT IN (
+                SELECT lista_id FROM public.whatsapp_list_members WHERE contato_id = winner_id
+            );
+            -- Passo B: Agora podemos apagar o perdedor de TODAS as listas sem medo
+            DELETE FROM public.whatsapp_list_members WHERE contato_id = loser_id;
 
+            -- =========================================================
+            -- 2. FUNIL DE VENDAS (Mesma lógica segura)
+            -- =========================================================
+            IF NOT EXISTS (SELECT 1 FROM public.contatos_no_funil WHERE contato_id = winner_id) THEN
+                UPDATE public.contatos_no_funil SET contato_id = winner_id WHERE contato_id = loser_id;
+            END IF;
+            DELETE FROM public.contatos_no_funil WHERE contato_id = loser_id;
+
+            -- =========================================================
+            -- 3. FUNCIONÁRIOS (Vínculo Único)
+            -- =========================================================
+            IF NOT EXISTS (SELECT 1 FROM public.funcionarios WHERE contato_id = winner_id) THEN
+                 UPDATE public.funcionarios SET contato_id = winner_id WHERE contato_id = loser_id;
+            ELSE
+                 UPDATE public.funcionarios SET contato_id = NULL WHERE contato_id = loser_id;
+            END IF;
+
+            -- =========================================================
+            -- 4. CONVERSAS DO WHATSAPP (Unique Constraint no Telefone)
+            -- =========================================================
+            IF NOT EXISTS (SELECT 1 FROM public.whatsapp_conversations WHERE contato_id = winner_id) THEN
+                 UPDATE public.whatsapp_conversations SET contato_id = winner_id WHERE contato_id = loser_id;
+            ELSE
+                 UPDATE public.whatsapp_conversations SET contato_id = NULL WHERE contato_id = loser_id;
+            END IF;
+
+            -- =========================================================
+            -- 5. RELINKAGEM GERAL BLINDADA COM EXCEPTION OTHERS
+            -- =========================================================
+            -- Comunicação Geral
+            BEGIN UPDATE public.whatsapp_messages SET contato_id = winner_id WHERE contato_id = loser_id; EXCEPTION WHEN OTHERS THEN NULL; END;
+            BEGIN UPDATE public.telefones SET contato_id = winner_id WHERE contato_id = loser_id; EXCEPTION WHEN OTHERS THEN NULL; END;
+            BEGIN UPDATE public.emails SET contato_id = winner_id WHERE contato_id = loser_id; EXCEPTION WHEN OTHERS THEN NULL; END;
+            BEGIN UPDATE public.whatsapp_attachments SET contato_id = winner_id WHERE contato_id = loser_id; EXCEPTION WHEN OTHERS THEN NULL; END;
+            BEGIN UPDATE public.telefones_backup_faxina SET contato_id = winner_id WHERE contato_id = loser_id; EXCEPTION WHEN OTHERS THEN NULL; END;
+
+            -- Contratos e Comercial
+            BEGIN UPDATE public.contratos SET contato_id = winner_id WHERE contato_id = loser_id; EXCEPTION WHEN OTHERS THEN NULL; END;
+            BEGIN UPDATE public.contratos SET corretor_id = winner_id WHERE corretor_id = loser_id; EXCEPTION WHEN OTHERS THEN NULL; END;
+            BEGIN UPDATE public.contratos SET conjuge_id = winner_id WHERE conjuge_id = loser_id; EXCEPTION WHEN OTHERS THEN NULL; END;
+            BEGIN UPDATE public.contratos SET representante_id = winner_id WHERE representante_id = loser_id; EXCEPTION WHEN OTHERS THEN NULL; END;
+            
+            -- CRM e Atividades
+            BEGIN UPDATE public.crm_notas SET contato_id = winner_id WHERE contato_id = loser_id; EXCEPTION WHEN OTHERS THEN NULL; END;
+            BEGIN UPDATE public.simulacoes SET contato_id = winner_id WHERE contato_id = loser_id; EXCEPTION WHEN OTHERS THEN NULL; END;
+            BEGIN UPDATE public.activities SET contato_id = winner_id WHERE contato_id = loser_id; EXCEPTION WHEN OTHERS THEN NULL; END;
+            
+            -- Financeiro e Suprimentos
+            BEGIN UPDATE public.lancamentos SET favorecido_contato_id = winner_id WHERE favorecido_contato_id = loser_id; EXCEPTION WHEN OTHERS THEN NULL; END;
+            BEGIN UPDATE public.pedidos_compra_itens SET fornecedor_id = winner_id WHERE fornecedor_id = loser_id; EXCEPTION WHEN OTHERS THEN NULL; END;
+
+            -- Empreendimentos
+            BEGIN UPDATE public.empreendimentos SET incorporadora_id = winner_id WHERE incorporadora_id = loser_id; EXCEPTION WHEN OTHERS THEN NULL; END;
+            BEGIN UPDATE public.empreendimentos SET construtora_id = winner_id WHERE construtora_id = loser_id; EXCEPTION WHEN OTHERS THEN NULL; END;
+
+            -- Referências Cruzadas
+            BEGIN UPDATE public.contatos SET conjuge_id = winner_id WHERE conjuge_id = loser_id; EXCEPTION WHEN OTHERS THEN NULL; END;
+
+            -- =========================================================
+            -- 6. O FINAL: EXCLUIR O PERDEDOR
+            -- =========================================================
+            DELETE FROM public.contatos WHERE id = loser_id;
+            
+        END IF;
+    END LOOP;
 END;
 $function$
 ;
@@ -4879,48 +4784,45 @@ END;
 $function$
 ;
 
-CREATE OR REPLACE FUNCTION public.auto_merge_contacts_and_relink(p_contact_ids bigint[])
- RETURNS text
+CREATE OR REPLACE FUNCTION public.excluir_lancamento_financeiro(p_lancamento_id bigint, p_organizacao_id bigint)
+ RETURNS boolean
  LANGUAGE plpgsql
  SECURITY DEFINER
 AS $function$
-DECLARE
-    v_primary_contact_id bigint;
-    v_secondary_contact_ids bigint[];
-    v_final_data jsonb;
-    v_final_telefones jsonb[];
-    v_final_emails jsonb[];
-BEGIN
-    -- Se o array de entrada tiver 1 ou 0 contatos, não há nada a fazer.
-    IF array_length(p_contact_ids, 1) <= 1 THEN
-        RETURN 'Não há contatos suficientes para mesclar.';
-    END IF;
+     BEGIN
+         -- 1. Certificar que o lançamento pertence a esta organziacao
+         IF NOT EXISTS (SELECT 1 FROM public.lancamentos WHERE id = p_lancamento_id AND organizacao_id = p_organizacao_id) THEN
+            RAISE EXCEPTION 'Lançamento Inexistente ou Permissão Negada.';
+         END IF;
 
-    -- Define o contato mais antigo como o principal
-    SELECT id INTO v_primary_contact_id FROM public.contatos WHERE id = ANY(p_contact_ids) ORDER BY created_at ASC LIMIT 1;
-    
-    -- Os demais são secundários. 
-    -- ***** AQUI ESTÁ A CORREÇÃO *****
-    -- Usamos COALESCE para garantir que, se não houver secundários, teremos um array vazio '{}' em vez de NULL.
-    SELECT COALESCE(array_agg(id), '{}') INTO v_secondary_contact_ids FROM public.contatos WHERE id = ANY(p_contact_ids) AND id <> v_primary_contact_id;
+         -- 2. Limpar logs e anexos atrelados
+         DELETE FROM public.auditoria_ia_logs WHERE lancamento_id = p_lancamento_id;
+         DELETE FROM public.lancamentos_anexos WHERE lancamento_id = p_lancamento_id;
+         DELETE FROM public.historico_lancamentos_financeiros WHERE lancamento_id = p_lancamento_id;
+         
+         -- 3. Desvincular e Pender dependências externas baseadas em Folha/Vales/Parcelas/OFX
+         UPDATE public.banco_de_horas 
+         SET lancamento_id = NULL, status = 'Aguardando' 
+         WHERE lancamento_id = p_lancamento_id;
 
-    -- Pega os dados do contato principal como base
-    SELECT to_jsonb(c.*) INTO v_final_data FROM public.contatos c WHERE id = v_primary_contact_id;
+         UPDATE public.vales_agendados 
+         SET lancamento_id = NULL, status = 'Agendado' 
+         WHERE lancamento_id = p_lancamento_id;
 
-    -- Junta todos os telefones e e-mails únicos de todos os contatos
-    SELECT array_agg(DISTINCT to_jsonb(t.*)) INTO v_final_telefones FROM public.telefones t WHERE t.contato_id = ANY(p_contact_ids);
-    SELECT array_agg(DISTINCT to_jsonb(e.*)) INTO v_final_emails FROM public.emails e WHERE e.contato_id = ANY(p_contact_ids);
+         UPDATE public.banco_transacoes_ofx 
+         SET lancamento_id = NULL, status = 'Pendente' 
+         WHERE lancamento_id = p_lancamento_id;
 
-    -- Chama a nossa função principal com os dados preparados
-    RETURN public.merge_contacts_and_relink_all_references(
-        v_primary_contact_id,
-        v_secondary_contact_ids,
-        v_final_data,
-        v_final_telefones,
-        v_final_emails
-    );
-END;
-$function$
+         UPDATE public.contrato_parcelas 
+         SET lancamento_id = NULL, status = 'Pendente' 
+         WHERE lancamento_id = p_lancamento_id;
+         
+         -- 4. Excluir o lançamento propriamente dito
+         DELETE FROM public.lancamentos WHERE id = p_lancamento_id;
+
+         RETURN TRUE;
+     END;
+     $function$
 ;
 
 CREATE OR REPLACE FUNCTION public.backfill_all_contact_meta_names()
@@ -5084,128 +4986,6 @@ BEGIN
             p_organizacao_id
         );
     END LOOP;
-END;
-$function$
-;
-
-CREATE OR REPLACE FUNCTION public.provisionar_parcelas_contrato(p_contrato_id bigint, p_organizacao_id bigint)
- RETURNS text
- LANGUAGE plpgsql
- SECURITY DEFINER
-AS $function$
-DECLARE
-  v_parcela RECORD;
-  v_contrato RECORD;
-  v_empreendimento RECORD;
-  v_categoria_id BIGINT;
-  v_lancamento_id BIGINT;
-  v_parcelas_criadas_count INT := 0;
-  v_cliente_nome TEXT;
-BEGIN
-  -- 1. Buscar os detalhes essenciais do contrato
-  SELECT *
-  INTO v_contrato
-  FROM public.contratos
-  WHERE id = p_contrato_id AND organizacao_id = p_organizacao_id;
-
-  IF v_contrato.id IS NULL THEN
-    RETURN 'Erro: Contrato não encontrado.';
-  END IF;
-
-  IF v_contrato.contato_id IS NULL THEN
-    RETURN 'Erro: O contrato precisa ter um cliente (comprador) definido.';
-  END IF;
-
-  IF v_contrato.conta_bancaria_id IS NULL THEN
-    RETURN 'Erro: Defina uma "Conta Bancária para Pagamentos" nos detalhes da venda do contrato.';
-  END IF;
-
-  -- Adiciona busca por detalhes do empreendimento para pegar o ID da empresa
-  SELECT *
-  INTO v_empreendimento
-  FROM public.empreendimentos
-  WHERE id = v_contrato.empreendimento_id;
-
-  IF v_empreendimento.id IS NULL THEN
-      RETURN 'Erro: Empreendimento associado ao contrato não foi encontrado.';
-  END IF;
-  
-  -- Buscar o nome do cliente
-  SELECT COALESCE(nome, razao_social)
-  INTO v_cliente_nome
-  FROM public.contatos
-  WHERE id = v_contrato.contato_id;
-
-  -- 2. Buscar o ID da categoria financeira
-  SELECT id INTO v_categoria_id
-  FROM public.categorias_financeiras
-  WHERE nome = 'Venda de Imóvel' AND tipo = 'Receita' AND organizacao_id = p_organizacao_id;
-
-  IF v_categoria_id IS NULL THEN
-    RETURN 'Erro: Categoria financeira "Venda de Imóvel" do tipo "Receita" não encontrada.';
-  END IF;
-
-  -- 3. Inicia o loop para processar parcelas
-  FOR v_parcela IN
-    SELECT id, descricao, valor_parcela, data_vencimento
-    FROM public.contrato_parcelas
-    WHERE contrato_id = p_contrato_id
-      AND organizacao_id = p_organizacao_id
-      AND status_pagamento = 'Pendente'
-      AND lancamento_id IS NULL
-  LOOP
-    -- 4. Insere o novo lançamento
-    INSERT INTO public.lancamentos (
-      descricao,
-      valor,
-      data_vencimento,
-      data_transacao,
-      tipo,
-      status,
-      conta_id,
-      categoria_id,
-      empreendimento_id,
-      empresa_id,
-      favorecido_contato_id,
-      organizacao_id,
-      criado_por_usuario_id,
-      contrato_id,
-      observacao
-    )
-    VALUES (
-      'Recebimento: ' || v_parcela.descricao || ' | Contrato #' || p_contrato_id || ' (' || COALESCE(v_cliente_nome, 'N/A') || ')',
-      v_parcela.valor_parcela,
-      v_parcela.data_vencimento,
-      CURRENT_DATE,
-      'Receita',
-      'Pendente',
-      v_contrato.conta_bancaria_id,
-      v_categoria_id,
-      v_contrato.empreendimento_id,
-      v_empreendimento.empresa_proprietaria_id,
-      v_contrato.contato_id,
-      p_organizacao_id,
-      auth.uid(),
-      p_contrato_id,
-      'Lançamento provisionado do Contrato ID ' || p_contrato_id
-    )
-    RETURNING id INTO v_lancamento_id;
-
-    -- 5. Atualiza a parcela
-    UPDATE public.contrato_parcelas
-    SET lancamento_id = v_lancamento_id
-    WHERE id = v_parcela.id;
-
-    v_parcelas_criadas_count := v_parcelas_criadas_count + 1;
-  END LOOP;
-
-  -- 6. Retorna uma mensagem de sucesso
-  IF v_parcelas_criadas_count > 0 THEN
-    RETURN 'Sucesso: ' || v_parcelas_criadas_count || ' lançamento(s) financeiro(s) foram provisionados.';
-  ELSE
-    RETURN 'Nenhuma parcela pendente para sincronizar.';
-  END IF;
-
 END;
 $function$
 ;
@@ -7003,6 +6783,76 @@ END;
 $function$
 ;
 
+CREATE OR REPLACE FUNCTION public.get_rh_tendencia_turnover(p_ano text, p_organizacao_id integer)
+ RETURNS json
+ LANGUAGE plpgsql
+AS $function$
+DECLARE
+    v_resultado json;
+BEGIN
+    WITH meses AS (
+        SELECT generate_series(
+            (p_ano || '-01-01')::date, 
+            (p_ano || '-12-01')::date, 
+            '1 month'::interval
+        )::date as primeiro_dia
+    ),
+    dados_mensais AS (
+        SELECT 
+            to_char(m.primeiro_dia, 'MM/YYYY') as mes_label,
+            to_char(m.primeiro_dia, 'YYYY-MM') as mes_iso,
+            -- Efetivo Ativo Mensal (ignora sócios: jornada_id IS NOT NULL)
+            (SELECT COUNT(id) FROM funcionarios f 
+             WHERE f.organizacao_id = p_organizacao_id 
+             AND f.jornada_id IS NOT NULL
+             AND (CASE WHEN f.admission_date IS NULL OR TRIM(f.admission_date::text) = '' THEN NULL ELSE f.admission_date::date END) <= (m.primeiro_dia + interval '1 month - 1 day')::date
+             AND (CASE WHEN f.demission_date IS NULL OR TRIM(f.demission_date::text) = '' THEN NULL ELSE f.demission_date::date END >= m.primeiro_dia OR f.demission_date IS NULL OR TRIM(f.demission_date::text) = '')
+            ) as efetivo_total,
+            -- Admissões
+            (SELECT COUNT(id) FROM funcionarios f 
+             WHERE f.organizacao_id = p_organizacao_id 
+             AND f.jornada_id IS NOT NULL
+             AND (CASE WHEN f.admission_date IS NULL OR TRIM(f.admission_date::text) = '' THEN NULL ELSE f.admission_date::date END) >= m.primeiro_dia 
+             AND (CASE WHEN f.admission_date IS NULL OR TRIM(f.admission_date::text) = '' THEN NULL ELSE f.admission_date::date END) <= (m.primeiro_dia + interval '1 month - 1 day')::date
+            ) as admissoes,
+            -- Demissões
+            (SELECT COUNT(id) FROM funcionarios f 
+             WHERE f.organizacao_id = p_organizacao_id 
+             AND f.jornada_id IS NOT NULL
+             AND (CASE WHEN f.demission_date IS NULL OR TRIM(f.demission_date::text) = '' THEN NULL ELSE f.demission_date::date END) >= m.primeiro_dia 
+             AND (CASE WHEN f.demission_date IS NULL OR TRIM(f.demission_date::text) = '' THEN NULL ELSE f.demission_date::date END) <= (m.primeiro_dia + interval '1 month - 1 day')::date
+            ) as demissoes
+        FROM meses m
+    )
+    SELECT json_agg(
+        json_build_object(
+            'mes', 
+            CASE SUBSTRING(d.mes_iso FROM 6 FOR 2)
+               WHEN '01' THEN 'Jan' WHEN '02' THEN 'Fev' WHEN '03' THEN 'Mar'
+               WHEN '04' THEN 'Abr' WHEN '05' THEN 'Mai' WHEN '06' THEN 'Jun'
+               WHEN '07' THEN 'Jul' WHEN '08' THEN 'Ago' WHEN '09' THEN 'Set'
+               WHEN '10' THEN 'Out' WHEN '11' THEN 'Nov' WHEN '12' THEN 'Dez'
+            END,
+            'mes_iso', d.mes_iso,
+            'efetivo', d.efetivo_total,
+            'admissoes', d.admissoes,
+            'demissoes', d.demissoes,
+            'turnover_percentual', 
+                CASE 
+                    WHEN d.efetivo_total > 0 THEN 
+                        ROUND( (((d.admissoes + d.demissoes) / 2.0) / d.efetivo_total * 100.0)::numeric, 2)
+                    ELSE 0.0 
+                END
+        )
+        ORDER BY d.mes_iso
+    ) INTO v_resultado
+    FROM dados_mensais d;
+
+    RETURN COALESCE(v_resultado, '[]'::json);
+END;
+$function$
+;
+
 CREATE OR REPLACE FUNCTION public.get_conversations_with_unread_count(p_organizacao_id bigint)
  RETURNS TABLE(contato_id bigint, nome text, last_message text, last_message_sent_at timestamp with time zone, unread_count bigint)
  LANGUAGE plpgsql
@@ -7102,90 +6952,6 @@ END;
 $function$
 ;
 
-CREATE OR REPLACE FUNCTION public.handle_pedido_entregue_estoque()
- RETURNS trigger
- LANGUAGE plpgsql
-AS $function$
-DECLARE
-    item_pedido RECORD; -- Variável para guardar cada item do pedido no loop
-    v_estoque_id bigint; -- Variável para guardar o ID do estoque (existente ou novo)
-    v_usuario_id uuid; -- Variável para guardar o ID do usuário que alterou o status (se disponível)
-BEGIN
-    -- Verifica se a atualização foi para o status 'Entregue'
-    -- E se o status antigo era diferente de 'Entregue' (para não rodar de novo se já estava entregue)
-    IF NEW.status = 'Entregue' AND OLD.status IS DISTINCT FROM 'Entregue' THEN
-
-        -- Tenta pegar o ID do usuário que fez a alteração (útil para auditoria)
-        -- Se não conseguir, usa NULL (ajuste conforme sua necessidade de auditoria)
-        BEGIN
-            v_usuario_id := auth.uid();
-        EXCEPTION WHEN OTHERS THEN
-            v_usuario_id := NULL; -- Ou algum usuário padrão do sistema
-        END;
-
-        -- Loop através de cada item do pedido que foi atualizado (NEW.id)
-        FOR item_pedido IN
-            SELECT *
-            FROM public.pedidos_compra_itens pci
-            WHERE pci.pedido_compra_id = NEW.id
-        LOOP
-            -- Verifica se o item tem material_id e quantidade válida
-            IF item_pedido.material_id IS NOT NULL AND item_pedido.quantidade_solicitada IS NOT NULL AND item_pedido.quantidade_solicitada > 0 THEN
-
-                -- Tenta inserir no estoque. Se já existir, atualiza a quantidade. (UPSERT)
-                INSERT INTO public.estoque (
-                    empreendimento_id,
-                    material_id,
-                    quantidade_atual,
-                    unidade_medida,
-                    organizacao_id,
-                    ultima_atualizacao
-                )
-                VALUES (
-                    NEW.empreendimento_id, -- Pega o empreendimento do pedido
-                    item_pedido.material_id,
-                    item_pedido.quantidade_solicitada,
-                    item_pedido.unidade_medida,
-                    NEW.organizacao_id, -- Pega a organização do pedido
-                    now() -- Data/Hora atual
-                )
-                ON CONFLICT (empreendimento_id, material_id) -- Chave única para detectar conflito
-                DO UPDATE SET
-                    quantidade_atual = public.estoque.quantidade_atual + EXCLUDED.quantidade_atual, -- Soma a quantidade nova à existente
-                    ultima_atualizacao = now()
-                RETURNING id INTO v_estoque_id; -- Salva o ID do estoque (novo ou atualizado) na variável
-
-                -- Registra a movimentação de entrada no estoque
-                INSERT INTO public.movimentacoes_estoque (
-                    estoque_id,
-                    tipo,
-                    quantidade,
-                    pedido_compra_id,
-                    usuario_id, -- ID do usuário que alterou o status do pedido
-                    observacao,
-                    organizacao_id
-                )
-                VALUES (
-                    v_estoque_id, -- O ID que pegamos do UPSERT acima
-                    'Entrada por Compra', -- Tipo válido
-                    item_pedido.quantidade_solicitada,
-                    NEW.id, -- ID do pedido de compra
-                    v_usuario_id, -- Usuário que disparou a ação (pode ser NULL)
-                    'Entrada automática via Pedido #' || NEW.id || ' (' || item_pedido.descricao_item || ')',
-                    NEW.organizacao_id -- Organização do pedido
-                );
-
-            END IF; -- Fim da verificação do item_pedido
-
-        END LOOP; -- Fim do loop pelos itens
-
-    END IF; -- Fim da verificação do status 'Entregue'
-
-    RETURN NEW; -- Necessário para triggers AFTER UPDATE
-END;
-$function$
-;
-
 CREATE OR REPLACE FUNCTION public.preencher_nomes_meta()
  RETURNS trigger
  LANGUAGE plpgsql
@@ -7253,6 +7019,120 @@ BEGIN
         -- Busca no Telefone (A grande novidade!)
         OR t.telefone ILIKE '%' || p_search_term || '%'
     );
+END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.merge_contacts_and_relink_all_references(p_primary_contact_id bigint, p_secondary_contact_ids bigint[], p_final_data jsonb, p_final_telefones jsonb, p_final_emails jsonb, p_organizacao_id bigint)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+AS $function$
+DECLARE
+    secondary_id bigint;
+BEGIN
+    -- 1. ATUALIZAR DADOS DO VENCEDOR (Com os dados escolhidos no Modal)
+    UPDATE contatos
+    SET 
+        nome = COALESCE((p_final_data->>'nome'), nome),
+        razao_social = COALESCE((p_final_data->>'razao_social'), razao_social),
+        cpf = COALESCE((p_final_data->>'cpf'), cpf),
+        cnpj = COALESCE((p_final_data->>'cnpj'), cnpj),
+        rg = COALESCE((p_final_data->>'rg'), rg),
+        tipo_contato = COALESCE((p_final_data->>'tipo_contato')::public.tipo_contato_enum, tipo_contato),
+        estado_civil = COALESCE((p_final_data->>'estado_civil'), estado_civil),
+        cargo = COALESCE((p_final_data->>'cargo'), cargo),
+        address_street = COALESCE((p_final_data->>'address_street'), address_street),
+        address_number = COALESCE((p_final_data->>'address_number'), address_number),
+        address_complement = COALESCE((p_final_data->>'address_complement'), address_complement),
+        neighborhood = COALESCE((p_final_data->>'neighborhood'), neighborhood),
+        city = COALESCE((p_final_data->>'city'), city),
+        state = COALESCE((p_final_data->>'state'), state),
+        cep = COALESCE((p_final_data->>'cep'), cep)
+    WHERE id = p_primary_contact_id;
+
+    -- 2. REFAZER TELEFONES (Remove os atuais e insere a lista final limpa do Modal)
+    DELETE FROM telefones WHERE contato_id = p_primary_contact_id;
+    
+    IF jsonb_array_length(p_final_telefones) > 0 THEN
+        INSERT INTO telefones (contato_id, telefone, tipo, country_code, organizacao_id)
+        SELECT 
+            p_primary_contact_id, 
+            t->>'telefone', 
+            COALESCE(t->>'tipo', 'Celular'), 
+            COALESCE(t->>'country_code', '+55'), 
+            p_organizacao_id
+        FROM jsonb_array_elements(p_final_telefones) as t;
+    END IF;
+
+    -- 3. REFAZER EMAILS
+    DELETE FROM emails WHERE contato_id = p_primary_contact_id;
+    
+    IF jsonb_array_length(p_final_emails) > 0 THEN
+        INSERT INTO emails (contato_id, email, tipo, organizacao_id)
+        SELECT 
+            p_primary_contact_id, 
+            e->>'email', 
+            COALESCE(e->>'tipo', 'Pessoal'), 
+            p_organizacao_id
+        FROM jsonb_array_elements(p_final_emails) as e;
+    END IF;
+
+    -- 4. PROCESSAR OS CONTATOS SECUNDÁRIOS (Relinkar referências com BLINDAGEM)
+    FOREACH secondary_id IN ARRAY p_secondary_contact_ids LOOP
+        
+        -- A. BLINDAGEM: LISTAS DE WHATSAPP (Evita erro unique_contato_na_lista)
+        -- Copia só o que o vencedor NÃO tem.
+        INSERT INTO whatsapp_list_members (lista_id, contato_id)
+        SELECT lista_id, p_primary_contact_id
+        FROM whatsapp_list_members
+        WHERE contato_id = secondary_id
+        AND NOT EXISTS (
+            SELECT 1 FROM whatsapp_list_members existing
+            WHERE existing.contato_id = p_primary_contact_id
+            AND existing.lista_id = whatsapp_list_members.lista_id
+        );
+        -- Apaga do secundário para liberar
+        DELETE FROM whatsapp_list_members WHERE contato_id = secondary_id;
+
+        -- B. BLINDAGEM: FUNIL DE VENDAS
+        -- Se o vencedor já tem card, deleta o do secundário. Se não, move.
+        IF EXISTS (SELECT 1 FROM contatos_no_funil WHERE contato_id = p_primary_contact_id) THEN
+            DELETE FROM contatos_no_funil WHERE contato_id = secondary_id;
+        ELSE
+            UPDATE contatos_no_funil SET contato_id = p_primary_contact_id WHERE contato_id = secondary_id;
+        END IF;
+
+        -- C. MOVER O RESTO (Conversas, Mensagens, Notas, Financeiro, Contratos, etc)
+        -- Usando o TRY CATCH atômico (EXCEPTION WHEN OTHERS) para proteger a transação principal
+        
+        -- Comunicação e Hub
+        UPDATE whatsapp_conversations SET contato_id = p_primary_contact_id WHERE contato_id = secondary_id;
+        UPDATE whatsapp_messages SET contato_id = p_primary_contact_id WHERE contato_id = secondary_id;
+        BEGIN UPDATE crm_notas SET contato_id = p_primary_contact_id WHERE contato_id = secondary_id; EXCEPTION WHEN OTHERS THEN NULL; END;
+        BEGIN UPDATE whatsapp_attachments SET contato_id = p_primary_contact_id WHERE contato_id = secondary_id; EXCEPTION WHEN OTHERS THEN NULL; END;
+        BEGIN UPDATE emails SET contato_id = p_primary_contact_id WHERE contato_id = secondary_id; EXCEPTION WHEN OTHERS THEN NULL; END;
+        BEGIN UPDATE telefones SET contato_id = p_primary_contact_id WHERE contato_id = secondary_id; EXCEPTION WHEN OTHERS THEN NULL; END;
+        BEGIN UPDATE telefones_backup_faxina SET contato_id = p_primary_contact_id WHERE contato_id = secondary_id; EXCEPTION WHEN OTHERS THEN NULL; END;
+
+        -- Financeiro
+        BEGIN UPDATE lancamentos SET favorecido_contato_id = p_primary_contact_id WHERE favorecido_contato_id = secondary_id; EXCEPTION WHEN OTHERS THEN NULL; END;
+        
+        -- Vendas
+        BEGIN UPDATE contratos SET contato_id = p_primary_contact_id WHERE contato_id = secondary_id; EXCEPTION WHEN OTHERS THEN NULL; END;
+        BEGIN UPDATE simulacoes SET contato_id = p_primary_contact_id WHERE contato_id = secondary_id; EXCEPTION WHEN OTHERS THEN NULL; END;
+        
+        -- RH e Operacional
+        BEGIN UPDATE funcionarios SET contato_id = p_primary_contact_id WHERE contato_id = secondary_id; EXCEPTION WHEN OTHERS THEN NULL; END;
+        BEGIN UPDATE activities SET contato_id = p_primary_contact_id WHERE contato_id = secondary_id; EXCEPTION WHEN OTHERS THEN NULL; END;
+        
+        -- 👇 LINHA NOVA ADICIONADA: Atualiza a tabela de usuários também!
+        BEGIN UPDATE usuarios SET contato_id = p_primary_contact_id WHERE contato_id = secondary_id; EXCEPTION WHEN OTHERS THEN NULL; END;
+
+        -- D. TCHAU SECUNDÁRIO 👋
+        DELETE FROM contatos WHERE id = secondary_id;
+
+    END LOOP;
 END;
 $function$
 ;
@@ -7516,127 +7396,6 @@ END;
 $function$
 ;
 
-CREATE OR REPLACE FUNCTION public.auto_merge_contacts_and_relink(p_contact_ids bigint[], p_organizacao_id bigint)
- RETURNS void
- LANGUAGE plpgsql
-AS $function$
-DECLARE
-    winner_id bigint;
-    loser_id bigint;
-    id_iter bigint;
-BEGIN
-    -- 1. Identificar o Vencedor (O contato mais antigo criado)
-    SELECT id INTO winner_id
-    FROM public.contatos
-    WHERE id = ANY(p_contact_ids)
-    AND organizacao_id = p_organizacao_id
-    ORDER BY created_at ASC
-    LIMIT 1;
-
-    IF winner_id IS NULL THEN
-        RAISE EXCEPTION 'Nenhum contato válido encontrado para fusão.';
-    END IF;
-
-    -- 2. Loop para processar os "Perdedores"
-    FOREACH id_iter IN ARRAY p_contact_ids
-    LOOP
-        IF id_iter <> winner_id THEN
-            loser_id := id_iter;
-
-            -- =========================================================
-            -- 1. LISTAS DO WHATSAPP (Lógica Cirúrgica) 🧠
-            -- =========================================================
-            -- Passo A: Copiar o Vencedor para as listas do Perdedor
-            -- O segredo é o "WHERE NOT EXISTS": só insere se o Vencedor AINDA NÃO ESTIVER na lista.
-            INSERT INTO public.whatsapp_list_members (lista_id, contato_id, created_at)
-            SELECT lista_id, winner_id, created_at
-            FROM public.whatsapp_list_members
-            WHERE contato_id = loser_id
-            AND lista_id NOT IN (
-                SELECT lista_id FROM public.whatsapp_list_members WHERE contato_id = winner_id
-            );
-
-            -- Passo B: Agora podemos apagar o perdedor de TODAS as listas sem medo
-            DELETE FROM public.whatsapp_list_members WHERE contato_id = loser_id;
-
-
-            -- =========================================================
-            -- 2. FUNIL DE VENDAS (Mesma lógica segura)
-            -- =========================================================
-            -- Se o vencedor NÃO está no funil, trazemos o card do perdedor para ele.
-            IF NOT EXISTS (SELECT 1 FROM public.contatos_no_funil WHERE contato_id = winner_id) THEN
-                UPDATE public.contatos_no_funil SET contato_id = winner_id WHERE contato_id = loser_id;
-            END IF;
-            
-            -- Se o vencedor JÁ ESTÁ (ou acabamos de mover), o registro do perdedor é lixo. Tchau!
-            DELETE FROM public.contatos_no_funil WHERE contato_id = loser_id;
-
-
-            -- =========================================================
-            -- 3. FUNCIONÁRIOS (Vínculo Único)
-            -- =========================================================
-            IF NOT EXISTS (SELECT 1 FROM public.funcionarios WHERE contato_id = winner_id) THEN
-                 UPDATE public.funcionarios SET contato_id = winner_id WHERE contato_id = loser_id;
-            ELSE
-                 -- Se já tem vínculo, removemos do perdedor para liberar a exclusão
-                 UPDATE public.funcionarios SET contato_id = NULL WHERE contato_id = loser_id;
-            END IF;
-
-
-            -- =========================================================
-            -- 4. CONVERSAS DO WHATSAPP (Unique Constraint no Telefone)
-            -- =========================================================
-            IF NOT EXISTS (SELECT 1 FROM public.whatsapp_conversations WHERE contato_id = winner_id) THEN
-                 UPDATE public.whatsapp_conversations SET contato_id = winner_id WHERE contato_id = loser_id;
-            ELSE
-                 -- Se o vencedor já tem conversa, soltamos o perdedor
-                 UPDATE public.whatsapp_conversations SET contato_id = NULL WHERE contato_id = loser_id;
-            END IF;
-            
-            -- Mensagens não tem conflito, pode mover tudo
-            UPDATE public.whatsapp_messages SET contato_id = winner_id WHERE contato_id = loser_id;
-
-
-            -- =========================================================
-            -- 5. RELINKAGEM GERAL (Tabelas sem restrição única crítica)
-            -- =========================================================
-            UPDATE public.telefones SET contato_id = winner_id WHERE contato_id = loser_id;
-            UPDATE public.emails SET contato_id = winner_id WHERE contato_id = loser_id;
-            UPDATE public.whatsapp_attachments SET contato_id = winner_id WHERE contato_id = loser_id;
-
-            -- Contratos e Comercial
-            UPDATE public.contratos SET contato_id = winner_id WHERE contato_id = loser_id;
-            UPDATE public.contratos SET corretor_id = winner_id WHERE corretor_id = loser_id;
-            UPDATE public.contratos SET conjuge_id = winner_id WHERE conjuge_id = loser_id;
-            UPDATE public.contratos SET representante_id = winner_id WHERE representante_id = loser_id;
-            
-            -- CRM e Atividades
-            UPDATE public.crm_notas SET contato_id = winner_id WHERE contato_id = loser_id;
-            UPDATE public.simulacoes SET contato_id = winner_id WHERE contato_id = loser_id;
-            UPDATE public.activities SET contato_id = winner_id WHERE contato_id = loser_id;
-            
-            -- Financeiro
-            UPDATE public.lancamentos SET favorecido_contato_id = winner_id WHERE favorecido_contato_id = loser_id;
-            UPDATE public.pedidos_compra_itens SET fornecedor_id = winner_id WHERE fornecedor_id = loser_id;
-
-            -- Empreendimentos
-            UPDATE public.empreendimentos SET incorporadora_id = winner_id WHERE incorporadora_id = loser_id;
-            UPDATE public.empreendimentos SET construtora_id = winner_id WHERE construtora_id = loser_id;
-
-            -- Referências Cruzadas
-            UPDATE public.contatos SET conjuge_id = winner_id WHERE conjuge_id = loser_id;
-
-            -- =========================================================
-            -- 6. O FINAL: EXCLUIR O PERDEDOR
-            -- =========================================================
-            DELETE FROM public.contatos WHERE id = loser_id;
-            
-        END IF;
-    END LOOP;
-END;
-$function$
-;
-
 CREATE OR REPLACE FUNCTION public.vincular_conversas_orfas(p_contato_id uuid, p_telefone text)
  RETURNS void
  LANGUAGE plpgsql
@@ -7881,6 +7640,22 @@ END;
 $function$
 ;
 
+CREATE OR REPLACE FUNCTION public.mark_whatsapp_messages_read_multi(v_contact_id bigint, v_user_id uuid)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+AS $function$
+BEGIN
+  -- Updates read_receipts on all missing inbound messages
+  UPDATE public.whatsapp_messages
+  SET read_receipts = COALESCE(read_receipts, '{}'::jsonb) || jsonb_build_object(v_user_id, true)
+  WHERE contato_id = v_contact_id
+    AND direction = 'inbound'
+    AND NOT (COALESCE(read_receipts, '{}'::jsonb) ? v_user_id::text);
+END;
+$function$
+;
+
 CREATE OR REPLACE FUNCTION public.get_broadcast_stats(p_broadcast_id bigint)
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -8011,6 +7786,134 @@ END;
 $function$
 ;
 
+CREATE OR REPLACE FUNCTION public.fn_auditar_lancamentos()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+AS $function$
+DECLARE
+    v_usuario_id uuid;
+    v_acao text := TG_OP;
+    v_organizacao_id bigint;
+    key text;
+    val_old text;
+    val_new text;
+    v_conciliado boolean := false;
+BEGIN
+    BEGIN
+        v_usuario_id := auth.uid();
+    EXCEPTION WHEN OTHERS THEN
+        v_usuario_id := NULL;
+    END;
+
+    IF v_acao = 'DELETE' THEN
+        v_organizacao_id := OLD.organizacao_id;
+        v_conciliado := OLD.conciliado;
+        
+        INSERT INTO historico_lancamentos_financeiros (
+            lancamento_id, organizacao_id, acao, campo_alterado, valor_antigo, valor_novo, usuario_id, alterado_apos_conciliacao
+        )
+        VALUES (OLD.id, v_organizacao_id, 'DELETE', 'Registro apagado', NULL, NULL, v_usuario_id, v_conciliado);
+        RETURN OLD;
+
+    ELSIF v_acao = 'INSERT' THEN
+        v_organizacao_id := NEW.organizacao_id;
+        IF v_usuario_id IS NULL AND NEW.criado_por_usuario_id IS NOT NULL THEN
+            v_usuario_id := NEW.criado_por_usuario_id;
+        END IF;
+
+        INSERT INTO historico_lancamentos_financeiros (lancamento_id, organizacao_id, acao, campo_alterado, valor_antigo, valor_novo, usuario_id)
+        VALUES (NEW.id, v_organizacao_id, 'INSERT', 'Novo Registro', NULL, NULL, v_usuario_id);
+        RETURN NEW;
+
+    ELSIF v_acao = 'UPDATE' THEN
+        v_organizacao_id := NEW.organizacao_id;
+        v_conciliado := OLD.conciliado;
+        
+        IF v_organizacao_id IS NULL THEN RETURN NEW; END IF;
+
+        FOR key IN SELECT jsonb_object_keys(to_jsonb(NEW))
+        LOOP
+            IF key IN ('created_at', 'updated_at', 'auditoria_verificado', 'status_auditoria_ia', 'fitid', 'fitid_banco', 'pluggy_transaction_id') THEN
+                CONTINUE;
+            END IF;
+
+            val_old := to_jsonb(OLD)->>key;
+            val_new := to_jsonb(NEW)->>key;
+
+            IF val_old IS DISTINCT FROM val_new THEN
+                INSERT INTO historico_lancamentos_financeiros (
+                    lancamento_id, organizacao_id, acao, campo_alterado, valor_antigo, valor_novo, usuario_id, alterado_apos_conciliacao
+                ) VALUES (
+                    NEW.id, v_organizacao_id, 'UPDATE', key, val_old, val_new, v_usuario_id, v_conciliado
+                );
+            END IF;
+        END LOOP;
+
+        RETURN NEW;
+    END IF;
+    RETURN NULL;
+END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.dre_matriz_agrupada_obras(p_organizacao_id bigint, p_filtros jsonb DEFAULT '{}'::jsonb)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+AS $function$
+DECLARE
+    v_query text;
+    result_json jsonb;
+BEGIN
+    v_query := '
+        SELECT 
+            l.categoria_id,
+            to_char(COALESCE(l.data_pagamento, l.data_vencimento), ''YYYY-MM'') as ano_mes,
+            SUM(l.valor) as total
+        FROM lancamentos l
+        LEFT JOIN categorias_financeiras c ON l.categoria_id = c.id
+        LEFT JOIN contas_financeiras cf ON l.conta_id = cf.id
+        WHERE l.organizacao_id = ' || p_organizacao_id || '
+        AND (l.status IN (''Pago'', ''Recebido'', ''Conciliado'') OR l.conciliado = true)
+        AND l.categoria_id IS NOT NULL 
+    ';
+
+    -- Datas
+    IF p_filtros->>'startDate' IS NOT NULL AND p_filtros->>'startDate' <> '' THEN
+        v_query := v_query || ' AND COALESCE(l.data_pagamento, l.data_vencimento) >= ''' || (p_filtros->>'startDate') || '''';
+    END IF;
+    IF p_filtros->>'endDate' IS NOT NULL AND p_filtros->>'endDate' <> '' THEN
+        v_query := v_query || ' AND COALESCE(l.data_pagamento, l.data_vencimento) <= ''' || (p_filtros->>'endDate') || '''';
+    END IF;
+
+    -- Empreendimentos
+    IF (p_filtros->'empreendimentoIds') IS NOT NULL AND jsonb_array_length(p_filtros->'empreendimentoIds') > 0 THEN
+        v_query := v_query || ' AND l.empreendimento_id IN (SELECT jsonb_array_elements_text(''' || (p_filtros->'empreendimentoIds') || ''')::bigint)';
+    ELSIF (p_filtros->>'requireObra') = 'true' THEN
+        -- DRE de Obra exige que ao menos pertença a alguma obra quando vista no contexto global
+        v_query := v_query || ' AND l.empreendimento_id IS NOT NULL';
+    END IF;
+
+    -- Ignorar Contas Patrimoniais (Passivo, Ativo, Investimentos)
+    v_query := v_query || ' AND (cf.tipo IS NULL OR cf.tipo NOT IN (''Conta de Passivo'', ''Conta de Ativo'', ''Conta Investimento''))';
+
+    -- Ignorar Transferências e Estornos e Antecipações
+    v_query := v_query || ' AND (c.nome IS NULL OR NOT (
+        UNACCENT(c.nome) ILIKE UNACCENT(''%Transferência%'') OR 
+        UNACCENT(c.nome) ILIKE UNACCENT(''%Estorno%'') OR
+        UNACCENT(c.nome) ILIKE UNACCENT(''%Antecipação%'')
+    ))';
+
+    -- Agrupamento
+    v_query := v_query || ' GROUP BY l.categoria_id, to_char(COALESCE(l.data_pagamento, l.data_vencimento), ''YYYY-MM'')';
+
+    EXECUTE 'SELECT COALESCE(jsonb_agg(vw.*), ''[]''::jsonb) FROM (' || v_query || ') vw' INTO result_json;
+    RETURN result_json;
+END;
+$function$
+;
+
 CREATE OR REPLACE FUNCTION public.safe_cast_date(p_text text)
  RETURNS date
  LANGUAGE plpgsql
@@ -8053,50 +7956,23 @@ END;
 $function$
 ;
 
-CREATE OR REPLACE FUNCTION public.find_contact_smart(phone_input text)
- RETURNS uuid
+CREATE OR REPLACE FUNCTION public.trg_auto_orcamento_produto_vgv()
+ RETURNS trigger
  LANGUAGE plpgsql
  SECURITY DEFINER
 AS $function$
-DECLARE
-  clean_phone text;
-  phone_suffix text;
-  phone_ddd text;
-  is_brazil boolean;
-  found_id uuid;
 BEGIN
-  -- 1. Limpeza: deixa só números
-  clean_phone := regexp_replace(phone_input, '[^0-9]', '', 'g');
-
-  -- 2. É Brasil? (Começa com 55 E tem tamanho de celular BR 12/13 digitos)
-  is_brazil := (left(clean_phone, 2) = '55' AND length(clean_phone) >= 12);
-
-  -- 🌎 CAMINHO INTERNACIONAL (EUA, etc)
-  IF NOT is_brazil THEN
-    -- Busca EXATA. Se o webhook salvou 1774..., busca 1774...
-    SELECT contato_id INTO found_id
-    FROM telefones
-    WHERE regexp_replace(telefone, '[^0-9]', '', 'g') = clean_phone
-    ORDER BY created_at DESC
-    LIMIT 1;
-    
-    RETURN found_id;
+  IF TG_OP = 'DELETE' THEN
+    PERFORM public.fn_autocalcular_orcamento_empreendimento(OLD.empreendimento_id);
+    RETURN OLD;
+  END IF;
+  
+  -- Se o produto mudar de valor ou status, ou for incluído num empreendimento
+  IF TG_OP = 'INSERT' OR (TG_OP = 'UPDATE' AND (NEW.valor_venda_calculado IS DISTINCT FROM OLD.valor_venda_calculado OR NEW.status IS DISTINCT FROM OLD.status OR NEW.empreendimento_id IS DISTINCT FROM OLD.empreendimento_id)) THEN
+    PERFORM public.fn_autocalcular_orcamento_empreendimento(NEW.empreendimento_id);
   END IF;
 
-  -- 🇧🇷 CAMINHO BRASILEIRO (Lógica flexível do 9º Dígito)
-  phone_suffix := right(clean_phone, 8);
-  phone_ddd := substring(clean_phone from 3 for 2);
-
-  SELECT contato_id INTO found_id
-  FROM telefones
-  WHERE 
-    (telefone LIKE '%' || phone_ddd || '%') 
-    AND
-    right(regexp_replace(telefone, '[^0-9]', '', 'g'), 8) = phone_suffix
-  ORDER BY created_at DESC
-  LIMIT 1;
-
-  RETURN found_id;
+  RETURN NEW;
 END;
 $function$
 ;
@@ -8147,97 +8023,6 @@ BEGIN
     FROM public.elementos_bim
     WHERE external_id = ANY(p_external_ids)
       AND projeto_bim_id = p_projeto_id;
-END;
-$function$
-;
-
-CREATE OR REPLACE FUNCTION public.auto_merge_contacts_and_relink(p_contact_ids uuid[], p_organizacao_id uuid)
- RETURNS void
- LANGUAGE plpgsql
- SECURITY DEFINER
-AS $function$
-DECLARE
-    winner_id uuid;
-    loser_id uuid;
-    id_iter uuid;
-BEGIN
-    -- 1. O Vencedor é o mais antigo (ou o primeiro da lista)
-    SELECT id INTO winner_id
-    FROM contatos
-    WHERE id = ANY(p_contact_ids)
-    ORDER BY created_at ASC
-    LIMIT 1;
-
-    -- Loop para processar cada duplicata
-    FOREACH id_iter IN ARRAY p_contact_ids LOOP
-        IF id_iter <> winner_id THEN
-            loser_id := id_iter;
-
-            -- =================================================================
-            -- 1. TABELA DE LISTAS (whatsapp_list_members)
-            -- Lógica: Apagar do perdedor as listas que o vencedor JÁ TEM.
-            --         Depois, substituir o ID nas que sobrarem.
-            -- =================================================================
-            BEGIN
-                -- Apaga intersecção (evita o erro unique_contato_na_lista)
-                DELETE FROM whatsapp_list_members
-                WHERE contato_id = loser_id
-                AND lista_id IN (
-                    SELECT lista_id FROM whatsapp_list_members WHERE contato_id = winner_id
-                );
-                
-                -- Substitui o ID nas restantes (UPDATE Simples)
-                UPDATE whatsapp_list_members 
-                SET contato_id = winner_id 
-                WHERE contato_id = loser_id;
-            EXCEPTION WHEN OTHERS THEN NULL; END;
-
-            -- =================================================================
-            -- 2. TABELA DE FUNIL (contatos_no_funil)
-            -- Lógica: Um contato só pode estar em UM lugar do funil.
-            -- =================================================================
-            IF EXISTS (SELECT 1 FROM contatos_no_funil WHERE contato_id = winner_id) THEN
-                -- Se o vencedor já está no funil, removemos o perdedor do funil
-                DELETE FROM contatos_no_funil WHERE contato_id = loser_id;
-            ELSE
-                -- Se o vencedor não está, ele herda a posição do perdedor
-                UPDATE contatos_no_funil SET contato_id = winner_id WHERE contato_id = loser_id;
-            END IF;
-
-            -- =================================================================
-            -- 3. TABELA DE TELEFONES
-            -- Lógica: Apaga telefones repetidos, move os novos.
-            -- =================================================================
-            DELETE FROM telefones
-            WHERE contato_id = loser_id
-            AND telefone IN (
-                SELECT telefone FROM telefones WHERE contato_id = winner_id
-            );
-            UPDATE telefones SET contato_id = winner_id WHERE contato_id = loser_id;
-
-            -- =================================================================
-            -- 4. ATUALIZAR TODO O RESTANTE (Substituição de ID Direta)
-            -- =================================================================
-            
-            -- WhatsApp
-            UPDATE whatsapp_conversations SET contato_id = winner_id WHERE contato_id = loser_id;
-            UPDATE whatsapp_messages SET contato_id = winner_id WHERE contato_id = loser_id;
-            BEGIN UPDATE whatsapp_attachments SET contato_id = winner_id WHERE contato_id = loser_id; EXCEPTION WHEN OTHERS THEN NULL; END;
-
-            -- Notas e E-mails
-            BEGIN UPDATE crm_notas SET contato_id = winner_id WHERE contato_id = loser_id; EXCEPTION WHEN OTHERS THEN NULL; END;
-            BEGIN UPDATE emails SET contato_id = winner_id WHERE contato_id = loser_id; EXCEPTION WHEN OTHERS THEN NULL; END;
-            
-            -- Outros vínculos possíveis (adicione se necessário)
-            -- UPDATE tarefas SET contato_id = winner_id WHERE contato_id = loser_id;
-
-            -- =================================================================
-            -- 5. EXCLUIR O CONTATO ANTIGO
-            -- =================================================================
-            DELETE FROM contatos WHERE id = loser_id;
-            
-        END IF;
-    END LOOP;
 END;
 $function$
 ;
@@ -9259,114 +9044,111 @@ END;
 $function$
 ;
 
-CREATE OR REPLACE FUNCTION public.unificar_materiais(old_material_id bigint, new_material_id bigint)
- RETURNS void
+CREATE OR REPLACE FUNCTION public.handle_pedido_entregue_estoque()
+ RETURNS trigger
  LANGUAGE plpgsql
 AS $function$
+DECLARE
+    item_pedido RECORD;
+    v_estoque_id bigint;
+    v_usuario_id uuid;
+    v_classificacao text;
 BEGIN
-  -- ===================================================
-  -- 1. TRATAMENTO DA TABELA ESTOQUE (A Parte Matemática)
-  -- ===================================================
+    IF NEW.status = 'Entregue' AND OLD.status IS DISTINCT FROM 'Entregue' THEN
+        BEGIN
+            v_usuario_id := auth.uid();
+        EXCEPTION WHEN OTHERS THEN
+            v_usuario_id := NULL;
+        END;
 
-  -- PASSO A: Atualizar o destino (novo) somando as quantidades da origem (velho)
-  -- Apenas quando JÁ EXISTE o destino naquele empreendimento
-  UPDATE public.estoque AS dest
-  SET 
-    -- Soma as quantidades
-    quantidade_atual = dest.quantidade_atual + src.quantidade_atual,
-    quantidade_em_uso = dest.quantidade_em_uso + src.quantidade_em_uso,
-    
-    -- Recalcula o Custo Médio Ponderado: ((QtdA * CustoA) + (QtdB * CustoB)) / (QtdTotal)
-    custo_medio = CASE 
-        WHEN (dest.quantidade_atual + src.quantidade_atual) > 0 THEN
-            ((dest.quantidade_atual * dest.custo_medio) + (src.quantidade_atual * src.custo_medio)) / (dest.quantidade_atual + src.quantidade_atual)
-        ELSE dest.custo_medio 
-    END,
-    
-    ultima_atualizacao = NOW()
-  FROM public.estoque AS src
-  WHERE dest.material_id = new_material_id
-    AND src.material_id = old_material_id
-    AND dest.empreendimento_id = src.empreendimento_id;
+        FOR item_pedido IN
+            SELECT *
+            FROM public.pedidos_compra_itens pci
+            WHERE pci.pedido_compra_id = NEW.id
+        LOOP
+            IF item_pedido.material_id IS NOT NULL AND item_pedido.quantidade_solicitada IS NOT NULL AND item_pedido.quantidade_solicitada > 0 THEN
+               
+                SELECT classificacao INTO v_classificacao
+                FROM public.materiais
+                WHERE id = item_pedido.material_id;
 
-  -- PASSO B: Apagar os registros antigos que acabaram de ser somados no passo acima
-  DELETE FROM public.estoque
-  WHERE material_id = old_material_id
-    AND empreendimento_id IN (
-        SELECT empreendimento_id 
-        FROM public.estoque 
-        WHERE material_id = new_material_id
-    );
+                IF v_classificacao = 'Serviço' THEN
+                    CONTINUE;
+                END IF;
 
-  -- PASSO C: O que sobrou (casos onde o material novo NÃO existia no empreendimento),
-  -- nós apenas renomeamos o ID. Agora não vai dar conflito de Unique Key.
-  UPDATE public.estoque
-  SET material_id = new_material_id
-  WHERE material_id = old_material_id;
+                INSERT INTO public.estoque (
+                    empreendimento_id, material_id, quantidade_atual, unidade_medida, organizacao_id, ultima_atualizacao
+                )
+                VALUES (
+                    NEW.empreendimento_id, item_pedido.material_id, item_pedido.quantidade_solicitada, item_pedido.unidade_medida, NEW.organizacao_id, now()
+                )
+                ON CONFLICT (empreendimento_id, material_id)
+                DO UPDATE SET
+                    quantidade_atual = public.estoque.quantidade_atual + EXCLUDED.quantidade_atual,
+                    ultima_atualizacao = now()
+                RETURNING id INTO v_estoque_id;
 
+                INSERT INTO public.movimentacoes_estoque (
+                    estoque_id, tipo, quantidade, pedido_compra_id, usuario_id, observacao, organizacao_id
+                )
+                VALUES (
+                    v_estoque_id, 'Entrada por Compra', item_pedido.quantidade_solicitada, NEW.id, v_usuario_id,
+                    'Entrada automática via Pedido #' || NEW.id || ' (' || item_pedido.descricao_item || ')', NEW.organizacao_id
+                );
+            END IF;
+        END LOOP;
+    END IF;
 
-  -- ===================================================
-  -- 2. TRATAMENTO DA TABELA ESTOQUE_OBRA (Mesma lógica)
-  -- ===================================================
-  
-  -- PASSO A: Soma onde já existe
-  UPDATE public.estoque_obra AS dest
-  SET 
-    quantidade = dest.quantidade + src.quantidade,
-    ultima_atualizacao = NOW()
-  FROM public.estoque_obra AS src
-  WHERE dest.material_id = new_material_id
-    AND src.material_id = old_material_id
-    AND dest.empreendimento_id = src.empreendimento_id;
-
-  -- PASSO B: Apaga os somados
-  DELETE FROM public.estoque_obra
-  WHERE material_id = old_material_id
-    AND empreendimento_id IN (
-        SELECT empreendimento_id 
-        FROM public.estoque_obra 
-        WHERE material_id = new_material_id
-    );
-
-  -- PASSO C: Renomeia o restante
-  UPDATE public.estoque_obra
-  SET material_id = new_material_id
-  WHERE material_id = old_material_id;
-
-
-  -- ===================================================
-  -- 3. ATUALIZAÇÃO DE REGISTROS SIMPLES (Links)
-  -- ===================================================
-
-  -- Orçamentos
-  UPDATE public.orcamento_itens
-  SET material_id = new_material_id
-  WHERE material_id = old_material_id;
-
-  -- Pedidos de Compra
-  UPDATE public.pedidos_compra_itens
-  SET material_id = new_material_id
-  WHERE material_id = old_material_id;
-
-  -- (Opcional) Movimentações de Estoque (Histórico)
-  -- Se houver link direto com material, atualizamos para manter histórico
-  IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'movimentacoes_estoque') THEN
-      -- Nota: Movimentações geralmente não têm restrição Unique, então update direto funciona
-      -- Mas aqui o certo seria atualizar o 'estoque_id', porém como estamos mexendo no material_id...
-      -- Vamos assumir que se houver coluna material_id lá, atualizamos.
-      NULL; -- (Deixei placeholder pois sua tabela de movimentação usa estoque_id, não material_id direto, então está seguro)
-  END IF;
-
-  -- ===================================================
-  -- 4. FAXINA FINAL
-  -- ===================================================
-  
-  -- Apagar o material antigo da tabela de cadastro
-  DELETE FROM public.materiais
-  WHERE id = old_material_id;
-
+    RETURN NEW;
 END;
 $function$
+;
+
+CREATE OR REPLACE FUNCTION public.dre_matriz_agrupada_obras_debug(p_organizacao_id bigint, p_filtros jsonb)
+ RETURNS text
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+AS $function$
+        DECLARE
+            v_query text;
+        BEGIN
+            v_query := 'SELECT l.categoria_id, 
+                               to_char(COALESCE(l.data_pagamento, l.data_vencimento), ''YYYY-MM'') as ano_mes,
+                               SUM(CASE WHEN l.tipo = ''Despesa'' THEN ABS(l.valor) WHEN l.tipo = ''Receita'' THEN ABS(l.valor) * -1 ELSE 0 END) as total
+                        FROM lancamentos l
+                        WHERE l.organizacao_id = ' || p_organizacao_id;
+
+            v_query := v_query || ' AND (l.status IN (''Pago'', ''Conciliado'') OR l.conciliado = true)';
+
+            IF (p_filtros->'empreendimentoIds') IS NOT NULL AND jsonb_array_length(p_filtros->'empreendimentoIds') > 0 THEN
+                v_query := v_query || ' AND l.empreendimento_id IN (SELECT jsonb_array_elements_text(''' || (p_filtros->'empreendimentoIds') || ''')::bigint)';
+            END IF;
+
+            IF (p_filtros->'categoriaIds') IS NOT NULL AND jsonb_array_length(p_filtros->'categoriaIds') > 0 THEN
+                v_query := v_query || ' AND l.categoria_id IN (SELECT jsonb_array_elements_text(''' || (p_filtros->'categoriaIds') || ''')::bigint)';
+            END IF;
+
+            IF (p_filtros->'etapaIds') IS NOT NULL AND jsonb_array_length(p_filtros->'etapaIds') > 0 THEN
+                v_query := v_query || ' AND l.etapa_id IN (SELECT jsonb_array_elements_text(''' || (p_filtros->'etapaIds') || ''')::bigint)';
+            END IF;
+
+            IF p_filtros->>'startDate' IS NOT NULL AND p_filtros->>'startDate' <> '' THEN
+                v_query := v_query || ' AND COALESCE(l.data_pagamento, l.data_vencimento) >= ''' || (p_filtros->>'startDate') || '''';
+            END IF;
+
+            IF p_filtros->>'endDate' IS NOT NULL AND p_filtros->>'endDate' <> '' THEN
+                v_query := v_query || ' AND COALESCE(l.data_pagamento, l.data_vencimento) <= ''' || (p_filtros->>'endDate') || '''';
+            END IF;
+
+            IF p_filtros->>'ignoreTransfers' = 'true' THEN
+                v_query := v_query || ' AND l.categoria_id NOT IN (SELECT id FROM categorias_financeiras WHERE nome ILIKE ''%transferência%'' OR nome ILIKE ''%estorno%'')';
+            END IF;
+
+            v_query := v_query || ' GROUP BY l.categoria_id, to_char(COALESCE(l.data_pagamento, l.data_vencimento), ''YYYY-MM'')';
+
+            RETURN v_query;
+        END;
+        $function$
 ;
 
 CREATE OR REPLACE FUNCTION public.get_financeiro_dashboard(p_organizacao_id bigint, p_data_inicio date, p_data_fim date)
@@ -10428,6 +10210,35 @@ END;
 $function$
 ;
 
+CREATE OR REPLACE FUNCTION public.trg_auto_orcamento_calc_vgv()
+ RETURNS trigger
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+AS $function$
+DECLARE
+  v_emp_id BIGINT;
+BEGIN
+  IF TG_TABLE_NAME = 'produtos_empreendimento' THEN
+      v_emp_id := OLD.empreendimento_id;
+      IF TG_OP != 'DELETE' THEN v_emp_id := NEW.empreendimento_id; END IF;
+  ELSIF TG_TABLE_NAME = 'contratos' THEN
+      v_emp_id := OLD.empreendimento_id;
+      IF TG_OP != 'DELETE' THEN v_emp_id := NEW.empreendimento_id; END IF;
+  ELSIF TG_TABLE_NAME = 'contrato_produtos' THEN
+      -- Puxa o emp id baseado no contrato
+      SELECT empreendimento_id INTO v_emp_id FROM public.contratos WHERE id = COALESCE(NEW.contrato_id, OLD.contrato_id);
+  END IF;
+
+  IF v_emp_id IS NOT NULL THEN
+    PERFORM public.fn_autocalcular_orcamento_empreendimento(v_emp_id);
+  END IF;
+
+  IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;
+  RETURN NEW;
+END;
+$function$
+;
+
 CREATE OR REPLACE FUNCTION public.realizar_estorno_movimentacao(p_movimentacao_id bigint, p_quantidade_estorno numeric, p_motivo text, p_usuario_id uuid)
  RETURNS void
  LANGUAGE plpgsql
@@ -10608,6 +10419,46 @@ AS $function$
                 RETURN 'ROTEADO:' || v_regra_nome;
             END;
             $function$
+;
+
+CREATE OR REPLACE FUNCTION public.get_user_allowed_notifications(p_user_id uuid, p_organizacao_id bigint)
+ RETURNS TABLE(id bigint, nome_regra text, tabela_alvo text, evento text, icone text, enviar_push boolean)
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+AS $function$
+DECLARE
+    v_cargo_id bigint;
+BEGIN
+    -- 1. Encontra o cargo_id do usuário logado através do Vínculo de Funcionário
+    SELECT f.cargo_id INTO v_cargo_id
+    FROM public.usuarios u
+    JOIN public.funcionarios f ON u.funcionario_id = f.id
+    WHERE u.id = p_user_id
+    AND u.is_active = true
+    LIMIT 1;
+
+    -- 2. Retorna a lista mestre (Templates) Cruzada com as Permissões (Settings)
+    RETURN QUERY
+    SELECT 
+        t.id,
+        t.nome_regra,
+        t.tabela_alvo,
+        t.evento,
+        t.icone,
+        s.enviar_push
+    FROM public.sys_notification_templates t
+    JOIN public.sys_org_notification_settings s 
+        ON t.id = s.template_id
+    WHERE s.organizacao_id = p_organizacao_id
+      AND s.is_active = true
+      -- A mágica do Array: Verifica se o cargo do cara está no Array de ids que o admin liberou.
+      -- Se a conta dele não tiver cargo, ele não vê nada. Se a flag for nula, assume false.
+      AND (
+        v_cargo_id IS NOT NULL 
+        AND v_cargo_id = ANY(s.funcoes_ids)
+      );
+END;
+$function$
 ;
 
 CREATE OR REPLACE FUNCTION public.get_user_conversations(p_user_id uuid, p_org_id bigint)
@@ -10821,203 +10672,6 @@ AS $function$
         $function$
 ;
 
-CREATE OR REPLACE FUNCTION public.processar_regras_notificacao()
- RETURNS trigger
- LANGUAGE plpgsql
- SECURITY DEFINER
-AS $function$
-DECLARE
-    r_regra RECORD;
-    r_user RECORD;
-    r_variavel RECORD;
-    r_condicao RECORD;
-    
-    v_titulo_final text;
-    v_mensagem_final text;
-    v_link_final text;
-    v_atendeu_todas boolean;
-    
-    v_json_dados jsonb;
-    v_valor_novo text;
-    v_valor_antigo text;
-    
-    v_nome_empreendimento text := '';
-    v_nome_contato text := '';
-    v_unidade text := '';
-    v_dono_id uuid;
-    
-    v_phone_clean text;
-    v_query_dinamica text;
-    v_valor_resolvido text;
-    v_valor_num_novo numeric;
-    v_valor_num_gatilho numeric;
-    
-BEGIN
-    v_json_dados := to_jsonb(NEW);
-
-    IF (TG_TABLE_NAME = 'whatsapp_messages') THEN
-        IF (NEW.contato_id IS NOT NULL) THEN
-            SELECT nome INTO v_nome_contato FROM public.contatos WHERE id = NEW.contato_id;
-        END IF;
-        IF (v_nome_contato IS NULL OR v_nome_contato = '') AND NEW.sender_id IS NOT NULL THEN
-            v_phone_clean := regexp_replace(NEW.sender_id, '\D', '', 'g');
-            SELECT c.nome INTO v_nome_contato
-            FROM public.contatos c
-            JOIN public.telefones t ON c.id = t.contato_id
-            WHERE t.telefone LIKE '%' || right(v_phone_clean, 8) LIMIT 1;
-        END IF;
-        v_nome_contato := COALESCE(v_nome_contato, NEW.nome_remetente, NEW.sender_id, 'Lead');
-    END IF;
-
-    IF (TG_TABLE_NAME = 'produtos_empreendimento') THEN
-        v_unidade := COALESCE(NEW.unidade, 'N/A');
-        IF (NEW.empreendimento_id IS NOT NULL) THEN
-            SELECT nome INTO v_nome_empreendimento FROM public.empreendimentos WHERE id = NEW.empreendimento_id;
-        END IF;
-    END IF;
-
-    v_nome_empreendimento := COALESCE(v_nome_empreendimento, '');
-    v_nome_contato := COALESCE(v_nome_contato, '');
-
-    FOR r_regra IN 
-        SELECT 
-            t.id, t.regras_avancadas, t.coluna_monitorada, t.valor_gatilho, 
-            t.titulo_template, t.mensagem_template, t.link_template, t.icone, t.enviar_para_dono,
-            s.funcoes_ids, s.enviar_push
-        FROM public.sys_notification_templates t
-        JOIN public.sys_org_notification_settings s ON s.template_id = t.id
-        WHERE t.tabela_alvo = TG_TABLE_NAME 
-          AND t.evento = TG_OP 
-          AND s.is_active = true 
-          AND s.organizacao_id = NEW.organizacao_id
-    LOOP
-        BEGIN 
-            v_atendeu_todas := true;
-
-            IF r_regra.regras_avancadas IS NOT NULL AND jsonb_array_length(r_regra.regras_avancadas) > 0 THEN
-                FOR r_condicao IN SELECT * FROM jsonb_to_recordset(r_regra.regras_avancadas) AS x(campo text, operador text, valor text) LOOP
-                    v_valor_novo := v_json_dados->>r_condicao.campo;
-                    CASE r_condicao.operador
-                        WHEN 'igual' THEN 
-                            IF v_valor_novo IS DISTINCT FROM r_condicao.valor THEN v_atendeu_todas := false; END IF;
-                        WHEN 'diferente' THEN 
-                            IF v_valor_novo IS NOT DISTINCT FROM r_condicao.valor THEN v_atendeu_todas := false; END IF;
-                        WHEN 'contem' THEN 
-                            IF v_valor_novo NOT ILIKE '%' || r_condicao.valor || '%' THEN v_atendeu_todas := false; END IF;
-                        WHEN 'nao_contem' THEN 
-                            IF v_valor_novo ILIKE '%' || r_condicao.valor || '%' THEN v_atendeu_todas := false; END IF;
-                        WHEN 'vazio' THEN 
-                            IF v_valor_novo IS NOT NULL AND v_valor_novo <> '' THEN v_atendeu_todas := false; END IF;
-                        WHEN 'nao_vazio' THEN 
-                            IF v_valor_novo IS NULL OR v_valor_novo = '' THEN v_atendeu_todas := false; END IF;
-                        WHEN 'maior' THEN
-                            BEGIN
-                                v_valor_num_novo := v_valor_novo::numeric;
-                                v_valor_num_gatilho := r_condicao.valor::numeric;
-                                IF NOT (v_valor_num_novo > v_valor_num_gatilho) THEN v_atendeu_todas := false; END IF;
-                            EXCEPTION WHEN OTHERS THEN v_atendeu_todas := false; END;
-                        WHEN 'menor' THEN
-                            BEGIN
-                                v_valor_num_novo := v_valor_novo::numeric;
-                                v_valor_num_gatilho := r_condicao.valor::numeric;
-                                IF NOT (v_valor_num_novo < v_valor_num_gatilho) THEN v_atendeu_todas := false; END IF;
-                            EXCEPTION WHEN OTHERS THEN v_atendeu_todas := false; END;
-                        WHEN 'mudou' THEN
-                            IF TG_OP = 'UPDATE' THEN
-                                v_valor_antigo := to_jsonb(OLD)->>r_condicao.campo;
-                                IF v_valor_antigo IS NOT DISTINCT FROM v_valor_novo THEN v_atendeu_todas := false; END IF;
-                            END IF;
-                    END CASE;
-                    IF v_atendeu_todas = false THEN EXIT; END IF;
-                END LOOP;
-            ELSIF r_regra.coluna_monitorada IS NOT NULL AND r_regra.coluna_monitorada <> '' THEN
-                 v_valor_novo := v_json_dados->>r_regra.coluna_monitorada;
-                 IF v_valor_novo IS DISTINCT FROM r_regra.valor_gatilho THEN
-                    v_atendeu_todas := false;
-                 END IF;
-                 IF TG_OP = 'UPDATE' AND v_atendeu_todas = true THEN
-                    v_valor_antigo := to_jsonb(OLD)->>r_regra.coluna_monitorada;
-                    IF v_valor_antigo IS NOT DISTINCT FROM v_valor_novo THEN
-                        v_atendeu_todas := false;
-                    END IF;
-                 END IF;
-            END IF;
-
-            IF v_atendeu_todas = false THEN 
-                CONTINUE; 
-            END IF;
-
-            v_titulo_final := r_regra.titulo_template;
-            v_mensagem_final := r_regra.mensagem_template;
-            v_link_final := r_regra.link_template;
-
-            v_titulo_final := replace(v_titulo_final, '{nome_contato}', v_nome_contato);
-            v_mensagem_final := replace(v_mensagem_final, '{nome_contato}', v_nome_contato);
-            v_link_final := replace(v_link_final, '{nome_contato}', v_nome_contato);
-            
-            v_titulo_final := replace(v_titulo_final, '{nome_empreendimento}', v_nome_empreendimento);
-            v_mensagem_final := replace(v_mensagem_final, '{nome_empreendimento}', v_nome_empreendimento);
-            v_link_final := replace(v_link_final, '{nome_empreendimento}', v_nome_empreendimento);
-            
-            v_titulo_final := replace(v_titulo_final, '{unidade}', v_unidade);
-            v_mensagem_final := replace(v_mensagem_final, '{unidade}', v_unidade);
-            v_link_final := replace(v_link_final, '{unidade}', v_unidade);
-
-            DECLARE key text; val text; BEGIN
-                FOR key, val IN SELECT * FROM jsonb_each_text(v_json_dados) LOOP
-                    v_titulo_final := replace(v_titulo_final, '{' || key || '}', COALESCE(val, ''));
-                    v_mensagem_final := replace(v_mensagem_final, '{' || key || '}', COALESCE(val, ''));
-                    v_link_final := replace(v_link_final, '{' || key || '}', COALESCE(val, ''));
-                END LOOP;
-            END;
-
-            FOR r_variavel IN SELECT * FROM public.variaveis_virtuais WHERE tabela_gatilho = TG_TABLE_NAME LOOP
-                IF (v_titulo_final LIKE '%{' || r_variavel.nome_variavel || '}%') 
-                OR (v_mensagem_final LIKE '%{' || r_variavel.nome_variavel || '}%')
-                OR (v_link_final LIKE '%{' || r_variavel.nome_variavel || '}%') THEN
-                    v_valor_novo := v_json_dados->>r_variavel.coluna_origem;
-                    IF v_valor_novo IS NOT NULL AND v_valor_novo <> '' THEN
-                        v_query_dinamica := format('SELECT %I::text FROM public.%I WHERE %I = %L LIMIT 1', r_variavel.coluna_retorno, r_variavel.tabela_destino, r_variavel.coluna_chave_destino, v_valor_novo);
-                        BEGIN EXECUTE v_query_dinamica INTO v_valor_resolvido; EXCEPTION WHEN OTHERS THEN v_valor_resolvido := NULL; END;
-                        
-                        v_titulo_final := replace(v_titulo_final, '{' || r_variavel.nome_variavel || '}', COALESCE(v_valor_resolvido, '...'));
-                        v_mensagem_final := replace(v_mensagem_final, '{' || r_variavel.nome_variavel || '}', COALESCE(v_valor_resolvido, '...'));
-                        v_link_final := replace(v_link_final, '{' || r_variavel.nome_variavel || '}', COALESCE(v_valor_resolvido, '...'));
-                    END IF;
-                END IF;
-            END LOOP;
-
-            IF r_regra.funcoes_ids IS NOT NULL AND array_length(r_regra.funcoes_ids, 1) > 0 THEN
-                FOR r_user IN SELECT id FROM public.usuarios WHERE funcao_id::text = ANY(r_regra.funcoes_ids::text[]) AND organizacao_id = NEW.organizacao_id LOOP
-                    INSERT INTO public.notificacoes (user_id, organizacao_id, titulo, mensagem, link, lida, tipo, enviar_push, icone, created_at)
-                    VALUES (r_user.id, NEW.organizacao_id, v_titulo_final, v_mensagem_final, v_link_final, false, 'sistema', r_regra.enviar_push, r_regra.icone, now())
-                    ON CONFLICT DO NOTHING;
-                END LOOP;
-            END IF;
-
-            IF r_regra.enviar_para_dono = true THEN
-                v_dono_id := NULL;
-                IF v_json_dados ? 'criado_por_usuario_id' THEN v_dono_id := (v_json_dados->>'criado_por_usuario_id')::uuid;
-                ELSIF v_json_dados ? 'user_id' THEN v_dono_id := (v_json_dados->>'user_id')::uuid;
-                ELSIF v_json_dados ? 'corretor_id' THEN v_dono_id := (v_json_dados->>'corretor_id')::uuid;
-                END IF;
-
-                IF v_dono_id IS NOT NULL AND EXISTS(SELECT 1 FROM public.usuarios WHERE id = v_dono_id) THEN
-                    INSERT INTO public.notificacoes (user_id, organizacao_id, titulo, mensagem, link, lida, tipo, enviar_push, icone, created_at)
-                    VALUES (v_dono_id, NEW.organizacao_id, v_titulo_final, v_mensagem_final, v_link_final, false, 'sistema', r_regra.enviar_push, r_regra.icone, now());
-                END IF;
-            END IF;
-
-        EXCEPTION WHEN OTHERS THEN
-            RAISE WARNING 'Erro ao processar regra %: %', r_regra.id, SQLERRM;
-        END;
-    END LOOP;
-
-    RETURN NEW;
-END;
-$function$
-;
-
 CREATE OR REPLACE FUNCTION public.duplicar_contrato_e_detalhes(p_contrato_id bigint)
  RETURNS json
  LANGUAGE plpgsql
@@ -11117,104 +10771,29 @@ END;
 $function$
 ;
 
-CREATE OR REPLACE FUNCTION public.fn_vincular_lancamento_fatura()
- RETURNS trigger
+CREATE OR REPLACE FUNCTION public.increment_whatsapp_unreads(v_conversation_id bigint, v_org_id bigint)
+ RETURNS void
  LANGUAGE plpgsql
+ SECURITY DEFINER
 AS $function$
 DECLARE
-    v_conta_id bigint;
-    v_tipo_conta text;
-    v_dia_fechamento integer;
-    v_dia_pagamento integer;
-    v_mes_referencia text;
-    v_data_vencimento date;
-    v_fatura_id bigint;
-    v_data_base date;
+    user_record RECORD;
+    v_current_json jsonb;
+    v_current_count int;
 BEGIN
-    -- PROTEÇÃO PRINCIPAL (ANCORAGEM)
-    -- Se for um UPDATE onde as datas e contas cruciais não mudaram, não recalcula a fatura!
-    -- Isso evita que ao clicar em "Processar/Conciliar", os parcelamentos retroativos fujam da fatura correta.
-    IF TG_OP = 'UPDATE' THEN
-        IF NEW.data_transacao = OLD.data_transacao 
-           AND NEW.data_vencimento = OLD.data_vencimento 
-           AND NEW.conta_id IS NOT DISTINCT FROM OLD.conta_id 
-           AND NEW.tipo = OLD.tipo THEN
-            RETURN NEW;
-        END IF;
+    SELECT user_unread_counts INTO v_current_json FROM public.whatsapp_conversations WHERE id = v_conversation_id FOR UPDATE;
+
+    IF v_current_json IS NULL THEN
+        v_current_json := '{}'::jsonb;
     END IF;
 
-    -- Determinar a conta, usando conta_id (a tabela de lançamentos possui conta_id e não origem_id)
-    IF NEW.tipo IN ('Despesa', 'Receita') THEN
-        v_conta_id := NEW.conta_id;
+    FOR user_record IN SELECT id FROM public.usuarios WHERE organizacao_id = v_org_id AND is_active = true
+    LOOP
+        v_current_count := COALESCE((v_current_json->>(user_record.id::text))::int, 0);
+        v_current_json := jsonb_set(v_current_json, ARRAY[user_record.id::text], to_jsonb(v_current_count + 1));
+    END LOOP;
 
-        IF v_conta_id IS NOT NULL THEN
-            -- Buscar informações da conta
-            SELECT tipo, dia_fechamento_fatura, dia_pagamento_fatura 
-            INTO v_tipo_conta, v_dia_fechamento, v_dia_pagamento
-            FROM public.contas_financeiras 
-            WHERE id = v_conta_id;
-
-            IF v_tipo_conta = 'Cartão de Crédito' THEN
-                
-                -- Se não houver dia fechamento ou pagamento configurado, ignorar
-                IF v_dia_fechamento IS NULL OR v_dia_pagamento IS NULL THEN
-                    RETURN NEW;
-                END IF;
-
-                -- CONFIANÇA NO PARCELAMENTO / FRONTEND:
-                -- Se a data de vencimento foi preenchida pelo sistema COM base no dia do cartão,
-                -- devemos respeitar! Isso arruma o bug dos 12 parcelamentos caindo no mesmo mês.
-                IF NEW.data_vencimento IS NOT NULL AND EXTRACT(DAY FROM NEW.data_vencimento) = v_dia_pagamento THEN
-                    v_data_vencimento := NEW.data_vencimento;
-                    
-                    -- Define o mes_referencia baseado naprópria data_vencimento (ancorada)
-                    IF v_dia_pagamento <= v_dia_fechamento THEN
-                        v_mes_referencia := to_char(v_data_vencimento - INTERVAL '1 month', 'YYYY-MM');
-                    ELSE
-                        v_mes_referencia := to_char(v_data_vencimento, 'YYYY-MM');
-                    END IF;
-                ELSE
-                    -- Fallback: Recalcula tudo a partir da data de transação (compra) caso os dados do frontend sejam insuficientes.
-                    v_data_base := NEW.data_transacao;
-
-                    IF EXTRACT(DAY FROM v_data_base) >= v_dia_fechamento THEN
-                        v_data_base := v_data_base + INTERVAL '1 month';
-                    END IF;
-
-                    v_mes_referencia := to_char(v_data_base, 'YYYY-MM');
-
-                    IF v_dia_pagamento <= v_dia_fechamento THEN
-                       v_data_vencimento := (to_char(v_data_base + INTERVAL '1 month', 'YYYY-MM-') || LPAD(v_dia_pagamento::text, 2, '0'))::date;
-                    ELSE
-                       v_data_vencimento := (v_mes_referencia || '-' || LPAD(v_dia_pagamento::text, 2, '0'))::date;
-                    END IF;
-                    
-                    NEW.data_vencimento := v_data_vencimento;
-                END IF;
-
-                -- BUSCAR OU CRIAR A FATURA no banco
-                SELECT id INTO v_fatura_id 
-                FROM public.faturas_cartao 
-                WHERE conta_id = v_conta_id AND mes_referencia = v_mes_referencia;
-
-                IF v_fatura_id IS NULL THEN
-                    -- Se não existe, cria a fatura nova do cartão
-                    INSERT INTO public.faturas_cartao (conta_id, mes_referencia, data_vencimento, organizacao_id)
-                    VALUES (v_conta_id, v_mes_referencia, v_data_vencimento, NEW.organizacao_id)
-                    RETURNING id INTO v_fatura_id;
-                END IF;
-
-                -- Amarrar o lançamento à fatura correta
-                NEW.fatura_id := v_fatura_id;
-            ELSE
-                -- Se não é cartão de crédito, garantir que fatura_id seja nulo
-                NEW.fatura_id := NULL;
-            END IF;
-        END IF;
-
-    END IF;
-
-    RETURN NEW;
+    UPDATE public.whatsapp_conversations SET user_unread_counts = v_current_json WHERE id = v_conversation_id;
 END;
 $function$
 ;
@@ -11423,6 +11002,1578 @@ END;
 $function$
 ;
 
+CREATE OR REPLACE FUNCTION public.fn_vincular_lancamento_fatura()
+ RETURNS trigger
+ LANGUAGE plpgsql
+AS $function$
+DECLARE
+    v_conta_id bigint;
+    v_tipo_conta text;
+    v_dia_fechamento integer;
+    v_dia_pagamento integer;
+    v_mes_referencia text;
+    v_data_vencimento date;
+    v_fatura_id bigint;
+    v_mes_fechamento date;
+BEGIN
+    -- Se o lançamento já vier do Frontend com a fatura correta injetada, respeitar
+    IF NEW.fatura_id IS NOT NULL THEN
+        RETURN NEW;
+    END IF;
+
+    -- Determinar se o Lançamento pertence a um Cartão de Crédito
+    IF NEW.tipo IN ('Despesa', 'Receita') THEN
+        v_conta_id := NEW.conta_id;
+
+        IF v_conta_id IS NOT NULL THEN
+            -- Buscar informações da conta (se é Cartão de Crédito e dias)
+            SELECT tipo, dia_fechamento_fatura, dia_pagamento_fatura 
+            INTO v_tipo_conta, v_dia_fechamento, v_dia_pagamento
+            FROM public.contas_financeiras 
+            WHERE id = v_conta_id;
+
+            IF v_tipo_conta = 'Cartão de Crédito' THEN
+                
+                -- Se não houver dia fechamento ou pagamento configurado, ignorar (sair)
+                IF v_dia_fechamento IS NULL OR v_dia_pagamento IS NULL THEN
+                    RETURN NEW;
+                END IF;
+
+                -- REGRA MATEMÁTICA DEFINITIVA DE CICLOS:
+                -- Se a transação no calendário do mês corrente for DEPOIS ou igual ao fechamento (Ex: comprando 28 num cartão que fecha 27),
+                -- ou se for até o próprio dia de fechamento. 
+                -- ATENÇÃO, a convenção contábil usa: Data da Compra <= Fechamento -> Fatura do próprio Ciclo.
+                IF EXTRACT(DAY FROM NEW.data_transacao) <= v_dia_fechamento THEN
+                    v_mes_fechamento := date_trunc('month', NEW.data_transacao);
+                ELSE
+                    v_mes_fechamento := date_trunc('month', NEW.data_transacao) + INTERVAL '1 month';
+                END IF;
+
+                -- CALCULAR O VENCIMENTO DESTA FATURA
+                -- Se o dia do pagamento (ex: 7) é matematicamente MENOR ou igual ao fechamento (ex: 28),
+                -- significa que a Fatura que fechou num mês vence APENAS no mês seguinte.
+                IF v_dia_pagamento <= v_dia_fechamento THEN
+                    v_data_vencimento := (to_char(v_mes_fechamento + INTERVAL '1 month', 'YYYY-MM-') || LPAD(v_dia_pagamento::text, 2, '0'))::date;
+                ELSE
+                    v_data_vencimento := (to_char(v_mes_fechamento, 'YYYY-MM-') || LPAD(v_dia_pagamento::text, 2, '0'))::date;
+                END IF;
+
+                -- NO STUDIO 57, O MÊS REFERÊNCIA É SEMPRE IGUAL AO MÊS DO VENCIMENTO!
+                v_mes_referencia := to_char(v_data_vencimento, 'YYYY-MM');
+
+                -- Override de data_vencimento do próprio lançamento
+                NEW.data_vencimento := v_data_vencimento;
+
+                -- BUSCAR OU CRIAR A FATURA LÓGICA CORRETA
+                SELECT id INTO v_fatura_id 
+                FROM public.faturas_cartao 
+                WHERE conta_id = v_conta_id AND mes_referencia = v_mes_referencia;
+
+                IF v_fatura_id IS NULL THEN
+                    INSERT INTO public.faturas_cartao (conta_id, mes_referencia, data_vencimento, organizacao_id)
+                    VALUES (v_conta_id, v_mes_referencia, v_data_vencimento, NEW.organizacao_id)
+                    RETURNING id INTO v_fatura_id;
+                END IF;
+
+                -- Amarrar o lançamento à fatura correta
+                NEW.fatura_id := v_fatura_id;
+            ELSE
+                -- Se não é cartão de crédito, garantir que fatura_id seja nulo (caso o usuário troque de conta)
+                NEW.fatura_id := NULL;
+            END IF;
+        END IF;
+
+    END IF;
+
+    RETURN NEW;
+END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.reset_whatsapp_unreads(v_conversation_id bigint, v_user_id uuid)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+AS $function$
+DECLARE
+    v_current_json jsonb;
+BEGIN
+    SELECT user_unread_counts INTO v_current_json FROM public.whatsapp_conversations WHERE id = v_conversation_id FOR UPDATE;
+
+    IF v_current_json IS NULL THEN
+        v_current_json := '{}'::jsonb;
+    END IF;
+
+    v_current_json := jsonb_set(v_current_json, ARRAY[v_user_id::text], '0'::jsonb);
+
+    UPDATE public.whatsapp_conversations SET user_unread_counts = v_current_json WHERE id = v_conversation_id;
+END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.processar_regras_notificacao()
+ RETURNS trigger
+ LANGUAGE plpgsql
+AS $function$
+DECLARE
+    r_regra RECORD;
+    r_user RECORD;
+    r_variavel RECORD;
+    r_condicao RECORD;
+    
+    v_titulo_final text;
+    v_mensagem_final text;
+    v_link_final text;
+    v_atendeu_todas boolean;
+    
+    v_json_dados jsonb;
+    v_valor_novo text;
+    v_valor_antigo text;
+    
+    v_nome_empreendimento text := '';
+    v_nome_contato text := '';
+    v_unidade text := '';
+    v_dono_id uuid;
+    
+    v_phone_clean text;
+    v_query_dinamica text;
+    v_valor_resolvido text;
+    v_valor_num_novo numeric;
+    v_valor_num_gatilho numeric;
+
+    v_usuarios_notificados uuid[];
+    
+BEGIN
+    v_json_dados := to_jsonb(NEW);
+
+    IF (TG_TABLE_NAME = 'whatsapp_messages') THEN
+        IF (NEW.contato_id IS NOT NULL) THEN
+            SELECT nome INTO v_nome_contato FROM public.contatos WHERE id = NEW.contato_id;
+        END IF;
+        IF (v_nome_contato IS NULL OR v_nome_contato = '') AND NEW.sender_id IS NOT NULL THEN
+            v_phone_clean := regexp_replace(NEW.sender_id, '\D', '', 'g');
+            SELECT c.nome INTO v_nome_contato
+            FROM public.contatos c
+            JOIN public.telefones t ON c.id = t.contato_id
+            WHERE t.telefone LIKE '%' || right(v_phone_clean, 8) LIMIT 1;
+        END IF;
+        v_nome_contato := COALESCE(v_nome_contato, NEW.nome_remetente, NEW.sender_id, 'Lead');
+    END IF;
+
+    IF (TG_TABLE_NAME = 'produtos_empreendimento') THEN
+        v_unidade := COALESCE(NEW.unidade, 'N/A');
+        IF (NEW.empreendimento_id IS NOT NULL) THEN
+            SELECT nome INTO v_nome_empreendimento FROM public.empreendimentos WHERE id = NEW.empreendimento_id;
+        END IF;
+    END IF;
+
+    v_nome_empreendimento := COALESCE(v_nome_empreendimento, '');
+    v_nome_contato := COALESCE(v_nome_contato, '');
+
+    FOR r_regra IN 
+        SELECT 
+            t.id, t.regras_avancadas, t.coluna_monitorada, t.valor_gatilho, 
+            t.titulo_template, t.mensagem_template, t.link_template, t.icone, t.enviar_para_dono,
+            s.funcoes_ids, s.enviar_push
+        FROM public.sys_notification_templates t
+        JOIN public.sys_org_notification_settings s ON s.template_id = t.id
+        WHERE t.tabela_alvo = TG_TABLE_NAME 
+          AND t.evento = TG_OP 
+          AND s.is_active = true 
+          AND s.organizacao_id = NEW.organizacao_id
+    LOOP
+        BEGIN 
+            v_atendeu_todas := true;
+
+            IF r_regra.regras_avancadas IS NOT NULL AND jsonb_array_length(r_regra.regras_avancadas) > 0 THEN
+                FOR r_condicao IN SELECT * FROM jsonb_to_recordset(r_regra.regras_avancadas) AS x(campo text, operador text, valor text) LOOP
+                    v_valor_novo := v_json_dados->>r_condicao.campo;
+                    CASE r_condicao.operador
+                        WHEN 'igual' THEN 
+                            IF v_valor_novo IS DISTINCT FROM r_condicao.valor THEN v_atendeu_todas := false; END IF;
+                        WHEN 'diferente' THEN 
+                            IF v_valor_novo IS NOT DISTINCT FROM r_condicao.valor THEN v_atendeu_todas := false; END IF;
+                        WHEN 'contem' THEN 
+                            IF v_valor_novo NOT ILIKE '%' || r_condicao.valor || '%' THEN v_atendeu_todas := false; END IF;
+                        WHEN 'nao_contem' THEN 
+                            IF v_valor_novo ILIKE '%' || r_condicao.valor || '%' THEN v_atendeu_todas := false; END IF;
+                        WHEN 'vazio' THEN 
+                            IF v_valor_novo IS NOT NULL AND v_valor_novo <> '' THEN v_atendeu_todas := false; END IF;
+                        WHEN 'nao_vazio' THEN 
+                            IF v_valor_novo IS NULL OR v_valor_novo = '' THEN v_atendeu_todas := false; END IF;
+                        WHEN 'maior' THEN
+                            BEGIN
+                                v_valor_num_novo := v_valor_novo::numeric;
+                                v_valor_num_gatilho := r_condicao.valor::numeric;
+                                IF NOT (v_valor_num_novo > v_valor_num_gatilho) THEN v_atendeu_todas := false; END IF;
+                            EXCEPTION WHEN OTHERS THEN v_atendeu_todas := false; END;
+                        WHEN 'menor' THEN
+                            BEGIN
+                                v_valor_num_novo := v_valor_novo::numeric;
+                                v_valor_num_gatilho := r_condicao.valor::numeric;
+                                IF NOT (v_valor_num_novo < v_valor_num_gatilho) THEN v_atendeu_todas := false; END IF;
+                            EXCEPTION WHEN OTHERS THEN v_atendeu_todas := false; END;
+                        WHEN 'mudou' THEN
+                            IF TG_OP = 'UPDATE' THEN
+                                v_valor_antigo := to_jsonb(OLD)->>r_condicao.campo;
+                                IF v_valor_antigo IS NOT DISTINCT FROM v_valor_novo THEN v_atendeu_todas := false; END IF;
+                            END IF;
+                    END CASE;
+                    IF v_atendeu_todas = false THEN EXIT; END IF;
+                END LOOP;
+            ELSIF r_regra.coluna_monitorada IS NOT NULL AND r_regra.coluna_monitorada <> '' THEN
+                 v_valor_novo := v_json_dados->>r_regra.coluna_monitorada;
+                 IF v_valor_novo IS DISTINCT FROM r_regra.valor_gatilho THEN
+                    v_atendeu_todas := false;
+                 END IF;
+                 IF TG_OP = 'UPDATE' AND v_atendeu_todas = true THEN
+                    v_valor_antigo := to_jsonb(OLD)->>r_regra.coluna_monitorada;
+                    IF v_valor_antigo IS NOT DISTINCT FROM v_valor_novo THEN
+                        v_atendeu_todas := false;
+                    END IF;
+                 END IF;
+            END IF;
+
+            IF v_atendeu_todas = false THEN 
+                CONTINUE; 
+            END IF;
+
+            v_titulo_final := r_regra.titulo_template;
+            v_mensagem_final := r_regra.mensagem_template;
+            v_link_final := r_regra.link_template;
+
+            v_titulo_final := replace(v_titulo_final, '{nome_contato}', v_nome_contato);
+            v_mensagem_final := replace(v_mensagem_final, '{nome_contato}', v_nome_contato);
+            v_link_final := replace(v_link_final, '{nome_contato}', v_nome_contato);
+            
+            v_titulo_final := replace(v_titulo_final, '{nome_empreendimento}', v_nome_empreendimento);
+            v_mensagem_final := replace(v_mensagem_final, '{nome_empreendimento}', v_nome_empreendimento);
+            v_link_final := replace(v_link_final, '{nome_empreendimento}', v_nome_empreendimento);
+            
+            v_titulo_final := replace(v_titulo_final, '{unidade}', v_unidade);
+            v_mensagem_final := replace(v_mensagem_final, '{unidade}', v_unidade);
+            v_link_final := replace(v_link_final, '{unidade}', v_unidade);
+
+            DECLARE key text; val text; BEGIN
+                FOR key, val IN SELECT * FROM jsonb_each_text(v_json_dados) LOOP
+                    v_titulo_final := replace(v_titulo_final, '{' || key || '}', COALESCE(val, ''));
+                    v_mensagem_final := replace(v_mensagem_final, '{' || key || '}', COALESCE(val, ''));
+                    v_link_final := replace(v_link_final, '{' || key || '}', COALESCE(val, ''));
+                END LOOP;
+            END;
+
+            FOR r_variavel IN SELECT * FROM public.variaveis_virtuais WHERE tabela_gatilho = TG_TABLE_NAME LOOP
+                IF (v_titulo_final LIKE '%{' || r_variavel.nome_variavel || '}%') 
+                OR (v_mensagem_final LIKE '%{' || r_variavel.nome_variavel || '}%')
+                OR (v_link_final LIKE '%{' || r_variavel.nome_variavel || '}%') THEN
+                    v_valor_novo := v_json_dados->>r_variavel.coluna_origem;
+                    IF v_valor_novo IS NOT NULL AND v_valor_novo <> '' THEN
+                        v_query_dinamica := format('SELECT %I::text FROM public.%I WHERE %I = %L LIMIT 1', r_variavel.coluna_retorno, r_variavel.tabela_destino, r_variavel.coluna_chave_destino, v_valor_novo);
+                        BEGIN EXECUTE v_query_dinamica INTO v_valor_resolvido; EXCEPTION WHEN OTHERS THEN v_valor_resolvido := NULL; END;
+                        
+                        v_titulo_final := replace(v_titulo_final, '{' || r_variavel.nome_variavel || '}', COALESCE(v_valor_resolvido, '...'));
+                        v_mensagem_final := replace(v_mensagem_final, '{' || r_variavel.nome_variavel || '}', COALESCE(v_valor_resolvido, '...'));
+                        v_link_final := replace(v_link_final, '{' || r_variavel.nome_variavel || '}', COALESCE(v_valor_resolvido, '...'));
+                    END IF;
+                END IF;
+            END LOOP;
+
+            -- PROTEÇÃO: Reinicia a array de controle de envios para esta regra
+            v_usuarios_notificados := ARRAY[]::uuid[];
+
+            v_dono_id := NULL;
+            IF r_regra.enviar_para_dono = true THEN
+                -- LOGICA CORRIGIDA PARA ENCONTRAR O DONO
+                IF TG_TABLE_NAME = 'whatsapp_messages' THEN
+                    DECLARE
+                        v_target_contato_id bigint;
+                        v_corr_id bigint;
+                    BEGIN
+                        v_target_contato_id := (v_json_dados->>'contato_id')::bigint;
+                        IF v_target_contato_id IS NOT NULL THEN
+                            SELECT corretor_id INTO v_corr_id
+                            FROM public.contatos_no_funil
+                            WHERE contato_id = v_target_contato_id
+                            ORDER BY updated_at DESC
+                            LIMIT 1;
+                            
+                            IF v_corr_id IS NOT NULL THEN
+                                SELECT id INTO v_dono_id FROM public.usuarios WHERE contato_id = v_corr_id LIMIT 1;
+                            END IF;
+                            -- REMOVIDO: Fallback para criado_por_usuario_id conforme pedido do usuario
+                            -- para que os que nao tem corretor caiam no ELSE (comercial inteiro)
+                        END IF;
+                    EXCEPTION WHEN OTHERS THEN
+                        v_dono_id := NULL;
+                    END;
+                ELSE
+                    -- Para outras tabelas, tenta buscar campos genericos
+                    IF v_json_dados ? 'criado_por_usuario_id' THEN v_dono_id := (v_json_dados->>'criado_por_usuario_id')::uuid;
+                    ELSIF v_json_dados ? 'user_id' THEN v_dono_id := (v_json_dados->>'user_id')::uuid;
+                    ELSIF v_json_dados ? 'corretor_id' THEN 
+                        BEGIN
+                            SELECT id INTO v_dono_id FROM public.usuarios WHERE contato_id = (v_json_dados->>'corretor_id')::bigint LIMIT 1;
+                        EXCEPTION WHEN OTHERS THEN
+                            v_dono_id := NULL;
+                        END;
+                    END IF;
+                END IF;
+
+                -- Se achou o dono, envia so pra ele
+                IF v_dono_id IS NOT NULL 
+                   AND EXISTS(SELECT 1 FROM public.usuarios WHERE id = v_dono_id) 
+                   AND NOT (v_dono_id = ANY(v_usuarios_notificados)) THEN
+                   
+                    INSERT INTO public.notificacoes (user_id, organizacao_id, titulo, mensagem, link, lida, tipo, enviar_push, icone, created_at)
+                    VALUES (v_dono_id, NEW.organizacao_id, v_titulo_final, v_mensagem_final, v_link_final, false, 'sistema', r_regra.enviar_push, r_regra.icone, now());
+                    
+                    v_usuarios_notificados := array_append(v_usuarios_notificados, v_dono_id);
+                END IF;
+            END IF;
+
+            -- Se NENHUM dono foi encontrado (v_dono_id é nulo) OU se enviar_para_dono = false,
+            -- Faz o Fallback para as funções (Comercial, etc) - MAS SO SE O DONO AINDA NAO FOI NOTIFICADO (ou seja, fallback total)
+            IF (v_dono_id IS NULL OR r_regra.enviar_para_dono = false) THEN
+                IF r_regra.funcoes_ids IS NOT NULL AND array_length(r_regra.funcoes_ids, 1) > 0 THEN
+                    FOR r_user IN SELECT id FROM public.usuarios WHERE funcao_id::text = ANY(r_regra.funcoes_ids::text[]) AND organizacao_id = NEW.organizacao_id LOOP
+                        IF NOT (r_user.id = ANY(v_usuarios_notificados)) THEN
+                            INSERT INTO public.notificacoes (user_id, organizacao_id, titulo, mensagem, link, lida, tipo, enviar_push, icone, created_at)
+                            VALUES (r_user.id, NEW.organizacao_id, v_titulo_final, v_mensagem_final, v_link_final, false, 'sistema', r_regra.enviar_push, r_regra.icone, now())
+                            ON CONFLICT DO NOTHING;
+                            
+                            v_usuarios_notificados := array_append(v_usuarios_notificados, r_user.id);
+                        END IF;
+                    END LOOP;
+                END IF;
+            END IF;
+
+        EXCEPTION WHEN OTHERS THEN
+            RAISE WARNING 'Erro ao processar regra %: %', r_regra.id, SQLERRM;
+        END;
+    END LOOP;
+
+    RETURN NEW;
+END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.unificar_materiais_final(p_material_antigo_id bigint, p_material_novo_id bigint)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+AS $function$
+BEGIN
+  -- 1. ESTOQUE
+  UPDATE public.estoque AS dest
+  SET 
+    quantidade_atual = dest.quantidade_atual + src.quantidade_atual,
+    quantidade_em_uso = dest.quantidade_em_uso + src.quantidade_em_uso,
+    custo_medio = CASE 
+        WHEN (dest.quantidade_atual + src.quantidade_atual) > 0 THEN
+            ((dest.quantidade_atual * dest.custo_medio) + (src.quantidade_atual * src.custo_medio)) / (dest.quantidade_atual + src.quantidade_atual)
+        ELSE dest.custo_medio 
+    END,
+    ultima_atualizacao = NOW()
+  FROM public.estoque AS src
+  WHERE dest.material_id = p_material_novo_id
+    AND src.material_id = p_material_antigo_id
+    AND dest.empreendimento_id = src.empreendimento_id;
+
+  DELETE FROM public.estoque
+  WHERE material_id = p_material_antigo_id
+    AND empreendimento_id IN (
+        SELECT empreendimento_id FROM public.estoque WHERE material_id = p_material_novo_id
+    );
+
+  UPDATE public.estoque SET material_id = p_material_novo_id WHERE material_id = p_material_antigo_id;
+
+  -- 3. ORÇAMENTOS E PEDIDOS
+  UPDATE public.orcamento_itens SET material_id = p_material_novo_id WHERE material_id = p_material_antigo_id;
+  UPDATE public.pedidos_compra_itens SET material_id = p_material_novo_id WHERE material_id = p_material_antigo_id;
+
+  -- 4. APAGA O MATERIAL VELHO
+  DELETE FROM public.materiais WHERE id = p_material_antigo_id;
+END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.get_rh_tendencia_abonos(p_ano text, p_organizacao_id integer)
+ RETURNS json
+ LANGUAGE plpgsql
+AS $function$
+DECLARE
+    v_mes_atual integer;
+    v_mes_string text;
+    v_inicio_mes date;
+    v_fim_mes date;
+    v_resultado jsonb := '[]'::jsonb;
+    v_detalhes jsonb;
+    v_total integer;
+BEGIN
+    FOR v_mes_atual IN 1..12 LOOP
+        v_mes_string := LPAD(v_mes_atual::text, 2, '0');
+        v_inicio_mes := (p_ano || '-' || v_mes_string || '-01')::date;
+        v_fim_mes := (v_inicio_mes + interval '1 month' - interval '1 day')::date;
+
+        -- Abrevia ano (ex: 2026 vira 26 para caber no label)
+        v_mes_string := v_mes_string || '/' || SUBSTRING(p_ano, 3, 2);
+
+        -- Faz o agrupamento dos abonos daquele mês
+        SELECT 
+            COALESCE(jsonb_agg(
+                jsonb_build_object(
+                    'tipo', COALESCE(t.descricao, 'Outros'),
+                    'qtd', ag.qtd
+                )
+            ), '[]'::jsonb),
+            COALESCE(SUM(ag.qtd), 0)
+        INTO v_detalhes, v_total
+        FROM (
+            SELECT a.tipo_abono_id, COUNT(*) as qtd
+            FROM public.abonos a
+            INNER JOIN public.funcionarios f ON f.id = a.funcionario_id
+            WHERE f.organizacao_id = p_organizacao_id
+              AND f.status = 'Ativo'
+              AND a.data_abono >= v_inicio_mes
+              AND a.data_abono <= v_fim_mes
+            GROUP BY a.tipo_abono_id
+        ) ag
+        LEFT JOIN public.abono_tipos t ON t.id = ag.tipo_abono_id;
+
+        -- Mescla no resultado
+        v_resultado := v_resultado || jsonb_build_object(
+            'mes', v_mes_string,
+            'total_abonos', v_total,
+            'detalhes', v_detalhes
+        );
+    END LOOP;
+
+    RETURN v_resultado::json;
+END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.get_dre_operacional(p_organizacao_id bigint, p_filtros jsonb)
+ RETURNS TABLE(categoria_id bigint, ano_mes text, total numeric)
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+AS $function$
+DECLARE
+    v_where TEXT;
+    v_query TEXT;
+    v_use_competencia BOOLEAN;
+BEGIN
+    v_where := financeiro_montar_where(p_organizacao_id, p_filtros);
+
+    v_where := v_where || ' AND l.status IN (''Pago'', ''Conciliado'')';
+
+    v_use_competencia := COALESCE((p_filtros->>'useCompetencia')::boolean, false);
+
+    IF v_use_competencia THEN
+        v_query := '
+            SELECT 
+                l.categoria_id,
+                to_char(GREATEST(l.data_transacao, ''2000-01-01''::date), ''YYYY-MM'') AS ano_mes,
+                SUM(l.valor) AS total
+            FROM public.lancamentos l
+            JOIN public.contas_financeiras cb ON l.conta_id = cb.id
+            ' || v_where || '
+            GROUP BY l.categoria_id, to_char(GREATEST(l.data_transacao, ''2000-01-01''::date), ''YYYY-MM'')
+        ';
+    ELSE
+        -- Usar CAIXA
+        v_query := '
+            SELECT 
+                l.categoria_id,
+                to_char(COALESCE(l.data_pagamento, l.data_vencimento, l.data_transacao), ''YYYY-MM'') AS ano_mes,
+                SUM(l.valor) AS total
+            FROM public.lancamentos l
+            JOIN public.contas_financeiras cb ON l.conta_id = cb.id
+            ' || v_where || '
+            GROUP BY l.categoria_id, to_char(COALESCE(l.data_pagamento, l.data_vencimento, l.data_transacao), ''YYYY-MM'')
+        ';
+    END IF;
+
+    RETURN QUERY EXECUTE v_query;
+END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.financeiro_montar_where(p_organizacao_id bigint, p_filtros jsonb)
+ RETURNS text
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+AS $function$
+
+declare
+  v_where text;
+  v_use_competencia boolean;
+  v_search_term text; -- 🔧 NOVO: variável local para o searchTerm
+begin
+  v_use_competencia := coalesce((p_filtros->>'useCompetencia')::boolean, false);
+  -- 🔧 NOVO: extrai o searchTerm UMA VEZ, antes de montar o WHERE dinâmico
+  v_search_term := trim(p_filtros->>'searchTerm');
+
+  v_where := ' where l.organizacao_id = ' || p_organizacao_id;
+
+  -- 1. Busca Textual (CORRIGIDO: usa v_search_term com valor real, não referência ao jsonb)
+  if v_search_term is not null and v_search_term <> '' then
+    v_where := v_where || ' and (';
+    v_where := v_where || ' l.descricao ilike ''%' || replace(v_search_term, '''', '''''') || '%''';
+    v_where := v_where || ' or cast(l.valor as text) ilike ''%' || replace(v_search_term, '''', '''''') || '%''';
+    v_where := v_where || ' or l.conta_id in (select id from contas_financeiras where nome ilike ''%' || replace(v_search_term, '''', '''''') || '%'')';
+    v_where := v_where || ' or l.favorecido_contato_id in (select id from contatos where nome ilike ''%' || replace(v_search_term, '''', '''''') || '%'' or razao_social ilike ''%' || replace(v_search_term, '''', '''''') || '%'')';
+    v_where := v_where || ' or l.empresa_id in (select id from cadastro_empresa where nome_fantasia ilike ''%' || replace(v_search_term, '''', '''''') || '%'' or razao_social ilike ''%' || replace(v_search_term, '''', '''''') || '%'')';
+    v_where := v_where || ')';
+  end if;
+
+  -- 2. Datas (Lei da Fernanda)
+  if (p_filtros->>'startDate') is not null and (p_filtros->>'startDate') <> '' then
+    if v_use_competencia then
+        v_where := v_where || ' and l.data_transacao >= ''' || (p_filtros->>'startDate') || '''';
+    else
+        v_where := v_where || ' and (CASE WHEN l.data_pagamento IS NOT NULL THEN l.data_pagamento WHEN l.data_vencimento IS NOT NULL THEN l.data_vencimento ELSE l.data_transacao END) >= ''' || (p_filtros->>'startDate') || '''';
+    end if;
+  end if;
+
+  if (p_filtros->>'endDate') is not null and (p_filtros->>'endDate') <> '' then
+    if v_use_competencia then
+        v_where := v_where || ' and l.data_transacao <= ''' || (p_filtros->>'endDate') || '''';
+    else
+        v_where := v_where || ' and (CASE WHEN l.data_pagamento IS NOT NULL THEN l.data_pagamento WHEN l.data_vencimento IS NOT NULL THEN l.data_vencimento ELSE l.data_transacao END) <= ''' || (p_filtros->>'endDate') || '''';
+    end if;
+  end if;
+
+  -- 3. Status
+  if (p_filtros->'status') is not null and jsonb_array_length(p_filtros->'status') > 0 then
+      declare
+        v_or_conditions text[] := array[]::text[];
+      begin
+        if p_filtros->'status' @> '["Pago"]' then
+          v_or_conditions := array_append(v_or_conditions, 'l.status in (''Pago'', ''Conciliado'')');
+        end if;
+        if p_filtros->'status' @> '["Pendente"]' then
+          v_or_conditions := array_append(v_or_conditions, '(l.status = ''Pendente'' and coalesce(l.data_vencimento, l.data_transacao) >= current_date)');
+        end if;
+        if p_filtros->'status' @> '["Atrasada"]' then
+          v_or_conditions := array_append(v_or_conditions, '(l.status = ''Pendente'' and coalesce(l.data_vencimento, l.data_transacao) < current_date)');
+        end if;
+
+        if array_length(v_or_conditions, 1) > 0 then
+           v_where := v_where || ' and (' || array_to_string(v_or_conditions, ' OR ') || ')';
+        end if;
+      end;
+  end if;
+
+  -- 4. Categorias (Chamada Segura da Função Recursiva)
+  if (p_filtros->'categoriaIds') is not null and jsonb_array_length(p_filtros->'categoriaIds') > 0 then
+      if p_filtros->'categoriaIds' @> '["IS_NULL"]' then
+        v_where := v_where || ' and (l.categoria_id in (select id from get_recursive_categories(''' || (p_filtros->'categoriaIds') || ''')) or l.categoria_id is null)';
+      else
+        v_where := v_where || ' and l.categoria_id in (select id from get_recursive_categories(''' || (p_filtros->'categoriaIds') || '''))';
+      end if;
+  end if;
+
+  -- 5. Contas (Lógica Segura sem referência externa)
+  if (p_filtros->'contaIds') is not null and jsonb_array_length(p_filtros->'contaIds') > 0 then
+      if p_filtros->'contaIds' @> '["IS_NULL"]' then
+        v_where := v_where || ' and (l.conta_id in (select (elem)::bigint from jsonb_array_elements_text(''' || (p_filtros->'contaIds') || ''') elem where (elem::text) <> ''"IS_NULL"'') or l.conta_id is null)';
+      else
+        v_where := v_where || ' and l.conta_id in (select (elem)::bigint from jsonb_array_elements_text(''' || (p_filtros->'contaIds') || ''') elem)';
+      end if;
+  end if;
+
+  -- 6. Empreendimentos
+  if (p_filtros->'empreendimentoIds') is not null and jsonb_array_length(p_filtros->'empreendimentoIds') > 0 then
+      if p_filtros->'empreendimentoIds' @> '["IS_NULL"]' then
+        v_where := v_where || ' and (l.empreendimento_id in (select (elem)::bigint from jsonb_array_elements_text(''' || (p_filtros->'empreendimentoIds') || ''') elem where (elem::text) <> ''"IS_NULL"'') or l.empreendimento_id is null)';
+      else
+        v_where := v_where || ' and l.empreendimento_id in (select (elem)::bigint from jsonb_array_elements_text(''' || (p_filtros->'empreendimentoIds') || ''') elem)';
+      end if;
+  end if;
+
+  -- 7. Empresas
+  if (p_filtros->'empresaIds') is not null and jsonb_array_length(p_filtros->'empresaIds') > 0 then
+      if p_filtros->'empresaIds' @> '["IS_NULL"]' then
+        v_where := v_where || ' and (l.empresa_id in (select (elem)::bigint from jsonb_array_elements_text(''' || (p_filtros->'empresaIds') || ''') elem where (elem::text) <> ''"IS_NULL"'') or l.empresa_id is null)';
+      else
+        v_where := v_where || ' and l.empresa_id in (select (elem)::bigint from jsonb_array_elements_text(''' || (p_filtros->'empresaIds') || ''') elem)';
+      end if;
+  end if;
+  
+  -- 8. Etapas
+  if (p_filtros->'etapaIds') is not null and jsonb_array_length(p_filtros->'etapaIds') > 0 then
+      if p_filtros->'etapaIds' @> '["IS_NULL"]' then
+        v_where := v_where || ' and (l.etapa_id in (select (elem)::bigint from jsonb_array_elements_text(''' || (p_filtros->'etapaIds') || ''') elem where (elem::text) <> ''"IS_NULL"'') or l.etapa_id is null)';
+      else
+        v_where := v_where || ' and l.etapa_id in (select (elem)::bigint from jsonb_array_elements_text(''' || (p_filtros->'etapaIds') || ''') elem)';
+      end if;
+  end if;
+
+  -- 9. Tipo (Receita/Despesa) - Tratamento Seguro
+  if (p_filtros->'tipo') is not null and jsonb_array_length(p_filtros->'tipo') > 0 then
+    v_where := v_where || ' and l.tipo in (select elem::text from jsonb_array_elements_text(''' || (p_filtros->'tipo') || ''') elem)';
+  end if;
+
+  -- 10. Favorecido
+  if (p_filtros->>'favorecidoId') is not null then
+    if (p_filtros->>'favorecidoId') = 'IS_NULL' then
+       v_where := v_where || ' and l.favorecido_contato_id is null';
+    else
+       v_where := v_where || ' and l.favorecido_contato_id = ' || (p_filtros->>'favorecidoId');
+    end if;
+  end if;
+
+  -- 11. Ignorar Especiais (A LÓGICA DE EXCLUSÃO IMPORTANTE)
+  if (p_filtros->>'ignoreTransfers')::boolean is true then
+    v_where := v_where || ' and l.transferencia_id is null and (l.categoria_id not in (select id from public.categorias_financeiras where nome ilike ''%Transfer%ncia%'') or l.categoria_id is null)';
+  end if;
+
+  if (p_filtros->>'ignoreChargebacks')::boolean is true then
+    v_where := v_where || ' and (l.categoria_id not in (select id from public.categorias_financeiras where nome ilike ''%Estorno%'') or l.categoria_id is null)';
+  end if;
+
+  return v_where;
+end;
+
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.radar_kpis(dias_atras integer, marketing boolean)
+ RETURNS json
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+AS $function$
+      DECLARE
+        data_corte TIMESTAMP := NOW() - (dias_atras || ' days')::INTERVAL;
+        resultado json;
+      BEGIN
+        WITH Sessoes AS (
+          SELECT 
+            m.session_id,
+            (array_agg(m.dispositivo ORDER BY m.data_acesso ASC) FILTER (WHERE m.dispositivo IS NOT NULL))[1] AS disp,
+            SUM(COALESCE(m.tempo_permanencia_segundos, 0)) AS tempo_sessao,
+            MAX(CASE WHEN m.origem ILIKE '%Anúncio%' OR m.utm_medium IS NOT NULL OR m.utm_campaign IS NOT NULL THEN 1 ELSE 0 END) AS has_mkt
+          FROM public.monitor_visitas m
+          WHERE m.data_acesso >= data_corte
+          GROUP BY m.session_id
+        )
+        SELECT json_build_object(
+          'totalVisitas', count(*),
+          'porDispositivo', json_build_object(
+             'mobile', count(CASE WHEN LOWER(disp) LIKE '%celular%' THEN 1 END),
+             'desktop', count(CASE WHEN LOWER(disp) NOT LIKE '%celular%' THEN 1 END),
+             'media_retencao_segundos', COALESCE(AVG(tempo_sessao), 0)
+          )
+        ) INTO resultado
+        FROM Sessoes
+        WHERE (marketing = false OR has_mkt = 1);
+        RETURN resultado;
+      END;
+      $function$
+;
+
+CREATE OR REPLACE FUNCTION public.formatar_sinal_lancamento()
+ RETURNS trigger
+ LANGUAGE plpgsql
+AS $function$
+            BEGIN
+                IF NEW.tipo IN ('Despesa', 'Passivo') THEN
+                    NEW.valor := -ABS(NEW.valor);
+                ELSIF NEW.tipo IN ('Receita', 'Ativo') THEN
+                    NEW.valor := ABS(NEW.valor);
+                END IF;
+                RETURN NEW;
+            END;
+            $function$
+;
+
+CREATE OR REPLACE FUNCTION public.radar_origens(dias_atras integer, marketing boolean)
+ RETURNS json
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+AS $function$
+      DECLARE
+        data_corte TIMESTAMP := NOW() - (dias_atras || ' days')::INTERVAL;
+        resultado json;
+      BEGIN
+        WITH Sessoes AS (
+          SELECT 
+            m.session_id,
+            (array_agg(m.origem ORDER BY m.data_acesso ASC) FILTER (WHERE m.origem IS NOT NULL AND m.origem != ''))[1] AS origem_principal,
+            MAX(CASE WHEN m.origem ILIKE '%Anúncio%' OR m.utm_medium IS NOT NULL OR m.utm_campaign IS NOT NULL THEN 1 ELSE 0 END) AS has_mkt
+          FROM public.monitor_visitas m
+          WHERE m.data_acesso >= data_corte
+          GROUP BY m.session_id
+        )
+        SELECT COALESCE(json_agg(row_to_json(t)), '[]'::json) INTO resultado
+        FROM (
+          SELECT origem_principal AS nome, COUNT(*) as qtd
+          FROM Sessoes
+          WHERE origem_principal IS NOT NULL
+            AND (marketing = false OR has_mkt = 1)
+          GROUP BY origem_principal
+          ORDER BY qtd DESC
+          LIMIT 10
+        ) t;
+        RETURN resultado;
+      END;
+      $function$
+;
+
+CREATE OR REPLACE FUNCTION public.dre_jsonb_test()
+ RETURNS jsonb
+ LANGUAGE plpgsql
+AS $function$
+        BEGIN
+            RETURN '[{"id": 1}, {"id": 2}]'::jsonb;
+        END;
+        $function$
+;
+
+CREATE OR REPLACE FUNCTION public.radar_ecossistemas(dias_atras integer, marketing boolean)
+ RETURNS json
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+AS $function$
+      DECLARE
+        data_corte TIMESTAMP := NOW() - (dias_atras || ' days')::INTERVAL;
+        resultado json;
+      BEGIN
+        WITH Sessoes AS (
+          SELECT 
+            m.session_id,
+            (array_agg(m.origem ORDER BY m.data_acesso ASC) FILTER (WHERE m.origem IS NOT NULL AND m.origem != ''))[1] AS origem_principal,
+            MAX(CASE WHEN m.origem ILIKE '%Anúncio%' OR m.utm_medium IS NOT NULL OR m.utm_campaign IS NOT NULL THEN 1 ELSE 0 END) AS has_mkt
+          FROM public.monitor_visitas m
+          WHERE m.data_acesso >= data_corte
+          GROUP BY m.session_id
+        )
+        SELECT COALESCE(json_agg(row_to_json(t)), '[]'::json) INTO resultado
+        FROM (
+          SELECT 
+            CASE
+              WHEN origem_principal ILIKE '%instagram%' OR origem_principal ILIKE '%(ig)%' THEN 'Instagram'
+              WHEN origem_principal ILIKE '%facebook%' OR origem_principal ILIKE '%(fb)%' THEN 'Facebook'
+              WHEN origem_principal ILIKE '%google%' THEN 'Google'
+              WHEN origem_principal ILIKE '%anuncio%' THEN 'Outros Anúncios'
+              ELSE 'Direto / Outros'
+            END as ecossistema,
+            COUNT(*) as qtd
+          FROM Sessoes
+          WHERE origem_principal IS NOT NULL 
+            AND (marketing = false OR has_mkt = 1)
+          GROUP BY ecossistema
+          ORDER BY qtd DESC
+        ) t;
+        RETURN resultado;
+      END;
+      $function$
+;
+
+CREATE OR REPLACE FUNCTION public.radar_campanhas(dias_atras integer, marketing boolean)
+ RETURNS json
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+AS $function$
+      DECLARE
+        data_corte TIMESTAMP := NOW() - (dias_atras || ' days')::INTERVAL;
+        resultado json;
+      BEGIN
+        WITH Sessoes AS (
+          SELECT 
+            m.session_id,
+            (array_agg(m.utm_campaign ORDER BY m.data_acesso ASC) FILTER (WHERE m.utm_campaign IS NOT NULL))[1] AS campanha_principal,
+            (array_agg(m.utm_content ORDER BY m.data_acesso ASC) FILTER (WHERE m.utm_content IS NOT NULL))[1] AS anuncio_principal,
+            MAX(CASE WHEN m.origem ILIKE '%Anúncio%' OR m.utm_medium IS NOT NULL OR m.utm_campaign IS NOT NULL THEN 1 ELSE 0 END) AS has_mkt
+          FROM public.monitor_visitas m
+          WHERE m.data_acesso >= data_corte
+          GROUP BY m.session_id
+        )
+        SELECT COALESCE(json_agg(row_to_json(t)), '[]'::json) INTO resultado
+        FROM (
+          SELECT 
+            campanha_principal as nome_campanha,
+            anuncio_principal as anuncio_id,
+            COUNT(*) as qtd
+          FROM Sessoes
+          WHERE campanha_principal IS NOT NULL AND anuncio_principal IS NOT NULL
+            AND (marketing = false OR has_mkt = 1)
+          GROUP BY campanha_principal, anuncio_principal
+          ORDER BY qtd DESC
+          LIMIT 15
+        ) t;
+        RETURN resultado;
+      END;
+      $function$
+;
+
+CREATE OR REPLACE FUNCTION public.radar_funil(dias_atras integer, marketing boolean)
+ RETURNS json
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+AS $function$
+      DECLARE
+        data_corte TIMESTAMP := NOW() - (dias_atras || ' days')::INTERVAL;
+        resultado json;
+      BEGIN
+        WITH Sessoes AS (
+          SELECT 
+            m.session_id,
+            SPLIT_PART(m.pagina, '/obrigado', 1) AS produto,
+            MAX(CASE WHEN m.pagina NOT ILIKE '%obrigado%' THEN 1 ELSE 0 END) AS hit_landing,
+            MAX(CASE WHEN m.pagina ILIKE '%obrigado%' THEN 1 ELSE 0 END) AS hit_obrigado,
+            MAX(CASE WHEN m.origem ILIKE '%Anúncio%' OR m.utm_medium IS NOT NULL OR m.utm_campaign IS NOT NULL THEN 1 ELSE 0 END) AS is_marketing
+          FROM public.monitor_visitas m
+          WHERE m.data_acesso >= data_corte
+            AND m.pagina IS NOT NULL AND m.pagina != '/'
+          GROUP BY m.session_id, SPLIT_PART(m.pagina, '/obrigado', 1)
+        )
+        SELECT COALESCE(json_agg(row_to_json(t)), '[]'::json) INTO resultado
+        FROM (
+          SELECT 
+            produto,
+            SUM(hit_landing) AS visitas_landing,
+            SUM(hit_obrigado) AS visitas_obrigado,
+            ROUND(
+              COALESCE(
+                (SUM(hit_obrigado)::numeric / NULLIF(SUM(hit_landing), 0)) * 100
+              , 0), 1
+            ) AS taxa_conversao
+          FROM Sessoes
+          WHERE produto IS NOT NULL
+            AND (marketing = false OR is_marketing = 1)
+          GROUP BY produto
+          HAVING SUM(hit_landing) > 0
+          ORDER BY visitas_landing DESC
+        ) t;
+        RETURN resultado;
+      END;
+      $function$
+;
+
+CREATE OR REPLACE FUNCTION public.get_radar_stats(dias_atras integer DEFAULT 30, somente_marketing boolean DEFAULT true)
+ RETURNS json
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+AS $function$
+      DECLARE
+        kpis json;
+      BEGIN
+        kpis := public.radar_kpis(dias_atras, somente_marketing);
+        RETURN json_build_object(
+          'totalVisitas', (kpis->>'totalVisitas')::int,
+          'porDispositivo', kpis->'porDispositivo',
+          'topOrigens', public.radar_origens(dias_atras, somente_marketing),
+          'topPaginas', public.radar_paginas(dias_atras, somente_marketing),
+          'ecossistemas', public.radar_ecossistemas(dias_atras, somente_marketing),
+          'topCampanhas', public.radar_campanhas(dias_atras, somente_marketing),
+          'funil', public.radar_funil(dias_atras, somente_marketing)
+        );
+      END;
+      $function$
+;
+
+CREATE OR REPLACE FUNCTION public.radar_paginas(dias_atras integer, marketing boolean)
+ RETURNS json
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+AS $function$
+    DECLARE
+      data_corte TIMESTAMP := NOW() - (dias_atras || ' days')::INTERVAL;
+      resultado json;
+    BEGIN
+      WITH SessoesMkt AS (
+        SELECT 
+          session_id, 
+          MAX(CASE WHEN origem ILIKE '%Anúncio%' OR utm_medium IS NOT NULL OR utm_campaign IS NOT NULL THEN 1 ELSE 0 END) AS has_mkt
+        FROM public.monitor_visitas 
+        WHERE data_acesso >= data_corte 
+        GROUP BY session_id
+      ),
+      HitPaginas AS (
+        SELECT 
+          m.pagina, 
+          m.session_id, 
+          SUM(COALESCE(m.tempo_permanencia_segundos, 0)) as tempo_na_pagina
+        FROM public.monitor_visitas m
+        WHERE m.data_acesso >= data_corte 
+          AND m.pagina IS NOT NULL 
+          AND m.pagina NOT IN ('/', '/favicon.ico')
+        GROUP BY m.pagina, m.session_id
+      )
+      SELECT COALESCE(json_agg(row_to_json(t)), '[]'::json) INTO resultado
+      FROM (
+        SELECT 
+          hp.pagina AS nome, 
+          COUNT(DISTINCT hp.session_id) as qtd, 
+          COALESCE(AVG(hp.tempo_na_pagina), 0) as retencao_media_sec
+        FROM HitPaginas hp
+        JOIN SessoesMkt sm ON sm.session_id = hp.session_id
+        WHERE (marketing = false OR sm.has_mkt = 1)
+        GROUP BY hp.pagina 
+        ORDER BY qtd DESC 
+        LIMIT 5
+      ) t;
+      RETURN resultado;
+    END;
+    $function$
+;
+
+CREATE OR REPLACE FUNCTION public.find_contact_smart(phone_input text, v_org_id bigint)
+ RETURNS uuid
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+AS $function$
+DECLARE
+  clean_phone text;
+  phone_suffix text;
+  phone_ddd text;
+  is_brazil boolean;
+  found_id uuid;
+BEGIN
+  -- 1. Limpeza: deixa só números
+  clean_phone := regexp_replace(phone_input, '[^0-9]', '', 'g');
+
+  -- 2. É Brasil? (Começa com 55 E tem tamanho de celular BR 12/13 digitos)
+  is_brazil := (left(clean_phone, 2) = '55' AND length(clean_phone) >= 12);
+
+  -- 🌎 CAMINHO INTERNACIONAL (EUA, etc)
+  IF NOT is_brazil THEN
+    SELECT contato_id INTO found_id
+    FROM telefones
+    WHERE regexp_replace(telefone, '[^0-9]', '', 'g') = clean_phone
+      AND organizacao_id = v_org_id
+    ORDER BY created_at DESC
+    LIMIT 1;
+    
+    RETURN found_id;
+  END IF;
+
+  -- 🇧🇷 CAMINHO BRASILEIRO (Lógica flexível do 9º Dígito)
+  phone_suffix := right(clean_phone, 8);
+  phone_ddd := substring(clean_phone from 3 for 2);
+
+  SELECT contato_id INTO found_id
+  FROM telefones
+  WHERE 
+    (regexp_replace(telefone, '[^0-9]', '', 'g') LIKE '%' || phone_ddd || '%')    -- garante Ddd
+    AND
+    right(regexp_replace(telefone, '[^0-9]', '', 'g'), 8) = phone_suffix
+    AND organizacao_id = v_org_id
+  ORDER BY created_at DESC
+  LIMIT 1;
+
+  RETURN found_id;
+END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.fn_autocalcular_orcamento_empreendimento(p_empreendimento_id uuid)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+AS $function$
+DECLARE
+  v_orcamento_id UUID;
+  v_execucao_fisica JSONB;
+  v_custo_total_previsto NUMERIC := 0;
+  v_custo_total_executado NUMERIC := 0;
+  v_percentual_executado NUMERIC := 0;
+  v_etapa RECORD;
+  v_etapa_executado_pct NUMERIC;
+BEGIN
+  SELECT id, execucao_fisica INTO v_orcamento_id, v_execucao_fisica
+  FROM public.orcamentos
+  WHERE empreendimento_id = p_empreendimento_id
+  ORDER BY created_at DESC
+  LIMIT 1;
+
+  IF v_orcamento_id IS NULL THEN RETURN; END IF;
+  IF v_execucao_fisica IS NULL THEN v_execucao_fisica := '{}'::JSONB; END IF;
+
+  SELECT COALESCE(SUM(custo_total), 0) INTO v_custo_total_previsto
+  FROM public.orcamento_itens
+  WHERE orcamento_id = v_orcamento_id;
+
+  FOR v_etapa IN (
+    SELECT etapa_id, SUM(custo_total) as etapa_custo
+    FROM public.orcamento_itens
+    WHERE orcamento_id = v_orcamento_id
+    GROUP BY etapa_id
+  ) LOOP
+    IF v_etapa.etapa_id IS NOT NULL THEN
+      v_etapa_executado_pct := COALESCE(NULLIF(v_execucao_fisica->>v_etapa.etapa_id::text, ''), '0')::NUMERIC;
+      v_custo_total_executado := v_custo_total_executado + (v_etapa.etapa_custo * (v_etapa_executado_pct / 100.0));
+    END IF;
+  END LOOP;
+
+  IF v_custo_total_previsto > 0 THEN
+    v_percentual_executado := (v_custo_total_executado / v_custo_total_previsto) * 100.0;
+  ELSE
+    v_percentual_executado := 0;
+  END IF;
+
+  UPDATE public.empreendimentos
+  SET 
+    orcamento_previsto = v_custo_total_previsto,
+    orcamento_executado = v_custo_total_executado,
+    orcamento_percentual = v_percentual_executado
+  WHERE id = p_empreendimento_id;
+END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.fn_autocalcular_orcamento_empreendimento(p_empreendimento_id bigint)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+AS $function$
+DECLARE
+  v_orcamento_id BIGINT;
+  v_execucao_fisica JSONB;
+  v_custo_total_previsto NUMERIC := 0;
+  v_custo_total_executado NUMERIC := 0;
+  v_percentual_executado NUMERIC := 0;
+  v_vgv_total NUMERIC := 0;
+  v_patrimonio_vgv NUMERIC := 0;
+  v_etapa RECORD;
+  v_etapa_executado_pct NUMERIC;
+BEGIN
+  SELECT id, execucao_fisica INTO v_orcamento_id, v_execucao_fisica
+  FROM public.orcamentos
+  WHERE empreendimento_id = p_empreendimento_id
+  ORDER BY created_at DESC
+  LIMIT 1;
+
+  IF v_orcamento_id IS NULL THEN RETURN; END IF;
+  IF v_execucao_fisica IS NULL THEN v_execucao_fisica := '{}'::JSONB; END IF;
+
+  SELECT COALESCE(SUM(custo_total), 0) INTO v_custo_total_previsto
+  FROM public.orcamento_itens
+  WHERE orcamento_id = v_orcamento_id;
+
+  FOR v_etapa IN (
+    SELECT etapa_id, SUM(custo_total) as etapa_custo
+    FROM public.orcamento_itens
+    WHERE orcamento_id = v_orcamento_id
+    GROUP BY etapa_id
+  ) LOOP
+    IF v_etapa.etapa_id IS NOT NULL THEN
+      v_etapa_executado_pct := COALESCE(NULLIF(v_execucao_fisica->>v_etapa.etapa_id::text, ''), '0')::NUMERIC;
+      v_custo_total_executado := v_custo_total_executado + (v_etapa.etapa_custo * (v_etapa_executado_pct / 100.0));
+    END IF;
+  END LOOP;
+
+  IF v_custo_total_previsto > 0 THEN
+    v_percentual_executado := (v_custo_total_executado / v_custo_total_previsto) * 100.0;
+  ELSE
+    v_percentual_executado := 0;
+  END IF;
+
+  -- Calcular o VGV Total (Regra de Ouro: Estoque Listado + Contratos)
+  DECLARE
+    v_vgv_estoque NUMERIC := 0;
+    v_vgv_vendido NUMERIC := 0;
+  BEGIN
+    SELECT COALESCE(SUM(p.valor_venda_calculado), 0) INTO v_vgv_estoque
+    FROM public.produtos_empreendimento p
+    WHERE p.empreendimento_id = p_empreendimento_id
+      AND p.status IN ('Disponível', 'Reservado', 'Reservada')
+      AND NOT EXISTS (
+        SELECT 1 FROM public.contrato_produtos cp
+        JOIN public.contratos c ON c.id = cp.contrato_id
+        WHERE cp.produto_id = p.id AND c.tipo_documento = 'CONTRATO' AND c.status_contrato = 'Assinado'
+      );
+
+    SELECT COALESCE(SUM(c.valor_final_venda), 0) INTO v_vgv_vendido
+    FROM public.contratos c
+    WHERE c.empreendimento_id = p_empreendimento_id
+      AND c.tipo_documento = 'CONTRATO'
+      AND c.status_contrato = 'Assinado';
+
+    v_vgv_total := v_vgv_estoque + v_vgv_vendido;
+  END;
+
+  -- Calcular o Patrimônio VGV Construído
+  v_patrimonio_vgv := v_vgv_total * (v_percentual_executado / 100.0);
+
+  UPDATE public.empreendimentos
+  SET 
+    orcamento_previsto = v_custo_total_previsto,
+    orcamento_executado = ROUND(v_custo_total_executado, 2),
+    orcamento_percentual = ROUND(v_percentual_executado, 2),
+    patrimonio_vgv_construido = ROUND(v_patrimonio_vgv, 2),
+    vgv_total_projetado = ROUND(v_vgv_total, 2)
+  WHERE id = p_empreendimento_id;
+END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.get_balanco_patrimonial(p_organizacao_id bigint)
+ RETURNS json
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+AS $function$
+DECLARE
+  v_ativos_caixa NUMERIC := 0;
+  v_ativos_imobilizados NUMERIC := 0;
+  v_passivos NUMERIC := 0;
+  v_vgv NUMERIC := 0;
+  v_vendas_recebidas NUMERIC := 0;
+  v_conta RECORD;
+  v_saldo_parcial NUMERIC;
+BEGIN
+  -- 1. Obter VGV Construido Total
+  SELECT COALESCE(SUM(patrimonio_vgv_construido), 0) INTO v_vgv
+  FROM public.empreendimentos 
+  WHERE organizacao_id = p_organizacao_id;
+
+  -- 2. Iterar sobre todas as contas financeiras (Disponibilidade/Caixa)
+  FOR v_conta IN (
+    SELECT id, tipo 
+    FROM public.contas_financeiras 
+    WHERE organizacao_id = p_organizacao_id
+      AND tipo NOT IN ('Conta de Passivo', 'Conta de Ativo')
+  ) LOOP
+    v_saldo_parcial := public.calcular_saldo_anterior(v_conta.id, (CURRENT_DATE + 1)::date, p_organizacao_id);
+    v_ativos_caixa := v_ativos_caixa + COALESCE(v_saldo_parcial, 0);
+  END LOOP;
+
+  -- 3. Calcular Ativos e Passivos Imobilizados via Patrimonio (Lancamentos)
+  WITH patrimonio AS (
+    SELECT id, tipo, valor
+    FROM public.lancamentos
+    WHERE organizacao_id = p_organizacao_id
+      AND tipo IN ('Ativo', 'Passivo')
+  ),
+  vinculos AS (
+    SELECT lancamento_ativo_id, valor
+    FROM public.lancamentos
+    WHERE organizacao_id = p_organizacao_id
+      AND status = 'Pago'
+      AND tipo IN ('Receita', 'Despesa')
+      AND lancamento_ativo_id IN (SELECT id FROM patrimonio)
+  ),
+  realizados AS (
+    SELECT lancamento_ativo_id, SUM(ABS(valor)) as realizado
+    FROM vinculos
+    GROUP BY lancamento_ativo_id
+  )
+  SELECT 
+    COALESCE(SUM(CASE WHEN p.tipo = 'Ativo' THEN (p.valor - COALESCE(r.realizado, 0)) ELSE 0 END), 0) AS total_ativos,
+    COALESCE(SUM(CASE WHEN p.tipo = 'Passivo' THEN (p.valor + COALESCE(r.realizado, 0)) ELSE 0 END), 0) AS total_passivos
+  INTO v_ativos_imobilizados, v_passivos
+  FROM patrimonio p
+  LEFT JOIN realizados r ON p.id = r.lancamento_ativo_id;
+
+  -- 4. Obter Todo o Recebido dos Clientes (Contratos de Venda)
+  SELECT COALESCE(SUM(ABS(l.valor)), 0) INTO v_vendas_recebidas
+  FROM public.lancamentos l
+  JOIN public.contratos c ON l.contrato_id = c.id
+  WHERE l.organizacao_id = p_organizacao_id
+    AND l.tipo = 'Receita'
+    AND l.status IN ('Pago', 'Conciliado')
+    AND c.lixeira = false
+    AND c.tipo_documento = 'CONTRATO';
+
+  RETURN json_build_object(
+      'ativos_caixa', ROUND(v_ativos_caixa, 2),
+      'ativos_imobilizados', ROUND(v_ativos_imobilizados, 2),
+      'passivos', ROUND(v_passivos, 2),
+      'vgv_construido', ROUND(v_vgv, 2),
+      'vendas_recebidas', ROUND(v_vendas_recebidas, 2),
+      'patrimonio_liquido', ROUND((v_ativos_caixa + v_ativos_imobilizados + v_vgv) - ABS(v_passivos), 2)
+  );
+END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.get_almoxarifado_kpis(p_organizacao_id bigint, p_empreendimento_id text DEFAULT 'all'::text)
+ RETURNS json
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+AS $function$
+DECLARE
+  v_result JSON;
+BEGIN
+
+  WITH estoque_agrupado AS (
+    SELECT 
+      material_id,
+      SUM(quantidade_atual) as qtd_disp,
+      SUM(COALESCE(quantidade_em_uso, 0)) as qtd_uso
+    FROM public.estoque
+    WHERE organizacao_id = p_organizacao_id
+      AND (p_empreendimento_id = 'all' OR empreendimento_id = CAST(p_empreendimento_id AS BIGINT))
+    GROUP BY material_id
+  ),
+  precos_recentes AS (
+    SELECT 
+      e.material_id,
+      e.qtd_disp,
+      e.qtd_uso,
+      m.classificacao,
+      m.nome,
+      COALESCE(
+        (SELECT preco_unitario_real 
+         FROM public.pedidos_compra_itens pci 
+         WHERE pci.material_id = m.id AND preco_unitario_real IS NOT NULL
+         ORDER BY created_at DESC 
+         LIMIT 1),
+        m.preco_unitario, 
+        0
+      ) as preco_recente
+    FROM estoque_agrupado e
+    JOIN public.materiais m ON m.id = e.material_id
+  ),
+  entradas_alugadas AS (
+    SELECT 
+      pci.material_id,
+      SUM(pci.quantidade_solicitada) as qtd_historica_alugada
+    FROM public.pedidos_compra_itens pci
+    JOIN public.pedidos_compra p ON p.id = pci.pedido_compra_id
+    WHERE pci.tipo_operacao = 'Aluguel'
+      AND p.organizacao_id = p_organizacao_id
+      AND p.status IN ('Entregue', 'Realizado', 'Em Negociação', 'Revisão do Responsável')
+    GROUP BY pci.material_id
+  ),
+  entradas_alugadas_manuais AS (
+    SELECT 
+      e.material_id,
+      SUM(m.quantidade) as qtd_historica_alugada
+    FROM public.movimentacoes_estoque m
+    JOIN public.estoque e ON e.id = m.estoque_id
+    WHERE m.organizacao_id = p_organizacao_id
+      AND m.tipo = 'Entrada por Compra' 
+      AND m.observacao LIKE '[ALUGUEL]%'
+    GROUP BY e.material_id
+  ),
+  entradas_alugadas_total AS (
+    SELECT 
+      COALESCE(ea.material_id, eam.material_id) as material_id,
+      COALESCE(ea.qtd_historica_alugada, 0) + COALESCE(eam.qtd_historica_alugada, 0) as qtd_historica_alugada
+    FROM entradas_alugadas ea
+    FULL OUTER JOIN entradas_alugadas_manuais eam ON ea.material_id = eam.material_id
+  ),
+  estoque_dividido AS (
+    SELECT 
+      pr.material_id,
+      pr.classificacao,
+      pr.nome,
+      pr.preco_recente,
+      (pr.qtd_disp + pr.qtd_uso) as qtd_total,
+      LEAST(pr.qtd_disp + pr.qtd_uso, COALESCE(ea.qtd_historica_alugada, 0)) as qtd_alugada,
+      (pr.qtd_disp + pr.qtd_uso) - LEAST(pr.qtd_disp + pr.qtd_uso, COALESCE(ea.qtd_historica_alugada, 0)) as qtd_propria
+    FROM precos_recentes pr
+    LEFT JOIN entradas_alugadas_total ea ON ea.material_id = pr.material_id
+  ),
+  ativos_proprios AS (
+    SELECT *, (qtd_propria * preco_recente) as valor_total
+    FROM estoque_dividido
+    WHERE qtd_propria > 0 AND classificacao != 'Serviço'
+  ),
+  ativos_alugados AS (
+    SELECT *, (qtd_alugada * preco_recente) as valor_total
+    FROM estoque_dividido
+    WHERE qtd_alugada > 0 AND classificacao != 'Serviço'
+  ),
+  totais_proprios AS (
+    SELECT 
+      COALESCE(SUM(valor_total), 0) as valor_estoque,
+      COUNT(*) as total_skus,
+      COALESCE(SUM(qtd_propria), 0) as total_fisico,
+      COALESCE(SUM(CASE WHEN classificacao = 'Equipamento' THEN qtd_propria ELSE 0 END), 0) as total_equipamentos
+    FROM ativos_proprios
+  ),
+  totais_alugados AS (
+    SELECT 
+      COALESCE(SUM(valor_total), 0) as valor_estoque,
+      COUNT(*) as total_skus,
+      COALESCE(SUM(qtd_alugada), 0) as total_fisico,
+      COALESCE(SUM(CASE WHEN classificacao = 'Equipamento' THEN qtd_alugada ELSE 0 END), 0) as total_equipamentos
+    FROM ativos_alugados
+  ),
+  top_valiosos_proprios AS (
+    SELECT json_agg(row_to_json(t)) as top_v
+    FROM (
+      SELECT nome, qtd_propria as quantidade, valor_total
+      FROM ativos_proprios
+      ORDER BY valor_total DESC
+      LIMIT 10
+    ) t
+  ),
+  top_valiosos_alugados AS (
+    SELECT json_agg(row_to_json(t)) as top_v
+    FROM (
+      SELECT nome, qtd_alugada as quantidade, valor_total
+      FROM ativos_alugados
+      ORDER BY valor_total DESC
+      LIMIT 10
+    ) t
+  ),
+  distribuicao_proprios AS (
+    SELECT json_agg(row_to_json(d)) as dist
+    FROM (
+      SELECT classificacao as name, SUM(valor_total) as value
+      FROM ativos_proprios
+      GROUP BY classificacao
+    ) d
+  ),
+  distribuicao_alugados AS (
+    SELECT json_agg(row_to_json(d)) as dist
+    FROM (
+      SELECT classificacao as name, SUM(valor_total) as value
+      FROM ativos_alugados
+      GROUP BY classificacao
+    ) d
+  )
+  
+  SELECT json_build_object(
+    'proprios', json_build_object(
+      'valor_total', ROUND((SELECT valor_estoque FROM totais_proprios), 2),
+      'quantidade_skus', (SELECT total_skus FROM totais_proprios),
+      'quantidade_fisica', ROUND((SELECT total_fisico FROM totais_proprios), 2),
+      'equipamentos_em_uso', ROUND((SELECT total_equipamentos FROM totais_proprios), 2),
+      'top_valiosos', COALESCE((SELECT top_v FROM top_valiosos_proprios), '[]'::json),
+      'distribuicao_valor', COALESCE((SELECT dist FROM distribuicao_proprios), '[]'::json)
+    ),
+    'alugados', json_build_object(
+      'valor_total', ROUND((SELECT valor_estoque FROM totais_alugados), 2),
+      'quantidade_skus', (SELECT total_skus FROM totais_alugados),
+      'quantidade_fisica', ROUND((SELECT total_fisico FROM totais_alugados), 2),
+      'equipamentos_em_uso', ROUND((SELECT total_equipamentos FROM totais_alugados), 2),
+      'top_valiosos', COALESCE((SELECT top_v FROM top_valiosos_alugados), '[]'::json),
+      'distribuicao_valor', COALESCE((SELECT dist FROM distribuicao_alugados), '[]'::json)
+    )
+  ) INTO v_result;
+
+  RETURN v_result;
+END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.fn_distribuir_lead_rodizio(p_organizacao_id bigint)
+ RETURNS TABLE(usuario_id uuid, contato_id bigint)
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+AS $function$
+DECLARE
+    v_fila jsonb;
+    v_ultimo_indice integer;
+    v_tamanho_fila integer;
+    v_novo_indice integer;
+    v_usuario_sorteado_id text;
+    v_contato_sorteado_id bigint;
+    v_config_id uuid;
+BEGIN
+    -- Busca a configuração bloqueando para atualização (evita concorrência)
+    SELECT 
+        id, fila_usuarios_ids, ultimo_indice_atendido 
+    INTO 
+        v_config_id, v_fila, v_ultimo_indice
+    FROM public.crm_rodizio_config 
+    WHERE organizacao_id = p_organizacao_id 
+    AND is_active = true
+    FOR UPDATE;
+
+    -- Se não tem rodízio ativo ou a fila está vazia
+    IF NOT FOUND OR jsonb_array_length(v_fila) = 0 THEN
+        RETURN;
+    END IF;
+
+    v_tamanho_fila := jsonb_array_length(v_fila);
+    v_novo_indice := v_ultimo_indice + 1;
+
+    -- Reinicia o ciclo se chegou ao fim da fila
+    IF v_novo_indice >= v_tamanho_fila THEN
+        v_novo_indice := 0;
+    END IF;
+
+    -- Pega o ID do usuário sorteado (removendo aspas duplas do JSON)
+    v_usuario_sorteado_id := trim(both '"' from (v_fila->v_novo_indice)::text);
+
+    -- Busca o contato_id vinculado a este usuário
+    SELECT u.contato_id INTO v_contato_sorteado_id
+    FROM public.usuarios u
+    WHERE u.id::text = v_usuario_sorteado_id;
+
+    -- Atualiza o índice na tabela de configuração
+    UPDATE public.crm_rodizio_config
+    SET ultimo_indice_atendido = v_novo_indice,
+        updated_at = now()
+    WHERE id = v_config_id;
+
+    -- Retorna os dados do corretor sorteado
+    RETURN QUERY SELECT v_usuario_sorteado_id::uuid, v_contato_sorteado_id;
+END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.trg_calcular_valor_venda_produto()
+ RETURNS trigger
+ LANGUAGE plpgsql
+AS $function$
+BEGIN
+  -- PASSO 1: Garantir que o Preço Base está alinhado com a Área e Preço/m² 
+  IF NEW.area_m2 IS NOT NULL AND NEW.preco_m2 IS NOT NULL THEN
+    NEW.valor_base := NEW.area_m2 * NEW.preco_m2;
+  END IF;
+
+  -- PASSO 2: Calcular o Valor Final aplicando o Fator de Reajuste (%).
+  IF NEW.valor_base IS NOT NULL THEN
+    NEW.valor_venda_calculado := NEW.valor_base * (1 + (COALESCE(NEW.fator_reajuste_percentual, 0) / 100));
+  ELSE
+    NEW.valor_venda_calculado := NULL;
+  END IF;
+
+  RETURN NEW;
+END;
+$function$
+;
+
+CREATE OR REPLACE FUNCTION public.trg_enqueue_sync_contact()
+ RETURNS trigger
+ LANGUAGE plpgsql
+AS $function$
+    BEGIN
+        -- Ignore updates if they don't change core fields (like name, email, phone)
+        -- We can just enqueue every time or check for differences. Let's enqueue every time for now,
+        -- because the background worker will handle fetching the latest and syncing.
+        INSERT INTO public.sync_queue (contato_id, organizacao_id, user_id, status)
+        VALUES (
+            NEW.id,
+            NEW.organizacao_id,
+            NEW.criado_por_usuario_id,
+            'pendente'
+        );
+        RETURN NEW;
+    END;
+    $function$
+;
+
+CREATE OR REPLACE FUNCTION public.provisionar_parcelas_contrato(p_contrato_id bigint, p_organizacao_id bigint)
+ RETURNS text
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+AS $function$
+DECLARE
+  v_parcela RECORD;
+  v_contrato RECORD;
+  v_empreendimento RECORD;
+  v_categoria_id BIGINT;
+  v_lancamento_id BIGINT;
+  v_parcelas_criadas_count INT := 0;
+  v_cliente_nome TEXT;
+BEGIN
+  -- 1. Buscar os detalhes essenciais do contrato
+  SELECT *
+  INTO v_contrato
+  FROM public.contratos
+  WHERE id = p_contrato_id AND organizacao_id = p_organizacao_id;
+
+  IF v_contrato.id IS NULL THEN
+    RETURN 'Erro: Contrato não encontrado.';
+  END IF;
+
+  IF v_contrato.contato_id IS NULL THEN
+    RETURN 'Erro: O contrato precisa ter um cliente (comprador) definido.';
+  END IF;
+
+  IF v_contrato.conta_bancaria_id IS NULL THEN
+    RETURN 'Erro: Defina uma "Conta Bancária para Pagamentos" nos detalhes da venda do contrato.';
+  END IF;
+
+  -- Adiciona busca por detalhes do empreendimento para pegar o ID da empresa
+  SELECT *
+  INTO v_empreendimento
+  FROM public.empreendimentos
+  WHERE id = v_contrato.empreendimento_id;
+
+  IF v_empreendimento.id IS NULL THEN
+      RETURN 'Erro: Empreendimento associado ao contrato não foi encontrado.';
+  END IF;
+  
+  -- Buscar o nome do cliente
+  SELECT COALESCE(nome, razao_social)
+  INTO v_cliente_nome
+  FROM public.contatos
+  WHERE id = v_contrato.contato_id;
+
+  -- 2. Buscar o ID da categoria financeira (Multitenancy Fix: Incluir org 1)
+  SELECT id INTO v_categoria_id
+  FROM public.categorias_financeiras
+  WHERE nome ILIKE 'Venda de Imóvel' AND tipo = 'Receita' AND (organizacao_id = p_organizacao_id OR organizacao_id = 1) LIMIT 1;
+
+  IF v_categoria_id IS NULL THEN
+    RETURN 'Erro: Categoria financeira "Venda de Imóvel" do tipo "Receita" não encontrada.';
+  END IF;
+
+  -- 3. Inicia o loop para processar parcelas
+  FOR v_parcela IN
+    SELECT id, descricao, valor_parcela, data_vencimento
+    FROM public.contrato_parcelas
+    WHERE contrato_id = p_contrato_id
+      AND organizacao_id = p_organizacao_id
+      AND status_pagamento = 'Pendente'
+      AND lancamento_id IS NULL
+  LOOP
+    -- 4. Insere o novo lançamento
+    INSERT INTO public.lancamentos (
+      descricao,
+      valor,
+      data_vencimento,
+      data_transacao,
+      tipo,
+      status,
+      conta_id,
+      categoria_id,
+      empreendimento_id,
+      empresa_id,
+      favorecido_contato_id,
+      organizacao_id,
+      criado_por_usuario_id,
+      contrato_id,
+      observacao
+    )
+    VALUES (
+      'Recebimento: ' || v_parcela.descricao || ' | Contrato #' || p_contrato_id || ' (' || COALESCE(v_cliente_nome, 'N/A') || ')',
+      v_parcela.valor_parcela,
+      v_parcela.data_vencimento,
+      CURRENT_DATE,
+      'Receita',
+      'Pendente',
+      v_contrato.conta_bancaria_id,
+      v_categoria_id,
+      v_contrato.empreendimento_id,
+      v_empreendimento.empresa_proprietaria_id,
+      v_contrato.contato_id,
+      p_organizacao_id,
+      auth.uid(),
+      p_contrato_id,
+      'Lançamento provisionado do Contrato ID ' || p_contrato_id
+    )
+    RETURNING id INTO v_lancamento_id;
+
+    -- 5. Atualiza a parcela
+    UPDATE public.contrato_parcelas
+    SET lancamento_id = v_lancamento_id
+    WHERE id = v_parcela.id;
+
+    v_parcelas_criadas_count := v_parcelas_criadas_count + 1;
+  END LOOP;
+
+  -- 6. Retorna uma mensagem de sucesso
+  IF v_parcelas_criadas_count > 0 THEN
+    RETURN 'Sucesso: ' || v_parcelas_criadas_count || ' lançamento(s) financeiro(s) foram provisionados.';
+  ELSE
+    RETURN 'Nenhuma parcela pendente para sincronizar.';
+  END IF;
+
+END;
+$function$
+;
+
 ALTER TABLE public."funcoes" ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE public."etapa_obra" ENABLE ROW LEVEL SECURITY;
@@ -11434,6 +12585,8 @@ ALTER TABLE public."ocorrencias" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public."configuracoes_belvo" ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE public."diarios_obra" ENABLE ROW LEVEL SECURITY;
+
+ALTER TABLE public."sys_notification_templates" ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE public."permissoes" ENABLE ROW LEVEL SECURITY;
 
@@ -11453,13 +12606,13 @@ ALTER TABLE public."bim_notas_elementos" ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE public."activity_anexos" ENABLE ROW LEVEL SECURITY;
 
+ALTER TABLE public."produtos_empreendimento" ENABLE ROW LEVEL SECURITY;
+
 ALTER TABLE public."abonos" ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE public."configuracoes_venda" ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE public."jornada_detalhes" ENABLE ROW LEVEL SECURITY;
-
-ALTER TABLE public."produtos_empreendimento" ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE public."categorias_financeiras" ENABLE ROW LEVEL SECURITY;
 
@@ -11475,9 +12628,11 @@ ALTER TABLE public."automacoes" ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE public."configuracoes_whatsapp" ENABLE ROW LEVEL SECURITY;
 
-ALTER TABLE public."lancamentos" ENABLE ROW LEVEL SECURITY;
-
 ALTER TABLE public."contatos_no_funil" ENABLE ROW LEVEL SECURITY;
+
+ALTER TABLE public."indices_governamentais" ENABLE ROW LEVEL SECURITY;
+
+ALTER TABLE public."sys_chat_participants" ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE public."contatos_no_funil_produtos" ENABLE ROW LEVEL SECURITY;
 
@@ -11486,6 +12641,10 @@ ALTER TABLE public."contrato_permutas" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public."funis" ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE public."colunas_funil" ENABLE ROW LEVEL SECURITY;
+
+ALTER TABLE public."sys_chat_messages" ENABLE ROW LEVEL SECURITY;
+
+ALTER TABLE public."lancamentos" ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE public."conciliacao_historico" ENABLE ROW LEVEL SECURITY;
 
@@ -11509,11 +12668,11 @@ ALTER TABLE public."abono_tipos" ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE public."contratos" ENABLE ROW LEVEL SECURITY;
 
+ALTER TABLE public."contatos" ENABLE ROW LEVEL SECURITY;
+
 ALTER TABLE public."feriados" ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE public."historico_movimentacao_funil" ENABLE ROW LEVEL SECURITY;
-
-ALTER TABLE public."contatos" ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE public."pedidos_compra" ENABLE ROW LEVEL SECURITY;
 
@@ -11551,13 +12710,13 @@ ALTER TABLE public."movimentacoes_estoque" ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE public."whatsapp_scheduled_broadcasts" ENABLE ROW LEVEL SECURITY;
 
-ALTER TABLE public."contrato_produtos" ENABLE ROW LEVEL SECURITY;
-
-ALTER TABLE public."meta_ads_historico" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public."whatsapp_conversations" ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE public."whatsapp_messages" ENABLE ROW LEVEL SECURITY;
 
-ALTER TABLE public."whatsapp_conversations" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public."contrato_produtos" ENABLE ROW LEVEL SECURITY;
+
+ALTER TABLE public."meta_ads_historico" ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE public."atividades_elementos" ENABLE ROW LEVEL SECURITY;
 
@@ -11565,7 +12724,13 @@ ALTER TABLE public."debug_notificacoes" ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE public."bim_notas" ENABLE ROW LEVEL SECURITY;
 
+ALTER TABLE public."sys_chat_mural_posts" ENABLE ROW LEVEL SECURITY;
+
 ALTER TABLE public."bim_notas_comentarios" ENABLE ROW LEVEL SECURITY;
+
+ALTER TABLE public."sys_chat_mural_comments" ENABLE ROW LEVEL SECURITY;
+
+ALTER TABLE public."sys_chat_mural_likes" ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE public."notificacoes" ENABLE ROW LEVEL SECURITY;
 
@@ -11577,19 +12742,23 @@ ALTER TABLE public."termos_uso" ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE public."email_messages_cache" ENABLE ROW LEVEL SECURITY;
 
-ALTER TABLE public."parcelas_adicionais" ENABLE ROW LEVEL SECURITY;
-
 ALTER TABLE public."auditoria_ia_logs" ENABLE ROW LEVEL SECURITY;
+
+ALTER TABLE public."parcelas_adicionais" ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE public."campos_sistema" ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE public."orcamento_itens" ENABLE ROW LEVEL SECURITY;
 
+ALTER TABLE public."materiais" ENABLE ROW LEVEL SECURITY;
+
+ALTER TABLE public."pedidos_compra_itens" ENABLE ROW LEVEL SECURITY;
+
+ALTER TABLE public."orcamentos" ENABLE ROW LEVEL SECURITY;
+
 ALTER TABLE public."feedback" ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE public."jornadas" ENABLE ROW LEVEL SECURITY;
-
-ALTER TABLE public."materiais" ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE public."contrato_anexos" ENABLE ROW LEVEL SECURITY;
 
@@ -11599,19 +12768,13 @@ ALTER TABLE public."emails" ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE public."empreendimento_anexos" ENABLE ROW LEVEL SECURITY;
 
-ALTER TABLE public."empreendimentos" ENABLE ROW LEVEL SECURITY;
-
 ALTER TABLE public."faturas_cartao" ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE public."meta_campaigns" ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE public."notification_subscriptions" ENABLE ROW LEVEL SECURITY;
 
-ALTER TABLE public."orcamentos" ENABLE ROW LEVEL SECURITY;
-
 ALTER TABLE public."pedidos_compra_anexos" ENABLE ROW LEVEL SECURITY;
-
-ALTER TABLE public."pedidos_compra_itens" ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE public."pedidos_compra_status_historico_legacy" ENABLE ROW LEVEL SECURITY;
 
@@ -11639,6 +12802,8 @@ ALTER TABLE public."subetapas" ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE public."telefones" ENABLE ROW LEVEL SECURITY;
 
+ALTER TABLE public."usuarios" ENABLE ROW LEVEL SECURITY;
+
 ALTER TABLE public."politicas_plataforma" ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE public."bim_vistas_federadas" ENABLE ROW LEVEL SECURITY;
@@ -11647,11 +12812,11 @@ ALTER TABLE public."pedidos_compra_historico_fases" ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE public."pedidos_fases" ENABLE ROW LEVEL SECURITY;
 
-ALTER TABLE public."usuarios" ENABLE ROW LEVEL SECURITY;
-
 ALTER TABLE public."whatsapp_broadcast_lists" ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE public."whatsapp_list_members" ENABLE ROW LEVEL SECURITY;
+
+ALTER TABLE public."integracoes_google" ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE public."integracoes_meta" ENABLE ROW LEVEL SECURITY;
 
@@ -11659,9 +12824,15 @@ ALTER TABLE public."contratos_terceirizados" ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE public."contratos_terceirizados_anexos" ENABLE ROW LEVEL SECURITY;
 
-ALTER TABLE public."integracoes_google" ENABLE ROW LEVEL SECURITY;
-
 ALTER TABLE public."monitor_visitas" ENABLE ROW LEVEL SECURITY;
+
+ALTER TABLE public."historico_vgv" ENABLE ROW LEVEL SECURITY;
+
+ALTER TABLE public."empreendimentos" ENABLE ROW LEVEL SECURITY;
+
+ALTER TABLE public."sys_chat_conversations" ENABLE ROW LEVEL SECURITY;
+
+ALTER TABLE public."regras_notificacao" ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Acesso restrito por organização" ON public."funcoes";
 CREATE POLICY "Acesso restrito por organização" ON public."funcoes" AS PERMISSIVE FOR ALL
@@ -11796,50 +12967,50 @@ CREATE POLICY "rls_update_org_policy" ON public."diarios_obra" AS PERMISSIVE FOR
   USING ((organizacao_id = get_auth_user_org()))
   WITH CHECK ((organizacao_id = get_auth_user_org()));
 
--- ERRO POLICY: relation "public.sys_notification_templates" does not exist
--- CREATE POLICY "Escrita liberada para todos" ON public."sys_notification_templates" AS PERMISSIVE FOR ALL
+DROP POLICY IF EXISTS "Escrita liberada para todos" ON public."sys_notification_templates";
+CREATE POLICY "Escrita liberada para todos" ON public."sys_notification_templates" AS PERMISSIVE FOR ALL
   USING (true)
   WITH CHECK (true);
 
--- ERRO POLICY: relation "public.sys_notification_templates" does not exist
--- CREATE POLICY "Leitura de templates p todo o sistema" ON public."sys_notification_templates" AS PERMISSIVE FOR SELECT
+DROP POLICY IF EXISTS "Leitura de templates p todo o sistema" ON public."sys_notification_templates";
+CREATE POLICY "Leitura de templates p todo o sistema" ON public."sys_notification_templates" AS PERMISSIVE FOR SELECT
   USING (true);
 
--- ERRO POLICY: relation "public.sys_notification_templates" does not exist
--- CREATE POLICY "Permitir gestao pela propria organizacao" ON public."sys_notification_templates" AS PERMISSIVE FOR ALL
+DROP POLICY IF EXISTS "Permitir gestao pela propria organizacao" ON public."sys_notification_templates";
+CREATE POLICY "Permitir gestao pela propria organizacao" ON public."sys_notification_templates" AS PERMISSIVE FOR ALL
   USING ((organizacao_id = get_auth_user_org()))
   WITH CHECK ((organizacao_id = get_auth_user_org()));
 
--- ERRO POLICY: relation "public.sys_notification_templates" does not exist
--- CREATE POLICY "Permitir leitura multi-tenant" ON public."sys_notification_templates" AS PERMISSIVE FOR SELECT
+DROP POLICY IF EXISTS "Permitir leitura multi-tenant" ON public."sys_notification_templates";
+CREATE POLICY "Permitir leitura multi-tenant" ON public."sys_notification_templates" AS PERMISSIVE FOR SELECT
   USING (((organizacao_id = get_auth_user_org()) OR (organizacao_id = 1)));
 
--- ERRO POLICY: relation "public.sys_notification_templates" does not exist
--- CREATE POLICY "Superadmin update templates" ON public."sys_notification_templates" AS PERMISSIVE FOR ALL TO authenticated
+DROP POLICY IF EXISTS "Superadmin update templates" ON public."sys_notification_templates";
+CREATE POLICY "Superadmin update templates" ON public."sys_notification_templates" AS PERMISSIVE FOR ALL TO authenticated
   USING ((( SELECT usuarios.organizacao_id
    FROM usuarios
   WHERE (usuarios.id = auth.uid())) = 1));
 
--- ERRO POLICY: relation "public.sys_notification_templates" does not exist
--- CREATE POLICY "Templates publicos para leitura" ON public."sys_notification_templates" AS PERMISSIVE FOR SELECT
+DROP POLICY IF EXISTS "Templates publicos para leitura" ON public."sys_notification_templates";
+CREATE POLICY "Templates publicos para leitura" ON public."sys_notification_templates" AS PERMISSIVE FOR SELECT
   USING (((organizacao_id = 1) OR (organizacao_id = ( SELECT usuarios.organizacao_id
    FROM usuarios
   WHERE (usuarios.id = auth.uid())))));
 
--- ERRO POLICY: relation "public.sys_notification_templates" does not exist
--- CREATE POLICY "rls_delete_org_policy" ON public."sys_notification_templates" AS PERMISSIVE FOR DELETE TO authenticated
+DROP POLICY IF EXISTS "rls_delete_org_policy" ON public."sys_notification_templates";
+CREATE POLICY "rls_delete_org_policy" ON public."sys_notification_templates" AS PERMISSIVE FOR DELETE TO authenticated
   USING ((organizacao_id = get_auth_user_org()));
 
--- ERRO POLICY: relation "public.sys_notification_templates" does not exist
--- CREATE POLICY "rls_insert_org_policy" ON public."sys_notification_templates" AS PERMISSIVE FOR INSERT TO authenticated
+DROP POLICY IF EXISTS "rls_insert_org_policy" ON public."sys_notification_templates";
+CREATE POLICY "rls_insert_org_policy" ON public."sys_notification_templates" AS PERMISSIVE FOR INSERT TO authenticated
   WITH CHECK ((organizacao_id = get_auth_user_org()));
 
--- ERRO POLICY: relation "public.sys_notification_templates" does not exist
--- CREATE POLICY "rls_select_org_policy" ON public."sys_notification_templates" AS PERMISSIVE FOR SELECT TO authenticated
+DROP POLICY IF EXISTS "rls_select_org_policy" ON public."sys_notification_templates";
+CREATE POLICY "rls_select_org_policy" ON public."sys_notification_templates" AS PERMISSIVE FOR SELECT TO authenticated
   USING (((organizacao_id = get_auth_user_org()) OR (organizacao_id = 1)));
 
--- ERRO POLICY: relation "public.sys_notification_templates" does not exist
--- CREATE POLICY "rls_update_org_policy" ON public."sys_notification_templates" AS PERMISSIVE FOR UPDATE TO authenticated
+DROP POLICY IF EXISTS "rls_update_org_policy" ON public."sys_notification_templates";
+CREATE POLICY "rls_update_org_policy" ON public."sys_notification_templates" AS PERMISSIVE FOR UPDATE TO authenticated
   USING ((organizacao_id = get_auth_user_org()))
   WITH CHECK ((organizacao_id = get_auth_user_org()));
 
@@ -11859,6 +13030,10 @@ DROP POLICY IF EXISTS "rls_update_org_policy" ON public."permissoes";
 CREATE POLICY "rls_update_org_policy" ON public."permissoes" AS PERMISSIVE FOR UPDATE TO authenticated
   USING ((organizacao_id = get_auth_user_org()))
   WITH CHECK ((organizacao_id = get_auth_user_org()));
+
+-- ERRO POLICY: relation "public.historico_lancamentos_financeiros" does not exist
+-- CREATE POLICY "Ver auditoria da propria organizacao" ON public."historico_lancamentos_financeiros" AS PERMISSIVE FOR SELECT
+  USING (((organizacao_id = get_auth_user_org()) OR (get_auth_user_org() = 1)));
 
 DROP POLICY IF EXISTS "Usuarios apagam seus proprios planejamentos" ON public."ai_planning_sessions";
 CREATE POLICY "Usuarios apagam seus proprios planejamentos" ON public."ai_planning_sessions" AS PERMISSIVE FOR DELETE
@@ -12061,6 +13236,28 @@ CREATE POLICY "rls_update_org_policy" ON public."activity_anexos" AS PERMISSIVE 
   USING ((organizacao_id = get_auth_user_org()))
   WITH CHECK ((organizacao_id = get_auth_user_org()));
 
+DROP POLICY IF EXISTS "Acesso restrito por organização" ON public."produtos_empreendimento";
+CREATE POLICY "Acesso restrito por organização" ON public."produtos_empreendimento" AS PERMISSIVE FOR ALL
+  USING ((organizacao_id = get_organizacao_id()))
+  WITH CHECK ((organizacao_id = get_organizacao_id()));
+
+DROP POLICY IF EXISTS "rls_delete_org_policy" ON public."produtos_empreendimento";
+CREATE POLICY "rls_delete_org_policy" ON public."produtos_empreendimento" AS PERMISSIVE FOR DELETE TO authenticated
+  USING ((organizacao_id = get_auth_user_org()));
+
+DROP POLICY IF EXISTS "rls_insert_org_policy" ON public."produtos_empreendimento";
+CREATE POLICY "rls_insert_org_policy" ON public."produtos_empreendimento" AS PERMISSIVE FOR INSERT TO authenticated
+  WITH CHECK ((organizacao_id = get_auth_user_org()));
+
+DROP POLICY IF EXISTS "rls_select_org_policy" ON public."produtos_empreendimento";
+CREATE POLICY "rls_select_org_policy" ON public."produtos_empreendimento" AS PERMISSIVE FOR SELECT TO authenticated
+  USING (((organizacao_id = get_auth_user_org()) OR (organizacao_id = 1)));
+
+DROP POLICY IF EXISTS "rls_update_org_policy" ON public."produtos_empreendimento";
+CREATE POLICY "rls_update_org_policy" ON public."produtos_empreendimento" AS PERMISSIVE FOR UPDATE TO authenticated
+  USING ((organizacao_id = get_auth_user_org()))
+  WITH CHECK ((organizacao_id = get_auth_user_org()));
+
 DROP POLICY IF EXISTS "Acesso restrito por organização" ON public."abonos";
 CREATE POLICY "Acesso restrito por organização" ON public."abonos" AS PERMISSIVE FOR ALL
   USING ((organizacao_id = get_organizacao_id()))
@@ -12114,28 +13311,6 @@ CREATE POLICY "rls_select_org_policy" ON public."jornada_detalhes" AS PERMISSIVE
 
 DROP POLICY IF EXISTS "rls_update_org_policy" ON public."jornada_detalhes";
 CREATE POLICY "rls_update_org_policy" ON public."jornada_detalhes" AS PERMISSIVE FOR UPDATE TO authenticated
-  USING ((organizacao_id = get_auth_user_org()))
-  WITH CHECK ((organizacao_id = get_auth_user_org()));
-
-DROP POLICY IF EXISTS "Acesso restrito por organização" ON public."produtos_empreendimento";
-CREATE POLICY "Acesso restrito por organização" ON public."produtos_empreendimento" AS PERMISSIVE FOR ALL
-  USING ((organizacao_id = get_organizacao_id()))
-  WITH CHECK ((organizacao_id = get_organizacao_id()));
-
-DROP POLICY IF EXISTS "rls_delete_org_policy" ON public."produtos_empreendimento";
-CREATE POLICY "rls_delete_org_policy" ON public."produtos_empreendimento" AS PERMISSIVE FOR DELETE TO authenticated
-  USING ((organizacao_id = get_auth_user_org()));
-
-DROP POLICY IF EXISTS "rls_insert_org_policy" ON public."produtos_empreendimento";
-CREATE POLICY "rls_insert_org_policy" ON public."produtos_empreendimento" AS PERMISSIVE FOR INSERT TO authenticated
-  WITH CHECK ((organizacao_id = get_auth_user_org()));
-
-DROP POLICY IF EXISTS "rls_select_org_policy" ON public."produtos_empreendimento";
-CREATE POLICY "rls_select_org_policy" ON public."produtos_empreendimento" AS PERMISSIVE FOR SELECT TO authenticated
-  USING (((organizacao_id = get_auth_user_org()) OR (organizacao_id = 1)));
-
-DROP POLICY IF EXISTS "rls_update_org_policy" ON public."produtos_empreendimento";
-CREATE POLICY "rls_update_org_policy" ON public."produtos_empreendimento" AS PERMISSIVE FOR UPDATE TO authenticated
   USING ((organizacao_id = get_auth_user_org()))
   WITH CHECK ((organizacao_id = get_auth_user_org()));
 
@@ -12284,40 +13459,6 @@ CREATE POLICY "rls_update_org_policy" ON public."configuracoes_whatsapp" AS PERM
   USING ((organizacao_id = get_auth_user_org()))
   WITH CHECK ((organizacao_id = get_auth_user_org()));
 
-DROP POLICY IF EXISTS "Acesso restrito por organização" ON public."lancamentos";
-CREATE POLICY "Acesso restrito por organização" ON public."lancamentos" AS PERMISSIVE FOR ALL
-  USING ((organizacao_id = get_organizacao_id()))
-  WITH CHECK ((organizacao_id = get_organizacao_id()));
-
-DROP POLICY IF EXISTS "Permitir criacao de lancamentos para usuarios da organizacao" ON public."lancamentos";
-CREATE POLICY "Permitir criacao de lancamentos para usuarios da organizacao" ON public."lancamentos" AS PERMISSIVE FOR INSERT TO authenticated
-  WITH CHECK ((organizacao_id = ( SELECT u.organizacao_id
-   FROM usuarios u
-  WHERE (u.id = auth.uid()))));
-
-DROP POLICY IF EXISTS "Permitir visualizacao de lancamentos para usuarios da organizac" ON public."lancamentos";
-CREATE POLICY "Permitir visualizacao de lancamentos para usuarios da organizac" ON public."lancamentos" AS PERMISSIVE FOR SELECT TO authenticated
-  USING ((organizacao_id = ( SELECT u.organizacao_id
-   FROM usuarios u
-  WHERE (u.id = auth.uid()))));
-
-DROP POLICY IF EXISTS "rls_delete_org_policy" ON public."lancamentos";
-CREATE POLICY "rls_delete_org_policy" ON public."lancamentos" AS PERMISSIVE FOR DELETE TO authenticated
-  USING ((organizacao_id = get_auth_user_org()));
-
-DROP POLICY IF EXISTS "rls_insert_org_policy" ON public."lancamentos";
-CREATE POLICY "rls_insert_org_policy" ON public."lancamentos" AS PERMISSIVE FOR INSERT TO authenticated
-  WITH CHECK ((organizacao_id = get_auth_user_org()));
-
-DROP POLICY IF EXISTS "rls_select_org_policy" ON public."lancamentos";
-CREATE POLICY "rls_select_org_policy" ON public."lancamentos" AS PERMISSIVE FOR SELECT TO authenticated
-  USING (((organizacao_id = get_auth_user_org()) OR (organizacao_id = 1)));
-
-DROP POLICY IF EXISTS "rls_update_org_policy" ON public."lancamentos";
-CREATE POLICY "rls_update_org_policy" ON public."lancamentos" AS PERMISSIVE FOR UPDATE TO authenticated
-  USING ((organizacao_id = get_auth_user_org()))
-  WITH CHECK ((organizacao_id = get_auth_user_org()));
-
 DROP POLICY IF EXISTS "Acesso restrito por organização" ON public."contatos_no_funil";
 CREATE POLICY "Acesso restrito por organização" ON public."contatos_no_funil" AS PERMISSIVE FOR ALL
   USING ((organizacao_id = get_organizacao_id()))
@@ -12340,30 +13481,30 @@ CREATE POLICY "rls_update_org_policy" ON public."contatos_no_funil" AS PERMISSIV
   USING ((organizacao_id = get_auth_user_org()))
   WITH CHECK ((organizacao_id = get_auth_user_org()));
 
--- ERRO POLICY: relation "public.indices_governamentais" does not exist
--- CREATE POLICY "Apenas Org 1 deleta indices" ON public."indices_governamentais" AS PERMISSIVE FOR DELETE
+DROP POLICY IF EXISTS "Apenas Org 1 deleta indices" ON public."indices_governamentais";
+CREATE POLICY "Apenas Org 1 deleta indices" ON public."indices_governamentais" AS PERMISSIVE FOR DELETE
   USING (((get_auth_user_org() = 1) AND (organizacao_id = 1)));
 
--- ERRO POLICY: relation "public.indices_governamentais" does not exist
--- CREATE POLICY "Apenas Org 1 edita indices" ON public."indices_governamentais" AS PERMISSIVE FOR UPDATE
+DROP POLICY IF EXISTS "Apenas Org 1 edita indices" ON public."indices_governamentais";
+CREATE POLICY "Apenas Org 1 edita indices" ON public."indices_governamentais" AS PERMISSIVE FOR UPDATE
   USING (((get_auth_user_org() = 1) AND (organizacao_id = 1)));
 
--- ERRO POLICY: relation "public.indices_governamentais" does not exist
--- CREATE POLICY "Apenas Org 1 insere indices" ON public."indices_governamentais" AS PERMISSIVE FOR INSERT
+DROP POLICY IF EXISTS "Apenas Org 1 insere indices" ON public."indices_governamentais";
+CREATE POLICY "Apenas Org 1 insere indices" ON public."indices_governamentais" AS PERMISSIVE FOR INSERT
   WITH CHECK (((get_auth_user_org() = 1) AND (organizacao_id = 1)));
 
--- ERRO POLICY: relation "public.indices_governamentais" does not exist
--- CREATE POLICY "Usuarios podem ver indices" ON public."indices_governamentais" AS PERMISSIVE FOR SELECT
+DROP POLICY IF EXISTS "Usuarios podem ver indices" ON public."indices_governamentais";
+CREATE POLICY "Usuarios podem ver indices" ON public."indices_governamentais" AS PERMISSIVE FOR SELECT
   USING (((organizacao_id = 1) OR (organizacao_id = get_auth_user_org())));
 
--- ERRO POLICY: relation "public.sys_chat_participants" does not exist
--- CREATE POLICY "Insercao de participantes" ON public."sys_chat_participants" AS PERMISSIVE FOR INSERT
+DROP POLICY IF EXISTS "Insercao de participantes" ON public."sys_chat_participants";
+CREATE POLICY "Insercao de participantes" ON public."sys_chat_participants" AS PERMISSIVE FOR INSERT
   WITH CHECK ((EXISTS ( SELECT 1
    FROM sys_chat_conversations c
   WHERE ((c.id = sys_chat_participants.conversation_id) AND (c.organizacao_id = get_auth_user_org())))));
 
--- ERRO POLICY: relation "public.sys_chat_participants" does not exist
--- CREATE POLICY "Leitura de participantes" ON public."sys_chat_participants" AS PERMISSIVE FOR SELECT
+DROP POLICY IF EXISTS "Leitura de participantes" ON public."sys_chat_participants";
+CREATE POLICY "Leitura de participantes" ON public."sys_chat_participants" AS PERMISSIVE FOR SELECT
   USING ((EXISTS ( SELECT 1
    FROM sys_chat_conversations c
   WHERE ((c.id = sys_chat_participants.conversation_id) AND ((c.organizacao_id = get_auth_user_org()) OR (c.organizacao_id = 1))))));
@@ -12490,17 +13631,51 @@ CREATE POLICY "rls_update_org_policy" ON public."colunas_funil" AS PERMISSIVE FO
 -- CREATE POLICY "Acesso completo as listas" ON public."sys_chat_broadcast_lists" AS PERMISSIVE FOR ALL
   USING ((((organizacao_id = get_auth_user_org()) OR (organizacao_id = 1)) AND (owner_id = auth.uid())));
 
--- ERRO POLICY: relation "public.sys_chat_messages" does not exist
--- CREATE POLICY "Insercao de mensagens" ON public."sys_chat_messages" AS PERMISSIVE FOR INSERT
+DROP POLICY IF EXISTS "Insercao de mensagens" ON public."sys_chat_messages";
+CREATE POLICY "Insercao de mensagens" ON public."sys_chat_messages" AS PERMISSIVE FOR INSERT
   WITH CHECK (((sender_id = auth.uid()) AND (EXISTS ( SELECT 1
    FROM sys_chat_participants p
   WHERE ((p.conversation_id = sys_chat_messages.conversation_id) AND (p.user_id = auth.uid()))))));
 
--- ERRO POLICY: relation "public.sys_chat_messages" does not exist
--- CREATE POLICY "Leitura de mensagens" ON public."sys_chat_messages" AS PERMISSIVE FOR SELECT
+DROP POLICY IF EXISTS "Leitura de mensagens" ON public."sys_chat_messages";
+CREATE POLICY "Leitura de mensagens" ON public."sys_chat_messages" AS PERMISSIVE FOR SELECT
   USING ((EXISTS ( SELECT 1
    FROM sys_chat_participants p
   WHERE ((p.conversation_id = sys_chat_messages.conversation_id) AND (p.user_id = auth.uid())))));
+
+DROP POLICY IF EXISTS "Acesso restrito por organização" ON public."lancamentos";
+CREATE POLICY "Acesso restrito por organização" ON public."lancamentos" AS PERMISSIVE FOR ALL
+  USING ((organizacao_id = get_organizacao_id()))
+  WITH CHECK ((organizacao_id = get_organizacao_id()));
+
+DROP POLICY IF EXISTS "Permitir criacao de lancamentos para usuarios da organizacao" ON public."lancamentos";
+CREATE POLICY "Permitir criacao de lancamentos para usuarios da organizacao" ON public."lancamentos" AS PERMISSIVE FOR INSERT TO authenticated
+  WITH CHECK ((organizacao_id = ( SELECT u.organizacao_id
+   FROM usuarios u
+  WHERE (u.id = auth.uid()))));
+
+DROP POLICY IF EXISTS "Permitir visualizacao de lancamentos para usuarios da organizac" ON public."lancamentos";
+CREATE POLICY "Permitir visualizacao de lancamentos para usuarios da organizac" ON public."lancamentos" AS PERMISSIVE FOR SELECT TO authenticated
+  USING ((organizacao_id = ( SELECT u.organizacao_id
+   FROM usuarios u
+  WHERE (u.id = auth.uid()))));
+
+DROP POLICY IF EXISTS "rls_delete_org_policy" ON public."lancamentos";
+CREATE POLICY "rls_delete_org_policy" ON public."lancamentos" AS PERMISSIVE FOR DELETE TO authenticated
+  USING ((organizacao_id = get_auth_user_org()));
+
+DROP POLICY IF EXISTS "rls_insert_org_policy" ON public."lancamentos";
+CREATE POLICY "rls_insert_org_policy" ON public."lancamentos" AS PERMISSIVE FOR INSERT TO authenticated
+  WITH CHECK ((organizacao_id = get_auth_user_org()));
+
+DROP POLICY IF EXISTS "rls_select_org_policy" ON public."lancamentos";
+CREATE POLICY "rls_select_org_policy" ON public."lancamentos" AS PERMISSIVE FOR SELECT TO authenticated
+  USING (((organizacao_id = get_auth_user_org()) OR (organizacao_id = 1)));
+
+DROP POLICY IF EXISTS "rls_update_org_policy" ON public."lancamentos";
+CREATE POLICY "rls_update_org_policy" ON public."lancamentos" AS PERMISSIVE FOR UPDATE TO authenticated
+  USING ((organizacao_id = get_auth_user_org()))
+  WITH CHECK ((organizacao_id = get_auth_user_org()));
 
 DROP POLICY IF EXISTS "Permite acesso apenas para a própria organização" ON public."conciliacao_historico";
 CREATE POLICY "Permite acesso apenas para a própria organização" ON public."conciliacao_historico" AS PERMISSIVE FOR SELECT
@@ -12613,6 +13788,21 @@ DROP POLICY IF EXISTS "rls_update_org_policy" ON public."meta_ads";
 CREATE POLICY "rls_update_org_policy" ON public."meta_ads" AS PERMISSIVE FOR UPDATE TO authenticated
   USING ((organizacao_id = get_auth_user_org()))
   WITH CHECK ((organizacao_id = get_auth_user_org()));
+
+-- ERRO POLICY: relation "public.crm_rodizio_config" does not exist
+-- CREATE POLICY "Edição de configuração de rodízio" ON public."crm_rodizio_config" AS PERMISSIVE FOR ALL
+  USING ((organizacao_id IN ( SELECT u.organizacao_id
+   FROM usuarios u
+  WHERE (u.id = auth.uid()))))
+  WITH CHECK ((organizacao_id IN ( SELECT u.organizacao_id
+   FROM usuarios u
+  WHERE (u.id = auth.uid()))));
+
+-- ERRO POLICY: relation "public.crm_rodizio_config" does not exist
+-- CREATE POLICY "Leitura de configuração de rodízio" ON public."crm_rodizio_config" AS PERMISSIVE FOR SELECT
+  USING ((organizacao_id IN ( SELECT u.organizacao_id
+   FROM usuarios u
+  WHERE (u.id = auth.uid()))));
 
 DROP POLICY IF EXISTS "rls_delete_org_policy" ON public."meta_adsets";
 CREATE POLICY "rls_delete_org_policy" ON public."meta_adsets" AS PERMISSIVE FOR DELETE TO authenticated
@@ -12742,51 +13932,6 @@ CREATE POLICY "rls_update_org_policy" ON public."contratos" AS PERMISSIVE FOR UP
   USING ((organizacao_id = get_auth_user_org()))
   WITH CHECK ((organizacao_id = get_auth_user_org()));
 
-DROP POLICY IF EXISTS "Acesso restrito por organização" ON public."feriados";
-CREATE POLICY "Acesso restrito por organização" ON public."feriados" AS PERMISSIVE FOR ALL
-  USING ((organizacao_id = get_organizacao_id()))
-  WITH CHECK ((organizacao_id = get_organizacao_id()));
-
-DROP POLICY IF EXISTS "rls_delete_org_policy" ON public."feriados";
-CREATE POLICY "rls_delete_org_policy" ON public."feriados" AS PERMISSIVE FOR DELETE TO authenticated
-  USING ((organizacao_id = get_auth_user_org()));
-
-DROP POLICY IF EXISTS "rls_insert_org_policy" ON public."feriados";
-CREATE POLICY "rls_insert_org_policy" ON public."feriados" AS PERMISSIVE FOR INSERT TO authenticated
-  WITH CHECK ((organizacao_id = get_auth_user_org()));
-
-DROP POLICY IF EXISTS "rls_select_org_policy" ON public."feriados";
-CREATE POLICY "rls_select_org_policy" ON public."feriados" AS PERMISSIVE FOR SELECT TO authenticated
-  USING (((organizacao_id = get_auth_user_org()) OR (organizacao_id = 1)));
-
-DROP POLICY IF EXISTS "rls_update_org_policy" ON public."feriados";
-CREATE POLICY "rls_update_org_policy" ON public."feriados" AS PERMISSIVE FOR UPDATE TO authenticated
-  USING ((organizacao_id = get_auth_user_org()))
-  WITH CHECK ((organizacao_id = get_auth_user_org()));
-
-DROP POLICY IF EXISTS "Permitir leitura do histórico para usuários da mesma organiza" ON public."historico_movimentacao_funil";
-CREATE POLICY "Permitir leitura do histórico para usuários da mesma organiza" ON public."historico_movimentacao_funil" AS PERMISSIVE FOR SELECT
-  USING (((auth.uid() IS NOT NULL) AND (organizacao_id = ( SELECT usuarios.organizacao_id
-   FROM usuarios
-  WHERE (usuarios.id = auth.uid())))));
-
-DROP POLICY IF EXISTS "rls_delete_org_policy" ON public."historico_movimentacao_funil";
-CREATE POLICY "rls_delete_org_policy" ON public."historico_movimentacao_funil" AS PERMISSIVE FOR DELETE TO authenticated
-  USING ((organizacao_id = get_auth_user_org()));
-
-DROP POLICY IF EXISTS "rls_insert_org_policy" ON public."historico_movimentacao_funil";
-CREATE POLICY "rls_insert_org_policy" ON public."historico_movimentacao_funil" AS PERMISSIVE FOR INSERT TO authenticated
-  WITH CHECK ((organizacao_id = get_auth_user_org()));
-
-DROP POLICY IF EXISTS "rls_select_org_policy" ON public."historico_movimentacao_funil";
-CREATE POLICY "rls_select_org_policy" ON public."historico_movimentacao_funil" AS PERMISSIVE FOR SELECT TO authenticated
-  USING (((organizacao_id = get_auth_user_org()) OR (organizacao_id = 1)));
-
-DROP POLICY IF EXISTS "rls_update_org_policy" ON public."historico_movimentacao_funil";
-CREATE POLICY "rls_update_org_policy" ON public."historico_movimentacao_funil" AS PERMISSIVE FOR UPDATE TO authenticated
-  USING ((organizacao_id = get_auth_user_org()))
-  WITH CHECK ((organizacao_id = get_auth_user_org()));
-
 DROP POLICY IF EXISTS "Acesso restrito por organização" ON public."contatos";
 CREATE POLICY "Acesso restrito por organização" ON public."contatos" AS PERMISSIVE FOR ALL
   USING ((organizacao_id = get_organizacao_id()))
@@ -12869,6 +14014,51 @@ CREATE POLICY "rls_select_org_policy" ON public."contatos" AS PERMISSIVE FOR SEL
 
 DROP POLICY IF EXISTS "rls_update_org_policy" ON public."contatos";
 CREATE POLICY "rls_update_org_policy" ON public."contatos" AS PERMISSIVE FOR UPDATE TO authenticated
+  USING ((organizacao_id = get_auth_user_org()))
+  WITH CHECK ((organizacao_id = get_auth_user_org()));
+
+DROP POLICY IF EXISTS "Acesso restrito por organização" ON public."feriados";
+CREATE POLICY "Acesso restrito por organização" ON public."feriados" AS PERMISSIVE FOR ALL
+  USING ((organizacao_id = get_organizacao_id()))
+  WITH CHECK ((organizacao_id = get_organizacao_id()));
+
+DROP POLICY IF EXISTS "rls_delete_org_policy" ON public."feriados";
+CREATE POLICY "rls_delete_org_policy" ON public."feriados" AS PERMISSIVE FOR DELETE TO authenticated
+  USING ((organizacao_id = get_auth_user_org()));
+
+DROP POLICY IF EXISTS "rls_insert_org_policy" ON public."feriados";
+CREATE POLICY "rls_insert_org_policy" ON public."feriados" AS PERMISSIVE FOR INSERT TO authenticated
+  WITH CHECK ((organizacao_id = get_auth_user_org()));
+
+DROP POLICY IF EXISTS "rls_select_org_policy" ON public."feriados";
+CREATE POLICY "rls_select_org_policy" ON public."feriados" AS PERMISSIVE FOR SELECT TO authenticated
+  USING (((organizacao_id = get_auth_user_org()) OR (organizacao_id = 1)));
+
+DROP POLICY IF EXISTS "rls_update_org_policy" ON public."feriados";
+CREATE POLICY "rls_update_org_policy" ON public."feriados" AS PERMISSIVE FOR UPDATE TO authenticated
+  USING ((organizacao_id = get_auth_user_org()))
+  WITH CHECK ((organizacao_id = get_auth_user_org()));
+
+DROP POLICY IF EXISTS "Permitir leitura do histórico para usuários da mesma organiza" ON public."historico_movimentacao_funil";
+CREATE POLICY "Permitir leitura do histórico para usuários da mesma organiza" ON public."historico_movimentacao_funil" AS PERMISSIVE FOR SELECT
+  USING (((auth.uid() IS NOT NULL) AND (organizacao_id = ( SELECT usuarios.organizacao_id
+   FROM usuarios
+  WHERE (usuarios.id = auth.uid())))));
+
+DROP POLICY IF EXISTS "rls_delete_org_policy" ON public."historico_movimentacao_funil";
+CREATE POLICY "rls_delete_org_policy" ON public."historico_movimentacao_funil" AS PERMISSIVE FOR DELETE TO authenticated
+  USING ((organizacao_id = get_auth_user_org()));
+
+DROP POLICY IF EXISTS "rls_insert_org_policy" ON public."historico_movimentacao_funil";
+CREATE POLICY "rls_insert_org_policy" ON public."historico_movimentacao_funil" AS PERMISSIVE FOR INSERT TO authenticated
+  WITH CHECK ((organizacao_id = get_auth_user_org()));
+
+DROP POLICY IF EXISTS "rls_select_org_policy" ON public."historico_movimentacao_funil";
+CREATE POLICY "rls_select_org_policy" ON public."historico_movimentacao_funil" AS PERMISSIVE FOR SELECT TO authenticated
+  USING (((organizacao_id = get_auth_user_org()) OR (organizacao_id = 1)));
+
+DROP POLICY IF EXISTS "rls_update_org_policy" ON public."historico_movimentacao_funil";
+CREATE POLICY "rls_update_org_policy" ON public."historico_movimentacao_funil" AS PERMISSIVE FOR UPDATE TO authenticated
   USING ((organizacao_id = get_auth_user_org()))
   WITH CHECK ((organizacao_id = get_auth_user_org()));
 
@@ -13321,6 +14511,55 @@ CREATE POLICY "rls_update_org_policy" ON public."whatsapp_scheduled_broadcasts" 
   USING ((organizacao_id = get_auth_user_org()))
   WITH CHECK ((organizacao_id = get_auth_user_org()));
 
+DROP POLICY IF EXISTS "rls_delete_org_policy" ON public."whatsapp_conversations";
+CREATE POLICY "rls_delete_org_policy" ON public."whatsapp_conversations" AS PERMISSIVE FOR DELETE TO authenticated
+  USING ((organizacao_id = get_auth_user_org()));
+
+DROP POLICY IF EXISTS "rls_insert_org_policy" ON public."whatsapp_conversations";
+CREATE POLICY "rls_insert_org_policy" ON public."whatsapp_conversations" AS PERMISSIVE FOR INSERT TO authenticated
+  WITH CHECK ((organizacao_id = get_auth_user_org()));
+
+DROP POLICY IF EXISTS "rls_select_org_policy" ON public."whatsapp_conversations";
+CREATE POLICY "rls_select_org_policy" ON public."whatsapp_conversations" AS PERMISSIVE FOR SELECT TO authenticated
+  USING (((organizacao_id = get_auth_user_org()) OR (organizacao_id = 1)));
+
+DROP POLICY IF EXISTS "rls_update_org_policy" ON public."whatsapp_conversations";
+CREATE POLICY "rls_update_org_policy" ON public."whatsapp_conversations" AS PERMISSIVE FOR UPDATE TO authenticated
+  USING ((organizacao_id = get_auth_user_org()))
+  WITH CHECK ((organizacao_id = get_auth_user_org()));
+
+DROP POLICY IF EXISTS "Allow authenticated users to manage their organization messages" ON public."whatsapp_messages";
+CREATE POLICY "Allow authenticated users to manage their organization messages" ON public."whatsapp_messages" AS PERMISSIVE FOR ALL TO authenticated
+  USING ((organizacao_id = get_my_organization_id()))
+  WITH CHECK ((organizacao_id = get_my_organization_id()));
+
+DROP POLICY IF EXISTS "Allow authenticated users to read their organization messages" ON public."whatsapp_messages";
+CREATE POLICY "Allow authenticated users to read their organization messages" ON public."whatsapp_messages" AS PERMISSIVE FOR SELECT TO authenticated
+  USING ((organizacao_id = get_my_organization_id()));
+
+DROP POLICY IF EXISTS "Enable read access for organization members" ON public."whatsapp_messages";
+CREATE POLICY "Enable read access for organization members" ON public."whatsapp_messages" AS PERMISSIVE FOR SELECT
+  USING ((organizacao_id = ( SELECT u.organizacao_id
+   FROM usuarios u
+  WHERE (u.id = auth.uid()))));
+
+DROP POLICY IF EXISTS "rls_delete_org_policy" ON public."whatsapp_messages";
+CREATE POLICY "rls_delete_org_policy" ON public."whatsapp_messages" AS PERMISSIVE FOR DELETE TO authenticated
+  USING ((organizacao_id = get_auth_user_org()));
+
+DROP POLICY IF EXISTS "rls_insert_org_policy" ON public."whatsapp_messages";
+CREATE POLICY "rls_insert_org_policy" ON public."whatsapp_messages" AS PERMISSIVE FOR INSERT TO authenticated
+  WITH CHECK ((organizacao_id = get_auth_user_org()));
+
+DROP POLICY IF EXISTS "rls_select_org_policy" ON public."whatsapp_messages";
+CREATE POLICY "rls_select_org_policy" ON public."whatsapp_messages" AS PERMISSIVE FOR SELECT TO authenticated
+  USING (((organizacao_id = get_auth_user_org()) OR (organizacao_id = 1)));
+
+DROP POLICY IF EXISTS "rls_update_org_policy" ON public."whatsapp_messages";
+CREATE POLICY "rls_update_org_policy" ON public."whatsapp_messages" AS PERMISSIVE FOR UPDATE TO authenticated
+  USING ((organizacao_id = get_auth_user_org()))
+  WITH CHECK ((organizacao_id = get_auth_user_org()));
+
 DROP POLICY IF EXISTS "Permitir acesso total se a organizacao do usuario for a mesma" ON public."contrato_produtos";
 CREATE POLICY "Permitir acesso total se a organizacao do usuario for a mesma" ON public."contrato_produtos" AS PERMISSIVE FOR ALL
   USING ((EXISTS ( SELECT 1
@@ -13370,55 +14609,6 @@ CREATE POLICY "rls_select_org_policy" ON public."meta_ads_historico" AS PERMISSI
 
 DROP POLICY IF EXISTS "rls_update_org_policy" ON public."meta_ads_historico";
 CREATE POLICY "rls_update_org_policy" ON public."meta_ads_historico" AS PERMISSIVE FOR UPDATE TO authenticated
-  USING ((organizacao_id = get_auth_user_org()))
-  WITH CHECK ((organizacao_id = get_auth_user_org()));
-
-DROP POLICY IF EXISTS "Allow authenticated users to manage their organization messages" ON public."whatsapp_messages";
-CREATE POLICY "Allow authenticated users to manage their organization messages" ON public."whatsapp_messages" AS PERMISSIVE FOR ALL TO authenticated
-  USING ((organizacao_id = get_my_organization_id()))
-  WITH CHECK ((organizacao_id = get_my_organization_id()));
-
-DROP POLICY IF EXISTS "Allow authenticated users to read their organization messages" ON public."whatsapp_messages";
-CREATE POLICY "Allow authenticated users to read their organization messages" ON public."whatsapp_messages" AS PERMISSIVE FOR SELECT TO authenticated
-  USING ((organizacao_id = get_my_organization_id()));
-
-DROP POLICY IF EXISTS "Enable read access for organization members" ON public."whatsapp_messages";
-CREATE POLICY "Enable read access for organization members" ON public."whatsapp_messages" AS PERMISSIVE FOR SELECT
-  USING ((organizacao_id = ( SELECT u.organizacao_id
-   FROM usuarios u
-  WHERE (u.id = auth.uid()))));
-
-DROP POLICY IF EXISTS "rls_delete_org_policy" ON public."whatsapp_messages";
-CREATE POLICY "rls_delete_org_policy" ON public."whatsapp_messages" AS PERMISSIVE FOR DELETE TO authenticated
-  USING ((organizacao_id = get_auth_user_org()));
-
-DROP POLICY IF EXISTS "rls_insert_org_policy" ON public."whatsapp_messages";
-CREATE POLICY "rls_insert_org_policy" ON public."whatsapp_messages" AS PERMISSIVE FOR INSERT TO authenticated
-  WITH CHECK ((organizacao_id = get_auth_user_org()));
-
-DROP POLICY IF EXISTS "rls_select_org_policy" ON public."whatsapp_messages";
-CREATE POLICY "rls_select_org_policy" ON public."whatsapp_messages" AS PERMISSIVE FOR SELECT TO authenticated
-  USING (((organizacao_id = get_auth_user_org()) OR (organizacao_id = 1)));
-
-DROP POLICY IF EXISTS "rls_update_org_policy" ON public."whatsapp_messages";
-CREATE POLICY "rls_update_org_policy" ON public."whatsapp_messages" AS PERMISSIVE FOR UPDATE TO authenticated
-  USING ((organizacao_id = get_auth_user_org()))
-  WITH CHECK ((organizacao_id = get_auth_user_org()));
-
-DROP POLICY IF EXISTS "rls_delete_org_policy" ON public."whatsapp_conversations";
-CREATE POLICY "rls_delete_org_policy" ON public."whatsapp_conversations" AS PERMISSIVE FOR DELETE TO authenticated
-  USING ((organizacao_id = get_auth_user_org()));
-
-DROP POLICY IF EXISTS "rls_insert_org_policy" ON public."whatsapp_conversations";
-CREATE POLICY "rls_insert_org_policy" ON public."whatsapp_conversations" AS PERMISSIVE FOR INSERT TO authenticated
-  WITH CHECK ((organizacao_id = get_auth_user_org()));
-
-DROP POLICY IF EXISTS "rls_select_org_policy" ON public."whatsapp_conversations";
-CREATE POLICY "rls_select_org_policy" ON public."whatsapp_conversations" AS PERMISSIVE FOR SELECT TO authenticated
-  USING (((organizacao_id = get_auth_user_org()) OR (organizacao_id = 1)));
-
-DROP POLICY IF EXISTS "rls_update_org_policy" ON public."whatsapp_conversations";
-CREATE POLICY "rls_update_org_policy" ON public."whatsapp_conversations" AS PERMISSIVE FOR UPDATE TO authenticated
   USING ((organizacao_id = get_auth_user_org()))
   WITH CHECK ((organizacao_id = get_auth_user_org()));
 
@@ -13485,8 +14675,8 @@ CREATE POLICY "rls_update_org_policy" ON public."bim_notas" AS PERMISSIVE FOR UP
   USING ((organizacao_id = get_auth_user_org()))
   WITH CHECK ((organizacao_id = get_auth_user_org()));
 
--- ERRO POLICY: relation "public.sys_chat_mural_posts" does not exist
--- CREATE POLICY "Acesso as postagens do mural" ON public."sys_chat_mural_posts" AS PERMISSIVE FOR ALL
+DROP POLICY IF EXISTS "Acesso as postagens do mural" ON public."sys_chat_mural_posts";
+CREATE POLICY "Acesso as postagens do mural" ON public."sys_chat_mural_posts" AS PERMISSIVE FOR ALL
   USING (((organizacao_id = get_auth_user_org()) OR (organizacao_id = 1)));
 
 DROP POLICY IF EXISTS "Criar comentarios" ON public."bim_notas_comentarios";
@@ -13514,34 +14704,17 @@ CREATE POLICY "rls_update_org_policy" ON public."bim_notas_comentarios" AS PERMI
   USING ((organizacao_id = get_auth_user_org()))
   WITH CHECK ((organizacao_id = get_auth_user_org()));
 
--- ERRO POLICY: relation "public.sys_chat_mural_comments" does not exist
--- CREATE POLICY "Acesso aos comentarios do mural" ON public."sys_chat_mural_comments" AS PERMISSIVE FOR ALL
+DROP POLICY IF EXISTS "Acesso aos comentarios do mural" ON public."sys_chat_mural_comments";
+CREATE POLICY "Acesso aos comentarios do mural" ON public."sys_chat_mural_comments" AS PERMISSIVE FOR ALL
   USING ((EXISTS ( SELECT 1
    FROM sys_chat_mural_posts p
   WHERE ((p.id = sys_chat_mural_comments.post_id) AND ((p.organizacao_id = get_auth_user_org()) OR (p.organizacao_id = 1))))));
 
--- ERRO POLICY: relation "public.sys_chat_mural_likes" does not exist
--- CREATE POLICY "Acesso aos likes do mural" ON public."sys_chat_mural_likes" AS PERMISSIVE FOR ALL
+DROP POLICY IF EXISTS "Acesso aos likes do mural" ON public."sys_chat_mural_likes";
+CREATE POLICY "Acesso aos likes do mural" ON public."sys_chat_mural_likes" AS PERMISSIVE FOR ALL
   USING ((EXISTS ( SELECT 1
    FROM sys_chat_mural_posts p
   WHERE ((p.id = sys_chat_mural_likes.post_id) AND ((p.organizacao_id = get_auth_user_org()) OR (p.organizacao_id = 1))))));
-
--- ERRO POLICY: relation "public.instagram_conversations" does not exist
--- CREATE POLICY "instagram_conversations_delete" ON public."instagram_conversations" AS PERMISSIVE FOR DELETE
-  USING ((organizacao_id = get_auth_user_org()));
-
--- ERRO POLICY: relation "public.instagram_conversations" does not exist
--- CREATE POLICY "instagram_conversations_insert" ON public."instagram_conversations" AS PERMISSIVE FOR INSERT
-  WITH CHECK ((organizacao_id = get_auth_user_org()));
-
--- ERRO POLICY: relation "public.instagram_conversations" does not exist
--- CREATE POLICY "instagram_conversations_select" ON public."instagram_conversations" AS PERMISSIVE FOR SELECT
-  USING (((organizacao_id = get_auth_user_org()) OR (organizacao_id = 1)));
-
--- ERRO POLICY: relation "public.instagram_conversations" does not exist
--- CREATE POLICY "instagram_conversations_update" ON public."instagram_conversations" AS PERMISSIVE FOR UPDATE
-  USING ((organizacao_id = get_auth_user_org()))
-  WITH CHECK ((organizacao_id = get_auth_user_org()));
 
 DROP POLICY IF EXISTS "Backend cria notificacoes" ON public."notificacoes";
 CREATE POLICY "Backend cria notificacoes" ON public."notificacoes" AS PERMISSIVE FOR INSERT
@@ -13669,23 +14842,6 @@ CREATE POLICY "rls_update_org_policy" ON public."email_messages_cache" AS PERMIS
   USING ((organizacao_id = get_auth_user_org()))
   WITH CHECK ((organizacao_id = get_auth_user_org()));
 
-DROP POLICY IF EXISTS "rls_delete_org_policy" ON public."parcelas_adicionais";
-CREATE POLICY "rls_delete_org_policy" ON public."parcelas_adicionais" AS PERMISSIVE FOR DELETE TO authenticated
-  USING ((organizacao_id = get_auth_user_org()));
-
-DROP POLICY IF EXISTS "rls_insert_org_policy" ON public."parcelas_adicionais";
-CREATE POLICY "rls_insert_org_policy" ON public."parcelas_adicionais" AS PERMISSIVE FOR INSERT TO authenticated
-  WITH CHECK ((organizacao_id = get_auth_user_org()));
-
-DROP POLICY IF EXISTS "rls_select_org_policy" ON public."parcelas_adicionais";
-CREATE POLICY "rls_select_org_policy" ON public."parcelas_adicionais" AS PERMISSIVE FOR SELECT TO authenticated
-  USING (((organizacao_id = get_auth_user_org()) OR (organizacao_id = 1)));
-
-DROP POLICY IF EXISTS "rls_update_org_policy" ON public."parcelas_adicionais";
-CREATE POLICY "rls_update_org_policy" ON public."parcelas_adicionais" AS PERMISSIVE FOR UPDATE TO authenticated
-  USING ((organizacao_id = get_auth_user_org()))
-  WITH CHECK ((organizacao_id = get_auth_user_org()));
-
 -- ERRO POLICY: relation "public.sys_org_notification_settings" does not exist
 -- CREATE POLICY "Orgs alteram suas rotas" ON public."sys_org_notification_settings" AS PERMISSIVE FOR UPDATE
   USING ((organizacao_id = ( SELECT usuarios.organizacao_id
@@ -13729,6 +14885,23 @@ CREATE POLICY "rls_select_org_policy" ON public."auditoria_ia_logs" AS PERMISSIV
 
 DROP POLICY IF EXISTS "rls_update_org_policy" ON public."auditoria_ia_logs";
 CREATE POLICY "rls_update_org_policy" ON public."auditoria_ia_logs" AS PERMISSIVE FOR UPDATE TO authenticated
+  USING ((organizacao_id = get_auth_user_org()))
+  WITH CHECK ((organizacao_id = get_auth_user_org()));
+
+DROP POLICY IF EXISTS "rls_delete_org_policy" ON public."parcelas_adicionais";
+CREATE POLICY "rls_delete_org_policy" ON public."parcelas_adicionais" AS PERMISSIVE FOR DELETE TO authenticated
+  USING ((organizacao_id = get_auth_user_org()));
+
+DROP POLICY IF EXISTS "rls_insert_org_policy" ON public."parcelas_adicionais";
+CREATE POLICY "rls_insert_org_policy" ON public."parcelas_adicionais" AS PERMISSIVE FOR INSERT TO authenticated
+  WITH CHECK ((organizacao_id = get_auth_user_org()));
+
+DROP POLICY IF EXISTS "rls_select_org_policy" ON public."parcelas_adicionais";
+CREATE POLICY "rls_select_org_policy" ON public."parcelas_adicionais" AS PERMISSIVE FOR SELECT TO authenticated
+  USING (((organizacao_id = get_auth_user_org()) OR (organizacao_id = 1)));
+
+DROP POLICY IF EXISTS "rls_update_org_policy" ON public."parcelas_adicionais";
+CREATE POLICY "rls_update_org_policy" ON public."parcelas_adicionais" AS PERMISSIVE FOR UPDATE TO authenticated
   USING ((organizacao_id = get_auth_user_org()))
   WITH CHECK ((organizacao_id = get_auth_user_org()));
 
@@ -13779,6 +14952,67 @@ CREATE POLICY "rls_update_org_policy" ON public."orcamento_itens" AS PERMISSIVE 
   USING ((organizacao_id = get_auth_user_org()))
   WITH CHECK ((organizacao_id = get_auth_user_org()));
 
+DROP POLICY IF EXISTS "Acesso restrito por organização" ON public."materiais";
+CREATE POLICY "Acesso restrito por organização" ON public."materiais" AS PERMISSIVE FOR ALL
+  USING ((organizacao_id = get_organizacao_id()))
+  WITH CHECK ((organizacao_id = get_organizacao_id()));
+
+DROP POLICY IF EXISTS "rls_delete_org_policy" ON public."materiais";
+CREATE POLICY "rls_delete_org_policy" ON public."materiais" AS PERMISSIVE FOR DELETE TO authenticated
+  USING ((organizacao_id = get_auth_user_org()));
+
+DROP POLICY IF EXISTS "rls_insert_org_policy" ON public."materiais";
+CREATE POLICY "rls_insert_org_policy" ON public."materiais" AS PERMISSIVE FOR INSERT TO authenticated
+  WITH CHECK ((organizacao_id = get_auth_user_org()));
+
+DROP POLICY IF EXISTS "rls_select_org_policy" ON public."materiais";
+CREATE POLICY "rls_select_org_policy" ON public."materiais" AS PERMISSIVE FOR SELECT TO authenticated
+  USING (((organizacao_id = get_auth_user_org()) OR (organizacao_id = 1)));
+
+DROP POLICY IF EXISTS "rls_update_org_policy" ON public."materiais";
+CREATE POLICY "rls_update_org_policy" ON public."materiais" AS PERMISSIVE FOR UPDATE TO authenticated
+  USING ((organizacao_id = get_auth_user_org()))
+  WITH CHECK ((organizacao_id = get_auth_user_org()));
+
+DROP POLICY IF EXISTS "rls_delete_org_policy" ON public."pedidos_compra_itens";
+CREATE POLICY "rls_delete_org_policy" ON public."pedidos_compra_itens" AS PERMISSIVE FOR DELETE TO authenticated
+  USING ((organizacao_id = get_auth_user_org()));
+
+DROP POLICY IF EXISTS "rls_insert_org_policy" ON public."pedidos_compra_itens";
+CREATE POLICY "rls_insert_org_policy" ON public."pedidos_compra_itens" AS PERMISSIVE FOR INSERT TO authenticated
+  WITH CHECK ((organizacao_id = get_auth_user_org()));
+
+DROP POLICY IF EXISTS "rls_select_org_policy" ON public."pedidos_compra_itens";
+CREATE POLICY "rls_select_org_policy" ON public."pedidos_compra_itens" AS PERMISSIVE FOR SELECT TO authenticated
+  USING (((organizacao_id = get_auth_user_org()) OR (organizacao_id = 1)));
+
+DROP POLICY IF EXISTS "rls_update_org_policy" ON public."pedidos_compra_itens";
+CREATE POLICY "rls_update_org_policy" ON public."pedidos_compra_itens" AS PERMISSIVE FOR UPDATE TO authenticated
+  USING ((organizacao_id = get_auth_user_org()))
+  WITH CHECK ((organizacao_id = get_auth_user_org()));
+
+DROP POLICY IF EXISTS "Acesso restrito por organização" ON public."orcamentos";
+CREATE POLICY "Acesso restrito por organização" ON public."orcamentos" AS PERMISSIVE FOR ALL
+  USING ((organizacao_id = get_organizacao_id()))
+  WITH CHECK ((organizacao_id = get_organizacao_id()));
+
+DROP POLICY IF EXISTS "rls_delete_org_policy" ON public."orcamentos";
+CREATE POLICY "rls_delete_org_policy" ON public."orcamentos" AS PERMISSIVE FOR DELETE TO authenticated
+  USING ((organizacao_id = get_auth_user_org()));
+
+DROP POLICY IF EXISTS "rls_insert_org_policy" ON public."orcamentos";
+CREATE POLICY "rls_insert_org_policy" ON public."orcamentos" AS PERMISSIVE FOR INSERT TO authenticated
+  WITH CHECK ((organizacao_id = get_auth_user_org()));
+
+DROP POLICY IF EXISTS "rls_select_org_policy" ON public."orcamentos";
+CREATE POLICY "rls_select_org_policy" ON public."orcamentos" AS PERMISSIVE FOR SELECT TO authenticated
+  USING (((organizacao_id = get_auth_user_org()) OR (organizacao_id = 1)));
+
+DROP POLICY IF EXISTS "rls_update_org_policy" ON public."orcamentos";
+CREATE POLICY "rls_update_org_policy" ON public."orcamentos" AS PERMISSIVE FOR UPDATE TO authenticated
+  USING ((organizacao_id = get_auth_user_org()))
+  WITH CHECK ((organizacao_id = get_auth_user_org()));
+
 DROP POLICY IF EXISTS "Acesso restrito por organização" ON public."feedback";
 CREATE POLICY "Acesso restrito por organização" ON public."feedback" AS PERMISSIVE FOR ALL
   USING ((organizacao_id = get_organizacao_id()))
@@ -13820,28 +15054,6 @@ CREATE POLICY "rls_select_org_policy" ON public."jornadas" AS PERMISSIVE FOR SEL
 
 DROP POLICY IF EXISTS "rls_update_org_policy" ON public."jornadas";
 CREATE POLICY "rls_update_org_policy" ON public."jornadas" AS PERMISSIVE FOR UPDATE TO authenticated
-  USING ((organizacao_id = get_auth_user_org()))
-  WITH CHECK ((organizacao_id = get_auth_user_org()));
-
-DROP POLICY IF EXISTS "Acesso restrito por organização" ON public."materiais";
-CREATE POLICY "Acesso restrito por organização" ON public."materiais" AS PERMISSIVE FOR ALL
-  USING ((organizacao_id = get_organizacao_id()))
-  WITH CHECK ((organizacao_id = get_organizacao_id()));
-
-DROP POLICY IF EXISTS "rls_delete_org_policy" ON public."materiais";
-CREATE POLICY "rls_delete_org_policy" ON public."materiais" AS PERMISSIVE FOR DELETE TO authenticated
-  USING ((organizacao_id = get_auth_user_org()));
-
-DROP POLICY IF EXISTS "rls_insert_org_policy" ON public."materiais";
-CREATE POLICY "rls_insert_org_policy" ON public."materiais" AS PERMISSIVE FOR INSERT TO authenticated
-  WITH CHECK ((organizacao_id = get_auth_user_org()));
-
-DROP POLICY IF EXISTS "rls_select_org_policy" ON public."materiais";
-CREATE POLICY "rls_select_org_policy" ON public."materiais" AS PERMISSIVE FOR SELECT TO authenticated
-  USING (((organizacao_id = get_auth_user_org()) OR (organizacao_id = 1)));
-
-DROP POLICY IF EXISTS "rls_update_org_policy" ON public."materiais";
-CREATE POLICY "rls_update_org_policy" ON public."materiais" AS PERMISSIVE FOR UPDATE TO authenticated
   USING ((organizacao_id = get_auth_user_org()))
   WITH CHECK ((organizacao_id = get_auth_user_org()));
 
@@ -14019,34 +15231,6 @@ CREATE POLICY "rls_update_org_policy" ON public."empreendimento_anexos" AS PERMI
   USING ((organizacao_id = get_auth_user_org()))
   WITH CHECK ((organizacao_id = get_auth_user_org()));
 
-DROP POLICY IF EXISTS "Acesso restrito por organização" ON public."empreendimentos";
-CREATE POLICY "Acesso restrito por organização" ON public."empreendimentos" AS PERMISSIVE FOR ALL
-  USING ((organizacao_id = get_organizacao_id()))
-  WITH CHECK ((organizacao_id = get_organizacao_id()));
-
-DROP POLICY IF EXISTS "Permitir leitura para usuarios da organizacao" ON public."empreendimentos";
-CREATE POLICY "Permitir leitura para usuarios da organizacao" ON public."empreendimentos" AS PERMISSIVE FOR SELECT TO authenticated
-  USING ((organizacao_id = ( SELECT u.organizacao_id
-   FROM usuarios u
-  WHERE (u.id = auth.uid()))));
-
-DROP POLICY IF EXISTS "rls_delete_org_policy" ON public."empreendimentos";
-CREATE POLICY "rls_delete_org_policy" ON public."empreendimentos" AS PERMISSIVE FOR DELETE TO authenticated
-  USING ((organizacao_id = get_auth_user_org()));
-
-DROP POLICY IF EXISTS "rls_insert_org_policy" ON public."empreendimentos";
-CREATE POLICY "rls_insert_org_policy" ON public."empreendimentos" AS PERMISSIVE FOR INSERT TO authenticated
-  WITH CHECK ((organizacao_id = get_auth_user_org()));
-
-DROP POLICY IF EXISTS "rls_select_org_policy" ON public."empreendimentos";
-CREATE POLICY "rls_select_org_policy" ON public."empreendimentos" AS PERMISSIVE FOR SELECT TO authenticated
-  USING (((organizacao_id = get_auth_user_org()) OR (organizacao_id = 1)));
-
-DROP POLICY IF EXISTS "rls_update_org_policy" ON public."empreendimentos";
-CREATE POLICY "rls_update_org_policy" ON public."empreendimentos" AS PERMISSIVE FOR UPDATE TO authenticated
-  USING ((organizacao_id = get_auth_user_org()))
-  WITH CHECK ((organizacao_id = get_auth_user_org()));
-
 DROP POLICY IF EXISTS "faturas_cartao_insert_policy" ON public."faturas_cartao";
 CREATE POLICY "faturas_cartao_insert_policy" ON public."faturas_cartao" AS PERMISSIVE FOR INSERT
   WITH CHECK (true);
@@ -14161,28 +15345,6 @@ CREATE POLICY "rls_update_org_policy" ON public."notification_subscriptions" AS 
   USING ((organizacao_id = get_auth_user_org()))
   WITH CHECK ((organizacao_id = get_auth_user_org()));
 
-DROP POLICY IF EXISTS "Acesso restrito por organização" ON public."orcamentos";
-CREATE POLICY "Acesso restrito por organização" ON public."orcamentos" AS PERMISSIVE FOR ALL
-  USING ((organizacao_id = get_organizacao_id()))
-  WITH CHECK ((organizacao_id = get_organizacao_id()));
-
-DROP POLICY IF EXISTS "rls_delete_org_policy" ON public."orcamentos";
-CREATE POLICY "rls_delete_org_policy" ON public."orcamentos" AS PERMISSIVE FOR DELETE TO authenticated
-  USING ((organizacao_id = get_auth_user_org()));
-
-DROP POLICY IF EXISTS "rls_insert_org_policy" ON public."orcamentos";
-CREATE POLICY "rls_insert_org_policy" ON public."orcamentos" AS PERMISSIVE FOR INSERT TO authenticated
-  WITH CHECK ((organizacao_id = get_auth_user_org()));
-
-DROP POLICY IF EXISTS "rls_select_org_policy" ON public."orcamentos";
-CREATE POLICY "rls_select_org_policy" ON public."orcamentos" AS PERMISSIVE FOR SELECT TO authenticated
-  USING (((organizacao_id = get_auth_user_org()) OR (organizacao_id = 1)));
-
-DROP POLICY IF EXISTS "rls_update_org_policy" ON public."orcamentos";
-CREATE POLICY "rls_update_org_policy" ON public."orcamentos" AS PERMISSIVE FOR UPDATE TO authenticated
-  USING ((organizacao_id = get_auth_user_org()))
-  WITH CHECK ((organizacao_id = get_auth_user_org()));
-
 DROP POLICY IF EXISTS "Permite acesso de leitura para a propria organizacao" ON public."pedidos_compra_anexos";
 CREATE POLICY "Permite acesso de leitura para a propria organizacao" ON public."pedidos_compra_anexos" AS PERMISSIVE FOR SELECT
   USING (((auth.uid() IS NOT NULL) AND (( SELECT usuarios.organizacao_id
@@ -14221,23 +15383,6 @@ CREATE POLICY "rls_select_org_policy" ON public."pedidos_compra_anexos" AS PERMI
 
 DROP POLICY IF EXISTS "rls_update_org_policy" ON public."pedidos_compra_anexos";
 CREATE POLICY "rls_update_org_policy" ON public."pedidos_compra_anexos" AS PERMISSIVE FOR UPDATE TO authenticated
-  USING ((organizacao_id = get_auth_user_org()))
-  WITH CHECK ((organizacao_id = get_auth_user_org()));
-
-DROP POLICY IF EXISTS "rls_delete_org_policy" ON public."pedidos_compra_itens";
-CREATE POLICY "rls_delete_org_policy" ON public."pedidos_compra_itens" AS PERMISSIVE FOR DELETE TO authenticated
-  USING ((organizacao_id = get_auth_user_org()));
-
-DROP POLICY IF EXISTS "rls_insert_org_policy" ON public."pedidos_compra_itens";
-CREATE POLICY "rls_insert_org_policy" ON public."pedidos_compra_itens" AS PERMISSIVE FOR INSERT TO authenticated
-  WITH CHECK ((organizacao_id = get_auth_user_org()));
-
-DROP POLICY IF EXISTS "rls_select_org_policy" ON public."pedidos_compra_itens";
-CREATE POLICY "rls_select_org_policy" ON public."pedidos_compra_itens" AS PERMISSIVE FOR SELECT TO authenticated
-  USING (((organizacao_id = get_auth_user_org()) OR (organizacao_id = 1)));
-
-DROP POLICY IF EXISTS "rls_update_org_policy" ON public."pedidos_compra_itens";
-CREATE POLICY "rls_update_org_policy" ON public."pedidos_compra_itens" AS PERMISSIVE FOR UPDATE TO authenticated
   USING ((organizacao_id = get_auth_user_org()))
   WITH CHECK ((organizacao_id = get_auth_user_org()));
 
@@ -14635,6 +15780,37 @@ CREATE POLICY "rls_update_org_policy" ON public."telefones" AS PERMISSIVE FOR UP
   USING ((organizacao_id = get_auth_user_org()))
   WITH CHECK ((organizacao_id = get_auth_user_org()));
 
+DROP POLICY IF EXISTS "Acesso restrito por organização" ON public."usuarios";
+CREATE POLICY "Acesso restrito por organização" ON public."usuarios" AS PERMISSIVE FOR ALL
+  USING ((organizacao_id = get_organizacao_id()))
+  WITH CHECK ((organizacao_id = get_organizacao_id()));
+
+DROP POLICY IF EXISTS "Permitir usuário atualizar seu próprio aceite" ON public."usuarios";
+CREATE POLICY "Permitir usuário atualizar seu próprio aceite" ON public."usuarios" AS PERMISSIVE FOR UPDATE
+  USING ((auth.uid() = id))
+  WITH CHECK ((auth.uid() = id));
+
+DROP POLICY IF EXISTS "Superadmins podem ler todos os usuarios" ON public."usuarios";
+CREATE POLICY "Superadmins podem ler todos os usuarios" ON public."usuarios" AS PERMISSIVE FOR SELECT
+  USING (check_is_superadmin());
+
+DROP POLICY IF EXISTS "rls_delete_org_policy" ON public."usuarios";
+CREATE POLICY "rls_delete_org_policy" ON public."usuarios" AS PERMISSIVE FOR DELETE TO authenticated
+  USING ((organizacao_id = get_auth_user_org()));
+
+DROP POLICY IF EXISTS "rls_insert_org_policy" ON public."usuarios";
+CREATE POLICY "rls_insert_org_policy" ON public."usuarios" AS PERMISSIVE FOR INSERT TO authenticated
+  WITH CHECK ((organizacao_id = get_auth_user_org()));
+
+DROP POLICY IF EXISTS "rls_select_org_policy" ON public."usuarios";
+CREATE POLICY "rls_select_org_policy" ON public."usuarios" AS PERMISSIVE FOR SELECT TO authenticated
+  USING (((organizacao_id = get_auth_user_org()) OR (organizacao_id = 1)));
+
+DROP POLICY IF EXISTS "rls_update_org_policy" ON public."usuarios";
+CREATE POLICY "rls_update_org_policy" ON public."usuarios" AS PERMISSIVE FOR UPDATE TO authenticated
+  USING ((organizacao_id = get_auth_user_org()))
+  WITH CHECK ((organizacao_id = get_auth_user_org()));
+
 DROP POLICY IF EXISTS "Permitir gestão de políticas para superadmins" ON public."politicas_plataforma";
 CREATE POLICY "Permitir gestão de políticas para superadmins" ON public."politicas_plataforma" AS PERMISSIVE FOR ALL
   USING (check_is_superadmin());
@@ -14701,37 +15877,6 @@ CREATE POLICY "rls_select_org_policy" ON public."pedidos_fases" AS PERMISSIVE FO
 
 DROP POLICY IF EXISTS "rls_update_org_policy" ON public."pedidos_fases";
 CREATE POLICY "rls_update_org_policy" ON public."pedidos_fases" AS PERMISSIVE FOR UPDATE TO authenticated
-  USING ((organizacao_id = get_auth_user_org()))
-  WITH CHECK ((organizacao_id = get_auth_user_org()));
-
-DROP POLICY IF EXISTS "Acesso restrito por organização" ON public."usuarios";
-CREATE POLICY "Acesso restrito por organização" ON public."usuarios" AS PERMISSIVE FOR ALL
-  USING ((organizacao_id = get_organizacao_id()))
-  WITH CHECK ((organizacao_id = get_organizacao_id()));
-
-DROP POLICY IF EXISTS "Permitir usuário atualizar seu próprio aceite" ON public."usuarios";
-CREATE POLICY "Permitir usuário atualizar seu próprio aceite" ON public."usuarios" AS PERMISSIVE FOR UPDATE
-  USING ((auth.uid() = id))
-  WITH CHECK ((auth.uid() = id));
-
-DROP POLICY IF EXISTS "Superadmins podem ler todos os usuarios" ON public."usuarios";
-CREATE POLICY "Superadmins podem ler todos os usuarios" ON public."usuarios" AS PERMISSIVE FOR SELECT
-  USING (check_is_superadmin());
-
-DROP POLICY IF EXISTS "rls_delete_org_policy" ON public."usuarios";
-CREATE POLICY "rls_delete_org_policy" ON public."usuarios" AS PERMISSIVE FOR DELETE TO authenticated
-  USING ((organizacao_id = get_auth_user_org()));
-
-DROP POLICY IF EXISTS "rls_insert_org_policy" ON public."usuarios";
-CREATE POLICY "rls_insert_org_policy" ON public."usuarios" AS PERMISSIVE FOR INSERT TO authenticated
-  WITH CHECK ((organizacao_id = get_auth_user_org()));
-
-DROP POLICY IF EXISTS "rls_select_org_policy" ON public."usuarios";
-CREATE POLICY "rls_select_org_policy" ON public."usuarios" AS PERMISSIVE FOR SELECT TO authenticated
-  USING (((organizacao_id = get_auth_user_org()) OR (organizacao_id = 1)));
-
-DROP POLICY IF EXISTS "rls_update_org_policy" ON public."usuarios";
-CREATE POLICY "rls_update_org_policy" ON public."usuarios" AS PERMISSIVE FOR UPDATE TO authenticated
   USING ((organizacao_id = get_auth_user_org()))
   WITH CHECK ((organizacao_id = get_auth_user_org()));
 
@@ -14803,6 +15948,40 @@ CREATE POLICY "rls_update_org_policy" ON public."whatsapp_list_members" AS PERMI
   USING ((organizacao_id = get_auth_user_org()))
   WITH CHECK ((organizacao_id = get_auth_user_org()));
 
+DROP POLICY IF EXISTS "Empresa gerencia sua própria integração Google" ON public."integracoes_google";
+CREATE POLICY "Empresa gerencia sua própria integração Google" ON public."integracoes_google" AS PERMISSIVE FOR ALL
+  USING ((organizacao_id IN ( SELECT usuarios.organizacao_id
+   FROM usuarios
+  WHERE (usuarios.id = auth.uid()))));
+
+DROP POLICY IF EXISTS "Empresa vê sua própria integração Google" ON public."integracoes_google";
+CREATE POLICY "Empresa vê sua própria integração Google" ON public."integracoes_google" AS PERMISSIVE FOR ALL
+  USING ((organizacao_id IN ( SELECT usuarios.organizacao_id
+   FROM usuarios
+  WHERE (usuarios.id = auth.uid()))));
+
+DROP POLICY IF EXISTS "rls_delete_org_policy" ON public."integracoes_google";
+CREATE POLICY "rls_delete_org_policy" ON public."integracoes_google" AS PERMISSIVE FOR DELETE TO authenticated
+  USING ((organizacao_id = get_auth_user_org()));
+
+-- ERRO POLICY: column "user_id" does not exist
+-- CREATE POLICY "rls_insert_org_policy" ON public."integracoes_google" AS PERMISSIVE FOR INSERT TO authenticated
+  WITH CHECK (((organizacao_id = ( SELECT usuarios.organizacao_id
+   FROM usuarios
+  WHERE (usuarios.id = auth.uid()))) AND (user_id = auth.uid())));
+
+-- ERRO POLICY: column "user_id" does not exist
+-- CREATE POLICY "rls_select_org_policy" ON public."integracoes_google" AS PERMISSIVE FOR SELECT TO authenticated
+  USING (((organizacao_id = ( SELECT usuarios.organizacao_id
+   FROM usuarios
+  WHERE (usuarios.id = auth.uid()))) AND (user_id = auth.uid())));
+
+-- ERRO POLICY: column "user_id" does not exist
+-- CREATE POLICY "rls_update_org_policy" ON public."integracoes_google" AS PERMISSIVE FOR UPDATE TO authenticated
+  USING (((organizacao_id = ( SELECT usuarios.organizacao_id
+   FROM usuarios
+  WHERE (usuarios.id = auth.uid()))) AND (user_id = auth.uid())));
+
 DROP POLICY IF EXISTS "Empresa gerencia sua própria integração Meta" ON public."integracoes_meta";
 CREATE POLICY "Empresa gerencia sua própria integração Meta" ON public."integracoes_meta" AS PERMISSIVE FOR ALL
   USING ((organizacao_id IN ( SELECT usuarios.organizacao_id
@@ -14866,35 +16045,6 @@ CREATE POLICY "rls_update_org_policy" ON public."contratos_terceirizados_anexos"
   USING ((organizacao_id = get_auth_user_org()))
   WITH CHECK ((organizacao_id = get_auth_user_org()));
 
-DROP POLICY IF EXISTS "Empresa gerencia sua própria integração Google" ON public."integracoes_google";
-CREATE POLICY "Empresa gerencia sua própria integração Google" ON public."integracoes_google" AS PERMISSIVE FOR ALL
-  USING ((organizacao_id IN ( SELECT usuarios.organizacao_id
-   FROM usuarios
-  WHERE (usuarios.id = auth.uid()))));
-
-DROP POLICY IF EXISTS "Empresa vê sua própria integração Google" ON public."integracoes_google";
-CREATE POLICY "Empresa vê sua própria integração Google" ON public."integracoes_google" AS PERMISSIVE FOR ALL
-  USING ((organizacao_id IN ( SELECT usuarios.organizacao_id
-   FROM usuarios
-  WHERE (usuarios.id = auth.uid()))));
-
-DROP POLICY IF EXISTS "rls_delete_org_policy" ON public."integracoes_google";
-CREATE POLICY "rls_delete_org_policy" ON public."integracoes_google" AS PERMISSIVE FOR DELETE TO authenticated
-  USING ((organizacao_id = get_auth_user_org()));
-
-DROP POLICY IF EXISTS "rls_insert_org_policy" ON public."integracoes_google";
-CREATE POLICY "rls_insert_org_policy" ON public."integracoes_google" AS PERMISSIVE FOR INSERT TO authenticated
-  WITH CHECK ((organizacao_id = get_auth_user_org()));
-
-DROP POLICY IF EXISTS "rls_select_org_policy" ON public."integracoes_google";
-CREATE POLICY "rls_select_org_policy" ON public."integracoes_google" AS PERMISSIVE FOR SELECT TO authenticated
-  USING (((organizacao_id = get_auth_user_org()) OR (organizacao_id = 1)));
-
-DROP POLICY IF EXISTS "rls_update_org_policy" ON public."integracoes_google";
-CREATE POLICY "rls_update_org_policy" ON public."integracoes_google" AS PERMISSIVE FOR UPDATE TO authenticated
-  USING ((organizacao_id = get_auth_user_org()))
-  WITH CHECK ((organizacao_id = get_auth_user_org()));
-
 DROP POLICY IF EXISTS "Apenas admin vê as visitas" ON public."monitor_visitas";
 CREATE POLICY "Apenas admin vê as visitas" ON public."monitor_visitas" AS PERMISSIVE FOR SELECT TO authenticated
   USING (true);
@@ -14920,147 +16070,224 @@ CREATE POLICY "rls_update_org_policy" ON public."monitor_visitas" AS PERMISSIVE 
   USING ((organizacao_id = get_auth_user_org()))
   WITH CHECK ((organizacao_id = get_auth_user_org()));
 
--- ERRO POLICY: relation "public.historico_vgv" does not exist
--- CREATE POLICY "Inserção historico_vgv" ON public."historico_vgv" AS PERMISSIVE FOR INSERT
+DROP POLICY IF EXISTS "Inserção historico_vgv" ON public."historico_vgv";
+CREATE POLICY "Inserção historico_vgv" ON public."historico_vgv" AS PERMISSIVE FOR INSERT
   WITH CHECK (((organizacao_id = get_auth_user_org()) OR (organizacao_id = 1)));
 
--- ERRO POLICY: relation "public.historico_vgv" does not exist
--- CREATE POLICY "Leitura de histórico Org ou Global" ON public."historico_vgv" AS PERMISSIVE FOR SELECT
+DROP POLICY IF EXISTS "Leitura de histórico Org ou Global" ON public."historico_vgv";
+CREATE POLICY "Leitura de histórico Org ou Global" ON public."historico_vgv" AS PERMISSIVE FOR SELECT
   USING (((organizacao_id = get_auth_user_org()) OR (organizacao_id = 1)));
 
--- ERRO POLICY: relation "public.sys_chat_conversations" does not exist
--- CREATE POLICY "Insercao de conversas" ON public."sys_chat_conversations" AS PERMISSIVE FOR INSERT
+DROP POLICY IF EXISTS "Acesso restrito por organização" ON public."empreendimentos";
+CREATE POLICY "Acesso restrito por organização" ON public."empreendimentos" AS PERMISSIVE FOR ALL
+  USING ((organizacao_id = get_organizacao_id()))
+  WITH CHECK ((organizacao_id = get_organizacao_id()));
+
+DROP POLICY IF EXISTS "Permitir leitura para usuarios da organizacao" ON public."empreendimentos";
+CREATE POLICY "Permitir leitura para usuarios da organizacao" ON public."empreendimentos" AS PERMISSIVE FOR SELECT TO authenticated
+  USING ((organizacao_id = ( SELECT u.organizacao_id
+   FROM usuarios u
+  WHERE (u.id = auth.uid()))));
+
+DROP POLICY IF EXISTS "rls_delete_org_policy" ON public."empreendimentos";
+CREATE POLICY "rls_delete_org_policy" ON public."empreendimentos" AS PERMISSIVE FOR DELETE TO authenticated
+  USING ((organizacao_id = get_auth_user_org()));
+
+DROP POLICY IF EXISTS "rls_insert_org_policy" ON public."empreendimentos";
+CREATE POLICY "rls_insert_org_policy" ON public."empreendimentos" AS PERMISSIVE FOR INSERT TO authenticated
   WITH CHECK ((organizacao_id = get_auth_user_org()));
 
--- ERRO POLICY: relation "public.sys_chat_conversations" does not exist
--- CREATE POLICY "Leitura de conversas" ON public."sys_chat_conversations" AS PERMISSIVE FOR SELECT
+DROP POLICY IF EXISTS "rls_select_org_policy" ON public."empreendimentos";
+CREATE POLICY "rls_select_org_policy" ON public."empreendimentos" AS PERMISSIVE FOR SELECT TO authenticated
   USING (((organizacao_id = get_auth_user_org()) OR (organizacao_id = 1)));
 
-CREATE TABLE IF NOT EXISTS public.sys_notification_templates (
-  id bigint NOT NULL,
-  nome_regra text NOT NULL,
-  tabela_alvo text NOT NULL,
-  evento text NOT NULL,
-  coluna_monitorada text,
-  valor_gatilho text,
-  enviar_para_dono boolean DEFAULT false,
-  titulo_template text NOT NULL,
-  mensagem_template text NOT NULL,
-  link_template text,
+DROP POLICY IF EXISTS "rls_update_org_policy" ON public."empreendimentos";
+CREATE POLICY "rls_update_org_policy" ON public."empreendimentos" AS PERMISSIVE FOR UPDATE TO authenticated
+  USING ((organizacao_id = get_auth_user_org()))
+  WITH CHECK ((organizacao_id = get_auth_user_org()));
+
+DROP POLICY IF EXISTS "Insercao de conversas" ON public."sys_chat_conversations";
+CREATE POLICY "Insercao de conversas" ON public."sys_chat_conversations" AS PERMISSIVE FOR INSERT
+  WITH CHECK ((organizacao_id = get_auth_user_org()));
+
+DROP POLICY IF EXISTS "Leitura de conversas" ON public."sys_chat_conversations";
+CREATE POLICY "Leitura de conversas" ON public."sys_chat_conversations" AS PERMISSIVE FOR SELECT
+  USING (((organizacao_id = get_auth_user_org()) OR (organizacao_id = 1)));
+
+-- ERRO POLICY: relation "public.sys_user_notification_prefs" does not exist
+-- CREATE POLICY "Usuários atualizam suas próprias prefs" ON public."sys_user_notification_prefs" AS PERMISSIVE FOR INSERT
+  WITH CHECK ((auth.uid() = usuario_id));
+
+-- ERRO POLICY: relation "public.sys_user_notification_prefs" does not exist
+-- CREATE POLICY "Usuários modificam suas próprias prefs" ON public."sys_user_notification_prefs" AS PERMISSIVE FOR UPDATE
+  USING ((auth.uid() = usuario_id));
+
+-- ERRO POLICY: relation "public.sys_user_notification_prefs" does not exist
+-- CREATE POLICY "Usuários veem suas próprias prefs" ON public."sys_user_notification_prefs" AS PERMISSIVE FOR SELECT
+  USING ((auth.uid() = usuario_id));
+
+-- ERRO POLICY: relation "public.instagram_conversations" does not exist
+-- CREATE POLICY "instagram_conversations_delete" ON public."instagram_conversations" AS PERMISSIVE FOR DELETE
+  USING ((organizacao_id = get_auth_user_org()));
+
+-- ERRO POLICY: relation "public.instagram_conversations" does not exist
+-- CREATE POLICY "instagram_conversations_insert" ON public."instagram_conversations" AS PERMISSIVE FOR INSERT
+  WITH CHECK ((organizacao_id = get_auth_user_org()));
+
+-- ERRO POLICY: relation "public.instagram_conversations" does not exist
+-- CREATE POLICY "instagram_conversations_select" ON public."instagram_conversations" AS PERMISSIVE FOR SELECT
+  USING (((organizacao_id = get_auth_user_org()) OR (organizacao_id = 1)));
+
+-- ERRO POLICY: relation "public.instagram_conversations" does not exist
+-- CREATE POLICY "instagram_conversations_update" ON public."instagram_conversations" AS PERMISSIVE FOR UPDATE
+  USING ((organizacao_id = get_auth_user_org()))
+  WITH CHECK ((organizacao_id = get_auth_user_org()));
+
+DROP POLICY IF EXISTS "rls_delete_org_policy" ON public."regras_notificacao";
+CREATE POLICY "rls_delete_org_policy" ON public."regras_notificacao" AS PERMISSIVE FOR DELETE TO authenticated
+  USING (true);
+
+DROP POLICY IF EXISTS "rls_insert_org_policy" ON public."regras_notificacao";
+CREATE POLICY "rls_insert_org_policy" ON public."regras_notificacao" AS PERMISSIVE FOR INSERT TO authenticated
+  WITH CHECK (true);
+
+DROP POLICY IF EXISTS "rls_select_org_policy" ON public."regras_notificacao";
+CREATE POLICY "rls_select_org_policy" ON public."regras_notificacao" AS PERMISSIVE FOR SELECT TO authenticated
+  USING (true);
+
+DROP POLICY IF EXISTS "rls_update_org_policy" ON public."regras_notificacao";
+CREATE POLICY "rls_update_org_policy" ON public."regras_notificacao" AS PERMISSIVE FOR UPDATE TO authenticated
+  USING (true);
+
+-- ERRO POLICY: relation "public.logs_erros_ui" does not exist
+-- CREATE POLICY "Permitir Insercao Universal de Erros" ON public."logs_erros_ui" AS PERMISSIVE FOR INSERT
+  WITH CHECK (true);
+
+-- ERRO POLICY: relation "public.logs_erros_ui" does not exist
+-- CREATE POLICY "Permitir Leitura do Log" ON public."logs_erros_ui" AS PERMISSIVE FOR SELECT TO authenticated
+  USING (((organizacao_id = 1) OR (organizacao_id = ( SELECT get_auth_user_org() AS get_auth_user_org))));
+
+CREATE TABLE IF NOT EXISTS public.historico_lancamentos_financeiros (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  lancamento_id bigint NOT NULL,
   organizacao_id bigint NOT NULL,
-  created_at timestamp with time zone DEFAULT now(),
-  icone text DEFAULT 'fa-bell'::text,
-  regras_avancadas jsonb
+  acao text NOT NULL,
+  campo_alterado text,
+  valor_antigo text,
+  valor_novo text,
+  usuario_id uuid,
+  criado_em timestamp with time zone DEFAULT now(),
+  alterado_apos_conciliacao boolean DEFAULT false
 );
 
-CREATE TABLE IF NOT EXISTS public.indices_governamentais (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  nome_indice text NOT NULL,
-  mes_ano text NOT NULL,
-  data_referencia date NOT NULL,
-  valor_mensal numeric NOT NULL,
-  organizacao_id integer NOT NULL DEFAULT 1,
-  created_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
-  updated_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
-  descricao text
-);
+ALTER TABLE public.produtos_empreendimento ADD COLUMN IF NOT EXISTS descricao text;
 
-CREATE TABLE IF NOT EXISTS public.sys_chat_participants (
-  conversation_id uuid NOT NULL,
-  user_id uuid NOT NULL,
-  joined_at timestamp with time zone DEFAULT timezone('utc'::text, now())
-);
-
-CREATE TABLE IF NOT EXISTS public.sys_chat_messages (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  conversation_id uuid,
-  sender_id uuid NOT NULL,
-  conteudo text NOT NULL,
-  created_at timestamp with time zone DEFAULT timezone('utc'::text, now()),
-  read_at timestamp with time zone
-);
-
-ALTER TABLE public.contatos ADD COLUMN IF NOT EXISTS meta_adset_id text;
-
-ALTER TABLE public.contratos ADD COLUMN IF NOT EXISTS periodo_correcao text DEFAULT 'anual'::text;
-
-ALTER TABLE public.cadastro_empresa ADD COLUMN IF NOT EXISTS logo_url text;
-
-ALTER TABLE public.contas_financeiras ADD COLUMN IF NOT EXISTS conta_pai_id bigint;
-
-ALTER TABLE public.elementos_bim ADD COLUMN IF NOT EXISTS sync_session text;
-
-ALTER TABLE public.elementos_bim ADD COLUMN IF NOT EXISTS etapa_id bigint;
-
-ALTER TABLE public.elementos_bim ADD COLUMN IF NOT EXISTS subetapa_id bigint;
-
-ALTER TABLE public.whatsapp_conversations ADD COLUMN IF NOT EXISTS customer_window_start_at timestamp with time zone;
-
-ALTER TABLE public.bim_notas ADD COLUMN IF NOT EXISTS markup_svg text;
-
-CREATE TABLE IF NOT EXISTS public.sys_chat_mural_posts (
+CREATE TABLE IF NOT EXISTS public.crm_rodizio_config (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   organizacao_id bigint NOT NULL,
-  author_id uuid NOT NULL,
-  assunto text NOT NULL,
-  conteudo text NOT NULL,
-  created_at timestamp with time zone DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS public.sys_chat_mural_likes (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  post_id uuid NOT NULL,
-  user_id uuid NOT NULL,
-  created_at timestamp with time zone DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS public.sys_chat_mural_comments (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  post_id uuid NOT NULL,
-  author_id uuid NOT NULL,
-  conteudo text NOT NULL,
-  created_at timestamp with time zone DEFAULT now()
-);
-
-CREATE TABLE IF NOT EXISTS public.meta_ativos (
-  id text NOT NULL,
-  organizacao_id bigint NOT NULL,
-  tipo text NOT NULL,
-  nome text NOT NULL,
-  empreendimento_id bigint,
+  is_active boolean DEFAULT true,
+  fila_usuarios_ids jsonb NOT NULL DEFAULT '[]'::jsonb,
+  ultimo_indice_atendido integer NOT NULL DEFAULT '-1'::integer,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now()
 );
 
-ALTER TABLE public.feedback ADD COLUMN IF NOT EXISTS link_opcional text;
-
-ALTER TABLE public.feedback ADD COLUMN IF NOT EXISTS imagem_url text;
-
-ALTER TABLE public.feedback ADD COLUMN IF NOT EXISTS diagnostico text;
-
-ALTER TABLE public.feedback ADD COLUMN IF NOT EXISTS plano_solucao text;
-
-ALTER TABLE public.orcamento_itens ADD COLUMN IF NOT EXISTS origem text DEFAULT 'manual'::text;
-
-ALTER TABLE public.orcamento_itens ADD COLUMN IF NOT EXISTS bim_projeto_id bigint;
-
-ALTER TABLE public.integracoes_meta ADD COLUMN IF NOT EXISTS instagram_business_account_id text;
-
-CREATE TABLE IF NOT EXISTS public.historico_vgv (
+CREATE TABLE IF NOT EXISTS public.sync_queue (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
-  data_alteracao timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
-  empreendimento_id bigint NOT NULL,
-  produto_id bigint NOT NULL,
-  valor_produto_anterior numeric,
-  valor_produto_novo numeric,
-  vgv_anterior numeric,
-  vgv_novo numeric,
-  organizacao_id integer,
-  usuario_alteracao uuid
+  contato_id bigint NOT NULL,
+  organizacao_id bigint NOT NULL,
+  user_id uuid,
+  status text NOT NULL DEFAULT 'pendente'::text,
+  tentativas integer DEFAULT 0,
+  mensagem_erro text,
+  created_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
+  updated_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now())
 );
 
-CREATE TABLE IF NOT EXISTS public.sys_chat_conversations (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
+ALTER TABLE public.contatos ADD COLUMN IF NOT EXISTS instagram_username text;
+
+ALTER TABLE public.contatos ADD COLUMN IF NOT EXISTS ai_analysis jsonb;
+
+ALTER TABLE public.cadastro_empresa ADD COLUMN IF NOT EXISTS responsavel_id bigint;
+
+ALTER TABLE public.whatsapp_messages ADD COLUMN IF NOT EXISTS read_receipts jsonb DEFAULT '{}'::jsonb;
+
+ALTER TABLE public.whatsapp_conversations ADD COLUMN IF NOT EXISTS user_unread_counts jsonb DEFAULT '{}'::jsonb;
+
+ALTER TABLE public.feedback ADD COLUMN IF NOT EXISTS comentarios text;
+
+ALTER TABLE public.orcamentos ADD COLUMN IF NOT EXISTS execucao_fisica jsonb DEFAULT '{}'::jsonb;
+
+ALTER TABLE public.usuarios ADD COLUMN IF NOT EXISTS contato_id bigint;
+
+ALTER TABLE public.integracoes_google ADD COLUMN IF NOT EXISTS user_id uuid;
+
+ALTER TABLE public.integracoes_google ADD COLUMN IF NOT EXISTS minhas_atividades_calendar_id text;
+
+ALTER TABLE public.integracoes_google ADD COLUMN IF NOT EXISTS global_calendar_id text;
+
+ALTER TABLE public.integracoes_google ADD COLUMN IF NOT EXISTS tipo_conexao text DEFAULT 'pessoal'::text;
+
+ALTER TABLE public.monitor_visitas ADD COLUMN IF NOT EXISTS tempo_permanencia_segundos integer DEFAULT 0;
+
+ALTER TABLE public.empreendimentos ADD COLUMN IF NOT EXISTS categoria varchar(50) DEFAULT 'Vertical'::character varying;
+
+ALTER TABLE public.empreendimentos ADD COLUMN IF NOT EXISTS orcamento_previsto numeric DEFAULT 0;
+
+ALTER TABLE public.empreendimentos ADD COLUMN IF NOT EXISTS orcamento_executado numeric DEFAULT 0;
+
+ALTER TABLE public.empreendimentos ADD COLUMN IF NOT EXISTS orcamento_percentual numeric DEFAULT 0;
+
+ALTER TABLE public.empreendimentos ADD COLUMN IF NOT EXISTS patrimonio_vgv_construido numeric DEFAULT 0;
+
+ALTER TABLE public.empreendimentos ADD COLUMN IF NOT EXISTS vgv_total_projetado numeric DEFAULT 0;
+
+ALTER TABLE public.empreendimentos ADD COLUMN IF NOT EXISTS arquivado boolean DEFAULT false;
+
+ALTER TABLE public.empreendimentos ADD COLUMN IF NOT EXISTS inscricao_imobiliaria text;
+
+ALTER TABLE public.empreendimentos ADD COLUMN IF NOT EXISTS lote text;
+
+ALTER TABLE public.empreendimentos ADD COLUMN IF NOT EXISTS quadra text;
+
+ALTER TABLE public.empreendimentos ADD COLUMN IF NOT EXISTS area_total_construcao text;
+
+ALTER TABLE public.empreendimentos ADD COLUMN IF NOT EXISTS uso_edificacao text;
+
+ALTER TABLE public.empreendimentos ADD COLUMN IF NOT EXISTS numero_pavimentos text;
+
+ALTER TABLE public.empreendimentos ADD COLUMN IF NOT EXISTS alvara_construcao_numero text;
+
+ALTER TABLE public.empreendimentos ADD COLUMN IF NOT EXISTS alvara_construcao_data text;
+
+ALTER TABLE public.empreendimentos ADD COLUMN IF NOT EXISTS processo_administrativo text;
+
+ALTER TABLE public.empreendimentos ADD COLUMN IF NOT EXISTS registro_incorporacao text;
+
+ALTER TABLE public.empreendimentos ADD COLUMN IF NOT EXISTS patrimonio_afetacao boolean DEFAULT false;
+
+ALTER TABLE public.empreendimentos ADD COLUMN IF NOT EXISTS resp_tecnico_projeto text;
+
+ALTER TABLE public.empreendimentos ADD COLUMN IF NOT EXISTS resp_tecnico_obra text;
+
+CREATE TABLE IF NOT EXISTS public.sys_user_notification_prefs (
+  id bigint NOT NULL,
+  usuario_id uuid NOT NULL,
+  template_id bigint NOT NULL,
+  canal_sistema boolean NOT NULL DEFAULT true,
+  canal_push boolean NOT NULL DEFAULT true,
   organizacao_id bigint NOT NULL,
-  created_at timestamp with time zone DEFAULT timezone('utc'::text, now())
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.logs_erros_ui (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  created_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
+  mensagem text NOT NULL,
+  detalhes text,
+  usuario_id uuid,
+  url_atual text,
+  organizacao_id bigint,
+  browser_info text
 );
