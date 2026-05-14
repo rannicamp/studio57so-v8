@@ -8,23 +8,43 @@ import { faTimes, faSpinner, faSave } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 
 const fetchModalData = async (supabase, organizacaoId) => {
- if (!organizacaoId) return { colunas: [], templates: [] };
- const colunasPromise = supabase.from('funis').select('colunas_funil(id, nome)').eq('nome', 'Funil de Vendas').eq('organizacao_id', organizacaoId).single();
- const templatesPromise = fetch('/api/whatsapp/templates');
- const [colunasResult, templatesResponse] = await Promise.all([colunasPromise, templatesPromise]);
- if (colunasResult.error) throw new Error('Erro ao buscar colunas do funil.');
- const colunas = colunasResult.data?.colunas_funil || [];
- if (!templatesResponse.ok) throw new Error('Erro ao buscar modelos de mensagem.');
- const templates = await templatesResponse.json();
- return { colunas, templates };
+  if (!organizacaoId) return { funis: [], templates: [], campaigns: [], origens: [] };
+  
+  const [funisResult, templatesResponse, contatosResult] = await Promise.all([
+    supabase.from('funis').select('id, nome, colunas_funil(id, nome)').eq('organizacao_id', organizacaoId),
+    fetch('/api/whatsapp/templates'),
+    supabase.from('contatos').select('origem, meta_campaign_id, meta_campaign_name').eq('organizacao_id', organizacaoId)
+  ]);
+
+  if (funisResult.error) throw new Error('Erro ao buscar funis.');
+  const funis = funisResult.data || [];
+
+  if (!templatesResponse.ok) throw new Error('Erro ao buscar modelos de mensagem.');
+  const templates = await templatesResponse.json();
+
+  const contatos = contatosResult.data || [];
+  
+  const campaigns = [...new Map(
+    contatos.filter(c => c.meta_campaign_id && c.meta_campaign_name).map(c => [c.meta_campaign_id, { id: c.meta_campaign_id, nome: c.meta_campaign_name }])
+  ).values()].sort((a, b) => a.nome.localeCompare(b.nome));
+
+  const origens = [...new Set(contatos.filter(c => c.origem).map(c => c.origem))].sort();
+
+  return { funis, templates, campaigns, origens };
 };
 
 export default function AutomacaoModal({ isOpen, onClose, onSave, automation, supabase, organizacaoId }) {
- const [nome, setNome] = useState('');
- const [gatilhoTipo, setGatilhoTipo] = useState('MOVER_CARD'); // Valor padrão
- const [colunaId, setColunaId] = useState('');
- const [templateNome, setTemplateNome] = useState('');
- const [templateIdioma, setTemplateIdioma] = useState('');
+  const [nome, setNome] = useState('');
+  const [gatilhoTipo, setGatilhoTipo] = useState('MOVER_CARD');
+  const [funilId, setFunilId] = useState('');
+  const [colunaId, setColunaId] = useState('');
+  const [templateNome, setTemplateNome] = useState('');
+  const [templateIdioma, setTemplateIdioma] = useState('');
+
+  // Condições
+  const [condicaoTipo, setCondicaoTipo] = useState('');
+  const [condicaoOrigem, setCondicaoOrigem] = useState('');
+  const [condicaoCampanha, setCondicaoCampanha] = useState('');
 
  const { data: modalData, isLoading } = useQuery({
  queryKey: ['automationModalData', organizacaoId],
@@ -32,21 +52,30 @@ export default function AutomacaoModal({ isOpen, onClose, onSave, automation, su
  enabled: isOpen && !!organizacaoId,
  });
 
- useEffect(() => {
- if (automation) {
- setNome(automation.nome);
- setGatilhoTipo(automation.gatilho_tipo || 'MOVER_CARD');
- setColunaId(automation.gatilho_config?.coluna_id || '');
- setTemplateNome(automation.acao_config?.template_nome || '');
- setTemplateIdioma(automation.acao_config?.template_idioma || '');
- } else {
- setNome('');
- setGatilhoTipo('MOVER_CARD');
- setColunaId('');
- setTemplateNome('');
- setTemplateIdioma('');
- }
- }, [automation, isOpen]);
+  useEffect(() => {
+    if (automation) {
+      setNome(automation.nome || '');
+      setGatilhoTipo(automation.gatilho_tipo || 'MOVER_CARD');
+      setFunilId(automation.gatilho_config?.funil_id || '');
+      setColunaId(automation.gatilho_config?.coluna_id || '');
+      setTemplateNome(automation.acao_config?.template_nome || '');
+      setTemplateIdioma(automation.acao_config?.template_idioma || '');
+      
+      setCondicaoTipo(automation.gatilho_config?.condicoes?.tipo || '');
+      setCondicaoOrigem(automation.gatilho_config?.condicoes?.origem || '');
+      setCondicaoCampanha(automation.gatilho_config?.condicoes?.campanha_id || '');
+    } else {
+      setNome('');
+      setGatilhoTipo('MOVER_CARD');
+      setFunilId('');
+      setColunaId('');
+      setTemplateNome('');
+      setTemplateIdioma('');
+      setCondicaoTipo('');
+      setCondicaoOrigem('');
+      setCondicaoCampanha('');
+    }
+  }, [automation, isOpen]);
 
  const handleTemplateChange = (e) => {
  const selectedTemplate = modalData?.templates.find(t => t.name === e.target.value);
@@ -56,21 +85,31 @@ export default function AutomacaoModal({ isOpen, onClose, onSave, automation, su
  }
  };
 
- const handleSave = () => {
- if (!nome || !gatilhoTipo || !colunaId || !templateNome) {
- toast.error("Por favor, preencha todos os campos.");
- return;
- }
+  const handleSave = () => {
+    if (!nome || !gatilhoTipo || !funilId || !colunaId || !templateNome) {
+      toast.error("Por favor, preencha todos os campos obrigatórios (marcados com *).");
+      return;
+    }
 
- const automationData = {
- nome,
- gatilho_tipo: gatilhoTipo,
- gatilho_config: { coluna_id: colunaId },
- acao_tipo: 'ENVIAR_WHATSAPP',
- acao_config: { template_nome: templateNome, template_idioma: templateIdioma },
- ativo: true,
- organizacao_id: organizacaoId,
- };
+    const condicoes = {};
+    if (condicaoTipo) condicoes.tipo = condicaoTipo;
+    if (condicaoOrigem) condicoes.origem = condicaoOrigem;
+    if (condicaoCampanha) condicoes.campanha_id = condicaoCampanha;
+
+    const gatilho_config = { funil_id: funilId, coluna_id: colunaId };
+    if (Object.keys(condicoes).length > 0) {
+      gatilho_config.condicoes = condicoes;
+    }
+
+    const automationData = {
+      nome,
+      gatilho_tipo: gatilhoTipo,
+      gatilho_config,
+      acao_tipo: 'ENVIAR_WHATSAPP',
+      acao_config: { template_nome: templateNome, template_idioma: templateIdioma },
+      ativo: true,
+      organizacao_id: organizacaoId,
+    };
  if (automation?.id) {
  automationData.id = automation.id;
  }
@@ -96,25 +135,62 @@ export default function AutomacaoModal({ isOpen, onClose, onSave, automation, su
  <input type="text" placeholder="Ex: Enviar proposta após mover card" value={nome} onChange={(e) => setNome(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"/>
  </div>
 
- <div className="p-4 border rounded-md bg-gray-50/50">
- <label className="block text-lg font-semibold text-gray-800 mb-3">QUANDO...</label>
- <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
- <div>
- <label className="block text-sm font-medium text-gray-700">O gatilho for:</label>
- <select value={gatilhoTipo} onChange={(e) => setGatilhoTipo(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
- <option value="MOVER_CARD">Card MOVIDO para a coluna...</option>
- <option value="CRIAR_CARD">Novo card CRIADO na coluna...</option>
- </select>
- </div>
- <div>
- <label className="block text-sm font-medium text-gray-700">A coluna for:</label>
- <select value={colunaId} onChange={(e) => setColunaId(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
- <option value="" disabled>Selecione a coluna do funil...</option>
- {modalData?.colunas.map(col => (<option key={col.id} value={col.id}>{col.nome}</option>))}
- </select>
- </div>
- </div>
- </div>
+          <div className="p-4 border rounded-md bg-gray-50/50">
+            <label className="block text-lg font-semibold text-gray-800 mb-3">QUANDO... (Gatilho)</label>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Ação *</label>
+                <select value={gatilhoTipo} onChange={(e) => setGatilhoTipo(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
+                  <option value="MOVER_CARD">Card entrar na coluna</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Funil *</label>
+                <select value={funilId} onChange={(e) => { setFunilId(e.target.value); setColunaId(''); }} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
+                  <option value="" disabled>Selecione o Funil...</option>
+                  {modalData?.funis.map(f => (<option key={f.id} value={f.id}>{f.nome}</option>))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Coluna *</label>
+                <select value={colunaId} onChange={(e) => setColunaId(e.target.value)} disabled={!funilId} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm disabled:bg-gray-100">
+                  <option value="" disabled>Selecione a Coluna...</option>
+                  {modalData?.funis.find(f => String(f.id) === String(funilId))?.colunas_funil?.map(col => (
+                    <option key={col.id} value={col.id}>{col.nome}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-4 border border-blue-100 rounded-md bg-blue-50/30">
+            <label className="block text-lg font-semibold text-blue-800 mb-3">SE... (Condições Opcionais)</label>
+            <p className="text-xs text-blue-600 mb-4">A automação só será disparada se o cliente bater com os filtros abaixo. Deixe em "Qualquer" para disparar sempre.</p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Tipo de Contato</label>
+                <select value={condicaoTipo} onChange={(e) => setCondicaoTipo(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
+                  <option value="">Qualquer tipo</option>
+                  <option value="Lead">Lead</option>
+                  <option value="Cliente">Cliente</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Empreendimento/Campanha</label>
+                <select value={condicaoCampanha} onChange={(e) => setCondicaoCampanha(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
+                  <option value="">Qualquer campanha</option>
+                  {modalData?.campaigns.map(c => (<option key={c.id} value={c.id}>{c.nome}</option>))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Origem</label>
+                <select value={condicaoOrigem} onChange={(e) => setCondicaoOrigem(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm">
+                  <option value="">Qualquer origem</option>
+                  {modalData?.origens.map(o => (<option key={o} value={o}>{o}</option>))}
+                </select>
+              </div>
+            </div>
+          </div>
 
  <div className="p-4 border rounded-md bg-gray-50/50">
  <label className="block text-lg font-semibold text-gray-800 mb-3">ENTÃO...</label>

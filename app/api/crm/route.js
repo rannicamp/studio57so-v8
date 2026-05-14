@@ -88,7 +88,7 @@ export async function PUT(req) {
  contato_id,
  coluna_id,
  contatos!contatos_no_funil_contato_id_fkey (
- id, nome, razao_social, origem,
+ id, nome, razao_social, origem, tipo, meta_campaign_id,
  telefones (telefone),
  emails (email)
  ),
@@ -173,7 +173,7 @@ export async function PUT(req) {
  .select('*')
  .eq('organizacao_id', organizacaoId)
  .eq('ativo', true)
- .eq('gatilho_tipo', 'MOVER_COLUNA')
+ .in('gatilho_tipo', ['MOVER_COLUNA', 'MOVER_CARD'])
  .eq('gatilho_config->>coluna_id', params.novaColunaId);
 
  if (automacoes?.length > 0 && telefone) {
@@ -181,6 +181,21 @@ export async function PUT(req) {
  if (orgConfig) {
  for (const regra of automacoes) {
  if (regra.acao_tipo === 'ENVIAR_WHATSAPP') {
+   
+   // --- LÓGICA DE FILTROS (Condições Opcionais) ---
+   const condicoes = regra.gatilho_config?.condicoes;
+   if (condicoes) {
+     let match = true;
+     if (condicoes.tipo && contato.tipo && condicoes.tipo.toLowerCase() !== contato.tipo.toLowerCase()) match = false;
+     if (condicoes.origem && contato.origem && condicoes.origem !== contato.origem) match = false;
+     if (condicoes.campanha_id && contato.meta_campaign_id !== condicoes.campanha_id) match = false;
+
+     if (!match) {
+       console.log(`⏭️ [Automação] Contato não atende aos filtros da regra: ${regra.nome}`);
+       continue; // Ignora o disparo e vai pra próxima
+     }
+   }
+
  console.log(`🤖 [Automação] Disparando template: ${regra.acao_config.template_nome}`);
  await sendTemplateMessage(orgConfig, telefone, contato, regra.acao_config.template_nome, regra.acao_config.template_idioma);
  }

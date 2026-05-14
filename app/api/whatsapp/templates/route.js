@@ -9,7 +9,7 @@ const getSupabaseAdmin = () => createClient(
  process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-export async function GET() {
+export async function GET(request) {
  const supabaseUser = await createServerClient();
  const { data: { user }, error: authError } = await supabaseUser.auth.getUser();
 
@@ -68,15 +68,145 @@ export async function GET() {
  return NextResponse.json({ error: `Erro da API do WhatsApp: ${responseData.error?.message}` }, { status: apiResponse.status });
  }
 
- // 4. Filtra apenas os modelos que estão APROVADOS
- const safeData = Array.isArray(responseData?.data) ? responseData.data : [];
- const approvedTemplates = safeData.filter(template => template.status === 'APPROVED');
+ // 4. Filtra apenas os modelos que estão APROVADOS (a menos que 'all=true' seja requisitado)
+ const { searchParams } = new URL(request.url);
+ const showAll = searchParams.get('all') === 'true';
 
- // 5. Retorna a lista de modelos aprovados para o front-end
- return NextResponse.json(approvedTemplates);
+ const safeData = Array.isArray(responseData?.data) ? responseData.data : [];
+ 
+ if (showAll) {
+  return NextResponse.json(safeData);
+ } else {
+  const approvedTemplates = safeData.filter(template => template.status === 'APPROVED');
+  return NextResponse.json(approvedTemplates);
+ }
 
  } catch (error) {
  console.error('Falha crítica ao buscar modelos de mensagem:', error);
  return NextResponse.json({ error: 'Falha crítica ao processar a requisição.', details: error.message }, { status: 500 });
+ }
+}
+
+export async function POST(request) {
+ const supabaseUser = await createServerClient();
+ const { data: { user }, error: authError } = await supabaseUser.auth.getUser();
+
+ if (authError || !user) {
+  return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+ }
+
+ const { data: profile } = await supabaseUser.from('usuarios').select('organizacao_id').eq('id', user.id).single();
+ if (!profile || !profile.organizacao_id) return NextResponse.json({ error: 'Perfil / Organização não encontrados' }, { status: 404 });
+
+ const supabaseAdmin = getSupabaseAdmin();
+
+ try {
+  const payload = await request.json();
+
+  const { data: config, error: configError } = await supabaseAdmin
+  .from('configuracoes_whatsapp')
+  .select('whatsapp_permanent_token, whatsapp_business_account_id')
+  .eq('organizacao_id', profile.organizacao_id)
+  .limit(1)
+  .single();
+
+  if (configError || !config) {
+   return NextResponse.json({ error: 'Credenciais do WhatsApp SaaS não configuradas.' }, { status: 500 });
+  }
+
+  const WHATSAPP_TOKEN = process.env.WHATSAPP_SYSTEM_USER_TOKEN || config.whatsapp_permanent_token;
+  const WHATSAPP_BUSINESS_ACCOUNT_ID = config.whatsapp_business_account_id;
+
+  if (!WHATSAPP_BUSINESS_ACCOUNT_ID) {
+   return NextResponse.json({ error: 'ID da Conta de Negócios (WABA ID) não configurado.' }, { status: 500 });
+  }
+
+  const url = `https://graph.facebook.com/v20.0/${WHATSAPP_BUSINESS_ACCOUNT_ID}/message_templates`;
+
+  const apiResponse = await fetch(url, {
+   method: 'POST',
+   headers: { 
+    'Authorization': `Bearer ${WHATSAPP_TOKEN}`,
+    'Content-Type': 'application/json'
+   },
+   body: JSON.stringify(payload)
+  });
+
+  const responseData = await apiResponse.json();
+
+  if (!apiResponse.ok) {
+   console.error('Erro da API do WhatsApp ao criar template:', responseData);
+   const metaErrorMsg = responseData.error?.error_user_msg || responseData.error?.message || 'Falha desconhecida.';
+   return NextResponse.json({ error: metaErrorMsg }, { status: apiResponse.status });
+  }
+
+  return NextResponse.json(responseData);
+
+ } catch (error) {
+  console.error('Falha crítica ao criar modelo de mensagem:', error);
+  return NextResponse.json({ error: 'Falha crítica ao processar a requisição.', details: error.message }, { status: 500 });
+ }
+}
+
+export async function DELETE(request) {
+ const supabaseUser = await createServerClient();
+ const { data: { user }, error: authError } = await supabaseUser.auth.getUser();
+
+ if (authError || !user) {
+  return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+ }
+
+ const { data: profile } = await supabaseUser.from('usuarios').select('organizacao_id').eq('id', user.id).single();
+ if (!profile || !profile.organizacao_id) return NextResponse.json({ error: 'Perfil / Organização não encontrados' }, { status: 404 });
+
+ const supabaseAdmin = getSupabaseAdmin();
+
+ try {
+  const { searchParams } = new URL(request.url);
+  const templateName = searchParams.get('name');
+
+  if (!templateName) {
+   return NextResponse.json({ error: 'Nome do template não fornecido.' }, { status: 400 });
+  }
+
+  const { data: config, error: configError } = await supabaseAdmin
+  .from('configuracoes_whatsapp')
+  .select('whatsapp_permanent_token, whatsapp_business_account_id')
+  .eq('organizacao_id', profile.organizacao_id)
+  .limit(1)
+  .single();
+
+  if (configError || !config) {
+   return NextResponse.json({ error: 'Credenciais do WhatsApp SaaS não configuradas.' }, { status: 500 });
+  }
+
+  const WHATSAPP_TOKEN = process.env.WHATSAPP_SYSTEM_USER_TOKEN || config.whatsapp_permanent_token;
+  const WHATSAPP_BUSINESS_ACCOUNT_ID = config.whatsapp_business_account_id;
+
+  if (!WHATSAPP_BUSINESS_ACCOUNT_ID) {
+   return NextResponse.json({ error: 'ID da Conta de Negócios (WABA ID) não configurado.' }, { status: 500 });
+  }
+
+  const url = `https://graph.facebook.com/v20.0/${WHATSAPP_BUSINESS_ACCOUNT_ID}/message_templates?name=${templateName}`;
+
+  const apiResponse = await fetch(url, {
+   method: 'DELETE',
+   headers: { 
+    'Authorization': `Bearer ${WHATSAPP_TOKEN}`
+   }
+  });
+
+  const responseData = await apiResponse.json();
+
+  if (!apiResponse.ok) {
+   console.error('Erro da API do WhatsApp ao EXCLUIR template:', responseData);
+   return NextResponse.json({ error: `Erro da API da Meta: ${responseData.error?.message || 'Falha ao excluir template.'}` }, { status: apiResponse.status });
+  }
+
+  return NextResponse.json({ success: true, message: 'Template excluído com sucesso.' });
+
+ } catch (error) {
+  console.error('Falha crítica ao excluir modelo de mensagem:', error);
+  return NextResponse.json({ error: 'Falha crítica ao processar a requisição.', details: error.message }, { status: 500 });
  }
 }

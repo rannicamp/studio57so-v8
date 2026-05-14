@@ -4,7 +4,7 @@ import { useLayout } from '@/contexts/LayoutContext';
 import { useEffect } from 'react';
 import Link from 'next/link';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import {
+ import {
  faUsers,
  faLock,
  faFileInvoiceDollar,
@@ -18,7 +18,8 @@ import {
  faShieldAlt,
  faUserTie,
  faBell,
- faBookReader
+ faBookReader,
+ faCommentDots
 } from '@fortawesome/free-solid-svg-icons';
 
 const ConfigCard = ({ href, icon, title, description, color = "bg-blue-50 text-blue-600" }) => (
@@ -128,6 +129,13 @@ export default function ConfiguracoesPage() {
  icon: faTools,
  href: '/configuracoes/integracoes',
  color: 'bg-gray-50 text-gray-600'
+ },
+ {
+ title: 'Modelos do WhatsApp',
+ description: 'Crie e gerencie templates de mensagens para enviar aos clientes via WhatsApp.',
+ icon: faCommentDots,
+ href: '/configuracoes/whatsapp-templates',
+ color: 'bg-emerald-50 text-emerald-600'
  },
  {
  title: 'Manuais e Tutoriais',

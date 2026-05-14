@@ -25,6 +25,7 @@ import KpiCard from '@/components/shared/KpiCard';
 import FiltroCrm from '@/components/crm/FiltroCrm';
 import MetaFormMappingModal from '@/components/crm/MetaFormMappingModal';
 import RodizioConfigModal from '@/components/crm/RodizioConfigModal';
+import AutomacoesListModal from '@/components/crm/AutomacoesListModal';
 import { useRouter } from 'next/navigation';
 
 // --- CHAVE ÚNICA PARA O LOCALSTORAGE (PERSISTÊNCIA) ---
@@ -255,8 +256,6 @@ export default function CrmPage() {
  }
  }, [authLoading, canView, router]);
 
- if (authLoading || !canView) return null;
-
  const cachedState = getCachedUiState();
  const defaultFilters = { searchTerm: '', corretorIds: [], origens: [], unidadeIds: [], campaignIds: [], adIds: [], startDate: '', endDate: '', activityStatus: 'Todas' };
 
@@ -282,6 +281,7 @@ export default function CrmPage() {
  const [contactForWhats, setContactForWhats] = useState(null);
  const [isMetaMappingOpen, setIsMetaMappingOpen] = useState(false);
  const [isRodizioModalOpen, setIsRodizioModalOpen] = useState(false);
+ const [isAutomacoesModalOpen, setIsAutomacoesModalOpen] = useState(false);
 
  // --- SELEÇÃO DE FUNIL ---
  const [selectedFunilId, setSelectedFunilId] = useState(cachedState?.selectedFunilId || null);
@@ -477,6 +477,8 @@ export default function CrmPage() {
  window.location.href = '/caixa-de-entrada?contato=' + contact.id;
  };
 
+ if (authLoading || !canView) return null;
+
  return (
  <div className="h-full flex flex-col bg-gray-100">
   {isSidebarOpen && selectedContactForSidebar && (
@@ -586,9 +588,13 @@ export default function CrmPage() {
  >
  <FontAwesomeIcon icon={faSync} className="text-blue-500" /> Rodízio
  </button>
- <Link href="/crm/automacao" className="bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 text-sm font-bold py-2 px-4 rounded-md shadow-sm flex items-center gap-2 transition-colors">
- <FontAwesomeIcon icon={faRobot} className="text-purple-500" /> Automações
- </Link>
+  <button
+  onClick={() => setIsAutomacoesModalOpen(true)}
+  className="bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 text-sm font-bold py-2 px-4 rounded-md shadow-sm flex items-center gap-2 transition-colors"
+  title="Gerenciar Automações de WhatsApp"
+  >
+  <FontAwesomeIcon icon={faRobot} className="text-purple-500" /> Automações
+  </button>
  <button
  onClick={openAddContactModal}
  className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold py-2 px-4 rounded-md shadow-sm flex items-center gap-2 transition-colors"
@@ -645,6 +651,7 @@ export default function CrmPage() {
 
  <MetaFormMappingModal isOpen={isMetaMappingOpen} onClose={() => setIsMetaMappingOpen(false)} organizacaoId={organizacaoId} />
  <RodizioConfigModal isOpen={isRodizioModalOpen} onClose={() => setIsRodizioModalOpen(false)} organizacaoId={organizacaoId} />
+ <AutomacoesListModal isOpen={isAutomacoesModalOpen} onClose={() => setIsAutomacoesModalOpen(false)} organizacaoId={organizacaoId} currentFunilId={selectedFunilId} />
 
  {/* Backdrop para fechar o dropdown de funis */}
  {isFunilDropdownOpen && (
