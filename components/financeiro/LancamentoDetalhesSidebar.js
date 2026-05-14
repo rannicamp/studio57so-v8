@@ -122,7 +122,7 @@ export default function LancamentoDetalhesSidebar({ open, onClose, lancamento })
  if (anexo.caminho_arquivo && !anexo.public_url) {
  const { data } = supabase.storage.from('documentos-financeiro').getPublicUrl(anexo.caminho_arquivo);
  if (data?.publicUrl) {
- anexoAdaptado.public_url = data.publicUrl;
+ anexoAdaptado.public_url = data.publicUrl.replace(/#/g, '%23').replace(/\?/g, '%3F');
  }
  }
  setPreviewFile(anexoAdaptado);
@@ -427,7 +427,7 @@ export default function LancamentoDetalhesSidebar({ open, onClose, lancamento })
  </dt>
  <GerenciadorAnexosGlobal anexos={lancamento.anexos?.map(a => ({
  ...a,
- public_url: a.public_url || (typeof a.caminho_arquivo === 'string' && a.caminho_arquivo.startsWith('http') ? a.caminho_arquivo : supabase.storage.from('documentos-financeiro').getPublicUrl(a.caminho_arquivo).data.publicUrl)
+ public_url: a.public_url || (typeof a.caminho_arquivo === 'string' && a.caminho_arquivo.startsWith('http') ? a.caminho_arquivo : supabase.storage.from('documentos-financeiro').getPublicUrl(a.caminho_arquivo).data?.publicUrl?.replace(/#/g, '%23').replace(/\?/g, '%3F'))
  })) || []}
  viewMode="list"
  storageBucket="documentos-financeiro"

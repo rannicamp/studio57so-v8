@@ -132,7 +132,8 @@ export default function PedidoDetalhesSidebar({
    if (anexo.caminho_arquivo && !anexo.public_url) {
      const { data } = supabase.storage.from('pedidos-anexos').getPublicUrl(anexo.caminho_arquivo);
      if (data?.publicUrl) {
-       anexoAdaptado.public_url = data.publicUrl;
+       // Garante que # e ? no nome do arquivo não quebrem a URL
+       anexoAdaptado.public_url = data.publicUrl.replace(/#/g, '%23').replace(/\?/g, '%3F');
      }
    }
    setPreviewFile(anexoAdaptado);
@@ -278,10 +279,21 @@ export default function PedidoDetalhesSidebar({
   <h3 className="text-sm font-bold text-gray-800 border-b pb-2 mb-3 flex items-center gap-2">
   <FontAwesomeIcon icon={faPaperclip} className="text-gray-400" /> Anexos ({pedido.anexos?.length || 0})
   </h3>
-  <GerenciadorAnexosGlobal anexos={pedido.anexos?.map(a => ({
-      ...a,
-      public_url: a.public_url || (typeof a.caminho_arquivo === 'string' && a.caminho_arquivo.startsWith('http') ? a.caminho_arquivo : supabase.storage.from('pedidos-anexos').getPublicUrl(a.caminho_arquivo).data.publicUrl)
-  })) || []}
+  <GerenciadorAnexosGlobal anexos={pedido.anexos?.map(a => {
+      let url = a.public_url;
+      if (!url && typeof a.caminho_arquivo === 'string') {
+          if (a.caminho_arquivo.startsWith('http')) {
+              url = a.caminho_arquivo;
+          } else {
+              const { data } = supabase.storage.from('pedidos-anexos').getPublicUrl(a.caminho_arquivo);
+              url = data?.publicUrl;
+              if (url) {
+                  url = url.replace(/#/g, '%23').replace(/\?/g, '%3F');
+              }
+          }
+      }
+      return { ...a, public_url: url };
+  }) || []}
       viewMode="list"
       storageBucket="pedidos-anexos"
       onPreview={handlePreviewAnexo}
