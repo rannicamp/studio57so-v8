@@ -14,6 +14,8 @@ import { createClient } from '@/utils/supabase/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import GerenciadorAnexosGlobal from '@/components/shared/GerenciadorAnexosGlobal';
+import FilePreviewModal from '@/components/shared/FilePreviewModal';
 
 // --- COMPONENTES AUXILIARES ---
 
@@ -123,6 +125,18 @@ export default function PedidoDetalhesSidebar({
  const supabase = createClient();
  const queryClient = useQueryClient();
  const [isLancamentoModalOpen, setIsLancamentoModalOpen] = useState(false);
+ const [previewFile, setPreviewFile] = useState(null);
+
+ const handlePreviewAnexo = (anexo) => {
+   let anexoAdaptado = { ...anexo };
+   if (anexo.caminho_arquivo && !anexo.public_url) {
+     const { data } = supabase.storage.from('pedidos-anexos').getPublicUrl(anexo.caminho_arquivo);
+     if (data?.publicUrl) {
+       anexoAdaptado.public_url = data.publicUrl;
+     }
+   }
+   setPreviewFile(anexoAdaptado);
+ };
 
  // Formatação de valores
  const formatCurrency = (value) => {
@@ -152,6 +166,9 @@ export default function PedidoDetalhesSidebar({
 
  return (
  <>
+ <FilePreviewModal anexo={previewFile}
+   onClose={() => setPreviewFile(null)}
+ />
  <div
  className={`fixed inset-y-0 right-0 w-full md:w-[500px] bg-white shadow-2xl transform transition-transform duration-300 ease-in-out z-40 ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}
  >
@@ -256,33 +273,20 @@ export default function PedidoDetalhesSidebar({
  </div>
  </section>
 
- {/* Anexos */}
- <section>
- <h3 className="text-sm font-bold text-gray-800 border-b pb-2 mb-3 flex items-center gap-2">
- <FontAwesomeIcon icon={faPaperclip} className="text-gray-400" /> Anexos ({pedido.anexos?.length || 0})
- </h3>
- <div className="space-y-2">
- {pedido.anexos && pedido.anexos.length > 0 ? (
- pedido.anexos.map(anexo => (
- <div key={anexo.id} className="flex justify-between items-center p-2 bg-gray-50 rounded border text-sm">
- <div className="truncate pr-2">
- <p className="font-medium text-gray-700 truncate">{anexo.nome_arquivo}</p>
- {anexo.descricao && <p className="text-xs text-gray-500">{anexo.descricao}</p>}
- </div>
- <a
- href={anexo.caminho_arquivo}
- target="_blank"
- rel="noopener noreferrer"
- className="text-blue-600 hover:text-blue-800 p-1"
- title="Baixar/Visualizar"
- >
- <FontAwesomeIcon icon={faExternalLinkAlt} />
- </a>
- </div>
- ))
- ) : <p className="text-xs text-gray-500 italic">Sem anexos.</p>}
- </div>
- </section>
+  {/* Anexos (Componente Global Padrão Ouro) */}
+  <section>
+  <h3 className="text-sm font-bold text-gray-800 border-b pb-2 mb-3 flex items-center gap-2">
+  <FontAwesomeIcon icon={faPaperclip} className="text-gray-400" /> Anexos ({pedido.anexos?.length || 0})
+  </h3>
+  <GerenciadorAnexosGlobal anexos={pedido.anexos?.map(a => ({
+      ...a,
+      public_url: a.public_url || (typeof a.caminho_arquivo === 'string' && a.caminho_arquivo.startsWith('http') ? a.caminho_arquivo : supabase.storage.from('pedidos-anexos').getPublicUrl(a.caminho_arquivo).data.publicUrl)
+  })) || []}
+      viewMode="list"
+      storageBucket="pedidos-anexos"
+      onPreview={handlePreviewAnexo}
+  />
+  </section>
 
  {/* --- NOVA SEÇÃO: HISTÓRICO DE MOVIMENTAÇÕES --- */}
  <section>
