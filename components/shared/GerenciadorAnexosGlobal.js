@@ -34,7 +34,8 @@ export default function GerenciadorAnexosGlobal({ anexos, viewMode: initialViewM
  const { data } = supabase.storage.from(storageBucket).getPublicUrl(filePath);
  if (data?.publicUrl) {
  try {
- const safeUrl = data.publicUrl.replace(/#/g, '%23').replace(/\?/g, '%3F');\n await navigator.clipboard.writeText(safeUrl);
+ const safeUrl = data.publicUrl.replace(/#/g, '%23').replace(/\?/g, '%3F');
+ await navigator.clipboard.writeText(safeUrl);
  toast.success("Link público copiado!");
  } catch (err) {
  toast.error("Falha ao copiar o link.");
