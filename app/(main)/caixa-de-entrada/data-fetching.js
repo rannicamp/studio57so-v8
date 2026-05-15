@@ -127,7 +127,7 @@ export const getMessages = async (supabase, organizacaoId, contatoId) => {
   .select('*') // ISSO É VITAL: Traz raw_payload e tudo mais
   .eq('organizacao_id', organizacaoId)
   .eq('contato_id', contatoId)
-  .order('sent_at', { ascending: true })
+  .order('created_at', { ascending: true })
   .order('id', { ascending: true });
 
   if (error) {
