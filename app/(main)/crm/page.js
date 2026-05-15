@@ -259,7 +259,10 @@ export default function CrmPage() {
  const cachedState = getCachedUiState();
  const defaultFilters = { searchTerm: '', corretorIds: [], origens: [], unidadeIds: [], campaignIds: [], adIds: [], startDate: '', endDate: '', activityStatus: 'Todas' };
 
- const [filters, setFilters] = useState(cachedState?.filters || defaultFilters);
+ const [filters, setFilters] = useState(() => {
+  const cached = cachedState?.filters;
+  return cached ? { ...cached, startDate: '', endDate: '', isDynamicEndDate: false } : defaultFilters;
+ });
  const [sorting, setSorting] = useState(cachedState?.sorting || {});
  const [showFilters, setShowFilters] = useState(false);
  const [debouncedFilters] = useDebounce(filters, 500);

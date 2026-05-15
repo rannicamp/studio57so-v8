@@ -32,17 +32,7 @@ export default function FiltroCrm({ filters, setFilters, unidades, origens, camp
 }) {
  const [activePeriodFilter, setActivePeriodFilter] = useState('');
 
- // --- 🧠 O CÉREBRO DA DATA DINÂMICA ---
- // Só atualiza se o usuário ATIVAMENTE ligou a opção "Sempre Hoje"
- useEffect(() => {
- if (filters.isDynamicEndDate) {
- const hojeReal = getLocalToday();
- if (filters.endDate !== hojeReal) {
- console.log("🔄 Filtro Inteligente: Atualizando 'Até' para a data de hoje:", hojeReal);
- setFilters(prev => ({ ...prev, endDate: hojeReal }));
- }
- }
- }, [filters.isDynamicEndDate, setFilters]);
+ // Lógica de isDynamicEndDate removida para evitar conflitos de fuso horário
 
  const handleFilterChange = (name, value) => {
  setFilters(prev => {
@@ -59,17 +49,7 @@ export default function FiltroCrm({ filters, setFilters, unidades, origens, camp
  });
  };
 
- // Toggle para a caixinha "Sempre até Hoje"
- const toggleDynamicDate = () => {
- setFilters(prev => {
- const isTurningOn = !prev.isDynamicEndDate;
- const hoje = getLocalToday();
- return {
- ...prev,
- isDynamicEndDate: isTurningOn,
- endDate: isTurningOn ? hoje : prev.endDate };
- });
- };
+ // Função toggleDynamicDate removida
 
  const setDateRange = (period) => {
  const today = new Date();
@@ -159,23 +139,9 @@ export default function FiltroCrm({ filters, setFilters, unidades, origens, camp
  <div className="relative">
  <label className="text-xs uppercase font-medium text-gray-600 flex justify-between items-center">
  Criado Até:
- {/* Checkbox Mágico */}
- <div className="flex items-center gap-1 cursor-pointer group" onClick={toggleDynamicDate} title="Se marcado, a data final será sempre atualizada para o dia atual automaticamente.">
- <div className={`w-3 h-3 rounded-sm border ${filters.isDynamicEndDate ? 'bg-blue-600 border-blue-600' : 'border-gray-400 bg-white'} flex items-center justify-center transition-colors`}>
- {filters.isDynamicEndDate && <div className="w-1.5 h-1.5 bg-white rounded-full"></div>}
- </div>
- <span className={`text-[10px] normal-case ${filters.isDynamicEndDate ? 'text-blue-600 font-bold' : 'text-gray-400 group-hover:text-gray-600'}`}>
- Sempre Hoje
- </span>
- </div>
  </label>
  <div className="relative mt-1">
- <input type="date" name="endDate" value={filters.endDate} onChange={(e) => handleFilterChange('endDate', e.target.value)} disabled={filters.isDynamicEndDate} className={`w-full p-2 border rounded-md shadow-sm text-sm ${filters.isDynamicEndDate ? 'bg-blue-50 text-blue-800 border-blue-200 cursor-not-allowed font-medium' : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'}`} />
- {filters.isDynamicEndDate && (
- <div className="absolute right-8 top-1/2 -translate-y-1/2 text-blue-400">
- <FontAwesomeIcon icon={faSyncAlt} className="animate-spin-slow text-xs" />
- </div>
- )}
+ <input type="date" name="endDate" value={filters.endDate} onChange={(e) => handleFilterChange('endDate', e.target.value)} className="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm" />
  </div>
  </div>
  </div>
