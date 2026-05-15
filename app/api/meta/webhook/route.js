@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { formatarParaWhatsAppBR } from '@/utils/phoneUtils';
 
 // Cliente Admin (Service Role) — Necessário para operações server-side
 const getSupabaseAdmin = () => {
@@ -20,6 +21,53 @@ function sanitizePhone(phone) {
  }
  }
  return clean || null;
+}
+
+// --- FUNÇÃO AUXILIAR: Enviar Template WhatsApp ---
+async function sendTemplateMessage(supabaseAdmin, config, to, contato, templateName, language) {
+ const url = `https://graph.facebook.com/v20.0/${config.whatsapp_phone_number_id}/messages`;
+
+ const nomeExibicao = contato?.nome || contato?.razao_social || 'Cliente';
+
+ const components = [{
+   type: 'body',
+   parameters: [{ type: 'text', text: nomeExibicao }]
+ }];
+
+ const phoneForMeta = formatarParaWhatsAppBR(to);
+
+ const payload = {
+   messaging_product: "whatsapp", to: phoneForMeta, type: "template",
+   template: { name: templateName, language: { code: language }, components: components }
+ };
+
+ try {
+   const response = await fetch(url, {
+     method: 'POST',
+     headers: {
+       'Content-Type': 'application/json',
+       'Authorization': `Bearer ${config.whatsapp_permanent_token}`
+     },
+     body: JSON.stringify(payload)
+   });
+   const responseData = await response.json();
+
+   if (!response.ok) {
+     console.error(`❌ [WhatsApp Webhook] Erro API:`, responseData.error?.message);
+   } else {
+     console.log(`✅ [WhatsApp Webhook] Automação enviada para ${to}`);
+     const messageId = responseData.messages?.[0]?.id;
+     if (messageId && contato?.id) {
+       await supabaseAdmin.from('whatsapp_messages').insert({
+         contato_id: contato.id, message_id: messageId, sender_id: config.whatsapp_phone_number_id, receiver_id: to,
+         content: `(Automação) Template: ${templateName}`, direction: 'outbound', status: 'sent', raw_payload: payload,
+         sent_at: new Date().toISOString(), organizacao_id: config.organizacao_id
+       });
+     }
+   }
+ } catch (error) {
+   console.error(`❌ [WhatsApp Webhook] Erro de rede:`, error);
+ }
 }
 
 /**
@@ -208,11 +256,12 @@ async function processWebhook(body) {
  }
 
  // 3d. Salva e-mail e telefone
+ let finalPhone = null;
  if (emailLead) {
  await supabase.from('emails').insert({ contato_id: newContact.id, email: emailLead, organizacao_id: orgId });
  }
  if (phoneLead) {
- const finalPhone = sanitizePhone(phoneLead);
+ finalPhone = sanitizePhone(phoneLead);
  if (finalPhone) {
  await supabase.from('telefones').insert({ contato_id: newContact.id, telefone: finalPhone, organizacao_id: orgId });
  }
@@ -273,5 +322,46 @@ async function processWebhook(body) {
  } else {
    console.log(`[Org ${orgId}] Rodizio inativo. Nenhum corretor atribuido automaticamente.`);
  }
- }
+
+  // 3h. AUTOMACAO WHATSAPP (Boas vindas / Criação de Card)
+  const { data: automacoes } = await supabase
+    .from('automacoes')
+    .select('*')
+    .eq('organizacao_id', orgId)
+    .eq('ativo', true)
+    .in('gatilho_tipo', ['CRIAR_CARD', 'MOVER_CARD', 'MOVER_COLUNA'])
+    .eq('gatilho_config->>coluna_id', colunaEntradaId);
+
+  if (automacoes?.length > 0 && finalPhone) {
+    const { data: orgConfig } = await supabase.from('configuracoes_whatsapp').select('*').eq('organizacao_id', orgId).single();
+    if (orgConfig) {
+      for (const regra of automacoes) {
+        if (regra.acao_tipo === 'ENVIAR_WHATSAPP') {
+          
+          const condicoes = regra.gatilho_config?.condicoes;
+          if (condicoes) {
+            let match = true;
+            if (condicoes.tipo && condicoes.tipo.toLowerCase() !== 'lead') match = false;
+            
+            const origemContato = leadDetails.is_organic ? 'Meta Lead Organico' : 'Meta Lead Ad';
+            if (condicoes.origem && condicoes.origem !== origemContato) match = false;
+            
+            if (condicoes.campanha_id && leadDetails.campaign_id !== condicoes.campanha_id) match = false;
+
+            if (!match) {
+              console.log(`⏭️ [Automação Webhook] Contato não atende aos filtros da regra: ${regra.nome}`);
+              continue;
+            }
+          }
+
+          console.log(`🤖 [Automação Webhook] Disparando template: ${regra.acao_config.template_nome}`);
+          // Mock contato object for the message
+          const contatoObj = { id: newContact.id, nome: nomeLead, razao_social: nomeLead };
+          await sendTemplateMessage(supabase, orgConfig, finalPhone, contatoObj, regra.acao_config.template_nome, regra.acao_config.template_idioma);
+        }
+      }
+    }
+  }
+  
+  }
 }
