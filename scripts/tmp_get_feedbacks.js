@@ -1,0 +1,24 @@
+require('dotenv').config({ path: '.env.local' });
+const { Client } = require('pg');
+
+async function run() {
+  const password = process.env.SUPABASE_DB_PASSWORD;
+  const baseHost = process.env.NEXT_PUBLIC_SUPABASE_URL.replace('https://', '').split('/')[0];
+  const projectId = baseHost.split('.')[0];
+  const host = `db.${projectId}.supabase.co`;
+  const connStr = `postgres://postgres:${password}@${host}:6543/postgres`;
+
+  const client = new Client({ connectionString: connStr });
+  await client.connect();
+  
+  const res = await client.query(
+      `SELECT f.*, u.nome as autor_nome, f.usuario_id FROM feedback f 
+       LEFT JOIN usuarios u ON f.usuario_id = u.id 
+       WHERE f.status IN ('Novo', 'Em Análise') 
+       AND (f.diagnostico IS NULL OR f.diagnostico = '')`
+  );
+  console.log(JSON.stringify(res.rows, null, 2));
+  await client.end();
+}
+
+run().catch(console.error);

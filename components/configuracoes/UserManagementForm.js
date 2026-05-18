@@ -291,8 +291,8 @@ const LinkContactModal = ({ isOpen, onClose, user, organizationId }) => {
       const supabase = createClient();
       const { data } = await supabase
         .from('contatos')
-        .select('id, nome, telefone')
-        .ilike('nome', `%${searchTerm}%`)
+        .select('id, nome, razao_social, telefone')
+        .or(`nome.ilike.%${searchTerm}%,razao_social.ilike.%${searchTerm}%`)
         .eq('organizacao_id', organizationId)
         .limit(10);
       setSearchResults(data || []);
@@ -346,10 +346,14 @@ const LinkContactModal = ({ isOpen, onClose, user, organizationId }) => {
               {searchResults.map(c => (
                 <div 
                   key={c.id} 
-                  onClick={() => { setSelectedContactId(c.id); setSearchTerm(c.nome); setSearchResults([]); }}
+                  onClick={() => { 
+                    setSelectedContactId(c.id); 
+                    setSearchTerm(c.nome || c.razao_social || ''); 
+                    setSearchResults([]); 
+                  }}
                   className="p-2 hover:bg-blue-50 dark:hover:bg-gray-700 cursor-pointer flex justify-between items-center border-b border-gray-100 dark:border-gray-700 last:border-0"
                 >
-                  <span className="text-sm font-medium text-gray-800 dark:text-gray-200">{c.nome}</span>
+                  <span className="text-sm font-medium text-gray-800 dark:text-gray-200">{c.nome || c.razao_social}</span>
                   <span className="text-xs text-gray-400">ID: {c.id}</span>
                 </div>
               ))}
