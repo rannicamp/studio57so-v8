@@ -28,6 +28,7 @@ import {
 // --- MUDANÇA: REMOVEMOS A IMPORTAÇÃO DO salvarLead (JÁ ESTÁ NO COMPONENTE) ---
 // --- MUDANÇA: IMPORTAMOS O FORMULÁRIO PADRONIZADO ---
 import FormularioDeContatoRefugio from './FormularioDeContatoRefugio';
+import Viewer360 from './Viewer360';
 
 // Importando o modal de Zoom
 import ZoomableImageModal from '../../../components/ZoomableImageModal';
@@ -360,7 +361,24 @@ export default function RefugioBraunasClient() {
  </div>
  </section>
 
- {/* Mapa de Proximidades */}
+      {/* Seção de Visão 360º */}
+      <section className="bg-gray-100 py-16 md:py-24 border-t border-gray-200">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-10">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4 text-gray-900">
+              Visão 360º Aérea
+            </h2>
+            <p className="max-w-2xl mx-auto text-gray-600 text-lg">
+              Explore o Refúgio Braúnas por um ângulo exclusivo. Arraste a imagem para os lados e sinta como é estar cercado pela natureza, a poucos minutos do centro da cidade.
+            </p>
+          </div>
+          <div className="max-w-6xl mx-auto px-2 md:px-0">
+            <Viewer360 src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/6/360_1779125295217_DJI_20260511121042_0023_D.JPG.jpeg" />
+          </div>
+        </div>
+      </section>
+
+      {/* Mapa de Proximidades */}
  <section className="bg-gray-50 pt-16 md:pt-24 pb-16 md:pb-24">
  <div className="container mx-auto px-4">
  <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
