@@ -37,7 +37,7 @@ const HighlightedText = ({ text = '', highlight = '' }) => {
 
 const countries = [
  { name: "Brasil", code: "BR", dial_code: "+55", mask: "(00) 0000-0000[0]" },
- { name: "Estados Unidos", code: "US", dial_code: "+1", mask: "(000) 000-0000" },
+ { name: "Estados Unidos", code: "US", dial_code: "+1", mask: "(000) 000-0000[0]" },
  { name: "Portugal", code: "PT", dial_code: "+351", mask: "000 000 000" },
 ];
 

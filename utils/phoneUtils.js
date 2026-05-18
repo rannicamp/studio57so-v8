@@ -60,7 +60,20 @@ export function formatarParaWhatsAppBR(rawPhone, countryCode = '+55', isFromMeta
         return digits;
     }
 
-    // 4. Fallback: número inserido manualmente sem DDI (Ex: 33981826388 ou 5551234567)
+    // 4. Fallback inteligente para números sem '+' explícito
+    // Se o número tem 11 dígitos, começa com '1', e o 3º dígito NÃO é '9':
+    // Um celular BR sem DDI teria DDD (ex: 11) + 9 + 8 dígitos. O 3º dígito seria OBRIGATORIAMENTE '9'.
+    // Portanto, se não é 9, trata-se de um número dos EUA (1 + 10 dígitos).
+    if (digits.length === 11 && digits.startsWith('1') && digits[2] !== '9') {
+        return digits; // É um número internacional US válido. Não force 55.
+    }
+
+    // Proteção extra para Portugal (+351)
+    if (digits.length === 12 && digits.startsWith('351')) {
+        return digits;
+    }
+
+    // 5. Fallback final: número inserido manualmente sem DDI (Ex: 33981826388)
     // Usa o countryCode passado como referência
     const ddiNum = (countryCode || '+55').replace('+', '');
     if (!digits.startsWith(ddiNum)) {
