@@ -133,9 +133,11 @@ export default function MessagePanel({ contact, onBack }) {
  useEffect(() => {
  if (contact?.contato_id && messages && user?.id) {
  const hasUnread = messages.some(m => m.direction === 'inbound' && m.read_receipts?.[user.id] !== true);
- if (hasUnread) markReadMutation.mutate();
+ if (hasUnread && !markReadMutation.isPending) {
+ markReadMutation.mutate();
  }
- }, [contact?.contato_id, messages, user?.id]);
+ }
+ }, [contact?.contato_id, messages, user?.id, markReadMutation.isPending]);
 
  // Realtime
  useEffect(() => {

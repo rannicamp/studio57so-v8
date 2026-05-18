@@ -27,16 +27,9 @@ export const getConversations = async (supabase, organizacaoId, userId) => {
  content,
  created_at,
  status
- ),
- recent_msgs: whatsapp_messages!whatsapp_messages_conversation_record_id_fkey (
- sent_at,
- direction
  )
  `)
  .eq('organizacao_id', organizacaoId)
- // Ordenamos as mensagens recentes para garantir que achamos a última recebida do cliente
- .order('sent_at', { foreignTable: 'recent_msgs', ascending: false })
- .limit(10, { foreignTable: 'recent_msgs' })
  .order('updated_at', { ascending: false });
 
  if (error) {
@@ -62,8 +55,7 @@ export const getConversations = async (supabase, organizacaoId, userId) => {
  }
 
  // --- 2. LÓGICA DO CRONÔMETRO ---
- const lastInboundMsg = conv.recent_msgs?.find(m => m.direction === 'inbound');
- const lastInboundAt = conv.customer_window_start_at || (lastInboundMsg ? lastInboundMsg.sent_at : null);
+ const lastInboundAt = conv.customer_window_start_at || null;
 
  return {
  conversation_id: conv.id,

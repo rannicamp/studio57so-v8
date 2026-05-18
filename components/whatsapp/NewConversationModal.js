@@ -104,7 +104,8 @@ export default function NewConversationModal({ isOpen, onClose, onConversationCr
  }, 300);
 
  return () => clearTimeout(delayDebounce);
- }, [isOpen, searchTerm, organizacaoId, supabase, preSelectedContact]); // Adicionei preSelectedContact aqui
+ // eslint-disable-next-line react-hooks/exhaustive-deps
+ }, [isOpen, searchTerm, organizacaoId, preSelectedContact]);
 
  const handleTemplateChange = (templateName) => {
  const actualTemplates = Array.isArray(templatesData) ? templatesData : (templatesData?.data || []);
