@@ -8,8 +8,9 @@ export async function findOrCreateContactAndConversation(supabaseAdmin, message,
  let conversationRecordId = null;
  let contatoNome = `Lead (${rawFrom})`;
 
- // GARANTIA DE UNICIDADE DO 9º DÍGITO
- const from = formatarParaWhatsAppBR(rawFrom);
+    // GARANTIA DE UNICIDADE DO 9º DÍGITO
+    // Passamos isFromMeta = true pois a Meta sempre envia o número com DDI.
+    const from = formatarParaWhatsAppBR(rawFrom, null, true);
 
  // 1. Tentar achar o contato inteligentemente
  try {
