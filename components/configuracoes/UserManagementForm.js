@@ -291,7 +291,7 @@ const LinkContactModal = ({ isOpen, onClose, user, organizationId }) => {
       const supabase = createClient();
       const { data } = await supabase
         .from('contatos')
-        .select('id, nome, razao_social, telefone')
+        .select('id, nome, razao_social')
         .or(`nome.ilike.%${searchTerm}%,razao_social.ilike.%${searchTerm}%`)
         .eq('organizacao_id', organizationId)
         .limit(10);
