@@ -5,7 +5,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
-import { getConversations, getBroadcastLists, markMessagesAsRead, getWhatsappConfig, getCorretores } from '@/app/(main)/caixa-de-entrada/data-fetching';
+import { getConversations, getBroadcastLists, markMessagesAsRead, getWhatsappConfig } from '@/app/(main)/caixa-de-entrada/data-fetching';
 import ConversationList from '@/components/whatsapp/ConversationList';
 import MessagePanel from '@/components/whatsapp/MessagePanel';
 import BroadcastPanel from '@/components/whatsapp/BroadcastPanel';
@@ -171,7 +171,17 @@ export default function WhatsAppInbox({ onChangeTab, initialContactId }) {
    return matchesSearch && matchesCorretor;
  });
 
- const { data: globalCorretores = [] } = useQuery({ queryKey: ['globalCorretores', organizacaoId], queryFn: () => getCorretores(supabase, organizacaoId), enabled: !!organizacaoId, refetchOnWindowFocus: false });
+  // Extrair corretores únicos para o filtro
+  const uniqueCorretores = React.useMemo(() => {
+    if (!conversations) return [];
+    const map = new Map();
+    conversations.forEach(c => {
+      if (c.corretor_id && c.corretor_nome) {
+        map.set(c.corretor_id, c.corretor_nome);
+      }
+    });
+    return Array.from(map.entries()).map(([id, nome]) => ({ id, nome }));
+  }, [conversations]);
 
  const hasSelection = selectedContact || selectedList;
 
@@ -232,7 +242,7 @@ export default function WhatsAppInbox({ onChangeTab, initialContactId }) {
  >
    <option value="all">Todos os Corretores</option>
    <option value="unassigned">Sem Corretor</option>
-   {globalCorretores.map(c => (
+   {uniqueCorretores.map(c => (
      <option key={c.id} value={c.id}>{c.nome}</option>
    ))}
  </select>

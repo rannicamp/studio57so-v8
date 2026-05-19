@@ -94,18 +94,22 @@ export async function POST(request) {
     }
     const empreendimentoIds = Array.from(empIdsSet);
 
-    let anexosContext = "Nenhum anexo público encontrado.";
+    // 3. Obter BASE DE CONHECIMENTO GLOBAL (Todos os Dossiês)
+    // Em vez de restringir ao CRM, a IA recebe a inteligência de todos os empreendimentos para decidir com base no chat.
     let empContext = "";
+    const { data: todosEmpreendimentos } = await supabaseAdmin
+      .from('empreendimentos')
+      .select('nome, dossie_ia')
+      .not('dossie_ia', 'is', null);
 
+    if (todosEmpreendimentos && todosEmpreendimentos.length > 0) {
+      empContext = "### BASE DE CONHECIMENTO GLOBAL (Cérebro da Studio 57)\n" + todosEmpreendimentos.map(e => {
+        return `\n--- INÍCIO DO DOSSIÊ: ${e.nome} ---\n${e.dossie_ia}\n--- FIM DO DOSSIÊ: ${e.nome} ---\n`;
+      }).join('\n');
+    }
+
+    let anexosContext = "Nenhum anexo público encontrado.";
     if (empreendimentoIds.length > 0) {
-      const { data: empreendimentos } = await supabaseAdmin
-        .from('empreendimentos')
-        .select('id, nome')
-        .in('id', empreendimentoIds);
-
-      if (empreendimentos) {
-        empContext = "Empreendimentos de Interesse: " + empreendimentos.map(e => e.nome).join(', ');
-      }
 
       const { data: anexos } = await supabaseAdmin
         .from('empreendimento_anexos')
@@ -130,6 +134,9 @@ export async function POST(request) {
     const prompt = `
 Você é Stella, a super Analista Comercial de Elite e Assistente Copiloto da Studio 57.
 Sua missão é classificar o lead e gerar uma RESPOSTA SUGERIDA PRONTA para o corretor copiar e enviar ao cliente.
+
+# Instrução Crítica de Contexto (O Histórico é Rei)
+A PRIMEIRA coisa que você deve fazer é ler atentamente o "Histórico da Conversa". O cliente pode ter chegado por um anúncio de um empreendimento (origem no CRM), mas ao longo da conversa, demonstrar interesse em OUTRO empreendimento. A CONVERSA SEMPRE DITA A REGRA. Identifique qual empreendimento o cliente quer AGORA. Cruze essa informação com a "BASE DE CONHECIMENTO GLOBAL" abaixo e use as regras do empreendimento correto.
 
 # Dados Atuais Comerciais
 - Fase no Funil (CRM): ${crmStatus}

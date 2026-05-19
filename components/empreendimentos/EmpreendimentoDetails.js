@@ -17,7 +17,7 @@ import {
  faCloudUploadAlt, faWandMagicSparkles, faLink, faDownload,
  faRightLeft, faPlus, faPen, faTimes, faFileContract, faTableCellsLarge, faBars,
  faBold, faItalic, faListUl, faListOl, faUndo, faRedo,
- faUserTie, faArchive // <-- Ícone do Corretor e Arquivo
+ faUserTie, faArchive, faRobot, faSave
 } from '@fortawesome/free-solid-svg-icons';
 import { createClient } from '@/utils/supabase/client';
 import { toast } from 'sonner';
@@ -53,10 +53,30 @@ const TABS = [
   { id: 'documentos_juridicos', label: 'Docs. Jurídicos' },
   { id: 'projetos_engenharia', label: 'Projetos e Engenharia' },
   { id: 'marketing', label: 'Marketing' },
+  { id: 'dossie_ia', label: 'Dossiê da IA' },
   { id: 'documentos_gerais', label: 'Geral' }
 ];
 
 // --- SUB-COMPONENTES ---
+const TipTapMenuBar = ({ editor }) => {
+ if (!editor) return null;
+ const Button = ({ onClick, icon, title, isActive }) => (
+  <button type="button" onClick={onClick} title={title} className={`p-2 rounded hover:bg-gray-200 transition-colors ${isActive ? 'bg-gray-200 text-blue-600' : 'text-gray-700'}`}>
+   <FontAwesomeIcon icon={icon} />
+  </button>
+ );
+ return (
+  <div className="flex items-center gap-1 p-2 border-b bg-gray-50 rounded-t-md">
+   <Button onClick={() => editor.chain().focus().toggleBold().run()} icon={faBold} title="Negrito" isActive={editor.isActive('bold')} />
+   <Button onClick={() => editor.chain().focus().toggleItalic().run()} icon={faItalic} title="Itálico" isActive={editor.isActive('italic')} />
+   <Button onClick={() => editor.chain().focus().toggleBulletList().run()} icon={faListUl} title="Lista (•)" isActive={editor.isActive('bulletList')} />
+   <Button onClick={() => editor.chain().focus().toggleOrderedList().run()} icon={faListOl} title="Lista (1.)" isActive={editor.isActive('orderedList')} />
+   <Button onClick={() => editor.chain().focus().undo().run()} icon={faUndo} title="Desfazer" isActive={false} />
+   <Button onClick={() => editor.chain().focus().redo().run()} icon={faRedo} title="Refazer" isActive={false} />
+  </div>
+ );
+};
+
 function InfoField({ label, value, fullWidth = false }) {
  if (value === null || value === undefined || value === '') return null;
  return (
@@ -291,11 +311,7 @@ const ModalModeloContrato = ({ isOpen, onClose, modeloToEdit, empreendimentoId, 
  }
  }, [modeloToEdit, isOpen, editor]);
 
- const MenuBar = ({ editor }) => {
- if (!editor) return null;
- const Button = ({ onClick, icon, title, isActive }) => (<button type="button" onClick={onClick} title={title} className={`p-2 rounded hover:bg-gray-200 ${isActive ? 'bg-gray-200 text-blue-600' : 'text-gray-700'}`}><FontAwesomeIcon icon={icon} /></button>);
- return (<div className="flex items-center gap-1 p-2 border-b bg-gray-50 rounded-t-md"><Button onClick={() => editor.chain().focus().toggleBold().run()} icon={faBold} title="Negrito" isActive={editor.isActive('bold')} /><Button onClick={() => editor.chain().focus().toggleItalic().run()} icon={faItalic} title="Itálico" isActive={editor.isActive('italic')} /><Button onClick={() => editor.chain().focus().toggleBulletList().run()} icon={faListUl} title="Lista (•)" isActive={editor.isActive('bulletList')} /><Button onClick={() => editor.chain().focus().toggleOrderedList().run()} icon={faListOl} title="Lista (1.)" isActive={editor.isActive('orderedList')} /><Button onClick={() => editor.chain().focus().undo().run()} icon={faUndo} title="Desfazer" isActive={false} /><Button onClick={() => editor.chain().focus().redo().run()} icon={faRedo} title="Refazer" isActive={false} /></div>);
- };
+
 
  const mutation = useMutation({
  mutationFn: async ({ nome, html }) => {
@@ -327,7 +343,7 @@ const ModalModeloContrato = ({ isOpen, onClose, modeloToEdit, empreendimentoId, 
  <FontAwesomeIcon icon={faTimes} />
  </button>
  </div>
- <div className="p-5 flex-grow overflow-y-auto space-y-4"><div><label htmlFor="nomeModelo" className="block text-sm font-medium text-gray-700 mb-1">Nome do Modelo</label><input type="text" id="nomeModelo" value={nomeModelo} onChange={(e) => setNomeModelo(e.target.value)} placeholder="Ex: Contrato Padrão - Financiamento" className="w-full p-2 border rounded-md" /></div><div><label className="block text-sm font-medium text-gray-700 mb-1">Cláusulas do Contrato</label><div className="border rounded-md overflow-hidden h-[55vh] flex flex-col">{editor && <MenuBar editor={editor} />}<EditorContent editor={editor} className="p-3 flex-grow overflow-y-auto prose max-w-none prose-sm editor-styles" /></div></div></div>
+ <div className="p-5 flex-grow overflow-y-auto space-y-4"><div><label htmlFor="nomeModelo" className="block text-sm font-medium text-gray-700 mb-1">Nome do Modelo</label><input type="text" id="nomeModelo" value={nomeModelo} onChange={(e) => setNomeModelo(e.target.value)} placeholder="Ex: Contrato Padrão - Financiamento" className="w-full p-2 border rounded-md" /></div><div><label className="block text-sm font-medium text-gray-700 mb-1">Cláusulas do Contrato</label><div className="border rounded-md overflow-hidden h-[55vh] flex flex-col">{editor && <TipTapMenuBar editor={editor} />}<EditorContent editor={editor} className="p-3 flex-grow overflow-y-auto prose max-w-none prose-sm editor-styles" /></div></div></div>
  <style jsx global>{`.editor-styles .ProseMirror { min-height: 100%; outline: none; } .editor-styles p { margin-bottom: 0.5rem; } .editor-styles ul, .editor-styles ol { padding-left: 1.5rem; margin-bottom: 0.5rem; }`}</style>
  <div className="flex justify-end gap-3 p-5 border-t sticky bottom-0 bg-gray-50"><button type="button" onClick={onClose} className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-50 text-sm font-bold transition-colors">Cancelar</button><button type="button" onClick={handleSave} disabled={isSaving} className="bg-blue-600 text-white text-sm font-bold px-6 py-2 rounded-md hover:bg-blue-700 disabled:bg-gray-300 shadow-sm transition-colors">{isSaving ? <FontAwesomeIcon icon={faSpinner} spin /> : (modeloToEdit ? 'Salvar Alterações' : 'Criar Modelo')}</button></div>
  </div>
@@ -361,6 +377,81 @@ const GerenciamentoModelosContrato = ({ empreendimentoId, organizacaoId }) => {
  );
 };
 
+
+// --- COMPONENTE DO DOSSIÊ DA IA ---
+const DossieEditorComponent = ({ empreendimento, organizacaoId }) => {
+ const supabase = createClient();
+ const queryClient = useQueryClient();
+ const [isSaving, setIsSaving] = useState(false);
+
+ const editor = useEditor({
+  extensions: [StarterKit],
+  content: '',
+  immediatelyRender: false,
+ });
+
+ useEffect(() => {
+  if (editor && empreendimento?.dossie_ia !== undefined) {
+   // Tiptap consegue importar HTML ou Markdown se configurado, mas setContent com markdown cru no StarterKit pode não renderizar perfeito se não tiver extensão markdown.
+   // Porém, vamos carregar o texto. Como o texto antigo é Markdown, podemos ter um fallback básico ou simplesmente colocar como texto. 
+   // Se o usuário quer Rich Text, os novos salvamentos serão HTML.
+   // Se for markdown puro antigo (sem tags html), setContent converte em parágrafo.
+   // Para garantir quebras de linha caso venha Markdown antigo, trocamos \n por <br> se não houver tags HTML.
+   let initialContent = empreendimento.dossie_ia || '';
+   if (initialContent && !initialContent.includes('<p>') && !initialContent.includes('<h1>')) {
+     initialContent = initialContent.replace(/\n/g, '<br>');
+   }
+   editor.commands.setContent(initialContent);
+  }
+ }, [empreendimento?.dossie_ia, editor]);
+
+ const handleSaveDossie = async () => {
+  if (!editor) return;
+  setIsSaving(true);
+  const currentHtml = editor.getHTML();
+  
+  const { error } = await supabase
+   .from('empreendimentos')
+   .update({ dossie_ia: currentHtml })
+   .eq('id', empreendimento.id);
+  
+  setIsSaving(false);
+  if (error) {
+   toast.error('Erro ao salvar o Dossiê: ' + error.message);
+  } else {
+   toast.success('Dossiê salvo! A Stella já está lendo as novas regras de venda.');
+   empreendimento.dossie_ia = currentHtml;
+  }
+ };
+
+ // Prevenir memory leak
+ useEffect(() => { return () => { editor?.destroy(); }; }, [editor]);
+
+ return (
+  <div className="space-y-6 animate-fade-in mt-6">
+   <div className="bg-purple-50 p-6 rounded-lg border border-purple-100 shadow-sm">
+    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+     <div>
+      <h3 className="text-xl font-bold text-purple-900 flex items-center gap-2">
+       <FontAwesomeIcon icon={faRobot} className="text-purple-600" /> Cérebro de Vendas (Dossiê da IA)
+      </h3>
+      <p className="text-sm text-purple-700 mt-1">Este texto é injetado no cérebro da Stella. Formate como preferir, a inteligência entende textos estruturados, listas e destaques.</p>
+     </div>
+     <button onClick={handleSaveDossie} disabled={isSaving} className="px-5 py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors shadow-sm font-bold flex items-center gap-2 disabled:bg-purple-400 shrink-0">
+      {isSaving ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faSave} />}
+      Salvar Cérebro
+     </button>
+    </div>
+    
+    <div className="border border-purple-200 rounded-md overflow-hidden bg-white shadow-inner flex flex-col min-h-[500px]">
+     {editor && <TipTapMenuBar editor={editor} />}
+     <EditorContent editor={editor} className="p-4 flex-grow overflow-y-auto prose max-w-none prose-sm editor-styles" />
+    </div>
+    <style jsx global>{`.editor-styles .ProseMirror { min-height: 100%; outline: none; } .editor-styles p { margin-bottom: 0.5rem; } .editor-styles ul, .editor-styles ol { padding-left: 1.5rem; margin-bottom: 0.5rem; }`}</style>
+   </div>
+  </div>
+ );
+};
 
 // --- COMPONENTE PRINCIPAL ---
 export default function EmpreendimentoDetails({ empreendimento, corporateEntities = [], proprietariaOptions = [], produtos = [], initialAnexos, documentoTipos, initialQuadroDeAreas, organizacaoId }) {
@@ -751,6 +842,11 @@ export default function EmpreendimentoDetails({ empreendimento, corporateEntitie
  )}
 
  {activeTab === 'gerenciamento_contratos' && (<GerenciamentoModelosContrato empreendimentoId={empreendimento.id} organizacaoId={organizacaoId} />)}
+
+ {activeTab === 'dossie_ia' && (
+   <DossieEditorComponent empreendimento={empreendimento} organizacaoId={organizacaoId} />
+ )}
+
  {['documentos_juridicos', 'projetos_engenharia', 'documentos_gerais', 'marketing'].includes(activeTab) && (
  <div className="space-y-6 animate-fade-in mt-6">
  {/* Header de Ações Padrão Ouro para Gestão de Arquivos */}
