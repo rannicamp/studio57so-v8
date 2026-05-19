@@ -158,7 +158,7 @@ Com base SOMENTE neste histórico recente e contexto do projeto, escreva um JSON
   "temperatura": "Quente" ou "Morno" ou "Frio",
   "fase_crm_atual": "${crmStatus}",
   "proxima_acao_sugerida": "Dica direta e acionável para o corretor. Ex: Se o cliente pediu material, diga 'Envie o PDF do Book de Vendas que ele solicitou'.",
-  "proxima_resposta_sugerida": "A resposta exata e natural que o corretor deve copiar e enviar ao cliente para continuar o fechamento. Use as informações de unidades e anexos disponíveis para ser prestativo."
+  "proxima_resposta_sugerida": "A resposta exata e natural para enviar ao cliente. REGRA DE OURO WHATSAPP: Seja EXTREMAMENTE SUCINTO. Ninguém lê textões. Fracione as ideias, use parágrafos curtíssimos (separados por \\n\\n), tom humano e direto ao ponto. Termine sempre com uma pergunta curta para engajar."
 }
 `;
 
