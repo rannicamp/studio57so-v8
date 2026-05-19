@@ -42,7 +42,7 @@ const ProgressBar = ({ stats, total }) => {
  <span className="flex items-center gap-1" title="Entregues"><FontAwesomeIcon icon={faCheckDouble} className="text-green-400" /> {deliveredCount}</span>
  <span className="flex items-center gap-1" title="Erros"><FontAwesomeIcon icon={faTimesCircle} className="text-red-400" /> {failedCount}</span>
  </div>
- <span className="font-bold text-gray-400">{sentCount + failedCount}/{total} Proc.</span>
+ <span className="font-bold text-gray-400">{stats.total ?? (sentCount + failedCount + readCount + deliveredCount)}/{total} Proc.</span>
  </div>
  </div>
  );
@@ -137,9 +137,9 @@ export default function BroadcastPanel({ list, onBack }) {
  } catch (e) { }
 
  return { ...b, stats: { ...rpcStats,
- sent: b.success_count || 0,
- failed: b.failed_count || 0,
- total: b.total_contacts || 0
+ sent: rpcStats?.sent ?? b.success_count ?? 0,
+ failed: rpcStats?.failed ?? b.failed_count ?? 0,
+ total: rpcStats?.total ?? b.total_contacts ?? 0
  } };
  }));
  setBroadcasts(broadcastsWithStats);
@@ -214,9 +214,10 @@ export default function BroadcastPanel({ list, onBack }) {
  };
 
  const getSpeed = (broadcast) => {
- if (!broadcast.started_at) return 0;
- const minutes = Math.max(1, differenceInMinutes(new Date(), new Date(broadcast.started_at)));
- return Math.round((broadcast.processed_count || 0) / minutes);
+ const start = new Date(broadcast.started_at || broadcast.scheduled_at || broadcast.created_at);
+ const minutes = Math.max(1, differenceInMinutes(new Date(), start));
+ const processed = broadcast.stats?.total || broadcast.processed_count || 0;
+ return Math.round(processed / minutes);
  };
 
  const getStatusInfo = (b) => {
