@@ -168,7 +168,7 @@ export const getWhatsappConfig = async (supabase, organizacaoId) => {
 
  return data;
 };
-// --- FUNÇÃO NOVA: BUSCAR TODOS OS CORRETORES ---
+// --- FUNï¿½ï¿½O NOVA: BUSCAR TODOS OS CORRETORES ---
 export const getCorretores = async (supabase, organizacaoId) => {
  if (!organizacaoId) return [];
 
