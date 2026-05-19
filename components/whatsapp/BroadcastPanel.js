@@ -273,6 +273,7 @@ export default function BroadcastPanel({ list, onBack }) {
  const isPaused = broadcast.status === 'paused';
  const speed = getSpeed(broadcast);
  const totalReal = broadcast.total_contacts || members.length;
+ const isPartiallyCompleted = (broadcast.status === 'completed' || broadcast.status === 'stopped') && ((broadcast.stats?.sent || 0) + (broadcast.stats?.failed || 0)) < totalReal;
 
  return (
  <div key={broadcast.id} className={`p-4 rounded-lg border shadow-sm ${statusInfo.bg}`}>
@@ -294,11 +295,11 @@ export default function BroadcastPanel({ list, onBack }) {
  <div className={`text-xs font-bold px-2 py-1 rounded ${statusInfo.color} bg-white border`}>{statusInfo.label}</div>
  </div>
  </div>
- {(isProcessing || isPaused) && (
+ {(isProcessing || isPaused || isPartiallyCompleted) && (
  <div className="mt-3 pt-3 border-t border-gray-200/50 flex justify-between items-center bg-white/50 p-2 rounded">
  <div className="text-xs font-mono text-gray-600 flex items-center gap-2">
  <FontAwesomeIcon icon={faTachometerAlt} className="text-blue-500"/>
- {speed > 0 ? `${speed} envios/min` : 'Calculando...'}
+ {speed > 0 ? `${speed} envios/min` : (isPartiallyCompleted ? 'Incompleto' : 'Calculando...')}
  </div>
  <div className="flex gap-2">
  {isProcessing && (
@@ -311,9 +312,16 @@ export default function BroadcastPanel({ list, onBack }) {
  <FontAwesomeIcon icon={faPlay} /> Retomar
  </button>
  )}
+ {isPartiallyCompleted && (
+ <button onClick={() => handleControl(broadcast.id, 'resume', broadcast.organizacao_id)} className="text-xs bg-emerald-100 text-emerald-700 px-3 py-1 rounded hover:bg-emerald-200 font-bold flex gap-1 items-center shadow-sm">
+ <FontAwesomeIcon icon={faPlay} /> Continuar Envios
+ </button>
+ )}
+ {(isProcessing || isPaused) && (
  <button onClick={() => handleControl(broadcast.id, 'stop', broadcast.organizacao_id)} className="text-xs bg-red-100 text-red-700 px-3 py-1 rounded hover:bg-red-200 font-semibold flex gap-1 items-center">
  <FontAwesomeIcon icon={faStop} /> Parar
  </button>
+ )}
  </div>
  </div>
  )}

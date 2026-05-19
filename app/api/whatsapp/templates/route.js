@@ -121,6 +121,53 @@ export async function POST(request) {
    return NextResponse.json({ error: 'ID da Conta de Negócios (WABA ID) não configurado.' }, { status: 500 });
   }
 
+  // Processar cabeçalho de imagem, se houver
+  const APP_ID = '2052352668968564'; // SaaS App ID
+  if (payload.components) {
+    for (let comp of payload.components) {
+      if (comp.type === 'HEADER' && comp.format === 'IMAGE' && comp.__localImage) {
+        const { base64, mime } = comp.__localImage;
+        const buffer = Buffer.from(base64, 'base64');
+
+        // 1. Iniciar sessão de upload na Meta
+        const sessionUrl = `https://graph.facebook.com/v20.0/${APP_ID}/uploads?file_length=${buffer.length}&file_type=${encodeURIComponent(mime)}`;
+        const sessionRes = await fetch(sessionUrl, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${WHATSAPP_TOKEN}` }
+        });
+        const sessionData = await sessionRes.json();
+
+        if (!sessionRes.ok || !sessionData.id) {
+          throw new Error('Falha ao iniciar sessão de upload de imagem na Meta: ' + (sessionData.error?.message || 'Erro desconhecido'));
+        }
+
+        // 2. Fazer upload do arquivo
+        const uploadUrl = `https://graph.facebook.com/v20.0/${sessionData.id}`;
+        const uploadRes = await fetch(uploadUrl, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${WHATSAPP_TOKEN}`,
+            'file_offset': '0'
+          },
+          body: buffer
+        });
+        const uploadData = await uploadRes.json();
+
+        if (!uploadRes.ok || !uploadData.h) {
+          throw new Error('Falha ao enviar imagem para a Meta: ' + (uploadData.error?.message || 'Erro desconhecido'));
+        }
+
+        // 3. Atualizar o componente com o header_handle
+        comp.example = {
+          header_handle: [uploadData.h]
+        };
+        
+        // Remove os dados locais para não enviar para a Meta
+        delete comp.__localImage;
+      }
+    }
+  }
+
   const url = `https://graph.facebook.com/v20.0/${WHATSAPP_BUSINESS_ACCOUNT_ID}/message_templates`;
 
   const apiResponse = await fetch(url, {

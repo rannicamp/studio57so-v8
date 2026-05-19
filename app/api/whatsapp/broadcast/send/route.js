@@ -96,10 +96,12 @@ export async function POST(request) {
  batchSize: 50 // No envio manual, tentamos um lote maior (ou o total)
  });
 
- // D) Marca como concluído no banco
+ // D) Marca como concluído no banco ou deixa pendente se houver mais envios
+ const newStatus = stats.processedInThisRun > 0 ? 'pending' : 'completed';
+
  await supabaseAdmin
  .from('whatsapp_scheduled_broadcasts')
- .update({ status: 'completed' })
+ .update({ status: newStatus })
  .eq('id', newJob.id);
 
  return NextResponse.json({ message: 'Enviado.', stats });
