@@ -19,12 +19,11 @@ export async function GET(request) {
  const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
  await supabaseAdmin.from('whatsapp_scheduled_broadcasts').update({ status: 'pending' }).eq('status', 'processing').lte('updated_at', fiveMinutesAgo);
 
- // 2. BUSCA TAREFA (Pode pegar 'pending' OU 'processing' se estiver na hora)
- // Isso permite continuar uma tarefa grande
+ // 2. BUSCA TAREFA (Apenas 'pending' para evitar Race Condition)
  const { data: jobs } = await supabaseAdmin
  .from('whatsapp_scheduled_broadcasts')
  .select('*')
- .or('status.eq.pending,status.eq.processing') // Pega pendentes ou em andamento
+ .eq('status', 'pending')
  .lte('scheduled_at', now) .order('scheduled_at', { ascending: true })
  .limit(1);
 
@@ -73,8 +72,8 @@ export async function GET(request) {
  await supabaseAdmin.from('whatsapp_scheduled_broadcasts').update({ status: 'completed' }).eq('id', job.id);
  } else {
  console.log(`[CRON] Job ${job.id} progresso: ${totalProcessedNow} enviados neste lote. Continua no próximo minuto.`);
- // Mantém como 'processing' e atualiza a hora
- await supabaseAdmin.from('whatsapp_scheduled_broadcasts').update({ updated_at: new Date().toISOString() }).eq('id', job.id);
+ // Libera o lock (pending) para o próximo CRON pegar
+ await supabaseAdmin.from('whatsapp_scheduled_broadcasts').update({ status: 'pending', updated_at: new Date().toISOString() }).eq('id', job.id);
  }
 
  return NextResponse.json({ processed: true, jobId: job.id, stats, status: totalProcessedNow === 0 ? 'completed' : 'continuing' });

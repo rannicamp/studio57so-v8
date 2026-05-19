@@ -26,7 +26,7 @@ export async function processBroadcast(supabaseAdmin, config, targetContacts, te
                 .select('id')
                 .eq('contato_id', target.id)
                 .eq('direction', 'outbound')
-                .gte('created_at', jobCreatedAt)
+                .eq('broadcast_id', jobId)
                 .limit(1);
 
             if (existingMsg && existingMsg.length > 0) {
