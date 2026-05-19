@@ -8,7 +8,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faStickyNote, faTasks, faSpinner, faPlus, faPhone, faEnvelope, faIdCard, faGlobe, faPen, faTrash, faCheckCircle, faBullhorn, faUserTie, faCalculator, faExternalLinkAlt,
  faHistory, faTimes, faBriefcase, faSave, faFunnelDollar, faMoneyBillWave,
  faPiggyBank, faBullseye, faCheck, faTimesCircle, faRobot, faSyncAlt, faCopy, faReply, faFolderOpen, faPaperPlane, faFilePdf, faFileImage, faFileVideo, faFileLines,
- faTableCellsLarge, faBars
+ faTableCellsLarge, faBars, faBook
 } from '@fortawesome/free-solid-svg-icons';
 import { faInstagram } from '@fortawesome/free-brands-svg-icons';
 import { toast } from 'sonner';
@@ -252,6 +252,65 @@ const fetchContactProfileData = async (supabase, contatoId, organizacaoId) => {
  instagramManual: contactDetails?.instagram_username || null
  };
 };
+
+// --- COMPONENTE DO DOSSIÊ PARA CORRETORES ---
+function DossieViewerTab() {
+  const supabase = createClient();
+  const [empreendimentos, setEmpreendimentos] = useState([]);
+  const [selectedEmpId, setSelectedEmpId] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchDossies = async () => {
+      const { data } = await supabase
+        .from('empreendimentos')
+        .select('id, nome, dossie_ia')
+        .not('dossie_ia', 'is', null)
+        .order('nome');
+      if (data) {
+        setEmpreendimentos(data);
+        if (data.length > 0) setSelectedEmpId(data[0].id.toString());
+      }
+      setIsLoading(false);
+    };
+    fetchDossies();
+  }, [supabase]);
+
+  const selectedDossie = Object.values(empreendimentos).find(e => e.id.toString() === selectedEmpId)?.dossie_ia;
+
+  if (isLoading) return <div className="p-10 flex justify-center text-gray-400"><FontAwesomeIcon icon={faSpinner} spin size="2x" /></div>;
+
+  return (
+    <div className="space-y-4 animate-in fade-in duration-200">
+      <div className="flex flex-col mb-4 bg-purple-50 p-4 rounded-md border border-purple-100">
+        <label className="text-sm font-bold text-purple-900 mb-2 flex items-center gap-2">
+          <FontAwesomeIcon icon={faBook} className="text-purple-600" /> Consultar Dossiê e Regras
+        </label>
+        <select 
+          value={selectedEmpId} 
+          onChange={(e) => setSelectedEmpId(e.target.value)}
+          className="w-full p-2.5 border border-purple-200 rounded-md shadow-sm focus:ring-purple-500 focus:border-purple-500 bg-white font-medium text-gray-800"
+        >
+          {empreendimentos.map(e => (
+            <option key={e.id} value={e.id}>{e.nome}</option>
+          ))}
+        </select>
+      </div>
+
+      {selectedDossie ? (
+        <div 
+          className="prose prose-sm max-w-none p-5 bg-white border border-gray-200 shadow-inner rounded-md overflow-y-auto max-h-[600px] custom-scrollbar editor-styles text-gray-700"
+          dangerouslySetInnerHTML={{ __html: selectedDossie }}
+        />
+      ) : (
+        <div className="p-8 text-center text-gray-400 bg-gray-50 rounded-md border border-gray-200 border-dashed">
+          Nenhum dossiê selecionado ou disponível para consulta.
+        </div>
+      )}
+      <style jsx global>{`.editor-styles p { margin-bottom: 0.75rem; line-height: 1.5; } .editor-styles h1, .editor-styles h2, .editor-styles h3 { color: #4c1d95; margin-top: 1.5rem; margin-bottom: 0.5rem; } .editor-styles ul, .editor-styles ol { padding-left: 1.5rem; margin-bottom: 0.75rem; } .editor-styles strong { color: #1f2937; }`}</style>
+    </div>
+  );
+}
 
 // --- COMPONENTE PRINCIPAL ---
 export default function ContactProfile({ contact }) {
@@ -659,9 +718,14 @@ export default function ContactProfile({ contact }) {
     <button onClick={() => setActiveTab('arquivos')} title="Arquivos" className={`flex-1 py-3 text-base transition-colors ${activeTab === 'arquivos' ? 'border-b-2 border-gray-800 text-gray-900 bg-gray-50' : 'border-b-2 border-transparent text-gray-400 hover:text-gray-700 hover:bg-gray-50'}`}>
       <FontAwesomeIcon icon={faFolderOpen} />
     </button>
+    <button onClick={() => setActiveTab('dossie')} title="Dossiê do Empreendimento" className={`flex-1 py-3 text-base transition-colors ${activeTab === 'dossie' ? 'border-b-2 border-purple-600 text-purple-700 bg-purple-50' : 'border-b-2 border-transparent text-gray-400 hover:text-purple-600 hover:bg-purple-50'}`}>
+      <FontAwesomeIcon icon={faBook} />
+    </button>
   </div>
 
   <main className="flex-1 overflow-y-auto p-5 space-y-0 custom-scrollbar bg-white">
+    {activeTab === 'dossie' && <DossieViewerTab />}
+
     {activeTab === 'resumo' && (
       <div className="space-y-6 animate-in fade-in duration-200">
         {/* --- NOVA SEÇÃO: ANÁLISE IA --- */}
