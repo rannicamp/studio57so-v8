@@ -168,3 +168,21 @@ export const getWhatsappConfig = async (supabase, organizacaoId) => {
 
  return data;
 };
+// --- FUNÇÃO NOVA: BUSCAR TODOS OS CORRETORES ---
+export const getCorretores = async (supabase, organizacaoId) => {
+ if (!organizacaoId) return [];
+
+ const { data, error } = await supabase
+ .from('contatos')
+ .select('id, nome')
+ .eq('organizacao_id', organizacaoId)
+ .eq('tipo_contato', 'Corretor')
+ .order('nome', { ascending: true });
+
+ if (error) {
+ console.error('Erro ao buscar corretores:', error);
+ return [];
+ }
+
+ return data;
+};
