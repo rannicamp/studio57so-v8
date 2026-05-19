@@ -59,9 +59,22 @@ export default function MessageList({ messages, onMediaClick }) {
  payload = raw || {};
  }
  } catch (e) { }
- const mediaUrl = msg.media_url || payload?.image?.link || payload?.video?.link || payload?.audio?.link || payload?.document?.link;
- const isImage = !isDeleted && (payload?.type === 'image' || payload?.image); const isAudio = !isDeleted && (payload?.type === 'audio' || payload?.audio);
- const isVideo = !isDeleted && (payload?.type === 'video' || payload?.video); const isDocument = !isDeleted && (payload?.type === 'document' || payload?.document);
+ let mediaUrl = msg.media_url || payload?.image?.link || payload?.video?.link || payload?.audio?.link || payload?.document?.link;
+ let isImage = !isDeleted && (payload?.type === 'image' || payload?.image);
+ let isAudio = !isDeleted && (payload?.type === 'audio' || payload?.audio);
+ let isVideo = !isDeleted && (payload?.type === 'video' || payload?.video);
+ let isDocument = !isDeleted && (payload?.type === 'document' || payload?.document);
+
+ // --- SUPORTE A MÍDIA DENTRO DE TEMPLATES ---
+ if (payload?.type === 'template' && payload?.template?.components) {
+  const headerComp = payload.template.components.find(c => c.type === 'header');
+  if (headerComp?.parameters?.[0]) {
+  const param = headerComp.parameters[0];
+  if (param.type === 'image') { isImage = true; mediaUrl = param.image?.link; }
+  if (param.type === 'video') { isVideo = true; mediaUrl = param.video?.link; }
+  if (param.type === 'document') { isDocument = true; mediaUrl = param.document?.link; }
+  }
+ }
  // --- DETECÇÃO DE LOCALIZAÇÃO ---
  // Verifica se o tipo é location ou se o content contém as coordenadas coordenadas
  const isLocation = !isDeleted && (payload?.type === 'location' || payload?.location || msg.content?.includes('Localização:'));
