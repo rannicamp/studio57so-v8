@@ -1758,7 +1758,8 @@ CREATE TABLE public.whatsapp_conversations (
     unread_count integer DEFAULT 0,
     last_direction text DEFAULT 'inbound'::text,
     last_status text DEFAULT 'delivered'::text,
-    last_message_direction text DEFAULT 'inbound'::text
+    last_message_direction text DEFAULT 'inbound'::text,
+    meta_wa_id text
 );
 
 CREATE TABLE public.whatsapp_list_members (

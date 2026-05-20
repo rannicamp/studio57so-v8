@@ -206,11 +206,11 @@ export function useConversationsList() {
  p_user_id: user.id,
  p_org_id: organizacao_id
  });
- if (error) {
- console.error("Erro listando conversas", error);
- throw error;
- }
- return data || [];
+  if (error) {
+  console.error("Erro listando conversas", error);
+  return [];
+  }
+  return data || [];
  },
  enabled: !!user?.id && !!organizacao_id,
  staleTime: Infinity,

@@ -41,33 +41,39 @@ export async function findOrCreateContactAndConversation(supabaseAdmin, message,
  
  let existingConversation = null;
 
- if (!contatoId) {
-   // Fallback: Busca na conversa existente
-   const { data: conversaExistente } = await supabaseAdmin
+ // =========================================================================
+ // TICKET: NOVO AGRUPAMENTO INTELIGENTE (Meta wa_id)
+ // Busca a conversa usando primeiramente o ID oficial inquebrável da Meta.
+ // =========================================================================
+ const { data: conversaMeta } = await supabaseAdmin
    .from('whatsapp_conversations')
-   .select('id, contato_id, phone_number')
-   .in('phone_number', possiblePhones)
+   .select('id, contato_id, phone_number, meta_wa_id')
+   .eq('meta_wa_id', rawFrom)
    .eq('organizacao_id', orgId)
    .order('updated_at', { ascending: false })
    .limit(1)
    .maybeSingle();
 
-   if (conversaExistente?.contato_id) {
-     contatoId = conversaExistente.contato_id;
-     existingConversation = conversaExistente;
-   }
- } else {
-   // Achou contato. Vamos ver se tem conversa existente com alguma das variações
+ if (conversaMeta) {
+   existingConversation = conversaMeta;
+   if (!contatoId) contatoId = conversaMeta.contato_id;
+ }
+
+ if (!existingConversation) {
+   // Fallback: Busca na conversa existente pelo 9º dígito (útil no primeiro contato outbound)
    const { data: conversaExistente } = await supabaseAdmin
-   .from('whatsapp_conversations')
-   .select('id, contato_id, phone_number')
-   .in('phone_number', possiblePhones)
-   .eq('organizacao_id', orgId)
-   .order('updated_at', { ascending: false })
-   .limit(1)
-   .maybeSingle();
-   
-   if (conversaExistente) existingConversation = conversaExistente;
+     .from('whatsapp_conversations')
+     .select('id, contato_id, phone_number, meta_wa_id')
+     .in('phone_number', possiblePhones)
+     .eq('organizacao_id', orgId)
+     .order('updated_at', { ascending: false })
+     .limit(1)
+     .maybeSingle();
+
+   if (conversaExistente) {
+     existingConversation = conversaExistente;
+     if (!contatoId) contatoId = conversaExistente.contato_id;
+   }
  }
 
  // 2. Se não achou, CRIA TUDO (Lead, Telefone, Funil)
@@ -197,6 +203,7 @@ export async function findOrCreateContactAndConversation(supabaseAdmin, message,
  const isInbound = !message.from_me; // Mensagens do cliente não têm from_me === true
  const upsertData = {
  phone_number: from, // Usando 12 dígitos normalizado
+ meta_wa_id: rawFrom, // O ID oficial e inquebrável da Meta
  updated_at: new Date().toISOString(),
  contato_id: contatoId,
  organizacao_id: orgId,
