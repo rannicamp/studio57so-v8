@@ -36,13 +36,14 @@ export default function WhatsAppInbox({ onChangeTab, initialContactId }) {
  const [selectedContact, setSelectedContact] = useState(cachedState?.selectedContact || null);
  const [selectedList, setSelectedList] = useState(cachedState?.selectedList || null);
  const [selectedCorretor, setSelectedCorretor] = useState(cachedState?.selectedCorretor || 'all');
+ const [selectedColuna, setSelectedColuna] = useState(cachedState?.selectedColuna || 'all');
 
  const queryClient = useQueryClient();
  const supabase = createClient();
  const { user } = useAuth();
  const organizacaoId = user?.organizacao_id;
 
- const uiStateToSave = { selectedContact, selectedList, searchTerm, selectedCorretor };
+ const uiStateToSave = { selectedContact, selectedList, searchTerm, selectedCorretor, selectedColuna };
  const [debouncedUiState] = useDebounce(uiStateToSave, 1000);
 
  useEffect(() => {
@@ -164,11 +165,12 @@ export default function WhatsAppInbox({ onChangeTab, initialContactId }) {
  };
 
  const filteredConversations = conversations?.filter(c => {
-   const matchesSearch = c.nome.toLowerCase().includes(searchTerm.toLowerCase()) || c.phone_number.includes(searchTerm);
+   const matchesSearch = c.nome.toLowerCase().includes(searchTerm.toLowerCase()) || (c.phone_number && c.phone_number.includes(searchTerm));
    const matchesCorretor = selectedCorretor === 'all' || 
                            (selectedCorretor === 'unassigned' && !c.corretor_id) || 
                            (String(c.corretor_id) === String(selectedCorretor));
-   return matchesSearch && matchesCorretor;
+   const matchesColuna = selectedColuna === 'all' || c.etapa_funil === selectedColuna;
+   return matchesSearch && matchesCorretor && matchesColuna;
  });
 
   // Extrair corretores únicos para o filtro
@@ -181,6 +183,17 @@ export default function WhatsAppInbox({ onChangeTab, initialContactId }) {
       }
     });
     return Array.from(map.entries()).map(([id, nome]) => ({ id, nome }));
+  }, [conversations]);
+
+  const uniqueColunas = React.useMemo(() => {
+    if (!conversations) return [];
+    const map = new Set();
+    conversations.forEach(c => {
+      if (c.etapa_funil) {
+        map.add(c.etapa_funil);
+      }
+    });
+    return Array.from(map).sort();
   }, [conversations]);
 
  const hasSelection = selectedContact || selectedList;
@@ -235,17 +248,31 @@ export default function WhatsAppInbox({ onChangeTab, initialContactId }) {
  <input type="text" placeholder="Pesquisar conversas..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg bg-gray-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm transition-all shadow-sm" />
  <FontAwesomeIcon icon={faSearch} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs" />
  </div>
- <select 
-   value={selectedCorretor} 
-   onChange={(e) => setSelectedCorretor(e.target.value)}
-   className="w-full p-2 border border-gray-300 rounded-lg bg-gray-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm shadow-sm font-medium text-gray-700"
- >
-   <option value="all">Todos os Corretores</option>
-   <option value="unassigned">Sem Corretor</option>
-   {uniqueCorretores.map(c => (
-     <option key={c.id} value={c.id}>{c.nome}</option>
-   ))}
- </select>
+ <div className="flex gap-2">
+   <select 
+     value={selectedCorretor} 
+     onChange={(e) => setSelectedCorretor(e.target.value)}
+     className="flex-1 w-full p-2 border border-gray-300 rounded-lg bg-gray-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm shadow-sm font-medium text-gray-700"
+     title="Filtrar por Corretor"
+   >
+     <option value="all">Todos os Corretores</option>
+     <option value="unassigned">Sem Corretor</option>
+     {uniqueCorretores.map(c => (
+       <option key={c.id} value={c.id}>{c.nome}</option>
+     ))}
+   </select>
+   <select 
+     value={selectedColuna} 
+     onChange={(e) => setSelectedColuna(e.target.value)}
+     className="flex-1 w-full p-2 border border-gray-300 rounded-lg bg-gray-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm shadow-sm font-medium text-gray-700"
+     title="Filtrar por Etapa"
+   >
+     <option value="all">Todas as Etapas</option>
+     {uniqueColunas.map(coluna => (
+       <option key={coluna} value={coluna}>{coluna}</option>
+     ))}
+   </select>
+ </div>
  </div>
 
  {/* Listas */}
