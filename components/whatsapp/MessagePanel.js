@@ -101,13 +101,18 @@ export default function MessagePanel({ contact, onBack }) {
  refetchInterval: 5000,
  });
 
- // Determine Recipient Phone
+ // Determine Recipient Phone (CORRIGIDO: Sempre pegar o número da interação mais RECENTE)
  useEffect(() => {
  if (messages && messages.length > 0) {
- const inboundMsg = messages.find(m => m.direction === 'inbound');
- if (inboundMsg?.sender_id) { setRecipientPhone(inboundMsg.sender_id); return; }
- const outboundMsg = messages.find(m => m.direction === 'outbound');
- if (outboundMsg?.receiver_id) { setRecipientPhone(outboundMsg.receiver_id); }
+ // Percorre as mensagens de trás para frente (da mais nova para a mais velha)
+ const lastMsg = [...messages].reverse().find(m => 
+   (m.direction === 'inbound' && m.sender_id) || (m.direction === 'outbound' && m.receiver_id)
+ );
+ 
+ if (lastMsg) {
+   setRecipientPhone(lastMsg.direction === 'inbound' ? lastMsg.sender_id : lastMsg.receiver_id);
+   return;
+ }
  } else if (contact?.phone_number || contact?.telefone) {
  setRecipientPhone(contact.phone_number || contact.telefone);
  }
