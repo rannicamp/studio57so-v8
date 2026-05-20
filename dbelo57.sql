@@ -891,7 +891,8 @@ CREATE TABLE public.empreendimentos (
     registro_incorporacao text,
     patrimonio_afetacao boolean DEFAULT false,
     resp_tecnico_projeto text,
-    resp_tecnico_obra text
+    resp_tecnico_obra text,
+    dossie_ia text
 );
 
 CREATE TABLE public.empresa_anexos (

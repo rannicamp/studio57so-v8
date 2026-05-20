@@ -552,7 +552,8 @@ export default function LancamentosManager({
     <table className="w-full text-[10px] border-collapse border border-gray-300">
       <thead>
         <tr className="bg-gray-200">
-          <th className="border border-gray-300 px-2 py-1 text-left w-20">Data</th>
+          <th className="border border-gray-300 px-2 py-1 text-left w-20">Vencimento</th>
+          <th className="border border-gray-300 px-2 py-1 text-left w-20">Pagamento</th>
           <th className="border border-gray-300 px-2 py-1 text-left">Descrição</th>
           <th className="border border-gray-300 px-2 py-1 text-left">Favorecido</th>
           <th className="border border-gray-300 px-2 py-1 text-left">Conta</th>
@@ -567,7 +568,8 @@ export default function LancamentosManager({
              return (
                <React.Fragment key={item.id}>
                  <tr className="bg-gray-100 font-bold border-b border-gray-300 break-inside-avoid">
-                   <td className="border border-gray-300 px-2 py-1">{formatDate(item.data_vencimento)}</td>
+                   <td className="border border-gray-300 px-2 py-1">{formatDate(item.data_vencimento || item.data_transacao)}</td>
+                   <td className="border border-gray-300 px-2 py-1">{formatDate(item.data_pagamento)}</td>
                    <td className="border border-gray-300 px-2 py-1">Fatura - {item.conta?.nome}</td>
                    <td className="border border-gray-300 px-2 py-1">-</td>
                    <td className="border border-gray-300 px-2 py-1">{item.conta?.nome}</td>
@@ -577,7 +579,8 @@ export default function LancamentosManager({
                  </tr>
                  {item.filhos.map(filho => (
                    <tr key={filho.id} className="break-inside-avoid">
-                     <td className="border border-gray-300 px-2 py-1 pl-4 text-gray-600">{formatDate(isCompetenciaMode ? filho.data_transacao : (filho.data_vencimento || filho.data_transacao))}</td>
+                     <td className="border border-gray-300 px-2 py-1 pl-4 text-gray-600">{formatDate(filho.data_vencimento || filho.data_transacao)}</td>
+                     <td className="border border-gray-300 px-2 py-1 pl-4 text-gray-600">{formatDate(filho.data_pagamento)}</td>
                      <td className="border border-gray-300 px-2 py-1 pl-4">{filho.descricao}</td>
                      <td className="border border-gray-300 px-2 py-1 text-gray-600">{filho.favorecido?.nome || filho.favorecido?.razao_social || '-'}</td>
                      <td className="border border-gray-300 px-2 py-1 text-gray-600">-</td>
@@ -592,7 +595,8 @@ export default function LancamentosManager({
           const nomeFavorecido = item.favorecido?.nome || item.favorecido?.razao_social || '-';
           return (
             <tr key={item.id} className={`${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} break-inside-avoid border-b border-gray-200`}>
-              <td className="border border-gray-300 px-2 py-1">{formatDate(isCompetenciaMode ? item.data_transacao : (item.data_vencimento || item.data_transacao))}</td>
+              <td className="border border-gray-300 px-2 py-1">{formatDate(item.data_vencimento || item.data_transacao)}</td>
+              <td className="border border-gray-300 px-2 py-1">{formatDate(item.data_pagamento)}</td>
               <td className="border border-gray-300 px-2 py-1">{item.descricao}</td>
               <td className="border border-gray-300 px-2 py-1">{nomeFavorecido}</td>
               <td className="border border-gray-300 px-2 py-1">{item.conta?.nome || '-'}</td>
