@@ -11,7 +11,11 @@ import {
   faBuilding, faCalendarAlt, faChartBar, faUsers, faClock, faComments, faReplyAll, faFileExport
 } from '@fortawesome/free-solid-svg-icons';
 import { faMeta } from '@fortawesome/free-brands-svg-icons';
-import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, Cell, PieChart, Pie, Legend, CartesianGrid, ReferenceLine } from 'recharts';
+import {
+  LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  Tooltip as RechartsTooltip, ResponsiveContainer, Cell, ScatterChart, Scatter,
+  ZAxis, AreaChart, Area, ReferenceLine, PieChart, Pie, Legend
+} from 'recharts';
 import AdsManager from '@/components/comercial/AdsManager';
 
 import { format, startOfMonth, endOfMonth, parseISO, subMonths, differenceInDays } from 'date-fns';
@@ -34,6 +38,10 @@ function RadarPageContent() {
     from: startOfMonth(new Date()),
     to: endOfMonth(new Date())
   });
+  
+  const [dataInicio, setDataInicio] = useState(startOfMonth(new Date()));
+  const [dataFim, setDataFim] = useState(endOfMonth(new Date()));
+  const [filtroDiaHorario, setFiltroDiaHorario] = useState('todos');
 
   const ultimosMeses = Array.from({ length: 6 }).map((_, i) => {
     const d = subMonths(new Date(), i);
@@ -139,6 +147,28 @@ function RadarPageContent() {
   };
   const chartDataCorretores = formatarGraficoCorretores();
 
+  const formatarGraficoHoras = () => {
+    if (!dadosComercial?.leads_por_hora) return [];
+    
+    // Create base array for 24 hours
+    const horasMap = Array.from({ length: 24 }, (_, i) => ({
+      hora: `${String(i).padStart(2, '0')}:00`,
+      qtd: 0
+    }));
+
+    dadosComercial.leads_por_hora.forEach(item => {
+      // Filter by day of week if not 'todos'
+      if (filtroDiaHorario !== 'todos' && String(item.dia_semana) !== filtroDiaHorario) {
+        return;
+      }
+      if (item.hora >= 0 && item.hora <= 23) {
+        horasMap[item.hora].qtd += item.qtd;
+      }
+    });
+
+    return horasMap;
+  };
+  const chartDataHoras = formatarGraficoHoras();
 
   const calcularMediaDiaria = () => {
     if (!dadosComercial?.leads_por_dia?.length) return 0;
@@ -405,6 +435,50 @@ function RadarPageContent() {
                   </div>
                 ) : (
                   <div className="flex-1 flex flex-col items-center justify-center p-10 gap-2"><div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center"><FontAwesomeIcon icon={faFilter} className="text-slate-300" /></div><span className="text-slate-400 text-sm">Ainda sem histórico temporal.</span></div>
+                )}
+              </div>
+
+              {/* Novo Gráfico: Radar de Horários (Área) */}
+              <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col min-h-[300px] lg:col-span-2">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
+                  <h3 className="text-slate-800 font-semibold w-full text-left">Curva de Fogo (Horário de Entrada)</h3>
+                  <select 
+                    className="border border-slate-200 text-sm rounded-lg px-3 py-1.5 bg-slate-50 text-slate-600 font-medium outline-none focus:ring-2 focus:ring-orange-500/20"
+                    value={filtroDiaHorario}
+                    onChange={(e) => setFiltroDiaHorario(e.target.value)}
+                  >
+                    <option value="todos">Visão Geral</option>
+                    <option value="0">Domingo</option>
+                    <option value="1">Segunda-feira</option>
+                    <option value="2">Terça-feira</option>
+                    <option value="3">Quarta-feira</option>
+                    <option value="4">Quinta-feira</option>
+                    <option value="5">Sexta-feira</option>
+                    <option value="6">Sábado</option>
+                  </select>
+                </div>
+                {isCarregando ? (
+                  <div className="flex-1 flex items-center justify-center h-full text-slate-400 text-sm">Monitorando horários...</div>
+                ) : chartDataHoras.length > 0 ? (
+                  <div className="w-full flex-1 pr-6 pb-2">
+                    <ResponsiveContainer width="100%" height={280}>
+                      <AreaChart data={chartDataHoras} margin={{ top: 10, right: 30, left: -20, bottom: 0 }}>
+                        <defs>
+                          <linearGradient id="colorFogo" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#ea580c" stopOpacity={0.8}/>
+                            <stop offset="95%" stopColor="#ea580c" stopOpacity={0}/>
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                        <XAxis dataKey="hora" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#64748b', fontWeight: 600 }} minTickGap={20} />
+                        <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#64748b', fontWeight: 600 }} />
+                        <RechartsTooltip cursor={{ fill: 'rgba(234, 88, 12, 0.05)' }} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} formatter={(value) => [`${value} Leads`, 'Volume']} labelStyle={{ color: '#475569', fontWeight: 700, marginBottom: '4px' }} />
+                        <Area type="monotone" dataKey="qtd" stroke="#ea580c" strokeWidth={3} fillOpacity={1} fill="url(#colorFogo)" activeDot={{ r: 6, fill: '#ea580c', stroke: '#fff', strokeWidth: 2 }} />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+                ) : (
+                  <div className="flex-1 flex flex-col items-center justify-center p-10 gap-2"><div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center"><FontAwesomeIcon icon={faFilter} className="text-slate-300" /></div><span className="text-slate-400 text-sm">Ainda sem histórico de horários.</span></div>
                 )}
               </div>
 
