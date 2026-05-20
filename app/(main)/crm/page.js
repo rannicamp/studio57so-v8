@@ -155,7 +155,17 @@ const fetchFunilData = async (supabase, organizacaoId, funilId, filters) => {
  if (filters.searchTerm) {
  query = query.or(`nome.ilike.%${filters.searchTerm}%,razao_social.ilike.%${filters.searchTerm}%`, { foreignTable: 'contatos' });
  }
- if (filters.corretorIds?.length > 0) query = query.in('corretor_id', filters.corretorIds);
+  if (filters.corretorIds?.length > 0) {
+    const hasSemCorretor = filters.corretorIds.includes('sem_corretor');
+    const validIds = filters.corretorIds.filter(id => id !== 'sem_corretor');
+    if (hasSemCorretor && validIds.length > 0) {
+      query = query.or(`corretor_id.in.(${validIds.join(',')}),corretor_id.is.null`);
+    } else if (hasSemCorretor) {
+      query = query.is('corretor_id', null);
+    } else {
+      query = query.in('corretor_id', validIds);
+    }
+  }
  if (filters.origens?.length > 0) query = query.in('contatos.origem', filters.origens);
  if (filters.campaignIds?.length > 0) query = query.in('contatos.meta_campaign_id', filters.campaignIds);
  if (filters.adIds?.length > 0) query = query.in('contatos.meta_ad_id', filters.adIds);
@@ -218,6 +228,12 @@ const fetchFilterData = async (supabase, organizacaoId) => {
  const { data } = await supabase.from('contatos').select('id, nome, razao_social').in('id', uniqueCorretorIds);
  corretores = (data || []).map(c => ({ id: c.id, nome: c.nome || c.razao_social })).sort((a, b) => (a.nome || '').localeCompare(b.nome || ''));
  }
+
+ // Adiciona a opção de Sem Corretor / Robô no início da lista
+ corretores = [
+   { id: 'sem_corretor', nome: 'Sem Corretor / Robô' },
+   ...corretores
+ ];
 
  const unidades = (unidadesData || []).map(u => ({ id: u.id, nome: `${u.unidade} (${u.tipo || 'N/A'})` }));
  const origens = [...new Set((contatosParaFiltro || []).map(c => c.origem).filter(Boolean))].map(o => ({ id: o, nome: o })).sort((a, b) => a.nome.localeCompare(b.nome));

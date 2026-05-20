@@ -117,7 +117,7 @@ function RadarPageContent() {
   });
 
   // FETCH COMERCIAL
-  const { data: dadosComercial, isLoading: loadingComercial } = useRelatorioComercial(
+  const { data: dadosComercial, isLoading: loadingComercial, error: errorComercial } = useRelatorioComercial(
     user?.organizacao_id,
     dateRange.from,
     dateRange.to
@@ -130,6 +130,15 @@ function RadarPageContent() {
       .sort((a, b) => b.value - a.value);
   };
   const chartDataOrigens = formatarGraficoOrigens();
+
+  const formatarGraficoCorretores = () => {
+    if (!dadosComercial?.desempenho_corretores) return [];
+    return dadosComercial.desempenho_corretores
+      .map(c => ({ name: c.corretor_nome, value: c.total_atendimentos }))
+      .sort((a, b) => b.value - a.value);
+  };
+  const chartDataCorretores = formatarGraficoCorretores();
+
 
   const calcularMediaDiaria = () => {
     if (!dadosComercial?.leads_por_dia?.length) return 0;
@@ -350,7 +359,31 @@ function RadarPageContent() {
               </div>
            </section>
 
-           <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 w-full">
+           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 w-full">
+              {/* Novo Gráfico: Leads por Corretor */}
+              <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col min-h-[300px]">
+                <h3 className="text-slate-800 font-semibold mb-6 w-full text-left">Leads por Corretor</h3>
+                {isCarregando ? (
+                  <div className="flex-1 flex items-center justify-center h-full text-slate-400 text-sm">Carregando corretores...</div>
+                ) : chartDataCorretores.length > 0 ? (
+                  <div className="w-full flex-1 pr-6 pb-2">
+                    <ResponsiveContainer width="100%" height={Math.max(250, chartDataCorretores.length * 45)}>
+                      <BarChart data={chartDataCorretores} layout="vertical" margin={{ top: 0, right: 30, left: 0, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f1f5f9" />
+                        <XAxis type="number" hide={true} />
+                        <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#475569', fontWeight: 600 }} width={110} />
+                        <RechartsTooltip cursor={{ fill: '#f8fafc' }} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} formatter={(value) => [`${value} Leads`, 'Atribuição']} />
+                        <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={24} label={{ position: 'right', fill: '#64748b', fontSize: 12, fontWeight: 700 }}>
+                          {chartDataCorretores.map((entry, index) => (<Cell key={`cell-corr-${index}`} fill={COLORS_COMERCIAL[index % COLORS_COMERCIAL.length]} />))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                ) : (
+                  <div className="flex-1 flex flex-col items-center justify-center p-10 gap-2"><div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center"><FontAwesomeIcon icon={faFilter} className="text-slate-300" /></div><span className="text-slate-400 text-sm">Sem corretores detectados.</span></div>
+                )}
+              </div>
+
               {/* Gráfico 4: Ranking Dia da Semana */}
               <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col min-h-[300px]">
                 <h3 className="text-slate-800 font-semibold mb-6 w-full text-left">Pico de Calor (Dias da Semana)</h3>
@@ -426,6 +459,76 @@ function RadarPageContent() {
                 )}
               </div>
            </div>
+
+           {/* --- DESEMPENHO DOS CORRETORES --- */}
+           <section className="flex flex-col gap-6 w-full mt-2">
+              <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm min-h-[300px] flex flex-col">
+                <h3 className="text-slate-800 font-semibold mb-6 w-full text-left">Ranking de Desempenho (Corretores)</h3>
+                {isCarregando ? (
+                  <div className="flex-1 flex items-center justify-center text-slate-400 text-sm">Carregando desempenho da equipe...</div>
+                ) : dadosComercial?.desempenho_corretores?.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="border-b border-slate-200 text-slate-500 text-xs uppercase bg-slate-50/50">
+                          <th className="p-3 font-semibold rounded-tl-lg">Corretor</th>
+                          <th className="p-3 font-semibold text-center">Volume Total</th>
+                          <th className="p-3 font-semibold text-center">Tempo de Resposta (SLA)</th>
+                          <th className="p-3 font-semibold text-center rounded-tr-lg">Distribuição do Funil</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {dadosComercial.desempenho_corretores.map((corretor, idx) => {
+                           const isWarning = corretor.tempo_medio_resposta_minutos > 5;
+                           const slaText = corretor.tempo_medio_resposta_minutos > 0 ? formataMinutosHours(corretor.tempo_medio_resposta_minutos) : 'Sem interações';
+                           const total = corretor.total_atendimentos;
+                           
+                           return (
+                             <tr key={idx} className="border-b border-slate-100 last:border-0 hover:bg-slate-50/50 transition-colors">
+                               <td className="p-3">
+                                 <div className="flex items-center gap-3">
+                                    <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs">{idx + 1}</div>
+                                    <div>
+                                      <p className="font-semibold text-slate-700">{corretor.corretor_nome}</p>
+                                    </div>
+                                 </div>
+                               </td>
+                               <td className="p-3 text-center">
+                                 <span className="font-bold text-slate-700 text-lg">{total}</span> <span className="text-xs text-slate-400">leads</span>
+                               </td>
+                               <td className="p-3 text-center">
+                                  {corretor.tempo_medio_resposta_minutos > 0 ? (
+                                     <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold ${isWarning ? 'bg-rose-100 text-rose-700 border border-rose-200 shadow-sm' : 'bg-emerald-100 text-emerald-700 border border-emerald-200 shadow-sm'}`}>
+                                       <FontAwesomeIcon icon={faClock} />
+                                       {slaText}
+                                     </div>
+                                  ) : (
+                                     <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold bg-slate-100 text-slate-500 border border-slate-200">
+                                       <FontAwesomeIcon icon={faClock} />
+                                       N/A
+                                     </div>
+                                  )}
+                               </td>
+                               <td className="p-3">
+                                 <div className="flex flex-wrap gap-1.5 items-center justify-center max-w-[320px] mx-auto">
+                                    {Object.entries(corretor.funil_distribuicao || {}).filter(([k,v]) => v > 0).map(([etapa, qtd]) => (
+                                      <span key={etapa} className="text-[10px] font-medium px-2 py-1 rounded-md bg-white text-slate-600 border border-slate-200 shadow-sm whitespace-nowrap" title={etapa}>
+                                        <b className="text-slate-800">{qtd}</b> em {etapa.length > 15 ? etapa.substring(0, 15) + '...' : etapa}
+                                      </span>
+                                    ))}
+                                 </div>
+                               </td>
+                             </tr>
+                           );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="flex-1 flex flex-col items-center justify-center p-10 gap-2"><div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center"><FontAwesomeIcon icon={faUsers} className="text-slate-300" /></div><span className="text-slate-400 text-sm">Nenhum dado de corretor.</span></div>
+                )}
+              </div>
+           </section>
         </div>
       )}
 
