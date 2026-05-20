@@ -111,14 +111,20 @@ export const getBroadcastLists = async (supabase, organizacaoId) => {
 };
 
 // --- FUNÇÃO: BUSCAR MENSAGENS DO CHAT ---
-export const getMessages = async (supabase, organizacaoId, contatoId) => {
+export const getMessages = async (supabase, organizacaoId, contatoId, phoneNumber) => {
   if (!organizacaoId || !contatoId) return [];
 
-  const { data, error } = await supabase
+  let query = supabase
   .from('whatsapp_messages')
   .select('*') // ISSO É VITAL: Traz raw_payload e tudo mais
   .eq('organizacao_id', organizacaoId)
-  .eq('contato_id', contatoId)
+  .eq('contato_id', contatoId);
+  
+  if (phoneNumber) {
+    query = query.or(`sender_id.eq.${phoneNumber},receiver_id.eq.${phoneNumber}`);
+  }
+
+  const { data, error } = await query
   .order('created_at', { ascending: true })
   .order('id', { ascending: true });
 

@@ -72,7 +72,7 @@ export default function WhatsAppInbox({ onChangeTab, initialContactId }) {
  if (!rawConversations) return [];
  const seen = new Set();
  return rawConversations.filter(c => {
- const identifier = c.contato_id || c.phone_number;
+ const identifier = c.phone_number || c.contato_id;
  if (!identifier) return true; // Se não tem identificador, deixa passar
  if (seen.has(identifier)) return false;
  seen.add(identifier);

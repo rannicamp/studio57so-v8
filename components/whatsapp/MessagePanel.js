@@ -95,8 +95,8 @@ export default function MessagePanel({ contact, onBack }) {
 
  // --- Queries ---
  const { data: messages, isLoading } = useQuery({
- queryKey: ['messages', organizacaoId, contact?.contato_id],
- queryFn: () => getMessages(supabase, organizacaoId, contact?.contato_id),
+ queryKey: ['messages', organizacaoId, contact?.contato_id, contact?.phone_number],
+ queryFn: () => getMessages(supabase, organizacaoId, contact?.contato_id, contact?.phone_number),
  enabled: !!organizacaoId && !!contact,
  refetchInterval: 5000,
  });
@@ -131,7 +131,7 @@ export default function MessagePanel({ contact, onBack }) {
  },
  onSuccess: () => {
  queryClient.invalidateQueries({ queryKey: ['conversations', organizacaoId] });
- queryClient.invalidateQueries({ queryKey: ['messages', organizacaoId, contact?.contato_id] });
+ queryClient.invalidateQueries({ queryKey: ['messages', organizacaoId, contact?.contato_id, contact?.phone_number] });
  }
  });
 
@@ -151,7 +151,7 @@ export default function MessagePanel({ contact, onBack }) {
  .on('postgres_changes',
  { event: '*', schema: 'public', table: 'whatsapp_messages', filter: `organizacao_id=eq.${organizacaoId}` },
  (payload) => {
- const isRelevant = payload.new.contato_id === contact.contato_id || payload.new.sender_id === recipientPhone;
+ const isRelevant = payload.new.contato_id === contact.contato_id && (payload.new.sender_id === contact.phone_number || payload.new.receiver_id === contact.phone_number);
  if (isRelevant) queryClient.invalidateQueries({ queryKey: ['messages', organizacaoId, contact.contato_id] });
  queryClient.invalidateQueries({ queryKey: ['conversations', organizacaoId] });
  }
@@ -174,7 +174,7 @@ export default function MessagePanel({ contact, onBack }) {
  },
  onSuccess: () => {
  setNewMessage('');
- queryClient.invalidateQueries({ queryKey: ['messages', organizacaoId, contact?.contato_id] });
+ queryClient.invalidateQueries({ queryKey: ['messages', organizacaoId, contact?.contato_id, contact?.phone_number] });
  queryClient.invalidateQueries({ queryKey: ['conversations', organizacaoId] });
 },
  onError: (e) => toast.error(e.message)
@@ -218,7 +218,7 @@ export default function MessagePanel({ contact, onBack }) {
  return apiResult;
  },
  onSuccess: () => {
- queryClient.invalidateQueries({ queryKey: ['messages', organizacaoId, contact?.contato_id] });
+ queryClient.invalidateQueries({ queryKey: ['messages', organizacaoId, contact?.contato_id, contact?.phone_number] });
  queryClient.invalidateQueries({ queryKey: ['conversations', organizacaoId] });
 },
  onError: (e) => toast.error(e.message)
@@ -246,7 +246,7 @@ export default function MessagePanel({ contact, onBack }) {
  },
  onSuccess: () => {
  toast.success("Localização enviada!");
- queryClient.invalidateQueries({ queryKey: ['messages', organizacaoId, contact?.contato_id] });
+ queryClient.invalidateQueries({ queryKey: ['messages', organizacaoId, contact?.contato_id, contact?.phone_number] });
  queryClient.invalidateQueries({ queryKey: ['conversations', organizacaoId] });
 },
  onError: (e) => toast.error("Erro ao enviar local: " + e.message)
@@ -284,7 +284,7 @@ export default function MessagePanel({ contact, onBack }) {
  onSuccess: () => {
  toast.success('Modelo enviado com sucesso!');
  setIsTemplateModalOpen(false);
- queryClient.invalidateQueries({ queryKey: ['messages', organizacaoId, contact?.contato_id] });
+ queryClient.invalidateQueries({ queryKey: ['messages', organizacaoId, contact?.contato_id, contact?.phone_number] });
  },
  onError: (e) => toast.error(`Erro: ${e.message}`)
  });
