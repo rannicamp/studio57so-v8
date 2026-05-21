@@ -10,7 +10,7 @@ import {
  faUserCircle, faSpinner, faUpload, faEye, faTrash, faFilePdf, faFileImage, faFileWord, faFile,
  faAddressCard, faFileContract, faFileLines, faCheckCircle, faTimesCircle, faDollarSign,
  faCalendarCheck, faCalendarXmark, faBusinessTime, faEdit, faSort, faSortUp, faSortDown,
- faFileInvoiceDollar, faPrint, faPen, faUserTimes
+ faFileInvoiceDollar, faPrint, faPen, faUserTimes, faUserPlus
 } from '@fortawesome/free-solid-svg-icons';
 import KpiCard from '@/components/shared/KpiCard';
 import UppyListUploader from '@/components/ui/UppyListUploader';
@@ -561,7 +561,7 @@ const ContrachequeSection = ({ employee, salarioAtual, organizacaoId }) => {
 
 
 // Componente Principal
-export default function FichaCompletaFuncionario({ employee, allDocuments, allPontos, allAbonos, onUpdate, onEditLancamento, onEditClick, onDemitirClick }) {
+export default function FichaCompletaFuncionario({ employee, allDocuments, allPontos, allAbonos, onUpdate, onEditLancamento, onEditClick, onDemitirClick, onReadmitirClick }) {
  const [activeTab, setActiveTab] = useState('pessoal');
  const [lancamentos, setLancamentos] = useState([]);
  const [holidays, setHolidays] = useState(new Set());
@@ -739,6 +739,13 @@ export default function FichaCompletaFuncionario({ employee, allDocuments, allPo
  >
  <FontAwesomeIcon icon={faPen} /> Atualizar Cadastro
  </button>
+ {employee.status === 'Demitido' && (
+ <button onClick={onReadmitirClick}
+ className="bg-green-600 hover:bg-green-700 text-white font-bold px-4 py-2 rounded-lg shadow-sm flex items-center justify-center gap-2 transition-transform hover:scale-105 min-w-[200px]"
+ >
+ <FontAwesomeIcon icon={faUserPlus} /> Readmitir
+ </button>
+ )}
  {employee.status !== 'Demitido' && (
  <button onClick={onDemitirClick}
  className="bg-transparent hover:bg-red-50 text-red-600 hover:text-red-700 font-semibold px-4 py-2 border border-red-200 hover:border-red-300 rounded-lg shadow-sm flex items-center justify-center gap-2 transition-colors min-w-[200px]"

@@ -159,12 +159,12 @@ const HistoricoSalarialModal = ({ isOpen, onClose, onSave, funcionarioId, organi
 };
 
 // --- COMPONENTE PRINCIPAL UNIFICADO ---
-export default function FuncionarioModal({ isOpen, onClose, employeeToEdit, onSaveSuccess }) {
+export default function FuncionarioModal({ isOpen, onClose, employeeToEdit, isReadmission = false, onSaveSuccess }) {
  const supabase = createClient();
  const { user } = useAuth();
  const queryClient = useQueryClient();
  const organizacao_id = user?.organizacao_id;
- const isEditing = Boolean(employeeToEdit);
+ const isEditing = Boolean(employeeToEdit) && !isReadmission;
 
  const { data: auxData, isLoading: isLoadingAux } = useQuery({
  queryKey: ['funcionarioAuxData', organizacao_id],
@@ -210,9 +210,20 @@ export default function FuncionarioModal({ isOpen, onClose, employeeToEdit, onSa
  if (!isOpen) return;
 
  if (employeeToEdit) {
- setFormData(prev => ({ ...prev, ...employeeToEdit }));
+ let initialData = { ...employeeToEdit };
+ if (isReadmission) {
+ initialData.id = null;
+ initialData.admission_date = new Date().toISOString().split('T')[0];
+ initialData.demission_date = null;
+ initialData.status = 'Ativo';
+ initialData.salario_base = '';
+ initialData.valor_diaria = '';
+ initialData.cargo_id = '';
+ }
+ setFormData(prev => ({ ...prev, ...initialData }));
  // Foto é gerenciada pelo formData.foto_url
 
+ if (!isReadmission) {
  supabase.from('historico_salarial')
  .select('salario_base, valor_diaria')
  .eq('funcionario_id', employeeToEdit.id)
@@ -220,6 +231,7 @@ export default function FuncionarioModal({ isOpen, onClose, employeeToEdit, onSa
  .limit(1)
  .maybeSingle()
  .then(({ data }) => { if (data) setSalarioAtual(data); });
+ }
 
  } else {
  const savedDraft = localStorage.getItem(DRAFT_KEY);
@@ -235,7 +247,7 @@ export default function FuncionarioModal({ isOpen, onClose, employeeToEdit, onSa
  setFormData(getInitialState());
  }
  }
- }, [isOpen, employeeToEdit, supabase]);
+ }, [isOpen, employeeToEdit, isReadmission, supabase]);
 
  useEffect(() => {
  if (isOpen && !employeeToEdit) {
@@ -342,6 +354,22 @@ export default function FuncionarioModal({ isOpen, onClose, employeeToEdit, onSa
  organizacao_id
  });
  }
+
+ // Se for readmissão, copiar os documentos do ciclo antigo para o novo
+ if (isReadmission && employeeToEdit?.id) {
+ const { data: oldDocs } = await supabase.from('documentos_funcionarios').select('*').eq('funcionario_id', employeeToEdit.id);
+ if (oldDocs && oldDocs.length > 0) {
+ const docsToInsert = oldDocs.map(doc => ({
+ funcionario_id: newFunc.id,
+ nome_documento: doc.nome_documento,
+ caminho_arquivo: doc.caminho_arquivo,
+ tipo_documento_id: doc.tipo_documento_id,
+ organizacao_id: doc.organizacao_id,
+ criado_por_usuario_id: user.id
+ }));
+ await supabase.from('documentos_funcionarios').insert(docsToInsert);
+ }
+ }
  }
 
  toast.success("Salvo com sucesso!");
@@ -357,7 +385,7 @@ export default function FuncionarioModal({ isOpen, onClose, employeeToEdit, onSa
 
  const handleSubmit = async (e) => {
  e.preventDefault();
- if (isEditing) {
+ if (isEditing || isReadmission) {
  await processSubmit();
  } else {
  if (formData.cpf) {

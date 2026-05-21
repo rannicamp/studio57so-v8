@@ -18,6 +18,7 @@ export default function ColaboradorDetailPanel({ selectedId, isCandidateSelected
  const [loading, setLoading] = useState(false);
 
  const [isFuncionarioModalOpen, setIsFuncionarioModalOpen] = useState(false);
+ const [isReadmissionMode, setIsReadmissionMode] = useState(false);
  const [isLancamentoModalOpen, setIsLancamentoModalOpen] = useState(false);
  const [editingLancamento, setEditingLancamento] = useState(null);
 
@@ -169,8 +170,9 @@ export default function ColaboradorDetailPanel({ selectedId, isCandidateSelected
  {isFuncionarioModalOpen && !isCandidateSelected && (
  <FuncionarioModal
  isOpen={isFuncionarioModalOpen}
- onClose={() => setIsFuncionarioModalOpen(false)}
+ onClose={() => { setIsFuncionarioModalOpen(false); setIsReadmissionMode(false); }}
  employeeToEdit={employee}
+ isReadmission={isReadmissionMode}
  onSaveSuccess={handleFuncionarioSaved}
  />
  )}
@@ -196,8 +198,9 @@ export default function ColaboradorDetailPanel({ selectedId, isCandidateSelected
  allAbonos={abonos}
  onUpdate={() => getEmployeeData(true)}
  onEditLancamento={handleOpenEditModal}
- onEditClick={() => setIsFuncionarioModalOpen(true)}
+ onEditClick={() => { setIsReadmissionMode(false); setIsFuncionarioModalOpen(true); }}
  onDemitirClick={handleDemitir}
+ onReadmitirClick={() => { setIsReadmissionMode(true); setIsFuncionarioModalOpen(true); }}
  />
  )}
  </div>
