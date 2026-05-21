@@ -12,7 +12,7 @@ import BroadcastPanel from '@/components/whatsapp/BroadcastPanel';
 import ContactProfile from '@/components/whatsapp/ContactProfile';
 import { Toaster } from 'sonner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSearch, faEnvelope, faSpinner, faArrowRight } from '@fortawesome/free-solid-svg-icons';
+import { faSearch, faEnvelope, faSpinner, faArrowRight, faCheckDouble } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp, faInstagram } from '@fortawesome/free-brands-svg-icons';
 import { useDebounce } from 'use-debounce';
 
@@ -256,7 +256,7 @@ export default function WhatsAppInbox({ onChangeTab, initialContactId }) {
     title={showUnreadOnly ? "Mostrar todas as conversas" : "Mostrar apenas não lidas"}
     className={`px-3 border rounded-lg text-sm transition-colors flex items-center justify-center shrink-0 shadow-sm ${showUnreadOnly ? 'bg-[#00a884] border-[#00a884] text-white' : 'bg-gray-50 border-gray-300 text-gray-500 hover:bg-white'}`}
   >
-    <FontAwesomeIcon icon={faEnvelope} />
+    <FontAwesomeIcon icon={faCheckDouble} />
   </button>
   </div>
  <div className="flex gap-2">
