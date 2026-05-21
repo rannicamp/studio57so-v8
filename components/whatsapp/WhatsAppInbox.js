@@ -33,6 +33,7 @@ export default function WhatsAppInbox({ onChangeTab, initialContactId }) {
  const router = useRouter();
 
  const [searchTerm, setSearchTerm] = useState(cachedState?.searchTerm || '');
+ const [showUnreadOnly, setShowUnreadOnly] = useState(cachedState?.showUnreadOnly || false);
  const [selectedContact, setSelectedContact] = useState(cachedState?.selectedContact || null);
  const [selectedList, setSelectedList] = useState(cachedState?.selectedList || null);
  const [selectedCorretor, setSelectedCorretor] = useState(cachedState?.selectedCorretor || 'all');
@@ -43,7 +44,7 @@ export default function WhatsAppInbox({ onChangeTab, initialContactId }) {
  const { user } = useAuth();
  const organizacaoId = user?.organizacao_id;
 
- const uiStateToSave = { selectedContact, selectedList, searchTerm, selectedCorretor, selectedColuna };
+ const uiStateToSave = { selectedContact, selectedList, searchTerm, selectedCorretor, selectedColuna, showUnreadOnly };
  const [debouncedUiState] = useDebounce(uiStateToSave, 1000);
 
  useEffect(() => {
@@ -170,7 +171,8 @@ export default function WhatsAppInbox({ onChangeTab, initialContactId }) {
                            (selectedCorretor === 'unassigned' && !c.corretor_id) || 
                            (String(c.corretor_id) === String(selectedCorretor));
    const matchesColuna = selectedColuna === 'all' || c.etapa_funil === selectedColuna;
-   return matchesSearch && matchesCorretor && matchesColuna;
+   const matchesUnread = showUnreadOnly ? (c.unread_count > 0) : true;
+   return matchesSearch && matchesCorretor && matchesColuna && matchesUnread;
  });
 
   // Extrair corretores únicos para o filtro
@@ -243,11 +245,20 @@ export default function WhatsAppInbox({ onChangeTab, initialContactId }) {
  ) : (
  <>
  {/* Busca Específica do WhatsApp e Filtro de Corretor */}
- <div className="border-b flex flex-col justify-center p-3 bg-white shrink-0 z-10 gap-2">
- <div className="relative">
- <input type="text" placeholder="Pesquisar conversas..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg bg-gray-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm transition-all shadow-sm" />
- <FontAwesomeIcon icon={faSearch} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs" />
- </div>
+  <div className="border-b flex flex-col justify-center p-3 bg-white shrink-0 z-10 gap-2">
+  <div className="flex gap-2">
+  <div className="relative flex-1">
+  <input type="text" placeholder="Pesquisar conversas..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg bg-gray-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm transition-all shadow-sm" />
+  <FontAwesomeIcon icon={faSearch} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs" />
+  </div>
+  <button 
+    onClick={() => setShowUnreadOnly(!showUnreadOnly)}
+    title={showUnreadOnly ? "Mostrar todas as conversas" : "Mostrar apenas não lidas"}
+    className={`px-3 border rounded-lg text-sm transition-colors flex items-center justify-center shrink-0 shadow-sm ${showUnreadOnly ? 'bg-[#00a884] border-[#00a884] text-white' : 'bg-gray-50 border-gray-300 text-gray-500 hover:bg-white'}`}
+  >
+    <FontAwesomeIcon icon={faEnvelope} />
+  </button>
+  </div>
  <div className="flex gap-2">
    <select 
      value={selectedCorretor} 

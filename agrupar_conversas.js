@@ -33,6 +33,7 @@ async function main() {
         
         let processedCount = 0;
         let createdConversations = 0;
+        let updatePromises = [];
         
         // Cache de conversas ativas para não ficar indo no banco à toa (key = orgId_contatoId_canonicalPhone)
         const activeConversations = new Map();
@@ -117,12 +118,17 @@ async function main() {
             }
             
             if (msg.conversation_record_id !== conversationId) {
-                await client.query(`
-                    UPDATE whatsapp_messages SET conversation_record_id = $1 WHERE id = $2
-                `, [conversationId, msg.id]);
+                updatePromises.push(
+                    client.query(`UPDATE whatsapp_messages SET conversation_record_id = $1 WHERE id = $2`, [conversationId, msg.id])
+                );
                 processedCount++;
+                if (updatePromises.length >= 100) {
+                    await Promise.all(updatePromises);
+                    updatePromises = [];
+                }
             }
         }
+        if (updatePromises.length > 0) await Promise.all(updatePromises);
         
         console.log(`Processo finalizado. Conversas criadas: ${createdConversations}. Mensagens migradas/corrigidas: ${processedCount}.`);
         
