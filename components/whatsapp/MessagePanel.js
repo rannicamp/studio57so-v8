@@ -21,6 +21,7 @@ import ChatMediaViewer from './ChatMediaViewer';
 import LocationPickerModal from './LocationPickerModal';
 import { usePersistentState } from '@/hooks/usePersistentState';
 import { sendWhatsAppLocation } from '@/utils/whatsapp';
+import { getCanonicalPhone } from '@/app/(main)/caixa-de-entrada/data-fetching';
 
 // --- UPPY IMPORTS ---
 import Uppy from '@uppy/core';
@@ -151,9 +152,12 @@ export default function MessagePanel({ contact, onBack }) {
  .on('postgres_changes',
  { event: '*', schema: 'public', table: 'whatsapp_messages', filter: `organizacao_id=eq.${organizacaoId}` },
  (payload) => {
- const isRelevant = payload.new.contato_id === contact.contato_id;
- if (isRelevant) queryClient.invalidateQueries({ queryKey: ['messages', organizacaoId, contact.contato_id] });
- queryClient.invalidateQueries({ queryKey: ['conversations', organizacaoId] });
+ const isRelevant = payload.new.contato_id === contact.contato_id && 
+    (getCanonicalPhone(payload.new.sender_id) === getCanonicalPhone(contact.phone_number) || 
+     getCanonicalPhone(payload.new.receiver_id) === getCanonicalPhone(contact.phone_number));
+     
+  if (isRelevant) queryClient.invalidateQueries({ queryKey: ['messages', organizacaoId, contact.contato_id] });
+  queryClient.invalidateQueries({ queryKey: ['conversations', organizacaoId] });
  }
  ).subscribe();
  return () => { supabase.removeChannel(channel); };

@@ -110,6 +110,23 @@ export const getBroadcastLists = async (supabase, organizacaoId) => {
  }));
 };
 
+// --- FUNÇÃO: EXTRAIR NÚMERO CANÔNICO (DDD + 8 Dígitos) ---
+export const getCanonicalPhone = (phone) => {
+  if (!phone) return null;
+  let digits = String(phone).replace(/[^0-9]/g, '');
+  let len = digits.length;
+  if (len < 10) return digits; // Fallback se for muito curto
+  
+  let core = digits.slice(-8); // últimos 8 dígitos
+  let ddd;
+  if (len % 2 !== 0) { // ímpares (tem 9º dígito): 11, 13
+      ddd = digits.slice(-11, -9);
+  } else { // pares (sem 9º dígito): 10, 12
+      ddd = digits.slice(-10, -8);
+  }
+  return `${ddd}${core}`;
+};
+
 // --- FUNÇÃO: BUSCAR MENSAGENS DO CHAT ---
 export const getMessages = async (supabase, organizacaoId, contatoId, phoneNumber) => {
   if (!organizacaoId || !contatoId) return [];
@@ -119,9 +136,6 @@ export const getMessages = async (supabase, organizacaoId, contatoId, phoneNumbe
   .select('*') // ISSO É VITAL: Traz raw_payload e tudo mais
   .eq('organizacao_id', organizacaoId)
   .eq('contato_id', contatoId);
-  
-  // O filtro "phoneNumber" foi removido para permitir a visualização
-  // de todo o histórico unificado daquele contato (mesmo se enviado por +55 / sem 9º dígito)
 
   const { data, error } = await query
   .order('created_at', { ascending: true })
@@ -130,6 +144,16 @@ export const getMessages = async (supabase, organizacaoId, contatoId, phoneNumbe
   if (error) {
   console.error('Erro ao buscar mensagens:', error?.message || error, JSON.stringify(error, Object.getOwnPropertyNames(error)));
   return [];
+  }
+
+  // Filtra em memória garantindo a unificação canônica dos números 
+  // (ignora +55 e o 9º dígito caso haja divergência)
+  if (phoneNumber) {
+      const canonicalTarget = getCanonicalPhone(phoneNumber);
+      return data.filter(msg => 
+          getCanonicalPhone(msg.sender_id) === canonicalTarget || 
+          getCanonicalPhone(msg.receiver_id) === canonicalTarget
+      );
   }
 
  return data;
