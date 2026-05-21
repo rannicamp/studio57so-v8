@@ -92,6 +92,18 @@ export function formatarParaStorageBR(rawPhone, countryCode = '+55') {
         return digits;
     }
 
+    // Regra inteligente para EUA (DDI +1)
+    // Se o número começa com 1 e tem mais de 10 dígitos, a probabilidade de ser dos EUA é altíssima.
+    if (digits.startsWith('1') && digits.length > 10) {
+        // Exceção: Celulares do Brasil de DDD 11 a 19 (ex: 11 98888-7777). 
+        // Eles têm 11 dígitos e o terceiro dígito é OBRIGATORIAMENTE um '9'.
+        if (digits.length === 11 && digits[2] === '9') {
+            // É do Brasil, deixa descer para colocar o 55
+        } else {
+            return digits; // É dos EUA (ex: 1 857 247 8635), retorna sem colocar o 55!
+        }
+    }
+
     const ddiDigits = (countryCode || '+55').replace('+', '');
 
     // Adiciona o DDI se o número não o contiver e tiver tamanho de número local
