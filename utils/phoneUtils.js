@@ -34,19 +34,6 @@ export function formatarParaWhatsAppBR(rawPhone, countryCode = '+55', isFromMeta
     const isBrazilFull = digits.startsWith('55') && (digits.length === 12 || digits.length === 13);
 
     if (isBrazilFull) {
-        const localDigits = digits.substring(2);
-        
-        // Celular BR = 11 dígitos locais (DDD 2d + 9 + número 8d)
-        if (localDigits.length === 11) {
-            const ddd = localDigits.substring(0, 2);
-            const noveDigito = localDigits[2];
-            const numero = localDigits.substring(3); // 8 dígitos restantes
-
-            if (noveDigito === '9') {
-                // Remove o 9, MAS MANTÉM O 55 e o DDD
-                return '55' + ddd + numero; // 12 dígitos total (o que a Meta Oficial quer)
-            }
-        }
         return digits;
     }
 
