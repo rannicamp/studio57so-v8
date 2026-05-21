@@ -120,9 +120,8 @@ export const getMessages = async (supabase, organizacaoId, contatoId, phoneNumbe
   .eq('organizacao_id', organizacaoId)
   .eq('contato_id', contatoId);
   
-  if (phoneNumber) {
-    query = query.or(`sender_id.eq.${phoneNumber},receiver_id.eq.${phoneNumber}`);
-  }
+  // O filtro "phoneNumber" foi removido para permitir a visualização
+  // de todo o histórico unificado daquele contato (mesmo se enviado por +55 / sem 9º dígito)
 
   const { data, error } = await query
   .order('created_at', { ascending: true })

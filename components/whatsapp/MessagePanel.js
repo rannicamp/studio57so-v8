@@ -151,7 +151,7 @@ export default function MessagePanel({ contact, onBack }) {
  .on('postgres_changes',
  { event: '*', schema: 'public', table: 'whatsapp_messages', filter: `organizacao_id=eq.${organizacaoId}` },
  (payload) => {
- const isRelevant = payload.new.contato_id === contact.contato_id && (payload.new.sender_id === contact.phone_number || payload.new.receiver_id === contact.phone_number);
+ const isRelevant = payload.new.contato_id === contact.contato_id;
  if (isRelevant) queryClient.invalidateQueries({ queryKey: ['messages', organizacaoId, contact.contato_id] });
  queryClient.invalidateQueries({ queryKey: ['conversations', organizacaoId] });
  }
