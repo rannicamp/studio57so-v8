@@ -334,6 +334,11 @@ export default function FuncionarioModal({ isOpen, onClose, employeeToEdit, isRe
  organizacao_id: isEditing ? formData.organizacao_id : organizacao_id
  };
 
+ // Convert all empty strings to null to avoid 'invalid input syntax for type bigint: ""'
+ Object.keys(dbData).forEach(k => {
+ if (dbData[k] === '') dbData[k] = null;
+ });
+
  if (isEditing) {
  const { error } = await supabase.from('funcionarios').update(dbData).eq('id', id);
  if (error) throw error;
