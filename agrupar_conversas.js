@@ -97,16 +97,23 @@ async function main() {
             let conversationId = activeConversations.get(cacheKey);
             
             if (!conversationId) {
-                // Cria a conversa
-                const insRes = await client.query(`
-                    INSERT INTO whatsapp_conversations (organizacao_id, contato_id, phone_number, updated_at)
-                    VALUES ($1, $2, $3, $4)
-                    RETURNING id
-                `, [msg.organizacao_id, msg.contato_id, clientRawPhone, msg.created_at]);
-                
-                conversationId = insRes.rows[0].id;
+                // Tenta achar pelo phone_number exato primeiro para evitar conflito de unique key
+                const existRes = await client.query(`SELECT id FROM whatsapp_conversations WHERE phone_number = $1`, [clientRawPhone]);
+                if (existRes.rows.length > 0) {
+                    conversationId = existRes.rows[0].id;
+                } else {
+                    // Cria a conversa
+                    const insRes = await client.query(`
+                        INSERT INTO whatsapp_conversations (organizacao_id, contato_id, phone_number, updated_at)
+                        VALUES ($1, $2, $3, $4)
+                        ON CONFLICT (phone_number) DO UPDATE SET updated_at = EXCLUDED.updated_at
+                        RETURNING id
+                    `, [msg.organizacao_id, msg.contato_id, clientRawPhone, msg.created_at]);
+                    
+                    conversationId = insRes.rows[0].id;
+                    createdConversations++;
+                }
                 activeConversations.set(cacheKey, conversationId);
-                createdConversations++;
             }
             
             if (msg.conversation_record_id !== conversationId) {
