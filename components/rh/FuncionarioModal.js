@@ -306,6 +306,14 @@ export default function FuncionarioModal({ isOpen, onClose, employeeToEdit, isRe
  let finalContatoId = formData.contato_id;
 
  if (formData.cpf) {
+ if (isReadmission) {
+ // Na readmissão, precisamos criar um novo contato para não violar a constraint unq_contato_id
+ const { data: newContact, error: contactError } = await supabase.from('contatos').insert({
+ nome: formData.full_name, cpf: formData.cpf, personalidade_juridica: 'Pessoa Física', tipo_contato: 'Fornecedor', organizacao_id
+ }).select().single();
+ if (contactError) throw new Error(`Erro ao criar novo contato (Readmissão): ${contactError.message}`);
+ finalContatoId = newContact.id;
+ } else {
  const { data: existingContact } = await supabase.from('contatos').select('id').eq('cpf', formData.cpf).eq('organizacao_id', organizacao_id).maybeSingle();
  if (existingContact) {
  finalContatoId = existingContact.id;
@@ -315,6 +323,7 @@ export default function FuncionarioModal({ isOpen, onClose, employeeToEdit, isRe
  }).select().single();
  if (contactError) throw new Error(`Erro contato: ${contactError.message}`);
  finalContatoId = newContact.id;
+ }
  }
  }
 
