@@ -126,7 +126,7 @@ O **Studio 57** é o ambiente de desenvolvimento e laboratório central. O **Elo
 - *2026-03-02:* Lógica de Roteamento automático de leads via webhook resolvida para todos os novos funis com suporte a UUID.
 - *2026-03-02:* Bug do disparo de Templates de WhatsApp corrigido (Ajuste no código + Setup com novo ID do Elo 57 Oficial).
 - *2026-03-02:* Transição de Identidade Visual completa e deploy realizado para produção. (Logos, Títulos e PWA substituídos de Studio 57 para Elo 57).
-- *2026-03-02:* Ajuste Global de Tema: Botões primários (sistema inteiro) alterados de azul genérico para Laranja da Marca (#ff6700) através de sobrescrita no Tailwind.
+- *2026-03-02:* Ajuste Global de Tema: Botões primários (sistema inteiro) alterados para Preto Sóbrio (#000000) e cinzas escuros, descontinuando o antigo laranja e azul genérico, de acordo com o manual supremo de design.
 - *2026-03-03:* **Refatoração Completa da Aba Cartões de Crédito:**
     - Diagnóstico e planejamento do sistema financeiro (decisão: usar filtros ao invés de novas tabelas).
     - Interface reestruturada do `GerenciadorFaturas.js`: substituído o grid de faturas por um histórico lateral + extrato detalhado linha a linha por fatura.

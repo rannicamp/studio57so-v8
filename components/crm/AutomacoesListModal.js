@@ -4,7 +4,7 @@ import { createClient } from '@/utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
   faRobot, faTimes, faPlus, faSpinner, faToggleOn, faToggleOff, 
-  faPen, faTrash, faArrowRight, faBullhorn, faAd, faPlusCircle, faSave
+  faEdit, faTrash, faArrowRight, faBullhorn, faAd, faSave
 } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 import AutomacaoModal from './AutomacaoModal';
@@ -222,8 +222,8 @@ export default function AutomacoesListModal({ isOpen, onClose, organizacaoId, cu
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[50] flex justify-center items-center p-4 animate-in fade-in duration-200">
       <div className="bg-gray-50 rounded-xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh] border border-gray-200">
-        {/* Header */}
-        <div className="bg-[#ff6700] px-6 py-4 flex justify-between items-center text-white shrink-0">
+        {/* Header (Cinza escuro/Preto sóbrio) */}
+        <div className="bg-gray-900 px-6 py-4 flex justify-between items-center text-white shrink-0">
           <h3 className="text-lg font-bold flex items-center gap-2">
             <FontAwesomeIcon icon={faRobot} />
             Automações & Roteamento
@@ -233,13 +233,13 @@ export default function AutomacoesListModal({ isOpen, onClose, organizacaoId, cu
           </button>
         </div>
 
-        {/* Tabs */}
+        {/* Tabs (Preto nas abas ativas) */}
         <div className="flex border-b border-gray-200 px-6 bg-white shrink-0">
           <button
             onClick={() => setActiveTab('whatsapp')}
             className={`py-3 px-4 font-semibold text-sm border-b-2 transition-colors flex items-center gap-2 ${
               activeTab === 'whatsapp' 
-                ? 'border-[#ff6700] text-[#ff6700]' 
+                ? 'border-gray-900 text-gray-900' 
                 : 'border-transparent text-gray-500 hover:text-gray-700'
             }`}
           >
@@ -250,7 +250,7 @@ export default function AutomacoesListModal({ isOpen, onClose, organizacaoId, cu
             onClick={() => setActiveTab('routing')}
             className={`py-3 px-4 font-semibold text-sm border-b-2 transition-colors flex items-center gap-2 ${
               activeTab === 'routing' 
-                ? 'border-[#ff6700] text-[#ff6700]' 
+                ? 'border-gray-900 text-gray-900' 
                 : 'border-transparent text-gray-500 hover:text-gray-700'
             }`}
           >
@@ -272,7 +272,7 @@ export default function AutomacoesListModal({ isOpen, onClose, organizacaoId, cu
                 </div>
                 <button
                   onClick={() => handleOpenForm()}
-                  className="bg-[#ff6700] text-white px-4 py-2 rounded-lg font-bold shadow-sm hover:bg-[#e05a00] transition-colors flex items-center gap-2"
+                  className="bg-gray-900 text-white px-4 py-2 rounded-lg font-bold shadow-sm hover:bg-gray-800 transition-colors flex items-center gap-2"
                 >
                   <FontAwesomeIcon icon={faPlus} />
                   Nova Automação
@@ -282,7 +282,7 @@ export default function AutomacoesListModal({ isOpen, onClose, organizacaoId, cu
               <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col">
                 {isLoadingWhatsApp ? (
                   <div className="p-12 flex justify-center items-center">
-                    <FontAwesomeIcon icon={faSpinner} spin className="text-[#ff6700] text-3xl" />
+                    <FontAwesomeIcon icon={faSpinner} spin className="text-gray-900 text-3xl" />
                   </div>
                 ) : automations.length === 0 ? (
                   <div className="p-12 text-center text-gray-500 flex flex-col items-center gap-3">
@@ -311,7 +311,7 @@ export default function AutomacoesListModal({ isOpen, onClose, organizacaoId, cu
                               <td className="px-6 py-4">
                                 <div className="text-sm font-bold text-gray-900">{automation.nome}</div>
                                 <div className="text-xs text-gray-500 mt-1">
-                                  Envia: <span className="font-semibold text-[#ff6700]">{automation.acao_config?.template_nome}</span>
+                                  Envia: <span className="font-semibold text-blue-600">{automation.acao_config?.template_nome}</span>
                                 </div>
                               </td>
                               <td className="px-6 py-4">
@@ -335,7 +335,7 @@ export default function AutomacoesListModal({ isOpen, onClose, organizacaoId, cu
                               </td>
                               <td className="px-6 py-4 text-right text-sm font-medium">
                                 <button onClick={() => handleOpenForm(automation)} className="text-indigo-600 hover:text-indigo-900 mr-4 transition-colors">
-                                  <FontAwesomeIcon icon={faPen} />
+                                  <FontAwesomeIcon icon={faEdit} />
                                 </button>
                                 <button onClick={() => handleDelete(automation)} className="text-red-500 hover:text-red-700 transition-colors">
                                   <FontAwesomeIcon icon={faTrash} />
@@ -365,7 +365,7 @@ export default function AutomacoesListModal({ isOpen, onClose, organizacaoId, cu
                   {!isFormRoteamentoOpen && (
                     <button
                       onClick={() => setIsFormRoteamentoOpen(true)}
-                      className="bg-[#ff6700] text-white px-4 py-2 rounded-lg font-bold shadow-sm hover:bg-[#e05a00] transition-colors flex items-center gap-2"
+                      className="bg-gray-900 text-white px-4 py-2 rounded-lg font-bold shadow-sm hover:bg-gray-800 transition-colors flex items-center gap-2"
                     >
                       <FontAwesomeIcon icon={faPlus} />
                       Nova Regra
@@ -374,9 +374,9 @@ export default function AutomacoesListModal({ isOpen, onClose, organizacaoId, cu
                 </div>
 
                 {isFormRoteamentoOpen && (
-                  <div className="border border-indigo-100 rounded-xl p-4 bg-indigo-50/30 space-y-4 animate-in slide-in-from-top-2 duration-200">
+                  <div className="border border-gray-200 rounded-xl p-4 bg-gray-50/50 space-y-4 animate-in slide-in-from-top-2 duration-200">
                     <h5 className="font-bold text-gray-800 text-sm flex items-center gap-2">
-                      <FontAwesomeIcon icon={faRobot} className="text-[#ff6700]" />
+                      <FontAwesomeIcon icon={faRobot} className="text-gray-900" />
                       Nova Regra de Roteamento
                     </h5>
                     
@@ -389,7 +389,7 @@ export default function AutomacoesListModal({ isOpen, onClose, organizacaoId, cu
                           placeholder="Ex: Leads do Empreendimento Alfa"
                           value={roteamentoForm.nome}
                           onChange={e => setRoteamentoForm(p => ({ ...p, nome: e.target.value }))}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-1 focus:ring-[#ff6700] text-gray-800"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-1 focus:ring-gray-900 text-gray-800"
                         />
                       </div>
 
@@ -399,7 +399,7 @@ export default function AutomacoesListModal({ isOpen, onClose, organizacaoId, cu
                         <select
                           value={roteamentoForm.funil_destino_id}
                           onChange={e => setRoteamentoForm(p => ({ ...p, funil_destino_id: e.target.value }))}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-1 focus:ring-[#ff6700] text-gray-800 font-medium"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-1 focus:ring-gray-900 text-gray-800 font-medium"
                         >
                           <option value="">-- Escolha o funil destino --</option>
                           {roteamentoData.funis.filter(f => !f.is_sistema).map(f => (
@@ -419,7 +419,7 @@ export default function AutomacoesListModal({ isOpen, onClose, organizacaoId, cu
                         <select
                           value={roteamentoForm.campaign_id}
                           onChange={e => setRoteamentoForm(p => ({ ...p, campaign_id: e.target.value }))}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-1 focus:ring-[#ff6700] text-gray-800"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-1 focus:ring-gray-900 text-gray-800"
                         >
                           <option value="">Qualquer campanha</option>
                           {roteamentoData.campaigns.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
@@ -435,7 +435,7 @@ export default function AutomacoesListModal({ isOpen, onClose, organizacaoId, cu
                         <select
                           value={roteamentoForm.ad_id}
                           onChange={e => setRoteamentoForm(p => ({ ...p, ad_id: e.target.value }))}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-1 focus:ring-[#ff6700] text-gray-800"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-1 focus:ring-gray-900 text-gray-800"
                         >
                           <option value="">Qualquer anúncio</option>
                           {roteamentoData.ads.map(a => <option key={a.id} value={a.id}>{a.nome}</option>)}
@@ -456,7 +456,7 @@ export default function AutomacoesListModal({ isOpen, onClose, organizacaoId, cu
                       <button
                         onClick={() => criarRegraMutation.mutate()}
                         disabled={criarRegraMutation.isPending}
-                        className="px-4 py-2 text-sm font-bold text-white bg-[#ff6700] hover:bg-[#e05a00] disabled:bg-orange-300 rounded-lg transition-colors flex items-center gap-2"
+                        className="px-4 py-2 text-sm font-bold text-white bg-gray-900 hover:bg-gray-800 disabled:bg-gray-300 rounded-lg transition-colors flex items-center gap-2"
                       >
                         {criarRegraMutation.isPending ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faSave} />}
                         Salvar Regra
@@ -470,7 +470,7 @@ export default function AutomacoesListModal({ isOpen, onClose, organizacaoId, cu
               <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col">
                 {isLoadingRouting ? (
                   <div className="p-12 flex justify-center items-center">
-                    <FontAwesomeIcon icon={faSpinner} spin className="text-[#ff6700] text-3xl" />
+                    <FontAwesomeIcon icon={faSpinner} spin className="text-gray-900 text-3xl" />
                   </div>
                 ) : roteamentoData.regras.length === 0 ? (
                   <div className="p-12 text-center text-gray-500 flex flex-col items-center gap-3">
@@ -500,7 +500,7 @@ export default function AutomacoesListModal({ isOpen, onClose, organizacaoId, cu
                               <td className="px-6 py-4">
                                 <div className="text-sm font-bold text-gray-900">{regra.nome}</div>
                                 <div className="text-xs text-gray-500 mt-1 flex items-center gap-1.5">
-                                  Destino: <span className="font-semibold text-emerald-600 flex items-center gap-1">
+                                  Destino: <span className="font-semibold text-blue-600 flex items-center gap-1">
                                     <FontAwesomeIcon icon={faArrowRight} size="xs" /> {funilDestino?.nome || 'Funil não encontrado'}
                                   </span>
                                 </div>
