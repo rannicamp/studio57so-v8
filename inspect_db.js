@@ -1,21 +1,25 @@
-const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config({ path: '.env.local' });
+const { createClient } = require('@supabase/supabase-js');
 
-const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-);
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
 
-async function checkSchema() {
-    console.log("Fetching schema sample...");
-    const { data: elBim, error: err1 } = await supabase.from('elementos_bim').select('*').limit(1);
-    console.log("elementos_bim sample:", err1 || elBim[0]);
+const supabase = createClient(supabaseUrl, supabaseKey, {
+  auth: { persistSession: false }
+});
 
-    const { data: atvEl, error: err2 } = await supabase.from('atividades_elementos').select('*').limit(1);
-    console.log("atividades_elementos sample:", err2 || atvEl[0]);
+async function run() {
+  try {
+    console.log("=== HISTORICO MOVIMENTACAO ===");
+    const { data: movements, error: mErr } = await supabase.from('historico_movimentacao_funil')
+      .select('id, contato_no_funil_id, coluna_anterior_id, coluna_nova_id, data_movimentacao, usuario_id')
+      .order('data_movimentacao', { ascending: true });
+    if (mErr) console.error(mErr);
+    else console.log(movements.slice(-15)); // print last 15 movements
 
-    const { data: atv, error: err3 } = await supabase.from('activities').select('*').limit(1);
-    console.log("activities sample:", err3 || atv[0]);
+  } catch(e) {
+    console.error(e);
+  }
 }
 
-checkSchema().catch(console.error);
+run();

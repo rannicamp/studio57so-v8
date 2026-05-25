@@ -88,7 +88,7 @@ export async function PUT(req) {
  contato_id,
  coluna_id,
  contatos!contatos_no_funil_contato_id_fkey (
- id, nome, razao_social, origem, tipo, meta_campaign_id,
+ id, nome, razao_social, origem, tipo_contato, meta_campaign_id,
  telefones (telefone),
  emails (email)
  ),
@@ -186,7 +186,7 @@ export async function PUT(req) {
    const condicoes = regra.gatilho_config?.condicoes;
    if (condicoes) {
      let match = true;
-     if (condicoes.tipo && contato.tipo && condicoes.tipo.toLowerCase() !== contato.tipo.toLowerCase()) match = false;
+     if (condicoes.tipo && contato.tipo_contato && condicoes.tipo.toLowerCase() !== contato.tipo_contato.toLowerCase()) match = false;
      if (condicoes.origem && contato.origem && condicoes.origem !== contato.origem) match = false;
      if (condicoes.campanha_id && contato.meta_campaign_id !== condicoes.campanha_id) match = false;
 

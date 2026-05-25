@@ -281,17 +281,28 @@ async function processWebhook(body) {
 
  console.log(`[Org ${orgId}] OK: "${nomeLead}" entregue na coluna ENTRADA (id=${colunaEntradaId}).`);
 
- // 3f. AUTOMACAO DE ROTEAMENTO: verifica regras para mover para outro funil
- const { data: roteamentoResult, error: roteamentoError } = await supabase
- .rpc('fn_rotear_lead', { p_contato_no_funil_id: funilEntry.id });
+   let actualColunaId = colunaEntradaId;
 
- if (roteamentoError) {
- console.error(`[Org ${orgId}] Erro no roteamento automatico:`, roteamentoError.message);
- } else if (roteamentoResult === 'SEM_REGRA') {
- console.log(`[Org ${orgId}] Nenhuma regra aplicavel. Lead permanece no Funil de Entrada.`);
- } else {
- console.log(`[Org ${orgId}] ROTEADO! Resultado: ${roteamentoResult}`);
- }
+  // 3f. AUTOMACAO DE ROTEAMENTO: verifica regras para mover para outro funil
+  const { data: roteamentoResult, error: roteamentoError } = await supabase
+  .rpc('fn_rotear_lead', { p_contato_no_funil_id: funilEntry.id });
+
+  if (roteamentoError) {
+    console.error(`[Org ${orgId}] Erro no roteamento automatico:`, roteamentoError.message);
+  } else if (roteamentoResult === 'SEM_REGRA') {
+    console.log(`[Org ${orgId}] Nenhuma regra aplicavel. Lead permanece no Funil de Entrada.`);
+  } else {
+    console.log(`[Org ${orgId}] ROTEADO! Resultado: ${roteamentoResult}`);
+    // Busca a coluna_id atualizada após o roteamento
+    const { data: updatedCard } = await supabase
+      .from('contatos_no_funil')
+      .select('coluna_id')
+      .eq('id', funilEntry.id)
+      .maybeSingle();
+    if (updatedCard?.coluna_id) {
+      actualColunaId = updatedCard.coluna_id;
+    }
+  }
 
  // 3g. AUTOMACAO DE RODIZIO: Atribuir corretor automaticamente
  const { data: configRodizio } = await supabase
@@ -324,13 +335,13 @@ async function processWebhook(body) {
  }
 
   // 3h. AUTOMACAO WHATSAPP (Boas vindas / Criação de Card)
-  const { data: automacoes } = await supabase
-    .from('automacoes')
-    .select('*')
-    .eq('organizacao_id', orgId)
-    .eq('ativo', true)
-    .in('gatilho_tipo', ['CRIAR_CARD', 'MOVER_CARD', 'MOVER_COLUNA'])
-    .eq('gatilho_config->>coluna_id', colunaEntradaId);
+   const { data: automacoes } = await supabase
+     .from('automacoes')
+     .select('*')
+     .eq('organizacao_id', orgId)
+     .eq('ativo', true)
+     .in('gatilho_tipo', ['CRIAR_CARD', 'MOVER_CARD', 'MOVER_COLUNA'])
+     .eq('gatilho_config->>coluna_id', actualColunaId);
 
   if (automacoes?.length > 0 && finalPhone) {
     const { data: orgConfig } = await supabase.from('configuracoes_whatsapp').select('*').eq('organizacao_id', orgId).single();
