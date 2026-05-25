@@ -143,6 +143,20 @@ export default function ConfiguracoesPage() {
  icon: faBookReader,
  href: '/configuracoes/tutoriais',
  color: 'bg-rose-50 text-rose-600'
+ },
+ {
+ title: 'Roteamento de Leads',
+ description: 'Configure regras para distribuir novos leads da Meta automaticamente para os funis corretos.',
+ icon: faRobot,
+ href: '/crm/automacao',
+ color: 'bg-indigo-50 text-indigo-600'
+ },
+ {
+ title: 'Automações de Mensagens',
+ description: 'Crie e gerencie as regras de disparos automáticos de WhatsApp na movimentação do CRM.',
+ icon: faCommentDots,
+ href: '/automacao',
+ color: 'bg-purple-50 text-purple-600'
  }
  ];
 
