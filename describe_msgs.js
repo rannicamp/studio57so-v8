@@ -5,10 +5,9 @@ async function main() {
   await client.connect();
 
   const query = `
-    SELECT id, direction, sent_at 
-    FROM whatsapp_messages 
-    WHERE conversation_id = '16360' 
-    ORDER BY sent_at ASC;
+    SELECT column_name, data_type 
+    FROM information_schema.columns 
+    WHERE table_name = 'whatsapp_messages';
   `;
 
   try {

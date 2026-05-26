@@ -5,15 +5,12 @@ async function main() {
   await client.connect();
 
   const query = `
-    SELECT id, direction, sent_at 
-    FROM whatsapp_messages 
-    WHERE conversation_id = '16360' 
-    ORDER BY sent_at ASC;
+    NOTIFY pgrst, 'reload schema';
   `;
 
   try {
-      const res = await client.query(query);
-      console.log(JSON.stringify(res.rows, null, 2));
+      await client.query(query);
+      console.log('Schema cache reloaded!');
   } catch(e) {
       console.error('Erro:', e);
   }

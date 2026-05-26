@@ -78,6 +78,40 @@ const BooleanBadge = ({ label, value, icon, trueColor = "bg-green-100 text-green
  );
 };
 
+// Componente de Badge para SLA de Atendimento (Sem Emojis)
+const SlaBadge = ({ minutes }) => {
+  if (minutes === null || minutes === undefined || minutes === 0) return null;
+
+  let label = '';
+  let bgClass = '';
+  let icon = null;
+
+  if (minutes < 15) {
+    label = 'Excelente';
+    bgClass = 'bg-green-100 text-green-800 border-green-200';
+    icon = faCheckCircle;
+  } else if (minutes < 30) {
+    label = 'Bom';
+    bgClass = 'bg-blue-100 text-blue-800 border-blue-200';
+    icon = faCheckCircle;
+  } else if (minutes < 60) {
+    label = 'Risco';
+    bgClass = 'bg-orange-100 text-orange-800 border-orange-200';
+    icon = faStopwatch;
+  } else {
+    label = 'Perda';
+    bgClass = 'bg-red-100 text-red-800 border-red-200';
+    icon = faTimesCircle;
+  }
+
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 mt-1 rounded-full text-[10px] font-bold border shadow-sm ${bgClass}`} title={`SLA: ${label}`}>
+      <FontAwesomeIcon icon={icon} className="w-2 h-2" />
+      {label}
+    </span>
+  );
+};
+
 const EditableField = ({ label, value, name, onChange, icon }) => (
  <div className="mb-3">
  <label className="text-xs font-medium text-gray-500 flex items-center gap-2"><FontAwesomeIcon icon={icon} className="w-3 h-3"/>{label}</label>
@@ -771,6 +805,7 @@ export default function ContactProfile({ contact }) {
             <span className={`text-lg font-bold relative z-10 ${conversationKpis?.broker_avg_minutes > 120 ? 'text-orange-500' : 'text-gray-800'}`}>
               {isLoadingKpis ? '...' : formatMinutes(conversationKpis?.broker_avg_minutes)}
             </span>
+            {!isLoadingKpis && <SlaBadge minutes={conversationKpis?.broker_avg_minutes} />}
           </div>
           <div className="bg-white/60 backdrop-blur-md border border-gray-100 rounded-xl p-3 shadow-sm flex flex-col items-center justify-center text-center relative overflow-hidden group">
             <div className="absolute top-0 right-0 w-16 h-16 bg-green-50 rounded-full opacity-50 -mr-6 -mt-6 transition-transform group-hover:scale-110"></div>

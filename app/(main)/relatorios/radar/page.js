@@ -8,7 +8,8 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faMobileAlt, faDesktop, faEye, faGlobe, faSpinner, faExclamationTriangle,
   faFilter, faFunnelDollar, faChartPie, faChartLine, faBullhorn,
-  faBuilding, faCalendarAlt, faChartBar, faUsers, faClock, faComments, faReplyAll, faFileExport
+  faBuilding, faCalendarAlt, faChartBar, faUsers, faClock, faComments, faReplyAll, faFileExport, faStopwatch,
+  faCheckCircle, faTimesCircle
 } from '@fortawesome/free-solid-svg-icons';
 import { faMeta } from '@fortawesome/free-brands-svg-icons';
 import {
@@ -71,6 +72,39 @@ function RadarPageContent() {
     const horas = Math.floor(minutos / 60);
     const restosMinutos = Math.floor(minutos % 60);
     return `${horas}h ${restosMinutos}m`;
+  };
+
+  const getSlaClassification = (mins) => {
+    if (mins === null || mins === undefined || mins <= 0) return null;
+    
+    let label = '';
+    let bgClass = '';
+    let icon = null;
+    
+    if (mins < 15) {
+      label = 'Excelente';
+      bgClass = 'bg-emerald-100 text-emerald-800 border-emerald-200';
+      icon = faCheckCircle;
+    } else if (mins < 30) {
+      label = 'Bom';
+      bgClass = 'bg-blue-100 text-blue-800 border-blue-200';
+      icon = faCheckCircle;
+    } else if (mins < 60) {
+      label = 'Risco';
+      bgClass = 'bg-orange-100 text-orange-800 border-orange-200';
+      icon = faStopwatch;
+    } else {
+      label = 'Perda';
+      bgClass = 'bg-red-100 text-red-800 border-red-200';
+      icon = faTimesCircle;
+    }
+
+    return (
+      <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold border shadow-sm ${bgClass}`} title={`SLA: ${label}`}>
+        <FontAwesomeIcon icon={icon} className="w-3 h-3" />
+        {label}
+      </span>
+    );
   };
 
   // FETCH RADAR
@@ -547,14 +581,16 @@ function RadarPageContent() {
                         <tr className="border-b border-slate-200 text-slate-500 text-xs uppercase bg-slate-50/50">
                           <th className="p-3 font-semibold rounded-tl-lg">Corretor</th>
                           <th className="p-3 font-semibold text-center">Volume Total</th>
-                          <th className="p-3 font-semibold text-center">Tempo de Resposta (SLA)</th>
+                          <th className="p-3 font-semibold text-center">Nossa Agilidade (SLA)</th>
+                          <th className="p-3 font-semibold text-center">Agilidade do Cliente</th>
                           <th className="p-3 font-semibold text-center rounded-tr-lg">Distribuição do Funil</th>
                         </tr>
                       </thead>
                       <tbody>
                         {dadosComercial.desempenho_corretores.map((corretor, idx) => {
-                           const isWarning = corretor.tempo_medio_resposta_minutos > 5;
+                           const isWarning = corretor.tempo_medio_resposta_minutos > 60;
                            const slaText = corretor.tempo_medio_resposta_minutos > 0 ? formataMinutosHours(corretor.tempo_medio_resposta_minutos) : 'Sem interações';
+                           const slaLeadText = corretor.tempo_medio_resposta_lead_minutos > 0 ? formataMinutosHours(corretor.tempo_medio_resposta_lead_minutos) : 'Sem interações';
                            const total = corretor.total_atendimentos;
                            
                            return (
@@ -572,13 +608,29 @@ function RadarPageContent() {
                                </td>
                                <td className="p-3 text-center">
                                   {corretor.tempo_medio_resposta_minutos > 0 ? (
-                                     <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold ${isWarning ? 'bg-rose-100 text-rose-700 border border-rose-200 shadow-sm' : 'bg-emerald-100 text-emerald-700 border border-emerald-200 shadow-sm'}`}>
-                                       <FontAwesomeIcon icon={faClock} />
-                                       {slaText}
+                                     <div className="flex flex-col sm:flex-row items-center justify-center gap-2">
+                                        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200 shadow-sm" title="Nosso Tempo Médio (Ping-Pong)">
+                                          <FontAwesomeIcon icon={faStopwatch} />
+                                          {slaText}
+                                        </div>
+                                        {getSlaClassification(corretor.tempo_medio_resposta_minutos)}
                                      </div>
                                   ) : (
                                      <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold bg-slate-100 text-slate-500 border border-slate-200">
-                                       <FontAwesomeIcon icon={faClock} />
+                                       <FontAwesomeIcon icon={faStopwatch} />
+                                       N/A
+                                     </div>
+                                  )}
+                               </td>
+                               <td className="p-3 text-center">
+                                  {corretor.tempo_medio_resposta_lead_minutos > 0 ? (
+                                     <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200 shadow-sm" title="Tempo Médio do Cliente (Ping-Pong)">
+                                       <FontAwesomeIcon icon={faReplyAll} />
+                                       {slaLeadText}
+                                     </div>
+                                  ) : (
+                                     <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold bg-slate-100 text-slate-500 border border-slate-200">
+                                       <FontAwesomeIcon icon={faReplyAll} />
                                        N/A
                                      </div>
                                   )}

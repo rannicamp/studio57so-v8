@@ -5,10 +5,7 @@ async function main() {
   await client.connect();
 
   const query = `
-    SELECT id, direction, sent_at 
-    FROM whatsapp_messages 
-    WHERE conversation_id = '16360' 
-    ORDER BY sent_at ASC;
+    SELECT id, email, organizacao_id FROM usuarios LIMIT 5;
   `;
 
   try {

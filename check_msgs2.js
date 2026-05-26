@@ -5,10 +5,11 @@ async function main() {
   await client.connect();
 
   const query = `
-    SELECT id, direction, sent_at 
+    SELECT id, direction, created_at, content 
     FROM whatsapp_messages 
-    WHERE conversation_id = '16360' 
-    ORDER BY sent_at ASC;
+    WHERE conversation_record_id = 16360 
+      AND direction IN ('inbound', 'outbound')
+    ORDER BY created_at ASC;
   `;
 
   try {

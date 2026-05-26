@@ -5,15 +5,12 @@ async function main() {
   await client.connect();
 
   const query = `
-    SELECT id, direction, sent_at 
-    FROM whatsapp_messages 
-    WHERE conversation_id = '16360' 
-    ORDER BY sent_at ASC;
+    SELECT * FROM fn_relatorio_comercial(2, '2026-05-01', '2026-05-26');
   `;
 
   try {
       const res = await client.query(query);
-      console.log(JSON.stringify(res.rows, null, 2));
+      console.log(JSON.stringify(res.rows[0].fn_relatorio_comercial.desempenho_corretores, null, 2));
   } catch(e) {
       console.error('Erro:', e);
   }

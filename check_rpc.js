@@ -5,15 +5,14 @@ async function main() {
   await client.connect();
 
   const query = `
-    SELECT id, direction, sent_at 
-    FROM whatsapp_messages 
-    WHERE conversation_id = '16360' 
-    ORDER BY sent_at ASC;
+    SELECT prosrc, pg_get_function_arguments(oid) as args
+    FROM pg_proc 
+    WHERE proname = 'get_conversation_response_kpis';
   `;
 
   try {
       const res = await client.query(query);
-      console.log(JSON.stringify(res.rows, null, 2));
+      console.log(JSON.stringify(res.rows[0], null, 2));
   } catch(e) {
       console.error('Erro:', e);
   }

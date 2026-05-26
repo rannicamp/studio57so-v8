@@ -5,10 +5,10 @@ async function main() {
   await client.connect();
 
   const query = `
-    SELECT id, direction, sent_at 
-    FROM whatsapp_messages 
-    WHERE conversation_id = '16360' 
-    ORDER BY sent_at ASC;
+    SELECT id, get_conversation_response_kpis(id) as kpis
+    FROM whatsapp_conversations
+    ORDER BY id DESC
+    LIMIT 10;
   `;
 
   try {

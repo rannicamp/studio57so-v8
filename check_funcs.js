@@ -5,10 +5,9 @@ async function main() {
   await client.connect();
 
   const query = `
-    SELECT id, direction, sent_at 
-    FROM whatsapp_messages 
-    WHERE conversation_id = '16360' 
-    ORDER BY sent_at ASC;
+    SELECT proname, pg_get_function_arguments(oid) as args
+    FROM pg_proc 
+    WHERE proname = 'fn_relatorio_comercial';
   `;
 
   try {
