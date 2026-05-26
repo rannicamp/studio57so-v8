@@ -4,9 +4,10 @@
 import { createClient, createAdminClient } from '@/utils/supabase/server'
 import { cookies } from 'next/headers'
 
-// IDs Corretos do Studio 57
+// IDs Corretos do Studio 57 e Elo 57
 // O organizacao_id será dinâmico pelo parametro da URL
-const FUNCAO_CORRETOR_ID = 20
+// Corretor: 20 (Org 1), 30 (Org 2)
+
 
 export async function registerRealtor(formData) {
  console.log('[ACTION] Iniciando cadastro completo de corretor...');
@@ -59,14 +60,15 @@ try {
  if (!newUserId) throw new Error('Usuário criado, mas ID não retornado.');
  console.log(`[ACTION] Auth criado. ID: ${newUserId}`);
 
- // 2. Perfil (usuarios)
- console.log('[ACTION] Criando Perfil...');
- const { error: profileError } = await supabaseAdmin.from('usuarios').upsert({
- id: newUserId,
- organizacao_id: organizacaoFinal, funcao_id: FUNCAO_CORRETOR_ID, nome: nome,
- email: email,
- aceitou_termos: true
- })
+  // 2. Perfil (usuarios)
+  console.log('[ACTION] Criando Perfil...');
+  const funcaoCorretorIdFinal = organizacaoFinal === 2 ? 30 : 20;
+  const { error: profileError } = await supabaseAdmin.from('usuarios').upsert({
+  id: newUserId,
+  organizacao_id: organizacaoFinal, funcao_id: funcaoCorretorIdFinal, nome: nome,
+  email: email,
+  aceitou_termos: true
+  })
 
  if (profileError) throw new Error(`Erro Perfil: ${profileError.message}`)
 

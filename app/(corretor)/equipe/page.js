@@ -15,8 +15,8 @@ export default function GestaoEquipePage() {
  const [corretores, setCorretores] = useState([])
  const [isLoading, setIsLoading] = useState(true)
 
- // Verifica se o usuário tem permissão (Gerente de Corretagem ID 21)
- const isGerente = user?.funcao_id === 21;
+ // Verifica se o usuário tem permissão (Gerente de Corretagem ID 21 na Org 1 ou ID 31 na Org 2)
+ const isGerente = user?.funcao_id === 21 || user?.funcao_id === 31;
 
  useEffect(() => {
  if (isUserLoading || !user) return;
@@ -28,11 +28,12 @@ export default function GestaoEquipePage() {
  async function fetchEquipe() {
  setIsLoading(true);
  try {
+ const funcaoCorretorId = user.organizacao_id === 2 ? 30 : 20;
  const { data, error } = await supabase
  .from('usuarios')
  .select('id, nome, sobrenome, email, is_active, created_at, contatos!contatos_criado_por_usuario_id_fkey(cpf, creci)')
  .eq('organizacao_id', user.organizacao_id)
- .eq('funcao_id', 20) // 20 = Corretor
+ .eq('funcao_id', funcaoCorretorId)
  .order('nome');
 
  if (error) throw error;

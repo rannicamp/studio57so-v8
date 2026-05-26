@@ -140,8 +140,8 @@ export async function middleware(req) {
       }
     }
 
-    // REGRA DO CORRETOR (ID 20) E GERENTE (ID 21)
-    else if (funcaoId === 20 || funcaoId === 21) {
+    // REGRA DO CORRETOR (ID 20) E GERENTE (ID 21) - E IDs locais da Org 2 (30/31)
+    else if (funcaoId === 20 || funcaoId === 21 || funcaoId === 30 || funcaoId === 31) {
       const isPortalCorretor = path.startsWith('/portal-') ||
         path.startsWith('/clientes') ||
         path.startsWith('/tabela-de-vendas') ||

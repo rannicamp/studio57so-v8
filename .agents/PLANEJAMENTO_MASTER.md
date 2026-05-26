@@ -25,6 +25,7 @@ O **Studio 57** é o ambiente de desenvolvimento e laboratório central. O **Elo
 - [x] Matriz de Aceites (Multi-contratos).
 - [x] Central de Políticas Públicas (/politicas).
 - [x] **Auditoria Final de RLS (Row Level Security) — CONCLUÍDA (07/03).**
+- [ ] **Automação de Provisionamento de Funções SaaS:** Garantir que toda nova Organização criada venha por padrão com o tipo de usuário 'Corretor' e suas permissões restritas configuradas automaticamente no banco de dados para acessar somente o Portal do Corretor.
 
 ### 1. Infraestrutura e Domínios
 - [x] Configuração do domínio oficial `elo57.com.br` no Netlify (Propagando).
