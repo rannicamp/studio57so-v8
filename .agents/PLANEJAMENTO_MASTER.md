@@ -544,4 +544,17 @@ O **Studio 57** é o ambiente de desenvolvimento e laboratório central. O **Elo
 - [x] **UI Mágica:** Adicionado canal `Supabase Realtime` escutando a tabela `banco_arquivos_ofx`. Quando o PDF terminal, a interface carrega magicamente avisando o usuário na hora sem F5.
 
 ---
+
+### 17. 📞 Ligações via WhatsApp (Estudo de Viabilidade & Futuro) - *ROADMAP*
+- [ ] **Estudo de Viabilidade de Infraestrutura VoIP (SIP Server):**
+  - Mapear os custos e requisitos para provisionar um servidor SIP seguro (TLS) compatível com SIPS e SRTP (requisito obrigatório da Meta).
+  - Estudar gateways parceiros de telecomunicações (ex: Twilio Elastic SIP Trunking, Wazo, ou Asterisk auto-hospedado) para gerenciar o roteamento das chamadas.
+- [ ] **Configuração de Webhooks e Roteamento de Chamadas (Meta):**
+  - Integrar no webhook o recebimento de eventos de chamadas do WhatsApp e o disparo da API Meta para indicar o `calling_routing_destination` apontando para o nosso servidor SIP.
+- [ ] **Desenvolvimento de Cliente WebRTC no Frontend:**
+  - Estudar bibliotecas como `SIP.js` ou `JsSIP` para implementar um softphone baseado em WebRTC dentro da Caixa de Entrada do Elo 57.
+  - Desenvolver componentes visuais (discador, painel de chamada recebida, controle de mudo e encerramento de chamada) integrados ao design premium do sistema.
+  - Garantir tratamento correto de permissões de áudio (microfone) no navegador e suporte mobile.
+
+---
 *Assinado: Devonildo (Seu Mentor Técnico)*
