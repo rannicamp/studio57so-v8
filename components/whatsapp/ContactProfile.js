@@ -8,7 +8,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faStickyNote, faTasks, faSpinner, faPlus, faPhone, faEnvelope, faIdCard, faGlobe, faPen, faTrash, faCheckCircle, faBullhorn, faUserTie, faCalculator, faExternalLinkAlt,
  faHistory, faTimes, faBriefcase, faSave, faFunnelDollar, faMoneyBillWave,
  faPiggyBank, faBullseye, faCheck, faTimesCircle, faRobot, faSyncAlt, faCopy, faReply, faFolderOpen, faPaperPlane, faFilePdf, faFileImage, faFileVideo, faFileLines,
- faTableCellsLarge, faBars, faBook
+ faTableCellsLarge, faBars, faBook, faStopwatch, faReplyAll, faCalendarAlt
 } from '@fortawesome/free-solid-svg-icons';
 import { faInstagram } from '@fortawesome/free-brands-svg-icons';
 import { toast } from 'sonner';
@@ -393,6 +393,40 @@ export default function ContactProfile({ contact }) {
  const { notes = [], activities = [], simulations = [], history = [], funilEntry, contactDetails, funilEntryId, instagramProfile, instagramManual } = profileData || {};
  const displayContact = { ...contact, ...contactDetails };
 
+ // --- KPIS DE TEMPO DE RESPOSTA ---
+ const { data: conversationKpis, isLoading: isLoadingKpis } = useQuery({
+ queryKey: ['conversationKpis', displayContact?.contato_id],
+ queryFn: async () => {
+ if (!displayContact?.contato_id) return null;
+ const { data: conv } = await supabase.from('whatsapp_conversations').select('id').eq('contato_id', displayContact.contato_id).maybeSingle();
+ if (!conv) return null;
+ const { data: kpis, error } = await supabase.rpc('get_conversation_response_kpis', { p_conversation_record_id: conv.id });
+ if (error) { console.error('Erro RPC KPIs:', error); return null; }
+ return kpis;
+ },
+ enabled: !!displayContact?.contato_id && activeTab === 'resumo'
+ });
+
+ const formatMinutes = (mins) => {
+ if (!mins || mins === 0) return '--';
+ if (mins < 60) return `${Math.round(mins)} min`;
+ const h = Math.floor(mins / 60);
+ const m = Math.round(mins % 60);
+ return `${h}h ${m > 0 ? m + 'm' : ''}`;
+ };
+
+ const getTempoCasa = () => {
+ if (!displayContact?.created_at) return '--';
+ const start = new Date(displayContact.created_at);
+ const now = new Date();
+ const diffTime = Math.abs(now - start);
+ const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+ if (diffDays < 30) return `${diffDays} dias`;
+ const diffMonths = Math.floor(diffDays / 30);
+ if (diffMonths < 12) return `${diffMonths} meses`;
+ return `${Math.floor(diffMonths / 12)} anos e ${diffMonths % 12} meses`;
+ };
+
  useEffect(() => {
  if (funilEntry?.empreendimento_id && !selectedEmpreendimentoId) {
  setSelectedEmpreendimentoId(funilEntry.empreendimento_id);
@@ -728,6 +762,32 @@ export default function ContactProfile({ contact }) {
 
     {activeTab === 'resumo' && (
       <div className="space-y-6 animate-in fade-in duration-200">
+        {/* --- NOVA SEÇÃO: KPIs DE TEMPO DE RESPOSTA --- */}
+        <div className="grid grid-cols-3 gap-3 mb-4">
+          <div className="bg-white/60 backdrop-blur-md border border-gray-100 rounded-xl p-3 shadow-sm flex flex-col items-center justify-center text-center relative overflow-hidden group">
+            <div className="absolute top-0 right-0 w-16 h-16 bg-blue-50 rounded-full opacity-50 -mr-6 -mt-6 transition-transform group-hover:scale-110"></div>
+            <FontAwesomeIcon icon={faStopwatch} className="text-blue-500 text-lg mb-1 relative z-10" />
+            <span className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold relative z-10">Nosso Tempo</span>
+            <span className={`text-lg font-bold relative z-10 ${conversationKpis?.broker_avg_minutes > 120 ? 'text-orange-500' : 'text-gray-800'}`}>
+              {isLoadingKpis ? '...' : formatMinutes(conversationKpis?.broker_avg_minutes)}
+            </span>
+          </div>
+          <div className="bg-white/60 backdrop-blur-md border border-gray-100 rounded-xl p-3 shadow-sm flex flex-col items-center justify-center text-center relative overflow-hidden group">
+            <div className="absolute top-0 right-0 w-16 h-16 bg-green-50 rounded-full opacity-50 -mr-6 -mt-6 transition-transform group-hover:scale-110"></div>
+            <FontAwesomeIcon icon={faReplyAll} className="text-green-500 text-lg mb-1 relative z-10" />
+            <span className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold relative z-10">Tempo do Lead</span>
+            <span className="text-lg font-bold text-gray-800 relative z-10">
+              {isLoadingKpis ? '...' : formatMinutes(conversationKpis?.lead_avg_minutes)}
+            </span>
+          </div>
+          <div className="bg-white/60 backdrop-blur-md border border-gray-100 rounded-xl p-3 shadow-sm flex flex-col items-center justify-center text-center relative overflow-hidden group">
+            <div className="absolute top-0 right-0 w-16 h-16 bg-purple-50 rounded-full opacity-50 -mr-6 -mt-6 transition-transform group-hover:scale-110"></div>
+            <FontAwesomeIcon icon={faCalendarAlt} className="text-purple-500 text-lg mb-1 relative z-10" />
+            <span className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold relative z-10">Tempo de Casa</span>
+            <span className="text-lg font-bold text-gray-800 relative z-10">{getTempoCasa()}</span>
+          </div>
+        </div>
+
         {/* --- NOVA SEÇÃO: ANÁLISE IA --- */}
         <section className="pb-5 border-b border-gray-100">
           <div className="flex justify-between items-center mb-3">
