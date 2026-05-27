@@ -165,13 +165,13 @@ BEGIN
         GROUP BY COALESCE(u.nome, u.razao_social, 'Sem Corretor / Robô')
         ORDER BY total_atendimentos DESC
     ),
-    messages_converted AS (
+    messages_parsed AS (
         SELECT 
             id,
             contato_id,
+            direction,
             sent_at,
             status,
-            direction,
             CASE 
                 WHEN jsonb_typeof(raw_payload) = 'string' THEN 
                     CASE 
@@ -184,52 +184,52 @@ BEGIN
         WHERE organizacao_id = p_organizacao_id
           AND raw_payload IS NOT NULL
     ),
-    templates_sent AS (
+    messages_labeled AS (
         SELECT 
             id,
             contato_id,
+            direction,
             sent_at,
             status,
-            payload->'template'->>'name' as template_name
-        FROM messages_converted
-        WHERE direction = 'outbound'
-          AND payload IS NOT NULL
-          AND payload->>'type' = 'template'
-          AND sent_at >= v_start_date
-          AND sent_at <= v_end_date
+            payload->'template'->>'name' as template_name,
+            CASE WHEN direction = 'outbound' AND payload->>'type' = 'template' THEN 1 ELSE 0 END as is_template_boundary
+        FROM messages_parsed
     ),
-    templates_replied AS (
+    messages_grouped AS (
         SELECT 
-            ts.id,
-            ts.template_name,
-            ts.status,
-            EXISTS (
-                SELECT 1
-                FROM messages_converted inbound
-                WHERE inbound.contato_id = ts.contato_id
-                  AND inbound.direction = 'inbound'
-                  AND inbound.sent_at > ts.sent_at
-                  AND NOT EXISTS (
-                      SELECT 1 
-                      FROM messages_converted next_outbound
-                      WHERE next_outbound.contato_id = ts.contato_id
-                        AND next_outbound.direction = 'outbound'
-                        AND next_outbound.payload->>'type' = 'template'
-                        AND next_outbound.sent_at > ts.sent_at
-                        AND next_outbound.sent_at < inbound.sent_at
-                  )
-            ) as responded
-        FROM templates_sent ts
+            id,
+            contato_id,
+            direction,
+            sent_at,
+            status,
+            template_name,
+            is_template_boundary,
+            sum(is_template_boundary) OVER (PARTITION BY contato_id ORDER BY sent_at ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) as group_id
+        FROM messages_labeled
+    ),
+    group_summary AS (
+        SELECT 
+            contato_id,
+            group_id,
+            max(case when direction = 'outbound' and is_template_boundary = 1 then template_name else null end) as t_name,
+            max(case when direction = 'outbound' and is_template_boundary = 1 then status else null end) as status,
+            max(case when direction = 'outbound' and is_template_boundary = 1 then sent_at else null end) as template_sent_at,
+            bool_or(direction = 'inbound') as has_reply
+        FROM messages_grouped
+        GROUP BY contato_id, group_id
+        HAVING max(case when direction = 'outbound' and is_template_boundary = 1 then 1 else 0 end) = 1
     ),
     metricas_templates AS (
         SELECT 
-            template_name,
+            t_name as template_name,
             COUNT(*) as total_sent,
             COUNT(*) FILTER (WHERE status IN ('delivered', 'read')) as total_delivered,
             COUNT(*) FILTER (WHERE status = 'read') as total_read,
-            COUNT(*) FILTER (WHERE responded) as total_replied
-        FROM templates_replied
-        GROUP BY template_name
+            COUNT(*) FILTER (WHERE has_reply) as total_replied
+        FROM group_summary
+        WHERE template_sent_at >= v_start_date
+          AND template_sent_at <= v_end_date
+        GROUP BY t_name
         ORDER BY total_sent DESC
     )
     SELECT jsonb_build_object(
@@ -264,7 +264,7 @@ END;
 $$;
   `;
 
-  // Nova query para a RPC de métricas históricas de templates
+  // Nova query para a RPC de métricas históricas de templates (Otimizada)
   const queryMetricasTemplates = `
 CREATE OR REPLACE FUNCTION fn_metricas_gerais_templates(p_organizacao_id bigint)
 RETURNS TABLE(
@@ -279,13 +279,13 @@ SECURITY DEFINER
 AS $$
 BEGIN
     RETURN QUERY
-    WITH messages_converted AS (
+    WITH messages_parsed AS (
         SELECT 
             id,
             contato_id,
+            direction,
             sent_at,
             status,
-            direction,
             CASE 
                 WHEN jsonb_typeof(raw_payload) = 'string' THEN 
                     CASE 
@@ -298,48 +298,48 @@ BEGIN
         WHERE organizacao_id = p_organizacao_id
           AND raw_payload IS NOT NULL
     ),
-    templates_sent AS (
+    messages_labeled AS (
         SELECT 
             id,
             contato_id,
+            direction,
             sent_at,
             status,
-            payload->'template'->>'name' as t_name
-        FROM messages_converted
-        WHERE direction = 'outbound'
-          AND payload IS NOT NULL
-          AND payload->>'type' = 'template'
+            payload->'template'->>'name' as template_name,
+            CASE WHEN direction = 'outbound' AND payload->>'type' = 'template' THEN 1 ELSE 0 END as is_template_boundary
+        FROM messages_parsed
     ),
-    templates_replied AS (
+    messages_grouped AS (
         SELECT 
-            ts.id,
-            ts.t_name,
-            ts.status,
-            EXISTS (
-                SELECT 1
-                FROM messages_converted inbound
-                WHERE inbound.contato_id = ts.contato_id
-                  AND inbound.direction = 'inbound'
-                  AND inbound.sent_at > ts.sent_at
-                  AND NOT EXISTS (
-                      SELECT 1 
-                      FROM messages_converted next_outbound
-                      WHERE next_outbound.contato_id = ts.contato_id
-                        AND next_outbound.direction = 'outbound'
-                        AND next_outbound.payload->>'type' = 'template'
-                        AND next_outbound.sent_at > ts.sent_at
-                        AND next_outbound.sent_at < inbound.sent_at
-                  )
-            ) as responded
-        FROM templates_sent ts
+            id,
+            contato_id,
+            direction,
+            sent_at,
+            status,
+            template_name,
+            is_template_boundary,
+            sum(is_template_boundary) OVER (PARTITION BY contato_id ORDER BY sent_at ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) as group_id
+        FROM messages_labeled
+    ),
+    group_summary AS (
+        SELECT 
+            contato_id,
+            group_id,
+            max(case when direction = 'outbound' and is_template_boundary = 1 then template_name else null end) as t_name,
+            max(case when direction = 'outbound' and is_template_boundary = 1 then status else null end) as status,
+            max(case when direction = 'outbound' and is_template_boundary = 1 then sent_at else null end) as template_sent_at,
+            bool_or(direction = 'inbound') as has_reply
+        FROM messages_grouped
+        GROUP BY contato_id, group_id
+        HAVING max(case when direction = 'outbound' and is_template_boundary = 1 then 1 else 0 end) = 1
     )
     SELECT 
       t_name::text as template_name,
       count(*)::bigint as total_sent,
       sum(case when status in ('delivered', 'read') then 1 else 0 end)::bigint as total_delivered,
       sum(case when status = 'read' then 1 else 0 end)::bigint as total_read,
-      sum(case when responded then 1 else 0 end)::bigint as total_replied
-    FROM templates_replied
+      sum(case when has_reply then 1 else 0 end)::bigint as total_replied
+    FROM group_summary
     GROUP BY t_name;
 END;
 $$;
