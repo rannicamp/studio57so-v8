@@ -230,7 +230,7 @@ function RadarPageContent() {
     const map = { 'Domingo': 0, 'Segunda': 0, 'Terça': 0, 'Quarta': 0, 'Quinta': 0, 'Sexta': 0, 'Sábado': 0 };
     dadosComercial.leads_por_dia.forEach(item => {
       try {
-        const dStr = format(parseISO(item.data), 'EEEE', { locale: ptBR });
+        const dStr = format(parseISO(`${item.data}T12:00:00`), 'EEEE', { locale: ptBR });
         const cleanDay = dStr.split('-')[0];
         const capitalizedDay = cleanDay.charAt(0).toUpperCase() + cleanDay.slice(1);
         if (map[capitalizedDay] !== undefined) map[capitalizedDay] += item.qtd;
@@ -384,7 +384,7 @@ function RadarPageContent() {
                           <XAxis dataKey="data" interval={0} tickLine={false} axisLine={false} tickMargin={10}
                             tick={({x, y, payload}) => {
                               try {
-                                const dateObj = parseISO(payload.value);
+                                const dateObj = parseISO(`${payload.value}T12:00:00`);
                                 if (isMensal) {
                                   const mes = format(dateObj, 'MMM', { locale: ptBR });
                                   const ano = format(dateObj, 'yy', { locale: ptBR });
@@ -408,7 +408,7 @@ function RadarPageContent() {
                           />
                           <YAxis tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} allowDecimals={false} />
                           <ReferenceLine y={mediaDiaria} stroke="#8b5cf6" strokeDasharray="4 4" label={{ position: 'insideTopLeft', value: `Média Gerada: ${mediaDiaria}`, fill: '#8b5cf6', fontSize: 11, fontWeight: 500 }} />
-                          <RechartsTooltip cursor={{ fill: '#f8fafc' }} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} labelFormatter={(label) => { try { return format(parseISO(label), isMensal ? "MMMM 'de' yyyy" : "dd 'de' MMMM", { locale: ptBR }); } catch { return label; } }} formatter={(value) => [value, 'Leads']} />
+                          <RechartsTooltip cursor={{ fill: '#f8fafc' }} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} labelFormatter={(label) => { try { return format(parseISO(`${label}T12:00:00`), isMensal ? "MMMM 'de' yyyy" : "dd 'de' MMMM", { locale: ptBR }); } catch { return label; } }} formatter={(value) => [value, 'Leads']} />
                           <Bar dataKey="qtd" fill="#2563eb" radius={[4, 4, 0, 0]} maxBarSize={40} />
                         </BarChart>
                       </ResponsiveContainer>

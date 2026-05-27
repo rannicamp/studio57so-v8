@@ -1,12 +1,4 @@
-CREATE OR REPLACE FUNCTION public.fn_relatorio_comercial(
-    p_data_inicio text,
-    p_data_fim text,
-    p_organizacao_id integer
-)
-RETURNS jsonb
-LANGUAGE plpgsql
-SECURITY DEFINER
-AS $$
+
 DECLARE
     v_retorno jsonb;
     v_start_date timestamptz;
@@ -14,26 +6,23 @@ DECLARE
     v_diff_days integer;
     v_min_date timestamptz;
 BEGIN
-    v_start_date := (p_data_inicio || ' 00:00:00-03')::timestamptz;
-    v_end_date   := (p_data_fim || ' 23:59:59-03')::timestamptz;
+    v_start_date := p_data_inicio::timestamptz;
+    v_end_date   := (p_data_fim || ' 23:59:59')::timestamptz;
 
-    -- Descobre a nascente da Organização na Tabela 
     SELECT MIN(created_at) INTO v_min_date 
     FROM contatos 
     WHERE organizacao_id::integer = p_organizacao_id 
       AND tipo_contato = 'Lead';
 
-    -- Trimming de Cauda! 
     IF v_min_date IS NOT NULL AND v_start_date < v_min_date THEN
-        v_start_date := date_trunc('day', v_min_date AT TIME ZONE 'America/Sao_Paulo') AT TIME ZONE 'America/Sao_Paulo';
+        v_start_date := date_trunc('day', v_min_date);
     END IF;
 
-    -- Trava Final Reversa  
     IF v_end_date < v_start_date THEN
         v_end_date := v_start_date;
     END IF;
 
-    v_diff_days := ((v_end_date AT TIME ZONE 'America/Sao_Paulo')::date - (v_start_date AT TIME ZONE 'America/Sao_Paulo')::date);
+    v_diff_days := (v_end_date::date - v_start_date::date);
 
     WITH contatos_periodo AS (
         SELECT id, origem, created_at
@@ -45,8 +34,8 @@ BEGIN
     ),
     serie_tempo AS (
         SELECT generate_series(
-            CASE WHEN v_diff_days > 35 THEN date_trunc('month', v_start_date AT TIME ZONE 'America/Sao_Paulo')::date ELSE (v_start_date AT TIME ZONE 'America/Sao_Paulo')::date END,
-            CASE WHEN v_diff_days > 35 THEN date_trunc('month', v_end_date AT TIME ZONE 'America/Sao_Paulo')::date ELSE (v_end_date AT TIME ZONE 'America/Sao_Paulo')::date END,
+            CASE WHEN v_diff_days > 35 THEN date_trunc('month', v_start_date::date) ELSE v_start_date::date END,
+            CASE WHEN v_diff_days > 35 THEN date_trunc('month', v_end_date::date) ELSE v_end_date::date END,
             CASE WHEN v_diff_days > 35 THEN '1 month'::interval ELSE '1 day'::interval END
         )::date as data_ref
     ),
@@ -56,7 +45,7 @@ BEGIN
             COUNT(c.id) AS qtd
         FROM serie_tempo s
         LEFT JOIN contatos_periodo c ON 
-            (CASE WHEN v_diff_days > 35 THEN date_trunc('month', c.created_at AT TIME ZONE 'America/Sao_Paulo')::date ELSE (c.created_at AT TIME ZONE 'America/Sao_Paulo')::date END) = s.data_ref
+            (CASE WHEN v_diff_days > 35 THEN date_trunc('month', c.created_at::date)::date ELSE c.created_at::date END) = s.data_ref
         GROUP BY s.data_ref
         ORDER BY s.data_ref
     ),
@@ -261,4 +250,3 @@ BEGIN
 
     RETURN v_retorno;
 END;
-$$;
