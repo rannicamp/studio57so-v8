@@ -165,19 +165,71 @@ BEGIN
         GROUP BY COALESCE(u.nome, u.razao_social, 'Sem Corretor / Robô')
         ORDER BY total_atendimentos DESC
     ),
-    metricas_templates AS (
+    messages_converted AS (
         SELECT 
-            COALESCE(raw_payload->'template'->>'name', 'Mensagens Comuns') as template_name,
-            COUNT(*) as total_sent,
-            COUNT(*) FILTER (WHERE status IN ('delivered', 'read')) as total_delivered,
-            COUNT(*) FILTER (WHERE status = 'read') as total_read
+            id,
+            contato_id,
+            sent_at,
+            status,
+            direction,
+            CASE 
+                WHEN jsonb_typeof(raw_payload) = 'string' THEN 
+                    CASE 
+                        WHEN (raw_payload#>>'{}') IS NULL OR (raw_payload#>>'{}') = '' THEN NULL
+                        ELSE (raw_payload#>>'{}')::jsonb 
+                    END
+                ELSE raw_payload 
+            END as payload
         FROM whatsapp_messages
         WHERE organizacao_id = p_organizacao_id
-          AND direction = 'outbound'
+          AND raw_payload IS NOT NULL
+    ),
+    templates_sent AS (
+        SELECT 
+            id,
+            contato_id,
+            sent_at,
+            status,
+            payload->'template'->>'name' as template_name
+        FROM messages_converted
+        WHERE direction = 'outbound'
+          AND payload IS NOT NULL
+          AND payload->>'type' = 'template'
           AND sent_at >= v_start_date
           AND sent_at <= v_end_date
-          AND raw_payload->'template' IS NOT NULL
-        GROUP BY raw_payload->'template'->>'name'
+    ),
+    templates_replied AS (
+        SELECT 
+            ts.id,
+            ts.template_name,
+            ts.status,
+            EXISTS (
+                SELECT 1
+                FROM messages_converted inbound
+                WHERE inbound.contato_id = ts.contato_id
+                  AND inbound.direction = 'inbound'
+                  AND inbound.sent_at > ts.sent_at
+                  AND NOT EXISTS (
+                      SELECT 1 
+                      FROM messages_converted next_outbound
+                      WHERE next_outbound.contato_id = ts.contato_id
+                        AND next_outbound.direction = 'outbound'
+                        AND next_outbound.payload->>'type' = 'template'
+                        AND next_outbound.sent_at > ts.sent_at
+                        AND next_outbound.sent_at < inbound.sent_at
+                  )
+            ) as responded
+        FROM templates_sent ts
+    ),
+    metricas_templates AS (
+        SELECT 
+            template_name,
+            COUNT(*) as total_sent,
+            COUNT(*) FILTER (WHERE status IN ('delivered', 'read')) as total_delivered,
+            COUNT(*) FILTER (WHERE status = 'read') as total_read,
+            COUNT(*) FILTER (WHERE responded) as total_replied
+        FROM templates_replied
+        GROUP BY template_name
         ORDER BY total_sent DESC
     )
     SELECT jsonb_build_object(
@@ -201,7 +253,9 @@ BEGIN
             'total_sent', total_sent,
             'total_delivered', total_delivered,
             'total_read', total_read,
-            'read_rate', CASE WHEN total_sent > 0 THEN ROUND((total_read::numeric / total_sent::numeric) * 100) ELSE 0 END
+            'total_replied', total_replied,
+            'read_rate', CASE WHEN total_sent > 0 THEN ROUND((total_read::numeric / total_sent::numeric) * 100) ELSE 0 END,
+            'reply_rate', CASE WHEN total_sent > 0 THEN ROUND((total_replied::numeric / total_sent::numeric) * 100) ELSE 0 END
         )) FROM metricas_templates), '[]'::jsonb)
     ) INTO v_retorno;
 
@@ -210,11 +264,102 @@ END;
 $$;
   `;
 
+  // Nova query para a RPC de métricas históricas de templates
+  const queryMetricasTemplates = `
+CREATE OR REPLACE FUNCTION fn_metricas_gerais_templates(p_organizacao_id bigint)
+RETURNS TABLE(
+    template_name text,
+    total_sent bigint,
+    total_delivered bigint,
+    total_read bigint,
+    total_replied bigint
+) 
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+    RETURN QUERY
+    WITH messages_converted AS (
+        SELECT 
+            id,
+            contato_id,
+            sent_at,
+            status,
+            direction,
+            CASE 
+                WHEN jsonb_typeof(raw_payload) = 'string' THEN 
+                    CASE 
+                        WHEN (raw_payload#>>'{}') IS NULL OR (raw_payload#>>'{}') = '' THEN NULL
+                        ELSE (raw_payload#>>'{}')::jsonb 
+                    END
+                ELSE raw_payload 
+            END as payload
+        FROM whatsapp_messages
+        WHERE organizacao_id = p_organizacao_id
+          AND raw_payload IS NOT NULL
+    ),
+    templates_sent AS (
+        SELECT 
+            id,
+            contato_id,
+            sent_at,
+            status,
+            payload->'template'->>'name' as t_name
+        FROM messages_converted
+        WHERE direction = 'outbound'
+          AND payload IS NOT NULL
+          AND payload->>'type' = 'template'
+    ),
+    templates_replied AS (
+        SELECT 
+            ts.id,
+            ts.t_name,
+            ts.status,
+            EXISTS (
+                SELECT 1
+                FROM messages_converted inbound
+                WHERE inbound.contato_id = ts.contato_id
+                  AND inbound.direction = 'inbound'
+                  AND inbound.sent_at > ts.sent_at
+                  AND NOT EXISTS (
+                      SELECT 1 
+                      FROM messages_converted next_outbound
+                      WHERE next_outbound.contato_id = ts.contato_id
+                        AND next_outbound.direction = 'outbound'
+                        AND next_outbound.payload->>'type' = 'template'
+                        AND next_outbound.sent_at > ts.sent_at
+                        AND next_outbound.sent_at < inbound.sent_at
+                  )
+            ) as responded
+        FROM templates_sent ts
+    )
+    SELECT 
+      t_name::text as template_name,
+      count(*)::bigint as total_sent,
+      sum(case when status in ('delivered', 'read') then 1 else 0 end)::bigint as total_delivered,
+      sum(case when status = 'read' then 1 else 0 end)::bigint as total_read,
+      sum(case when responded then 1 else 0 end)::bigint as total_replied
+    FROM templates_replied
+    GROUP BY t_name;
+END;
+$$;
+  `;
+
   try {
+      // 1. Atualiza fn_relatorio_comercial
       await client.query(query);
       console.log('RPC fn_relatorio_comercial atualizada com sucesso!');
+
+      // 2. Cria/Atualiza fn_metricas_gerais_templates
+      await client.query(queryMetricasTemplates);
+      console.log('RPC fn_metricas_gerais_templates criada com sucesso!');
+
+      // 3. Força recarga do cache do schema PostgREST
+      await client.query("NOTIFY pgrst, 'reload schema';");
+      console.log('Cache do PostgREST recarregado com sucesso!');
+
   } catch(e) {
-      console.error('Erro ao criar RPC:', e);
+      console.error('Erro ao atualizar RPCs:', e);
   }
 
   await client.end();

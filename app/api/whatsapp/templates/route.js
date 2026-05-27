@@ -68,35 +68,23 @@ export async function GET(request) {
  return NextResponse.json({ error: `Erro da API do WhatsApp: ${responseData.error?.message}` }, { status: apiResponse.status });
  }
 
-  // 4. Busca as métricas de envio locais
-  const { data: metricsData } = await supabaseAdmin
-    .from('whatsapp_messages')
-    .select('status, raw_payload')
-    .eq('organizacao_id', profile.organizacao_id)
-    .eq('direction', 'outbound')
-    .not('raw_payload', 'is', null);
+  // 4. Busca as métricas de envio locais usando a RPC de alta performance
+  const { data: metricsData, error: metricsError } = await supabaseAdmin
+    .rpc('fn_metricas_gerais_templates', { p_organizacao_id: profile.organizacao_id });
+
+  if (metricsError) {
+    console.error('Erro ao buscar métricas locais de templates:', metricsError);
+  }
 
   const templateMetricsMap = {};
   if (metricsData) {
-    metricsData.forEach(msg => {
-      try {
-        const payload = typeof msg.raw_payload === 'string' ? JSON.parse(msg.raw_payload) : msg.raw_payload;
-        const templateName = payload?.template?.name;
-        if (templateName) {
-          if (!templateMetricsMap[templateName]) {
-            templateMetricsMap[templateName] = { sent: 0, delivered: 0, read: 0 };
-          }
-          templateMetricsMap[templateName].sent += 1;
-          if (msg.status === 'delivered' || msg.status === 'read') {
-            templateMetricsMap[templateName].delivered += 1;
-          }
-          if (msg.status === 'read') {
-            templateMetricsMap[templateName].read += 1;
-          }
-        }
-      } catch (e) {
-        // Ignora payloads inválidos
-      }
+    metricsData.forEach(row => {
+      templateMetricsMap[row.template_name] = {
+        sent: Number(row.total_sent) || 0,
+        delivered: Number(row.total_delivered) || 0,
+        read: Number(row.total_read) || 0,
+        replied: Number(row.total_replied) || 0
+      };
     });
   }
 
@@ -106,12 +94,13 @@ export async function GET(request) {
 
   const rawTemplates = Array.isArray(responseData?.data) ? responseData.data : [];
   const templatesWithMetrics = rawTemplates.map(template => {
-    const localMetrics = templateMetricsMap[template.name] || { sent: 0, delivered: 0, read: 0 };
+    const localMetrics = templateMetricsMap[template.name] || { sent: 0, delivered: 0, read: 0, replied: 0 };
     return {
       ...template,
       metrics: {
         ...localMetrics,
-        read_rate: localMetrics.sent > 0 ? Math.round((localMetrics.read / localMetrics.sent) * 100) : 0
+        read_rate: localMetrics.sent > 0 ? Math.round((localMetrics.read / localMetrics.sent) * 100) : 0,
+        reply_rate: localMetrics.sent > 0 ? Math.round((localMetrics.replied / localMetrics.sent) * 100) : 0
       }
     };
   });

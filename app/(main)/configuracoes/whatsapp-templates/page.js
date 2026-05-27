@@ -138,11 +138,12 @@ export default function WhatsappTemplatesPage() {
             {/* Cabeçalho Flutuante */}
             <div className="hidden md:flex items-center px-6 py-3 text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">
               <div className="w-1/5">Nome do Modelo</div>
-              <div className="w-28">Categoria</div>
+              <div className="w-24">Categoria</div>
               <div className="flex-1">Corpo (Preview)</div>
-              <div className="w-36 text-center">Mensagens Entregues</div>
-              <div className="w-32 text-center">Taxa de Leitura</div>
-              <div className="w-32 text-center">Status</div>
+              <div className="w-28 text-center">Entregues</div>
+              <div className="w-28 text-center">Taxa de Leitura</div>
+              <div className="w-28 text-center">Taxa de Resposta</div>
+              <div className="w-28 text-center">Status</div>
               <div className="w-20 text-right">Ações</div>
             </div>
 
@@ -161,7 +162,7 @@ export default function WhatsappTemplatesPage() {
                   </div>
 
                   {/* Categoria */}
-                  <div className="w-full md:w-28 pr-2">
+                  <div className="w-full md:w-24 pr-2">
                     <span className="text-xs font-bold text-indigo-700 bg-indigo-50 px-2 py-1 rounded-lg border border-indigo-100/50 block w-fit">
                       {tpl.category === 'MARKETING' ? 'Marketing' : tpl.category === 'UTILITY' ? 'Utilidade' : tpl.category}
                     </span>
@@ -177,13 +178,13 @@ export default function WhatsappTemplatesPage() {
                   </div>
 
                   {/* Mensagens Entregues */}
-                  <div className="w-full md:w-36 flex flex-col items-center justify-center mt-2 md:mt-0">
+                  <div className="w-full md:w-28 flex flex-col items-center justify-center mt-2 md:mt-0">
                     <span className="text-sm font-bold text-gray-700">{tpl.metrics?.delivered ?? 0}</span>
                     <span className="text-[10px] text-gray-400">de {tpl.metrics?.sent ?? 0} enviadas</span>
                   </div>
 
                   {/* Taxa de Leitura */}
-                  <div className="w-full md:w-32 flex flex-col items-center justify-center mt-2 md:mt-0">
+                  <div className="w-full md:w-28 flex flex-col items-center justify-center mt-2 md:mt-0">
                     <span className={`text-sm font-bold px-2.5 py-0.5 rounded-md border ${
                       (tpl.metrics?.read_rate ?? 0) >= 50 ? 'bg-green-50 text-green-700 border-green-200' :
                       (tpl.metrics?.read_rate ?? 0) >= 25 ? 'bg-blue-50 text-blue-700 border-blue-200' :
@@ -192,11 +193,24 @@ export default function WhatsappTemplatesPage() {
                     }`}>
                       {tpl.metrics?.read_rate ?? 0}%
                     </span>
-                    <span className="text-[10px] text-gray-400 mt-0.5">({tpl.metrics?.read ?? 0} visualizações)</span>
+                    <span className="text-[10px] text-gray-400 mt-0.5">({tpl.metrics?.read ?? 0} lidas)</span>
+                  </div>
+
+                  {/* Taxa de Resposta */}
+                  <div className="w-full md:w-28 flex flex-col items-center justify-center mt-2 md:mt-0">
+                    <span className={`text-sm font-bold px-2.5 py-0.5 rounded-md border ${
+                      (tpl.metrics?.reply_rate ?? 0) >= 30 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                      (tpl.metrics?.reply_rate ?? 0) >= 15 ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                      (tpl.metrics?.reply_rate ?? 0) > 0 ? 'bg-orange-50 text-orange-700 border-orange-200' :
+                      'bg-gray-50 text-gray-400 border-gray-200'
+                    }`}>
+                      {tpl.metrics?.reply_rate ?? 0}%
+                    </span>
+                    <span className="text-[10px] text-gray-400 mt-0.5">({tpl.metrics?.replied ?? 0} resp.)</span>
                   </div>
 
                   {/* Status */}
-                  <div className="w-full md:w-32 flex md:justify-center mt-2 md:mt-0">
+                  <div className="w-full md:w-28 flex md:justify-center mt-2 md:mt-0">
                     {getStatusBadge(tpl.status)}
                   </div>
 

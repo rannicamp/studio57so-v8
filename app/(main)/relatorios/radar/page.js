@@ -670,13 +670,16 @@ function RadarPageContent() {
                           <th className="p-3 font-semibold rounded-tl-lg">Modelo</th>
                           <th className="p-3 font-semibold text-center">Disparadas</th>
                           <th className="p-3 font-semibold text-center">Entregues</th>
-                          <th className="p-3 font-semibold text-center">Lidas / Visualizadas</th>
-                          <th className="p-3 font-semibold text-center rounded-tr-lg">Taxa de Abertura</th>
+                          <th className="p-3 font-semibold text-center">Lidas</th>
+                          <th className="p-3 font-semibold text-center">Respondidas</th>
+                          <th className="p-3 font-semibold text-center">Taxa de Abertura</th>
+                          <th className="p-3 font-semibold text-center rounded-tr-lg">Taxa de Resposta</th>
                         </tr>
                       </thead>
                       <tbody>
                         {dadosComercial.performance_templates.map((tpl, tIdx) => {
                           const readRate = Number(tpl.read_rate) || 0;
+                          const replyRate = Number(tpl.reply_rate) || 0;
                           
                           return (
                             <tr key={tIdx} className="border-b border-slate-100 last:border-0 hover:bg-slate-50/50 transition-colors">
@@ -699,9 +702,12 @@ function RadarPageContent() {
                               <td className="p-3 text-center text-slate-600 font-medium">
                                 {tpl.total_read}
                               </td>
+                              <td className="p-3 text-center text-slate-700 font-bold">
+                                {tpl.total_replied ?? 0}
+                              </td>
                               <td className="p-3 text-center">
                                 <div className="flex items-center justify-center gap-2">
-                                  <div className="w-24 bg-slate-100 rounded-full h-2 overflow-hidden hidden sm:block">
+                                  <div className="w-20 bg-slate-100 rounded-full h-2 overflow-hidden hidden sm:block">
                                     <div 
                                       className={`h-full rounded-full ${
                                         readRate >= 50 ? 'bg-emerald-500' :
@@ -719,6 +725,29 @@ function RadarPageContent() {
                                     'bg-slate-100 text-slate-500 border-slate-200'
                                   }`}>
                                     {readRate}%
+                                  </span>
+                                </div>
+                              </td>
+                              <td className="p-3 text-center">
+                                <div className="flex items-center justify-center gap-2">
+                                  <div className="w-20 bg-slate-100 rounded-full h-2 overflow-hidden hidden sm:block">
+                                    <div 
+                                      className={`h-full rounded-full ${
+                                        replyRate >= 30 ? 'bg-emerald-500' :
+                                        replyRate >= 15 ? 'bg-blue-500' :
+                                        replyRate > 0 ? 'bg-orange-500' :
+                                        'bg-slate-300'
+                                      }`}
+                                      style={{ width: `${replyRate}%` }}
+                                    />
+                                  </div>
+                                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${
+                                    replyRate >= 30 ? 'bg-emerald-100 text-emerald-800 border-emerald-200' :
+                                    replyRate >= 15 ? 'bg-blue-100 text-blue-800 border-blue-200' :
+                                    replyRate > 0 ? 'bg-orange-100 text-orange-800 border-orange-200' :
+                                    'bg-slate-100 text-slate-500 border-slate-200'
+                                  }`}>
+                                    {replyRate}%
                                   </span>
                                 </div>
                               </td>
