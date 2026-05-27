@@ -68,18 +68,60 @@ export async function GET(request) {
  return NextResponse.json({ error: `Erro da API do WhatsApp: ${responseData.error?.message}` }, { status: apiResponse.status });
  }
 
- // 4. Filtra apenas os modelos que estão APROVADOS (a menos que 'all=true' seja requisitado)
- const { searchParams } = new URL(request.url);
- const showAll = searchParams.get('all') === 'true';
+  // 4. Busca as métricas de envio locais
+  const { data: metricsData } = await supabaseAdmin
+    .from('whatsapp_messages')
+    .select('status, raw_payload')
+    .eq('organizacao_id', profile.organizacao_id)
+    .eq('direction', 'outbound')
+    .not('raw_payload', 'is', null);
 
- const safeData = Array.isArray(responseData?.data) ? responseData.data : [];
- 
- if (showAll) {
-  return NextResponse.json(safeData);
- } else {
-  const approvedTemplates = safeData.filter(template => template.status === 'APPROVED');
-  return NextResponse.json(approvedTemplates);
- }
+  const templateMetricsMap = {};
+  if (metricsData) {
+    metricsData.forEach(msg => {
+      try {
+        const payload = typeof msg.raw_payload === 'string' ? JSON.parse(msg.raw_payload) : msg.raw_payload;
+        const templateName = payload?.template?.name;
+        if (templateName) {
+          if (!templateMetricsMap[templateName]) {
+            templateMetricsMap[templateName] = { sent: 0, delivered: 0, read: 0 };
+          }
+          templateMetricsMap[templateName].sent += 1;
+          if (msg.status === 'delivered' || msg.status === 'read') {
+            templateMetricsMap[templateName].delivered += 1;
+          }
+          if (msg.status === 'read') {
+            templateMetricsMap[templateName].read += 1;
+          }
+        }
+      } catch (e) {
+        // Ignora payloads inválidos
+      }
+    });
+  }
+
+  // 5. Filtra apenas os modelos que estão APROVADOS (a menos que 'all=true' seja requisitado) e mescla com as métricas
+  const { searchParams } = new URL(request.url);
+  const showAll = searchParams.get('all') === 'true';
+
+  const rawTemplates = Array.isArray(responseData?.data) ? responseData.data : [];
+  const templatesWithMetrics = rawTemplates.map(template => {
+    const localMetrics = templateMetricsMap[template.name] || { sent: 0, delivered: 0, read: 0 };
+    return {
+      ...template,
+      metrics: {
+        ...localMetrics,
+        read_rate: localMetrics.sent > 0 ? Math.round((localMetrics.read / localMetrics.sent) * 100) : 0
+      }
+    };
+  });
+  
+  if (showAll) {
+   return NextResponse.json(templatesWithMetrics);
+  } else {
+   const approvedTemplates = templatesWithMetrics.filter(template => template.status === 'APPROVED');
+   return NextResponse.json(approvedTemplates);
+  }
 
  } catch (error) {
  console.error('Falha crítica ao buscar modelos de mensagem:', error);

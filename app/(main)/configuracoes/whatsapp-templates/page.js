@@ -137,9 +137,11 @@ export default function WhatsappTemplatesPage() {
           <div className="flex flex-col gap-3">
             {/* Cabeçalho Flutuante */}
             <div className="hidden md:flex items-center px-6 py-3 text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">
-              <div className="w-1/4">Nome do Modelo</div>
-              <div className="w-1/6">Categoria</div>
+              <div className="w-1/5">Nome do Modelo</div>
+              <div className="w-28">Categoria</div>
               <div className="flex-1">Corpo (Preview)</div>
+              <div className="w-36 text-center">Mensagens Entregues</div>
+              <div className="w-32 text-center">Taxa de Leitura</div>
               <div className="w-32 text-center">Status</div>
               <div className="w-20 text-right">Ações</div>
             </div>
@@ -153,14 +155,14 @@ export default function WhatsappTemplatesPage() {
                 <div key={tpl.name} className="flex flex-col md:flex-row items-start md:items-center bg-white p-5 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-all gap-4 md:gap-0">
                   
                   {/* Nome e Idioma */}
-                  <div className="w-full md:w-1/4 pr-4">
-                    <div className="font-bold text-gray-800 text-base">{tpl.name}</div>
+                  <div className="w-full md:w-1/5 pr-4">
+                    <div className="font-bold text-gray-800 text-base truncate" title={tpl.name}>{tpl.name}</div>
                     <div className="text-xs text-gray-400 mt-1 uppercase tracking-wide">{tpl.language}</div>
                   </div>
 
                   {/* Categoria */}
-                  <div className="w-full md:w-1/6">
-                    <span className="text-xs font-bold text-indigo-700 bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-100/50">
+                  <div className="w-full md:w-28 pr-2">
+                    <span className="text-xs font-bold text-indigo-700 bg-indigo-50 px-2 py-1 rounded-lg border border-indigo-100/50 block w-fit">
                       {tpl.category === 'MARKETING' ? 'Marketing' : tpl.category === 'UTILITY' ? 'Utilidade' : tpl.category}
                     </span>
                   </div>
@@ -172,6 +174,25 @@ export default function WhatsappTemplatesPage() {
                         {bodyText || <span className="text-gray-400 italic">Sem corpo de texto</span>}
                       </span>
                     </div>
+                  </div>
+
+                  {/* Mensagens Entregues */}
+                  <div className="w-full md:w-36 flex flex-col items-center justify-center mt-2 md:mt-0">
+                    <span className="text-sm font-bold text-gray-700">{tpl.metrics?.delivered ?? 0}</span>
+                    <span className="text-[10px] text-gray-400">de {tpl.metrics?.sent ?? 0} enviadas</span>
+                  </div>
+
+                  {/* Taxa de Leitura */}
+                  <div className="w-full md:w-32 flex flex-col items-center justify-center mt-2 md:mt-0">
+                    <span className={`text-sm font-bold px-2.5 py-0.5 rounded-md border ${
+                      (tpl.metrics?.read_rate ?? 0) >= 50 ? 'bg-green-50 text-green-700 border-green-200' :
+                      (tpl.metrics?.read_rate ?? 0) >= 25 ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                      (tpl.metrics?.read_rate ?? 0) > 0 ? 'bg-orange-50 text-orange-700 border-orange-200' :
+                      'bg-gray-50 text-gray-400 border-gray-200'
+                    }`}>
+                      {tpl.metrics?.read_rate ?? 0}%
+                    </span>
+                    <span className="text-[10px] text-gray-400 mt-0.5">({tpl.metrics?.read ?? 0} visualizações)</span>
                   </div>
 
                   {/* Status */}

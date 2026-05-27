@@ -655,6 +655,89 @@ function RadarPageContent() {
                 )}
               </div>
            </section>
+
+            {/* --- PERFORMANCE DE TEMPLATES (WhatsApp) --- */}
+            <section className="flex flex-col gap-6 w-full mt-4 animate-fade-in-up">
+              <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm min-h-[250px] flex flex-col">
+                <h3 className="text-slate-800 font-semibold mb-6 w-full text-left">Desempenho de Modelos de Mensagem (WhatsApp)</h3>
+                {isCarregando ? (
+                  <div className="flex-1 flex items-center justify-center text-slate-400 text-sm">Carregando métricas de templates...</div>
+                ) : dadosComercial?.performance_templates?.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="border-b border-slate-200 text-slate-500 text-xs uppercase bg-slate-50/50">
+                          <th className="p-3 font-semibold rounded-tl-lg">Modelo</th>
+                          <th className="p-3 font-semibold text-center">Disparadas</th>
+                          <th className="p-3 font-semibold text-center">Entregues</th>
+                          <th className="p-3 font-semibold text-center">Lidas / Visualizadas</th>
+                          <th className="p-3 font-semibold text-center rounded-tr-lg">Taxa de Abertura</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {dadosComercial.performance_templates.map((tpl, tIdx) => {
+                          const readRate = Number(tpl.read_rate) || 0;
+                          
+                          return (
+                            <tr key={tIdx} className="border-b border-slate-100 last:border-0 hover:bg-slate-50/50 transition-colors">
+                              <td className="p-3">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-8 h-8 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-xs">
+                                    <FontAwesomeIcon icon={faComments} />
+                                  </div>
+                                  <div>
+                                    <p className="font-semibold text-slate-700">{tpl.template_name}</p>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="p-3 text-center font-bold text-slate-700">
+                                {tpl.total_sent}
+                              </td>
+                              <td className="p-3 text-center text-slate-600 font-medium">
+                                {tpl.total_delivered}
+                              </td>
+                              <td className="p-3 text-center text-slate-600 font-medium">
+                                {tpl.total_read}
+                              </td>
+                              <td className="p-3 text-center">
+                                <div className="flex items-center justify-center gap-2">
+                                  <div className="w-24 bg-slate-100 rounded-full h-2 overflow-hidden hidden sm:block">
+                                    <div 
+                                      className={`h-full rounded-full ${
+                                        readRate >= 50 ? 'bg-emerald-500' :
+                                        readRate >= 25 ? 'bg-blue-500' :
+                                        readRate > 0 ? 'bg-orange-500' :
+                                        'bg-slate-300'
+                                      }`}
+                                      style={{ width: `${readRate}%` }}
+                                    />
+                                  </div>
+                                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${
+                                    readRate >= 50 ? 'bg-emerald-100 text-emerald-800 border-emerald-200' :
+                                    readRate >= 25 ? 'bg-blue-100 text-blue-800 border-blue-200' :
+                                    readRate > 0 ? 'bg-orange-100 text-orange-800 border-orange-200' :
+                                    'bg-slate-100 text-slate-500 border-slate-200'
+                                  }`}>
+                                    {readRate}%
+                                  </span>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="flex-1 flex flex-col items-center justify-center p-10 gap-2">
+                    <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center">
+                      <FontAwesomeIcon icon={faComments} className="text-slate-300" />
+                    </div>
+                    <span className="text-slate-400 text-sm">Nenhum modelo de mensagem enviado no período.</span>
+                  </div>
+                )}
+              </div>
+            </section>
         </div>
       )}
 

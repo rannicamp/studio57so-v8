@@ -164,6 +164,21 @@ BEGIN
         LEFT JOIN contatos u ON u.id::text = cw.corretor_id::text
         GROUP BY COALESCE(u.nome, u.razao_social, 'Sem Corretor / Robô')
         ORDER BY total_atendimentos DESC
+    ),
+    metricas_templates AS (
+        SELECT 
+            COALESCE(raw_payload->'template'->>'name', 'Mensagens Comuns') as template_name,
+            COUNT(*) as total_sent,
+            COUNT(*) FILTER (WHERE status IN ('delivered', 'read')) as total_delivered,
+            COUNT(*) FILTER (WHERE status = 'read') as total_read
+        FROM whatsapp_messages
+        WHERE organizacao_id = p_organizacao_id
+          AND direction = 'outbound'
+          AND sent_at >= v_start_date
+          AND sent_at <= v_end_date
+          AND raw_payload->'template' IS NOT NULL
+        GROUP BY raw_payload->'template'->>'name'
+        ORDER BY total_sent DESC
     )
     SELECT jsonb_build_object(
         'total_leads', COALESCE((SELECT total_leads FROM totais_leads_origem), 0),
@@ -180,7 +195,14 @@ BEGIN
             'tempo_medio_resposta_minutos', tempo_medio_resposta_minutos,
             'tempo_medio_resposta_lead_minutos', tempo_medio_resposta_lead_minutos,
             'funil_distribuicao', funil_distribuicao
-        )) FROM metricas_corretores), '[]'::jsonb)
+        )) FROM metricas_corretores), '[]'::jsonb),
+        'performance_templates', COALESCE((SELECT jsonb_agg(jsonb_build_object(
+            'template_name', template_name,
+            'total_sent', total_sent,
+            'total_delivered', total_delivered,
+            'total_read', total_read,
+            'read_rate', CASE WHEN total_sent > 0 THEN ROUND((total_read::numeric / total_sent::numeric) * 100) ELSE 0 END
+        )) FROM metricas_templates), '[]'::jsonb)
     ) INTO v_retorno;
 
     RETURN v_retorno;
