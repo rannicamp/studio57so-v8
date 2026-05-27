@@ -53,6 +53,15 @@ const formatRelativeDate = (date) => {
  return `Há ${diff} dias`;
 };
 
+const getTimezoneOffsetString = () => {
+  const offset = new Date().getTimezoneOffset();
+  const absOffset = Math.abs(offset);
+  const hours = String(Math.floor(absOffset / 60)).padStart(2, '0');
+  const minutes = String(absOffset % 60).padStart(2, '0');
+  const sign = offset <= 0 ? '+' : '-';
+  return `${sign}${hours}:${minutes}`;
+};
+
 const HighlightedText = ({ text = '', highlight = '' }) => {
  if (!highlight.trim() || !text) { return <span>{text}</span>; }
  const regex = new RegExp(`(${highlight.replace(/[.*+?^${'}'}()|[\]\\]/g, '\\$&')})`, 'gi');
@@ -169,8 +178,9 @@ const fetchFunilData = async (supabase, organizacaoId, funilId, filters) => {
  if (filters.origens?.length > 0) query = query.in('contatos.origem', filters.origens);
  if (filters.campaignIds?.length > 0) query = query.in('contatos.meta_campaign_id', filters.campaignIds);
  if (filters.adIds?.length > 0) query = query.in('contatos.meta_ad_id', filters.adIds);
- if (filters.startDate) query = query.gte('created_at', filters.startDate + 'T00:00:00');
- if (filters.endDate) query = query.lte('created_at', filters.endDate + 'T23:59:59');
+  const tz = getTimezoneOffsetString();
+  if (filters.startDate) query = query.gte('created_at', filters.startDate + 'T00:00:00' + tz);
+  if (filters.endDate) query = query.lte('created_at', filters.endDate + 'T23:59:59' + tz);
 
  if (filters.unidadeIds?.length > 0) {
  const { data: funilProductLinks, error: linkError } = await supabase
