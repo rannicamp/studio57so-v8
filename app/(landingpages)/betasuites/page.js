@@ -13,7 +13,7 @@ export const metadata = {
  url: 'https://www.studio57.com.br/betasuites',
  images: [
  {
- url: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/IMG_1765545243766.png', // Usa a foto da fachada como capa do link
+ url: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/anexos/beta_sunset_fachada.jpeg', // Usa a foto da fachada como capa do link
  width: 1200,
  height: 630,
  alt: 'Fachada Moderna do Beta Suítes',
@@ -29,7 +29,7 @@ export default function BetaSuitesPage() {
  '@type': 'RealEstateListing',
  name: 'Beta Suítes',
  image: [
- 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/IMG_1765545243766.png'
+ 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/anexos/beta_sunset_fachada.jpeg'
  ],
  description: 'Empreendimento de Studios Modernos no Alto Esplanada.',
  address: {
