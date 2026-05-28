@@ -24,29 +24,29 @@ const montserrat = Montserrat({
 
 // --- DADOS DOS EMPREENDIMENTOS ---
 const empreendimentosData = [
- {
- id: 1,
- nome: 'Residencial Alfa',
- status: 'EM EXECUÇÃO',
- statusColor: 'bg-green-600',
- imagemUrl: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/1/IMG_1759098853021.png',
- logoUrl: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/1/IMG_1759008548201.png',
- descricao: 'Apartamentos de 49 e 58m² no Alto Esplanada. Alta rentabilidade e valorização garantida.',
- link: '/residencialalfa',
- action: 'link'
- },
- {
- id: 2,
- nome: 'Beta Suítes',
- status: 'PRÉ-LANÇAMENTO',
- statusColor: 'bg-blue-600',
- imagemUrl: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/IMG_1765545243766.png',
- logoUrl: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/LOGO-P_1764944035362.png',
- descricao: 'Suítes de 23 a 32m² no Alto Esplanada. Investimento inteligente com foco em renda passiva.',
- link: '/betasuites',
- action: 'link'
- },
- {
+  {
+  id: 1,
+  nome: 'Residencial Alfa',
+  status: 'EM EXECUÇÃO',
+  statusColor: 'bg-green-600',
+  imagemUrl: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/1/IMG_1759098853021.png',
+  logoUrl: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/1/IMG_1759008548201.png',
+  descricao: 'Apartamentos de 49 e 58m² no Alto Esplanada. Alta rentabilidade e valorização garantida.',
+  link: '/residencialalfa',
+  action: 'link'
+  },
+  {
+  id: 2,
+  nome: 'Beta Suítes',
+  status: 'PRÉ-LANÇAMENTO',
+  statusColor: 'bg-blue-600',
+  imagemUrl: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/anexos/beta_sunset_fachada.jpeg',
+  logoUrl: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/LOGO-P_1764944035362.png',
+  descricao: 'Suítes de 23 a 32m² no Alto Esplanada. Investimento inteligente com foco em renda passiva.',
+  link: '/betasuites',
+  action: 'link'
+  },
+  {
   id: 3,
   nome: 'Refúgio Braúnas',
   status: 'CONCLUÍDO',
@@ -147,7 +147,7 @@ export default function HomePage() {
  <div className="w-full max-w-xs md:max-w-md drop-shadow-2xl">
  <Image
  src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/1/IMG_1759092334426.PNG"
- alt="Logo Studio 57 Arquitetura e Incorporação"
+ alt="Logo Studio 57"
  width={500}
  height={125}
  className="w-full h-auto object-contain mb-4"
