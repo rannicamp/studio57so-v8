@@ -271,7 +271,7 @@ export default function ManualCorretorAlfaClient() {
 
                <div className="w-full h-[120px] rounded-lg shadow-sm overflow-hidden border border-gray-200 mb-6 print:border-gray-300 relative bg-gray-100">
                  <iframe
-                   src="https://maps.google.com/maps?q=-18.844000508051817,-41.939619538223425&t=&z=14&ie=UTF8&iwloc=&output=embed"
+                   src="https://www.google.com/maps/embed?pb=!1m28!1m12!1m3!1d7446.222001312552!2d-41.94300369753734!3d-18.848790756994234!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!4m13!3e0!4m5!1s0xb1a714d59a2e33%3A0x35d5a5b96d26169a!2sALFA!3m2!1d-18.8439779!2d-41.9396746!4m5!1s0xb1a709333008ad%3A0x9757bf086fe8a009!2sPra%C3%A7a%20Serra%20Lima%2C%20Av.%20Minas%20Gerais%2C%20588%20-%20Centro%2C%20Gov.%20Valadares%20-%20MG%2C%2035010-150!3m2!1d-18.854164!2d-41.946112!5e1!3m2!1spt-BR!2sbr!4v1779984242356!5m2!1spt-BR!2sbr"
                    width="100%"
                    height="100%"
                    style={{ border: 0 }}

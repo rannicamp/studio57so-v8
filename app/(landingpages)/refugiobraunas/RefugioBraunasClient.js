@@ -69,6 +69,42 @@ const IconeSeguranca = () => (
 
 const primaryColor = '#2c5234';
 
+// --- DADOS DO PORTFÓLIO DE EMPREENDIMENTOS ---
+const empreendimentosPortfolio = [
+  {
+    nome: 'Residencial Alfa',
+    status: 'EM EXECUÇÃO',
+    statusColor: 'bg-green-600',
+    imagemUrl: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/1/IMG_1759098853021.png',
+    descricao: 'Apartamentos de 49 e 58m² no Alto Esplanada. Alta rentabilidade e valorização garantida.',
+    link: '/residencialalfa'
+  },
+  {
+    nome: 'Beta Suítes',
+    status: 'PRÉ-LANÇAMENTO',
+    statusColor: 'bg-blue-600',
+    imagemUrl: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/IMG_1765545243766.png',
+    descricao: 'Suítes de 23 a 32m² no Alto Esplanada. Investimento inteligente focado em renda passiva.',
+    link: '/betasuites'
+  },
+  {
+    nome: 'Refúgio Braúnas',
+    status: 'CONCLUÍDO',
+    statusColor: 'bg-[#2c5234]',
+    imagemUrl: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/6/IMG_1760619077139.png',
+    descricao: 'Lotes de 1.000m² a 10 minutos do centro com infraestrutura concluída e matriculados.',
+    link: '/refugiobraunas'
+  },
+  {
+    nome: 'Residencial Pero Vaz',
+    status: 'PRONTO PARA MORAR',
+    statusColor: 'bg-indigo-600',
+    imagemUrl: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/10/IMG_1778095649407.jpeg',
+    descricao: 'Apartamento térreo de 2 quartos no Jardim Vera Cruz. Saia do aluguel hoje mesmo!',
+    link: '/perovaz'
+  }
+];
+
 export default function RefugioBraunasClient() {
  const [selectedImage, setSelectedImage] = useState(null);
  const [isModalOpen, setIsModalOpen] = useState(false);
@@ -361,24 +397,24 @@ export default function RefugioBraunasClient() {
  </div>
  </section>
 
-      {/* Seção de Visão 360º */}
-      <section className="bg-gray-100 py-16 md:py-24 border-t border-gray-200">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-10">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4 text-gray-900">
-              Visão 360º Aérea
-            </h2>
-            <p className="max-w-2xl mx-auto text-gray-600 text-lg">
-              Explore o Refúgio Braúnas por um ângulo exclusivo. Arraste a imagem para os lados e sinta como é estar cercado pela natureza, a poucos minutos do centro da cidade.
-            </p>
-          </div>
-          <div className="max-w-6xl mx-auto px-2 md:px-0">
-            <Viewer360 src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/6/360_1779125295217_DJI_20260511121042_0023_D.JPG.jpeg" />
-          </div>
-        </div>
-      </section>
+ {/* Seção de Visão 360º */}
+ <section className="bg-gray-100 py-16 md:py-24 border-t border-gray-200">
+ <div className="container mx-auto px-4">
+  <div className="text-center mb-10">
+    <h2 className="text-3xl md:text-4xl font-bold mb-4 text-gray-900">
+      Visão 360º Aérea
+    </h2>
+    <p className="max-w-2xl mx-auto text-gray-600 text-lg">
+      Explore o Refúgio Braúnas por um ângulo exclusivo. Arraste a imagem para os lados e sinta como é estar cercado pela natureza, a poucos minutos do centro da cidade.
+    </p>
+  </div>
+  <div className="max-w-6xl mx-auto px-2 md:px-0">
+    <Viewer360 src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/6/360_1779125295217_DJI_20260511121042_0023_D.JPG.jpeg" />
+  </div>
+ </div>
+ </section>
 
-      {/* Mapa de Proximidades */}
+ {/* Mapa de Proximidades */}
  <section className="bg-gray-50 pt-16 md:pt-24 pb-16 md:pb-24">
  <div className="container mx-auto px-4">
  <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
@@ -527,11 +563,53 @@ export default function RefugioBraunasClient() {
  </p>
  <button
  onClick={openLeadModal}
- className="inline-block bg-primary text-white font-bold py-4 px-10 rounded-full hover:opacity-90 transition-all duration-300 shadow-lg transform hover:scale-105"
+ className="inline-block bg-[#2c5234] text-white font-bold py-4 px-10 rounded-full hover:opacity-90 transition-all duration-300 shadow-lg transform hover:scale-105"
  >
  RECEBER BOOK E TABELA DE VENDAS
  </button>
  </div>
+ </section>
+
+ {/* --- SEÇÃO PORTFÓLIO: OUTROS EMPREENDIMENTOS --- */}
+ <section className="bg-neutral-50 py-20 border-t border-gray-200">
+   <div className="max-w-6xl mx-auto px-4">
+     <div className="text-center mb-12">
+       <span className="text-[10px] md:text-xs font-bold tracking-[0.3em] text-[#2c5234] uppercase block mb-3">CONHEÇA MAIS</span>
+       <h2 className="text-3xl md:text-4xl font-bold text-gray-900 uppercase tracking-wide">
+         Outros Empreendimentos
+       </h2>
+       <div className="w-16 h-1 bg-[#2c5234] mx-auto mt-4"></div>
+     </div>
+     
+     <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+       {empreendimentosPortfolio
+         .filter(emp => emp.link !== '/refugiobraunas')
+         .map((emp, index) => (
+           <div key={index} className="bg-white rounded-2xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 flex flex-col h-full border border-gray-200 group hover:-translate-y-1">
+             <div className="relative aspect-video w-full overflow-hidden">
+               <img 
+                 src={emp.imagemUrl} 
+                 alt={emp.nome}
+                 className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+               />
+               <span className={`absolute top-4 right-4 ${emp.statusColor} text-white text-[9px] font-bold tracking-wider uppercase px-3 py-1 rounded-full shadow-sm`}>
+                 {emp.status}
+               </span>
+             </div>
+             <div className="p-6 flex flex-col flex-grow">
+               <h3 className="text-lg font-bold text-gray-900 mb-2 uppercase tracking-wide">{emp.nome}</h3>
+               <p className="text-gray-600 text-sm mb-6 flex-grow leading-relaxed">{emp.descricao}</p>
+               <a 
+                 href={emp.link}
+                 className="block w-full text-center bg-[#2c5234] hover:bg-[#3d6e48] text-white font-bold py-3 px-4 rounded-xl transition-all duration-300 uppercase tracking-wider text-xs shadow-md"
+               >
+                 Conhecer Empreendimento
+               </a>
+             </div>
+           </div>
+         ))}
+     </div>
+   </div>
  </section>
 
  {/* Footer */}

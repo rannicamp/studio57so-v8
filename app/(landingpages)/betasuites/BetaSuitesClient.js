@@ -36,7 +36,45 @@ const roboto = Roboto({
 });
 
 // --- CONFIGURAÇÕES DO BETA ---
-const primaryColor = '#f25a2f'; // --- DADOS DA GALERIA ---
+const primaryColor = '#f25a2f';
+
+// --- DADOS DO PORTFÓLIO DE EMPREENDIMENTOS ---
+const empreendimentosPortfolio = [
+  {
+    nome: 'Residencial Alfa',
+    status: 'EM EXECUÇÃO',
+    statusColor: 'bg-green-600',
+    imagemUrl: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/1/IMG_1759098853021.png',
+    descricao: 'Apartamentos de 49 e 58m² no Alto Esplanada. Alta rentabilidade e valorização garantida.',
+    link: '/residencialalfa'
+  },
+  {
+    nome: 'Beta Suítes',
+    status: 'PRÉ-LANÇAMENTO',
+    statusColor: 'bg-blue-600',
+    imagemUrl: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/IMG_1765545243766.png',
+    descricao: 'Suítes de 23 a 32m² no Alto Esplanada. Investimento inteligente focado em renda passiva.',
+    link: '/betasuites'
+  },
+  {
+    nome: 'Refúgio Braúnas',
+    status: 'CONCLUÍDO',
+    statusColor: 'bg-[#2c5234]',
+    imagemUrl: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/6/IMG_1760619077139.png',
+    descricao: 'Lotes de 1.000m² a 10 minutos do centro com infraestrutura concluída e matriculados.',
+    link: '/refugiobraunas'
+  },
+  {
+    nome: 'Residencial Pero Vaz',
+    status: 'PRONTO PARA MORAR',
+    statusColor: 'bg-indigo-600',
+    imagemUrl: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/10/IMG_1778095649407.jpeg',
+    descricao: 'Apartamento térreo de 2 quartos no Jardim Vera Cruz. Saia do aluguel hoje mesmo!',
+    link: '/perovaz'
+  }
+];
+
+// --- DADOS DA GALERIA ---
 const galleryImages = [
   { id: 1, src: "https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/anexos/galeria_rev2/academia.jpeg", alt: "ACADEMIA" },
   { id: 2, src: "https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/anexos/galeria_rev2/fachada..jpeg", alt: "FACHADA 1" },
@@ -127,11 +165,9 @@ const locationPoints = [
   { name: 'Caixa Serra Lima', time: '7 min', icon: faLandmark },
 ];
 
-// Componentes de Ícones (Brancos para fundo escuro)
 const IconeLocalizacao = () => <svg fill="currentColor" viewBox="0 0 20 20" className="w-8 h-8"><path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd"></path></svg>;
 const IconeRentabilidade = () => <svg fill="currentColor" viewBox="0 0 20 20" className="w-8 h-8"><path d="M10.293 3.293a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L11 5.414V16a1 1 0 11-2 0V5.414L5.707 8.707a1 1 0 01-1.414-1.414l4-4z"></path></svg>;
 const IconeSeguranca = () => <svg fill="currentColor" viewBox="0 0 20 20" className="w-8 h-8"><path fillRule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"></path></svg>;
-
 const IconeTicket = () => <svg fill="currentColor" viewBox="0 0 20 20" className="w-8 h-8"><path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd"></path></svg>;
 
 export default function BetaSuitesClient() {
@@ -148,57 +184,58 @@ export default function BetaSuitesClient() {
     <div className={`${montserrat.className} bg-black text-gray-200`}>
 
       <style jsx global>{`
- /* Ajustes do Swiper para o modo Glass/Dark */
- .swiper-button-next,
- .swiper-button-prev {
- color: #ffffff !important;
- background-color: rgba(255, 255, 255, 0.1);
- border-radius: 50%;
- width: 40px !important;
- height: 40px !important;
- transition: all 0.3s ease;
- border: 1px solid rgba(255, 255, 255, 0.1);
- backdrop-filter: blur(4px);
- }
- .swiper-button-next:hover,
- .swiper-button-prev:hover {
- background-color: ${primaryColor};
- border-color: ${primaryColor};
- }
- .swiper-pagination-bullet {
- background-color: #ffffff !important;
- width: 10px !important;
- height: 10px !important;
- opacity: 0.3;
- }
- .swiper-pagination-bullet-active {
- background-color: ${primaryColor} !important;
- opacity: 1;
- }
- .gallery-swiper .swiper-slide {
- width: 60% !important;
- }
- .gallery-swiper .swiper-slide-prev,
- .gallery-swiper .swiper-slide-next {
- width: 45% !important;
- }
- .floorplan-swiper .swiper-slide {
- width: 100% !important;
- }
- ::selection {
- background-color: ${primaryColor};
- color: white;
- }
- @media (min-width: 768px) {
- .gallery-swiper .swiper-slide {
- width: 45% !important;
- }
- .gallery-swiper .swiper-slide-prev,
- .gallery-swiper .swiper-slide-next {
- width: 35% !important;
- }
- }
- `}</style>
+        /* Ajustes do Swiper para o modo Glass/Dark */
+        .swiper-button-next,
+        .swiper-button-prev {
+          color: #ffffff !important;
+          background-color: rgba(255, 255, 255, 0.1);
+          border-radius: 50%;
+          width: 40px !important;
+          height: 40px !important;
+          transition: all 0.3s ease;
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          backdrop-filter: blur(4px);
+        }
+        .swiper-button-next:hover,
+        .swiper-button-prev:hover {
+          background-color: ${primaryColor};
+          border-color: ${primaryColor};
+        }
+        .swiper-pagination-bullet {
+          background-color: #ffffff !important;
+          width: 10px !important;
+          height: 10px !important;
+          opacity: 0.3;
+        }
+        .swiper-pagination-bullet-active {
+          background-color: ${primaryColor} !important;
+          opacity: 1;
+        }
+        .gallery-swiper .swiper-slide {
+          width: 60% !important;
+        }
+        .gallery-swiper .swiper-slide-prev,
+        .gallery-swiper .swiper-slide-next {
+          width: 45% !important;
+        }
+        .floorplan-full-swiper .swiper-slide {
+          width: 100% !important;
+        }
+        ::selection {
+          background-color: ${primaryColor};
+          color: white;
+        }
+        @media (min-width: 768px) {
+          .gallery-swiper .swiper-slide {
+            width: 45% !important;
+          }
+          .gallery-swiper .swiper-slide-prev,
+          .gallery-swiper .swiper-slide-next {
+            width: 35% !important;
+          }
+        }
+      `}</style>
+
       {/* --- HERO SECTION COM VÍDEO DINÂMICO --- */}
       <section className="relative min-h-screen flex items-center justify-center bg-black text-white overflow-hidden">
         <video
@@ -220,11 +257,6 @@ export default function BetaSuitesClient() {
 
             {/* 0. PRÉ-LANÇAMENTO COM UNDERLINE LARANJA NO "PRÉ" */}
             <div className="w-full flex justify-center mb-2 sm:mb-4">
-              {/* 
-        AJUSTE MANUAL DE TAMANHO (RANNIERE): 
-        Altere as classes "text-..." abaixo para ajustar o tamanho da fonte.
-        Opções comuns: text-xs, text-sm, text-base, text-lg, text-xl, text-2xl 
-      */}
               <p className="text-gray-200 text-xs sm:text-sm md:text-base lg:text-lg tracking-[0.6em] sm:tracking-[0.8em] md:tracking-[1em] lg:tracking-[1.5em] uppercase font-light flex items-center justify-center drop-shadow-md">
                 <span className="border-b-[2px] border-[#f25a2f] pb-[2px] mr-2 sm:mr-4">PRÉ</span>
                 <span>- LANÇAMENTO</span>
@@ -263,6 +295,7 @@ export default function BetaSuitesClient() {
           </div>
         </div>
       </section>
+
       {/* --- TESE DE INVESTIMENTO E CARACTERÍSTICAS (Split-Screen) --- */}
       <section className="flex flex-col lg:flex-row-reverse min-h-[100vh] bg-black relative border-t border-white/10">
         <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-[#f25a2f]/50 to-transparent z-10"></div>
@@ -313,7 +346,7 @@ export default function BetaSuitesClient() {
             onClick={openLeadModal}
             className="inline-block w-full sm:w-auto text-center bg-white/10 backdrop-blur-md border border-white/20 text-white font-bold py-4 px-10 rounded-xl hover:bg-white/15 transition-all duration-300 shadow-2xl uppercase tracking-wide"
           >
-            Quero Aproveitar a Oportunidade
+            Qurow Aproveitar a Oportunidade
           </button>
         </div>
         <div className="w-full lg:w-1/2 h-[50vh] lg:h-auto relative">
@@ -428,6 +461,7 @@ export default function BetaSuitesClient() {
           </div>
         </div>
       </section>
+
       {/* --- PLANTAS HUMANIZADAS (SPLIT-SCREEN SWIPER) --- */}
       <section className="bg-black border-t border-white/10 relative overflow-hidden">
         <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-[#f25a2f]/50 to-transparent z-20"></div>
@@ -502,6 +536,7 @@ export default function BetaSuitesClient() {
           ))}
         </Swiper>
       </section>
+
       {/* --- GALERIA COMPLETA --- */}
       <section className="bg-black py-16 md:py-24 relative border-t border-white/10">
         <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-[#f25a2f]/50 to-transparent z-10"></div>
@@ -546,6 +581,7 @@ export default function BetaSuitesClient() {
           </div>
         </div>
       </section>
+
       {/* --- FICHA TÉCNICA --- */}
       <section className="bg-black py-16 md:py-24 border-t border-white/10 relative">
         <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-[#f25a2f]/50 to-transparent"></div>
@@ -659,7 +695,7 @@ export default function BetaSuitesClient() {
               <img src="/parceiros_beta/TONZIRO.png" alt="Tonziro" className="h-8 md:h-12 object-contain filter grayscale invert opacity-40 hover:opacity-100 transition-all duration-500 cursor-pointer" />
               <img src="/parceiros_beta/logo-horizontal-04.png" alt="Planizar" className="h-10 md:h-14 object-contain opacity-40 hover:opacity-100 transition-all duration-500 cursor-pointer" />
             </div>
-          </div>
+         </div>
       </section>
 
       {/* --- CTA FINAL --- */}
@@ -676,6 +712,49 @@ export default function BetaSuitesClient() {
           </button>
         </div>
       </section>
+
+      {/* --- SEÇÃO PORTFÓLIO: OUTROS EMPREENDIMENTOS (VERSÃO PREMIUM DARK MODE) --- */}
+      <section className="bg-neutral-950 py-20 border-t border-white/10">
+        <div className="max-w-6xl mx-auto px-4">
+          <div className="text-center mb-12">
+            <span className="text-[10px] md:text-xs font-bold tracking-[0.3em] text-[#f25a2f] uppercase block mb-3">CONHEÇA MAIS</span>
+            <h2 className="text-3xl md:text-4xl font-bold text-white uppercase tracking-wide">
+              Outros Empreendimentos
+            </h2>
+            <div className="w-16 h-1 bg-[#f25a2f] mx-auto mt-4"></div>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {empreendimentosPortfolio
+              .filter(emp => emp.link !== '/betasuites')
+              .map((emp, index) => (
+                <div key={index} className="bg-neutral-900 rounded-2xl overflow-hidden shadow-2xl hover:shadow-[0_10px_30px_rgba(242,90,47,0.1)] transition-all duration-300 flex flex-col h-full border border-white/5 group hover:-translate-y-1">
+                  <div className="relative aspect-video w-full overflow-hidden">
+                    <img 
+                      src={emp.imagemUrl} 
+                      alt={emp.nome}
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
+                    <span className={`absolute top-4 right-4 ${emp.statusColor} text-white text-[9px] font-bold tracking-wider uppercase px-3 py-1 rounded-full shadow-sm`}>
+                      {emp.status}
+                    </span>
+                  </div>
+                  <div className="p-6 flex flex-col flex-grow">
+                    <h3 className="text-lg font-bold text-white mb-2 uppercase tracking-wide">{emp.nome}</h3>
+                    <p className="text-gray-400 text-sm mb-6 flex-grow leading-relaxed">{emp.descricao}</p>
+                    <a 
+                      href={emp.link}
+                      className="block w-full text-center bg-[#f25a2f] hover:bg-[#ff7147] text-white font-bold py-3 px-4 rounded-xl transition-all duration-300 uppercase tracking-wider text-xs shadow-md"
+                    >
+                      Conhecer Empreendimento
+                    </a>
+                  </div>
+                </div>
+              ))}
+          </div>
+        </div>
+      </section>
+
       {/* --- FOOTER --- */}
       <footer className="bg-black text-white py-12 border-t border-white/10">
         <div className="w-full px-4 text-center">

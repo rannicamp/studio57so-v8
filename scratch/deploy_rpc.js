@@ -8,18 +8,18 @@ async function main() {
   });
   
   try {
-    console.log('Lendo SQL atualizado de scratch/updated_fn_relatorio_comercial.sql...');
-    const sql = fs.readFileSync('scratch/updated_fn_relatorio_comercial.sql', 'utf8');
+    console.log('Lendo SQL de scratch/cleanup_and_deploy.sql...');
+    const sql = fs.readFileSync('scratch/cleanup_and_deploy.sql', 'utf8');
     
     console.log('Conectando ao banco Supabase...');
     await client.connect();
     
-    console.log('Executando comando no banco de dados...');
+    console.log('Executando limpeza e recriação no banco...');
     await client.query(sql);
-    console.log('✅ RPC fn_relatorio_comercial atualizada com sucesso no banco de dados!');
+    console.log('✅ RPC fn_relatorio_comercial limpa e recriada com sucesso! Sem sobrecargas!');
     
   } catch (err) {
-    console.error('❌ Erro ao atualizar RPC no banco:', err);
+    console.error('❌ Erro ao rodar deploy no banco:', err);
   } finally {
     await client.end();
   }
