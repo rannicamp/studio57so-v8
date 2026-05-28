@@ -143,9 +143,16 @@ export const getCanonicalPhone = (phone) => {
   return `${ddd}${core}`;
 };
 
-// --- FUNÇÃO: BUSCAR MENSAGENS DO CHAT ---
 export const getMessages = async (supabase, organizacaoId, contatoId, phoneNumber) => {
-  if (!organizacaoId || !contatoId) return [];
+  if (!organizacaoId || !contatoId) {
+    try {
+      supabase.from('temp_debug_logs').insert({
+        message: 'Falta de IDs na chamada de getMessages',
+        params: { organizacaoId, contatoId, phoneNumber }
+      }).then(() => {});
+    } catch(e) {}
+    return [];
+  }
 
   let query = supabase
   .from('whatsapp_messages')
@@ -158,21 +165,38 @@ export const getMessages = async (supabase, organizacaoId, contatoId, phoneNumbe
   .order('id', { ascending: true });
 
   if (error) {
-  console.error('Erro ao buscar mensagens:', error?.message || error, JSON.stringify(error, Object.getOwnPropertyNames(error)));
-  return [];
+    console.error('Erro ao buscar mensagens:', error?.message || error, JSON.stringify(error, Object.getOwnPropertyNames(error)));
+    try {
+      supabase.from('temp_debug_logs').insert({
+        error: error?.message || String(error),
+        message: 'Erro na query whatsapp_messages',
+        params: { organizacaoId, contatoId, phoneNumber }
+      }).then(() => {});
+    } catch(e) {}
+    return [];
   }
 
-  // Filtra em memória garantindo a unificação canônica dos números 
-  // (ignora +55 e o 9º dígito caso haja divergência)
+  let finalData = data;
   if (phoneNumber) {
       const canonicalTarget = getCanonicalPhone(phoneNumber);
-      return data.filter(msg => 
+      finalData = data.filter(msg => 
           getCanonicalPhone(msg.sender_id) === canonicalTarget || 
           getCanonicalPhone(msg.receiver_id) === canonicalTarget
       );
   }
 
- return data;
+  try {
+    supabase.auth.getUser().then(({ data: userData }) => {
+      supabase.from('temp_debug_logs').insert({
+        user_id: userData?.user?.id || null,
+        params: { organizacaoId, contatoId, phoneNumber, canonicalTarget: phoneNumber ? getCanonicalPhone(phoneNumber) : null },
+        result_count: finalData.length,
+        message: `Busca bem sucedida. Raw: ${data.length}, Filtered: ${finalData.length}`
+      }).then(() => {});
+    });
+  } catch(e) {}
+
+  return finalData;
 };
 
 // --- FUNÇÃO: MARCAR COMO LIDA ---
