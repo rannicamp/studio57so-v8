@@ -38,13 +38,14 @@ export default function WhatsAppInbox({ onChangeTab, initialContactId }) {
  const [selectedList, setSelectedList] = useState(cachedState?.selectedList || null);
  const [selectedCorretor, setSelectedCorretor] = useState(cachedState?.selectedCorretor || 'all');
  const [selectedColuna, setSelectedColuna] = useState(cachedState?.selectedColuna || 'all');
+ const [selectedCountry, setSelectedCountry] = useState(cachedState?.selectedCountry || 'all');
 
  const queryClient = useQueryClient();
  const supabase = createClient();
  const { user } = useAuth();
  const organizacaoId = user?.organizacao_id;
 
- const uiStateToSave = { selectedContact, selectedList, searchTerm, selectedCorretor, selectedColuna, showUnreadOnly };
+ const uiStateToSave = { selectedContact, selectedList, searchTerm, selectedCorretor, selectedColuna, showUnreadOnly, selectedCountry };
  const [debouncedUiState] = useDebounce(uiStateToSave, 1000);
 
  useEffect(() => {
@@ -165,15 +166,18 @@ export default function WhatsAppInbox({ onChangeTab, initialContactId }) {
  setSelectedList(null);
  };
 
- const filteredConversations = conversations?.filter(c => {
-   const matchesSearch = c.nome.toLowerCase().includes(searchTerm.toLowerCase()) || (c.phone_number && c.phone_number.includes(searchTerm));
-   const matchesCorretor = selectedCorretor === 'all' || 
-                           (selectedCorretor === 'unassigned' && !c.corretor_id) || 
-                           (String(c.corretor_id) === String(selectedCorretor));
-   const matchesColuna = selectedColuna === 'all' || c.etapa_funil === selectedColuna;
-   const matchesUnread = showUnreadOnly ? (c.unread_count > 0) : true;
-   return matchesSearch && matchesCorretor && matchesColuna && matchesUnread;
- });
+  const filteredConversations = conversations?.filter(c => {
+    const matchesSearch = c.nome.toLowerCase().includes(searchTerm.toLowerCase()) || (c.phone_number && c.phone_number.includes(searchTerm));
+    const matchesCorretor = selectedCorretor === 'all' || 
+                            (selectedCorretor === 'unassigned' && !c.corretor_id) || 
+                            (String(c.corretor_id) === String(selectedCorretor));
+    const matchesColuna = selectedColuna === 'all' || c.etapa_funil === selectedColuna;
+    const matchesUnread = showUnreadOnly ? (c.unread_count > 0) : true;
+    const matchesCountry = selectedCountry === 'all' || 
+                           (selectedCountry === 'BR' && c.country_code === '+55') || 
+                           (selectedCountry === 'US' && c.country_code === '+1');
+    return matchesSearch && matchesCorretor && matchesColuna && matchesUnread && matchesCountry;
+  });
 
   // Extrair corretores únicos para o filtro
   const uniqueCorretores = React.useMemo(() => {
@@ -259,31 +263,43 @@ export default function WhatsAppInbox({ onChangeTab, initialContactId }) {
     <FontAwesomeIcon icon={faCheckDouble} />
   </button>
   </div>
- <div className="flex gap-2">
-   <select 
-     value={selectedCorretor} 
-     onChange={(e) => setSelectedCorretor(e.target.value)}
-     className="flex-1 w-full p-2 border border-gray-300 rounded-lg bg-gray-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm shadow-sm font-medium text-gray-700"
-     title="Filtrar por Corretor"
-   >
-     <option value="all">Todos os Corretores</option>
-     <option value="unassigned">Sem Corretor</option>
-     {uniqueCorretores.map(c => (
-       <option key={c.id} value={c.id}>{c.nome}</option>
-     ))}
-   </select>
-   <select 
-     value={selectedColuna} 
-     onChange={(e) => setSelectedColuna(e.target.value)}
-     className="flex-1 w-full p-2 border border-gray-300 rounded-lg bg-gray-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm shadow-sm font-medium text-gray-700"
-     title="Filtrar por Etapa"
-   >
-     <option value="all">Todas as Etapas</option>
-     {uniqueColunas.map(coluna => (
-       <option key={coluna} value={coluna}>{coluna}</option>
-     ))}
-   </select>
- </div>
+  <div className="flex flex-col gap-2">
+    <div className="flex gap-2">
+      <select 
+        value={selectedCorretor} 
+        onChange={(e) => setSelectedCorretor(e.target.value)}
+        className="flex-1 w-full p-2 border border-gray-300 rounded-lg bg-gray-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm shadow-sm font-medium text-gray-700"
+        title="Filtrar por Corretor"
+      >
+        <option value="all">Todos os Corretores</option>
+        <option value="unassigned">Sem Corretor</option>
+        {uniqueCorretores.map(c => (
+          <option key={c.id} value={c.id}>{c.nome}</option>
+        ))}
+      </select>
+      <select 
+        value={selectedColuna} 
+        onChange={(e) => setSelectedColuna(e.target.value)}
+        className="flex-1 w-full p-2 border border-gray-300 rounded-lg bg-gray-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm shadow-sm font-medium text-gray-700"
+        title="Filtrar por Etapa"
+      >
+        <option value="all">Todas as Etapas</option>
+        {uniqueColunas.map(coluna => (
+          <option key={coluna} value={coluna}>{coluna}</option>
+        ))}
+      </select>
+    </div>
+    <select 
+      value={selectedCountry} 
+      onChange={(e) => setSelectedCountry(e.target.value)}
+      className="w-full p-2 border border-gray-300 rounded-lg bg-gray-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm shadow-sm font-medium text-gray-700"
+      title="Filtrar por País"
+    >
+      <option value="all">Todos os países</option>
+      <option value="BR">Brasil (+55)</option>
+      <option value="US">EUA (+1)</option>
+    </select>
+  </div>
  </div>
 
  {/* Listas */}

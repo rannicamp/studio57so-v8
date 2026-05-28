@@ -14,7 +14,7 @@ export const getConversations = async (supabase, organizacaoId, userId) => {
  nome,
  foto_url,
  tipo_contato,
- telefone_principal: telefones (telefone),
+ telefone_principal: telefones (telefone, country_code),
  funil: contatos_no_funil!contato_id (
  corretor_id,
  corretores: contatos!corretor_id(nome),
@@ -57,6 +57,21 @@ export const getConversations = async (supabase, organizacaoId, userId) => {
  // --- 2. LÓGICA DO CRONÔMETRO ---
  const lastInboundAt = conv.customer_window_start_at || null;
 
+ // --- 3. LÓGICA DO PAÍS (DDI) ---
+ let countryCode = null;
+ const telefones = conv.contatos?.telefone_principal;
+ if (Array.isArray(telefones) && telefones.length > 0) {
+   countryCode = telefones[0]?.country_code;
+ }
+ // Fallback caso não encontre na tabela telefones ou o contato seja nulo
+ if (!countryCode && conv.phone_number) {
+   if (conv.phone_number.startsWith('55')) {
+     countryCode = '+55';
+   } else if (conv.phone_number.startsWith('1')) {
+     countryCode = '+1';
+   }
+ }
+
  return {
  conversation_id: conv.id,
  contato_id: conv.contatos?.id,
@@ -76,7 +91,8 @@ export const getConversations = async (supabase, organizacaoId, userId) => {
  corretor_id: corretorId,
  corretor_nome: corretorNome,
  // Cronômetro de Janela (fonte confiável: campo exclusivo de mensagens inbound)
- last_inbound_at: lastInboundAt
+ last_inbound_at: lastInboundAt,
+ country_code: countryCode
  };
  });
 
