@@ -39,13 +39,14 @@ export default function WhatsAppInbox({ onChangeTab, initialContactId }) {
  const [selectedCorretor, setSelectedCorretor] = useState(cachedState?.selectedCorretor || 'all');
  const [selectedColuna, setSelectedColuna] = useState(cachedState?.selectedColuna || 'all');
  const [selectedCountry, setSelectedCountry] = useState(cachedState?.selectedCountry || 'all');
+ const [selectedWindow, setSelectedWindow] = useState(cachedState?.selectedWindow || 'all');
 
  const queryClient = useQueryClient();
  const supabase = createClient();
  const { user } = useAuth();
  const organizacaoId = user?.organizacao_id;
 
- const uiStateToSave = { selectedContact, selectedList, searchTerm, selectedCorretor, selectedColuna, showUnreadOnly, selectedCountry };
+ const uiStateToSave = { selectedContact, selectedList, searchTerm, selectedCorretor, selectedColuna, showUnreadOnly, selectedCountry, selectedWindow };
  const [debouncedUiState] = useDebounce(uiStateToSave, 1000);
 
  useEffect(() => {
@@ -176,7 +177,19 @@ export default function WhatsAppInbox({ onChangeTab, initialContactId }) {
     const matchesCountry = selectedCountry === 'all' || 
                            (selectedCountry === 'BR' && c.country_code === '+55') || 
                            (selectedCountry === 'US' && c.country_code === '+1');
-    return matchesSearch && matchesCorretor && matchesColuna && matchesUnread && matchesCountry;
+    
+    // Filtro de Janela Aberta (24h desde a última mensagem inbound do cliente)
+    const isWindowOpen = (lastInboundAt) => {
+      if (!lastInboundAt) return false;
+      const lastInboundDate = new Date(lastInboundAt);
+      const now = new Date();
+      return (now - lastInboundDate) < 24 * 60 * 60 * 1000;
+    };
+    const matchesWindow = selectedWindow === 'all' ||
+                          (selectedWindow === 'open' && isWindowOpen(c.last_inbound_at)) ||
+                          (selectedWindow === 'closed' && !isWindowOpen(c.last_inbound_at));
+
+    return matchesSearch && matchesCorretor && matchesColuna && matchesUnread && matchesCountry && matchesWindow;
   });
 
   // Extrair corretores únicos para o filtro
@@ -289,16 +302,28 @@ export default function WhatsAppInbox({ onChangeTab, initialContactId }) {
         ))}
       </select>
     </div>
-    <select 
-      value={selectedCountry} 
-      onChange={(e) => setSelectedCountry(e.target.value)}
-      className="w-full p-2 border border-gray-300 rounded-lg bg-gray-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm shadow-sm font-medium text-gray-700"
-      title="Filtrar por País"
-    >
-      <option value="all">Todos os países</option>
-      <option value="BR">Brasil (+55)</option>
-      <option value="US">EUA (+1)</option>
-    </select>
+    <div className="flex gap-2">
+      <select 
+        value={selectedCountry} 
+        onChange={(e) => setSelectedCountry(e.target.value)}
+        className="flex-1 w-full p-2 border border-gray-300 rounded-lg bg-gray-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm shadow-sm font-medium text-gray-700"
+        title="Filtrar por País"
+      >
+        <option value="all">Todos os países</option>
+        <option value="BR">Brasil (+55)</option>
+        <option value="US">EUA (+1)</option>
+      </select>
+      <select 
+        value={selectedWindow} 
+        onChange={(e) => setSelectedWindow(e.target.value)}
+        className="flex-1 w-full p-2 border border-gray-300 rounded-lg bg-gray-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm shadow-sm font-medium text-gray-700"
+        title="Filtrar por Janela"
+      >
+        <option value="all">Todas as janelas</option>
+        <option value="open">Janela aberta</option>
+        <option value="closed">Janela fechada</option>
+      </select>
+    </div>
   </div>
  </div>
 
