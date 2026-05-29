@@ -1,11 +1,12 @@
 // app/(main)/painel/page.js
 "use client";
 
-import React, { Suspense } from 'react';
+import React, { Suspense, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faChartLine, faArrowRight } from '@fortawesome/free-solid-svg-icons';
+import AtividadeModal from '@/components/atividades/AtividadeModal';
 
 // --- IMPORTAÇÃO DOS WIDGETS ---
 const WelcomeCard = React.lazy(() => import('@/components/painel/widgets/WelcomeCard'));
@@ -24,6 +25,13 @@ const WidgetSkeleton = () => (
 
 export default function Painel() {
  const { user, isLoading: authLoading } = useAuth();
+ const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+ const [activityToEdit, setActivityToEdit] = useState(null);
+
+ const handleEditActivity = (atividade) => {
+   setActivityToEdit(atividade);
+   setIsEditModalOpen(true);
+ };
 
  const isProprietario = user?.funcao_id === 1 || user?.funcao_id === 9 || user?.funcao === 'Proprietário' || user?.nome_funcao === 'Proprietário' || user?.role === 'Proprietário'; if (authLoading) {
  return (
@@ -52,7 +60,7 @@ export default function Painel() {
  <div className="w-full">
  <Suspense fallback={<WidgetSkeleton />}>
  {user?.funcionario_id && (
- <MinhasAtividadesWidget funcionario_id={user.funcionario_id} />
+ <MinhasAtividadesWidget funcionario_id={user.funcionario_id} onEdit={handleEditActivity} />
  )}
  </Suspense>
  </div>
@@ -83,6 +91,18 @@ export default function Painel() {
  </Suspense>
  </div>
  </div>
+
+ {/* Modal de Edição de Atividades */}
+ {isEditModalOpen && (
+   <AtividadeModal
+     isOpen={isEditModalOpen}
+     onClose={() => {
+       setIsEditModalOpen(false);
+       setActivityToEdit(null);
+     }}
+     activityToEdit={activityToEdit}
+   />
+ )}
  </div>
  );
 }

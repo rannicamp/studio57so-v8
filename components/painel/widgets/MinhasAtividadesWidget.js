@@ -46,7 +46,7 @@ async function fetchAtividades(funcionario_id, filtroTipo) {
   return data;
 }
 
-export default function MinhasAtividadesWidget({ funcionario_id }) {
+export default function MinhasAtividadesWidget({ funcionario_id, onEdit }) {
   const [filtroTipo, setFiltroTipo] = useState('todas'); // Default: ver tudo
   const [filtroData, setFiltroData] = useState('todas'); // 'todas', 'atrasadas', 'hoje', 'semana'
 
@@ -152,7 +152,7 @@ export default function MinhasAtividadesWidget({ funcionario_id }) {
       {!isLoading && !error && atividadesFiltradas?.length > 0 && (
         <div className="flex flex-col space-y-2 flex-1 overflow-y-auto pr-2 custom-scrollbar max-h-[500px]">
           {atividadesFiltradas.map(at => (
-            <AtividadeCard key={at.id} atividade={at} />
+            <AtividadeCard key={at.id} atividade={at} onEdit={onEdit} />
           ))}
         </div>
       )}
