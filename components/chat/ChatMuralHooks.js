@@ -156,3 +156,41 @@ export function useDeleteMuralPost() {
  }
  });
 }
+
+export function useMuralAniversariantes() {
+  const { organizacao_id } = useAuth();
+  const supabase = createClient();
+
+  return useQuery({
+    queryKey: ['mural_aniversariantes', organizacao_id],
+    queryFn: async () => {
+      if (!organizacao_id) return [];
+      const { data, error } = await supabase
+        .from('funcionarios')
+        .select('id, full_name, birth_date, foto_url')
+        .eq('status', 'Ativo')
+        .eq('organizacao_id', organizacao_id)
+        .not('birth_date', 'is', null);
+
+      if (error) throw error;
+      
+      const mesAtual = new Date().getMonth() + 1;
+      
+      return data
+        .filter(f => {
+          const parts = f.birth_date.split('-');
+          return parts.length >= 2 && parseInt(parts[1]) === mesAtual;
+        })
+        .map(f => {
+          const parts = f.birth_date.split('-');
+          return {
+            ...f,
+            dia: parseInt(parts[2]),
+            mes: parseInt(parts[1])
+          };
+        })
+        .sort((a, b) => a.dia - b.dia);
+    },
+    enabled: !!organizacao_id
+  });
+}
