@@ -133,7 +133,7 @@ export async function POST(request) {
 
     const prompt = `
 Você é Stella, a super Analista Comercial de Elite e Assistente Copiloto da Studio 57.
-Sua missão é classificar o lead e gerar uma RESPOSTA SUGERIDA PRONTA para o corretor copiar e enviar ao cliente.
+Sua missão é classificar o lead, extrair dados cadastrais caso o cliente os tenha informado explicitamente na conversa, e gerar uma RESPOSTA SUGERIDA PRONTA para o corretor copiar e enviar ao cliente.
 
 # Instrução Crítica de Contexto (O Histórico é Rei)
 A PRIMEIRA coisa que você deve fazer é ler atentamente o "Histórico da Conversa". O cliente pode ter chegado por um anúncio de um empreendimento (origem no CRM), mas ao longo da conversa, demonstrar interesse em OUTRO empreendimento. A CONVERSA SEMPRE DITA A REGRA. Identifique qual empreendimento o cliente quer AGORA. Cruze essa informação com a "BASE DE CONHECIMENTO GLOBAL" abaixo e use as regras do empreendimento correto.
@@ -152,13 +152,46 @@ ${anexosContext}
 # Histórico Recente de Conversa (WhatsApp)
 ${chatLog}
 
+# Regras de Extração de Dados Cadastrais do Cliente (Chave "dados_cliente")
+Leia atentamente a conversa e tente extrair quaisquer informações cadastrais citadas pelo cliente. Caso não seja citada ou corrigida na conversa, retorne null para o respectivo campo.
+1. "nome": Nome completo do cliente caso tenha sido explicitamente citado ou corrigido. Se ele enviar apenas o primeiro nome, retorne null. Só capture se for nome completo (dois ou mais nomes).
+2. "cpf": Apenas números do CPF caso informado (limpe pontos e traços).
+3. "cnpj": Apenas números do CNPJ caso informado (limpe pontuação).
+4. "renda_familiar": Renda bruta mensal familiar em formato decimal/numérico (ex: se ele disser "10 mil" ou "R$ 10.000,00" converta para 10000.00).
+5. "fgts": boolean (true/false) indicando se ele informou que possui FGTS para o financiamento.
+6. "mais_de_3_anos_clt": boolean (true/false) indicando se tem mais de 3 anos de CLT.
+7. "objetivo": "MORADIA" ou "INVESTIMENTO" ou "LAZER" caso ele tenha expressado.
+8. "cargo": Profissão ou cargo atual do cliente.
+9. "estado_civil": "Solteiro", "Casado", "Divorciado", "Separado" ou "União Estável".
+10. "birth_date": Data de nascimento no formato YYYY-MM-DD (converta do formato brasileiro DD/MM/AAAA para YYYY-MM-DD).
+11. Endereço: "cep" (apenas números), "address_street" (logradouro), "address_number" (número), "address_complement" (complemento), "neighborhood" (bairro), "city" (cidade), "state" (UF com 2 letras).
+
 Com base SOMENTE neste histórico recente e contexto do projeto, escreva um JSON rigoroso nos seguintes moldes:
 {
   "resumo_interacao": "Texto conciso de até 3 linhas dizendo exatamente o ponto de temperatura da conversa.",
   "temperatura": "Quente" ou "Morno" ou "Frio",
   "fase_crm_atual": "${crmStatus}",
   "proxima_acao_sugerida": "Dica direta e acionável para o corretor. Ex: Se o cliente pediu material, diga 'Envie o PDF do Book de Vendas que ele solicitou'.",
-  "proxima_resposta_sugerida": "A resposta exata e natural para enviar ao cliente. REGRA DE OURO WHATSAPP: Seja EXTREMAMENTE SUCINTO. Ninguém lê textões. Fracione as ideias, use parágrafos curtíssimos (separados por \\n\\n), tom humano e direto ao ponto. Termine sempre com uma pergunta curta para engajar."
+  "proxima_resposta_sugerida": "A resposta exata e natural para enviar ao cliente. REGRA DE OURO WHATSAPP: Seja EXTREMAMENTE SUCINTO. Ninguém lê textões. Fracione as ideias, use parágrafos curtíssimos (separados por \\n\\n), tom humano e direto ao ponto. Termine sempre com uma pergunta curta para engajar.",
+  "dados_cliente": {
+    "nome": "Nome completo ou null",
+    "cpf": "Apenas dígitos do CPF ou null",
+    "cnpj": "Apenas dígitos do CNPJ ou null",
+    "renda_familiar": 12000.00 (ou null),
+    "fgts": true/false (ou null),
+    "mais_de_3_anos_clt": true/false (ou null),
+    "objetivo": "MORADIA" / "INVESTIMENTO" / "LAZER" (ou null),
+    "cargo": "Profissão ou null",
+    "estado_civil": "Estado civil ou null",
+    "birth_date": "YYYY-MM-DD ou null",
+    "cep": "Apenas dígitos do CEP ou null",
+    "address_street": "Logradouro ou null",
+    "address_number": "Número ou null",
+    "address_complement": "Complemento ou null",
+    "neighborhood": "Bairro ou null",
+    "city": "Cidade ou null",
+    "state": "UF ou null"
+  }
 }
 `;
 
@@ -182,6 +215,71 @@ Com base SOMENTE neste histórico recente e contexto do projeto, escreva um JSON
     } catch (e) {
       console.error('[AI Parser Error]', textOutput, e);
       return NextResponse.json({ error: 'Falha ao processar o JSON retornado pela IA' }, { status: 500 });
+    }
+
+    // --- NOVA LÓGICA: ATUALIZAÇÃO CADASTRAL INTELIGENTE E INCREMENTAL ---
+    if (parsedResult.dados_cliente && typeof parsedResult.dados_cliente === 'object') {
+      const dc = parsedResult.dados_cliente;
+      
+      const { data: currentContact } = await supabaseAdmin
+        .from('contatos')
+        .select('nome, cpf, cnpj, fgts, renda_familiar, objetivo, cargo, estado_civil, mais_de_3_anos_clt, cep, address_street, address_number, address_complement, neighborhood, city, state, birth_date')
+        .eq('id', contato_id)
+        .single();
+      
+      if (currentContact) {
+        const updateData = {};
+
+        // Regra do Nome Completo: atualiza apenas se o nome detectado tiver mais palavras e contiver o atual
+        if (dc.nome && typeof dc.nome === 'string' && dc.nome.trim().length > 0) {
+          const nomeDetectado = dc.nome.trim();
+          const nomeAtual = (currentContact.nome || '').trim();
+          const palavrasNovas = nomeDetectado.split(/\s+/).length;
+          const palavrasAtuais = nomeAtual.split(/\s+/).length;
+
+          if (nomeAtual === '' || (palavrasNovas > palavrasAtuais && nomeDetectado.toLowerCase().includes(nomeAtual.split(/\s+/)[0].toLowerCase()))) {
+            updateData.nome = nomeDetectado;
+          }
+        }
+
+        // Função auxiliar para atualizar apenas campos vazios/nulos no banco de dados
+        const preencherSeVazio = (field, value) => {
+          const currentValue = currentContact[field];
+          if (value !== undefined && value !== null && (currentValue === null || currentValue === undefined || String(currentValue).trim() === '')) {
+            updateData[field] = value;
+          }
+        };
+
+        preencherSeVazio('cpf', dc.cpf);
+        preencherSeVazio('cnpj', dc.cnpj);
+        preencherSeVazio('fgts', dc.fgts);
+        preencherSeVazio('renda_familiar', dc.renda_familiar);
+        preencherSeVazio('objetivo', dc.objetivo);
+        preencherSeVazio('cargo', dc.cargo);
+        preencherSeVazio('estado_civil', dc.estado_civil);
+        preencherSeVazio('mais_de_3_anos_clt', dc.mais_de_3_anos_clt);
+        preencherSeVazio('cep', dc.cep);
+        preencherSeVazio('address_street', dc.address_street);
+        preencherSeVazio('address_number', dc.address_number);
+        preencherSeVazio('address_complement', dc.address_complement);
+        preencherSeVazio('neighborhood', dc.neighborhood);
+        preencherSeVazio('city', dc.city);
+        preencherSeVazio('state', dc.state);
+        preencherSeVazio('birth_date', dc.birth_date);
+
+        if (Object.keys(updateData).length > 0) {
+          const { error: updateError } = await supabaseAdmin
+            .from('contatos')
+            .update(updateData)
+            .eq('id', contato_id);
+            
+          if (updateError) {
+            console.error('[AI Enrichment] Erro ao atualizar contato:', updateError);
+          } else {
+            console.log('[AI Enrichment] Contato enriquecido com sucesso:', updateData);
+          }
+        }
+      }
     }
 
     // 5. Salvar localmente o cache
