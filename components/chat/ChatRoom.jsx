@@ -77,7 +77,7 @@ const renderMessageContent = (msg, isMine) => {
       return (
         <div className="my-1 rounded-lg overflow-hidden border border-black/5 bg-gray-100 cursor-pointer max-w-full">
           <a href={content} target="_blank" rel="noopener noreferrer">
-            <img src={content} alt="Imagem" className="max-w-full max-h-60 object-cover hover:opacity-95 transition-opacity" />
+            <img src={content} alt="Imagem" crossOrigin="anonymous" className="max-w-full max-h-60 object-cover hover:opacity-95 transition-opacity" />
           </a>
         </div>
       );
@@ -241,44 +241,102 @@ export default function ChatRoom({ contact }) {
   const handlePaste = async (e) => {
     if (contact.isBroadcast || !conversationId) return;
 
-    const items = e.clipboardData?.items;
-    if (!items) return;
+    // 1. Verificar se há arquivos de imagem colados (Print Screen, arquivos locais copiados, etc.)
+    const files = e.clipboardData?.files;
+    if (files && files.length > 0) {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        if (file.type.startsWith('image/')) {
+          e.preventDefault();
+          setIsUploading(true);
+          try {
+            const extension = file.name ? file.name.split('.').pop() : 'png';
+            const cleanName = `print_${Date.now()}.${extension}`;
+            const filePath = `chat-interno/${conversationId}/${cleanName}`;
 
-    for (let i = 0; i < items.length; i++) {
-      const item = items[i];
-      if (item.type.indexOf('image') !== -1) {
-        e.preventDefault();
-        const file = item.getAsFile();
-        if (!file) continue;
+            const { error: uploadError } = await supabase.storage
+              .from('chat-interno')
+              .upload(filePath, file, { contentType: file.type || 'image/png' });
 
-        setIsUploading(true);
-        try {
-          const cleanName = `print_${Date.now()}.png`;
-          const filePath = `chat-interno/${conversationId}/${cleanName}`;
+            if (uploadError) throw uploadError;
 
-          const { error: uploadError } = await supabase.storage
-            .from('chat-interno')
-            .upload(filePath, file, { contentType: file.type });
+            const { data: urlData } = supabase.storage
+              .from('chat-interno')
+              .getPublicUrl(filePath);
 
-          if (uploadError) throw uploadError;
-
-          const { data: urlData } = supabase.storage
-            .from('chat-interno')
-            .getPublicUrl(filePath);
-
-          sendMessageMutation.mutate({
-            conversationId,
-            senderId: user.id,
-            conteudo: urlData.publicUrl
-          });
-          toast.success("Print enviado com sucesso!");
-        } catch (err) {
-          console.error(err);
-          toast.error("Erro ao enviar imagem colada: " + err.message);
-        } finally {
-          setIsUploading(false);
+            sendMessageMutation.mutate({
+              conversationId,
+              senderId: user.id,
+              conteudo: urlData.publicUrl
+            });
+            toast.success("Print enviado com sucesso!");
+          } catch (err) {
+            console.error(err);
+            toast.error("Erro ao enviar imagem colada: " + err.message);
+          } finally {
+            setIsUploading(false);
+          }
+          return;
         }
-        break;
+      }
+    }
+
+    // 2. Verificar se há texto colado que seja uma URL de imagem (ex: Copiar Imagem do chat e colar)
+    const pastedText = e.clipboardData?.getData('text/plain')?.trim();
+    if (pastedText && (pastedText.startsWith('http://') || pastedText.startsWith('https://'))) {
+      const lowerText = pastedText.toLowerCase();
+      // Se for uma URL de imagem conhecida ou link do Supabase de chat-interno
+      if (/\.(jpg|jpeg|png|webp|gif|svg)/i.test(lowerText) || lowerText.includes('/chat-interno/')) {
+        e.preventDefault();
+        sendMessageMutation.mutate({
+          conversationId,
+          senderId: user.id,
+          conteudo: pastedText
+        });
+        toast.success("Imagem compartilhada com sucesso!");
+        return;
+      }
+    }
+
+    // 3. Fallback tradicional para items (caso o files esteja vazio mas haja items de imagem)
+    const items = e.clipboardData?.items;
+    if (items) {
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        if (item.type.indexOf('image') !== -1) {
+          e.preventDefault();
+          const file = item.getAsFile();
+          if (!file) continue;
+
+          setIsUploading(true);
+          try {
+            const cleanName = `print_${Date.now()}.png`;
+            const filePath = `chat-interno/${conversationId}/${cleanName}`;
+
+            const { error: uploadError } = await supabase.storage
+              .from('chat-interno')
+              .upload(filePath, file, { contentType: file.type || 'image/png' });
+
+            if (uploadError) throw uploadError;
+
+            const { data: urlData } = supabase.storage
+              .from('chat-interno')
+              .getPublicUrl(filePath);
+
+            sendMessageMutation.mutate({
+              conversationId,
+              senderId: user.id,
+              conteudo: urlData.publicUrl
+            });
+            toast.success("Print enviado com sucesso!");
+          } catch (err) {
+            console.error(err);
+            toast.error("Erro ao enviar imagem colada: " + err.message);
+          } finally {
+            setIsUploading(false);
+          }
+          break;
+        }
       }
     }
   };
@@ -358,10 +416,10 @@ export default function ChatRoom({ contact }) {
 
  if (loadingConv || loadingMsgs) {
  return (
- <div className="flex-1 flex flex-col items-center justify-center bg-slate-50/50">
- <FontAwesomeIcon icon={faSpinner} spin className="text-3xl text-gray-300 mb-3" />
- <p className="text-gray-400 text-sm">Validando chaves criptográficas da sala...</p>
- </div>
+  <div className="flex-1 flex flex-col items-center justify-center bg-slate-50/50">
+  <FontAwesomeIcon icon={faSpinner} spin className="text-3xl text-gray-300 mb-3" />
+  <p className="text-gray-400 text-sm">Validando chaves criptográficas da sala...</p>
+  </div>
  );
  }
 
