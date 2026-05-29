@@ -47,10 +47,13 @@ export default function ContratosPage() {
  const supabase = createClient();
  const queryClient = useQueryClient();
  const { user, isUserLoading } = useLayout();
- const { isProprietario } = useAuth();
+ const { user: authUser } = useAuth();
  const organizacaoId = user?.organizacao_id;
  const userId = user?.id;
  const router = useRouter();
+
+ // Identifica se o usuário logado tem a função de Corretor
+ const isCorretor = authUser?.funcoes?.nome_funcao?.toLowerCase().includes('corretor') || authUser?.funcao_id === 20;
 
  const [filters, setFilters] = useState({
  searchTerm: '', clienteId: [], produtoId: [], empreendimentoId: [],
@@ -98,7 +101,7 @@ export default function ContratosPage() {
  });
 
  const { data: contratos, isLoading, error } = useQuery({
- queryKey: ['contratos', organizacaoId, userId, debouncedFilters, sortConfig, isProprietario],
+ queryKey: ['contratos', organizacaoId, userId, debouncedFilters, sortConfig, isCorretor],
  queryFn: async () => {
  if (!organizacaoId || !userId) return [];
  let query = supabase
@@ -114,7 +117,7 @@ export default function ContratosPage() {
  .eq('organizacao_id', organizacaoId)
  .eq('lixeira', false);
 
- if (!isProprietario) {
+ if (isCorretor) {
    query = query.eq('criado_por_usuario_id', userId);
  }
 
@@ -161,7 +164,7 @@ export default function ContratosPage() {
  const result = await softDeleteContrato(id);
  if (result?.success) {
  toast.success('Contrato excluído!', { id: toastId });
- queryClient.invalidateQueries({ queryKey: ['contratos', organizacaoId, userId, isProprietario] });
+ queryClient.invalidateQueries({ queryKey: ['contratos', organizacaoId, userId, isCorretor] });
  } else {
  toast.error('Erro ao excluir: ' + (result?.error || 'Erro desconhecido'), { id: toastId });
  }
@@ -189,7 +192,7 @@ export default function ContratosPage() {
  toast.success("Documento criado! Redirecionando...");
  handleCloseModal();
  router.push(`/portal-contratos/${result.newContractId}`);
- queryClient.invalidateQueries({ queryKey: ['contratos', organizacaoId, userId, isProprietario] });
+ queryClient.invalidateQueries({ queryKey: ['contratos', organizacaoId, userId, isCorretor] });
  } else if (result?.error) {
  toast.error(`Erro ao criar documento: ${result.error}`);
  } else {
@@ -204,7 +207,6 @@ export default function ContratosPage() {
  };
 
  return (
- border-t bg-gray-50 rounded-b-xl
  <div className="p-4 md:p-6 lg:p-8 space-y-6">
  <div className="flex justify-between items-center">
  <h1 className="text-2xl font-bold text-gray-800">Meus Contratos</h1>
@@ -239,7 +241,7 @@ export default function ContratosPage() {
  sortConfig={sortConfig}
  requestSort={requestSort}
  onUpdate={() => {
- queryClient.invalidateQueries({ queryKey: ['contratos', organizacaoId, userId, isProprietario] });
+ queryClient.invalidateQueries({ queryKey: ['contratos', organizacaoId, userId, isCorretor] });
  }}
  basePath="/portal-contratos"
  organizacaoId={organizacaoId}

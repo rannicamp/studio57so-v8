@@ -25,8 +25,8 @@ import Image from 'next/image'
 import ContatoForm from '@/components/contatos/ContatoForm'
 import { saveContactAction } from '@/components/contatos/actions';
 
-// Função de busca (COM FILTRO DE LIXEIRA)
-async function fetchClientesCorretor(organizacaoId, userId, searchTerm, isProprietario) {
+// Função de busca (COM FILTRO DE LIXEIRA E CHECAGEM DE CORRETOR)
+async function fetchClientesCorretor(organizacaoId, userId, searchTerm, isCorretor) {
  if (!organizacaoId || !userId) return [];
  const supabase = createClient()
  let query = supabase.from('contatos')
@@ -34,7 +34,7 @@ async function fetchClientesCorretor(organizacaoId, userId, searchTerm, isPropri
  .eq('organizacao_id', organizacaoId)
  .eq('lixeira', false)
 
- if (!isProprietario) {
+ if (isCorretor) {
    query = query.eq('criado_por_usuario_id', userId);
  }
 
@@ -51,10 +51,13 @@ async function fetchClientesCorretor(organizacaoId, userId, searchTerm, isPropri
 export default function ClientesCorretor() {
  const queryClient = useQueryClient()
  const { user, isUserLoading } = useLayout()
- const { isProprietario } = useAuth()
+ const { user: authUser } = useAuth()
  const organizacaoId = user?.organizacao_id
  const userId = user?.id
  const supabase = createClient()
+
+ // Identifica se o usuário logado tem a função de Corretor
+ const isCorretor = authUser?.funcoes?.nome_funcao?.toLowerCase().includes('corretor') || authUser?.funcao_id === 20;
 
  const [isModalOpen, setIsModalOpen] = useState(false)
  const isInitialMount = useRef(true)
@@ -65,8 +68,8 @@ export default function ClientesCorretor() {
 
  // Query para buscar clientes
  const { data: clientes, isLoading, isFetching, isError, error, } = useQuery({
- queryKey: ['clientesCorretor', organizacaoId, userId, debouncedSearchTerm, isProprietario],
- queryFn: () => fetchClientesCorretor(organizacaoId, userId, debouncedSearchTerm, isProprietario),
+ queryKey: ['clientesCorretor', organizacaoId, userId, debouncedSearchTerm, isCorretor],
+ queryFn: () => fetchClientesCorretor(organizacaoId, userId, debouncedSearchTerm, isCorretor),
  enabled: !!organizacaoId && !!userId,
  })
 
@@ -78,7 +81,7 @@ export default function ClientesCorretor() {
  .update({ lixeira: true })
  .eq('id', contatoId);
  
- if (!isProprietario) {
+ if (isCorretor) {
    query = query.eq('criado_por_usuario_id', userId);
  }
  const { error } = await query;
@@ -86,7 +89,7 @@ export default function ClientesCorretor() {
  },
  onSuccess: () => {
  toast.success('Cliente movido para a lixeira!');
- queryClient.invalidateQueries({ queryKey: ['clientesCorretor', organizacaoId, userId, debouncedSearchTerm, isProprietario] });
+ queryClient.invalidateQueries({ queryKey: ['clientesCorretor', organizacaoId, userId, debouncedSearchTerm, isCorretor] });
  },
  onError: (err) => {
  toast.error(`Erro ao excluir cliente: ${err.message}`);
@@ -101,15 +104,15 @@ export default function ClientesCorretor() {
 
  const formDataDuplicado = {
  ...dadosParaDuplicar,
- nome: contatoOriginal.personalidade_juridica === 'Pessoa Física' ? novoNome : dadosParaDuplicar.nome,
- razao_social: contatoOriginal.personalidade_juridica === 'Pessoa Jurídica' ? novoNome : dadosParaDuplicar.razao_social,
- nome_display: novoNome,
- telefones: contatoOriginal.telefones || [{ telefone: '', country_code: '+55' }],
- emails: contatoOriginal.emails || [{ email: '' }],
- conjuge_id: null,
- criado_por_usuario_id: userId,
- organizacao_id: organizacaoId,
- lixeira: false };
+  nome: contatoOriginal.personalidade_juridica === 'Pessoa Física' ? novoNome : dadosParaDuplicar.nome,
+  razao_social: contatoOriginal.personalidade_juridica === 'Pessoa Jurídica' ? novoNome : dadosParaDuplicar.razao_social,
+  nome_display: novoNome,
+  telefones: contatoOriginal.telefones || [{ telefone: '', country_code: '+55' }],
+  emails: contatoOriginal.emails || [{ email: '' }],
+  conjuge_id: null,
+  criado_por_usuario_id: userId,
+  organizacao_id: organizacaoId,
+  lixeira: false };
 
  const result = await saveContactAction({ formData: formDataDuplicado, isEditing: false });
 
@@ -120,7 +123,7 @@ export default function ClientesCorretor() {
  },
  onSuccess: (novoContatoId) => {
  toast.success('Cliente duplicado! Abrindo para edição...');
- queryClient.invalidateQueries({ queryKey: ['clientesCorretor', organizacaoId, userId, debouncedSearchTerm, isProprietario] });
+ queryClient.invalidateQueries({ queryKey: ['clientesCorretor', organizacaoId, userId, debouncedSearchTerm, isCorretor] });
 
  const novoContato = clientes?.find(c => c.id === novoContatoId);
  if(novoContato) {
@@ -166,8 +169,8 @@ export default function ClientesCorretor() {
  const handleCloseModal = () => { setIsModalOpen(false); setContatoParaEditar(null); };
 
  const handleSaveSuccess = useCallback(() => {
- setIsModalOpen(false); setContatoParaEditar(null); toast.success(contatoParaEditar ? 'Cliente atualizado!' : 'Contato salvo!'); queryClient.invalidateQueries({ queryKey: ['clientesCorretor', organizacaoId, userId, debouncedSearchTerm, isProprietario] });
- }, [queryClient, organizacaoId, userId, debouncedSearchTerm, contatoParaEditar, isProprietario]);
+ setIsModalOpen(false); setContatoParaEditar(null); toast.success(contatoParaEditar ? 'Cliente atualizado!' : 'Contato salvo!'); queryClient.invalidateQueries({ queryKey: ['clientesCorretor', organizacaoId, userId, debouncedSearchTerm, isCorretor] });
+ }, [queryClient, organizacaoId, userId, debouncedSearchTerm, contatoParaEditar, isCorretor]);
 
  const handleDelete = (cliente) => {
  toast.error(

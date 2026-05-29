@@ -13,13 +13,14 @@ export async function getMeusClientes() {
 
   const { data: profile } = await supabase
   .from('usuarios')
-  .select('funcao_id, is_superadmin, organizacao_id')
+  .select('funcao_id, is_superadmin, organizacao_id, funcoes(nome_funcao)')
   .eq('id', user.id)
   .single()
 
   if (!profile) return []
 
-  const isProprietario = profile.funcao_id === 1 || profile.is_superadmin === true;
+  // Restringe apenas se for Corretor
+  const isCorretor = profile.funcoes?.nome_funcao?.toLowerCase().includes('corretor') || profile.funcao_id === 20;
 
   let query = supabase
   .from('contatos')
@@ -28,7 +29,7 @@ export async function getMeusClientes() {
   .eq('tipo_contato', 'Cliente') // Garante que é cliente final
   .eq('lixeira', false) // <--- O FILTRO: Esconde os deletados
 
-  if (!isProprietario) {
+  if (isCorretor) {
     query = query.eq('criado_por_usuario_id', user.id) // Segurança: corretores veem apenas o que criaram
   }
 
@@ -55,20 +56,21 @@ export async function softDeleteCliente(clienteId) {
 
   const { data: profile } = await supabase
   .from('usuarios')
-  .select('funcao_id, is_superadmin')
+  .select('funcao_id, is_superadmin, funcoes(nome_funcao)')
   .eq('id', user.id)
   .single()
 
   if (!profile) return { error: 'Não autorizado' }
 
-  const isProprietario = profile.funcao_id === 1 || profile.is_superadmin === true;
+  // Restringe apenas se for Corretor
+  const isCorretor = profile.funcoes?.nome_funcao?.toLowerCase().includes('corretor') || profile.funcao_id === 20;
 
   let query = supabase
   .from('contatos')
   .update({ lixeira: true })
   .eq('id', clienteId)
 
-  if (!isProprietario) {
+  if (isCorretor) {
     query = query.eq('criado_por_usuario_id', user.id) // Segurança: corretores só apagam o que criaram
   }
 

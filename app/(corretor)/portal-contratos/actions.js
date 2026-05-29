@@ -67,13 +67,14 @@ export async function getMeusContratos() {
 
   const { data: profile } = await supabase
   .from('usuarios')
-  .select('funcao_id, is_superadmin, organizacao_id')
+  .select('funcao_id, is_superadmin, organizacao_id, funcoes(nome_funcao)')
   .eq('id', user.id)
   .single()
 
   if (!profile) return []
 
-  const isProprietario = profile.funcao_id === 1 || profile.is_superadmin === true;
+  // Restringe apenas se for Corretor
+  const isCorretor = profile.funcoes?.nome_funcao?.toLowerCase().includes('corretor') || profile.funcao_id === 20;
 
   let query = supabase
   .from('contratos')
@@ -86,7 +87,7 @@ export async function getMeusContratos() {
   .eq('organizacao_id', profile.organizacao_id)
   .eq('lixeira', false) // <--- Só traz o que NÃO foi excluído
 
-  if (!isProprietario) {
+  if (isCorretor) {
     query = query.eq('criado_por_usuario_id', user.id)
   }
 
@@ -104,7 +105,7 @@ export async function getMeusContratos() {
  }
 }
 
-// --- FUNÇÃO 3: EXCLUSÃO SUAVE (A CORREÇÃO ESTÁ AQUI) ---
+// --- FUNÇÃO 3: EXCLUSÃO SUAVE ---
 export async function softDeleteContrato(contratoId) {
  try {
   const supabase = await createClient()
@@ -113,20 +114,21 @@ export async function softDeleteContrato(contratoId) {
 
   const { data: profile } = await supabase
   .from('usuarios')
-  .select('funcao_id, is_superadmin')
+  .select('funcao_id, is_superadmin, funcoes(nome_funcao)')
   .eq('id', user.id)
   .single()
 
   if (!profile) return { error: 'Não autorizado' }
 
-  const isProprietario = profile.funcao_id === 1 || profile.is_superadmin === true;
+  // Restringe apenas se for Corretor
+  const isCorretor = profile.funcoes?.nome_funcao?.toLowerCase().includes('corretor') || profile.funcao_id === 20;
 
   let query = supabase
   .from('contratos')
   .update({ lixeira: true })
   .eq('id', contratoId)
 
-  if (!isProprietario) {
+  if (isCorretor) {
     query = query.eq('criado_por_usuario_id', user.id) // Segurança: só apaga o que é dele
   }
 
