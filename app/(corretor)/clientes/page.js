@@ -12,6 +12,7 @@ import {
 import { createClient } from '@/utils/supabase/client'
 import { toast } from 'sonner'
 import { useLayout } from '@/contexts/LayoutContext'
+import { useAuth } from '@/contexts/AuthContext'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import {
  faPlus, faSpinner, faTimes, faUser, faBuilding,
@@ -25,15 +26,17 @@ import ContatoForm from '@/components/contatos/ContatoForm'
 import { saveContactAction } from '@/components/contatos/actions';
 
 // Função de busca (COM FILTRO DE LIXEIRA)
-async function fetchClientesCorretor(organizacaoId, userId, searchTerm) {
+async function fetchClientesCorretor(organizacaoId, userId, searchTerm, isProprietario) {
  if (!organizacaoId || !userId) return [];
- // CORREÇÃO: createClient aqui deve ser síncrono pois roda no cliente (via useQuery)
  const supabase = createClient()
  let query = supabase.from('contatos')
  .select(`*, telefones(telefone), emails(email)`)
  .eq('organizacao_id', organizacaoId)
- .eq('criado_por_usuario_id', userId)
  .eq('lixeira', false)
+
+ if (!isProprietario) {
+   query = query.eq('criado_por_usuario_id', userId);
+ }
 
  if (searchTerm) { query = query.or(`nome.ilike.%${searchTerm}%,razao_social.ilike.%${searchTerm}%`); }
  query = query.order('nome', { ascending: true }).order('razao_social', { ascending: true });
@@ -48,9 +51,9 @@ async function fetchClientesCorretor(organizacaoId, userId, searchTerm) {
 export default function ClientesCorretor() {
  const queryClient = useQueryClient()
  const { user, isUserLoading } = useLayout()
+ const { isProprietario } = useAuth()
  const organizacaoId = user?.organizacao_id
  const userId = user?.id
- // CORREÇÃO: Removido 'await' (Componente de Cliente)
  const supabase = createClient()
 
  const [isModalOpen, setIsModalOpen] = useState(false)
@@ -62,24 +65,28 @@ export default function ClientesCorretor() {
 
  // Query para buscar clientes
  const { data: clientes, isLoading, isFetching, isError, error, } = useQuery({
- queryKey: ['clientesCorretor', organizacaoId, userId, debouncedSearchTerm],
- queryFn: () => fetchClientesCorretor(organizacaoId, userId, debouncedSearchTerm),
+ queryKey: ['clientesCorretor', organizacaoId, userId, debouncedSearchTerm, isProprietario],
+ queryFn: () => fetchClientesCorretor(organizacaoId, userId, debouncedSearchTerm, isProprietario),
  enabled: !!organizacaoId && !!userId,
  })
 
  // Mutation para Excluir (SOFT DELETE)
  const deleteMutation = useMutation({
  mutationFn: async (contatoId) => {
- const { error } = await supabase
+ let query = supabase
  .from('contatos')
  .update({ lixeira: true })
- .eq('id', contatoId)
- .eq('criado_por_usuario_id', userId);
+ .eq('id', contatoId);
+ 
+ if (!isProprietario) {
+   query = query.eq('criado_por_usuario_id', userId);
+ }
+ const { error } = await query;
  if (error) throw new Error(error.message);
  },
  onSuccess: () => {
  toast.success('Cliente movido para a lixeira!');
- queryClient.invalidateQueries({ queryKey: ['clientesCorretor', organizacaoId, userId, debouncedSearchTerm] });
+ queryClient.invalidateQueries({ queryKey: ['clientesCorretor', organizacaoId, userId, debouncedSearchTerm, isProprietario] });
  },
  onError: (err) => {
  toast.error(`Erro ao excluir cliente: ${err.message}`);
@@ -113,7 +120,7 @@ export default function ClientesCorretor() {
  },
  onSuccess: (novoContatoId) => {
  toast.success('Cliente duplicado! Abrindo para edição...');
- queryClient.invalidateQueries({ queryKey: ['clientesCorretor', organizacaoId, userId, debouncedSearchTerm] });
+ queryClient.invalidateQueries({ queryKey: ['clientesCorretor', organizacaoId, userId, debouncedSearchTerm, isProprietario] });
 
  const novoContato = clientes?.find(c => c.id === novoContatoId);
  if(novoContato) {
@@ -159,8 +166,8 @@ export default function ClientesCorretor() {
  const handleCloseModal = () => { setIsModalOpen(false); setContatoParaEditar(null); };
 
  const handleSaveSuccess = useCallback(() => {
- setIsModalOpen(false); setContatoParaEditar(null); toast.success(contatoParaEditar ? 'Cliente atualizado!' : 'Contato salvo!'); queryClient.invalidateQueries({ queryKey: ['clientesCorretor', organizacaoId, userId, debouncedSearchTerm] });
- }, [queryClient, organizacaoId, userId, debouncedSearchTerm, contatoParaEditar]);
+ setIsModalOpen(false); setContatoParaEditar(null); toast.success(contatoParaEditar ? 'Cliente atualizado!' : 'Contato salvo!'); queryClient.invalidateQueries({ queryKey: ['clientesCorretor', organizacaoId, userId, debouncedSearchTerm, isProprietario] });
+ }, [queryClient, organizacaoId, userId, debouncedSearchTerm, contatoParaEditar, isProprietario]);
 
  const handleDelete = (cliente) => {
  toast.error(

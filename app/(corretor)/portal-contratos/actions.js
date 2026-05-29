@@ -65,7 +65,17 @@ export async function getMeusContratos() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return []
 
-  const { data, error } = await supabase
+  const { data: profile } = await supabase
+  .from('usuarios')
+  .select('funcao_id, is_superadmin, organizacao_id')
+  .eq('id', user.id)
+  .single()
+
+  if (!profile) return []
+
+  const isProprietario = profile.funcao_id === 1 || profile.is_superadmin === true;
+
+  let query = supabase
   .from('contratos')
   .select(`
   *,
@@ -73,9 +83,14 @@ export async function getMeusContratos() {
   contatos ( nome ),
   produtos_empreendimento ( unidade )
   `)
-  .eq('criado_por_usuario_id', user.id)
+  .eq('organizacao_id', profile.organizacao_id)
   .eq('lixeira', false) // <--- Só traz o que NÃO foi excluído
-  .order('created_at', { ascending: false })
+
+  if (!isProprietario) {
+    query = query.eq('criado_por_usuario_id', user.id)
+  }
+
+  const { data, error } = await query.order('created_at', { ascending: false })
 
   if (error) {
   console.error('Erro ao buscar contratos:', error)
@@ -96,12 +111,26 @@ export async function softDeleteContrato(contratoId) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autorizado' }
 
-  // ATENÇÃO: Usamos UPDATE, não DELETE!
-  const { error } = await supabase
+  const { data: profile } = await supabase
+  .from('usuarios')
+  .select('funcao_id, is_superadmin')
+  .eq('id', user.id)
+  .single()
+
+  if (!profile) return { error: 'Não autorizado' }
+
+  const isProprietario = profile.funcao_id === 1 || profile.is_superadmin === true;
+
+  let query = supabase
   .from('contratos')
-  .update({ lixeira: true }) // <--- O SEGREDO: Marca como lixo, não apaga
+  .update({ lixeira: true })
   .eq('id', contratoId)
-  .eq('criado_por_usuario_id', user.id) // Segurança: só apaga o que é dele
+
+  if (!isProprietario) {
+    query = query.eq('criado_por_usuario_id', user.id) // Segurança: só apaga o que é dele
+  }
+
+  const { error } = await query
 
   if (error) {
   console.error('Erro ao mover para lixeira:', error)

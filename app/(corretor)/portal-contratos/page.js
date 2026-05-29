@@ -4,6 +4,7 @@
 import { useState, useMemo } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { useLayout } from '@/contexts/LayoutContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -24,7 +25,6 @@ const fetchFilterData = async (organizacaoId) => {
  if (!organizacaoId) {
  return { clientes: [], produtos: [], empreendimentos: [] };
  }
- // CORREÇÃO: Removido 'await' do createClient
  const supabase = createClient();
  const clientesPromise = supabase.from('contatos').select('id, nome, razao_social').eq('organizacao_id', organizacaoId);
  const produtosPromise = supabase.from('produtos_empreendimento').select('id, unidade, tipo').eq('organizacao_id', organizacaoId);
@@ -44,10 +44,13 @@ const formatUltimaVenda = (dateString) => {
 };
 
 export default function ContratosPage() {
- // CORREÇÃO: Removido 'await' (Componente de Cliente)
  const supabase = createClient();
  const queryClient = useQueryClient();
- const { user, isUserLoading } = useLayout(); const organizacaoId = user?.organizacao_id; const userId = user?.id; const router = useRouter();
+ const { user, isUserLoading } = useLayout();
+ const { isProprietario } = useAuth();
+ const organizacaoId = user?.organizacao_id;
+ const userId = user?.id;
+ const router = useRouter();
 
  const [filters, setFilters] = useState({
  searchTerm: '', clienteId: [], produtoId: [], empreendimentoId: [],
@@ -56,7 +59,6 @@ export default function ContratosPage() {
  const [debouncedFilters] = useDebounce(filters, 500);
  const [sortConfig, setSortConfig] = useState({ key: 'numero_contrato', direction: 'descending' });
  const [isModalOpen, setIsModalOpen] = useState(false);
- // Estados do Modal
  const [selectedEmpreendimentoId, setSelectedEmpreendimentoId] = useState('');
  const [selectedTipoDocumento, setSelectedTipoDocumento] = useState('CONTRATO');
 
@@ -96,7 +98,7 @@ export default function ContratosPage() {
  });
 
  const { data: contratos, isLoading, error } = useQuery({
- queryKey: ['contratos', organizacaoId, userId, debouncedFilters, sortConfig],
+ queryKey: ['contratos', organizacaoId, userId, debouncedFilters, sortConfig, isProprietario],
  queryFn: async () => {
  if (!organizacaoId || !userId) return [];
  let query = supabase
@@ -110,8 +112,11 @@ export default function ContratosPage() {
  )
  `)
  .eq('organizacao_id', organizacaoId)
- .eq('criado_por_usuario_id', userId)
  .eq('lixeira', false);
+
+ if (!isProprietario) {
+   query = query.eq('criado_por_usuario_id', userId);
+ }
 
  if (debouncedFilters.searchTerm) {
  query = query.or(`contato.nome.ilike.%${debouncedFilters.searchTerm}%,contato.razao_social.ilike.%${debouncedFilters.searchTerm}%,numero_contrato.ilike.%${debouncedFilters.searchTerm}%`);
@@ -156,7 +161,7 @@ export default function ContratosPage() {
  const result = await softDeleteContrato(id);
  if (result?.success) {
  toast.success('Contrato excluído!', { id: toastId });
- queryClient.invalidateQueries({ queryKey: ['contratos', organizacaoId, userId] });
+ queryClient.invalidateQueries({ queryKey: ['contratos', organizacaoId, userId, isProprietario] });
  } else {
  toast.error('Erro ao excluir: ' + (result?.error || 'Erro desconhecido'), { id: toastId });
  }
@@ -184,7 +189,7 @@ export default function ContratosPage() {
  toast.success("Documento criado! Redirecionando...");
  handleCloseModal();
  router.push(`/portal-contratos/${result.newContractId}`);
- queryClient.invalidateQueries({ queryKey: ['contratos', organizacaoId, userId] });
+ queryClient.invalidateQueries({ queryKey: ['contratos', organizacaoId, userId, isProprietario] });
  } else if (result?.error) {
  toast.error(`Erro ao criar documento: ${result.error}`);
  } else {
@@ -199,6 +204,7 @@ export default function ContratosPage() {
  };
 
  return (
+ border-t bg-gray-50 rounded-b-xl
  <div className="p-4 md:p-6 lg:p-8 space-y-6">
  <div className="flex justify-between items-center">
  <h1 className="text-2xl font-bold text-gray-800">Meus Contratos</h1>
@@ -233,7 +239,7 @@ export default function ContratosPage() {
  sortConfig={sortConfig}
  requestSort={requestSort}
  onUpdate={() => {
- queryClient.invalidateQueries({ queryKey: ['contratos', organizacaoId, userId] });
+ queryClient.invalidateQueries({ queryKey: ['contratos', organizacaoId, userId, isProprietario] });
  }}
  basePath="/portal-contratos"
  organizacaoId={organizacaoId}

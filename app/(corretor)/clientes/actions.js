@@ -11,13 +11,28 @@ export async function getMeusClientes() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return []
 
-  const { data, error } = await supabase
+  const { data: profile } = await supabase
+  .from('usuarios')
+  .select('funcao_id, is_superadmin, organizacao_id')
+  .eq('id', user.id)
+  .single()
+
+  if (!profile) return []
+
+  const isProprietario = profile.funcao_id === 1 || profile.is_superadmin === true;
+
+  let query = supabase
   .from('contatos')
   .select('*')
-  .eq('criado_por_usuario_id', user.id) // Apenas clientes desse corretor
+  .eq('organizacao_id', profile.organizacao_id) // Filtro de tenant
   .eq('tipo_contato', 'Cliente') // Garante que é cliente final
   .eq('lixeira', false) // <--- O FILTRO: Esconde os deletados
-  .order('created_at', { ascending: false })
+
+  if (!isProprietario) {
+    query = query.eq('criado_por_usuario_id', user.id) // Segurança: corretores veem apenas o que criaram
+  }
+
+  const { data, error } = await query.order('created_at', { ascending: false })
 
   if (error) {
   console.error('Erro ao buscar clientes:', error)
@@ -38,12 +53,26 @@ export async function softDeleteCliente(clienteId) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Não autorizado' }
 
-  // Atualiza lixeira = true (Não usa DELETE!)
-  const { error } = await supabase
+  const { data: profile } = await supabase
+  .from('usuarios')
+  .select('funcao_id, is_superadmin')
+  .eq('id', user.id)
+  .single()
+
+  if (!profile) return { error: 'Não autorizado' }
+
+  const isProprietario = profile.funcao_id === 1 || profile.is_superadmin === true;
+
+  let query = supabase
   .from('contatos')
   .update({ lixeira: true })
   .eq('id', clienteId)
-  .eq('criado_por_usuario_id', user.id) // Segurança: só apaga o que ele criou
+
+  if (!isProprietario) {
+    query = query.eq('criado_por_usuario_id', user.id) // Segurança: corretores só apagam o que criaram
+  }
+
+  const { error } = await query
 
   if (error) {
   console.error('Erro ao excluir cliente:', error)
