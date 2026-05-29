@@ -7,6 +7,18 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useConversation, useChatMessages, useSendMessage, useMarkAsRead } from './ChatHooks';
 import { useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { format, isToday, isYesterday, differenceInCalendarDays } from 'date-fns';
+
+const getDateLabel = (dateString) => {
+  if (!dateString) return null;
+  const date = new Date(dateString);
+  const today = new Date();
+  if (isToday(date)) return 'Hoje';
+  if (isYesterday(date)) return 'Ontem';
+  const diffDays = differenceInCalendarDays(today, date);
+  if (diffDays === 2) return 'Anteontem';
+  return format(date, 'dd/MM/yyyy');
+};
 
 export default function ChatRoom({ contact }) {
  const { user } = useAuth();
@@ -105,26 +117,40 @@ export default function ChatRoom({ contact }) {
  Nenhuma mensagem trocada ainda. Mande o primeiro oi!
  </div>
  ) : (
- messages.map((msg) => {
- const isMine = msg.sender_id === user?.id;
- return (
- <div key={msg.id} className={`flex flex-col ${isMine ? 'items-end' : 'items-start'}`}>
- <div className={`px-4 py-2 max-w-[85%] rounded-2xl shadow-sm text-[14px] ${
- isMine ? 'bg-blue-600 text-white rounded-tr-sm' : 'bg-white border border-gray-200 text-gray-800 rounded-tl-sm'
- }`}
- >
- {msg.conteudo}
- </div>
- <span className="text-[10.5px] text-gray-400 mt-1 px-1 font-medium tracking-wide flex items-center justify-end gap-1">
- {new Date(msg.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
- {/* Icone do Whatsapp (Status de Entrega e Leitura) */}
- {isMine && (
- <FontAwesomeIcon icon={faCheckDouble} className={msg.read_at ? "text-blue-500 text-[11px]" : "text-gray-400 text-[11px]"} />
- )}
- </span>
- </div>
- );
- })
+  messages.map((msg, index) => {
+  const isMine = msg.sender_id === user?.id;
+  const messageDate = msg.created_at;
+  const currentDateLabel = getDateLabel(messageDate);
+  const prevMessage = messages[index - 1];
+  const prevDateLabel = prevMessage ? getDateLabel(prevMessage.created_at) : null;
+  const showDateSeparator = currentDateLabel !== prevDateLabel;
+
+  return (
+  <div key={msg.id} className="flex flex-col">
+  {showDateSeparator && (
+  <div className="flex justify-center my-3 sticky top-0 z-10 pointer-events-none">
+  <span className="bg-blue-50 text-blue-700 text-[11px] font-bold px-3 py-1.5 rounded-lg shadow-sm border border-blue-100 uppercase tracking-wide opacity-95">
+  {currentDateLabel}
+  </span>
+  </div>
+  )}
+  <div className={`flex flex-col ${isMine ? 'items-end' : 'items-start'} mb-1`}>
+  <div className={`px-4 py-2 max-w-[85%] rounded-2xl shadow-sm text-[14px] ${
+  isMine ? 'bg-blue-600 text-white rounded-tr-sm' : 'bg-white border border-gray-200 text-gray-800 rounded-tl-sm'
+  }`}
+  >
+  {msg.conteudo}
+  </div>
+  <span className="text-[10.5px] text-gray-400 mt-1 px-1 font-medium tracking-wide flex items-center justify-end gap-1">
+  {new Date(msg.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+  {isMine && (
+  <FontAwesomeIcon icon={faCheckDouble} className={msg.read_at ? "text-blue-500 text-[11px]" : "text-gray-400 text-[11px]"} />
+  )}
+  </span>
+  </div>
+  </div>
+  );
+  })
  )}
  <div ref={messagesEndRef} />
  </div>

@@ -166,9 +166,12 @@ function MainLayoutContent({ children }) {
  </>
  );
 
+ const isChatPage = pathname === '/chat';
+
  return (
  <div className={isCaixaDeEntrada ? "flex flex-col h-screen w-full bg-white overflow-hidden" : "min-h-screen bg-white flex flex-col"}>
  {content}
+ {!isChatPage && <FloatingChat />}
  </div>
  );
 }
@@ -179,7 +182,6 @@ export default function MainLayoutClient({ children }) {
  <EmpreendimentoProvider>
  <TermsUpdateEnforcer />
  <MainLayoutContent>{children}</MainLayoutContent>
- <FloatingChat />
  </EmpreendimentoProvider>
  </LayoutProvider>
  );
