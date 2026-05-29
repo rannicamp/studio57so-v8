@@ -238,6 +238,51 @@ export default function ChatRoom({ contact }) {
     }
   };
 
+  const handlePaste = async (e) => {
+    if (contact.isBroadcast || !conversationId) return;
+
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (item.type.indexOf('image') !== -1) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (!file) continue;
+
+        setIsUploading(true);
+        try {
+          const cleanName = `print_${Date.now()}.png`;
+          const filePath = `chat-interno/${conversationId}/${cleanName}`;
+
+          const { error: uploadError } = await supabase.storage
+            .from('chat-interno')
+            .upload(filePath, file, { contentType: file.type });
+
+          if (uploadError) throw uploadError;
+
+          const { data: urlData } = supabase.storage
+            .from('chat-interno')
+            .getPublicUrl(filePath);
+
+          sendMessageMutation.mutate({
+            conversationId,
+            senderId: user.id,
+            conteudo: urlData.publicUrl
+          });
+          toast.success("Print enviado com sucesso!");
+        } catch (err) {
+          console.error(err);
+          toast.error("Erro ao enviar imagem colada: " + err.message);
+        } finally {
+          setIsUploading(false);
+        }
+        break;
+      }
+    }
+  };
+
  const aiMutation = useMutation({
  mutationFn: async (text) => {
  const res = await fetch('/api/ai/chat-suggestion', {
@@ -464,6 +509,7 @@ export default function ChatRoom({ contact }) {
                       handleSend(e);
                     }
                   }}
+                  onPaste={handlePaste}
         />
 
         {/* BOTÃO MAGIA IA */}
