@@ -12,7 +12,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
 // O PORQUÊ: Este é um componente "filho", usado pelo MinhasAtividadesWidget.
-// Ele agora exibe botões inline para edição rápida e conclusão da atividade diretamente da Home.
+// Ele agora exibe botões inline para edição rápida, conclusão e alteração de status via dropdown diretamente da Home.
 // Usamos a Regra 5c: as datas YYYY-MM-DD são tratadas como texto para evitar fuso horário.
 
 const formatDate = (dateString) => {
@@ -62,12 +62,37 @@ export default function AtividadeCard({ atividade, onEdit }) {
       if (error) throw error;
       toast.success(`Atividade "${atividade.nome}" concluída com sucesso!`);
       
-      // Invalida as queries de atividades do painel e do kanban principal
       queryClient.invalidateQueries({ queryKey: ['atividadesPainel'] });
       queryClient.invalidateQueries({ queryKey: ['atividades'] });
     } catch (err) {
       console.error(err);
       toast.error("Erro ao concluir atividade: " + err.message);
+    }
+  };
+
+  const handleStatusChange = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const newStatus = e.target.value;
+    try {
+      const updatePayload = { status: newStatus };
+      if (newStatus === 'Concluído') {
+        updatePayload.data_inicio_real = atividade.data_inicio_real || new Date().toISOString().split('T')[0];
+      }
+
+      const { error } = await supabase
+        .from('activities')
+        .update(updatePayload)
+        .eq('id', atividade.id);
+
+      if (error) throw error;
+      toast.success(`Status da atividade alterado para "${newStatus}"!`);
+
+      queryClient.invalidateQueries({ queryKey: ['atividadesPainel'] });
+      queryClient.invalidateQueries({ queryKey: ['atividades'] });
+    } catch (err) {
+      console.error(err);
+      toast.error("Erro ao alterar status: " + err.message);
     }
   };
 
@@ -105,9 +130,23 @@ export default function AtividadeCard({ atividade, onEdit }) {
             >
               <FontAwesomeIcon icon={faPen} className="text-[10px]" />
             </button>
-            <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${getBadgeColor(atividade.status)}`}>
-              {atividade.status}
-            </span>
+            
+            {/* Dropdown de status interativo */}
+            <select
+              value={atividade.status}
+              onChange={handleStatusChange}
+              onClick={(e) => {
+                e.stopPropagation(); // impede a navegação do Link ao abrir
+              }}
+              className={`text-[10px] uppercase font-black px-2.5 py-0.5 rounded-full border-0 cursor-pointer outline-none focus:ring-1 focus:ring-blue-500/20 shadow-sm leading-none transition-all active:scale-95 ${getBadgeColor(atividade.status)}`}
+            >
+              <option value="Não Iniciado" className="bg-white text-gray-800">Não Iniciado</option>
+              <option value="Em andamento" className="bg-white text-gray-800">Em andamento</option>
+              <option value="Pausado" className="bg-white text-gray-800">Pausado</option>
+              <option value="Aguardando material" className="bg-white text-gray-800">Aguardando material</option>
+              <option value="Concluído" className="bg-white text-gray-800">Concluído</option>
+              <option value="Cancelado" className="bg-white text-gray-800">Cancelado</option>
+            </select>
           </div>
         </div>
         <div className="flex justify-between items-center mt-2">
