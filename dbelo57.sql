@@ -1935,6 +1935,16 @@ CREATE TABLE public.telefones_backup_faxina (
     organizacao_id bigint
 );
 
+CREATE TABLE public.temp_debug_logs (
+    id integer NOT NULL DEFAULT nextval('temp_debug_logs_id_seq'::regclass),
+    created_at timestamp without time zone DEFAULT now(),
+    user_id uuid,
+    params jsonb,
+    result_count integer,
+    error text,
+    message text
+);
+
 CREATE TABLE public.termos_aceite (
     id bigint NOT NULL,
     user_id uuid NOT NULL,

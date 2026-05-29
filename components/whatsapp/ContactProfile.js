@@ -367,6 +367,17 @@ export default function ContactProfile({ contact }) {
  const [selectedEmpreendimentoId, setSelectedEmpreendimentoId] = useState('');
  const [arquivosViewMode, setArquivosViewMode] = useState('list');
 
+  useEffect(() => {
+    if (isEditModalOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isEditModalOpen]);
+
  const { data: profileData, isLoading } = useQuery({
  queryKey: ['contactProfileData', contact?.contato_id, organizacaoId],
  queryFn: () => fetchContactProfileData(supabase, contact?.contato_id, organizacaoId),
@@ -1286,9 +1297,9 @@ export default function ContactProfile({ contact }) {
   </main>
 
  {/* --- MODAL DE EDIÇÃO COMPLETA --- */}
- {isEditModalOpen && (
- <div className="fixed inset-0 bg-black bg-opacity-70 z-[60] flex justify-center items-center p-4">
- <div className="bg-white p-0 rounded-lg shadow-2xl w-full max-w-5xl h-[95vh] flex flex-col animate-in fade-in zoom-in-95 duration-200">
+  {isEditModalOpen && (
+  <div className="fixed inset-0 bg-black bg-opacity-70 z-[60] flex justify-center items-center sm:p-4 p-0">
+  <div className="bg-white p-0 sm:rounded-lg shadow-2xl w-full h-full sm:h-[95vh] sm:max-w-5xl flex flex-col animate-in fade-in zoom-in-95 duration-200">
  <div className="flex justify-between items-center p-6 border-b sticky top-0 bg-white rounded-t-lg z-10">
  <h3 className="text-2xl font-bold text-gray-800">Editar Contato</h3>
  <button onClick={() => setIsEditModalOpen(false)} className="text-gray-400 hover:text-gray-600 p-2 rounded-full hover:bg-gray-100 transition-colors">

@@ -174,22 +174,22 @@ export function useSendMessage() {
 
 // 4. Hook Mutation para Marcar como Lido (Visto Azul Whatsapp)
 export function useMarkAsRead() {
-  const supabase = createClient();
-  const queryClient = useQueryClient();
+ const supabase = createClient();
+ const queryClient = useQueryClient();
 
-  return useMutation({
-    mutationFn: async ({ conversationId, userId }) => {
-      if (!conversationId || !userId) return;
-      const { error } = await supabase.rpc('mark_messages_as_read', {
-        p_conversation_id: conversationId,
-        p_user_id: userId
-      });
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['chat_conversations_list'] });
-    }
-  });
+ return useMutation({
+ mutationFn: async ({ conversationId, userId }) => {
+ if (!conversationId || !userId) return;
+ const { error } = await supabase.rpc('mark_messages_as_read', {
+ p_conversation_id: conversationId,
+ p_user_id: userId
+ });
+ if (error) throw error;
+ },
+ onSuccess: () => {
+ queryClient.invalidateQueries({ queryKey: ['chat_conversations_list'] });
+ }
+ });
 }
 
 // 5. Hook para listar as conversas ativas do usuario
@@ -206,11 +206,18 @@ export function useConversationsList() {
  p_user_id: user.id,
  p_org_id: organizacao_id
  });
-  if (error) {
-  console.error("Erro listando conversas", error);
-  return [];
-  }
-  return data || [];
+ if (error) {
+ // Enriquecimento do log de erro para capturar a causa raiz no console do navegador do Ranniere
+ console.error("Erro listando conversas no ChatHooks:", {
+   message: error.message,
+   code: error.code,
+   details: error.details,
+   hint: error.hint,
+   errorObject: error
+ });
+ return [];
+ }
+ return data || [];
  },
  enabled: !!user?.id && !!organizacao_id,
  staleTime: Infinity,
@@ -250,8 +257,7 @@ export function useSendBroadcast() {
  conteudo: conteudo
  }]);
  });
-
- await Promise.all(promises);
+ return Promise.all(promises);
  }
  });
 }

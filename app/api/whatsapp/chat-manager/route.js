@@ -11,7 +11,7 @@ export async function POST(request) {
  const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
  try {
- const { action, conversationId, phoneNumber } = await request.json();
+ const { action, conversationId, conversationIds, phoneNumber } = await request.json();
 
  // 1. RESOLVER ID (Garantia Extra)
  // Se veio o ID direto, usa ele. Se veio telefone, busca o ID.
@@ -26,7 +26,7 @@ export async function POST(request) {
  if (conv) targetId = conv.id;
  }
 
- if (!targetId) return NextResponse.json({ error: 'ID ou Telefone inválido.' }, { status: 400 });
+ if (!targetId && (!conversationIds || conversationIds.length === 0)) return NextResponse.json({ error: 'ID ou Telefone inválido.' }, { status: 400 });
 
  // === AÇÃO: EXCLUIR (DELETE) ===
  if (action === 'delete') {
@@ -80,15 +80,27 @@ export async function POST(request) {
 
  // --- OUTRAS AÇÕES ---
  if (action === 'archive') {
- const { error } = await supabaseAdmin.from('whatsapp_conversations').update({ is_archived: true }).eq('id', targetId);
+ let query = supabaseAdmin.from('whatsapp_conversations').update({ is_archived: true });
+ if (conversationIds && Array.isArray(conversationIds)) {
+ query = query.in('id', conversationIds);
+ } else {
+ query = query.eq('id', targetId);
+ }
+ const { error } = await query;
  if (error) throw error;
- return NextResponse.json({ success: true, message: "Arquivada" });
+ return NextResponse.json({ success: true, message: "Arquivadas" });
  }
 
  if (action === 'unarchive') {
- const { error } = await supabaseAdmin.from('whatsapp_conversations').update({ is_archived: false }).eq('id', targetId);
+ let query = supabaseAdmin.from('whatsapp_conversations').update({ is_archived: false });
+ if (conversationIds && Array.isArray(conversationIds)) {
+ query = query.in('id', conversationIds);
+ } else {
+ query = query.eq('id', targetId);
+ }
+ const { error } = await query;
  if (error) throw error;
- return NextResponse.json({ success: true, message: "Desarquivada" });
+ return NextResponse.json({ success: true, message: "Desarquivadas" });
  }
 
  // Ação nova para limpar contador (Visto Azul)

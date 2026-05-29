@@ -1,7 +1,7 @@
 // components/whatsapp/ConversationList.js
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { format, addHours, differenceInMinutes } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -21,7 +21,9 @@ import {
  faClipboardList,
  faClock,
  faExclamationCircle, // Ícone de alerta
- faUserTie
+ faUserTie,
+ faCheckSquare, // Adicionado para seleção em lote
+ faSquare // Adicionado para seleção em lote
 } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 import { useQueryClient, useMutation } from '@tanstack/react-query';
@@ -79,7 +81,7 @@ const ServiceWindowTimer = ({ lastInboundAt }) => {
  {timeLeftLabel}
  </span>
  );
-};
+ };
 
 // Gera cor única para cada contato baseada no nome (igual ao Google Contacts)
 const AVATAR_COLORS = [
@@ -92,11 +94,14 @@ const getAvatarColor = (name = '') => {
  let hash = 0;
  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
-};
+ };
 
 // --- COMPONENTE ITEM DA CONVERSA ---
-const ConversationItem = ({ conversation, isSelected, onSelect, onAction, isArchivedList }) => {
+const ConversationItem = ({ conversation, isSelected, onSelect, onAction, isArchivedList, isChecked, onToggleCheck, isAnyChecked }) => {
  const [isMenuOpen, setIsMenuOpen] = useState(false);
+ const longPressTimer = useRef(null);
+ const touchStarted = useRef(false);
+ const touchMoved = useRef(false);
 
  const contactName = conversation.contatos?.nome || conversation.nome || formatPhoneNumber(conversation.phone_number || conversation.customer_phone || '');
  const isFailed = conversation.last_message_status === 'failed';
@@ -116,143 +121,219 @@ const ConversationItem = ({ conversation, isSelected, onSelect, onAction, isArch
  }
  }, [isMenuOpen]);
 
+ // Toque longo no celular para ativar seleção
+ const handleTouchStart = () => {
+   if (isAnyChecked) return; // Se já está em seleção, o clique normal basta
+   touchStarted.current = true;
+   touchMoved.current = false;
+   
+   longPressTimer.current = setTimeout(() => {
+     if (touchStarted.current && !touchMoved.current) {
+       onToggleCheck(conversation.conversation_id || conversation.id);
+       if (navigator.vibrate) {
+         try { navigator.vibrate(50); } catch(err) {}
+       }
+     }
+   }, 600); // 600ms segurando
+ };
+
+ const handleTouchEnd = () => {
+   touchStarted.current = false;
+   if (longPressTimer.current) {
+     clearTimeout(longPressTimer.current);
+   }
+ };
+
+ const handleTouchMove = () => {
+   touchMoved.current = true;
+   if (longPressTimer.current) {
+     clearTimeout(longPressTimer.current);
+   }
+ };
+
+ const handleCardClick = (e) => {
+   // Se houver algum item selecionado, qualquer clique no card alterna a seleção
+   if (isAnyChecked) {
+     e.preventDefault();
+     e.stopPropagation();
+     onToggleCheck(conversation.conversation_id || conversation.id);
+   } else {
+     onSelect(conversation);
+   }
+ };
+
+ const handleAvatarClick = (e) => {
+   // Clicar direto no avatar inicia a seleção imediatamente
+   e.preventDefault();
+   e.stopPropagation();
+   onToggleCheck(conversation.conversation_id || conversation.id);
+ };
+
  return (
  <li
- onClick={() => onSelect(conversation)}
- className={`relative group p-4 border-b cursor-pointer hover:bg-gray-50 transition-colors ${isSelected ? 'bg-[#f0f2f5] border-l-4 border-l-[#00a884]' : 'bg-white'
+ onClick={handleCardClick}
+ onTouchStart={handleTouchStart}
+ onTouchEnd={handleTouchEnd}
+ onTouchMove={handleTouchMove}
+ className={`relative group p-4 border-b cursor-pointer hover:bg-gray-50 transition-colors select-none ${isSelected ? 'bg-[#f0f2f5] border-l-4 border-l-[#00a884]' : 'bg-white'
  }`}
  >
  <div className="flex items-start">
- {/* Avatar */}
- <div className="relative mt-1">
- <div className={`w-12 h-12 ${getAvatarColor(contactName)} rounded-full flex items-center justify-center text-sm font-bold text-white overflow-hidden shrink-0 select-none`}>
- {conversation.avatar_url ? (
- <img src={conversation.avatar_url} alt="" className="w-full h-full object-cover" />
- ) : (
- contactName.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase() || '?'
- )}
- </div>
- {conversation.unread_count > 0 && (
- <div className="absolute -top-1 -right-1 bg-[#00a884] text-white text-xs font-bold w-5 h-5 flex items-center justify-center rounded-full border-2 border-white">
- {conversation.unread_count}
- </div>
- )}
- {/* Indicador de Falha no Avatar */}
- {isFailed && (
- <div className="absolute -bottom-1 -right-1 bg-red-500 text-white text-[10px] font-bold w-5 h-5 flex items-center justify-center rounded-full border-2 border-white" title="Envio Falhou">
- !
- </div>
- )}
- </div>
+   {/* Avatar com Checkbox Integrado */}
+   <div 
+     className="relative mt-1 shrink-0 cursor-pointer"
+     onClick={handleAvatarClick}
+   >
+     {isChecked ? (
+       // Círculo Verde com Check
+       <div className="w-12 h-12 bg-[#00a884] rounded-full flex items-center justify-center text-white text-lg animate-in zoom-in duration-150 shadow-sm border border-[#00a884]">
+         <FontAwesomeIcon icon={faCheckSquare} className="text-xl" />
+       </div>
+     ) : (
+       <div className="relative group/avatar w-12 h-12">
+         {/* Foto / Iniciais do Usuário (Esconde se estiver em modo de seleção para dar lugar à checkbox cinza) */}
+         <div className={`w-12 h-12 ${getAvatarColor(contactName)} rounded-full flex items-center justify-center text-sm font-bold text-white overflow-hidden transition-all duration-150 ${isAnyChecked ? 'opacity-0 scale-75' : 'opacity-100 scale-100'}`}>
+           {conversation.avatar_url ? (
+             <img src={conversation.avatar_url} alt="" className="w-full h-full object-cover" />
+           ) : (
+             contactName.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase() || '?'
+           )}
+         </div>
+         
+         {/* Checkbox Hover (Desktop) ou Círculo Cinza Indicador (Mobile e Desktop em Seleção) */}
+         <div className={`absolute inset-0 w-12 h-12 bg-gray-100/90 border-2 border-gray-300 rounded-full flex items-center justify-center text-gray-400 transition-all duration-150 
+           ${isAnyChecked 
+             ? 'opacity-100 scale-100' 
+             : 'opacity-0 scale-75 group-hover/avatar:opacity-100 group-hover/avatar:scale-100 md:flex hidden'
+           }`}
+         >
+           <FontAwesomeIcon icon={faSquare} className="text-base" />
+         </div>
+       </div>
+     )}
 
- {/* Info */}
- <div className="ml-4 flex-grow min-w-0 pr-8">
- {conversation.corretor_nome && (
-   <div className="mb-0.5">
-     <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100 uppercase tracking-wide inline-flex items-center gap-1">
-       <FontAwesomeIcon icon={faUserTie} className="text-[9px]" />
-       {conversation.corretor_nome}
-     </span>
+     {/* Bolinha de Mensagens Não Lidas (Esconde se estiver marcado ou em modo de seleção) */}
+     {!isChecked && !isAnyChecked && conversation.unread_count > 0 && (
+       <div className="absolute -top-1 -right-1 bg-[#00a884] text-white text-xs font-bold w-5 h-5 flex items-center justify-center rounded-full border-2 border-white">
+         {conversation.unread_count}
+       </div>
+     )}
+     {/* Indicador de Falha (Esconde se estiver marcado ou em modo de seleção) */}
+     {!isChecked && !isAnyChecked && isFailed && (
+       <div className="absolute -bottom-1 -right-1 bg-red-500 text-white text-[10px] font-bold w-5 h-5 flex items-center justify-center rounded-full border-2 border-white" title="Envio Falhou">
+         !
+       </div>
+     )}
    </div>
- )}
- <div className="flex justify-between items-baseline">
- <h3 className={`font-semibold truncate pr-2 text-sm ${isFailed ? 'text-red-600' : 'text-gray-900'}`}>
- {contactName}
- </h3>
- {conversation.last_message_at && (
- <span className={`text-xs flex-shrink-0 ${conversation.unread_count > 0 ? 'text-[#00a884] font-bold' : 'text-gray-400'}`}>
- {formatMessageDate(conversation.last_message_at)}
- </span>
- )}
- </div>
 
- <div className="flex justify-between items-center mt-0.5">
- <p className={`text-sm truncate w-full ${isFailed ? 'text-red-500 font-medium' : 'text-gray-500'}`}>
- {isFailed ?
- <span><FontAwesomeIcon icon={faExclamationCircle} className="mr-1" /> Falha no envio</span>
- :
- (conversation.last_message_content || 'Inicie uma conversa')
- }
- </p>
- </div>
+   {/* Info */}
+   <div className="ml-4 flex-grow min-w-0 pr-8">
+     {conversation.corretor_nome && (
+       <div className="mb-0.5">
+         <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-100 uppercase tracking-wide inline-flex items-center gap-1">
+           <FontAwesomeIcon icon={faUserTie} className="text-[9px]" />
+           {conversation.corretor_nome}
+         </span>
+       </div>
+     )}
+     <div className="flex justify-between items-baseline">
+       <h3 className={`font-semibold truncate pr-2 text-sm ${isFailed ? 'text-red-600' : 'text-gray-900'}`}>
+         {contactName}
+       </h3>
+       {conversation.last_message_at && (
+         <span className={`text-xs flex-shrink-0 ${conversation.unread_count > 0 ? 'text-[#00a884] font-bold' : 'text-gray-400'}`}>
+           {formatMessageDate(conversation.last_message_at)}
+         </span>
+       )}
+     </div>
 
- {/* Tags */}
- <div className="flex items-center gap-2 mt-2 flex-wrap">
- <ServiceWindowTimer lastInboundAt={conversation.last_inbound_at} />
+     <div className="flex justify-between items-center mt-0.5">
+       <p className={`text-sm truncate w-full ${isFailed ? 'text-red-500 font-medium' : 'text-gray-500'}`}>
+         {isFailed ?
+           <span><FontAwesomeIcon icon={faExclamationCircle} className="mr-1" /> Falha no envio</span>
+           :
+           (conversation.last_message_content || 'Inicie uma conversa')
+         }
+       </p>
+     </div>
 
- {conversation.etapa_funil && (
- <span className="text-[10px] font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-100 flex items-center gap-1 max-w-full truncate">
- <FontAwesomeIcon icon={faFilter} className="text-[9px] opacity-70" />
- {conversation.etapa_funil}
- </span>
- )}
+     {/* Tags */}
+     <div className="flex items-center gap-2 mt-2 flex-wrap">
+       <ServiceWindowTimer lastInboundAt={conversation.last_inbound_at} />
 
- {conversation.tipo_contato && (
- <span className="text-[10px] font-medium text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200 uppercase tracking-wide">
- {conversation.tipo_contato}
- </span>
- )}
- </div>
- </div>
+       {conversation.etapa_funil && (
+         <span className="text-[10px] font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-100 flex items-center gap-1 max-w-full truncate">
+           <FontAwesomeIcon icon={faFilter} className="text-[9px] opacity-70" />
+           {conversation.etapa_funil}
+         </span>
+       )}
 
- {/* --- MENU DE AÇÕES --- */}
- <div className={`absolute right-2 top-4 z-20 transition-opacity duration-200 ${isMenuOpen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
- <button
- className={`flex items-center justify-center w-8 h-8 rounded-full focus:outline-none shadow-sm transition-colors ${isMenuOpen ? 'bg-gray-200 text-gray-700' : 'bg-white/80 text-gray-500 hover:text-gray-700 hover:bg-gray-200'
- }`}
- onClick={(e) => {
- e.stopPropagation();
- setIsMenuOpen(!isMenuOpen);
- }}
- >
- <FontAwesomeIcon icon={faEllipsisV} />
- </button>
+       {conversation.tipo_contato && (
+         <span className="text-[10px] font-medium text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200 uppercase tracking-wide">
+           {conversation.tipo_contato}
+         </span>
+       )}
+     </div>
+   </div>
 
- {isMenuOpen && (
- <div
- className="absolute right-0 mt-1 w-48 bg-white rounded-md shadow-xl ring-1 ring-black ring-opacity-5 z-50 animate-in fade-in zoom-in-95 duration-100"
- onClick={(e) => e.stopPropagation()}
- >
- <div className="py-1">
- <button
- onClick={(e) => {
- e.stopPropagation();
- setIsMenuOpen(false);
- onAction('create_card', conversation);
- }}
- className="group flex w-full items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600"
- >
- <FontAwesomeIcon icon={faClipboardList} className="mr-3 h-4 w-4 text-gray-400 group-hover:text-blue-500" />
- Criar Card
- </button>
+   {/* --- MENU DE AÇÕES --- */}
+   <div className={`absolute right-2 top-4 z-20 transition-opacity duration-200 ${isMenuOpen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+     <button
+       className={`flex items-center justify-center w-8 h-8 rounded-full focus:outline-none shadow-sm transition-colors ${isMenuOpen ? 'bg-gray-200 text-gray-700' : 'bg-white/80 text-gray-500 hover:text-gray-700 hover:bg-gray-200'
+       }`}
+       onClick={(e) => {
+         e.stopPropagation();
+         setIsMenuOpen(!isMenuOpen);
+       }}
+     >
+       <FontAwesomeIcon icon={faEllipsisV} />
+     </button>
 
- <button
- onClick={(e) => {
- e.stopPropagation();
- setIsMenuOpen(false);
- onAction(isArchivedList ? 'unarchive' : 'archive', conversation);
- }}
- className="group flex w-full items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900"
- >
- <FontAwesomeIcon icon={isArchivedList ? faInbox : faArchive} className="mr-3 h-4 w-4 text-gray-400 group-hover:text-gray-500" />
- {isArchivedList ? 'Desarquivar' : 'Arquivar'}
- </button>
+     {isMenuOpen && (
+       <div
+         className="absolute right-0 mt-1 w-48 bg-white rounded-md shadow-xl ring-1 ring-black ring-opacity-5 z-50 animate-in fade-in zoom-in-95 duration-100"
+         onClick={(e) => e.stopPropagation()}
+       >
+         <div className="py-1">
+           <button
+             onClick={(e) => {
+               e.stopPropagation();
+               setIsMenuOpen(false);
+               onAction('create_card', conversation);
+             }}
+             className="group flex w-full items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 hover:text-blue-600"
+           >
+             <FontAwesomeIcon icon={faClipboardList} className="mr-3 h-4 w-4 text-gray-400 group-hover:text-blue-500" />
+             Criar Card
+           </button>
 
- <button
- onClick={(e) => {
- e.stopPropagation();
- setIsMenuOpen(false);
- onAction('delete', conversation);
- }}
- className="group flex w-full items-center px-4 py-3 text-sm text-red-600 hover:bg-red-50"
- >
- <FontAwesomeIcon icon={faTrash} className="mr-3 h-4 w-4 text-red-500" />
- Excluir
- </button>
- </div>
- </div>
- )}
- </div>
+           <button
+             onClick={(e) => {
+               e.stopPropagation();
+               setIsMenuOpen(false);
+               onAction(isArchivedList ? 'unarchive' : 'archive', conversation);
+             }}
+             className="group flex w-full items-center px-4 py-3 text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900"
+           >
+             <FontAwesomeIcon icon={isArchivedList ? faInbox : faArchive} className="mr-3 h-4 w-4 text-gray-400 group-hover:text-gray-500" />
+             {isArchivedList ? 'Desarquivar' : 'Arquivar'}
+           </button>
+
+           <button
+             onClick={(e) => {
+               e.stopPropagation();
+               setIsMenuOpen(false);
+               onAction('delete', conversation);
+             }}
+             className="group flex w-full items-center px-4 py-3 text-sm text-red-600 hover:bg-red-50"
+           >
+             <FontAwesomeIcon icon={faTrash} className="mr-3 h-4 w-4 text-red-500" />
+             Excluir
+           </button>
+         </div>
+       </div>
+     )}
+   </div>
  </div>
  </li>
  );
@@ -292,6 +373,7 @@ export default function ConversationList({ conversations, broadcastLists, isLoad
  // Estado padrão: 'chats'
  const [activeTab, setActiveTab] = usePersistentState('whatsapp_active_tab', 'chats');
  const [showArchived, setShowArchived] = useState(false);
+ const [selectedIds, setSelectedIds] = useState(new Set()); // Seleção em lote
 
  const [isNewChatOpen, setIsNewChatOpen] = useState(false);
  const [isNewListOpen, setIsNewListOpen] = useState(false);
@@ -300,22 +382,28 @@ export default function ConversationList({ conversations, broadcastLists, isLoad
 
  const queryClient = useQueryClient();
 
+ // Limpar seleções ao trocar de aba
+ useEffect(() => {
+   setSelectedIds(new Set());
+ }, [activeTab, showArchived]);
+
  const conversationMutation = useMutation({
- mutationFn: async ({ action, conversationId }) => {
+ mutationFn: async ({ action, conversationId, conversationIds }) => {
  const response = await fetch('/api/whatsapp/chat-manager', {
  method: 'POST',
  headers: { 'Content-Type': 'application/json' },
- body: JSON.stringify({ action, conversationId })
+ body: JSON.stringify({ action, conversationId, conversationIds })
  });
  const data = await response.json();
  if (!response.ok) throw new Error(data.error || 'Erro ao processar ação');
  return { ...data, action };
  },
  onSuccess: (data) => {
- const actionMsg = data.action === 'delete' ? 'Conversa excluída!' : data.action === 'archive' ? 'Arquivada!' : 'Recuperada!';
+ const actionMsg = data.action === 'delete' ? 'Conversa excluída!' : data.action === 'archive' ? 'Ação concluída com sucesso!' : 'Recuperada!';
  toast.success(actionMsg);
  queryClient.invalidateQueries({ queryKey: ['conversations'] });
  queryClient.invalidateQueries({ queryKey: ['messages'] });
+ setSelectedIds(new Set()); // Limpar seleção em lote
  if (data.action === 'delete') onSelectContact(null);
  },
  onError: (error) => toast.error(`Erro: ${error.message}`)
@@ -382,6 +470,18 @@ export default function ConversationList({ conversations, broadcastLists, isLoad
  // NOVA LISTA: Conversas onde a última mensagem falhou
  const failedConversations = conversations?.filter(c => c.last_message_status === 'failed') || [];
 
+ const toggleSelection = (id) => {
+   const newSet = new Set(selectedIds);
+   if (newSet.has(id)) {
+     newSet.delete(id);
+   } else {
+     newSet.add(id);
+   }
+   setSelectedIds(newSet);
+ };
+
+ const isAnyChecked = selectedIds.size > 0;
+
  return (
  <div className="flex flex-col h-full bg-white relative">
  <NewConversationModal
@@ -420,6 +520,37 @@ export default function ConversationList({ conversations, broadcastLists, isLoad
  </div>
  </div>
 
+ {/* --- PAINEL FLUTUANTE DE AÇÕES EM LOTE --- */}
+ {selectedIds.size > 0 && (
+ <div className="bg-[#00a884] text-white p-3 flex items-center justify-between shadow-md shrink-0 animate-in slide-in-from-top duration-200 z-30">
+ <div className="flex items-center gap-3">
+ <span className="font-bold text-sm">{selectedIds.size} selecionadas</span>
+ <button 
+ onClick={() => setSelectedIds(new Set())} 
+ className="text-xs underline opacity-80 hover:opacity-100"
+ >
+ Limpar
+ </button>
+ </div>
+ <div className="flex items-center gap-2">
+ <button 
+ onClick={() => {
+ const action = showArchived ? 'unarchive' : 'archive';
+ const confirmMsg = action === 'archive' 
+ ? `Deseja arquivar as ${selectedIds.size} conversas selecionadas?` 
+ : `Deseja desarquivar as ${selectedIds.size} conversas selecionadas?`;
+ if (confirm(confirmMsg)) {
+ conversationMutation.mutate({ action, conversationIds: Array.from(selectedIds) });
+ }
+ }}
+ className="bg-white text-[#00a884] font-bold text-xs px-3 py-1.5 rounded hover:bg-gray-100 transition-colors flex items-center gap-1"
+ >
+ <FontAwesomeIcon icon={showArchived ? faInbox : faArchive} /> {showArchived ? 'Desarquivar' : 'Arquivar'}
+ </button>
+ </div>
+ </div>
+ )}
+
  <div className="flex-grow overflow-y-auto custom-scrollbar flex flex-col">
 
  {/* --- CONTEÚDO: CONVERSAS --- */}
@@ -441,30 +572,36 @@ export default function ConversationList({ conversations, broadcastLists, isLoad
  <>
  <ul className="flex-grow">
  {activeConversations.map((c) => (
- <ConversationItem
- key={c.conversation_id || c.id}
- conversation={c}
- isSelected={selectedContactId === (c.contato_id || c.conversation_id)}
- onSelect={onSelectContact}
- onAction={handleAction}
- />
+  <ConversationItem
+  key={c.conversation_id || c.id}
+  conversation={c}
+  isSelected={selectedContactId === (c.contato_id || c.conversation_id)}
+  isChecked={selectedIds.has(c.conversation_id || c.id)}
+  onToggleCheck={toggleSelection}
+  onSelect={onSelectContact}
+  onAction={handleAction}
+  isAnyChecked={isAnyChecked}
+  />
  ))}
  </ul>
  {archivedConversations.length > 0 && (
  <div className="border-t border-gray-200 mt-2">
- <button onClick={() => setShowArchived(!showArchived)} className="w-full flex items-center justify-between p-4 text-gray-500 hover:bg-gray-50 transition-colors text-sm font-medium">
+ <button onClick={() => { setShowArchived(!showArchived); setSelectedIds(new Set()); }} className="w-full flex items-center justify-between p-4 text-gray-500 hover:bg-gray-50 transition-colors text-sm font-medium">
  <div className="flex items-center gap-2"><FontAwesomeIcon icon={faBoxOpen} /> Arquivadas ({archivedConversations.length})</div><FontAwesomeIcon icon={showArchived ? faChevronDown : faChevronRight} size="xs" />
  </button>
  {showArchived && <ul className="bg-gray-50 animate-in slide-in-from-top-2 duration-200">
  {archivedConversations.map((c) => (
- <ConversationItem
- key={c.conversation_id || c.id}
- conversation={c}
- isArchivedList={true}
- isSelected={selectedContactId === (c.contato_id || c.conversation_id)}
- onSelect={onSelectContact}
- onAction={handleAction}
- />
+  <ConversationItem
+  key={c.conversation_id || c.id}
+  conversation={c}
+  isArchivedList={true}
+  isSelected={selectedContactId === (c.contato_id || c.conversation_id)}
+  isChecked={selectedIds.has(c.conversation_id || c.id)}
+  onToggleCheck={toggleSelection}
+  onSelect={onSelectContact}
+  onAction={handleAction}
+  isAnyChecked={isAnyChecked}
+  />
  ))}
  </ul>}
  </div>
@@ -490,13 +627,13 @@ export default function ConversationList({ conversations, broadcastLists, isLoad
  </div>
  ) : <ul className="flex-grow">
  {broadcastLists.map((list) => (
- <BroadcastListItem
- key={list.id}
- list={list}
- isSelected={selectedListId === list.id}
- onSelect={onSelectList}
- onDelete={handleDeleteList}
- />
+  <BroadcastListItem
+  key={list.id}
+  list={list}
+  isSelected={selectedListId === list.id}
+  onSelect={onSelectList}
+  onDelete={handleDeleteList}
+  />
  ))}
  </ul>
  )}
@@ -516,13 +653,16 @@ export default function ConversationList({ conversations, broadcastLists, isLoad
  ) : (
  <ul className="flex-grow">
  {failedConversations.map((c) => (
- <ConversationItem
- key={c.conversation_id || c.id}
- conversation={c}
- isSelected={selectedContactId === (c.contato_id || c.conversation_id)}
- onSelect={onSelectContact}
- onAction={handleAction}
- />
+  <ConversationItem
+  key={c.conversation_id || c.id}
+  conversation={c}
+  isSelected={selectedContactId === (c.contato_id || c.conversation_id)}
+  isChecked={selectedIds.has(c.conversation_id || c.id)}
+  onToggleCheck={toggleSelection}
+  onSelect={onSelectContact}
+  onAction={handleAction}
+  isAnyChecked={isAnyChecked}
+  />
  ))}
  </ul>
  )

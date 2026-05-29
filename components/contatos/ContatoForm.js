@@ -253,7 +253,7 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
  .select('id')
  .single();
  if (insertError) throw insertError;
- contatoId = insertData.id;
+   contatoId = insertData.id;
  }
 
  // 3. Prepara e Salva TELEFONES
@@ -367,14 +367,30 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
  try {
  const response = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
  const data = await response.json();
- if (data.erro) toast.warning("Endereço não encontrado para o CEP informado.");
- else setFormData(prev => ({ ...prev, address_street: data.logradouro, neighborhood: data.bairro, city: data.localidade, state: data.uf, }));
+ if (data.erro) {
+   toast.warning("Endereço não encontrado para o CEP informado.");
+ } else {
+   setFormData(prev => ({
+     ...prev,
+     address_street: data.logradouro ? data.logradouro : prev.address_street,
+     neighborhood: data.bairro ? data.bairro : prev.neighborhood,
+     city: data.localidade ? data.localidade : prev.city,
+     state: data.uf ? data.uf : prev.state,
+   }));
+ }
  } catch (error) { toast.error("Erro ao buscar CEP."); } finally { setIsApiLoading(false); }
  }
  }, []);
+
  const handleCepChange = (cep) => {
- setFormData(prev => ({ ...prev, cep }));
- fetchAddressFromCep(cep);
+ setFormData(prev => {
+ const prevClean = prev.cep?.replace(/\D/g, '') || '';
+ const newClean = cep?.replace(/\D/g, '') || '';
+ if (newClean.length === 8 && newClean !== prevClean) {
+   setTimeout(() => fetchAddressFromCep(newClean), 0);
+ }
+ return { ...prev, cep };
+ });
  };
 
  const handleCnpjLookup = useCallback(async (unmaskedCnpj) => {
@@ -610,7 +626,17 @@ export default function ContatoForm({ contactToEdit, onClose, onSaveSuccess, org
  <fieldset className="border p-4 rounded-md">
  <legend className="text-lg font-semibold text-gray-700">Endereço</legend>
  <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mt-4">
- <div className="md:col-span-2"><label className="block text-sm font-medium">CEP</label><IMaskInput mask="00000-000" name="cep" value={formData.cep || ''} onAccept={(value, mask) => handleCepChange(mask.unmaskedValue)} className="w-full p-2 border rounded-md"/>{isApiLoading && <p className="text-xs text-gray-500">Buscando...</p>}</div>
+ <div className="md:col-span-2">
+ <label className="block text-sm font-medium">CEP</label>
+ <IMaskInput
+ mask="00000-000"
+ name="cep"
+ value={formData.cep || ''}
+ onAccept={(value) => handleCepChange(value)}
+ className="w-full p-2 border rounded-md"
+ />
+ {isApiLoading && <p className="text-xs text-gray-500">Buscando...</p>}
+ </div>
  <div className="md:col-span-4"><label className="block text-sm font-medium">Logradouro</label><input name="address_street" value={formData.address_street || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /></div>
  <div className="md:col-span-1"><label className="block text-sm font-medium">Número</label><input name="address_number" value={formData.address_number || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /></div>
  <div className="md:col-span-3"><label className="block text-sm font-medium">Complemento</label><input name="address_complement" value={formData.address_complement || ''} onChange={handleChange} className="w-full p-2 border rounded-md" /></div>
