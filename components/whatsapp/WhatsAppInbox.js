@@ -215,7 +215,19 @@ export default function WhatsAppInbox({ onChangeTab, initialContactId }) {
     return Array.from(map).sort();
   }, [conversations]);
 
- const hasSelection = selectedContact || selectedList;
+  const activeContact = React.useMemo(() => {
+    if (!selectedContact) return null;
+    const latest = conversations?.find(c => 
+      String(c.contato_id) === String(selectedContact.contato_id) || 
+      (c.conversation_id && String(c.conversation_id) === String(selectedContact.conversation_id))
+    );
+    if (latest) {
+      return { ...selectedContact, ...latest };
+    }
+    return selectedContact;
+  }, [conversations, selectedContact]);
+
+  const hasSelection = selectedContact || selectedList;
 
  return (
  <div className="flex h-full w-full overflow-hidden bg-white">
@@ -373,17 +385,17 @@ export default function WhatsAppInbox({ onChangeTab, initialContactId }) {
  <div className={`
  ${hasSelection ? 'flex' : 'hidden md:flex'} flex-grow flex-col bg-[#efeae2] h-full overflow-hidden relative min-h-0
  `}>
- {selectedContact ? <MessagePanel contact={selectedContact} onBack={handleBackToList} /> :
+ {activeContact ? <MessagePanel contact={activeContact} onBack={handleBackToList} /> :
  selectedList ? <BroadcastPanel list={selectedList} onBack={handleBackToList} /> :
  <div className="flex flex-col items-center justify-center h-full text-gray-400 bg-[#f0f2f5]"><FontAwesomeIcon icon={faWhatsapp} className="text-7xl mb-6 text-gray-300 opacity-50" /><p className="font-medium text-lg">Selecione uma conversa para iniciar</p></div>
  }
  </div>
 
  {/* --- COLUNA 3: DIREITA (PERFIL WHATSAPP) --- */}
- {selectedContact && (
+ {activeContact && (
  <div className="hidden lg:flex w-[350px] shrink-0 border-l bg-white flex-col h-full overflow-hidden min-h-0">
  <div className="h-16 border-b flex items-center px-4 bg-[#f0f2f5] shrink-0"><h2 className="text-base font-bold text-gray-700">Dados do Contato</h2></div>
- <div className="flex-grow overflow-y-auto custom-scrollbar"><ContactProfile contact={selectedContact} /></div>
+ <div className="flex-grow overflow-y-auto custom-scrollbar"><ContactProfile contact={activeContact} /></div>
  </div>
  )}
  </>

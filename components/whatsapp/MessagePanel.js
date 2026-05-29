@@ -60,15 +60,27 @@ export default function MessagePanel({ contact, onBack }) {
  const [selectedFile, setSelectedFile] = useState(null);
  const [isFilePreviewOpen, setIsFilePreviewOpen] = useState(false);
 
- // Lógica de Janela 24h
- const isWindowOpen = useMemo(() => {
-   if (!contact?.last_inbound_at) return false;
-   const now = new Date();
-   const inboundDate = new Date(contact.last_inbound_at);
-   const diffMs = now - inboundDate;
-   const diffHours = diffMs / (1000 * 60 * 60);
-   return diffHours < 24;
- }, [contact?.last_inbound_at]);
+  // Lógica de Janela 24h (Verifica o contato e as mensagens em tempo real para evitar delay)
+  const isWindowOpen = useMemo(() => {
+    let lastInboundTime = contact?.last_inbound_at;
+
+    if (messages && messages.length > 0) {
+      const lastInboundMsg = [...messages].reverse().find(m => m.direction === 'inbound');
+      if (lastInboundMsg) {
+        const msgTime = lastInboundMsg.created_at || lastInboundMsg.sent_at;
+        if (!lastInboundTime || new Date(msgTime) > new Date(lastInboundTime)) {
+          lastInboundTime = msgTime;
+        }
+      }
+    }
+
+    if (!lastInboundTime) return false;
+    const now = new Date();
+    const inboundDate = new Date(lastInboundTime);
+    const diffMs = now - inboundDate;
+    const diffHours = diffMs / (1000 * 60 * 60);
+    return diffHours < 24;
+  }, [contact?.last_inbound_at, messages]);
  const [viewerMedia, setViewerMedia] = useState(null);
  const [isViewerOpen, setIsViewerOpen] = useState(false);
  const [isUploaderOpen, setIsUploaderOpen] = useState(false);
