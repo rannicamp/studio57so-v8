@@ -1,7 +1,7 @@
 // Caminho: app/(landingpages)/betasuites/BetaSuitesClient.js
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import FormularioDeContatoBeta from './FormularioDeContatoBeta';
 import Image from 'next/image';
 import { Montserrat, Roboto } from 'next/font/google';
@@ -186,10 +186,48 @@ export default function BetaSuitesClient() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [activePanorama, setActivePanorama] = useState(panoramasData[0]);
 
+  // Controle de ocultação automática do HUD no Tour 360
+  const [is360Interacting, setIs360Interacting] = useState(false);
+  const hudSuperiorRef = useRef(null);
+  const hudInferiorRef = useRef(null);
+  const timeoutRef = useRef(null);
+
   const openModal = (imageUrl) => setSelectedImage(imageUrl);
   const closeModal = () => setSelectedImage(null);
   const openLeadModal = () => setIsModalOpen(true);
   const closeLeadModal = () => setIsModalOpen(false);
+
+  const handlePointerDown = (e) => {
+    // Se a interação foi dentro de algum painel de controle (HUD), não esconde os botões
+    if (
+      (hudSuperiorRef.current && hudSuperiorRef.current.contains(e.target)) ||
+      (hudInferiorRef.current && hudInferiorRef.current.contains(e.target))
+    ) {
+      return;
+    }
+    setIs360Interacting(true);
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+  };
+
+  const handlePointerUpOrLeave = () => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+    // Reexibe o HUD após 2 segundos de inatividade
+    timeoutRef.current = setTimeout(() => {
+      setIs360Interacting(false);
+    }, 2000);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
 
   return (
     // FUNDO GERAL PRETO
@@ -549,44 +587,75 @@ export default function BetaSuitesClient() {
         </Swiper>
       </section>
 
-      {/* --- VISÃO 360º VIRTUAL (SELETOR DINÂMICO) --- */}
-      <section className="bg-black py-16 md:py-24 relative border-t border-white/10">
-        <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-[#f25a2f]/50 to-transparent z-10"></div>
-        <div className="w-full max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-12 relative z-10">
-          
-          <div className="text-center mb-12">
-            <span className="text-[10px] md:text-xs font-bold tracking-[0.3em] text-[#f25a2f] uppercase block mb-3">IMERSÃO TOTAL</span>
-            <h2 className={`${roboto.className} text-3xl md:text-5xl font-light text-gray-400 mb-4 tracking-[0.1em] md:tracking-[0.15em] uppercase`}>
-              Tour <strong className="font-bold text-white">360º Decorado</strong>
+      {/* --- VISÃO 360º VIRTUAL (IMERSIVO - HUD DE VIDEOGAME) --- */}
+      <section 
+        className="relative w-full h-[65vh] md:h-[80vh] min-h-[500px] md:min-h-[650px] border-t border-b border-white/10 overflow-hidden bg-neutral-950"
+        onPointerDownCapture={handlePointerDown}
+        onPointerUp={handlePointerUpOrLeave}
+        onPointerLeave={handlePointerUpOrLeave}
+      >
+        
+        {/* Renderização do Visualizador 360º de Fundo (Ocupando 100% da seção) */}
+        <div className="absolute inset-0 w-full h-full z-0">
+          <Viewer360 key={activePanorama.id} src={activePanorama.path} isImmersive={true} />
+        </div>
+
+        {/* HUD Superior: Título e Descrição */}
+        <div 
+          ref={hudSuperiorRef}
+          className={`absolute top-6 inset-x-4 md:inset-x-8 z-20 flex flex-col items-center pointer-events-none transition-all duration-500 ${
+            is360Interacting ? 'opacity-0 -translate-y-4 scale-95 pointer-events-none' : 'opacity-100 translate-y-0 scale-100'
+          }`}
+        >
+          <div className="bg-black/55 backdrop-blur-md border border-white/10 px-6 py-4 rounded-2xl max-w-xl text-center shadow-2xl pointer-events-auto">
+            <span className="text-[9px] md:text-[10px] font-bold tracking-[0.3em] text-[#f25a2f] uppercase block mb-1">IMERSÃO 360º</span>
+            <h2 className={`${roboto.className} text-xl md:text-2xl font-bold text-white uppercase tracking-wider`}>
+              Tour <strong className="font-bold text-[#f25a2f]">360º Decorado</strong>
             </h2>
-            <p className="max-w-2xl mx-auto text-gray-400 text-sm md:text-base leading-relaxed">
-              Explore os ambientes planejados do Beta Suítes de forma totalmente interativa. Clique e arraste na tela para rotacionar a câmera e alterne entre os espaços nos botões abaixo.
+            <p className="hidden md:block text-gray-300 text-xs mt-1.5 leading-relaxed">
+              Use o mouse ou arraste com o dedo para explorar cada ângulo de forma interativa.
             </p>
           </div>
+        </div>
 
-          {/* Seletor de Ambientes */}
-          <div className="flex flex-wrap justify-center gap-2 mb-8 max-w-4xl mx-auto">
+        {/* HUD Inferior: Painel de Controle (Seletor de Ambientes) */}
+        <div 
+          ref={hudInferiorRef}
+          className={`absolute bottom-6 inset-x-4 z-20 flex flex-col items-center transition-all duration-500 ${
+            is360Interacting ? 'opacity-0 translate-y-4 scale-95 pointer-events-none' : 'opacity-100 translate-y-0 scale-100'
+          }`}
+        >
+          <div className="bg-black/55 backdrop-blur-md border border-white/10 p-3 sm:p-4 rounded-2xl shadow-2xl flex flex-wrap justify-center gap-2 max-w-[95%] md:max-w-4xl pointer-events-auto">
             {panoramasData.map((pan) => (
               <button
                 key={pan.id}
                 onClick={() => setActivePanorama(pan)}
-                className={`px-4 py-2 rounded-full text-xs font-bold tracking-wider uppercase transition-all duration-300 border ${
+                className={`px-3.5 py-2 rounded-xl text-[10px] sm:text-xs font-bold tracking-wider uppercase transition-all duration-300 border ${
                   activePanorama.id === pan.id
-                    ? 'bg-[#f25a2f] border-[#f25a2f] text-white shadow-lg'
-                    : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-white'
+                    ? 'bg-[#f25a2f] border-[#f25a2f] text-white shadow-[0_0_15px_rgba(242,90,47,0.4)] scale-105'
+                    : 'bg-black/40 border-white/10 text-gray-300 hover:bg-white/10 hover:text-white'
                 }`}
               >
                 {pan.label}
               </button>
             ))}
           </div>
-
-          {/* Renderização do Visualizador 360º */}
-          <div className="w-full px-2 md:px-0">
-            <Viewer360 key={activePanorama.id} src={activePanorama.path} />
-          </div>
-
         </div>
+
+        {/* HUD Indicador de Navegação (Flutuante Central) */}
+        <div 
+          className={`absolute inset-0 z-10 pointer-events-none flex items-center justify-center transition-all duration-500 ${
+            is360Interacting ? 'opacity-0 scale-90' : 'opacity-100 scale-100'
+          }`}
+        >
+          <div className="bg-black/50 backdrop-blur-lg border border-white/10 px-6 py-4 rounded-xl text-center shadow-xl">
+            <svg className="w-6 h-6 text-white/85 mx-auto mb-2 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+            </svg>
+            <p className="text-white text-[10px] font-bold uppercase tracking-widest">Clique e arraste para explorar</p>
+          </div>
+        </div>
+
       </section>
 
       {/* --- GALERIA COMPLETA --- */}

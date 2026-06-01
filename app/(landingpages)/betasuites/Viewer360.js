@@ -24,13 +24,30 @@ const ReactPhotoSphereViewer = dynamic(
   }
 );
  
-export default function Viewer360({ src }) {
+export default function Viewer360({ src, isImmersive = false }) {
   const psvRef = useRef(null);
  
   const handleReady = (instance) => {
     psvRef.current = instance;
   };
  
+  if (isImmersive) {
+    return (
+      <div className="w-full h-full relative overflow-hidden">
+        <ReactPhotoSphereViewer
+          src={src}
+          height="100%"
+          width="100%"
+          onReady={handleReady}
+          littlePlanet={false}
+          defaultZoomLvl={10}
+          touchmoveTwoFingers={true}
+          mousewheelCtrlKey={true}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="relative w-full h-[400px] md:h-[600px] rounded-2xl overflow-hidden shadow-2xl border-4 border-zinc-900 group">
       {/* Overlay que some ao interagir, para dar aquele charme */}
