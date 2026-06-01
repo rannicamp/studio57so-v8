@@ -24,6 +24,7 @@ import 'swiper/css/pagination';
 import 'swiper/css/navigation';
 
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
+import Viewer360 from './Viewer360';
 
 const montserrat = Montserrat({
   subsets: ['latin'],
@@ -37,6 +38,16 @@ const roboto = Roboto({
 
 // --- CONFIGURAÇÕES DO BETA ---
 const primaryColor = '#f25a2f';
+
+// --- DADOS DOS PANORAMAS 360 ---
+const panoramasData = [
+  { id: 1, label: 'Studio 32m²', path: '/panoramas_beta/01.jpg' },
+  { id: 2, label: 'Studio 28m²', path: '/panoramas_beta/02.jpg' },
+  { id: 4, label: 'Lavanderia Compartilhada', path: '/panoramas_beta/04.jpg' },
+  { id: 5, label: 'Hall de Entrada', path: '/panoramas_beta/05.jpg' },
+  { id: 6, label: 'Terraço Gourmet', path: '/panoramas_beta/06.jpg' },
+  { id: 7, label: 'Academia Fitness', path: '/panoramas_beta/07.jpg' }
+];
 
 // --- DADOS DO PORTFÓLIO DE EMPREENDIMENTOS ---
 const empreendimentosPortfolio = [
@@ -173,6 +184,7 @@ const IconeTicket = () => <svg fill="currentColor" viewBox="0 0 20 20" className
 export default function BetaSuitesClient() {
   const [selectedImage, setSelectedImage] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [activePanorama, setActivePanorama] = useState(panoramasData[0]);
 
   const openModal = (imageUrl) => setSelectedImage(imageUrl);
   const closeModal = () => setSelectedImage(null);
@@ -535,6 +547,46 @@ export default function BetaSuitesClient() {
             </SwiperSlide>
           ))}
         </Swiper>
+      </section>
+
+      {/* --- VISÃO 360º VIRTUAL (SELETOR DINÂMICO) --- */}
+      <section className="bg-black py-16 md:py-24 relative border-t border-white/10">
+        <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-[#f25a2f]/50 to-transparent z-10"></div>
+        <div className="w-full max-w-[1200px] mx-auto px-4 sm:px-6 lg:px-12 relative z-10">
+          
+          <div className="text-center mb-12">
+            <span className="text-[10px] md:text-xs font-bold tracking-[0.3em] text-[#f25a2f] uppercase block mb-3">IMERSÃO TOTAL</span>
+            <h2 className={`${roboto.className} text-3xl md:text-5xl font-light text-gray-400 mb-4 tracking-[0.1em] md:tracking-[0.15em] uppercase`}>
+              Tour <strong className="font-bold text-white">360º Decorado</strong>
+            </h2>
+            <p className="max-w-2xl mx-auto text-gray-400 text-sm md:text-base leading-relaxed">
+              Explore os ambientes planejados do Beta Suítes de forma totalmente interativa. Clique e arraste na tela para rotacionar a câmera e alterne entre os espaços nos botões abaixo.
+            </p>
+          </div>
+
+          {/* Seletor de Ambientes */}
+          <div className="flex flex-wrap justify-center gap-2 mb-8 max-w-4xl mx-auto">
+            {panoramasData.map((pan) => (
+              <button
+                key={pan.id}
+                onClick={() => setActivePanorama(pan)}
+                className={`px-4 py-2 rounded-full text-xs font-bold tracking-wider uppercase transition-all duration-300 border ${
+                  activePanorama.id === pan.id
+                    ? 'bg-[#f25a2f] border-[#f25a2f] text-white shadow-lg'
+                    : 'bg-white/5 border-white/10 text-gray-400 hover:bg-white/10 hover:text-white'
+                }`}
+              >
+                {pan.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Renderização do Visualizador 360º */}
+          <div className="w-full px-2 md:px-0">
+            <Viewer360 key={activePanorama.id} src={activePanorama.path} />
+          </div>
+
+        </div>
       </section>
 
       {/* --- GALERIA COMPLETA --- */}
