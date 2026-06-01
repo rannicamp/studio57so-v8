@@ -543,6 +543,9 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
  newFormData.tipo = 'Despesa';
  const transferenciaCategory = dropdownData?.categorias?.find(c => c.nome.toLowerCase() === 'transferência');
  if (transferenciaCategory) newFormData.categoria_id = transferenciaCategory.id;
+ // Sincroniza em cascata as datas ao entrar no tipo transferência
+ newFormData.data_vencimento = newFormData.data_transacao;
+ newFormData.data_primeiro_vencimento = newFormData.data_transacao;
  } else if (name === 'form_type' && value !== 'transferencia') {
  if (formData.form_type === 'transferencia') {
  newFormData.tipo = 'Despesa';
@@ -555,11 +558,17 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
  newFormData.data_pagamento = new Date().toISOString().split('T')[0];
  }
 
- if (name === 'data_transacao' && formData.form_type === 'simples') {
+ if (name === 'data_transacao') {
+ if (formData.form_type === 'transferencia') {
+ // Força a sincronização em cascata para transferências (vencimento e transação retroativa andam juntos)
+ newFormData.data_vencimento = value;
+ newFormData.data_primeiro_vencimento = value;
+ } else if (formData.form_type === 'simples') {
  const contaSelecionada = dropdownData?.contas?.find(c => c.id == formData.conta_id);
  const isCartao = contaSelecionada?.tipo === 'Cartão de Crédito';
  if (!isCartao && formData.data_vencimento === formData.data_transacao) {
  newFormData.data_vencimento = value;
+ }
  }
  }
 
@@ -659,7 +668,7 @@ export default function LancamentoFormModal({ isOpen, onClose, onSuccess, initia
  favorecidoSearchResults={favorecidoSearchResults}
  hierarchicalCategorias={hierarchicalCategorias}
  ativosDisponiveis={ativosDisponiveis.filter(a => a.tipo === "Ativo")}
-        passivosDisponiveis={ativosDisponiveis.filter(a => a.tipo === "Passivo")}
+ passivosDisponiveis={ativosDisponiveis.filter(a => a.tipo === "Passivo")}
  contratosDisponiveis={contratosDisponiveis}
  />
 

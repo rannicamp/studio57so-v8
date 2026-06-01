@@ -251,6 +251,16 @@ export default function ConciliacaoPage() {
  enabled: !!contaSelecionada && !!dataInicio && !!dataFim
  });
 
+ // --- FILTRAGEM DO EXTRATO POR PERÍODO ---
+ const extratoFiltrado = useMemo(() => {
+ if (!extratoItems || extratoItems.length === 0) return [];
+ if (!dataInicio || !dataFim) return extratoItems;
+ return extratoItems.filter(item => {
+ const itemData = item.data;
+ return itemData >= dataInicio && itemData <= dataFim;
+ });
+ }, [extratoItems, dataInicio, dataFim]);
+
  // --- AUTO-CONCILIAÇÃO VISUAL ---
  useEffect(() => {
  if (extratoItems.length > 0 && sistemaItems.length > 0) {
@@ -408,7 +418,7 @@ export default function ConciliacaoPage() {
  {contaSelecionada && (
  <div className="flex items-center gap-4 bg-gray-50 p-3 rounded-xl border border-gray-100 animate-fade-in transition-all">
  <span className="text-xs font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2">
- <FontAwesomeIcon icon={faCalendarAlt} /> Período do Sistema:
+ <FontAwesomeIcon icon={faCalendarAlt} /> Período de Análise (Extrato & Sistema):
  </span>
  <div className="flex items-center gap-2">
  <input type="date" value={dataInicio} onChange={(e) => setDataInicio(e.target.value)}
@@ -419,8 +429,8 @@ export default function ConciliacaoPage() {
  className="p-1.5 border border-gray-300 rounded text-sm text-gray-700 focus:ring-2 focus:ring-blue-500 outline-none transition-colors focus:border-blue-400"
  />
  </div>
- <span className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded ml-auto">
- Exibindo: {sistemaItems.length} lançamentos
+ <span className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded ml-auto font-semibold">
+ Exibindo: {sistemaItems.length} lançamentos do sistema | {extratoFiltrado.length} do extrato
  </span>
  </div>
  )}
@@ -440,7 +450,7 @@ export default function ConciliacaoPage() {
  </div>
  </div>
  ) : (
- <ConciliacaoWorkbench extratoItems={extratoItems}
+ <ConciliacaoWorkbench extratoItems={extratoFiltrado}
  sistemaItems={sistemaItems}
  onConciliar={handleConciliar}
  onCriarLancamento={handleCriarLancamento}
