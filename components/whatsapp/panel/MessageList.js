@@ -3,8 +3,10 @@
 import { useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faCheck, faCheckDouble, faPlayCircle, faMicrophone, faExclamationCircle, faFileAlt, faBan, faMapMarkerAlt, faExternalLinkAlt, faSpinner } from '@fortawesome/free-solid-svg-icons';
+import { faCheck, faCheckDouble, faPlayCircle, faMicrophone, faExclamationCircle, faFileAlt, faBan, faMapMarkerAlt, faExternalLinkAlt, faSpinner, faUserCircle, faUserPlus } from '@fortawesome/free-solid-svg-icons';
 import { format, isToday, isYesterday, differenceInCalendarDays } from 'date-fns';
+import { createClient } from '@/utils/supabase/client';
+import { toast } from 'sonner';
 
 // --- IMPORTAÇÃO DINÂMICA DO SEU MAPA (LEAFLET) ---
 // Usamos o import relativo para subir uma pasta e achar o componente que você já tem
@@ -29,7 +31,105 @@ const getDateLabel = (dateString) => {
 };
 
 export default function MessageList({ messages, onMediaClick }) {
- const messagesEndRef = useRef(null);
+  const messagesEndRef = useRef(null);
+  const supabase = createClient();
+  const [loadingContactId, setLoadingContactId] = useState(null);
+
+  const handleSaveAndChat = async (name, phoneClean, msgOrgId, messageId) => {
+    if (!phoneClean) {
+      toast.error("Telefone inválido.");
+      return;
+    }
+    setLoadingContactId(messageId);
+    try {
+      // 1. Verificar se já existe o telefone no CRM
+      const { data: telData } = await supabase
+        .from('telefones')
+        .select('contato_id')
+        .eq('telefone', phoneClean)
+        .eq('organizacao_id', msgOrgId)
+        .limit(1)
+        .maybeSingle();
+
+      if (telData?.contato_id) {
+        // Se já existe, apenas redireciona para a conversa dele
+        toast.info("Contato já cadastrado! Redirecionando...");
+        window.location.href = `/caixa-de-entrada?contato=${telData.contato_id}`;
+        return;
+      }
+
+      // 2. Criar contato no CRM
+      const { data: newContact, error: errC } = await supabase
+        .from('contatos')
+        .insert({
+          nome: name,
+          tipo_contato: 'Lead',
+          organizacao_id: msgOrgId,
+          origem: 'WhatsApp Compartilhado'
+        })
+        .select('id')
+        .single();
+
+      if (errC) throw errC;
+
+      // 3. Criar telefone associado
+      const countryCode = phoneClean.startsWith('55') ? '+55' : (phoneClean.startsWith('1') ? '+1' : '+55');
+      const { error: errT } = await supabase.from('telefones').insert({
+        contato_id: newContact.id,
+        telefone: phoneClean,
+        country_code: countryCode,
+        tipo: 'Celular',
+        organizacao_id: msgOrgId
+      });
+      if (errT) throw errT;
+
+      // 4. Criar conversa de WhatsApp
+      const { error: errConv } = await supabase.from('whatsapp_conversations').insert({
+        contato_id: newContact.id,
+        phone_number: phoneClean,
+        meta_wa_id: phoneClean,
+        organizacao_id: msgOrgId,
+        updated_at: new Date().toISOString()
+      });
+      if (errConv) throw errConv;
+
+      // 5. Vincular ao funil na coluna ENTRADA
+      const { data: funil } = await supabase
+        .from('funis')
+        .select('id')
+        .eq('organizacao_id', msgOrgId)
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+      if (funil) {
+        const { data: coluna } = await supabase
+          .from('colunas_funil')
+          .select('id')
+          .eq('funil_id', funil.id)
+          .eq('tipo_coluna', 'entrada')
+          .limit(1)
+          .maybeSingle();
+
+        if (coluna) {
+          await supabase.from('contatos_no_funil').insert({
+            contato_id: newContact.id,
+            coluna_id: coluna.id,
+            organizacao_id: msgOrgId
+          });
+        }
+      }
+
+      toast.success("Contato salvo com sucesso! Abrindo chat...");
+      window.location.href = `/caixa-de-entrada?contato=${newContact.id}`;
+
+    } catch (e) {
+      console.error(e);
+      toast.error("Erro ao salvar contato: " + e.message);
+    } finally {
+      setLoadingContactId(null);
+    }
+  };
 
  useEffect(() => {
  messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -83,6 +183,14 @@ export default function MessageList({ messages, onMediaClick }) {
  const locLng = payload?.location?.longitude || parseFloat(msg.content?.split(', ')[1]);
  const locName = payload?.location?.name || "Localização Fixada";
 
+ // --- DETECÇÃO DE CARTÃO DE CONTATO ---
+ const isContact = !isDeleted && (payload?.type === 'contacts' || payload?.contacts || msg.content?.startsWith('👤 Contato:'));
+ const contactObj = payload?.contacts?.[0];
+ const contactName = contactObj?.name?.formatted_name || msg.content?.replace('👤 Contato: ', '') || 'Contato';
+ const contactPhone = contactObj?.phones?.[0]?.phone;
+ const contactWaId = contactObj?.phones?.[0]?.wa_id;
+ const contactPhoneClean = contactWaId || (contactPhone ? contactPhone.replace(/\D/g, '') : null);
+
  const reaction = msg.reaction_data;
 
  return (
@@ -127,8 +235,57 @@ export default function MessageList({ messages, onMediaClick }) {
  </div>
  )}
 
- {/* TEXTO DA MENSAGEM (SÓ APARECE SE NÃO FOR SÓ COORDENADA) */}
- {msg.content && !hiddenTexts.includes(msg.content) && !msg.content.startsWith('📍 Localização:') && (
+ {/* --- RENDERIZAÇÃO DE CARTÃO DE CONTATO --- */}
+ {isContact && (
+ <div className="p-3 bg-gray-50 rounded-lg border border-gray-200 flex flex-col gap-3 min-w-[260px] shadow-xs my-1 select-none">
+   <div className="flex items-center gap-3">
+     <div className="w-10 h-10 rounded-full bg-[#00a884] flex items-center justify-center text-white text-lg shrink-0 shadow-inner">
+       <FontAwesomeIcon icon={faUserCircle} />
+     </div>
+     <div className="flex-grow min-w-0">
+       <p className="font-bold text-gray-800 text-sm truncate">{contactName}</p>
+       <p className="text-xs text-gray-500 truncate">{contactPhone || (contactPhoneClean ? `+${contactPhoneClean}` : 'Sem telefone')}</p>
+     </div>
+   </div>
+   
+   {contactPhoneClean && (
+     <>
+       <div className="border-t border-gray-200" />
+       <div className="flex gap-2 shrink-0">
+         <button
+           onClick={() => handleSaveAndChat(contactName, contactPhoneClean, msg.organizacao_id, msg.id)}
+           disabled={loadingContactId !== null}
+           className="flex-grow bg-[#00a884] hover:bg-[#008f72] text-white text-xs font-bold py-1.5 px-3 rounded flex items-center justify-center gap-1.5 transition-all disabled:opacity-50 shadow-xs cursor-pointer"
+         >
+           {loadingContactId === msg.id ? (
+             <>
+               <FontAwesomeIcon icon={faSpinner} spin />
+               <span>Abrindo...</span>
+             </>
+           ) : (
+             <>
+               <FontAwesomeIcon icon={faUserPlus} />
+               <span>Salvar e Conversar</span>
+             </>
+           )}
+         </button>
+         <a
+           href={`https://wa.me/${contactPhoneClean}`}
+           target="_blank"
+           rel="noopener noreferrer"
+           className="bg-white border border-gray-300 hover:bg-gray-100 text-gray-700 text-xs font-bold py-1.5 px-3 rounded flex items-center justify-center gap-1 transition-all no-underline shadow-xs"
+         >
+           <FontAwesomeIcon icon={faExternalLinkAlt} />
+           <span>WhatsApp</span>
+         </a>
+       </div>
+     </>
+   )}
+ </div>
+ )}
+
+ {/* TEXTO DA MENSAGEM (SÓ APARECE SE NÃO FOR SÓ COORDENADA OU CARTÃO) */}
+ {msg.content && !hiddenTexts.includes(msg.content) && !msg.content.startsWith('📍 Localização:') && !msg.content.startsWith('👤 Contato:') && (
  <p className="px-2 pb-1 pt-1 text-gray-800 whitespace-pre-wrap leading-relaxed min-w-[50px]">
  {msg.content}
  </p>
