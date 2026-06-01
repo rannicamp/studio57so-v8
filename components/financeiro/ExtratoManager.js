@@ -19,7 +19,7 @@ const formatCurrency = (value) => {
  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 };
 
-export default function ExtratoManager({ contas, empresas }) {
+export default function ExtratoManager({ contas, empresas, filters, setFilters }) {
  const supabase = createClient();
  const queryClient = useQueryClient();
  const { user, hasPermission } = useAuth();
@@ -65,10 +65,28 @@ export default function ExtratoManager({ contas, empresas }) {
  }
  }, [contas, contasAgrupadas, contaSelecionadaId]);
 
+ // Sincronização do filtro global com a conta local do extrato
+ useEffect(() => {
+   if (filters?.contaIds && filters.contaIds.length > 0) {
+     const primeiraConta = filters.contaIds[0];
+     if (primeiraConta && String(primeiraConta) !== String(contaSelecionadaId)) {
+       setContaSelecionadaId(String(primeiraConta));
+     }
+   }
+ }, [filters?.contaIds]);
+
  const handleSelectConta = (id) => {
- setContaSelecionadaId(id);
- if (typeof window !== 'undefined') localStorage.setItem('studio57_last_conta_id', id);
- setIsDropdownContaOpen(false);
+   setContaSelecionadaId(id);
+   if (typeof window !== 'undefined') localStorage.setItem('studio57_last_conta_id', id);
+   setIsDropdownContaOpen(false);
+   
+   // Sincroniza de volta no filtro global
+   if (setFilters) {
+     setFilters(prev => ({
+       ...prev,
+       contaIds: [Number(id)]
+     }));
+   }
  };
  const [isDropdownContaOpen, setIsDropdownContaOpen] = useState(false);
  const dropdownContaRef = useRef(null);
@@ -253,6 +271,169 @@ export default function ExtratoManager({ contas, empresas }) {
  enabled: !!contaSelecionadaId && !!mesSelecionado && !!organizacaoId
  });
 
+ // Filtragem dos itens e recálculo dos totais em memória
+ const dadosFiltrados = useMemo(() => {
+   if (!extratoData) return null;
+   if (!filters) {
+     return {
+       itens: extratoData.itens,
+       entradas: extratoData.entradas,
+       saidas: extratoData.saidas,
+       saldoFinal: extratoData.saldoFinal
+     };
+   }
+
+   const {
+     searchTerm = '',
+     empresaIds = [],
+     categoriaIds = [],
+     empreendimentoIds = [],
+     etapaIds = [],
+     status = [],
+     tipo = [],
+     startDate = '',
+     endDate = '',
+     favorecidoId = null
+   } = filters;
+
+   const term = searchTerm.trim().toLowerCase();
+
+   // Função auxiliar para testar um único lançamento
+   const testLancamento = (l) => {
+     // 1. Termo de busca (searchTerm)
+     if (term) {
+       const descMatch = l.descricao?.toLowerCase().includes(term);
+       const favMatch = l.favorecido?.nome?.toLowerCase().includes(term) || l.favorecido?.razao_social?.toLowerCase().includes(term);
+       const catMatch = l.categoria?.nome?.toLowerCase().includes(term);
+       const fitidMatch = l.fitid_banco?.toLowerCase().includes(term);
+       
+       if (!descMatch && !favMatch && !catMatch && !fitidMatch) {
+         return false;
+       }
+     }
+
+     // 2. Empresas
+     if (empresaIds.length > 0) {
+       if (!l.empresa_id || (!empresaIds.includes(String(l.empresa_id)) && !empresaIds.includes(Number(l.empresa_id)))) {
+         return false;
+       }
+     }
+
+     // 3. Categorias
+     if (categoriaIds.length > 0) {
+       if (!l.categoria_id || (!categoriaIds.includes(String(l.categoria_id)) && !categoriaIds.includes(Number(l.categoria_id)))) {
+         return false;
+       }
+     }
+
+     // 4. Empreendimentos
+     if (empreendimentoIds.length > 0) {
+       if (!l.empreendimento_id || (!empreendimentoIds.includes(String(l.empreendimento_id)) && !empreendimentoIds.includes(Number(l.empreendimento_id)))) {
+         return false;
+       }
+     }
+
+     // 5. Etapas
+     if (etapaIds.length > 0) {
+       if (!l.etapa_obra_id || (!etapaIds.includes(String(l.etapa_obra_id)) && !etapaIds.includes(Number(l.etapa_obra_id)))) {
+         return false;
+       }
+     }
+
+     // 6. Status
+     if (status.length > 0) {
+       const statusItem = l.status_exibicao || l.status;
+       if (!status.includes(statusItem)) {
+         return false;
+       }
+     }
+
+     // 7. Tipo
+     if (tipo.length > 0) {
+       if (!tipo.includes(l.tipo)) {
+         return false;
+       }
+     }
+
+     // 8. Favorecido
+     if (favorecidoId) {
+       if (Number(l.favorecido_contato_id) !== Number(favorecidoId)) {
+         return false;
+       }
+     }
+
+     // 9. Período personalizado de datas (startDate e endDate)
+     if (startDate) {
+       if (l.data_pagamento < startDate) return false;
+     }
+     if (endDate) {
+       if (l.data_pagamento > endDate) return false;
+     }
+
+     return true;
+   };
+
+   const itensFiltrados = [];
+   let totalEntradas = 0;
+   let totalSaidas = 0;
+
+   extratoData.itens.forEach(item => {
+     if (item.isBordero) {
+       // Filtra os filhos do borderô
+       const filhosFiltrados = (item.filhos || []).filter(filho => testLancamento(filho));
+       
+       if (filhosFiltrados.length > 0) {
+         // Recalcula totais do borderô apenas com os filhos filtrados
+         const novoValorTotal = filhosFiltrados.reduce((acc, f) => acc + Math.abs(Number(f.valor)), 0);
+         const novoSaldoAcumulado = filhosFiltrados[filhosFiltrados.length - 1].saldo_acumulado;
+
+         const novoBordero = {
+           ...item,
+           filhos: filhosFiltrados,
+           valorTotal: novoValorTotal,
+           saldo_acumulado: novoSaldoAcumulado
+         };
+
+         if (item.tipo === 'Despesa') {
+           novoBordero.saida = novoValorTotal;
+           novoBordero.entrada = 0;
+           totalSaidas += novoValorTotal;
+         } else {
+           novoBordero.entrada = novoValorTotal;
+           novoBordero.saida = 0;
+           totalEntradas += novoValorTotal;
+         }
+
+         itensFiltrados.push(novoBordero);
+       }
+     } else {
+       // Lançamento normal ou OFX Standalone
+       if (testLancamento(item)) {
+         itensFiltrados.push(item);
+         if (item.tipo === 'Receita') {
+           totalEntradas += item.entrada || 0;
+         } else {
+           totalSaidas += item.saida || 0;
+         }
+       }
+     }
+   });
+
+   const saldoFinal = extratoData.saldoAnterior + totalEntradas - totalSaidas;
+
+   return {
+     itens: itensFiltrados,
+     entradas: totalEntradas,
+     saidas: totalSaidas,
+     saldoFinal
+   };
+ }, [extratoData, filters]);
+
+ const displayItens = dadosFiltrados?.itens || [];
+ const displayEntradas = dadosFiltrados?.entradas ?? (extratoData?.entradas || 0);
+ const displaySaidas = dadosFiltrados?.saidas ?? (extratoData?.saidas || 0);
+ const displaySaldoFinal = dadosFiltrados?.saldoFinal ?? (extratoData?.saldoFinal || 0);
+
  // Query: TODOS os Arquivos OFX da conta (filtragem por mes feita localmente no card)
  const { data: arquivosOfxMes } = useQuery({
  queryKey: ['ofx_arquivos', contaSelecionadaId, organizacaoId],
@@ -341,14 +522,20 @@ export default function ExtratoManager({ contas, empresas }) {
  };
 
  // --- LÓGICA DE BORDERÔ / SELEÇÃO MÚLTIPLA ---
- const toggleSelectAll = () => {
- if (!extratoData || extratoData.itens.length === 0) return;
- if (selectedIds.length === extratoData.itens.length) {
- setSelectedIds([]); // Desmarca tudo
- } else {
- setSelectedIds(extratoData.itens.map(i => i.id)); // Marca tudo
- }
- };
+  const toggleSelectAll = () => {
+    if (displayItens.length === 0) return;
+    const itensOficiaisVisiveis = displayItens.filter(i => !i.isOfxStandalone);
+    const idsVisiveis = itensOficiaisVisiveis.map(i => i.id);
+    const todosSelecionados = idsVisiveis.every(id => selectedIds.includes(id));
+    if (todosSelecionados) {
+      setSelectedIds(prev => prev.filter(id => !idsVisiveis.includes(id)));
+    } else {
+      setSelectedIds(prev => {
+        const novos = idsVisiveis.filter(id => !prev.includes(id));
+        return [...prev, ...novos];
+      });
+    }
+  };
 
  const toggleSelectRow = (e, id) => {
  e.stopPropagation();
@@ -710,16 +897,16 @@ export default function ExtratoManager({ contas, empresas }) {
  </div>
  <div className="bg-green-50 p-3 rounded-lg border border-green-100 shadow-sm">
  <p className="text-[10px] font-bold text-green-700 uppercase"><FontAwesomeIcon icon={faArrowUp} className="mr-1" /> Entradas (No Mês)</p>
- <p className="text-sm font-semibold text-green-700 mt-1">+{formatCurrency(extratoData.entradas)}</p>
+ <p className="text-sm font-semibold text-green-700 mt-1">+{formatCurrency(displayEntradas)}</p>
  </div>
  <div className="bg-red-50 p-3 rounded-lg border border-red-100 shadow-sm">
  <p className="text-[10px] font-bold text-red-700 uppercase"><FontAwesomeIcon icon={faArrowDown} className="mr-1" /> Saídas (No Mês)</p>
- <p className="text-sm font-semibold text-red-700 mt-1">-{formatCurrency(extratoData.saidas)}</p>
+ <p className="text-sm font-semibold text-red-700 mt-1">-{formatCurrency(displaySaidas)}</p>
  </div>
  <div className="bg-blue-50 p-3 rounded-lg border border-blue-200 shadow-sm">
  <p className="text-[10px] font-bold text-blue-700 uppercase">Saldo Final (No Período)</p>
- <p className={`text-sm font-bold mt-1 ${extratoData.saldoFinal < 0 ? 'text-red-600' : 'text-blue-800'}`}>
- {formatCurrency(extratoData.saldoFinal)}
+ <p className={`text-sm font-bold mt-1 ${displaySaldoFinal < 0 ? 'text-red-600' : 'text-blue-800'}`}>
+ {formatCurrency(displaySaldoFinal)}
  </p>
  </div>
  </div>
@@ -753,12 +940,12 @@ export default function ExtratoManager({ contas, empresas }) {
 
  {/* Lista de Movimentações */}
  <div className="divide-y divide-gray-100">
- {extratoData.itens.length === 0 ? (
+ {displayItens.length === 0 ? (
  <div className="p-8 text-center text-gray-500">
- Nenhuma movimentação identificada para o período.
+ Nenhuma movimentação identificada para os filtros aplicados.
  </div>
  ) : (
- extratoData.itens.map(item => {
+ displayItens.map(item => {
 
  // RENDERIZAÇÃO DE LINHA FILHO NORMAL
  const renderRowNormal = (l, isFilho = false) => (
