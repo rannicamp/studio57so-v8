@@ -1,129 +1,143 @@
 import { createClient } from '@/utils/supabase/client';
 
 export const getConversations = async (supabase, organizacaoId, userId) => {
- if (!organizacaoId || !userId) return [];
+  if (!organizacaoId || !userId) return [];
 
- try {
- // --- QUERY HÍBRIDA ---
- const { data, error } = await supabase
- .from('whatsapp_conversations')
- .select(`
- *,
- contatos (
- id,
- nome,
- foto_url,
- tipo_contato,
- telefone_principal: telefones (telefone, country_code),
- funil: contatos_no_funil!contato_id (
- corretor_id,
- corretores: contatos!corretor_id(nome),
- coluna: colunas_funil (
- nome
- )
- )
- ),
- last_message: whatsapp_messages!last_message_id (
- content,
- created_at,
- status
- )
- `)
- .eq('organizacao_id', organizacaoId)
- .order('updated_at', { ascending: false });
+  try {
+    // 1. Buscar os contato_ids que possuem qualquer mensagem com falha de envio nesta organização
+    const { data: failedMsgs, error: failedError } = await supabase
+      .from('whatsapp_messages')
+      .select('contato_id')
+      .eq('organizacao_id', organizacaoId)
+      .eq('status', 'failed');
 
- if (error) {
- console.error('Erro ao buscar conversas:', error);
- return [];
- }
+    const failedContactIds = new Set();
+    if (!failedError && failedMsgs) {
+      failedMsgs.forEach(m => {
+        if (m.contato_id) failedContactIds.add(String(m.contato_id));
+      });
+    }
 
- return data.map(conv => {
- // --- 1. LÓGICA DO FUNIL & CORRETOR ---
- let nomeEtapa = null;
- let corretorId = null;
- let corretorNome = null;
- const dadosFunil = conv.contatos?.funil;
+    // 2. Query principal de conversas
+    const { data, error } = await supabase
+      .from('whatsapp_conversations')
+      .select(`
+        *,
+        contatos (
+          id,
+          nome,
+          foto_url,
+          tipo_contato,
+          telefone_principal: telefones (telefone, country_code),
+          funil: contatos_no_funil!contato_id (
+            corretor_id,
+            corretores: contatos!corretor_id(nome),
+            coluna: colunas_funil (
+              nome
+            )
+          )
+        ),
+        last_message: whatsapp_messages!last_message_id (
+          content,
+          created_at,
+          status
+        )
+      `)
+      .eq('organizacao_id', organizacaoId)
+      .order('updated_at', { ascending: false });
 
- if (Array.isArray(dadosFunil) && dadosFunil.length > 0) {
- nomeEtapa = dadosFunil[0]?.coluna?.nome;
- corretorId = dadosFunil[0]?.corretor_id;
- corretorNome = dadosFunil[0]?.corretores?.nome;
- } else if (dadosFunil && typeof dadosFunil === 'object') {
- nomeEtapa = dadosFunil?.coluna?.nome;
- corretorId = dadosFunil?.corretor_id;
- corretorNome = dadosFunil?.corretores?.nome;
- }
+    if (error) {
+      console.error('Erro ao buscar conversas:', error);
+      return [];
+    }
 
- // --- 2. LÓGICA DO CRONÔMETRO ---
- const lastInboundAt = conv.customer_window_start_at || null;
+    return data.map(conv => {
+      // --- 1. LÓGICA DO FUNIL & CORRETOR ---
+      let nomeEtapa = null;
+      let corretorId = null;
+      let corretorNome = null;
+      const dadosFunil = conv.contatos?.funil;
 
- // --- 3. LÓGICA DO PAÍS (DDI) ---
- let countryCode = null;
- const telefones = conv.contatos?.telefone_principal;
- if (Array.isArray(telefones) && telefones.length > 0) {
-   countryCode = telefones[0]?.country_code;
- }
- // Fallback caso não encontre na tabela telefones ou o contato seja nulo
- if (!countryCode && conv.phone_number) {
-   if (conv.phone_number.startsWith('55')) {
-     countryCode = '+55';
-   } else if (conv.phone_number.startsWith('1')) {
-     countryCode = '+1';
-   }
- }
+      if (Array.isArray(dadosFunil) && dadosFunil.length > 0) {
+        nomeEtapa = dadosFunil[0]?.coluna?.nome;
+        corretorId = dadosFunil[0]?.corretor_id;
+        corretorNome = dadosFunil[0]?.corretores?.nome;
+      } else if (dadosFunil && typeof dadosFunil === 'object') {
+        nomeEtapa = dadosFunil?.coluna?.nome;
+        corretorId = dadosFunil?.corretor_id;
+        corretorNome = dadosFunil?.corretores?.nome;
+      }
 
- return {
- conversation_id: conv.id,
- contato_id: conv.contatos?.id,
- phone_number: conv.phone_number,
- nome: conv.contatos?.nome || conv.phone_number,
- avatar_url: conv.contatos?.foto_url,
- // AQUI ACONTECE A MÁGICA COLABORATIVA: Busca o count apenas deste usuário, ou 0 se nulo
- unread_count: conv.user_unread_counts?.[userId] || 0,
- last_message_content: conv.last_message?.content,
- // Status da última mensagem para saber se falhou
- last_message_status: conv.last_message?.status,
- last_message_at: conv.last_message?.created_at || conv.updated_at,
- is_archived: conv.is_archived || false,
- // Dados Restaurados
- tipo_contato: conv.contatos?.tipo_contato,
- etapa_funil: nomeEtapa,
- corretor_id: corretorId,
- corretor_nome: corretorNome,
- // Cronômetro de Janela (fonte confiável: campo exclusivo de mensagens inbound)
- last_inbound_at: lastInboundAt,
- country_code: countryCode
- };
- });
+      // --- 2. LÓGICA DO CRONÔMETRO ---
+      const lastInboundAt = conv.customer_window_start_at || null;
 
- } catch (err) {
- console.error("Erro fatal (try/catch) em getConversations:", err);
- return [];
- }
+      // --- 3. LÓGICA DO PAÍS (DDI) ---
+      let countryCode = null;
+      const telefones = conv.contatos?.telefone_principal;
+      if (Array.isArray(telefones) && telefones.length > 0) {
+        countryCode = telefones[0]?.country_code;
+      }
+      // Fallback caso não encontre na tabela telefones ou o contato seja nulo
+      if (!countryCode && conv.phone_number) {
+        if (conv.phone_number.startsWith('55')) {
+          countryCode = '+55';
+        } else if (conv.phone_number.startsWith('1')) {
+          countryCode = '+1';
+        }
+      }
+
+      const contatoIdStr = conv.contatos?.id ? String(conv.contatos.id) : null;
+      const hasFailed = contatoIdStr ? failedContactIds.has(contatoIdStr) : false;
+
+      return {
+        conversation_id: conv.id,
+        contato_id: conv.contatos?.id,
+        phone_number: conv.phone_number,
+        nome: conv.contatos?.nome || conv.phone_number,
+        avatar_url: conv.contatos?.foto_url,
+        unread_count: conv.user_unread_counts?.[userId] || 0,
+        last_message_content: conv.last_message?.content,
+        last_message_status: conv.last_message?.status,
+        last_message_at: conv.last_message?.created_at || conv.updated_at,
+        is_archived: conv.is_archived || false,
+        tipo_contato: conv.contatos?.tipo_contato,
+        etapa_funil: nomeEtapa,
+        corretor_id: corretorId,
+        corretor_nome: corretorNome,
+        last_inbound_at: lastInboundAt,
+        country_code: countryCode,
+        has_failed: hasFailed
+      };
+    });
+
+  } catch (err) {
+    console.error("Erro fatal (try/catch) em getConversations:", err);
+    return [];
+  }
 };
 
 // --- FUNÇÃO: BUSCAR LISTAS DE TRANSMISSÃO ---
 export const getBroadcastLists = async (supabase, organizacaoId) => {
- if (!organizacaoId) return [];
+  if (!organizacaoId) return [];
 
- const { data, error } = await supabase
- .from('whatsapp_broadcast_lists')
- .select(`
- *,
- membros:whatsapp_list_members(count)
- `)
- .eq('organizacao_id', organizacaoId)
- .order('created_at', { ascending: false });
+  const { data, error } = await supabase
+    .from('whatsapp_broadcast_lists')
+    .select(`
+      *,
+      membros:whatsapp_list_members(count)
+    `)
+    .eq('organizacao_id', organizacaoId)
+    .order('created_at', { ascending: false });
 
- if (error) {
- console.error('Erro ao buscar listas:', error);
- return [];
- }
+  if (error) {
+    console.error('Erro ao buscar listas:', error);
+    return [];
+  }
 
- return data.map(lista => ({
- ...lista,
- membros_count: lista.membros?.[0]?.count || 0
- }));
+  return data.map(lista => ({
+    ...lista,
+    membros_count: lista.membros?.[0]?.count || 0
+  }));
 };
 
 // --- FUNÇÃO: EXTRAIR NÚMERO CANÔNICO (DDD + 8 Dígitos) ---
@@ -155,14 +169,14 @@ export const getMessages = async (supabase, organizacaoId, contatoId, phoneNumbe
   }
 
   let query = supabase
-  .from('whatsapp_messages')
-  .select('*') // ISSO É VITAL: Traz raw_payload e tudo mais
-  .eq('organizacao_id', organizacaoId)
-  .eq('contato_id', contatoId);
+    .from('whatsapp_messages')
+    .select('*')
+    .eq('organizacao_id', organizacaoId)
+    .eq('contato_id', contatoId);
 
   const { data, error } = await query
-  .order('created_at', { ascending: true })
-  .order('id', { ascending: true });
+    .order('created_at', { ascending: true })
+    .order('id', { ascending: true });
 
   if (error) {
     console.error('Erro ao buscar mensagens:', error?.message || error, JSON.stringify(error, Object.getOwnPropertyNames(error)));
@@ -201,57 +215,57 @@ export const getMessages = async (supabase, organizacaoId, contatoId, phoneNumbe
 
 // --- FUNÇÃO: MARCAR COMO LIDA ---
 export const markMessagesAsRead = async (supabase, organizacaoId, contatoId, conversationId, userId) => {
- if (!organizacaoId || !contatoId || !conversationId || !userId) return;
+  if (!organizacaoId || !contatoId || !conversationId || !userId) return;
 
- // 1. Zera a bolinha INVIDIDUAL via RPC
- const { error: rpcError } = await supabase.rpc('reset_whatsapp_unreads', {
-   v_conversation_id: conversationId,
-   v_user_id: userId
- });
- if (rpcError) console.error('Erro no reset_whatsapp_unreads:', rpcError);
+  // 1. Zera a bolinha INVIDIDUAL via RPC
+  const { error: rpcError } = await supabase.rpc('reset_whatsapp_unreads', {
+    v_conversation_id: conversationId,
+    v_user_id: userId
+  });
+  if (rpcError) console.error('Erro no reset_whatsapp_unreads:', rpcError);
 
- // 2. Opcional: mantém o is_read true globalmente na mensagem pro "visto" azul do cliente (WhatsApp behaviour)
- await supabase
- .from('whatsapp_messages')
- .update({ is_read: true })
- .eq('organizacao_id', organizacaoId)
- .eq('contato_id', contatoId)
- .eq('is_read', false);
+  // 2. Opcional: mantém o is_read true globalmente na mensagem pro "visto" azul do cliente (WhatsApp behaviour)
+  await supabase
+    .from('whatsapp_messages')
+    .update({ is_read: true })
+    .eq('organizacao_id', organizacaoId)
+    .eq('contato_id', contatoId)
+    .eq('is_read', false);
 };
 
 // --- FUNÇÃO NOVA: VERIFICAR SE O WHATSAPP ESTÁ CONFIGURADO (GATEKEEPER) ---
 export const getWhatsappConfig = async (supabase, organizacaoId) => {
- if (!organizacaoId) return null;
+  if (!organizacaoId) return null;
 
- const { data, error } = await supabase
- .from('configuracoes_whatsapp')
- .select('*')
- .eq('organizacao_id', organizacaoId)
- .single();
+  const { data, error } = await supabase
+    .from('configuracoes_whatsapp')
+    .select('*')
+    .eq('organizacao_id', organizacaoId)
+    .single();
 
- // Se o erro for "Nenhuma linha encontrada" (PGRST116), nós apenas retornamos null (não tem config)
- if (error && error.code !== 'PGRST116') {
- console.error('Erro ao buscar configuração do WhatsApp:', error);
- return null;
- }
+  if (error && error.code !== 'PGRST116') {
+    console.error('Erro ao buscar configuração do WhatsApp:', error);
+    return null;
+  }
 
- return data;
+  return data;
 };
-// --- FUN��O NOVA: BUSCAR TODOS OS CORRETORES ---
+
+// --- FUNÇÃO NOVA: BUSCAR TODOS OS CORRETORES ---
 export const getCorretores = async (supabase, organizacaoId) => {
- if (!organizacaoId) return [];
+  if (!organizacaoId) return [];
 
- const { data, error } = await supabase
- .from('contatos')
- .select('id, nome')
- .eq('organizacao_id', organizacaoId)
- .eq('tipo_contato', 'Corretor')
- .order('nome', { ascending: true });
+  const { data, error } = await supabase
+    .from('contatos')
+    .select('id, nome')
+    .eq('organizacao_id', organizacaoId)
+    .eq('tipo_contato', 'Corretor')
+    .order('nome', { ascending: true });
 
- if (error) {
- console.error('Erro ao buscar corretores:', error);
- return [];
- }
+  if (error) {
+    console.error('Erro ao buscar corretores:', error);
+    return [];
+  }
 
- return data;
+  return data;
 };

@@ -104,7 +104,8 @@ const ConversationItem = ({ conversation, isSelected, onSelect, onAction, isArch
  const touchMoved = useRef(false);
 
  const contactName = conversation.contatos?.nome || conversation.nome || formatPhoneNumber(conversation.phone_number || conversation.customer_phone || '');
- const isFailed = conversation.last_message_status === 'failed';
+ const isLastMessageFailed = conversation.last_message_status === 'failed';
+ const hasFailedHistory = conversation.has_failed || false;
 
  const formatMessageDate = (dateString) => {
  if (!dateString) return '';
@@ -219,8 +220,8 @@ const ConversationItem = ({ conversation, isSelected, onSelect, onAction, isArch
        </div>
      )}
      {/* Indicador de Falha (Esconde se estiver marcado ou em modo de seleção) */}
-     {!isChecked && !isAnyChecked && isFailed && (
-       <div className="absolute -bottom-1 -right-1 bg-red-500 text-white text-[10px] font-bold w-5 h-5 flex items-center justify-center rounded-full border-2 border-white" title="Envio Falhou">
+     {!isChecked && !isAnyChecked && hasFailedHistory && (
+       <div className="absolute -bottom-1 -right-1 bg-red-500 text-white text-[10px] font-bold w-5 h-5 flex items-center justify-center rounded-full border-2 border-white animate-pulse" title="Há falhas de envio nesta conversa">
          !
        </div>
      )}
@@ -237,8 +238,11 @@ const ConversationItem = ({ conversation, isSelected, onSelect, onAction, isArch
        </div>
      )}
      <div className="flex justify-between items-baseline">
-       <h3 className={`font-semibold truncate pr-2 text-sm ${isFailed ? 'text-red-600' : 'text-gray-900'}`}>
+       <h3 className={`font-semibold truncate pr-2 text-sm flex items-center gap-1.5 ${isLastMessageFailed ? 'text-red-600' : 'text-gray-900'}`}>
          {contactName}
+         {hasFailedHistory && (
+           <FontAwesomeIcon icon={faExclamationCircle} className="text-red-500 text-[11px] shrink-0" title="Há mensagens com falha no envio" />
+         )}
        </h3>
        {conversation.last_message_at && (
          <span className={`text-xs flex-shrink-0 ${conversation.unread_count > 0 ? 'text-[#00a884] font-bold' : 'text-gray-400'}`}>
@@ -248,8 +252,8 @@ const ConversationItem = ({ conversation, isSelected, onSelect, onAction, isArch
      </div>
 
      <div className="flex justify-between items-center mt-0.5">
-       <p className={`text-sm truncate w-full ${isFailed ? 'text-red-500 font-medium' : 'text-gray-500'}`}>
-         {isFailed ?
+       <p className={`text-sm truncate w-full ${isLastMessageFailed ? 'text-red-500 font-medium' : 'text-gray-500'}`}>
+         {isLastMessageFailed ?
            <span><FontAwesomeIcon icon={faExclamationCircle} className="mr-1" /> Falha no envio</span>
            :
            (conversation.last_message_content || 'Inicie uma conversa')
@@ -383,9 +387,9 @@ export default function ConversationList({ conversations, broadcastLists, isLoad
  const queryClient = useQueryClient();
 
  // Limpar seleções ao trocar de aba
- useEffect(() => {
-   setSelectedIds(new Set());
- }, [activeTab, showArchived]);
+   useEffect(() => {
+     setSelectedIds(new Set());
+   }, [activeTab, showArchived]);
 
  const conversationMutation = useMutation({
  mutationFn: async ({ action, conversationId, conversationIds }) => {
@@ -467,8 +471,8 @@ export default function ConversationList({ conversations, broadcastLists, isLoad
  const activeConversations = conversations?.filter(c => !c.is_archived) || [];
  const archivedConversations = conversations?.filter(c => c.is_archived) || [];
 
- // NOVA LISTA: Conversas onde a última mensagem falhou
- const failedConversations = conversations?.filter(c => c.last_message_status === 'failed') || [];
+ // NOVA LISTA: Conversas onde há qualquer mensagem com falha no histórico
+ const failedConversations = conversations?.filter(c => c.has_failed) || [];
 
  const toggleSelection = (id) => {
    const newSet = new Set(selectedIds);
@@ -508,7 +512,7 @@ export default function ConversationList({ conversations, broadcastLists, isLoad
  <button onClick={() => setActiveTab('chats')} className={`pb-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'chats' ? 'border-[#00a884] text-[#00a884]' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>Conversas</button>
  <button onClick={() => setActiveTab('lists')} className={`pb-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'lists' ? 'border-[#00a884] text-[#00a884]' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>Listas</button>
 
- {/* NOVA ABA FALHAS */}
+ {/* ABA FALHAS */}
  <button onClick={() => setActiveTab('failures')} className={`pb-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'failures' ? 'border-red-500 text-red-500' : 'border-transparent text-gray-500 hover:text-red-500'}`}>
  Falhas
  {failedConversations.length > 0 && (
