@@ -23,16 +23,52 @@ function sanitizePhone(phone) {
   return clean || null;
 }
 
+// Verifica se o template cadastrado na Meta realmente necessita de parâmetros (ex: {{1}})
+async function checkTemplateNeedsVariables(config, templateName) {
+  try {
+    const url = `https://graph.facebook.com/v20.0/${config.whatsapp_business_account_id}/message_templates?name=${templateName}&access_token=${config.whatsapp_permanent_token}`;
+    const res = await fetch(url);
+    if (!res.ok) {
+      console.warn(`[WhatsApp Webhook] Falha ao consultar template '${templateName}' na Meta API (Status: ${res.status}). Usando fallback = true.`);
+      return true; 
+    }
+    const data = await res.json();
+    const template = data.data?.find(t => t.name === templateName);
+    if (!template) {
+      console.warn(`[WhatsApp Webhook] Template '${templateName}' não encontrado na resposta da Meta API. Usando fallback = true.`);
+      return true; 
+    }
+
+    // Verifica se algum componente de texto tem a variável {{1}}
+    let hasVariable = false;
+    (template.components || []).forEach(comp => {
+      if (comp.text && comp.text.includes('{{1}}')) {
+        hasVariable = true;
+      }
+    });
+    return hasVariable;
+  } catch (err) {
+    console.error(`[WhatsApp Webhook] Erro ao verificar estrutura do template '${templateName}':`, err);
+    return true; 
+  }
+}
+
 // --- FUNÇÃO AUXILIAR: Enviar Template WhatsApp ---
 async function sendTemplateMessage(supabaseAdmin, config, to, contato, templateName, language) {
   const url = `https://graph.facebook.com/v20.0/${config.whatsapp_phone_number_id}/messages`;
 
   const nomeExibicao = contato?.nome || contato?.razao_social || 'Cliente';
 
-  const components = [{
-    type: 'body',
-    parameters: [{ type: 'text', text: nomeExibicao }]
-  }];
+  // Verifica preventivamente se o template realmente usa parâmetros
+  const needsVariables = await checkTemplateNeedsVariables(config, templateName);
+
+  const components = [];
+  if (needsVariables) {
+    components.push({
+      type: 'body',
+      parameters: [{ type: 'text', text: nomeExibicao }]
+    });
+  }
 
   const phoneForMeta = formatarParaWhatsAppBR(to);
 
@@ -53,11 +89,11 @@ async function sendTemplateMessage(supabaseAdmin, config, to, contato, templateN
     
     let responseData = response.status === 204 ? {} : await response.json();
 
-    // Auto-heal: Se falhar por erro de parâmetros (ex: template que não aceita variáveis no Meta)
+    // Auto-heal (Rede de proteção extra): Se falhar por erro de parâmetros
     if (!response.ok && responseData.error?.code === 132000) {
       console.warn(`⚠️ [WhatsApp Webhook] Detectado erro de parâmetros (132000) para o template '${templateName}'. Tentando reenvio automático sem parâmetros.`);
       
-      // Limpa os componentes do payload
+      // Limpa os componentes do payload e reenvia
       payload.template.components = [];
 
       response = await fetch(url, {
