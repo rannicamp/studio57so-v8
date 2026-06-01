@@ -396,7 +396,7 @@ export default function BetaSuitesClient() {
             onClick={openLeadModal}
             className="inline-block w-full sm:w-auto text-center bg-white/10 backdrop-blur-md border border-white/20 text-white font-bold py-4 px-10 rounded-xl hover:bg-white/15 transition-all duration-300 shadow-2xl uppercase tracking-wide"
           >
-            Qurow Aproveitar a Oportunidade
+            Quero Aproveitar a Oportunidade
           </button>
         </div>
         <div className="w-full lg:w-1/2 h-[50vh] lg:h-auto relative">
