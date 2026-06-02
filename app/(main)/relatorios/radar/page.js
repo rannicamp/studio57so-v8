@@ -155,7 +155,7 @@ function RadarPageContent() {
   const { data: stats, isLoading: loadingRadar, isError: errorRadar } = useQuery({
     queryKey: ['radarStats', radarPeriodoReal, somenteMarketing],
     queryFn: fetchDataRadar,
-    refetchInterval: 30000
+    refetchOnWindowFocus: false
   });
 
   // FETCH COMERCIAL
