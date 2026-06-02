@@ -4,21 +4,7 @@ export const getConversations = async (supabase, organizacaoId, userId) => {
   if (!organizacaoId || !userId) return [];
 
   try {
-    // 1. Buscar os contato_ids que possuem qualquer mensagem com falha de envio nesta organização
-    const { data: failedMsgs, error: failedError } = await supabase
-      .from('whatsapp_messages')
-      .select('contato_id')
-      .eq('organizacao_id', organizacaoId)
-      .eq('status', 'failed');
-
-    const failedContactIds = new Set();
-    if (!failedError && failedMsgs) {
-      failedMsgs.forEach(m => {
-        if (m.contato_id) failedContactIds.add(String(m.contato_id));
-      });
-    }
-
-    // 2. Query principal de conversas
+    // 1. Query principal de conversas
     const { data, error } = await supabase
       .from('whatsapp_conversations')
       .select(`
@@ -86,9 +72,6 @@ export const getConversations = async (supabase, organizacaoId, userId) => {
         }
       }
 
-      const contatoIdStr = conv.contatos?.id ? String(conv.contatos.id) : null;
-      const hasFailed = contatoIdStr ? failedContactIds.has(contatoIdStr) : false;
-
       return {
         conversation_id: conv.id,
         contato_id: conv.contatos?.id,
@@ -105,8 +88,7 @@ export const getConversations = async (supabase, organizacaoId, userId) => {
         corretor_id: corretorId,
         corretor_nome: corretorNome,
         last_inbound_at: lastInboundAt,
-        country_code: countryCode,
-        has_failed: hasFailed
+        country_code: countryCode
       };
     });
 
