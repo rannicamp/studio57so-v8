@@ -113,11 +113,17 @@ async function sendTemplateMessage(supabaseAdmin, config, to, contato, templateN
       console.log(`✅ [WhatsApp Webhook] Automação enviada para ${to}`);
       const messageId = responseData.messages?.[0]?.id;
       if (messageId && contato?.id) {
-        await supabaseAdmin.from('whatsapp_messages').insert({
+        const { error: insertError } = await supabaseAdmin.from('whatsapp_messages').insert({
           contato_id: contato.id, message_id: messageId, sender_id: config.whatsapp_phone_number_id, receiver_id: to,
           content: `(Automação) Template: ${templateName}`, direction: 'outbound', status: 'sent', raw_payload: payload,
           sent_at: new Date().toISOString(), organizacao_id: config.organizacao_id
         });
+        
+        if (insertError) {
+          console.error(`❌ [WhatsApp Webhook] Erro ao gravar mensagem de boas-vindas no banco:`, insertError.message);
+        } else {
+          console.log(`✅ [WhatsApp Webhook] Mensagem de boas-vindas gravada no banco para o contato ${contato.id}`);
+        }
       }
     }
   } catch (error) {
@@ -195,10 +201,16 @@ export async function POST(request) {
     return NextResponse.json({ error: 'invalid_json' }, { status: 400 });
   }
 
-  // Responde 200 imediatamente para o Meta nao marcar como "rejected"
-  processWebhook(body).catch(err =>
-    console.error('[WEBHOOK] Erro no processamento assincrono:', err.message)
-  );
+  try {
+    // 🔥 CORREÇÃO: Aguardamos a execução completa do processamento do lead.
+    // Em ambientes serverless (Netlify/AWS), se não usarmos await no processo principal,
+    // o container da função desliga assim que a resposta HTTP é enviada, congelando/abortando
+    // as chamadas de rede do WhatsApp e os inserts pendentes no banco de dados.
+    await processWebhook(body);
+  } catch (err) {
+    console.error('[WEBHOOK] Erro no processamento do lead:', err.message);
+  }
+  
   return NextResponse.json({ status: 'received' }, { status: 200 });
 }
 
