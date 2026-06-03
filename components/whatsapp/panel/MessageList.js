@@ -3,10 +3,11 @@
 import { useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faCheck, faCheckDouble, faPlayCircle, faMicrophone, faExclamationCircle, faFileAlt, faBan, faMapMarkerAlt, faExternalLinkAlt, faSpinner, faUserCircle, faUserPlus } from '@fortawesome/free-solid-svg-icons';
+import { faCheck, faCheckDouble, faPlayCircle, faMicrophone, faExclamationCircle, faFileAlt, faBan, faMapMarkerAlt, faExternalLinkAlt, faSpinner, faUserCircle, faUserPlus, faPhone } from '@fortawesome/free-solid-svg-icons';
 import { format, isToday, isYesterday, differenceInCalendarDays } from 'date-fns';
 import { createClient } from '@/utils/supabase/client';
 import { toast } from 'sonner';
+import { useQuery } from '@tanstack/react-query';
 
 // --- IMPORTAÇÃO DINÂMICA DO SEU MAPA (LEAFLET) ---
 const LocationMap = dynamic(() => import('../LocationMap'), { ssr: false,
@@ -29,7 +30,24 @@ const getDateLabel = (dateString) => {
  return format(date, 'dd/MM/yyyy');
 };
 
+const useWhatsAppTemplates = () => {
+  return useQuery({
+    queryKey: ['whatsappTemplates'],
+    queryFn: async () => {
+      const response = await fetch('/api/whatsapp/templates');
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Falha ao buscar modelos');
+      }
+      return response.json();
+    },
+    staleTime: 1000 * 60 * 5,
+    refetchOnWindowFocus: false,
+  });
+};
+
 export default function MessageList({ messages, onMediaClick }) {
+  const { data: templates } = useWhatsAppTemplates();
   const messagesEndRef = useRef(null);
   const supabase = createClient();
   const [loadingContactId, setLoadingContactId] = useState(null);
@@ -182,6 +200,38 @@ export default function MessageList({ messages, onMediaClick }) {
   if (param.type === 'document') { isDocument = true; mediaUrl = param.document?.link; }
   }
  }
+
+  // --- SUPORTE A TEMPLATE DETALHADO (CABEÇALHOS E BOTÕES ESTÁTICOS/DINÂMICOS) ---
+  const isTemplate = !isDeleted && (payload?.type === 'template' || payload?.template);
+  const templateName = payload?.template?.name;
+  const templateObj = isTemplate && templates ? (Array.isArray(templates) ? templates : templates.data || []).find(t => t.name === templateName) : null;
+
+  let headerText = '';
+  let templateButtons = [];
+
+  if (templateObj) {
+    // 1. Cabeçalho de texto
+    const headerComp = templateObj.components?.find(c => c.type === 'HEADER');
+    if (headerComp && headerComp.format === 'TEXT') {
+      headerText = headerComp.text;
+      // Substituir variáveis no cabeçalho se houver
+      const headerParams = payload?.template?.components?.find(c => c.type === 'header')?.parameters;
+      if (headerParams) {
+        headerParams.forEach((param, i) => {
+          if (param.type === 'text') {
+            headerText = headerText.replace(new RegExp(`\\{\\{${i + 1}\\}\\}`, 'g'), param.text);
+          }
+        });
+      }
+    }
+    
+    // 2. Botões
+    const buttonsComp = templateObj.components?.find(c => c.type === 'BUTTONS');
+    if (buttonsComp && Array.isArray(buttonsComp.buttons)) {
+      templateButtons = buttonsComp.buttons;
+    }
+  }
+
  // --- DETECÇÃO DE LOCALIZAÇÃO ---
  const isLocation = !isDeleted && (payload?.type === 'location' || payload?.location || msg.content?.includes('Localização:'));
  const locLat = payload?.location?.latitude || parseFloat(msg.content?.split(': ')[1]?.split(',')[0]);
@@ -290,11 +340,64 @@ export default function MessageList({ messages, onMediaClick }) {
   </div>
   )}
 
+  {/* CABEÇALHO DO TEMPLATE */}
+  {headerText && (
+    <div className="px-2 pt-1 pb-0.5 font-bold text-gray-900 text-[13px] tracking-wide select-text">
+      {headerText}
+    </div>
+  )}
+
   {/* TEXTO DA MENSAGEM */}
   {msg.content && !hiddenTexts.includes(msg.content) && !msg.content.startsWith('📍 Localização:') && !msg.content.startsWith('👤 Contato:') && (
   <p className="px-2 pb-1 pt-1 text-gray-800 whitespace-pre-wrap leading-relaxed min-w-[50px]">
   {msg.content}
   </p>
+  )}
+
+  {/* BOTÕES DO TEMPLATE */}
+  {templateButtons.length > 0 && (
+    <div className="mt-2 border-t border-gray-150 divide-y divide-gray-150 overflow-hidden rounded-b-lg -mx-1 -mb-1">
+      {templateButtons.map((btn, btnIdx) => {
+        let icon = null;
+        let href = null;
+        
+        if (btn.type === 'URL') {
+          icon = faExternalLinkAlt;
+          // Decodificar parâmetros dinâmicos se houver
+          let url = btn.url || '';
+          const btnPayload = payload?.template?.components?.find(c => c.type === 'button' && Number(c.index) === btnIdx);
+          const param = btnPayload?.parameters?.[0];
+          if (param && param.type === 'text') {
+            url = url.replace('{{1}}', param.text);
+          }
+          href = url;
+        } else if (btn.type === 'PHONE_NUMBER') {
+          icon = faPhone;
+          href = `tel:${btn.phone_number}`;
+        }
+        
+        const btnContent = (
+          <div className="flex items-center justify-center gap-2 py-2.5 px-4 text-[#0066cc] hover:text-[#004ca3] font-bold text-xs transition-colors text-center w-full select-none">
+            {icon && <FontAwesomeIcon icon={icon} className="text-[10px] opacity-75" />}
+            <span>{btn.text}</span>
+          </div>
+        );
+        
+        if (href) {
+          return (
+            <a key={btnIdx} href={href} target="_blank" rel="noopener noreferrer" className="block w-full no-underline hover:bg-black/[0.03] transition-colors">
+              {btnContent}
+            </a>
+          );
+        }
+        
+        return (
+          <div key={btnIdx} className="w-full hover:bg-black/[0.03] transition-colors cursor-pointer">
+            {btnContent}
+          </div>
+        );
+      })}
+    </div>
   )}
 
   {/* EXIBIÇÃO DE ERRO DE ENVIO */}
