@@ -247,7 +247,8 @@ export default function CreateBroadcastModal({ isOpen, onClose, onListCreated, i
  // 2. Gravar Membros
  const membersPayload = selectedContacts.map(id => ({
  lista_id: listId,
- contato_id: id
+ contato_id: id,
+ organizacao_id: organizacaoId
  }));
 
  const { error: memError } = await supabase.from('whatsapp_list_members').insert(membersPayload);
