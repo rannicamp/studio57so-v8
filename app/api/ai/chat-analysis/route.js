@@ -86,13 +86,12 @@ export async function POST(request) {
       contatoInfo.meta_campaign_name = contatoInfo.meta_campaign_name || contatoInfo.campanha?.nome || null;
     }
 
-    // 1.8 Buscar se há alguma mídia recente recebida do cliente na conversa (ex: CNH em PDF ou Imagem)
-    const { data: ultimaMidiaCliente } = await supabaseAdmin
+    // 1.8 Buscar a mensagem mais recente enviada pelo cliente (inbound)
+    const { data: ultimaMsgCliente } = await supabaseAdmin
       .from('whatsapp_messages')
-      .select('media_url, content, raw_payload')
+      .select('id, media_url, content, raw_payload, created_at')
       .eq('contato_id', contato_id)
       .eq('direction', 'inbound')
-      .not('media_url', 'is', null)
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -100,25 +99,33 @@ export async function POST(request) {
     let docBase64Data = null;
     let docMimeType = null;
 
-    if (ultimaMidiaCliente && ultimaMidiaCliente.media_url) {
-      const urlLower = ultimaMidiaCliente.media_url.toLowerCase();
-      // Consideramos PDF ou imagens comuns de documentos
-      const isPdf = urlLower.includes('.pdf') || (ultimaMidiaCliente.raw_payload && ultimaMidiaCliente.raw_payload.type === 'document');
-      const isImg = urlLower.includes('.jpg') || urlLower.includes('.jpeg') || urlLower.includes('.png') || urlLower.includes('.webp') || (ultimaMidiaCliente.raw_payload && ultimaMidiaCliente.raw_payload.type === 'image');
+    // Apenas processamos a mídia se ela for de fato a última mensagem recebida do cliente e recente (enviada nos últimos 5 minutos)
+    if (ultimaMsgCliente && ultimaMsgCliente.media_url) {
+      const diferencaTempo = Date.now() - new Date(ultimaMsgCliente.created_at).getTime();
+      const ehRecente = diferencaTempo < 5 * 60 * 1000; // 5 minutos
 
-      if (isPdf || isImg) {
-        console.log(`[Stella AI] Mídia recente detectada para análise online: ${ultimaMidiaCliente.media_url}`);
-        try {
-          const fileResponse = await fetch(ultimaMidiaCliente.media_url);
-          if (fileResponse.ok) {
-            const arrayBuffer = await fileResponse.arrayBuffer();
-            docBase64Data = Buffer.from(arrayBuffer).toString('base64');
-            docMimeType = isPdf ? 'application/pdf' : fileResponse.headers.get('content-type') || 'image/jpeg';
-            console.log(`[Stella AI] Mídia carregada com sucesso na memória RAM (Tamanho: ${docBase64Data.length} caracteres Base64).`);
+      if (ehRecente) {
+        const urlLower = ultimaMsgCliente.media_url.toLowerCase();
+        // Consideramos PDF ou imagens comuns de documentos
+        const isPdf = urlLower.includes('.pdf') || (ultimaMsgCliente.raw_payload && ultimaMsgCliente.raw_payload.type === 'document');
+        const isImg = urlLower.includes('.jpg') || urlLower.includes('.jpeg') || urlLower.includes('.png') || urlLower.includes('.webp') || (ultimaMsgCliente.raw_payload && ultimaMsgCliente.raw_payload.type === 'image');
+
+        if (isPdf || isImg) {
+          console.log(`[Stella AI] Mídia recente detectada para análise online: ${ultimaMsgCliente.media_url}`);
+          try {
+            const fileResponse = await fetch(ultimaMsgCliente.media_url);
+            if (fileResponse.ok) {
+              const arrayBuffer = await fileResponse.arrayBuffer();
+              docBase64Data = Buffer.from(arrayBuffer).toString('base64');
+              docMimeType = isPdf ? 'application/pdf' : fileResponse.headers.get('content-type') || 'image/jpeg';
+              console.log(`[Stella AI] Mídia carregada com sucesso na memória RAM (Tamanho: ${docBase64Data.length} caracteres Base64).`);
+            }
+          } catch (mediaErr) {
+            console.error('[Stella AI Warning] Erro ao baixar mídia para memória RAM:', mediaErr.message);
           }
-        } catch (mediaErr) {
-          console.error('[Stella AI Warning] Erro ao baixar mídia para memória RAM:', mediaErr.message);
         }
+      } else {
+        console.log(`[Stella AI] Mídia mais recente (${ultimaMsgCliente.media_url}) foi enviada há mais de 5 minutos. Ignorando download para otimização de performance.`);
       }
     }
 
