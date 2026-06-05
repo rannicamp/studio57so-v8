@@ -213,8 +213,8 @@ export default function FormCategorizacao({
  Esta despesa é o pagamento de um empréstimo ou passivo? Vincule aqui para abater a dívida automaticamente.
  </p>
  <select
- name="lancamento_passivo_id"
- value={formData.lancamento_passivo_id || ''}
+ name="lancamento_ativo_id"
+ value={formData.lancamento_ativo_id || ''}
  onChange={handleChange}
  className="w-full p-2 bg-white border border-red-300 rounded-md text-sm font-medium text-gray-700 focus:outline-none focus:ring-1 focus:ring-red-500 transition-colors"
  >

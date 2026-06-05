@@ -19,7 +19,8 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
  faUserTie,
  faBell,
  faBookReader,
- faCommentDots
+ faCommentDots,
+ faListOl
 } from '@fortawesome/free-solid-svg-icons';
 
 const ConfigCard = ({ href, icon, title, description, color = "bg-blue-50 text-blue-600" }) => (
@@ -157,6 +158,13 @@ export default function ConfiguracoesPage() {
  icon: faCommentDots,
  href: '/automacao',
  color: 'bg-purple-50 text-purple-600'
+ },
+ {
+ title: 'Etapas e Subetapas',
+ description: 'Gerencie as etapas e subetapas de obras usadas no planejamento e pedidos do sistema.',
+ icon: faListOl,
+ href: '/configuracoes/etapas',
+ color: 'bg-indigo-100 text-indigo-700'
  }
  ];
 
