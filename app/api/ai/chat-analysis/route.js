@@ -7,7 +7,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
 export async function POST(request) {
   try {
-    const { contato_id, organizacao_id, force } = await request.json();
+    const { contato_id, organizacao_id, force, quickResponse } = await request.json();
 
     if (!contato_id || !organizacao_id) {
       return NextResponse.json({ error: 'Faltam parâmetros obrigatórios.' }, { status: 400 });
@@ -36,40 +36,65 @@ export async function POST(request) {
        return NextResponse.json({ error: 'Chave GEMINI_API_KEY não configurada no servidor.' }, { status: 500 });
     }
 
-    // 1.5 Buscar Dados Cadastrais e de Origem (Meta Ads / CRM) do Contato
-    const { data: contatoInfo, error: contatoError } = await supabaseAdmin
-      .from('contatos')
-      .select(`
-        nome,
-        cpf,
-        cnpj,
-        origem,
-        objetivo,
-        cargo,
-        estado_civil,
-        renda_familiar,
-        fgts,
-        mais_de_3_anos_clt,
-        observations,
-        meta_campaign_name,
-        meta_adset_name,
-        meta_ad_name,
-        meta_form_data,
-        birth_date,
-        cep,
-        address_street,
-        address_number,
-        address_complement,
-        neighborhood,
-        city,
-        state,
-        anuncio:meta_ad_id(id, nome),
-        adset:meta_adset_id(id, nome),
-        campanha:meta_campaign_id(id, nome)
-      `)
-      .eq('id', contato_id)
-      .eq('organizacao_id', organizacao_id)
-      .single();
+    // 1.5 Buscar os dados iniciais do contato e histórico em paralelo (Otimização de Latência)
+    const [
+      contatoResult,
+      ultimaMsgResult,
+      messagesResult,
+      funilResult
+    ] = await Promise.all([
+      // 1. Dados cadastrais do contato
+      supabaseAdmin
+        .from('contatos')
+        .select(`
+          nome, cpf, cnpj, origem, objetivo, cargo, estado_civil, renda_familiar, fgts, mais_de_3_anos_clt,
+          observations, meta_campaign_name, meta_adset_name, meta_ad_name, meta_form_data, birth_date, cep,
+          address_street, address_number, address_complement, neighborhood, city, state, ai_analysis,
+          anuncio:meta_ad_id(id, nome),
+          adset:meta_adset_id(id, nome),
+          campanha:meta_campaign_id(id, nome)
+        `)
+        .eq('id', contato_id)
+        .eq('organizacao_id', organizacao_id)
+        .single(),
+
+      // 2. Última mensagem inbound do cliente
+      supabaseAdmin
+        .from('whatsapp_messages')
+        .select('id, media_url, content, raw_payload, created_at')
+        .eq('contato_id', contato_id)
+        .eq('direction', 'inbound')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+
+      // 3. Histórico de mensagens da conversa (limitado a 25 msgs para performance em tempo real)
+      supabaseAdmin
+        .from('whatsapp_messages')
+        .select('content, direction, sent_at')
+        .eq('contato_id', contato_id)
+        .eq('organizacao_id', organizacao_id)
+        .order('sent_at', { ascending: false })
+        .limit(25),
+
+      // 4. Dados do Funil Comercial
+      supabaseAdmin
+        .from('contatos_no_funil')
+        .select(`
+          id,
+          colunas_funil(nome),
+          contatos_no_funil_produtos(
+            produto:produto_id(nome, empreendimento_id, area_m2, valor_venda_calculado)
+          )
+        `)
+        .eq('contato_id', contato_id)
+        .maybeSingle()
+    ]);
+
+    const { data: contatoInfo, error: contatoError } = contatoResult;
+    const { data: ultimaMsgCliente } = ultimaMsgResult;
+    const { data: messages } = messagesResult;
+    const { data: funil } = funilResult;
 
     if (contatoError) {
       console.error('Erro ao buscar dados do contato para IA:', contatoError);
@@ -86,21 +111,12 @@ export async function POST(request) {
       contatoInfo.meta_campaign_name = contatoInfo.meta_campaign_name || contatoInfo.campanha?.nome || null;
     }
 
-    // 1.8 Buscar a mensagem mais recente enviada pelo cliente (inbound)
-    const { data: ultimaMsgCliente } = await supabaseAdmin
-      .from('whatsapp_messages')
-      .select('id, media_url, content, raw_payload, created_at')
-      .eq('contato_id', contato_id)
-      .eq('direction', 'inbound')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
     let docBase64Data = null;
     let docMimeType = null;
 
     // Apenas processamos a mídia se ela for de fato a última mensagem recebida do cliente e recente (enviada nos últimos 5 minutos)
-    if (ultimaMsgCliente && ultimaMsgCliente.media_url) {
+    // E apenas no modo completo (se for quickResponse pulamos o download de arquivos pesados)
+    if (!quickResponse && ultimaMsgCliente && ultimaMsgCliente.media_url) {
       const diferencaTempo = Date.now() - new Date(ultimaMsgCliente.created_at).getTime();
       const ehRecente = diferencaTempo < 5 * 60 * 1000; // 5 minutos
 
@@ -129,29 +145,6 @@ export async function POST(request) {
       }
     }
 
-    // 2. Coletar Histórico do WhatsApp
-    const { data: messages } = await supabaseAdmin
-      .from('whatsapp_messages')
-      .select('content, direction, sent_at')
-      .eq('contato_id', contato_id)
-      .eq('organizacao_id', organizacao_id)
-      .order('sent_at', { ascending: false }) // Pega os mais recentes
-      .limit(100);
-
-
-    // 3. Coletar Dados do Funil Comercial
-    const { data: funil } = await supabaseAdmin
-      .from('contatos_no_funil')
-      .select(`
-        id,
-        colunas_funil(nome),
-        contatos_no_funil_produtos(
-          produto:produto_id(nome, empreendimento_id, area_m2, valor_venda_calculado)
-        )
-      `)
-      .eq('contato_id', contato_id)
-      .maybeSingle();
-
     if (!messages || messages.length === 0) {
       return NextResponse.json({
         resumo_interacao: "Não há mensagens suficientes no WhatsApp para análise.",
@@ -163,7 +156,7 @@ export async function POST(request) {
     }
 
     // Invertemos para ficar na ordem cronológica de leitura da IA (começo -> fim)
-    const reversedMessages = messages.reverse();
+    const reversedMessages = [...messages].reverse();
 
     // Formata o histórico como string
     const chatLog = reversedMessages.filter(m => m.content).map(m => {
@@ -204,45 +197,67 @@ export async function POST(request) {
       empIdsSet.add(6); // Refúgio Braúnas
     }
 
+    // Tenta deduzir os empreendimentos de interesse pelo histórico de mensagens também
+    const chatText = (messages || []).map(m => m.content || '').join(' ').toLowerCase();
+    
+    if (chatText.includes('alfa')) {
+      empIdsSet.add(1); // Residencial Alfa
+    }
+    if (chatText.includes('beta') || chatText.includes('samara')) {
+      empIdsSet.add(5); // Beta Suítes
+    }
+    if (chatText.includes('braunas') || chatText.includes('braúnas')) {
+      empIdsSet.add(6); // Refúgio Braúnas
+    }
+
     const empreendimentoIds = Array.from(empIdsSet);
 
-    // Obter BASE DE CONHECIMENTO GLOBAL (Dossiês de Empreendimentos)
-    let empContext = "";
-    const { data: todosEmpreendimentos } = await supabaseAdmin
-      .from('empreendimentos')
-      .select('nome, dossie_ia')
-      .not('dossie_ia', 'is', null);
+    // --- NOVA LÓGICA DE QUERIES PARALELAS FILTRADAS POR EMPREENDIMENTO ---
+    const empIdsBusca = empreendimentoIds.length > 0 ? empreendimentoIds : [1, 5, 6];
 
+    const [
+      empreendimentosResult,
+      anexosResult,
+      produtosResult
+    ] = await Promise.all([
+      // 1. Dossiês apenas dos empreendimentos de interesse
+      supabaseAdmin
+        .from('empreendimentos')
+        .select('id, nome, dossie_ia')
+        .in('id', empIdsBusca)
+        .not('dossie_ia', 'is', null),
+
+      // 2. Anexos apenas dos empreendimentos de interesse
+      supabaseAdmin
+        .from('empreendimento_anexos')
+        .select('id, nome_arquivo, caminho_arquivo, descricao, empreendimento_id')
+        .eq('disponivel_corretor', true)
+        .eq('organizacao_id', organizacao_id)
+        .in('empreendimento_id', empIdsBusca),
+
+      // 3. Produtos apenas dos empreendimentos de interesse
+      supabaseAdmin
+        .from('produtos_empreendimento')
+        .select('id, unidade, area_m2, valor_venda_calculado, status, descricao, empreendimento_id')
+        .in('empreendimento_id', empIdsBusca)
+        .eq('status', 'Disponível')
+        .eq('organizacao_id', organizacao_id)
+    ]);
+
+    const todosEmpreendimentos = empreendimentosResult.data;
+    const anexos = anexosResult.data;
+    const produtosDisponiveis = produtosResult.data;
+
+    let empContext = "";
     if (todosEmpreendimentos && todosEmpreendimentos.length > 0) {
-      empContext = "### BASE DE CONHECIMENTO GLOBAL (Cérebro da Studio 57)\n" + todosEmpreendimentos.map(e => {
+      empContext = "### BASE DE CONHECIMENTO DO EMPREENDIMENTO (Dossiê)\n" + todosEmpreendimentos.map(e => {
         return `\n--- INÍCIO DO DOSSIÊ: ${e.nome} ---\n${e.dossie_ia}\n--- FIM DO DOSSIÊ: ${e.nome} ---\n`;
       }).join('\n');
     }
 
-    // Busca de anexos disponíveis
-    let anexosContext = "Nenhum anexo público encontrado.";
-    let queryAnexos = supabaseAdmin
-      .from('empreendimento_anexos')
-      .select('id, nome_arquivo, caminho_arquivo, descricao')
-      .eq('disponivel_corretor', true) // Apenas o que estiver compartilhado com corretores
-      .eq('organizacao_id', organizacao_id);
-
-    const { data: anexos } = await queryAnexos;
+    let anexosContext = "Nenhum anexo público encontrado para este empreendimento.";
     if (anexos && anexos.length > 0) {
        anexosContext = anexos.map(a => `- ID: ${a.id} | Nome: "${a.nome_arquivo}" | Caminho: "${a.caminho_arquivo}" | Descrição: "${a.descricao || 'Sem descrição'}"`).join('\n');
-    }
-
-    // --- NOVA BUSCA DE PRODUTOS DISPONÍVEIS (ESTOQUE REAL) ---
-    const empIdsBusca = empreendimentoIds.length > 0 ? empreendimentoIds : [1, 5, 6];
-    const { data: produtosDisponiveis, error: prodErr } = await supabaseAdmin
-      .from('produtos_empreendimento')
-      .select('id, unidade, area_m2, valor_venda_calculado, status, descricao, empreendimento_id')
-      .in('empreendimento_id', empIdsBusca)
-      .eq('status', 'Disponível')
-      .eq('organizacao_id', organizacao_id);
-
-    if (prodErr) {
-      console.error('Erro ao buscar produtos disponíveis para a Stella:', prodErr);
     }
 
     // Filtra apenas unidades residenciais reais, ignorando garagens e motos para o estoque de apartamentos
@@ -251,7 +266,7 @@ export async function POST(request) {
       return !u.includes('MOTO') && !u.includes('CARRO') && !u.includes('GARAGEM');
     });
 
-    let produtosDisponiveisContext = "Nenhuma unidade habitacional disponível cadastrada em estoque no momento.";
+    let produtosDisponiveisContext = "Nenhuma unidade habitacional disponível cadastrada em estoque no momento para este empreendimento.";
     if (unidadesHabitacionais.length > 0) {
       produtosDisponiveisContext = unidadesHabitacionais.map(p => 
         `- Empreendimento ID: ${p.empreendimento_id} | Unidade: ${p.unidade} | Área: ${p.area_m2}m² | Valor de Venda: R$ ${p.valor_venda_calculado} | Descrição: ${p.descricao || 'Sem descrição'}`
@@ -304,7 +319,77 @@ ${metaFormString}
       }
     });
 
-    const prompt = `
+    // Construção condicional do Prompt
+    let prompt = '';
+    
+    if (quickResponse) {
+      prompt = `
+Você é Stella, a super Analista Comercial de Elite e Assistente Copiloto da Studio 57.
+Sua missão nesta chamada rápida é responder ao diálogo do cliente no WhatsApp de forma imediata e sugerir o anexo ideal para envio.
+
+# Regras de Inteligência de Estoque (Produtos, Andares e Simulações)
+1. Analise atentamente o "Histórico Recente de Conversa". Se o cliente solicitar ou expressar preferência por andares/posições (ex: "mais alto", "último andar", "andar do topo", "mais baixo", "primeiros andares"), busque na lista de "# Lista de Unidades Disponíveis em Estoque (Real)" as unidades correspondentes ao empreendimento detectado.
+2. Para edifícios verticais (Alfa = ID 1, Beta = ID 5):
+   - O andar é representado pelos primeiros dígitos da unidade (ex: "705" é 7º andar, "503" é 5º andar, "303" é 3º andar, "203" é 2º andar).
+   - Unidades com numeração maior (ex: 705 vs 303) representam andares mais altos.
+   - Escolha a melhor unidade disponível que atende à solicitação: se ele quer a mais alta, selecione a de número mais alto disponível (ex: 705); se quer a mais baixa, selecione a de número mais baixo disponível (ex: 201 ou 202).
+3. Quando apresentar uma unidade habitacional para o cliente, faça de forma proativa o cálculo exato da **Simulação de Pagamento Padrão** baseado no valor total da unidade selecionada:
+   - **Valor Total de Venda**: O 'Valor de Venda' da unidade disponível no estoque real.
+   - **Entrada / Sinal (20%)**: Calcule 20% do valor da unidade.
+   - **Fluxo de Mensais Obra (40%)**: Calcule 40% do valor da unidade e divida por **42 parcelas mensais** (ou por 36 se for o Residencial Alfa, conforme seu dossiê).
+     - *Fórmula*: (Valor da Unidade * 0.40) / 42.
+   - **Remanescente / Saldo de Chaves (40%)**: Calcule 40% do valor da unidade (a ser pago no pós-habite-se via quitação ou financiamento bancário).
+4. Formate a resposta sugerida detalhando a unidade e a simulação de pagamento de maneira organizada e super legível (com marcadores), por exemplo:
+   "No último andar temos disponível a unidade 705 (R$ 269.406). As condições são super facilitadas:
+   - Entrada (20%): R$ 53.881
+   - 42 mensais de: R$ 2.565
+   - Saldo nas chaves (remanescente): R$ 107.762"
+5. Se o cliente perguntar algo sobre a localização, áreas de lazer ou detalhes do projeto, busque essas informações no "Dossiê do Empreendimento" correspondente.
+
+# Regras de Terminologia e Vendas (Crítico)
+- PROIBIÇÃO DE TERMO COMERCIAL: É TERMINANTEMENTE PROIBIDO usar o termo "hiper-compacto", "hipercompacto", "compacto" ou "studios hiper-compactos". Em vez disso, use sempre termos como "otimizado", "studio otimizado", "planta inteligente" ou "planta otimizada".
+
+# Regras do Diálogo para Coleta de Endereço
+1. Para o cadastro do cliente e elaboração do contrato de reserva, o sistema exige o endereço completo. O sistema busca o endereço automaticamente se o CEP for fornecido.
+2. Se o endereço estiver incompleto na Ficha do Lead (o CEP estiver vazio ou faltar o número da residência):
+   - Peça ativamente o endereço completo do cliente de forma amigável.
+   - Solicite que ele envie o comprovante de residência (PDF ou imagem) ou digite o CEP, número e complemento.
+
+# REGRA DO ESTOQUE REAL IMEDIATO (OBRIGATÓRIO):
+Se o cliente perguntar quais são as unidades disponíveis, quais os andares, ou pedir detalhes da unidade (ex: "Qual é essa unidade?"), você DEVE buscar e listar IMEDIATAMENTE as unidades reais e seus números que estão em estoque no contexto (ex: unidade 705, 703, 606). NUNCA diga que está verificando no sistema ou peça tempo se os dados já estão no prompt. Apresente as unidades e faça os cálculos de simulação para o cliente na hora.
+
+# Dados Atuais do CRM
+- Fase no Funil (CRM): ${crmStatus}
+- Unidades/Produtos Interessados: ${produtos}
+
+### BASE DE CONHECIMENTO GLOBAL (Dossiê)
+${empContext}
+
+# Inteligência de Produtos CRM
+${detalhesUnidades}
+
+# Lista de Unidades Disponíveis em Estoque (Real)
+${produtosDisponiveisContext}
+
+# Arquivos e Anexos Disponíveis para Envio
+${anexosContext}
+
+# Histórico Recente de Conversa (WhatsApp)
+${chatLog}
+
+Escreva um JSON rigoroso nos seguintes moldes:
+{
+  "proxima_resposta_sugerida": "A resposta exata e natural para enviar ao cliente. REGRA DE OURO WHATSAPP: Seja EXTREMAMENTE SUCINTO. Envie frases curtas, dinâmicas e amigáveis. Use parágrafos curtíssimos (separados por \\n\\n), tom de conversa super humano e direto ao ponto. Termine sempre com uma única pergunta curta para engajar. Se incluir uma simulação de pagamento, estruture-a de forma clara com bullet points, mas mantenha o texto em volta muito objetivo.",
+  "empreendimento_detectado_id": 1, 5, 6 ou null,
+  "anexo_sugerido": {
+    "id": ID_DO_ARQUIVO,
+    "nome_arquivo": "NOME_DO_ARQUIVO_EXATO (idêntico ao da lista)",
+    "caminho_arquivo": "CAMINHO_DO_ARQUIVO_EXATO (idêntico ao da lista)"
+  }
+}
+`;
+    } else {
+      prompt = `
 Você é Stella, a super Analista Comercial de Elite e Assistente Copiloto da Studio 57.
 Graduada em inteligência de leads, sua missão é classificar o lead, analisar a origem da campanha e o perfil do cliente, e gerar uma RESPOSTA SUGERIDA PRONTA para o corretor copiar e enviar ao cliente (ou que será disparada automaticamente no piloto automático).
 
@@ -344,6 +429,9 @@ Cruze esses dados com o "Histórico da Conversa" recente no WhatsApp. O históri
 4. Se o cliente enviar o CEP (por texto ou se for lido no documento comprovante):
    - Priorize extrair o CEP, o número da residência (no campo "address_number") e o complemento (no campo "address_complement") no objeto "dados_cliente". Como o sistema busca o endereço automaticamente a partir do CEP, esses são os campos mais críticos para o cadastro. No entanto, se o endereço completo for fornecido (rua, bairro, cidade, estado), extraia também esses campos para garantir que a ficha cadastral fique o mais completa possível.
 5. Se uma mídia do tipo documento (PDF) ou imagem (foto) for enviada pelo cliente, e corresponder a um comprovante de residência, analise o documento visualmente e extraia o CEP, Logradouro, Número, Complemento, Bairro, Cidade e Estado para preencher o cadastro.
+
+# REGRA DO ESTOQUE REAL IMEDIATO (OBRIGATÓRIO):
+Se o cliente perguntar quais são as unidades disponíveis, quais os andares, ou pedir detalhes da unidade (ex: "Qual é essa unidade?"), você DEVE buscar e listar IMEDIATAMENTE as unidades reais e seus números que estão em estoque no contexto (ex: unidade 705, 703, 606). NUNCA diga que está verificando no sistema ou peça tempo se os dados já estão no prompt. Apresente as unidades e faça os cálculos de simulação para o cliente na hora.
 
 # Ficha Cadastral e Origem do Lead
 ${fichaLead}
@@ -415,6 +503,7 @@ Com base SOMENTE neste histórico recente e contexto do projeto, escreva um JSON
   }
 }
 `;
+    }
 
     const promptContent = [];
     if (docBase64Data && docMimeType) {
@@ -451,7 +540,8 @@ Com base SOMENTE neste histórico recente e contexto do projeto, escreva um JSON
     }
 
     // --- NOVA LÓGICA: ATUALIZAÇÃO CADASTRAL INTELIGENTE E INCREMENTAL ---
-    if (parsedResult.dados_cliente && typeof parsedResult.dados_cliente === 'object') {
+    // Apenas rodamos o enriquecimento cadastral no banco se NÃO for Quick Response
+    if (!quickResponse && parsedResult.dados_cliente && typeof parsedResult.dados_cliente === 'object') {
       const dc = parsedResult.dados_cliente;
       const currentContact = contatoInfo;
       
@@ -554,13 +644,26 @@ Com base SOMENTE neste histórico recente e contexto do projeto, escreva um JSON
       }
     }
 
-    // 5. Salvar localmente o cache
+    // 5. Salvar localmente o cache mesclado
+    let finalAnalysis = parsedResult;
+    if (quickResponse) {
+      // Mesclamos os campos rápidos com a análise anterior existente no banco para não perder os dados cadastrais ricos
+      const oldAnalysis = contatoInfo?.ai_analysis || {};
+      finalAnalysis = {
+        ...oldAnalysis,
+        proxima_resposta_sugerida: parsedResult.proxima_resposta_sugerida,
+        empreendimento_detectado_id: parsedResult.empreendimento_detectado_id,
+        anexo_sugerido: parsedResult.anexo_sugerido,
+        last_updated: new Date().toISOString()
+      };
+    }
+
     await supabaseAdmin
       .from('contatos')
-      .update({ ai_analysis: parsedResult })
+      .update({ ai_analysis: finalAnalysis })
       .eq('id', contato_id);
 
-    return NextResponse.json(parsedResult);
+    return NextResponse.json(finalAnalysis);
 
   } catch (error) {
     console.error('[AI API Error]', error);

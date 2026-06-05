@@ -144,11 +144,21 @@ export async function POST(request) {
       try {
         const apiUrl = `${protocol}://${host}/api/ai/chat-analysis`;
         
+        // Se a mensagem for de mídia (documento ou imagem), desativamos o quickResponse para enriquecimento completo.
+        // Se for texto normal, ativamos o quickResponse para resposta rápida no WhatsApp.
+        const isMedia = message.type === 'document' || message.type === 'image';
+        const quickResponse = !isMedia;
+
         // Chamada síncrona para analisar e gerar a resposta da IA
         const aiResponse = await fetch(apiUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ contato_id: contatoId, organizacao_id: config.organizacao_id, force: true })
+          body: JSON.stringify({ 
+            contato_id: contatoId, 
+            organizacao_id: config.organizacao_id, 
+            force: true,
+            quickResponse: quickResponse
+          })
         });
         
         if (aiResponse.ok) {
@@ -259,7 +269,7 @@ export async function POST(request) {
           const aiResponse = await fetch(apiUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ contato_id: contatoId, organizacao_id: config.organizacao_id, force: true })
+            body: JSON.stringify({ contato_id: contatoId, organizacao_id: config.organizacao_id, force: true, quickResponse: false })
           });
           if (!aiResponse.ok) {
             const errText = await aiResponse.text();
