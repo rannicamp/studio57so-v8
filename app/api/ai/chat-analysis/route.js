@@ -142,6 +142,24 @@ export async function POST(request) {
         }
       });
     }
+
+    // Tenta deduzir o empreendimento também pelo texto de campanhas de Ads
+    const campaignText = (
+      (contatoInfo?.meta_campaign_name || '') + ' ' + 
+      (contatoInfo?.meta_adset_name || '') + ' ' + 
+      (contatoInfo?.meta_ad_name || '')
+    ).toLowerCase();
+
+    if (campaignText.includes('alfa')) {
+      empIdsSet.add(1); // Residencial Alfa
+    }
+    if (campaignText.includes('beta') || campaignText.includes('samara')) {
+      empIdsSet.add(5); // Beta Suítes
+    }
+    if (campaignText.includes('braunas') || campaignText.includes('braúnas')) {
+      empIdsSet.add(6); // Refúgio Braúnas
+    }
+
     const empreendimentoIds = Array.from(empIdsSet);
 
     // Obter BASE DE CONHECIMENTO GLOBAL (Dossiês de Empreendimentos)
@@ -157,17 +175,24 @@ export async function POST(request) {
       }).join('\n');
     }
 
+    // Busca de anexos disponíveis
     let anexosContext = "Nenhum anexo público encontrado.";
+    let queryAnexos = supabaseAdmin
+      .from('empreendimento_anexos')
+      .select('id, nome_arquivo, caminho_arquivo, descricao')
+      .eq('pode_enviar_anexo', true)
+      .eq('disponivel_corretor', true) // CORREÇÃO DE SEGURANÇA: apenas o que estiver compartilhado com corretores
+      .eq('organizacao_id', organizacao_id);
+
+    // Se identificamos empreendimentos específicos, filtramos por eles.
+    // Caso contrário, trazemos todos os anexos marcados como públicos daquela organização.
     if (empreendimentoIds.length > 0) {
-      const { data: anexos } = await supabaseAdmin
-        .from('empreendimento_anexos')
-        .select('nome_arquivo, descricao')
-        .in('empreendimento_id', empreendimentoIds)
-        .eq('pode_enviar_anexo', true);
-      
-      if (anexos && anexos.length > 0) {
-         anexosContext = anexos.map(a => `- Arquivo: [${a.nome_arquivo}] (${a.descricao || 'Sem descrição'})`).join('\n');
-      }
+      queryAnexos = queryAnexos.in('empreendimento_id', empreendimentoIds);
+    }
+
+    const { data: anexos } = await queryAnexos;
+    if (anexos && anexos.length > 0) {
+       anexosContext = anexos.map(a => `- ID: ${a.id} | Nome: "${a.nome_arquivo}" | Caminho: "${a.caminho_arquivo}" | Descrição: "${a.descricao || 'Sem descrição'}"`).join('\n');
     }
 
     // Formata o formulário da Meta de forma legível
@@ -218,13 +243,13 @@ ${metaFormString}
 
     const prompt = `
 Você é Stella, a super Analista Comercial de Elite e Assistente Copiloto da Studio 57.
-Sua missão é classificar o lead, analisar a origem da campanha e o perfil do cliente, e gerar uma RESPOSTA SUGERIDA PRONTA para o corretor copiar e enviar ao cliente.
+Graduada em inteligência de leads, sua missão é classificar o lead, analisar a origem da campanha e o perfil do cliente, e gerar uma RESPOSTA SUGERIDA PRONTA para o corretor copiar e enviar ao cliente.
 
 # Instrução Crítica de Contexto (Origem do Lead e Histórico)
 A PRIMEIRA coisa que você deve fazer é analisar as informações da "FICHA CADASTRAL E DADOS DE ORIGEM" e as campanhas do Facebook/Meta Ads de onde ele veio. 
 Geralmente, o nome da campanha (meta_campaign_name), do conjunto de anúncios (meta_adset_name) ou do próprio anúncio (meta_ad_name) contêm o nome do empreendimento ou o tipo de público-alvo (investidores, compradores de primeiro imóvel). 
 Analise também as respostas do formulário da Meta (meta_form_data), que contêm perguntas sobre intenção de compra, renda e objetivos.
-Cruze esses dados com o "Histórico da Conversa" recente no WhatsApp. O histórico da conversa dita a regra final de interesse atual caso ele tenha mudado de ideia.
+Cruze esses dados com o "Histórico da Conversa" recente no WhatsApp. O histórico da conversa dita a regra final de interesse atual caso ele tenha mudado de idade.
 
 # Regras de Terminologia e Vendas (Crítico)
 - PROIBIÇÃO DE TERMO COMERCIAL: É TERMINANTEMENTE PROIBIDO usar o termo "hiper-compacto", "hipercompacto", "compacto" ou "studios hiper-compactos" para se referir a qualquer imóvel ou studio. Em vez disso, use sempre termos como "otimizado", "studio otimizado", "planta inteligente" ou "planta otimizada". Para studios, o espaço é excelente e otimizado.
@@ -242,13 +267,13 @@ ${empContext}
 # Inteligência de Produtos (Caso o cliente pergunte de valores ou área)
 ${detalhesUnidades}
 
-# Arquivos e Anexos Disponíveis (Se o cliente pedir material/fotos/plantas, sugira o envio de um destes)
+# Arquivos e Anexos Disponíveis para Envio (Se o cliente solicitar material/imagens/books ou se for oportuno, sugira no campo "anexo_sugerido")
 ${anexosContext}
 
 # Histórico Recente de Conversa (WhatsApp)
 ${chatLog}
 
-# Regras de Extração e Análise do Cliente (Chave "dados_cliente")
+# Regras de Extração e Análise do Cliente (Chave "dados_cliente" e ID do Empreendimento)
 Analise todos os dados disponíveis (Ficha do Lead, Origem do Meta Ads, Formulário Meta, Dossiês e Conversa no WhatsApp) para determinar o perfil do cliente:
 1. "objetivo": Classifique rigorosamente como "MORADIA", "INVESTIMENTO" ou "LAZER". 
    - Analise os nomes de Campanha (meta_campaign_name), Adset (meta_adset_name) ou Anúncio (meta_ad_name):
@@ -258,15 +283,12 @@ Analise todos os dados disponíveis (Ficha do Lead, Origem do Meta Ads, Formulá
    - Analise as respostas do formulário da Meta (meta_form_data): perguntas como "objetivo?" contendo "moradia" ou "investimento_" indicam a intenção inicial. Padronize essas respostas ("investimento_" -> "INVESTIMENTO").
    - O histórico de conversa no WhatsApp (chat log) é a verdade final absoluta e prevalece sobre as campanhas. Se o lead veio de uma campanha do Beta Suítes (Investimento) mas no chat ele diz que pretende morar com a família no apartamento, classifique como "MORADIA".
    - Caso seja inconclusivo e não haja nenhuma informação, retorne null.
-2. "nome": Nome completo do cliente caso tenha sido explicitamente citado ou corrigido. Se no CRM estiver apenas o primeiro nome e no histórico ele informar o completo, retorne o completo.
-3. "cpf" e "cnpj": Apenas dígitos se informados.
-4. "renda_familiar": Renda bruta familiar (se informada no formulário da Meta ou no chat).
-5. "fgts": boolean.
-6. "mais_de_3_anos_clt": boolean.
-7. "cargo": Profissão ou cargo.
-8. "estado_civil": "Solteiro", "Casado", "Divorciado", "Separado" ou "União Estável".
-9. "birth_date": Data de nascimento YYYY-MM-DD.
-10. Endereço: "cep", "address_street", "address_number", "address_complement", "neighborhood", "city", "state".
+2. Identifique qual é o ID numérico do Empreendimento associado ao interesse do lead no campo "empreendimento_detectado_id":
+   - 1 para Residencial Alfa (se campanha, formulário ou chat apontarem para o Residencial Alfa).
+   - 5 para Beta Suítes (se campanha, formulário ou chat apontarem para o Beta Suítes / Samara).
+   - 6 para Refúgio Braúnas (se campanha, formulário ou chat apontarem para chácaras/lotes de Braúnas).
+   - Se for outro empreendimento ou totalmente inconclusivo, retorne null.
+3. Outros campos cadastrais do lead: "nome", "cpf", "cnpj", "renda_familiar", "fgts", "mais_de_3_anos_clt", "cargo", "estado_civil", "birth_date" e endereço.
 
 Com base SOMENTE neste histórico recente e contexto do projeto, escreva um JSON rigoroso nos seguintes moldes:
 {
@@ -275,6 +297,12 @@ Com base SOMENTE neste histórico recente e contexto do projeto, escreva um JSON
   "fase_crm_atual": "${crmStatus}",
   "proxima_acao_sugerida": "Dica direta e acionável para o corretor.",
   "proxima_resposta_sugerida": "A resposta exata e natural para enviar ao cliente. REGRA DE OURO WHATSAPP: Seja EXTREMAMENTE SUCINTO. Envie frases curtas, dinâmicas e amigáveis. Máximo de 3 a 4 linhas no total. Use parágrafos curtíssimos (separados por \\n\\n), tom de conversa super humano e direto ao ponto. Evite rodeios e textões, pois as pessoas têm preguiça de ler. Termine sempre com uma única pergunta curta para engajar.",
+  "empreendimento_detectado_id": 1, 5, 6 ou null,
+  "anexo_sugerido": {
+    "id": ID_DO_ARQUIVO,
+    "nome_arquivo": "NOME_DO_ARQUIVO_EXATO (idêntico ao da lista)",
+    "caminho_arquivo": "CAMINHO_DO_ARQUIVO_EXATO (idêntico ao da lista)"
+  },
   "dados_cliente": {
     "nome": "Nome completo ou null",
     "cpf": "Apenas dígitos do CPF ou null",

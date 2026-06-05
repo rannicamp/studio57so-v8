@@ -60,8 +60,8 @@ const formatCurrency = (value) => {
 const BooleanBadge = ({ label, value, icon, trueColor = "bg-green-100 text-green-800", falseColor = "bg-gray-100 text-gray-600" }) => {
  if (value === null || value === undefined) return (
  <div className="flex flex-col">
- <span className="text-xs text-gray-400 mb-1 flex items-center gap-1"><FontAwesomeIcon icon={icon} className="w-3 h-3"/> {label}</span>
- <span className="text-xs italic text-gray-400">Não inf.</span>
+  <span className="text-xs text-gray-400 mb-1 flex items-center gap-1"><FontAwesomeIcon icon={icon} className="w-3 h-3"/> {label}</span>
+  <span className="text-xs italic text-gray-400">Não inf.</span>
  </div>
  );
 
@@ -69,11 +69,11 @@ const BooleanBadge = ({ label, value, icon, trueColor = "bg-green-100 text-green
 
  return (
  <div className="flex flex-col">
- <span className="text-xs text-gray-500 mb-1 flex items-center gap-1"><FontAwesomeIcon icon={icon} className="w-3 h-3"/> {label}</span>
- <span className={`text-xs font-bold px-2 py-1 rounded-full border w-fit flex items-center gap-1 ${isTrue ? `${trueColor} border-green-200` : `${falseColor} border-gray-200`}`}>
- {isTrue ? <FontAwesomeIcon icon={faCheck} size="xs"/> : <FontAwesomeIcon icon={faTimesCircle} size="xs"/>}
- {isTrue ? "Sim" : "Não"}
- </span>
+  <span className="text-xs text-gray-500 mb-1 flex items-center gap-1"><FontAwesomeIcon icon={icon} className="w-3 h-3"/> {label}</span>
+  <span className={`text-xs font-bold px-2 py-1 rounded-full border w-fit flex items-center gap-1 ${isTrue ? `${trueColor} border-green-200` : `${falseColor} border-gray-200`}`}>
+  {isTrue ? <FontAwesomeIcon icon={faCheck} size="xs"/> : <FontAwesomeIcon icon={faTimesCircle} size="xs"/>}
+  {isTrue ? "Sim" : "Não"}
+  </span>
  </div>
  );
 };
@@ -114,30 +114,30 @@ const SlaBadge = ({ minutes }) => {
 
 const EditableField = ({ label, value, name, onChange, icon }) => (
  <div className="mb-3">
- <label className="text-xs font-medium text-gray-500 flex items-center gap-2"><FontAwesomeIcon icon={icon} className="w-3 h-3"/>{label}</label>
- <input type="text" name={name} value={value || ''} onChange={onChange} className="mt-1 text-sm text-gray-900 w-full p-1 border-b-2 border-gray-200 focus:outline-none focus:border-[#00a884] bg-transparent transition-colors" />
+  <label className="text-xs font-medium text-gray-500 flex items-center gap-2"><FontAwesomeIcon icon={icon} className="w-3 h-3"/>{label}</label>
+  <input type="text" name={name} value={value || ''} onChange={onChange} className="mt-1 text-sm text-gray-900 w-full p-1 border-b-2 border-gray-200 focus:outline-none focus:border-[#00a884] bg-transparent transition-colors" />
  </div>
 );
 
 const EditableSelectBoolean = ({ label, value, name, onChange, icon }) => (
  <div className="mb-3">
- <label className="text-xs font-medium text-gray-500 flex items-center gap-2"><FontAwesomeIcon icon={icon} className="w-3 h-3"/>{label}</label>
- <select name={name} value={value === null || value === undefined ? "" : String(value)} onChange={onChange}
- className="mt-1 text-sm text-gray-900 w-full p-1 border-b-2 border-gray-200 focus:outline-none focus:border-[#00a884] bg-transparent transition-colors"
- >
- <option value="">Selecione...</option>
- <option value="true">Sim</option>
- <option value="false">Não</option>
- </select>
+  <label className="text-xs font-medium text-gray-500 flex items-center gap-2"><FontAwesomeIcon icon={icon} className="w-3 h-3"/>{label}</label>
+  <select name={name} value={value === null || value === undefined ? "" : String(value)} onChange={onChange}
+  className="mt-1 text-sm text-gray-900 w-full p-1 border-b-2 border-gray-200 focus:outline-none focus:border-[#00a884] bg-transparent transition-colors"
+  >
+  <option value="">Selecione...</option>
+  <option value="true">Sim</option>
+  <option value="false">Não</option>
+  </select>
  </div>
 );
 
 const InfoField = ({ label, value, icon, highlight = false }) => (
  <div className="mb-3">
- <dt className="text-xs font-medium text-gray-500 flex items-center gap-2"><FontAwesomeIcon icon={icon} className="w-3 h-3"/>{label}</dt>
- <dd className={`mt-1 text-sm break-words ${highlight ? 'font-bold text-gray-800' : 'font-medium text-gray-900'}`}>
- {value || <span className="text-gray-400 italic font-normal">Não informado</span>}
- </dd>
+  <dt className="text-xs font-medium text-gray-500 flex items-center gap-2"><FontAwesomeIcon icon={icon} className="w-3 h-3"/>{label}</dt>
+  <dd className={`mt-1 text-sm break-words ${highlight ? 'font-bold text-gray-800' : 'font-medium text-gray-900'}`}>
+  {value || <span className="text-gray-400 italic font-normal">Não informado</span>}
+  </dd>
  </div>
 );
 
@@ -153,64 +153,64 @@ const MetaFormData = ({ data }) => {
  // Remove campos de OBJETIVO (pois já estão na qualificação)
  Object.keys(filteredData).forEach(key => {
  if (key.toLowerCase().includes('objetivo')) {
- delete filteredData[key];
+  delete filteredData[key];
  }
  });
  if (Object.keys(filteredData).length === 0) return null;
 
  return (
  <section className="mb-6">
- <h4 className="font-semibold text-gray-700 mb-3 flex items-center gap-2 text-sm uppercase tracking-wide"><FontAwesomeIcon icon={faBullhorn} /> Dados do Formulário (Meta)</h4>
- <div className="space-y-3 p-3 bg-gray-50 border rounded-md">
- {Object.entries(filteredData).map(([key, value]) => (
- <div key={key}>
- <dt className="text-xs font-medium text-gray-500 capitalize">{key.replace(/_/g, ' ')}</dt>
- <dd className="text-sm text-gray-800 font-medium">{value}</dd>
- </div>
- ))}
- </div>
+  <h4 className="font-semibold text-gray-700 mb-3 flex items-center gap-2 text-sm uppercase tracking-wide"><FontAwesomeIcon icon={faBullhorn} /> Dados do Formulário (Meta)</h4>
+  <div className="space-y-3 p-3 bg-gray-50 border rounded-md">
+  {Object.entries(filteredData).map(([key, value]) => (
+  <div key={key}>
+   <dt className="text-xs font-medium text-gray-500 capitalize">{key.replace(/_/g, ' ')}</dt>
+   <dd className="text-sm text-gray-800 font-medium">{value}</dd>
+  </div>
+  ))}
+  </div>
  </section>
  );
 };
 
 const HistoricoTimeline = ({ history }) => {
  if (!history || history.length === 0) {
- return <p className="text-xs text-center text-gray-400 py-4 italic">Nenhuma movimentação registrada.</p>;
+  return <p className="text-xs text-center text-gray-400 py-4 italic">Nenhuma movimentação registrada.</p>;
  }
 
  return (
  <div className="flow-root">
- <ul className="-mb-8">
- {history.map((item, itemIdx) => (
- <li key={item.id}>
- <div className="relative pb-8">
- {itemIdx !== history.length - 1 ? (
- <span className="absolute top-4 left-4 -ml-px h-full w-0.5 bg-gray-200" aria-hidden="true" />
- ) : null}
- <div className="relative flex space-x-3">
- <div>
- <span className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center ring-4 ring-white text-gray-500">
- <FontAwesomeIcon icon={faHistory} className="w-3 h-3"/>
- </span>
- </div>
- <div className="flex min-w-0 flex-1 justify-between space-x-4 pt-1.5">
- <div>
- <p className="text-sm text-gray-600">
- Movido de <strong className="font-medium text-gray-900">{item.coluna_anterior?.nome || 'Início'}</strong> para <strong className="font-medium text-[#00a884]">{item.coluna_nova?.nome}</strong>
- </p>
- <p className="text-xs text-gray-500 mt-1">
- por {item.usuario?.nome || 'Sistema'}
- </p>
- </div>
- <div className="whitespace-nowrap text-right text-[10px] text-gray-400">
- {format(new Date(item.data_movimentacao), 'dd/MM HH:mm')}
- </div>
- </div>
- </div>
- </div>
- </li>
- ))}
- </ul>
+  <ul className="-mb-8">
+  {history.map((item, itemIdx) => (
+  <li key={item.id}>
+   <div className="relative pb-8">
+   {itemIdx !== history.length - 1 ? (
+    <span className="absolute top-4 left-4 -ml-px h-full w-0.5 bg-gray-200" aria-hidden="true" />
+   ) : null}
+   <div className="relative flex space-x-3">
+    <div>
+    <span className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center ring-4 ring-white text-gray-500">
+     <FontAwesomeIcon icon={faHistory} className="w-3 h-3"/>
+    </span>
+    </div>
+    <div className="flex min-w-0 flex-1 justify-between space-x-4 pt-1.5">
+    <div>
+     <p className="text-sm text-gray-600">
+     Movido de <strong className="font-medium text-gray-900">{item.coluna_anterior?.nome || 'Início'}</strong> para <strong className="font-medium text-[#00a884]">{item.coluna_nova?.nome}</strong>
+     </p>
+     <p className="text-xs text-gray-500 mt-1">
+     por {item.usuario?.nome || 'Sistema'}
+     </p>
+    </div>
+    <div className="whitespace-nowrap text-right text-[10px] text-gray-400">
+     {format(new Date(item.data_movimentacao), 'dd/MM HH:mm')}
+    </div>
+    </div>
+   </div>
+   </div>
+  </li>
+  ))}
+  </ul>
  </div>
  );
 };
@@ -221,40 +221,40 @@ const fetchContactProfileData = async (supabase, contatoId, organizacaoId) => {
 
  // 1. Dados Cadastrais COMPLETOS (com JOIN em meta_ativos para origem do lead)
  const { data: contactDetails } = await supabase
- .from('contatos')
- .select(`
- *,
- telefones(*),
- emails(*),
- anuncio:meta_ad_id(id, nome),
- adset:meta_adset_id(id, nome),
- campanha:meta_campaign_id(id, nome)
- `) .eq('id', contatoId)
- .single();
+  .from('contatos')
+  .select(`
+  *,
+  telefones(*),
+  emails(*),
+  anuncio:meta_ad_id(id, nome),
+  adset:meta_adset_id(id, nome),
+  campanha:meta_campaign_id(id, nome)
+  `) .eq('id', contatoId)
+  .single();
 
  // Resolve os nomes com fallback: coluna _name → JOIN meta_ativos
  if (contactDetails) {
- contactDetails.meta_ad_name = contactDetails.meta_ad_name || contactDetails.anuncio?.nome || null;
- contactDetails.meta_adset_name = contactDetails.meta_adset_name || contactDetails.adset?.nome || null;
- contactDetails.meta_campaign_name = contactDetails.meta_campaign_name || contactDetails.campanha?.nome || null;
+  contactDetails.meta_ad_name = contactDetails.meta_ad_name || contactDetails.anuncio?.nome || null;
+  contactDetails.meta_adset_name = contactDetails.meta_adset_name || contactDetails.adset?.nome || null;
+  contactDetails.meta_campaign_name = contactDetails.meta_campaign_name || contactDetails.campanha?.nome || null;
  }
 
  // 2. Dados de Funil (AGORA EXPANDIDO PARA O CARD)
  const { data: funilEntryData } = await supabase
- .from('contatos_no_funil')
- .select(`
- *,
- coluna:coluna_id(id, funil_id),
- corretores:corretor_id(id, nome, razao_social),
- produtos_interesse:contatos_no_funil_produtos(
- id,
- produto:produto_id(*)
- )
- `)
- .eq('contato_id', contatoId)
- .maybeSingle();
+  .from('contatos_no_funil')
+  .select(`
+  *,
+  coluna:coluna_id(id, funil_id),
+  corretores:corretor_id(id, nome, razao_social),
+  produtos_interesse:contatos_no_funil_produtos(
+  id,
+  produto:produto_id(*)
+  )
+  `)
+  .eq('contato_id', contatoId)
+  .maybeSingle();
  if (funilEntryData) {
- funilEntryData.contatos = contactDetails; }
+  funilEntryData.contatos = contactDetails; }
 
  const funilEntryId = funilEntryData?.id;
 
@@ -263,27 +263,27 @@ const fetchContactProfileData = async (supabase, contatoId, organizacaoId) => {
  const activitiesPromise = supabase.from('activities').select('*').eq('contato_id', contatoId).eq('organizacao_id', organizacaoId).order('data_inicio_prevista', { ascending: true });
  const simulationsPromise = supabase.from('simulacoes').select('id, created_at, status, valor_venda').eq('contato_id', contatoId).eq('organizacao_id', organizacaoId).order('created_at', { ascending: false });
  const historyPromise = funilEntryId ? supabase.from('historico_movimentacao_funil').select('*, coluna_anterior:coluna_anterior_id(nome), coluna_nova:coluna_nova_id(nome), usuario:usuario_id(nome, sobrenome)').eq('contato_no_funil_id', funilEntryId).eq('organizacao_id', organizacaoId).order('data_movimentacao', { ascending: false })
- : Promise.resolve({ data: [] });
+  : Promise.resolve({ data: [] });
 
  // 4. Verifica se tem Instagram vinculado
  const instagramPromise = supabase
- .from('instagram_conversations')
- .select('participant_username')
- .eq('contato_id', contatoId)
- .not('participant_username', 'is', null)
- .limit(1)
- .maybeSingle();
+  .from('instagram_conversations')
+  .select('participant_username')
+  .eq('contato_id', contatoId)
+  .not('participant_username', 'is', null)
+  .limit(1)
+  .maybeSingle();
 
  const [
- { data: notes }, { data: activities }, { data: simulations }, { data: history },
- { data: instagramData }
+  { data: notes }, { data: activities }, { data: simulations }, { data: history },
+  { data: instagramData }
  ] = await Promise.all([notesPromise, activitiesPromise, simulationsPromise, historyPromise, instagramPromise]);
 
  return { contactDetails: contactDetails || {}, funilEntry: funilEntryData,
- funilEntryId, notes: notes || [], activities: activities || [], simulations: simulations || [],
- history: history || [],
- instagramProfile: instagramData || null,
- instagramManual: contactDetails?.instagram_username || null
+  funilEntryId, notes: notes || [], activities: activities || [], simulations: simulations || [],
+  history: history || [],
+  instagramProfile: instagramData || null,
+  instagramManual: contactDetails?.instagram_username || null
  };
 };
 
@@ -353,6 +353,7 @@ export default function ContactProfile({ contact }) {
  const organizacaoId = user?.organizacao_id;
  const queryClient = useQueryClient();
  const notesSectionRef = useRef(null);
+ const prevContactIdRef = useRef(null);
 
  // Estados locais
  const [isEditModalOpen, setIsEditModalOpen] = useState(false); const [isEditingInsta, setIsEditingInsta] = useState(false);
@@ -379,60 +380,60 @@ export default function ContactProfile({ contact }) {
   }, [isEditModalOpen]);
 
  const { data: profileData, isLoading } = useQuery({
- queryKey: ['contactProfileData', contact?.contato_id, organizacaoId],
- queryFn: () => fetchContactProfileData(supabase, contact?.contato_id, organizacaoId),
- enabled: !!contact && !!organizacaoId,
+  queryKey: ['contactProfileData', contact?.contato_id, organizacaoId],
+  queryFn: () => fetchContactProfileData(supabase, contact?.contato_id, organizacaoId),
+  enabled: !!contact && !!organizacaoId,
  });
  const { data: allColumns = [] } = useQuery({
- queryKey: ['colunasFunil', organizacaoId],
- queryFn: async () => {
- const { data } = await supabase.from('colunas_funil').select('*').eq('organizacao_id', organizacaoId).order('ordem');
- return data || [];
- },
- enabled: !!organizacaoId
+  queryKey: ['colunasFunil', organizacaoId],
+  queryFn: async () => {
+  const { data } = await supabase.from('colunas_funil').select('*').eq('organizacao_id', organizacaoId).order('ordem');
+  return data || [];
+  },
+  enabled: !!organizacaoId
  });
 
  const { data: availableProducts = [] } = useQuery({
- queryKey: ['produtosDisponiveis', organizacaoId],
- queryFn: async () => {
- const { data } = await supabase.from('produtos_empreendimento').select('*').eq('organizacao_id', organizacaoId).eq('status', 'Disponível');
- return data || [];
- },
- enabled: !!organizacaoId
+  queryKey: ['produtosDisponiveis', organizacaoId],
+  queryFn: async () => {
+  const { data } = await supabase.from('produtos_empreendimento').select('*').eq('organizacao_id', organizacaoId).eq('status', 'Disponível');
+  return data || [];
+  },
+  enabled: !!organizacaoId
  });
 
  const { data: empreendimentos = [] } = useQuery({
- queryKey: ['empreendimentos', organizacaoId],
- queryFn: async () => {
- const { data } = await supabase.from('empreendimentos').select('id, nome').eq('organizacao_id', organizacaoId).eq('arquivado', false).order('nome');
- return data || [];
- },
- enabled: !!organizacaoId
+  queryKey: ['empreendimentos', organizacaoId],
+  queryFn: async () => {
+  const { data } = await supabase.from('empreendimentos').select('id, nome').eq('organizacao_id', organizacaoId).eq('arquivado', false).order('nome');
+  return data || [];
+  },
+  enabled: !!organizacaoId
  });
 
  const { data: anexosCorretor = [], isLoading: isLoadingAnexos } = useQuery({
- queryKey: ['anexosCorretor', selectedEmpreendimentoId],
- queryFn: async () => {
- const { data, error } = await supabase.from('empreendimento_anexos')
- .select('id, nome_arquivo, caminho_arquivo, descricao, thumbnail_url, tipo:documento_tipos(descricao)')
- .eq('empreendimento_id', selectedEmpreendimentoId)
- .eq('disponivel_corretor', true);
- 
- if (error) {
-   console.error("Erro ao buscar anexos:", error);
-   return [];
- }
+  queryKey: ['anexosCorretor', selectedEmpreendimentoId],
+  queryFn: async () => {
+  const { data, error } = await supabase.from('empreendimento_anexos')
+  .select('id, nome_arquivo, caminho_arquivo, descricao, thumbnail_url, tipo:documento_tipos(descricao)')
+  .eq('empreendimento_id', selectedEmpreendimentoId)
+  .eq('disponivel_corretor', true);
+  
+  if (error) {
+    console.error("Erro ao buscar anexos:", error);
+    return [];
+  }
 
- const anexosComUrl = (data || []).map((anexo) => {
-   const { data: urlData } = supabase.storage
-     .from('empreendimento-anexos')
-     .getPublicUrl(anexo.caminho_arquivo);
-   return { ...anexo, public_url: urlData?.publicUrl };
- });
+  const anexosComUrl = (data || []).map((anexo) => {
+    const { data: urlData } = supabase.storage
+      .from('empreendimento-anexos')
+      .getPublicUrl(anexo.caminho_arquivo);
+    return { ...anexo, public_url: urlData?.publicUrl };
+  });
 
- return anexosComUrl;
- },
- enabled: !!selectedEmpreendimentoId
+  return anexosComUrl;
+  },
+  enabled: !!selectedEmpreendimentoId
  });
 
  const { notes = [], activities = [], simulations = [], history = [], funilEntry, contactDetails, funilEntryId, instagramProfile, instagramManual } = profileData || {};
@@ -440,208 +441,242 @@ export default function ContactProfile({ contact }) {
 
  // --- KPIS DE TEMPO DE RESPOSTA ---
  const { data: conversationKpis, isLoading: isLoadingKpis } = useQuery({
- queryKey: ['conversationKpis', displayContact?.contato_id],
- queryFn: async () => {
- if (!displayContact?.contato_id) return null;
- const { data: conv } = await supabase.from('whatsapp_conversations').select('id').eq('contato_id', displayContact.contato_id).maybeSingle();
- if (!conv) return null;
- const { data: kpis, error } = await supabase.rpc('get_conversation_response_kpis', { p_conversation_record_id: conv.id });
- if (error) { console.error('Erro RPC KPIs:', error); return null; }
- return kpis;
- },
- enabled: !!displayContact?.contato_id && activeTab === 'resumo'
+  queryKey: ['conversationKpis', displayContact?.contato_id],
+  queryFn: async () => {
+  if (!displayContact?.contato_id) return null;
+  const { data: conv } = await supabase.from('whatsapp_conversations').select('id').eq('contato_id', displayContact.contato_id).maybeSingle();
+  if (!conv) return null;
+  const { data: kpis, error } = await supabase.rpc('get_conversation_response_kpis', { p_conversation_record_id: conv.id });
+  if (error) { console.error('Erro RPC KPIs:', error); return null; }
+  return kpis;
+  },
+  enabled: !!displayContact?.contato_id && activeTab === 'resumo'
  });
 
  const formatMinutes = (mins) => {
- if (!mins || mins === 0) return '--';
- if (mins < 60) return `${Math.round(mins)} min`;
- const h = Math.floor(mins / 60);
- const m = Math.round(mins % 60);
- return `${h}h ${m > 0 ? m + 'm' : ''}`;
+  if (!mins || mins === 0) return '--';
+  if (mins < 60) return `${Math.round(mins)} min`;
+  const h = Math.floor(mins / 60);
+  const m = Math.round(mins % 60);
+  return `${h}h ${m > 0 ? m + 'm' : ''}`;
  };
 
  const getTempoCasa = () => {
- if (!displayContact?.created_at) return '--';
- const start = new Date(displayContact.created_at);
- const now = new Date();
- const diffTime = Math.abs(now - start);
- const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
- if (diffDays < 30) return `${diffDays} dias`;
- const diffMonths = Math.floor(diffDays / 30);
- if (diffMonths < 12) return `${diffMonths} meses`;
- return `${Math.floor(diffMonths / 12)} anos e ${diffMonths % 12} meses`;
+  if (!displayContact?.created_at) return '--';
+  const start = new Date(displayContact.created_at);
+  const now = new Date();
+  const diffTime = Math.abs(now - start);
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  if (diffDays < 30) return `${diffDays} dias`;
+  const diffMonths = Math.floor(diffDays / 30);
+  if (diffMonths < 12) return `${diffMonths} meses`;
+  return `${Math.floor(diffMonths / 12)} anos e ${diffMonths % 12} meses`;
  };
 
+ // --- ATUALIZAÇÃO INTELIGENTE: Sincronização automática do Empreendimento ---
  useEffect(() => {
- if (funilEntry?.empreendimento_id && !selectedEmpreendimentoId) {
- setSelectedEmpreendimentoId(funilEntry.empreendimento_id);
- }
- }, [funilEntry?.empreendimento_id]);
+   // Se mudamos de contato, resetamos o empreendimento selecionado para forçar novo recálculo
+   if (displayContact?.contato_id !== prevContactIdRef.current) {
+     prevContactIdRef.current = displayContact?.contato_id;
+     setSelectedEmpreendimentoId('');
+     return;
+   }
+
+   // Se o corretor já escolheu ou já foi populado, não sobrescreve
+   if (selectedEmpreendimentoId) return;
+
+   // 1. Prioridade: Empreendimento vinculado ao funil comercial ou do primeiro produto de interesse
+   const crmEmpId = funilEntry?.empreendimento_id || funilEntry?.produtos_interesse?.[0]?.produto?.empreendimento_id;
+   // 2. Fallback: Empreendimento detectado pela IA Stella (com base na campanha/conversa)
+   const aiEmpId = displayContact?.ai_analysis?.empreendimento_detectado_id;
+
+   if (crmEmpId) {
+     setSelectedEmpreendimentoId(String(crmEmpId));
+   } else if (aiEmpId) {
+     setSelectedEmpreendimentoId(String(aiEmpId));
+   }
+ }, [displayContact?.contato_id, funilEntry, displayContact?.ai_analysis, selectedEmpreendimentoId]);
 
  useEffect(() => {
- if (displayContact) {
- setEditData({
- nome: displayContact.nome || '',
- razao_social: displayContact.razao_social || '',
- telefone: displayContact.telefone || displayContact.phone_number || '',
- email: displayContact.email || '',
- cpf: displayContact.cpf || '',
- cnpj: displayContact.cnpj || '',
- origem: displayContact.origem || '',
- cargo: displayContact.cargo || '',
- renda_familiar: displayContact.renda_familiar ? formatCurrency(displayContact.renda_familiar) : '',
- fgts: displayContact.fgts,
- mais_de_3_anos_clt: displayContact.mais_de_3_anos_clt,
- objetivo: displayContact.objetivo || ''
- });
- }
+  if (displayContact) {
+  setEditData({
+   nome: displayContact.nome || '',
+   razao_social: displayContact.razao_social || '',
+   telefone: displayContact.telefone || displayContact.phone_number || '',
+   email: displayContact.email || '',
+   cpf: displayContact.cpf || '',
+   cnpj: displayContact.cnpj || '',
+   origem: displayContact.origem || '',
+   cargo: displayContact.cargo || '',
+   renda_familiar: displayContact.renda_familiar ? formatCurrency(displayContact.renda_familiar) : '',
+   fgts: displayContact.fgts,
+   mais_de_3_anos_clt: displayContact.mais_de_3_anos_clt,
+   objetivo: displayContact.objetivo || ''
+  });
+  }
  }, [contact?.contato_id, profileData]);
 
  // --- MUTAÇÕES GERAIS ---
  const sendDirectAttachmentMutation = useMutation({
- mutationFn: async (anexo) => {
- const rawPhone = displayContact?.phone_number || displayContact?.telefone;
- if (!rawPhone) throw new Error("Número do destinatário não encontrado.");
- const targetPhone = rawPhone.replace(/[^0-9]/g, '');
+  mutationFn: async (anexo) => {
+  const rawPhone = displayContact?.phone_number || displayContact?.telefone;
+  if (!rawPhone) throw new Error("Número do destinatário não encontrado.");
+  const targetPhone = rawPhone.replace(/[^0-9]/g, '');
 
- let fileType = 'document';
- const ext = (anexo.caminho_arquivo || anexo.nome_arquivo || '').split('.').pop().toLowerCase();
- if (['mp4', 'mov', 'avi', 'webm'].includes(ext)) fileType = 'video';
- if (['jpg', 'jpeg', 'png', 'webp'].includes(ext)) fileType = 'image';
+  let fileType = 'document';
+  const ext = (anexo.caminho_arquivo || anexo.nome_arquivo || '').split('.').pop().toLowerCase();
+  if (['mp4', 'mov', 'avi', 'webm'].includes(ext)) fileType = 'video';
+  if (['jpg', 'jpeg', 'png', 'webp'].includes(ext)) fileType = 'image';
 
- const response = await fetch('/api/whatsapp/send', {
- method: 'POST', headers: { 'Content-Type': 'application/json' },
- body: JSON.stringify({
- to: targetPhone, type: fileType, link: anexo.public_url, filename: anexo.nome_arquivo, caption: '',
- contact_id: displayContact.contato_id || contact?.contato_id, organizacao_id: organizacaoId
- }),
- });
- const apiResult = await response.json();
- if (!response.ok) throw new Error(apiResult.error || 'Erro ao enviar o arquivo.');
- return apiResult;
- },
- onSuccess: () => {
- toast.success("Arquivo enviado com sucesso!");
- queryClient.invalidateQueries({ queryKey: ['messages', organizacaoId, contact?.contato_id] });
- },
- onError: (e) => toast.error(`Erro ao enviar: ${e.message}`)
+  const response = await fetch('/api/whatsapp/send', {
+  method: 'POST', headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+   to: targetPhone, type: fileType, link: anexo.public_url, filename: anexo.nome_arquivo, caption: '',
+   contact_id: displayContact.contato_id || contact?.contato_id, organizacao_id: organizacaoId
+  }),
+  });
+  const apiResult = await response.json();
+  if (!response.ok) throw new Error(apiResult.error || 'Erro ao enviar o arquivo.');
+  
+  // Salvar no histórico de anexos do contato
+  await fetch('/api/whatsapp/save-attachment', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contato_id: displayContact.contato_id || contact?.contato_id,
+      message_id: apiResult.data?.messages?.[0]?.id,
+      storage_path: anexo.caminho_arquivo,
+      public_url: anexo.public_url,
+      file_name: anexo.nome_arquivo,
+      file_type: fileType === 'image' ? 'image/jpeg' : fileType === 'video' ? 'video/mp4' : 'application/pdf',
+      file_size: 0,
+      organizacao_id: organizacaoId
+    })
+  });
+
+  return apiResult;
+  },
+  onSuccess: () => {
+  toast.success("Arquivo enviado com sucesso!");
+  queryClient.invalidateQueries({ queryKey: ['messages', organizacaoId, contact?.contato_id] });
+  },
+  onError: (e) => toast.error(`Erro ao enviar: ${e.message}`)
  });
 
  const saveContactMutation = useMutation({
- mutationFn: async (updatedData) => {
- const { nome, razao_social, cpf, cnpj, origem, telefone, email, cargo, renda_familiar, fgts, mais_de_3_anos_clt, objetivo } = updatedData;
- // CORREÇÃO AQUI: Limpeza da Renda Familiar (IGUAL AO CONTATO FORM)
- let rendaFinal = null;
- if (renda_familiar) {
- // Garante que é string para manipular
- const strVal = String(renda_familiar);
- // 1. Remove tudo que NÃO for número ou vírgula
- const cleanString = strVal.replace(/[^\d,]/g, '');
- // 2. Troca vírgula por ponto (padrão americano do banco)
- const numberString = cleanString.replace(',', '.');
- // 3. Converte
- rendaFinal = parseFloat(numberString);
- if (isNaN(rendaFinal)) rendaFinal = null;
- } else if (renda_familiar === '') {
- rendaFinal = null;
- }
- // Tratamento Booleans Select
- const parseBoolean = (val) => val === 'true' || val === true ? true : (val === 'false' || val === false ? false : null);
+  mutationFn: async (updatedData) => {
+  const { nome, razao_social, cpf, cnpj, origem, telefone, email, cargo, renda_familiar, fgts, mais_de_3_anos_clt, objetivo } = updatedData;
+  // CORREÇÃO AQUI: Limpeza da Renda Familiar (IGUAL AO CONTATO FORM)
+  let rendaFinal = null;
+  if (renda_familiar) {
+  // Garante que é string para manipular
+  const strVal = String(renda_familiar);
+  // 1. Remove tudo que NÃO for número ou vírgula
+  const cleanString = strVal.replace(/[^\d,]/g, '');
+  // 2. Troca vírgula por ponto (padrão americano do banco)
+  const numberString = cleanString.replace(',', '.');
+  // 3. Converte
+  rendaFinal = parseFloat(numberString);
+  if (isNaN(rendaFinal)) rendaFinal = null;
+  } else if (renda_familiar === '') {
+  rendaFinal = null;
+  }
+  // Tratamento Booleans Select
+  const parseBoolean = (val) => val === 'true' || val === true ? true : (val === 'false' || val === false ? false : null);
 
- const { error } = await supabase.from('contatos').update({ nome, razao_social, cpf, cnpj, origem, cargo, objetivo,
- renda_familiar: rendaFinal,
- fgts: parseBoolean(fgts),
- mais_de_3_anos_clt: parseBoolean(mais_de_3_anos_clt)
- }).eq('id', contact.contato_id);
- if (error) throw error;
+  const { error } = await supabase.from('contatos').update({ nome, razao_social, cpf, cnpj, origem, cargo, objetivo,
+   renda_familiar: rendaFinal,
+   fgts: parseBoolean(fgts),
+   mais_de_3_anos_clt: parseBoolean(mais_de_3_anos_clt)
+  }).eq('id', contact.contato_id);
+  if (error) throw error;
 
- if (telefone) await supabase.from('telefones').upsert({ contato_id: contact.contato_id, telefone, tipo: 'Principal', organizacao_id: organizacaoId }, { onConflict: 'contato_id, telefone' });
- if (email) await supabase.from('emails').upsert({ contato_id: contact.contato_id, email, tipo: 'Principal', organizacao_id: organizacaoId }, { onConflict: 'contato_id, email' });
- },
- onSuccess: () => {
- setIsEditing(false);
- queryClient.invalidateQueries({ queryKey: ['contactProfileData', contact.contato_id] });
- queryClient.invalidateQueries({ queryKey: ['conversations', organizacaoId] });
- toast.success("Contato atualizado!");
- },
- onError: (e) => toast.error("Erro ao salvar: " + e.message)
+  if (telefone) await supabase.from('telefones').upsert({ contato_id: contact.contato_id, telefone, tipo: 'Principal', organizacao_id: organizacaoId }, { onConflict: 'contato_id, telefone' });
+  if (email) await supabase.from('emails').upsert({ contato_id: contact.contato_id, email, tipo: 'Principal', organizacao_id: organizacaoId }, { onConflict: 'contato_id, email' });
+  },
+  onSuccess: () => {
+  setIsEditing(false);
+  queryClient.invalidateQueries({ queryKey: ['contactProfileData', contact.contato_id] });
+  queryClient.invalidateQueries({ queryKey: ['conversations', organizacaoId] });
+  toast.success("Contato atualizado!");
+  },
+  onError: (e) => toast.error("Erro ao salvar: " + e.message)
  });
 
  const addNoteMutation = useMutation({
- mutationFn: async (noteContent) => {
- if (!funilEntryId) throw new Error("Contato precisa estar em um funil para receber notas (CRM).");
- await supabase.from('crm_notas').insert({ contato_id: contact.contato_id, contato_no_funil_id: funilEntryId, conteudo: noteContent, usuario_id: user.id, organizacao_id: organizacaoId }).throwOnError();
- },
- onSuccess: () => {
- setNewNoteContent('');
- queryClient.invalidateQueries({ queryKey: ['contactProfileData', contact.contato_id] });
- toast.success("Nota adicionada!");
- },
- onError: (e) => toast.error(e.message)
+  mutationFn: async (noteContent) => {
+  if (!funilEntryId) throw new Error("Contato precisa estar em um funil para receber notas (CRM).");
+  await supabase.from('crm_notas').insert({ contato_id: contact.contato_id, contato_no_funil_id: funilEntryId, conteudo: noteContent, usuario_id: user.id, organizacao_id: organizacaoId }).throwOnError();
+  },
+  onSuccess: () => {
+  setNewNoteContent('');
+  queryClient.invalidateQueries({ queryKey: ['contactProfileData', contact.contato_id] });
+  toast.success("Nota adicionada!");
+  },
+  onError: (e) => toast.error(e.message)
  });
 
  const crudMutation = useMutation({
- mutationFn: async ({ action, table, data, id }) => {
- if (action === 'update') await supabase.from(table).update(data).eq('id', id).throwOnError();
- else if (action === 'delete') await supabase.from(table).delete().eq('id', id).throwOnError();
- },
- onSuccess: () => {
- setEditingNoteId(null);
- queryClient.invalidateQueries({ queryKey: ['contactProfileData', contact.contato_id] });
- toast.success("Operação realizada.");
- }
+  mutationFn: async ({ action, table, data, id }) => {
+  if (action === 'update') await supabase.from(table).update(data).eq('id', id).throwOnError();
+  else if (action === 'delete') await supabase.from(table).delete().eq('id', id).throwOnError();
+  },
+  onSuccess: () => {
+  setEditingNoteId(null);
+  queryClient.invalidateQueries({ queryKey: ['contactProfileData', contact.contato_id] });
+  toast.success("Operação realizada.");
+  }
  });
 
  // --- MUTAÇÕES DO CARD CRM ---
 
  const moveCardMutation = useMutation({
- mutationFn: async ({ cardId, newColumnId }) => {
- await supabase.from('contatos_no_funil').update({ coluna_id: newColumnId, updated_at: new Date() }).eq('id', cardId).throwOnError();
- },
- onSuccess: () => {
- queryClient.invalidateQueries({ queryKey: ['contactProfileData', contact.contato_id] });
- toast.success("Card movido!");
- }
+  mutationFn: async ({ cardId, newColumnId }) => {
+  await supabase.from('contatos_no_funil').update({ coluna_id: newColumnId, updated_at: new Date() }).eq('id', cardId).throwOnError();
+  },
+  onSuccess: () => {
+  queryClient.invalidateQueries({ queryKey: ['contactProfileData', contact.contato_id] });
+  toast.success("Card movido!");
+  }
  });
 
  const associateProductMutation = useMutation({
- mutationFn: async ({ cardId, productId }) => {
- await supabase.from('contatos_no_funil_produtos').insert({ contato_no_funil_id: cardId, produto_id: productId, organizacao_id: organizacaoId }).throwOnError();
- },
- onSuccess: () => {
- queryClient.invalidateQueries({ queryKey: ['contactProfileData', contact.contato_id] });
- toast.success("Unidade associada!");
- }
+  mutationFn: async ({ cardId, productId }) => {
+  await supabase.from('contatos_no_funil_produtos').insert({ contato_no_funil_id: cardId, produto_id: productId, organizacao_id: organizacaoId }).throwOnError();
+  },
+  onSuccess: () => {
+  queryClient.invalidateQueries({ queryKey: ['contactProfileData', contact.contato_id] });
+  toast.success("Unidade associada!");
+  }
  });
 
  const dissociateProductMutation = useMutation({
- mutationFn: async (itemId) => {
- await supabase.from('contatos_no_funil_produtos').delete().eq('id', itemId).throwOnError();
- },
- onSuccess: () => {
- queryClient.invalidateQueries({ queryKey: ['contactProfileData', contact.contato_id] });
- toast.success("Unidade removida.");
- }
+  mutationFn: async (itemId) => {
+  await supabase.from('contatos_no_funil_produtos').delete().eq('id', itemId).throwOnError();
+  },
+  onSuccess: () => {
+  queryClient.invalidateQueries({ queryKey: ['contactProfileData', contact.contato_id] });
+  toast.success("Unidade removida.");
+  }
  });
 
  const associateCorretorMutation = useMutation({
- mutationFn: async ({ cardId, corretorId }) => {
- await supabase.from('contatos_no_funil').update({ corretor_id: corretorId }).eq('id', cardId).throwOnError();
- },
- onSuccess: () => {
- queryClient.invalidateQueries({ queryKey: ['contactProfileData', contact.contato_id] });
- toast.success("Corretor atualizado.");
- }
+  mutationFn: async ({ cardId, corretorId }) => {
+  await supabase.from('contatos_no_funil').update({ corretor_id: corretorId }).eq('id', cardId).throwOnError();
+  },
+  onSuccess: () => {
+  queryClient.invalidateQueries({ queryKey: ['contactProfileData', contact.contato_id] });
+  toast.success("Corretor atualizado.");
+  }
  });
 
  const deleteCardMutation = useMutation({
- mutationFn: async (cardId) => {
- await supabase.from('contatos_no_funil').delete().eq('id', cardId).throwOnError();
- },
- onSuccess: () => {
- queryClient.invalidateQueries({ queryKey: ['contactProfileData', contact.contato_id] });
- toast.success("Card excluído do funil.");
- }
+  mutationFn: async (cardId) => {
+  await supabase.from('contatos_no_funil').delete().eq('id', cardId).throwOnError();
+  },
+  onSuccess: () => {
+  queryClient.invalidateQueries({ queryKey: ['contactProfileData', contact.contato_id] });
+  toast.success("Card excluído do funil.");
+  }
  });
 
  // --- HANDLERS ---
@@ -651,10 +686,10 @@ export default function ContactProfile({ contact }) {
 
  // Salvar o Instagram Manual do Usuário
  const handleSaveInstagram = () => {
- let cleanUsername = instaInput.trim();
- if (cleanUsername.startsWith('@')) cleanUsername = cleanUsername.substring(1); // remove o @
- crudMutation.mutate({ action: 'update', table: 'contatos', id: contact.contato_id, data: { instagram_username: cleanUsername } });
- setIsEditingInsta(false);
+  let cleanUsername = instaInput.trim();
+  if (cleanUsername.startsWith('@')) cleanUsername = cleanUsername.substring(1); // remove o @
+  crudMutation.mutate({ action: 'update', table: 'contatos', id: contact.contato_id, data: { instagram_username: cleanUsername } });
+  setIsEditingInsta(false);
  };
 
   // --- AI ANALYSIS MUTATION ---
@@ -678,6 +713,74 @@ export default function ContactProfile({ contact }) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['contactProfileData', contact.contato_id] });
       toast.success("Análise de IA concluída!");
+    },
+    onError: (e) => toast.error(e.message)
+  });
+
+  // --- MUTATION PARA ENVIAR ANEXO SUGERIDO PELA STELLA ---
+  const sendAiAttachmentMutation = useMutation({
+    mutationFn: async (anexo) => {
+      // 1. Validar telefone do destinatário
+      const rawPhone = displayContact.telefone || displayContact.phone_number;
+      const cleanPhone = (rawPhone || '').replace(/[^0-9]/g, '');
+      if (!cleanPhone) throw new Error("Número do destinatário não encontrado ou inválido.");
+
+      // 2. Obter a URL pública do arquivo a partir do bucket de empreendimento-anexos
+      const { data: urlData } = supabase.storage
+        .from('empreendimento-anexos')
+        .getPublicUrl(anexo.caminho_arquivo);
+
+      if (!urlData?.publicUrl) throw new Error("Não foi possível gerar a URL pública do anexo.");
+
+      // Deduzir tipo de anexo com base na extensão
+      const ext = (anexo.nome_arquivo || '').split('.').pop().toLowerCase();
+      let type = 'document';
+      if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) {
+        type = 'image';
+      } else if (['mp4', 'mov', 'avi', 'mpeg'].includes(ext)) {
+        type = 'video';
+      }
+
+      // 3. POST para a API de envio do WhatsApp
+      const response = await fetch('/api/whatsapp/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: cleanPhone,
+          type: type,
+          link: urlData.publicUrl,
+          filename: anexo.nome_arquivo,
+          caption: '',
+          contact_id: contact.contato_id,
+          organizacao_id: organizacaoId
+        })
+      });
+
+      const apiResult = await response.json();
+      if (!response.ok) throw new Error(apiResult.error || 'Erro ao enviar o anexo via API');
+
+      // 4. Salvar no histórico de anexos do contato
+      await fetch('/api/whatsapp/save-attachment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contato_id: contact.contato_id,
+          message_id: apiResult.data?.messages?.[0]?.id,
+          storage_path: anexo.caminho_arquivo,
+          public_url: urlData.publicUrl,
+          file_name: anexo.nome_arquivo,
+          file_type: type === 'image' ? 'image/jpeg' : type === 'video' ? 'video/mp4' : 'application/pdf',
+          file_size: 0,
+          organizacao_id: organizacaoId
+        })
+      });
+
+      return apiResult;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['messages', organizacaoId, contact?.contato_id, contact?.phone_number] });
+      queryClient.invalidateQueries({ queryKey: ['conversations', organizacaoId] });
+      toast.success("Anexo sugerido enviado com sucesso!");
     },
     onError: (e) => toast.error(e.message)
   });
@@ -941,6 +1044,44 @@ export default function ContactProfile({ contact }) {
                     </div>
                   </div>
                 )}
+
+                {/* BLOCO DE ANEXO SUGERIDO PELA IA */}
+                {displayContact.ai_analysis.anexo_sugerido && displayContact.ai_analysis.anexo_sugerido.nome_arquivo && (
+                  <div className="mt-4 pt-4 border-t border-purple-100/50">
+                    <h5 className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                       <FontAwesomeIcon icon={faFolderOpen} className="text-gray-400"/> Anexo Sugerido pela Stella
+                    </h5>
+                    <div className="bg-white text-gray-800 text-xs p-3 rounded-lg font-medium shadow-sm flex flex-col gap-3 border border-purple-100 relative">
+                      <div className="flex items-start gap-2.5">
+                        <div className="w-8 h-8 rounded bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0">
+                          <FontAwesomeIcon icon={faFilePdf} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-bold text-gray-900 truncate" title={displayContact.ai_analysis.anexo_sugerido.nome_arquivo}>
+                            {displayContact.ai_analysis.anexo_sugerido.nome_arquivo}
+                          </p>
+                          <p className="text-[10px] text-gray-500 font-medium mt-0.5">Disponível para envio imediato</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => sendAiAttachmentMutation.mutate(displayContact.ai_analysis.anexo_sugerido)}
+                        disabled={sendAiAttachmentMutation.isPending}
+                        className="bg-blue-600 hover:bg-blue-700 text-white text-[10px] px-3 py-2.5 rounded uppercase tracking-wider font-extrabold shadow-sm transition-colors flex items-center justify-center gap-1.5 w-full mt-1 disabled:opacity-50"
+                        title="Enviar anexo sugerido pela Stella para o WhatsApp do cliente"
+                      >
+                        {sendAiAttachmentMutation.isPending ? (
+                          <>
+                            <FontAwesomeIcon icon={faSpinner} spin /> Enviando...
+                          </>
+                        ) : (
+                          <>
+                            <FontAwesomeIcon icon={faPaperPlane} /> Enviar Anexo Agora
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="text-center py-6 bg-white/40 rounded-lg">
@@ -949,6 +1090,83 @@ export default function ContactProfile({ contact }) {
                   IA Inativa. Clique no botão "Gerar Análise" para ler a conversa e diagnosticar este lead.
                 </p>
               </div>
+            )}
+          </div>
+        </section>
+
+        {/* --- NOVA SEÇÃO: MATERIAIS DE ENVIO RÁPIDO DO EMPREENDIMENTO --- */}
+        <section className="pb-5 border-b border-gray-100">
+          <div className="flex justify-between items-center mb-3">
+            <h4 className="font-semibold text-gray-500 text-[11px] uppercase tracking-wider flex items-center gap-2">
+              <FontAwesomeIcon icon={faFolderOpen} className="text-blue-500" /> Materiais de Envio Rápido
+            </h4>
+            {selectedEmpreendimentoId && (
+              <span className="text-[10px] text-gray-400 font-semibold bg-gray-100 px-2 py-0.5 rounded">
+                ID: {selectedEmpreendimentoId}
+              </span>
+            )}
+          </div>
+          <div className="bg-gray-50/50 p-4 rounded-lg border border-gray-100/60 relative overflow-hidden">
+            <div className="flex items-center justify-between mb-3 gap-2">
+              <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Empreendimento</span>
+              <select
+                className="text-[11px] border border-gray-300 rounded-lg px-2 py-1.5 bg-white font-semibold text-gray-700 outline-none focus:ring-2 focus:ring-blue-500 max-w-[200px] shadow-sm transition-all"
+                value={selectedEmpreendimentoId}
+                onChange={(e) => setSelectedEmpreendimentoId(e.target.value)}
+              >
+                <option value="">Selecione...</option>
+                {empreendimentos.map(emp => (
+                  <option key={emp.id} value={emp.id}>{emp.nome}</option>
+                ))}
+              </select>
+            </div>
+
+            {selectedEmpreendimentoId ? (
+              isLoadingAnexos ? (
+                <div className="flex justify-center py-4 text-gray-400">
+                  <FontAwesomeIcon icon={faSpinner} spin className="text-gray-400" />
+                </div>
+              ) : anexosCorretor.length > 0 ? (
+                <div className="space-y-2 max-h-56 overflow-y-auto pr-1 custom-scrollbar">
+                  {anexosCorretor.map(anexo => {
+                    const ext = (anexo.caminho_arquivo || anexo.nome_arquivo || '').split('.').pop().toLowerCase();
+                    let icon = faFileLines;
+                    let colorClass = 'text-gray-500 bg-gray-100 border-gray-200';
+                    if (ext === 'pdf') { icon = faFilePdf; colorClass = 'text-red-500 bg-red-50 border-red-100'; }
+                    else if (['jpg', 'jpeg', 'png', 'webp'].includes(ext)) { icon = faFileImage; colorClass = 'text-blue-500 bg-blue-50 border-blue-100'; }
+                    else if (['mp4', 'mov', 'avi', 'webm'].includes(ext)) { icon = faFileVideo; colorClass = 'text-purple-500 bg-purple-50 border-purple-100'; }
+
+                    return (
+                      <div key={anexo.id} className="p-2.5 bg-white rounded-xl border border-gray-100 flex items-center justify-between hover:border-gray-300 transition-all gap-3 shadow-sm group">
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 border ${colorClass} text-sm shadow-inner`}>
+                          <FontAwesomeIcon icon={icon} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-bold text-[11px] text-gray-800 truncate" title={anexo.nome_arquivo}>{anexo.nome_arquivo}</p>
+                          <p className="text-[9px] text-gray-400 truncate font-semibold mt-0.5">{anexo.descricao || anexo.tipo?.descricao || 'Material'}</p>
+                        </div>
+                        <button
+                          onClick={() => sendDirectAttachmentMutation.mutate(anexo)}
+                          disabled={sendDirectAttachmentMutation.isPending}
+                          className="bg-gray-800 hover:bg-gray-900 text-white px-3 py-2 rounded-lg transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 text-[10px] font-extrabold flex-shrink-0 shadow-sm"
+                          title="Enviar anexo imediatamente para o cliente"
+                        >
+                          {sendDirectAttachmentMutation.isPending ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faPaperPlane} />}
+                          <span>Enviar</span>
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-xs text-gray-400 text-center py-4 italic bg-white border border-dashed rounded-lg border-gray-200">
+                  Nenhum material público cadastrado para corretores.
+                </p>
+              )
+            ) : (
+              <p className="text-xs text-gray-400 text-center py-4 italic bg-white border border-dashed rounded-lg border-gray-200">
+                Selecione ou vincule um empreendimento para carregar os materiais.
+              </p>
             )}
           </div>
         </section>
