@@ -91,11 +91,13 @@ export async function POST(request) {
         .eq('contato_id', contato_id)
         .maybeSingle(),
 
-      // 5. Histórico de anexos enviados para este contato
+      // 5. Histórico de anexos enviados para este contato (extraído das mensagens outbound com mídia)
       supabaseAdmin
-        .from('whatsapp_attachments')
-        .select('storage_path, file_name')
+        .from('whatsapp_messages')
+        .select('content, media_url')
         .eq('contato_id', contato_id)
+        .eq('direction', 'outbound')
+        .not('media_url', 'is', null)
     ]);
 
     const { data: contatoInfo, error: contatoError } = contatoResult;
@@ -270,7 +272,7 @@ export async function POST(request) {
 
     let anexosEnviadosContext = "Nenhum anexo foi enviado anteriormente para este cliente nesta conversa.";
     if (anexosEnviados && anexosEnviados.length > 0) {
-      anexosEnviadosContext = anexosEnviados.map(ae => `- Nome: "${ae.file_name}" | Caminho: "${ae.storage_path}"`).join('\n');
+      anexosEnviadosContext = anexosEnviados.map(ae => `- Nome: "${ae.content || 'Sem nome'}" | URL/Caminho: "${ae.media_url}"`).join('\n');
     }
 
     // Filtra apenas unidades residenciais reais, ignorando garagens e motos para o estoque de apartamentos
