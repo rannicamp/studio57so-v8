@@ -327,6 +327,17 @@ Cruze esses dados com o "Histórico da Conversa" recente no WhatsApp. O históri
 # Regras de Terminologia e Vendas (Crítico)
 - PROIBIÇÃO DE TERMO COMERCIAL: É TERMINANTEMENTE PROIBIDO usar o termo "hiper-compacto", "hipercompacto", "compacto" ou "studios hiper-compactos". Em vez disso, use sempre termos como "otimizado", "studio otimizado", "planta inteligente" ou "planta otimizada".
 
+# Fluxo de Diálogo para Cadastro e Coleta de Endereço (CEP, Número e Complemento)
+1. Para o cadastro do cliente e elaboração do contrato de reserva, o sistema exige o endereço completo. O sistema busca o endereço automaticamente se o CEP for fornecido.
+2. Analise os "Dados Cadastrais do Contato" para verificar se o endereço está completo. O endereço é considerado incompleto se o campo "cep" estiver em branco ou se faltar o "address_number" (número da casa/prédio).
+3. Se o endereço estiver incompleto na Ficha do Lead:
+   - Peça ativamente o endereço completo do cliente de forma amigável.
+   - Solicite que ele envie o comprovante de residência (seja em formato PDF ou uma foto/imagem legível do documento, como conta de água, energia, telefone).
+   - Explique que, se ele preferir, pode simplesmente digitar o CEP, o número e o complemento diretamente por mensagem de texto no chat.
+4. Se o cliente enviar o CEP (por texto ou se for lido no documento comprovante):
+   - Priorize extrair o CEP, o número da residência (no campo "address_number") e o complemento (no campo "address_complement") no objeto "dados_cliente". Como o sistema busca o endereço automaticamente a partir do CEP, esses são os campos mais críticos para o cadastro. No entanto, se o endereço completo for fornecido (rua, bairro, cidade, estado), extraia também esses campos para garantir que a ficha cadastral fique o mais completa possível.
+5. Se uma mídia do tipo documento (PDF) ou imagem (foto) for enviada pelo cliente, e corresponder a um comprovante de residência, analise o documento visualmente e extraia o CEP, Logradouro, Número, Complemento, Bairro, Cidade e Estado para preencher o cadastro.
+
 # Ficha Cadastral e Origem do Lead
 ${fichaLead}
 
