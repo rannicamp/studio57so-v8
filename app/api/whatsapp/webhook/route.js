@@ -139,6 +139,33 @@ export async function POST(request) {
   const host = request.headers.get('host');
 
   if (isAutopilotActive) {
+    // --- EVITAR DUPLICIDADE EM CASO DE RAJADAS DE MENSAGENS INBOUND (LOCK DE CONCORRÊNCIA) ---
+    try {
+      const { data: ultimasMsgs } = await supabaseAdmin
+        .from('whatsapp_messages')
+        .select('id, direction, created_at')
+        .eq('contato_id', contatoId)
+        .order('created_at', { ascending: false })
+        .limit(3);
+
+      if (ultimasMsgs && ultimasMsgs.length >= 2) {
+        const msgAtual = ultimasMsgs[0];
+        const msgAnterior = ultimasMsgs[1];
+
+        if (msgAnterior.direction === 'inbound') {
+          const tempoDiferenca = Math.abs(new Date(msgAtual.created_at).getTime() - new Date(msgAnterior.created_at).getTime());
+          const limiteMilisegundos = 30 * 1000; // 30 segundos
+
+          if (tempoDiferenca < limiteMilisegundos) {
+            console.log(`[Autopilot Lock] Detectada rajada de mensagens inbound concorrentes para o contato ${contatoId}. Intervalo: ${(tempoDiferenca/1000).toFixed(1)}s. Ignorando este disparo para evitar duplicidade de respostas, pois a execução anterior cobrirá ambas.`);
+            return NextResponse.json({ status: 'ok', detail: 'ignored_inbound_burst' });
+          }
+        }
+      }
+    } catch (lockErr) {
+      console.error('[Autopilot Lock Warning] Erro na verificação de rajada:', lockErr.message);
+    }
+
     console.log(`[Autopilot] Contato ${contatoId} está com atendimento automático ATIVO. Acionando Stella de forma síncrona...`);
     if (host) {
       try {
