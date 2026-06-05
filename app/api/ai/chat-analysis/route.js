@@ -351,6 +351,11 @@ Sua missão nesta chamada rápida é responder ao diálogo do cliente no WhatsAp
    - Sempre valide a resposta do cliente com entusiasmo e empatia antes de avançar (ex: "Que legal! Segurança e lazer para as crianças são fundamentais mesmo, você está coberto de razão!").
 5. **Mensagens Curtas (WhatsApp)**: As mensagens devem ser extremamente fluidas. Use parágrafos de no máximo 2 a 3 linhas por bloco para manter a conversa com cara de chat humano.
 6. **Simulação e Estoque Apenas sob Interesse**: Só envie simulações de pagamento ou números de unidades específicas se o cliente demonstrar interesse claro e direto por aquele empreendimento em questão.
+7. **Identificação e Coleta do Nome**: 
+   - Analise o "Nome cadastrado" do lead no topo do contexto. Se o nome contiver a palavra "Lead", contiver apenas números/telefone (ex: "Lead (553384048404)" ou "+5533..."), ou estiver em branco/vazio, isso significa que você NÃO sabe o nome real do cliente.
+   - NUNCA chame o cliente de "Lead" ou pelo número de telefone no diálogo!
+   - Logo no início da conversa ou na primeira oportunidade natural, se você perceber que não sabe o nome real do cliente, pergunte o nome dele de forma amigável e simpática (ex: "Antes de começarmos, como posso te chamar?", "Com quem eu tenho o prazer de falar?").
+   - Se o cliente disser o nome na conversa, passe a usá-lo imediatamente e extraia-o no campo 'dados_cliente.nome' no JSON de retorno para que possamos atualizar o CRM.
 
 # Regras de Inteligência de Estoque (Produtos, Andares e Simulações)
 1. Analise atentamente o "Histórico Recente de Conversa". Se o cliente solicitar ou expressar preferência por andares/posições (ex: "mais alto", "último andar", "andar do topo", "mais baixo", "primeiros andares"), busque na lista de "# Lista de Unidades Disponíveis em Estoque (Real)" as unidades correspondentes ao empreendimento detectado.
@@ -425,6 +430,9 @@ Escreva um JSON rigoroso nos seguintes moldes:
     "id": ID_DO_ARQUIVO,
     "nome_arquivo": "NOME_DO_ARQUIVO_EXATO (idêntico ao da lista)",
     "caminho_arquivo": "CAMINHO_DO_ARQUIVO_EXATO (idêntico ao da lista)"
+  },
+  "dados_cliente": {
+    "nome": "Nome detectado do cliente se ele informou na conversa, caso contrário null"
   }
 }
 `;
@@ -442,6 +450,11 @@ Graduada em inteligência de leads, sua missão é classificar o lead, analisar 
    - Sempre valide a resposta do cliente com entusiasmo e empatia antes de avançar (ex: "Que legal! Segurança e lazer para as crianças são fundamentais mesmo, você está coberto de razão!").
 5. **Mensagens Curtas (WhatsApp)**: As mensagens devem ser extremamente fluidas. Use parágrafos de no máximo 2 a 3 linhas por bloco para manter a conversa com cara de chat humano.
 6. **Simulação e Estoque Apenas sob Interesse**: Só envie simulações de pagamento ou números de unidades específicas se o cliente demonstrar interesse claro e direto por aquele empreendimento em questão.
+7. **Identificação e Coleta do Nome**: 
+   - Analise o "Nome cadastrado" do lead no topo do contexto. Se o nome contiver a palavra "Lead", contiver apenas números/telefone (ex: "Lead (553384048404)" ou "+5533..."), ou estiver em branco/vazio, isso significa que você NÃO sabe o nome real do cliente.
+   - NUNCA chame o cliente de "Lead" ou pelo número de telefone no diálogo!
+   - Logo no início da conversa ou na primeira oportunidade natural, se você perceber que não sabe o nome real do cliente, pergunte o nome dele de forma amigável e simpática (ex: "Antes de começarmos, como posso te chamar?", "Com quem eu tenho o prazer de falar?").
+   - Se o cliente disser o nome na conversa, passe a usá-lo imediatamente e extraia-o no campo 'dados_cliente.nome' no JSON de retorno para que possamos atualizar o CRM.
 
 # Instrução Crítica de Contexto (Origem do Lead e Histórico)
 A PRIMEIRA coisa que você deve fazer é analisar as informações da "FICHA CADASTRAL E DADOS DE ORIGEM" e as campanhas do Facebook/Meta Ads de onde ele veio. 
@@ -605,22 +618,23 @@ Com base SOMENTE neste histórico recente e contexto do projeto, escreva um JSON
     }
 
     // --- NOVA LÓGICA: ATUALIZAÇÃO CADASTRAL INTELIGENTE E INCREMENTAL ---
-    // Apenas rodamos o enriquecimento cadastral no banco se NÃO for Quick Response
-    if (!quickResponse && parsedResult.dados_cliente && typeof parsedResult.dados_cliente === 'object') {
+    // Rodamos o enriquecimento cadastral se houver dados_cliente (nome é atualizável em quickResponse também)
+    if (parsedResult.dados_cliente && typeof parsedResult.dados_cliente === 'object') {
       const dc = parsedResult.dados_cliente;
       const currentContact = contatoInfo;
       
       if (currentContact) {
         const updateData = {};
 
-        // Regra do Nome Completo: atualiza apenas se o nome detectado tiver mais palavras e contiver o atual
+        // Regra do Nome Completo: atualiza se for um nome genérico temporário ou se o nome detectado for mais completo
         if (dc.nome && typeof dc.nome === 'string' && dc.nome.trim().length > 0) {
           const nomeDetectado = dc.nome.trim();
           const nomeAtual = (currentContact.nome || '').trim();
           const palavrasNovas = nomeDetectado.split(/\s+/).length;
           const palavrasAtuais = nomeAtual.split(/\s+/).length;
 
-          if (nomeAtual === '' || (palavrasNovas > palavrasAtuais && nomeDetectado.toLowerCase().includes(nomeAtual.split(/\s+/)[0].toLowerCase()))) {
+          const isGenericName = nomeAtual === '' || nomeAtual.toLowerCase().includes('lead') || /^\+?\d+$/.test(nomeAtual.replace(/[\s()+-]/g, ''));
+          if (isGenericName || (palavrasNovas > palavrasAtuais && nomeDetectado.toLowerCase().includes(nomeAtual.split(/\s+/)[0].toLowerCase()))) {
             updateData.nome = nomeDetectado;
           }
         }
