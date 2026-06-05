@@ -31,6 +31,25 @@ export async function POST(request) {
  return NextResponse.json({ error: 'Número de telefone inválido ou vazio.' }, { status: 400 });
  }
 
+ // --- 1.5 VALIDAÇÃO DE TAMANHO DE VÍDEO (Trava de 10MB) ---
+ if (type === 'video' && link) {
+ try {
+ const headRes = await fetch(link, { method: 'HEAD' });
+ const contentLength = headRes.headers.get('content-length');
+ if (contentLength) {
+ const sizeMb = parseInt(contentLength, 10) / (1024 * 1024);
+ if (sizeMb > 10) {
+ console.error(`[WhatsApp Send Error] Vídeo muito grande (${sizeMb.toFixed(2)}MB) bloqueado. Limite de 10MB.`);
+ return NextResponse.json({ 
+ error: `O WhatsApp não permite o envio de vídeos maiores que 10MB. Este vídeo possui ${sizeMb.toFixed(2)}MB.` 
+ }, { status: 400 });
+ }
+ }
+ } catch (headErr) {
+ console.warn('[WhatsApp Send Warning] Não foi possível verificar o tamanho do vídeo via HEAD:', headErr.message);
+ }
+ }
+
  // --- 2. CONFIGURAÇÃO (AGORA BLINDADA) ---
  const { data: config, error: configError } = await supabaseAdmin
  .from('configuracoes_whatsapp')

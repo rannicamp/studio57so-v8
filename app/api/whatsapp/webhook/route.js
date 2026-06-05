@@ -1,5 +1,5 @@
 // app/api/whatsapp/webhook/route.js
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
 // IMPORTANTE: Importando os serviços novos
@@ -121,144 +121,141 @@ export async function POST(request) {
 
  await logWebhook(supabaseAdmin, 'INFO', `Msg recebida: ${message.type}`, { from: message.from, org_id: config.organizacao_id });
 
- // D. PILOTO AUTOMÁTICO (STELLA)
- // Verifica se o contato correspondente está com o atendimento automatizado ativo
-  const { data: contato } = await supabaseAdmin
-    .from('contatos')
-    .select('ia_atendimento_ativo')
-    .eq('id', contatoId)
-    .single();
-
-  if (contato?.ia_atendimento_ativo) {
-    console.log(`[Autopilot] Contato ${contatoId} está com atendimento automático ATIVO. Acionando Stella...`);
+ // D. PILOTO AUTOMÁTICO (STELLA) - Agendado para execução confiável pós-resposta (Next.js after)
+ after(async () => {
     try {
-      const protocol = request.headers.get('x-forwarded-proto') || 'http';
-      const host = request.headers.get('host');
-      if (host) {
-        const apiUrl = `${protocol}://${host}/api/ai/chat-analysis`;
-        
-        // Chamada síncrona para analisar e gerar a resposta da IA
-        const aiResponse = await fetch(apiUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ contato_id: contatoId, organizacao_id: config.organizacao_id, force: true })
-        });
-        
-        if (aiResponse.ok) {
-          const aiResult = await aiResponse.json();
+      const { data: contato } = await supabaseAdmin
+        .from('contatos')
+        .select('ia_atendimento_ativo')
+        .eq('id', contatoId)
+        .single();
+
+      if (contato?.ia_atendimento_ativo) {
+        console.log(`[Autopilot] Contato ${contatoId} está com atendimento automático ATIVO. Acionando Stella...`);
+        const protocol = request.headers.get('x-forwarded-proto') || 'http';
+        const host = request.headers.get('host');
+        if (host) {
+          const apiUrl = `${protocol}://${host}/api/ai/chat-analysis`;
           
-          if (aiResult?.proxima_resposta_sugerida) {
-            const cleanPhone = (message.from || '').replace(/[^0-9]/g, '');
-           
-           if (cleanPhone) {
-             const sendTextUrl = `${protocol}://${host}/api/whatsapp/send`;
-             
-             // 1. Enviar a mensagem de texto gerada
-             const sendTextResponse = await fetch(sendTextUrl, {
-               method: 'POST',
-               headers: { 'Content-Type': 'application/json' },
-               body: JSON.stringify({
-                 to: cleanPhone,
-                 type: 'text',
-                 text: aiResult.proxima_resposta_sugerida,
-                 contact_id: contatoId,
-                 organizacao_id: config.organizacao_id
-               })
-             });
-             
-             if (sendTextResponse.ok) {
-               console.log('[Autopilot] Resposta de texto enviada com sucesso!');
-             } else {
-               const errText = await sendTextResponse.text();
-               console.error('[Autopilot] Erro ao enviar resposta de texto:', errText);
-             }
-             
-             // 2. Se houver anexo sugerido, enviar anexo automaticamente na sequência
-             if (aiResult.anexo_sugerido && aiResult.anexo_sugerido.caminho_arquivo) {
-               const anexo = aiResult.anexo_sugerido;
-               console.log(`[Autopilot] Stella sugeriu anexo exato "${anexo.nome_arquivo}". Disparando anexo automático...`);
-               
-               // Obter URL pública do anexo
-               const { data: urlData } = supabaseAdmin.storage
-                 .from('empreendimento-anexos')
-                 .getPublicUrl(anexo.caminho_arquivo);
-                 
-               if (urlData?.publicUrl) {
-                 const ext = (anexo.nome_arquivo || '').split('.').pop().toLowerCase();
-                 let mediaType = 'document';
-                 if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) {
-                   mediaType = 'image';
-                 } else if (['mp4', 'mov', 'avi', 'mpeg'].includes(ext)) {
-                   mediaType = 'video';
-                 }
-                 
-                 const sendMediaResponse = await fetch(sendTextUrl, {
-                   method: 'POST',
-                   headers: { 'Content-Type': 'application/json' },
-                   body: JSON.stringify({
-                     to: cleanPhone,
-                     type: mediaType,
-                     link: urlData.publicUrl,
-                     filename: anexo.nome_arquivo,
-                     caption: '',
-                     contact_id: contatoId,
-                     organizacao_id: config.organizacao_id
-                   })
-                 });
-                 
-                 const sendMediaResult = await sendMediaResponse.json();
-                 
-                 if (sendMediaResponse.ok) {
-                   console.log('[Autopilot] Anexo enviado com sucesso!');
-                   
-                   // Salva no histórico de anexos do contato
-                   const saveAttachmentUrl = `${protocol}://${host}/api/whatsapp/save-attachment`;
-                   await fetch(saveAttachmentUrl, {
-                     method: 'POST',
-                     headers: { 'Content-Type': 'application/json' },
-                     body: JSON.stringify({
-                       contato_id: contatoId,
-                       message_id: sendMediaResult.data?.messages?.[0]?.id,
-                       storage_path: anexo.caminho_arquivo,
-                       public_url: urlData.publicUrl,
-                       file_name: anexo.nome_arquivo,
-                       file_type: mediaType === 'image' ? 'image/jpeg' : mediaType === 'video' ? 'video/mp4' : 'application/pdf',
-                       file_size: 0,
-                       organizacao_id: config.organizacao_id
-                     })
-                   }).catch(e => console.error('[Autopilot] Erro ao salvar histórico de anexo:', e));
-                 } else {
-                   console.error('[Autopilot] Erro ao enviar mídia via API:', sendMediaResult.error);
-                 }
-               }
-             }
-           }
-         }
-       } else {
-         const errText = await aiResponse.text();
-         console.error('[Autopilot] Erro na requisição de análise de IA:', errText);
-       }
-     }
-   } catch (e) {
-     console.error('[Autopilot Error]', e);
-   }
- } else {
-   // Se o piloto automático não estiver ativo, mantemos o disparo de análise em background (Fire and Forget)
-   try {
-     const protocol = request.headers.get('x-forwarded-proto') || 'http';
-     const host = request.headers.get('host');
-     if (host) {
-       const apiUrl = `${protocol}://${host}/api/ai/chat-analysis`;
-       fetch(apiUrl, {
-         method: 'POST',
-         headers: { 'Content-Type': 'application/json' },
-         body: JSON.stringify({ contato_id: contatoId, organizacao_id: config.organizacao_id, force: true })
-       }).catch(e => console.error('[Webhook] Async AI Error:', e));
-     }
-   } catch (e) {
-     console.error('[Webhook] Async AI Init Error:', e);
-   }
- }
+          // Chamada síncrona para analisar e gerar a resposta da IA
+          const aiResponse = await fetch(apiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ contato_id: contatoId, organizacao_id: config.organizacao_id, force: true })
+          });
+          
+          if (aiResponse.ok) {
+            const aiResult = await aiResponse.json();
+            
+            if (aiResult?.proxima_resposta_sugerida) {
+              const cleanPhone = (message.from || '').replace(/[^0-9]/g, '');
+              
+              if (cleanPhone) {
+                const sendTextUrl = `${protocol}://${host}/api/whatsapp/send`;
+                
+                // 1. Enviar a mensagem de texto gerada
+                const sendTextResponse = await fetch(sendTextUrl, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    to: cleanPhone,
+                    type: 'text',
+                    text: aiResult.proxima_resposta_sugerida,
+                    contact_id: contatoId,
+                    organizacao_id: config.organizacao_id
+                  })
+                });
+                
+                if (sendTextResponse.ok) {
+                  console.log('[Autopilot] Resposta de texto enviada com sucesso!');
+                } else {
+                  const errText = await sendTextResponse.text();
+                  console.error('[Autopilot] Erro ao enviar resposta de texto:', errText);
+                }
+                
+                // 2. Se houver anexo sugerido, enviar anexo automaticamente na sequência
+                if (aiResult.anexo_sugerido && aiResult.anexo_sugerido.caminho_arquivo) {
+                  const anexo = aiResult.anexo_sugerido;
+                  console.log(`[Autopilot] Stella sugeriu anexo exato "${anexo.nome_arquivo}". Disparando anexo automático...`);
+                  
+                  // Obter URL pública do anexo
+                  const { data: urlData } = supabaseAdmin.storage
+                    .from('empreendimento-anexos')
+                    .getPublicUrl(anexo.caminho_arquivo);
+                    
+                  if (urlData?.publicUrl) {
+                    const ext = (anexo.nome_arquivo || '').split('.').pop().toLowerCase();
+                    let mediaType = 'document';
+                    if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) {
+                      mediaType = 'image';
+                    } else if (['mp4', 'mov', 'avi', 'mpeg'].includes(ext)) {
+                      mediaType = 'video';
+                    }
+                    
+                    const sendMediaResponse = await fetch(sendTextUrl, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        to: cleanPhone,
+                        type: mediaType,
+                        link: urlData.publicUrl,
+                        filename: anexo.nome_arquivo,
+                        caption: '',
+                        contact_id: contatoId,
+                        organizacao_id: config.organizacao_id
+                      })
+                    });
+                    
+                    const sendMediaResult = await sendMediaResponse.json();
+                    
+                    if (sendMediaResponse.ok) {
+                      console.log('[Autopilot] Anexo enviado com sucesso!');
+                      
+                      // Salva no histórico de anexos do contato
+                      const saveAttachmentUrl = `${protocol}://${host}/api/whatsapp/save-attachment`;
+                      await fetch(saveAttachmentUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          contato_id: contatoId,
+                          message_id: sendMediaResult.data?.messages?.[0]?.id,
+                          storage_path: anexo.caminho_arquivo,
+                          public_url: urlData.publicUrl,
+                          file_name: anexo.nome_arquivo,
+                          file_type: mediaType === 'image' ? 'image/jpeg' : mediaType === 'video' ? 'video/mp4' : 'application/pdf',
+                          file_size: 0,
+                          organizacao_id: config.organizacao_id
+                        })
+                      }).catch(e => console.error('[Autopilot] Erro ao salvar histórico de anexo:', e));
+                    } else {
+                      console.error('[Autopilot] Erro ao enviar mídia via API:', sendMediaResult.error);
+                    }
+                  }
+                }
+              }
+            }
+          } else {
+            const errText = await aiResponse.text();
+            console.error('[Autopilot] Erro na requisição de análise de IA:', errText);
+          }
+        }
+      } else {
+        // Se o piloto automático não estiver ativo, mantemos o disparo de análise em background (Fire and Forget)
+        const protocol = request.headers.get('x-forwarded-proto') || 'http';
+        const host = request.headers.get('host');
+        if (host) {
+          const apiUrl = `${protocol}://${host}/api/ai/chat-analysis`;
+          fetch(apiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ contato_id: contatoId, organizacao_id: config.organizacao_id, force: true })
+          }).catch(e => console.error('[Webhook] Async AI Error:', e));
+        }
+      }
+    } catch (e) {
+      console.error('[Autopilot Background Error]', e);
+    }
+  });
  }
 
  return NextResponse.json({ status: 'ok' });
