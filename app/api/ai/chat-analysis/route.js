@@ -180,15 +180,8 @@ export async function POST(request) {
     let queryAnexos = supabaseAdmin
       .from('empreendimento_anexos')
       .select('id, nome_arquivo, caminho_arquivo, descricao')
-      .eq('pode_enviar_anexo', true)
-      .eq('disponivel_corretor', true) // CORREÇÃO DE SEGURANÇA: apenas o que estiver compartilhado com corretores
+      .eq('disponivel_corretor', true) // Apenas o que estiver compartilhado com corretores
       .eq('organizacao_id', organizacao_id);
-
-    // Se identificamos empreendimentos específicos, filtramos por eles.
-    // Caso contrário, trazemos todos os anexos marcados como públicos daquela organização.
-    if (empreendimentoIds.length > 0) {
-      queryAnexos = queryAnexos.in('empreendimento_id', empreendimentoIds);
-    }
 
     const { data: anexos } = await queryAnexos;
     if (anexos && anexos.length > 0) {

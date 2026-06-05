@@ -517,6 +517,21 @@ export default function ContactProfile({ contact }) {
  }, [contact?.contato_id, profileData]);
 
  // --- MUTAÇÕES GERAIS ---
+ const toggleAutopilotMutation = useMutation({
+  mutationFn: async (newValue) => {
+    const { error } = await supabase
+      .from('contatos')
+      .update({ ia_atendimento_ativo: newValue })
+      .eq('id', contact.contato_id);
+    if (error) throw error;
+  },
+  onSuccess: (_, newValue) => {
+    queryClient.invalidateQueries({ queryKey: ['contactProfileData', contact.contato_id] });
+    toast.success(newValue ? "Piloto automático ativado!" : "Piloto automático desativado!");
+  },
+  onError: (e) => toast.error("Erro ao alterar piloto automático: " + e.message)
+ });
+
  const sendDirectAttachmentMutation = useMutation({
   mutationFn: async (anexo) => {
   const rawPhone = displayContact?.phone_number || displayContact?.telefone;
@@ -879,6 +894,29 @@ export default function ContactProfile({ contact }) {
      )}
    </div>
  </div>
+
+  {/* Trava de teste exclusiva no frontend: Apenas o Ranniere pode ativar a Stella no Piloto Automático */}
+  {user?.email && user.email.toLowerCase().includes('ranni') && (
+    <div className="px-4 py-2.5 bg-purple-50 border-b border-purple-100 flex items-center justify-between shadow-inner animate-in fade-in slide-in-from-top-2 duration-300 shrink-0">
+      <div className="flex items-center gap-2.5 text-purple-950">
+        <FontAwesomeIcon icon={faRobot} className={`text-purple-600 ${displayContact?.ia_atendimento_ativo ? 'animate-pulse' : 'opacity-60'}`} />
+        <div className="flex flex-col">
+          <span className="text-xs font-extrabold leading-tight">Piloto Automático (Stella)</span>
+          <span className="text-[9px] text-purple-700 font-semibold mt-0.5">Stella atende e envia anexos automaticamente</span>
+        </div>
+      </div>
+      <label className="relative inline-flex items-center cursor-pointer">
+        <input 
+          type="checkbox" 
+          checked={!!displayContact?.ia_atendimento_ativo} 
+          onChange={(e) => toggleAutopilotMutation.mutate(e.target.checked)}
+          disabled={toggleAutopilotMutation.isPending}
+          className="sr-only peer" 
+        />
+        <div className="w-9 h-5 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-600"></div>
+      </label>
+    </div>
+  )}
 
   {/* --- ABAS GLOBAIS NO TOPO --- */}
   <div className="flex border-b border-gray-200 bg-white overflow-x-auto custom-scrollbar shrink-0">
