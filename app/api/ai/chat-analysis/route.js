@@ -213,7 +213,8 @@ export async function POST(request) {
     const empreendimentoIds = Array.from(empIdsSet);
 
     // --- NOVA LÓGICA DE QUERIES PARALELAS FILTRADAS POR EMPREENDIMENTO ---
-    const empIdsBusca = empreendimentoIds.length > 0 ? empreendimentoIds : [1, 5, 6];
+    // Sempre buscamos os empreendimentos 1, 5, 6 para dar suporte à proatividade de ofertas alternativas
+    const empIdsBusca = [1, 5, 6];
 
     const [
       empreendimentosResult,
@@ -257,7 +258,7 @@ export async function POST(request) {
 
     let anexosContext = "Nenhum anexo público encontrado para este empreendimento.";
     if (anexos && anexos.length > 0) {
-       anexosContext = anexos.map(a => `- ID: ${a.id} | Nome: "${a.nome_arquivo}" | Caminho: "${a.caminho_arquivo}" | Descrição: "${a.descricao || 'Sem descrição'}"`).join('\n');
+       anexosContext = anexos.map(a => `- ID: ${a.id} | Nome: "${a.nome_arquivo}" | Caminho: "${a.caminho_arquivo}" | Descrição: "${a.descricao || 'Sem descrição'}" | Empreendimento ID: ${a.empreendimento_id}`).join('\n');
     }
 
     // Filtra apenas unidades residenciais reais, ignorando garagens e motos para o estoque de apartamentos
@@ -335,7 +336,7 @@ Sua missão nesta chamada rápida é responder ao diálogo do cliente no WhatsAp
    - Escolha a melhor unidade disponível que atende à solicitação: se ele quer a mais alta, selecione a de número mais alto disponível (ex: 705); se quer a mais baixa, selecione a de número mais baixo disponível (ex: 201 ou 202).
 3. Quando apresentar uma unidade para o cliente, faça de forma proativa o cálculo exato da **Simulação de Pagamento Padrão** com base no valor total da unidade selecionada e no Empreendimento correspondente (LEIA ATENTAMENTE E USE AS REGRAS DE CADA UM):
    - **Se a unidade for do Residencial Alfa (ID 1)**:
-     * Entrada / Sinal (20%): Calcule 20% do valor da unidade (pode ser parcelado em até 3x).
+     * Entrada / Sinal (20%): Calcule 20% do valor da unidade (pode be parcelado em até 3x).
      * Fluxo de Mensais Obra (40%): Calcule 40% do valor da unidade e divida por 36 parcelas mensais.
      * Saldo nas Chaves (40%): Calcule 40% do valor da unidade (a ser pago no pós-habite-se via financiamento ou quitação).
      * Exemplo: Entrada R$ 85.000, 36 parcelas de R$ 4.700 e Saldo nas chaves de R$ 170.000.
@@ -353,7 +354,7 @@ Sua missão nesta chamada rápida é responder ao diálogo do cliente no WhatsAp
 5. Se o cliente perguntar algo sobre a localização, áreas de lazer ou detalhes do projeto, busque essas informações no "Dossiê do Empreendimento" correspondente.
 
 # Regras de Terminologia e Vendas (Crítico)
-- PROIBIÇÃO DE TERMO COMERCIAL: É TERMINANTEMENTE PROIBIDO usar o termo "hiper-compacto", "hipercompacto", "compacto" ou "studios hiper-compactos". Em vez disso, use sempre termos como "otimizado", "studio otimizado", "planta inteligente" ou "planta otimizada".
+- PROIBIÇÃO DE TERMO COMERCIAL: É TERMINANTEMENTE PROIBIDO usar o termo "hiper-compacto", "hipercompacto", "compacto" ou "studios hiper-compactos". Em vez disso, use sempre termos como "otimizado", "studio otimizado", "planta inteligente" ou "planta optimizada".
 
 # Regras do Diálogo para Coleta de Endereço
 1. Para o cadastro do cliente e elaboração do contrato de reserva, o sistema exige o endereço completo. O sistema busca o endereço automaticamente se o CEP for fornecido.
@@ -363,6 +364,9 @@ Sua missão nesta chamada rápida é responder ao diálogo do cliente no WhatsAp
 
 # REGRA DO ESTOQUE REAL IMEDIATO (OBRIGATÓRIO):
 Se o cliente perguntar quais são as unidades disponíveis, quais os andares, ou pedir detalhes da unidade (ex: "Qual é essa unidade?"), você DEVE buscar e listar IMEDIATAMENTE as unidades reais e seus números que estão em estoque no contexto (ex: unidade 705, 703, A-2, A-3). NUNCA diga que está verificando no sistema ou peça tempo se os dados já estão no prompt. Apresente as unidades e faça os cálculos de simulação para o cliente na hora.
+
+# REGRA DE PROATIVIDADE EM OUTROS EMPREENDIMENTOS (CRÍTICO):
+Se o cliente expressar que não se interessou pelo empreendimento atual, que não quer chácaras/lotes, ou que busca outro tipo de imóvel (como apartamentos/casas, ou pergunta "quais as possibilidades"), você DEVE oferecer proativamente as outras opções reais da Studio 57 presentes na sua Base de Conhecimento (Dossiês). Apresente brevemente as opções (Residencial Alfa no Alto Esplanada com apartamentos de 2 quartos com lazer para até 88 pessoas, e Beta Suítes no Alto Esplanada com studios inteligentes com lazer e piscina de borda infinita no terraço) e pergunte qual delas ele gostaria de conhecer e simular. Nunca fique apenas fazendo perguntas de volta ou sendo evasiva sem dar as alternativas reais de imediato.
 
 # Dados Atuais do CRM
 - Fase no Funil (CRM): ${crmStatus}
@@ -444,6 +448,9 @@ Cruze esses dados com o "Histórico da Conversa" recente no WhatsApp. O históri
 
 # REGRA DO ESTOQUE REAL IMEDIATO (OBRIGATÓRIO):
 Se o cliente perguntar quais são as unidades disponíveis, quais os andares, ou pedir detalhes da unidade (ex: "Qual é essa unidade?"), você DEVE buscar e listar IMEDIATAMENTE as unidades reais e seus números que estão em estoque no contexto (ex: unidade 705, 703, A-2, A-3). NUNCA diga que está verificando no sistema ou peça tempo se os dados já estão no prompt. Apresente as unidades e faça os cálculos de simulação para o cliente na hora.
+
+# REGRA DE PROATIVIDADE EM OUTROS EMPREENDIMENTOS (CRÍTICO):
+Se o cliente expressar que não se interessou pelo empreendimento atual, que não quer chácaras/lotes, ou que busca outro tipo de imóvel (como apartamentos/casas, ou pergunta "quais as possibilidades"), você DEVE oferecer proativamente as outras opções reais da Studio 57 presentes na sua Base de Conhecimento (Dossiês). Apresente brevemente as opções (Residencial Alfa no Alto Esplanada com apartamentos de 2 quartos com lazer para até 88 pessoas, e Beta Suítes no Alto Esplanada com studios inteligentes com lazer e piscina de borda infinita no terraço) e pergunte qual delas ele gostaria de conhecer e simular. Nunca fique apenas fazendo perguntas de volta ou sendo evasiva sem dar as alternativas reais de imediato.
 
 # Ficha Cadastral e Origem do Lead
 ${fichaLead}
