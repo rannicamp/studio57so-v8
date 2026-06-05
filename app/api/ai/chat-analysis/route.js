@@ -329,21 +329,27 @@ Sua missão nesta chamada rápida é responder ao diálogo do cliente no WhatsAp
 
 # Regras de Inteligência de Estoque (Produtos, Andares e Simulações)
 1. Analise atentamente o "Histórico Recente de Conversa". Se o cliente solicitar ou expressar preferência por andares/posições (ex: "mais alto", "último andar", "andar do topo", "mais baixo", "primeiros andares"), busque na lista de "# Lista de Unidades Disponíveis em Estoque (Real)" as unidades correspondentes ao empreendimento detectado.
-2. Para edifícios verticais (Alfa = ID 1, Beta = ID 5):
+2. Para edifícios verticais (Residencial Alfa = ID 1, Beta Suítes = ID 5):
    - O andar é representado pelos primeiros dígitos da unidade (ex: "705" é 7º andar, "503" é 5º andar, "303" é 3º andar, "203" é 2º andar).
    - Unidades com numeração maior (ex: 705 vs 303) representam andares mais altos.
    - Escolha a melhor unidade disponível que atende à solicitação: se ele quer a mais alta, selecione a de número mais alto disponível (ex: 705); se quer a mais baixa, selecione a de número mais baixo disponível (ex: 201 ou 202).
-3. Quando apresentar uma unidade habitacional para o cliente, faça de forma proativa o cálculo exato da **Simulação de Pagamento Padrão** baseado no valor total da unidade selecionada:
-   - **Valor Total de Venda**: O 'Valor de Venda' da unidade disponível no estoque real.
-   - **Entrada / Sinal (20%)**: Calcule 20% do valor da unidade.
-   - **Fluxo de Mensais Obra (40%)**: Calcule 40% do valor da unidade e divida por **42 parcelas mensais** (ou por 36 se for o Residencial Alfa, conforme seu dossiê).
-     - *Fórmula*: (Valor da Unidade * 0.40) / 42.
-   - **Remanescente / Saldo de Chaves (40%)**: Calcule 40% do valor da unidade (a ser pago no pós-habite-se via quitação ou financiamento bancário).
-4. Formate a resposta sugerida detalhando a unidade e a simulação de pagamento de maneira organizada e super legível (com marcadores), por exemplo:
-   "No último andar temos disponível a unidade 705 (R$ 269.406). As condições são super facilitadas:
-   - Entrada (20%): R$ 53.881
-   - 42 mensais de: R$ 2.565
-   - Saldo nas chaves (remanescente): R$ 107.762"
+3. Quando apresentar uma unidade para o cliente, faça de forma proativa o cálculo exato da **Simulação de Pagamento Padrão** com base no valor total da unidade selecionada e no Empreendimento correspondente (LEIA ATENTAMENTE E USE AS REGRAS DE CADA UM):
+   - **Se a unidade for do Residencial Alfa (ID 1)**:
+     * Entrada / Sinal (20%): Calcule 20% do valor da unidade (pode ser parcelado em até 3x).
+     * Fluxo de Mensais Obra (40%): Calcule 40% do valor da unidade e divida por 36 parcelas mensais.
+     * Saldo nas Chaves (40%): Calcule 40% do valor da unidade (a ser pago no pós-habite-se via financiamento ou quitação).
+     * Exemplo: Entrada R$ 85.000, 36 parcelas de R$ 4.700 e Saldo nas chaves de R$ 170.000.
+   - **Se a unidade for do Beta Suítes (ID 5)**:
+     * Entrada / Sinal (20%): Calcule 20% do valor da unidade (facilitada e diluída).
+     * Fluxo de Mensais Obra (40%): Calcule 40% do valor da unidade e divida por 42 parcelas mensais.
+     * Saldo nas Chaves (40%): Calcule 40% do valor da unidade (a ser pago no pós-habite-se via financiamento ou quitação).
+     * Exemplo: Entrada R$ 50.000, 42 parcelas de R$ 2.400 e Saldo nas chaves de R$ 100.000.
+   - **Se a unidade for do Refúgio Braúnas (ID 6 - Lotes/Chácaras)**:
+     * Entrada / Sinal (20%): Calcule 20% do valor da chácara/lote (dividido em até 3x).
+     * Saldo Financiado (80%): Calcule 80% do valor do lote e divida em até 60 parcelas mensais.
+     * Note: Não há chaves/saldo de 40% no final, o saldo é totalmente financiado direto com a construtora em até 60x.
+     * Juros e Correção: Mencione que o saldo é reajustado anualmente pelo INCC acumulado + juros compensatórios de 11% ao ano na data base de aniversário do contrato.
+4. Formate a resposta sugerida detalhando a unidade e a simulação de pagamento de maneira organizada e super legível (com marcadores), usando as condições corretas conforme o empreendimento da unidade.
 5. Se o cliente perguntar algo sobre a localização, áreas de lazer ou detalhes do projeto, busque essas informações no "Dossiê do Empreendimento" correspondente.
 
 # Regras de Terminologia e Vendas (Crítico)
@@ -356,7 +362,7 @@ Sua missão nesta chamada rápida é responder ao diálogo do cliente no WhatsAp
    - Solicite que ele envie o comprovante de residência (PDF ou imagem) ou digite o CEP, número e complemento.
 
 # REGRA DO ESTOQUE REAL IMEDIATO (OBRIGATÓRIO):
-Se o cliente perguntar quais são as unidades disponíveis, quais os andares, ou pedir detalhes da unidade (ex: "Qual é essa unidade?"), você DEVE buscar e listar IMEDIATAMENTE as unidades reais e seus números que estão em estoque no contexto (ex: unidade 705, 703, 606). NUNCA diga que está verificando no sistema ou peça tempo se os dados já estão no prompt. Apresente as unidades e faça os cálculos de simulação para o cliente na hora.
+Se o cliente perguntar quais são as unidades disponíveis, quais os andares, ou pedir detalhes da unidade (ex: "Qual é essa unidade?"), você DEVE buscar e listar IMEDIATAMENTE as unidades reais e seus números que estão em estoque no contexto (ex: unidade 705, 703, A-2, A-3). NUNCA diga que está verificando no sistema ou peça tempo se os dados já estão no prompt. Apresente as unidades e faça os cálculos de simulação para o cliente na hora.
 
 # Dados Atuais do CRM
 - Fase no Funil (CRM): ${crmStatus}
@@ -399,21 +405,27 @@ Cruze esses dados com o "Histórico da Conversa" recente no WhatsApp. O históri
 
 # Regras de Inteligência de Estoque (Produtos, Andares e Simulações)
 1. Analise atentamente o "Histórico Recente de Conversa". Se o cliente solicitar ou expressar preferência por andares/posições (ex: "mais alto", "último andar", "andar do topo", "mais baixo", "primeiros andares"), busque na lista de "# Lista de Unidades Disponíveis em Estoque (Real)" as unidades correspondentes ao empreendimento detectado.
-2. Para edifícios verticais (Alfa = ID 1, Beta = ID 5):
+2. Para edifícios verticais (Residencial Alfa = ID 1, Beta Suítes = ID 5):
    - O andar é representado pelos primeiros dígitos da unidade (ex: "705" é 7º andar, "503" é 5º andar, "303" é 3º andar, "203" é 2º andar).
    - Unidades com numeração maior (ex: 705 vs 303) representam andares mais altos.
    - Escolha a melhor unidade disponível que atende à solicitação: se ele quer a mais alta, selecione a de número mais alto disponível (ex: 705); se quer a mais baixa, selecione a de número mais baixo disponível (ex: 201 ou 202).
-3. Quando apresentar uma unidade habitacional para o cliente, faça de forma proativa o cálculo exato da **Simulação de Pagamento Padrão** baseado no valor total da unidade selecionada:
-   - **Valor Total de Venda**: O 'Valor de Venda' da unidade disponível no estoque real.
-   - **Entrada / Sinal (20%)**: Calcule 20% do valor da unidade.
-   - **Fluxo de Mensais Obra (40%)**: Calcule 40% do valor da unidade e divida por **42 parcelas mensais** (ou por 36 se for o Residencial Alfa, conforme seu dossiê).
-     - *Fórmula*: (Valor da Unidade * 0.40) / 42.
-   - **Remanescente / Saldo de Chaves (40%)**: Calcule 40% do valor da unidade (a ser pago no pós-habite-se via quitação ou financiamento bancário).
-4. Formate a resposta sugerida detalhando a unidade e a simulação de pagamento de maneira organizada e super legível (com marcadores), por exemplo:
-   "No último andar temos disponível a unidade 705 (R$ 269.406). As condições são super facilitadas:
-   - Entrada (20%): R$ 53.881
-   - 42 mensais de: R$ 2.565
-   - Saldo nas chaves (remanescente): R$ 107.762"
+3. Quando apresentar uma unidade para o cliente, faça de forma proativa o cálculo exato da **Simulação de Pagamento Padrão** com base no valor total da unidade selecionada e no Empreendimento correspondente (LEIA ATENTAMENTE E USE AS REGRAS DE CADA UM):
+   - **Se a unidade for do Residencial Alfa (ID 1)**:
+     * Entrada / Sinal (20%): Calcule 20% do valor da unidade (pode ser parcelado em até 3x).
+     * Fluxo de Mensais Obra (40%): Calcule 40% do valor da unidade e divida por 36 parcelas mensais.
+     * Saldo nas Chaves (40%): Calcule 40% do valor da unidade (a ser pago no pós-habite-se via financiamento ou quitação).
+     * Exemplo: Entrada R$ 85.000, 36 parcelas de R$ 4.700 e Saldo nas chaves de R$ 170.000.
+   - **Se a unidade for do Beta Suítes (ID 5)**:
+     * Entrada / Sinal (20%): Calcule 20% do valor da unidade (facilitada e diluída).
+     * Fluxo de Mensais Obra (40%): Calcule 40% do valor da unidade e divida por 42 parcelas mensais.
+     * Saldo nas Chaves (40%): Calcule 40% do valor da unidade (a ser pago no pós-habite-se via financiamento ou quitação).
+     * Exemplo: Entrada R$ 50.000, 42 parcelas de R$ 2.400 e Saldo nas chaves de R$ 100.000.
+   - **Se a unidade for do Refúgio Braúnas (ID 6 - Lotes/Chácaras)**:
+     * Entrada / Sinal (20%): Calcule 20% do valor da chácara/lote (dividido em até 3x).
+     * Saldo Financiado (80%): Calcule 80% do valor do lote e divida em até 60 parcelas mensais.
+     * Note: Não há chaves/saldo de 40% no final, o saldo é totalmente financiado direto com a construtora em até 60x.
+     * Juros e Correção: Mencione que o saldo é reajustado anualmente pelo INCC acumulado + juros compensatórios de 11% ao ano na data base de aniversário do contrato.
+4. Formate a resposta sugerida detalhando a unidade e a simulação de pagamento de maneira organizada e super legível (com marcadores), usando as condições corretas conforme o empreendimento da unidade.
 5. Se o cliente perguntar algo sobre a localização, áreas de lazer ou detalhes do projeto, busque essas informações no "Dossiê do Empreendimento" correspondente.
 
 # Regras de Terminologia e Vendas (Crítico)
@@ -431,7 +443,7 @@ Cruze esses dados com o "Histórico da Conversa" recente no WhatsApp. O históri
 5. Se uma mídia do tipo documento (PDF) ou imagem (foto) for enviada pelo cliente, e corresponder a um comprovante de residência, analise o documento visualmente e extraia o CEP, Logradouro, Número, Complemento, Bairro, Cidade e Estado para preencher o cadastro.
 
 # REGRA DO ESTOQUE REAL IMEDIATO (OBRIGATÓRIO):
-Se o cliente perguntar quais são as unidades disponíveis, quais os andares, ou pedir detalhes da unidade (ex: "Qual é essa unidade?"), você DEVE buscar e listar IMEDIATAMENTE as unidades reais e seus números que estão em estoque no contexto (ex: unidade 705, 703, 606). NUNCA diga que está verificando no sistema ou peça tempo se os dados já estão no prompt. Apresente as unidades e faça os cálculos de simulação para o cliente na hora.
+Se o cliente perguntar quais são as unidades disponíveis, quais os andares, ou pedir detalhes da unidade (ex: "Qual é essa unidade?"), você DEVE buscar e listar IMEDIATAMENTE as unidades reais e seus números que estão em estoque no contexto (ex: unidade 705, 703, A-2, A-3). NUNCA diga que está verificando no sistema ou peça tempo se os dados já estão no prompt. Apresente as unidades e faça os cálculos de simulação para o cliente na hora.
 
 # Ficha Cadastral e Origem do Lead
 ${fichaLead}
