@@ -86,6 +86,42 @@ export async function POST(request) {
       contatoInfo.meta_campaign_name = contatoInfo.meta_campaign_name || contatoInfo.campanha?.nome || null;
     }
 
+    // 1.8 Buscar se há alguma mídia recente recebida do cliente na conversa (ex: CNH em PDF ou Imagem)
+    const { data: ultimaMidiaCliente } = await supabaseAdmin
+      .from('whatsapp_messages')
+      .select('media_url, content, raw_payload')
+      .eq('contato_id', contato_id)
+      .eq('direction', 'inbound')
+      .not('media_url', 'is', null)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    let docBase64Data = null;
+    let docMimeType = null;
+
+    if (ultimaMidiaCliente && ultimaMidiaCliente.media_url) {
+      const urlLower = ultimaMidiaCliente.media_url.toLowerCase();
+      // Consideramos PDF ou imagens comuns de documentos
+      const isPdf = urlLower.includes('.pdf') || (ultimaMidiaCliente.raw_payload && ultimaMidiaCliente.raw_payload.type === 'document');
+      const isImg = urlLower.includes('.jpg') || urlLower.includes('.jpeg') || urlLower.includes('.png') || urlLower.includes('.webp') || (ultimaMidiaCliente.raw_payload && ultimaMidiaCliente.raw_payload.type === 'image');
+
+      if (isPdf || isImg) {
+        console.log(`[Stella AI] Mídia recente detectada para análise online: ${ultimaMidiaCliente.media_url}`);
+        try {
+          const fileResponse = await fetch(ultimaMidiaCliente.media_url);
+          if (fileResponse.ok) {
+            const arrayBuffer = await fileResponse.arrayBuffer();
+            docBase64Data = Buffer.from(arrayBuffer).toString('base64');
+            docMimeType = isPdf ? 'application/pdf' : fileResponse.headers.get('content-type') || 'image/jpeg';
+            console.log(`[Stella AI] Mídia carregada com sucesso na memória RAM (Tamanho: ${docBase64Data.length} caracteres Base64).`);
+          }
+        } catch (mediaErr) {
+          console.error('[Stella AI Warning] Erro ao baixar mídia para memória RAM:', mediaErr.message);
+        }
+      }
+    }
+
     // 2. Coletar Histórico do WhatsApp
     const { data: messages } = await supabaseAdmin
       .from('whatsapp_messages')
@@ -94,6 +130,7 @@ export async function POST(request) {
       .eq('organizacao_id', organizacao_id)
       .order('sent_at', { ascending: false }) // Pega os mais recentes
       .limit(100);
+
 
     // 3. Coletar Dados do Funil Comercial
     const { data: funil } = await supabaseAdmin
@@ -341,6 +378,8 @@ Com base SOMENTE neste histórico recente e contexto do projeto, escreva um JSON
     "nome": "Nome completo ou null",
     "cpf": "Apenas dígitos do CPF ou null",
     "cnpj": "Apenas dígitos do CNPJ ou null",
+    "rg": "Apenas dígitos do RG ou null",
+    "nacionalidade": "Nacionalidade ou null",
     "renda_familiar": 12000.00 (ou null),
     "fgts": true/false (ou null),
     "mais_de_3_anos_clt": true/false (ou null),
@@ -356,9 +395,22 @@ Com base SOMENTE neste histórico recente e contexto do projeto, escreva um JSON
     "city": "Cidade ou null",
     "state": "UF ou null"
   }
+}
 `;
 
-    const result = await model.generateContent(prompt);
+    const promptContent = [];
+    if (docBase64Data && docMimeType) {
+      console.log(`[Stella AI] Injetando arquivo CNH/Documento de forma online no prompt do Gemini...`);
+      promptContent.push({
+        inlineData: {
+          data: docBase64Data,
+          mimeType: docMimeType
+        }
+      });
+    }
+    promptContent.push({ text: prompt });
+
+    const result = await model.generateContent(promptContent);
     const textOutput = result.response.text();
     
     let parsedResult;
@@ -412,7 +464,7 @@ Com base SOMENTE neste histórico recente e contexto do projeto, escreva um JSON
           updateData.meta_ad_name = currentContact.meta_ad_name;
         }
 
-        // Função auxiliar para atualizar apenas campos vazios/nulos no banco de dados
+        // Função auxiliar para atualizar apenas se estiver vazio/nulo (campos críticos de identidade)
         const preencherSeVazio = (field, value) => {
           const currentValue = currentContact[field];
           if (value !== undefined && value !== null && (currentValue === null || currentValue === undefined || String(currentValue).trim() === '')) {
@@ -420,21 +472,37 @@ Com base SOMENTE neste histórico recente e contexto do projeto, escreva um JSON
           }
         };
 
+        // Função auxiliar para atualizar se houver qualquer alteração/diferença (campos gerais de cadastro)
+        const atualizarSeDiferente = (field, value) => {
+          if (value !== undefined && value !== null && String(value).trim() !== '') {
+            const currentValue = currentContact[field];
+            if (currentValue === null || currentValue === undefined || String(currentValue).trim().toLowerCase() !== String(value).trim().toLowerCase()) {
+              updateData[field] = value;
+            }
+          }
+        };
+
+        // Campos de identificação rígidos: só preenchemos se estiver em branco
         preencherSeVazio('cpf', dc.cpf);
         preencherSeVazio('cnpj', dc.cnpj);
-        preencherSeVazio('fgts', dc.fgts);
         preencherSeVazio('renda_familiar', dc.renda_familiar);
-        preencherSeVazio('cargo', dc.cargo);
-        preencherSeVazio('estado_civil', dc.estado_civil);
-        preencherSeVazio('mais_de_3_anos_clt', dc.mais_de_3_anos_clt);
-        preencherSeVazio('cep', dc.cep);
-        preencherSeVazio('address_street', dc.address_street);
-        preencherSeVazio('address_number', dc.address_number);
-        preencherSeVazio('address_complement', dc.address_complement);
-        preencherSeVazio('neighborhood', dc.neighborhood);
-        preencherSeVazio('city', dc.city);
-        preencherSeVazio('state', dc.state);
-        preencherSeVazio('birth_date', dc.birth_date);
+
+        // Campos gerais e de endereço: atualizamos incrementalmente caso a IA detecte novidades ou alterações
+        atualizarSeDiferente('estado_civil', dc.estado_civil);
+        atualizarSeDiferente('cargo', dc.cargo);
+        atualizarSeDiferente('rg', dc.rg);
+        atualizarSeDiferente('nacionalidade', dc.nacionalidade);
+        atualizarSeDiferente('fgts', dc.fgts);
+        atualizarSeDiferente('mais_de_3_anos_clt', dc.mais_de_3_anos_clt);
+        atualizarSeDiferente('cep', dc.cep);
+        atualizarSeDiferente('address_street', dc.address_street);
+        atualizarSeDiferente('address_number', dc.address_number);
+        atualizarSeDiferente('address_complement', dc.address_complement);
+        atualizarSeDiferente('neighborhood', dc.neighborhood);
+        atualizarSeDiferente('city', dc.city);
+        atualizarSeDiferente('state', dc.state);
+        atualizarSeDiferente('birth_date', dc.birth_date);
+
 
         // Normalização e atualização inteligente do Objetivo
         const objetivoAtual = (currentContact.objetivo || '').trim().toLowerCase();
