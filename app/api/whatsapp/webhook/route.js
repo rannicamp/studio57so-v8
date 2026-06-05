@@ -139,7 +139,10 @@ export async function POST(request) {
   const host = request.headers.get('host');
 
   if (isAutopilotActive) {
-    // --- EVITAR DUPLICIDADE EM CASO DE RAJADAS DE MENSAGENS INBOUND (LOCK DE CONCORRÊNCIA) ---
+    // --- DEBOUNCE CONTRA ENVIOS EM RAJADA PICADOS (ESPERA DE SEGURANÇA DE 4 SEGUNDOS) ---
+    console.log(`[Autopilot Debounce] Aguardando 4 segundos para garantir que o cliente ${contatoId} não está digitando mensagens adicionais...`);
+    await new Promise(resolve => setTimeout(resolve, 4000));
+
     try {
       const { data: msgAtualRecord } = await supabaseAdmin
         .from('whatsapp_messages')
@@ -148,27 +151,23 @@ export async function POST(request) {
         .maybeSingle();
 
       if (msgAtualRecord) {
-        const { data: msgAnterior } = await supabaseAdmin
+        // Busca se existe alguma mensagem inbound mais recente enviada pelo cliente depois da atual (durante a janela de 4s)
+        const { data: msgPosterior } = await supabaseAdmin
           .from('whatsapp_messages')
-          .select('id, direction, created_at')
+          .select('id, created_at')
           .eq('contato_id', contatoId)
-          .lt('created_at', msgAtualRecord.created_at) // Estritamente anterior à atual
-          .order('created_at', { ascending: false })
+          .gt('created_at', msgAtualRecord.created_at) // Estritamente posterior
+          .eq('direction', 'inbound')
           .limit(1)
           .maybeSingle();
 
-        if (msgAnterior && msgAnterior.direction === 'inbound') {
-          const tempoDiferenca = Math.abs(new Date(msgAtualRecord.created_at).getTime() - new Date(msgAnterior.created_at).getTime());
-          const limiteMilisegundos = 30 * 1000; // 30 segundos
-
-          if (tempoDiferenca < limiteMilisegundos) {
-            console.log(`[Autopilot Lock] Detectada rajada de mensagens inbound concorrentes para o contato ${contatoId}. Intervalo: ${(tempoDiferenca/1000).toFixed(1)}s. Ignorando este disparo para evitar duplicidade de respostas, pois a execução anterior cobrirá ambas.`);
-            return NextResponse.json({ status: 'ok', detail: 'ignored_inbound_burst' });
-          }
+        if (msgPosterior) {
+          console.log(`[Autopilot Debounce] Ignorando este disparo. O cliente enviou outra mensagem inbound mais recente durante o debounce de 4s.`);
+          return NextResponse.json({ status: 'ok', detail: 'ignored_older_inbound_during_debounce' });
         }
       }
-    } catch (lockErr) {
-      console.error('[Autopilot Lock Warning] Erro na verificação de rajada:', lockErr.message);
+    } catch (debounceErr) {
+      console.error('[Autopilot Debounce Warning] Erro no fluxo de debounce:', debounceErr.message);
     }
 
     console.log(`[Autopilot] Contato ${contatoId} está com atendimento automático ATIVO. Acionando Stella de forma síncrona...`);
