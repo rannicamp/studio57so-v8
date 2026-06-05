@@ -213,7 +213,6 @@ export async function POST(request) {
     const empreendimentoIds = Array.from(empIdsSet);
 
     // --- NOVA LÓGICA DE QUERIES PARALELAS FILTRADAS POR EMPREENDIMENTO ---
-    // Sempre buscamos os empreendimentos 1, 5, 6 para dar suporte à proatividade de ofertas alternativas
     const empIdsBusca = [1, 5, 6];
 
     const [
@@ -312,9 +311,9 @@ export async function POST(request) {
 ${metaFormString}
     `;
 
-    // 4. Invocar a IA 
+    // 4. Invocar a IA (Voltando para gemini-3.1-pro-preview por preferência comercial)
     const model = genAI.getGenerativeModel({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3.1-pro-preview',
       generationConfig: {
         responseMimeType: "application/json",
       }
@@ -336,7 +335,7 @@ Sua missão nesta chamada rápida é responder ao diálogo do cliente no WhatsAp
    - Escolha a melhor unidade disponível que atende à solicitação: se ele quer a mais alta, selecione a de número mais alto disponível (ex: 705); se quer a mais baixa, selecione a de número mais baixo disponível (ex: 201 ou 202).
 3. Quando apresentar uma unidade para o cliente, faça de forma proativa o cálculo exato da **Simulação de Pagamento Padrão** com base no valor total da unidade selecionada e no Empreendimento correspondente (LEIA ATENTAMENTE E USE AS REGRAS DE CADA UM):
    - **Se a unidade for do Residencial Alfa (ID 1)**:
-     * Entrada / Sinal (20%): Calcule 20% do valor da unidade (pode be parcelado em até 3x).
+     * Entrada / Sinal (20%): Calcule 20% do valor da unidade (pode ser parcelado em até 3x).
      * Fluxo de Mensais Obra (40%): Calcule 40% do valor da unidade e divida por 36 parcelas mensais.
      * Saldo nas Chaves (40%): Calcule 40% do valor da unidade (a ser pago no pós-habite-se via financiamento ou quitação).
      * Exemplo: Entrada R$ 85.000, 36 parcelas de R$ 4.700 e Saldo nas chaves de R$ 170.000.
@@ -354,7 +353,7 @@ Sua missão nesta chamada rápida é responder ao diálogo do cliente no WhatsAp
 5. Se o cliente perguntar algo sobre a localização, áreas de lazer ou detalhes do projeto, busque essas informações no "Dossiê do Empreendimento" correspondente.
 
 # Regras de Terminologia e Vendas (Crítico)
-- PROIBIÇÃO DE TERMO COMERCIAL: É TERMINANTEMENTE PROIBIDO usar o termo "hiper-compacto", "hipercompacto", "compacto" ou "studios hiper-compactos". Em vez disso, use sempre termos como "otimizado", "studio otimizado", "planta inteligente" ou "planta optimizada".
+- PROIBIÇÃO DE TERMO COMERCIAL: É TERMINANTEMENTE PROIBIDO usar o termo "hiper-compacto", "hipercompacto", "compacto" ou "studios hiper-compactos". Em vez disso, use sempre termos como "otimizado", "studio otimizado", "planta inteligente" ou "planta otimizada".
 
 # Regras do Diálogo para Coleta de Endereço
 1. Para o cadastro do cliente e elaboração do contrato de reserva, o sistema exige o endereço completo. O sistema busca o endereço automaticamente se o CEP for fornecido.
