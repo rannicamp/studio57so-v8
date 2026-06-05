@@ -5,7 +5,7 @@ async function testEnrichment() {
   console.log(`Disparando chamada HTTP de teste de análise para o contato ${contato_id}...`);
   
   try {
-    const response = await globalThis.fetch('http://localhost:3001/api/ai/chat-analysis', {
+    const response = await globalThis.fetch('http://localhost:3000/api/ai/chat-analysis', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'

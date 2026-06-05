@@ -144,7 +144,7 @@ export async function POST(request) {
     }
     const empreendimentoIds = Array.from(empIdsSet);
 
-    // Obter BASE DE CONHECIMENTO GLOBAL (Todos os Dossiês)
+    // Obter BASE DE CONHECIMENTO GLOBAL (Dossiês de Empreendimentos)
     let empContext = "";
     const { data: todosEmpreendimentos } = await supabaseAdmin
       .from('empreendimentos')
@@ -226,6 +226,9 @@ Geralmente, o nome da campanha (meta_campaign_name), do conjunto de anúncios (m
 Analise também as respostas do formulário da Meta (meta_form_data), que contêm perguntas sobre intenção de compra, renda e objetivos.
 Cruze esses dados com o "Histórico da Conversa" recente no WhatsApp. O histórico da conversa dita a regra final de interesse atual caso ele tenha mudado de ideia.
 
+# Regras de Terminologia e Vendas (Crítico)
+- PROIBIÇÃO DE TERMO COMERCIAL: É TERMINANTEMENTE PROIBIDO usar o termo "hiper-compacto", "hipercompacto", "compacto" ou "studios hiper-compactos" para se referir a qualquer imóvel ou studio. Em vez disso, use sempre termos como "otimizado", "studio otimizado", "planta inteligente" ou "planta otimizada". Para studios, o espaço é excelente e otimizado.
+
 # Ficha Cadastral e Origem do Lead
 ${fichaLead}
 
@@ -271,7 +274,7 @@ Com base SOMENTE neste histórico recente e contexto do projeto, escreva um JSON
   "temperatura": "Quente" ou "Morno" ou "Frio",
   "fase_crm_atual": "${crmStatus}",
   "proxima_acao_sugerida": "Dica direta e acionável para o corretor.",
-  "proxima_resposta_sugerida": "A resposta exata e natural para enviar ao cliente. REGRA DE OURO WHATSAPP: Seja EXTREMAMENTE SUCINTO. Ninguém lê textões. Fracione as ideias, use parágrafos curtíssimos (separados por \\n\\n), tom humano e direto ao ponto. Termine sempre com uma pergunta curta para engajar.",
+  "proxima_resposta_sugerida": "A resposta exata e natural para enviar ao cliente. REGRA DE OURO WHATSAPP: Seja EXTREMAMENTE SUCINTO. Envie frases curtas, dinâmicas e amigáveis. Máximo de 3 a 4 linhas no total. Use parágrafos curtíssimos (separados por \\n\\n), tom de conversa super humano e direto ao ponto. Evite rodeios e textões, pois as pessoas têm preguiça de ler. Termine sempre com uma única pergunta curta para engajar.",
   "dados_cliente": {
     "nome": "Nome completo ou null",
     "cpf": "Apenas dígitos do CPF ou null",
