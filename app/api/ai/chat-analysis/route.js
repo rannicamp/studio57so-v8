@@ -41,7 +41,8 @@ export async function POST(request) {
       contatoResult,
       ultimaMsgResult,
       messagesResult,
-      funilResult
+      funilResult,
+      anexosEnviadosResult
     ] = await Promise.all([
       // 1. Dados cadastrais do contato
       supabaseAdmin
@@ -88,13 +89,20 @@ export async function POST(request) {
           )
         `)
         .eq('contato_id', contato_id)
-        .maybeSingle()
+        .maybeSingle(),
+
+      // 5. Histórico de anexos enviados para este contato
+      supabaseAdmin
+        .from('whatsapp_attachments')
+        .select('storage_path, file_name')
+        .eq('contato_id', contato_id)
     ]);
 
     const { data: contatoInfo, error: contatoError } = contatoResult;
     const { data: ultimaMsgCliente } = ultimaMsgResult;
     const { data: messages } = messagesResult;
     const { data: funil } = funilResult;
+    const { data: anexosEnviados } = anexosEnviadosResult;
 
     if (contatoError) {
       console.error('Erro ao buscar dados do contato para IA:', contatoError);
@@ -260,6 +268,11 @@ export async function POST(request) {
        anexosContext = anexos.map(a => `- ID: ${a.id} | Nome: "${a.nome_arquivo}" | Caminho: "${a.caminho_arquivo}" | Descrição: "${a.descricao || 'Sem descrição'}" | Empreendimento ID: ${a.empreendimento_id}`).join('\n');
     }
 
+    let anexosEnviadosContext = "Nenhum anexo foi enviado anteriormente para este cliente nesta conversa.";
+    if (anexosEnviados && anexosEnviados.length > 0) {
+      anexosEnviadosContext = anexosEnviados.map(ae => `- Nome: "${ae.file_name}" | Caminho: "${ae.storage_path}"`).join('\n');
+    }
+
     // Filtra apenas unidades residenciais reais, ignorando garagens e motos para o estoque de apartamentos
     const unidadesHabitacionais = (produtosDisponiveis || []).filter(p => {
       const u = (p.unidade || '').toUpperCase();
@@ -367,6 +380,9 @@ Se o cliente perguntar quais são as unidades disponíveis, quais os andares, ou
 # REGRA DE PROATIVIDADE EM OUTROS EMPREENDIMENTOS (CRÍTICO):
 Se o cliente expressar que não se interessou pelo empreendimento atual, que não quer chácaras/lotes, ou que busca outro tipo de imóvel (como apartamentos/casas, ou pergunta "quais as possibilidades"), você DEVE oferecer proativamente as outras opções reais da Studio 57 presentes na sua Base de Conhecimento (Dossiês). Apresente brevemente as opções (Residencial Alfa no Alto Esplanada com apartamentos de 2 quartos com lazer para até 88 pessoas, e Beta Suítes no Alto Esplanada com studios inteligentes com lazer e piscina de borda infinita no terraço) e pergunte qual delas ele gostaria de conhecer e simular. Nunca fique apenas fazendo perguntas de volta ou sendo evasiva sem dar as alternativas reais de imediato.
 
+# REGRA DE NÃO REPETIÇÃO DE ANEXOS JÁ ENVIADOS (CRÍTICO / OBRIGATÓRIO):
+Se um determinado anexo (como o book em PDF ou vídeo do empreendimento) já constar na lista "# Anexos Já Enviados Anteriormente nesta Conversa", você NUNCA deve sugerir o envio dele de novo no JSON (retorne "anexo_sugerido": null na resposta). A única exceção absoluta é se o cliente pedir explicitamente para reenviar o arquivo na última mensagem do histórico (ex: "me manda o book de novo", "pode enviar o vídeo novamente", "envia as fotos do Residencial Alfa por favor"). Se não houver pedido explícito de reenvio, retorne "anexo_sugerido": null.
+
 # Dados Atuais do CRM
 - Fase no Funil (CRM): ${crmStatus}
 - Unidades/Produtos Interessados: ${produtos}
@@ -382,6 +398,9 @@ ${produtosDisponiveisContext}
 
 # Arquivos e Anexos Disponíveis para Envio
 ${anexosContext}
+
+# Anexos Já Enviados Anteriormente nesta Conversa (Não repita a menos que pedido)
+${anexosEnviadosContext}
 
 # Histórico Recente de Conversa (WhatsApp)
 ${chatLog}
@@ -451,6 +470,9 @@ Se o cliente perguntar quais são as unidades disponíveis, quais os andares, ou
 # REGRA DE PROATIVIDADE EM OUTROS EMPREENDIMENTOS (CRÍTICO):
 Se o cliente expressar que não se interessou pelo empreendimento atual, que não quer chácaras/lotes, ou que busca outro tipo de imóvel (como apartamentos/casas, ou pergunta "quais as possibilidades"), você DEVE oferecer proativamente as outras opções reais da Studio 57 presentes na sua Base de Conhecimento (Dossiês). Apresente brevemente as opções (Residencial Alfa no Alto Esplanada com apartamentos de 2 quartos com lazer para até 88 pessoas, e Beta Suítes no Alto Esplanada com studios inteligentes com lazer e piscina de borda infinita no terraço) e pergunte qual delas ele gostaria de conhecer e simular. Nunca fique apenas fazendo perguntas de volta ou sendo evasiva sem dar as alternativas reais de imediato.
 
+# REGRA DE NÃO REPETIÇÃO DE ANEXOS JÁ ENVIADOS (CRÍTICO / OBRIGATÓRIO):
+Se um determinado anexo (como o book em PDF ou vídeo do empreendimento) já constar na lista "# Anexos Já Enviados Anteriormente nesta Conversa", você NUNCA deve sugerir o envio dele de novo no JSON (retorne "anexo_sugerido": null na resposta). A única exceção absoluta é se o cliente pedir explicitamente para reenviar o arquivo na última mensagem do histórico (ex: "me manda o book de novo", "pode enviar o vídeo novamente", "envia as fotos do Residencial Alfa por favor"). Se não houver pedido explícito de reenvio, retorne "anexo_sugerido": null.
+
 # Ficha Cadastral e Origem do Lead
 ${fichaLead}
 
@@ -469,6 +491,9 @@ ${produtosDisponiveisContext}
 
 # Arquivos e Anexos Disponíveis para Envio
 ${anexosContext}
+
+# Anexos Já Enviados Anteriormente nesta Conversa (Não repita a menos que pedido)
+${anexosEnviadosContext}
 
 # Histórico Recente de Conversa (WhatsApp)
 ${chatLog}
