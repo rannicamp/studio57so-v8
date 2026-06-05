@@ -36,6 +36,56 @@ export async function POST(request) {
        return NextResponse.json({ error: 'Chave GEMINI_API_KEY não configurada no servidor.' }, { status: 500 });
     }
 
+    // 1.5 Buscar Dados Cadastrais e de Origem (Meta Ads / CRM) do Contato
+    const { data: contatoInfo, error: contatoError } = await supabaseAdmin
+      .from('contatos')
+      .select(`
+        nome,
+        cpf,
+        cnpj,
+        origem,
+        objetivo,
+        cargo,
+        estado_civil,
+        renda_familiar,
+        fgts,
+        mais_de_3_anos_clt,
+        observations,
+        meta_campaign_name,
+        meta_adset_name,
+        meta_ad_name,
+        meta_form_data,
+        birth_date,
+        cep,
+        address_street,
+        address_number,
+        address_complement,
+        neighborhood,
+        city,
+        state,
+        anuncio:meta_ad_id(id, nome),
+        adset:meta_adset_id(id, nome),
+        campanha:meta_campaign_id(id, nome)
+      `)
+      .eq('id', contato_id)
+      .eq('organizacao_id', organizacao_id)
+      .single();
+
+    if (contatoError) {
+      console.error('Erro ao buscar dados do contato para IA:', contatoError);
+    }
+
+    // Resolve os nomes com fallback: coluna _name → JOIN meta_ativos
+    if (contatoInfo) {
+      contatoInfo.meta_ad_name_original = contatoInfo.meta_ad_name;
+      contatoInfo.meta_adset_name_original = contatoInfo.meta_adset_name;
+      contatoInfo.meta_campaign_name_original = contatoInfo.meta_campaign_name;
+
+      contatoInfo.meta_ad_name = contatoInfo.meta_ad_name || contatoInfo.anuncio?.nome || null;
+      contatoInfo.meta_adset_name = contatoInfo.meta_adset_name || contatoInfo.adset?.nome || null;
+      contatoInfo.meta_campaign_name = contatoInfo.meta_campaign_name || contatoInfo.campanha?.nome || null;
+    }
+
     // 2. Coletar Histórico do WhatsApp
     const { data: messages } = await supabaseAdmin
       .from('whatsapp_messages')
@@ -81,7 +131,7 @@ export async function POST(request) {
     const produtosRaw = funil?.contatos_no_funil_produtos?.map(p => p.produto?.nome) || [];
     const produtos = produtosRaw.length > 0 ? produtosRaw.join(', ') : "Nenhum Produto Vinculado";
 
-    // NOVO: Extrair IDs de Empreendimentos para buscar anexos e contexto
+    // Extrair IDs de Empreendimentos para buscar anexos e contexto
     const empIdsSet = new Set();
     let detalhesUnidades = "";
     if (funil?.contatos_no_funil_produtos) {
@@ -94,8 +144,7 @@ export async function POST(request) {
     }
     const empreendimentoIds = Array.from(empIdsSet);
 
-    // 3. Obter BASE DE CONHECIMENTO GLOBAL (Todos os Dossiês)
-    // Em vez de restringir ao CRM, a IA recebe a inteligência de todos os empreendimentos para decidir com base no chat.
+    // Obter BASE DE CONHECIMENTO GLOBAL (Todos os Dossiês)
     let empContext = "";
     const { data: todosEmpreendimentos } = await supabaseAdmin
       .from('empreendimentos')
@@ -110,7 +159,6 @@ export async function POST(request) {
 
     let anexosContext = "Nenhum anexo público encontrado.";
     if (empreendimentoIds.length > 0) {
-
       const { data: anexos } = await supabaseAdmin
         .from('empreendimento_anexos')
         .select('nome_arquivo, descricao')
@@ -122,8 +170,45 @@ export async function POST(request) {
       }
     }
 
+    // Formata o formulário da Meta de forma legível
+    let metaFormString = "Nenhum formulário de lead respondido.";
+    if (contatoInfo?.meta_form_data) {
+      try {
+        const formData = typeof contatoInfo.meta_form_data === 'string' 
+          ? JSON.parse(contatoInfo.meta_form_data) 
+          : contatoInfo.meta_form_data;
+        
+        if (Array.isArray(formData)) {
+          metaFormString = formData.map(f => `- Pergunta: ${f.name || f.question} | Resposta: ${f.value || f.response}`).join('\n');
+        } else if (typeof formData === 'object') {
+          metaFormString = Object.entries(formData).map(([key, val]) => `- ${key}: ${val}`).join('\n');
+        }
+      } catch (e) {
+        metaFormString = JSON.stringify(contatoInfo.meta_form_data);
+      }
+    }
+
+    const fichaLead = `
+### FICHA CADASTRAL E DADOS DE ORIGEM (CRM e Facebook/Meta Ads)
+- Nome cadastrado: ${contatoInfo?.nome || 'Não informado'}
+- Origem declarada: ${contatoInfo?.origem || 'Não informada'}
+- Objetivo cadastrado no CRM: ${contatoInfo?.objetivo || 'Não informado (Precisa ser detectado)'}
+- Observações no CRM: ${contatoInfo?.observations || 'Nenhuma observação cadastrada'}
+- Renda familiar cadastrada: ${contatoInfo?.renda_familiar ? `R$ ${contatoInfo.renda_familiar}` : 'Não cadastrada'}
+- FGTS cadastrado: ${contatoInfo?.fgts ? 'Sim' : 'Não informado'}
+- Tempo de CLT cadastrado: ${contatoInfo?.mais_de_3_anos_clt ? 'Mais de 3 anos' : 'Não informado'}
+- Estado Civil cadastrado: ${contatoInfo?.estado_civil || 'Não informado'}
+- Profissão/Cargo cadastrado: ${contatoInfo?.cargo || 'Não informado'}
+
+### ORIGEM DO META ADS (FACEBOOK/INSTAGRAM CAMPANHAS)
+- Campanha do anúncio: ${contatoInfo?.meta_campaign_name || 'Nenhuma campanha associada'}
+- Conjunto de anúncios (Adset): ${contatoInfo?.meta_adset_name || 'Nenhum conjunto associado'}
+- Nome do anúncio: ${contatoInfo?.meta_ad_name || 'Nenhum anúncio associado'}
+- Respostas do Formulário de Lead da Meta (Perguntas/Respostas respondidas no anúncio):
+${metaFormString}
+    `;
+
     // 4. Invocar a IA 
-    // OBS: Usamos o identificador mais moderno: gemini-3.1-pro-preview
     const model = genAI.getGenerativeModel({
       model: 'gemini-3.1-pro-preview',
       generationConfig: {
@@ -133,14 +218,22 @@ export async function POST(request) {
 
     const prompt = `
 Você é Stella, a super Analista Comercial de Elite e Assistente Copiloto da Studio 57.
-Sua missão é classificar o lead, extrair dados cadastrais caso o cliente os tenha informado explicitamente na conversa, e gerar uma RESPOSTA SUGERIDA PRONTA para o corretor copiar e enviar ao cliente.
+Sua missão é classificar o lead, analisar a origem da campanha e o perfil do cliente, e gerar uma RESPOSTA SUGERIDA PRONTA para o corretor copiar e enviar ao cliente.
 
-# Instrução Crítica de Contexto (O Histórico é Rei)
-A PRIMEIRA coisa que você deve fazer é ler atentamente o "Histórico da Conversa". O cliente pode ter chegado por um anúncio de um empreendimento (origem no CRM), mas ao longo da conversa, demonstrar interesse em OUTRO empreendimento. A CONVERSA SEMPRE DITA A REGRA. Identifique qual empreendimento o cliente quer AGORA. Cruze essa informação com a "BASE DE CONHECIMENTO GLOBAL" abaixo e use as regras do empreendimento correto.
+# Instrução Crítica de Contexto (Origem do Lead e Histórico)
+A PRIMEIRA coisa que você deve fazer é analisar as informações da "FICHA CADASTRAL E DADOS DE ORIGEM" e as campanhas do Facebook/Meta Ads de onde ele veio. 
+Geralmente, o nome da campanha (meta_campaign_name), do conjunto de anúncios (meta_adset_name) ou do próprio anúncio (meta_ad_name) contêm o nome do empreendimento ou o tipo de público-alvo (investidores, compradores de primeiro imóvel). 
+Analise também as respostas do formulário da Meta (meta_form_data), que contêm perguntas sobre intenção de compra, renda e objetivos.
+Cruze esses dados com o "Histórico da Conversa" recente no WhatsApp. O histórico da conversa dita a regra final de interesse atual caso ele tenha mudado de ideia.
 
-# Dados Atuais Comerciais
+# Ficha Cadastral e Origem do Lead
+${fichaLead}
+
+# Dados Atuais do CRM
 - Fase no Funil (CRM): ${crmStatus}
-- Produtos Interessados: ${produtos}
+- Unidades/Produtos Interessados: ${produtos}
+
+### BASE DE CONHECIMENTO GLOBAL (Cérebro da Studio 57)
 ${empContext}
 
 # Inteligência de Produtos (Caso o cliente pergunte de valores ou área)
@@ -152,26 +245,32 @@ ${anexosContext}
 # Histórico Recente de Conversa (WhatsApp)
 ${chatLog}
 
-# Regras de Extração de Dados Cadastrais do Cliente (Chave "dados_cliente")
-Leia atentamente a conversa e tente extrair quaisquer informações cadastrais citadas pelo cliente. Caso não seja citada ou corrigida na conversa, retorne null para o respectivo campo.
-1. "nome": Nome completo do cliente caso tenha sido explicitamente citado ou corrigido. Se ele enviar apenas o primeiro nome, retorne null. Só capture se for nome completo (dois ou mais nomes).
-2. "cpf": Apenas números do CPF caso informado (limpe pontos e traços).
-3. "cnpj": Apenas números do CNPJ caso informado (limpe pontuação).
-4. "renda_familiar": Renda bruta mensal familiar em formato decimal/numérico (ex: se ele disser "10 mil" ou "R$ 10.000,00" converta para 10000.00).
-5. "fgts": boolean (true/false) indicando se ele informou que possui FGTS para o financiamento.
-6. "mais_de_3_anos_clt": boolean (true/false) indicando se tem mais de 3 anos de CLT.
-7. "objetivo": "MORADIA" ou "INVESTIMENTO" ou "LAZER" caso ele tenha expressado.
-8. "cargo": Profissão ou cargo atual do cliente.
-9. "estado_civil": "Solteiro", "Casado", "Divorciado", "Separado" ou "União Estável".
-10. "birth_date": Data de nascimento no formato YYYY-MM-DD (converta do formato brasileiro DD/MM/AAAA para YYYY-MM-DD).
-11. Endereço: "cep" (apenas números), "address_street" (logradouro), "address_number" (número), "address_complement" (complemento), "neighborhood" (bairro), "city" (cidade), "state" (UF com 2 letras).
+# Regras de Extração e Análise do Cliente (Chave "dados_cliente")
+Analise todos os dados disponíveis (Ficha do Lead, Origem do Meta Ads, Formulário Meta, Dossiês e Conversa no WhatsApp) para determinar o perfil do cliente:
+1. "objetivo": Classifique rigorosamente como "MORADIA", "INVESTIMENTO" ou "LAZER". 
+   - Analise os nomes de Campanha (meta_campaign_name), Adset (meta_adset_name) ou Anúncio (meta_ad_name):
+     - Campanhas contendo "Alfa" (ex: "CAMPANHA CADASTRO ALFA") referem-se ao Residencial Alfa (apartamentos voltados para moradia). Objetivo inicial padrão: "MORADIA".
+     - Campanhas contendo "Beta" ou "Samara" (ex: "BETA SUÍTES") referem-se ao Beta Suítes (apartamentos de alto padrão voltados para investimento/rentabilidade em temporada/Airbnb). Objetivo inicial padrão: "INVESTIMENTO".
+     - Campanhas contendo "Braúnas" ou "Lazer" (ex: "Lotes de Lazer", "Chácaras Braúnas") referem-se às chácaras/lotes de lazer de Braúnas. Objetivo inicial padrão: "LAZER" ou "MORADIA".
+   - Analise as respostas do formulário da Meta (meta_form_data): perguntas como "objetivo?" contendo "moradia" ou "investimento_" indicam a intenção inicial. Padronize essas respostas ("investimento_" -> "INVESTIMENTO").
+   - O histórico de conversa no WhatsApp (chat log) é a verdade final absoluta e prevalece sobre as campanhas. Se o lead veio de uma campanha do Beta Suítes (Investimento) mas no chat ele diz que pretende morar com a família no apartamento, classifique como "MORADIA".
+   - Caso seja inconclusivo e não haja nenhuma informação, retorne null.
+2. "nome": Nome completo do cliente caso tenha sido explicitamente citado ou corrigido. Se no CRM estiver apenas o primeiro nome e no histórico ele informar o completo, retorne o completo.
+3. "cpf" e "cnpj": Apenas dígitos se informados.
+4. "renda_familiar": Renda bruta familiar (se informada no formulário da Meta ou no chat).
+5. "fgts": boolean.
+6. "mais_de_3_anos_clt": boolean.
+7. "cargo": Profissão ou cargo.
+8. "estado_civil": "Solteiro", "Casado", "Divorciado", "Separado" ou "União Estável".
+9. "birth_date": Data de nascimento YYYY-MM-DD.
+10. Endereço: "cep", "address_street", "address_number", "address_complement", "neighborhood", "city", "state".
 
 Com base SOMENTE neste histórico recente e contexto do projeto, escreva um JSON rigoroso nos seguintes moldes:
 {
-  "resumo_interacao": "Texto conciso de até 3 linhas dizendo exatamente o ponto de temperatura da conversa.",
+  "resumo_interacao": "Texto conciso de até 3 linhas resumindo a intenção real, de onde o lead veio (campanha) e o ponto de temperatura da conversa.",
   "temperatura": "Quente" ou "Morno" ou "Frio",
   "fase_crm_atual": "${crmStatus}",
-  "proxima_acao_sugerida": "Dica direta e acionável para o corretor. Ex: Se o cliente pediu material, diga 'Envie o PDF do Book de Vendas que ele solicitou'.",
+  "proxima_acao_sugerida": "Dica direta e acionável para o corretor.",
   "proxima_resposta_sugerida": "A resposta exata e natural para enviar ao cliente. REGRA DE OURO WHATSAPP: Seja EXTREMAMENTE SUCINTO. Ninguém lê textões. Fracione as ideias, use parágrafos curtíssimos (separados por \\n\\n), tom humano e direto ao ponto. Termine sempre com uma pergunta curta para engajar.",
   "dados_cliente": {
     "nome": "Nome completo ou null",
@@ -220,12 +319,7 @@ Com base SOMENTE neste histórico recente e contexto do projeto, escreva um JSON
     // --- NOVA LÓGICA: ATUALIZAÇÃO CADASTRAL INTELIGENTE E INCREMENTAL ---
     if (parsedResult.dados_cliente && typeof parsedResult.dados_cliente === 'object') {
       const dc = parsedResult.dados_cliente;
-      
-      const { data: currentContact } = await supabaseAdmin
-        .from('contatos')
-        .select('nome, cpf, cnpj, fgts, renda_familiar, objetivo, cargo, estado_civil, mais_de_3_anos_clt, cep, address_street, address_number, address_complement, neighborhood, city, state, birth_date')
-        .eq('id', contato_id)
-        .single();
+      const currentContact = contatoInfo;
       
       if (currentContact) {
         const updateData = {};
@@ -242,6 +336,18 @@ Com base SOMENTE neste histórico recente e contexto do projeto, escreva um JSON
           }
         }
 
+        // Se as colunas textuais na tabela contatos estiverem nulas no banco e resolvidas pelo JOIN,
+        // salvamos para persistir na ficha do contato permanentemente.
+        if (!currentContact.meta_campaign_name_original && currentContact.meta_campaign_name) {
+          updateData.meta_campaign_name = currentContact.meta_campaign_name;
+        }
+        if (!currentContact.meta_adset_name_original && currentContact.meta_adset_name) {
+          updateData.meta_adset_name = currentContact.meta_adset_name;
+        }
+        if (!currentContact.meta_ad_name_original && currentContact.meta_ad_name) {
+          updateData.meta_ad_name = currentContact.meta_ad_name;
+        }
+
         // Função auxiliar para atualizar apenas campos vazios/nulos no banco de dados
         const preencherSeVazio = (field, value) => {
           const currentValue = currentContact[field];
@@ -254,7 +360,6 @@ Com base SOMENTE neste histórico recente e contexto do projeto, escreva um JSON
         preencherSeVazio('cnpj', dc.cnpj);
         preencherSeVazio('fgts', dc.fgts);
         preencherSeVazio('renda_familiar', dc.renda_familiar);
-        preencherSeVazio('objetivo', dc.objetivo);
         preencherSeVazio('cargo', dc.cargo);
         preencherSeVazio('estado_civil', dc.estado_civil);
         preencherSeVazio('mais_de_3_anos_clt', dc.mais_de_3_anos_clt);
@@ -266,6 +371,23 @@ Com base SOMENTE neste histórico recente e contexto do projeto, escreva um JSON
         preencherSeVazio('city', dc.city);
         preencherSeVazio('state', dc.state);
         preencherSeVazio('birth_date', dc.birth_date);
+
+        // Normalização e atualização inteligente do Objetivo
+        const objetivoAtual = (currentContact.objetivo || '').trim().toLowerCase();
+        if (dc.objetivo && typeof dc.objetivo === 'string') {
+          const objetivoIA = dc.objetivo.trim().toUpperCase();
+          if (['MORADIA', 'INVESTIMENTO', 'LAZER'].includes(objetivoIA)) {
+            // Se estiver vazio, nulo, ou for uma variação antiga (minúscula, com underline, etc)
+            if (
+              !currentContact.objetivo || 
+              objetivoAtual === '' || 
+              objetivoAtual === 'não informado' ||
+              (objetivoAtual !== objetivoIA.toLowerCase() && !objetivoAtual.startsWith(objetivoIA.toLowerCase().substring(0, 5)))
+            ) {
+              updateData.objetivo = objetivoIA;
+            }
+          }
+        }
 
         if (Object.keys(updateData).length > 0) {
           const { error: updateError } = await supabaseAdmin
