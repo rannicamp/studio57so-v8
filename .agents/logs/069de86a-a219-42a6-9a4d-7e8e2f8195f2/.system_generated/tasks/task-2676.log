@@ -1,0 +1,18 @@
+warning: in the working copy of 'check_marcyana.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'check_msgs.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'find_us_failed.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'find_us_messages.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'fix_monique.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'investigate_marcyana.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'investigate_marcyana2.js', LF will be replaced by CRLF the next time Git touches it
+[main 5c46793e] fix(whatsapp): impede que DDI 55 seja forcado em numeros dos EUA
+ 8 files changed, 132 insertions(+)
+ create mode 100644 check_marcyana.js
+ create mode 100644 check_msgs.js
+ create mode 100644 find_us_failed.js
+ create mode 100644 find_us_messages.js
+ create mode 100644 fix_monique.js
+ create mode 100644 investigate_marcyana.js
+ create mode 100644 investigate_marcyana2.js
+To https://github.com/rannicamp/studio57so-v8.git
+   f31f4dc9..5c46793e  main -> main

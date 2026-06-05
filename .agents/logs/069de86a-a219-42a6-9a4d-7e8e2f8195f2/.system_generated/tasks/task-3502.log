@@ -1,0 +1,9 @@
+warning: in the working copy of 'app/(main)/configuracoes/whatsapp-templates/page.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'update_fn_relatorio.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'diagnose_templates.js', LF will be replaced by CRLF the next time Git touches it
+[main 177b9250] feat(financeiro): revisao e resolucao massiva historica do parcelamento em cartao via bd
+ 6 files changed, 295 insertions(+), 71 deletions(-)
+ create mode 100644 diagnose_templates.js
+ delete mode 100644 reload_schema.js
+To https://github.com/rannicamp/studio57so-v8.git
+   fa28b7e4..177b9250  main -> main

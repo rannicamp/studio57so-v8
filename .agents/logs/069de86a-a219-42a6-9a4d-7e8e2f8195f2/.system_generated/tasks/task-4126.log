@@ -1,0 +1,102 @@
+[dotenv@17.3.1] injecting env (34) from .env.local -- tip: ⚙️  override existing env vars with { override: true }
+--- INICIANDO TESTE DO ENRIQUECIMENTO CADASTRAL INTELIGENTE (STELLA) ---
+Contato temporário criado com ID: 5654
+Telefone temporário inserido.
+Mensagens simuladas de teste inseridas.
+
+Histórico do Chat formatado para o prompt:
+ [29/05/2026, 15:40:16] Cliente: Olá! Preenchi seu formulário e gostaria de saber mais sobre sua empresa.
+[29/05/2026, 15:40:16] Cliente: objetivo?: MORADIA
+full_name: Ronan Matias
+possui_fgts?: Não
+phone_number: +19782463462
+renda_familiar_bruta: Menos de R$ 10.000,00
+
+Invocando Gemini API...
+
+Retorno cru do Gemini:
+ {
+  "resumo_interacao": "Lead entrou através de formulário buscando conhecer a empresa e com interesse em imóvel para moradia. Informou não possuir FGTS e ter renda familiar abaixo de R$ 10.000,00.",
+  "temperatura": "Morno",
+  "fase_crm_atual": "Lead Sem Funil",
+  "proxima_acao_sugerida": "Fazer o primeiro contato de acolhimento, apresentar rapidamente a Studio 57 e iniciar a qualificação sobre a localização desejada e condições ideais.",
+  "proxima_resposta_sugerida": "Olá, Ronan! Tudo bem? Aqui é da Studio 57. Recebi o seu formulário e vi que você está buscando um imóvel para moradia, que legal! Para eu te apresentar as melhores opções da nossa empresa, em qual região você gostaria de morar?",
+  "dados_cliente": {
+    "nome": "Ronan Matias",
+    "cpf": null,
+    "cnpj": null,
+    "renda_familiar": null,
+    "fgts": false,
+    "mais_de_3_anos_clt": null,
+    "objetivo": "MORADIA",
+    "cargo": null,
+    "estado_civil": null,
+    "birth_date": null,
+    "cep": null,
+    "address_street": null,
+    "address_number": null,
+    "address_complement": null,
+    "neighborhood": null,
+    "city": null,
+    "state": null
+  }
+}
+
+JSON parseado com sucesso: {
+  resumo_interacao: 'Lead entrou através de formulário buscando conhecer a empresa e com interesse em imóvel para moradia. Informou não possuir FGTS e ter renda familiar abaixo de R$ 10.000,00.',
+  temperatura: 'Morno',
+  fase_crm_atual: 'Lead Sem Funil',
+  proxima_acao_sugerida: 'Fazer o primeiro contato de acolhimento, apresentar rapidamente a Studio 57 e iniciar a qualificação sobre a localização desejada e condições ideais.',
+  proxima_resposta_sugerida: 'Olá, Ronan! Tudo bem? Aqui é da Studio 57. Recebi o seu formulário e vi que você está buscando um imóvel para moradia, que legal! Para eu te apresentar as melhores opções da nossa empresa, em qual região você gostaria de morar?',
+  dados_cliente: {
+    nome: 'Ronan Matias',
+    cpf: null,
+    cnpj: null,
+    renda_familiar: null,
+    fgts: false,
+    mais_de_3_anos_clt: null,
+    objetivo: 'MORADIA',
+    cargo: null,
+    estado_civil: null,
+    birth_date: null,
+    cep: null,
+    address_street: null,
+    address_number: null,
+    address_complement: null,
+    neighborhood: null,
+    city: null,
+    state: null
+  }
+}
+
+Dados atuais do contato no banco antes do update: {
+  nome: 'Ronan',
+  cpf: null,
+  cnpj: null,
+  fgts: false,
+  renda_familiar: null,
+  objetivo: null,
+  cargo: null,
+  estado_civil: null,
+  mais_de_3_anos_clt: false,
+  cep: null,
+  address_street: null,
+  address_number: null,
+  address_complement: null,
+  neighborhood: null,
+  city: null,
+  state: null,
+  birth_date: null
+}
+
+Campos atualizados via IA no banco de dados: { nome: 'Ronan Matias', objetivo: 'MORADIA' }
+
+--- DADOS FINAIS DO CONTATO APÓS PROCESSAMENTO DA IA ---
+{
+  nome: 'Ronan Matias',
+  fgts: false,
+  renda_familiar: null,
+  objetivo: 'MORADIA'
+}
+
+Banco de dados limpo com sucesso.

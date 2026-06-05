@@ -1,0 +1,12 @@
+warning: in the working copy of 'tmp/check_conv_telefones.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tmp/check_country_codes.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tmp/inspect_conversations_phones.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'tmp/inspect_country_code.js', LF will be replaced by CRLF the next time Git touches it
+[main 5d218dfb] feat(financeiro): revisao e resolucao massiva historica do parcelamento em cartao via bd
+ 6 files changed, 259 insertions(+), 37 deletions(-)
+ create mode 100644 tmp/check_conv_telefones.js
+ create mode 100644 tmp/check_country_codes.js
+ create mode 100644 tmp/inspect_conversations_phones.js
+ create mode 100644 tmp/inspect_country_code.js
+To https://github.com/rannicamp/studio57so-v8.git
+   b4753b38..5d218dfb  main -> main

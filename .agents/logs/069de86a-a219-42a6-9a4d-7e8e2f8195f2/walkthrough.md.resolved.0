@@ -1,0 +1,32 @@
+# 🎉 Atualização Concluída: Imagens no Construtor Inteligente!
+
+Como solicitado, implantei o suporte a Cabeçalhos nos modelos de WhatsApp e já **liguei o servidor localmente** sem realizar nenhum *deploy* em produção. 
+
+## 🛠️ O que foi feito?
+
+> [!NOTE]
+> Você pode acessar o sistema agora mesmo através do seu **`http://localhost:3000`** e abrir a tela de Modelos do WhatsApp para testar a criação de templates com imagem.
+
+1. **Seletor de Cabeçalho**: 
+   No painel esquerdo do Construtor Inteligente, adicionei um novo campo onde você pode escolher entre `Nenhum Cabeçalho`, `Texto (Título)` ou `Imagem`.
+
+2. **Área de Upload Rápido**:
+   Ao selecionar "Imagem", uma área verde (no Padrão Ouro Elo 57) de upload de arquivo vai aparecer. Basta selecionar qualquer JPG ou PNG de até 5MB. 
+
+3. **Preview em Tempo Real no Celular**:
+   Do lado direito, no mockup do iPhone, o cabeçalho (seja o texto do título ou a foto que você escolheu) aparecerá instantaneamente no topo do balão verde, pra você ter certeza absoluta de como o lead verá a mensagem.
+
+4. **Integração com a API de Uploads da Meta**:
+   Por baixo dos panos (no Backend), nossa API agora detecta que há uma imagem em formato Base64 anexada e, antes de salvar o modelo, abre uma comunicação especial e segura com a Meta, transmite a foto em blocos (Resumable Upload) e usa o "Carimbo" de aprovação da imagem no template.
+
+## ✅ Como testar agora mesmo:
+
+1. Acesse o **`http://localhost:3000`** no seu navegador.
+2. Vá em **Configurações > Modelos do WhatsApp**.
+3. Clique em **Criar Modelo**.
+4. Teste colocar a opção **Imagem** e faça upload de um arquivo de exemplo do seu computador.
+5. Veja a foto aparecendo no "iPhone" na direita.
+6. Clique em Salvar e verifique se o modelo entra em "Em Análise" com sucesso!
+
+> [!TIP]
+> Lembrando: essa foto enviada no construtor é apenas a **amostra** para a Meta liberar o uso. Quando estivermos nas automações, o Elo 57 permitirá a você escolher a imagem real da campanha do dia.

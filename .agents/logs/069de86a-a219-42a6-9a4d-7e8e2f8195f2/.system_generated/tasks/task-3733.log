@@ -1,0 +1,101 @@
+--- SCRIPT DE MESCLAGEM E UNIFICAÇÃO HISTÓRICA DE CONTATOS DUPLICADOS (BULLETPROOF) ---
+Encontrados 13 grupos de telefones duplicados para processar.
+
+
+==================================================
+Processando telefone: 18578884946 | Org: 2
+Contato Principal Escolhido: [5438] "Amanda da Silva Ferreira" (Score: 81, Mensagens: 1)
+Contatos Secundários para mesclar:
+ - [3485] "Fábio Júnior de Oliveira Alaerte" (Score: 64, Mensagens: 4)
+  -> Repontou 4 mensagens para a conversa principal.
+  -> Deletou 1 conversas secundárias duplicadas.
+  -> Migrou email "fabiooliveira15061992@gmail.com" para o contato principal.
+  -> Removeu card de funil duplicado [ID f64f9669-7639-49db-8b5a-d81103dbb1e8] pois o principal já possui um card.
+  -> Repontou 9 linhas na tabela "lancamentos.favorecido_contato_id".
+  -> Repontou 1 linhas na tabela "contratos.contato_id".
+  -> Repontou 1 linhas na tabela "contratos.conjuge_id".
+  -> Repontou 2 linhas na tabela "simulacoes.contato_id".
+  -> Repontou 1 linhas na tabela "contatos.conjuge_id".
+  -> Deletou telefone duplicado "18578884946".
+  -> Deletou 1 contatos secundários duplicados da tabela "contatos".
+Unificação do telefone 18578884946 concluída com sucesso!
+
+==================================================
+Processando telefone: 5533988901606 | Org: 2
+Apenas 1 contato(s) encontrado(s) fisicamente no banco. Pulando.
+
+==================================================
+Processando telefone: 5533988995648 | Org: 2
+Apenas 1 contato(s) encontrado(s) fisicamente no banco. Pulando.
+
+==================================================
+Processando telefone: 553399025985 | Org: 2
+Apenas 1 contato(s) encontrado(s) fisicamente no banco. Pulando.
+
+==================================================
+Processando telefone: 5533991916906 | Org: 2
+Contato Principal Escolhido: [4886] "Fabio Silvino" (Score: 207, Mensagens: 27)
+Contatos Secundários para mesclar:
+ - [4941] "Fabio Silvino" (Score: 187, Mensagens: 7)
+  -> Vinculou conversa [16257] ao contato principal.
+  -> Repontou 0 mensagens para a conversa principal.
+  -> Deletou 0 contatos secundários duplicados da tabela "contatos".
+Unificação do telefone 5533991916906 concluída com sucesso!
+
+==================================================
+Processando telefone: 553399547476 | Org: 2
+Apenas 1 contato(s) encontrado(s) fisicamente no banco. Pulando.
+
+==================================================
+Processando telefone: 5533998125104 | Org: 2
+Apenas 1 contato(s) encontrado(s) fisicamente no banco. Pulando.
+
+==================================================
+Processando telefone: 5533999008886 | Org: 2
+Contato Principal Escolhido: [5158] "Nilcilene de Souza" (Score: 194, Mensagens: 14)
+Contatos Secundários para mesclar:
+ - [5421] "Nilcilene de Souza" (Score: 183, Mensagens: 3)
+  -> Repontou 0 mensagens para a conversa principal.
+  -> Deletou 0 contatos secundários duplicados da tabela "contatos".
+Unificação do telefone 5533999008886 concluída com sucesso!
+
+==================================================
+Processando telefone: 5533999103802 | Org: 2
+Apenas 1 contato(s) encontrado(s) fisicamente no banco. Pulando.
+
+==================================================
+Processando telefone: 5533999160930 | Org: 2
+Contato Principal Escolhido: [5298] "Camila Cardoso" (Score: 206, Mensagens: 26)
+Contatos Secundários para mesclar:
+ - [5297] "Camila Cardoso " (Score: 80, Mensagens: 0)
+  -> Repontou 0 mensagens para a conversa principal.
+  -> Deletou 0 contatos secundários duplicados da tabela "contatos".
+Unificação do telefone 5533999160930 concluída com sucesso!
+
+==================================================
+Processando telefone: 5533999237029 | Org: 2
+Apenas 1 contato(s) encontrado(s) fisicamente no banco. Pulando.
+
+==================================================
+Processando telefone: 5533999251936 | Org: 2
+Contato Principal Escolhido: [5283] "Guilherme" (Score: 198, Mensagens: 18)
+Contatos Secundários para mesclar:
+ - [5277] "Guilherme Santos Duarte" (Score: 87, Mensagens: 7)
+  -> Repontou 7 mensagens para a conversa principal.
+  -> Removeu card de funil duplicado [ID 1f1e6894-043e-433e-a236-c77881f33892] pois o principal já possui um card.
+  -> Deletou telefone duplicado "5533999251936".
+  -> Deletou 1 contatos secundários duplicados da tabela "contatos".
+Unificação do telefone 5533999251936 concluída com sucesso!
+
+==================================================
+Processando telefone: 5533999621067 | Org: 2
+Contato Principal Escolhido: [4845] "Regiane Xavier" (Score: 240, Mensagens: 60)
+Contatos Secundários para mesclar:
+ - [5363] "Regiane Xavier" (Score: 180, Mensagens: 0)
+  -> Repontou 0 mensagens para a conversa principal.
+  -> Removeu card de funil duplicado [ID 63260ee4-72d5-4524-87df-8ef149be911f] pois o principal já possui um card.
+  -> Deletou telefone duplicado "5533999621067".
+  -> Deletou 1 contatos secundários duplicados da tabela "contatos".
+Unificação do telefone 5533999621067 concluída com sucesso!
+
+--- PROCESSO DE UNIFICAÇÃO CONCLUÍDO ---

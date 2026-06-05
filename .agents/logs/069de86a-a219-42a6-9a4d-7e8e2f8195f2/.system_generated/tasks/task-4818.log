@@ -1,0 +1,5 @@
+warning: in the working copy of 'app/(main)/caixa-de-entrada/data-fetching.js', LF will be replaced by CRLF the next time Git touches it
+[main 368e13e3] fix(whatsapp): remove alerta vermelho piscante e exclamação de erro da lista de conversas
+ 2 files changed, 6 insertions(+), 34 deletions(-)
+To https://github.com/rannicamp/studio57so-v8.git
+   3dd9161c..368e13e3  main -> main

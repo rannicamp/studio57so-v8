@@ -1,0 +1,6 @@
+{
+  "artifactType":  "ARTIFACT_TYPE_WALKTHROUGH",
+  "summary":  "Walkthrough atualizado com a trava de tamanho de vídeo de 10MB na API de envio do WhatsApp e a arquitetura assíncrona do webhook usando a função after() do Next.js 15.",
+  "updatedAt":  "2026-06-05T15:04:17.198318800Z",
+  "version":  "8"
+}

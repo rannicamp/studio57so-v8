@@ -1,0 +1,5 @@
+warning: in the working copy of 'update_fn_relatorio.js', LF will be replaced by CRLF the next time Git touches it
+[main 0334a458] feat(financeiro): revisao e resolucao massiva historica do parcelamento em cartao via bd
+ 1 file changed, 67 insertions(+), 67 deletions(-)
+To https://github.com/rannicamp/studio57so-v8.git
+   177b9250..0334a458  main -> main

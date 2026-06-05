@@ -1,0 +1,5 @@
+{
+  "artifactType":  "ARTIFACT_TYPE_OTHER",
+  "summary":  "Script para fazer a chamada HTTP POST na API local para reenviar o video otimizado para o Ranniere",
+  "updatedAt":  "2026-06-05T15:26:10.380625500Z"
+}

@@ -1,0 +1,903 @@
+--- Últimos 20 logs na tabela whatsapp_webhook_logs ---
+
+ID: 26881 | Level: INFO | Date: Fri Jun 05 2026 13:28:27 GMT-0300 (Horário Padrão de Brasília)
+Message: "Webhook Bateu na Porta"
+Payload: {
+  "body": {
+    "entry": [
+      {
+        "id": "1157736359732238",
+        "changes": [
+          {
+            "field": "messages",
+            "value": {
+              "contacts": [
+                {
+                  "wa_id": "17744989329",
+                  "user_id": "US.3030167477181497"
+                }
+              ],
+              "metadata": {
+                "phone_number_id": "690198827516149",
+                "display_phone_number": "553398192119"
+              },
+              "statuses": [
+                {
+                  "id": "wamid.HBgLMTc3NDQ5ODkzMjkVAgARGBIxNUIyNDZDNUVBOTkwQ0EwNkYA",
+                  "status": "read",
+                  "pricing": {
+                    "type": "free_entry_point",
+                    "billable": false,
+                    "category": "referral_conversion",
+                    "pricing_model": "PMP"
+                  },
+                  "timestamp": "1780676903",
+                  "conversation": {
+                    "id": "8262e15292730c8f0ad8d5516a04add8",
+                    "origin": {
+                      "type": "referral_conversion"
+                    }
+                  },
+                  "recipient_id": "17744989329",
+                  "recipient_user_id": "US.3030167477181497"
+                }
+              ],
+              "messaging_product": "whatsapp"
+            }
+          }
+        ]
+      }
+    ],
+    "object": "whatsapp_business_account"
+  }
+}
+
+ID: 26880 | Level: INFO | Date: Fri Jun 05 2026 13:28:25 GMT-0300 (Horário Padrão de Brasília)
+Message: "Webhook Bateu na Porta"
+Payload: {
+  "body": {
+    "entry": [
+      {
+        "id": "1157736359732238",
+        "changes": [
+          {
+            "field": "messages",
+            "value": {
+              "contacts": [
+                {
+                  "wa_id": "17744989329",
+                  "user_id": "US.3030167477181497"
+                }
+              ],
+              "metadata": {
+                "phone_number_id": "690198827516149",
+                "display_phone_number": "553398192119"
+              },
+              "statuses": [
+                {
+                  "id": "wamid.HBgLMTc3NDQ5ODkzMjkVAgARGBIxMjA1M0RBRUMyMURDOUQ2QjgA",
+                  "status": "read",
+                  "pricing": {
+                    "type": "regular",
+                    "billable": true,
+                    "category": "utility",
+                    "pricing_model": "PMP"
+                  },
+                  "timestamp": "1780676903",
+                  "recipient_id": "17744989329",
+                  "recipient_user_id": "US.3030167477181497"
+                }
+              ],
+              "messaging_product": "whatsapp"
+            }
+          }
+        ]
+      }
+    ],
+    "object": "whatsapp_business_account"
+  }
+}
+
+ID: 26879 | Level: INFO | Date: Fri Jun 05 2026 13:26:27 GMT-0300 (Horário Padrão de Brasília)
+Message: "Webhook Bateu na Porta"
+Payload: {
+  "body": {
+    "entry": [
+      {
+        "id": "1157736359732238",
+        "changes": [
+          {
+            "field": "messages",
+            "value": {
+              "contacts": [
+                {
+                  "wa_id": "17744989329",
+                  "user_id": "US.3030167477181497"
+                }
+              ],
+              "metadata": {
+                "phone_number_id": "690198827516149",
+                "display_phone_number": "553398192119"
+              },
+              "statuses": [
+                {
+                  "id": "wamid.HBgLMTc3NDQ5ODkzMjkVAgARGBIxMjA1M0RBRUMyMURDOUQ2QjgA",
+                  "status": "delivered",
+                  "pricing": {
+                    "type": "regular",
+                    "billable": true,
+                    "category": "utility",
+                    "pricing_model": "PMP"
+                  },
+                  "timestamp": "1780676786",
+                  "recipient_id": "17744989329",
+                  "recipient_user_id": "US.3030167477181497"
+                }
+              ],
+              "messaging_product": "whatsapp"
+            }
+          }
+        ]
+      }
+    ],
+    "object": "whatsapp_business_account"
+  }
+}
+
+ID: 26878 | Level: INFO | Date: Fri Jun 05 2026 13:26:26 GMT-0300 (Horário Padrão de Brasília)
+Message: "Webhook Bateu na Porta"
+Payload: {
+  "body": {
+    "entry": [
+      {
+        "id": "1157736359732238",
+        "changes": [
+          {
+            "field": "messages",
+            "value": {
+              "contacts": [
+                {
+                  "wa_id": "17744989329",
+                  "user_id": "US.3030167477181497"
+                }
+              ],
+              "metadata": {
+                "phone_number_id": "690198827516149",
+                "display_phone_number": "553398192119"
+              },
+              "statuses": [
+                {
+                  "id": "wamid.HBgLMTc3NDQ5ODkzMjkVAgARGBIxMjA1M0RBRUMyMURDOUQ2QjgA",
+                  "status": "sent",
+                  "pricing": {
+                    "type": "regular",
+                    "billable": true,
+                    "category": "utility",
+                    "pricing_model": "PMP"
+                  },
+                  "timestamp": "1780676785",
+                  "recipient_id": "17744989329",
+                  "recipient_user_id": "US.3030167477181497"
+                }
+              ],
+              "messaging_product": "whatsapp"
+            }
+          }
+        ]
+      }
+    ],
+    "object": "whatsapp_business_account"
+  }
+}
+
+ID: 26877 | Level: INFO | Date: Fri Jun 05 2026 13:25:50 GMT-0300 (Horário Padrão de Brasília)
+Message: "Webhook Bateu na Porta"
+Payload: {
+  "body": {
+    "entry": [
+      {
+        "id": "1157736359732238",
+        "changes": [
+          {
+            "field": "messages",
+            "value": {
+              "contacts": [
+                {
+                  "wa_id": "553391912291",
+                  "profile": {
+                    "name": "Ranniere Campos Mendes"
+                  },
+                  "user_id": "BR.2991270504404528"
+                }
+              ],
+              "messages": [
+                {
+                  "id": "wamid.HBgMNTUzMzkxOTEyMjkxFQIAEhggQTU5N0QyQTk2MUZEQjlEQ0Q2NjA5N0NGMTNDNkVFMDgA",
+                  "from": "553391912291",
+                  "text": {
+                    "body": "Quais os próximos passos?"
+                  },
+                  "type": "text",
+                  "timestamp": "1780676723",
+                  "from_user_id": "BR.2991270504404528"
+                }
+              ],
+              "metadata": {
+                "phone_number_id": "690198827516149",
+                "display_phone_number": "553398192119"
+              },
+              "messaging_product": "whatsapp"
+            }
+          }
+        ]
+      }
+    ],
+    "object": "whatsapp_business_account"
+  }
+}
+
+ID: 26876 | Level: INFO | Date: Fri Jun 05 2026 13:25:24 GMT-0300 (Horário Padrão de Brasília)
+Message: "Msg recebida: text"
+Payload: {
+  "from": "553391912291",
+  "org_id": 2
+}
+
+ID: 26875 | Level: INFO | Date: Fri Jun 05 2026 13:25:24 GMT-0300 (Horário Padrão de Brasília)
+Message: "Webhook Bateu na Porta"
+Payload: {
+  "body": {
+    "entry": [
+      {
+        "id": "1157736359732238",
+        "changes": [
+          {
+            "field": "messages",
+            "value": {
+              "contacts": [
+                {
+                  "wa_id": "553391912291",
+                  "profile": {
+                    "name": "Ranniere Campos Mendes"
+                  },
+                  "user_id": "BR.2991270504404528"
+                }
+              ],
+              "messages": [
+                {
+                  "id": "wamid.HBgMNTUzMzkxOTEyMjkxFQIAEhggQTU5N0QyQTk2MUZEQjlEQ0Q2NjA5N0NGMTNDNkVFMDgA",
+                  "from": "553391912291",
+                  "text": {
+                    "body": "Quais os próximos passos?"
+                  },
+                  "type": "text",
+                  "timestamp": "1780676723",
+                  "from_user_id": "BR.2991270504404528"
+                }
+              ],
+              "metadata": {
+                "phone_number_id": "690198827516149",
+                "display_phone_number": "553398192119"
+              },
+              "messaging_product": "whatsapp"
+            }
+          }
+        ]
+      }
+    ],
+    "object": "whatsapp_business_account"
+  }
+}
+
+ID: 26874 | Level: INFO | Date: Fri Jun 05 2026 13:22:22 GMT-0300 (Horário Padrão de Brasília)
+Message: "Webhook Bateu na Porta"
+Payload: {
+  "body": {
+    "entry": [
+      {
+        "id": "1157736359732238",
+        "changes": [
+          {
+            "field": "messages",
+            "value": {
+              "contacts": [
+                {
+                  "wa_id": "19545481082",
+                  "user_id": "US.3023873761144202"
+                }
+              ],
+              "metadata": {
+                "phone_number_id": "690198827516149",
+                "display_phone_number": "553398192119"
+              },
+              "statuses": [
+                {
+                  "id": "wamid.HBgLMTk1NDU0ODEwODIVAgARGBIyMkVDM0ZDOTIzQkZFQkY4ODkA",
+                  "errors": [
+                    {
+                      "code": 131049,
+                      "href": "https://developers.facebook.com/docs/whatsapp/cloud-api/support/error-codes/",
+                      "title": "This message was not delivered to maintain healthy ecosystem engagement.",
+                      "message": "This message was not delivered to maintain healthy ecosystem engagement.",
+                      "error_data": {
+                        "details": "In order to maintain a healthy ecosystem engagement, the message failed to be delivered."
+                      }
+                    }
+                  ],
+                  "status": "failed",
+                  "timestamp": "1780676541",
+                  "recipient_id": "19545481082",
+                  "recipient_user_id": "US.3023873761144202"
+                }
+              ],
+              "messaging_product": "whatsapp"
+            }
+          }
+        ]
+      }
+    ],
+    "object": "whatsapp_business_account"
+  }
+}
+
+ID: 26873 | Level: INFO | Date: Fri Jun 05 2026 13:20:44 GMT-0300 (Horário Padrão de Brasília)
+Message: "Webhook Bateu na Porta"
+Payload: {
+  "body": {
+    "entry": [
+      {
+        "id": "1157736359732238",
+        "changes": [
+          {
+            "field": "messages",
+            "value": {
+              "contacts": [
+                {
+                  "wa_id": "15085361334",
+                  "user_id": "US.3028903803974531"
+                }
+              ],
+              "metadata": {
+                "phone_number_id": "690198827516149",
+                "display_phone_number": "553398192119"
+              },
+              "statuses": [
+                {
+                  "id": "wamid.HBgLMTUwODUzNjEzMzQVAgARGBJCM0Q2MjdCN0Y5NDYwOUE2REMA",
+                  "errors": [
+                    {
+                      "code": 131049,
+                      "href": "https://developers.facebook.com/docs/whatsapp/cloud-api/support/error-codes/",
+                      "title": "This message was not delivered to maintain healthy ecosystem engagement.",
+                      "message": "This message was not delivered to maintain healthy ecosystem engagement.",
+                      "error_data": {
+                        "details": "In order to maintain a healthy ecosystem engagement, the message failed to be delivered."
+                      }
+                    }
+                  ],
+                  "status": "failed",
+                  "timestamp": "1780676443",
+                  "recipient_id": "15085361334",
+                  "recipient_user_id": "US.3028903803974531"
+                }
+              ],
+              "messaging_product": "whatsapp"
+            }
+          }
+        ]
+      }
+    ],
+    "object": "whatsapp_business_account"
+  }
+}
+
+ID: 26872 | Level: INFO | Date: Fri Jun 05 2026 13:20:25 GMT-0300 (Horário Padrão de Brasília)
+Message: "Webhook Bateu na Porta"
+Payload: {
+  "body": {
+    "entry": [
+      {
+        "id": "1157736359732238",
+        "changes": [
+          {
+            "field": "messages",
+            "value": {
+              "contacts": [
+                {
+                  "wa_id": "17744414239",
+                  "user_id": "US.3027289687469276"
+                }
+              ],
+              "metadata": {
+                "phone_number_id": "690198827516149",
+                "display_phone_number": "553398192119"
+              },
+              "statuses": [
+                {
+                  "id": "wamid.HBgLMTc3NDQ0MTQyMzkVAgARGBI3N0UzNzYxNzNGQjQzMzI0QTUA",
+                  "errors": [
+                    {
+                      "code": 131049,
+                      "href": "https://developers.facebook.com/docs/whatsapp/cloud-api/support/error-codes/",
+                      "title": "This message was not delivered to maintain healthy ecosystem engagement.",
+                      "message": "This message was not delivered to maintain healthy ecosystem engagement.",
+                      "error_data": {
+                        "details": "In order to maintain a healthy ecosystem engagement, the message failed to be delivered."
+                      }
+                    }
+                  ],
+                  "status": "failed",
+                  "timestamp": "1780676424",
+                  "recipient_id": "17744414239",
+                  "recipient_user_id": "US.3027289687469276"
+                }
+              ],
+              "messaging_product": "whatsapp"
+            }
+          }
+        ]
+      }
+    ],
+    "object": "whatsapp_business_account"
+  }
+}
+
+ID: 26871 | Level: INFO | Date: Fri Jun 05 2026 13:20:02 GMT-0300 (Horário Padrão de Brasília)
+Message: "Webhook Bateu na Porta"
+Payload: {
+  "body": {
+    "entry": [
+      {
+        "id": "1157736359732238",
+        "changes": [
+          {
+            "field": "messages",
+            "value": {
+              "contacts": [
+                {
+                  "wa_id": "553898334253",
+                  "user_id": "BR.3026877107510534"
+                }
+              ],
+              "metadata": {
+                "phone_number_id": "690198827516149",
+                "display_phone_number": "553398192119"
+              },
+              "statuses": [
+                {
+                  "id": "wamid.HBgMNTUzODk4MzM0MjUzFQIAERgSNDFBM0IzMEIxMzE1RURGQkIyAA==",
+                  "status": "delivered",
+                  "pricing": {
+                    "type": "regular",
+                    "billable": true,
+                    "category": "marketing",
+                    "pricing_model": "PMP"
+                  },
+                  "timestamp": "1780676399",
+                  "recipient_id": "553898334253",
+                  "recipient_user_id": "BR.3026877107510534"
+                }
+              ],
+              "messaging_product": "whatsapp"
+            }
+          }
+        ]
+      }
+    ],
+    "object": "whatsapp_business_account"
+  }
+}
+
+ID: 26870 | Level: INFO | Date: Fri Jun 05 2026 13:19:57 GMT-0300 (Horário Padrão de Brasília)
+Message: "Webhook Bateu na Porta"
+Payload: {
+  "body": {
+    "entry": [
+      {
+        "id": "1157736359732238",
+        "changes": [
+          {
+            "field": "messages",
+            "value": {
+              "contacts": [
+                {
+                  "wa_id": "553898334253",
+                  "user_id": "BR.3026877107510534"
+                }
+              ],
+              "metadata": {
+                "phone_number_id": "690198827516149",
+                "display_phone_number": "553398192119"
+              },
+              "statuses": [
+                {
+                  "id": "wamid.HBgMNTUzODk4MzM0MjUzFQIAERgSNDFBM0IzMEIxMzE1RURGQkIyAA==",
+                  "status": "sent",
+                  "pricing": {
+                    "type": "regular",
+                    "billable": true,
+                    "category": "marketing",
+                    "pricing_model": "PMP"
+                  },
+                  "timestamp": "1780676395",
+                  "recipient_id": "553898334253",
+                  "recipient_user_id": "BR.3026877107510534"
+                }
+              ],
+              "messaging_product": "whatsapp"
+            }
+          }
+        ]
+      }
+    ],
+    "object": "whatsapp_business_account"
+  }
+}
+
+ID: 26869 | Level: INFO | Date: Fri Jun 05 2026 13:17:51 GMT-0300 (Horário Padrão de Brasília)
+Message: "Webhook Bateu na Porta"
+Payload: {
+  "body": {
+    "entry": [
+      {
+        "id": "1157736359732238",
+        "changes": [
+          {
+            "field": "messages",
+            "value": {
+              "contacts": [
+                {
+                  "wa_id": "553399517959",
+                  "user_id": "BR.3040355839495994"
+                }
+              ],
+              "metadata": {
+                "phone_number_id": "690198827516149",
+                "display_phone_number": "553398192119"
+              },
+              "statuses": [
+                {
+                  "id": "wamid.HBgMNTUzMzk5NTE3OTU5FQIAERgSNkI2RjQxNTQ2MzZENzExODY0AA==",
+                  "status": "sent",
+                  "pricing": {
+                    "type": "free_customer_service",
+                    "billable": false,
+                    "category": "service",
+                    "pricing_model": "PMP"
+                  },
+                  "timestamp": "1780676268",
+                  "recipient_id": "553399517959",
+                  "recipient_user_id": "BR.3040355839495994"
+                }
+              ],
+              "messaging_product": "whatsapp"
+            }
+          }
+        ]
+      }
+    ],
+    "object": "whatsapp_business_account"
+  }
+}
+
+ID: 26868 | Level: INFO | Date: Fri Jun 05 2026 13:17:50 GMT-0300 (Horário Padrão de Brasília)
+Message: "Webhook Bateu na Porta"
+Payload: {
+  "body": {
+    "entry": [
+      {
+        "id": "1157736359732238",
+        "changes": [
+          {
+            "field": "messages",
+            "value": {
+              "contacts": [
+                {
+                  "wa_id": "553399517959",
+                  "user_id": "BR.3040355839495994"
+                }
+              ],
+              "metadata": {
+                "phone_number_id": "690198827516149",
+                "display_phone_number": "553398192119"
+              },
+              "statuses": [
+                {
+                  "id": "wamid.HBgMNTUzMzk5NTE3OTU5FQIAERgSNkI2RjQxNTQ2MzZENzExODY0AA==",
+                  "status": "delivered",
+                  "pricing": {
+                    "type": "free_customer_service",
+                    "billable": false,
+                    "category": "service",
+                    "pricing_model": "PMP"
+                  },
+                  "timestamp": "1780676269",
+                  "recipient_id": "553399517959",
+                  "recipient_user_id": "BR.3040355839495994"
+                }
+              ],
+              "messaging_product": "whatsapp"
+            }
+          }
+        ]
+      }
+    ],
+    "object": "whatsapp_business_account"
+  }
+}
+
+ID: 26867 | Level: INFO | Date: Fri Jun 05 2026 13:15:47 GMT-0300 (Horário Padrão de Brasília)
+Message: "Webhook Bateu na Porta"
+Payload: {
+  "body": {
+    "entry": [
+      {
+        "id": "1157736359732238",
+        "changes": [
+          {
+            "field": "messages",
+            "value": {
+              "contacts": [
+                {
+                  "wa_id": "553399517959",
+                  "user_id": "BR.3040355839495994"
+                }
+              ],
+              "metadata": {
+                "phone_number_id": "690198827516149",
+                "display_phone_number": "553398192119"
+              },
+              "statuses": [
+                {
+                  "id": "wamid.HBgMNTUzMzk5NTE3OTU5FQIAERgSMTEyN0U4MDJDOUJFRTI2OTI2AA==",
+                  "status": "delivered",
+                  "pricing": {
+                    "type": "free_customer_service",
+                    "billable": false,
+                    "category": "service",
+                    "pricing_model": "PMP"
+                  },
+                  "timestamp": "1780676147",
+                  "recipient_id": "553399517959",
+                  "recipient_user_id": "BR.3040355839495994"
+                }
+              ],
+              "messaging_product": "whatsapp"
+            }
+          }
+        ]
+      }
+    ],
+    "object": "whatsapp_business_account"
+  }
+}
+
+ID: 26866 | Level: INFO | Date: Fri Jun 05 2026 13:15:47 GMT-0300 (Horário Padrão de Brasília)
+Message: "Webhook Bateu na Porta"
+Payload: {
+  "body": {
+    "entry": [
+      {
+        "id": "1157736359732238",
+        "changes": [
+          {
+            "field": "messages",
+            "value": {
+              "contacts": [
+                {
+                  "wa_id": "553399517959",
+                  "user_id": "BR.3040355839495994"
+                }
+              ],
+              "metadata": {
+                "phone_number_id": "690198827516149",
+                "display_phone_number": "553398192119"
+              },
+              "statuses": [
+                {
+                  "id": "wamid.HBgMNTUzMzk5NTE3OTU5FQIAERgSMTEyN0U4MDJDOUJFRTI2OTI2AA==",
+                  "status": "sent",
+                  "pricing": {
+                    "type": "free_customer_service",
+                    "billable": false,
+                    "category": "service",
+                    "pricing_model": "PMP"
+                  },
+                  "timestamp": "1780676146",
+                  "recipient_id": "553399517959",
+                  "recipient_user_id": "BR.3040355839495994"
+                }
+              ],
+              "messaging_product": "whatsapp"
+            }
+          }
+        ]
+      }
+    ],
+    "object": "whatsapp_business_account"
+  }
+}
+
+ID: 26865 | Level: INFO | Date: Fri Jun 05 2026 13:15:19 GMT-0300 (Horário Padrão de Brasília)
+Message: "Webhook Bateu na Porta"
+Payload: {
+  "body": {
+    "entry": [
+      {
+        "id": "1157736359732238",
+        "changes": [
+          {
+            "field": "messages",
+            "value": {
+              "contacts": [
+                {
+                  "wa_id": "553399517959",
+                  "user_id": "BR.3040355839495994"
+                }
+              ],
+              "metadata": {
+                "phone_number_id": "690198827516149",
+                "display_phone_number": "553398192119"
+              },
+              "statuses": [
+                {
+                  "id": "wamid.HBgMNTUzMzk5NTE3OTU5FQIAERgSNUJFODM3RDIyREVGM0E0NTY5AA==",
+                  "status": "delivered",
+                  "pricing": {
+                    "type": "free_customer_service",
+                    "billable": false,
+                    "category": "service",
+                    "pricing_model": "PMP"
+                  },
+                  "timestamp": "1780676117",
+                  "recipient_id": "553399517959",
+                  "recipient_user_id": "BR.3040355839495994"
+                }
+              ],
+              "messaging_product": "whatsapp"
+            }
+          }
+        ]
+      }
+    ],
+    "object": "whatsapp_business_account"
+  }
+}
+
+ID: 26864 | Level: INFO | Date: Fri Jun 05 2026 13:15:17 GMT-0300 (Horário Padrão de Brasília)
+Message: "Webhook Bateu na Porta"
+Payload: {
+  "body": {
+    "entry": [
+      {
+        "id": "1157736359732238",
+        "changes": [
+          {
+            "field": "messages",
+            "value": {
+              "contacts": [
+                {
+                  "wa_id": "553399517959",
+                  "user_id": "BR.3040355839495994"
+                }
+              ],
+              "metadata": {
+                "phone_number_id": "690198827516149",
+                "display_phone_number": "553398192119"
+              },
+              "statuses": [
+                {
+                  "id": "wamid.HBgMNTUzMzk5NTE3OTU5FQIAERgSNUJFODM3RDIyREVGM0E0NTY5AA==",
+                  "status": "sent",
+                  "pricing": {
+                    "type": "free_customer_service",
+                    "billable": false,
+                    "category": "service",
+                    "pricing_model": "PMP"
+                  },
+                  "timestamp": "1780676116",
+                  "recipient_id": "553399517959",
+                  "recipient_user_id": "BR.3040355839495994"
+                }
+              ],
+              "messaging_product": "whatsapp"
+            }
+          }
+        ]
+      }
+    ],
+    "object": "whatsapp_business_account"
+  }
+}
+
+ID: 26863 | Level: INFO | Date: Fri Jun 05 2026 13:15:10 GMT-0300 (Horário Padrão de Brasília)
+Message: "Webhook Bateu na Porta"
+Payload: {
+  "body": {
+    "entry": [
+      {
+        "id": "1157736359732238",
+        "changes": [
+          {
+            "field": "messages",
+            "value": {
+              "contacts": [
+                {
+                  "wa_id": "553399517959",
+                  "user_id": "BR.3040355839495994"
+                }
+              ],
+              "metadata": {
+                "phone_number_id": "690198827516149",
+                "display_phone_number": "553398192119"
+              },
+              "statuses": [
+                {
+                  "id": "wamid.HBgMNTUzMzk5NTE3OTU5FQIAERgSNUE1NjIzRTBGMkQ3OTdFOTYxAA==",
+                  "status": "delivered",
+                  "pricing": {
+                    "type": "free_customer_service",
+                    "billable": false,
+                    "category": "service",
+                    "pricing_model": "PMP"
+                  },
+                  "timestamp": "1780676108",
+                  "recipient_id": "553399517959",
+                  "recipient_user_id": "BR.3040355839495994"
+                }
+              ],
+              "messaging_product": "whatsapp"
+            }
+          }
+        ]
+      }
+    ],
+    "object": "whatsapp_business_account"
+  }
+}
+
+ID: 26862 | Level: INFO | Date: Fri Jun 05 2026 13:15:08 GMT-0300 (Horário Padrão de Brasília)
+Message: "Webhook Bateu na Porta"
+Payload: {
+  "body": {
+    "entry": [
+      {
+        "id": "1157736359732238",
+        "changes": [
+          {
+            "field": "messages",
+            "value": {
+              "contacts": [
+                {
+                  "wa_id": "553399517959",
+                  "user_id": "BR.3040355839495994"
+                }
+              ],
+              "metadata": {
+                "phone_number_id": "690198827516149",
+                "display_phone_number": "553398192119"
+              },
+              "statuses": [
+                {
+                  "id": "wamid.HBgMNTUzMzk5NTE3OTU5FQIAERgSNUE1NjIzRTBGMkQ3OTdFOTYxAA==",
+                  "status": "sent",
+                  "pricing": {
+                    "type": "free_customer_service",
+                    "billable": false,
+                    "category": "service",
+                    "pricing_model": "PMP"
+                  },
+                  "timestamp": "1780676107",
+                  "recipient_id": "553399517959",
+                  "recipient_user_id": "BR.3040355839495994"
+                }
+              ],
+              "messaging_product": "whatsapp"
+            }
+          }
+        ]
+      }
+    ],
+    "object": "whatsapp_business_account"
+  }
+}

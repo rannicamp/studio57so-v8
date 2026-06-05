@@ -1,0 +1,4 @@
+[main 110eef75] feat(financeiro): revisao e resolucao massiva historica do parcelamento em cartao via bd
+ 1 file changed, 100 insertions(+), 2 deletions(-)
+To https://github.com/rannicamp/studio57so-v8.git
+   9a1b7feb..110eef75  main -> main

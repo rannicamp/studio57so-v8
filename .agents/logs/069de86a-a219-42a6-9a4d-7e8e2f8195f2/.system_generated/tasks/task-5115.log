@@ -1,0 +1,25 @@
+�XITO: o processo "node.exe" com PID 14660 foi finalizado.
+�XITO: o processo "node.exe" com PID 9488 foi finalizado.
+�XITO: o processo "node.exe" com PID 8876 foi finalizado.
+�XITO: o processo "node.exe" com PID 6584 foi finalizado.
+�XITO: o processo "node.exe" com PID 11716 foi finalizado.
+�XITO: o processo "node.exe" com PID 8796 foi finalizado.
+�XITO: o processo "node.exe" com PID 17000 foi finalizado.
+�XITO: o processo "node.exe" com PID 13732 foi finalizado.
+�XITO: o processo "node.exe" com PID 13128 foi finalizado.
+�XITO: o processo "node.exe" com PID 16512 foi finalizado.
+�XITO: o processo "node.exe" com PID 16772 foi finalizado.
+�XITO: o processo "node.exe" com PID 10768 foi finalizado.
+
+> teste-netlify@0.1.0 dev
+> next dev
+
+   ▲ Next.js 15.5.12
+   - Local:        http://localhost:3000
+   - Network:      http://54.232.189.113:3000
+   - Environments: .env.local
+   - Experiments (use with caution):
+     · serverActions
+
+ ✓ Starting...
+ ✓ Ready in 2.5s

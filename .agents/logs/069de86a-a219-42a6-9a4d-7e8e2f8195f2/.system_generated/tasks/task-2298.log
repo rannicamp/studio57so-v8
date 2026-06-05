@@ -1,0 +1,25 @@
+Iniciando agrupamento de conversas via telefone canônico...
+Lidas 11576 mensagens.
+Pré-carregadas 753 conversas existentes mapeadas canonicamente.
+error: duplicate key value violates unique constraint "whatsapp_conversations_phone_number_key"
+    at C:\Projetos\studio57so-v8\node_modules\pg\lib\client.js:631:17
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async main (C:\Projetos\studio57so-v8\agrupar_conversas.js:101:32) {
+  length: 276,
+  severity: 'ERROR',
+  code: '23505',
+  detail: 'Key (phone_number)=(556183200978) already exists.',
+  hint: undefined,
+  position: undefined,
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: 'public',
+  table: 'whatsapp_conversations',
+  column: undefined,
+  dataType: undefined,
+  constraint: 'whatsapp_conversations_phone_number_key',
+  file: 'nbtinsert.c',
+  line: '664',
+  routine: '_bt_check_unique'
+}

@@ -1,0 +1,61 @@
+ »   Warning: --build is now the default and can safely be omitted.
+​
+Netlify Build                                                 
+────────────────────────────────────────────────────────────────
+​
+> Version
+  @netlify/build 33.4.3
+​
+> Flags
+  accountId: 684c789cbb495600b3cc9ee8
+​
+> Current directory
+  C:\Projetos\studio57so-v8
+​
+> Config file
+  C:\Projetos\studio57so-v8\netlify.toml
+​
+> Context
+  production
+​
+> Installing extensions
+   - neon
+​
+> Using Next.js Runtime - v5.15.11
+​
+> Loading extensions
+   - neon
+​
+build.command from netlify.toml                               
+────────────────────────────────────────────────────────────────
+​
+$ npm run build
+
+> teste-netlify@0.1.0 build
+> next build
+
+   ▲ Next.js 15.5.12
+   - Environments: .env.local
+   - Experiments (use with caution):
+     · serverActions
+
+   Creating an optimized production build ...
+ ✓ Compiled successfully in 45s
+   Skipping validation of types
+   Skipping linting
+   Collecting page data ...
+   Generating static pages (0/129) ...
+Edge crash prevent Error: Dynamic server usage: Route /politicas couldn't be rendered statically because it used `cookies`. See more info here: https://nextjs.org/docs/messages/dynamic-server-error
+    at s (C:\Projetos\studio57so-v8\.next\server\chunks\5873.js:1:28648)
+    at n (C:\Projetos\studio57so-v8\.next\server\chunks\6802.js:1:2975)
+    at g (C:\Projetos\studio57so-v8\.next\server\app\auth\callback\route.js:1:7866)
+    at f (C:\Projetos\studio57so-v8\.next\server\app\politicas\page.js:1:2627)
+    at j (C:\Projetos\studio57so-v8\.next\server\app\politicas\page.js:1:477)
+    at stringify (<anonymous>) {
+  description: "Route /politicas couldn't be rendered statically because it used `cookies`. See more info here: https://nextjs.org/docs/messages/dynamic-server-error",
+  digest: 'DYNAMIC_SERVER_USAGE'
+}
+   Generating static pages (32/129) 
+   Generating static pages (64/129) 
+   Generating static pages (96/129) 
+ ✓ Generating static pages (129/129)

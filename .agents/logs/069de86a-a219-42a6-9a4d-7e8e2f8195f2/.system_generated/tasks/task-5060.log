@@ -1,0 +1,29 @@
+Disparando chamada HTTP de teste de análise para o contato 5125...
+Análise retornada com sucesso pela Stella IA:
+{
+  "resumo_interacao": "O lead veio de campanha do Beta Suítes com renda alta (>R$10k), confirmou que busca para MORADIA, mas ignorou as mensagens da corretora há mais de 2 meses. O perfil familiar de moradia geralmente não se alinha com studios compactos, sugerindo necessidade de pivô para o Residencial Alfa.",
+  "temperatura": "Frio",
+  "fase_crm_atual": "Lead Sem Funil (Caixa de Entrada Vazia)",
+  "proxima_acao_sugerida": "O lead está frio após receber muito material genérico. Envie uma mensagem de 'rompimento' (break-up email/message) pivotando o produto para o Residencial Alfa (2 quartos), que faz muito mais sentido para quem busca moradia do que um studio de 23m².",
+  "proxima_resposta_sugerida": "Oi Marcos, tudo bem?\n\nSei que a correria do dia a dia é grande e acabamos perdendo contato.\n\nVi que o seu foco inicial era moradia. O Beta Suítes que te mandei lá atrás é um studio compacto (muito focado em investidor/estudante).\n\nPara morar com conforto, nós temos o Residencial Alfa, que tem plantas inteligentes de 2 quartos no mesmo bairro (Alto Esplanada).\n\nVocê ainda está buscando um imóvel para morar ou já resolveu essa questão?",
+  "dados_cliente": {
+    "nome": "Marcos Vícktor",
+    "cpf": null,
+    "cnpj": null,
+    "renda_familiar": 10000,
+    "fgts": false,
+    "mais_de_3_anos_clt": null,
+    "objetivo": "MORADIA",
+    "cargo": null,
+    "estado_civil": null,
+    "birth_date": null,
+    "cep": null,
+    "address_street": null,
+    "address_number": null,
+    "address_complement": null,
+    "neighborhood": null,
+    "city": null,
+    "state": null
+  },
+  "last_updated": "2026-06-05T13:10:55.401Z"
+}

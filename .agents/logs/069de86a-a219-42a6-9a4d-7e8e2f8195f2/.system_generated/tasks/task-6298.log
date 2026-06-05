@@ -1,0 +1,5 @@
+warning: in the working copy of 'app/api/ai/chat-analysis/route.js', LF will be replaced by CRLF the next time Git touches it
+[main fb02b27d] feat(ai): adicionar regra de proatividade para oferta de empreendimentos alternativos
+ 1 file changed, 11 insertions(+), 4 deletions(-)
+To https://github.com/rannicamp/studio57so-v8.git
+   0ab0125c..fb02b27d  main -> main

@@ -1,0 +1,67 @@
+1. Inserindo mensagem fictícia "Quero o mais alto" na tabela whatsapp_messages para simular o lead...
+Mensagem inserida com sucesso no banco, ID: 21203
+2. Chamando a API de análise de chat da Stella localmente...
+
+==================================================
+RETORNO DA ANÁLISE COM A RESPOSTA SUGERIDA DA STELLA:
+==================================================
+{
+  "resumo_interacao": "Lead de origem Meta Ads (Braúnas) mudou o interesse para o Beta Suítes (Investimento). Está muito aquecido, querendo reservar uma unidade no andar mais alto e questionando sobre os valores das vagas de garagem.",
+  "temperatura": "Quente",
+  "fase_crm_atual": "Lead Sem Funil (Caixa de Entrada Vazia)",
+  "proxima_acao_sugerida": "Esclarecer que a vaga de garagem possui valor à parte (ou está atrelada a unidades específicas na tabela enviada) e cobrar novamente o estado civil para emitir a documentação de reserva da unidade no topo.",
+  "proxima_resposta_sugerida": "Exatamente, Ranniere! Você tem total liberdade para escolher com ou sem vaga. 🚘\n\nA vaga de garagem tem um valor à parte, mas algumas opções do topo já possuem a vaga vinculada no valor final (conforme a tabela que te enviei).\n\nComo você quer o andar mais alto, já vou separar a melhor opção de studio otimizado no topo com vaga para você! 🚀\n\nPara eu gerar o seu termo de reserva agora mesmo no sistema, me confirma rapidinho: qual é o seu estado civil?",
+  "empreendimento_detectado_id": 5,
+  "anexo_sugerido": null,
+  "dados_cliente": {
+    "nome": "Ranniere Campos Mendes",
+    "cpf": "06570556622",
+    "cnpj": null,
+    "renda_familiar": 5000,
+    "fgts": null,
+    "mais_de_3_anos_clt": null,
+    "objetivo": "INVESTIMENTO",
+    "cargo": "Arquiteto e urbanista",
+    "estado_civil": null,
+    "birth_date": null,
+    "cep": null,
+    "address_street": null,
+    "address_number": null,
+    "address_complement": null,
+    "neighborhood": null,
+    "city": null,
+    "state": null
+  },
+  "last_updated": "2026-06-05T15:41:33.213Z"
+}
+==================================================
+
+3. Limpando a mensagem fictícia do banco de dados...
+c:\Projetos\studio57so-v8\node_modules\pg\lib\client.js:631
+          Error.captureStackTrace(err)
+                ^
+
+error: update or delete on table "whatsapp_messages" violates foreign key constraint "whatsapp_conversations_last_message_id_fkey" on table "whatsapp_conversations"
+    at c:\Projetos\studio57so-v8\node_modules\pg\lib\client.js:631:17
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async main (C:\Users\ranni\.gemini\antigravity\brain\069de86a-a219-42a6-9a4d-7e8e2f8195f2\scratch\testar_stella_unidades.js:64:3) {
+  length: 378,
+  severity: 'ERROR',
+  code: '23503',
+  detail: 'Key (id)=(21203) is still referenced from table "whatsapp_conversations".',
+  hint: undefined,
+  position: undefined,
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: 'public',
+  table: 'whatsapp_conversations',
+  column: undefined,
+  dataType: undefined,
+  constraint: 'whatsapp_conversations_last_message_id_fkey',
+  file: 'ri_triggers.c',
+  line: '2609',
+  routine: 'ri_ReportViolation'
+}
+
+Node.js v22.16.0

@@ -1,0 +1,354 @@
+ »   Warning: --build is now the default and can safely be omitted.
+​
+Netlify Build                                                 
+────────────────────────────────────────────────────────────────
+​
+> Version
+  @netlify/build 33.4.3
+​
+> Flags
+  accountId: 684c789cbb495600b3cc9ee8
+​
+> Current directory
+  C:\Projetos\studio57so-v8
+​
+> Config file
+  C:\Projetos\studio57so-v8\netlify.toml
+​
+> Context
+  production
+​
+> Installing extensions
+   - neon
+​
+> Using Next.js Runtime - v5.15.11
+​
+> Loading extensions
+   - neon
+​
+build.command from netlify.toml                               
+────────────────────────────────────────────────────────────────
+​
+$ npm run build
+
+> teste-netlify@0.1.0 build
+> next build
+
+   ▲ Next.js 15.5.12
+   - Environments: .env.local
+   - Experiments (use with caution):
+     · serverActions
+
+   Creating an optimized production build ...
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (215kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+ ✓ Compiled successfully in 2.1min
+   Skipping validation of types
+   Skipping linting
+   Collecting page data ...
+   Generating static pages (0/129) ...
+Edge crash prevent Error: Dynamic server usage: Route /politicas couldn't be rendered statically because it used `cookies`. See more info here: https://nextjs.org/docs/messages/dynamic-server-error
+    at s (C:\Projetos\studio57so-v8\.next\server\chunks\5873.js:1:28648)
+    at n (C:\Projetos\studio57so-v8\.next\server\chunks\6802.js:1:2975)
+    at g (C:\Projetos\studio57so-v8\.next\server\app\api\google\sync-activity\route.js:3:9609)
+    at f (C:\Projetos\studio57so-v8\.next\server\app\politicas\page.js:1:2627)
+    at j (C:\Projetos\studio57so-v8\.next\server\app\politicas\page.js:1:477)
+    at stringify (<anonymous>) {
+  description: "Route /politicas couldn't be rendered statically because it used `cookies`. See more info here: https://nextjs.org/docs/messages/dynamic-server-error",
+  digest: 'DYNAMIC_SERVER_USAGE'
+}
+   Generating static pages (32/129) 
+   Generating static pages (64/129) 
+   Generating static pages (96/129) 
+ ✓ Generating static pages (129/129)
+   Finalizing page optimization ...
+   Collecting build traces ...
+
+Route (app)                                   Size  First Load JS
+┌ ○ /                                       4.7 kB         500 kB
+├ ○ /_not-found                               1 kB         104 kB
+├ ○ /admin                                 1.23 kB         500 kB
+├ ƒ /admin/feedbacks                         152 B         519 kB
+├ ○ /admin/notificacoes                      13 kB         532 kB
+├ ○ /admin/politicas                       5.04 kB         522 kB
+├ ƒ /almoxarifado                          15.3 kB         532 kB
+├ ƒ /api/admin/check-users                   376 B         104 kB
+├ ƒ /api/ai/chat-analysis                    376 B         104 kB
+├ ƒ /api/ai/chat-suggestion                  376 B         104 kB
+├ ƒ /api/ai/mural-suggestion                 376 B         104 kB
+├ ƒ /api/ai/teste-agente                     376 B         104 kB
+├ ƒ /api/ai/transcribe                       376 B         104 kB
+├ ƒ /api/aps/status                          376 B         104 kB
+├ ƒ /api/aps/token                           376 B         104 kB
+├ ƒ /api/aps/upload                          376 B         104 kB
+├ ƒ /api/aps/upload-direct-finalize          376 B         104 kB
+├ ƒ /api/aps/upload-direct-start             376 B         104 kB
+├ ƒ /api/aps/upload-direct-translate         376 B         104 kB
+├ ƒ /api/aps/upload-url                      376 B         104 kB
+├ ƒ /api/auth/[...nextauth]                  376 B         104 kB
+├ ƒ /api/cartoes/extrair-fatura              376 B         104 kB
+├ ƒ /api/cep                                 376 B         104 kB
+├ ƒ /api/conciliacao/match-ia                376 B         104 kB
+├ ƒ /api/contatos/duplicates                 376 B         104 kB
+├ ƒ /api/contatos/export                     376 B         104 kB
+├ ƒ /api/contatos/search                     376 B         104 kB
+├ ƒ /api/cotacoes                            376 B         104 kB
+├ ƒ /api/crm                                 376 B         104 kB
+├ ƒ /api/cron/aniversarios                   376 B         104 kB
+├ ƒ /api/cron/process-broadcasts             376 B         104 kB
+├ ƒ /api/cron/sync-indices                   376 B         104 kB
+├ ƒ /api/debug-env                           376 B         104 kB
+├ ƒ /api/email/accounts                      376 B         104 kB
+├ ƒ /api/email/actions                       376 B         104 kB
+├ ƒ /api/email/attachment                    376 B         104 kB
+├ ƒ /api/email/content                       376 B         104 kB
+├ ƒ /api/email/diagnose                      376 B         104 kB
+├ ƒ /api/email/folders                       376 B         104 kB
+├ ƒ /api/email/folders/actions               376 B         104 kB
+├ ƒ /api/email/folders/create                376 B         104 kB
+├ ƒ /api/email/messages                      376 B         104 kB
+├ ƒ /api/email/rules                         376 B         104 kB
+├ ƒ /api/email/rules/apply                   376 B         104 kB
+├ ƒ /api/email/rules/run                     376 B         104 kB
+├ ƒ /api/email/send                          376 B         104 kB
+├ ƒ /api/email/sync                          376 B         104 kB
+├ ƒ /api/empreendimentos/[id]                376 B         104 kB
+├ ƒ /api/empreendimentos/analyze-document    376 B         104 kB
+├ ƒ /api/empreendimentos/gerar-resumo        376 B         104 kB
+├ ƒ /api/empreendimentos/process-anexo       376 B         104 kB
+├ ƒ /api/extract-pdf                         376 B         104 kB
+├ ƒ /api/feedback                            376 B         104 kB
+├ ƒ /api/final-test                          376 B         104 kB
+├ ƒ /api/financeiro/auditoria-ia             376 B         104 kB
+├ ƒ /api/generate-pdf-thumbnail              376 B         104 kB
+├ ƒ /api/google-calendar/create-event        376 B         104 kB
+├ ƒ /api/google/auth                         376 B         104 kB
+├ ƒ /api/google/callback                     376 B         104 kB
+├ ƒ /api/google/cancel-queue                 376 B         104 kB
+├ ƒ /api/google/disconnect                   376 B         104 kB
+├ ƒ /api/google/process-sync                 376 B         104 kB
+├ ƒ /api/google/queue-sync                   376 B         104 kB
+├ ƒ /api/google/sync-activity                376 B         104 kB
+├ ƒ /api/google/sync-contatos                376 B         104 kB
+├ ƒ /api/google/test-contatos                376 B         104 kB
+├ ƒ /api/google/test-drive                   376 B         104 kB
+├ ƒ /api/google/test-sync                    376 B         104 kB
+├ ƒ /api/instagram/accounts                  376 B         104 kB
+├ ƒ /api/instagram/conversations             376 B         104 kB
+├ ƒ /api/instagram/link-contact              376 B         104 kB
+├ ƒ /api/instagram/messages                  376 B         104 kB
+├ ƒ /api/instagram/profile                   376 B         104 kB
+├ ƒ /api/instagram/send                      376 B         104 kB
+├ ƒ /api/instagram/webhook                   376 B         104 kB
+├ ƒ /api/logs/error                          376 B         104 kB
+├ ƒ /api/materiais/import                    376 B         104 kB
+├ ƒ /api/meta/ad-accounts                    376 B         104 kB
+├ ƒ /api/meta/ads                            376 B         104 kB
+├ ƒ /api/meta/ads/status                     376 B         104 kB
+├ ƒ /api/meta/callback                       376 B         104 kB
+├ ƒ /api/meta/campaigns                      376 B         104 kB
+├ ƒ /api/meta/conectar                       376 B         104 kB
+├ ƒ /api/meta/dados                          376 B         104 kB
+├ ƒ /api/meta/pages                          376 B         104 kB
+├ ƒ /api/meta/waba-oauth                     376 B         104 kB
+├ ƒ /api/meta/webhook                        376 B         104 kB
+├ ƒ /api/meta/whatsapp-discover              376 B         104 kB
+├ ƒ /api/notifications/push                  376 B         104 kB
+├ ƒ /api/notifications/send                  376 B         104 kB
+├ ƒ /api/notifications/subscribe             376 B         104 kB
+├ ƒ /api/orcamento/importar-bim              376 B         104 kB
+├ ƒ /api/simulacao/enviar-proposta           376 B         104 kB
+├ ƒ /api/simulador/indice                    376 B         104 kB
+├ ƒ /api/test-insert                         376 B         104 kB
+├ ƒ /api/test-lead                           376 B         104 kB
+├ ƒ /api/teste-manual                        376 B         104 kB
+├ ƒ /api/tracker                             376 B         104 kB
+├ ƒ /api/versiculo                           376 B         104 kB
+├ ƒ /api/whatsapp/broadcast/send             376 B         104 kB
+├ ƒ /api/whatsapp/chat-manager               376 B         104 kB
+├ ƒ /api/whatsapp/lists                      376 B         104 kB
+├ ƒ /api/whatsapp/lists/sync                 376 B         104 kB
+├ ƒ /api/whatsapp/mark-read                  376 B         104 kB
+├ ƒ /api/whatsapp/save-attachment            376 B         104 kB
+├ ƒ /api/whatsapp/scheduled-broadcasts       376 B         104 kB
+├ ƒ /api/whatsapp/send                       376 B         104 kB
+├ ƒ /api/whatsapp/templates                  376 B         104 kB
+├ ƒ /api/whatsapp/webhook                    376 B         104 kB
+├ ƒ /api/whatsapp/webhook/mark-read          376 B         104 kB
+├ ○ /apresentacaoelo                       8.36 kB         450 kB
+├ ƒ /atividades                            43.1 kB         572 kB
+├ ○ /atualizar-senha                        2.6 kB         516 kB
+├ ƒ /auth/callback                           376 B         104 kB
+├ ƒ /automacao                              5.3 kB         524 kB
+├ ○ /betasuites                            12.8 kB         518 kB
+├ ○ /betasuites/book                         11 kB         449 kB
+├ ○ /betasuites/book-a5                     5.7 kB         449 kB
+├ ○ /betasuites/book-livreto               5.05 kB         448 kB
+├ ○ /betasuites/manual-corretor            9.63 kB         447 kB
+├ ○ /betasuites/obrigado                     180 B         107 kB
+├ ○ /bim-manager                           39.9 kB         591 kB
+├ ƒ /bim-manager desativado                3.11 kB         534 kB
+├ ○ /cadastro                              20.2 kB         147 kB
+├ ○ /cadastro-corretor                     4.42 kB         460 kB
+├ ○ /cadastrocliente                       2.62 kB         126 kB
+├ ƒ /cadastrocliente/[slug]                2.35 kB         125 kB
+├ ○ /cadastrocliente/obrigado                166 B         107 kB
+├ ƒ /caixa-de-entrada                      75.7 kB         877 kB
+├ ƒ /chat                                    886 B         439 kB
+├ ○ /clientes                              5.68 kB         554 kB
+├ ƒ /comercial/tabela-de-vendas            3.58 kB         441 kB
+├ ƒ /configuracoes                         2.73 kB         513 kB
+├ ƒ /configuracoes/cotacoes                6.29 kB         523 kB
+├ ƒ /configuracoes/feedback                  180 B         107 kB
+├ ƒ /configuracoes/feedback/visualizar       152 B         519 kB
+├ ƒ /configuracoes/financeiro              24.5 kB         588 kB
+├ ƒ /configuracoes/integracoes             9.91 kB         184 kB
+├ ƒ /configuracoes/materiais               7.03 kB         516 kB
+├ ƒ /configuracoes/notificacoes            7.36 kB         526 kB
+├ ƒ /configuracoes/painel/construtor       7.99 kB         531 kB
+├ ƒ /configuracoes/permissoes               7.9 kB         520 kB
+├ ƒ /configuracoes/politicas                 930 B         443 kB
+├ ƒ /configuracoes/rh                      10.3 kB         527 kB
+├ ƒ /configuracoes/tipos-documento            6 kB         521 kB
+├ ƒ /configuracoes/tutoriais               3.72 kB         514 kB
+├ ƒ /configuracoes/usuarios                14.8 kB         554 kB
+├ ƒ /configuracoes/waba-saas                  4 kB         453 kB
+├ ƒ /configuracoes/whatsapp-templates      9.25 kB         195 kB
+├ ƒ /contatos                              21.7 kB         583 kB
+├ ƒ /contatos/cadastro                     2.73 kB         546 kB
+├ ƒ /contatos/duplicatas                   4.12 kB         531 kB
+├ ƒ /contatos/editar/[id]                  3.42 kB         543 kB
+├ ƒ /contatos/formatar-telefones           6.97 kB         524 kB
+├ ƒ /contratos                             4.78 kB         539 kB
+├ ƒ /contratos/[id]                          235 B         699 kB
+├ ƒ /crm                                   28.1 kB         607 kB
+├ ƒ /crm/automacao                         7.18 kB         527 kB
+├ ƒ /empreendimentos                       19.1 kB         839 kB
+├ ƒ /empreendimentos/[id]/produtos         8.99 kB         554 kB
+├ ○ /empreendimentosstudio                   178 B         112 kB
+├ ƒ /empresas                              11.9 kB         685 kB
+├ ○ /equipe                                3.23 kB         520 kB
+├ ƒ /financeiro                              75 kB         750 kB
+├ ƒ /financeiro/auditoria                  5.42 kB         645 kB
+├ ƒ /financeiro/categorias                 2.82 kB         529 kB
+├ ƒ /financeiro/conciliacao                17.3 kB         574 kB
+├ ƒ /financeiro/indices                    8.18 kB         522 kB
+├ ƒ /financeiro/transferencias             3.38 kB         514 kB
+├ ƒ /funcionarios                            376 B         104 kB
+├ ƒ /funcionarios/visualizar/[id]          1.29 kB         722 kB
+├ ƒ /gerenciador-de-arquivos               8.13 kB         588 kB
+├ ○ /icon.png                                  0 B            0 B
+├ ○ /login                                 2.29 kB         175 kB
+├ ƒ /metateste                             2.12 kB         105 kB
+├ ○ /migracao                              3.32 kB         448 kB
+├ ƒ /orcamento                               13 kB         534 kB
+├ ƒ /painel                                1.31 kB         530 kB
+├ ƒ /pedidos                                 20 kB         714 kB
+├ ƒ /pedidos/[id]                            481 B         693 kB
+├ ƒ /perfil                                5.57 kB         536 kB
+├ ○ /perovaz                               7.16 kB         484 kB
+├ ○ /perovaz/book                          7.71 kB         445 kB
+├ ƒ /politicas                               187 B         446 kB
+├ ○ /portal-arquivos                       5.59 kB         527 kB
+├ ○ /portal-contratos                      3.56 kB         538 kB
+├ ƒ /portal-contratos/[id]                   233 B         699 kB
+├ ○ /portal-painel                         1.22 kB         174 kB
+├ ƒ /portal-perfil                           194 B         523 kB
+├ ƒ /rdo                                   1.01 kB         543 kB
+├ ƒ /rdo/[id]                                206 B         543 kB
+├ ƒ /rdo/gerenciador                       3.97 kB         524 kB
+├ ○ /recuperar-senha                       2.65 kB         520 kB
+├ ƒ /recursos-humanos                      7.29 kB         725 kB
+├ ƒ /recursos-humanos/contratos/[id]       6.17 kB         644 kB
+├ ○ /refugiobraunas                        11.1 kB         524 kB
+├ ○ /refugiobraunas/obrigado                 180 B         107 kB
+├ ○ /register                              1.08 kB         108 kB
+├ ƒ /relatorios                            6.84 kB         524 kB
+├ ƒ /relatorios/empreendimentos            9.59 kB         629 kB
+├ ƒ /relatorios/financeiro                 21.1 kB         673 kB
+├ ƒ /relatorios/obras                      15.5 kB         657 kB
+├ ƒ /relatorios/radar                      24.5 kB         678 kB
+├ ƒ /relatorios/rh                         18.1 kB         638 kB
+├ ○ /residencialalfa                       15.3 kB         558 kB
+├ ○ /residencialalfa/anuncios              48.9 kB         487 kB
+├ ○ /residencialalfa/manual-corretor       9.96 kB         448 kB
+├ ○ /residencialalfa/obrigado                180 B         107 kB
+├ ƒ /simulador-financiamento                 429 B         558 kB
+├ ƒ /simuladores                             206 B         558 kB
+├ ○ /sitemap.xml                             376 B         104 kB
+├ ƒ /sobre                                   180 B         107 kB
+├ ○ /sobre-nos                             4.45 kB         451 kB
+├ ○ /tabela-de-vendas                      2.81 kB         528 kB
+├ ƒ /teste-bim                             5.23 kB         505 kB
+├ ƒ /teste-ia                              1.68 kB         449 kB
+└ ƒ /upload                                 8.4 kB         588 kB
++ First Load JS shared by all               103 kB
+  ├ chunks/1255-a1c02572a6d511aa.js        45.7 kB
+  ├ chunks/4bd1b696-100b9d70ed4e49c1.js    54.2 kB
+  └ other shared chunks (total)            3.21 kB
+
+
+ƒ Middleware                               86.9 kB
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
+​
+(build.command completed in 3m 45.8s)
+​
+Functions bundling                                            
+────────────────────────────────────────────────────────────────
+​
+Packaging Functions from .netlify\functions-internal directory:
+ - ___netlify-server-handler\___netlify-server-handler.mjs
+​
+​
+(Functions bundling completed in 6.4s)
+​
+Edge Functions bundling                                       
+────────────────────────────────────────────────────────────────
+​
+Packaging Edge Functions from .netlify\edge-functions directory:
+ - ___netlify-edge-handler-middleware
+​
+(Edge Functions bundling completed in 11.1s)
+
+Deploying to Netlify
+────────────────────────────────────────────────────────────────
+
+Deploy path:        C:\Projetos\studio57so-v8\.next
+Configuration path: C:\Projetos\studio57so-v8\netlify.toml
+
+⠋ Uploading blobs to deploy store...
+
+√ Finished uploading blobs to deploy store
+⠋ Hashing files...
+⠋ Looking for a functions cache...
+√ Deploying functions from cache (use --skip-functions-cache to override)
+√ Finished hashing 466 files, 1 functions and edge functions
+⠋ CDN diffing files...
+√ CDN requesting 128 files and 1 functions
+⠋ Uploading 129 files
+√ Finished uploading 129 assets
+⠋ Waiting for deploy to go live...
+√ Deploy is live!
+​
+Netlify Build Complete                                        
+────────────────────────────────────────────────────────────────
+​
+(Netlify Build completed in 5m 14.8s)
+
+🚀 Deploy complete
+────────────────────────────────────────────────────────────────
+
+╭────────────────────── ⬥  Production deploy is live ⬥  ───────────────────────╮
+│                                                                              │
+│             Deployed to production URL: https://studio57.arq.br              │
+│                                                                              │
+│                              Unique deploy URL:                              │
+│            https://6a203a3455cd5b4e1413dda7--studio57.netlify.app            │
+│                                                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+
+Build logs:         https://app.netlify.com/projects/studio57/deploys/6a203a3455cd5b4e1413dda7
+Function logs:      https://app.netlify.com/projects/studio57/logs/functions
+Edge function Logs: https://app.netlify.com/projects/studio57/logs/edge-functions

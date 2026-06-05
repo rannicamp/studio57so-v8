@@ -1,0 +1,46 @@
+# Resumo de Correções da Triagem (Bugs Financeiros)
+
+A triagem revelou bugs principais no fluxo financeiro da plataforma, que foram resolvidos através das seguintes ações corretivas.
+
+## 1. Ticket #145: Data incorreta no PDF de Lançamentos
+
+### 🛠️ Problema
+A versão para impressão (PDF) do relatório de Lançamentos estava exibindo a `data_vencimento` na coluna "Data", mesmo para contas que já haviam sido pagas antecipadamente (que deveriam exibir a `data_pagamento`).
+
+### ✅ Solução Aplicada
+No componente `LancamentosManager.js`, substituímos a coluna única de "Data" na visão de impressão por duas colunas separadas:
+*   **Vencimento**: Exibe a data de vencimento programada ou a data da transação se for lançamento avulso.
+*   **Pagamento**: Exibe apenas quando o lançamento de fato for pago (em conformidade com o que já era praticado na exportação CSV).
+
+## 2. Ticket #146: Erro ao Provisionar Contratos (Constraint RLS e Tipo de Conta)
+
+### 🛠️ Problema
+Ao assinar um contrato, o sistema gerava erro na tela do usuário. Por trás dos panos, as RPCs tentavam gerar lançamentos financeiros (e categorias globais ausentes) no Supabase, mas omitiam a declaração obrigatória da coluna `organizacao_id`, acionando os bloqueios de segurança do modelo Multitenancy.
+
+Durante os testes, nos deparamos com um erro derivado:
+> `new row for relation "contas_financeiras" violates check constraint "contas_financeiras_tipo_check"`
+A função tentava criar a conta gerencial "Contas a Receber" com o tipo `'Outro'`, que não estava previsto nas validações rígidas do banco de dados (que exige tipos padronizados como `'Conta Corrente'`, `'Caixa'`, `'Cartão de Crédito'`, etc).
+
+### ✅ Solução Aplicada
+Reescrevemos o DDL das duas funções essenciais (`provisionar_parcelas_contrato` e `sincronizar_parcela_com_lancamento`) usando um script temporário de Injeção de SQL (`node-pg`), resolvendo ambos os problemas:
+
+#### 1. Injeção da Organização Autenticada
+A partir de agora, as funções amarram a conta, a categoria e os lançamentos estritamente à `organizacao_id` que vem do front-end.
+
+#### 2. Normalização do Tipo de Conta (Check Constraint Fix)
+Substituímos a tentativa de inserir o tipo corrompido `'Outro'` pelo valor homologado e aceito `'Conta Corrente'`.
+
+```sql
+-- ANTES (Violação do CHECK e do RLS Multitenancy)
+INSERT INTO contas_financeiras (nome, tipo, saldo_inicial) 
+VALUES ('Contas a Receber', 'Outro', 0);
+
+-- DEPOIS (Sucesso: Constraint OK e Segurança OK)
+INSERT INTO contas_financeiras (nome, tipo, saldo_inicial, organizacao_id) 
+VALUES ('Contas a Receber', 'Conta Corrente', 0, p_organizacao_id);
+```
+
+As funções locais (`functions.json`) e de estrutura (`dbelo57.sql`) foram atualizadas através do comando de exportação para refletir o estado exato da produção.
+
+## 🗃️ Encerramento do Fluxo
+Ambos os diagnósticos no banco de dados, vinculados à tabela de `feedback`, tiveram seus status atualizados para **Concluído**.

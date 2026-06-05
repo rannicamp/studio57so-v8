@@ -1,0 +1,184 @@
+�XITO: o processo "node.exe" com PID 3936 foi finalizado.
+�XITO: o processo "node.exe" com PID 11120 foi finalizado.
+�XITO: o processo "node.exe" com PID 18444 foi finalizado.
+
+> teste-netlify@0.1.0 dev
+> next dev
+
+   ▲ Next.js 15.5.12
+   - Local:        http://localhost:3000
+   - Network:      http://54.232.189.113:3000
+   - Environments: .env.local
+   - Experiments (use with caution):
+     · serverActions
+
+ ✓ Starting...
+ ✓ Ready in 4.7s
+ ○ Compiling /middleware ...
+ ✓ Compiled /middleware in 1820ms (167 modules)
+ ○ Compiling /api/whatsapp/templates ...
+<w> [webpack.cache.PackFileCacheStrategy] Serializing big strings (215kiB) impacts deserialization performance (consider using Buffer instead and decode when needed)
+ ✓ Compiled /api/whatsapp/templates in 4.2s (356 modules)
+🏆 [Templates] Usando token permanente do System User.
+ GET /api/whatsapp/templates 200 in 5843ms
+🏆 [Templates] Usando token permanente do System User.
+ GET /api/whatsapp/templates 200 in 1106ms
+🏆 [Templates] Usando token permanente do System User.
+ GET /api/whatsapp/templates 200 in 1092ms
+ ○ Compiling /api/whatsapp/send ...
+ ✓ Compiled /api/whatsapp/send in 840ms (338 modules)
+[WhatsApp Send] Enviando template para 551111351993...
+ POST /api/whatsapp/send 200 in 3616ms
+ ✓ Compiled /api/whatsapp/templates in 368ms (161 modules)
+🏆 [Templates] Usando token permanente do System User.
+ GET /api/whatsapp/templates 200 in 2389ms
+🏆 [Templates] Usando token permanente do System User.
+ GET /api/whatsapp/templates 200 in 1018ms
+🏆 [Templates] Usando token permanente do System User.
+ GET /api/whatsapp/templates 200 in 946ms
+🏆 [Templates] Usando token permanente do System User.
+ GET /api/whatsapp/templates 200 in 1116ms
+🏆 [Templates] Usando token permanente do System User.
+ GET /api/whatsapp/templates 200 in 986ms
+🏆 [Templates] Usando token permanente do System User.
+ GET /api/whatsapp/templates 200 in 7955ms
+🏆 [Templates] Usando token permanente do System User.
+ GET /api/whatsapp/templates 200 in 900ms
+🏆 [Templates] Usando token permanente do System User.
+ GET /api/whatsapp/templates 200 in 1002ms
+🏆 [Templates] Usando token permanente do System User.
+ GET /api/whatsapp/templates 200 in 1557ms
+🏆 [Templates] Usando token permanente do System User.
+ GET /api/whatsapp/templates 200 in 1046ms
+🏆 [Templates] Usando token permanente do System User.
+ GET /api/whatsapp/templates 200 in 915ms
+🏆 [Templates] Usando token permanente do System User.
+ GET /api/whatsapp/templates 200 in 923ms
+🏆 [Templates] Usando token permanente do System User.
+ GET /api/whatsapp/templates 200 in 1334ms
+🏆 [Templates] Usando token permanente do System User.
+🏆 [Templates] Usando token permanente do System User.
+ GET /api/whatsapp/templates 200 in 993ms
+🏆 [Templates] Usando token permanente do System User.
+🏆 [Templates] Usando token permanente do System User.
+🏆 [Templates] Usando token permanente do System User.
+🏆 [Templates] Usando token permanente do System User.
+ GET /api/whatsapp/templates 200 in 1141ms
+ GET /api/whatsapp/templates 200 in 1144ms
+ GET /api/whatsapp/templates 200 in 1147ms
+ GET /api/whatsapp/templates 200 in 1178ms
+🏆 [Templates] Usando token permanente do System User.
+ GET /api/whatsapp/templates 200 in 1578ms
+ GET /api/whatsapp/templates 200 in 930ms
+🏆 [Templates] Usando token permanente do System User.
+ GET /api/whatsapp/templates 200 in 944ms
+🏆 [Templates] Usando token permanente do System User.
+ GET /api/whatsapp/templates 200 in 1389ms
+🏆 [Templates] Usando token permanente do System User.
+ GET /api/whatsapp/templates 200 in 2020ms
+🏆 [Templates] Usando token permanente do System User.
+ GET /api/whatsapp/templates 200 in 1422ms
+🏆 [Templates] Usando token permanente do System User.
+ GET /api/whatsapp/templates 200 in 1074ms
+🏆 [Templates] Usando token permanente do System User.
+ GET /api/whatsapp/templates 200 in 938ms
+🏆 [Templates] Usando token permanente do System User.
+ GET /api/whatsapp/templates 200 in 1110ms
+🏆 [Templates] Usando token permanente do System User.
+ GET /api/whatsapp/templates 200 in 1568ms
+ ✓ Compiled /api/whatsapp/send in 195ms (143 modules)
+[WhatsApp Send] Enviando template para 5511911351993...
+ POST /api/whatsapp/send 200 in 2973ms
+[WhatsApp Send] Enviando template para 5533998804460...
+ POST /api/whatsapp/send 200 in 2494ms
+ ✓ Compiled /api/whatsapp/templates in 294ms (161 modules)
+🏆 [Templates] Usando token permanente do System User.
+ GET /api/whatsapp/templates 200 in 2047ms
+🏆 [Templates] Usando token permanente do System User.
+ GET /api/whatsapp/templates 200 in 1155ms
+🏆 [Templates] Usando token permanente do System User.
+ GET /api/whatsapp/templates 200 in 1252ms
+🏆 [Templates] Usando token permanente do System User.
+ GET /api/whatsapp/templates 200 in 1238ms
+🏆 [Templates] Usando token permanente do System User.
+ GET /api/whatsapp/templates 200 in 1141ms
+🏆 [Templates] Usando token permanente do System User.
+ GET /api/whatsapp/templates 200 in 1088ms
+🏆 [Templates] Usando token permanente do System User.
+ GET /api/whatsapp/templates 200 in 1172ms
+🏆 [Templates] Usando token permanente do System User.
+ GET /api/whatsapp/templates 200 in 1324ms
+🏆 [Templates] Usando token permanente do System User.
+ GET /api/whatsapp/templates 200 in 1173ms
+🏆 [Templates] Usando token permanente do System User.
+ GET /api/whatsapp/templates 200 in 1083ms
+🏆 [Templates] Usando token permanente do System User.
+ GET /api/whatsapp/templates 200 in 1123ms
+🏆 [Templates] Usando token permanente do System User.
+ GET /api/whatsapp/templates 200 in 1019ms
+🏆 [Templates] Usando token permanente do System User.
+ GET /api/whatsapp/templates 200 in 1062ms
+🏆 [Templates] Usando token permanente do System User.
+ GET /api/whatsapp/templates 200 in 1134ms
+🏆 [Templates] Usando token permanente do System User.
+ GET /api/whatsapp/templates 200 in 1147ms
+🏆 [Templates] Usando token permanente do System User.
+ GET /api/whatsapp/templates 200 in 1054ms
+🏆 [Templates] Usando token permanente do System User.
+ GET /api/whatsapp/templates 200 in 1041ms
+🏆 [Templates] Usando token permanente do System User.
+ GET /api/whatsapp/templates 200 in 1073ms
+🏆 [Templates] Usando token permanente do System User.
+🏆 [Templates] Usando token permanente do System User.
+🏆 [Templates] Usando token permanente do System User.
+🏆 [Templates] Usando token permanente do System User.
+🏆 [Templates] Usando token permanente do System User.
+ GET /api/whatsapp/templates 200 in 1225ms
+ GET /api/whatsapp/templates 200 in 1208ms
+🏆 [Templates] Usando token permanente do System User.
+ GET /api/whatsapp/templates 200 in 1407ms
+ GET /api/whatsapp/templates 200 in 1349ms
+ GET /api/whatsapp/templates 200 in 1364ms
+ GET /api/whatsapp/templates 200 in 1494ms
+🏆 [Templates] Usando token permanente do System User.
+🏆 [Templates] Usando token permanente do System User.
+🏆 [Templates] Usando token permanente do System User.
+🏆 [Templates] Usando token permanente do System User.
+ GET /api/whatsapp/templates 200 in 1125ms
+ GET /api/whatsapp/templates 200 in 1078ms
+ GET /api/whatsapp/templates 200 in 1094ms
+ GET /api/whatsapp/templates 200 in 1204ms
+🏆 [Templates] Usando token permanente do System User.
+ GET /api/whatsapp/templates 200 in 1357ms
+🏆 [Templates] Usando token permanente do System User.
+ GET /api/whatsapp/templates 200 in 1515ms
+ ○ Compiling /painel ...
+ ✓ Compiled /painel in 23.9s (3058 modules)
+ GET /painel 200 in 26840ms
+ ✓ Compiled in 2.9s (1295 modules)
+ ✓ Compiled in 2.1s (1295 modules)
+ ✓ Compiled in 1402ms (1295 modules)
+ ✓ Compiled in 1615ms (1295 modules)
+ ✓ Compiled in 1045ms (1295 modules)
+ ✓ Compiled in 2s (1295 modules)
+ ✓ Compiled in 1335ms (1295 modules)
+ ✓ Compiled in 1382ms (1295 modules)
+ ○ Compiling /recursos-humanos ...
+ ✓ Compiled /recursos-humanos in 6s (3248 modules)
+ GET /recursos-humanos 200 in 6948ms
+ ✓ Compiled in 2.1s (1410 modules)
+ ✓ Compiled in 1775ms (1410 modules)
+ ○ Compiling /api/logs/error ...
+ ✓ Compiled /api/logs/error in 1937ms (1552 modules)
+ POST /api/logs/error 200 in 2500ms
+ ✓ Compiled in 1505ms (1410 modules)
+ POST /api/logs/error 200 in 326ms
+ ○ Compiling /recursos-humanos ...
+ ✓ Compiled /recursos-humanos in 957ms (1831 modules)
+ GET /recursos-humanos 200 in 2967ms
+ ○ Compiling /api/auth/[...nextauth] ...
+ ✓ Compiled /api/notifications/subscribe in 4.5s (3449 modules)
+ POST /api/notifications/subscribe 200 in 5231ms
+ GET /recursos-humanos 200 in 421ms
+ GET /api/auth/session 200 in 7469ms
+ POST /api/logs/error 200 in 348ms

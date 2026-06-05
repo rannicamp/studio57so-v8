@@ -1,0 +1,5 @@
+warning: in the working copy of 'fix_db.sql', LF will be replaced by CRLF the next time Git touches it
+[main b4753b38] feat(financeiro): revisao e resolucao massiva historica do parcelamento em cartao via bd
+ 1 file changed, 26 insertions(+), 10 deletions(-)
+To https://github.com/rannicamp/studio57so-v8.git
+   7ed64a80..b4753b38  main -> main

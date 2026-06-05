@@ -1,0 +1,5 @@
+- [x] 1. Alterar `getMessages` em `data-fetching.js` para receber e filtrar por `phoneNumber`.
+- [x] 2. Modificar o cache `queryKey` em `MessagePanel.js` para incluir o telefone.
+- [x] 3. Atualizar a passagem de parâmetro `contact.phone_number` nas queries de `MessagePanel.js`.
+- [x] 4. Ajustar o filtro de WebSockets Realtime em `MessagePanel.js` para bater com o telefone em `sender_id` ou `receiver_id`.
+- [x] 5. Rodar o servidor de testes local `npm run dev` para validação do usuário.

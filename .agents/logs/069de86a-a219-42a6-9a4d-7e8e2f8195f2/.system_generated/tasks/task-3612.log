@@ -1,0 +1,1025 @@
+--- VARREDURA DE TELEFONES DUPLICADOS NO BANCO ---
+Total de telefones com contatos duplicados encontrados: 44
+
+--- DIAGNÓSTICO DETALHADO (Contatos ativos no WhatsApp com duplicação) ---
+[
+  {
+    "telefone": "16178005321",
+    "organizacao_id": "2",
+    "contatos": [
+      {
+        "id": "5465",
+        "nome": "Marta Keefe",
+        "created_at": "2026-05-16T03:39:02.095Z",
+        "mensagens": {
+          "inbound": 0,
+          "outbound": 1
+        }
+      },
+      {
+        "id": "5546",
+        "nome": "Lead (16178005321)",
+        "created_at": "2026-05-23T03:05:40.991Z",
+        "mensagens": {
+          "inbound": 1,
+          "outbound": 0
+        }
+      },
+      {
+        "id": "5547",
+        "nome": "Marta Keefe",
+        "created_at": "2026-05-23T03:05:41.535Z",
+        "mensagens": {
+          "inbound": 0,
+          "outbound": 1
+        }
+      }
+    ]
+  },
+  {
+    "telefone": "16177972581",
+    "organizacao_id": "2",
+    "contatos": [
+      {
+        "id": "4667",
+        "nome": "Lead (16177972581)",
+        "created_at": "2025-12-29T12:34:20.614Z",
+        "mensagens": {
+          "inbound": 0,
+          "outbound": 0
+        }
+      },
+      {
+        "id": "5490",
+        "nome": "Débora Bonfim",
+        "created_at": "2026-05-18T12:23:22.337Z",
+        "mensagens": {
+          "inbound": 1,
+          "outbound": 2
+        }
+      }
+    ]
+  },
+  {
+    "telefone": "17743862550",
+    "organizacao_id": "2",
+    "contatos": [
+      {
+        "id": "3674",
+        "nome": "Fernanda  Cabral",
+        "created_at": "2025-09-02T11:33:34.005Z",
+        "mensagens": {
+          "inbound": 0,
+          "outbound": 3
+        }
+      },
+      {
+        "id": "4954",
+        "nome": "Phernanda Cabral",
+        "created_at": "2026-02-23T23:03:15.145Z",
+        "mensagens": {
+          "inbound": 4,
+          "outbound": 12
+        }
+      }
+    ]
+  },
+  {
+    "telefone": "17744414239",
+    "organizacao_id": "2",
+    "contatos": [
+      {
+        "id": "3971",
+        "nome": "João Vitor Botelho",
+        "created_at": "2025-09-28T22:05:37.090Z",
+        "mensagens": {
+          "inbound": 1,
+          "outbound": 1
+        }
+      },
+      {
+        "id": "5545",
+        "nome": "João Vitor Botelho",
+        "created_at": "2026-05-22T23:20:06.236Z",
+        "mensagens": {
+          "inbound": 0,
+          "outbound": 2
+        }
+      }
+    ]
+  },
+  {
+    "telefone": "17744612326",
+    "organizacao_id": "2",
+    "contatos": [
+      {
+        "id": "5611",
+        "nome": "Lead (17744612326)",
+        "created_at": "2026-05-26T23:39:18.256Z",
+        "mensagens": {
+          "inbound": 2,
+          "outbound": 0
+        }
+      },
+      {
+        "id": "5612",
+        "nome": "Brendo Souza",
+        "created_at": "2026-05-26T23:39:19.003Z",
+        "mensagens": {
+          "inbound": 2,
+          "outbound": 7
+        }
+      }
+    ]
+  },
+  {
+    "telefone": "17744989329",
+    "organizacao_id": "2",
+    "contatos": [
+      {
+        "id": "5605",
+        "nome": "Lead (17744989329)",
+        "created_at": "2026-05-25T21:56:16.876Z",
+        "mensagens": {
+          "inbound": 2,
+          "outbound": 0
+        }
+      },
+      {
+        "id": "5606",
+        "nome": "Daniel Gomes",
+        "created_at": "2026-05-25T21:56:17.734Z",
+        "mensagens": {
+          "inbound": 0,
+          "outbound": 3
+        }
+      }
+    ]
+  },
+  {
+    "telefone": "17745022216",
+    "organizacao_id": "2",
+    "contatos": [
+      {
+        "id": "3927",
+        "nome": "Amos Hastenreiter",
+        "created_at": "2025-09-25T23:38:01.238Z",
+        "mensagens": {
+          "inbound": 0,
+          "outbound": 6
+        }
+      },
+      {
+        "id": "5572",
+        "nome": "Amos Hastenreiter",
+        "created_at": "2026-05-24T16:04:01.471Z",
+        "mensagens": {
+          "inbound": 0,
+          "outbound": 1
+        }
+      }
+    ]
+  },
+  {
+    "telefone": "17747126420",
+    "organizacao_id": "2",
+    "contatos": [
+      {
+        "id": "5532",
+        "nome": "Lead (17747126420)",
+        "created_at": "2026-05-22T03:12:02.210Z",
+        "mensagens": {
+          "inbound": 1,
+          "outbound": 0
+        }
+      },
+      {
+        "id": "5533",
+        "nome": "Gabriel Soares",
+        "created_at": "2026-05-22T03:12:03.182Z",
+        "mensagens": {
+          "inbound": 0,
+          "outbound": 5
+        }
+      }
+    ]
+  },
+  {
+    "telefone": "17812679394",
+    "organizacao_id": "2",
+    "contatos": [
+      {
+        "id": "5601",
+        "nome": "Renata Pena",
+        "created_at": "2026-05-25T20:05:41.084Z",
+        "mensagens": {
+          "inbound": 13,
+          "outbound": 18
+        }
+      },
+      {
+        "id": "5602",
+        "nome": "Lead (17812679394)",
+        "created_at": "2026-05-25T20:05:41.850Z",
+        "mensagens": {
+          "inbound": 2,
+          "outbound": 0
+        }
+      }
+    ]
+  },
+  {
+    "telefone": "17816406411",
+    "organizacao_id": "2",
+    "contatos": [
+      {
+        "id": "4361",
+        "nome": "Júnior",
+        "created_at": "2025-10-22T05:41:48.504Z",
+        "mensagens": {
+          "inbound": 0,
+          "outbound": 4
+        }
+      },
+      {
+        "id": "4676",
+        "nome": "Juninho Ferreira",
+        "created_at": "2026-01-05T14:17:51.961Z",
+        "mensagens": {
+          "inbound": 0,
+          "outbound": 5
+        }
+      }
+    ]
+  },
+  {
+    "telefone": "18572434310",
+    "organizacao_id": "2",
+    "contatos": [
+      {
+        "id": "3360",
+        "nome": "Lois Jogador Caro",
+        "created_at": "2025-07-28T17:19:57.441Z",
+        "mensagens": {
+          "inbound": 0,
+          "outbound": 1
+        }
+      },
+      {
+        "id": "4855",
+        "nome": "Lois Jogador Caro",
+        "created_at": "2026-01-28T15:12:17.072Z",
+        "mensagens": {
+          "inbound": 0,
+          "outbound": 0
+        }
+      }
+    ]
+  },
+  {
+    "telefone": "18572472270",
+    "organizacao_id": "2",
+    "contatos": [
+      {
+        "id": "5557",
+        "nome": "Lead (18572472270)",
+        "created_at": "2026-05-23T17:25:11.085Z",
+        "mensagens": {
+          "inbound": 1,
+          "outbound": 0
+        }
+      },
+      {
+        "id": "5558",
+        "nome": "Dimas Lourenco",
+        "created_at": "2026-05-23T17:25:11.694Z",
+        "mensagens": {
+          "inbound": 4,
+          "outbound": 8
+        }
+      }
+    ]
+  },
+  {
+    "telefone": "18572669866",
+    "organizacao_id": "2",
+    "contatos": [
+      {
+        "id": "5580",
+        "nome": "Lead (18572669866)",
+        "created_at": "2026-05-25T02:02:50.276Z",
+        "mensagens": {
+          "inbound": 1,
+          "outbound": 0
+        }
+      },
+      {
+        "id": "5581",
+        "nome": "Erick Fernandes",
+        "created_at": "2026-05-25T02:02:50.574Z",
+        "mensagens": {
+          "inbound": 6,
+          "outbound": 9
+        }
+      }
+    ]
+  },
+  {
+    "telefone": "18578809187",
+    "organizacao_id": "2",
+    "contatos": [
+      {
+        "id": "3475",
+        "nome": "Raquel Martins",
+        "created_at": "2025-07-28T17:20:45.315Z",
+        "mensagens": {
+          "inbound": 0,
+          "outbound": 1
+        }
+      },
+      {
+        "id": "5515",
+        "nome": "Raquel Martins Vasconcelos",
+        "created_at": "2026-05-19T20:16:08.758Z",
+        "mensagens": {
+          "inbound": 0,
+          "outbound": 0
+        }
+      }
+    ]
+  },
+  {
+    "telefone": "18578884946",
+    "organizacao_id": "2",
+    "contatos": [
+      {
+        "id": "3485",
+        "nome": "Fábio Júnior de Oliveira Alaerte",
+        "created_at": "2025-07-28T17:20:49.471Z",
+        "mensagens": {
+          "inbound": 1,
+          "outbound": 3
+        }
+      },
+      {
+        "id": "5438",
+        "nome": "Amanda da Silva Ferreira",
+        "created_at": "2026-05-12T17:42:17.913Z",
+        "mensagens": {
+          "inbound": 0,
+          "outbound": 1
+        }
+      }
+    ]
+  },
+  {
+    "telefone": "18579955550",
+    "organizacao_id": "2",
+    "contatos": [
+      {
+        "id": "4494",
+        "nome": "Marinho",
+        "created_at": "2025-11-25T02:25:51.302Z",
+        "mensagens": {
+          "inbound": 1,
+          "outbound": 7
+        }
+      },
+      {
+        "id": "5622",
+        "nome": "Geovany",
+        "created_at": "2026-05-28T03:02:16.150Z",
+        "mensagens": {
+          "inbound": 0,
+          "outbound": 2
+        }
+      }
+    ]
+  },
+  {
+    "telefone": "19783171701",
+    "organizacao_id": "2",
+    "contatos": [
+      {
+        "id": "5552",
+        "nome": "Lead (19783171701)",
+        "created_at": "2026-05-23T15:50:16.983Z",
+        "mensagens": {
+          "inbound": 1,
+          "outbound": 0
+        }
+      },
+      {
+        "id": "5553",
+        "nome": "Pamella Leticia",
+        "created_at": "2026-05-23T15:50:17.286Z",
+        "mensagens": {
+          "inbound": 1,
+          "outbound": 5
+        }
+      }
+    ]
+  },
+  {
+    "telefone": "19787605041",
+    "organizacao_id": "2",
+    "contatos": [
+      {
+        "id": "4390",
+        "nome": "Claudinha Clau",
+        "created_at": "2025-10-26T14:39:00.516Z",
+        "mensagens": {
+          "inbound": 0,
+          "outbound": 3
+        }
+      },
+      {
+        "id": "4391",
+        "nome": "Claudinha Clau",
+        "created_at": "2025-10-26T15:21:05.420Z",
+        "mensagens": {
+          "inbound": 0,
+          "outbound": 2
+        }
+      }
+    ]
+  },
+  {
+    "telefone": "19787985648",
+    "organizacao_id": "2",
+    "contatos": [
+      {
+        "id": "3928",
+        "nome": "Cleria Marriel de Assis",
+        "created_at": "2025-09-26T12:08:18.191Z",
+        "mensagens": {
+          "inbound": 0,
+          "outbound": 3
+        }
+      },
+      {
+        "id": "4829",
+        "nome": "Cleria Marriel De Assis",
+        "created_at": "2026-01-22T20:24:52.740Z",
+        "mensagens": {
+          "inbound": 0,
+          "outbound": 4
+        }
+      }
+    ]
+  },
+  {
+    "telefone": "5527996404792",
+    "organizacao_id": "2",
+    "contatos": [
+      {
+        "id": "5206",
+        "nome": "Suellen",
+        "created_at": "2026-04-09T14:55:42.329Z",
+        "mensagens": {
+          "inbound": 4,
+          "outbound": 3
+        }
+      },
+      {
+        "id": "5213",
+        "nome": "Suellen",
+        "created_at": "2026-04-11T13:22:16.777Z",
+        "mensagens": {
+          "inbound": 10,
+          "outbound": 19
+        }
+      }
+    ]
+  },
+  {
+    "telefone": "553171227170",
+    "organizacao_id": "2",
+    "contatos": [
+      {
+        "id": "5279",
+        "nome": "Gil Dida Gomes Curiango",
+        "created_at": "2026-04-22T16:30:35.353Z",
+        "mensagens": {
+          "inbound": 0,
+          "outbound": 8
+        }
+      },
+      {
+        "id": "5280",
+        "nome": "Lead (553171227170)",
+        "created_at": "2026-04-22T16:30:46.012Z",
+        "mensagens": {
+          "inbound": 1,
+          "outbound": 0
+        }
+      }
+    ]
+  },
+  {
+    "telefone": "553388033447",
+    "organizacao_id": "2",
+    "contatos": [
+      {
+        "id": "5449",
+        "nome": "Stephany Ferreira",
+        "created_at": "2026-05-15T08:48:02.271Z",
+        "mensagens": {
+          "inbound": 0,
+          "outbound": 1
+        }
+      },
+      {
+        "id": "5480",
+        "nome": "Stephany Ferreira",
+        "created_at": "2026-05-17T09:17:01.694Z",
+        "mensagens": {
+          "inbound": 0,
+          "outbound": 4
+        }
+      }
+    ]
+  },
+  {
+    "telefone": "553388259836",
+    "organizacao_id": "2",
+    "contatos": [
+      {
+        "id": "4704",
+        "nome": "Lílian Gabriele",
+        "created_at": "2026-01-11T11:47:45.780Z",
+        "mensagens": {
+          "inbound": 1,
+          "outbound": 1
+        }
+      },
+      {
+        "id": "5100",
+        "nome": "Lílian Gabriele",
+        "created_at": "2026-03-27T11:00:01.972Z",
+        "mensagens": {
+          "inbound": 0,
+          "outbound": 5
+        }
+      }
+    ]
+  },
+  {
+    "telefone": "5533984404920",
+    "organizacao_id": "2",
+    "contatos": [
+      {
+        "id": "5160",
+        "nome": "Felipe Maxwell",
+        "created_at": "2026-04-03T13:49:00.841Z",
+        "mensagens": {
+          "inbound": 3,
+          "outbound": 5
+        }
+      },
+      {
+        "id": "5168",
+        "nome": "Felipe Maxwell",
+        "created_at": "2026-04-04T13:49:01.466Z",
+        "mensagens": {
+          "inbound": 3,
+          "outbound": 16
+        }
+      }
+    ]
+  },
+  {
+    "telefone": "5533988013865",
+    "organizacao_id": "2",
+    "contatos": [
+      {
+        "id": "5102",
+        "nome": "Deivid Olavo Reis",
+        "created_at": "2026-03-27T21:33:01.736Z",
+        "mensagens": {
+          "inbound": 0,
+          "outbound": 1
+        }
+      },
+      {
+        "id": "5107",
+        "nome": "Deivid Olavo Reis",
+        "created_at": "2026-03-28T11:21:01.773Z",
+        "mensagens": {
+          "inbound": 0,
+          "outbound": 3
+        }
+      }
+    ]
+  },
+  {
+    "telefone": "5533988266065",
+    "organizacao_id": "2",
+    "contatos": [
+      {
+        "id": "4481",
+        "nome": "DIRLENA SANDRA DOS REIS SILVEIRA",
+        "created_at": "2025-11-19T21:08:06.705Z",
+        "mensagens": {
+          "inbound": 0,
+          "outbound": 0
+        }
+      },
+      {
+        "id": "4482",
+        "nome": "JOÃO BATISTA SILVEIRA",
+        "created_at": "2025-11-19T21:09:46.091Z",
+        "mensagens": {
+          "inbound": 0,
+          "outbound": 1
+        }
+      }
+    ]
+  },
+  {
+    "telefone": "5533988274989",
+    "organizacao_id": "2",
+    "contatos": [
+      {
+        "id": "5326",
+        "nome": "Cristina Mattos",
+        "created_at": "2026-04-29T22:39:23.525Z",
+        "mensagens": {
+          "inbound": 0,
+          "outbound": 0
+        }
+      },
+      {
+        "id": "5327",
+        "nome": "Cristina Mattos",
+        "created_at": "2026-04-29T22:39:29.824Z",
+        "mensagens": {
+          "inbound": 0,
+          "outbound": 6
+        }
+      }
+    ]
+  },
+  {
+    "telefone": "5533988674769",
+    "organizacao_id": "2",
+    "contatos": [
+      {
+        "id": "5271",
+        "nome": "Wanderson Laia",
+        "created_at": "2026-04-21T20:49:02.519Z",
+        "mensagens": {
+          "inbound": 2,
+          "outbound": 12
+        }
+      },
+      {
+        "id": "5272",
+        "nome": "Wanderson Laia",
+        "created_at": "2026-04-21T21:29:39.020Z",
+        "mensagens": {
+          "inbound": 0,
+          "outbound": 0
+        }
+      }
+    ]
+  },
+  {
+    "telefone": "5533988848077",
+    "organizacao_id": "2",
+    "contatos": [
+      {
+        "id": "3920",
+        "nome": "Alinny Mara Soares",
+        "created_at": "2025-09-23T10:02:26.551Z",
+        "mensagens": {
+          "inbound": 0,
+          "outbound": 3
+        }
+      },
+      {
+        "id": "5302",
+        "nome": "Alinny Mara Soares",
+        "created_at": "2026-04-26T02:31:01.387Z",
+        "mensagens": {
+          "inbound": 1,
+          "outbound": 5
+        }
+      }
+    ]
+  },
+  {
+    "telefone": "5533988901606",
+    "organizacao_id": "2",
+    "contatos": [
+      {
+        "id": "5494",
+        "nome": "Letycia Cristina Pereira Silva ",
+        "created_at": "2026-05-18T21:52:53.366Z",
+        "mensagens": {
+          "inbound": 0,
+          "outbound": 2
+        }
+      },
+      {
+        "id": "5563",
+        "nome": "Letycia",
+        "created_at": "2026-05-23T19:44:01.592Z",
+        "mensagens": {
+          "inbound": 2,
+          "outbound": 4
+        }
+      }
+    ]
+  },
+  {
+    "telefone": "5533988995648",
+    "organizacao_id": "2",
+    "contatos": [
+      {
+        "id": "5103",
+        "nome": "Erly Guilherme Azevedo",
+        "created_at": "2026-03-27T22:20:33.003Z",
+        "mensagens": {
+          "inbound": 5,
+          "outbound": 12
+        }
+      },
+      {
+        "id": "5104",
+        "nome": "Erly Azevedo",
+        "created_at": "2026-03-27T22:20:33.761Z",
+        "mensagens": {
+          "inbound": 0,
+          "outbound": 1
+        }
+      }
+    ]
+  },
+  {
+    "telefone": "553399025985",
+    "organizacao_id": "2",
+    "contatos": [
+      {
+        "id": "5614",
+        "nome": "Elizangela Machado",
+        "created_at": "2026-05-27T00:14:02.622Z",
+        "mensagens": {
+          "inbound": 14,
+          "outbound": 27
+        }
+      },
+      {
+        "id": "5615",
+        "nome": "Lead (553399025985)",
+        "created_at": "2026-05-27T00:27:47.441Z",
+        "mensagens": {
+          "inbound": 1,
+          "outbound": 0
+        }
+      }
+    ]
+  },
+  {
+    "telefone": "5533991916906",
+    "organizacao_id": "2",
+    "contatos": [
+      {
+        "id": "4886",
+        "nome": "Fabio Silvino",
+        "created_at": "2026-02-06T09:57:38.397Z",
+        "mensagens": {
+          "inbound": 11,
+          "outbound": 16
+        }
+      },
+      {
+        "id": "4941",
+        "nome": "Fabio Silvino",
+        "created_at": "2026-02-20T10:34:12.252Z",
+        "mensagens": {
+          "inbound": 0,
+          "outbound": 7
+        }
+      }
+    ]
+  },
+  {
+    "telefone": "553399547476",
+    "organizacao_id": "2",
+    "contatos": [
+      {
+        "id": "5259",
+        "nome": "Riane ",
+        "created_at": "2026-04-18T11:48:45.791Z",
+        "mensagens": {
+          "inbound": 22,
+          "outbound": 17
+        }
+      },
+      {
+        "id": "5282",
+        "nome": "Riane kely ",
+        "created_at": "2026-04-22T18:26:20.012Z",
+        "mensagens": {
+          "inbound": 0,
+          "outbound": 0
+        }
+      }
+    ]
+  },
+  {
+    "telefone": "5533998125104",
+    "organizacao_id": "2",
+    "contatos": [
+      {
+        "id": "3732",
+        "nome": "George Maurilio",
+        "created_at": "2025-09-10T19:56:24.204Z",
+        "mensagens": {
+          "inbound": 0,
+          "outbound": 1
+        }
+      },
+      {
+        "id": "5227",
+        "nome": "George Maurílio ",
+        "created_at": "2026-04-14T01:07:42.489Z",
+        "mensagens": {
+          "inbound": 0,
+          "outbound": 0
+        }
+      }
+    ]
+  },
+  {
+    "telefone": "5533999008886",
+    "organizacao_id": "2",
+    "contatos": [
+      {
+        "id": "5158",
+        "nome": "Nilcilene de Souza",
+        "created_at": "2026-04-03T13:06:01.335Z",
+        "mensagens": {
+          "inbound": 2,
+          "outbound": 12
+        }
+      },
+      {
+        "id": "5421",
+        "nome": "Nilcilene de Souza",
+        "created_at": "2026-05-10T20:47:02.616Z",
+        "mensagens": {
+          "inbound": 0,
+          "outbound": 3
+        }
+      }
+    ]
+  },
+  {
+    "telefone": "5533999103802",
+    "organizacao_id": "2",
+    "contatos": [
+      {
+        "id": "5300",
+        "nome": "André Luiz ",
+        "created_at": "2026-04-25T11:53:48.309Z",
+        "mensagens": {
+          "inbound": 4,
+          "outbound": 11
+        }
+      },
+      {
+        "id": "5301",
+        "nome": "André Luiz Melo Coelho",
+        "created_at": "2026-04-25T11:53:48.313Z",
+        "mensagens": {
+          "inbound": 0,
+          "outbound": 0
+        }
+      }
+    ]
+  },
+  {
+    "telefone": "5533999160930",
+    "organizacao_id": "2",
+    "contatos": [
+      {
+        "id": "5297",
+        "nome": "Camila Cardoso ",
+        "created_at": "2026-04-24T16:34:47.860Z",
+        "mensagens": {
+          "inbound": 0,
+          "outbound": 0
+        }
+      },
+      {
+        "id": "5298",
+        "nome": "Camila Cardoso",
+        "created_at": "2026-04-24T16:34:49.704Z",
+        "mensagens": {
+          "inbound": 11,
+          "outbound": 15
+        }
+      }
+    ]
+  },
+  {
+    "telefone": "5533999237029",
+    "organizacao_id": "2",
+    "contatos": [
+      {
+        "id": "3749",
+        "nome": "Victor Catalunia Ferreira",
+        "created_at": "2025-09-10T19:56:38.630Z",
+        "mensagens": {
+          "inbound": 0,
+          "outbound": 1
+        }
+      },
+      {
+        "id": "5212",
+        "nome": "Victor Catalunia",
+        "created_at": "2026-04-11T11:44:01.558Z",
+        "mensagens": {
+          "inbound": 4,
+          "outbound": 5
+        }
+      }
+    ]
+  },
+  {
+    "telefone": "5533999251936",
+    "organizacao_id": "2",
+    "contatos": [
+      {
+        "id": "5277",
+        "nome": "Guilherme Santos Duarte",
+        "created_at": "2026-04-22T02:26:01.873Z",
+        "mensagens": {
+          "inbound": 2,
+          "outbound": 5
+        }
+      },
+      {
+        "id": "5283",
+        "nome": "Guilherme",
+        "created_at": "2026-04-22T19:12:47.827Z",
+        "mensagens": {
+          "inbound": 2,
+          "outbound": 16
+        }
+      }
+    ]
+  },
+  {
+    "telefone": "16035577212",
+    "organizacao_id": "2",
+    "contatos": [
+      {
+        "id": "5539",
+        "nome": "Lead (16035577212)",
+        "created_at": "2026-05-22T16:02:57.616Z",
+        "mensagens": {
+          "inbound": 1,
+          "outbound": 5
+        }
+      },
+      {
+        "id": "5540",
+        "nome": "Luiz Felipe",
+        "created_at": "2026-05-22T16:02:58.696Z",
+        "mensagens": {
+          "inbound": 0,
+          "outbound": 3
+        }
+      }
+    ]
+  },
+  {
+    "telefone": "5533999621067",
+    "organizacao_id": "2",
+    "contatos": [
+      {
+        "id": "4845",
+        "nome": "Regiane Xavier",
+        "created_at": "2026-01-26T13:50:55.094Z",
+        "mensagens": {
+          "inbound": 26,
+          "outbound": 34
+        }
+      },
+      {
+        "id": "5363",
+        "nome": "Regiane Xavier",
+        "created_at": "2026-05-05T18:33:18.833Z",
+        "mensagens": {
+          "inbound": 0,
+          "outbound": 0
+        }
+      }
+    ]
+  }
+]
+
+Contatos duplicados sem mensagens no WhatsApp (Apenas cadastros de leads órfãos): 2

@@ -1,0 +1,5 @@
+{
+  "artifactType":  "ARTIFACT_TYPE_OTHER",
+  "summary":  "Criar script para medir o tempo exato de resposta da rota de chat-analysis em produção e entender o timeout.",
+  "updatedAt":  "2026-06-05T16:33:17.415174500Z"
+}

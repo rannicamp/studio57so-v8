@@ -1,0 +1,19 @@
+# Isolamento de Conversas por Telefone
+
+## O que foi feito
+Refatoramos o núcleo do painel de mensagens (`MessagePanel.js`) e a camada de busca (`data-fetching.js`) para que o sistema respeite a separação de conversas por número de telefone. 
+
+Antes, o sistema buscava todas as mensagens usando apenas o `contato_id`. Agora, ele aplica um filtro preciso (`or(sender_id.eq.PHONE,receiver_id.eq.PHONE)`) garantindo que apenas as mensagens trocadas com **aquele número específico** sejam exibidas na tela.
+
+## Mudanças Técnicas
+1. **`data-fetching.js`**: `getMessages` agora recebe `phoneNumber` e aplica o filtro `.or()` na query do Supabase.
+2. **`MessagePanel.js`**: 
+    - O cache do React Query (`queryKey`) agora inclui o telefone, criando sessões separadas na memória.
+    - O listener de WebSockets (Realtime) foi ajustado para reagir apenas quando a nova mensagem for pertinente ao telefone da aba aberta.
+
+## Validação Manual Pendente
+O servidor local (`npm run dev`) foi iniciado. Para validar:
+1. Acesse `http://localhost:3000/caixa-de-entrada`.
+2. Procure pelo contato "Kelly Bispo".
+3. Você deverá ver as conversas dela separadas na barra lateral (uma para o número BR, outra para o US).
+4. Ao clicar em cada uma, o histórico carregado deverá ser exclusivamente daquele número, sem fusões.

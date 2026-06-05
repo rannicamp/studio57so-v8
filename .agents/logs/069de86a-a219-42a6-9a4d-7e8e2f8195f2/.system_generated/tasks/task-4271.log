@@ -1,0 +1,98 @@
+[dotenv@17.3.1] injecting env (34) from .env.local -- tip: ⚙️  override existing env vars with { override: true }
+=== Lendo mensagens de Ranniere ===
+Chat Log:
+ [25/05/2026, 14:17:21] Corretor: (Automação) Template: s57_entrada_lead_v1
+[25/05/2026, 14:17:47] Cliente: [Botão]: Para Investir
+[26/05/2026, 17:50:14] Corretor: Oi RANNIERE! Tudo bem?
+
+O Studio 57 está com três empreendimentos ainda com unidades disponíveis, todos com ótimo potencial de rentabilidade e valorização.
+
+Quer que eu te mostre rapidinho as opções?
+[26/05/2026, 17:50:26] Cliente: [Botão]: SIM
+[26/05/2026, 17:51:19] Corretor: Book_Investidor_Beta_Suites.pdf
+[26/05/2026, 17:57:00] Corretor: Olá, Seu Lindo Ranniere Teste! Tudo bem? 🌟
+
+Sou do time comercial do *Studio 57* e recebemos o seu cadastro com sucesso! Ficamos muito felizes pelo seu interesse em nossos empreendimentos.
+
+Estou aqui para tirar todas as suas dúvidas e te apresentar as melhores oportunidades que temos hoje. Para eu conseguir te direcionar certinho, você está buscando um imóvel mais voltado para *moradia* ou para *investimento*?
+[29/05/2026, 14:02:44] Corretor: Book_Investidor_Beta_Suites.pdf
+[29/05/2026, 14:04:05] Cliente: Oi
+[29/05/2026, 14:04:12] Corretor: Book_Investidor_Beta_Suites.pdf
+[29/05/2026, 14:16:17] Corretor: Áudio enviado
+[29/05/2026, 14:16:33] Corretor: Mandei errado, desculpa 
+=== Chamando Gemini API ===
+Retorno cru do Gemini:
+{
+  "resumo_interacao": "O cliente demonstrou interesse em investimento via botões de automação e mandou um 'Oi', mas o contato do corretor foi confuso (envios repetidos de PDF e áudio errado).",
+  "temperatura": "Morno",
+  "fase_crm_atual": "Lead Sem Funil (Caixa de Entrada Vazia)",
+  "proxima_acao_sugerida": "Peça desculpas pela confusão anterior e faça uma pergunta direta para engajar o cliente sobre o material de investimento que foi enviado.",
+  "proxima_resposta_sugerida": "Oi, Ranniere! Desculpa pela confusão com as mensagens e o áudio agora pouco. 😅 Como você tinha sinalizado interesse na linha de investimento, conseguiu dar uma olhadinha no material do Beta Suítes? Quer que eu te explique como funciona a rentabilidade dele?",
+  "dados_cliente": {
+    "nome": null,
+    "cpf": null,
+    "cnpj": null,
+    "renda_familiar": null,
+    "fgts": null,
+    "mais_de_3_anos_clt": null,
+    "objetivo": "INVESTIMENTO",
+    "cargo": null,
+    "estado_civil": null,
+    "birth_date": null,
+    "cep": null,
+    "address_street": null,
+    "address_number": null,
+    "address_complement": null,
+    "neighborhood": null,
+    "city": null,
+    "state": null
+  }
+}
+JSON parsed: {
+  resumo_interacao: "O cliente demonstrou interesse em investimento via botões de automação e mandou um 'Oi', mas o contato do corretor foi confuso (envios repetidos de PDF e áudio errado).",
+  temperatura: 'Morno',
+  fase_crm_atual: 'Lead Sem Funil (Caixa de Entrada Vazia)',
+  proxima_acao_sugerida: 'Peça desculpas pela confusão anterior e faça uma pergunta direta para engajar o cliente sobre o material de investimento que foi enviado.',
+  proxima_resposta_sugerida: 'Oi, Ranniere! Desculpa pela confusão com as mensagens e o áudio agora pouco. 😅 Como você tinha sinalizado interesse na linha de investimento, conseguiu dar uma olhadinha no material do Beta Suítes? Quer que eu te explique como funciona a rentabilidade dele?',
+  dados_cliente: {
+    nome: null,
+    cpf: null,
+    cnpj: null,
+    renda_familiar: null,
+    fgts: null,
+    mais_de_3_anos_clt: null,
+    objetivo: 'INVESTIMENTO',
+    cargo: null,
+    estado_civil: null,
+    birth_date: null,
+    cep: null,
+    address_street: null,
+    address_number: null,
+    address_complement: null,
+    neighborhood: null,
+    city: null,
+    state: null
+  }
+}
+
+=== Simulando lógica de update ===
+Contato atual: {
+  nome: 'Ranniere Campos Mendes',
+  cpf: null,
+  cnpj: null,
+  fgts: false,
+  renda_familiar: null,
+  objetivo: null,
+  cargo: null,
+  estado_civil: null,
+  mais_de_3_anos_clt: false,
+  cep: null,
+  address_street: null,
+  address_number: null,
+  address_complement: null,
+  neighborhood: null,
+  city: null,
+  state: null,
+  birth_date: null
+}
+Payload a ser atualizado (updateData): { objetivo: 'INVESTIMENTO' }

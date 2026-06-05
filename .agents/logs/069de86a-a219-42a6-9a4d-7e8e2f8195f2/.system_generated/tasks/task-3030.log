@@ -1,0 +1,68 @@
+[
+  {
+    "corretor_nome": "Ludimila Campos Marques",
+    "funil_distribuicao": {
+      "Falhas": 5,
+      "Perdido": 496,
+      "Visitas": 2,
+      "Simulação": 2,
+      "Negociação": 2,
+      "Em Atendimento": 35,
+      "Em Avaliação": 20,
+      "Cliente Potencial": 8,
+      "Termo De Interesse - Beta": 4
+    },
+    "total_atendimentos": 574,
+    "tempo_medio_resposta_minutos": 2281.1705362776024,
+    "tempo_medio_resposta_lead_minutos": 1322.367064516129
+  },
+  {
+    "corretor_nome": "Sem Corretor / Robô",
+    "funil_distribuicao": {},
+    "total_atendimentos": 548,
+    "tempo_medio_resposta_minutos": 84.7375,
+    "tempo_medio_resposta_lead_minutos": 21779.353333333333
+  },
+  {
+    "corretor_nome": "Analia Silvestre de Oliveira Carvalho",
+    "funil_distribuicao": {
+      "Perdido": 106,
+      "Visitas": 3,
+      "Em Atendimento": 2,
+      "Em Avaliação": 82
+    },
+    "total_atendimentos": 193,
+    "tempo_medio_resposta_minutos": 2059.968115942029,
+    "tempo_medio_resposta_lead_minutos": 3764.130757575758
+  },
+  {
+    "corretor_nome": "Sendy Ribeiro de Souza ",
+    "funil_distribuicao": {
+      "Falhas": 1,
+      "Perdido": 5,
+      "Em Atendimento": 21,
+      "Em Avaliação": 2
+    },
+    "total_atendimentos": 29,
+    "tempo_medio_resposta_minutos": 572.275,
+    "tempo_medio_resposta_lead_minutos": 60.6275
+  },
+  {
+    "corretor_nome": "Ana Carolina Marques Vargas",
+    "funil_distribuicao": {
+      "Perdido": 1
+    },
+    "total_atendimentos": 1,
+    "tempo_medio_resposta_minutos": 0,
+    "tempo_medio_resposta_lead_minutos": 0
+  },
+  {
+    "corretor_nome": "Wilson Gil Dutra Filho",
+    "funil_distribuicao": {
+      "Vendido": 1
+    },
+    "total_atendimentos": 1,
+    "tempo_medio_resposta_minutos": 0,
+    "tempo_medio_resposta_lead_minutos": 0
+  }
+]

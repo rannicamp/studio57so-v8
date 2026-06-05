@@ -1,0 +1,143 @@
+--- INSPECIONANDO DETALHES DE PAYLOAD ---
+Tipo da coluna no banco: { column_name: 'raw_payload', data_type: 'jsonb' }
+Mensagem 8942: {
+  id: '8942',
+  pg_type: 'jsonb',
+  raw_payload_typeof: 'string',
+  raw_payload_raw: '{"messaging_product":"whatsapp","recipient_type":"individual","to":"553391552158","type":"template","template":{"name":"reativar_contato","language":{"code":"pt_BR"},"components":[{"type":"body","parameters":[{"type":"text","text":"Ana Rosa"}]}]}}'
+}
+Resultados de templates e respostas calculados: [
+  {
+    template_name: 'apresentacao_imagem_',
+    total_sent: '902',
+    total_delivered: '330',
+    total_read: '224',
+    total_replied: '23'
+  },
+  {
+    template_name: 'apresentacao_empreendimento',
+    total_sent: '757',
+    total_delivered: '657',
+    total_read: '374',
+    total_replied: '268'
+  },
+  {
+    template_name: 'refugio_acompanhamento_1',
+    total_sent: '731',
+    total_delivered: '458',
+    total_read: '272',
+    total_replied: '45'
+  },
+  {
+    template_name: 'reativar_contato',
+    total_sent: '683',
+    total_delivered: '627',
+    total_read: '353',
+    total_replied: '142'
+  },
+  {
+    template_name: 'iniciar_contato',
+    total_sent: '138',
+    total_delivered: '110',
+    total_read: '66',
+    total_replied: '23'
+  },
+  {
+    template_name: 'beta_suites_1',
+    total_sent: '115',
+    total_delivered: '50',
+    total_read: '11',
+    total_replied: '2'
+  },
+  {
+    template_name: 'reativar_contato_perdido',
+    total_sent: '115',
+    total_delivered: '100',
+    total_read: '58',
+    total_replied: '24'
+  },
+  {
+    template_name: 's57_entrada_lead_v1',
+    total_sent: '105',
+    total_delivered: '80',
+    total_read: '48',
+    total_replied: '31'
+  },
+  {
+    template_name: 'reativar_contato_em_andamento',
+    total_sent: '89',
+    total_delivered: '82',
+    total_read: '44',
+    total_replied: '26'
+  },
+  {
+    template_name: 'mensagem_novo_lead_beta',
+    total_sent: '34',
+    total_delivered: '4',
+    total_read: '2',
+    total_replied: '1'
+  },
+  {
+    template_name: 'oi_tudo_bem_',
+    total_sent: '22',
+    total_delivered: '11',
+    total_read: '6',
+    total_replied: '3'
+  },
+  {
+    template_name: 'cadastro_corretor',
+    total_sent: '20',
+    total_delivered: '20',
+    total_read: '15',
+    total_replied: '10'
+  },
+  {
+    template_name: 'caixa_clientes_alfa',
+    total_sent: '13',
+    total_delivered: '13',
+    total_read: '9',
+    total_replied: '1'
+  },
+  {
+    template_name: 'eua_retomar_conversa',
+    total_sent: '8',
+    total_delivered: '5',
+    total_read: '0',
+    total_replied: '2'
+  },
+  {
+    template_name: 'novo_lead_beta_eua',
+    total_sent: '7',
+    total_delivered: '1',
+    total_read: '1',
+    total_replied: '0'
+  },
+  {
+    template_name: 'saudacao_novo_lead',
+    total_sent: '4',
+    total_delivered: '1',
+    total_read: '1',
+    total_replied: '1'
+  },
+  {
+    template_name: 'informativo_corretores_pre_beta',
+    total_sent: '2',
+    total_delivered: '2',
+    total_read: '2',
+    total_replied: '1'
+  },
+  {
+    template_name: 'hello_world',
+    total_sent: '2',
+    total_delivered: '2',
+    total_read: '2',
+    total_replied: '0'
+  },
+  {
+    template_name: 'alfa_caixa_conteudo',
+    total_sent: '1',
+    total_delivered: '1',
+    total_read: '0',
+    total_replied: '1'
+  }
+]

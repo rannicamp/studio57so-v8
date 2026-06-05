@@ -1,0 +1,5 @@
+warning: in the working copy of 'app/api/whatsapp/webhook/route.js', LF will be replaced by CRLF the next time Git touches it
+[main 57320633] fix(webhook): ajustar trava de rajada para considerar estritamente mensagens anteriores
+ 1 file changed, 17 insertions(+), 12 deletions(-)
+To https://github.com/rannicamp/studio57so-v8.git
+   f7fd5d89..57320633  main -> main

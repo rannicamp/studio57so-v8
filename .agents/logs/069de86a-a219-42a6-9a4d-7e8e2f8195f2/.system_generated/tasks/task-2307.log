@@ -1,0 +1,8 @@
+warning: in the working copy of 'agrupar_conversas.js', LF will be replaced by CRLF the next time Git touches it
+[main 0375e095] feat(whatsapp): logica de agrupamento de conversas via telefone canonico ddd+8
+ 5 files changed, 163 insertions(+), 37 deletions(-)
+ create mode 100644 agrupar_conversas.js
+ delete mode 100644 tmp_get_cols.js
+ delete mode 100644 tmp_get_fks_contatos.js
+To https://github.com/rannicamp/studio57so-v8.git
+   2a3b4528..0375e095  main -> main

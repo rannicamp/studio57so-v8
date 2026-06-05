@@ -1,0 +1,12 @@
+# Tarefas: Implementação do Dossiê Dinâmico da IA
+
+- [/] Modificar `components/empreendimentos/EmpreendimentoDetails.js`
+  - [ ] Adicionar aba "Dossiê da IA" (`dossie_ia`)
+  - [ ] Criar interface (Textarea) e lógica de Save (`UPDATE empreendimentos`)
+- [ ] Atualizar `app/api/ai/chat-analysis/route.js`
+  - [ ] Buscar a coluna `dossie_ia` na consulta ao Supabase
+  - [ ] Injetar o texto no contexto do Prompt da IA
+- [ ] Executar script de migração para o "Refúgio Braúnas"
+  - [ ] Ler `.agents/refugio_braunas/dossie_venda_refugio_braunas.md`
+  - [ ] Injetar via banco de dados (`UPDATE`) usando script Node
+- [ ] Validar UI e geração de respostas da IA

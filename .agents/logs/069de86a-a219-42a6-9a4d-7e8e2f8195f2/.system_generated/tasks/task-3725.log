@@ -1,0 +1,283 @@
+--- SCRIPT DE MESCLAGEM E UNIFICAÇÃO HISTÓRICA DE CONTATOS DUPLICADOS (CORRIGIDO) ---
+Encontrados 32 grupos de telefones duplicados para processar.
+
+
+==================================================
+Processando telefone: 16035577212 | Org: 2
+Contato Principal Escolhido: [5540] "Luiz Felipe" (Score: 179, Mensagens: 3)
+Contatos Secundários para mesclar:
+ - [5539] "Lead (16035577212)" (Score: 12, Mensagens: 6)
+  -> Repontou 6 mensagens para a conversa principal.
+  -> Removeu card de funil duplicado [ID ae1dafae-23d6-483c-8f7e-c376bc01dd18] pois o principal já possui um card.
+  -> Deletou 1 telefones secundários.
+  -> Deletou 1 contatos secundários duplicados.
+Unificação do telefone 16035577212 concluída com sucesso!
+
+==================================================
+Processando telefone: 16178005321 | Org: 2
+Contato Principal Escolhido: [5465] "Marta Keefe" (Score: 181, Mensagens: 1)
+Contatos Secundários para mesclar:
+ - [5547] "Marta Keefe" (Score: 176, Mensagens: 1)
+ - [5546] "Lead (16178005321)" (Score: 6, Mensagens: 1)
+  -> Repontou 2 mensagens para a conversa principal.
+  -> Deletou 1 conversas secundárias duplicadas.
+  -> Removeu card de funil duplicado [ID 2578de50-be9b-4156-a8b0-2ad195244f7c] pois o principal já possui um card.
+  -> Deletou 2 telefones secundários.
+  -> Deletou 2 contatos secundários duplicados.
+Unificação do telefone 16178005321 concluída com sucesso!
+
+==================================================
+Processando telefone: 17745022216 | Org: 2
+Contato Principal Escolhido: [3927] "Amos Hastenreiter" (Score: 186, Mensagens: 6)
+Contatos Secundários para mesclar:
+ - [5572] "Amos Hastenreiter" (Score: 175, Mensagens: 1)
+  -> Vinculou conversa [15236] ao contato principal.
+  -> Repontou 1 mensagens para a conversa principal.
+  -> Removeu card de funil duplicado [ID efb6ae49-e028-40ac-998d-17472626d673] pois o principal já possui um card.
+  -> Deletou 1 telefones secundários.
+  -> Deletou 1 contatos secundários duplicados.
+Unificação do telefone 17745022216 concluída com sucesso!
+
+==================================================
+Processando telefone: 18578884946 | Org: 2
+Contato Principal Escolhido: [5438] "Amanda da Silva Ferreira" (Score: 81, Mensagens: 1)
+Contatos Secundários para mesclar:
+ - [3485] "Fábio Júnior de Oliveira Alaerte" (Score: 64, Mensagens: 4)
+  -> Repontou 4 mensagens para a conversa principal.
+  -> Deletou 1 conversas secundárias duplicadas.
+  -> Migrou email "fabiooliveira15061992@gmail.com" para o contato principal.
+  -> Removeu card de funil duplicado [ID f64f9669-7639-49db-8b5a-d81103dbb1e8] pois o principal já possui um card.
+  -> Deletou 1 telefones secundários.
+Erro ao mesclar telefone 18578884946: update or delete on table "contatos" violates foreign key constraint "contratos_conjuge_id_fkey" on table "contratos"
+
+==================================================
+Processando telefone: 18579955550 | Org: 2
+Contato Principal Escolhido: [4494] "Marinho" (Score: 188, Mensagens: 8)
+Contatos Secundários para mesclar:
+ - [5622] "Geovany" (Score: 172, Mensagens: 2)
+  -> Vinculou conversa [15337] ao contato principal.
+  -> Repontou 2 mensagens para a conversa principal.
+  -> Removeu card de funil duplicado [ID 0d235f06-ee45-4d8c-9ba3-9016a342554c] pois o principal já possui um card.
+  -> Deletou 1 telefones secundários.
+  -> Deletou 1 contatos secundários duplicados.
+Unificação do telefone 18579955550 concluída com sucesso!
+
+==================================================
+Processando telefone: 19783171701 | Org: 2
+Apenas 1 contato(s) encontrado(s) fisicamente no banco. Pulando.
+
+==================================================
+Processando telefone: 19787605041 | Org: 2
+Apenas 1 contato(s) encontrado(s) fisicamente no banco. Pulando.
+
+==================================================
+Processando telefone: 19787985648 | Org: 2
+Apenas 1 contato(s) encontrado(s) fisicamente no banco. Pulando.
+
+==================================================
+Processando telefone: 5527996404792 | Org: 2
+Apenas 1 contato(s) encontrado(s) fisicamente no banco. Pulando.
+
+==================================================
+Processando telefone: 553171227170 | Org: 2
+Apenas 1 contato(s) encontrado(s) fisicamente no banco. Pulando.
+
+==================================================
+Processando telefone: 5533333333333 | Org: 2
+Apenas 1 contato(s) encontrado(s) fisicamente no banco. Pulando.
+
+==================================================
+Processando telefone: 553388033447 | Org: 2
+Contato Principal Escolhido: [5480] "Stephany Ferreira" (Score: 184, Mensagens: 4)
+Contatos Secundários para mesclar:
+ - [5449] "Stephany Ferreira" (Score: 181, Mensagens: 1)
+  -> Repontou 1 mensagens para a conversa principal.
+  -> Removeu card de funil duplicado [ID a24bfd1e-3fb5-4593-bd05-72fb33c4a988] pois o principal já possui um card.
+  -> Deletou 2 telefones secundários.
+  -> Deletou 1 contatos secundários duplicados.
+Unificação do telefone 553388033447 concluída com sucesso!
+
+==================================================
+Processando telefone: 553388259836 | Org: 2
+Contato Principal Escolhido: [5100] "Lílian Gabriele" (Score: 185, Mensagens: 5)
+Contatos Secundários para mesclar:
+ - [4704] "Lílian Gabriele" (Score: 182, Mensagens: 2)
+  -> Repontou 2 mensagens para a conversa principal.
+  -> Removeu card de funil duplicado [ID ca5f823d-1614-4463-bf99-5aee5fda59e1] pois o principal já possui um card.
+  -> Deletou 1 telefones secundários.
+  -> Deletou 1 contatos secundários duplicados.
+Unificação do telefone 553388259836 concluída com sucesso!
+
+==================================================
+Processando telefone: 5533984404920 | Org: 2
+Contato Principal Escolhido: [5168] "Felipe Maxwell" (Score: 207, Mensagens: 27)
+Contatos Secundários para mesclar:
+ - [5160] "Felipe Maxwell" (Score: 188, Mensagens: 8)
+  -> Repontou 0 mensagens para a conversa principal.
+  -> Deletou 0 telefones secundários.
+  -> Deletou 0 contatos secundários duplicados.
+Unificação do telefone 5533984404920 concluída com sucesso!
+
+==================================================
+Processando telefone: 5533988013865 | Org: 2
+Contato Principal Escolhido: [5107] "Deivid Olavo Reis" (Score: 183, Mensagens: 3)
+Contatos Secundários para mesclar:
+ - [5102] "Deivid Olavo Reis" (Score: 181, Mensagens: 1)
+  -> Repontou 1 mensagens para a conversa principal.
+  -> Removeu card de funil duplicado [ID b7f06f63-a96b-4769-9089-4170d538096e] pois o principal já possui um card.
+  -> Deletou 1 telefones secundários.
+  -> Deletou 1 contatos secundários duplicados.
+Unificação do telefone 5533988013865 concluída com sucesso!
+
+==================================================
+Processando telefone: 5533988266065 | Org: 2
+Apenas 1 contato(s) encontrado(s) fisicamente no banco. Pulando.
+
+==================================================
+Processando telefone: 5533988274989 | Org: 2
+Contato Principal Escolhido: [5327] "Cristina Mattos" (Score: 186, Mensagens: 6)
+Contatos Secundários para mesclar:
+ - [5326] "Cristina Mattos" (Score: 80, Mensagens: 0)
+  -> Repontou 0 mensagens para a conversa principal.
+  -> Deletou 0 telefones secundários.
+  -> Deletou 0 contatos secundários duplicados.
+Unificação do telefone 5533988274989 concluída com sucesso!
+
+==================================================
+Processando telefone: 5533988674769 | Org: 2
+Contato Principal Escolhido: [5271] "Wanderson Laia" (Score: 194, Mensagens: 14)
+Contatos Secundários para mesclar:
+ - [5272] "Wanderson Laia" (Score: 180, Mensagens: 0)
+  -> Repontou 0 mensagens para a conversa principal.
+  -> Removeu card de funil duplicado [ID 743847e9-62a0-4473-b98d-a0a81a471483] pois o principal já possui um card.
+  -> Deletou 1 telefones secundários.
+  -> Deletou 1 contatos secundários duplicados.
+Unificação do telefone 5533988674769 concluída com sucesso!
+
+==================================================
+Processando telefone: 5533988800558 | Org: 2
+Contato Principal Escolhido: [1272] "Paulo Ribeiro " (Score: 60, Mensagens: 0)
+Contatos Secundários para mesclar:
+ - [4678] "" (Score: 30, Mensagens: 0)
+  -> Deletou 0 telefones secundários.
+  -> Deletou 0 contatos secundários duplicados.
+Unificação do telefone 5533988800558 concluída com sucesso!
+
+==================================================
+Processando telefone: 5533988848077 | Org: 2
+Contato Principal Escolhido: [5302] "Alinny Mara Soares" (Score: 186, Mensagens: 6)
+Contatos Secundários para mesclar:
+ - [3920] "Alinny Mara Soares" (Score: 183, Mensagens: 3)
+  -> Vinculou conversa [15231] ao contato principal.
+  -> Repontou 0 mensagens para a conversa principal.
+  -> Deletou 0 telefones secundários.
+  -> Deletou 0 contatos secundários duplicados.
+Unificação do telefone 5533988848077 concluída com sucesso!
+
+==================================================
+Processando telefone: 5533988901606 | Org: 2
+Contato Principal Escolhido: [5563] "Letycia" (Score: 180, Mensagens: 6)
+Contatos Secundários para mesclar:
+ - [5494] "Letycia Cristina Pereira Silva " (Score: 81, Mensagens: 2)
+  -> Repontou 2 mensagens para a conversa principal.
+  -> Removeu card de funil duplicado [ID e1d2160f-7945-40ee-84e7-abcd58d67441] pois o principal já possui um card.
+  -> Deletou 1 telefones secundários.
+  -> Deletou 1 contatos secundários duplicados.
+Unificação do telefone 5533988901606 concluída com sucesso!
+
+==================================================
+Processando telefone: 5533988995648 | Org: 2
+Contato Principal Escolhido: [5104] "Erly Azevedo" (Score: 181, Mensagens: 1)
+Contatos Secundários para mesclar:
+ - [5103] "Erly Guilherme Azevedo" (Score: 97, Mensagens: 17)
+  -> Vinculou conversa [10645] ao contato principal.
+  -> Repontou 17 mensagens para a conversa principal.
+  -> Removeu card de funil duplicado [ID 753b903a-b8ed-4121-a605-ccf93fa3c3f1] pois o principal já possui um card.
+  -> Deletou 1 telefones secundários.
+  -> Deletou 1 contatos secundários duplicados.
+Unificação do telefone 5533988995648 concluída com sucesso!
+
+==================================================
+Processando telefone: 553399025985 | Org: 2
+Apenas 1 contato(s) encontrado(s) fisicamente no banco. Pulando.
+
+==================================================
+Processando telefone: 5533991916906 | Org: 2
+Contato Principal Escolhido: [4886] "Fabio Silvino" (Score: 207, Mensagens: 27)
+Contatos Secundários para mesclar:
+ - [4941] "Fabio Silvino" (Score: 187, Mensagens: 7)
+  -> Vinculou conversa [16257] ao contato principal.
+  -> Repontou 0 mensagens para a conversa principal.
+  -> Deletou 0 telefones secundários.
+  -> Deletou 0 contatos secundários duplicados.
+Unificação do telefone 5533991916906 concluída com sucesso!
+
+==================================================
+Processando telefone: 553399547476 | Org: 2
+Contato Principal Escolhido: [5259] "Riane " (Score: 99, Mensagens: 39)
+Contatos Secundários para mesclar:
+ - [5282] "Riane kely " (Score: 60, Mensagens: 0)
+  -> Repontou 0 mensagens para a conversa principal.
+  -> Deletou 0 telefones secundários.
+  -> Deletou 0 contatos secundários duplicados.
+Unificação do telefone 553399547476 concluída com sucesso!
+
+==================================================
+Processando telefone: 5533998125104 | Org: 2
+Contato Principal Escolhido: [3732] "George Maurilio" (Score: 61, Mensagens: 1)
+Contatos Secundários para mesclar:
+ - [5227] "George Maurílio " (Score: 60, Mensagens: 0)
+  -> Deletou 0 telefones secundários.
+  -> Deletou 0 contatos secundários duplicados.
+Unificação do telefone 5533998125104 concluída com sucesso!
+
+==================================================
+Processando telefone: 5533999008886 | Org: 2
+Contato Principal Escolhido: [5158] "Nilcilene de Souza" (Score: 194, Mensagens: 14)
+Contatos Secundários para mesclar:
+ - [5421] "Nilcilene de Souza" (Score: 183, Mensagens: 3)
+  -> Repontou 0 mensagens para a conversa principal.
+  -> Deletou 0 telefones secundários.
+  -> Deletou 0 contatos secundários duplicados.
+Unificação do telefone 5533999008886 concluída com sucesso!
+
+==================================================
+Processando telefone: 5533999103802 | Org: 2
+Apenas 1 contato(s) encontrado(s) fisicamente no banco. Pulando.
+
+==================================================
+Processando telefone: 5533999160930 | Org: 2
+Apenas 1 contato(s) encontrado(s) fisicamente no banco. Pulando.
+
+==================================================
+Processando telefone: 5533999237029 | Org: 2
+Contato Principal Escolhido: [5212] "Victor Catalunia" (Score: 189, Mensagens: 9)
+Contatos Secundários para mesclar:
+ - [3749] "Victor Catalunia Ferreira" (Score: 61, Mensagens: 1)
+  -> Repontou 0 mensagens para a conversa principal.
+  -> Deletou 0 telefones secundários.
+  -> Deletou 0 contatos secundários duplicados.
+Unificação do telefone 5533999237029 concluída com sucesso!
+
+==================================================
+Processando telefone: 5533999251936 | Org: 2
+Contato Principal Escolhido: [5283] "Guilherme" (Score: 198, Mensagens: 18)
+Contatos Secundários para mesclar:
+ - [5277] "Guilherme Santos Duarte" (Score: 87, Mensagens: 7)
+  -> Repontou 0 mensagens para a conversa principal.
+  -> Deletou 0 telefones secundários.
+  -> Deletou 0 contatos secundários duplicados.
+Unificação do telefone 5533999251936 concluída com sucesso!
+
+==================================================
+Processando telefone: 5533999621067 | Org: 2
+Contato Principal Escolhido: [4845] "Regiane Xavier" (Score: 240, Mensagens: 60)
+Contatos Secundários para mesclar:
+ - [5363] "Regiane Xavier" (Score: 180, Mensagens: 0)
+  -> Repontou 0 mensagens para a conversa principal.
+  -> Removeu card de funil duplicado [ID 63260ee4-72d5-4524-87df-8ef149be911f] pois o principal já possui um card.
+  -> Deletou 0 telefones secundários.
+  -> Deletou 0 contatos secundários duplicados.
+Unificação do telefone 5533999621067 concluída com sucesso!
+
+--- PROCESSO DE UNIFICAÇÃO CONCLUÍDO ---

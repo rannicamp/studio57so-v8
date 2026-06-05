@@ -1,0 +1,73 @@
+# 🎯 Estratégia de Copy: Recuperação de Leads (Refúgio Braúnas)
+
+Abaixo estão **três opções de abordagem** (Copys) pensadas para reativar aqueles leads que não compraram imóveis no Studio 57, mas que podem ter interesse em um lote rural de alto padrão. 
+
+Esses textos já foram pensados no formato de **Modelo de WhatsApp (Template)** que criamos mais cedo. A variável `{{1}}` será substituída automaticamente pelo nome do cliente pelo sistema.
+
+---
+
+## 🏕️ Opção 1: Oportunidade Exclusiva & Urgência (Direto ao ponto)
+*Ideal para clientes que você sabe que têm potencial de investimento.*
+
+**Cabeçalho Sugerido (Imagem):** A foto de drone recém compactada (`DJI_20260511120857_0020_D_comprimido.png`)
+**Corpo do Texto:**
+> Olá {{1}}, tudo bem? Aqui é a equipe do Studio 57!
+>
+> Lembra que um tempo atrás conversamos sobre as suas opções de imóveis? Hoje eu resolvi te mandar uma mensagem especial, pois acabamos de lançar algo muito exclusivo e achei que era exatamente o seu perfil.
+> 
+> Lançamos o **Refúgio Braúnas**: chácaras de alto padrão com mais de 1.000m² cada, prontas para você construir seu refúgio de fim de semana. 🍃
+> 
+> 🔒 **O grande diferencial:** É 100% legalizado. Você já sai com a escritura (matrícula individual) no seu nome, sem aquela dor de cabeça de loteamento de posse. 
+> 
+> Tivemos um sucesso enorme no pré-lançamento e já vendemos mais da metade. Hoje, **restam apenas 10 unidades**. 
+> 
+> A entrada é facilitada e o financiamento é feito **direto com a nossa incorporadora** em até 60 meses.
+> 
+> {{1}}, posso te mandar o material com os valores e o mapa dos últimos lotes disponíveis? 
+
+---
+
+## 🍃 Opção 2: O Sonho do Segundo Imóvel / Qualidade de Vida (Emocional)
+*Ideal para clientes de perfil mais familiar que queriam uma casa maior mas não fecharam negócio.*
+
+**Cabeçalho Sugerido (Imagem):** Imagem do Book de Vendas ou Vídeo de Drone.
+**Corpo do Texto:**
+> Oi {{1}}, como você está? Espero que esteja tudo ótimo!
+>
+> Há um tempo nós conversamos aqui no Studio 57. Sei que acabamos não fechando negócio na época, mas eu guardei seu contato porque hoje eu tenho uma novidade que brilha os olhos de quem busca qualidade de vida. ✨
+> 
+> Nós acabamos de abrir as vendas das chácaras do **Refúgio Braúnas**. São lotes maravilhosos de 1.000m² rodeados de natureza, com infraestrutura impecável e **100% legalizados e escriturados**. 
+> 
+> Sabe aquele lugar perfeito pra construir uma área de lazer, fazer um churrasco no domingo e descansar com a família, ou até mesmo garantir uma ótima valorização patrimonial? É exatamente isso.
+> 
+> Sobraram pouquíssimas unidades (só 10 disponíveis hoje). E a gente parcelou a entrada em 3x e o resto direto com a gente em 60x.
+> 
+> O que acha, {{1}}? Aceita receber o Book Digital sem compromisso só pra você dar uma olhada nas fotos? 
+
+---
+
+## 📈 Opção 3: Foco em Investimento Patrimonial (Investidor)
+*Ideal para leads antigos, empresários e quem buscava imóveis na planta para lucro.*
+
+**Cabeçalho Sugerido (Texto):** OPORTUNIDADE DE INVESTIMENTO 🚀
+**Corpo do Texto:**
+> Olá {{1}}, tudo bem? 
+>
+> Estou entrando em contato de forma pontual para te apresentar um ativo de valorização altíssima que o Studio 57 acabou de colocar no mercado.
+> 
+> Lançamos o **Refúgio Braúnas**. Diferente de 90% das áreas rurais da região, nosso empreendimento tem **matrícula individualizada (100% regular)** para cada lote de 1.000m². Isso significa liquidez imediata e segurança jurídica total para o seu patrimônio. 
+> 
+> Foram 21 lotes exclusivos. Investidores e parceiros já arremataram 11 deles apenas no pré-lançamento. Temos as **últimas 10 unidades**.
+> 
+> ✅ Entrada de apenas 20% (podendo diluir em 3 parcelas).
+> ✅ Saldo em até 60x com a própria incorporadora (INCC + 11% a.a). Não afeta seu limite de crédito bancário.
+> 
+> {{1}}, você tem interesse em analisar as plantas e a tabela de viabilidade dos últimos lotes disponíveis? Me avise que eu te envio o material completo.
+
+---
+
+### 💡 Dicas de Uso no Nosso Construtor Inteligente
+1. Vá em Configurações > Modelos do WhatsApp.
+2. Copie o texto de uma das opções acima (lembre-se que o `{{1}}` é gerado clicando no botão **+ Variável**).
+3. Na opção de **Cabeçalho**, selecione "Imagem" e anexe a imagem `DJI_20260511120857_0020_D_comprimido.png` que eu acabei de preparar para você.
+4. Quando a Meta aprovar (geralmente leva 1 minutinho), nós podemos disparar a automação no seu Funil de Vendas do CRM!

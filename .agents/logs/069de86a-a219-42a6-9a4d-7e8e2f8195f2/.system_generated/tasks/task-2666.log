@@ -1,0 +1,492 @@
+Failed US: [
+  {
+    receiver: '13392273131',
+    err: 'Meta Error 131026: Message undeliverable'
+  },
+  {
+    receiver: '15615630857',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '15615630857',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '16176062400',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '13392273131',
+    err: 'Meta Error 131026: Message undeliverable'
+  },
+  {
+    receiver: '15082943962',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '17543686187',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '15613594294',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '15613594294',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '17543686187',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '16176062400',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '19549552445',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '19549552445',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '19545157162',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '19545157162',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '19544927599',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '15089891218',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '17818898096',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '15089891218',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '19545887665',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '17747378117',
+    err: 'Meta Error 131026: Message undeliverable'
+  },
+  {
+    receiver: '19545887665',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '13477615275',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '17814734901',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '13477615275',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '19788761233',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '19788761233',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '19544927599',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '19787605041',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '17818898096',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '17816406411',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '15083157611',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '12035199250',
+    err: 'Meta Error 131026: Message undeliverable'
+  },
+  {
+    receiver: '19542053900',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '19044803498',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '19542053900',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '15083157611',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '17747378117',
+    err: 'Meta Error 131026: Message undeliverable'
+  },
+  {
+    receiver: '19787605041',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '15085615358',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '17743862752',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '19544790718',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '17743865440',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '19546753243',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '15618433728',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '15612709934',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '15612709934',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '17743865440',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '17745025311',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '18573589054',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '18573589054',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '17542810581',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '17745025311',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '17819220082',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '17819220082',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '17743864053',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '18576150791',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '18576150791',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '17543670917',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '19783985596',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '12035199250',
+    err: 'Meta Error 131026: Message undeliverable'
+  },
+  {
+    receiver: '17542810581',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '17543670917',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '17743864053',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '17542350408',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '17542350408',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '18579955550',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '18579955550',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '17742326698',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '17742326698',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '12034436662',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '14076982696',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '14076982696',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '17817209997',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '18573566000',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '13395456505',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '17744239708',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '13395456505',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '17744772944',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '19787609685',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '18638045448',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '17747372417',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '17543681537',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '17543681537',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '19783985421',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '17329120603',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '17742749082',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '15082390890',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '17329120603',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '17819568622',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '17819568622',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '17747125703',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '17747125703',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '19789189128',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '17744980495',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '17744980495',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '12394220566',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '15087335049',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '15087335049',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  {
+    receiver: '12394220566',
+    err: 'Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.'
+  },
+  ... 156 more items
+]
+Failed 551: 5518991498093 Meta Error 130472: User's number is part of an experiment
+Failed 551: 5512098081807 Meta Error 131026: Message undeliverable
+Failed 551: 5517743862550 Meta Error 131026: Message undeliverable
+Failed 551: 5512098081807 Meta Error 131026: Message undeliverable
+Failed 551: 5516176978962 null
+Failed 551: 5516175042584 null
+Failed 551: 5518572460708 null
+Failed 551: 5517742449966 null
+Failed 551: 5517745069034 null
+Failed 551: 5514155246662 null
+Failed 551: 5518603871594 null
+Failed 551: 5515083615910 null
+Failed 551: 5519785687702 null
+Failed 551: 5515082395169 null
+Failed 551: 5517742042289 null
+Failed 551: 5517275587785 null
+Failed 551: 551111351993 Meta Error 131026: Message undeliverable
+Failed 551: 5515084319236 null
+Failed 551: 5518573126749 null
+Failed 551: 5516176978138 null
+Failed 551: 551508361288 Message undeliverable: Message undeliverable (Message Undeliverable.)
+Failed 551: 5515083979287 null
+Failed 551: 5516178725117 null
+Failed 551: 5517744009120 null
+Failed 551: 5517742852815 null
+Failed 551: 5517813513352 null
+Failed 551: 5518623815926 null
+Failed 551: 5517748235915 null
+Failed 551: 5518572437297 null
+Failed 551: 5519736871803 null
+Failed 551: 5518575055695 null
+Failed 551: 5519545733602 null
+Failed 551: 5517742872978 null
+Failed 551: 5516179971792 null
+Failed 551: 5515082023156 null
+Failed 551: 5518578889963 null
+Failed 551: 5517818381232 null
+Failed 551: 5519546847576 null
+Failed 551: 5518603718317 null
+Failed 551: 5519548189532 null
+Failed 551: 5517865828195 null
+Failed 551: 5517814088166 null
+Failed 551: 5512392582086 null
+Failed 551: 5519788042282 null
+Failed 551: 5517742912875 null
+Failed 551: 5518572373576 null
+Failed 551: 5515083717402 null
+Failed 551: 5517747075196 null
+Failed 551: 5512035455016 null
+Failed 551: 5519789676818 null
+Failed 551: 5515613500799 null
+Failed 551: 5517742452924 null
+Failed 551: 5515084055252 null
+Failed 551: 5517745731584 null
+Failed 551: 5518578884531 null
+Failed 551: 5517742043566 null
+Failed 551: 5517812999680 null
+Failed 551: 5517816058301 null
+Failed 551: 5519046246833 null
+Failed 551: 5514014791137 null
+Failed 551: 5518578809187 null
+Failed 551: 5515082449289 null
+Failed 551: 5518572614887 null
+Failed 551: 5517746991034 null
+Failed 551: 5518572668672 null
+Failed 551: 5517818736226 null
+Failed 551: 5515087263129 null
+Failed 551: 5518573268790 null
+Failed 551: 5518573129580 null
+Failed 551: 551138492904 null
+Failed 551: 5518489925144 null
+Failed 551: 5518458539185 null
+Failed 551: 5519542973382 null
+Failed 551: 5512398965094 null
+Failed 551: 5518572378833 Meta Error 131026: Message undeliverable
+Failed 551: 551111351993 Meta Error 131026: Message undeliverable
+Failed 551: 5515083082321 Meta Error 131026: Message undeliverable
+Failed 551: 5517747075196 Meta Error 131026: Message undeliverable
+Failed 551: 5519046246833 Meta Error 131026: Message undeliverable
+Failed 551: 5516178005321 Meta Error 131026: Message undeliverable
+Failed 551: 5517747074248 Meta Error 131026: Message undeliverable
+Failed 551: 5518608811218 Meta Error 131026: Message undeliverable
+Failed 551: 5518572498171 Meta Error 131026: Message undeliverable
+Failed 551: 5519046246833 Meta Error 131026: Message undeliverable
+Failed 551: 5518573891324 Meta Error 131026: Message undeliverable
+Failed 551: 5515083716374 Meta Error 131026: Message undeliverable
+Failed 551: 5517745788718 Meta Error 131026: Message undeliverable
+Failed 551: 551111351993 Meta Error 131026: Message undeliverable
+Failed 551: 5517742705651 null

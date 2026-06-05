@@ -1,0 +1,59 @@
+1. Resetando endereço do contato Ranniere (5598)...
+2. Inserindo mensagem de texto contendo o endereço...
+3. Chamando API local /api/ai/chat-analysis para analisar e extrair o endereço...
+
+--- Resposta gerada pela Stella ---
+Resumo: O lead Ranniere, arquiteto e urbanista, demonstrou interesse em investir em studios otimizados do Beta Suítes, solicitando unidade no andar mais alto com comparativo de valores com e sem vaga. Já enviou CPF, estado civil, CNH e endereço completo, aguardando as simulações para reserva.
+Próxima resposta: Oi, Ranniere! Confirmado o CEP e o endereço! ✅ Não falta mais nada por aqui, sua ficha de cadastro está pronta.
+
+Já preparei as simulações para o studio otimizado no andar mais alto, comparando com e sem vaga para você:
+
+**Opção 1: Studio otimizado (sem vaga)**
+(Simulação baseada no ticket médio)
+- Entrada (20%): R$ 50.539
+- 42 mensais de: R$ 2.407
+- Saldo nas chaves (40%): R$ 101.078
+
+**Opção 2: Studio otimizado (com vaga)**
+(Valor estimado - simulação)
+- Entrada (20%): R$ 55.539
+- 42 mensais de: R$ 2.645
+- Saldo nas chaves (40%): R$ 111.078
+
+Qual opção te agrada mais para eu já travar a sua unidade no sistema?
+Dados Extraídos: {
+  "nome": "Ranniere Campos Mendes",
+  "cpf": "06570556622",
+  "cnpj": null,
+  "rg": null,
+  "nacionalidade": null,
+  "renda_familiar": 5000,
+  "fgts": null,
+  "mais_de_3_anos_clt": null,
+  "objetivo": "INVESTIMENTO",
+  "cargo": "Arquiteto e urbanista",
+  "estado_civil": "Solteiro",
+  "birth_date": null,
+  "cep": "35162084",
+  "address_street": null,
+  "address_number": "120",
+  "address_complement": "apartamento 202",
+  "neighborhood": null,
+  "city": null,
+  "state": null
+}
+
+4. Verificando endereço salvo no banco de dados...
+{
+  "id": "5598",
+  "cep": "35162084",
+  "address_street": null,
+  "address_number": "120",
+  "address_complement": "apartamento 202",
+  "neighborhood": null,
+  "city": null,
+  "state": null
+}
+
+5. Limpando mensagem de teste inserida...
+Teste concluído com sucesso!

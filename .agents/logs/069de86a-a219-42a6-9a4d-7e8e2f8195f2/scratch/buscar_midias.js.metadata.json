@@ -1,0 +1,5 @@
+{
+  "artifactType":  "ARTIFACT_TYPE_OTHER",
+  "summary":  "Corrigir query do script buscar_midias.js removendo a coluna inexistente message_type.",
+  "updatedAt":  "2026-06-05T16:10:21.005369200Z"
+}

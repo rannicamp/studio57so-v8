@@ -1,0 +1,7 @@
+Successfully scheduled one-shot timer.
+Expected to fire at: 2026-06-05T11:49:17-03:00
+Prompt: Verificar se a simulação com a listagem unificada de anexos terminou.
+
+[2026-06-05T11:48:57-03:00] Still waiting. Remaining time: 20s
+[2026-06-05T11:49:07-03:00] Still waiting. Remaining time: 10s
+[2026-06-05T11:49:11-03:00] Timer cancelled: agent received a message during wait.

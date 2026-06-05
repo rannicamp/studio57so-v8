@@ -1,0 +1,5 @@
+{
+  "artifactType":  "ARTIFACT_TYPE_OTHER",
+  "summary":  "Corrigir script ver_logs_webhook.js para apontar para a tabela whatsapp_webhook_logs.",
+  "updatedAt":  "2026-06-05T16:28:09.292233500Z"
+}

@@ -1,0 +1,24 @@
+
+> teste-netlify@0.1.0 dev
+> next dev
+
+ ⚠ Port 3000 is in use by process 13128, using available port 3001 instead.
+   ▲ Next.js 15.5.12
+   - Local:        http://localhost:3001
+   - Network:      http://54.232.189.113:3001
+   - Environments: .env.local
+   - Experiments (use with caution):
+     · serverActions
+
+ ✓ Starting...
+ ✓ Ready in 3.1s
+ ✓ Compiled /middleware in 422ms (167 modules)
+ ○ Compiling /api/ai/chat-analysis ...
+ ✓ Compiled /api/ai/chat-analysis in 1092ms (338 modules)
+[AI Enrichment] Contato enriquecido com sucesso: {
+  meta_campaign_name: 'NOVA CAMPANHA DE LEADS.',
+  meta_adset_name: 'BETA SUÍTES BRASIL',
+  meta_ad_name: 'BETA BRASIL_03',
+  renda_familiar: 10000
+}
+ POST /api/ai/chat-analysis 200 in 26508ms

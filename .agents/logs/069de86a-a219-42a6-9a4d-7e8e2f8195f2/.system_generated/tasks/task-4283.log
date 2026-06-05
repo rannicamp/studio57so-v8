@@ -1,0 +1,63 @@
+[dotenv@17.3.1] injecting env (34) from .env.local -- tip: 🔐 prevent committing .env to code: https://dotenvx.com/precommit
+=== Lendo mensagens de Ronan (3292) ===
+Mensagens encontradas: 1
+Chat Log:
+ [10/12/2025, 13:12:16] Corretor: Oi Ronan!
+
+O Studio 57 tem um novo empreendimento para te apresentar.
+
+Quer saber mais?
+=== Chamando Gemini API ===
+Retorno cru do Gemini:
+{
+  "resumo_interacao": "O corretor enviou a mensagem inicial de prospecção oferecendo um novo empreendimento, porém o cliente ainda não respondeu.",
+  "temperatura": "Frio",
+  "fase_crm_atual": "Lead Sem Funil (Caixa de Entrada Vazia)",
+  "proxima_acao_sugerida": "Aguardar o retorno do cliente. Caso não haja resposta em 24 horas, enviar uma mensagem curta de follow-up (retomada de contato).",
+  "proxima_resposta_sugerida": "Oi Ronan, tudo bem? Sei que o dia a dia é corrido, mas conseguiu ver minha mensagem anterior? Posso te enviar algumas fotos do projeto sem compromisso para você dar uma olhada!",
+  "dados_cliente": {
+    "nome": null,
+    "cpf": null,
+    "cnpj": null,
+    "renda_familiar": null,
+    "fgts": null,
+    "mais_de_3_anos_clt": null,
+    "objetivo": null,
+    "cargo": null,
+    "estado_civil": null,
+    "birth_date": null,
+    "cep": null,
+    "address_street": null,
+    "address_number": null,
+    "address_complement": null,
+    "neighborhood": null,
+    "city": null,
+    "state": null
+  }
+}
+JSON parsed: {
+  resumo_interacao: 'O corretor enviou a mensagem inicial de prospecção oferecendo um novo empreendimento, porém o cliente ainda não respondeu.',
+  temperatura: 'Frio',
+  fase_crm_atual: 'Lead Sem Funil (Caixa de Entrada Vazia)',
+  proxima_acao_sugerida: 'Aguardar o retorno do cliente. Caso não haja resposta em 24 horas, enviar uma mensagem curta de follow-up (retomada de contato).',
+  proxima_resposta_sugerida: 'Oi Ronan, tudo bem? Sei que o dia a dia é corrido, mas conseguiu ver minha mensagem anterior? Posso te enviar algumas fotos do projeto sem compromisso para você dar uma olhada!',
+  dados_cliente: {
+    nome: null,
+    cpf: null,
+    cnpj: null,
+    renda_familiar: null,
+    fgts: null,
+    mais_de_3_anos_clt: null,
+    objetivo: null,
+    cargo: null,
+    estado_civil: null,
+    birth_date: null,
+    cep: null,
+    address_street: null,
+    address_number: null,
+    address_complement: null,
+    neighborhood: null,
+    city: null,
+    state: null
+  }
+}

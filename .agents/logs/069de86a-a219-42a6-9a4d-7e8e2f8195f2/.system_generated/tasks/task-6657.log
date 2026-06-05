@@ -1,0 +1,6 @@
+=== SIMULANDO WEBHOOK DO RANNIERE LOCALMENTE ===
+
+Limpando mensagens anteriores...
+Enviando requisição POST para o webhook local...
+Resposta do webhook local: Status 200
+Retorno: { status: 'ok' }

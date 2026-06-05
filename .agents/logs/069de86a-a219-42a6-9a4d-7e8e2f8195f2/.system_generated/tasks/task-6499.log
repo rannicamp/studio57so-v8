@@ -1,0 +1,5 @@
+warning: in the working copy of 'app/api/whatsapp/webhook/route.js', LF will be replaced by CRLF the next time Git touches it
+[main 651f0e06] fix(webhook): implementar debounce de 4s em mensagens inbound para agrupar rajadas
+ 1 file changed, 14 insertions(+), 15 deletions(-)
+To https://github.com/rannicamp/studio57so-v8.git
+   57320633..651f0e06  main -> main

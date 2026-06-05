@@ -1,0 +1,17 @@
+=== TESTE DE TRAVA DE RAJADA (BURST PROTECTION) ===
+
+Limpando mensagens antigas...
+Phone Number ID configurado para a organização 2: 690198827516149
+
+Disparando Chamada 1 para o Webhook local...
+Disparando Chamada 2 para o Webhook local (rajada)...
+[Chamada 1] Status: 200
+[Chamada 2] Status: 200
+
+--- Resultados das Chamadas ---
+Chamada 1 (Principal): { status: 'ok', detail: 'ignored_inbound_burst' }
+Chamada 2 (Rajada/Ignorada): { status: 'ok', detail: 'ignored_inbound_burst' }
+Esperado na Chamada 2: { status: "ok", detail: "ignored_inbound_burst" }
+
+Limpando mensagens do teste...
+Teste de trava de rajada concluído.

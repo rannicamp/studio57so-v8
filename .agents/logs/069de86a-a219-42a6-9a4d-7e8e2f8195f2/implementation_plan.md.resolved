@@ -1,0 +1,28 @@
+# Unificação do 9º Dígito (Padrão Meta como Fonte da Verdade)
+
+Conforme sua diretriz, a API da Meta (o *raw payload*) será a **Fonte da Verdade**. O problema atual ocorre porque o banco salva a conversa usando o número com o 9 (`5533988442862`), mas a Meta frequentemente opera com 8 dígitos (`553388442862`). Quando o Webhook procura pela conversa sem o 9, não a encontra e acaba criando uma nova.
+
+## Proposta de Solução (Smart Matching)
+
+Em vez de alterarmos todos os telefones antigos do banco de dados de uma vez, vamos ensinar o nosso Webhook a ser "inteligente" e perdoar o 9º dígito na hora de associar a conversa.
+
+### Mudanças Propostas
+
+#### 1. Mapeamento Inteligente no Webhook (O "Matchmaker")
+- **Arquivo afetado:** `app/api/whatsapp/webhook/services/crm.js`
+- **Ação:** Quando uma mensagem da Meta chegar com um número (ex: `553388442862`), o Webhook irá gerar a variação desse número adicionando o 9 (ex: `5533988442862`), ou removendo o 9 se ele vier com.
+- O sistema tentará buscar no banco de dados por **QUALQUER UMA** dessas variações.
+
+#### 2. Atualização Automática para a Fonte da Verdade (Auto-Heal)
+- **Ação:** Se o Webhook encontrar a conversa da Kelly através da variação com o 9, ele vai **atualizar o banco de dados** e sobrescrever o `phone_number` da conversa para o padrão exato que veio da Meta (sem o 9).
+- **Vantagem:** O banco vai se "curando" sozinho conforme os clientes interagem. A Meta dita a regra: se a Meta enviou sem o 9, o CRM adota o número sem o 9 para aquela conversa específica.
+
+#### 3. Unificação Retrospectiva do Histórico da Kelly (Opcional)
+- Como a Kelly já tem duas conversas geradas, posso criar um pequeno script direto no banco (`node script`) para fundir as mensagens da conversa número 2 para a conversa número 1 e excluir a duplicada.
+
+## User Review Required
+> [!IMPORTANT]
+> Aprova este fluxo de auto-cura (Auto-Heal) no Webhook? A lógica será: **Busca pelas duas versões (com e sem o 9), e se encontrar a versão antiga, atualiza o banco para espelhar a Meta.**
+
+## Open Questions
+Você deseja que eu também faça um script de limpeza para juntar as mensagens das conversas duplicadas que já aconteceram com a Kelly?

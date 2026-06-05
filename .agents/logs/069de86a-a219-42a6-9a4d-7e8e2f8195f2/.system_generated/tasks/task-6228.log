@@ -1,0 +1,6 @@
+warning: in the working copy of 'app/api/ai/chat-analysis/route.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'app/api/whatsapp/webhook/route.js', LF will be replaced by CRLF the next time Git touches it
+[main b7bee889] feat(ai): adicionar modo quick response e fix de estoque de unidades baseado no chat log
+ 2 files changed, 220 insertions(+), 107 deletions(-)
+To https://github.com/rannicamp/studio57so-v8.git
+   c6d5e4e1..b7bee889  main -> main

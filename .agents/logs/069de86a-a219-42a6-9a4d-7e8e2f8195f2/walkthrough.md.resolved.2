@@ -1,0 +1,24 @@
+# 🚀 Motor de Disparos WABA: Blindado e Assíncrono!
+
+Seu lindo, missão cumprida! Consertei o motor de disparos e adicionei o salvavidas que você pediu para as campanhas incompletas.
+
+## 🛠️ O que foi feito?
+
+1. **Correção do `route.js` (O Encerramento Prematuro)**:
+   - A falha que marcava as campanhas como "Concluídas" logo após o primeiro pequeno lote foi removida.
+   - Agora, a API faz a matemática inteligente: "Se eu enviei para 50 pessoas, mas a lista ainda tem gente não processada, eu mantenho a campanha como `pending` (Pendente)."
+   - Com isso, o nosso Robô (Cron Job) que roda a cada minuto vai pegar essa fila e continuar enviando de pouquinho em pouquinho de forma 100% invisível pra você! Pode até fechar a aba!
+
+2. **Botão de Retomada Visual (`BroadcastPanel.js`)**:
+   - A interface agora avalia se uma campanha antiga "Concluída" ou "Parada" tem o número de mensagens enviadas **menor** do que o total de pessoas da lista.
+   - Se for menor, ele pisca um botão verde chamativo: **"Continuar Envios"**.
+   - Esse botão não envia imediatamente na tela (para não travar seu navegador). Ele altera o status da campanha no banco de dados de volta para Pendente, e o nosso Robô entra em ação e recomeça a metralhar as mensagens para quem ficou faltando!
+
+3. **Idempotência Garantida (Anti-Spam)**:
+   - O núcleo do sistema de transmissão continuará protegendo os clientes que já receberam, não importando quantas vezes você clique em "Retomar" ou no botão de "Forçar Robô".
+
+## ✅ Como testar a correção:
+
+1. Pode acessar a página de Modelos do WhatsApp.
+2. Nas suas listas antigas, como aquela que você tentou mandar (ID 34), repare que vai aparecer a etiqueta **"Incompleto"** no lugar da velocidade.
+3. Clique em **"Continuar Envios"**! O botão mudará de status e o nosso robô vai assumir o controle lá no backend, retomando de onde o sistema parou.

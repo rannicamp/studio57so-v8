@@ -1,0 +1,18 @@
+=== TESTE DE DEBOUNCE DE RAJADA (4 SEGUNDOS) ===
+
+Limpando mensagens antigas...
+Phone Number ID configurado para a organização 2: 690198827516149
+
+Disparando Chamada 1 para o Webhook local (esperamos debounce de 4s)...
+Disparando Chamada 2 para o Webhook local (rajada)...
+[Chamada 1] Status: 200
+[Chamada 2] Status: 200
+
+--- Resultados das Chamadas ---
+Chamada 1 (Antiga - deve ser ignorada): { status: 'ok', detail: 'ignored_older_inbound_during_debounce' }
+Chamada 2 (Nova - deve processar a resposta): { status: 'ok' }
+Esperado na Chamada 1: { status: "ok", detail: "ignored_older_inbound_during_debounce" }
+Esperado na Chamada 2: { status: "ok" }
+
+Limpando mensagens do teste...
+Teste de debounce de rajada concluído.

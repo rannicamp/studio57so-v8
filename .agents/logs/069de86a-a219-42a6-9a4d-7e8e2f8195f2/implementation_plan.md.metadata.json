@@ -1,0 +1,7 @@
+{
+  "artifactType":  "ARTIFACT_TYPE_IMPLEMENTATION_PLAN",
+  "summary":  "Plano de implementação para o modo Quick Response (Stella Fast Response) para diálogos de WhatsApp em tempo real, resolvendo timeouts de serverless (Netlify 10s) via redução de tokens do Gemini para menos de 2s nas mensagens comuns de texto.",
+  "updatedAt":  "2026-06-05T16:45:52.090526700Z",
+  "version":  "6",
+  "requestFeedback":  true
+}

@@ -1,0 +1,5 @@
+{
+  "artifactType":  "ARTIFACT_TYPE_OTHER",
+  "summary":  "Corrigir script rodar_teste_completo.js adicionando o campo sender_id para satisfazer a trigger do banco.",
+  "updatedAt":  "2026-06-05T16:11:09.935764300Z"
+}

@@ -1,0 +1,38 @@
+
+--- Testando Template: saudacao_entrada_v2 ---
+Precisa de variáveis? false
+Resultado - Status: 200
+Resultado - Data: {
+  "messaging_product": "whatsapp",
+  "contacts": [
+    {
+      "input": "5533997325772",
+      "wa_id": "553397325772"
+    }
+  ],
+  "messages": [
+    {
+      "id": "wamid.HBgMNTUzMzk3MzI1NzcyFQIAERgSNjJGRjZDMkVBOTE1QzM4NzEwAA==",
+      "message_status": "accepted"
+    }
+  ]
+}
+
+--- Testando Template: iniciar_contato ---
+Precisa de variáveis? true
+Resultado - Status: 200
+Resultado - Data: {
+  "messaging_product": "whatsapp",
+  "contacts": [
+    {
+      "input": "5533997325772",
+      "wa_id": "553397325772"
+    }
+  ],
+  "messages": [
+    {
+      "id": "wamid.HBgMNTUzMzk3MzI1NzcyFQIAERgSM0YyODk3NjYxODc1OEUwMUE5AA==",
+      "message_status": "accepted"
+    }
+  ]
+}

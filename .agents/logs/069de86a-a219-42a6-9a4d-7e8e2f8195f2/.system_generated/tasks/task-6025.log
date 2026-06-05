@@ -1,0 +1,7 @@
+Successfully scheduled one-shot timer.
+Expected to fire at: 2026-06-05T13:31:49-03:00
+Prompt: Testar o webhook de produção com o script de teste para validar a otimização contra timeouts.
+
+[2026-06-05T13:30:49-03:00] Still waiting. Remaining time: 1m0s
+[2026-06-05T13:31:19-03:00] Still waiting. Remaining time: 30s
+[2026-06-05T13:31:49-03:00] Timer fired.

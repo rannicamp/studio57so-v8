@@ -1,0 +1,34 @@
+=== INSPEÇÃO DE AUTOMAÇÕES E LEADS ===
+
+--- Automações Ativas ---
+{
+  id: '9455ccdf-500b-4a57-b08e-3243954e3d74',
+  nome: 'Boas-vindas Funil de Vendas',
+  gatilho_tipo: 'CRIAR_CARD',
+  gatilho_config: '{"funil_id":"56755f80-13d6-40c3-8b4f-1b9ebbd81c92","coluna_id":"a4e01138-fe34-4fd6-91fb-f40678b1db79","condicoes":{"tipo":"Lead"}}',
+  acao_tipo: 'ENVIAR_WHATSAPP',
+  acao_config: '{"template_nome":"saudacao_entrada_v2","template_idioma":"pt_BR"}',
+  organizacao_id: '2'
+}
+error: column "is_active" does not exist
+    at C:\Projetos\studio57so-v8\node_modules\pg\lib\client.js:631:17
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async main (C:\Projetos\studio57so-v8\tmp\inspect_meta_leads.js:32:22) {
+  length: 109,
+  severity: 'ERROR',
+  code: '42703',
+  detail: undefined,
+  hint: undefined,
+  position: '89',
+  internalPosition: undefined,
+  internalQuery: undefined,
+  where: undefined,
+  schema: undefined,
+  table: undefined,
+  column: undefined,
+  dataType: undefined,
+  constraint: undefined,
+  file: 'parse_relation.c',
+  line: '3665',
+  routine: 'errorMissingColumn'
+}

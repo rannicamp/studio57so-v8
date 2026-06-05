@@ -1,0 +1,5 @@
+{
+  "artifactType":  "ARTIFACT_TYPE_OTHER",
+  "summary":  "Faz uma varredura completa no banco de dados para listar telefones duplicados com detalhes das mensagens distribuídas entre eles.",
+  "updatedAt":  "2026-05-28T17:01:18.895138200Z"
+}

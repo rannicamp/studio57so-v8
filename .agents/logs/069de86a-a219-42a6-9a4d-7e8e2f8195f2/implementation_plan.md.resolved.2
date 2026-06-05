@@ -1,0 +1,35 @@
+# Correção Definitiva: Retomada de Transmissão (Disparos WABA)
+
+Analisei a fundo a arquitetura atual de disparos e descobri o motivo exato de ter parado, além de como vamos criar a solução (o "botão de retomar") sem duplicar mensagens.
+
+## O Que Está Acontecendo?
+1. **O Gatilho Inicial**: Quando você clica em enviar, a API dispara um lote inicial (até 50 mensagens) para dar uma resposta rápida na tela.
+2. **A Falha**: O código atual, logo após enviar esse primeiro lote, está marcando a campanha inteira como `completed` (Concluída) de forma forçada, mesmo que a lista (como a sua de Leads Perdidos) tenha 492 contatos!
+3. **O Motor de Fundo (Robô)**: Como o status fica `completed`, o nosso Cron Job (o Robô que roda de minuto em minuto) ignora essa campanha, achando que ela já terminou.
+
+## A Boa Notícia (Idempotência)
+O sistema **já possui** a trava de segurança que você mencionou! O `processBroadcast` sempre verifica no banco se aquele contato específico já recebeu uma mensagem vinculada a este exato `Job ID` e pula automaticamente quem já recebeu. Ou seja, é impossível enviar duplicado se a gente simplesmente mandar ele continuar a mesma campanha!
+
+## Proposed Changes
+
+### 1. Ajuste no Motor de Disparo (Backend)
+Vou alterar o arquivo que inicia a transmissão. Em vez de encerrar e cravar `completed` cegamente após o primeiro lote, o sistema vai:
+- Verificar se o número de processados foi menor que o tamanho da lista.
+- Se ainda faltar gente, ele vai marcar como `pending` (Pendente). Assim, o robô de background (ou o botão "Forçar Robô") assume o resto da fila pacificamente, sem você precisar ficar com a tela aberta!
+
+#### [MODIFY] `app/api/whatsapp/broadcast/send/route.js`
+- Remover a linha que força o `status: 'completed'`.
+- Adicionar uma condicional: se `stats.processedInThisRun < validTargets.length`, mudar status para `pending`, senão `completed`.
+
+### 2. O Paleativo Visual (Botão "Continuar Envio")
+Vou adicionar um botão na interface para você conseguir destravar campanhas antigas que ficaram presas como "Concluídas", mas que não enviaram para todos.
+
+#### [MODIFY] `components/whatsapp/BroadcastPanel.js`
+- Adicionar a verificação na interface: se o total de processados for menor que os membros da lista (ex: enviou 82 de 492), o botão de **"Retomar"** (▶️) ficará visível, mesmo que o status seja `completed`.
+- Ao clicar em "Retomar", ele mudará o status no banco de volta para `pending`, permitindo que o Robô recomece a varredura (lembrando: ele pula quem já recebeu!).
+
+## User Review Required
+> [!IMPORTANT]
+> Seu lindo, essa mudança transforma o disparo em um processo **Assíncrono real**. Isso significa que, ao enviar para uma lista de 500 pessoas, o sistema enviará as primeiras 50, e deixará as outras 450 para o Robô ir enviando de 5 em 5 por minuto (para evitar bloqueios da Meta). Você poderá fechar a página tranquilamente!
+
+Aprova a implementação?

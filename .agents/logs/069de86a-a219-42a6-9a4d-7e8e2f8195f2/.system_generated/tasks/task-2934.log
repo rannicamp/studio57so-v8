@@ -1,0 +1,22 @@
+warning: in the working copy of 'create_kpi_rpc.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'investigate_geraldo.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'investigate_geraldo2.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'investigate_geraldo_name.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'investigate_weslley.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'investigate_weslley2.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'investigate_weslley_msgs.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'search_functions.js', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'view_fn.js', LF will be replaced by CRLF the next time Git touches it
+[main dae1ed56] feat(whatsapp): implementa KPIs analiticos de tempo de resposta e tempo de casa no perfil do contato
+ 10 files changed, 303 insertions(+), 1 deletion(-)
+ create mode 100644 create_kpi_rpc.js
+ create mode 100644 investigate_geraldo.js
+ create mode 100644 investigate_geraldo2.js
+ create mode 100644 investigate_geraldo_name.js
+ create mode 100644 investigate_weslley.js
+ create mode 100644 investigate_weslley2.js
+ create mode 100644 investigate_weslley_msgs.js
+ create mode 100644 search_functions.js
+ create mode 100644 view_fn.js
+To https://github.com/rannicamp/studio57so-v8.git
+   eb878b4e..dae1ed56  main -> main
