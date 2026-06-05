@@ -141,19 +141,24 @@ export async function POST(request) {
   if (isAutopilotActive) {
     // --- EVITAR DUPLICIDADE EM CASO DE RAJADAS DE MENSAGENS INBOUND (LOCK DE CONCORRÊNCIA) ---
     try {
-      const { data: ultimasMsgs } = await supabaseAdmin
+      const { data: msgAtualRecord } = await supabaseAdmin
         .from('whatsapp_messages')
-        .select('id, direction, created_at')
-        .eq('contato_id', contatoId)
-        .order('created_at', { ascending: false })
-        .limit(3);
+        .select('created_at')
+        .eq('message_id', message.id)
+        .maybeSingle();
 
-      if (ultimasMsgs && ultimasMsgs.length >= 2) {
-        const msgAtual = ultimasMsgs[0];
-        const msgAnterior = ultimasMsgs[1];
+      if (msgAtualRecord) {
+        const { data: msgAnterior } = await supabaseAdmin
+          .from('whatsapp_messages')
+          .select('id, direction, created_at')
+          .eq('contato_id', contatoId)
+          .lt('created_at', msgAtualRecord.created_at) // Estritamente anterior à atual
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
 
-        if (msgAnterior.direction === 'inbound') {
-          const tempoDiferenca = Math.abs(new Date(msgAtual.created_at).getTime() - new Date(msgAnterior.created_at).getTime());
+        if (msgAnterior && msgAnterior.direction === 'inbound') {
+          const tempoDiferenca = Math.abs(new Date(msgAtualRecord.created_at).getTime() - new Date(msgAnterior.created_at).getTime());
           const limiteMilisegundos = 30 * 1000; // 30 segundos
 
           if (tempoDiferenca < limiteMilisegundos) {
