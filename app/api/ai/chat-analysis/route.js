@@ -852,7 +852,8 @@ Escreva um JSON rigoroso nos seguintes moldes:
     "hora_inicio": "HH:MM:SS ou null",
     "tipo_atividade": "Evento" ou null
   },
-  "mover_para_coluna_id": "ID_DA_COLUNA_OU_NULL"
+  "mover_para_coluna_id": "ID_DA_COLUNA_OU_NULL",
+  "justificativa_movimentacao": "Motivo resumido da movimentação de etapa comercial (obrigatório se mover_para_coluna_id não for null, especialmente em casos de perda para justificar o motivo detalhado baseado nas respostas do cliente)."
 }
 `;
     } else {
@@ -1049,7 +1050,8 @@ Com base SOMENTE neste histórico recente e contexto do projeto, escreva um JSON
     "hora_inicio": "HH:MM:SS ou null",
     "tipo_atividade": "Evento" ou null
   },
-  "mover_para_coluna_id": "ID_DA_COLUNA_OU_NULL"
+  "mover_para_coluna_id": "ID_DA_COLUNA_OU_NULL",
+  "justificativa_movimentacao": "Motivo resumido da movimentação de etapa comercial (obrigatório se mover_para_coluna_id não for null, especialmente em casos de perda para justificar o motivo detalhado baseado nas respostas do cliente)."
 }
 `;
     }
@@ -1323,7 +1325,7 @@ Com base SOMENTE neste histórico recente e contexto do projeto, escreva um JSON
               .insert({
                 contato_id: contato_id,
                 contato_no_funil_id: funil.id,
-                conteudo: `Piloto Automático Stella: Lead movido para a etapa "${nomeNovaColuna}".`,
+                conteudo: `Piloto Automático Stella: Lead movido para a etapa "${nomeNovaColuna}".${parsedResult.justificativa_movimentacao ? ` Motivo: ${parsedResult.justificativa_movimentacao}` : ''}`,
                 usuario_id: stellaUserRecord?.userId || null,
                 organizacao_id: organizacao_id
               });
