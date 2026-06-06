@@ -5,6 +5,99 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 // Instância do SDK do Gemini
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
+// Função auxiliar para obter ou criar o usuário e contato da Stella por organização
+async function obterOuCriarUsuarioStella(supabaseAdmin, organizacaoId) {
+  const emailStella = `stella.org${organizacaoId}@elo57.com.br`;
+  
+  // 1. Verificar se o usuário já existe na public.usuarios
+  const { data: usuarioExistente, error: checkError } = await supabaseAdmin
+    .from('usuarios')
+    .select('id, contato_id')
+    .eq('email', emailStella)
+    .eq('organizacao_id', organizacaoId)
+    .maybeSingle();
+    
+  if (usuarioExistente) {
+    return {
+      userId: usuarioExistente.id,
+      contatoId: usuarioExistente.contato_id
+    };
+  }
+  
+  console.log(`[Stella AI] Provisionando usuário Stella para a organização ${organizacaoId}...`);
+  
+  // 2. Tentar criar o usuário no Auth
+  const tempPassword = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+  let authUserId = null;
+  
+  const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
+    email: emailStella,
+    password: tempPassword,
+    email_confirm: true,
+    user_metadata: { nome: 'Stella', sobrenome: 'IA' }
+  });
+  
+  if (authError) {
+    if (authError.message.toLowerCase().includes('already exists') || authError.status === 422) {
+      console.log(`[Stella AI] Usuário auth já existe com o e-mail ${emailStella}. Buscando ID...`);
+      const { data: usersData, error: listError } = await supabaseAdmin.auth.admin.listUsers();
+      if (!listError && usersData?.users) {
+        const found = usersData.users.find(u => u.email === emailStella);
+        if (found) {
+          authUserId = found.id;
+        }
+      }
+    }
+    if (!authUserId) {
+      throw new Error(`Falha ao criar usuário Stella no Auth: ${authError.message}`);
+    }
+  } else {
+    authUserId = authUser.user.id;
+  }
+  
+  // 3. Cadastrar a Stella como Contato do tipo 'Corretor'
+  const { data: newContact, error: contactError } = await supabaseAdmin
+    .from('contatos')
+    .insert({
+      nome: 'Stella IA',
+      tipo_contato: 'Corretor',
+      foto_url: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/avatar/stella_avatar.png',
+      organizacao_id: organizacaoId,
+      status: 'Ativo'
+    })
+    .select('id')
+    .single();
+    
+  if (contactError) {
+    throw new Error(`Falha ao cadastrar contato Stella IA: ${contactError.message}`);
+  }
+  
+  // 4. Cadastrar o registro na public.usuarios
+  const { error: profileError } = await supabaseAdmin
+    .from('usuarios')
+    .insert({
+      id: authUserId,
+      email: emailStella,
+      nome: 'Stella',
+      sobrenome: 'IA',
+      is_active: true,
+      organizacao_id: organizacaoId,
+      contato_id: newContact.id
+    });
+    
+  if (profileError) {
+    await supabaseAdmin.from('contatos').delete().eq('id', newContact.id);
+    throw new Error(`Falha ao cadastrar perfil Stella IA na public.usuarios: ${profileError.message}`);
+  }
+  
+  console.log(`[Stella AI] Usuário Stella provisionado com sucesso: UserID ${authUserId}, ContatoID ${newContact.id}`);
+  
+  return {
+    userId: authUserId,
+    contatoId: newContact.id
+  };
+}
+
 export async function POST(request) {
   try {
     const { contato_id, organizacao_id, force, quickResponse } = await request.json();
@@ -12,6 +105,16 @@ export async function POST(request) {
     if (!contato_id || !organizacao_id) {
       return NextResponse.json({ error: 'Faltam parâmetros obrigatórios.' }, { status: 400 });
     }
+
+    // Obter data e hora atual do servidor ajustados para o fuso de Brasília (UTC-3)
+    const dataAtualObj = new Date();
+    const optionsDate = { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: 'numeric' };
+    const optionsTime = { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false };
+    const optionsWeekday = { timeZone: 'America/Sao_Paulo', weekday: 'long' };
+    
+    const dataAtualStr = dataAtualObj.toLocaleDateString('pt-BR', optionsDate);
+    const horaAtualStr = dataAtualObj.toLocaleTimeString('pt-BR', optionsTime);
+    const diaSemanaStr = dataAtualObj.toLocaleDateString('pt-BR', optionsWeekday);
 
     // Cliente com permissões de administrador (bypass RLS se necessário, ou atua sobre tudo da organização)
     const supabaseAdmin = createClient(
@@ -83,9 +186,10 @@ export async function POST(request) {
         .from('contatos_no_funil')
         .select(`
           id,
+          corretor_id,
           colunas_funil(nome),
           contatos_no_funil_produtos(
-            produto:produto_id(nome, empreendimento_id, area_m2, valor_venda_calculado)
+            produto:produto_id(nome:unidade, empreendimento_id, area_m2, valor_venda_calculado)
           )
         `)
         .eq('contato_id', contato_id)
@@ -103,12 +207,16 @@ export async function POST(request) {
     const { data: contatoInfo, error: contatoError } = contatoResult;
     const { data: ultimaMsgCliente } = ultimaMsgResult;
     const { data: messages } = messagesResult;
-    const { data: funil } = funilResult;
+    const { data: funil, error: funilError } = funilResult;
     const { data: anexosEnviados } = anexosEnviadosResult;
 
     if (contatoError) {
       console.error('Erro ao buscar dados do contato para IA:', contatoError);
     }
+    if (funilError) {
+      console.error('Erro ao buscar dados do funil para IA:', funilError);
+    }
+    console.log('[Stella AI Debug] Dados do funil comercial carregados na API:', funil);
 
     // Resolve os nomes com fallback: coluna _name → JOIN meta_ativos
     if (contatoInfo) {
@@ -400,6 +508,33 @@ Se o cliente expressar que não se interessou pelo empreendimento atual, que nã
 # REGRA DE NÃO REPETIÇÃO DE ANEXOS JÁ ENVIADOS (CRÍTICO / OBRIGATÓRIO):
 Se um determinado anexo (como o book em PDF ou vídeo do empreendimento) já constar na lista "# Anexos Já Enviados Anteriormente nesta Conversa", você NUNCA deve sugerir o envio dele de novo no JSON (retorne "anexo_sugerido": null na resposta). A única exceção absoluta é se o cliente pedir explicitamente para reenviar o arquivo na última mensagem do histórico (ex: "me manda o book de novo", "pode enviar o vídeo novamente", "envia as fotos do Residencial Alfa por favor"). Se não houver pedido explícito de reenvio, retorne "anexo_sugerido": null.
 
+# REGRA DE AGENDAMENTO AUTOMÁTICO DE ATIVIDADES (OBRIGATÓRIO / SEM CODAR):
+1. **Detecção de Intenção de Retorno**: Analise cuidadosamente o histórico da conversa recente. Se o cliente disser ou der a entender que:
+   - Está viajando, ocupado, em reunião, de férias ou indisponível temporariamente e pede para retornar o contato depois (ex: "estou viajando, volto semana que vem", "me chama na segunda-feira", "conversamos daqui a 15 dias").
+   - Pede para ligar ou conversar em um horário específico ou restrito (ex: "só posso falar depois das 18h", "me liga na parte da manhã", "estou trabalhando, me chama após as 14h").
+   - Pede para chamar ou lembrar em um intervalo curto de tempo (ex: "me chama daqui a 5 minutos", "me lembra em 15 minutos", "me chama daqui a 1 hora").
+   Você DEVE sugerir o agendamento de uma atividade no campo "atividade_agendada" do JSON de retorno.
+2. **Cálculo da Data de Início Prevista**:
+   - Calcule a data prevista de início de forma precisa e relativa à data de hoje (Hoje é ${diaSemanaStr}, dia ${dataAtualStr}, agora são exatamente ${horaAtualStr}).
+   - Exemplos:
+     * "Semana que vem" ou "próxima semana": adicione 7 dias à data atual.
+     * "Segunda-feira" ou outro dia específico: calcule a data correspondente ao próximo dia da semana citado.
+     * "Amanhã": data atual + 1 dia.
+     * "Depois de amanhã": data atual + 2 dias.
+     * Intervalos curtos de minutos/horas ("daqui a 5 minutos", "em 1 hora"): mantenha a data atual (${dataAtualStr}).
+   - Formate rigorosamente como "YYYY-MM-DD".
+3. **Extração de Horário de Início**:
+   - Caso o cliente cite uma restrição de horário (ex: "depois das 18h", "após 18:30"), extraia e defina a hora de início no formato "HH:MM:SS" (ex: "18:00:00", "18:30:00").
+   - Se o cliente citar turnos: "na parte da manhã" -> "09:00:00", "à tarde" -> "14:00:00", "à noite" -> "19:00:00".
+   - Se o cliente citar intervalos relativos curtos (ex: "daqui a 5 minutos", "daqui a 10 minutos", "em 1 hora"):
+     * Calcule o horário exato adicionando os minutos/horas especificados ao horário atual (${horaAtualStr}). Por exemplo: se são ${horaAtualStr} e o cliente pediu daqui a 5 minutos, o horário de início será 5 minutos após ${horaAtualStr}.
+   - Se nenhuma hora específica for citada, defina como null.
+4. **Campos da Atividade Agendada**:
+   - "nome": Título direto. Ex: "Retorno de contato - Stella IA", "Ligar para o cliente - Stella IA".
+   - "descricao": Breve resumo descrevendo o motivo. Ex: "Cliente informou que está viajando e pediu para retornar semana que vem." ou "Cliente solicitou contato após as 18:30.".
+   - "tipo_atividade": Deve ser "Telefonema" se o cliente disser "me liga" ou "me liga depois", ou "Tarefa" para os demais casos.
+5. **Se não houver solicitação ou restrição**: Defina a chave "atividade_agendada" as null no JSON.
+
 # Dados Atuais do CRM
 - Fase no Funil (CRM): ${crmStatus}
 - Unidades/Produtos Interessados: ${produtos}
@@ -433,6 +568,13 @@ Escreva um JSON rigoroso nos seguintes moldes:
   },
   "dados_cliente": {
     "nome": "Nome detectado do cliente se ele informou na conversa, caso contrário null"
+  },
+  "atividade_agendada": {
+    "nome": "Nome/Título da atividade ou null",
+    "descricao": "Motivo detalhado do agendamento ou null",
+    "data_inicio_prevista": "YYYY-MM-DD ou null",
+    "hora_inicio": "HH:MM:SS ou null",
+    "tipo_atividade": "Tarefa" ou "Telefonema" ou null
   }
 }
 `;
@@ -508,6 +650,33 @@ Se o cliente expressar que não se interessou pelo empreendimento atual, que nã
 # REGRA DE NÃO REPETIÇÃO DE ANEXOS JÁ ENVIADOS (CRÍTICO / OBRIGATÓRIO):
 Se um determinado anexo (como o book em PDF ou vídeo do empreendimento) já constar na lista "# Anexos Já Enviados Anteriormente nesta Conversa", você NUNCA deve sugerir o envio dele de novo no JSON (retorne "anexo_sugerido": null na resposta). A única exceção absoluta é se o cliente pedir explicitamente para reenviar o arquivo na última mensagem do histórico (ex: "me manda o book de novo", "pode enviar o vídeo novamente", "envia as fotos do Residencial Alfa por favor"). Se não houver pedido explícito de reenvio, retorne "anexo_sugerido": null.
 
+# REGRA DE AGENDAMENTO AUTOMÁTICO DE ATIVIDADES (OBRIGATÓRIO / SEM CODAR):
+1. **Detecção de Intenção de Retorno**: Analise cuidadosamente o histórico da conversa recente. Se o cliente disser ou der a entender que:
+   - Está viajando, ocupado, em reunião, de férias ou indisponível temporariamente e pede para retornar o contato depois (ex: "estou viajando, volto semana que vem", "me chama na segunda-feira", "conversamos daqui a 15 dias").
+   - Pede para ligar ou conversar em um horário específico ou restrito (ex: "só posso falar depois das 18h", "me liga na parte da manhã", "estou trabalhando, me chama após as 14h").
+   - Pede para chamar ou lembrar em um intervalo curto de tempo (ex: "me chama daqui a 5 minutos", "me lembra em 15 minutos", "me chama daqui a 1 hora").
+   Você DEVE sugerir o agendamento de uma atividade no campo "atividade_agendada" do JSON de retorno.
+2. **Cálculo da Data de Início Prevista**:
+   - Calcule a data prevista de início de forma precisa e relativa à data de hoje (Hoje é ${diaSemanaStr}, dia ${dataAtualStr}, agora são exatamente ${horaAtualStr}).
+   - Exemplos:
+     * "Semana que vem" ou "próxima semana": adicione 7 dias à data atual.
+     * "Segunda-feira" ou outro dia específico: calcule a data correspondente ao próximo dia da semana citado.
+     * "Amanhã": data atual + 1 dia.
+     * "Depois de amanhã": data atual + 2 dias.
+     * Intervalos curtos de minutos/horas ("daqui a 5 minutos", "em 1 hora"): mantenha a data atual (${dataAtualStr}).
+   - Formate rigorosamente como "YYYY-MM-DD".
+3. **Extração de Horário de Início**:
+   - Caso o cliente cite uma restrição de horário (ex: "depois das 18h", "após 18:30"), extraia e defina a hora de início no formato "HH:MM:SS" (ex: "18:00:00", "18:30:00").
+   - Se o cliente citar turnos: "na parte da manhã" -> "09:00:00", "à tarde" -> "14:00:00", "à noite" -> "19:00:00".
+   - Se o cliente citar intervalos relativos curtos (ex: "daqui a 5 minutos", "daqui a 10 minutos", "em 1 hora"):
+     * Calcule o horário exato adicionando os minutos/horas especificados ao horário atual (${horaAtualStr}). Por exemplo: se são ${horaAtualStr} e o cliente pediu daqui a 5 minutos, o horário de início será 5 minutos após ${horaAtualStr}.
+   - Se nenhuma hora específica for citada, defina como null.
+4. **Campos da Atividade Agendada**:
+   - "nome": Título direto. Ex: "Retorno de contato - Stella IA", "Ligar para o cliente - Stella IA".
+   - "descricao": Breve resumo descrevendo o motivo. Ex: "Cliente informou que está viajando e pediu para retornar semana que vem." ou "Cliente solicitou contato após as 18:30.".
+   - "tipo_atividade": Deve ser "Telefonema" se o cliente disser "me liga" ou "me liga depois", ou "Tarefa" para os demais casos.
+5. **Se não houver solicitação ou restrição**: Defina a chave "atividade_agendada" como null no JSON.
+
 # Ficha Cadastral e Origem do Lead
 ${fichaLead}
 
@@ -578,6 +747,13 @@ Com base SOMENTE neste histórico recente e contexto do projeto, escreva um JSON
     "neighborhood": "Bairro ou null",
     "city": "Cidade ou null",
     "state": "UF ou null"
+  },
+  "atividade_agendada": {
+    "nome": "Nome/Título da atividade ou null",
+    "descricao": "Motivo detalhado do agendamento ou null",
+    "data_inicio_prevista": "YYYY-MM-DD ou null",
+    "hora_inicio": "HH:MM:SS ou null",
+    "tipo_atividade": "Tarefa" ou "Telefonema" ou null
   }
 }
 `;
@@ -723,6 +899,87 @@ Com base SOMENTE neste histórico recente e contexto do projeto, escreva um JSON
       }
     }
 
+    // --- NOVA LÓGICA: ATRIBUIÇÃO DA STELLA COMO RESPONSÁVEL NO FUNIL ---
+    // Se o lead no funil comercial não tiver corretor associado (corretor_id nulo),
+    // nós o associamos à Stella IA daquela organização para que ela conste como a corretora responsável.
+    if (funil && funil.id && !funil.corretor_id) {
+      console.log(`[Stella AI] Lead no funil está sem corretor responsável. Atribuindo à Stella IA...`);
+      try {
+        const stellaRecord = await obterOuCriarUsuarioStella(supabaseAdmin, organizacao_id);
+        if (stellaRecord?.contatoId) {
+          const { error: funnelUpdateError } = await supabaseAdmin
+            .from('contatos_no_funil')
+            .update({ corretor_id: stellaRecord.contatoId })
+            .eq('id', funil.id);
+
+          if (funnelUpdateError) {
+            console.error('[Stella AI Error] Falha ao atribuir lead à Stella no funil:', funnelUpdateError.message);
+          } else {
+            console.log(`[Stella AI] Lead atribuído com sucesso à Stella no funil (Contato ID ${stellaRecord.contatoId})`);
+            funil.corretor_id = stellaRecord.contatoId;
+          }
+        }
+      } catch (stellaUserErr) {
+        console.error('[Stella AI Error] Falha ao obter/criar usuário Stella para atribuição no funil:', stellaUserErr.message);
+      }
+    }
+
+    // --- NOVA LÓGICA: AGENDAMENTO AUTÔNOMO DE ATIVIDADES ---
+    if (parsedResult.atividade_agendada && typeof parsedResult.atividade_agendada === 'object') {
+      const aa = parsedResult.atividade_agendada;
+      const lastInboundMsgId = ultimaMsgCliente?.id;
+      
+      if (lastInboundMsgId) {
+        // Verifica se essa mensagem já gerou agendamento de atividade (evita duplicidade)
+        const cacheAiAnalysis = contatoInfo?.ai_analysis || {};
+        const jaAgendado = cacheAiAnalysis.last_scheduled_message_id === lastInboundMsgId;
+        
+        if (!jaAgendado && aa.nome && aa.data_inicio_prevista) {
+          console.log(`[Stella AI] Detectada solicitação de agendamento: "${aa.nome}" para a data ${aa.data_inicio_prevista}.`);
+          try {
+            // Obter ou criar o usuário e contato da Stella para esta organização
+            const stellaRecord = await obterOuCriarUsuarioStella(supabaseAdmin, organizacao_id);
+            
+            if (stellaRecord?.userId) {
+              // Insere na tabela public.activities
+              const newActivity = {
+                contato_id: contato_id,
+                organizacao_id: organizacao_id,
+                criado_por_usuario_id: stellaRecord.userId,
+                nome: aa.nome,
+                descricao: aa.descricao || '',
+                data_inicio_prevista: aa.data_inicio_prevista,
+                hora_inicio: aa.hora_inicio || null,
+                tipo_atividade: aa.tipo_atividade || 'Tarefa',
+                status: 'Não iniciado',
+                responsavel_texto: 'Stella IA'
+              };
+
+              const { data: actData, error: actError } = await supabaseAdmin
+                .from('activities')
+                .insert(newActivity)
+                .select('id')
+                .single();
+
+              if (actError) {
+                console.error('[Stella AI Error] Falha ao salvar atividade no banco:', actError.message);
+              } else {
+                console.log(`[Stella AI] Atividade agendada com sucesso! ID: ${actData.id} sob responsabilidade do usuário Stella (${stellaRecord.userId}).`);
+                
+                // Grava no cache que esta mensagem já foi processada para agendamento
+                cacheAiAnalysis.last_scheduled_message_id = lastInboundMsgId;
+                parsedResult.last_scheduled_message_id = lastInboundMsgId;
+              }
+            }
+          } catch (stellaUserErr) {
+            console.error('[Stella AI Error] Falha ao obter/criar usuário Stella:', stellaUserErr.message);
+          }
+        } else if (jaAgendado) {
+          console.log(`[Stella AI] Agendamento ignorado: Atividade para a mensagem ${lastInboundMsgId} já foi cadastrada anteriormente.`);
+        }
+      }
+    }
+
     // 5. Salvar localmente o cache mesclado
     let finalAnalysis = parsedResult;
     if (quickResponse) {
@@ -737,12 +994,21 @@ Com base SOMENTE neste histórico recente e contexto do projeto, escreva um JSON
       };
     }
 
+    // Mesclar a nova análise com o cache existente para não sobrescrever o last_scheduled_message_id no banco
+    const oldAnalysis = contatoInfo?.ai_analysis || {};
+    const mergedAnalysis = {
+      ...oldAnalysis,
+      ...finalAnalysis,
+      // Se last_scheduled_message_id foi definido nesta rodada ou existia na rodada antiga
+      last_scheduled_message_id: finalAnalysis.last_scheduled_message_id || oldAnalysis.last_scheduled_message_id || null
+    };
+
     await supabaseAdmin
       .from('contatos')
-      .update({ ai_analysis: finalAnalysis })
+      .update({ ai_analysis: mergedAnalysis })
       .eq('id', contato_id);
 
-    return NextResponse.json(finalAnalysis);
+    return NextResponse.json(mergedAnalysis);
 
   } catch (error) {
     console.error('[AI API Error]', error);

@@ -117,6 +117,16 @@ O **Studio 57** é o ambiente de desenvolvimento e laboratório central. O **Elo
 - [ ] **Side-panel de Navegação (Esquerda):** Ao invés de exibir os meses (como nas faturas), exibir a **lista de funcionários** no histórico lateral com busca rápida em tempo real e destaque no ativo.
 - [ ] **Ficha do Colaborador (Direita):** Linha do tempo dos pontos, documentação (Uppy), holerites e informações contratuais carregadas na aba central, garantindo transição incrivelmente fluída para a gestão do DP.
 
+### 12. 🤖 Módulo da Stella (IA Comercial e Piloto Automático)
+- [ ] **Agendamento Autônomo de Atividades:** Ensinar a Stella a detectar intenções de agendamento na conversa (ex: "estou viajando, volto semana que vem" ou "só posso conversar após as 18h") e criar automaticamente uma atividade correspondente na tabela `activities`.
+- [ ] **Mapeamento de Regras do Agendador:**
+  - Extração de data de início baseada no contexto temporal ("semana que vem", "amanhã", "dia X").
+  - Extração de horário específico ("após as 18h", "na parte da manhã").
+  - Criação da atividade atrelada ao corretor responsável ou usuário ativo da organização.
+  - Blindagem de duplicidade no agendamento baseada no ID da última mensagem inbound do cliente.
+
+---
+
 ## 📝 Notas de Conversa e Decisões
 - *2026-03-01:* Criação do Planejamento Master para centralizar a estratégia de lançamento.
 - *2026-03-01:* Limpeza de arquivos de laboratório finalizada.
