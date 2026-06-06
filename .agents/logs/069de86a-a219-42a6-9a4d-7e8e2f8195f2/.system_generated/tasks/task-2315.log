@@ -1,5 +1,0 @@
-Successfully scheduled one-shot timer.
-Expected to fire at: 2026-05-21T10:10:11-03:00
-Prompt: Check if the DB migration script has finished
-
-[2026-05-21T10:09:47-03:00] Timer cancelled: agent received a message during wait.

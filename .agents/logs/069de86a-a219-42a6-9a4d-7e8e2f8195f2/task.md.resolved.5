@@ -1,9 +1,0 @@
-# Tarefas: Retomada e Correção do Motor de Broadcasts
-
-- [ ] Corrigir `app/api/whatsapp/broadcast/send/route.js`
-  - [ ] Remover o encerramento forçado para `completed`.
-  - [ ] Comparar `stats.processedInThisRun` com o limite ou total e definir como `pending` se houver mais contatos a processar.
-- [ ] Atualizar `components/whatsapp/BroadcastPanel.js` (Interface Visual)
-  - [ ] Alterar `getStatusInfo` ou lógica do botão para exibir "Retomar" mesmo em status `completed` se a lista tiver mais membros que os envios realizados.
-  - [ ] Adicionar suporte a chamar `handleControl(broadcast.id, 'resume', ...)` em um card já `completed` que possui faltantes.
-- [ ] Opcional (Se necessário) revisar se a CRON precisa de ajustes. Já vimos que ela pega `pending`.

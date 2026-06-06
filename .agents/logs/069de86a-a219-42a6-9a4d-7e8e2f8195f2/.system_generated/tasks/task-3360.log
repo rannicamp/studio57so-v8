@@ -1,6 +1,0 @@
-warning: in the working copy of 'app/(main)/configuracoes/whatsapp-templates/page.js', LF will be replaced by CRLF the next time Git touches it
-warning: in the working copy of 'update_fn_relatorio.js', LF will be replaced by CRLF the next time Git touches it
-[main fa28b7e4] feat(financeiro): revisao e resolucao massiva historica do parcelamento em cartao via bd
- 4 files changed, 187 insertions(+), 19 deletions(-)
-To https://github.com/rannicamp/studio57so-v8.git
-   a8bbd877..fa28b7e4  main -> main

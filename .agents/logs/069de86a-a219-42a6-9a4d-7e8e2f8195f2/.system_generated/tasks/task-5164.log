@@ -1,6 +1,0 @@
-Successfully scheduled one-shot timer.
-Expected to fire at: 2026-06-05T10:48:32-03:00
-Prompt: Check status of task-5162
-
-[2026-06-05T10:48:27-03:00] Still waiting. Remaining time: 5s
-[2026-06-05T10:48:32-03:00] Timer fired.

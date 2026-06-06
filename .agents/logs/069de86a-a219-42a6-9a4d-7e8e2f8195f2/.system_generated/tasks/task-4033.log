@@ -1,6 +1,0 @@
---- TESTANDO RLS PARA VÁRIOS USUÁRIOS DA ORG 2 ---
-User: Ranniere (ID: 3bfde802-b916-4ea6-a871-7436481bfd3f) | get_auth_user_org(): 2 | Mensagens retornadas: 20
-User: Ludimila Campos Marques (ID: 61ac19bf-74ad-4b76-849a-9b244843c920) | get_auth_user_org(): 2 | Mensagens retornadas: 20
-User: Ludimila (e48b) (ID: e48b4e12-afa9-4672-b56b-45e5c9a8fd5a) | get_auth_user_org(): 2 | Mensagens retornadas: 20
-User: Davi (ID: 08bf9400-c2c2-4067-acbb-3a6720bc88eb) | get_auth_user_org(): 2 | Mensagens retornadas: 20
-User: Alison Braga (ID: eba9495e-28a3-481a-adc0-e2f186f86240) | get_auth_user_org(): 2 | Mensagens retornadas: 20

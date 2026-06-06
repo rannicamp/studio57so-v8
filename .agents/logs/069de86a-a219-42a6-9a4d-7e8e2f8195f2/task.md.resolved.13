@@ -1,4 +1,0 @@
-- [x] 1. Atualizar a lógica em `app/api/whatsapp/webhook/services/crm.js` para buscar variações com e sem o 9º dígito.
-- [x] 2. Implementar o *Auto-Heal* (atualização do banco para o padrão Meta).
-- [x] 3. Criar script de simulação local para testar a associação correta sem depender do Webhook em produção. *(Aprovado testar direto com os dados reais)*
-- [x] 4. Criar script para mesclar as conversas duplicadas da Kelly (15484 -> 9042).

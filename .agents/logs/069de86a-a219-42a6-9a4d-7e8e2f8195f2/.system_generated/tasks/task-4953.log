@@ -1,5 +1,0 @@
-warning: in the working copy of 'components/whatsapp/panel/MessageList.js', LF will be replaced by CRLF the next time Git touches it
-[main da7f40f0] feat(whatsapp): renderiza cabecalho de texto e botoes estaticos/dinamicos nos templates do chat
- 1 file changed, 104 insertions(+), 1 deletion(-)
-To https://github.com/rannicamp/studio57so-v8.git
-   555d2893..da7f40f0  main -> main

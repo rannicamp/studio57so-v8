@@ -1,6 +1,0 @@
-warning: in the working copy of 'app/api/ai/chat-analysis/route.js', LF will be replaced by CRLF the next time Git touches it
-warning: in the working copy of 'components/whatsapp/ContactProfile.js', LF will be replaced by CRLF the next time Git touches it
-[main ab951b95] feat(whatsapp): add materials quick-send section with smart detection and broker filters
- 2 files changed, 576 insertions(+), 330 deletions(-)
-To https://github.com/rannicamp/studio57so-v8.git
-   3a2caabb..ab951b95  main -> main

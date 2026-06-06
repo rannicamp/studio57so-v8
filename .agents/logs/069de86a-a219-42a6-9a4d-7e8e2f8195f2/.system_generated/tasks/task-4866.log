@@ -1,4 +1,0 @@
-[main 555d2893] fix(whatsapp): corrige edicao e exclusao de listas e agendamentos de transmissao
- 2 files changed, 107 insertions(+), 52 deletions(-)
-To https://github.com/rannicamp/studio57so-v8.git
-   d88da2d8..555d2893  main -> main

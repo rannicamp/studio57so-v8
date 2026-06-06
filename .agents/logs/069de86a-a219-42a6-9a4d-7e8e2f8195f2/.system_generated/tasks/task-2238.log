@@ -1,8 +1,0 @@
-warning: in the working copy of 'tmp_get_cols.js', LF will be replaced by CRLF the next time Git touches it
-warning: in the working copy of 'tmp_get_fks_contatos.js', LF will be replaced by CRLF the next time Git touches it
-[main 2a3b4528] feat(whatsapp): remover filtro estrito de telefone para renderizar todas as mensagens do historico unificado de um contato no painel
- 4 files changed, 34 insertions(+), 4 deletions(-)
- create mode 100644 tmp_get_cols.js
- create mode 100644 tmp_get_fks_contatos.js
-To https://github.com/rannicamp/studio57so-v8.git
-   756ef1bb..2a3b4528  main -> main

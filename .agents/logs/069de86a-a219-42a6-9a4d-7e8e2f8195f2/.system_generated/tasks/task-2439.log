@@ -1,7 +1,0 @@
-warning: in the working copy of 'agrupar_conversas.js', LF will be replaced by CRLF the next time Git touches it
-warning: in the working copy of '.agents/skills/reconhecimento_telefones_br/SKILL.md', LF will be replaced by CRLF the next time Git touches it
-[main 7f90a15b] feat(whatsapp): filtro de conversas não lidas com toggle discreto
- 3 files changed, 85 insertions(+), 10 deletions(-)
- create mode 100644 .agents/skills/reconhecimento_telefones_br/SKILL.md
-To https://github.com/rannicamp/studio57so-v8.git
-   3ac66131..7f90a15b  main -> main

@@ -1,5 +1,0 @@
-warning: in the working copy of 'app/api/ai/chat-analysis/route.js', LF will be replaced by CRLF the next time Git touches it
-[main 9b7e99de] chore(ia): reforca disclaimer de ia e revisao humana no prompt da stella
- 1 file changed, 2 insertions(+), 2 deletions(-)
-To https://github.com/rannicamp/studio57so-v8.git
-   81db21b1..9b7e99de  main -> main

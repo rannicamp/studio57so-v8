@@ -51,3 +51,7 @@ docs/chaves antigas.txt
 docs/chaves*
 *chaves antigas*
 
+# Agentes e IA (Gemini/Antigravity logs locais)
+.agents/
+.gemini/
+

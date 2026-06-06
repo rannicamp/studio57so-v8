@@ -1,7 +1,0 @@
-Successfully scheduled one-shot timer.
-Expected to fire at: 2026-06-05T12:12:34-03:00
-Prompt: Verificar se a Stella respondeu sobre a localização.
-
-[2026-06-05T12:12:09-03:00] Still waiting. Remaining time: 25s
-[2026-06-05T12:12:19-03:00] Still waiting. Remaining time: 15s
-[2026-06-05T12:12:22-03:00] Timer cancelled: agent received a message during wait.

@@ -1,9 +1,0 @@
-Successfully scheduled one-shot timer.
-Expected to fire at: 2026-06-05T12:19:06-03:00
-Prompt: Verificar se a instalação do FFmpeg via winget terminou.
-
-[2026-06-05T12:18:31-03:00] Still waiting. Remaining time: 35s
-[2026-06-05T12:18:41-03:00] Still waiting. Remaining time: 25s
-[2026-06-05T12:18:51-03:00] Still waiting. Remaining time: 15s
-[2026-06-05T12:19:01-03:00] Still waiting. Remaining time: 5s
-[2026-06-05T12:19:06-03:00] Timer fired.

@@ -1,5 +1,0 @@
-{
-  "artifactType":  "ARTIFACT_TYPE_OTHER",
-  "summary":  "Corrige no banco de dados a duplicação do contato Luciano Alvernaz, migrando suas mensagens e conversas para o ID correto 5630 e excluindo o ID duplicado 5629.",
-  "updatedAt":  "2026-05-28T16:58:51.483568700Z"
-}

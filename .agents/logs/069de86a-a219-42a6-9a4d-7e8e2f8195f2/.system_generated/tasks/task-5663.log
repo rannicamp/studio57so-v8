@@ -1,9 +1,0 @@
-Successfully scheduled one-shot timer.
-Expected to fire at: 2026-06-05T12:22:47-03:00
-Prompt: Verificar se a otimização de todos os vídeos foi concluída pelo script.
-
-[2026-06-05T12:22:12-03:00] Still waiting. Remaining time: 35s
-[2026-06-05T12:22:22-03:00] Still waiting. Remaining time: 25s
-[2026-06-05T12:22:32-03:00] Still waiting. Remaining time: 15s
-[2026-06-05T12:22:42-03:00] Still waiting. Remaining time: 5s
-[2026-06-05T12:22:47-03:00] Timer fired.

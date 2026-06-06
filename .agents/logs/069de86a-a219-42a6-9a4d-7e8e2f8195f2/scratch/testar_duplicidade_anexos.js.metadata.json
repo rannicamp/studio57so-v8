@@ -1,5 +1,0 @@
-{
-  "artifactType":  "ARTIFACT_TYPE_OTHER",
-  "summary":  "Corrigindo parâmetros de telefone nas inserções de teste do script scratch para evitar erros de trigger no postgres",
-  "updatedAt":  "2026-06-05T18:08:29.653254900Z"
-}

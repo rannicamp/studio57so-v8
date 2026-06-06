@@ -1,7 +1,0 @@
-Successfully scheduled one-shot timer.
-Expected to fire at: 2026-06-05T12:15:44-03:00
-Prompt: Verificar se a busca pelo executável do FFmpeg terminou.
-
-[2026-06-05T12:15:29-03:00] Still waiting. Remaining time: 15s
-[2026-06-05T12:15:39-03:00] Still waiting. Remaining time: 5s
-[2026-06-05T12:15:44-03:00] Timer fired.

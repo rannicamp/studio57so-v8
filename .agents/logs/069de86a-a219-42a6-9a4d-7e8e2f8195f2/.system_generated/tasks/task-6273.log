@@ -1,5 +1,0 @@
-warning: in the working copy of 'app/api/ai/chat-analysis/route.js', LF will be replaced by CRLF the next time Git touches it
-[main 0ab0125c] feat(ai): corrigir regras de simulacao financeira dos empreendimentos no prompt
- 1 file changed, 38 insertions(+), 26 deletions(-)
-To https://github.com/rannicamp/studio57so-v8.git
-   b7bee889..0ab0125c  main -> main

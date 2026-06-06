@@ -1,5 +1,0 @@
-{
-  "artifactType":  "ARTIFACT_TYPE_OTHER",
-  "summary":  "Substituindo node-fetch pelo fetch nativo do Node.js v22 no script de otimização de vídeos.",
-  "updatedAt":  "2026-06-05T15:20:28.849965700Z"
-}

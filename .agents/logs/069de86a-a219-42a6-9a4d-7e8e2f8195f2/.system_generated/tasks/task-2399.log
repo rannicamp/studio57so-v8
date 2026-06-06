@@ -1,6 +1,0 @@
-Iniciando agrupamento de conversas via telefone canônico...
-Lidas 11576 mensagens.
-Pré-carregadas 980 conversas existentes mapeadas canonicamente.
-(node:10040) DeprecationWarning: Calling client.query() when the client is already executing a query is deprecated and will be removed in pg@9.0. Use async/await or an external async flow control mechanism instead.
-(Use `node --trace-deprecation ...` to show where the warning was created)
-Processo finalizado. Conversas criadas: 317. Mensagens migradas/corrigidas: 1549.
