@@ -121,19 +121,49 @@ export async function POST(request) {
 
  await logWebhook(supabaseAdmin, 'INFO', `Msg recebida: ${message.type}`, { from: message.from, org_id: config.organizacao_id });
 
-  // D. PILOTO AUTOMÁTICO (STELLA)
-  // Verificamos se o piloto automático está ativo para o contato
-  let isAutopilotActive = false;
-  try {
-    const { data: contato } = await supabaseAdmin
-      .from('contatos')
-      .select('ia_atendimento_ativo')
-      .eq('id', contatoId)
-      .single();
-    isAutopilotActive = !!contato?.ia_atendimento_ativo;
-  } catch (err) {
-    console.error('[Webhook] Erro ao verificar ia_atendimento_ativo:', err);
-  }
+   // D. PILOTO AUTOMÁTICO (STELLA)
+   // Verificamos se o piloto automático está ativo para o contato ou se o lead está atribuído à Stella IA no funil comercial
+   let isAutopilotActive = false;
+   try {
+     const { data: contato } = await supabaseAdmin
+       .from('contatos')
+       .select('ia_atendimento_ativo')
+       .eq('id', contatoId)
+       .single();
+     isAutopilotActive = !!contato?.ia_atendimento_ativo;
+
+     if (!isAutopilotActive) {
+       // Buscar o contato da Stella da organização e verificar se ela é a corretora responsável por este lead no funil
+       const [stellaUserRes, funilRes] = await Promise.all([
+         supabaseAdmin
+           .from('usuarios')
+           .select('contato_id')
+           .eq('email', `stella.org${config.organizacao_id}@elo57.com.br`)
+           .maybeSingle(),
+         supabaseAdmin
+           .from('contatos_no_funil')
+           .select('corretor_id')
+           .eq('contato_id', contatoId)
+           .maybeSingle()
+       ]);
+
+       const stellaContatoId = stellaUserRes.data?.contato_id;
+       const leadCorretorId = funilRes.data?.corretor_id;
+
+       if (stellaContatoId && leadCorretorId && stellaContatoId === leadCorretorId) {
+         console.log(`[Webhook] Lead ${contatoId} está atribuído à Stella IA no funil. Ativando piloto automático.`);
+         isAutopilotActive = true;
+         
+         // Atualiza o banco de dados para ligar o piloto automático visualmente na ficha do CRM
+         await supabaseAdmin
+           .from('contatos')
+           .update({ ia_atendimento_ativo: true })
+           .eq('id', contatoId);
+       }
+     }
+   } catch (err) {
+     console.error('[Webhook] Erro ao verificar ia_atendimento_ativo / atribuição Stella:', err);
+   }
 
   const protocol = request.headers.get('x-forwarded-proto') || 'http';
   const host = request.headers.get('host');
