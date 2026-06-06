@@ -273,7 +273,8 @@ export async function POST(request) {
         .select(`
           id,
           corretor_id,
-          colunas_funil(nome),
+          coluna_id,
+          colunas_funil(id, nome, funil_id),
           contatos_no_funil_produtos(
             produto:produto_id(nome:unidade, empreendimento_id, area_m2, valor_venda_calculado)
           )
@@ -303,6 +304,23 @@ export async function POST(request) {
       console.error('Erro ao buscar dados do funil para IA:', funilError);
     }
     console.log('[Stella AI Debug] Dados do funil comercial carregados na API:', funil);
+
+    // 1.8 Carregar todas as colunas do mesmo funil se o lead estiver no funil
+    let colunasDisponiveis = [];
+    if (funil?.colunas_funil?.funil_id) {
+      const { data: cols, error: colsError } = await supabaseAdmin
+        .from('colunas_funil')
+        .select('id, nome, ordem, descricao')
+        .eq('funil_id', funil.colunas_funil.funil_id)
+        .eq('organizacao_id', organizacao_id)
+        .order('ordem', { ascending: true });
+        
+      if (colsError) {
+        console.error('Erro ao buscar colunas do funil:', colsError);
+      } else if (cols) {
+        colunasDisponiveis = cols;
+      }
+    }
 
     // Resolve os nomes com fallback: coluna _name → JOIN meta_ativos
     if (contatoInfo) {
@@ -626,6 +644,21 @@ Se um determinado anexo (como o book em PDF ou vídeo do empreendimento) já con
 - Fase no Funil (CRM): ${crmStatus}
 - Unidades/Produtos Interessados: ${produtos}
 
+# Piloto Automático do Funil de Vendas (CRM)
+Você tem a capacidade de sugerir a movimentação do lead para a coluna ideal do funil de vendas baseado na conversa recente do WhatsApp.
+Analise a intenção do cliente no histórico recente e decida se o lead deve ser movido de etapa.
+
+Fase atual do lead no CRM: "${crmStatus}" (ID da Coluna Atual: ${funil?.coluna_id || 'null'})
+
+As etapas (colunas) disponíveis para este funil são:
+${colunasDisponiveis.map(c => `- Nome: "${c.nome}" | ID da Coluna: "${c.id}" | Descrição: "${c.descricao || 'Sem descrição'}"`).join('\n')}
+
+Regras de Movimentação de Etapa:
+1. Compare a conversa recente com a "Descrição" de cada coluna listada acima. Cada descrição define a regra clara de "Quem deve estar aqui".
+2. Se a intenção do lead mudar (ex: ele pediu simulação, marcou visita, aceitou proposta para assinar contrato, concluiu compra ou desistiu), identifique o ID da nova coluna de destino correspondente.
+3. Se o lead deve ser movido, sugira o ID da coluna de destino no campo "mover_para_coluna_id" do JSON de retorno.
+4. Se o lead deve permanecer na etapa atual, ou se não houver elementos suficientes para movê-lo, retorne "mover_para_coluna_id": null.
+
 ### BASE DE CONHECIMENTO GLOBAL (Dossiê)
 ${empContext}
 
@@ -662,7 +695,8 @@ Escreva um JSON rigoroso nos seguintes moldes:
     "data_inicio_prevista": "YYYY-MM-DD ou null",
     "hora_inicio": "HH:MM:SS ou null",
     "tipo_atividade": "Evento" ou null
-  }
+  },
+  "mover_para_coluna_id": "ID_DA_COLUNA_OU_NULL"
 }
 `;
     } else {
@@ -772,6 +806,21 @@ ${fichaLead}
 - Fase no Funil (CRM): ${crmStatus}
 - Unidades/Produtos Interessados: ${produtos}
 
+# Piloto Automático do Funil de Vendas (CRM)
+Você tem a capacidade de sugerir a movimentação do lead para a coluna ideal do funil de vendas baseado na conversa recente do WhatsApp.
+Analise a intenção do cliente no histórico recente e decida se o lead deve ser movido de etapa.
+
+Fase atual do lead no CRM: "${crmStatus}" (ID da Coluna Atual: ${funil?.coluna_id || 'null'})
+
+As etapas (colunas) disponíveis para este funil são:
+${colunasDisponiveis.map(c => `- Nome: "${c.nome}" | ID da Coluna: "${c.id}" | Descrição: "${c.descricao || 'Sem descrição'}"`).join('\n')}
+
+Regras de Movimentação de Etapa:
+1. Compare a conversa recente com a "Descrição" de cada coluna listada acima. Cada descrição define a regra clara de "Quem deve estar aqui".
+2. Se a intenção do lead mudar (ex: ele pediu simulação, marcou visita, aceitou proposta para assinar contrato, concluiu compra ou desistiu), identifique o ID da nova coluna de destino correspondente.
+3. Se o lead deve ser movido, sugira o ID da coluna de destino no campo "mover_para_coluna_id" do JSON de retorno.
+4. Se o lead deve permanecer na etapa atual, ou se não houver elementos suficientes para movê-lo, retorne "mover_para_coluna_id": null.
+
 ### BASE DE CONHECIMENTO GLOBAL (Cérebro da Studio 57)
 ${empContext}
 
@@ -842,7 +891,8 @@ Com base SOMENTE neste histórico recente e contexto do projeto, escreva um JSON
     "data_inicio_prevista": "YYYY-MM-DD ou null",
     "hora_inicio": "HH:MM:SS ou null",
     "tipo_atividade": "Evento" ou null
-  }
+  },
+  "mover_para_coluna_id": "ID_DA_COLUNA_OU_NULL"
 }
 `;
     }
@@ -1071,6 +1121,64 @@ Com base SOMENTE neste histórico recente e contexto do projeto, escreva um JSON
           }
         } else if (jaAgendado) {
           console.log(`[Stella AI] Agendamento ignorado: Atividade para a mensagem ${lastInboundMsgId} já foi cadastrada anteriormente.`);
+        }
+      }
+    }
+
+    // --- NOVA LÓGICA: MOVIMENTAÇÃO AUTÔNOMA DE LEADS NO FUNIL (PILOTO AUTOMÁTICO) ---
+    if (parsedResult.mover_para_coluna_id && funil && funil.id) {
+      const novaColunaId = parsedResult.mover_para_coluna_id;
+      const colunaAtualId = funil.coluna_id;
+
+      if (novaColunaId !== colunaAtualId) {
+        console.log(`[Stella AI Funil] Movendo lead no funil ${funil.id} de ${colunaAtualId} para ${novaColunaId}...`);
+        
+        // Obter nome da nova coluna para a nota de CRM
+        const novaColInfo = colunasDisponiveis.find(c => c.id === novaColunaId);
+        const nomeNovaColuna = novaColInfo ? novaColInfo.nome : 'Nova Etapa';
+
+        // 1. Atualizar contatos_no_funil
+        const updateFunilData = { coluna_id: novaColunaId };
+
+        // 2. Se for uma coluna de ganho ou perda (ex: Vendido / Perdido), atualiza as datas correspondentes
+        const nomeColunaUpper = (nomeNovaColuna || '').toUpperCase().trim();
+        if (nomeColunaUpper === 'VENDIDO') {
+          updateFunilData.data_ganho = new Date().toISOString();
+        } else if (nomeColunaUpper === 'PERDIDO') {
+          updateFunilData.data_perda = new Date().toISOString();
+        }
+
+        const { error: updateFunnelError } = await supabaseAdmin
+          .from('contatos_no_funil')
+          .update(updateFunilData)
+          .eq('id', funil.id);
+
+        if (updateFunnelError) {
+          console.error('[Stella AI Funil Error] Falha ao atualizar coluna no funil:', updateFunnelError.message);
+        } else {
+          console.log(`[Stella AI Funil] Lead movido com sucesso para a coluna ${nomeNovaColuna}!`);
+
+          // 3. Registrar nota em crm_notas relatando a movimentação
+          try {
+            const stellaUserRecord = await obterOuCriarUsuarioStella(supabaseAdmin, organizacao_id);
+            const { error: insertNoteError } = await supabaseAdmin
+              .from('crm_notas')
+              .insert({
+                contato_id: contato_id,
+                contato_no_funil_id: funil.id,
+                conteudo: `Piloto Automático Stella: Lead movido para a etapa "${nomeNovaColuna}".`,
+                usuario_id: stellaUserRecord?.userId || null,
+                organizacao_id: organizacao_id
+              });
+
+            if (insertNoteError) {
+              console.error('[Stella AI Funil Note Error] Falha ao criar nota no CRM:', insertNoteError.message);
+            } else {
+              console.log('[Stella AI Funil] Nota de CRM criada relatando a movimentação.');
+            }
+          } catch (noteErr) {
+            console.error('[Stella AI Funil Note Error] Falha ao processar nota no CRM:', noteErr.message);
+          }
         }
       }
     }
