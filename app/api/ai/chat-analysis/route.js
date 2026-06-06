@@ -523,17 +523,18 @@ Se um determinado anexo (como o book em PDF ou vídeo do empreendimento) já con
      * "Depois de amanhã": data atual + 2 dias.
      * Intervalos curtos de minutos/horas ("daqui a 5 minutos", "em 1 hora"): mantenha a data atual (${dataAtualStr}).
    - Formate rigorosamente como "YYYY-MM-DD".
-3. **Extração de Horário de Início**:
-   - Caso o cliente cite uma restrição de horário (ex: "depois das 18h", "após 18:30"), extraia e defina a hora de início no formato "HH:MM:SS" (ex: "18:00:00", "18:30:00").
+3. **Extração e Definição de Horário de Início (Crítico para Criar como Evento com Hora Marcada)**:
+   - Toda atividade comercial de retorno/contato sugerida deve ter um horário de início marcado para ser tratada como um Evento (Horas).
+   - Se o cliente citar um horário específico ou restrição (ex: "depois das 18h", "após 18:30"), extraia e defina a hora no formato "HH:MM:SS" (ex: "18:00:00", "18:30:00").
    - Se o cliente citar turnos: "na parte da manhã" -> "09:00:00", "à tarde" -> "14:00:00", "à noite" -> "19:00:00".
    - Se o cliente citar intervalos relativos curtos (ex: "daqui a 5 minutos", "daqui a 10 minutos", "em 1 hora"):
      * Calcule o horário exato adicionando os minutos/horas especificados ao horário atual (${horaAtualStr}). Por exemplo: se são ${horaAtualStr} e o cliente pediu daqui a 5 minutos, o horário de início será 5 minutos após ${horaAtualStr}.
-   - Se nenhuma hora específica for citada, defina como null.
+   - Se nenhuma hora específica for citada pelo cliente (ex: "me chama na segunda", "volto semana que vem"), defina um horário padrão comercial viável no formato "HH:MM:SS" (use "09:00:00" como padrão geral de início comercial).
 4. **Campos da Atividade Agendada**:
-   - "nome": Título direto. Ex: "Retorno de contato - Stella IA", "Ligar para o cliente - Stella IA".
+   - "nome": Título direto. Ex: "Ligar para o cliente - Stella IA", "Enviar mensagem de retorno - Stella IA".
    - "descricao": Breve resumo descrevendo o motivo. Ex: "Cliente informou que está viajando e pediu para retornar semana que vem." ou "Cliente solicitou contato após as 18:30.".
-   - "tipo_atividade": Deve ser "Telefonema" se o cliente disser "me liga" ou "me liga depois", ou "Tarefa" para os demais casos.
-5. **Se não houver solicitação ou restrição**: Defina a chave "atividade_agendada" as null no JSON.
+   - "tipo_atividade": Deve ser sempre "Evento".
+5. **Se não houver solicitação ou restrição**: Defina a chave "atividade_agendada" como null no JSON.
 
 # Dados Atuais do CRM
 - Fase no Funil (CRM): ${crmStatus}
@@ -574,7 +575,7 @@ Escreva um JSON rigoroso nos seguintes moldes:
     "descricao": "Motivo detalhado do agendamento ou null",
     "data_inicio_prevista": "YYYY-MM-DD ou null",
     "hora_inicio": "HH:MM:SS ou null",
-    "tipo_atividade": "Tarefa" ou "Telefonema" ou null
+    "tipo_atividade": "Evento" ou null
   }
 }
 `;
@@ -665,16 +666,17 @@ Se um determinado anexo (como o book em PDF ou vídeo do empreendimento) já con
      * "Depois de amanhã": data atual + 2 dias.
      * Intervalos curtos de minutos/horas ("daqui a 5 minutos", "em 1 hora"): mantenha a data atual (${dataAtualStr}).
    - Formate rigorosamente como "YYYY-MM-DD".
-3. **Extração de Horário de Início**:
-   - Caso o cliente cite uma restrição de horário (ex: "depois das 18h", "após 18:30"), extraia e defina a hora de início no formato "HH:MM:SS" (ex: "18:00:00", "18:30:00").
+3. **Extração e Definição de Horário de Início (Crítico para Criar como Evento com Hora Marcada)**:
+   - Toda atividade comercial de retorno/contato sugerida deve ter um horário de início marcado para ser tratada como um Evento (Horas).
+   - Se o cliente citar um horário específico ou restrição (ex: "depois das 18h", "após 18:30"), extraia e defina a hora no formato "HH:MM:SS" (ex: "18:00:00", "18:30:00").
    - Se o cliente citar turnos: "na parte da manhã" -> "09:00:00", "à tarde" -> "14:00:00", "à noite" -> "19:00:00".
    - Se o cliente citar intervalos relativos curtos (ex: "daqui a 5 minutos", "daqui a 10 minutos", "em 1 hora"):
      * Calcule o horário exato adicionando os minutos/horas especificados ao horário atual (${horaAtualStr}). Por exemplo: se são ${horaAtualStr} e o cliente pediu daqui a 5 minutos, o horário de início será 5 minutos após ${horaAtualStr}.
-   - Se nenhuma hora específica for citada, defina como null.
+   - Se nenhuma hora específica for citada pelo cliente (ex: "me chama na segunda", "volto semana que vem"), defina um horário padrão comercial viável no formato "HH:MM:SS" (use "09:00:00" como padrão geral de início comercial).
 4. **Campos da Atividade Agendada**:
-   - "nome": Título direto. Ex: "Retorno de contato - Stella IA", "Ligar para o cliente - Stella IA".
+   - "nome": Título direto. Ex: "Ligar para o cliente - Stella IA", "Enviar mensagem de retorno - Stella IA".
    - "descricao": Breve resumo descrevendo o motivo. Ex: "Cliente informou que está viajando e pediu para retornar semana que vem." ou "Cliente solicitou contato após as 18:30.".
-   - "tipo_atividade": Deve ser "Telefonema" se o cliente disser "me liga" ou "me liga depois", ou "Tarefa" para os demais casos.
+   - "tipo_atividade": Deve ser sempre "Evento".
 5. **Se não houver solicitação ou restrição**: Defina a chave "atividade_agendada" como null no JSON.
 
 # Ficha Cadastral e Origem do Lead
@@ -753,7 +755,7 @@ Com base SOMENTE neste histórico recente e contexto do projeto, escreva um JSON
     "descricao": "Motivo detalhado do agendamento ou null",
     "data_inicio_prevista": "YYYY-MM-DD ou null",
     "hora_inicio": "HH:MM:SS ou null",
-    "tipo_atividade": "Tarefa" ou "Telefonema" ou null
+    "tipo_atividade": "Evento" ou null
   }
 }
 `;
@@ -941,6 +943,9 @@ Com base SOMENTE neste histórico recente e contexto do projeto, escreva um JSON
             const stellaRecord = await obterOuCriarUsuarioStella(supabaseAdmin, organizacao_id);
             
             if (stellaRecord?.userId) {
+              // Garante que a atividade gerada pela Stella sempre seja um Evento com hora marcada
+              const horaInicioFinal = aa.hora_inicio || '09:00:00';
+              
               // Insere na tabela public.activities
               const newActivity = {
                 contato_id: contato_id,
@@ -949,8 +954,11 @@ Com base SOMENTE neste histórico recente e contexto do projeto, escreva um JSON
                 nome: aa.nome,
                 descricao: aa.descricao || '',
                 data_inicio_prevista: aa.data_inicio_prevista,
-                hora_inicio: aa.hora_inicio || null,
-                tipo_atividade: aa.tipo_atividade || 'Tarefa',
+                data_fim_prevista: aa.data_inicio_prevista, // Para Evento, data fim = data início
+                hora_inicio: horaInicioFinal,
+                tipo_atividade: 'Evento',
+                duracao_horas: 1.0,
+                duracao_dias: 0,
                 status: 'Não iniciado',
                 responsavel_texto: 'Stella IA'
               };
