@@ -115,15 +115,36 @@ export async function GET(request) {
           return `[${new Date(m.sent_at).toLocaleString('pt-BR')}] ${actor}: ${m.content}`;
         }).join('\n');
 
-        // C. Chamar o Gemini para gerar a resposta de acompanhamento humanizada
-        const model = genAI.getGenerativeModel({
-          model: 'gemini-3.1-pro-preview',
-          generationConfig: {
-            responseMimeType: "application/json",
-          }
-        });
+        // B.2 Verificar se a janela de 24 horas está aberta
+        const { data: lastInbound } = await supabaseAdmin
+          .from('whatsapp_messages')
+          .select('sent_at')
+          .eq('contato_id', act.contato_id)
+          .eq('direction', 'inbound')
+          .order('sent_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
 
-        const prompt = `
+        const agoraData = new Date();
+        const ultimaMsgData = lastInbound ? new Date(lastInbound.sent_at) : null;
+        const janelaAberta = ultimaMsgData && (agoraData - ultimaMsgData < 24 * 60 * 60 * 1000);
+
+        console.log(`[CRON Stella] Contato ID ${act.contato_id}: Janela de 24h está ${janelaAberta ? 'ABERTA' : 'FECHADA'}. Último inbound: ${ultimaMsgData ? ultimaMsgData.toLocaleString('pt-BR') : 'nunca'}`);
+
+        let sendPayload = {};
+        let finalLogMessage = '';
+
+        if (janelaAberta) {
+          // --- FLUXO JANELA ABERTA (Texto Livre) ---
+          console.log(`[CRON Stella] Processando fluxo de texto livre...`);
+          const model = genAI.getGenerativeModel({
+            model: 'gemini-3.1-pro-preview',
+            generationConfig: {
+              responseMimeType: "application/json",
+            }
+          });
+
+          const prompt = `
 Você é Stella, a super Analista Comercial de Elite e Assistente Copiloto da Studio 57.
 Você está realizando um retorno de contato automático que foi agendado anteriormente.
 
@@ -152,41 +173,177 @@ Retorne um JSON no formato:
 {
   "mensagem": "Texto final da mensagem a ser enviada no WhatsApp"
 }
-        `;
+          `;
 
-        const result = await model.generateContent([{ text: prompt }]);
-        const textOutput = result.response.text();
+          const result = await model.generateContent([{ text: prompt }]);
+          const textOutput = result.response.text();
 
-        let generatedMessage = '';
-        try {
-          const cleanString = textOutput.replace(/```json/gi, '').replace(/```/gi, '').trim();
-          const parsed = JSON.parse(cleanString);
-          generatedMessage = parsed.mensagem || parsed.response || '';
-        } catch (jsonErr) {
-          console.error('[CRON Stella Error] Falha ao parsear JSON do Gemini, usando texto bruto:', textOutput, jsonErr.message);
-          generatedMessage = textOutput.trim();
+          let generatedMessage = '';
+          try {
+            const cleanString = textOutput.replace(/```json/gi, '').replace(/```/gi, '').trim();
+            const parsed = JSON.parse(cleanString);
+            generatedMessage = parsed.mensagem || parsed.response || '';
+          } catch (jsonErr) {
+            console.error('[CRON Stella Error] Falha ao parsear JSON do Gemini, usando texto bruto:', textOutput, jsonErr.message);
+            generatedMessage = textOutput.trim();
+          }
+
+          if (!generatedMessage || generatedMessage.length === 0) {
+            throw new Error('A mensagem gerada pela inteligência artificial está vazia.');
+          }
+
+          sendPayload = {
+            to: telefoneDestino,
+            type: 'text',
+            text: generatedMessage,
+            contact_id: act.contato_id,
+            organizacao_id: act.organizacao_id
+          };
+          finalLogMessage = generatedMessage;
+
+        } else {
+          // --- FLUXO JANELA FECHADA (Template Meta API) ---
+          console.log(`[CRON Stella] Processando fluxo de template Meta...`);
+
+          // 1. Buscar credenciais da organização
+          const { data: config, error: configError } = await supabaseAdmin
+            .from('configuracoes_whatsapp')
+            .select('whatsapp_permanent_token, whatsapp_business_account_id')
+            .eq('organizacao_id', act.organizacao_id)
+            .single();
+
+          if (configError || !config) {
+            throw new Error(`Configuração do WhatsApp não encontrada para a organização ${act.organizacao_id}.`);
+          }
+
+          const WHATSAPP_TOKEN = process.env.WHATSAPP_SYSTEM_USER_TOKEN || config.whatsapp_permanent_token;
+          const WHATSAPP_BUSINESS_ACCOUNT_ID = config.whatsapp_business_account_id;
+
+          if (!WHATSAPP_BUSINESS_ACCOUNT_ID || !WHATSAPP_TOKEN) {
+            throw new Error('Credenciais de API do WhatsApp (WABA ID ou Token) incompletas no banco.');
+          }
+
+          // 2. Buscar templates aprovados na API da Meta Graph
+          const templatesUrl = `https://graph.facebook.com/v20.0/${WHATSAPP_BUSINESS_ACCOUNT_ID}/message_templates?fields=name,status,category,language,components&limit=100`;
+          const templatesRes = await fetch(templatesUrl, {
+            method: 'GET',
+            headers: { 'Authorization': `Bearer ${WHATSAPP_TOKEN}` },
+          });
+
+          const templatesData = await templatesRes.json();
+
+          if (!templatesRes.ok) {
+            throw new Error(`Erro ao buscar templates na Meta: ${templatesData.error?.message || 'Erro desconhecido'}`);
+          }
+
+          const rawTemplates = Array.isArray(templatesData?.data) ? templatesData.data : [];
+          const approvedTemplates = rawTemplates.filter(t => t.status === 'APPROVED');
+
+          if (approvedTemplates.length === 0) {
+            throw new Error('Nenhum template aprovado na Meta encontrado para reabrir a janela de conversação.');
+          }
+
+          // 3. IA escolhe e preenche o template
+          const model = genAI.getGenerativeModel({
+            model: 'gemini-3.1-pro-preview',
+            generationConfig: {
+              responseMimeType: "application/json",
+            }
+          });
+
+          const prompt = `
+Você é Stella, a super Analista Comercial de Elite e Assistente Copiloto da Studio 57.
+Você precisa enviar um retorno de contato automático que foi agendado anteriormente, porém a janela de 24 horas do cliente no WhatsApp está FECHADA.
+Por causa disso, você só pode enviar mensagens utilizando um dos templates pré-aprovados pela Meta na conta de negócios da incorporadora.
+
+# Detalhes da Tarefa de Acompanhamento Agendada:
+- Título da tarefa: ${act.nome}
+- Motivo/Descrição da tarefa: ${act.descricao}
+- Data agendada: ${act.data_inicio_prevista} ${act.hora_inicio}
+
+# Histórico Recente de Conversa (WhatsApp):
+${chatLog}
+
+# Lista de Templates Aprovados Disponíveis no WhatsApp da Empresa:
+${JSON.stringify(approvedTemplates, null, 2)}
+
+# Sua Missão:
+1. **Escolha o Melhor Template**: Analise os templates aprovados acima e selecione aquele que melhor se adequa ao motivo da tarefa e ao histórico da conversa.
+2. **Preencha as Variáveis do Template**: Se o template contiver variáveis (como {{1}}, {{2}} no componente BODY), gere os valores mais adequados e humanizados para cada variável com base no contexto do cliente.
+   - Os valores das variáveis devem ser curtos, diretos e parecer escritos de forma natural por uma pessoa.
+   - NUNCA use placeholders genéricos. Se você souber o nome do cliente, use-o. Se for sobre um agendamento ou retorno, use valores reais que se encaixem perfeitamente.
+3. **Mapeie no Formato Meta**: Monte o objeto de componentes de parâmetros de variáveis que será enviado no payload.
+4. **Gere o Conteúdo Final**: Forneça o texto completo final do template com as variáveis substituídas no campo "custom_content" (isso será salvo na nossa linha do tempo para sabermos o que foi enviado).
+
+# Regras Importantes:
+- Priorize templates que façam sentido comercial de reengajamento ou acompanhamento.
+- Se nenhum template for 100% específico, use um template de saudação mais genérico (ex: "hello_world" ou similar) e, se aplicável, preencha as variáveis de forma a trazer o assunto de volta de maneira sutil.
+- O formato do JSON retornado deve ser estritamente o especificado abaixo.
+
+# Formato do JSON de Resposta:
+{
+  "templateName": "nome_do_template_escolhido",
+  "languageCode": "codigo_de_idioma_do_template_por_exemplo_pt_BR_ou_en_US",
+  "components": [
+    {
+      "type": "body",
+      "parameters": [
+        {
+          "type": "text",
+          "text": "Valor que substituirá {{1}}"
+        },
+        {
+          "type": "text",
+          "text": "Valor que substituirá {{2}}"
         }
+      ]
+    }
+  ],
+  "custom_content": "O texto completo do template com as variáveis devidamente substituídas para podermos ver no chat"
+}
 
-        if (!generatedMessage || generatedMessage.length === 0) {
-          throw new Error('A mensagem gerada pela inteligência artificial está vazia.');
+Observação: Se o template escolhido não possuir variáveis no corpo, retorne "components": [] e o texto estático do template no "custom_content".
+`;
+
+          const result = await model.generateContent([{ text: prompt }]);
+          const textOutput = result.response.text();
+
+          let aiResponse = {};
+          try {
+            const cleanString = textOutput.replace(/```json/gi, '').replace(/```/gi, '').trim();
+            aiResponse = JSON.parse(cleanString);
+          } catch (jsonErr) {
+            throw new Error(`Falha ao parsear JSON de template gerado pela IA: ${jsonErr.message}. Retorno bruto: ${textOutput}`);
+          }
+
+          if (!aiResponse.templateName) {
+            throw new Error('A IA não retornou o nome do template a ser enviado.');
+          }
+
+          sendPayload = {
+            to: telefoneDestino,
+            type: 'template',
+            templateName: aiResponse.templateName,
+            languageCode: aiResponse.languageCode || 'pt_BR',
+            components: aiResponse.components || [],
+            custom_content: aiResponse.custom_content || `Template: ${aiResponse.templateName}`,
+            contact_id: act.contato_id,
+            organizacao_id: act.organizacao_id
+          };
+          finalLogMessage = sendPayload.custom_content;
+          console.log(`[CRON Stella] Escolhido template: ${aiResponse.templateName}. Custom Content: "${finalLogMessage}"`);
         }
 
         // D. Enviar no WhatsApp chamando a API local (/api/whatsapp/send)
         const sendUrl = `${request.nextUrl.origin}/api/whatsapp/send`;
-        console.log(`[CRON Stella] Disparando lembrete via: ${sendUrl}`);
+        console.log(`[CRON Stella] Disparando lembrete via: ${sendUrl} (Tipo: ${sendPayload.type})`);
 
         const sendResponse = await fetch(sendUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({
-            to: telefoneDestino,
-            type: 'text',
-            text: generatedMessage,
-            contact_id: act.contato_id,
-            organizacao_id: act.organizacao_id
-          })
+          body: JSON.stringify(sendPayload)
         });
 
         const sendResult = await sendResponse.json();
@@ -201,7 +358,7 @@ Retorne um JSON no formato:
           .update({
             status: 'Concluído',
             data_fim_real: dataHojeStr,
-            descricao: `${act.descricao || ''}\n[Enviado automaticamente pela Stella IA em ${dataHojeStr} às ${horaAgoraStr}]`
+            descricao: `${act.descricao || ''}\n[Enviado automaticamente pela Stella IA (${sendPayload.type === 'template' ? 'Template Meta: ' + sendPayload.templateName : 'Texto Livre'}) em ${dataHojeStr} às ${horaAgoraStr}]`
           })
           .eq('id', act.id);
 
@@ -219,16 +376,16 @@ Retorne um JSON no formato:
               .insert({
                 contato_no_funil_id: funil.id,
                 contato_id: act.contato_id,
-                conteudo: `🤖 [Piloto Automático Stella] Retorno de contato realizado automaticamente via WhatsApp: "${generatedMessage}"`,
+                conteudo: `🤖 [Piloto Automático Stella] Retorno de contato realizado via WhatsApp (${sendPayload.type === 'template' ? 'Template Meta' : 'Texto Livre'}): "${finalLogMessage}"`,
                 organizacao_id: act.organizacao_id
               });
           }
         } catch (noteErr) {
-          console.warn('[CRON Stella Warning] Falha ao registrar nota de CRM para o contato:', noteErr.message);
+          console.warn('[CRON Stella Warning] Fail to register notes on CRM for contact:', noteErr.message);
         }
 
         console.log(`[CRON Stella] Atividade ID ${act.id} concluída com sucesso.`);
-        resultados.push({ id: act.id, status: 'sucesso', mensagem: generatedMessage });
+        resultados.push({ id: act.id, status: 'sucesso', mensagem: finalLogMessage, tipo: sendPayload.type });
 
       } catch (err) {
         console.error(`[CRON Stella Error] Falha ao processar atividade ID ${act.id}:`, err.message);
