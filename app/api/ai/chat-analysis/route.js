@@ -5,6 +5,61 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 // Instância do SDK do Gemini
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
+// Função auxiliar para obter ou criar o registro da Stella na tabela funcionarios
+async function obterOuCriarFuncionarioStella(supabaseAdmin, organizacaoId, contatoId) {
+  const emailStella = `stella.org${organizacaoId}@elo57.com.br`;
+
+  // 1. Verificar se já existe funcionário com o email da Stella
+  const { data: funcExistente } = await supabaseAdmin
+    .from('funcionarios')
+    .select('id')
+    .eq('email', emailStella)
+    .eq('organizacao_id', organizacaoId)
+    .maybeSingle();
+
+  if (funcExistente) {
+    return funcExistente.id;
+  }
+
+  // 2. Buscar a primeira empresa da organização
+  const { data: empresa } = await supabaseAdmin
+    .from('cadastro_empresa')
+    .select('id')
+    .eq('organizacao_id', organizacaoId)
+    .limit(1)
+    .maybeSingle();
+
+  if (!empresa) {
+    console.warn(`[Stella AI Warning] Nenhuma empresa encontrada em cadastro_empresa para a org ${organizacaoId}. Não é possível criar o funcionário da Stella.`);
+    return null;
+  }
+
+  // 3. Cadastrar a Stella como Funcionário (CPF fictício baseado na organização)
+  const cpfStella = `000.000.000-${organizacaoId.toString().padStart(2, '0')}`;
+  const { data: newFunc, error: insertError } = await supabaseAdmin
+    .from('funcionarios')
+    .insert({
+      empresa_id: empresa.id,
+      full_name: 'Stella IA',
+      cpf: cpfStella,
+      email: emailStella,
+      admission_date: new Date().toISOString().split('T')[0], // YYYY-MM-DD
+      status: 'Ativo',
+      contato_id: contatoId,
+      organizacao_id: organizacaoId
+    })
+    .select('id')
+    .single();
+
+  if (insertError) {
+    console.error('[Stella AI Error] Falha ao criar funcionário Stella:', insertError.message);
+    return null;
+  }
+
+  console.log(`[Stella AI] Funcionário Stella criado com sucesso: ID ${newFunc.id}`);
+  return newFunc.id;
+}
+
 // Função auxiliar para obter ou criar o usuário e contato da Stella por organização
 async function obterOuCriarUsuarioStella(supabaseAdmin, organizacaoId) {
   const emailStella = `stella.org${organizacaoId}@elo57.com.br`;
@@ -12,15 +67,33 @@ async function obterOuCriarUsuarioStella(supabaseAdmin, organizacaoId) {
   // 1. Verificar se o usuário já existe na public.usuarios
   const { data: usuarioExistente, error: checkError } = await supabaseAdmin
     .from('usuarios')
-    .select('id, contato_id')
+    .select('id, contato_id, funcionario_id')
     .eq('email', emailStella)
     .eq('organizacao_id', organizacaoId)
     .maybeSingle();
     
   if (usuarioExistente) {
+    // Se o usuário já existe mas não possui funcionario_id, vamos tentar associá-lo
+    if (!usuarioExistente.funcionario_id) {
+      console.log(`[Stella AI] Usuário existente sem funcionario_id. Buscando ou criando funcionário...`);
+      try {
+        const funcId = await obterOuCriarFuncionarioStella(supabaseAdmin, organizacaoId, usuarioExistente.contato_id);
+        if (funcId) {
+          await supabaseAdmin
+            .from('usuarios')
+            .update({ funcionario_id: funcId })
+            .eq('id', usuarioExistente.id);
+          usuarioExistente.funcionario_id = funcId;
+        }
+      } catch (e) {
+        console.error('[Stella AI Error] Erro ao sincronizar funcionário para usuário existente:', e.message);
+      }
+    }
+
     return {
       userId: usuarioExistente.id,
-      contatoId: usuarioExistente.contato_id
+      contatoId: usuarioExistente.contato_id,
+      funcionarioId: usuarioExistente.funcionario_id
     };
   }
   
@@ -71,6 +144,14 @@ async function obterOuCriarUsuarioStella(supabaseAdmin, organizacaoId) {
   if (contactError) {
     throw new Error(`Falha ao cadastrar contato Stella IA: ${contactError.message}`);
   }
+
+  // 3.5 Cadastrar a Stella como Funcionário
+  let newFuncId = null;
+  try {
+    newFuncId = await obterOuCriarFuncionarioStella(supabaseAdmin, organizacaoId, newContact.id);
+  } catch (funcErr) {
+    console.error('[Stella AI Error] Falha ao criar funcionário durante fluxo de criação inicial:', funcErr.message);
+  }
   
   // 4. Cadastrar o registro na public.usuarios
   const { error: profileError } = await supabaseAdmin
@@ -82,19 +163,24 @@ async function obterOuCriarUsuarioStella(supabaseAdmin, organizacaoId) {
       sobrenome: 'IA',
       is_active: true,
       organizacao_id: organizacaoId,
-      contato_id: newContact.id
+      contato_id: newContact.id,
+      funcionario_id: newFuncId
     });
     
   if (profileError) {
     await supabaseAdmin.from('contatos').delete().eq('id', newContact.id);
+    if (newFuncId) {
+      await supabaseAdmin.from('funcionarios').delete().eq('id', newFuncId);
+    }
     throw new Error(`Falha ao cadastrar perfil Stella IA na public.usuarios: ${profileError.message}`);
   }
   
-  console.log(`[Stella AI] Usuário Stella provisionado com sucesso: UserID ${authUserId}, ContatoID ${newContact.id}`);
+  console.log(`[Stella AI] Usuário Stella provisionado com sucesso: UserID ${authUserId}, ContatoID ${newContact.id}, FuncionarioID ${newFuncId}`);
   
   return {
     userId: authUserId,
-    contatoId: newContact.id
+    contatoId: newContact.id,
+    funcionarioId: newFuncId
   };
 }
 
@@ -951,6 +1037,7 @@ Com base SOMENTE neste histórico recente e contexto do projeto, escreva um JSON
                 contato_id: contato_id,
                 organizacao_id: organizacao_id,
                 criado_por_usuario_id: stellaRecord.userId,
+                funcionario_id: stellaRecord.funcionarioId || null,
                 nome: aa.nome,
                 descricao: aa.descricao || '',
                 data_inicio_prevista: aa.data_inicio_prevista,
