@@ -184,6 +184,329 @@ async function obterOuCriarUsuarioStella(supabaseAdmin, organizacaoId) {
   };
 }
 
+// Função utilitária para calcular data 3 dias úteis a partir de uma data inicial (ignora finais de semana)
+function calcularDataTresDiasUteis(dataInicial = new Date()) {
+  let data = new Date(dataInicial);
+  let diasUteisAdicionados = 0;
+  
+  while (diasUteisAdicionados < 3) {
+    data.setDate(data.getDate() + 1);
+    const diaSemana = data.getDay(); // 0 = Domingo, 6 = Sábado
+    
+    // Ignora sábado e domingo
+    if (diaSemana !== 0 && diaSemana !== 6) {
+      diasUteisAdicionados++;
+    }
+  }
+  
+  return data.toISOString().split('T')[0]; // Formato YYYY-MM-DD
+}
+
+// Função para processar a criação de contratos em modo Rascunho
+async function processarConfeccaoContrato(supabaseAdmin, contatoId, organizacaoId, gerarContratoData, usuarioStellaId) {
+  const {
+    tipo_documento,
+    empreendimento_id,
+    produto_id,
+    garagem_produto_id,
+    valor_final_venda,
+    plano_pagamento,
+    dados_conjuge
+  } = gerarContratoData;
+
+  if (!produto_id || !empreendimento_id) {
+    console.error("[Stella Contrato Error] produto_id ou empreendimento_id ausentes.");
+    return null;
+  }
+
+  // 1. Verificar duplicidade de contrato ativo para o comprador e o lote
+  const { data: contratoExistente } = await supabaseAdmin
+    .from('contratos')
+    .select('id')
+    .eq('contato_id', contatoId)
+    .eq('produto_id', produto_id)
+    .eq('organizacao_id', organizacaoId)
+    .eq('lixeira', false)
+    .not('status_contrato', 'eq', 'Cancelado')
+    .limit(1)
+    .maybeSingle();
+
+  if (contratoExistente) {
+    console.log(`[Stella Contrato] Contrato ativo já existente para Contato ${contatoId} e Produto ${produto_id}: ID ${contratoExistente.id}`);
+    return contratoExistente.id;
+  }
+
+  // 2. Processar Cônjuge se aplicável
+  let conjugeId = null;
+  if (dados_conjuge && dados_conjuge.nome && dados_conjuge.nome.trim().length > 0) {
+    const nomeConjuge = dados_conjuge.nome.trim();
+    const cpfConjuge = (dados_conjuge.cpf || '').replace(/\D/g, '');
+
+    // Buscar cônjuge existente na organização pelo CPF se fornecido, senão por nome
+    let queryConj = supabaseAdmin.from('contatos').select('id').eq('organizacao_id', organizacaoId);
+    if (cpfConjuge) {
+      queryConj = queryConj.eq('cpf', cpfConjuge);
+    } else {
+      queryConj = queryConj.eq('nome', nomeConjuge);
+    }
+    const { data: conjExistente } = await queryConj.limit(1).maybeSingle();
+
+    if (conjExistente) {
+      conjugeId = conjExistente.id;
+      // Atualizar dados cadastrais adicionais se fornecidos
+      const updateConj = {};
+      if (dados_conjuge.rg) updateConj.rg = dados_conjuge.rg.replace(/\D/g, '');
+      if (dados_conjuge.cargo) updateConj.cargo = dados_conjuge.cargo;
+      if (dados_conjuge.nacionalidade) updateConj.nacionalidade = dados_conjuge.nacionalidade;
+      if (Object.keys(updateConj).length > 0) {
+        await supabaseAdmin.from('contatos').update(updateConj).eq('id', conjugeId);
+      }
+    } else {
+      // Criar contato para o cônjuge
+      const { data: newConj, error: conjError } = await supabaseAdmin
+        .from('contatos')
+        .insert({
+          nome: nomeConjuge,
+          cpf: cpfConjuge || null,
+          rg: dados_conjuge.rg ? dados_conjuge.rg.replace(/\D/g, '') : null,
+          cargo: dados_conjuge.cargo || null,
+          nacionalidade: dados_conjuge.nacionalidade || null,
+          tipo_contato: 'Cliente',
+          organizacao_id: organizacaoId,
+          status: 'Ativo'
+        })
+        .select('id')
+        .single();
+
+      if (!conjError && newConj) {
+        conjugeId = newConj.id;
+        console.log(`[Stella Contrato] Cônjuge cadastrado com sucesso: ID ${conjugeId}`);
+        
+        // Criar telefones e emails do cônjuge se fornecidos
+        if (dados_conjuge.email) {
+          await supabaseAdmin.from('emails').insert({ contato_id: conjugeId, email: dados_conjuge.email, organizacao_id: organizacaoId });
+        }
+        if (dados_conjuge.telefone) {
+          await supabaseAdmin.from('telefones').insert({ contato_id: conjugeId, telefone: dados_conjuge.telefone, organizacao_id: organizacaoId });
+        }
+      } else {
+        console.error('[Stella Contrato Error] Falha ao cadastrar cônjuge:', conjError?.message);
+      }
+    }
+
+    if (conjugeId) {
+      // Sincronizar cônjuge no contato do comprador
+      await supabaseAdmin
+        .from('contatos')
+        .update({ conjuge_id: conjugeId })
+        .eq('id', contatoId);
+    }
+  }
+
+  // 3. Buscar dados adicionais do lead para o contrato
+  const { data: compradorData } = await supabaseAdmin
+    .from('contatos')
+    .select('regime_bens, conjuge_id')
+    .eq('id', contatoId)
+    .single();
+
+  const regimeBensFinal = compradorData?.regime_bens || null;
+  const conjugeIdFinal = conjugeId || compradorData?.conjuge_id || null;
+
+  // 4. Buscar se existe corretor associado no funil
+  const { data: funilInfo } = await supabaseAdmin
+    .from('contatos_no_funil')
+    .select('id, corretor_id')
+    .eq('contato_id', contatoId)
+    .maybeSingle();
+
+  let corretorIdFinal = funilInfo?.corretor_id || null;
+  if (!corretorIdFinal) {
+    const stellaRecord = await obterOuCriarUsuarioStella(supabaseAdmin, organizacaoId);
+    if (stellaRecord?.contatoId) {
+      corretorIdFinal = stellaRecord.contatoId;
+    }
+  }
+
+  // 5. Determinar tipo_documento e index de reajuste com base nas regras do Empreendimento
+  let tipoDocFinal = tipo_documento;
+  let indiceReajusteFinal = null;
+  if (empreendimento_id === 5) {
+    tipoDocFinal = 'TERMO_DE_INTERESSE';
+  } else if (empreendimento_id === 1 || empreendimento_id === 6) {
+    tipoDocFinal = 'CONTRATO';
+    if (empreendimento_id === 6) {
+      indiceReajusteFinal = 'INCC + 11% a.a.';
+    } else {
+      indiceReajusteFinal = 'INCC';
+    }
+  }
+
+  const comissaoPercentual = 5.0;
+
+  // 6. Inserir na tabela public.contratos
+  const { data: newContract, error: contractError } = await supabaseAdmin
+    .from('contratos')
+    .insert({
+      contato_id: contatoId,
+      produto_id: produto_id,
+      empreendimento_id: empreendimento_id,
+      data_venda: new Date().toISOString().split('T')[0],
+      valor_final_venda: valor_final_venda || 0,
+      status_contrato: 'Rascunho',
+      tipo_documento: tipoDocFinal || 'CONTRATO',
+      organizacao_id: organizacaoId,
+      corretor_id: corretorIdFinal,
+      conjuge_id: conjugeIdFinal,
+      regime_bens: regimeBensFinal,
+      indice_reajuste: indiceReajusteFinal,
+      percentual_comissao_corretagem: comissaoPercentual,
+      criado_por_usuario_id: usuarioStellaId || null
+    })
+    .select('id')
+    .single();
+
+  if (contractError) {
+    console.error('[Stella Contrato Error] Falha ao criar contrato:', contractError.message);
+    return null;
+  }
+
+  const contractId = newContract.id;
+  console.log(`[Stella Contrato] Contrato criado com sucesso: ID ${contractId}`);
+
+  // 7. Inserir vínculo na tabela public.contrato_produtos
+  const { error: linkError } = await supabaseAdmin
+    .from('contrato_produtos')
+    .insert({
+      contrato_id: contractId,
+      produto_id: produto_id,
+      organizacao_id: organizacaoId
+    });
+
+  if (linkError) {
+    console.error('[Stella Contrato Error] Falha ao criar contrato_produtos:', linkError.message);
+    await supabaseAdmin.from('contratos').delete().eq('id', contractId);
+    return null;
+  }
+
+  // Se houver garagem vinculada, criar o vínculo correspondente
+  if (garagem_produto_id) {
+    const { error: linkGarageError } = await supabaseAdmin
+      .from('contrato_produtos')
+      .insert({
+        contrato_id: contractId,
+        produto_id: garagem_produto_id,
+        organizacao_id: organizacaoId
+      });
+
+    if (linkGarageError) {
+      console.error('[Stella Contrato Error] Falha ao criar contrato_produtos para garagem:', linkGarageError.message);
+    }
+  }
+
+  // 8. Bloquear estoque: mudar status do produto para 'Reservado'
+  await supabaseAdmin
+    .from('produtos_empreendimento')
+    .update({ status: 'Reservado' })
+    .eq('id', produto_id);
+
+  if (garagem_produto_id) {
+    await supabaseAdmin
+      .from('produtos_empreendimento')
+      .update({ status: 'Reservado' })
+      .eq('id', garagem_produto_id);
+  }
+
+  // 9. Chamar garantir_simulacao_para_contrato
+  const { data: simulacaoRes, error: simError } = await supabaseAdmin
+    .rpc('garantir_simulacao_para_contrato', {
+      p_contrato_id: contractId,
+      p_organizacao_id: organizacaoId
+    });
+
+  if (simError) {
+    console.error('[Stella Contrato Error] Falha na RPC garantir_simulacao_para_contrato:', simError.message);
+  } else if (simulacaoRes && plano_pagamento) {
+    const simId = typeof simulacaoRes === 'object' ? simulacaoRes.id : JSON.parse(simulacaoRes).id;
+
+    // Calcular data da primeira parcela de entrada (3 dias úteis se vazia)
+    let dataPrimeiraEntrada = plano_pagamento.data_primeira_parcela_entrada;
+    if (!dataPrimeiraEntrada) {
+      dataPrimeiraEntrada = calcularDataTresDiasUteis(new Date());
+    }
+
+    // Calcular data da primeira parcela da obra (1 mês depois da entrada se vazia)
+    let dataPrimeiraObra = plano_pagamento.data_primeira_parcela_obra;
+    if (!dataPrimeiraObra && dataPrimeiraEntrada) {
+      const dataEntradaObj = new Date(dataPrimeiraEntrada + 'T12:00:00');
+      dataEntradaObj.setMonth(dataEntradaObj.getMonth() + 1);
+      dataPrimeiraObra = dataEntradaObj.toISOString().split('T')[0];
+    }
+
+    const updateSimData = {
+      valor_venda: valor_final_venda || 0,
+      desconto_valor: plano_pagamento.desconto_valor || 0,
+      entrada_valor: plano_pagamento.entrada_valor || 0,
+      num_parcelas_entrada: plano_pagamento.num_parcelas_entrada || 1,
+      data_primeira_parcela_entrada: dataPrimeiraEntrada,
+      parcelas_obra_valor: plano_pagamento.parcelas_obra_valor || 0,
+      num_parcelas_obra: plano_pagamento.num_parcelas_obra || 1,
+      data_primeira_parcela_obra: dataPrimeiraObra,
+      saldo_remanescente_valor: plano_pagamento.saldo_remanescente_valor || 0,
+      status: 'Aprovado',
+      produto_id: produto_id
+    };
+
+    const { error: simUpdateError } = await supabaseAdmin
+      .from('simulacoes')
+      .update(updateSimData)
+      .eq('id', simId);
+
+    if (simUpdateError) {
+      console.error('[Stella Contrato Error] Falha ao atualizar dados de simulação:', simUpdateError.message);
+    } else {
+      // 10. Chamar regerar_parcelas_contrato
+      const { error: rpcParcelasError } = await supabaseAdmin
+        .rpc('regerar_parcelas_contrato', {
+          p_contrato_id: contractId,
+          p_organizacao_id: organizacaoId
+        });
+
+      if (rpcParcelasError) {
+        console.error('[Stella Contrato Error] Falha na RPC regerar_parcelas_contrato:', rpcParcelasError.message);
+      } else {
+        console.log(`[Stella Contrato] Cronograma financeiro de parcelas gerado com sucesso!`);
+      }
+    }
+  }
+
+  // 11. Registrar nota no CRM
+  const { data: prodData } = await supabaseAdmin
+    .from('produtos_empreendimento')
+    .select('unidade, empreendimentos(nome)')
+    .eq('id', produto_id)
+    .single();
+
+  const nomeUnidade = prodData?.unidade || `ID ${produto_id}`;
+  const nomeEmpreendimento = prodData?.empreendimentos?.nome || `ID ${empreendimento_id}`;
+
+  const { error: insertNoteError } = await supabaseAdmin
+    .from('crm_notas')
+    .insert({
+      contato_id: contatoId,
+      contato_no_funil_id: funilInfo?.id || null,
+      conteudo: `Confecção de Contrato Autônoma: Stella IA gerou com sucesso o rascunho de ${tipoDocFinal === 'TERMO_DE_INTERESSE' ? 'termo de interesse' : 'contrato'} para a unidade "${nomeUnidade}" do empreendimento "${nomeEmpreendimento}" no valor de R$ ${valor_final_venda || 0}. O plano de pagamento foi salvo e as parcelas geradas no sistema. Pronto para revisão e emissão do PDF.`,
+      usuario_id: usuarioStellaId || null,
+      organizacao_id: organizacaoId
+    });
+
+  if (insertNoteError) {
+    console.error('[Stella Contrato Error] Falha ao criar nota no CRM:', insertNoteError.message);
+  }
+
+  return contractId;
+}
+
 export async function POST(request) {
   try {
     const { contato_id, organizacao_id, force, quickResponse, human_input } = await request.json();
@@ -655,6 +978,20 @@ Instruções:
       ).join('\n');
     }
 
+    // Filtra vagas de garagem disponíveis (tipo Vaga Carro ou nome contendo CARRO/GARAGEM/VAGA)
+    const garagensDisponiveis = (produtosDisponiveis || []).filter(p => {
+      const u = (p.unidade || '').toUpperCase();
+      const t = (p.tipo || '').toUpperCase();
+      return u.includes('CARRO') || u.includes('GARAGEM') || u.includes('VAGA') || t.includes('VAGA') || t.includes('GARAGEM');
+    });
+
+    let garagensDisponiveisContext = "Nenhuma vaga de garagem disponível cadastrada em estoque no momento.";
+    if (garagensDisponiveis.length > 0) {
+      garagensDisponiveisContext = garagensDisponiveis.map(p =>
+        `- Empreendimento ID: ${p.empreendimento_id} | Vaga: "${p.unidade}" | ID do Produto (Vaga): ${p.id}`
+      ).join('\n');
+    }
+
     // Formata o formulário da Meta de forma legível
     let metaFormString = "Nenhum formulário de lead respondido.";
     if (contatoInfo?.meta_form_data) {
@@ -824,11 +1161,40 @@ ${detalhesUnidades}
 # Lista de Unidades Disponíveis em Estoque (Real)
 ${produtosDisponiveisContext}
 
+# Lista de Vagas de Garagem Disponíveis em Estoque (Real)
+${garagensDisponiveisContext}
+
 # Arquivos e Anexos Disponíveis para Envio
 ${anexosContext}
 
 # Anexos Já Enviados Anteriormente nesta Conversa (Não repita a menos que pedido)
 ${anexosEnviadosContext}
+
+# Fluxo de Negociação e Confecção Autônoma de Contratos (Crítico)
+1. **Identificação da Venda**: Se o cliente manifestar a intenção direta de fechar a compra (ex: "quero ficar com o lote A-3", "vamos fechar a proposta", "quero comprar o apartamento 705"), você deve agir para confeccionar o contrato de forma autônoma.
+2. **Tipagem por Empreendimento**:
+   - Para o **Beta Suítes (ID 5)** (pré-lançamento), defina sempre tipo_documento como "TERMO_DE_INTERESSE" no JSON de contrato.
+   - Para o **Residencial Alfa (ID 1)** e **Refúgio Braúnas (ID 6)**, defina sempre tipo_documento como "CONTRATO".
+3. **Triagem de Dados Cadastrais, Cônjuge e Regime de Bens**:
+   - Analise se os dados do comprador estão completos na ficha dele (CEP, Rua, Número, Bairro, Cidade, Estado, CPF, RG, Profissão, Estado Civil, Nacionalidade).
+   - Se o cliente for **Solteiro(a)**, NUNCA solicite dados de cônjuge e retorne o objeto "dados_conjuge" com todos os seus campos como null. O regime de bens também ficará vazio/null.
+   - Se o cliente for **Casado(a)** ou estiver em **União Estável**:
+     * Você deve ativamente perguntar qual é o **Regime de Bens** da união (ex: Comunhão Parcial, Comunhão Universal, Separação Total de Bens).
+     * Você deve coletar os dados obrigatórios do cônjuge (Nome completo, CPF, RG, Profissão, Nacionalidade, E-mail, Telefone).
+   - **Regra de Vaga de Garagem para Residencial Alfa (ID 1)**: No Residencial Alfa, a compra de um apartamento exige a escolha obrigatória de uma vaga de garagem (tipo "Vaga Carro"), que está inclusa sem custo comercial avulso.
+     * Você deve identificar as vagas do tipo "Vaga Carro" que estão disponíveis a partir da "# Lista de Vagas de Garagem Disponíveis em Estoque".
+     * Você deve ativamente dizer ao cliente quais vagas estão disponíveis, por exemplo: "As vagas de garagem [VAGAS_DE_CARRO_DISPONIVEIS] estão disponíveis. Você pode ver a numeração delas no book de vendas e escolher a sua de preferência." (Substitua a lista por exemplos de vagas reais disponíveis no contexto).
+     * Peça para o cliente escolher a vaga de sua preferência.
+     * Preencha o ID do produto da garagem escolhida no campo "garagem_produto_id" do objeto "gerar_contrato".
+   - Se faltar qualquer informação básica para você gerar o contrato:
+     * Diga ao cliente que está preparando o contrato de fechamento e solicite simpaticamente os dados faltantes.
+     * Oriente-o que ele pode simplesmente enviar fotos legíveis dos documentos (CNH/RG e Comprovante de Residência) para facilitar, ou digitar os dados diretamente por texto.
+     * Deixe o campo "confirmar" do objeto "gerar_contrato" como false no JSON até que você receba todos os dados pendentes do comprador (e do cônjuge, se aplicável, incluindo a vaga de garagem se for no Alfa).
+4. **Vencimento de Entrada**:
+   - A data padrão de vencimento para o primeiro pagamento da Entrada será de 3 dias úteis a partir de hoje (que é fornecido no contexto). Você pode sugerir essa data calculada caso o cliente não especifique uma data de sua preferência.
+5. **Preenchimento de gerar_contrato**:
+   - Uma vez que os dados críticos do cliente e cônjuge estejam mapeados e a simulação de plano acordada, retorne "confirmar": true em "gerar_contrato" no JSON.
+   - Forneça os valores da simulação comercial aceita no objeto "plano_pagamento".
 
 # Histórico Recente de Conversa (WhatsApp)
 ${chatLog}
@@ -846,14 +1212,41 @@ Escreva um JSON rigoroso nos seguintes moldes:
     "nome": "Nome detectado do cliente se ele informou na conversa, caso contrário null"
   },
   "atividade_agendada": {
-    "nome": "Nome/Título da atividade ou null",
-    "descricao": "Motivo detalhado do agendamento ou null",
+    "name": "Nome/Título da atividade ou null",
+    "description": "Motivo detalhado do agendamento ou null",
     "data_inicio_prevista": "YYYY-MM-DD ou null",
     "hora_inicio": "HH:MM:SS ou null",
     "tipo_atividade": "Evento" ou null
   },
   "mover_para_coluna_id": "ID_DA_COLUNA_OU_NULL",
-  "justificativa_movimentacao": "Motivo resumido da movimentação de etapa comercial (obrigatório se mover_para_coluna_id não for null, especialmente em casos de perda para justificar o motivo detalhado baseado nas respostas do cliente)."
+  "justificativa_movimentacao": "Motivo resumido da movimentação de etapa comercial (obrigatório se mover_para_coluna_id não for null, especialmente em casos de perda para justificar o motivo detalhado baseado nas respostas do cliente).",
+  "gerar_contrato": {
+    "confirmar": true/false,
+    "tipo_documento": "CONTRATO" ou "TERMO_DE_INTERESSE" ou null,
+    "empreendimento_id": 1 ou 5 ou 6 ou null,
+    "produto_id": ID_DO_PRODUTO_DISPONIVEL_NO_ESTOQUE_OU_NULL,
+    "garagem_produto_id": ID_DO_PRODUTO_GARAGEM_DISPONIVEL_NO_ESTOQUE_OU_NULL,
+    "valor_final_venda": 350000.00 (ou null),
+    "plano_pagamento": {
+      "desconto_valor": 0.00 (ou null),
+      "entrada_valor": 70000.00 (ou null),
+      "num_parcelas_entrada": 1 (ou null),
+      "data_primeira_parcela_entrada": "YYYY-MM-DD ou null",
+      "parcelas_obra_valor": 140000.00 (ou null),
+      "num_parcelas_obra": 36 (ou null),
+      "data_primeira_parcela_obra": "YYYY-MM-DD ou null",
+      "saldo_remanescente_valor": 140000.00 (ou null)
+    },
+    "dados_conjuge": {
+      "nome": "Nome completo do cônjuge se casado ou null",
+      "cpf": "Apenas dígitos do CPF do cônjuge ou null",
+      "rg": "Apenas dígitos do RG do cônjuge ou null",
+      "cargo": "Profissão do cônjuge ou null",
+      "nacionalidade": "Nacionalidade do cônjuge ou null",
+      "email": "E-mail do cônjuge ou null",
+      "telefone": "Telefone do cônjuge ou null"
+    }
+  }
 }
 `;
     } else {
@@ -956,6 +1349,32 @@ Se um determinado anexo (como o book em PDF ou vídeo do empreendimento) já con
    - "tipo_atividade": Deve ser sempre "Evento".
 5. **Se não houver solicitação ou restrição**: Defina a chave "atividade_agendada" como null no JSON.
 
+# Fluxo de Negociação e Confecção Autônoma de Contratos (Crítico)
+1. **Identificação da Venda**: Se o cliente manifestar a intenção direta de fechar a compra (ex: "quero ficar com o lote A-3", "vamos fechar a proposta", "quero comprar o apartamento 705"), você deve agir para confeccionar o contrato de forma autônoma.
+2. **Tipagem por Empreendimento**:
+   - Para o **Beta Suítes (ID 5)** (pré-lançamento), defina sempre tipo_documento como "TERMO_DE_INTERESSE" no JSON de contrato.
+   - Para o **Residencial Alfa (ID 1)** e **Refúgio Braúnas (ID 6)**, defina sempre tipo_documento como "CONTRATO".
+3. **Triagem de Dados Cadastrais, Cônjuge e Regime de Bens**:
+   - Analise se os dados do comprador estão completos na ficha dele (CEP, Rua, Número, Bairro, Cidade, Estado, CPF, RG, Profissão, Estado Civil, Nacionalidade).
+   - Se o cliente for **Solteiro(a)**, NUNCA solicite dados de cônjuge e retorne o objeto "dados_conjuge" com todos os seus campos como null. O regime de bens também ficará vazio/null.
+   - Se o cliente for **Casado(a)** ou estiver em **União Estável**:
+     * Você deve ativamente perguntar qual é o **Regime de Bens** da união (ex: Comunhão Parcial, Comunhão Universal, Separação Total de Bens).
+     * Você deve coletar os dados obrigatórios do cônjuge (Nome completo, CPF, RG, Profissão, Nacionalidade, E-mail, Telefone).
+   - **Regra de Vaga de Garagem para Residencial Alfa (ID 1)**: No Residencial Alfa, a compra de um apartamento exige a escolha obrigatória de uma vaga de garagem (tipo "Vaga Carro"), que está inclusa sem custo comercial avulso.
+     * Você deve identificar as vagas do tipo "Vaga Carro" que estão disponíveis a partir da "# Lista de Vagas de Garagem Disponíveis em Estoque".
+     * Você deve ativamente dizer ao cliente quais vagas estão disponíveis, por exemplo: "As vagas de garagem [VAGAS_DE_CARRO_DISPONIVEIS] estão disponíveis. Você pode ver a numeração delas no book de vendas e escolher a sua de preferência." (Substitua a lista por exemplos de vagas reais disponíveis no contexto).
+     * Peça para o cliente escolher a vaga de sua preferência.
+     * Preencha o ID do produto da garagem escolhida no campo "garagem_produto_id" do objeto "gerar_contrato".
+   - Se faltar qualquer informação básica para você gerar o contrato:
+     * Diga ao cliente que está preparando o contrato de fechamento e solicite simpaticamente os dados faltantes.
+     * Oriente-o que ele pode simplesmente enviar fotos legíveis dos documentos (CNH/RG e Comprovante de Residência) para facilitar, ou digitar os dados diretamente por texto.
+     * Deixe o campo "confirmar" do objeto "gerar_contrato" como false no JSON até que você receba todos os dados pendentes do comprador (e do cônjuge, se aplicável, incluindo a vaga de garagem se for no Alfa).
+4. **Vencimento de Entrada**:
+   - A data padrão de vencimento para o primeiro pagamento da Entrada será de 3 dias úteis a partir de hoje (que é fornecido no contexto). Você pode sugerir essa data calculada caso o cliente não especifique uma data de sua preferência.
+5. **Preenchimento de gerar_contrato**:
+   - Uma vez que os dados críticos do cliente e cônjuge estejam mapeados e a simulação de plano acordada, retorne "confirmar": true em "gerar_contrato" no JSON.
+   - Forneça os valores da simulação comercial aceita no objeto "plano_pagamento".
+
 # Ficha Cadastral e Origem do Lead
 ${fichaLead}
 
@@ -988,6 +1407,9 @@ ${detalhesUnidades}
 # Lista de Unidades Disponíveis em Estoque (Real)
 ${produtosDisponiveisContext}
 
+# Lista de Vagas de Garagem Disponíveis em Estoque (Real)
+${garagensDisponiveisContext}
+
 # Arquivos e Anexos Disponíveis para Envio
 ${anexosContext}
 
@@ -1002,7 +1424,7 @@ Analise todos os dados disponíveis (Ficha do Lead, Origem do Meta Ads, Formulá
 1. "objetivo": Classifique rigorosamente como "MORADIA", "INVESTIMENTO" ou "LAZER".
    - O histórico de conversa no WhatsApp (chat log) é a verdade final absoluta e prevalece sobre as campanhas. Se o lead veio de uma campanha do Beta Suítes (Investimento) mas no chat ele diz que pretende morar com a família no apartamento, classifique como "MORADIA".
    - Caso seja inconclusivo e não haja nenhuma informação, retorne null.
-2. Identifique qual é o ID numérico do Empreendimento associado ao interesse do lead no campo "empreendimento_detectado_id":
+2. Identifique qual é o ID numendimento associado ao interesse do lead no campo "empreendimento_detectado_id":
    - 1 para Residencial Alfa.
    - 5 para Beta Suítes.
    - 6 para Refúgio Braúnas.
@@ -1051,7 +1473,34 @@ Com base SOMENTE neste histórico recente e contexto do projeto, escreva um JSON
     "tipo_atividade": "Evento" ou null
   },
   "mover_para_coluna_id": "ID_DA_COLUNA_OU_NULL",
-  "justificativa_movimentacao": "Motivo resumido da movimentação de etapa comercial (obrigatório se mover_para_coluna_id não for null, especialmente em casos de perda para justificar o motivo detalhado baseado nas respostas do cliente)."
+  "justificativa_movimentacao": "Motivo resumido da movimentação de etapa comercial (obrigatório se mover_para_coluna_id não for null, especialmente em casos de perda para justificar o motivo detalhado baseado nas respostas do cliente).",
+  "gerar_contrato": {
+    "confirmar": true/false,
+    "tipo_documento": "CONTRATO" ou "TERMO_DE_INTERESSE" ou null,
+    "empreendimento_id": 1 ou 5 ou 6 ou null,
+    "produto_id": ID_DO_PRODUTO_DISPONIVEL_NO_ESTOQUE_OU_NULL,
+    "garagem_produto_id": ID_DO_PRODUTO_GARAGEM_DISPONIVEL_NO_ESTOQUE_OU_NULL,
+    "valor_final_venda": 350000.00 (ou null),
+    "plano_pagamento": {
+      "desconto_valor": 0.00 (ou null),
+      "entrada_valor": 70000.00 (ou null),
+      "num_parcelas_entrada": 1 (ou null),
+      "data_primeira_parcela_entrada": "YYYY-MM-DD ou null",
+      "parcelas_obra_valor": 140000.00 (ou null),
+      "num_parcelas_obra": 36 (ou null),
+      "data_primeira_parcela_obra": "YYYY-MM-DD ou null",
+      "saldo_remanescente_valor": 140000.00 (ou null)
+    },
+    "dados_conjuge": {
+      "nome": "Nome completo do cônjuge se casado ou null",
+      "cpf": "Apenas dígitos do CPF do cônjuge ou null",
+      "rg": "Apenas dígitos do RG do cônjuge ou null",
+      "cargo": "Profissão do cônjuge ou null",
+      "nacionalidade": "Nacionalidade do cônjuge ou null",
+      "email": "E-mail do cônjuge ou null",
+      "telefone": "Telefone do cônjuge ou null"
+    }
+  }
 }
 `;
     }
@@ -1193,6 +1642,29 @@ Com base SOMENTE neste histórico recente e contexto do projeto, escreva um JSON
             console.log('[AI Enrichment] Contato enriquecido com sucesso:', updateData);
           }
         }
+    }
+
+    // --- NOVA LÓGICA: CONFECÇÃO AUTÔNOMA DE CONTRATOS (STELLA IA) ---
+    if (parsedResult.gerar_contrato && parsedResult.gerar_contrato.confirmar === true) {
+      console.log(`[Stella Contrato] Detectado comando de confecção autônoma de contrato para o Contato ${contato_id}.`);
+      try {
+        const stellaRecord = await obterOuCriarUsuarioStella(supabaseAdmin, organizacao_id);
+        const contractId = await processarConfeccaoContrato(
+          supabaseAdmin,
+          contato_id,
+          organizacao_id,
+          parsedResult.gerar_contrato,
+          stellaRecord?.userId
+        );
+
+        if (contractId) {
+          console.log(`[Stella Contrato] Contrato confeccionado com sucesso! Moveremos o lead no funil para a etapa CONTRATO.`);
+          // Força a movimentação do lead no funil para a etapa "CONTRATO" (c69be155-8422-45a2-a59d-0d47458be1bc)
+          parsedResult.mover_para_coluna_id = 'c69be155-8422-45a2-a59d-0d47458be1bc';
+          parsedResult.justificativa_movimentacao = 'Rascunho de contrato gerado pela Stella IA após confirmação comercial do cliente.';
+        }
+      } catch (errContrato) {
+        console.error('[Stella Contrato Error] Falha no fluxo de confecção autônoma:', errContrato.message);
       }
     }
 
