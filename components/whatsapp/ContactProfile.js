@@ -367,6 +367,65 @@ export default function ContactProfile({ contact }) {
  const [activeTab, setActiveTab] = useState('resumo');
  const [selectedEmpreendimentoId, setSelectedEmpreendimentoId] = useState('');
  const [arquivosViewMode, setArquivosViewMode] = useState('list');
+  const [humanInputText, setHumanInputText] = useState('');
+  const [askStellaText, setAskStellaText] = useState('');
+  const [askStellaResponse, setAskStellaResponse] = useState('');
+
+  useEffect(() => {
+    setAskStellaText('');
+    setAskStellaResponse('');
+  }, [contact?.contato_id]);
+
+  const askStellaMutation = useMutation({
+    mutationFn: async (questionText) => {
+      const response = await fetch('/api/ai/ask-stella', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contato_id: contact.contato_id,
+          organizacao_id: organizacaoId,
+          question: questionText
+        })
+      });
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || 'Erro ao perguntar à Stella');
+      }
+      return response.json();
+    },
+    onSuccess: (data) => {
+      setAskStellaResponse(data.answer);
+      toast.success("Stella respondeu!");
+    },
+    onError: (e) => toast.error(e.message)
+  });
+
+  const learnAndSuggestMutation = useMutation({
+    mutationFn: async (inputText) => {
+      const response = await fetch('/api/ai/chat-analysis', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contato_id: contact.contato_id,
+          organizacao_id: organizacaoId,
+          force: true,
+          human_input: inputText
+        })
+      });
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || 'Erro ao ensinar a Stella');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      setHumanInputText('');
+      queryClient.invalidateQueries({ queryKey: ['contactProfileData', contact.contato_id] });
+      queryClient.invalidateQueries({ queryKey: ['colunasFunil', organizacaoId] });
+      toast.success("Stella aprendeu este fato e reescreveu a resposta!");
+    },
+    onError: (e) => toast.error(e.message)
+  });
 
   useEffect(() => {
     if (isEditModalOpen) {
@@ -1076,6 +1135,105 @@ export default function ContactProfile({ contact }) {
                       >
                         <FontAwesomeIcon icon={faCopy} /> Copiar para Envio
                       </button>
+
+                      {/* CAIXINHA DE PERGUNTA À STELLA (DÚVIDA RÁPIDA) */}
+                      <div className="mt-3 pt-3 border-t border-purple-100 flex flex-col gap-2">
+                        <label className="text-[10px] font-extrabold text-purple-900 flex items-center gap-1">
+                          <FontAwesomeIcon icon={faRobot} className="text-purple-600" /> Pergunte à Stella (Dúvida sobre o Empreendimento):
+                        </label>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            placeholder="Ex: Quais as opções de lazer do Alfa? Tem garagem?"
+                            className="flex-1 text-[11px] p-2 border border-purple-200 rounded-md focus:outline-none focus:ring-1 focus:ring-purple-500 font-medium text-gray-700 bg-purple-50/20"
+                            value={askStellaText}
+                            onChange={(e) => setAskStellaText(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && askStellaText.trim()) {
+                                askStellaMutation.mutate(askStellaText);
+                              }
+                            }}
+                          />
+                          <button
+                            onClick={() => {
+                              if (!askStellaText.trim()) {
+                                toast.error("Por favor, digite uma pergunta.");
+                                return;
+                              }
+                              askStellaMutation.mutate(askStellaText);
+                            }}
+                            disabled={askStellaMutation.isPending}
+                            className="bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 text-white text-[10px] px-3 py-2 rounded font-extrabold shadow-sm transition-colors flex items-center justify-center gap-1.5"
+                          >
+                            {askStellaMutation.isPending ? (
+                              <FontAwesomeIcon icon={faSpinner} spin />
+                            ) : (
+                              "Perguntar"
+                            )}
+                          </button>
+                        </div>
+                        {askStellaResponse && (
+                          <div className="mt-2 p-3 bg-purple-50 rounded-lg border border-purple-100 relative text-gray-800 text-[11px] font-medium leading-relaxed animate-in fade-in duration-200">
+                            <div className="absolute top-2 right-2 flex gap-1">
+                              <button
+                                onClick={() => {
+                                  navigator.clipboard.writeText(askStellaResponse);
+                                  toast.success("Resposta da Stella copiada!");
+                                }}
+                                className="text-purple-600 hover:text-purple-800 p-1"
+                                title="Copiar resposta da dúvida"
+                              >
+                                <FontAwesomeIcon icon={faCopy} className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => setAskStellaResponse('')}
+                                className="text-gray-400 hover:text-gray-600 p-1"
+                                title="Limpar resposta"
+                              >
+                                <FontAwesomeIcon icon={faTimes} className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                            <p className="pr-10 whitespace-pre-wrap">{askStellaResponse}</p>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* CAIXINHA DE APRENDIZADO DA STELLA (ACTIVE LEARNING) */}
+                      <div className="mt-3 pt-3 border-t border-purple-100 flex flex-col gap-2">
+                        <label className="text-[10px] font-extrabold text-purple-900 flex items-center gap-1">
+                          <FontAwesomeIcon icon={faRobot} className="text-purple-600" /> Ensine a Stella (Fato Novo):
+                        </label>
+                        <textarea
+                          placeholder="Digite aqui o fato novo (ex: O valor do condomínio é R$ 350,00 e a piscina é aquecida a gás)."
+                          rows={2}
+                          className="w-full text-[11px] p-2 border border-purple-200 rounded-md focus:outline-none focus:ring-1 focus:ring-purple-500 font-medium text-gray-700 resize-none bg-purple-50/20"
+                          value={humanInputText}
+                          onChange={(e) => setHumanInputText(e.target.value)}
+                        />
+                        <button
+                          onClick={() => {
+                            if (!humanInputText.trim()) {
+                              toast.error("Por favor, digite o fato que deseja ensinar.");
+                              return;
+                            }
+                            learnAndSuggestMutation.mutate(humanInputText);
+                          }}
+                          disabled={learnAndSuggestMutation.isPending}
+                          className="bg-purple-600 hover:bg-purple-700 disabled:bg-purple-400 text-white text-[10px] px-3 py-2 rounded uppercase tracking-wider font-extrabold shadow-sm transition-colors flex items-center justify-center gap-1.5"
+                          title="Ensinar Stella e reformular a resposta sugerida"
+                        >
+                          {learnAndSuggestMutation.isPending ? (
+                            <>
+                              <FontAwesomeIcon icon={faSpinner} spin /> Salvando e Reformulando...
+                            </>
+                          ) : (
+                            <>
+                              <FontAwesomeIcon icon={faSyncAlt} /> Ensinar Stella e Responder
+                            </>
+                          )}
+                        </button>
+                      </div>
+
                       <p className="text-[9px] text-gray-400 text-center italic mt-1 leading-tight">
                         A IA formulou esta resposta baseada nos dados públicos e anexos do empreendimento vinculado a este lead.
                       </p>

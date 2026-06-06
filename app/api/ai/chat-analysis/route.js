@@ -186,7 +186,7 @@ async function obterOuCriarUsuarioStella(supabaseAdmin, organizacaoId) {
 
 export async function POST(request) {
   try {
-    const { contato_id, organizacao_id, force, quickResponse } = await request.json();
+    const { contato_id, organizacao_id, force, quickResponse, human_input } = await request.json();
 
     if (!contato_id || !organizacao_id) {
       return NextResponse.json({ error: 'Faltam parâmetros obrigatórios.' }, { status: 400 });
@@ -304,6 +304,161 @@ export async function POST(request) {
       console.error('Erro ao buscar dados do funil para IA:', funilError);
     }
     console.log('[Stella AI Debug] Dados do funil comercial carregados na API:', funil);
+
+    // --- FLUXO DE INTERVENÇÃO HUMANA E APRENDIZADO ATIVO (Active Learning Loop) ---
+    if (human_input && human_input.trim().length > 0) {
+      console.log(`[Stella AI Active Learning] Processando input de aprendizado do corretor: "${human_input}"`);
+      
+      // 1. Identificar qual o empreendimento para atualizar o dossiê
+      let empIdParaAtualizar = contatoInfo?.ai_analysis?.empreendimento_detectado_id 
+        || funil?.empreendimento_id 
+        || funil?.produtos_interesse?.[0]?.produto?.empreendimento_id;
+
+      if (!empIdParaAtualizar) {
+        const { data: firstEmp } = await supabaseAdmin
+          .from('empreendimentos')
+          .select('id')
+          .eq('organizacao_id', organizacao_id)
+          .limit(1)
+          .maybeSingle();
+        if (firstEmp) empIdParaAtualizar = firstEmp.id;
+      }
+
+      console.log(`[Stella AI Active Learning] Empreendimento associado para dossiê: ID ${empIdParaAtualizar}`);
+
+      // 2. Buscar o dossiê atual do empreendimento
+      let dossieAtual = "";
+      let empreendimentoNome = "Empreendimento";
+      if (empIdParaAtualizar) {
+        const { data: empData } = await supabaseAdmin
+          .from('empreendimentos')
+          .select('nome, dossie_ia')
+          .eq('id', empIdParaAtualizar)
+          .single();
+        if (empData) {
+          dossieAtual = empData.dossie_ia || "";
+          empreendimentoNome = empData.nome;
+        }
+      }
+
+      // 3. Gerar a reescrita da resposta comercial
+      const modelPro = genAI.getGenerativeModel({ model: 'gemini-3.1-pro-preview' });
+      
+      const reversedMessages = [...(messages || [])].reverse();
+      const chatLogForRewriting = reversedMessages.filter(m => m.content).map(m => {
+        const actor = m.direction === 'inbound' ? 'Cliente' : 'Corretor';
+        return `[${new Date(m.sent_at).toLocaleString('pt-BR')}] ${actor}: ${m.content}`;
+      }).join('\n');
+
+      const reescreverPrompt = `
+Você é a Stella, a assistente inteligente e de elite da Studio 57.
+A última resposta comercial sugerida por você continha alguma informação incompleta ou você não soube responder.
+O corretor humano interveio e forneceu a informação correta sobre o empreendimento ${empreendimentoNome}:
+"${human_input}"
+
+Com base nesta informação e no histórico recente de mensagens do WhatsApp:
+---
+${chatLogForRewriting}
+---
+
+Escreva a resposta de WhatsApp perfeita e polida para o cliente. 
+REGRAS CRÍTICAS DO WHATSAPP:
+1. Seja EXTREMAMENTE SUCINTA. Parágrafos curtos (máximo 2 a 3 linhas).
+2. Use tom caloroso, empático e humano (evite linguajar robótico).
+3. Não use termos proibidos como "hiper-compacto" ou "compacto".
+4. Termine com uma única pergunta simples para guiar o fechamento ou avanço.
+
+Retorne rigorosamente um objeto JSON nos seguintes moldes:
+{
+  "proxima_resposta_sugerida": "A resposta exata gerada para enviar no WhatsApp."
+}
+`;
+
+      let respostaSugeridaReescrita = "";
+      try {
+        const rewriteResult = await modelPro.generateContent([{ text: reescreverPrompt }]);
+        const rewriteText = rewriteResult.response.text();
+        const cleanRewrite = rewriteText.replace(/```json/gi, '').replace(/```/gi, '').trim();
+        const parsedRewrite = JSON.parse(cleanRewrite);
+        respostaSugeridaReescrita = parsedRewrite.proxima_resposta_sugerida || "";
+      } catch (rewriteErr) {
+        console.error('[Stella AI Active Learning] Erro ao reescrever resposta:', rewriteErr);
+        respostaSugeridaReescrita = `Perfeito! Confirmei aqui e ${human_input}`;
+      }
+
+      // 4. Enriquecer o Dossiê no banco de dados (Active Learning)
+      if (empIdParaAtualizar && dossieAtual) {
+        const aprenderPrompt = `
+Você é o motor de inteligência de dados da Studio 57.
+Sua missão é enriquecer o Dossiê Técnico do Empreendimento adicionando uma nova informação fornecida pela equipe comercial de forma totalmente estruturada e organizada no documento Markdown existente.
+
+Aqui está o Dossiê atual do empreendimento ${empreendimentoNome}:
+---
+${dossieAtual}
+---
+
+Aqui está a nova informação fornecida pela equipe:
+"${human_input}"
+
+Instruções:
+1. Analise onde essa informação se encaixa melhor no dossiê (ex: em Áreas Comuns, Lazer, Valores, Financiamento, Vagas de Garagem, etc.).
+2. Insira a informação de forma clara e limpa no documento Markdown atual, preservando todo o restante do conteúdo e formatação intactos.
+3. Não crie cabeçalhos repetidos. Encaixe o fato de forma concisa e natural.
+4. Retorne APENAS o Markdown consolidado final. NUNCA adicione blocos de código tipo "\`\`\`markdown" ou explicações antes/depois. Retorne apenas o conteúdo do dossiê consolidado em formato Markdown.
+`;
+
+        try {
+          const learnResult = await modelPro.generateContent([{ text: aprenderPrompt }]);
+          const novoDossie = learnResult.response.text().trim();
+          
+          if (novoDossie && novoDossie.length > 50) {
+            const { error: learnUpdateError } = await supabaseAdmin
+              .from('empreendimentos')
+              .update({ dossie_ia: novoDossie })
+              .eq('id', empIdParaAtualizar);
+              
+            if (learnUpdateError) {
+              console.error('[Stella AI Active Learning] Erro ao atualizar dossie no banco:', learnUpdateError.message);
+            } else {
+              console.log('[Stella AI Active Learning] Dossiê enriquecido e atualizado com sucesso no banco de dados!');
+            }
+          }
+        } catch (learnErr) {
+          console.error('[Stella AI Active Learning] Erro no fluxo de aprendizado do dossiê:', learnErr);
+        }
+      }
+
+      // 5. Mesclar e atualizar o cache do contato com a nova resposta e temperatura
+      const oldAnalysis = contatoInfo?.ai_analysis || {};
+      const mergedAnalysis = {
+        ...oldAnalysis,
+        proxima_resposta_sugerida: respostaSugeridaReescrita,
+        resumo_interacao: `${oldAnalysis.resumo_interacao || ''}\n[Intervenção Humana] Fato aprendido: ${human_input}`,
+        last_updated: new Date().toISOString(),
+        mover_para_coluna_id: null
+      };
+
+      await supabaseAdmin
+        .from('contatos')
+        .update({ ai_analysis: mergedAnalysis })
+        .eq('id', contato_id);
+
+      // Mover de volta para Em Atendimento (se estava na coluna de Intervenção Humana)
+      if (funil && funil.coluna_id === '7de9b5b4-05fa-4813-82d8-7790406ee268') {
+        const { error: moveBackError } = await supabaseAdmin
+          .from('contatos_no_funil')
+          .update({ coluna_id: '029c8d6a-4799-4f4b-a55e-b4d5426718c0', updated_at: new Date() })
+          .eq('id', funil.id);
+          
+        if (moveBackError) {
+          console.error('[Stella AI Active Learning] Erro ao mover de volta para Em Atendimento:', moveBackError);
+        } else {
+          console.log('[Stella AI Active Learning] Lead movido de volta para Em Atendimento.');
+        }
+      }
+
+      return NextResponse.json(mergedAnalysis);
+    }
 
     // 1.8 Carregar todas as colunas do mesmo funil se o lead estiver no funil
     let colunasDisponiveis = [];
@@ -658,6 +813,7 @@ Regras de Movimentação de Etapa:
 2. Se a intenção do lead mudar (ex: ele pediu simulação, marcou visita, aceitou proposta para assinar contrato, concluiu compra ou desistiu), identifique o ID da nova coluna de destino correspondente.
 3. Se o lead deve ser movido, sugira o ID da coluna de destino no campo "mover_para_coluna_id" do JSON de retorno.
 4. Se o lead deve permanecer na etapa atual, ou se não houver elementos suficientes para movê-lo, retorne "mover_para_coluna_id": null.
+5. Regra de Intervenção Humana (Crítica): Se o cliente fizer qualquer pergunta cujos detalhes técnicos ou comerciais (ex: vagas de garagem, valores, infraestrutura, andares) NÃO estejam presentes de forma explícita na "BASE DE CONHECIMENTO DO EMPREENDIMENTO (Dossiê)", você NUNCA deve inventar a informação. Nesse caso, você deve mover o lead para a coluna "INTERVENÇÃO HUMANA" (ID da coluna de destino: "7de9b5b4-05fa-4813-82d8-7790406ee268") e sugerir uma resposta simpática informando que vai confirmar com o time de engenharia e retorna logo em seguida.
 
 ### BASE DE CONHECIMENTO GLOBAL (Dossiê)
 ${empContext}
@@ -820,6 +976,7 @@ Regras de Movimentação de Etapa:
 2. Se a intenção do lead mudar (ex: ele pediu simulação, marcou visita, aceitou proposta para assinar contrato, concluiu compra ou desistiu), identifique o ID da nova coluna de destino correspondente.
 3. Se o lead deve ser movido, sugira o ID da coluna de destino no campo "mover_para_coluna_id" do JSON de retorno.
 4. Se o lead deve permanecer na etapa atual, ou se não houver elementos suficientes para movê-lo, retorne "mover_para_coluna_id": null.
+5. Regra de Intervenção Humana (Crítica): Se o cliente fizer qualquer pergunta cujos detalhes técnicos ou comerciais (ex: vagas de garagem, valores, infraestrutura, andares) NÃO estejam presentes de forma explícita na "BASE DE CONHECIMENTO GLOBAL (Cérebro da Studio 57)" nos Dossiês, você NUNCA deve inventar ou chutar a resposta. Nesse caso, você deve mover o lead para a coluna "INTERVENÇÃO HUMANA" (ID da coluna de destino: "7de9b5b4-05fa-4813-82d8-7790406ee268") e sugerir uma resposta simpática informando que vai confirmar os dados com o time técnico e retorna em seguida.
 
 ### BASE DE CONHECIMENTO GLOBAL (Cérebro da Studio 57)
 ${empContext}
