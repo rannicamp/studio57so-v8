@@ -14,7 +14,7 @@ export async function POST(req) {
  }
 
  const genAI = new GoogleGenerativeAI(apiKey);
- const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" }); // Using 2.5-flash for audio
+ const model = genAI.getGenerativeModel({ model: "gemini-3.1-pro-preview" }); // Using 3.1-pro-preview for audio
 
  const prompt = "Transcreva fielmente o áudio para pt-BR. Retorne APENAS o texto transcrito, sem aspas, sem introduções e sem formatações adicionais. Se não entender nada, retorne vazio.";
  // O base64 vindo do front-end costuma vir com ou sem prefixo. Removemos prefixo se houver.

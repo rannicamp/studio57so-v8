@@ -26,7 +26,7 @@ export async function POST(req) {
  },
  };
 
- const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash', generationConfig });
+ const model = genAI.getGenerativeModel({ model: 'gemini-3.1-pro-preview', generationConfig });
 
  const prompt = `
 Você é uma IA de correção gramatical invisível.
