@@ -664,8 +664,8 @@ export async function POST(request) {
         }
       }
 
-      // 3. Gerar a reescrita da resposta comercial
-      const modelPro = genAI.getGenerativeModel({ model: 'gemini-3.1-pro-preview' });
+      // 3. Gerar a reescrita da resposta comercial (Usando o Gemini 2.5 Flash para baixa latência)
+      const modelPro = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
       
       const reversedMessages = [...(messages || [])].reverse();
       const chatLogForRewriting = reversedMessages.filter(m => m.content).map(m => {
