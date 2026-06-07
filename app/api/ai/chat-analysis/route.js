@@ -1713,38 +1713,73 @@ Com base SOMENTE neste histórico recente e contexto do projeto, escreva um JSON
               // Garante que a atividade gerada pela Stella sempre seja um Evento com hora marcada
               const horaInicioFinal = aa.hora_inicio || '09:00:00';
               
-              // Insere na tabela public.activities
-              const newActivity = {
-                contato_id: contato_id,
-                organizacao_id: organizacao_id,
-                criado_por_usuario_id: stellaRecord.userId,
-                funcionario_id: stellaRecord.funcionarioId || null,
-                nome: aa.nome,
-                descricao: aa.descricao || '',
-                data_inicio_prevista: aa.data_inicio_prevista,
-                data_fim_prevista: aa.data_inicio_prevista, // Para Evento, data fim = data início
-                hora_inicio: horaInicioFinal,
-                tipo_atividade: 'Evento',
-                duracao_horas: 1.0,
-                duracao_dias: 0,
-                status: 'Não iniciado',
-                responsavel_texto: 'Stella IA'
-              };
-
-              const { data: actData, error: actError } = await supabaseAdmin
+              // 1. Verificar se já existe alguma atividade pendente da Stella para este contato
+              const { data: existingAct, error: searchActErr } = await supabaseAdmin
                 .from('activities')
-                .insert(newActivity)
-                .select('id')
-                .single();
+                .select('id, data_inicio_prevista, hora_inicio')
+                .eq('contato_id', contato_id)
+                .eq('responsavel_texto', 'Stella IA')
+                .eq('status', 'Não iniciado')
+                .maybeSingle();
 
-              if (actError) {
-                console.error('[Stella AI Error] Falha ao salvar atividade no banco:', actError.message);
-              } else {
-                console.log(`[Stella AI] Atividade agendada com sucesso! ID: ${actData.id} sob responsabilidade do usuário Stella (${stellaRecord.userId}).`);
+              if (searchActErr) {
+                console.error('[Stella AI Error] Erro ao buscar atividade existente:', searchActErr.message);
+              }
+
+              if (existingAct) {
+                console.log(`[Stella AI] Reagendando atividade existente ID: ${existingAct.id} de ${existingAct.data_inicio_prevista} para ${aa.data_inicio_prevista}.`);
                 
-                // Grava no cache que esta mensagem já foi processada para agendamento
-                cacheAiAnalysis.last_scheduled_message_id = lastInboundMsgId;
-                parsedResult.last_scheduled_message_id = lastInboundMsgId;
+                // 2. Atualiza (Reagenda) a atividade existente em vez de criar uma nova
+                const { error: updateActErr } = await supabaseAdmin
+                  .from('activities')
+                  .update({
+                    nome: aa.nome,
+                    descricao: aa.descricao || '',
+                    data_inicio_prevista: aa.data_inicio_prevista,
+                    data_fim_prevista: aa.data_inicio_prevista, // Para Evento, data fim = data início
+                    hora_inicio: horaInicioFinal,
+                  })
+                  .eq('id', existingAct.id);
+
+                if (updateActErr) {
+                  console.error('[Stella AI Error] Falha ao reagendar atividade:', updateActErr.message);
+                } else {
+                  console.log(`[Stella AI] Atividade ID ${existingAct.id} reagendada com sucesso.`);
+                  cacheAiAnalysis.last_scheduled_message_id = lastInboundMsgId;
+                  parsedResult.last_scheduled_message_id = lastInboundMsgId;
+                }
+              } else {
+                // 3. Insere uma nova atividade se não houver pendente
+                const newActivity = {
+                  contato_id: contato_id,
+                  organizacao_id: organizacao_id,
+                  criado_por_usuario_id: stellaRecord.userId,
+                  funcionario_id: stellaRecord.funcionarioId || null,
+                  nome: aa.nome,
+                  descricao: aa.descricao || '',
+                  data_inicio_prevista: aa.data_inicio_prevista,
+                  data_fim_prevista: aa.data_inicio_prevista, // Para Evento, data fim = data início
+                  hora_inicio: horaInicioFinal,
+                  tipo_atividade: 'Evento',
+                  duracao_horas: 1.0,
+                  duracao_dias: 0,
+                  status: 'Não iniciado',
+                  responsavel_texto: 'Stella IA'
+                };
+
+                const { data: actData, error: actError } = await supabaseAdmin
+                  .from('activities')
+                  .insert(newActivity)
+                  .select('id')
+                  .single();
+
+                if (actError) {
+                  console.error('[Stella AI Error] Falha ao salvar nova atividade:', actError.message);
+                } else {
+                  console.log(`[Stella AI] Nova atividade agendada com sucesso! ID: ${actData.id} sob responsabilidade do usuário Stella (${stellaRecord.userId}).`);
+                  cacheAiAnalysis.last_scheduled_message_id = lastInboundMsgId;
+                  parsedResult.last_scheduled_message_id = lastInboundMsgId;
+                }
               }
             }
           } catch (stellaUserErr) {

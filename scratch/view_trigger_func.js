@@ -9,9 +9,9 @@ async function main() {
   try {
     await client.connect();
     
-    // Consulta o código fonte da função registrar_movimentacao_funil
-    const res = await client.query("SELECT prosrc FROM pg_proc WHERE proname = 'registrar_movimentacao_funil'");
-    console.log("=== Código da função registrar_movimentacao_funil ===");
+    // Consulta o código fonte da função handle_new_message_update_conversation
+    const res = await client.query("SELECT prosrc FROM pg_proc WHERE proname = 'handle_new_message_update_conversation'");
+    console.log("=== Código da função handle_new_message_update_conversation ===");
     console.log(res.rows[0]?.prosrc);
 
   } catch (err) {
