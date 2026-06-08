@@ -288,24 +288,49 @@ export async function POST(request) {
               if (cleanPhone) {
                 const sendTextUrl = `${protocol}://${host}/api/whatsapp/send`;
                 
-                // 1. Enviar a mensagem de texto gerada
-                const sendTextResponse = await fetch(sendTextUrl, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    to: cleanPhone,
-                    type: 'text',
-                    text: aiResult.proxima_resposta_sugerida,
-                    contact_id: contatoId,
-                    organizacao_id: config.organizacao_id
-                  })
-                });
-                
-                if (sendTextResponse.ok) {
-                  console.log('[Autopilot] Resposta de texto enviada com sucesso!');
-                } else {
-                  const errText = await sendTextResponse.text();
-                  console.error('[Autopilot] Erro ao enviar resposta de texto:', errText);
+                // 1. Enviar a mensagem de texto gerada dividida em pílulas (mensagens separadas)
+                const fullText = aiResult.proxima_resposta_sugerida || '';
+                // Dividir pelas quebras de linha duplas (\n\n ou \r\n\r\n) para identificar as pílulas
+                const messagesParts = fullText
+                  .split(/\n\n+/)
+                  .map(part => part.trim())
+                  .filter(part => part.length > 0);
+
+                if (messagesParts.length === 0) {
+                  messagesParts.push('Olá! Tudo bem?');
+                }
+
+                console.log(`[Autopilot] Dividindo mensagem em ${messagesParts.length} pílula(s) para o WhatsApp.`);
+
+                // Envia cada pílula sequencialmente com um delay entre elas
+                for (let i = 0; i < messagesParts.length; i++) {
+                  const partText = messagesParts[i];
+                  
+                  // Se não for a primeira mensagem, espera um delay (ex: 2.5 segundos) para simular digitação natural
+                  if (i > 0) {
+                    const delayMs = 2500;
+                    console.log(`[Autopilot] Aguardando ${delayMs}ms antes de enviar a próxima pílula...`);
+                    await new Promise(resolve => setTimeout(resolve, delayMs));
+                  }
+
+                  const sendTextResponse = await fetch(sendTextUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      to: cleanPhone,
+                      type: 'text',
+                      text: partText,
+                      contact_id: contatoId,
+                      organizacao_id: config.organizacao_id
+                    })
+                  });
+
+                  if (sendTextResponse.ok) {
+                    console.log(`[Autopilot] Pílula ${i + 1}/${messagesParts.length} enviada com sucesso!`);
+                  } else {
+                    const errText = await sendTextResponse.text();
+                    console.error(`[Autopilot] Erro ao enviar pílula ${i + 1}/${messagesParts.length}:`, errText);
+                  }
                 }
                 
                 // 2. Se houver anexo sugerido, enviar anexo automaticamente na sequência
