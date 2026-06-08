@@ -578,7 +578,7 @@ export async function POST(request) {
       supabaseAdmin
         .from('contatos')
         .select(`
-          nome, cpf, cnpj, origem, objetivo, cargo, estado_civil, renda_familiar, fgts, mais_de_3_anos_clt,
+          nome, tipo_contato, cpf, cnpj, origem, objetivo, cargo, estado_civil, renda_familiar, fgts, mais_de_3_anos_clt,
           observations, meta_campaign_name, meta_adset_name, meta_ad_name, meta_form_data, birth_date, cep,
           address_street, address_number, address_complement, neighborhood, city, state, ai_analysis,
           anuncio:meta_ad_id(id, nome),
@@ -1031,6 +1031,7 @@ Instruções:
     const fichaLead = `
 ### FICHA CADASTRAL E DADOS DE ORIGEM (CRM e Facebook/Meta Ads)
 - Nome cadastrado: ${contatoInfo?.nome || 'Não informado'}
+- Tipo de contato cadastrado no CRM: ${contatoInfo?.tipo_contato || 'Lead'}
 - Origem declarada: ${contatoInfo?.origem || 'Não informada'}
 - Objetivo cadastrado no CRM: ${contatoInfo?.objetivo || 'Não informado (Precisa ser detectado)'}
 - Observações no CRM: ${contatoInfo?.observations || 'Nenhuma observação cadastrada'}
@@ -1079,6 +1080,11 @@ Sua missão nesta chamada rápida é responder ao diálogo do cliente no WhatsAp
    - NUNCA chame o cliente de "Lead" ou pelo número de telefone no diálogo!
    - Logo no início da conversa ou na primeira oportunidade natural, se você perceber que não sabe o nome real do cliente, pergunte o nome dele de forma amigável e simpática (ex: "Antes de começarmos, como posso te chamar?", "Com quem eu tenho o prazer de falar?").
    - Se o cliente disser o nome na conversa, passe a usá-lo imediatamente e extraia-o no campo 'dados_cliente.nome' no JSON de retorno para que possamos atualizar o CRM.
+8. **ATENDIMENTO A CORRETORES PARCEIROS (Crítico - Se o "Tipo de contato cadastrado no CRM" for "Corretor"):**
+   - Se o campo "Tipo de contato cadastrado no CRM" for "Corretor", isso significa que o contato é um corretor parceiro buscando informações comerciais ou tirando dúvidas de venda (como a Analia buscando vender o Residencial Alfa ou outros corretores).
+   - NUNCA o qualifique como comprador final: não peça informações de renda, CLT, FGTS, estado civil, CPF, comprovante de residência ou dados cadastrais.
+   - Trate-o com um tom de colega profissional de vendas da construtora: seja caloroso, prestativo e colaborativo.
+   - Ajude-o a vender! Forneça de imediato informações completas, books, tabelas e simulações de pagamento dos empreendimentos (Residencial Alfa, Beta Suítes, Refúgio Braúnas) para auxiliá-lo a apresentar e fechar vendas com os clientes dele.
 
 # Regras de Inteligência de Estoque (Produtos, Andares e Simulações)
 1. Analise atentamente o "Histórico Recente de Conversa". Se o cliente solicitar ou expressar preferência por andares/posições (ex: "mais alto", "último andar", "andar do topo", "mais baixo", "primeiros andares"), busque na lista de "# Lista de Unidades Disponíveis em Estoque (Real)" as unidades correspondentes ao empreendimento detectado.
@@ -1288,7 +1294,12 @@ Graduada em inteligência de leads, sua missão é classificar o lead, analisar 
    - NUNCA chame o cliente de "Lead" ou pelo número de telefone no diálogo!
    - Logo no início da conversa ou na primeira oportunidade natural, se você perceber que não sabe o nome real do cliente, pergunte o nome dele de forma amigável e simpática (ex: "Antes de começarmos, como posso te chamar?", "Com quem eu tenho o prazer de falar?").
    - Se o cliente disser o nome na conversa, passe a usá-lo imediatamente e extraia-o no campo 'dados_cliente.nome' no JSON de retorno para que possamos atualizar o CRM.
-
+8. **ATENDIMENTO A CORRETORES PARCEIROS (Crítico - Se o "Tipo de contato cadastrado no CRM" for "Corretor"):**
+   - Se o campo "Tipo de contato cadastrado no CRM" for "Corretor", isso significa que o contato é um corretor parceiro buscando informações comerciais ou tirando dúvidas de venda (como a Analia buscando vender o Residencial Alfa ou outros corretores).
+   - NUNCA o qualifique como comprador final: não peça informações de renda, CLT, FGTS, estado civil, CPF, comprovante de residência ou dados cadastrais.
+   - Trate-o com um tom de colega profissional de vendas da construtora: seja caloroso, prestativo e colaborativo.
+   - Ajude-o a vender! Forneça de imediato informações completas, books, tabelas e simulações de pagamento dos empreendimentos (Residencial Alfa, Beta Suítes, Refúgio Braúnas) para auxiliá-lo a apresentar e fechar vendas com os clientes dele.
+   
 # Instrução Crítica de Contexto (Origem do Lead e Histórico)
 A PRIMEIRA coisa que você deve fazer é analisar as informações da "FICHA CADASTRAL E DADOS DE ORIGEM" e as campanhas do Facebook/Meta Ads de onde ele veio. 
 Cruze esses dados com o "Histórico da Conversa" recente no WhatsApp. O histórico da conversa dita a regra final de interesse atual do cliente.

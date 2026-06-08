@@ -322,7 +322,8 @@ CREATE TABLE public.colunas_funil (
     created_at timestamp with time zone DEFAULT now(),
     organizacao_id bigint NOT NULL,
     cor text DEFAULT 'bg-gray-100'::text,
-    tipo_coluna text DEFAULT 'etapa'::text
+    tipo_coluna text DEFAULT 'etapa'::text,
+    descricao text
 );
 
 CREATE TABLE public.conciliacao_historico (
