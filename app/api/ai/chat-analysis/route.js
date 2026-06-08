@@ -202,6 +202,24 @@ function calcularDataTresDiasUteis(dataInicial = new Date()) {
   return data.toISOString().split('T')[0]; // Formato YYYY-MM-DD
 }
 
+// Função utilitária para calcular data 2 dias úteis a partir de uma data inicial (ignora finais de semana)
+function calcularDataDoisDiasUteis(dataInicial = new Date()) {
+  let data = new Date(dataInicial);
+  let diasUteisAdicionados = 0;
+  
+  while (diasUteisAdicionados < 2) {
+    data.setDate(data.getDate() + 1);
+    const diaSemana = data.getDay(); // 0 = Domingo, 6 = Sábado
+    
+    // Ignora sábado e domingo
+    if (diaSemana !== 0 && diaSemana !== 6) {
+      diasUteisAdicionados++;
+    }
+  }
+  
+  return data.toISOString().split('T')[0]; // Formato YYYY-MM-DD
+}
+
 // Função para processar a criação de contratos em modo Rascunho
 async function processarConfeccaoContrato(supabaseAdmin, contatoId, organizacaoId, gerarContratoData, usuarioStellaId) {
   const {
@@ -1021,6 +1039,7 @@ Instruções:
 - Tempo de CLT cadastrado: ${contatoInfo?.mais_de_3_anos_clt ? 'Mais de 3 anos' : 'Não informado'}
 - Estado Civil cadastrado: ${contatoInfo?.estado_civil || 'Não informado'}
 - Profissão/Cargo cadastrado: ${contatoInfo?.cargo || 'Não informado'}
+- Tentativas de insistência comercial: ${contatoInfo?.ai_analysis?.tentativas_insistencia || 0}
 
 ### ORIGEM DO META ADS (FACEBOOK/INSTAGRAM CAMPANHAS)
 - Campanha do anúncio: ${contatoInfo?.meta_campaign_name || 'Nenhuma campanha associada'}
@@ -1151,6 +1170,7 @@ Regras de Movimentação de Etapa:
 3. Se o lead deve ser movido, sugira o ID da coluna de destino no campo "mover_para_coluna_id" do JSON de retorno.
 4. Se o lead deve permanecer na etapa atual, ou se não houver elementos suficientes para movê-lo, retorne "mover_para_coluna_id": null.
 5. Regra de Intervenção Humana (Crítica): Se o cliente fizer qualquer pergunta cujos detalhes técnicos ou comerciais (ex: vagas de garagem, valores, infraestrutura, andares) NÃO estejam presentes de forma explícita na "BASE DE CONHECIMENTO DO EMPREENDIMENTO (Dossiê)", você NUNCA deve inventar a informação. Além disso, se o cliente solicitar falar com um ser humano a qualquer momento (ex: "chamar corretor", "falar com atendente", "falar com pessoa"), você DEVE mover o lead imediatamente para a coluna "INTERVENÇÃO HUMANA" (ID da coluna de destino: "7de9b5b4-05fa-4813-82d8-7790406ee268") e sugerir uma resposta simpática informando que um corretor do time assumirá o contato imediatamente.
+6. Regra de Reativação de Perdido (Importante): Se o lead estiver atualmente na etapa "PERDIDO" (ID: "feaa8511-261d-451b-bf99-24c8a6d6e7e0") e respondeu ao diálogo demonstrando interesse ou reatando contato, você DEVE propor a sua movimentação imediata para a coluna "EM ATENDIMENTO" (ID da coluna de destino: "029c8d6a-4799-4f4b-a55e-b4d5426718c0") no campo "mover_para_coluna_id".
 
 ### BASE DE CONHECIMENTO GLOBAL (Dossiê)
 ${empContext}
@@ -1397,6 +1417,7 @@ Regras de Movimentação de Etapa:
 3. Se o lead deve ser movido, sugira o ID da coluna de destino no campo "mover_para_coluna_id" do JSON de retorno.
 4. Se o lead deve permanecer na etapa atual, ou se não houver elementos suficientes para movê-lo, retorne "mover_para_coluna_id": null.
 5. Regra de Intervenção Humana (Crítica): Se o cliente fizer qualquer pergunta cujos detalhes técnicos ou comerciais (ex: vagas de garagem, valores, infraestrutura, andares) NÃO estejam presentes de forma explícita na "BASE DE CONHECIMENTO GLOBAL (Cérebro da Studio 57)" nos Dossiês, você NUNCA deve inventar ou chutar a resposta. Além disso, se o cliente solicitar falar com um ser humano a qualquer momento (ex: "chamar corretor", "falar com atendente", "falar com pessoa"), você DEVE mover o lead imediatamente para a coluna "INTERVENÇÃO HUMANA" (ID da coluna de destino: "7de9b5b4-05fa-4813-82d8-7790406ee268") e sugerir uma resposta simpática informando que um corretor do time assumirá o contato imediatamente.
+6. Regra de Reativação de Perdido (Importante): Se o lead estiver atualmente na etapa "PERDIDO" (ID: "feaa8511-261d-451b-bf99-24c8a6d6e7e0") e respondeu ao diálogo demonstrando interesse ou reatando contato, você DEVE propor a sua movimentação imediata para a coluna "EM ATENDIMENTO" (ID da coluna de destino: "029c8d6a-4799-4f4b-a55e-b4d5426718c0") no campo "mover_para_coluna_id".
 
 ### BASE DE CONHECIMENTO GLOBAL (Cérebro da Studio 57)
 ${empContext}
@@ -1806,14 +1827,6 @@ Com base SOMENTE neste histórico recente e contexto do projeto, escreva um JSON
         // 1. Atualizar contatos_no_funil
         const updateFunilData = { coluna_id: novaColunaId };
 
-        // 2. Se for uma coluna de ganho ou perda (ex: Vendido / Perdido), atualiza as datas correspondentes
-        const nomeColunaUpper = (nomeNovaColuna || '').toUpperCase().trim();
-        if (nomeColunaUpper === 'VENDIDO') {
-          updateFunilData.data_ganho = new Date().toISOString();
-        } else if (nomeColunaUpper === 'PERDIDO') {
-          updateFunilData.data_perda = new Date().toISOString();
-        }
-
         const { error: updateFunnelError } = await supabaseAdmin
           .from('contatos_no_funil')
           .update(updateFunilData)
@@ -1876,6 +1889,56 @@ Com base SOMENTE neste histórico recente e contexto do projeto, escreva um JSON
       .from('contatos')
       .update({ ai_analysis: mergedAnalysis })
       .eq('id', contato_id);
+
+    // --- REGRA DE OURO (GOLDEN RULE): AGENDAMENTO DA 1ª ATIVIDADE DE INSISTÊNCIA ---
+    const finalColunaId = parsedResult.mover_para_coluna_id || funil?.coluna_id;
+    const colunaMensagemEnviadaId = '660662df-a1e1-411f-9c2c-0907fce46126'; // MENSAGEM ENVIADA
+    const tentativas = mergedAnalysis.tentativas_insistencia || 0;
+
+    if (finalColunaId === colunaMensagemEnviadaId && tentativas === 0) {
+      try {
+        // Verificar se já existe atividade pendente para este contato da Stella
+        const { data: existingAct } = await supabaseAdmin
+          .from('activities')
+          .select('id')
+          .eq('contato_id', contato_id)
+          .eq('responsavel_texto', 'Stella IA')
+          .eq('status', 'Não iniciado')
+          .limit(1)
+          .maybeSingle();
+
+        if (!existingAct) {
+          console.log(`[Stella AI Golden Rule] Lead na coluna MENSAGEM ENVIADA com 0 tentativas. Agendando a 1ª insistência.`);
+          const stellaRecord = await obterOuCriarUsuarioStella(supabaseAdmin, organizacao_id);
+          if (stellaRecord?.userId) {
+            const dataPrimeiraInsistencia = calcularDataDoisDiasUteis(new Date());
+            const novaAtividade = {
+              contato_id: contato_id,
+              organizacao_id: organizacao_id,
+              criado_por_usuario_id: stellaRecord.userId,
+              funcionario_id: stellaRecord.funcionarioId || null,
+              nome: `Stella IA - Insistência Comercial (Tentativa 1)`,
+              descricao: `Mensagem de insistência comercial automática (Template Meta) para tentar reengajar o lead silencioso.`,
+              data_inicio_prevista: dataPrimeiraInsistencia,
+              data_fim_prevista: dataPrimeiraInsistencia,
+              hora_inicio: '09:00:00',
+              tipo_atividade: 'Evento',
+              duracao_horas: 1.0,
+              duracao_dias: 0,
+              status: 'Não iniciado',
+              responsavel_texto: 'Stella IA'
+            };
+
+            await supabaseAdmin
+              .from('activities')
+              .insert(novaAtividade);
+            console.log(`[Stella AI Golden Rule] Atividade de 1ª insistência criada com sucesso para contato ${contato_id}.`);
+          }
+        }
+      } catch (actErr) {
+        console.error('[Stella AI Golden Rule Error] Falha ao agendar 1ª atividade de insistência:', actErr.message);
+      }
+    }
 
     return NextResponse.json(mergedAnalysis);
 

@@ -7,6 +7,24 @@ export const dynamic = 'force-dynamic';
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
+// Função utilitária para calcular data 2 dias úteis a partir de uma data inicial (ignora finais de semana)
+function calcularDataDoisDiasUteis(dataInicial = new Date()) {
+  let data = new Date(dataInicial);
+  let diasUteisAdicionados = 0;
+  
+  while (diasUteisAdicionados < 2) {
+    data.setDate(data.getDate() + 1);
+    const diaSemana = data.getDay(); // 0 = Domingo, 6 = Sábado
+    
+    // Ignora sábado e domingo
+    if (diaSemana !== 0 && diaSemana !== 6) {
+      diasUteisAdicionados++;
+    }
+  }
+  
+  return data.toISOString().split('T')[0]; // Formato YYYY-MM-DD
+}
+
 export async function GET(request) {
   try {
     // 1. Validação de Segurança (Apenas quem tem a chave pode rodar o Cron em prod)
@@ -76,6 +94,26 @@ export async function GET(request) {
     for (const act of loteParaProcessar) {
       try {
         console.log(`[CRON Stella] Processando Atividade ID ${act.id} para Contato ID ${act.contato_id}...`);
+
+        // 0. Verificar se piloto automático está ativo para o contato
+        const { data: contatoInfo, error: contatoInfoErr } = await supabaseAdmin
+          .from('contatos')
+          .select('ia_atendimento_ativo, ai_analysis')
+          .eq('id', act.contato_id)
+          .single();
+
+        if (contatoInfoErr || !contatoInfo || !contatoInfo.ia_atendimento_ativo) {
+          console.warn(`[CRON Stella Warning] Contato ID ${act.contato_id} com piloto automático inativo ou erro ao buscar. Cancelando atividade.`);
+          await supabaseAdmin
+            .from('activities')
+            .update({ 
+              status: 'Cancelado', 
+              descricao: `${act.descricao || ''}\n[Cancelado automaticamente: Piloto automático inativo para este contato]` 
+            })
+            .eq('id', act.id);
+          resultados.push({ id: act.id, status: 'cancelada_ia_inativo' });
+          continue;
+        }
 
         // A. Buscar telefone do contato
         const { data: telefones, error: telError } = await supabaseAdmin
@@ -350,6 +388,100 @@ Observação: Se o template escolhido não possuir variáveis no corpo, retorne 
         
         if (!sendResponse.ok) {
           throw new Error(`Erro retornado pela API local: ${sendResult.error || 'Erro desconhecido no envio'}`);
+        }
+
+        // Lógica de incremento e reagendamento de insistências se for envio de Template (janela fechada)
+        if (sendPayload.type === 'template') {
+          try {
+            const currentCache = contatoInfo.ai_analysis || {};
+            const tentativas = (currentCache.tentativas_insistencia || 0) + 1;
+            currentCache.tentativas_insistencia = tentativas;
+
+            console.log(`[CRON Stella Insistência] Contato ${act.contato_id} - Tentativa de insistência número ${tentativas} enviada com sucesso.`);
+
+            if (tentativas < 3) {
+              // Salva o novo contador no banco
+              await supabaseAdmin
+                .from('contatos')
+                .update({ ai_analysis: currentCache })
+                .eq('id', act.contato_id);
+
+              // Agenda a PRÓXIMA atividade de insistência para dali a 2 dias úteis
+              const dataMinimaSeguinte = calcularDataDoisDiasUteis(new Date());
+              const novaAtividade = {
+                contato_id: act.contato_id,
+                organizacao_id: act.organizacao_id,
+                criado_por_usuario_id: act.criado_por_usuario_id,
+                funcionario_id: act.funcionario_id || null,
+                nome: `Stella IA - Insistência Comercial (Tentativa ${tentativas + 1})`,
+                descricao: `Mensagem de insistência comercial automática (Template Meta) para tentar reengajar o lead silencioso.`,
+                data_inicio_prevista: dataMinimaSeguinte,
+                data_fim_prevista: dataMinimaSeguinte,
+                hora_inicio: act.hora_inicio || '09:00:00',
+                tipo_atividade: 'Evento',
+                duracao_horas: 1.0,
+                duracao_dias: 0,
+                status: 'Não iniciado',
+                responsavel_texto: 'Stella IA'
+              };
+
+              const { data: newAct, error: newActErr } = await supabaseAdmin
+                .from('activities')
+                .insert(novaAtividade)
+                .select('id')
+                .single();
+
+              if (newActErr) {
+                console.error('[CRON Stella Error] Erro ao agendar a próxima atividade de insistência:', newActErr.message);
+              } else {
+                console.log(`[CRON Stella] Próxima atividade de insistência (Tentativa ${tentativas + 1}) agendada: ID ${newAct.id}`);
+              }
+            } else {
+              // Atingiu ou passou do limite de 3 tentativas. Mover para PERDIDO e manter ia_atendimento_ativo = true!
+              console.log(`[CRON Stella] Contato ${act.contato_id} atingiu o limite de ${tentativas} tentativas. Movendo lead para a coluna PERDIDO.`);
+              
+              // 1. Zera o contador de tentativas
+              currentCache.tentativas_insistencia = 0;
+              await supabaseAdmin
+                .from('contatos')
+                .update({ ai_analysis: currentCache })
+                .eq('id', act.contato_id);
+
+              // 2. Buscar se o lead está no funil comercial
+              const { data: funil } = await supabaseAdmin
+                .from('contatos_no_funil')
+                .select('id')
+                .eq('contato_id', act.contato_id)
+                .maybeSingle();
+
+              const colunaPerdidoId = 'feaa8511-261d-451b-bf99-24c8a6d6e7e0'; // Coluna PERDIDO
+
+              if (funil) {
+                // 3. Move o lead para a coluna PERDIDO
+                await supabaseAdmin
+                  .from('contatos_no_funil')
+                  .update({ 
+                    coluna_id: colunaPerdidoId, 
+                    updated_at: new Date().toISOString()
+                  })
+                  .eq('id', funil.id);
+
+                // 4. Cria a nota no CRM
+                await supabaseAdmin
+                  .from('crm_notas')
+                  .insert({
+                    contato_id: act.contato_id,
+                    contato_no_funil_id: funil.id,
+                    conteudo: `🤖 [Piloto Automático Stella] Lead movido automaticamente para a coluna PERDIDO. Motivo: Ausência de resposta após 3 tentativas de insistência via templates Meta. Piloto automático mantido ativo caso o cliente retorne contato no futuro.`,
+                    organizacao_id: act.organizacao_id
+                  });
+                
+                console.log(`[CRON Stella] Lead ${act.contato_id} arquivado com sucesso no CRM.`);
+              }
+            }
+          } catch (insistenciaErr) {
+            console.error('[CRON Stella Error] Erro ao tratar insistência comercial:', insistenciaErr.message);
+          }
         }
 
         // E. Concluir atividade no banco

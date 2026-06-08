@@ -72,28 +72,72 @@ export async function POST(request) {
  return NextResponse.json({ error: 'Configuração não encontrada para este número' }, { status: 404 });
  }
 
- // 2. Rota de Status (Enviado, Entregue, Lido...)
- if (change.statuses) {
- const statusUpdate = change.statuses[0];
- // Corrige o Buraco Negro de Erros: Se a Meta rejeitar assincronamente (ex: falta de cartão),
- // ela não retorna erro HTTP 400. Ela retorna HTTP 200 no envio, mas joga 'failed' no webhook
- // com o array de errors. Temos que salvar esse erro!
- let errorMessage = null;
- if (statusUpdate.status === 'failed' && statusUpdate.errors && statusUpdate.errors.length > 0) {
- errorMessage = `Meta Error ${statusUpdate.errors[0].code}: ${statusUpdate.errors[0].message || statusUpdate.errors[0].title || 'Failed'}`;
- }
+  // 2. Rota de Status (Enviado, Entregue, Lido...)
+  if (change.statuses) {
+    const statusUpdate = change.statuses[0];
+    // Corrige o Buraco Negro de Erros: Se a Meta rejeitar assincronamente (ex: falta de cartão),
+    // ela não retorna erro HTTP 400. Ela retorna HTTP 200 no envio, mas joga 'failed' no webhook
+    // com o array de errors. Temos que salvar esse erro!
+    let errorMessage = null;
+    if (statusUpdate.status === 'failed' && statusUpdate.errors && statusUpdate.errors.length > 0) {
+      errorMessage = `Meta Error ${statusUpdate.errors[0].code}: ${statusUpdate.errors[0].message || statusUpdate.errors[0].title || 'Failed'}`;
+    }
 
- const updatePayload = { status: statusUpdate.status };
- if (errorMessage) {
- updatePayload.error_message = errorMessage;
- }
+    const updatePayload = { status: statusUpdate.status };
+    if (errorMessage) {
+      updatePayload.error_message = errorMessage;
+    }
 
- await supabaseAdmin.from('whatsapp_messages')
- .update(updatePayload)
- .eq('message_id', statusUpdate.id);
- // Nota: Atualizar por message_id é seguro pois a Meta garante que ele é único globalmente.
- return NextResponse.json({ status: 'status_updated' });
- }
+    const { data: updatedMsg } = await supabaseAdmin.from('whatsapp_messages')
+      .update(updatePayload)
+      .eq('message_id', statusUpdate.id)
+      .select('contato_id, organizacao_id')
+      .maybeSingle();
+
+    // Se falhou o envio de qualquer mensagem outbound, movemos o lead para a coluna FALHAS e desligamos a Stella
+    if (statusUpdate.status === 'failed' && updatedMsg) {
+      const { contato_id, organizacao_id } = updatedMsg;
+      console.log(`[Webhook Status] Detetada falha de envio para o contato ${contato_id} na org ${organizacao_id}. Erro: ${errorMessage}`);
+      
+      try {
+        // 1. Desliga o piloto automático da Stella por segurança (número inválido ou erro técnico grave)
+        await supabaseAdmin.from('contatos')
+          .update({ ia_atendimento_ativo: false })
+          .eq('id', contato_id);
+
+        // 2. Buscar se o lead está no funil comercial
+        const { data: funil } = await supabaseAdmin.from('contatos_no_funil')
+          .select('id, coluna_id')
+          .eq('contato_id', contato_id)
+          .maybeSingle();
+
+        const colunaFalhasId = '2b975bc0-b96c-456d-ac30-48ab6f6dddca'; // Coluna FALHAS
+
+        if (funil && funil.coluna_id !== colunaFalhasId) {
+          // 3. Move o lead para a coluna FALHAS
+          await supabaseAdmin.from('contatos_no_funil')
+            .update({ coluna_id: colunaFalhasId, updated_at: new Date().toISOString() })
+            .eq('id', funil.id);
+
+          // 4. Cria a nota no CRM
+          const erroFormatado = errorMessage || 'Erro desconhecido no envio da Meta';
+          await supabaseAdmin.from('crm_notas')
+            .insert({
+              contato_id: contato_id,
+              contato_no_funil_id: funil.id,
+              conteudo: `🤖 [Piloto Automático Stella] Envio de mensagem falhou no WhatsApp (Erro: ${erroFormatado}). Lead movido automaticamente para a coluna FALHAS e piloto automático desativado.`,
+              organizacao_id: organizacao_id
+            });
+          
+          console.log(`[Webhook Status] Lead ${contato_id} movido com sucesso para a coluna FALHAS por erro de entrega.`);
+        }
+      } catch (errHook) {
+        console.error('[Webhook Status Error] Erro ao tratar falha de envio no funil:', errHook.message);
+      }
+    }
+
+    return NextResponse.json({ status: 'status_updated' });
+  }
 
  // 3. Rota de Mensagens e Reações
  const message = change.messages?.[0];
@@ -125,12 +169,23 @@ export async function POST(request) {
    // Verificamos se o piloto automático está ativo para o contato ou se o lead está atribuído à Stella IA no funil comercial
    let isAutopilotActive = false;
    try {
-     const { data: contato } = await supabaseAdmin
-       .from('contatos')
-       .select('ia_atendimento_ativo')
-       .eq('id', contatoId)
-       .single();
-     isAutopilotActive = !!contato?.ia_atendimento_ativo;
+      const { data: contato } = await supabaseAdmin
+        .from('contatos')
+        .select('ia_atendimento_ativo, ai_analysis')
+        .eq('id', contatoId)
+        .single();
+      isAutopilotActive = !!contato?.ia_atendimento_ativo;
+
+      // Zera o contador de tentativas de insistência pois o cliente respondeu (mensagem inbound)!
+      const cacheAiAnalysis = contato?.ai_analysis || {};
+      if (cacheAiAnalysis.tentativas_insistencia && cacheAiAnalysis.tentativas_insistencia > 0) {
+        console.log(`[Webhook] Cliente respondeu. Resetando tentativas_insistencia de ${cacheAiAnalysis.tentativas_insistencia} para 0 para Contato ${contatoId}.`);
+        cacheAiAnalysis.tentativas_insistencia = 0;
+        await supabaseAdmin
+          .from('contatos')
+          .update({ ai_analysis: cacheAiAnalysis })
+          .eq('id', contatoId);
+      }
 
      if (!isAutopilotActive) {
        // Buscar o contato da Stella da organização e verificar se ela é a corretora responsável por este lead no funil
