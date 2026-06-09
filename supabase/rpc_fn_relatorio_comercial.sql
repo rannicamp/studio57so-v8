@@ -36,7 +36,7 @@ BEGIN
     v_diff_days := ((v_end_date AT TIME ZONE 'America/Sao_Paulo')::date - (v_start_date AT TIME ZONE 'America/Sao_Paulo')::date);
 
     WITH contatos_periodo AS (
-        SELECT id, origem, created_at
+        SELECT id, origem, created_at, objetivo, renda_familiar, meta_form_data
         FROM contatos
         WHERE organizacao_id::integer = p_organizacao_id
           AND tipo_contato = 'Lead'
@@ -105,6 +105,53 @@ BEGIN
         FROM (
             SELECT 
                 COALESCE(NULLIF(TRIM(origem), ''), 'Orgânico/Direto') as origem_ajustada, 
+                COUNT(*) as qtd
+            FROM contatos_periodo
+            GROUP BY 1
+        ) sub
+    ),
+    totais_leads_objetivo AS (
+        SELECT 
+            COALESCE(
+                jsonb_object_agg(objetivo_limpo, qtd), 
+                '{}'::jsonb
+            ) as leads_por_objetivo
+        FROM (
+            SELECT 
+                CASE 
+                    WHEN UPPER(TRIM(objetivo)) = 'MORADIA' THEN 'Moradia'
+                    WHEN UPPER(TRIM(objetivo)) = 'INVESTIMENTO' OR TRIM(objetivo) = 'investimento_' THEN 'Investimento'
+                    WHEN objetivo IS NULL OR TRIM(objetivo) = '' THEN 'Não Informado'
+                    ELSE INITCAP(LOWER(TRIM(objetivo)))
+                END as objetivo_limpo,
+                COUNT(*) as qtd
+            FROM contatos_periodo
+            GROUP BY 1
+        ) sub
+    ),
+    totais_leads_renda AS (
+        SELECT 
+            COALESCE(
+                jsonb_object_agg(renda_limpa, qtd), 
+                '{}'::jsonb
+            ) as leads_por_renda
+        FROM (
+            SELECT 
+                CASE 
+                    WHEN renda_familiar IS NOT NULL THEN
+                        CASE 
+                            WHEN renda_familiar > 10000 THEN 'Mais de R$ 10.000'
+                            WHEN renda_familiar < 10000 THEN 'Menos de R$ 10.000'
+                            ELSE 'R$ 10.000'
+                        END
+                    WHEN meta_form_data->>'renda_familiar_bruta?' IS NOT NULL THEN
+                        CASE 
+                            WHEN (meta_form_data->>'renda_familiar_bruta?') LIKE '%mais_de%' THEN 'Mais de R$ 10.000'
+                            WHEN (meta_form_data->>'renda_familiar_bruta?') LIKE '%menos_de%' THEN 'Menos de R$ 10.000'
+                            ELSE 'Não Informado'
+                        END
+                    ELSE 'Não Informado'
+                END as renda_limpa,
                 COUNT(*) as qtd
             FROM contatos_periodo
             GROUP BY 1
@@ -235,6 +282,8 @@ BEGIN
     SELECT jsonb_build_object(
         'total_leads', COALESCE((SELECT total_leads FROM totais_leads_origem), 0),
         'leads_por_origem', COALESCE((SELECT leads_por_origem FROM totais_leads_origem), '{}'::jsonb),
+        'leads_por_objetivo', COALESCE((SELECT leads_por_objetivo FROM totais_leads_objetivo), '{}'::jsonb),
+        'leads_por_renda', COALESCE((SELECT leads_por_renda FROM totais_leads_renda), '{}'::jsonb),
         'total_conversas_ativas', COALESCE((SELECT total_interagidos FROM metricas_tempo), 0),
         'nosso_tempo_medio_resposta_minutos', COALESCE((SELECT tempo_nossa_resposta FROM metricas_tempo), 0),
         'tempo_medio_resposta_lead_minutos', COALESCE((SELECT tempo_espera_lead FROM metricas_tempo), 0),

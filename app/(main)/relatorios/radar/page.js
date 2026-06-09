@@ -173,6 +173,28 @@ function RadarPageContent() {
   };
   const chartDataOrigens = formatarGraficoOrigens();
 
+  const formatarGraficoObjetivos = () => {
+    if (!dadosComercial?.leads_por_objetivo) return [];
+    return Object.entries(dadosComercial.leads_por_objetivo)
+      .map(([objetivo, qtd]) => ({ name: objetivo, value: qtd }))
+      .sort((a, b) => b.value - a.value);
+  };
+  const chartDataObjetivos = formatarGraficoObjetivos();
+
+  const formatarGraficoRenda = () => {
+    if (!dadosComercial?.leads_por_renda) return [];
+    const ordemPersonalizada = {
+      'Mais de R$ 10.000': 1,
+      'R$ 10.000': 2,
+      'Menos de R$ 10.000': 3,
+      'Não Informado': 4
+    };
+    return Object.entries(dadosComercial.leads_por_renda)
+      .map(([renda, qtd]) => ({ name: renda, value: qtd }))
+      .sort((a, b) => (ordemPersonalizada[a.name] || 99) - (ordemPersonalizada[b.name] || 99));
+  };
+  const chartDataRenda = formatarGraficoRenda();
+
   const formatarGraficoCorretores = () => {
     if (!dadosComercial?.desempenho_corretores) return [];
     return dadosComercial.desempenho_corretores
@@ -564,6 +586,63 @@ function RadarPageContent() {
                   </div>
                 ) : (
                   <div className="flex-1 flex flex-col items-center justify-center p-10 gap-2"><div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center"><FontAwesomeIcon icon={faFilter} className="text-slate-300" /></div><span className="text-slate-400 text-sm">Nenhuma etapa percorrida ainda.</span></div>
+                )}
+              </div>
+
+              {/* Gráfico: Intenção de Compra (Objetivo) */}
+              <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col min-h-[300px]">
+                <h3 className="text-slate-800 font-semibold mb-6 w-full text-left">Intenção de Compra (Objetivo)</h3>
+                {isCarregando ? (
+                  <div className="flex-1 flex items-center justify-center h-full text-slate-400 text-sm">Carregando objetivos...</div>
+                ) : chartDataObjetivos.length > 0 ? (
+                  <div className="w-full flex-1 pr-6 pb-2">
+                    <ResponsiveContainer width="100%" height={Math.max(250, chartDataObjetivos.length * 45)}>
+                      <BarChart data={chartDataObjetivos} layout="vertical" margin={{ top: 0, right: 30, left: 0, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f1f5f9" />
+                        <XAxis type="number" hide={true} />
+                        <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#475569', fontWeight: 600 }} width={110} />
+                        <RechartsTooltip cursor={{ fill: '#f8fafc' }} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} formatter={(value) => [`${value} Leads`, 'Volume']} />
+                        <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={24} label={{ position: 'right', fill: '#64748b', fontSize: 12, fontWeight: 700 }}>
+                          {chartDataObjetivos.map((entry, index) => {
+                            const fill = entry.name === 'Investimento' ? '#10b981' : (entry.name === 'Moradia' ? '#3b82f6' : '#94a3b8');
+                            return <Cell key={`cell-obj-${index}`} fill={fill} />;
+                          })}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                ) : (
+                  <div className="flex-1 flex flex-col items-center justify-center p-10 gap-2"><div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center"><FontAwesomeIcon icon={faFilter} className="text-slate-300" /></div><span className="text-slate-400 text-sm">Sem objetivos detectados no CRM.</span></div>
+                )}
+              </div>
+
+              {/* Gráfico: Perfil de Renda Familiar */}
+              <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col min-h-[300px]">
+                <h3 className="text-slate-800 font-semibold mb-6 w-full text-left">Perfil de Renda Familiar</h3>
+                {isCarregando ? (
+                  <div className="flex-1 flex items-center justify-center h-full text-slate-400 text-sm">Carregando perfil de renda...</div>
+                ) : chartDataRenda.length > 0 ? (
+                  <div className="w-full flex-1 pr-6 pb-2">
+                    <ResponsiveContainer width="100%" height={Math.max(250, chartDataRenda.length * 45)}>
+                      <BarChart data={chartDataRenda} layout="vertical" margin={{ top: 0, right: 30, left: 0, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f1f5f9" />
+                        <XAxis type="number" hide={true} />
+                        <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#475569', fontWeight: 600 }} width={125} />
+                        <RechartsTooltip cursor={{ fill: '#f8fafc' }} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} formatter={(value) => [`${value} Leads`, 'Volume']} />
+                        <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={24} label={{ position: 'right', fill: '#64748b', fontSize: 12, fontWeight: 700 }}>
+                          {chartDataRenda.map((entry, index) => {
+                            let fill = '#94a3b8';
+                            if (entry.name === 'Mais de R$ 10.000') fill = '#10b981';
+                            else if (entry.name === 'R$ 10.000') fill = '#3b82f6';
+                            else if (entry.name === 'Menos de R$ 10.000') fill = '#f97316';
+                            return <Cell key={`cell-renda-${index}`} fill={fill} />;
+                          })}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                ) : (
+                  <div className="flex-1 flex flex-col items-center justify-center p-10 gap-2"><div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center"><FontAwesomeIcon icon={faFilter} className="text-slate-300" /></div><span className="text-slate-400 text-sm">Sem dados de renda detectados no CRM.</span></div>
                 )}
               </div>
            </div>
