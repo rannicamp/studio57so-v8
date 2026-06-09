@@ -295,56 +295,161 @@ async function processWebhook(body) {
       await supabase.from('meta_ativos').upsert({ id: leadDetails.ad_id, organizacao_id: orgId, tipo: 'AD', nome: leadDetails.ad_name || 'Desconhecido' }, { onConflict: 'id' });
     }
 
-    // 3c. Cria o contato
-    const { data: newContact, error: contactError } = await supabase
-      .from('contatos')
-      .insert({
-        nome: nomeLead,
-        origem: leadDetails.is_organic ? 'Meta Lead Organico' : 'Meta Lead Ad',
-        tipo_contato: 'Lead',
-        personalidade_juridica: 'Pessoa Fisica',
-        organizacao_id: orgId,
-        meta_lead_id: uniqueLeadId,
-        meta_page_id: pageId,
-        meta_campaign_id: leadDetails.campaign_id || null,
-        meta_campaign_name: leadDetails.campaign_name || null,
-        meta_adset_id: leadDetails.adset_id || null,
-        meta_adset_name: leadDetails.adset_name || null,
-        meta_ad_id: leadDetails.ad_id || null,
-        meta_ad_name: leadDetails.ad_name || null,
-        meta_form_data: formMap,
-      })
-      .select('id')
-      .single();
-
-    if (contactError) {
-      console.error(`[Org ${orgId}] Erro ao criar contato:`, contactError.message);
-      continue;
-    }
-
-    // 3d. Salva e-mail e telefone
+    // 3c. Anti-Duplicação Inteligente: Busca se já existe contato com esse telefone
     let finalPhone = null;
-    if (emailLead) {
-      await supabase.from('emails').insert({ contato_id: newContact.id, email: emailLead, organizacao_id: orgId });
-    }
     if (phoneLead) {
       finalPhone = sanitizePhone(phoneLead);
-      if (finalPhone) {
-        await supabase.from('telefones').insert({ contato_id: newContact.id, telefone: finalPhone, organizacao_id: orgId });
+    }
+
+    let contactIdToUse = null;
+    if (finalPhone) {
+      try {
+        const { data: smartContactId } = await supabase.rpc('find_contact_smart', {
+          phone_input: finalPhone,
+          v_org_id: orgId
+        });
+        if (smartContactId) {
+          contactIdToUse = smartContactId;
+          console.log(`[Org ${orgId}] Reutilizando contato existente para o telefone ${finalPhone} (ID: ${contactIdToUse})`);
+        }
+      } catch (errSmart) {
+        console.warn(`[Org ${orgId}] Erro ao buscar via find_contact_smart:`, errSmart.message);
       }
     }
 
-    // 3e. Vincula ao Funil de Entrada -> coluna ENTRADA
-    const { data: funilEntry, error: funilError } = await supabase
-      .from('contatos_no_funil')
-      .insert({ contato_id: newContact.id, coluna_id: colunaEntradaId, organizacao_id: orgId })
-      .select('id')
-      .single();
+    if (!contactIdToUse) {
+      // Cria o contato do zero
+      const { data: newContact, error: contactError } = await supabase
+        .from('contatos')
+        .insert({
+          nome: nomeLead,
+          origem: leadDetails.is_organic ? 'Meta Lead Organico' : 'Meta Lead Ad',
+          tipo_contato: 'Lead',
+          personalidade_juridica: 'Pessoa Fisica',
+          organizacao_id: orgId,
+          meta_lead_id: uniqueLeadId,
+          meta_page_id: pageId,
+          meta_campaign_id: leadDetails.campaign_id || null,
+          meta_campaign_name: leadDetails.campaign_name || null,
+          meta_adset_id: leadDetails.adset_id || null,
+          meta_adset_name: leadDetails.adset_name || null,
+          meta_ad_id: leadDetails.ad_id || null,
+          meta_ad_name: leadDetails.ad_name || null,
+          meta_form_data: formMap,
+        })
+        .select('id')
+        .single();
 
-    if (funilError) {
-      console.error(`[Org ${orgId}] Erro ao vincular ao funil:`, funilError.message);
-      continue;
+      if (contactError) {
+        console.error(`[Org ${orgId}] Erro ao criar contato:`, contactError.message);
+        continue;
+      }
+      contactIdToUse = newContact.id;
+
+      // Salva e-mail e telefone
+      if (emailLead) {
+        await supabase.from('emails').insert({ contato_id: contactIdToUse, email: emailLead, organizacao_id: orgId });
+      }
+      if (finalPhone) {
+        await supabase.from('telefones').insert({ contato_id: contactIdToUse, telefone: finalPhone, organizacao_id: orgId });
+      }
+    } else {
+      // Atualiza dados de marketing do contato existente
+      await supabase
+        .from('contatos')
+        .update({
+          origem: leadDetails.is_organic ? 'Meta Lead Organico' : 'Meta Lead Ad',
+          meta_lead_id: uniqueLeadId,
+          meta_page_id: pageId,
+          meta_campaign_id: leadDetails.campaign_id || null,
+          meta_campaign_name: leadDetails.campaign_name || null,
+          meta_adset_id: leadDetails.adset_id || null,
+          meta_adset_name: leadDetails.adset_name || null,
+          meta_ad_id: leadDetails.ad_id || null,
+          meta_ad_name: leadDetails.ad_name || null,
+          meta_form_data: formMap,
+        })
+        .eq('id', contactIdToUse);
+
+      // Garante que o telefone está na tabela (caso não estivesse)
+      if (finalPhone) {
+        const { data: extPhone } = await supabase
+          .from('telefones')
+          .select('id')
+          .eq('contato_id', contactIdToUse)
+          .eq('telefone', finalPhone)
+          .maybeSingle();
+        
+        if (!extPhone) {
+          await supabase.from('telefones').insert({ contato_id: contactIdToUse, telefone: finalPhone, organizacao_id: orgId });
+        }
+      }
+
+      // Garante que o e-mail está na tabela
+      if (emailLead) {
+        const { data: extEmail } = await supabase
+          .from('emails')
+          .select('id')
+          .eq('contato_id', contactIdToUse)
+          .eq('email', emailLead)
+          .maybeSingle();
+
+        if (!extEmail) {
+          await supabase.from('emails').insert({ contato_id: contactIdToUse, email: emailLead, organizacao_id: orgId });
+        }
+      }
     }
+
+    // 3e. Vincula ao Funil de Entrada -> coluna ENTRADA (ou atualiza card existente)
+    let funilEntry = null;
+    const { data: cardEx, error: cardErr } = await supabase
+      .from('contatos_no_funil')
+      .select('id')
+      .eq('contato_id', contactIdToUse)
+      .eq('organizacao_id', orgId)
+      .limit(1)
+      .maybeSingle();
+
+    if (cardEx) {
+      console.log(`[Org ${orgId}] Atualizando card existente no funil (ID: ${cardEx.id}) para ENTRADA...`);
+      const { data: updatedCard, error: updateCardErr } = await supabase
+        .from('contatos_no_funil')
+        .update({
+          coluna_id: colunaEntradaId,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', cardEx.id)
+        .select('id')
+        .single();
+      
+      if (updateCardErr) {
+        console.error(`[Org ${orgId}] Erro ao atualizar card existente no funil:`, updateCardErr.message);
+        continue;
+      }
+      funilEntry = updatedCard;
+    } else {
+      console.log(`[Org ${orgId}] Criando novo card no funil para o contato ID ${contactIdToUse}...`);
+      const { data: novoRegistroFunil, error: funilError } = await supabase
+        .from('contatos_no_funil')
+        .insert({ contato_id: contactIdToUse, coluna_id: colunaEntradaId, organizacao_id: orgId })
+        .select('id')
+        .single();
+
+      if (funilError) {
+        console.error(`[Org ${orgId}] Erro ao vincular ao funil:`, funilError.message);
+        continue;
+      }
+      funilEntry = novoRegistroFunil;
+    }
+
+    // Registra nota detalhada do novo cadastro de anúncio
+    const adNameStr = leadDetails.ad_name ? ` (Anúncio: ${leadDetails.ad_name})` : '';
+    await supabase.from('crm_notas').insert({
+      contato_id: contactIdToUse,
+      contato_no_funil_id: funilEntry.id,
+      conteudo: `📢 Lead preencheu um novo formulário de anúncio no Facebook/Instagram${adNameStr}. Campanha: ${leadDetails.campaign_name || 'Desconhecida'}.`,
+      organizacao_id: orgId
+    });
 
     console.log(`[Org ${orgId}] OK: "${nomeLead}" entregue na coluna ENTRADA (id=${colunaEntradaId}).`);
 
@@ -434,7 +539,7 @@ async function processWebhook(body) {
 
             console.log(`🤖 [Automação Webhook] Disparando template: ${regra.acao_config.template_nome}`);
             // Mock contato object for the message
-            const contatoObj = { id: newContact.id, nome: nomeLead, razao_social: nomeLead };
+            const contatoObj = { id: contactIdToUse, nome: nomeLead, razao_social: nomeLead };
             await sendTemplateMessage(supabase, orgConfig, finalPhone, contatoObj, regra.acao_config.template_nome, regra.acao_config.template_idioma);
           }
         }
