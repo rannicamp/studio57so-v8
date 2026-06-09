@@ -5,7 +5,6 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
 export async function GET(request) {
-  // Proteção simples por token de autorização via cabeçalho ou searchParam para o cron
   const { searchParams } = new URL(request.url);
   const tokenHeader = request.headers.get('Authorization') || searchParams.get('token');
   const expectedToken = process.env.CRON_SECRET || 'Srbr19010720@';
@@ -26,6 +25,14 @@ export async function GET(request) {
   console.log(`[Reactivator Cron] Iniciando varredura para reativação na Org ${organizacaoId}...`);
 
   try {
+    // Buscar o ID de usuário da Stella IA desta organização
+    const { data: stellaUser } = await supabaseAdmin
+      .from('usuarios')
+      .select('id')
+      .eq('email', `stella.org${organizacaoId}@elo57.com.br`)
+      .maybeSingle();
+    const stellaUserId = stellaUser?.id;
+
     // 1. Obter a data limite (7 dias atrás)
     const dataLimite = new Date();
     dataLimite.setDate(dataLimite.getDate() - limiteDias);
@@ -71,12 +78,10 @@ export async function GET(request) {
         continue;
       }
 
-      // Se tem mensagens inbound, significa que o lead já respondeu em algum momento (não elegível para esta reativação fria)
       if (msgs && msgs.length > 0) {
         continue;
       }
 
-      // Buscar número de telefone
       const telefones = lead.contatos?.telefone || [];
       const numTelefone = telefones[0]?.telefone;
 
@@ -120,7 +125,8 @@ Gere apenas o texto final da mensagem de WhatsApp, sem explicações ou formata�
             type: 'text',
             text: mensagemReativacao,
             contact_id: contatoId,
-            organizacao_id: organizacaoId
+            organizacao_id: organizacaoId,
+            usuario_id: stellaUserId // Passando stellaUserId
           })
         });
 

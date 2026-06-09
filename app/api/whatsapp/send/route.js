@@ -132,20 +132,23 @@ export async function POST(request) {
       console.warn('[WhatsApp Send Warning] Erro ao buscar usuário da Stella:', stellaErr.message);
     }
 
-    const isStellaSending = requestUserId && requestUserId === stellaUserId;
+    // Quem está enviando é um humano confirmado?
+    // É humano se requestUserId existe e NÃO é o ID da Stella da organização
+    const isHumanSending = requestUserId && requestUserId !== stellaUserId;
 
-    if (isStellaSending) {
-      // Se for a Stella (IA) tentando disparar, e o piloto automático estiver inativo, bloqueia sumariamente!
+    if (!isHumanSending) {
+      // Se NÃO for um humano confirmado (ou seja, é a Stella IA ou a requisição é sem identificação de usuário),
+      // e o piloto automático do contato estiver desligado, bloqueia sumariamente!
       if (!contatoIaAtivo) {
-        console.warn(`[WhatsApp Send Blocked] Envio automático bloqueado para Contato ID ${finalContactId}: Piloto automático está inativo.`);
+        console.warn(`[WhatsApp Send Blocked] Envio automático bloqueado para Contato ID ${finalContactId}: Piloto automático está inativo (requestUserId: ${requestUserId || 'nulo'}).`);
         return NextResponse.json({ 
           error: 'Envio bloqueado: o piloto automático (Stella IA) está desativado para este contato.' 
         }, { status: 400 });
       }
     } else {
-      // Se for um humano (ou seja, veio com usuario_id que não é a Stella) e o piloto automático estiver ativo, desliga ele!
-      if (contatoIaAtivo && requestUserId && finalContactId) {
-        console.log(`[WhatsApp Send] Mensagem enviada manualmente pelo usuário ${requestUserId}. Desativando piloto automático para o contato ${finalContactId}.`);
+      // Se for um humano confirmado, e o piloto automático ainda constar como ativo no banco, desliga ele!
+      if (contatoIaAtivo && finalContactId) {
+        console.log(`[WhatsApp Send] Mensagem enviada manualmente pelo usuário humano ${requestUserId}. Desativando piloto automático para o contato ${finalContactId}.`);
         await supabaseAdmin
           .from('contatos')
           .update({ ia_atendimento_ativo: false })

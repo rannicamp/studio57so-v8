@@ -86,7 +86,7 @@ export async function GET(request) {
       return NextResponse.json({ message: 'Nenhuma atividade no horário de disparo.' }, { status: 200 });
     }
 
-    // 5. Processar Lote (Limite de 5 atividades por segurança de rate limit)
+    // 5. Processar Lote
     const LIMIT_RUN = 5;
     const loteParaProcessar = vencidas.slice(0, LIMIT_RUN);
     const resultados = [];
@@ -96,6 +96,7 @@ export async function GET(request) {
         console.log(`[CRON Stella] Processando Atividade ID ${act.id} para Contato ID ${act.contato_id}...`);
 
         // 0. Verificar se piloto automático está ativo para o contato e se o lead está atribuído à Stella
+        // Mudamos funilRes para usar limit(1) e evitar erro de múltiplas linhas
         const [contatoInfoRes, stellaUserRes, funilRes] = await Promise.all([
           supabaseAdmin
             .from('contatos')
@@ -111,14 +112,14 @@ export async function GET(request) {
             .from('contatos_no_funil')
             .select('corretor_id')
             .eq('contato_id', act.contato_id)
-            .maybeSingle()
+            .limit(1)
         ]);
 
         const contatoInfo = contatoInfoRes.data;
         const contatoInfoErr = contatoInfoRes.error;
         const stellaUserId = stellaUserRes.data?.id;
         const stellaContatoId = stellaUserRes.data?.contato_id;
-        const leadCorretorId = funilRes.data?.corretor_id;
+        const leadCorretorId = funilRes.data?.[0]?.corretor_id;
 
         // Se o lead no funil está atribuído a um corretor humano, desativa o piloto automático por segurança
         let autopilotActive = contatoInfo?.ia_atendimento_ativo;
@@ -209,7 +210,7 @@ export async function GET(request) {
         let finalLogMessage = '';
 
         if (janelaAberta) {
-          // --- FLUXO JANELA ABERTA (Texto Livre) ---
+          // --- FLUXO JANELA ABERTA ---
           console.log(`[CRON Stella] Processando fluxo de texto livre...`);
           const model = genAI.getGenerativeModel({
             model: 'gemini-3.1-pro-preview',
@@ -277,10 +278,9 @@ Retorne um JSON no formato:
           finalLogMessage = generatedMessage;
 
         } else {
-          // --- FLUXO JANELA FECHADA (Template Meta API) ---
+          // --- FLUXO JANELA FECHADA ---
           console.log(`[CRON Stella] Processando fluxo de template Meta...`);
 
-          // 1. Buscar credenciais da organização
           const { data: config, error: configError } = await supabaseAdmin
             .from('configuracoes_whatsapp')
             .select('whatsapp_permanent_token, whatsapp_business_account_id')
@@ -298,7 +298,6 @@ Retorne um JSON no formato:
             throw new Error('Credenciais de API do WhatsApp (WABA ID ou Token) incompletas no banco.');
           }
 
-          // 2. Buscar templates aprovados na API da Meta Graph
           const templatesUrl = `https://graph.facebook.com/v20.0/${WHATSAPP_BUSINESS_ACCOUNT_ID}/message_templates?fields=name,status,category,language,components&limit=100`;
           const templatesRes = await fetch(templatesUrl, {
             method: 'GET',
@@ -318,7 +317,6 @@ Retorne um JSON no formato:
             throw new Error('Nenhum template aprovado na Meta encontrado para reabrir a janela de conversação.');
           }
 
-          // 3. IA escolhe e preenche o template
           const model = genAI.getGenerativeModel({
             model: 'gemini-3.1-pro-preview',
             generationConfig: {
@@ -352,7 +350,7 @@ ${JSON.stringify(approvedTemplates, null, 2)}
 
 # Regras Importantes:
 - Priorize templates que façam sentido comercial de reengajamento ou acompanhamento.
-- Se nenhum template for 100% específico, use um template de saudação mais genérico (ex: "hello_world" ou similar) e, se aplicável, preencha as variáveis de forma a trazer o assunto de volta de maneira sutil.
+- Se nenhum template for 100% específico, use um template de saudação mais genérico (ex: "hello_world" ou ssimilar) e, se aplicável, preencha as variáveis de forma a trazer o assunto de volta de maneira sutil.
 - O formato do JSON retornado deve ser estritamente o especificado abaixo.
 
 # Formato do JSON de Resposta:
@@ -410,7 +408,7 @@ Observação: Se o template escolhido não possuir variáveis no corpo, retorne 
           console.log(`[CRON Stella] Escolhido template: ${aiResponse.templateName}. Custom Content: "${finalLogMessage}"`);
         }
 
-        // D. Enviar no WhatsApp chamando a API local (/api/whatsapp/send)
+        // D. Enviar no WhatsApp chamando a API local
         const sendUrl = `${request.nextUrl.origin}/api/whatsapp/send`;
         console.log(`[CRON Stella] Disparando lembrete via: ${sendUrl} (Tipo: ${sendPayload.type})`);
 
@@ -428,7 +426,6 @@ Observação: Se o template escolhido não possuir variáveis no corpo, retorne 
           throw new Error(`Erro retornado pela API local: ${sendResult.error || 'Erro desconhecido no envio'}`);
         }
 
-        // Lógica de incremento e reagendamento de insistências se for envio de Template (janela fechada)
         if (sendPayload.type === 'template') {
           try {
             const currentCache = contatoInfo.ai_analysis || {};
@@ -438,13 +435,11 @@ Observação: Se o template escolhido não possuir variáveis no corpo, retorne 
             console.log(`[CRON Stella Insistência] Contato ${act.contato_id} - Tentativa de insistência número ${tentativas} enviada com sucesso.`);
 
             if (tentativas < 3) {
-              // Salva o novo contador no banco
               await supabaseAdmin
                 .from('contatos')
                 .update({ ai_analysis: currentCache })
                 .eq('id', act.contato_id);
 
-              // Agenda a PRÓXIMA atividade de insistência para dali a 2 dias úteis
               const dataMinimaSeguinte = calcularDataDoisDiasUteis(new Date());
               const novaAtividade = {
                 contato_id: act.contato_id,
@@ -475,41 +470,37 @@ Observação: Se o template escolhido não possuir variáveis no corpo, retorne 
                 console.log(`[CRON Stella] Próxima atividade de insistência (Tentativa ${tentativas + 1}) agendada: ID ${newAct.id}`);
               }
             } else {
-              // Atingiu ou passou do limite de 3 tentativas. Mover para PERDIDO e manter ia_atendimento_ativo = true!
               console.log(`[CRON Stella] Contato ${act.contato_id} atingiu o limite de ${tentativas} tentativas. Movendo lead para a coluna PERDIDO.`);
               
-              // 1. Zera o contador de tentativas
               currentCache.tentativas_insistencia = 0;
               await supabaseAdmin
                 .from('contatos')
                 .update({ ai_analysis: currentCache })
                 .eq('id', act.contato_id);
 
-              // 2. Buscar se o lead está no funil comercial
               const { data: funil } = await supabaseAdmin
                 .from('contatos_no_funil')
                 .select('id')
                 .eq('contato_id', act.contato_id)
-                .maybeSingle();
+                .limit(1);
 
+              const funilRecord = funil?.[0];
               const colunaPerdidoId = 'feaa8511-261d-451b-bf99-24c8a6d6e7e0'; // Coluna PERDIDO
 
-              if (funil) {
-                // 3. Move o lead para a coluna PERDIDO
+              if (funilRecord) {
                 await supabaseAdmin
                   .from('contatos_no_funil')
                   .update({ 
                     coluna_id: colunaPerdidoId, 
                     updated_at: new Date().toISOString()
                   })
-                  .eq('id', funil.id);
+                  .eq('id', funilRecord.id);
 
-                // 4. Cria a nota no CRM
                 await supabaseAdmin
                   .from('crm_notas')
                   .insert({
                     contato_id: act.contato_id,
-                    contato_no_funil_id: funil.id,
+                    contato_no_funil_id: funilRecord.id,
                     conteudo: `🤖 [Piloto Automático Stella] Lead movido automaticamente para a coluna PERDIDO. Motivo: Ausência de resposta após 3 tentativas de insistência via templates Meta. Piloto automático mantido ativo caso o cliente retorne contato no futuro.`,
                     organizacao_id: act.organizacao_id
                   });
@@ -522,7 +513,6 @@ Observação: Se o template escolhido não possuir variáveis no corpo, retorne 
           }
         }
 
-        // E. Concluir atividade no banco
         await supabaseAdmin
           .from('activities')
           .update({
@@ -532,19 +522,19 @@ Observação: Se o template escolhido não possuir variáveis no corpo, retorne 
           })
           .eq('id', act.id);
 
-        // F. Inserir nota no CRM (se o lead estiver no funil comercial)
         try {
           const { data: funil } = await supabaseAdmin
             .from('contatos_no_funil')
             .select('id')
             .eq('contato_id', act.contato_id)
-            .maybeSingle();
+            .limit(1);
 
-          if (funil?.id) {
+          const funilRecord = funil?.[0];
+          if (funilRecord?.id) {
             await supabaseAdmin
               .from('crm_notas')
               .insert({
-                contato_no_funil_id: funil.id,
+                contato_no_funil_id: funilRecord.id,
                 contato_id: act.contato_id,
                 conteudo: `🤖 [Piloto Automático Stella] Retorno de contato realizado via WhatsApp (${sendPayload.type === 'template' ? 'Template Meta' : 'Texto Livre'}): "${finalLogMessage}"`,
                 organizacao_id: act.organizacao_id
@@ -562,7 +552,6 @@ Observação: Se o template escolhido não possuir variáveis no corpo, retorne 
         resultados.push({ id: act.id, status: 'erro', erro: err.message });
       }
 
-      // Pequeno timeout entre envios para rate limiting natural
       await new Promise(resolve => setTimeout(resolve, 500));
     }
 
