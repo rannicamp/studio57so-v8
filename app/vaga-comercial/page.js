@@ -1,8 +1,9 @@
 // Caminho: app/vaga-comercial/page.js
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Montserrat, Roboto } from 'next/font/google';
+import { useDebounce } from 'use-debounce';
 
 const montserrat = Montserrat({
   subsets: ['latin'],
@@ -36,8 +37,52 @@ export default function VagaComercialPage() {
   const [zoom, setZoom] = useState(100);
   const [espelhar, setEspelhar] = useState(true);
 
+  // DEBOUNCE DOS ESTADOS PARA SALVAR NO LOCALSTORAGE (1000ms conforme regras do projeto)
+  const [debouncedPosX] = useDebounce(posX, 1000);
+  const [debouncedPosY] = useDebounce(posY, 1000);
+  const [debouncedZoom] = useDebounce(zoom, 1000);
+  const [debouncedEspelhar] = useDebounce(espelhar, 1000);
+
+  // Referência para controlar o carregamento inicial e evitar loops de sobrescrita no cache
+  const inicializadoRef = useRef(false);
+
   // Link do WhatsApp com mensagem personalizada para a vaga
   const linkWhats = "https://wa.me/5533998192119?text=Oi%2C%20segue%20meu%20curr%C3%ADculo%20para%20a%20vaga%20de%20Assistente%20Comercial%20e%20Vendas.";
+
+  // 1. RESTAURAÇÃO DOS VALORES SALVOS NO LOCALSTORAGE AO INICIAR
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const savedPosX = localStorage.getItem('stories_vaga_posX');
+        const savedPosY = localStorage.getItem('stories_vaga_posY');
+        const savedZoom = localStorage.getItem('stories_vaga_zoom');
+        const savedEspelhar = localStorage.getItem('stories_vaga_espelhar');
+
+        if (savedPosX !== null) setPosX(parseInt(savedPosX));
+        if (savedPosY !== null) setPosY(parseInt(savedPosY));
+        if (savedZoom !== null) setZoom(parseInt(savedZoom));
+        if (savedEspelhar !== null) setEspelhar(savedEspelhar === 'true');
+      } catch (error) {
+        console.error('Erro ao ler dados do localStorage:', error);
+      } finally {
+        inicializadoRef.current = true;
+      }
+    }
+  }, []);
+
+  // 2. GRAVAÇÃO NO LOCALSTORAGE COM DEBOUNCE (Evita escritas excessivas enquanto arrasta os sliders)
+  useEffect(() => {
+    if (inicializadoRef.current && typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('stories_vaga_posX', debouncedPosX.toString());
+        localStorage.setItem('stories_vaga_posY', debouncedPosY.toString());
+        localStorage.setItem('stories_vaga_zoom', debouncedZoom.toString());
+        localStorage.setItem('stories_vaga_espelhar', debouncedEspelhar.toString());
+      } catch (error) {
+        console.error('Erro ao salvar dados no localStorage:', error);
+      }
+    }
+  }, [debouncedPosX, debouncedPosY, debouncedZoom, debouncedEspelhar]);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -102,10 +147,12 @@ export default function VagaComercialPage() {
         // 6. Clona a div do Stories
         const clone = sourceElement.cloneNode(true);
         
+        // Remove ID para não duplicar no DOM
+        clone.removeAttribute('id');
+
         // 7. Força os estilos exatos de Stories real no clone para evitar heranças de tela
         clone.style.width = '1080px';
         clone.style.height = '1920px';
-        clone.style.padding = '96px'; // p-24 (24 * 4px)
         clone.style.borderRadius = '0px';
         clone.style.boxShadow = 'none';
         clone.style.border = 'none';
@@ -444,7 +491,7 @@ export default function VagaComercialPage() {
 
           </div>
 
-          {/* FOOTER: ENVIAR CURRÍCULO (ESTILO PÍLULA DE LUXO CLICÁVEL) */}
+          {/* FOOTER: ENVIAR CURRÍCULO (ESTILO PÍLULA DE LUXO CLICÁVEL - DESIGN 100% FIEL AO ORIGINAL) */}
           <div className="w-full pt-6 border-t border-neutral-200/60">
             <a 
               href={linkWhats}
@@ -457,20 +504,12 @@ export default function VagaComercialPage() {
               <span className={`${montserrat.className} uppercase tracking-[0.25em] text-neutral-400 ${
                 visualizacaoReal ? 'text-sm mb-1' : 'text-[7px] mb-0.5'
               }`}>
-                Enviar Currículo (Clique aqui):
+                Enviar Currículo:
               </span>
-              <p className={`${montserrat.className} font-black text-white flex items-center justify-between w-full ${
+              <p className={`${montserrat.className} font-black text-white ${
                 visualizacaoReal ? 'text-3xl' : 'text-xs'
               }`}>
-                <span>(33) 99819-2119</span>
-                <span className={`text-[10px] text-green-400 font-bold uppercase tracking-wider flex items-center gap-1.5 shrink-0 ${
-                  visualizacaoReal ? 'text-lg' : 'text-[8px]'
-                }`}>
-                  <svg className="w-3.5 h-3.5 fill-green-400" viewBox="0 0 24 24">
-                    <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.397.01 12.008.01c3.202.001 6.212 1.246 8.477 3.514 2.266 2.268 3.507 5.28 3.505 8.484-.004 6.657-5.34 11.997-11.953 11.997-2.005-.001-3.973-.502-5.724-1.455L0 24zm6.59-4.846c1.6.95 3.188 1.449 4.825 1.451 5.436 0 9.86-4.37 9.864-9.799.002-2.63-1.023-5.101-2.885-6.965C16.528 2.01 14.069.99 11.997.99 6.561.99 2.137 5.36 2.133 10.79c-.001 1.732.46 3.42 1.333 4.909l-.988 3.604 3.69-.95zm11.236-6.666c-.302-.15-1.788-.876-2.064-.976-.277-.1-.478-.15-.679.15-.201.3-.778.976-.954 1.176-.176.2-.352.225-.654.075-.302-.15-1.276-.467-2.43-1.493-.898-.798-1.505-1.784-1.681-2.084-.176-.3-.019-.462.132-.612.135-.135.302-.35.453-.525.15-.175.2-.3.302-.5.101-.2.05-.375-.025-.525-.075-.15-.679-1.625-.93-2.225-.244-.589-.493-.509-.679-.519-.176-.01-.377-.01-.578-.01-.201 0-.528.075-.804.375-.277.3-1.055 1.025-1.055 2.5s1.08 2.9 1.23 3.1c.15.2 2.126 3.225 5.148 4.525.719.31 1.28.495 1.718.63.722.23 1.379.197 1.899.12.579-.085 1.788-.726 2.039-1.427.251-.7.251-1.3.176-1.427-.075-.125-.277-.2-.578-.35z"/>
-                  </svg>
-                  <span>Chamar</span>
-                </span>
+                (33) 99819-2119
               </p>
             </a>
           </div>
