@@ -134,13 +134,16 @@ export default function VagaComercialPage() {
       // 4. Seleciona a div original
       const sourceElement = document.getElementById('stories-anuncio');
       if (sourceElement) {
-        // 5. Cria um contêiner wrapper invisível fora da tela
+        // 5. Cria um contêiner wrapper invisível (atrás de tudo e transparente) para forçar o navegador a renderizar o layout 100%
         const wrapper = document.createElement('div');
-        wrapper.style.position = 'absolute';
-        wrapper.style.top = '-99999px';
-        wrapper.style.left = '-99999px';
+        wrapper.style.position = 'fixed';
+        wrapper.style.top = '0';
+        wrapper.style.left = '0';
         wrapper.style.width = '1080px';
         wrapper.style.height = '1920px';
+        wrapper.style.zIndex = '-9999';
+        wrapper.style.pointerEvents = 'none';
+        wrapper.style.opacity = '0.01';
         wrapper.style.overflow = 'hidden';
         document.body.appendChild(wrapper);
 
@@ -150,7 +153,7 @@ export default function VagaComercialPage() {
         // Remove ID para não duplicar no DOM
         clone.removeAttribute('id');
 
-        // 7. Força os estilos exatos de Stories real no clone para evitar heranças de tela
+        // 7. Força os estilos exatos de Stories real no clone para evitar heranças de tela (sem redefinir padding inline)
         clone.style.width = '1080px';
         clone.style.height = '1920px';
         clone.style.borderRadius = '0px';
@@ -408,14 +411,14 @@ export default function VagaComercialPage() {
           }}
         />
 
-        {/* GRAFISMOS DE BOLINHAS CINZAS */}
-        <DotPattern className={`absolute top-12 left-12 z-0 ${visualizacaoReal ? 'scale-150 transform origin-top-left' : 'scale-90'}`} />
-        <DotPattern className={`absolute bottom-12 left-[30%] z-0 ${visualizacaoReal ? 'scale-150 transform origin-bottom-left' : 'scale-90'}`} />
+        {/* GRAFISMOS DE BOLINHAS CINZAS (z-20 para ficar por cima do degradê z-10) */}
+        <DotPattern className={`absolute top-12 left-12 z-20 ${visualizacaoReal ? 'scale-150 transform origin-top-left' : 'scale-90'}`} />
+        <DotPattern className={`absolute bottom-12 left-[30%] z-20 ${visualizacaoReal ? 'scale-150 transform origin-bottom-left' : 'scale-90'}`} />
         
         {/* ========================================= */}
-        {/* COLUNA ESQUERDA INTEGRADA (LOGO + CONTEÚDO + RODAPÉ) */}
+        {/* COLUNA ESQUERDA INTEGRADA (LOGO + CONTEÚDO + RODAPÉ) (relative z-20 para ativar o z-index no html2canvas) */}
         {/* ========================================= */}
-        <div className="flex flex-col justify-between h-full w-[63%] text-left z-20">
+        <div className="relative flex flex-col justify-between h-full w-[63%] text-left z-20">
           
           {/* HEADER: LOGOTIPO DO STUDIO 57 LOCAL */}
           <div className={`relative flex justify-start w-full ${visualizacaoReal ? 'h-32 mb-6' : 'h-16 mb-2'}`}>
