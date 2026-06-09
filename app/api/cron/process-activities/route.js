@@ -86,7 +86,7 @@ export async function GET(request) {
       return NextResponse.json({ message: 'Nenhuma atividade no horário de disparo.' }, { status: 200 });
     }
 
-    // 5. Processar Lote (Limite de 5 atividades por minuto por segurança de rate limit)
+    // 5. Processar Lote (Limite de 5 atividades por segurança de rate limit)
     const LIMIT_RUN = 5;
     const loteParaProcessar = vencidas.slice(0, LIMIT_RUN);
     const resultados = [];
@@ -95,20 +95,56 @@ export async function GET(request) {
       try {
         console.log(`[CRON Stella] Processando Atividade ID ${act.id} para Contato ID ${act.contato_id}...`);
 
-        // 0. Verificar se piloto automático está ativo para o contato
-        const { data: contatoInfo, error: contatoInfoErr } = await supabaseAdmin
-          .from('contatos')
-          .select('ia_atendimento_ativo, ai_analysis')
-          .eq('id', act.contato_id)
-          .single();
+        // 0. Verificar se piloto automático está ativo para o contato e se o lead está atribuído à Stella
+        const [contatoInfoRes, stellaUserRes, funilRes] = await Promise.all([
+          supabaseAdmin
+            .from('contatos')
+            .select('ia_atendimento_ativo, ai_analysis')
+            .eq('id', act.contato_id)
+            .single(),
+          supabaseAdmin
+            .from('usuarios')
+            .select('id, contato_id')
+            .eq('email', `stella.org${act.organizacao_id}@elo57.com.br`)
+            .maybeSingle(),
+          supabaseAdmin
+            .from('contatos_no_funil')
+            .select('corretor_id')
+            .eq('contato_id', act.contato_id)
+            .maybeSingle()
+        ]);
 
-        if (contatoInfoErr || !contatoInfo || !contatoInfo.ia_atendimento_ativo) {
-          console.warn(`[CRON Stella Warning] Contato ID ${act.contato_id} com piloto automático inativo ou erro ao buscar. Cancelando atividade.`);
+        const contatoInfo = contatoInfoRes.data;
+        const contatoInfoErr = contatoInfoRes.error;
+        const stellaUserId = stellaUserRes.data?.id;
+        const stellaContatoId = stellaUserRes.data?.contato_id;
+        const leadCorretorId = funilRes.data?.corretor_id;
+
+        // Se o lead no funil está atribuído a um corretor humano, desativa o piloto automático por segurança
+        let autopilotActive = contatoInfo?.ia_atendimento_ativo;
+        let isHumanReassigned = false;
+        
+        if (autopilotActive && stellaContatoId && leadCorretorId && stellaContatoId !== leadCorretorId) {
+          console.warn(`[CRON Stella] Contato ID ${act.contato_id} atribuído ao corretor humano ID ${leadCorretorId}. Desativando autopilot.`);
+          autopilotActive = false;
+          isHumanReassigned = true;
+          await supabaseAdmin
+            .from('contatos')
+            .update({ ia_atendimento_ativo: false })
+            .eq('id', act.contato_id);
+        }
+
+        if (contatoInfoErr || !contatoInfo || !autopilotActive) {
+          const motivoCancelamento = isHumanReassigned 
+            ? 'Lead sob responsabilidade de corretor humano' 
+            : 'Piloto automático inativo para este contato';
+          
+          console.warn(`[CRON Stella Warning] Contato ID ${act.contato_id} com piloto automático inativo. Cancelando atividade.`);
           await supabaseAdmin
             .from('activities')
             .update({ 
               status: 'Cancelado', 
-              descricao: `${act.descricao || ''}\n[Cancelado automaticamente: Piloto automático inativo para este contato]` 
+              descricao: `${act.descricao || ''}\n[Cancelado automaticamente: ${motivoCancelamento}]` 
             })
             .eq('id', act.id);
           resultados.push({ id: act.id, status: 'cancelada_ia_inativo' });
@@ -235,7 +271,8 @@ Retorne um JSON no formato:
             type: 'text',
             text: generatedMessage,
             contact_id: act.contato_id,
-            organizacao_id: act.organizacao_id
+            organizacao_id: act.organizacao_id,
+            usuario_id: stellaUserId
           };
           finalLogMessage = generatedMessage;
 
@@ -366,7 +403,8 @@ Observação: Se o template escolhido não possuir variáveis no corpo, retorne 
             components: aiResponse.components || [],
             custom_content: aiResponse.custom_content || `Template: ${aiResponse.templateName}`,
             contact_id: act.contato_id,
-            organizacao_id: act.organizacao_id
+            organizacao_id: act.organizacao_id,
+            usuario_id: stellaUserId
           };
           finalLogMessage = sendPayload.custom_content;
           console.log(`[CRON Stella] Escolhido template: ${aiResponse.templateName}. Custom Content: "${finalLogMessage}"`);
