@@ -76,74 +76,94 @@ export async function POST(request) {
 
    const threadId = `${igAccountId}_${participant.id}`;
  
- // Buscar as mensagens desta thread específica de forma leve
- let msgsList = [];
- try {
- const msgUrl = `https://graph.facebook.com/v21.0/${conv.id}/messages?fields=id,message,from,created_time&limit=25&access_token=${accessToken}`;
- const msgRes = await fetch(msgUrl);
- if (msgRes.ok) {
- const msgData = await msgRes.json();
- msgsList = msgData.data || [];
- } else {
- console.warn(`[Instagram Conversations] Falha ao obter mensagens da thread ${conv.id}`);
- }
- } catch (msgErr) {
- console.error(`[Instagram Conversations] Erro ao buscar mensagens da thread ${conv.id}:`, msgErr.message);
- }
+    // Buscar as mensagens desta thread específica com suporte a anexos
+    let msgsList = [];
+    try {
+      const msgUrl = `https://graph.facebook.com/v21.0/${conv.id}/messages?fields=id,message,from,created_time,attachments{id,mime_type,name,size,file_url}&limit=25&access_token=${accessToken}`;
+      const msgRes = await fetch(msgUrl);
+      if (msgRes.ok) {
+        const msgData = await msgRes.json();
+        msgsList = msgData.data || [];
+      } else {
+        console.warn(`[Instagram Conversations] Falha ao obter mensagens da thread ${conv.id}`);
+      }
+    } catch (msgErr) {
+      console.error(`[Instagram Conversations] Erro ao buscar mensagens da thread ${conv.id}:`, msgErr.message);
+    }
 
- let snippet = null;
- let lastMessageAt = conv.updated_time ? new Date(conv.updated_time).toISOString() : new Date().toISOString();
- if (msgsList.length > 0) {
- const latestMsg = msgsList[0];
- snippet = latestMsg.message ? latestMsg.message.substring(0, 100) : null;
- if (latestMsg.created_time) {
- lastMessageAt = new Date(latestMsg.created_time).toISOString();
- }
- }
+    let snippet = null;
+    let lastMessageAt = conv.updated_time ? new Date(conv.updated_time).toISOString() : new Date().toISOString();
+    if (msgsList.length > 0) {
+      const latestMsg = msgsList[0];
+      const hasAttachments = latestMsg.attachments?.data && latestMsg.attachments.data.length > 0;
+      if (hasAttachments) {
+        const mime = latestMsg.attachments.data[0].mime_type || '';
+        snippet = mime.startsWith('video') ? '🎥 Vídeo' : '📷 Foto';
+      } else {
+        snippet = latestMsg.message ? latestMsg.message.substring(0, 100) : null;
+      }
+      if (latestMsg.created_time) {
+        lastMessageAt = new Date(latestMsg.created_time).toISOString();
+      }
+    }
 
- const { data: savedConv } = await supabase.from('instagram_conversations').upsert({
- organizacao_id,
- thread_id: threadId,
- instagram_account_id: igAccountId,
- instagram_conversation_id: conv.id, // ← Salvamos agora!
- participant_id: participant.id,
- participant_name: participant.name || `Usuário ${String(participant.id).slice(-6)}`,
- participant_username: participant.username || null,
- snippet: snippet,
- last_message_at: lastMessageAt,
- updated_at: new Date().toISOString(),
- }, { onConflict: 'thread_id' }).select('id').single();
+    const { data: savedConv } = await supabase.from('instagram_conversations').upsert({
+      organizacao_id,
+      thread_id: threadId,
+      instagram_account_id: igAccountId,
+      instagram_conversation_id: conv.id,
+      participant_id: participant.id,
+      participant_name: participant.name || `Usuário ${String(participant.id).slice(-6)}`,
+      participant_username: participant.username || null,
+      snippet: snippet,
+      last_message_at: lastMessageAt,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'thread_id' }).select('id').single();
 
- // Sincronizar as mensagens diretamente para o banco
- if (savedConv && msgsList.length > 0) {
- // Reverter a lista para inserir em ordem cronológica (mais antigas primeiro)
- for (const msg of [...msgsList].reverse()) {
- const isOutbound = msg.from?.id === igAccountId || msg.from?.username === 'arqstudio57';
- const direction = isOutbound ? 'outbound' : 'inbound';
- const { data: existingMsg } = await supabase
- .from('instagram_messages')
- .select('id')
- .eq('message_id', msg.id)
- .maybeSingle();
+    // Sincronizar as mensagens diretamente para o banco
+    if (savedConv && msgsList.length > 0) {
+      // Reverter a lista para inserir em ordem cronológica (mais antigas primeiro)
+      for (const msg of [...msgsList].reverse()) {
+        const isOutbound = msg.from?.id === igAccountId || msg.from?.username === 'arqstudio57';
+        const direction = isOutbound ? 'outbound' : 'inbound';
+        const { data: existingMsg } = await supabase
+          .from('instagram_messages')
+          .select('id')
+          .eq('message_id', msg.id)
+          .maybeSingle();
 
- if (!existingMsg) {
- await supabase.from('instagram_messages').insert({
- organizacao_id,
- conversation_id: savedConv.id,
- message_id: msg.id,
- from_id: msg.from?.id,
- from_name: msg.from?.name || msg.from?.username || 'Usuário',
- content: msg.message || '',
- message_type: 'text',
- direction,
- is_read: true,
- sent_at: msg.created_time ? new Date(msg.created_time).toISOString() : new Date().toISOString(),
- });
- }
- }
- }
+        if (!existingMsg) {
+          let msgContent = msg.message || '';
+          let msgType = 'text';
 
- synced++;
+          const hasAttachments = msg.attachments?.data && msg.attachments.data.length > 0;
+          if (hasAttachments) {
+            const att = msg.attachments.data[0];
+            const url = att.file_url || att.url;
+            if (url) {
+              msgContent = url;
+              const mime = att.mime_type || '';
+              msgType = mime.startsWith('video') ? 'video' : 'image';
+            }
+          }
+
+          await supabase.from('instagram_messages').insert({
+            organizacao_id,
+            conversation_id: savedConv.id,
+            message_id: msg.id,
+            from_id: msg.from?.id,
+            from_name: msg.from?.name || msg.from?.username || 'Usuário',
+            content: msgContent,
+            message_type: msgType,
+            direction,
+            is_read: true,
+            sent_at: msg.created_time ? new Date(msg.created_time).toISOString() : new Date().toISOString(),
+          });
+        }
+      }
+    }
+
+    synced++;
  }
 
  return NextResponse.json({ ok: true, synced });

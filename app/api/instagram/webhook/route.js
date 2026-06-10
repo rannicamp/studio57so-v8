@@ -100,185 +100,101 @@ async function processEntry(supabase, entry) {
 
 // ─── PROCESSADOR: FORMATO MESSAGING (CONVERSAS API) ──────────────────────────
 async function processMessagingEvent(supabase, messaging, entryIgId) {
- const { sender, recipient, message, timestamp } = messaging;
+  const { sender, recipient, message, timestamp } = messaging;
 
- // Ignora eventos sem mensagem de texto (like reactions, etc.)
- if (!message) {
- return;
- }
+  // Ignora eventos sem mensagem (like reactions, etc.)
+  if (!message) {
+    return;
+  }
 
- // Suporte a texto e stickers
- const messageText = message.text || (message.attachments ? '[Mídia recebida]' : null);
- if (!messageText) {
- await logWebhook(supabase, 'INFO', 'Evento sem conteúdo processável, ignorando', { keys: Object.keys(messaging) });
- return;
- }
+  let messageText = message.text || null;
+  let messageType = 'text';
+  let snippetText = null;
 
- const senderIgId = sender?.id;
- const recipientIgId = recipient?.id || entryIgId;
- const messageId = message.mid;
+  // Verifica se há anexos de mídia (foto, sticker, vídeo)
+  if (message.attachments && message.attachments.length > 0) {
+    const att = message.attachments[0];
+    const url = att.payload?.url;
+    if (url) {
+      messageText = url;
+      messageType = att.type || 'media';
+      snippetText = messageType === 'video' ? '🎥 Vídeo' : '📷 Foto';
+    }
+  }
 
- if (!senderIgId || !recipientIgId || !messageId) {
- await logWebhook(supabase, 'WARN', 'Evento com campos obrigatórios ausentes', { sender, recipient, mid: messageId });
- return;
- }
+  // Fallback caso tenha anexo mas não conseguimos ler a URL do payload
+  if (!messageText && message.attachments) {
+    messageText = '[Mídia recebida]';
+    messageType = 'media';
+    snippetText = '📷 Foto';
+  }
 
- await saveInstaMessage(supabase, {
- senderIgId,
- recipientIgId,
- messageId,
- messageText,
- timestamp,
- messageObj: message,
- });
+  const senderIgId = sender?.id;
+  const recipientIgId = recipient?.id || entryIgId;
+  const messageId = message.mid;
+
+  if (!senderIgId || !recipientIgId || !messageId || !messageText) {
+    await logWebhook(supabase, 'WARN', 'Evento com campos obrigatórios ausentes ou sem conteúdo', { sender, recipient, mid: messageId });
+    return;
+  }
+
+  await saveInstaMessage(supabase, {
+    senderIgId,
+    recipientIgId,
+    messageId,
+    messageText,
+    messageType,
+    snippetText,
+    timestamp,
+    messageObj: message,
+  });
 }
 
 // ─── PROCESSADOR: FORMATO GRAPH API (changes > messages) ─────────────────────
 async function processGraphAPIMessage(supabase, msg, value, entryIgId) {
- const recipientIgId = value.recipient_id || entryIgId;
- const senderIgId = msg.from?.id || msg.sender_id;
- const messageId = msg.id;
- const messageText = msg.text || msg.message || (msg.attachments ? '[Mídia recebida]' : null);
+  const recipientIgId = value.recipient_id || entryIgId;
+  const senderIgId = msg.from?.id || msg.sender_id;
+  const messageId = msg.id;
 
- if (!senderIgId || !recipientIgId || !messageId || !messageText) {
- return; // Ignora silenciosamente
- }
+  let messageText = msg.text || msg.message || null;
+  let messageType = 'text';
+  let snippetText = null;
 
- await saveInstaMessage(supabase, {
- senderIgId,
- recipientIgId,
- messageId,
- messageText,
- timestamp: msg.timestamp,
- messageObj: msg,
- });
+  // Verifica se há anexos de mídia
+  if (msg.attachments && msg.attachments.length > 0) {
+    const att = msg.attachments[0];
+    const url = att.payload?.url;
+    if (url) {
+      messageText = url;
+      messageType = att.type || 'media';
+      snippetText = messageType === 'video' ? '🎥 Vídeo' : '📷 Foto';
+    }
+  }
+
+  // Fallback
+  if (!messageText && msg.attachments) {
+    messageText = '[Mídia recebida]';
+    messageType = 'media';
+    snippetText = '📷 Foto';
+  }
+
+  if (!senderIgId || !recipientIgId || !messageId || !messageText) {
+    return; // Ignora silenciosamente
+  }
+
+  await saveInstaMessage(supabase, {
+    senderIgId,
+    recipientIgId,
+    messageId,
+    messageText,
+    messageType,
+    snippetText,
+    timestamp: msg.timestamp,
+    messageObj: msg,
+  });
 }
 
 // ─── NÚCLEO: SALVAR MENSAGEM NO BANCO ────────────────────────────────────────
-async function saveInstaMessage(supabase, { senderIgId, recipientIgId, messageId, messageText, timestamp, messageObj }) {
- // 1. Buscar a organização dona desta conta Instagram
- const { data: integracao } = await supabase
- .from('integracoes_meta')
- .select('id, organizacao_id, page_access_token, instagram_business_account_id')
- .eq('instagram_business_account_id', recipientIgId)
- .eq('is_active', true)
- .maybeSingle();
-
- if (!integracao) {
- // Tentativa alternativa: buscar pela env (conta legada)
- const legacyIgAccountId = process.env.INSTAGRAM_ACCOUNT_ID;
- if (recipientIgId !== legacyIgAccountId) {
- await logWebhook(supabase, 'WARN', `Nenhuma integração para conta IG: ${recipientIgId}. Ignorando.`);
- return;
- }
- // Se for a conta legada, usa as variáveis de ambiente (modo compatibilidade)
- await logWebhook(supabase, 'WARN', 'Usando credenciais legadas de ambiente (sem integracoes_meta)');
- }
-
- const orgId = integracao?.organizacao_id || null;
- const accessToken = integracao?.page_access_token || process.env.INSTAGRAM_PAGE_ACCESS_TOKEN;
-
- // 2. Deduplicação protegida — verifica se a mensagem já existe
- const { data: existingMsg } = await supabase
- .from('instagram_messages')
- .select('id')
- .eq('message_id', messageId)
- .maybeSingle();
-
- if (existingMsg) {
- await logWebhook(supabase, 'INFO', `Mensagem duplicada ignorada: ${messageId}`);
- return;
- }
-
- // 3. Buscar dados do remetente via Graph API (com fallback gracioso)
- let senderName = `Usuário ${String(senderIgId).slice(-6)}`;
- let senderUsername = null;
- let senderPicUrl = null;
-
- if (accessToken) {
- try {
- // Usa AbortController + setTimeout (compatível com TODAS as versões do Node.js)
- // AbortSignal.timeout() não é suportado no Node.js < 19
- const controller = new AbortController();
- const timeoutId = setTimeout(() => controller.abort(), 4000);
-
- const profileRes = await fetch(
- `https://graph.facebook.com/v21.0/${senderIgId}?fields=name,username,profile_pic&access_token=${accessToken}`,
- { signal: controller.signal }
- );
- clearTimeout(timeoutId);
-
- if (profileRes.ok) {
- const profileData = await profileRes.json();
- if (!profileData.error) {
- senderName = profileData.name || senderName;
- senderUsername = profileData.username || null;
- senderPicUrl = profileData.profile_pic || null;
- console.log(`[Instagram Webhook] Perfil obtido: ${senderName} @${senderUsername}`);
- } else {
- console.warn(`[Instagram Webhook] Graph API retornou erro de perfil:`, profileData.error?.message);
- }
- } else {
- console.warn(`[Instagram Webhook] Graph API status ${profileRes.status} ao buscar perfil de ${senderIgId}`);
- }
- } catch (e) {
- // Timeout ou erro de rede — continua com o nome padrão (não quebra o fluxo)
- console.warn('[Instagram Webhook] Perfil não obtido:', e.message);
- }
- }
-
- // 4. Montar a thread_id composta: conta_instagram + id_do_remetente
- const threadId = `${recipientIgId}_${senderIgId}`;
- const sentAt = timestamp
- ? new Date(typeof timestamp === 'number' && timestamp < 1e12 ? timestamp * 1000 : timestamp).toISOString()
- : new Date().toISOString();
-
- // 5. Upsert da conversa (cria se não existe, atualiza se já existe)
- const { data: conversation, error: convError } = await supabase
- .from('instagram_conversations')
- .upsert({
- organizacao_id: orgId,
- thread_id: threadId,
- instagram_account_id: recipientIgId,
- participant_id: senderIgId,
- participant_name: senderName,
- participant_username: senderUsername,
- participant_profile_pic: senderPicUrl,
- snippet: messageText.substring(0, 100),
- last_message_at: sentAt,
- updated_at: new Date().toISOString(),
- }, { onConflict: 'thread_id' })
- .select('id, unread_count')
- .single();
-
- if (convError || !conversation) {
- await logWebhook(supabase, 'ERROR', 'Erro ao criar/atualizar conversa', { error: convError?.message });
- return;
- }
-
- // 6. Incrementar contador de não lidas
- await supabase
- .from('instagram_conversations')
- .update({ unread_count: (conversation.unread_count || 0) + 1 })
- .eq('id', conversation.id);
-
- // 7. Inserir a mensagem (com organizacao_id para o filtro Realtime funcionar!)
- const { error: msgError } = await supabase
- .from('instagram_messages')
- .insert({
- organizacao_id: orgId, // ← CRÍTICO para o Realtime filtrar por org
- conversation_id: conversation.id,
- message_id: messageId,
- from_id: senderIgId,
- from_name: senderName,
- content: messageText,
- message_type: messageObj?.attachments ? 'media' : 'text',
- direction: 'inbound',
- is_read: false,
- sent_at: sentAt,
- });
-
- if (msgError) {
  await logWebhook(supabase, 'ERROR', 'Erro ao salvar mensagem', { error: msgError.message });
  return;
  }
