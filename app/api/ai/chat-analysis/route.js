@@ -683,7 +683,7 @@ export async function POST(request) {
       }
 
       // 3. Gerar a reescrita da resposta comercial (Usando o Gemini 3.1 Pro para maior precisão e alinhamento às diretrizes)
-      const modelPro = genAI.getGenerativeModel({ model: 'gemini-3.1-pro-preview' });
+      const modelPro = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
       
       const reversedMessages = [...(messages || [])].reverse();
       const chatLogForRewriting = reversedMessages.filter(m => m.content).map(m => {
@@ -939,7 +939,7 @@ Instruções:
     const empreendimentoIds = Array.from(empIdsSet);
 
     // --- NOVA LÓGICA DE QUERIES PARALELAS FILTRADAS POR EMPREENDIMENTO ---
-    const empIdsBusca = [1, 5, 6];
+    const empIdsBusca = empreendimentoIds.length > 0 ? empreendimentoIds : [1, 5, 6];
 
     const [
       empreendimentosResult,
@@ -1060,7 +1060,7 @@ ${metaFormString}
 
     // 4. Invocar a IA (Voltando para gemini-3.1-pro-preview por preferência comercial)
     const model = genAI.getGenerativeModel({
-      model: 'gemini-3.1-pro-preview',
+      model: 'gemini-1.5-flash',
       generationConfig: {
         responseMimeType: "application/json",
       }
