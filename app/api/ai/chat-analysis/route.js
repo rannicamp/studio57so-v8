@@ -1097,7 +1097,7 @@ Sua missão nesta chamada rápida é responder ao lead no WhatsApp de forma imed
    - Analise o "Nome cadastrado" do lead. Se for um nome real (não contiver a palavra "Lead", números ou estiver vazio), **É PROIBIDO perguntar o nome do contato novamente**. Chame-o diretamente pelo primeiro nome (ex: de "RANNIERE CAMPOS MENDES", chame de "Ranniere").
    - Se o nome for genérico ou desconhecido, pergunte de forma simpática no início e salve o nome detectado em "dados_cliente.nome".
 3. **Evasiva de 2 Rodadas (Critério de Descarte)**:
-   - If o cliente responder de forma evasiva, vaga ("não sei", "apenas olhando", "não quero falar", "depois") por 2 rodadas consecutivas de qualificação, você deve encerrar a conversa de forma educada e sugerir mover o lead para a coluna **PERDIDO** (ID: "feaa8511-261d-451b-bf99-24c8a6d6e7e0") no campo "mover_para_coluna_id" do JSON de retorno.
+   - Se o cliente responder de forma evasiva, vaga ("não sei", "apenas olhando", "não quero falar", "depois") por 2 rodadas consecutivas de qualificação, você deve encerrar a conversa de forma educada e sugerir mover o lead para a coluna **PERDIDO** (ID: "feaa8511-261d-451b-bf99-24c8a6d6e7e0") no campo "mover_para_coluna_id" do JSON de retorno.
 
 # 3. Regras de Preços, Escape e Transbordo Humano
 1. **Disponibilidade e Preço Base (Liberdade Comercial)**:
@@ -1107,8 +1107,12 @@ Sua missão nesta chamada rápida é responder ao lead no WhatsApp de forma imed
      *"Essa parte de valores exatos e tabelas de financiamento eu vou deixar para o nosso especialista te apresentar detalhadamente em instantes. Mas antes..."*
      E prossiga com a pergunta de qualificação pendente.
    - Se o lead insistir muito, fizer perguntas fora do dossiê ou solicitar diretamente falar com uma pessoa ("chamar corretor", "falar com atendente"), responda de forma simpática que está transferindo e sugira mover o lead para a coluna **INTERVENÇÃO HUMANA** (ID: "7de9b5b4-05fa-4813-82d8-7790406ee268") no campo "mover_para_coluna_id".
-2. **Lead Qualificado**:
-   - Se você conseguir qualificar o lead coletando as informações BANT, move o lead para a coluna **CLIENTE POTENCIAL** (ID: "0553d8db-5259-41bc-ae9e-b8803014ed93") para que o corretor humano o assuma com as informações prontas.
+2. **REGRA DE OURO - Transbordo Comercial no Fechamento (CRÍTICO)**:
+   - Se o cliente aceitar a simulação, concordar com a proposta, disser que quer fechar ("Sim tá ótimo pra mim", "quero fechar", "pode fazer"), enviar documentos pessoais (como CNH/RG ou comprovante de residência), ou solicitar os próximos passos de contrato, você **NUNCA deve continuar a conversa tentando coletar dados de contrato (como estado civil, profissão, etc.) ou dizer que está preenchendo o contrato**!
+   - Responda imediatamente com simpatia e entusiasmo dizendo que está passando o caso agora mesmo para o especialista de vendas do Studio 57 para formalização e envio do contrato em instantes.
+   - Defina obrigatoriamente `mover_para_coluna_id` como a coluna **INTERVENÇÃO HUMANA** (ID: "7de9b5b4-05fa-4813-82d8-7790406ee268") no JSON de retorno para desviar o atendimento ao humano.
+3. **Lead Qualificado Geral**:
+   - Se você conseguir qualificar o lead coletando as informações BANT gerais e ele quiser continuar conversando para mais detalhes comerciais antes do fechamento, move o lead para a coluna **CLIENTE POTENCIAL** (ID: "0553d8db-5259-41bc-ae9e-b8803014ed93") para que o corretor humano o assuma com as informações prontas.
 
 # 4. Dados Atuais do CRM e Funil (Mapeamento Rígido Org 2)
 - Coluna Atual no CRM: "${crmStatus}" (ID Atual: ${funil?.coluna_id || 'null'})
@@ -1192,11 +1196,15 @@ Graduada em inteligência de leads, sua missão é classificar o lead, analisar 
    - Você tem total liberdade de pesquisar nas tabelas reais fornecidas abaixo e informar quais unidades estão disponíveis e a faixa de valores ou preço de partida delas (ex: "temos chácaras a partir de R$ 250 mil", "o preço das unidades começa em R$ 250.000", "temos ótimas opções disponíveis por um valor super interessante e competitivo"). Use as informações dos dossiês e do estoque real com autonomia comercial para engajar o lead.
    - No entanto, você **NÃO deve fazer simulações financeiras complexas** ou calcular parcelas com juros de financiamento bancário de forma detalhada.
    - Se o lead insistir em simulações financeiras complexas ou tabelas completas de parcelas customizadas, responda com a frase de escape padrão:
-     *"Essa parte de valores exatos e tabelas de financiamento eu vou deixar para o nosso especialista te apresentar detalhadamente em instantes. Mas antes..."*
+     *"Essa parte de valores exatos e tabelas de financiamento eu vou deixar para o nosso especialista te apresentar detalhadamente in instantes. Mas antes..."*
      E prossiga com a pergunta de qualificação pendente.
    - Se o lead insistir muito, fizer perguntas fora do dossiê ou solicitar diretamente falar com uma pessoa ("chamar corretor", "falar com atendente"), responda de forma simpática que está transferindo e sugira mover o lead para a coluna **INTERVENÇÃO HUMANA** (ID: "7de9b5b4-05fa-4813-82d8-7790406ee268") no campo "mover_para_coluna_id".
-2. **Lead Qualificado**:
-   - Se você conseguir qualificar o lead coletando as informações BANT, move o lead para a coluna **CLIENTE POTENCIAL** (ID: "0553d8db-5259-41bc-ae9e-b8803014ed93") para que o corretor humano o assuma com as informações prontas.
+2. **REGRA DE OURO - Transbordo Comercial no Fechamento (CRÍTICO)**:
+   - Se o cliente aceitar a simulação, concordar com a proposta, disser que quer fechar ("Sim tá ótimo pra mim", "quero fechar", "pode fazer"), enviar documentos pessoais (como CNH/RG ou comprovante de residência), ou solicitar os próximos passos de contrato, você **NUNCA deve continuar a conversa tentando coletar dados de contrato (como estado civil, profissão, etc.) ou dizer que está preenchendo o contrato**!
+   - Responda imediatamente com simpatia e entusiasmo dizendo que está passando o caso agora mesmo para o especialista de vendas do Studio 57 para formalização e envio do contrato em instantes.
+   - Defina obrigatoriamente `mover_para_coluna_id` como a coluna **INTERVENÇÃO HUMANA** (ID: "7de9b5b4-05fa-4813-82d8-7790406ee268") no JSON de retorno para desviar o atendimento ao humano.
+3. **Lead Qualificado Geral**:
+   - Se você conseguir qualificar o lead coletando as informações BANT gerais e ele quiser continuar conversando para mais detalhes comerciais antes do fechamento, move o lead para a coluna **CLIENTE POTENCIAL** (ID: "0553d8db-5259-41bc-ae9e-b8803014ed93") para que o corretor humano o assuma com as informações prontas.
 
 # 4. Dados Atuais do CRM e Funil (Mapeamento Rígido Org 2)
 - Coluna Atual no CRM: "${crmStatus}" (ID Atual: ${funil?.coluna_id || 'null'})
@@ -1445,7 +1453,7 @@ Com base SOMENTE neste histórico recente e contexto do projeto, escreva um JSON
     }
 
     // --- NOVA LÓGICA: CONFECÇÃO AUTÔNOMA DE CONTRATOS (STELLA IA) ---
-    if (parsedResult.gerar_contrato && parsedResult.gerar_contrato.confirmar === true) {
+    if (Number(organizacao_id) !== 2 && parsedResult.gerar_contrato && parsedResult.gerar_contrato.confirmar === true) {
       console.log(`[Stella Contrato] Detectado comando de confecção autônoma de contrato para o Contato ${contato_id}.`);
       try {
         const stellaRecord = await obterOuCriarUsuarioStella(supabaseAdmin, organizacao_id);
