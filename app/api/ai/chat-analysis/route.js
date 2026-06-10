@@ -745,7 +745,7 @@ Instruções:
 1. Analise onde essa informação se encaixa melhor no dossiê (ex: em Áreas Comuns, Lazer, Valores, Financiamento, Vagas de Garagem, etc.).
 2. Insira a informação de forma clara e limpa no documento Markdown atual, preservando todo o restante do conteúdo e formatação intactos.
 3. Não crie cabeçalhos repetidos. Encaixe o fato de forma concisa e natural.
-4. Retorne APENAS o Markdown consolidado final. NUNCA adicione blocos de código tipo "\`\`\`markdown" ou explicações antes/depois. Retorne apenas o conteúdo do dossiê consolidado em formato Markdown.
+4. Retorne APENAS o Markdown consolidado final. NUNCA adicione blocos de código tipo "triple backtick markdown" ou explicações antes/depois. Retorne apenas o conteúdo do dossiê consolidado em formato Markdown.
 `;
 
         try {
@@ -801,21 +801,29 @@ Instruções:
       return NextResponse.json(mergedAnalysis);
     }
 
-    // 1.8 Carregar todas as colunas do mesmo funil se o lead estiver no funil
+    // 1.8 Carregar todas as colunas de todos os funis da organização para permitir trânsito entre funis
     let colunasDisponiveis = [];
-    if (funil?.colunas_funil?.funil_id) {
-      const { data: cols, error: colsError } = await supabaseAdmin
-        .from('colunas_funil')
-        .select('id, nome, ordem, descricao')
-        .eq('funil_id', funil.colunas_funil.funil_id)
-        .eq('organizacao_id', organizacao_id)
-        .order('ordem', { ascending: true });
-        
-      if (colsError) {
-        console.error('Erro ao buscar colunas do funil:', colsError);
-      } else if (cols) {
-        colunasDisponiveis = cols;
-      }
+    const { data: cols, error: colsError } = await supabaseAdmin
+      .from('colunas_funil')
+      .select(`
+        id, 
+        nome, 
+        ordem, 
+        descricao,
+        funis!funil_id(nome)
+      `)
+      .eq('organizacao_id', organizacao_id);
+      
+    if (colsError) {
+      console.error('Erro ao buscar colunas do funil:', colsError);
+    } else if (cols) {
+      colunasDisponiveis = cols.map(c => ({
+        id: c.id,
+        nome: c.nome,
+        ordem: c.ordem,
+        descricao: c.descricao,
+        funil_nome: c.funis?.nome || 'Geral'
+      }));
     }
 
     // Resolve os nomes com fallback: coluna _name → JOIN meta_ativos
@@ -1073,7 +1081,7 @@ Sua missão nesta chamada rápida é responder ao diálogo do cliente no WhatsAp
 4. **Escuta Ativa e Perguntas de Direcionamento**: No início da conversa, faça perguntas acolhedoras para qualificar o lead sem que ele perceba que está sendo cadastrado.
    - *Gancho de ouro*: "Me conta, você busca um lugar especial para morar e curtir com a família ou está pensando em investir para o futuro?"
    - Sempre valide a resposta do cliente com entusiasmo e empatia antes de avançar (ex: "Que legal! Segurança e lazer para as crianças são fundamentais mesmo, você está coberto de razão!").
-5. **Mensagens Curtas e em Pílulas (WhatsApp - CRÍTICO)**: As pessoas no WhatsApp não leem textos longos. A sua resposta inteira deve ter no máximo 40 a 50 palavras e ser dividida em **2 a 3 mensagens curtas e dinâmicas (pílulas)** separadas por uma quebra de linha dupla (`\n\n`). Cada pílula de texto deve ter no máximo **1 a 2 linhas de comprimento**. Diga uma única informação de valor e faça uma pergunta interativa simples no final para manter o cliente engajado.
+5. **Mensagens Curtas e em Pílulas (WhatsApp - CRÍTICO)**: As pessoas no WhatsApp não leem textos longos. A sua resposta inteira deve ter no máximo 40 a 50 palavras e ser dividida em **2 a 3 mensagens curtas e dinâmicas (pílulas)** separadas por uma quebra de linha dupla (\\n\\n). Cada pílula de texto deve ter no máximo **1 a 2 linhas de comprimento**. Diga uma única informação de valor e faça uma pergunta interativa simples no final para manter o cliente engajado.
 6. **Criar Valor Antes de Falar Preço (Regra de Ouro - CRÍTICO)**: É terminantemente proibido enviar simulações de pagamento, preços ou valores de parcelas logo no início da conversa ou antes que o cliente tenha compreendido os benefícios intangíveis do empreendimento.
    * Você deve obrigatoriamente criar valor primeiro: fale da localização privilegiada (ex: menos de 10 minutos do centro, próximo à Univale e ao novo shopping no caso do Braúnas; ou o Alto Esplanada perto de hospitais no caso do Alfa e Beta), dos diferenciais de espaço e liberdade (chácaras acima de 1.000m² sem taxa de condomínio fechado; ou a laje nervurada com layout customizável do Alfa; ou o lazer completo no terraço com piscina de borda infinita do Beta).
    * Apenas apresente simulações financeiras ou detalhe valores exatos de parcelas após o cliente ter demonstrado interesse claro e explícito em saber os preços ("quanto custa?", "qual o valor?", "faz uma simulação"). E mesmo ao responder o preço, reafirme brevemente os diferenciais de valorização do projeto.
@@ -1179,7 +1187,7 @@ Analise a intenção do cliente no histórico recente e decida se o lead deve se
 Fase atual do lead no CRM: "${crmStatus}" (ID da Coluna Atual: ${funil?.coluna_id || 'null'})
 
 As etapas (colunas) disponíveis para este funil são:
-${colunasDisponiveis.map(c => `- Nome: "${c.nome}" | ID da Coluna: "${c.id}" | Descrição: "${c.descricao || 'Sem descrição'}"`).join('\n')}
+${colunasDisponiveis.map(c => `- Funil: "${c.funil_nome}" | Etapa: "${c.nome}" | ID da Coluna: "${c.id}" | Descrição: "${c.descricao || 'Sem descrição'}"`).join('\n')}
 
 Regras de Movimentação de Etapa:
 1. Compare a conversa recente com a "Descrição" de cada coluna listada acima. Cada descrição define a regra clara de "Quem deve estar aqui".
@@ -1298,7 +1306,7 @@ Graduada em inteligência de leads, sua missão é classificar o lead, analisar 
 4. **Escuta Ativa e Perguntas de Direcionamento**: No início da conversa, faça perguntas acolhedoras para qualificar o lead sem que ele perceba que está sendo cadastrado.
    - *Gancho de ouro*: "Me conta, você busca um lugar especial para morar e curtir com a família ou está pensando em investir para o futuro?"
    - Sempre valide a resposta do cliente com entusiasmo e empatia antes de avançar (ex: "Que legal! Segurança e lazer para as crianças são fundamentais mesmo, você está coberto de razão!").
-5. **Mensagens Curtas e em Pílulas (WhatsApp - CRÍTICO)**: As pessoas no WhatsApp não leem textos longos. A sua resposta inteira deve ter no máximo 40 a 50 palavras e ser dividida em **2 a 3 mensagens curtas e dinâmicas (pílulas)** separadas por uma quebra de linha dupla (`\n\n`). Cada pílula de texto deve ter no máximo **1 a 2 linhas de comprimento**. Diga uma única informação de valor e faça uma pergunta interativa simples no final para manter o cliente engajado.
+5. **Mensagens Curtas e em Pílulas (WhatsApp - CRÍTICO)**: As pessoas no WhatsApp não leem textos longos. A sua resposta inteira deve ter no máximo 40 a 50 palavras e ser dividida em **2 a 3 mensagens curtas e dinâmicas (pílulas)** separadas por uma quebra de linha dupla (\\n\\n). Cada pílula de texto deve ter no máximo **1 a 2 linhas de comprimento**. Diga uma única informação de valor e faça uma pergunta interativa simples no final para manter o cliente engajado.
 6. **Criar Valor Antes de Falar Preço (Regra de Ouro - CRÍTICO)**: É terminantemente proibido enviar simulações de pagamento, preços ou valores de parcelas logo no início da conversa ou antes que o cliente tenha compreendido os benefícios intangíveis do empreendimento.
    * Você deve obrigatoriamente criar valor primeiro: fale da localização privilegiada (ex: menos de 10 minutos do centro, próximo à Univale e ao novo shopping no caso do Braúnas; ou o Alto Esplanada perto de hospitais no caso do Alfa e Beta), dos diferenciais de espaço e liberdade (chácaras acima de 1.000m² sem taxa de condomínio fechado; ou a laje nervurada com layout customizável do Alfa; ou o lazer completo no terraço com piscina de borda infinita do Beta).
    * Apenas apresente simulações financeiras ou detalhe valores exatos de parcelas após o cliente ter demonstrado interesse claro e explícito em saber os preços ("quanto custa?", "qual o valor?", "faz uma simulação"). E mesmo ao responder o preço, reafirme brevemente os diferenciais de valorização do projeto.
@@ -1442,7 +1450,7 @@ Analise a intenção do cliente no histórico recente e decida se o lead deve se
 Fase atual do lead no CRM: "${crmStatus}" (ID da Coluna Atual: ${funil?.coluna_id || 'null'})
 
 As etapas (colunas) disponíveis para este funil são:
-${colunasDisponiveis.map(c => `- Nome: "${c.nome}" | ID da Coluna: "${c.id}" | Descrição: "${c.descricao || 'Sem descrição'}"`).join('\n')}
+${colunasDisponiveis.map(c => `- Funil: "${c.funil_nome}" | Etapa: "${c.nome}" | ID da Coluna: "${c.id}" | Descrição: "${c.descricao || 'Sem descrição'}"`).join('\n')}
 
 Regras de Movimentação de Etapa:
 1. Compare a conversa recente com a "Descrição" de cada coluna listada acima. Cada descrição define a regra clara de "Quem deve estar aqui".
@@ -1696,6 +1704,7 @@ Com base SOMENTE neste histórico recente e contexto do projeto, escreva um JSON
             console.log('[AI Enrichment] Contato enriquecido com sucesso:', updateData);
           }
         }
+      }
     }
 
     // --- NOVA LÓGICA: CONFECÇÃO AUTÔNOMA DE CONTRATOS (STELLA IA) ---
