@@ -242,140 +242,164 @@ export async function POST(request) {
 
           console.log(`[Autopilot] Contato ${contatoId} está com atendimento automático ATIVO. Acionando Stella de forma assíncrona...`);
           if (host) {
-            try {
-              const apiUrl = `${protocol}://${host}/api/ai/chat-analysis`;
-              const isMedia = message.type === 'document' || message.type === 'image';
-              const quickResponse = !isMedia;
+            const maxWebhookRetries = 2; // Tentativa inicial + 2 retentativas
+            const retryDelayMs = 60000;  // 1 minuto (60 segundos) entre retentativas
+            let success = false;
+            let ultimoErro = '';
 
-              const aiResponse = await fetch(apiUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                  contato_id: contatoId, 
-                  organizacao_id: config.organizacao_id, 
-                  force: true,
-                  quickResponse: quickResponse
-                })
-              });
-              
-              if (aiResponse.ok) {
-                const aiResult = await aiResponse.json();
-                
-                if (aiResult?.proxima_resposta_sugerida) {
-                  const cleanPhone = (message.from || '').replace(/[^0-9]/g, '');
+            // Roda as tentativas de reprocessamento em background
+            (async () => {
+              for (let attempt = 1; attempt <= (maxWebhookRetries + 1); attempt++) {
+                try {
+                  if (attempt > 1) {
+                    console.log(`[Autopilot Retry] Aguardando ${retryDelayMs / 1000}s antes da retentativa ${attempt - 1}/${maxWebhookRetries} para o contato ${contatoId}...`);
+                    await new Promise(resolve => setTimeout(resolve, retryDelayMs));
+                  }
+
+                  console.log(`[Autopilot] Executando chamada à IA para o contato ${contatoId} (Tentativa ${attempt}/${maxWebhookRetries + 1})...`);
                   
-                  if (cleanPhone) {
-                    const sendTextUrl = `${protocol}://${host}/api/whatsapp/send`;
-                    const fullText = aiResult.proxima_resposta_sugerida || '';
-                    const messagesParts = fullText
-                      .split(/\n\n+/)
-                      .map(part => part.trim())
-                      .filter(part => part.length > 0);
+                  const apiUrl = `${protocol}://${host}/api/ai/chat-analysis`;
+                  const isMedia = message.type === 'document' || message.type === 'image';
+                  const quickResponse = !isMedia;
 
-                    if (messagesParts.length === 0) {
-                      messagesParts.push('Olá! Tudo bem?');
-                    }
+                  const aiResponse = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                      contato_id: contatoId, 
+                      organizacao_id: config.organizacao_id, 
+                      force: true,
+                      quickResponse: quickResponse
+                    })
+                  });
 
-                    console.log(`[Autopilot] Dividindo mensagem em ${messagesParts.length} pílula(s) para o WhatsApp.`);
-
-                    for (let i = 0; i < messagesParts.length; i++) {
-                      const partText = messagesParts[i];
-                      
-                      if (i > 0) {
-                        const delayMs = 2500;
-                        console.log(`[Autopilot] Aguardando ${delayMs}ms antes de enviar a próxima pílula...`);
-                        await new Promise(resolve => setTimeout(resolve, delayMs));
-                      }
-
-                      const sendTextResponse = await fetch(sendTextUrl, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                          to: cleanPhone,
-                          type: 'text',
-                          text: partText,
-                          contact_id: contatoId,
-                          organizacao_id: config.organizacao_id,
-                          usuario_id: stellaUserId
-                        })
-                      });
-
-                      if (sendTextResponse.ok) {
-                        console.log(`[Autopilot] Pílula ${i + 1}/${messagesParts.length} enviada com sucesso!`);
-                      } else {
-                        const errText = await sendTextResponse.text();
-                        console.error(`[Autopilot] Erro ao enviar pílula ${i + 1}/${messagesParts.length}:`, errText);
-                      }
-                    }
+                  if (aiResponse.ok) {
+                    const aiResult = await aiResponse.json();
                     
-                    if (aiResult.anexo_sugerido && aiResult.anexo_sugerido.caminho_arquivo) {
-                      const anexo = aiResult.anexo_sugerido;
-                      console.log(`[Autopilot] Stella sugeriu anexo exato "${anexo.nome_arquivo}". Disparando anexo automático...`);
+                    if (aiResult?.proxima_resposta_sugerida) {
+                      const cleanPhone = (message.from || '').replace(/[^0-9]/g, '');
                       
-                      const { data: urlData } = supabaseAdmin.storage
-                        .from('empreendimento-anexos')
-                        .getPublicUrl(anexo.caminho_arquivo);
-                        
-                      if (urlData?.publicUrl) {
-                        const ext = (anexo.nome_arquivo || '').split('.').pop().toLowerCase();
-                        let mediaType = 'document';
-                        if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) {
-                          mediaType = 'image';
-                        } else if (['mp4', 'mov', 'avi', 'mpeg'].includes(ext)) {
-                          mediaType = 'video';
+                      if (cleanPhone) {
+                        const sendTextUrl = `${protocol}://${host}/api/whatsapp/send`;
+                        const fullText = aiResult.proxima_resposta_sugerida || '';
+                        const messagesParts = fullText
+                          .split(/\n\n+/)
+                          .map(part => part.trim())
+                          .filter(part => part.length > 0);
+
+                        if (messagesParts.length === 0) {
+                          messagesParts.push('Olá! Tudo bem?');
                         }
-                        
-                        const sendMediaResponse = await fetch(sendTextUrl, {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({
-                            to: cleanPhone,
-                            type: mediaType,
-                            link: urlData.publicUrl,
-                            filename: anexo.nome_arquivo,
-                            caption: '',
-                            contact_id: contatoId,
-                            organizacao_id: config.organizacao_id,
-                            usuario_id: stellaUserId
-                          })
-                        });
-                        
-                        const sendMediaResult = await sendMediaResponse.json();
-                        
-                        if (sendMediaResponse.ok) {
-                          console.log('[Autopilot] Anexo enviado com sucesso!');
+
+                        console.log(`[Autopilot] Dividindo mensagem em ${messagesParts.length} pílula(s) para o WhatsApp.`);
+
+                        for (let i = 0; i < messagesParts.length; i++) {
+                          const partText = messagesParts[i];
                           
-                          const saveAttachmentUrl = `${protocol}://${host}/api/whatsapp/save-attachment`;
-                          await fetch(saveAttachmentUrl, {
+                          if (i > 0) {
+                            const delayMs = 2500;
+                            console.log(`[Autopilot] Aguardando ${delayMs}ms antes de enviar a próxima pílula...`);
+                            await new Promise(resolve => setTimeout(resolve, delayMs));
+                          }
+
+                          const sendTextResponse = await fetch(sendTextUrl, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
-                              contato_id: contatoId,
-                              message_id: sendMediaResult.data?.messages?.[0]?.id,
-                              storage_path: anexo.caminho_arquivo,
-                              public_url: urlData.publicUrl,
-                              file_name: anexo.nome_arquivo,
-                              file_type: mediaType === 'image' ? 'image/jpeg' : mediaType === 'video' ? 'video/mp4' : 'application/pdf',
-                              file_size: 0,
-                              organizacao_id: config.organizacao_id
+                              to: cleanPhone,
+                              type: 'text',
+                              text: partText,
+                              contact_id: contatoId,
+                              organizacao_id: config.organizacao_id,
+                              usuario_id: stellaUserId
                             })
-                          }).catch(e => console.error('[Autopilot] Erro ao salvar histórico de anexo:', e));
-                        } else {
-                          console.error('[Autopilot] Erro ao enviar mídia via API:', sendMediaResult.error);
+                          });
+
+                          if (sendTextResponse.ok) {
+                            console.log(`[Autopilot] Pílula ${i + 1}/${messagesParts.length} enviada com sucesso!`);
+                          } else {
+                            const errText = await sendTextResponse.text();
+                            console.error(`[Autopilot] Erro ao enviar pílula ${i + 1}/${messagesParts.length}:`, errText);
+                          }
+                        }
+                        
+                        if (aiResult.anexo_sugerido && aiResult.anexo_sugerido.caminho_arquivo) {
+                          const anexo = aiResult.anexo_sugerido;
+                          console.log(`[Autopilot] Stella sugeriu anexo exato "${anexo.nome_arquivo}". Disparando anexo automático...`);
+                          
+                          const { data: urlData } = supabaseAdmin.storage
+                            .from('empreendimento-anexos')
+                            .getPublicUrl(anexo.caminho_arquivo);
+                            
+                          if (urlData?.publicUrl) {
+                            const ext = (anexo.nome_arquivo || '').split('.').pop().toLowerCase();
+                            let mediaType = 'document';
+                            if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) {
+                              mediaType = 'image';
+                            } else if (['mp4', 'mov', 'avi', 'mpeg'].includes(ext)) {
+                              mediaType = 'video';
+                            }
+                            
+                            const sendMediaResponse = await fetch(sendTextUrl, {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({
+                                to: cleanPhone,
+                                type: mediaType,
+                                link: urlData.publicUrl,
+                                filename: anexo.nome_arquivo,
+                                caption: '',
+                                contact_id: contatoId,
+                                organizacao_id: config.organizacao_id,
+                                usuario_id: stellaUserId
+                              })
+                            });
+                            
+                            const sendMediaResult = await sendMediaResponse.json();
+                            
+                            if (sendMediaResponse.ok) {
+                              console.log('[Autopilot] Anexo enviado com sucesso!');
+                              
+                              const saveAttachmentUrl = `${protocol}://${host}/api/whatsapp/save-attachment`;
+                              await fetch(saveAttachmentUrl, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                  contato_id: contatoId,
+                                  message_id: sendMediaResult.data?.messages?.[0]?.id,
+                                  storage_path: anexo.caminho_arquivo,
+                                  public_url: urlData.publicUrl,
+                                  file_name: anexo.nome_arquivo,
+                                  file_type: mediaType === 'image' ? 'image/jpeg' : mediaType === 'video' ? 'video/mp4' : 'application/pdf',
+                                  file_size: 0,
+                                  organizacao_id: config.organizacao_id
+                                })
+                              }).catch(e => console.error('[Autopilot] Erro ao salvar histórico de anexo:', e));
+                            } else {
+                              console.error('[Autopilot] Erro ao enviar mídia via API:', sendMediaResult.error);
+                            }
+                          }
                         }
                       }
                     }
+                    success = true;
+                    break; // Sucesso, sai do loop de retentativas
+                  } else {
+                    const errText = await aiResponse.text().catch(() => 'Erro desconhecido');
+                    ultimoErro = `Status ${aiResponse.status} - ${errText}`;
+                    console.warn(`[Autopilot Retry Warning] Tentativa ${attempt}/${maxWebhookRetries + 1} falhou com erro na API comercial chat-analysis: ${ultimoErro}`);
                   }
+                } catch (autopilotErr) {
+                  ultimoErro = autopilotErr.message;
+                  console.warn(`[Autopilot Retry Warning] Tentativa ${attempt}/${maxWebhookRetries + 1} falhou com erro de rede/conexão: ${ultimoErro}`);
                 }
-              } else {
-                const errText = await aiResponse.text().catch(() => 'Erro desconhecido');
-                console.error(`[Autopilot Error] Falha na API comercial chat-analysis (Status ${aiResponse.status}): ${errText}`);
-                await executarTransbordoEmergencia(supabaseAdmin, contatoId, config, message.from, stellaUserId, protocol, host, `Status ${aiResponse.status} - ${errText}`);
               }
-            } catch (autopilotErr) {
-              console.error('[Autopilot Async Error] Falha de conexão ou erro no piloto automático:', autopilotErr);
-              await executarTransbordoEmergencia(supabaseAdmin, contatoId, config, message.from, stellaUserId, protocol, host, autopilotErr.message);
-            }
+
+              if (!success) {
+                console.error(`[Autopilot Fatal Error] Todas as ${maxWebhookRetries + 1} tentativas falharam para o contato ${contatoId}. Acionando transbordo de emergência...`);
+                await executarTransbordoEmergencia(supabaseAdmin, contatoId, config, message.from, stellaUserId, protocol, host, ultimoErro);
+              }
+            })();
           }
         });
       } else {

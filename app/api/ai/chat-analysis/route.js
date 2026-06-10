@@ -1298,35 +1298,24 @@ Com base SOMENTE neste histórico recente e contexto do projeto, escreva um JSON
 
     let result;
     let textOutput = '';
-    
-    try {
-      console.log('[Stella AI] Tentando gerar resposta com o modelo primário gemini-2.5-flash...');
-      result = await model.generateContent(promptContent);
-      textOutput = result.response.text();
-    } catch (primaryErr) {
-      console.warn(`[Stella AI Warning] Falha no modelo primário gemini-2.5-flash (Erro: ${primaryErr.message}). Acionando fallback para gemini-1.5-flash...`);
+    const maxRetries = 3;
+    const retryDelayMs = 5000; // 5 segundos de espera entre as tentativas locais
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        const fallbackModel1 = genAI.getGenerativeModel({
-          model: 'gemini-1.5-flash',
-          generationConfig: { responseMimeType: "application/json" }
-        });
-        result = await fallbackModel1.generateContent(promptContent);
+        console.log(`[Stella AI] Tentando gerar resposta com gemini-2.5-flash (Tentativa ${attempt}/${maxRetries})...`);
+        result = await model.generateContent(promptContent);
         textOutput = result.response.text();
-        console.log('[Stella AI] Sucesso no fallback com gemini-1.5-flash!');
-      } catch (fallbackErr1) {
-        console.warn(`[Stella AI Warning] Falha no fallback gemini-1.5-flash (Erro: ${fallbackErr1.message}). Tentando gemini-1.5-pro...`);
-        try {
-          const fallbackModel2 = genAI.getGenerativeModel({
-            model: 'gemini-1.5-pro',
-            generationConfig: { responseMimeType: "application/json" }
-          });
-          result = await fallbackModel2.generateContent(promptContent);
-          textOutput = result.response.text();
-          console.log('[Stella AI] Sucesso no fallback com gemini-1.5-pro!');
-        } catch (fallbackErr2) {
-          console.error('[Stella AI Fatal Error] Todos os modelos de IA falharam (gemini-2.5-flash, gemini-1.5-flash, gemini-1.5-pro).');
-          throw new Error(`Serviço de IA Indisponível: ${fallbackErr2.message}`);
+        console.log(`[Stella AI] Resposta gerada com sucesso na tentativa ${attempt}!`);
+        break; // Sucesso, sai do loop
+      } catch (err) {
+        console.warn(`[Stella AI Warning] Falha na tentativa ${attempt}/${maxRetries} (Erro: ${err.message})`);
+        if (attempt === maxRetries) {
+          console.error('[Stella AI Fatal Error] Todas as tentativas locais com gemini-2.5-flash falharam.');
+          throw new Error(`Serviço de IA Indisponível (gemini-2.5-flash): ${err.message}`);
         }
+        console.log(`[Stella AI] Aguardando ${retryDelayMs / 1000}s antes de tentar novamente...`);
+        await new Promise(resolve => setTimeout(resolve, retryDelayMs));
       }
     }
     
