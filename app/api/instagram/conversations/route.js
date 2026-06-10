@@ -31,38 +31,66 @@ export async function POST(request) {
 
  const { data: integracao } = await supabase
  .from('integracoes_meta')
- .select('instagram_business_account_id, page_access_token')
+ .select('instagram_business_account_id, page_access_token, page_id')
  .eq('organizacao_id', organizacao_id)
  .eq('is_active', true)
  .single();
 
  const igAccountId = integracao?.instagram_business_account_id || process.env.INSTAGRAM_ACCOUNT_ID;
+ const pageId = integracao?.page_id;
  const accessToken = integracao?.page_access_token || process.env.INSTAGRAM_PAGE_ACCESS_TOKEN;
 
- if (!igAccountId || !accessToken) {
+ if (!igAccountId || !pageId || !accessToken) {
  return NextResponse.json({ error: 'Conta do Instagram não configurada.' }, { status: 404 });
  }
 
- // Buscar conversas — incluindo o "id" da conversa no Instagram e ultimas mensagens
- const url = `https://graph.instagram.com/v21.0/${igAccountId}/conversations?platform=instagram&fields=id,participants,updated_time,messages.limit(25){id,message,from,created_time}&access_token=${accessToken}`;
+ // Buscar conversas levemente (apenas IDs e tempos de atualização)
+ const url = `https://graph.facebook.com/v21.0/${pageId}/conversations?platform=instagram&fields=id,updated_time&limit=15&access_token=${accessToken}`;
  const response = await fetch(url);
  const metaData = await response.json();
 
  if (!response.ok || metaData.error) {
- const errMsg = metaData.error?.message || 'Falha ao buscar conversas.';
- console.error('[Instagram Conversations] Erro:', errMsg);
- return NextResponse.json({ error: errMsg }, { status: 500 });
+   const errMsg = metaData.error?.message || 'Falha ao buscar conversas.';
+   console.error('[Instagram Conversations] Erro:', errMsg);
+   return NextResponse.json({ error: errMsg }, { status: 500 });
  }
 
  const conversations = metaData.data || [];
  let synced = 0;
 
  for (const conv of conversations) {
- const participant = conv.participants?.data?.find(p => p.id !== igAccountId);
- if (!participant) continue;
+   // Buscar participante individualmente para esta conversa
+   let participant = null;
+   try {
+     const threadDetailsUrl = `https://graph.facebook.com/v21.0/${conv.id}?fields=participants&access_token=${accessToken}`;
+     const threadRes = await fetch(threadDetailsUrl);
+     if (threadRes.ok) {
+       const threadData = await threadRes.json();
+       participant = threadData.participants?.data?.find(p => p.id !== igAccountId);
+     }
+   } catch (errThread) {
+     console.error(`[Instagram Conversations] Erro ao buscar participantes da thread ${conv.id}:`, errThread.message);
+   }
 
- const threadId = `${igAccountId}_${participant.id}`;
- const msgsList = conv.messages?.data || [];
+   if (!participant) continue;
+
+   const threadId = `${igAccountId}_${participant.id}`;
+ 
+ // Buscar as mensagens desta thread específica de forma leve
+ let msgsList = [];
+ try {
+ const msgUrl = `https://graph.facebook.com/v21.0/${conv.id}/messages?fields=id,message,from,created_time&limit=25&access_token=${accessToken}`;
+ const msgRes = await fetch(msgUrl);
+ if (msgRes.ok) {
+ const msgData = await msgRes.json();
+ msgsList = msgData.data || [];
+ } else {
+ console.warn(`[Instagram Conversations] Falha ao obter mensagens da thread ${conv.id}`);
+ }
+ } catch (msgErr) {
+ console.error(`[Instagram Conversations] Erro ao buscar mensagens da thread ${conv.id}:`, msgErr.message);
+ }
+
  let snippet = null;
  let lastMessageAt = conv.updated_time ? new Date(conv.updated_time).toISOString() : new Date().toISOString();
  if (msgsList.length > 0) {

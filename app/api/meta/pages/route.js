@@ -93,6 +93,27 @@ export async function POST(request) {
  }
  );
 
+ // 3.5 Obter dinamicamente o ID do Instagram Business vinculado a esta página do Facebook
+ let instagramBusinessAccountId = null;
+ try {
+   console.log(`🔵 [Meta Pages] Tentando descobrir conta do Instagram para a página ${page_id}...`);
+   const igUrl = `https://graph.facebook.com/v21.0/${page_id}?fields=instagram_business_account&access_token=${page_access_token}`;
+   const igRes = await fetch(igUrl);
+   if (igRes.ok) {
+     const igData = await igRes.json();
+     if (igData.instagram_business_account?.id) {
+       instagramBusinessAccountId = igData.instagram_business_account.id;
+       console.log(`🟢 [Meta Pages] Conta do Instagram encontrada: ${instagramBusinessAccountId}`);
+     } else {
+       console.log(`🟡 [Meta Pages] Nenhuma conta do Instagram vinculada à página ${page_id}`);
+     }
+   } else {
+     console.warn(`⚠️ [Meta Pages] Falha na consulta de conta Instagram vinculada. Status: ${igRes.status}`);
+   }
+ } catch (igErr) {
+   console.error(`🚨 [Meta Pages] Erro ao buscar conta Instagram associada:`, igErr.message);
+ }
+
  // 4. ATUALIZA O BANCO (UPDATE)
  const { error, data } = await supabaseAdmin
  .from('integracoes_meta')
@@ -100,6 +121,7 @@ export async function POST(request) {
  page_id: page_id,
  nome_conta: page_name, // Salvamos o nome da página para exibir depois
  page_access_token: page_access_token, // Token VIP da página
+ instagram_business_account_id: instagramBusinessAccountId, // ID do Instagram auto-detectado!
  status: 'ativo', // <--- Mudança de Status
  updated_at: new Date()
  })
