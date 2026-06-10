@@ -1210,7 +1210,8 @@ Escreva um JSON rigoroso nos seguintes moldes:
   "anexo_sugerido": {
     "id": ID_DO_ARQUIVO,
     "nome_arquivo": "NOME_DO_ARQUIVO_EXATO (idêntico ao da lista)",
-    "caminho_arquivo": "CAMINHO_DO_ARQUIVO_EXATO (idêntico ao da lista)"
+    "caminho_arquivo": "CAMINHO_DO_ARQUIVO_EXATO (idêntico ao da lista)",
+    "pergunta_pos_anexo": "Uma pergunta curta de engajamento para fazer ao cliente logo após o envio do arquivo (ex: 'O que achou do book do Residencial Alfa?' ou 'Conseguiu dar uma olhada no vídeo?'). Obrigatório se anexo_sugerido não for null."
   } ou null,
   "dados_cliente": {
     "nome": "Nome detectado do cliente se ele informou na conversa, caso contrário null"
@@ -1324,7 +1325,8 @@ Com base SOMENTE neste histórico recente e contexto do projeto, escreva um JSON
   "anexo_sugerido": {
     "id": ID_DO_ARQUIVO,
     "nome_arquivo": "NOME_DO_ARQUIVO_EXATO (idêntico ao da lista)",
-    "caminho_arquivo": "CAMINHO_DO_ARQUIVO_EXATO (idêntico ao da lista)"
+    "caminho_arquivo": "CAMINHO_DO_ARQUIVO_EXATO (idêntico ao da lista)",
+    "pergunta_pos_anexo": "Uma pergunta curta de engajamento para fazer ao cliente logo após o envio do arquivo (ex: 'O que achou do book do Residencial Alfa?' ou 'Conseguiu dar uma olhada no vídeo?'). Obrigatório se anexo_sugerido não for null."
   } ou null,
   "dados_cliente": {
     "nome": "Nome completo ou null",

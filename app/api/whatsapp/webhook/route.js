@@ -358,23 +358,44 @@ export async function POST(request) {
                             const sendMediaResult = await sendMediaResponse.json();
                             
                             if (sendMediaResponse.ok) {
-                              console.log('[Autopilot] Anexo enviado com sucesso!');
-                              
-                              const saveAttachmentUrl = `${protocol}://${host}/api/whatsapp/save-attachment`;
-                              await fetch(saveAttachmentUrl, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                  contato_id: contatoId,
-                                  message_id: sendMediaResult.data?.messages?.[0]?.id,
-                                  storage_path: anexo.caminho_arquivo,
-                                  public_url: urlData.publicUrl,
-                                  file_name: anexo.nome_arquivo,
-                                  file_type: mediaType === 'image' ? 'image/jpeg' : mediaType === 'video' ? 'video/mp4' : 'application/pdf',
-                                  file_size: 0,
-                                  organizacao_id: config.organizacao_id
-                                })
-                              }).catch(e => console.error('[Autopilot] Erro ao salvar histórico de anexo:', e));
+                               console.log('[Autopilot] Anexo enviado com sucesso!');
+                               
+                               const saveAttachmentUrl = `${protocol}://${host}/api/whatsapp/save-attachment`;
+                               await fetch(saveAttachmentUrl, {
+                                 method: 'POST',
+                                 headers: { 'Content-Type': 'application/json' },
+                                 body: JSON.stringify({
+                                   contato_id: contatoId,
+                                   message_id: sendMediaResult.data?.messages?.[0]?.id,
+                                   storage_path: anexo.caminho_arquivo,
+                                   public_url: urlData.publicUrl,
+                                   file_name: anexo.nome_arquivo,
+                                   file_type: mediaType === 'image' ? 'image/jpeg' : mediaType === 'video' ? 'video/mp4' : 'application/pdf',
+                                   file_size: 0,
+                                   organizacao_id: config.organizacao_id
+                                 })
+                               }).catch(e => console.error('[Autopilot] Erro ao salvar histórico de anexo:', e));
+
+                               // Envio da pergunta pós-anexo se ela existir
+                               if (anexo.pergunta_pos_anexo) {
+                                 const delayPosAnexoMs = 2500;
+                                 console.log(`[Autopilot] Aguardando ${delayPosAnexoMs}ms para enviar a pergunta pós-anexo...`);
+                                 await new Promise(resolve => setTimeout(resolve, delayPosAnexoMs));
+                                 
+                                 await fetch(sendTextUrl, {
+                                   method: 'POST',
+                                   headers: { 'Content-Type': 'application/json' },
+                                   body: JSON.stringify({
+                                     to: cleanPhone,
+                                     type: 'text',
+                                     text: anexo.pergunta_pos_anexo,
+                                     contact_id: contatoId,
+                                     organizacao_id: config.organizacao_id,
+                                     usuario_id: stellaUserId
+                                   })
+                                 });
+                                 console.log(`[Autopilot] Pergunta pós-anexo enviada com sucesso: "${anexo.pergunta_pos_anexo}"`);
+                               }
                             } else {
                               console.error('[Autopilot] Erro ao enviar mídia via API:', sendMediaResult.error);
                             }
