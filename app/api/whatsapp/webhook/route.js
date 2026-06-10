@@ -200,16 +200,6 @@ export async function POST(request) {
               .update({ ia_atendimento_ativo: false })
               .eq('id', contatoId);
           }
-        } else {
-          // Se está inativo, mas o lead está atribuído à Stella IA no funil, nós ativamos.
-          if (stellaContatoId && leadCorretorId && stellaContatoId === leadCorretorId) {
-            console.log(`[Webhook] Lead ${contatoId} está atribuído à Stella IA no funil. Ativando piloto automático.`);
-            isAutopilotActive = true;
-            await supabaseAdmin
-              .from('contatos')
-              .update({ ia_atendimento_ativo: true })
-              .eq('id', contatoId);
-          }
         }
       } catch (err) {
         console.error('[Webhook] Erro ao verificar ia_atendimento_ativo / atribuição Stella:', err);

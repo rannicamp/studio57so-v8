@@ -157,6 +157,51 @@ BEGIN
             GROUP BY 1
         ) sub
     ),
+    cruzamento_objetivo_renda AS (
+        SELECT 
+            CASE 
+                WHEN UPPER(TRIM(objetivo)) = 'MORADIA' THEN 'Moradia'
+                WHEN UPPER(TRIM(objetivo)) = 'INVESTIMENTO' OR TRIM(objetivo) = 'investimento_' THEN 'Investimento'
+                WHEN objetivo IS NULL OR TRIM(objetivo) = '' THEN 'Não Informado'
+                ELSE INITCAP(LOWER(TRIM(objetivo)))
+            END as objetivo_limpo,
+            COUNT(*) FILTER (WHERE 
+                (renda_familiar > 10000) OR 
+                (meta_form_data->>'renda_familiar_bruta?' LIKE '%mais_de%')
+            ) AS mais_de_10k,
+            COUNT(*) FILTER (WHERE 
+                (renda_familiar = 10000)
+            ) AS exato_10k,
+            COUNT(*) FILTER (WHERE 
+                (renda_familiar < 10000) OR 
+                (meta_form_data->>'renda_familiar_bruta?' LIKE '%menos_de%')
+            ) AS menos_de_10k,
+            COUNT(*) FILTER (WHERE 
+                (renda_familiar IS NULL AND (meta_form_data->>'renda_familiar_bruta?' IS NULL OR (meta_form_data->>'renda_familiar_bruta?' NOT LIKE '%mais_de%' AND meta_form_data->>'renda_familiar_bruta?' NOT LIKE '%menos_de%')))
+            ) AS nao_informado
+        FROM contatos_periodo
+        GROUP BY 1
+    ),
+    totais_leads_pais AS (
+        SELECT 
+            COALESCE(
+                jsonb_object_agg(pais_nome, qtd), 
+                '{}'::jsonb
+            ) as leads_por_pais
+        FROM (
+            SELECT 
+                CASE 
+                    WHEN TRIM(t.country_code) = '+55' THEN 'Brasil'
+                    WHEN TRIM(t.country_code) = '+1' THEN 'Estados Unidos'
+                    WHEN t.country_code IS NULL OR TRIM(t.country_code) = '' THEN 'Não Informado'
+                    ELSE 'Outro (' || TRIM(t.country_code) || ')'
+                END as pais_nome,
+                COUNT(DISTINCT c.id) as qtd
+            FROM contatos_periodo c
+            LEFT JOIN telefones t ON t.contato_id = c.id
+            GROUP BY 1
+        ) sub
+    ),
     cards_do_periodo AS (
         SELECT cnf.id as contato_no_funil_id, 
                cnf.coluna_id as coluna_atual_id,
@@ -284,6 +329,16 @@ BEGIN
         'leads_por_origem', COALESCE((SELECT leads_por_origem FROM totais_leads_origem), '{}'::jsonb),
         'leads_por_objetivo', COALESCE((SELECT leads_por_objetivo FROM totais_leads_objetivo), '{}'::jsonb),
         'leads_por_renda', COALESCE((SELECT leads_por_renda FROM totais_leads_renda), '{}'::jsonb),
+        'leads_por_pais', COALESCE((SELECT leads_por_pais FROM totais_leads_pais), '{}'::jsonb),
+        'cruzamento_objetivo_renda', COALESCE((
+            SELECT jsonb_agg(jsonb_build_object(
+                'name', objetivo_limpo,
+                'Mais de R$ 10.000', mais_de_10k,
+                'R$ 10.000', exato_10k,
+                'Menos de R$ 10.000', menos_de_10k,
+                'Não Informado', nao_informado
+            )) FROM cruzamento_objetivo_renda
+        ), '[]'::jsonb),
         'total_conversas_ativas', COALESCE((SELECT total_interagidos FROM metricas_tempo), 0),
         'nosso_tempo_medio_resposta_minutos', COALESCE((SELECT tempo_nossa_resposta FROM metricas_tempo), 0),
         'tempo_medio_resposta_lead_minutos', COALESCE((SELECT tempo_espera_lead FROM metricas_tempo), 0),

@@ -195,6 +195,27 @@ function RadarPageContent() {
   };
   const chartDataRenda = formatarGraficoRenda();
 
+  const formatarGraficoCruzamento = () => {
+    if (!dadosComercial?.cruzamento_objetivo_renda) return [];
+    const ordemObjetivos = {
+      'Moradia': 1,
+      'Investimento': 2,
+      'Não Informado': 3
+    };
+    return [...dadosComercial.cruzamento_objetivo_renda].sort((a, b) => {
+      return (ordemObjetivos[a.name] || 99) - (ordemObjetivos[b.name] || 99);
+    });
+  };
+  const chartDataCruzamento = formatarGraficoCruzamento();
+
+  const formatarGraficoPaises = () => {
+    if (!dadosComercial?.leads_por_pais) return [];
+    return Object.entries(dadosComercial.leads_por_pais)
+      .map(([pais, qtd]) => ({ name: pais, value: qtd }))
+      .sort((a, b) => b.value - a.value);
+  };
+  const chartDataPaises = formatarGraficoPaises();
+
   const formatarGraficoCorretores = () => {
     if (!dadosComercial?.desempenho_corretores) return [];
     return dadosComercial.desempenho_corretores
@@ -589,62 +610,6 @@ function RadarPageContent() {
                 )}
               </div>
 
-              {/* Gráfico: Intenção de Compra (Objetivo) */}
-              <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col min-h-[300px]">
-                <h3 className="text-slate-800 font-semibold mb-6 w-full text-left">Intenção de Compra (Objetivo)</h3>
-                {isCarregando ? (
-                  <div className="flex-1 flex items-center justify-center h-full text-slate-400 text-sm">Carregando objetivos...</div>
-                ) : chartDataObjetivos.length > 0 ? (
-                  <div className="w-full flex-1 pr-6 pb-2">
-                    <ResponsiveContainer width="100%" height={Math.max(250, chartDataObjetivos.length * 45)}>
-                      <BarChart data={chartDataObjetivos} layout="vertical" margin={{ top: 0, right: 30, left: 0, bottom: 0 }}>
-                        <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f1f5f9" />
-                        <XAxis type="number" hide={true} />
-                        <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#475569', fontWeight: 600 }} width={110} />
-                        <RechartsTooltip cursor={{ fill: '#f8fafc' }} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} formatter={(value) => [`${value} Leads`, 'Volume']} />
-                        <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={24} label={{ position: 'right', fill: '#64748b', fontSize: 12, fontWeight: 700 }}>
-                          {chartDataObjetivos.map((entry, index) => {
-                            const fill = entry.name === 'Investimento' ? '#10b981' : (entry.name === 'Moradia' ? '#3b82f6' : '#94a3b8');
-                            return <Cell key={`cell-obj-${index}`} fill={fill} />;
-                          })}
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                ) : (
-                  <div className="flex-1 flex flex-col items-center justify-center p-10 gap-2"><div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center"><FontAwesomeIcon icon={faFilter} className="text-slate-300" /></div><span className="text-slate-400 text-sm">Sem objetivos detectados no CRM.</span></div>
-                )}
-              </div>
-
-              {/* Gráfico: Perfil de Renda Familiar */}
-              <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col min-h-[300px]">
-                <h3 className="text-slate-800 font-semibold mb-6 w-full text-left">Perfil de Renda Familiar</h3>
-                {isCarregando ? (
-                  <div className="flex-1 flex items-center justify-center h-full text-slate-400 text-sm">Carregando perfil de renda...</div>
-                ) : chartDataRenda.length > 0 ? (
-                  <div className="w-full flex-1 pr-6 pb-2">
-                    <ResponsiveContainer width="100%" height={Math.max(250, chartDataRenda.length * 45)}>
-                      <BarChart data={chartDataRenda} layout="vertical" margin={{ top: 0, right: 30, left: 0, bottom: 0 }}>
-                        <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f1f5f9" />
-                        <XAxis type="number" hide={true} />
-                        <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#475569', fontWeight: 600 }} width={125} />
-                        <RechartsTooltip cursor={{ fill: '#f8fafc' }} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} formatter={(value) => [`${value} Leads`, 'Volume']} />
-                        <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={24} label={{ position: 'right', fill: '#64748b', fontSize: 12, fontWeight: 700 }}>
-                          {chartDataRenda.map((entry, index) => {
-                            let fill = '#94a3b8';
-                            if (entry.name === 'Mais de R$ 10.000') fill = '#10b981';
-                            else if (entry.name === 'R$ 10.000') fill = '#3b82f6';
-                            else if (entry.name === 'Menos de R$ 10.000') fill = '#f97316';
-                            return <Cell key={`cell-renda-${index}`} fill={fill} />;
-                          })}
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                ) : (
-                  <div className="flex-1 flex flex-col items-center justify-center p-10 gap-2"><div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center"><FontAwesomeIcon icon={faFilter} className="text-slate-300" /></div><span className="text-slate-400 text-sm">Sem dados de renda detectados no CRM.</span></div>
-                )}
-              </div>
            </div>
 
            {/* --- DESEMPENHO DOS CORRETORES --- */}
@@ -844,6 +809,138 @@ function RadarPageContent() {
                     <span className="text-slate-400 text-sm">Nenhum modelo de mensagem enviado no período.</span>
                   </div>
                 )}
+              </div>
+            </section>
+
+            {/* --- SEÇÃO: ANÁLISE DE PERFIL --- */}
+            <section className="flex flex-col gap-6 w-full mt-4 animate-fade-in-up">
+              <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col w-full">
+                <div className="border-b border-slate-100 pb-4 mb-6 text-left">
+                  <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                    <FontAwesomeIcon icon={faUsers} className="text-indigo-600" />
+                    Análise de Perfil
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Qualificação dos leads captados no período por intenção de compra, perfil de renda, origem demográfica por país e cruzamentos síncronos.
+                  </p>
+                </div>
+                
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 w-full">
+                  {/* Gráfico: Intenção de Compra (Objetivo) */}
+                  <div className="bg-slate-50/50 p-4 rounded-xl border border-slate-100 flex flex-col h-[380px]">
+                    <h4 className="text-sm font-semibold text-slate-700 mb-4 text-left">Intenção de Compra (Objetivo)</h4>
+                    {isCarregando ? (
+                      <div className="flex-1 flex items-center justify-center text-slate-400 text-sm">Carregando objetivos...</div>
+                    ) : chartDataObjetivos.length > 0 ? (
+                      <div className="w-full flex-1 pr-4 pb-2">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={chartDataObjetivos} layout="vertical" margin={{ top: 0, right: 30, left: 0, bottom: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f1f5f9" />
+                            <XAxis type="number" hide={true} />
+                            <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#475569', fontWeight: 600 }} width={110} />
+                            <RechartsTooltip cursor={{ fill: '#f8fafc' }} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} formatter={(value) => [`${value} Leads`, 'Volume']} />
+                            <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={24} label={{ position: 'right', fill: '#64748b', fontSize: 12, fontWeight: 700 }}>
+                              {chartDataObjetivos.map((entry, index) => {
+                                const fill = entry.name === 'Investimento' ? '#10b981' : (entry.name === 'Moradia' ? '#3b82f6' : '#94a3b8');
+                                return <Cell key={`cell-obj-${index}`} fill={fill} />;
+                              })}
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    ) : (
+                      <div className="flex-1 flex flex-col items-center justify-center p-10 gap-2"><div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center"><FontAwesomeIcon icon={faFilter} className="text-slate-300" /></div><span className="text-slate-400 text-sm">Sem objetivos detectados no CRM.</span></div>
+                    )}
+                  </div>
+
+                  {/* Gráfico: Perfil de Renda Familiar */}
+                  <div className="bg-slate-50/50 p-4 rounded-xl border border-slate-100 flex flex-col h-[380px]">
+                    <h4 className="text-sm font-semibold text-slate-700 mb-4 text-left">Perfil de Renda Familiar</h4>
+                    {isCarregando ? (
+                      <div className="flex-1 flex items-center justify-center text-slate-400 text-sm">Carregando perfil de renda...</div>
+                    ) : chartDataRenda.length > 0 ? (
+                      <div className="w-full flex-1 pr-4 pb-2">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={chartDataRenda} layout="vertical" margin={{ top: 0, right: 30, left: 0, bottom: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f1f5f9" />
+                            <XAxis type="number" hide={true} />
+                            <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#475569', fontWeight: 600 }} width={125} />
+                            <RechartsTooltip cursor={{ fill: '#f8fafc' }} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} formatter={(value) => [`${value} Leads`, 'Volume']} />
+                            <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={24} label={{ position: 'right', fill: '#64748b', fontSize: 12, fontWeight: 700 }}>
+                              {chartDataRenda.map((entry, index) => {
+                                let fill = '#94a3b8';
+                                if (entry.name === 'Mais de R$ 10.000') fill = '#10b981';
+                                else if (entry.name === 'R$ 10.000') fill = '#3b82f6';
+                                else if (entry.name === 'Menos de R$ 10.000') fill = '#f97316';
+                                return <Cell key={`cell-renda-${index}`} fill={fill} />;
+                              })}
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    ) : (
+                      <div className="flex-1 flex flex-col items-center justify-center p-10 gap-2"><div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center"><FontAwesomeIcon icon={faFilter} className="text-slate-300" /></div><span className="text-slate-400 text-sm">Sem dados de renda detectados no CRM.</span></div>
+                    )}
+                  </div>
+
+                  {/* Gráfico: Origem por País */}
+                  <div className="bg-slate-50/50 p-4 rounded-xl border border-slate-100 flex flex-col h-[380px]">
+                    <h4 className="text-sm font-semibold text-slate-700 mb-4 text-left">Origem por País (DDI do Telefone)</h4>
+                    {isCarregando ? (
+                      <div className="flex-1 flex items-center justify-center text-slate-400 text-sm">Carregando países...</div>
+                    ) : chartDataPaises.length > 0 ? (
+                      <div className="w-full flex-1 pr-4 pb-2">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={chartDataPaises} layout="vertical" margin={{ top: 0, right: 30, left: 0, bottom: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f1f5f9" />
+                            <XAxis type="number" hide={true} />
+                            <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#475569', fontWeight: 600 }} width={120} />
+                            <RechartsTooltip cursor={{ fill: '#f8fafc' }} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} formatter={(value) => [`${value} Leads`, 'Volume']} />
+                            <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={24} label={{ position: 'right', fill: '#64748b', fontSize: 12, fontWeight: 700 }}>
+                              {chartDataPaises.map((entry, index) => {
+                                let fill = '#94a3b8';
+                                if (entry.name === 'Brasil') fill = '#10b981';
+                                else if (entry.name === 'Estados Unidos') fill = '#3b82f6';
+                                return <Cell key={`cell-pais-${index}`} fill={fill} />;
+                              })}
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    ) : (
+                      <div className="flex-1 flex flex-col items-center justify-center p-10 gap-2"><div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center"><FontAwesomeIcon icon={faFilter} className="text-slate-300" /></div><span className="text-slate-400 text-sm">Sem dados de país detectados.</span></div>
+                    )}
+                  </div>
+
+                  {/* Gráfico: Cruzamento (Empilhado) */}
+                  <div className="bg-slate-50/50 p-4 rounded-xl border border-slate-100 flex flex-col h-[380px]">
+                    <h4 className="text-sm font-semibold text-slate-700 mb-4 text-left">Cruzamento: Intenção vs Renda</h4>
+                    {isCarregando ? (
+                      <div className="flex-1 flex items-center justify-center text-slate-400 text-sm">Carregando cruzamento...</div>
+                    ) : chartDataCruzamento.length > 0 ? (
+                      <div className="w-full flex-1 pr-4 pb-2">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={chartDataCruzamento} margin={{ top: 20, right: 10, left: -20, bottom: 5 }}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
+                            <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#475569', fontWeight: 600 }} />
+                            <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#64748b' }} allowDecimals={false} />
+                            <RechartsTooltip 
+                              cursor={{ fill: 'rgba(59, 130, 246, 0.05)' }} 
+                              contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} 
+                            />
+                            <Legend verticalAlign="top" height={36} iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: 600 }} />
+                            <Bar dataKey="Mais de R$ 10.000" stackId="a" fill="#10b981" radius={[0, 0, 0, 0]} />
+                            <Bar dataKey="R$ 10.000" stackId="a" fill="#3b82f6" radius={[0, 0, 0, 0]} />
+                            <Bar dataKey="Menos de R$ 10.000" stackId="a" fill="#f97316" radius={[0, 0, 0, 0]} />
+                            <Bar dataKey="Não Informado" stackId="a" fill="#94a3b8" radius={[4, 4, 0, 0]} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    ) : (
+                      <div className="flex-1 flex flex-col items-center justify-center p-10 gap-2"><div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center"><FontAwesomeIcon icon={faFilter} className="text-slate-300" /></div><span className="text-slate-400 text-sm">Sem dados suficientes para cruzamento.</span></div>
+                    )}
+                  </div>
+                </div>
               </div>
             </section>
         </div>

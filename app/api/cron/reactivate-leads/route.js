@@ -22,7 +22,7 @@ export async function GET(request) {
   const colunaMensagemEnviadaId = '660662df-a1e1-411f-9c2c-0907fce46126'; // MENSAGEM ENVIADA
   const limiteDias = 7; // leads parados há mais de 7 dias
 
-  console.log(`[Reactivator Cron] Iniciando varredura para reativação na Org ${organizacaoId}...`);
+  console.log(`[Reactivator Cron] Varrendo leads para reativação automática da Stella na Org ${organizacaoId}...`);
 
   try {
     // Buscar o ID de usuário da Stella IA desta organização
@@ -37,14 +37,14 @@ export async function GET(request) {
     const dataLimite = new Date();
     dataLimite.setDate(dataLimite.getDate() - limiteDias);
 
-    // 2. Buscar leads na coluna MENSAGEM ENVIADA atualizados há mais de 7 dias
+    // 2. Buscar leads na coluna MENSAGEM ENVIADA atualizados há mais de 7 dias (incluindo ia_atendimento_ativo)
     const { data: leads, error: leadsError } = await supabaseAdmin
       .from('contatos_no_funil')
       .select(`
         id,
         contato_id,
         updated_at,
-        contatos(id, nome, telefone:telefones(telefone))
+        contatos(id, nome, ia_atendimento_ativo, telefone:telefones(telefone))
       `)
       .eq('organizacao_id', organizacaoId)
       .eq('coluna_id', colunaMensagemEnviadaId)
@@ -53,7 +53,7 @@ export async function GET(request) {
     if (leadsError) throw leadsError;
 
     if (!leads || leads.length === 0) {
-      return NextResponse.json({ message: 'Nenhum lead elegível para reativação encontrada.' });
+      return NextResponse.json({ message: 'Nenhum lead elegível para reativação encontrado.' });
     }
 
     console.log(`[Reactivator Cron] Encontrados ${leads.length} leads parados na coluna de Mensagem Enviada.`);
@@ -64,6 +64,12 @@ export async function GET(request) {
     for (const lead of leads) {
       const contatoId = lead.contato_id;
       const nomeCliente = lead.contatos?.nome || 'Cliente';
+
+      // 3.5. Verificar se piloto automático está ativo para o contato
+      if (!lead.contatos?.ia_atendimento_ativo) {
+        console.log(`[Reactivator Cron] Piloto automático desativado para ${nomeCliente} (Contato ID: ${contatoId}). Pulando reativação.`);
+        continue;
+      }
 
       // 4. Verificar se há alguma mensagem inbound no histórico do WhatsApp
       const { data: msgs, error: msgsError } = await supabaseAdmin
