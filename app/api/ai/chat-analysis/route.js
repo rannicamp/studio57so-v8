@@ -683,7 +683,7 @@ export async function POST(request) {
       }
 
       // 3. Gerar a reescrita da resposta comercial (Usando o Gemini 3.1 Pro para maior precisão e alinhamento às diretrizes)
-      const modelPro = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+      const modelPro = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
       
       const reversedMessages = [...(messages || [])].reverse();
       const chatLogForRewriting = reversedMessages.filter(m => m.content).map(m => {
@@ -1060,7 +1060,7 @@ ${metaFormString}
 
     // 4. Invocar a IA (Voltando para gemini-3.1-pro-preview por preferência comercial)
     const model = genAI.getGenerativeModel({
-      model: 'gemini-1.5-flash',
+      model: 'gemini-2.5-flash',
       generationConfig: {
         responseMimeType: "application/json",
       }
