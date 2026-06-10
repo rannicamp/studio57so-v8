@@ -367,9 +367,14 @@ export async function POST(request) {
                     }
                   }
                 }
+              } else {
+                const errText = await aiResponse.text().catch(() => 'Erro desconhecido');
+                console.error(`[Autopilot Error] Falha na API comercial chat-analysis (Status ${aiResponse.status}): ${errText}`);
+                await executarTransbordoEmergencia(supabaseAdmin, contatoId, config, message.from, stellaUserId, protocol, host, `Status ${aiResponse.status} - ${errText}`);
               }
             } catch (autopilotErr) {
-              console.error('[Autopilot Async Error]', autopilotErr);
+              console.error('[Autopilot Async Error] Falha de conexão ou erro no piloto automático:', autopilotErr);
+              await executarTransbordoEmergencia(supabaseAdmin, contatoId, config, message.from, stellaUserId, protocol, host, autopilotErr.message);
             }
           }
         });
@@ -402,5 +407,88 @@ export async function POST(request) {
     console.error('[Webhook] Erro Fatal:', error);
     try { await logWebhook(supabaseAdmin, 'FATAL', 'Crash no Webhook', { error: error.message }); } catch (e) { }
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
+
+// --- FUNÇÃO DE EMERGÊNCIA: EVITA VÁCUO DE CLIENTE SE A IA FALHAR (DUNNING/GOOGLE 503) ---
+async function executarTransbordoEmergencia(supabaseAdmin, contatoId, config, fromPhone, stellaUserId, protocol, host, motivoErro) {
+  console.log(`[Autopilot Emergência] Executando transbordo de emergência para o contato ${contatoId}. Motivo: ${motivoErro}`);
+  
+  const cleanPhone = (fromPhone || '').replace(/[^0-9]/g, '');
+  const sendTextUrl = `${protocol}://${host}/api/whatsapp/send`;
+  
+  // 1. Enviar mensagem de fallback
+  const textoFallback = "Olá! Notei uma pequena oscilação temporária no meu sistema de dados agora. Para não te deixar esperando, já chamei um de nossos corretores para falar com você em instantes! Obrigado pela paciência. 🙏";
+  
+  try {
+    const sendResponse = await fetch(sendTextUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        to: cleanPhone,
+        type: 'text',
+        text: textoFallback,
+        contact_id: contatoId,
+        organizacao_id: config.organizacao_id,
+        usuario_id: stellaUserId
+      })
+    });
+    
+    if (sendResponse.ok) {
+      console.log(`[Autopilot Emergência] Mensagem de fallback enviada para ${cleanPhone}.`);
+    } else {
+      const errText = await sendResponse.text();
+      console.error(`[Autopilot Emergência Error] Falha ao enviar mensagem de fallback:`, errText);
+    }
+  } catch (errSend) {
+    console.error(`[Autopilot Emergência Error] Erro de rede ao enviar fallback:`, errSend.message);
+  }
+
+  // 2. Mover lead para a coluna INTERVENÇÃO HUMANA (7de9b5b4-05fa-4813-82d8-7790406ee268)
+  try {
+    const { data: funil } = await supabaseAdmin
+      .from('contatos_no_funil')
+      .select('id')
+      .eq('contato_id', contatoId)
+      .limit(1);
+      
+    const funilRecord = funil?.[0];
+    const colunaIntervencaoId = '7de9b5b4-05fa-4813-82d8-7790406ee268';
+    
+    if (funilRecord) {
+      await supabaseAdmin
+        .from('contatos_no_funil')
+        .update({ coluna_id: colunaIntervencaoId, updated_at: new Date().toISOString() })
+        .eq('id', funilRecord.id);
+        
+      console.log(`[Autopilot Emergência] Lead movido para a coluna INTERVENÇÃO HUMANA no funil.`);
+
+      // 3. Gravar nota no CRM explicando a falha técnica
+      await supabaseAdmin
+        .from('crm_notas')
+        .insert({
+          contato_id: contatoId,
+          contato_no_funil_id: funilRecord.id,
+          conteudo: `🤖 [Autotransbordo Emergencial] O piloto automático Stella foi desligado temporariamente porque a API de IA do Gemini/Google retornou erro ou ficou indisponível (${motivoErro}). O lead foi encaminhado automaticamente para atendimento humano para evitar vácuo de resposta.`,
+          usuario_id: stellaUserId || null,
+          organizacao_id: config.organizacao_id
+        });
+        
+      console.log(`[Autopilot Emergência] Nota de CRM registrada.`);
+    }
+  } catch (errDb) {
+    console.error(`[Autopilot Emergência Error] Erro ao atualizar banco de dados:`, errDb.message);
+  }
+
+  // 4. Desativar piloto automático para o contato
+  try {
+    await supabaseAdmin
+      .from('contatos')
+      .update({ ia_atendimento_ativo: false })
+      .eq('id', contatoId);
+    console.log(`[Autopilot Emergência] Piloto automático desativado (ia_atendimento_ativo = false).`);
+  } catch (errAtivo) {
+    console.error(`[Autopilot Emergência Error] Erro ao desativar ia_atendimento_ativo:`, errAtivo.message);
   }
 }

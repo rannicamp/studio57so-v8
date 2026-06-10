@@ -1296,8 +1296,39 @@ Com base SOMENTE neste histórico recente e contexto do projeto, escreva um JSON
     }
     promptContent.push({ text: prompt });
 
-    const result = await model.generateContent(promptContent);
-    const textOutput = result.response.text();
+    let result;
+    let textOutput = '';
+    
+    try {
+      console.log('[Stella AI] Tentando gerar resposta com o modelo primário gemini-2.5-flash...');
+      result = await model.generateContent(promptContent);
+      textOutput = result.response.text();
+    } catch (primaryErr) {
+      console.warn(`[Stella AI Warning] Falha no modelo primário gemini-2.5-flash (Erro: ${primaryErr.message}). Acionando fallback para gemini-1.5-flash...`);
+      try {
+        const fallbackModel1 = genAI.getGenerativeModel({
+          model: 'gemini-1.5-flash',
+          generationConfig: { responseMimeType: "application/json" }
+        });
+        result = await fallbackModel1.generateContent(promptContent);
+        textOutput = result.response.text();
+        console.log('[Stella AI] Sucesso no fallback com gemini-1.5-flash!');
+      } catch (fallbackErr1) {
+        console.warn(`[Stella AI Warning] Falha no fallback gemini-1.5-flash (Erro: ${fallbackErr1.message}). Tentando gemini-1.5-pro...`);
+        try {
+          const fallbackModel2 = genAI.getGenerativeModel({
+            model: 'gemini-1.5-pro',
+            generationConfig: { responseMimeType: "application/json" }
+          });
+          result = await fallbackModel2.generateContent(promptContent);
+          textOutput = result.response.text();
+          console.log('[Stella AI] Sucesso no fallback com gemini-1.5-pro!');
+        } catch (fallbackErr2) {
+          console.error('[Stella AI Fatal Error] Todos os modelos de IA falharam (gemini-2.5-flash, gemini-1.5-flash, gemini-1.5-pro).');
+          throw new Error(`Serviço de IA Indisponível: ${fallbackErr2.message}`);
+        }
+      }
+    }
     
     let parsedResult;
     try {
