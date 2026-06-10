@@ -5,6 +5,57 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 // Instância do SDK do Gemini
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
+// Função auxiliar para calcular e registrar o custo de tokens da API do Gemini
+function calcularERegistrarCusto(result, modelName, context, contatoId, organizacaoId, supabaseAdmin) {
+  try {
+    const usageMetadata = result?.response?.usageMetadata;
+    if (!usageMetadata) return null;
+
+    const inputTokens = usageMetadata.promptTokenCount || 0;
+    const outputTokens = usageMetadata.candidatesTokenCount || 0;
+
+    // Configuração de precificação por milhão de tokens
+    const pricingTable = {
+      'gemini-1.5-flash': { input: 0.075, output: 0.30 },
+      'gemini-1.5-pro': { input: 1.25, output: 5.00 },
+      'gemini-2.5-flash': { input: 0.30, output: 2.50 },
+      'gemini-2.5-pro': { input: 1.25, output: 10.00 },
+      'gemini-3.1-flash-lite': { input: 0.25, output: 1.50 },
+      'gemini-3.1-flash-lite-preview': { input: 0.25, output: 1.50 },
+      'gemini-3.1-pro': { input: 2.00, output: 12.00 },
+      'gemini-3.5-flash': { input: 1.50, output: 9.00 }
+    };
+
+    const rates = pricingTable[modelName] || pricingTable['gemini-2.5-flash'];
+    const inputCost = inputTokens * (rates.input / 1000000);
+    const outputCost = outputTokens * (rates.output / 1000000);
+    const costUSD = parseFloat((inputCost + outputCost).toFixed(8));
+
+    // Salvar log na tabela app_logs de forma assíncrona
+    supabaseAdmin.from('app_logs').insert({
+      origem: 'GEMINI COST',
+      mensagem: `Custo da Stella (${modelName}) - ${context} para o contato ID ${contatoId}: $${costUSD.toFixed(6)} USD (Tokens: ${inputTokens} entrada / ${outputTokens} saída)`,
+      payload: {
+        contato_id: contatoId,
+        organizacao_id: organizacaoId,
+        model: modelName,
+        context: context,
+        input_tokens: inputTokens,
+        output_tokens: outputTokens,
+        cost_usd: costUSD
+      },
+      organizacao_id: organizacaoId
+    }).then(({ error }) => {
+      if (error) console.error('[Stella AI Cost Log Error] Falha ao salvar log de custo:', error.message);
+    });
+
+    return { costUSD, inputTokens, outputTokens };
+  } catch (err) {
+    console.error('[Stella AI Cost Log Utility Error] Erro ao calcular/registrar custo:', err);
+    return null;
+  }
+}
+
 // Função auxiliar para obter ou criar o registro da Stella na tabela funcionarios
 async function obterOuCriarFuncionarioStella(supabaseAdmin, organizacaoId, contatoId) {
   const emailStella = `stella.org${organizacaoId}@elo57.com.br`;
@@ -682,8 +733,9 @@ export async function POST(request) {
         }
       }
 
-      // 3. Gerar a reescrita da resposta comercial (Usando o Gemini 3.1 Pro para maior precisão e alinhamento às diretrizes)
-      const modelPro = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+      // 3. Gerar a reescrita da resposta comercial (Modelo dinâmico)
+      const geminiModel = process.env.GEMINI_MODEL || 'gemini-3.1-flash-lite';
+      const modelPro = genAI.getGenerativeModel({ model: geminiModel });
       
       const reversedMessages = [...(messages || [])].reverse();
       const chatLogForRewriting = reversedMessages.filter(m => m.content).map(m => {
@@ -718,6 +770,10 @@ Retorne rigorosamente um objeto JSON nos seguintes moldes:
       let respostaSugeridaReescrita = "";
       try {
         const rewriteResult = await modelPro.generateContent([{ text: reescreverPrompt }]);
+        
+        // Logar custo de tokens
+        calcularERegistrarCusto(rewriteResult, geminiModel, 'Active Learning - Reescrita', contato_id, organizacao_id, supabaseAdmin);
+        
         const rewriteText = rewriteResult.response.text();
         const cleanRewrite = rewriteText.replace(/```json/gi, '').replace(/```/gi, '').trim();
         const parsedRewrite = JSON.parse(cleanRewrite);
@@ -750,13 +806,17 @@ Instruções:
 
         try {
           const learnResult = await modelPro.generateContent([{ text: aprenderPrompt }]);
+          
+          // Logar custo de tokens
+          calcularERegistrarCusto(learnResult, geminiModel, 'Active Learning - Enriquecimento Dossiê', contato_id, organizacao_id, supabaseAdmin);
+          
           const novoDossie = learnResult.response.text().trim();
           
           if (novoDossie && novoDossie.length > 50) {
             const { error: learnUpdateError } = await supabaseAdmin
               .from('empreendimentos')
               .update({ dossie_ia: novoDossie })
-              .eq('id', empIdParaAtualizar);
+              .eq('id', empIdParaAtualizar); // Segurança: mantendo a integridade se for arquivado ou atualizado
               
             if (learnUpdateError) {
               console.error('[Stella AI Active Learning] Erro ao atualizar dossie no banco:', learnUpdateError.message);
@@ -1058,9 +1118,10 @@ Instruções:
 ${metaFormString}
     `;
 
-    // 4. Invocar a IA (Voltando para gemini-3.1-pro-preview por preferência comercial)
+    // 4. Invocar a IA (Modelo configurável)
+    const geminiModel = process.env.GEMINI_MODEL || 'gemini-3.1-flash-lite';
     const model = genAI.getGenerativeModel({
-      model: 'gemini-2.5-flash',
+      model: geminiModel,
       generationConfig: {
         responseMimeType: "application/json",
       }
@@ -1306,12 +1367,9 @@ Com base SOMENTE neste histórico recente e contexto do projeto, escreva um JSON
 
     let result;
     let textOutput = '';
-    const maxRetries = 3;
-    const retryDelayMs = 5000; // 5 segundos de espera entre as tentativas locais
-
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        console.log(`[Stella AI] Tentando gerar resposta com gemini-2.5-flash (Tentativa ${attempt}/${maxRetries})...`);
+        console.log(`[Stella AI] Tentando gerar resposta com ${geminiModel} (Tentativa ${attempt}/${maxRetries})...`);
         result = await model.generateContent(promptContent);
         textOutput = result.response.text();
         console.log(`[Stella AI] Resposta gerada com sucesso na tentativa ${attempt}!`);
@@ -1319,12 +1377,33 @@ Com base SOMENTE neste histórico recente e contexto do projeto, escreva um JSON
       } catch (err) {
         console.warn(`[Stella AI Warning] Falha na tentativa ${attempt}/${maxRetries} (Erro: ${err.message})`);
         if (attempt === maxRetries) {
-          console.error('[Stella AI Fatal Error] Todas as tentativas locais com gemini-2.5-flash falharam.');
-          throw new Error(`Serviço de IA Indisponível (gemini-2.5-flash): ${err.message}`);
+          console.error(`[Stella AI Fatal Error] Todas as tentativas locais com ${geminiModel} falharam.`);
+          throw new Error(`Serviço de IA Indisponível (${geminiModel}): ${err.message}`);
         }
         console.log(`[Stella AI] Aguardando ${retryDelayMs / 1000}s antes de tentar novamente...`);
         await new Promise(resolve => setTimeout(resolve, retryDelayMs));
       }
+    }
+
+    // --- CÁLCULO E LOG DE CUSTO DA CHAMADA ---
+    let custoChamada = 0;
+    let novoCustoAcumulado = 0;
+    let inputTokens = 0;
+    let outputTokens = 0;
+
+    try {
+      const costInfo = calcularERegistrarCusto(result, geminiModel, 'Chat Autônomo', contato_id, organizacao_id, supabaseAdmin);
+      if (costInfo) {
+        custoChamada = costInfo.costUSD;
+        inputTokens = costInfo.inputTokens;
+        outputTokens = costInfo.outputTokens;
+        
+        const oldAnalysis = contatoInfo?.ai_analysis || {};
+        const custoAnterior = oldAnalysis.custo_gemini_acumulado || 0;
+        novoCustoAcumulado = parseFloat((custoAnterior + custoChamada).toFixed(8));
+      }
+    } catch (costErr) {
+      console.error('[Stella AI Cost Error] Erro ao processar custos da chamada:', costErr);
     }
     
     let parsedResult;
@@ -1682,6 +1761,19 @@ Com base SOMENTE neste histórico recente e contexto do projeto, escreva um JSON
     const mergedAnalysis = {
       ...oldAnalysis,
       ...finalAnalysis,
+      // Custos e contagem de tokens do Gemini
+      custo_gemini_chamada_atual: custoChamada,
+      custo_gemini_acumulado: novoCustoAcumulado > 0 ? novoCustoAcumulado : (oldAnalysis.custo_gemini_acumulado || 0),
+      tokens_chamada_atual: {
+        input: inputTokens,
+        output: outputTokens,
+        total: inputTokens + outputTokens
+      },
+      tokens_acumulado: {
+        input: (oldAnalysis.tokens_acumulado?.input || 0) + inputTokens,
+        output: (oldAnalysis.tokens_acumulado?.output || 0) + outputTokens,
+        total: (oldAnalysis.tokens_acumulado?.total || 0) + inputTokens + outputTokens
+      },
       // Se last_scheduled_message_id foi definido nesta rodada ou existia na rodada antiga
       last_scheduled_message_id: finalAnalysis.last_scheduled_message_id || oldAnalysis.last_scheduled_message_id || null
     };

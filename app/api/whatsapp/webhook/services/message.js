@@ -61,7 +61,7 @@ export async function handleMessageInsert(supabaseAdmin, message, config, contat
   // 1. Hook de Transcrição para Áudios (Gemini)
   let finalContent = content; // texto original se houver legenda 
   if (['audio', 'voice'].includes(message.type)) {
-     const transcricao = await transcribeAudioSync(mediaData.publicUrl, mediaData.mimeType);
+     const transcricao = await transcribeAudioSync(mediaData.publicUrl, mediaData.mimeType, contatoId, config.organizacao_id);
      if (transcricao) {
         finalContent = `🎙️ *Transcrição:* _${transcricao}_`;
      } else {
