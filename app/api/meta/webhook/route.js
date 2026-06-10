@@ -476,34 +476,48 @@ async function processWebhook(body) {
       }
     }
 
-    // 3g. AUTOMACAO DE RODIZIO: Atribuir corretor automaticamente
-    const { data: configRodizio } = await supabase
-      .from('crm_rodizio_config')
-      .select('is_active')
-      .eq('organizacao_id', orgId)
-      .maybeSingle();
+    // 3g. ATRIBUIÇÃO AUTOMÁTICA DA STELLA IA (Ponto de Entrada Único)
+    let stellaContatoId = null;
+    try {
+      const { data: stellaUser, error: stellaErr } = await supabase
+        .from('usuarios')
+        .select('contato_id')
+        .eq('email', `stella.org${orgId}@elo57.com.br`)
+        .maybeSingle();
 
-    if (configRodizio?.is_active) {
-      const { data: rodizioResult, error: rodizioError } = await supabase
-        .rpc('fn_distribuir_lead_rodizio', { p_organizacao_id: orgId });
-
-      if (rodizioError) {
-        console.error(`[Org ${orgId}] Erro ao buscar corretor no rodizio:`, rodizioError.message);
-      } else if (rodizioResult && rodizioResult.length > 0 && rodizioResult[0].contato_id) {
-        const corretorAtribuidoId = rodizioResult[0].contato_id;
-        const { error: updateError } = await supabase
-          .from('contatos_no_funil')
-          .update({ corretor_id: corretorAtribuidoId })
-          .eq('id', funilEntry.id);
+      if (stellaErr) {
+        console.error(`[Org ${orgId}] Erro ao buscar Stella IA:`, stellaErr.message);
+      } else if (stellaUser?.contato_id) {
+        stellaContatoId = stellaUser.contato_id;
         
-        if (updateError) {
-          console.error(`[Org ${orgId}] Erro ao vincular corretor do rodizio ao lead:`, updateError.message);
+        // Atribui a Stella IA como corretora inicial do lead no funil
+        const { error: updateFunnelErr } = await supabase
+          .from('contatos_no_funil')
+          .update({ corretor_id: stellaContatoId })
+          .eq('id', funilEntry.id);
+
+        if (updateFunnelErr) {
+          console.error(`[Org ${orgId}] Erro ao atribuir Stella como corretora do funil:`, updateFunnelErr.message);
         } else {
-          console.log(`[Org ${orgId}] Corretor (contato_id=${corretorAtribuidoId}) atribuido ao lead via Rodizio.`);
+          console.log(`[Org ${orgId}] Stella IA (contato_id=${stellaContatoId}) atribuida como corretora inicial do lead.`);
         }
+
+        // Ativa o piloto automático (ia_atendimento_ativo = true) para o lead na public.contatos
+        const { error: updateContactErr } = await supabase
+          .from('contatos')
+          .update({ ia_atendimento_ativo: true })
+          .eq('id', contactIdToUse);
+
+        if (updateContactErr) {
+          console.error(`[Org ${orgId}] Erro ao ativar piloto automatico para o lead:`, updateContactErr.message);
+        } else {
+          console.log(`[Org ${orgId}] Piloto automatico Stella IA ativado para o lead.`);
+        }
+      } else {
+        console.warn(`[Org ${orgId}] Stella IA nao encontrada para esta organizacao (email: stella.org${orgId}@elo57.com.br). O lead ficara sem corretor inicial.`);
       }
-    } else {
-      console.log(`[Org ${orgId}] Rodizio inativo. Nenhum corretor atribuido automaticamente.`);
+    } catch (errStella) {
+      console.error(`[Org ${orgId}] Falha ao associar Stella IA na entrada do lead:`, errStella.message);
     }
 
     // 3h. AUTOMACAO WHATSAPP (Boas vindas / Criação de Card)
