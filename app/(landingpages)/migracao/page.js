@@ -17,7 +17,7 @@ const montserrat = Montserrat({
 
 // URLs das Logos
 const LOGO_ALFA = "https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/1/IMG_1759008548201.png";
-const LOGO_BETA = "https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/LOGO-P_1764944035362.png";
+const LOGO_BETA = "https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/anexos/1777578206822_BETA_LOGO_BRANCA.png";
 const LOGO_STUDIO57 = "https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/1/IMG_1759092334426.PNG";
 
 export default function PlanoMigracaoPage() {

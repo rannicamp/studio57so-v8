@@ -32,7 +32,7 @@ const empreendimentos = [
     status: 'PRÉ-LANÇAMENTO',
     statusColor: 'bg-blue-600',
     imagemUrl: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/anexos/beta_sunset_fachada.jpeg',
-    logoUrl: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/LOGO-P_1764944035362.png',
+    logoUrl: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/anexos/1777578206822_BETA_LOGO_BRANCA.png',
     descricao: 'Suítes inteligentes de 28 a 32m² no Alto Esplanada. Desenvolvido sob medida para investidores focados em renda passiva recorrente por meio de locações de curta ou longa temporada.',
     caracteristicas: ['Suítes Inteligentes', 'Piscina de Borda Infinita', 'Rooftop Gourmet', 'Lavanderia Compartilhada'],
     link: '/betasuites'
