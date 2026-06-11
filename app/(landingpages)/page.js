@@ -41,8 +41,8 @@ const empreendimentosData = [
   status: 'PRÉ-LANÇAMENTO',
   statusColor: 'bg-blue-600',
   imagemUrl: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/anexos/beta_sunset_fachada.jpeg',
-  logoUrl: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/LOGO-P_1764944035362.png',
-  descricao: 'Suítes de 23 a 32m² no Alto Esplanada. Investimento inteligente com foco em renda passiva.',
+  logoUrl: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/anexos/1777578206822_BETA_LOGO_BRANCA.png',
+  descricao: 'Suítes de 28 a 32m² no Alto Esplanada. Investimento inteligente com foco em renda passiva.',
   link: '/betasuites',
   action: 'link'
   },
