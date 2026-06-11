@@ -1,5 +1,5 @@
 // components/crm/RodizioConfigModal.js
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSync, faTimes, faSearch, faTrash, faSpinner, faUsers } from '@fortawesome/free-solid-svg-icons';
 import { createClient } from '@/utils/supabase/client';
@@ -10,6 +10,8 @@ export default function RodizioConfigModal({ isOpen, onClose, organizacaoId }) {
   const supabase = createClient();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedFunilId, setSelectedFunilId] = useState('');
+  const [selectedColunaId, setSelectedColunaId] = useState('');
 
   // Busca os usuários da organização (com contatos vinculados)
   const { data: usuarios = [], isLoading: isLoadingUsers } = useQuery({
@@ -52,20 +54,54 @@ export default function RodizioConfigModal({ isOpen, onClose, organizacaoId }) {
     enabled: isOpen && !!organizacaoId
   });
 
-  // Mutação para salvar a lista de rodízio
+  // Busca todos os funis da organização
+  const { data: funis = [], isLoading: isLoadingFunis } = useQuery({
+    queryKey: ['funisRodizio', organizacaoId],
+    queryFn: async () => {
+      if (!organizacaoId) return [];
+      const { data, error } = await supabase
+        .from('funis')
+        .select('id, nome')
+        .eq('organizacao_id', organizacaoId);
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: isOpen && !!organizacaoId
+  });
+
+  // Busca todas as colunas de todos os funis da organização
+  const { data: colunas = [], isLoading: isLoadingColunas } = useQuery({
+    queryKey: ['colunasRodizio', organizacaoId],
+    queryFn: async () => {
+      if (!organizacaoId) return [];
+      const { data, error } = await supabase
+        .from('colunas_funil')
+        .select('id, nome, funil_id')
+        .eq('organizacao_id', organizacaoId)
+        .order('ordem', { ascending: true });
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: isOpen && !!organizacaoId
+  });
+
+  // Mutação para salvar as configurações de rodízio
   const saveRodizioMutation = useMutation({
-    mutationFn: async (novoRodizio) => {
+    mutationFn: async ({ novoRodizio, novasColunas }) => {
       const { error } = await supabase
         .from('crm_rodizio_config')
         .upsert({
           organizacao_id: organizacaoId,
           is_active: true,
           fila_usuarios_ids: novoRodizio,
+          colunas_rodizio: novasColunas,
           ultimo_indice_atendido: configRodizio?.ultimo_indice_atendido || -1
         }, { onConflict: 'organizacao_id' });
 
       if (error) throw error;
-      return novoRodizio;
+      return { fila_usuarios_ids: novoRodizio, colunas_rodizio: novasColunas };
     },
     onSuccess: () => {
       toast.success('Rodízio atualizado com sucesso!');
@@ -97,6 +133,7 @@ export default function RodizioConfigModal({ isOpen, onClose, organizacaoId }) {
   if (!isOpen) return null;
 
   const currentListIds = configRodizio?.fila_usuarios_ids || [];
+  const activeColumnsList = configRodizio?.colunas_rodizio || [];
   const isActive = configRodizio?.is_active || false;
 
   const handleToggleUser = (userId) => {
@@ -106,7 +143,32 @@ export default function RodizioConfigModal({ isOpen, onClose, organizacaoId }) {
     } else {
       newList.push(userId);
     }
-    saveRodizioMutation.mutate(newList);
+    saveRodizioMutation.mutate({
+      novoRodizio: newList,
+      novasColunas: activeColumnsList
+    });
+  };
+
+  const handleAddColunaRodizio = () => {
+    if (!selectedColunaId) return;
+    if (activeColumnsList.includes(selectedColunaId)) {
+      toast.warning('Esta coluna já está no rodízio.');
+      return;
+    }
+    const newList = [...activeColumnsList, selectedColunaId];
+    saveRodizioMutation.mutate({
+      novoRodizio: currentListIds,
+      novasColunas: newList
+    });
+    setSelectedColunaId('');
+  };
+
+  const handleRemoveColunaRodizio = (colId) => {
+    const newList = activeColumnsList.filter(id => id !== colId);
+    saveRodizioMutation.mutate({
+      novoRodizio: currentListIds,
+      novasColunas: newList
+    });
   };
 
   const filteredUsers = usuarios.filter(u => {
@@ -135,6 +197,7 @@ export default function RodizioConfigModal({ isOpen, onClose, organizacaoId }) {
 
         <div className="p-6 overflow-y-auto flex-grow bg-gray-50 flex flex-col gap-6">
           
+          {/* Status do Rodízio */}
           <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
              <div className="flex items-center justify-between mb-2">
                 <div>
@@ -142,14 +205,106 @@ export default function RodizioConfigModal({ isOpen, onClose, organizacaoId }) {
                    <p className="text-sm text-gray-500">Distribui novos leads sequencialmente entre a lista de corretores ativos.</p>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
-                  <input type="checkbox" className="sr-only peer" checked={isActive} onChange={(e) => toggleRodizioAtivoMutation.mutate(e.target.checked)} />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                   <input type="checkbox" className="sr-only peer" checked={isActive} onChange={(e) => toggleRodizioAtivoMutation.mutate(e.target.checked)} />
+                   <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
                 </label>
              </div>
           </div>
 
+          {/* Colunas do Rodízio (Configuração Dinâmica) */}
           <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col gap-4">
-            <h4 className="font-bold text-gray-800 text-base">Gerenciar Fila ({currentListIds.length} ativos)</h4>
+            <div>
+              <h4 className="font-bold text-gray-800 text-base">Colunas Ativas para o Rodízio</h4>
+              <p className="text-sm text-gray-500">Selecione as colunas onde o rodízio comercial automático (transbordo da Stella) será aplicado.</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-bold text-gray-600">Funil</label>
+                <select
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                  value={selectedFunilId}
+                  onChange={(e) => {
+                    setSelectedFunilId(e.target.value);
+                    const colsDoFunil = colunas.filter(c => c.funil_id === e.target.value);
+                    setSelectedColunaId(colsDoFunil[0]?.id || '');
+                  }}
+                  disabled={isLoadingFunis}
+                >
+                  <option value="">Selecione um funil...</option>
+                  {funis.map(f => (
+                    <option key={f.id} value={f.id}>{f.nome}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-bold text-gray-600">Coluna</label>
+                <select
+                  className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                  value={selectedColunaId}
+                  onChange={(e) => setSelectedColunaId(e.target.value)}
+                  disabled={!selectedFunilId || isLoadingColunas}
+                >
+                  <option value="">Selecione uma coluna...</option>
+                  {colunas
+                    .filter(c => c.funil_id === selectedFunilId)
+                    .map(c => (
+                      <option key={c.id} value={c.id}>{c.nome}</option>
+                    ))}
+                </select>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleAddColunaRodizio}
+              disabled={!selectedColunaId || saveRodizioMutation.isPending}
+              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold py-2.5 px-4 rounded-lg transition-colors disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed"
+            >
+              Adicionar Coluna ao Rodízio
+            </button>
+
+            {/* Listagem das colunas configuradas */}
+            <div className="border border-gray-200 rounded-lg overflow-hidden flex flex-col">
+              <div className="divide-y divide-gray-100 max-h-40 overflow-y-auto">
+                {activeColumnsList.length === 0 ? (
+                  <div className="p-4 text-center text-gray-400 text-xs">
+                    Nenhuma coluna customizada configurada. Usando as padrões de sistema (Intervenção Humana e Cliente Potencial).
+                  </div>
+                ) : (
+                  activeColumnsList.map(colId => {
+                    const colInfo = colunas.find(c => c.id === colId);
+                    const funilInfo = funis.find(f => f.id === colInfo?.funil_id);
+                    return (
+                      <div key={colId} className="flex justify-between items-center p-3 text-xs bg-gray-50 hover:bg-gray-100 transition-colors">
+                        <div className="flex flex-col">
+                          <span className="font-bold text-gray-700">{colInfo?.nome || 'Coluna Desconhecida'}</span>
+                          <span className="text-gray-400">Funil: {funilInfo?.nome || 'Desconhecido'}</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveColunaRodizio(colId)}
+                          disabled={saveRodizioMutation.isPending}
+                          className="text-red-500 hover:text-red-700 p-1.5 transition-colors disabled:text-gray-300"
+                          title="Remover Coluna"
+                        >
+                          <FontAwesomeIcon icon={faTrash} />
+                        </button>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Gerenciar Fila de Corretores */}
+          <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm flex flex-col gap-4">
+            <div>
+              <h4 className="font-bold text-gray-800 text-base">Gerenciar Fila ({currentListIds.length} ativos)</h4>
+              <p className="text-sm text-gray-500">Adicione os corretores na fila circular na ordem desejada.</p>
+            </div>
             
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -200,8 +355,9 @@ export default function RodizioConfigModal({ isOpen, onClose, organizacaoId }) {
                           </span>
                         </div>
                         <button
+                          type="button"
                           onClick={() => handleToggleUser(u.id)}
-                          disabled={!u.contato_id}
+                          disabled={!u.contato_id || saveRodizioMutation.isPending}
                           className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${
                             !u.contato_id 
                               ? 'bg-gray-100 text-gray-400 cursor-not-allowed'

@@ -109,6 +109,7 @@ async function sendTemplateMessage(supabaseAdmin, config, to, contato, templateN
 
     if (!response.ok) {
       console.error(`❌ [WhatsApp Webhook] Erro API:`, responseData.error?.message);
+      return false;
     } else {
       console.log(`✅ [WhatsApp Webhook] Automação enviada para ${to}`);
       const messageId = responseData.messages?.[0]?.id;
@@ -125,9 +126,11 @@ async function sendTemplateMessage(supabaseAdmin, config, to, contato, templateN
           console.log(`✅ [WhatsApp Webhook] Mensagem de boas-vindas gravada no banco para o contato ${contato.id}`);
         }
       }
+      return true;
     }
   } catch (error) {
     console.error(`❌ [WhatsApp Webhook] Erro de rede:`, error);
+    return false;
   }
 }
 
@@ -175,6 +178,61 @@ async function getOrgEntryColumnId(supabase, orgId) {
   }
 
   console.error(`[Org ${orgId}] ERRO: Nenhuma coluna ENTRADA encontrada.`);
+  return null;
+}
+
+/**
+ * Busca a coluna MENSAGEM ENVIADA do Funil de Vendas da organizacao.
+ */
+async function getOrgMensagemEnviadaColumnId(supabase, orgId) {
+  // 1. Tentar buscar pelo nome da coluna 'MENSAGEM ENVIADA' no 'Funil de Vendas' daquela org
+  try {
+    const { data: funilVendas } = await supabase
+      .from('funis')
+      .select('id')
+      .eq('organizacao_id', orgId)
+      .eq('nome', 'Funil de Vendas')
+      .maybeSingle();
+
+    if (funilVendas) {
+      const { data: coluna } = await supabase
+        .from('colunas_funil')
+        .select('id')
+        .eq('funil_id', funilVendas.id)
+        .eq('nome', 'MENSAGEM ENVIADA')
+        .maybeSingle();
+      if (coluna) {
+        console.log(`[Org ${orgId}] MENSAGEM ENVIADA via Funil de Vendas, coluna id=${coluna.id}`);
+        return coluna.id;
+      }
+    }
+  } catch (err) {
+    console.error(`[WhatsApp Webhook] Erro ao buscar coluna MENSAGEM ENVIADA para Org ${orgId}:`, err.message);
+  }
+
+  // 2. Se for a Org 2 (Studio 57), usar o ID hardcoded padrão como fallback seguro
+  if (Number(orgId) === 2) {
+    return '660662df-a1e1-411f-9c2c-0907fce46126';
+  }
+
+  // 3. Fallback genérico: busca qualquer coluna chamada 'MENSAGEM ENVIADA' pertencente à org
+  try {
+    const { data: fallback } = await supabase
+      .from('colunas_funil')
+      .select('id')
+      .eq('organizacao_id', orgId)
+      .eq('nome', 'MENSAGEM ENVIADA')
+      .limit(1)
+      .maybeSingle();
+    if (fallback) {
+      console.warn(`[Org ${orgId}] Fallback: usando coluna MENSAGEM ENVIADA por nome de coluna, id=${fallback.id}.`);
+      return fallback.id;
+    }
+  } catch (err) {
+    console.error(`[WhatsApp Webhook] Erro ao buscar fallback de coluna MENSAGEM ENVIADA para Org ${orgId}:`, err.message);
+  }
+
+  console.error(`[Org ${orgId}] ERRO: Nenhuma coluna MENSAGEM ENVIADA encontrada.`);
   return null;
 }
 
@@ -535,15 +593,16 @@ async function processWebhook(body) {
         for (const regra of automacoes) {
           if (regra.acao_tipo === 'ENVIAR_WHATSAPP') {
             
-            const condicoes = regra.gatilho_config?.condicoes;
-            if (condicoes) {
+            const condicoes = rule => rule.gatilho_config?.condicoes;
+            const condicoesData = condicoes(regra);
+            if (condicoesData) {
               let match = true;
-              if (condicoes.tipo && condicoes.tipo.toLowerCase() !== 'lead') match = false;
+              if (condicoesData.tipo && condicoesData.tipo.toLowerCase() !== 'lead') match = false;
               
               const origemContato = leadDetails.is_organic ? 'Meta Lead Organico' : 'Meta Lead Ad';
-              if (condicoes.origem && condicoes.origem !== origemContato) match = false;
+              if (condicoesData.origem && condicoesData.origem !== origemContato) match = false;
               
-              if (condicoes.campanha_id && leadDetails.campaign_id !== condicoes.campanha_id) match = false;
+              if (condicoesData.campanha_id && leadDetails.campaign_id !== condicoesData.campanha_id) match = false;
 
               if (!match) {
                 console.log(`⏭️ [Automação Webhook] Contato não atende aos filtros da regra: ${regra.nome}`);
@@ -554,7 +613,38 @@ async function processWebhook(body) {
             console.log(`🤖 [Automação Webhook] Disparando template: ${regra.acao_config.template_nome}`);
             // Mock contato object for the message
             const contatoObj = { id: contactIdToUse, nome: nomeLead, razao_social: nomeLead };
-            await sendTemplateMessage(supabase, orgConfig, finalPhone, contatoObj, regra.acao_config.template_nome, regra.acao_config.template_idioma);
+            const enviadoSucesso = await sendTemplateMessage(supabase, orgConfig, finalPhone, contatoObj, regra.acao_config.template_nome, regra.acao_config.template_idioma);
+
+            if (enviadoSucesso) {
+              // Buscar a coluna MENSAGEM ENVIADA do Funil de Vendas da organizacao
+              const colunaMsgEnviadaId = await getOrgMensagemEnviadaColumnId(supabase, orgId);
+              if (colunaMsgEnviadaId) {
+                console.log(`[Org ${orgId}] Movendo lead no funil (card ID: ${funilEntry.id}) de ${actualColunaId} para MENSAGEM ENVIADA (ID: ${colunaMsgEnviadaId})...`);
+                const { error: updateFunnelError } = await supabase
+                  .from('contatos_no_funil')
+                  .update({
+                    coluna_id: colunaMsgEnviadaId,
+                    updated_at: new Date().toISOString()
+                  })
+                  .eq('id', funilEntry.id);
+
+                if (updateFunnelError) {
+                  console.error(`[Org ${orgId}] Erro ao atualizar card no funil para MENSAGEM ENVIADA:`, updateFunnelError.message);
+                } else {
+                  console.log(`[Org ${orgId}] Card movido com sucesso para MENSAGEM ENVIADA.`);
+
+                  // Registra nota no CRM sobre a movimentação
+                  await supabase.from('crm_notas').insert({
+                    contato_id: contactIdToUse,
+                    contato_no_funil_id: funilEntry.id,
+                    conteudo: `🤖 [Piloto Automático Stella] Lead movido automaticamente para a etapa "MENSAGEM ENVIADA" do Funil de Vendas após envio da mensagem automática de boas-vindas via WhatsApp (Template: ${regra.acao_config.template_nome}).`,
+                    organizacao_id: orgId
+                  });
+                }
+              } else {
+                console.warn(`[Org ${orgId}] Coluna MENSAGEM ENVIADA não encontrada. Card do lead não foi movido.`);
+              }
+            }
           }
         }
       }
