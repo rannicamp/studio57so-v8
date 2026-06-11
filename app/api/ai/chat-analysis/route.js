@@ -578,7 +578,7 @@ async function processarConfeccaoContrato(supabaseAdmin, contatoId, organizacaoI
 
 export async function POST(request) {
   try {
-    const { contato_id, organizacao_id, force, quickResponse, human_input } = await request.json();
+    const { contato_id, organizacao_id, force, quickResponse, human_input, canal = 'whatsapp' } = await request.json();
 
     if (!contato_id || !organizacao_id) {
       return NextResponse.json({ error: 'Faltam parâmetros obrigatórios.' }, { status: 400 });
@@ -617,6 +617,70 @@ export async function POST(request) {
        return NextResponse.json({ error: 'Chave GEMINI_API_KEY não configurada no servidor.' }, { status: 500 });
     }
 
+    // Alterna dinamicamente as queries do histórico de chat dependendo do canal
+    let queryUltimaMsg = null;
+    let queryMessages = null;
+    let queryAnexosEnviados = null;
+
+    if (canal === 'instagram') {
+      // 1. Buscar a conversa do Instagram vinculada ao contato
+      const { data: conv } = await supabaseAdmin
+        .from('instagram_conversations')
+        .select('id')
+        .eq('contato_id', contato_id)
+        .maybeSingle();
+
+      const conversationId = conv?.id || 0;
+
+      queryUltimaMsg = supabaseAdmin
+        .from('instagram_messages')
+        .select('id, content, created_at')
+        .eq('conversation_id', conversationId)
+        .eq('direction', 'inbound')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      queryMessages = supabaseAdmin
+        .from('instagram_messages')
+        .select('content, direction, sent_at')
+        .eq('conversation_id', conversationId)
+        .eq('organizacao_id', organizacao_id)
+        .order('sent_at', { ascending: false })
+        .limit(25);
+
+      queryAnexosEnviados = supabaseAdmin
+        .from('instagram_messages')
+        .select('content')
+        .eq('conversation_id', conversationId)
+        .eq('direction', 'outbound')
+        .like('content', 'http%');
+    } else {
+      queryUltimaMsg = supabaseAdmin
+        .from('whatsapp_messages')
+        .select('id, media_url, content, raw_payload, created_at')
+        .eq('contato_id', contato_id)
+        .eq('direction', 'inbound')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      queryMessages = supabaseAdmin
+        .from('whatsapp_messages')
+        .select('content, direction, sent_at')
+        .eq('contato_id', contato_id)
+        .eq('organizacao_id', organizacao_id)
+        .order('sent_at', { ascending: false })
+        .limit(25);
+
+      queryAnexosEnviados = supabaseAdmin
+        .from('whatsapp_messages')
+        .select('content, media_url')
+        .eq('contato_id', contato_id)
+        .eq('direction', 'outbound')
+        .not('media_url', 'is', null);
+    }
+
     // 1.5 Buscar os dados iniciais do contato e histórico em paralelo (Otimização de Latência)
     const [
       contatoResult,
@@ -640,24 +704,8 @@ export async function POST(request) {
         .eq('organizacao_id', organizacao_id)
         .single(),
 
-      // 2. Última mensagem inbound do cliente
-      supabaseAdmin
-        .from('whatsapp_messages')
-        .select('id, media_url, content, raw_payload, created_at')
-        .eq('contato_id', contato_id)
-        .eq('direction', 'inbound')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle(),
-
-      // 3. Histórico de mensagens da conversa (limitado a 25 msgs para performance em tempo real)
-      supabaseAdmin
-        .from('whatsapp_messages')
-        .select('content, direction, sent_at')
-        .eq('contato_id', contato_id)
-        .eq('organizacao_id', organizacao_id)
-        .order('sent_at', { ascending: false })
-        .limit(25),
+      queryUltimaMsg,
+      queryMessages,
 
       // 4. Dados do Funil Comercial
       supabaseAdmin
@@ -674,13 +722,7 @@ export async function POST(request) {
         .eq('contato_id', contato_id)
         .maybeSingle(),
 
-      // 5. Histórico de anexos enviados para este contato (extraído das mensagens outbound com mídia)
-      supabaseAdmin
-        .from('whatsapp_messages')
-        .select('content, media_url')
-        .eq('contato_id', contato_id)
-        .eq('direction', 'outbound')
-        .not('media_url', 'is', null)
+      queryAnexosEnviados
     ]);
 
     const { data: contatoInfo, error: contatoError } = contatoResult;
@@ -1371,7 +1413,17 @@ Com base SOMENTE neste histórico recente e contexto do projeto, escreva um JSON
         }
       });
     }
-    promptContent.push({ text: prompt });
+    // Substitui dinamicamente referências ao canal para não confundir a inteligência artificial
+    let promptFinal = prompt;
+    if (canal === 'instagram') {
+      promptFinal = prompt
+        .replaceAll('WhatsApp', 'Instagram Direct')
+        .replaceAll('no WhatsApp', 'no Instagram')
+        .replaceAll('do WhatsApp', 'do Instagram')
+        .replaceAll('via WhatsApp', 'via Instagram');
+    }
+
+    promptContent.push({ text: promptFinal });
 
     let result;
     let textOutput = '';
