@@ -9,7 +9,7 @@ import {
   faMobileAlt, faDesktop, faEye, faGlobe, faSpinner, faExclamationTriangle,
   faFilter, faFunnelDollar, faChartPie, faChartLine, faBullhorn,
   faBuilding, faCalendarAlt, faChartBar, faUsers, faClock, faComments, faReplyAll, faFileExport, faStopwatch,
-  faCheckCircle, faTimesCircle
+  faCheckCircle, faTimesCircle, faBullseye
 } from '@fortawesome/free-solid-svg-icons';
 import { faMeta } from '@fortawesome/free-brands-svg-icons';
 import {
@@ -260,6 +260,23 @@ function RadarPageContent() {
   };
   const mediaDiaria = calcularMediaDiaria();
 
+  const calcularPublicoAlvo = () => {
+    if (!dadosComercial?.cruzamento_objetivo_renda) return 0;
+    const investidor = dadosComercial.cruzamento_objetivo_renda.find(item => item.name === 'Investimento');
+    if (!investidor) return 0;
+    const maisDe10k = Number(investidor['Mais de R$ 10.000']) || 0;
+    const exato10k = Number(investidor['R$ 10.000']) || 0;
+    return maisDe10k + exato10k;
+  };
+  const publicoAlvoCount = calcularPublicoAlvo();
+
+  const calcularPublicoAlvoDetalhe = (faixaRenda) => {
+    if (!dadosComercial?.cruzamento_objetivo_renda) return 0;
+    const investidor = dadosComercial.cruzamento_objetivo_renda.find(item => item.name === 'Investimento');
+    if (!investidor) return 0;
+    return Number(investidor[faixaRenda]) || 0;
+  };
+
   const maxFunilValue = Math.max(1, ...(dadosComercial?.conversao_funil || []).map(i => Number(i.value) || 0));
 
   const funilComPercentuais = (dadosComercial?.conversao_funil || []).map((item) => {
@@ -361,7 +378,7 @@ function RadarPageContent() {
       {/* --- ABA COMERCIAL (Vendas & CRM) --- */}
       {activeTab === 'comercial' && (
         <div className="space-y-6 animate-fade-in-up">
-           <section className="grid grid-cols-1 md:grid-cols-4 gap-4">
+           <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
              <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4 hover:shadow-md transition-shadow">
                <div className="h-12 w-12 rounded-full bg-blue-50 flex items-center justify-center">
                  <FontAwesomeIcon icon={faUsers} className="text-blue-600 text-xl" />
@@ -371,6 +388,19 @@ function RadarPageContent() {
                  <div className="text-2xl font-bold tracking-tight text-slate-800">
                    {isCarregando ? '...' : (dadosComercial?.total_leads ?? 0)}
                  </div>
+               </div>
+             </div>
+
+             <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4 hover:shadow-md transition-shadow">
+               <div className="h-12 w-12 rounded-full bg-indigo-50 flex items-center justify-center">
+                 <FontAwesomeIcon icon={faBullseye} className="text-indigo-600 text-xl" />
+               </div>
+               <div>
+                 <p className="text-sm font-medium text-slate-500">Público-Alvo Atingido</p>
+                 <div className="text-2xl font-bold tracking-tight text-slate-800">
+                   {isCarregando ? '...' : publicoAlvoCount}
+                 </div>
+                 <p className="text-[10px] text-slate-400">Investidores R$ 10k+</p>
                </div>
              </div>
 
@@ -823,6 +853,97 @@ function RadarPageContent() {
                   <p className="text-xs text-slate-500 mt-1">
                     Qualificação dos leads captados no período por intenção de compra, perfil de renda, origem demográfica por país e cruzamentos síncronos.
                   </p>
+                </div>
+
+                {/* --- MINI RELATÓRIO: PÚBLICO-ALVO STUDIO 57 --- */}
+                <div className="mb-6 p-6 rounded-2xl border border-indigo-100 bg-gradient-to-br from-indigo-50/20 to-white shadow-sm">
+                  <div className="flex justify-between items-center flex-wrap gap-4 border-b border-indigo-50 pb-4 mb-4">
+                    <div>
+                      <h4 className="text-md font-bold text-slate-800 flex items-center gap-2">
+                        <FontAwesomeIcon icon={faBullseye} className="text-indigo-600 animate-pulse" />
+                        Público-Alvo Studio 57 (Investidores R$ 10k+)
+                      </h4>
+                      <p className="text-xs text-slate-500 mt-1">
+                        Leads declarados Investidores com renda familiar a partir de R$ 10.000 (acumulando faixas de R$ 10k e superior).
+                      </p>
+                    </div>
+                    <div className="bg-indigo-100/50 text-indigo-700 px-3.5 py-1.5 rounded-xl text-xs font-bold border border-indigo-200">
+                      Público Alvo: {publicoAlvoCount} ({dadosComercial?.total_leads > 0 ? ((publicoAlvoCount / dadosComercial.total_leads) * 100).toFixed(1) : 0}%)
+                    </div>
+                  </div>
+
+                  {isCarregando ? (
+                    <div className="py-6 text-center text-slate-400 text-sm">Computando dados do público-alvo...</div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
+                      {/* Card 1: Quantitativo */}
+                      <div className="bg-white p-5 rounded-xl border border-slate-100 shadow-sm text-center space-y-2">
+                        <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">Total de Leads Qualificados</span>
+                        <div className="text-4xl font-extrabold text-indigo-600">{publicoAlvoCount}</div>
+                        <p className="text-xs text-slate-500">
+                          Do total de **{dadosComercial?.total_leads ?? 0} leads** gerados, **{publicoAlvoCount}** se encaixam no perfil principal do Studio 57.
+                        </p>
+                      </div>
+
+                      {/* Card 2: Detalhamento de Renda */}
+                      <div className="bg-white p-5 rounded-xl border border-slate-100 shadow-sm flex flex-col justify-between h-full">
+                        <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3 block text-left">Composição de Renda</span>
+                        <div className="space-y-3">
+                          <div className="flex justify-between items-center text-sm">
+                            <span className="text-slate-600 flex items-center gap-2">
+                              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                              Mais de R$ 10.000
+                            </span>
+                            <span className="font-bold text-slate-800">{calcularPublicoAlvoDetalhe('Mais de R$ 10.000')} leads</span>
+                          </div>
+                          <div className="flex justify-between items-center text-sm">
+                            <span className="text-slate-600 flex items-center gap-2">
+                              <span className="w-2.5 h-2.5 rounded-full bg-blue-500"></span>
+                              R$ 10.000 (Exatos)
+                            </span>
+                            <span className="font-bold text-slate-800">{calcularPublicoAlvoDetalhe('R$ 10.000')} leads</span>
+                          </div>
+                          <div className="h-px bg-slate-100 my-1"></div>
+                          <div className="flex justify-between items-center text-sm font-semibold">
+                            <span className="text-slate-700">Total Qualificado</span>
+                            <span className="text-indigo-600">{publicoAlvoCount} leads</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Card 3: Participação percentual */}
+                      <div className="bg-white p-5 rounded-xl border border-slate-100 shadow-sm flex flex-col justify-between h-full">
+                        <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 block text-left">Participação no Volume</span>
+                        <div className="h-[100px] w-full relative flex items-center justify-center">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                              <Pie 
+                                data={[
+                                  { name: 'Público-Alvo', value: publicoAlvoCount },
+                                  { name: 'Outros Perfis', value: Math.max(0, (dadosComercial?.total_leads ?? 0) - publicoAlvoCount) }
+                                ]} 
+                                cx="50%" 
+                                cy="50%" 
+                                innerRadius={28} 
+                                outerRadius={40} 
+                                paddingAngle={3} 
+                                dataKey="value"
+                              >
+                                <Cell fill="#6366f1" />
+                                <Cell fill="#e2e8f0" />
+                              </Pie>
+                              <RechartsTooltip formatter={(value) => [`${value} Leads`]} />
+                            </PieChart>
+                          </ResponsiveContainer>
+                          <div className="absolute flex flex-col items-center">
+                            <span className="text-sm font-bold text-slate-700">
+                              {dadosComercial?.total_leads > 0 ? ((publicoAlvoCount / dadosComercial.total_leads) * 100).toFixed(0) : 0}%
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
                 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 w-full">
