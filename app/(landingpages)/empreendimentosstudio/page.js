@@ -22,6 +22,7 @@ const empreendimentos = [
     status: 'EM EXECUÇÃO',
     statusColor: 'bg-green-600',
     imagemUrl: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/1/IMG_1759098853021.png',
+    logoUrl: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/1/IMG_1759008548201.png',
     descricao: 'Apartamentos de 49 e 58m² no Alto Esplanada. Planejado para oferecer conforto e alta rentabilidade com valorização garantida em uma das regiões mais nobres de Governador Valadares.',
     caracteristicas: ['2 Quartos (1 Suíte)', 'Varanda Gourmet', 'Vaga de Garagem', 'Lazer Completo'],
     link: '/residencialalfa'
@@ -31,7 +32,8 @@ const empreendimentos = [
     status: 'PRÉ-LANÇAMENTO',
     statusColor: 'bg-blue-600',
     imagemUrl: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/anexos/beta_sunset_fachada.jpeg',
-    descricao: 'Suítes inteligentes de 23 a 32m² no Alto Esplanada. Desenvolvido sob medida para investidores focados em renda passiva recorrente por meio de locações de curta ou longa temporada.',
+    logoUrl: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/LOGO-P_1764944035362.png',
+    descricao: 'Suítes inteligentes de 28 a 32m² no Alto Esplanada. Desenvolvido sob medida para investidores focados em renda passiva recorrente por meio de locações de curta ou longa temporada.',
     caracteristicas: ['Suítes Inteligentes', 'Piscina de Borda Infinita', 'Rooftop Gourmet', 'Lavanderia Compartilhada'],
     link: '/betasuites'
   },
@@ -40,6 +42,7 @@ const empreendimentos = [
     status: 'CONCLUÍDO',
     statusColor: 'bg-[#2c5234]',
     imagemUrl: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/6/IMG_1760619077139.png',
+    logoUrl: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/6/LOGO-P_1760619039077.png',
     descricao: 'Lotes amplos a partir de 1.000m² integrados à natureza, localizados a apenas 10 minutos do centro. Infraestrutura asfáltica completa, calçadas prontas, rede de água e luz.',
     caracteristicas: ['Lotes de 1.000m²', 'Segurança & Portaria', 'Infraestrutura Pronta', 'Contato com a Natureza'],
     link: '/refugiobraunas'
@@ -49,6 +52,7 @@ const empreendimentos = [
     status: 'PRONTO PARA MORAR',
     statusColor: 'bg-indigo-600',
     imagemUrl: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/10/IMG_1778095649407.jpeg',
+    logoUrl: null, // Não possui marca
     descricao: 'Apartamento térreo no Jardim Vera Cruz com excelente distribuição de espaço e área privativa externa. A oportunidade perfeita de moradia imediata ou investimento de baixo custo.',
     caracteristicas: ['2 Quartos amplos', 'Área privativa externa', 'Cozinha americana', 'Pronto para morar'],
     link: '/perovaz'
@@ -87,8 +91,26 @@ export default function EmpreendimentosPage() {
                   className="object-cover transition-transform duration-700 group-hover:scale-105"
                   sizes="(max-width: 768px) 100vw, 50vw"
                 />
+                
+                {/* Overlay preto translúcido sobre a imagem */}
+                <div className="absolute inset-0 bg-black/30 group-hover:bg-black/45 transition-colors duration-300"></div>
+
+                {/* Renderização do Logo/Marca por cima da imagem */}
+                {emp.logoUrl && (
+                  <div className="absolute inset-0 flex items-center justify-center p-12">
+                    <div className="relative w-full h-full max-w-[200px] max-h-[90px]">
+                      <Image
+                        src={emp.logoUrl}
+                        alt={`Logo ${emp.nome}`}
+                        fill
+                        className="object-contain drop-shadow-xl filter brightness-0 invert opacity-90 group-hover:opacity-100 group-hover:scale-105 transition-all duration-300"
+                      />
+                    </div>
+                  </div>
+                )}
+
                 {/* Badge de Status */}
-                <span className={`absolute top-4 right-4 ${emp.statusColor} text-white text-[9px] md:text-[10px] font-bold tracking-wider uppercase px-4 py-1.5 rounded-full shadow-md`}>
+                <span className={`absolute top-4 right-4 ${emp.statusColor} text-white text-[9px] md:text-[10px] font-bold tracking-wider uppercase px-4 py-1.5 rounded-full shadow-md z-10`}>
                   {emp.status}
                 </span>
               </div>
