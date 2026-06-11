@@ -118,42 +118,27 @@ export default function SobreNosPage() {
 
       {/* --- ATO 1: A ORIGEM (BLOCO 2) --- */}
       <section className="py-20 md:py-32 border-t border-gray-100">
-        <div className="container mx-auto px-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
-            {/* Imagem Sócios */}
-            <div className="w-full">
-              <Image 
-                src="https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empresa-anexos/4/IMG_1769088852146.png" 
-                alt="Sócios Studio 57 - Identidade" 
-                width={0}
-                height={0}
-                sizes="100vw"
-                className="w-full h-auto transition-all duration-700" 
-              />
+        <div className="container mx-auto px-6 max-w-3xl">
+          {/* Texto */}
+          <div className="flex flex-col justify-center text-justify font-roboto font-light">
+            <div className="flex items-center space-x-4 mb-6 justify-center">
+              <span className="text-6xl font-thin text-gray-200 font-roboto">01</span>
+              <h2 className="text-3xl font-bold text-gray-900 uppercase">A Engenharia do Valor</h2>
             </div>
-
-            {/* Texto */}
-            <div className="flex flex-col justify-center h-full">
-              <div className="flex items-center space-x-4 mb-6">
-                <span className="text-6xl font-thin text-gray-200 font-roboto">01</span>
-                <h2 className="text-3xl font-bold text-gray-900 uppercase">A Engenharia do Valor</h2>
-              </div>
-              <h3 className="text-xl font-light text-blue-600 mb-6 italic font-roboto">
-                "Nossa Origem"
-              </h3>
-              <div className="space-y-6 text-lg text-gray-600 leading-relaxed font-roboto font-light text-justify">
-                <p>
-                  A história do Studio 57 não começou com o desejo de apenas desenhar edifícios, mas com a necessidade de modernizar como eles são feitos. Muito antes do mercado falar sobre inovação, entendemos que o maior risco da construção civil era a falta de controle sobre a informação.
-                </p>
-                <p>
-                  Ainda em 2009, adotamos a tecnologia BIM (Building Information Modeling) de forma pioneira. Não como uma ferramenta de desenho, mas como um simulador de realidade.
-                </p>
-                <p>
-                  Compreendemos cedo uma premissa que guia nossos negócios até hoje: <strong>quem domina a informação e os dados do projeto, domina o custo e o prazo da obra.</strong> Nós passamos a construir o prédio virtualmente, antecipando falhas, eliminando desperdícios e garantindo a viabilidade financeira antes mesmo do primeiro tijolo ser assentado.
-                </p>
-              </div>
+            <h3 className="text-xl font-light text-blue-600 mb-6 italic font-roboto text-center">
+              "Nossa Origem"
+            </h3>
+            <div className="space-y-6 text-lg text-gray-600 leading-relaxed">
+              <p>
+                A história do Studio 57 não começou com o desejo de apenas desenhar edifícios, mas com a necessidade de modernizar como eles são feitos. Muito antes do mercado falar sobre inovação, entendemos que o maior risco da construção civil era a falta de controle sobre a informação.
+              </p>
+              <p>
+                Ainda em 2009, adotamos a tecnologia BIM (Building Information Modeling) de forma pioneira. Não como uma ferramenta de desenho, mas como um simulador de realidade.
+              </p>
+              <p>
+                Compreendemos cedo uma premissa que guia nossos negócios até hoje: <strong>quem domina a informação e os dados do projeto, domina o custo e o prazo da obra.</strong> Nós passamos a construir o prédio virtualmente, antecipando falhas, eliminando desperdícios e garantindo a viabilidade financeira antes mesmo do primeiro tijolo ser assentado.
+              </p>
             </div>
-
           </div>
         </div>
       </section>
