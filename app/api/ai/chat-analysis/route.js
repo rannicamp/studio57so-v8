@@ -1776,6 +1776,12 @@ Com base SOMENTE neste histórico recente e contexto do projeto, escreva um JSON
               .from('contatos')
               .update({ ia_atendimento_ativo: false })
               .eq('id', contato_id);
+          } else {
+            console.log(`[Stella AI SDR] Reativando piloto automático para o lead ${contato_id} na coluna ${nomeNovaColuna}.`);
+            await supabaseAdmin
+              .from('contatos')
+              .update({ ia_atendimento_ativo: true })
+              .eq('id', contato_id);
           }
 
           // 3. Registrar nota em crm_notas relatando a movimentação
