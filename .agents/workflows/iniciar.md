@@ -13,8 +13,9 @@ Sempre que iniciarmos um novo dia de trabalho ou uma nova conversa do zero, siga
    ```
    - Se ele não mencionar nada sobre sincronizar ou se negar, **pule esta etapa** inteiramente para não apagar o trabalho em progresso.
 
-2. **Leia o Planejamento Global e de Curto Prazo:**
+2. **Leia o Planejamento Global, de Curto Prazo e o Resumo de Casa:**
    - Use a ferramenta `view_file` no arquivo `.agents/PLANEJAMENTO_MASTER.md` para entender o escopo geral, os padrões arquiteturais, o que já foi feito, a cronologia do dia (diário) e os próximos grandes passos.
+   - **OBRIGATORIAMENTE** use `view_file` no arquivo [.agents/RESUMO_CASA.md](file:///c:/Projetos/studio57so-v8/.agents/RESUMO_CASA.md) para ler a transição de contexto do trabalho anterior e continuar a partir do exato ponto em que paramos, evitando perder o histórico do progresso ao trocar de computador.
    - Verifique o histórico da conversa para saber rapidamente onde o desenvolvimento parou.
 
 3. **Atualize o Schema do Banco de Dados (`dbelo57.sql`):**
@@ -37,8 +38,9 @@ Sempre que iniciarmos um novo dia de trabalho ou uma nova conversa do zero, siga
    - Lembre-se firmemente da regra de Multitenancy (SaaS): Qualquer operação de Create/Update/Delete DEVE respeitar o id da organização.
    - Registros da organização 1 são globais/sistema apenas para leitura para outras orgs. O sistema NUNCA deve verificar falhas de RLS usando "organizacao_id IS NULL".
 
-7. **Regras de Encerramento e Deploy:**
+7. **Regras de Encerramento, Deploy e Contexto de Casa:**
    - Faça envios para produção (Git Add / Commit / Push) **APENAS** quando o Ranniere pedir explicitamente (ex: "faça o deploy", "suba as alterações"). Não faça deploy proativamente ao final de cada tarefa a menos que seja instruído.
+   - **Regra Suprema de Transição**: Ao encerrar o dia de trabalho ou quando o Ranniere indicar que vai continuar de casa/outro computador, você **DEVE** proativamente atualizar o arquivo [.agents/RESUMO_CASA.md](file:///c:/Projetos/studio57so-v8/.agents/RESUMO_CASA.md) detalhando as últimas partes construídas, decisões de design tomadas e os próximos passos práticos. Em seguida, comite e dê push dele no GitHub (`git add .agents/RESUMO_CASA.md ; git commit -m "docs(whatsapp): atualiza resumo para continuidade de casa" ; git push`) para que o contexto de trabalho esteja 100% atualizado.
 
 8. **Identidade do Usuário Atual:**
    - O Ranniere ("seu lindo") estará tipicamente logado no sistema e banco de dados utilizando a conta de simulação e desenvolvimento: `rannierecampos@studio57.arq.br`. Tenha ciência disso para fins de permissões RLS, consultas ao Supabase e contexto de organização (geralmente Organização 2) quando ele pedir para você inspecionar dados "vistos por ele".
