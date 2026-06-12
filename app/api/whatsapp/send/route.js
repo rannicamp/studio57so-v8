@@ -245,11 +245,35 @@ export async function POST(request) {
       }, { status: response.status });
     }
 
-    // --- 7. CRIAÇÃO/ATUALIZAÇÃO DA CONVERSA ---
+    // --- 7. CRIAÇÃO/ATUALIZAÇÃO DA CONVERSA (Prevenção inteligente de duplicidade de 9º dígito) ---
+    let possibleConvPhones = [cleanPhone];
+    if (cleanPhone.startsWith('55') && cleanPhone.length === 13 && cleanPhone[4] === '9') {
+      possibleConvPhones.push('55' + cleanPhone.substring(2, 4) + cleanPhone.substring(5)); // Sem o 9
+    } else if (cleanPhone.startsWith('55') && cleanPhone.length === 12) {
+      possibleConvPhones.push('55' + cleanPhone.substring(2, 4) + '9' + cleanPhone.substring(4)); // Com o 9
+    }
+
+    let targetConvPhone = cleanPhone;
+    try {
+      const { data: existingConv } = await supabaseAdmin
+        .from('whatsapp_conversations')
+        .select('phone_number')
+        .in('phone_number', possibleConvPhones)
+        .eq('organizacao_id', config.organizacao_id)
+        .limit(1)
+        .maybeSingle();
+
+      if (existingConv) {
+        targetConvPhone = existingConv.phone_number;
+      }
+    } catch (findConvErr) {
+      console.warn('[WhatsApp Send Warning] Erro ao buscar conversa existente:', findConvErr.message);
+    }
+
     const { data: conversationData, error: convError } = await supabaseAdmin
       .from('whatsapp_conversations')
       .upsert({
-        phone_number: cleanPhone,
+        phone_number: targetConvPhone,
         contato_id: finalContactId,
         organizacao_id: config.organizacao_id,
         updated_at: new Date().toISOString(),
