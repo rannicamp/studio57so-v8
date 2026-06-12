@@ -28,7 +28,7 @@ export async function processIncomingMedia(supabaseAdmin, message, config, conta
 
  console.log(`[MediaService] Baixando mídia ${mediaId}...`);
 
- const token = process.env.WHATSAPP_SYSTEM_USER_TOKEN || config.whatsapp_permanent_token;
+ const token = config.whatsapp_permanent_token || process.env.WHATSAPP_SYSTEM_USER_TOKEN;
 
  // 1. Pega URL de download
  const urlResponse = await fetch(`https://graph.facebook.com/v20.0/${mediaId}`, {

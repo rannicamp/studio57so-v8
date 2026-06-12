@@ -291,7 +291,7 @@ Retorne um JSON no formato:
             throw new Error(`Configuração do WhatsApp não encontrada para a organização ${act.organizacao_id}.`);
           }
 
-          const WHATSAPP_TOKEN = process.env.WHATSAPP_SYSTEM_USER_TOKEN || config.whatsapp_permanent_token;
+          const WHATSAPP_TOKEN = config.whatsapp_permanent_token || process.env.WHATSAPP_SYSTEM_USER_TOKEN;
           const WHATSAPP_BUSINESS_ACCOUNT_ID = config.whatsapp_business_account_id;
 
           if (!WHATSAPP_BUSINESS_ACCOUNT_ID || !WHATSAPP_TOKEN) {

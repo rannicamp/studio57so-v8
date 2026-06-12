@@ -89,7 +89,7 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Configuração do WhatsApp não encontrada para esta organização.' }, { status: 500 });
     }
 
-    const token = process.env.WHATSAPP_SYSTEM_USER_TOKEN || config.whatsapp_permanent_token;
+    const token = config.whatsapp_permanent_token || process.env.WHATSAPP_SYSTEM_USER_TOKEN;
     const phoneId = config.whatsapp_phone_number_id;
 
     // --- 2.5 RESOLUÇÃO DO CONTATO (Movido para antes do envio para a Meta API) ---

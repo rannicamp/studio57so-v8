@@ -25,9 +25,9 @@ export async function POST(request) {
 
 
  // 🏆 Injeta token permanente com prioridade (sobrescreve o do banco que pode estar expirado)
- if (process.env.WHATSAPP_SYSTEM_USER_TOKEN) {
- config.whatsapp_permanent_token = process.env.WHATSAPP_SYSTEM_USER_TOKEN;
- }
+ if (!config.whatsapp_permanent_token && process.env.WHATSAPP_SYSTEM_USER_TOKEN) {
+    config.whatsapp_permanent_token = process.env.WHATSAPP_SYSTEM_USER_TOKEN;
+  }
 
  // =====================================================================
  // 1. MODO AGENDAMENTO (Para o Futuro)

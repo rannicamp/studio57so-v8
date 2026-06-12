@@ -38,7 +38,7 @@ export async function GET(request) {
 
 
  // 🏆 HIERARQUIA DE TOKEN: env var permanente > banco de dados (pode estar expirado!)
- const WHATSAPP_TOKEN = process.env.WHATSAPP_SYSTEM_USER_TOKEN || config.whatsapp_permanent_token;
+ const WHATSAPP_TOKEN = config.whatsapp_permanent_token || process.env.WHATSAPP_SYSTEM_USER_TOKEN;
  const WHATSAPP_BUSINESS_ACCOUNT_ID = config.whatsapp_business_account_id;
 
  if (process.env.WHATSAPP_SYSTEM_USER_TOKEN) {
@@ -145,7 +145,7 @@ export async function POST(request) {
    return NextResponse.json({ error: 'Credenciais do WhatsApp SaaS não configuradas.' }, { status: 500 });
   }
 
-  const WHATSAPP_TOKEN = process.env.WHATSAPP_SYSTEM_USER_TOKEN || config.whatsapp_permanent_token;
+  const WHATSAPP_TOKEN = config.whatsapp_permanent_token || process.env.WHATSAPP_SYSTEM_USER_TOKEN;
   const WHATSAPP_BUSINESS_ACCOUNT_ID = config.whatsapp_business_account_id;
 
   if (!WHATSAPP_BUSINESS_ACCOUNT_ID) {
@@ -258,7 +258,7 @@ export async function DELETE(request) {
    return NextResponse.json({ error: 'Credenciais do WhatsApp SaaS não configuradas.' }, { status: 500 });
   }
 
-  const WHATSAPP_TOKEN = process.env.WHATSAPP_SYSTEM_USER_TOKEN || config.whatsapp_permanent_token;
+  const WHATSAPP_TOKEN = config.whatsapp_permanent_token || process.env.WHATSAPP_SYSTEM_USER_TOKEN;
   const WHATSAPP_BUSINESS_ACCOUNT_ID = config.whatsapp_business_account_id;
 
   if (!WHATSAPP_BUSINESS_ACCOUNT_ID) {
