@@ -191,37 +191,158 @@ function MessagePanel({ conv, organizacaoId, onBack, showProfile, onToggleProfil
  queryClient.invalidateQueries({ queryKey: ['instagramConversations', organizacaoId] });
  },
  onError: (err) => toast.error(`Erro: ${err.message}`),
- });
+  });
 
- })
- )}
- <div ref={messagesEndRef} />
- </div>
+  const handleSend = () => {
+    if (!text.trim() || sendMutation.isPending) return;
+    sendMutation.mutate(text.trim());
+  };
 
- {/* Input de resposta */}
- <div className="bg-white border-t p-3 flex items-end gap-2 shrink-0">
- <textarea
- value={text}
- onChange={(e) => setText(e.target.value)}
- onKeyDown={handleKeyDown}
- placeholder="Digite uma mensagem..."
- rows={1}
- className="flex-grow resize-none rounded-2xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 bg-gray-50 max-h-32 overflow-y-auto"
- style={{ lineHeight: '1.5' }}
- />
- <button
- onClick={handleSend}
- disabled={!text.trim() || sendMutation.isPending}
- className="w-10 h-10 rounded-full bg-blue-600 text-white text-white flex items-center justify-center shadow-md transition-opacity disabled:opacity-50 shrink-0"
- >
- {sendMutation.isPending
- ? <FontAwesomeIcon icon={faSpinner} spin className="text-sm" />
- : <FontAwesomeIcon icon={faPaperPlane} className="text-sm" />
- }
- </button>
- </div>
- </div>
- );
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+
+  return (
+    <div className="flex flex-col h-full bg-gray-50">
+      {/* Header do chat */}
+      <div className="h-16 bg-white border-b flex items-center px-4 gap-3 shrink-0 shadow-sm">
+        <button onClick={onBack} className="md:hidden text-gray-500 hover:text-gray-700 mr-1">
+          <FontAwesomeIcon icon={faArrowLeft} />
+        </button>
+        {(() => {
+          const isGeneric = !conv.participant_name || conv.participant_name.startsWith('Usuário ');
+          const nome = isGeneric
+            ? (conv.participant_username ? `@${conv.participant_username}` : conv.participant_name)
+            : conv.participant_name;
+          return (
+            <>
+              <Avatar name={nome} picUrl={conv.participant_profile_pic} size={10} />
+              <div>
+                <p className="font-bold text-gray-800 text-sm">{nome}</p>
+                {!isGeneric && conv.participant_username && (
+                  <p className="text-xs text-purple-500">@{conv.participant_username}</p>
+                )}
+              </div>
+            </>
+          );
+        })()}
+        <div className="ml-auto flex items-center gap-2">
+          {/* Indicador de Realtime ativo */}
+          <span className="flex items-center gap-1 text-[10px] text-green-500 font-bold uppercase tracking-wider">
+            <FontAwesomeIcon icon={faBolt} className="text-[10px]" />
+            Ao vivo
+          </span>
+          {/* Botão de perfil */}
+          <button
+            onClick={onToggleProfile}
+            title={showProfile ? 'Fechar perfil' : 'Ver perfil do contato'}
+            className={`w-8 h-8 inline-flex items-center justify-center rounded-lg border transition-all shadow-sm ${
+              showProfile
+                ? 'bg-[#e1306c] border-[#e1306c] text-white'
+                : 'bg-white border-gray-200 text-gray-400 hover:text-[#e1306c] hover:border-[#e1306c] hover:bg-purple-50'
+            }`}
+          >
+            <FontAwesomeIcon icon={faUser} size="xs" />
+          </button>
+          <FontAwesomeIcon icon={faInstagram} className="text-xl" style={{ color: '#e1306c' }} />
+        </div>
+      </div>
+
+      {/* Área de mensagens */}
+      <div className="flex-grow overflow-y-auto p-4 flex flex-col gap-2 custom-scrollbar">
+        {isLoading ? (
+          <div className="flex justify-center items-center h-full">
+            <FontAwesomeIcon icon={faSpinner} spin className="text-purple-400 text-2xl" />
+          </div>
+        ) : messages.length === 0 ? (
+          <div className="flex justify-center items-center h-full text-gray-400 text-sm">
+            Nenhuma mensagem ainda.
+          </div>
+        ) : (
+          messages.map((msg) => {
+            const isOut = msg.direction === 'outbound';
+            const typeLower = (msg.message_type || 'text').toLowerCase();
+            const isImage = typeLower === 'image' || typeLower === 'photo';
+            const isVideo = typeLower === 'video';
+            const isAudio = typeLower === 'audio' || typeLower === 'voice';
+            const isMedia = isImage || isVideo || isAudio;
+
+            return (
+              <div key={msg.id} className={`flex ${isOut ? 'justify-end' : 'justify-start'}`}>
+                <div className={`max-w-[70%] px-4 py-2 rounded-2xl text-sm shadow-sm ${
+                  isOut
+                    ? 'bg-blue-600 text-white rounded-tr-sm'
+                    : 'bg-white text-gray-800 rounded-tl-sm border border-gray-100'
+                }`}>
+                  {isImage && msg.content && (
+                    <div className="my-1">
+                      <img 
+                        src={msg.content} 
+                        alt="Mídia recebida" 
+                        className="max-w-xs max-h-64 rounded-lg cursor-pointer hover:opacity-90 object-cover" 
+                        onClick={() => window.open(msg.content, '_blank')}
+                      />
+                    </div>
+                  )}
+                  {isVideo && msg.content && (
+                    <div className="my-1">
+                      <video 
+                        src={msg.content} 
+                        controls 
+                        className="max-w-xs max-h-64 rounded-lg"
+                      />
+                    </div>
+                  )}
+                  {isAudio && msg.content && (
+                    <div className="my-1">
+                      <audio 
+                        src={msg.content} 
+                        controls 
+                        className="max-w-xs"
+                      />
+                    </div>
+                  )}
+                  {(!isMedia || !msg.content || (msg.content.startsWith('http') === false && msg.content.startsWith('/') === false)) && (
+                    <p className="whitespace-pre-wrap break-words">{msg.content || '[Mídia]'}</p>
+                  )}
+                  <p className={`text-[10px] mt-1 ${isOut ? 'text-white/70 text-right' : 'text-gray-400'}`}>
+                    {formatRelativeTime(msg.sent_at)}
+                  </p>
+                </div>
+              </div>
+            );
+          })
+        )}
+        <div ref={messagesEndRef} />
+      </div>
+
+      {/* Input de resposta */}
+      <div className="bg-white border-t p-3 flex items-end gap-2 shrink-0">
+        <textarea
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder="Digite uma mensagem..."
+          rows={1}
+          className="flex-grow resize-none rounded-2xl border border-gray-200 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400 bg-gray-50 max-h-32 overflow-y-auto"
+          style={{ lineHeight: '1.5' }}
+        />
+        <button
+          onClick={handleSend}
+          disabled={!text.trim() || sendMutation.isPending}
+          className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-md transition-opacity disabled:opacity-50 shrink-0"
+        >
+          {sendMutation.isPending
+            ? <FontAwesomeIcon icon={faSpinner} spin className="text-sm" />
+            : <FontAwesomeIcon icon={faPaperPlane} className="text-sm" />
+          }
+        </button>
+      </div>
+    </div>
+  );
 }
 
 // ─── COMPONENTE PRINCIPAL ──────────────────────────────────────────────────────

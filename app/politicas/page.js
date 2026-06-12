@@ -5,6 +5,8 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faSpinner } from '@fortawesome/free-solid-svg-icons'
 import Link from 'next/link'
 
+export const dynamic = 'force-dynamic';
+
 export const metadata = {
  title: 'Políticas e Termos | Studio 57',
  description: 'Documentação legal, termos de uso e políticas de privacidade da plataforma Studio 57.'

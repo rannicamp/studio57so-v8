@@ -1216,7 +1216,7 @@ Sua missão nesta chamada rápida é responder ao lead no WhatsApp de forma imed
 3. **REGRA DE OURO - Transbordo Comercial no Fechamento (CRÍTICO)**:
    - Se o cliente aceitar a simulação, concordar com a proposta, disser que quer fechar ("Sim tá ótimo pra mim", "quero fechar", "pode fazer"), enviar documentos pessoais (como CNH/RG ou comprovante de residência), ou solicitar os próximos passos de contrato, você **NUNCA deve continuar a conversa tentando coletar dados de contrato (como estado civil, profissão, etc.) ou dizer que está preenchendo o contrato**!
    - Responda imediatamente com simpatia e entusiasmo dizendo que está passando o caso agora mesmo para o especialista de vendas do Studio 57 para formalização e envio do contrato em instantes.
-   - Defina obrigatoriamente `mover_para_coluna_id` como a coluna **INTERVENÇÃO HUMANA** (ID: "7de9b5b4-05fa-4813-82d8-7790406ee268") no JSON de retorno para desviar o atendimento ao humano.
+   - Defina obrigatoriamente 'mover_para_coluna_id' como a coluna **INTERVENÇÃO HUMANA** (ID: "7de9b5b4-05fa-4813-82d8-7790406ee268") no JSON de retorno para desviar o atendimento ao humano.
 4. **Lead Qualificado Geral**:
    - Se você conseguir qualificar o lead coletando as informações BANT gerais e ele quiser continuar conversando para mais detalhes comerciais antes do fechamento, move o lead para a coluna **CLIENTE POTENCIAL** (ID: "0553d8db-5259-41bc-ae9e-b8803014ed93") para que o corretor humano o assuma com as informações prontas.
 
@@ -1312,7 +1312,7 @@ Graduada em inteligência de leads, sua missão é classificar o lead, analisar 
 3. **REGRA DE OURO - Transbordo Comercial no Fechamento (CRÍTICO)**:
    - Se o cliente aceitar a simulação, concordar com a proposta, disser que quer fechar ("Sim tá ótimo pra mim", "quero fechar", "pode fazer"), enviar documentos pessoais (como CNH/RG ou comprovante de residência), ou solicitar os próximos passos de contrato, você **NUNCA deve continuar a conversa tentando coletar dados de contrato (como estado civil, profissão, etc.) ou dizer que está preenchendo o contrato**!
    - Responda imediatamente com simpatia e entusiasmo dizendo que está passando o caso agora mesmo para o especialista de vendas do Studio 57 para formalização e envio do contrato em instantes.
-   - Defina obrigatoriamente `mover_para_coluna_id` como a coluna **INTERVENÇÃO HUMANA** (ID: "7de9b5b4-05fa-4813-82d8-7790406ee268") no JSON de retorno para desviar o atendimento ao humano.
+   - Defina obrigatoriamente 'mover_para_coluna_id' como a coluna **INTERVENÇÃO HUMANA** (ID: "7de9b5b4-05fa-4813-82d8-7790406ee268") no JSON de retorno para desviar o atendimento ao humano.
 4. **Lead Qualificado Geral**:
    - Se você conseguir qualificar o lead coletando as informações BANT gerais e ele quiser continuar conversando para mais detalhes comerciais antes do fechamento, move o lead para a coluna **CLIENTE POTENCIAL** (ID: "0553d8db-5259-41bc-ae9e-b8803014ed93") para que o corretor humano o assuma com as informações prontas.
 
@@ -1402,6 +1402,7 @@ Com base SOMENTE neste histórico recente e contexto do projeto, escreva um JSON
   "justificativa_movimentacao": "Motivo resumido da movimentação de etapa comercial (obrigatório se mover_para_coluna_id não for null, justificando a qualificação, perda por evasivas ou intervenção humana)."
 }
 `;
+    }
 
     const promptContent = [];
     if (docBase64Data && docMimeType) {
