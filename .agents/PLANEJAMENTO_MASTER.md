@@ -78,11 +78,11 @@ O **Studio 57** é o ambiente de desenvolvimento e laboratório central. O **Elo
 - [x] **Migração Definitiva de App WABA:** Atualizar o banco de dados e as variáveis de ambiente com o System User Token do novo App oficial para encerrar apps espelhos legados.
 - [ ] **Estratégia de Separação (OFICIAL):**
     - **App 1 (Marketing/Ads):** Elo 57 - Dev (**1900130190871246**) ✅ **OFICIAL**
-    - **App 2 (WhatsApp):** ELO 57 - WATS (**1459952825742829**) ✅ **OFICIAL**
+    - **App 2 (WhatsApp):** ELO 57 - WATS (**2052352668968564**) ✅ **OFICIAL**
 - [ ] **Inventário Completo (Para Histórico e Limpeza):**
     1. **CRM - Studio 57** (1518358099511142) - Modo: Ativo | Tipo: Empresa
-    2. **ELO 57 - WATS** (2052352668968564) - Modo: Dev | Empresa: Studio57
-    3. **ELO 57 - WATS** (1459952825742829) ✅ **OFICIAL WHATSAPP**
+    2. **ELO 57 - WATS** (2052352668968564) ✅ **OFICIAL WHATSAPP (Publicado e Configurado)**
+    3. **ELO 57 - WATS** (1459952825742829) - Modo: Dev / Espelho
     4. **Elo 57 - Dev** (1900130190871246) ✅ **OFICIAL MARKETING/ADS**
     5. **Elo 57 - Dev** (749147054935696) - Modo: Dev | Empresa: Studio57
     6. **Elo 57 - wa** (1472719784079456) - Modo: Dev | Tipo: Empresa
