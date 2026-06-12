@@ -1426,6 +1426,8 @@ Com base SOMENTE neste histórico recente e contexto do projeto, escreva um JSON
 
     promptContent.push({ text: promptFinal });
 
+    const maxRetries = 3;
+    const retryDelayMs = 2000;
     let result;
     let textOutput = '';
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
