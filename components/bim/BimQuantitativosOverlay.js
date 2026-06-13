@@ -79,6 +79,7 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
  todosElementos, // flat do modelo selecionado (para o modal de preview)
  todosElementosEmpreendimento, // flat de TODOS os modelos do empreendimento (para Por Material)
  carregandoElementosEmp,
+ carregarFamiliasDaCategoria,
  carregarDetalhesFamilia,
  } = useBimQuantitativos({ organizacaoId: organizacao_id });
 
@@ -960,7 +961,10 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
  {/* ── L1: Categoria ── */}
  <tr
  key={`cat-${cat.categoria}`}
- onClick={() => toggleCategoria(cat.categoria)}
+ onClick={() => {
+    carregarFamiliasDaCategoria(cat.categoria);
+    toggleCategoria(cat.categoria);
+  }}
  className="bg-gray-200 cursor-pointer hover:bg-gray-300 transition-colors border-t-2 border-gray-300"
  >
  <td className="px-3 py-2.5 text-center">
@@ -978,7 +982,26 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
  </td>
  </tr>
 
- {catExpandida && cat.familias.map(fam => {
+ {catExpandida && cat.carregandoFamilias && (
+    <tr key={`loading-cat-${cat.categoria}`} className="bg-gray-50/50">
+      <td className="px-3 py-3 text-center pl-10" colSpan={8}>
+        <div className="flex items-center gap-2 text-xs text-blue-600 font-black animate-pulse">
+          <FontAwesomeIcon icon={faSpinner} spin className="text-xs" />
+          <span>Buscando famílias da categoria no banco de dados...</span>
+        </div>
+      </td>
+    </tr>
+  )}
+
+  {catExpandida && !cat.carregandoFamilias && cat.familias.length === 0 && (
+    <tr key={`empty-cat-${cat.categoria}`} className="bg-gray-50/30">
+      <td className="px-3 py-3 text-center pl-10 text-xs text-gray-400 font-semibold italic" colSpan={8}>
+        Nenhuma família encontrada para esta categoria.
+      </td>
+    </tr>
+  )}
+
+  {catExpandida && !cat.carregandoFamilias && cat.familias.map(fam => {
  const famChave = `${cat.categoria}|||${fam.familia}`;
  const famExpandida = familiasExpandidas.has(famChave);
  return (

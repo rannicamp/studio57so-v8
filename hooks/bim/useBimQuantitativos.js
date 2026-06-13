@@ -148,62 +148,68 @@ export function useBimQuantitativos({ organizacaoId }) {
   // ─── Estados de Seleção e Carregamento sob Demanda ───────────────────
   const [detalhesFamilias, setDetalhesFamilias] = useState({});
   const [carregandoFamiliasIds, setCarregandoFamiliasIds] = useState(new Set());
+  const [familiasPorCategoria, setFamiliasPorCategoria] = useState({});
+  const [carregandoCategoriasIds, setCarregandoCategoriasIds] = useState(new Set());
 
   // Reseta os detalhes das famílias quando a seleção de modelos mudar
   useEffect(() => {
     setDetalhesFamilias({});
     setCarregandoFamiliasIds(new Set());
+    setFamiliasPorCategoria({});
+    setCarregandoCategoriasIds(new Set());
   }, [modelosSelecionadosIds]);
 
-  // ─── Query 3: Esqueleto da Árvore de Elementos (Rápida - sem propriedades) ───
-  const elementosQueryKey = ['bimQuant_esqueleto', [...modelosSelecionadosIds].sort().join(','), organizacaoId];
-  const { data: esqueleto = [], isLoading: carregandoElementos } = useQuery({
+  // ─── Query 3: Esqueleto de Categorias do Modelo (Banda ultraleve) ───
+  const elementosQueryKey = ['bimQuant_esqueleto_categorias', [...modelosSelecionadosIds].sort().join(','), organizacaoId];
+  const { data: esqueletoCategorias = [], isLoading: carregandoElementos } = useQuery({
     queryKey: elementosQueryKey,
     queryFn: async () => {
       if (modelosSelecionadosIds.length === 0 || !organizacaoId) return [];
 
-      // Chama a RPC get_esqueleto_elementos_bim que agrupa Categoria -> Família no banco e faz bypass do limite
-      const { data, error } = await supabase.rpc('get_esqueleto_elementos_bim', {
+      const { data, error } = await supabase.rpc('get_categorias_projeto', {
         p_projeto_ids: modelosSelecionadosIds.map(Number)
       });
 
       if (error) throw error;
-
-      // Agrupa Categoria -> Família no frontend baseado no retorno consolidado da RPC
-      const mapa = {};
-      (data || []).forEach(row => {
-        const cat = row.categoria || 'Sem Categoria';
-        const fam = row.familia || '—';
-        const total = Number(row.total_elementos || 0);
-
-        if (!mapa[cat]) mapa[cat] = {};
-        mapa[cat][fam] = (mapa[cat][fam] || 0) + total;
-      });
-
-      return Object.entries(mapa)
-        .map(([categoria, famMap]) => {
-          const familias = Object.entries(famMap).map(([familia, total]) => ({
-            familia,
-            total_elementos: total,
-            tipos: [],
-            carregando: false,
-            area_total: 0
-          })).sort((a, b) => a.familia.localeCompare(b.familia));
-
-          const totalElementos = familias.reduce((sum, f) => sum + f.total_elementos, 0);
-
-          return {
-            categoria,
-            total_elementos: totalElementos,
-            area_total_categoria: 0,
-            familias
-          };
-        })
-        .sort((a, b) => a.categoria.localeCompare(b.categoria));
+      return data || [];
     },
     enabled: modelosSelecionadosIds.length > 0 && !!organizacaoId,
     staleTime: 3 * 60 * 1000,
   });
+
+  // Função assíncrona para buscar as famílias de uma categoria sob demanda
+  const carregarFamiliasDaCategoria = async (categoria) => {
+    if (!categoria || modelosSelecionadosIds.length === 0) return;
+    if (familiasPorCategoria[categoria] || carregandoCategoriasIds.has(categoria)) return;
+
+    setCarregandoCategoriasIds(prev => {
+      const next = new Set(prev);
+      next.add(categoria);
+      return next;
+    });
+
+    try {
+      const { data, error } = await supabase.rpc('get_familias_categoria', {
+        p_projeto_ids: modelosSelecionadosIds.map(Number),
+        p_categoria: categoria
+      });
+
+      if (error) throw error;
+
+      setFamiliasPorCategoria(prev => ({
+        ...prev,
+        [categoria]: data || []
+      }));
+    } catch (e) {
+      console.error(`Erro ao carregar famílias da categoria ${categoria}:`, e);
+    } finally {
+      setCarregandoCategoriasIds(prev => {
+        const next = new Set(prev);
+        next.delete(categoria);
+        return next;
+      });
+    }
+  };
 
   // Função assíncrona para carregar sob demanda os detalhes de uma família (tipos, elementos e propriedades)
   const carregarDetalhesFamilia = async (categoria, familia) => {
@@ -315,10 +321,12 @@ export function useBimQuantitativos({ organizacaoId }) {
 
   // Mescla o esqueleto macro com os detalhes carregados sob demanda
   const grupos = useMemo(() => {
-    if (!esqueleto) return [];
+    if (!esqueletoCategorias) return [];
 
-    return esqueleto.map(cat => {
-      const familiasEnriquecidas = cat.familias.map(fam => {
+    return esqueletoCategorias.map(cat => {
+      const listaFam = familiasPorCategoria[cat.categoria] || [];
+
+      const familiasEnriquecidas = listaFam.map(fam => {
         const chave = `${cat.categoria}|||${fam.familia}`;
         const tiposCarregados = detalhesFamilias[chave] || [];
         const carregando = carregandoFamiliasIds.has(chave);
@@ -330,7 +338,8 @@ export function useBimQuantitativos({ organizacaoId }) {
         }, 0);
 
         return {
-          ...fam,
+          familia: fam.familia,
+          total_elementos: Number(fam.total_elementos || 0),
           tipos: tiposCarregados,
           carregando,
           area_total: areaTotal
@@ -338,14 +347,17 @@ export function useBimQuantitativos({ organizacaoId }) {
       });
 
       const areaTotalCategoria = familiasEnriquecidas.reduce((acc, f) => acc + f.area_total, 0);
+      const carregandoFamilias = carregandoCategoriasIds.has(cat.categoria);
 
       return {
-        ...cat,
+        categoria: cat.categoria,
+        total_elementos: Number(cat.total_elementos || 0),
         area_total_categoria: areaTotalCategoria,
         familias: familiasEnriquecidas,
+        carregandoFamilias
       };
     });
-  }, [esqueleto, detalhesFamilias, carregandoFamiliasIds]);
+  }, [esqueletoCategorias, familiasPorCategoria, detalhesFamilias, carregandoFamiliasIds, carregandoCategoriasIds]);
 
   // Lista flat de todos os elementos (inclui ativos e inativos) para mapeamentos
   const { data: todosElementos = [] } = useQuery({
@@ -423,6 +435,7 @@ export function useBimQuantitativos({ organizacaoId }) {
     expandirTodas,
     recolherTodas,
     // Lazy Loading
+    carregarFamiliasDaCategoria,
     carregarDetalhesFamilia,
   };
 }
