@@ -96,6 +96,7 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
  } = useBimMapeamentos({
  organizacaoId: organizacao_id,
  empreendimentoId: empreendimentoSelecionadoId,
+ modelosIds: modelosSelecionadosIds,
  });
 
  // ─── Sincronização de Contexto com o BIM Manager ───────────────────────────
@@ -633,7 +634,12 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
  {/* ─── ABA: POR MATERIAL ─── */}
  {abaAtiva === 'por-material' && (
  <div className="p-5">
- {quantitativoPorMaterial.length === 0 ? (
+ {(!modelosSelecionadosIds || modelosSelecionadosIds.length === 0) ? (
+ <div className="flex flex-col items-center justify-center py-20 text-gray-400 gap-3">
+ <FontAwesomeIcon icon={faCubes} className="text-5xl text-gray-200" />
+ <p className="font-semibold text-center">Selecione modelos BIM à esquerda para visualizar o orçamento.</p>
+ </div>
+ ) : quantitativoPorMaterial.length === 0 ? (
  <div className="flex flex-col items-center justify-center py-20 text-gray-400 gap-4">
  <span className="text-5xl text-gray-300"><FontAwesomeIcon icon={faBoxOpen} /></span>
  <p className="font-semibold text-center">
@@ -643,20 +649,20 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
  </div>
  ) : (
  <>
- {/* Banner: escopo do empreendimento inteiro */}
+ {/* Banner: escopo de orçamentação selecionado */}
  <div className="flex items-center gap-2 mb-4 px-3 py-2 bg-blue-50 border border-blue-100 rounded-lg text-xs text-blue-700">
  {carregandoQuantitativoPorMaterial ? (
  <>
  <FontAwesomeIcon icon={faSpinner} spin className="text-blue-400 text-xs" />
- <span>Calculando quantitativos do empreendimento...</span>
+ <span>Calculando quantitativos dos modelos selecionados...</span>
  </>
  ) : (
  <>
  <FontAwesomeIcon icon={faBuilding} className="mr-1" />
  <span>
  <strong>{empreendimentoSelecionado?.nome}</strong>
- {' · '}{modelos.length} modelo{modelos.length !== 1 ? 's' : ''} BIM
- {' · '}<strong>{todosElementosEmpreendimento.length.toLocaleString('pt-BR')}</strong> elementos
+ {' · '}{modelosSelecionados.length} modelo{modelosSelecionados.length !== 1 ? 's' : ''} selecionado{modelosSelecionados.length !== 1 ? 's' : ''}
+ {' · '}<strong>{todosElementos.length.toLocaleString('pt-BR')}</strong> elementos no escopo
  </span>
  </>
  )}

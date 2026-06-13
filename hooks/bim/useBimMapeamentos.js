@@ -17,7 +17,7 @@ function detectarUnidade(label) {
   return 'un';
 }
 
-export function useBimMapeamentos({ organizacaoId, empreendimentoId }) {
+export function useBimMapeamentos({ organizacaoId, empreendimentoId, modelosIds = [] }) {
   const queryClient = useQueryClient();
   const supabase = createClient();
 
@@ -180,13 +180,16 @@ export function useBimMapeamentos({ organizacaoId, empreendimentoId }) {
   // ─── Calcular quantitativos consolidados por material ──────────────────────
   // ─── Calcular quantitativos consolidados por material (Via Banco / RPC) ────
   const { data: quantitativoPorMaterial = [], isLoading: carregandoQuantitativoPorMaterial } = useQuery({
-    queryKey: ['bim_quantitativos_orcamentacao', organizacaoId, empreendimentoId],
+    queryKey: ['bim_quantitativos_orcamentacao', organizacaoId, empreendimentoId, [...modelosIds].sort().join(',')],
     queryFn: async () => {
       if (!empreendimentoId || !organizacaoId) return [];
-      console.log(`[BimMapeamentos] Chamando RPC get_quantitativos_orcamentacao_bim...`);
+      if (!modelosIds || modelosIds.length === 0) return []; // Retorna vazio se nenhum modelo estiver selecionado
+
+      console.log(`[BimMapeamentos] Chamando RPC get_quantitativos_orcamentacao_bim com modelos:`, modelosIds);
       const { data, error } = await supabase.rpc('get_quantitativos_orcamentacao_bim', {
         p_organizacao_id: organizacaoId,
         p_empreendimento_id: empreendimentoId,
+        p_projeto_ids: modelosIds.map(Number)
       });
 
       if (error) {
