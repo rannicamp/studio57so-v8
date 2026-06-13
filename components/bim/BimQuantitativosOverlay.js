@@ -79,6 +79,7 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
  todosElementos, // flat do modelo selecionado (para o modal de preview)
  todosElementosEmpreendimento, // flat de TODOS os modelos do empreendimento (para Por Material)
  carregandoElementosEmp,
+ carregarDetalhesFamilia,
  } = useBimQuantitativos({ organizacaoId: organizacao_id });
 
  // Mapeamentos BIM → Materiais
@@ -106,14 +107,13 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
  }
  }, [empreendimentoContextId, empreendimentoSelecionadoId, handleSelectEmpreendimento]);
 
- useEffect(() => {
- if (!modelosContextIds || modelosContextIds.length === 0) return;
- const incomingIds = modelosContextIds.map(String).sort().join(',');
- const currentIds = modelosSelecionadosIds.map(String).sort().join(',');
- if (incomingIds !== currentIds) {
- handleSelectModelos(modelosContextIds.map(String));
- }
- }, [modelosContextIds, modelosSelecionadosIds, handleSelectModelos]);
+  useEffect(() => {
+    const incomingIds = (modelosContextIds || []).map(String).sort().join(',');
+    const currentIds = modelosSelecionadosIds.map(String).sort().join(',');
+    if (incomingIds !== currentIds) {
+      handleSelectModelos((modelosContextIds || []).map(String));
+    }
+  }, [modelosContextIds, modelosSelecionadosIds, handleSelectModelos]);
 
  // ─── Agrupamento de Orçamento por Etapas ─────────────────────────────────────
  const quantitativosAgrupados = useMemo(() => {
@@ -213,11 +213,17 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
  const s = new Set(prev); s.has(chave) ? s.delete(chave) : s.add(chave); return s;
  });
 
- // Estado para famílias expandidas dentro de uma categoria
- const [familiasExpandidas, setFamiliasExpandidas] = useState(new Set());
- const toggleFamiliaExpandida = (chave) => setFamiliasExpandidas(prev => {
- const s = new Set(prev); s.has(chave) ? s.delete(chave) : s.add(chave); return s;
- });
+  // Estado para famílias expandidas dentro de uma categoria
+  const [familiasExpandidas, setFamiliasExpandidas] = useState(new Set());
+  const toggleFamiliaExpandida = (chave) => {
+    const [categoria, familia] = chave.split('|||');
+    carregarDetalhesFamilia(categoria, familia);
+    setFamiliasExpandidas(prev => {
+      const s = new Set(prev);
+      s.has(chave) ? s.delete(chave) : s.add(chave);
+      return s;
+    });
+  };
 
  // Helper: chave única por tipo
  const tipoChave = (cat, fam, tipo) => `${cat}|||${fam}|||${tipo}`;
@@ -1009,7 +1015,18 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
  </td>
  </tr>
 
- {famExpandida && fam.tipos.map((t, idx) => {
+ {famExpandida && fam.carregando && (
+ <tr key={`loading-fam-${famChave}`} className="bg-gray-50/20">
+ <td className="px-3 py-3.5 text-center pl-12" colSpan={8}>
+ <div className="flex items-center gap-2 text-xs text-blue-600 font-black animate-pulse">
+ <FontAwesomeIcon icon={faSpinner} spin className="text-xs" />
+ <span>Buscando tipos e medidas no banco de dados...</span>
+ </div>
+ </td>
+ </tr>
+ )}
+
+ {famExpandida && !fam.carregando && fam.tipos.map((t, idx) => {
  const tChave = tipoChave(cat.categoria, fam.familia, t.tipo);
  const tExpandido = tiposExpandidos.has(tChave);
  const medidaAtiva = getMedidaAtiva(cat.categoria, fam.familia, t);

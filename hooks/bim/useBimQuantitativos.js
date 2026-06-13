@@ -1,7 +1,7 @@
 // hooks/bim/useBimQuantitativos.js
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { createClient } from '@/utils/supabase/client';
 
@@ -17,18 +17,19 @@ export function useBimQuantitativos({ organizacaoId }) {
   const [modelosSelecionadosIds, setModelosSelecionadosIds] = useState([]);
   const [categoriasExpandidas, setCategoriasExpandidas] = useState(new Set());
   const [categoriasVisiveis, setCategoriasVisiveis] = useState(new Set());
+  const restauradoRef = useRef(false);
 
   // Restaura última seleção do localStorage
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const savedEmp = localStorage.getItem('studio57_bim_quant_emp_id');
     if (savedEmp) setEmpreendimentoSelecionadoId(savedEmp);
-    // A restauração de modelos é feita pelo auto-select (useEffect abaixo) que valida os IDs salvos em 'studio57_bim_quant_modelos_ids'
   }, []);
 
   const handleSelectEmpreendimento = (id) => {
     setEmpreendimentoSelecionadoId(id);
     setModelosSelecionadosIds([]); // Reseta modelos ao trocar empreendimento
+    restauradoRef.current = false; // Permite restaurar de novo para o novo empreendimento
     localStorage.setItem('studio57_bim_quant_emp_id', id);
     localStorage.removeItem('studio57_bim_quant_modelos_ids');
   };
@@ -128,37 +129,105 @@ export function useBimQuantitativos({ organizacaoId }) {
   );
   const modeloSelecionado = modelosSelecionados[0] || null;
 
-  // Auto-select primeiro modelo se não houver seleção
+  // Restaura modelos selecionados do localStorage apenas uma vez após serem carregados
   useEffect(() => {
-    if (modelosSelecionadosIds.length === 0 && modelos.length > 0) {
-      const saved = localStorage.getItem('studio57_bim_quant_modelos_ids');
-      let validIds = [];
-      if (saved) {
-        try { validIds = JSON.parse(saved).filter(id => modelos.some(m => String(m.id) === String(id))); } catch(e) {}
-      }
-      handleSelectModelos(validIds.length > 0 ? validIds : [String(modelos[0].id)]);
+    if (restauradoRef.current || modelos.length === 0) return;
+    restauradoRef.current = true;
+    const saved = localStorage.getItem('studio57_bim_quant_modelos_ids');
+    if (saved) {
+      try {
+        const ids = JSON.parse(saved);
+        const validIds = ids.filter(id => modelos.some(m => String(m.id) === String(id)));
+        if (validIds.length > 0) {
+          setModelosSelecionadosIds(validIds);
+        }
+      } catch (e) {}
     }
-  }, [modelos, modelosSelecionadosIds]);
+  }, [modelos]);
 
-  // ─── Query 3: Elementos Agrupados do Modelo + lista flat ────────────
-  const elementosQueryKey = ['bimQuant_elementos', [...modelosSelecionadosIds].sort().join(','), organizacaoId];
-  const { data: grupos = [], isLoading: carregandoElementos } = useQuery({
+  // ─── Estados de Seleção e Carregamento sob Demanda ───────────────────
+  const [detalhesFamilias, setDetalhesFamilias] = useState({});
+  const [carregandoFamiliasIds, setCarregandoFamiliasIds] = useState(new Set());
+
+  // Reseta os detalhes das famílias quando a seleção de modelos mudar
+  useEffect(() => {
+    setDetalhesFamilias({});
+    setCarregandoFamiliasIds(new Set());
+  }, [modelosSelecionadosIds]);
+
+  // ─── Query 3: Esqueleto da Árvore de Elementos (Rápida - sem propriedades) ───
+  const elementosQueryKey = ['bimQuant_esqueleto', [...modelosSelecionadosIds].sort().join(','), organizacaoId];
+  const { data: esqueleto = [], isLoading: carregandoElementos } = useQuery({
     queryKey: elementosQueryKey,
     queryFn: async () => {
       if (modelosSelecionadosIds.length === 0 || !organizacaoId) return [];
 
-      // Busca todos os elementos do modelo (sem agrupar no banco para manter flexibilidade)
+      // Chama a RPC get_esqueleto_elementos_bim que agrupa Categoria -> Família no banco e faz bypass do limite
+      const { data, error } = await supabase.rpc('get_esqueleto_elementos_bim', {
+        p_projeto_ids: modelosSelecionadosIds.map(Number)
+      });
+
+      if (error) throw error;
+
+      // Agrupa Categoria -> Família no frontend baseado no retorno consolidado da RPC
+      const mapa = {};
+      (data || []).forEach(row => {
+        const cat = row.categoria || 'Sem Categoria';
+        const fam = row.familia || '—';
+        const total = Number(row.total_elementos || 0);
+
+        if (!mapa[cat]) mapa[cat] = {};
+        mapa[cat][fam] = (mapa[cat][fam] || 0) + total;
+      });
+
+      return Object.entries(mapa)
+        .map(([categoria, famMap]) => {
+          const familias = Object.entries(famMap).map(([familia, total]) => ({
+            familia,
+            total_elementos: total,
+            tipos: [],
+            carregando: false,
+            area_total: 0
+          })).sort((a, b) => a.familia.localeCompare(b.familia));
+
+          const totalElementos = familias.reduce((sum, f) => sum + f.total_elementos, 0);
+
+          return {
+            categoria,
+            total_elementos: totalElementos,
+            area_total_categoria: 0,
+            familias
+          };
+        })
+        .sort((a, b) => a.categoria.localeCompare(b.categoria));
+    },
+    enabled: modelosSelecionadosIds.length > 0 && !!organizacaoId,
+    staleTime: 3 * 60 * 1000,
+  });
+
+  // Função assíncrona para carregar sob demanda os detalhes de uma família (tipos, elementos e propriedades)
+  const carregarDetalhesFamilia = async (categoria, familia) => {
+    const chave = `${categoria}|||${familia}`;
+    if (detalhesFamilias[chave] || carregandoFamiliasIds.has(chave) || modelosSelecionadosIds.length === 0) return;
+
+    setCarregandoFamiliasIds(prev => {
+      const next = new Set(prev);
+      next.add(chave);
+      return next;
+    });
+
+    try {
       const { data, error } = await supabase
         .from('elementos_bim')
         .select('id, external_id, categoria, familia, tipo, nivel, propriedades, is_active')
         .in('projeto_bim_id', modelosSelecionadosIds)
-        // Inclui inativos também para rastreabilidade
-        // .eq('is_active', true)  ← removido para expor inativados
-        .not('categoria', 'in', '("Revit Level","Revit Grids","Revit Scope Boxes","Revit Reference Planes","<Indesejado>")');
+        .eq('categoria', categoria)
+        .eq('familia', familia)
+        .limit(100000);
 
       if (error) throw error;
 
-      // ── Mapa de medidas reconhecidas → unidades ────────────────────────
+      // Agrupa os elementos da família por Tipo
       const MEDIDAS_CONFIG = [
         { chave: 'Volume',           unidade: 'm³',  label: 'Volume' },
         { chave: 'Área',             unidade: 'm²',  label: 'Área' },
@@ -171,8 +240,7 @@ export function useBimQuantitativos({ organizacaoId }) {
         { chave: 'DN',               unidade: 'mm',  label: 'DN' },
       ];
 
-      // Helper: monta medidas de um acumulador
-      const buildMedidas = (acumuladores, qtdTotal) =>
+      const buildMedidas = (acumuladores) =>
         MEDIDAS_CONFIG
           .filter(cfg => acumuladores[cfg.chave]?.qtd_com_valor > 0)
           .reduce((acc, cfg) => {
@@ -185,18 +253,11 @@ export function useBimQuantitativos({ organizacaoId }) {
           }, [])
           .sort((a, b) => b.qtd_com_valor - a.qtd_com_valor);
 
-      // ── Agrupa: Categoria → Família → Tipo ───────────────────────────
-      // mapaGrupos[categoria][familia][tipo] = { elementos, acumuladores, ... }
-      const mapaGrupos = {};
+      const tipoMap = {};
       (data || []).forEach(el => {
-        const cat  = el.categoria || 'Sem Categoria';
-        const fam  = el.familia   || '—';
-        const tipo = el.tipo      || '(sem tipo)';
-
-        if (!mapaGrupos[cat]) mapaGrupos[cat] = {};
-        if (!mapaGrupos[cat][fam]) mapaGrupos[cat][fam] = {};
-        if (!mapaGrupos[cat][fam][tipo]) {
-          mapaGrupos[cat][fam][tipo] = {
+        const tipo = el.tipo || '(sem tipo)';
+        if (!tipoMap[tipo]) {
+          tipoMap[tipo] = {
             tipo,
             nivel: el.nivel || '—',
             elementos: [],
@@ -205,8 +266,7 @@ export function useBimQuantitativos({ organizacaoId }) {
             _acumuladores: {},
           };
         }
-
-        const g = mapaGrupos[cat][fam][tipo];
+        const g = tipoMap[tipo];
         g.elementos.push(el);
         g.external_ids.push(el.external_id);
 
@@ -222,53 +282,70 @@ export function useBimQuantitativos({ organizacaoId }) {
         });
       });
 
-      // ── Transforma para array de 3 níveis ─────────────────────────────
-      return Object.entries(mapaGrupos)
-        .map(([categoria, famMap]) => {
-          // Monta famílias
-          const familias = Object.entries(famMap)
-            .map(([familia, tipoMap]) => {
-              // Monta tipos (folhas da árvore)
-              const tipos = Object.entries(tipoMap)
-                .map(([_tipoKey, g]) => {
-                  const medidas = buildMedidas(g._acumuladores, g.elementos.length);
-                  return {
-                    tipo: g.tipo,
-                    nivel: g.nivel,
-                    elementos: g.elementos,
-                    external_ids: g.external_ids,
-                    sinapi_revit: g.sinapi_revit,
-                    medidas,
-                    medida_padrao: medidas[0]?.chave || null,
-                    qtd_total: g.elementos.length,
-                  };
-                })
-                .sort((a, b) => a.tipo.localeCompare(b.tipo));
-
-              const totalFamilia = tipos.reduce((acc, t) => acc + t.qtd_total, 0);
-              const areaTotalFamilia = tipos.reduce((acc, t) => {
-                const m = t.medidas.find(m => m.unidade === 'm²');
-                return acc + (m?.valor || 0);
-              }, 0);
-
-              return { familia, tipos, total_elementos: totalFamilia, area_total: areaTotalFamilia };
-            })
-            .sort((a, b) => a.familia.localeCompare(b.familia));
-
+      const tipos = Object.values(tipoMap)
+        .map(g => {
+          const medidas = buildMedidas(g._acumuladores);
           return {
-            categoria,
-            total_elementos: familias.reduce((acc, f) => acc + f.total_elementos, 0),
-            area_total_categoria: familias.reduce((acc, f) => acc + f.area_total, 0),
-            familias,
+            tipo: g.tipo,
+            nivel: g.nivel,
+            elementos: g.elementos,
+            external_ids: g.external_ids,
+            sinapi_revit: g.sinapi_revit,
+            medidas,
+            medida_padrao: medidas[0]?.chave || null,
+            qtd_total: g.elementos.length,
           };
         })
-        .sort((a, b) => a.categoria.localeCompare(b.categoria));
-    },
-    enabled: modelosSelecionadosIds.length > 0 && !!organizacaoId,
-    staleTime: 3 * 60 * 1000,
-    // Retorna grupos (estrutura hierárquica) AND todosElementos (flat) juntos
-    select: (rawGrupos) => rawGrupos, // grupos já são o retorno da queryFn
-  });
+        .sort((a, b) => a.tipo.localeCompare(b.tipo));
+
+      setDetalhesFamilias(prev => ({
+        ...prev,
+        [chave]: tipos
+      }));
+    } catch (e) {
+      console.error(`Erro ao carregar detalhes da família ${chave}:`, e);
+    } finally {
+      setCarregandoFamiliasIds(prev => {
+        const next = new Set(prev);
+        next.delete(chave);
+        return next;
+      });
+    }
+  };
+
+  // Mescla o esqueleto macro com os detalhes carregados sob demanda
+  const grupos = useMemo(() => {
+    if (!esqueleto) return [];
+
+    return esqueleto.map(cat => {
+      const familiasEnriquecidas = cat.familias.map(fam => {
+        const chave = `${cat.categoria}|||${fam.familia}`;
+        const tiposCarregados = detalhesFamilias[chave] || [];
+        const carregando = carregandoFamiliasIds.has(chave);
+
+        // Calcula a área total a partir dos tipos da família
+        const areaTotal = tiposCarregados.reduce((acc, t) => {
+          const m = t.medidas.find(med => med.unidade === 'm²');
+          return acc + (m?.valor || 0);
+        }, 0);
+
+        return {
+          ...fam,
+          tipos: tiposCarregados,
+          carregando,
+          area_total: areaTotal
+        };
+      });
+
+      const areaTotalCategoria = familiasEnriquecidas.reduce((acc, f) => acc + f.area_total, 0);
+
+      return {
+        ...cat,
+        area_total_categoria: areaTotalCategoria,
+        familias: familiasEnriquecidas,
+      };
+    });
+  }, [esqueleto, detalhesFamilias, carregandoFamiliasIds]);
 
   // Lista flat de todos os elementos (inclui ativos e inativos) para mapeamentos
   const { data: todosElementos = [] } = useQuery({
@@ -279,7 +356,8 @@ export function useBimQuantitativos({ organizacaoId }) {
         .from('elementos_bim')
         .select('id, external_id, categoria, familia, tipo, nivel, propriedades, is_active')
         .in('projeto_bim_id', modelosSelecionadosIds)
-        .not('categoria', 'in', '("Revit Level","Revit Grids","Revit Scope Boxes","Revit Reference Planes","<Indesejado>")');
+        .not('categoria', 'in', '("Revit Level","Revit Grids","Revit Scope Boxes","Revit Reference Planes","<Indesejado>")')
+        .limit(100000);
       if (error) throw error;
       return data || [];
     },
@@ -287,44 +365,9 @@ export function useBimQuantitativos({ organizacaoId }) {
     staleTime: 3 * 60 * 1000,
   });
 
-  // ─── Query 5: TODOS os elementos do Empreendimento (todos os modelos) ───
-  // Usado para calcular quantitativos por material do projeto inteiro
-  const { data: todosElementosEmpreendimento = [], isLoading: carregandoElementosEmp } = useQuery({
-    queryKey: ['bimQuant_elementos_empreendimento', empreendimentoSelecionadoId, organizacaoId],
-    queryFn: async () => {
-      if (!empreendimentoSelecionadoId || !organizacaoId) return [];
-
-      // Primeiro: pega os IDs de todos os modelos do empreendimento
-      const { data: modelosEmp, error: errMod } = await supabase
-        .from('projetos_bim')
-        .select('id')
-        .eq('empreendimento_id', empreendimentoSelecionadoId)
-        .eq('organizacao_id', organizacaoId)
-        .eq('is_lixeira', false);
-      if (errMod) throw errMod;
-
-      const modeloIds = (modelosEmp || []).map(m => m.id);
-      if (modeloIds.length === 0) return [];
-
-      const CATS_IGNORAR = ['Revit Level', 'Revit Grids', 'Revit Scope Boxes',
-        'Revit Reference Planes', '<Indesejado>'];
-
-      // Segundo: busca todos os elementos de todos esses modelos
-      const { data, error } = await supabase
-        .from('elementos_bim')
-        .select('id, external_id, categoria, familia, tipo, nivel, propriedades, is_active, projeto_bim_id')
-        .in('projeto_bim_id', modeloIds)
-        .not('categoria', 'in', `(${CATS_IGNORAR.map(c => `"${c}"`).join(',')})`);
-      if (error) {
-        console.error('[BimQuant] Erro na query elementos_empreendimento:', error);
-        throw error;
-      }
-      console.log(`[BimQuant] Empreendimento ${empreendimentoSelecionadoId}: ${(data||[]).length} elementos em ${modeloIds.length} modelo(s)`);
-      return data || [];
-    },
-    enabled: !!empreendimentoSelecionadoId && !!organizacaoId,
-    staleTime: 5 * 60 * 1000,
-  });
+  // Query 5 desativada - Cálculo de Orçamento foi portado 100% para o Banco de Dados (RPC)
+  const todosElementosEmpreendimento = [];
+  const carregandoElementosEmp = false;
 
   // ─── KPIs do Modelo ───────────────────────────────────────────────────
   const kpis = useMemo(() => {
@@ -371,7 +414,7 @@ export function useBimQuantitativos({ organizacaoId }) {
     todosElementos,              // flat do modelo selecionado (para preview de impacto no modal)
     carregandoElementos,
     kpis,
-    // Elementos do empreendimento inteiro (para aba Por Material)
+    // Elementos do empreendimento inteiro (Por Material)
     todosElementosEmpreendimento,
     carregandoElementosEmp,
     // UI
@@ -379,5 +422,7 @@ export function useBimQuantitativos({ organizacaoId }) {
     toggleCategoria,
     expandirTodas,
     recolherTodas,
+    // Lazy Loading
+    carregarDetalhesFamilia,
   };
 }

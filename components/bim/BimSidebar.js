@@ -7,7 +7,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
   faSearch, faSpinner, faPlus, faSave, faCube, faChevronRight, 
-  faRecycle, faTrash, faTimes, faTimesCircle, faFilter, faFileInvoiceDollar
+  faRecycle, faTrash, faTimes, faTimesCircle, faFilter, faFileInvoiceDollar,
+  faCheckDouble
 } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 
@@ -474,18 +475,43 @@ export default function BimSidebar({ onSelectContext, onFileSelect, onToggleMode
               </p>
             </div>
           ) : (
-            <div className="space-y-1.5">
-              {filteredFiles.map(f => (
-                <BimFileItem 
-                  key={f.id} 
-                  file={f} 
-                  isActive={activeUrn === f.urn_autodesk?.replace(/^urn:/, '')}
-                  isSelected={selectedModels.includes(f.urn_autodesk?.replace(/^urn:/, ''))}
-                  onFileSelect={onFileSelect} 
-                  onToggleModel={onToggleModel}
-                  onAction={handleFileAction}
-                />
-              ))}
+            <div className="space-y-2.5">
+              {/* Seleção em Lote do Filtro Ativo */}
+              <div className="flex items-center justify-between pb-2 mb-1 border-b border-gray-150/40 text-[10px] font-extrabold uppercase tracking-wider text-gray-400">
+                <span>{filteredFiles.length} modelo{filteredFiles.length !== 1 ? 's' : ''} filtrado{filteredFiles.length !== 1 ? 's' : ''}</span>
+                <div className="flex items-center gap-1.5">
+                  <button 
+                    onClick={() => onLoadSet(filteredFiles)}
+                    className="text-blue-600 hover:text-blue-800 transition-colors flex items-center gap-1 bg-blue-50/50 hover:bg-blue-50 px-2 py-0.5 rounded border border-blue-100 font-black"
+                    title="Selecionar todos os modelos visíveis no filtro"
+                  >
+                    <FontAwesomeIcon icon={faCheckDouble} className="text-[9px]" />
+                    <span>Todos</span>
+                  </button>
+                  <button 
+                    onClick={onClearAll}
+                    className="text-red-500 hover:text-red-700 transition-colors flex items-center gap-1 bg-red-50/50 hover:bg-red-50 px-2 py-0.5 rounded border border-red-100 font-black"
+                    title="Limpar todos os modelos selecionados"
+                  >
+                    <FontAwesomeIcon icon={faTimesCircle} className="text-[9px]" />
+                    <span>Limpar</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                {filteredFiles.map(f => (
+                  <BimFileItem 
+                    key={f.id} 
+                    file={f} 
+                    isActive={activeUrn === f.urn_autodesk?.replace(/^urn:/, '')}
+                    isSelected={selectedModels.includes(f.urn_autodesk?.replace(/^urn:/, ''))}
+                    onFileSelect={onFileSelect} 
+                    onToggleModel={onToggleModel}
+                    onAction={handleFileAction}
+                  />
+                ))}
+              </div>
             </div>
           )
         ) : (

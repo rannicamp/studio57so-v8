@@ -182,89 +182,141 @@ export default function BimManagerPage() {
 
  // --- HANDLERS (Ações do Usuário) ---
 
- // Selecionar elementos no Viewer ao clicar no Gantt
- const handleActivitySelect = async (activity) => {
- if (!viewerInstance || !activity) return;
+  // Selecionar elementos no Viewer ao clicar no Gantt
+  const handleActivitySelect = async (activity) => {
+    if (!viewerInstance || !activity) return;
 
- // Busca quais elementos estão ligados a essa atividade na tabela de VÍNCULOS
- const { data: links } = await supabase
- .from('atividades_elementos')
- .select('external_id')
- .eq('atividade_id', activity.id);
+    // Busca quais elementos estão ligados a essa atividade na tabela de VÍNCULOS
+    const { data: links } = await supabase
+      .from('atividades_elementos')
+      .select('external_id')
+      .eq('atividade_id', activity.id);
 
- if (!links || links.length === 0) { viewerInstance.clearSelection(); return; }
+    if (!links || links.length === 0) {
+      selectExternalIdsInViewer([]);
+      return;
+    }
 
- const externalIdsToSelect = links.map(l => l.external_id);
- const allModels = viewerInstance.impl.modelQueue().getModels();
- const aggregateDocs = [];
+    const externalIdsToSelect = links.map(l => l.external_id);
+    await selectExternalIdsInViewer(externalIdsToSelect, `elementos vinculados selecionados.`);
+  };
 
- // Reutiliza a função auxiliar
- await selectExternalIdsInViewer(externalIdsToSelect, `elementos vinculados selecionados.`);
- };
+  // Tratar comando de seleção vindo do Quantitativos Overlay
+  const handleShowQuantitativos = (externalIds, label, modelos) => {
+    setActiveMainTab('viewer');
+    if (modelos && modelos.length > 0) {
+      const loadedIds = loadedFiles.map(f => f.id);
+      const missingModels = modelos.filter(m => !loadedIds.includes(m.id));
+      if (missingModels.length > 0) {
+        toast.info('Modelos vinculados não estão carregados, realizando auto-load...');
+        handleLoadSet(modelos);
+        // Manda pro localStorage pra rodar no auto-load effect
+        localStorage.setItem('bimSelectionPending', JSON.stringify({
+          externalIds, notify: label || 'elementos destacados no modelo.', modelos
+        }));
+        return;
+      }
+    }
+    selectExternalIdsInViewer(externalIds, label);
+  };
 
- // Tratar comando de seleção vindo do Quantitativos Overlay
- const handleShowQuantitativos = (externalIds, label, modelos) => {
- setActiveMainTab('viewer');
- if (modelos && modelos.length > 0) {
- const loadedIds = loadedFiles.map(f => f.id);
- const missingModels = modelos.filter(m => !loadedIds.includes(m.id));
- if (missingModels.length > 0) {
- toast.info('Modelos vinculados não estão carregados, realizando auto-load...');
- handleLoadSet(modelos);
- // Manda pro localStorage pra rodar no auto-load effect
- localStorage.setItem('bimSelectionPending', JSON.stringify({
- externalIds, notify: label || 'elementos destacados no modelo.', modelos
- }));
- return;
- }
- }
- selectExternalIdsInViewer(externalIds, label);
- };
+  // Função genérica para selecionar external_ids no viewer com isolamento inteligente e ghosting
+  const selectExternalIdsInViewer = async (externalIdsList, successMessage = 'elementos selecionados.') => {
+    if (!viewerInstance) return;
 
- // Função genérica para selecionar external_ids no viewer
- const selectExternalIdsInViewer = async (externalIdsList, successMessage = 'elementos selecionados.') => {
- if (!viewerInstance || !externalIdsList || externalIdsList.length === 0) return;
+    const allModels = viewerInstance.impl.modelQueue().getModels();
+    if (allModels.length === 0) return;
 
- const allModels = viewerInstance.impl.modelQueue().getModels();
- if (allModels.length === 0) return;
+    // Ativa o ghosting globalmente para o visualizador
+    viewerInstance.setGhosting(true);
 
- let totalSelecionados = 0;
- const aggregateDocs = [];
+    if (!externalIdsList || externalIdsList.length === 0) {
+      // Se não há seleção, restaura tudo (exibe todos os modelos e remove isolamento)
+      allModels.forEach(m => {
+        viewerInstance.showModel(m.id);
+        viewerInstance.isolate(null, m);
+      });
+      viewerInstance.clearSelection();
+      return;
+    }
 
- // Converte ExternalID -> DbID em todos os modelos e agrupa
- await Promise.all(allModels.map(m => new Promise(resolve => {
- m.getExternalIdMapping(map => {
- const dbIdsInThisModel = [];
- externalIdsList.forEach(eid => { if(map[eid]) { dbIdsInThisModel.push(map[eid]); totalSelecionados++;
- } });
- if (dbIdsInThisModel.length > 0) {
- // Prepara o objeto aceito nativamente pela API avançada (setAggregateSelection)
- aggregateDocs.push({ id: m.id, model: m, ids: dbIdsInThisModel, selection: dbIdsInThisModel });
- }
- resolve();
- });
- })));
+    let totalSelecionados = 0;
+    const aggregateDocs = [];
 
- if (aggregateDocs.length > 0) { viewerInstance.clearSelection();
- // Suporte para Múltiplas Seleções em Multiplos Modelos
- if (viewerInstance.setAggregateSelection) {
- viewerInstance.setAggregateSelection(aggregateDocs);
- } else {
- // Fallback para APIs mais antigas
- aggregateDocs.forEach(doc => viewerInstance.select(doc.ids, doc.model));
- }
+    // Converte ExternalID -> DbID em todos os modelos e agrupa
+    await Promise.all(allModels.map(m => new Promise(resolve => {
+      m.getExternalIdMapping(map => {
+        const dbIdsInThisModel = [];
+        externalIdsList.forEach(eid => { 
+          if(map[eid]) { 
+            dbIdsInThisModel.push(map[eid]); 
+            totalSelecionados++;
+          } 
+        });
+        if (dbIdsInThisModel.length > 0) {
+          aggregateDocs.push({ id: m.id, model: m, ids: dbIdsInThisModel, selection: dbIdsInThisModel });
+        }
+        resolve();
+      });
+    })));
 
- // Centraliza a câmera no primeiro pacote de elementos
- try {
- viewerInstance.fitToView(aggregateDocs[0].ids, aggregateDocs[0].model);
- } catch (e) {
- console.warn("Aviso ao focar visualizador", e);
- }
- toast.info(`${totalSelecionados} ${successMessage}`); } else {
- viewerInstance.clearSelection();
- toast.warning('Os elementos não foram encontrados ou não estão visíveis nos arquivos 3D carregados.');
- }
- };
+    if (aggregateDocs.length > 0) { 
+      viewerInstance.clearSelection();
+      
+      // Identifica o empreendimento alvo da seleção
+      const targetEmpreendimentoIds = [...new Set(
+        aggregateDocs
+          .map(doc => doc.model?.studio57_context?.empreendimento_id)
+          .filter(Boolean)
+          .map(String)
+      )];
+
+      // Itera sobre todos os modelos para aplicar isolamento ou ocultação
+      allModels.forEach(m => {
+        const modelEmpId = m.studio57_context?.empreendimento_id ? String(m.studio57_context.empreendimento_id) : null;
+        
+        // Se pertencer ao mesmo empreendimento dos elementos selecionados
+        if (modelEmpId && targetEmpreendimentoIds.includes(modelEmpId)) {
+          viewerInstance.showModel(m.id); // Garante que esteja visível
+          
+          const docForModel = aggregateDocs.find(doc => doc.id === m.id);
+          if (docForModel) {
+            // Se tem elementos selecionados nesse modelo, isola-os
+            viewerInstance.isolate(docForModel.ids, m);
+          } else {
+            // Se não tem elementos selecionados mas é do mesmo empreendimento, deixa em ghosting
+            viewerInstance.isolate([0], m); // Isola ID inexistente para forçar o ghost completo no modelo
+          }
+        } else {
+          // Se for de outro empreendimento, oculta completamente
+          viewerInstance.hideModel(m.id);
+        }
+      });
+
+      // Suporte para Múltiplas Seleções em Multiplos Modelos
+      if (viewerInstance.setAggregateSelection) {
+        viewerInstance.setAggregateSelection(aggregateDocs);
+      } else {
+        aggregateDocs.forEach(doc => viewerInstance.select(doc.ids, doc.model));
+      }
+
+      // Centraliza a câmera no primeiro pacote de elementos
+      try {
+        viewerInstance.fitToView(aggregateDocs[0].ids, aggregateDocs[0].model);
+      } catch (e) {
+        console.warn("Aviso ao focar visualizador", e);
+      }
+      toast.info(`${totalSelecionados} ${successMessage}`); 
+    } else {
+      viewerInstance.clearSelection();
+      // Em caso de não encontrar elementos nos modelos atuais, podemos restaurar visibilidade de tudo
+      allModels.forEach(m => {
+        viewerInstance.showModel(m.id);
+        viewerInstance.isolate(null, m);
+      });
+      toast.warning('Os elementos não foram encontrados ou não estão visíveis nos arquivos 3D carregados.');
+    }
+  };
 
  // Efeito para checar pedido de seleção pendente via localStorage (ex: vindo do Quantitativos)
  useEffect(() => {
@@ -460,7 +512,7 @@ export default function BimManagerPage() {
             <FontAwesomeIcon icon={faPenNib} />
             <span className="text-[10px] font-black uppercase hidden md:inline">Marcação</span>
           </button>
-          <button onClick={() => { hideMarkups(); viewerInstance?.clearSelection(); toast.info("Visualização limpa."); }} disabled={!viewerInstance}
+          <button onClick={() => { hideMarkups(); selectExternalIdsInViewer([]); toast.info("Visualização limpa."); }} disabled={!viewerInstance}
             className="p-2 px-2.5 text-red-500 hover:bg-red-50 transition-all"
             title="Limpar Marcações e Seleção"
           >
