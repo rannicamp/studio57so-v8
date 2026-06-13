@@ -126,18 +126,35 @@ export default function BimUploadModal({ isOpen, onClose, preSelectedContext, on
 
  if (mode === 'version' && fileToUpdate) {
  // Update
+ const nextVersion = (fileToUpdate.versao || 1) + 1;
  const { error: dbError } = await supabase
  .from('projetos_bim')
  .update({
  ...updateData,
- versao: (fileToUpdate.versao || 1) + 1
+ versao: nextVersion
  })
  .eq('id', fileToUpdate.id);
  if (dbError) throw dbError;
- toast.success(`Versão atualizada para v${(fileToUpdate.versao || 1) + 1}!`);
+
+ // Registrar a nova versão em projetos_bim_versoes (BIM 2.0)
+ const { error: versionError } = await supabase
+ .from('projetos_bim_versoes')
+ .insert({
+ projeto_bim_id: fileToUpdate.id,
+ organizacao_id: organizacaoId,
+ versao: nextVersion,
+ urn_autodesk: finalizeData.urn,
+ nome_arquivo: file.name,
+ tamanho_bytes: file.size,
+ criado_por: user.id,
+ comentarios: `Upload de revisão via uploader`
+ });
+ if (versionError) console.error('[BIM Versioning] Erro ao salvar histórico de versão:', versionError);
+
+ toast.success(`Versão atualizada para v${nextVersion}!`);
  } else {
  // Insert
- const { error: dbError } = await supabase
+ const { data: newProj, error: dbError } = await supabase
  .from('projetos_bim')
  .insert({
  ...updateData,
@@ -147,8 +164,29 @@ export default function BimUploadModal({ isOpen, onClose, preSelectedContext, on
  organizacao_id: organizacaoId,
  criado_por: user.id,
  versao: 1
- });
+ })
+ .select('id')
+ .single();
+ 
  if (dbError) throw dbError;
+
+ // Registrar a versão 1 em projetos_bim_versoes (BIM 2.0)
+ if (newProj) {
+ const { error: versionError } = await supabase
+ .from('projetos_bim_versoes')
+ .insert({
+ projeto_bim_id: newProj.id,
+ organizacao_id: organizacaoId,
+ versao: 1,
+ urn_autodesk: finalizeData.urn,
+ nome_arquivo: file.name,
+ tamanho_bytes: file.size,
+ criado_por: user.id,
+ comentarios: `Upload inicial`
+ });
+ if (versionError) console.error('[BIM Versioning] Erro ao salvar histórico de versão:', versionError);
+ }
+
  toast.success("Projeto criado com sucesso!");
  }
  queryClient.invalidateQueries({ queryKey: ['bimStructureWithFiles', organizacaoId] });

@@ -4,10 +4,11 @@ import { createClient } from '../supabase/client';
 const supabase = createClient();
 
 /**
- * EXTRATOR STUDIO 57 - VERSÃO FINAL (RPC + EXTRAÇÃO ROBUSTA)
- * 1. Extrai dados do Viewer com tratamento de falhas.
- * 2. Limpa propriedades vazias.
+ * EXTRATOR STUDIO 57 - VERSÃO FINAL (RPC + EXTRAÇÃO ROBUSTA + DELTAS BIM 2.0)
+ * 1. Busca os elementos da versão anterior para fins de comparação.
+ * 2. Extrai dados do Viewer com tratamento de falhas.
  * 3. Envia PACOTE ÚNICO para o Banco realizar a Sincronização Inteligente (Upsert + Soft Delete).
+ * 4. Calcula e insere os Deltas (adicionados, removidos, alterados) no histórico.
  */
 export async function extrairDadosDoModelo(viewer, projetoBimId, organizacaoId, onProgress) {
     // --- 1. VALIDAÇÃO E PREPARAÇÃO ---
@@ -19,6 +20,26 @@ export async function extrairDadosDoModelo(viewer, projetoBimId, organizacaoId, 
     const rawUrn = model.getData().urn;
     const cleanUrn = rawUrn ? (rawUrn.startsWith('urn:') ? rawUrn.replace('urn:', '') : rawUrn) : null;
     console.log(`[Elo 57] Iniciando extração. URN: ${cleanUrn}`);
+
+    // Captura estado anterior dos elementos para cálculo do Delta (BIM 2.0)
+    console.log(`[Elo 57] Capturando estado anterior dos elementos para cálculo de deltas...`);
+    let elementosAnteriores = [];
+    try {
+        const { data, error: fetchPrevError } = await supabase
+            .from('elementos_bim')
+            .select('external_id, categoria, familia, tipo, propriedades')
+            .eq('projeto_bim_id', projetoBimId)
+            .eq('is_active', true);
+
+        if (fetchPrevError) {
+            console.warn("[Elo 57] Não foi possível carregar elementos anteriores:", fetchPrevError.message);
+        } else {
+            elementosAnteriores = data || [];
+            console.log(`[Elo 57] Encontrados ${elementosAnteriores.length} elementos na versão anterior.`);
+        }
+    } catch (err) {
+        console.warn("[Elo 57] Erro ao buscar elementos anteriores para comparação:", err);
+    }
 
     const tree = model.getInstanceTree();
     if (!tree) throw new Error("Árvore do modelo ainda não carregada.");
@@ -35,10 +56,10 @@ export async function extrairDadosDoModelo(viewer, projetoBimId, organizacaoId, 
     if (totalItems === 0) throw new Error("Nenhum elemento encontrado no modelo 3D.");
 
     // --- 3. EXTRAÇÃO E ENVIO (CHUNKING) ---
-    // Extrai no Viewer e ENVIA IMEDIATAMENTE pro banco em lotes para poupar memória e payload.
     let processed = 0;
     const CHUNK_SIZE = 1000; 
     const syncSession = new Date().toISOString(); // Assinatura de tempo para o Soft-Delete seguro
+    let todosElementosNovos = []; // Acumulador para cálculo do Delta no final
 
     // Função auxiliar para ler propriedades promisified
     const getPropsPromise = (ids) => {
@@ -77,33 +98,27 @@ export async function extrairDadosDoModelo(viewer, projetoBimId, organizacaoId, 
                     }
 
                     if (val !== "" && val !== null && val !== undefined) {
-                        // Limpa chaves para JSONB de forma segura (Tolerância MEP)
                         const rawName = String(p.displayName || p.attributeName || p.name || `Propriedade_${p.dbId || 'Desconhecida'}`);
                         const safeKey = rawName.replace(/[".]/g, '');
                         propsObj[safeKey] = val;
                         
-                        // Mapeamento Inteligente com travamento (só pega se ainda não tiver pego ou se for uma chave muito forte)
                         const nameLower = rawName.toLowerCase();
                         
                         if (!categoria && (nameLower === 'category' || nameLower === 'categoria')) categoria = val;
                         if (!familia && (nameLower === 'family' || nameLower === 'família')) familia = val;
-                        // Para Tipo, Revit usa "Type Name", "Nome do tipo", "Type", "Tipo"
                         if (!tipo && (nameLower === 'type name' || nameLower === 'nome do tipo' || nameLower === 'type' || nameLower === 'tipo')) tipo = val;
                         if (!nivel && (nameLower.includes('level') || nameLower.includes('nível') || nameLower.includes('nivel'))) nivel = val;
                     }
                 });
             }
 
-            // Fallback para Família (usa o nome do item se falhar) de forma segura
             if (!familia && item.name) {
                 const nomeItem = String(item.name);
                 familia = nomeItem.includes('[') ? nomeItem.split('[')[0].trim() : nomeItem.trim();
             }
 
-            // Fallback para Tipo (usa o nome do item se falhar)
             if (!tipo && item.name) {
                 const nomeItem = String(item.name);
-                // Muitas vezes o item name é "Familia [Tipo]". Vamos tentar extrair.
                 if (nomeItem.includes('[') && nomeItem.includes(']')) {
                     tipo = nomeItem.substring(nomeItem.indexOf('[') + 1, nomeItem.indexOf(']')).trim();
                 } else {
@@ -121,6 +136,9 @@ export async function extrairDadosDoModelo(viewer, projetoBimId, organizacaoId, 
             };
         });
 
+        // Acumula os novos elementos na memória para calcular o delta
+        todosElementosNovos = todosElementosNovos.concat(processedChunk);
+
         // ENVIA ESTE LOTE PARA O BANCO IMEDIATAMENTE
         if (processedChunk.length > 0) {
             try {
@@ -137,19 +155,18 @@ export async function extrairDadosDoModelo(viewer, projetoBimId, organizacaoId, 
                     throw new Error("Falha Supabase ao salvar lote: " + chunkError.message);
                 }
             } catch (err) {
-                 console.error(`[Elo 57] Falha fatal no chunk de extração. O chunk continha ${processedChunk.length} peças. Erro:`, err);
+                 console.error(`[Elo 57] Falha fatal no chunk de extração. Erro:`, err);
                  throw err;
             }
         }
 
         processed += chunkIds.length;
-        // Notifica progresso da extração (0 a 90% do processo total)
-        if (onProgress) onProgress(Math.round((processed / totalItems) * 90));
+        if (onProgress) onProgress(Math.round((processed / totalItems) * 80));
     }
 
     // --- 4. FINALIZAÇÃO E SOFT DELETE (RPC) ---
     console.log(`[Elo 57] Todos os lotes enviados. Finalizando sincronização...`);
-    if (onProgress) onProgress(95); 
+    if (onProgress) onProgress(85); 
 
     const { error: finalizeError } = await supabase.rpc('sync_bim_elements_finalize', {
         p_projeto_id: projetoBimId,
@@ -161,8 +178,114 @@ export async function extrairDadosDoModelo(viewer, projetoBimId, organizacaoId, 
         throw new Error("Erro ao finalizar a extração no banco: " + finalizeError.message);
     }
 
+    if (onProgress) onProgress(90);
+
+    // --- 5. COMPARAÇÃO E GRAVAÇÃO DE DELTAS (BIM 2.0) ---
+    if (elementosAnteriores.length > 0 && todosElementosNovos.length > 0) {
+        console.log(`[Elo 57] Iniciando cálculo de deltas entre as versões...`);
+        try {
+            const mapAnterior = new Map(elementosAnteriores.map(e => [e.external_id, e]));
+            const mapNovo = new Map(todosElementosNovos.map(e => [e.external_id, e]));
+            const deltas = [];
+
+            // Identificar Adicionados e Modificados
+            for (const [extId, elNovo] of mapNovo.entries()) {
+                const elAntigo = mapAnterior.get(extId);
+                if (!elAntigo) {
+                    // Adicionado
+                    deltas.push({
+                        external_id: extId,
+                        categoria: elNovo.categoria,
+                        familia: elNovo.familia,
+                        tipo: elNovo.tipo,
+                        acao: 'adicionado'
+                    });
+                } else {
+                    // Existe em ambos, verificar se propriedades de quantitativos mudaram
+                    const propChaves = ['Volume', 'Área', 'Area', 'Comprimento', 'Length', 'Volume de concreto', 'Espessura', 'Thickness'];
+                    let propAlterada = null;
+                    let valAnterior = null;
+                    let valNovo = null;
+
+                    for (const chave of propChaves) {
+                        const vAnt = elAntigo.propriedades?.[chave];
+                        const vNov = elNovo.propriedades?.[chave];
+                        if (vAnt !== vNov && vNov !== undefined) {
+                            propAlterada = chave;
+                            valAnterior = vAnt;
+                            valNovo = vNov;
+                            break; 
+                        }
+                    }
+
+                    if (propAlterada) {
+                        deltas.push({
+                            external_id: extId,
+                            categoria: elNovo.categoria,
+                            familia: elNovo.familia,
+                            tipo: elNovo.tipo,
+                            acao: 'modificado',
+                            propriedade_alterada: propAlterada,
+                            valor_anterior: valAnterior,
+                            valor_novo: valNovo
+                        });
+                    }
+                }
+            }
+
+            // Identificar Removidos
+            for (const [extId, elAntigo] of mapAnterior.entries()) {
+                if (!mapNovo.has(extId)) {
+                    deltas.push({
+                        external_id: extId,
+                        categoria: elAntigo.categoria,
+                        familia: elAntigo.familia,
+                        tipo: elAntigo.tipo,
+                        acao: 'removido'
+                    });
+                }
+            }
+
+            if (deltas.length > 0) {
+                console.log(`[Elo 57] Enviando ${deltas.length} deltas de elementos para a API de comparação...`);
+                
+                const { data: proj } = await supabase
+                    .from('projetos_bim')
+                    .select('versao')
+                    .eq('id', projetoBimId)
+                    .single();
+                
+                const versaoNova = proj ? proj.versao : 1;
+                const versaoAnterior = versaoNova > 1 ? versaoNova - 1 : null;
+
+                const compareRes = await fetch('/api/aps/compare', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        projetoBimId,
+                        versaoAnterior,
+                        versaoNova,
+                        organizacaoId,
+                        deltas
+                    })
+                });
+
+                if (!compareRes.ok) {
+                    const txt = await compareRes.text();
+                    console.warn('[Elo 57] Erro ao gravar deltas de comparação:', txt);
+                } else {
+                    console.log(`[Elo 57] Histórico de deltas de versão gravado com sucesso.`);
+                }
+            } else {
+                console.log("[Elo 57] Nenhuma mudança de elementos detectada nesta versão.");
+            }
+        } catch (compareErr) {
+            console.error("[Elo 57] Falha no processo de cálculo de deltas:", compareErr);
+        }
+    }
+
     if (onProgress) onProgress(100);
-    console.log("[Elo 57] Sincronização e Soft Delete concluídos com sucesso (Chunking).");
+    console.log("[Elo 57] Sincronização e Auditoria de Deltas concluídas com sucesso (Chunking).");
 
     return true;
 }

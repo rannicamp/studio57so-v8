@@ -658,7 +658,8 @@ CREATE TABLE public.crm_rodizio_config (
     fila_usuarios_ids jsonb NOT NULL DEFAULT '[]'::jsonb,
     ultimo_indice_atendido integer NOT NULL DEFAULT '-1'::integer,
     created_at timestamp with time zone DEFAULT now(),
-    updated_at timestamp with time zone DEFAULT now()
+    updated_at timestamp with time zone DEFAULT now(),
+    colunas_rodizio jsonb NOT NULL DEFAULT '[]'::jsonb
 );
 
 CREATE TABLE public.debug_notificacoes (

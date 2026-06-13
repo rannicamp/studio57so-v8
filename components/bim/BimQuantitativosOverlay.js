@@ -9,7 +9,7 @@ import {
  faFileExport, faArrowRight, faAngleDown, faAngleRight,
  faTriangleExclamation, faBoxOpen, faExpand, faCompress,
  faSearch, faBarcode, faLink, faBan, faRuler as faRulerIcon,
- faDollarSign, faExclamationTriangle, faChevronRight as faChevRight, faFileInvoiceDollar,
+ faDollarSign, faExclamationTriangle, faChevronRight as faChevRight, faFileInvoiceDollar, faCube,
 } from '@fortawesome/free-solid-svg-icons';
 import { useBimQuantitativos } from '@/hooks/bim/useBimQuantitativos';
 import { useBimMapeamentos } from '@/hooks/bim/useBimMapeamentos';
@@ -50,6 +50,7 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
  const [buscaElemento, setBuscaElemento] = useState('');
  const [medidasSelecionadas, setMedidasSelecionadas] = useState({});
  const [abaAtiva, setAbaAtiva] = useState('elementos'); // 'elementos' | 'por-material'
+ const [apenasNaoMapeados, setApenasNaoMapeados] = useState(false);
  const dropdownRef = useRef(null);
 
  // Orçamentos etapas
@@ -258,26 +259,68 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
  // Ao trocar modelo, fecha sidebar
  useEffect(() => { setSidebarItem(null); }, [modelosSelecionadosIds]);
 
- // Filtra grupos por busca — agora com estrutura 3 níveis
- const gruposFiltrados = useMemo(() => {
- if (!buscaElemento.trim()) return grupos;
- const termo = buscaElemento.toLowerCase();
- return grupos
- .map(cat => ({
- ...cat,
- familias: cat.familias
- .map(f => ({
- ...f,
- tipos: f.tipos.filter(t =>
- f.familia.toLowerCase().includes(termo) ||
- t.tipo.toLowerCase().includes(termo) ||
- (t.sinapi_revit && t.sinapi_revit.toLowerCase().includes(termo))
- ),
- }))
- .filter(f => f.tipos.length > 0),
- }))
- .filter(cat => cat.familias.length > 0);
- }, [grupos, buscaElemento]);
+  // Helper para verificar se um tipo de elemento possui mapeamento de orçamento (BIM 2.0)
+  const tipoTemMapeamento = useMemo(() => {
+    const chavesMapeadas = new Set();
+    mapeamentos.forEach(m => {
+      if (m.escopo === 'categoria') {
+        chavesMapeadas.add(`cat:${m.categoria_bim}`);
+      } else if (m.escopo === 'familia') {
+        chavesMapeadas.add(`fam:${m.categoria_bim}|||${m.familia_bim}`);
+      } else if (m.escopo === 'tipo') {
+        chavesMapeadas.add(`tipo:${m.categoria_bim}|||${m.familia_bim}|||${m.tipo_bim}`);
+      } else if (m.escopo === 'elemento') {
+        chavesMapeadas.add(`el:${m.elemento_id}`);
+      }
+    });
+
+    return (cat, fam, t) => {
+      if (chavesMapeadas.has(`cat:${cat}`)) return true;
+      if (chavesMapeadas.has(`fam:${cat}|||${fam}`)) return true;
+      if (chavesMapeadas.has(`tipo:${cat}|||${fam}|||${t.tipo}`)) return true;
+      return false;
+    };
+  }, [mapeamentos]);
+
+  // Filtra grupos por busca e toggle não mapeados — agora com estrutura 3 níveis
+  const gruposFiltrados = useMemo(() => {
+    let resultado = grupos;
+
+    if (apenasNaoMapeados) {
+      resultado = resultado
+        .map(cat => ({
+          ...cat,
+          familias: cat.familias
+            .map(f => ({
+              ...f,
+              tipos: f.tipos.filter(t => !tipoTemMapeamento(cat.categoria, f.familia, t))
+            }))
+            .filter(f => f.tipos.length > 0)
+        }))
+        .filter(cat => cat.familias.length > 0);
+    }
+
+    if (buscaElemento.trim()) {
+      const termo = buscaElemento.toLowerCase();
+      resultado = resultado
+        .map(cat => ({
+          ...cat,
+          familias: cat.familias
+            .map(f => ({
+              ...f,
+              tipos: f.tipos.filter(t =>
+                f.familia.toLowerCase().includes(termo) ||
+                t.tipo.toLowerCase().includes(termo) ||
+                (t.sinapi_revit && t.sinapi_revit.toLowerCase().includes(termo))
+              )
+            }))
+            .filter(f => f.tipos.length > 0)
+        }))
+        .filter(cat => cat.familias.length > 0);
+    }
+
+    return resultado;
+  }, [grupos, buscaElemento, apenasNaoMapeados, tipoTemMapeamento]);
 
  // Helper: soma medidas de uma lista de tipos
  const somarMedidas = (tipos) => {
@@ -449,60 +492,60 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
 
  // ─── Render ────────────────────────────────────────────────────────────────
 
- return (
- <div className="absolute inset-0 z-[70] flex flex-col bg-gray-50 overflow-hidden font-sans animate-in fade-in zoom-in-95 duration-200">
+  return (
+  <div className="w-full h-full flex flex-col bg-gray-50 overflow-hidden font-sans animate-in fade-in duration-200">
 
- {/* Sidebar de detalhes */}
- <SidebarDetalhes />
- {sidebarItem && (
- <div
- className="fixed inset-0 z-40 bg-black/10 backdrop-blur-[1px]"
- onClick={fecharSidebar}
- />
- )}
+  {/* Sidebar de detalhes */}
+  <SidebarDetalhes />
+  {sidebarItem && (
+  <div
+  className="fixed inset-0 z-40 bg-black/10 backdrop-blur-[1px]"
+  onClick={fecharSidebar}
+  />
+  )}
 
- {/* ══════════════ HEADER ══════════════ */}
- <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between gap-4 flex-shrink-0 shadow-sm relative overflow-hidden">
- 
- <div className="flex items-center gap-4 relative z-10">
- <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl flex items-center justify-center shadow-sm border border-emerald-400/30">
- <FontAwesomeIcon icon={faBuilding} className="text-white text-xl" />
- </div>
- <div className="flex flex-col">
- <p className="text-[10px] text-emerald-600 font-black uppercase tracking-widest mb-1 flex items-center gap-2">
- <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.4)] animate-pulse"></span>
- Empreendimento Ativo
- </p>
- <h1 className="text-xl font-extrabold text-gray-800 leading-none flex items-center gap-2 tracking-tight">
- {empreendimentoSelecionado?.nome || 'Nenhum Empreendimento Vinculado'}
- </h1>
- <p className="text-xs text-gray-500 font-medium tracking-wide mt-1.5 flex items-center gap-2">
- <FontAwesomeIcon icon={faFileInvoiceDollar} className="text-gray-400" />
- Orçamentação BIM {' · '} 
- {modelosSelecionados && modelosSelecionados.length > 0 ? (
-   <span className="text-gray-700 font-bold">{modelosSelecionados.length === 1 ? modelosSelecionados[0]?.nome_arquivo : `${modelosSelecionados.length} Modelos 3D Carregados`}</span>
- ) : (
-   <span className="text-gray-400">Aguardando definição do modelo...</span>
- )}
- </p>
- </div>
- </div>
+  {/* ══════════════ HEADER ══════════════ */}
+  <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between gap-4 flex-shrink-0 shadow-sm relative overflow-hidden">
+  
+  <div className="flex items-center gap-4 relative z-10">
+  <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100 shadow-sm">
+  <FontAwesomeIcon icon={faBuilding} className="text-base" />
+  </div>
+  <div className="flex flex-col">
+  <p className="text-[9px] text-emerald-650 font-black uppercase tracking-widest flex items-center gap-1.5">
+  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.3)] animate-pulse"></span>
+  Empreendimento Ativo
+  </p>
+  <h1 className="text-base font-bold text-gray-800 leading-tight flex items-center gap-2 tracking-tight">
+  {empreendimentoSelecionado?.nome || 'Nenhum Empreendimento Vinculado'}
+  </h1>
+  <p className="text-[11px] text-gray-550 font-medium tracking-wide flex items-center gap-2">
+  <FontAwesomeIcon icon={faFileInvoiceDollar} className="text-gray-400" />
+  Orçamentação BIM {' · '} 
+  {modelosSelecionados && modelosSelecionados.length > 0 ? (
+    <span className="text-gray-700 font-bold">{modelosSelecionados.length === 1 ? modelosSelecionados[0]?.nome_arquivo : `${modelosSelecionados.length} Modelos 3D Carregados`}</span>
+  ) : (
+    <span className="text-gray-400">Aguardando definição do modelo...</span>
+  )}
+  </p>
+  </div>
+  </div>
 
- {/* Ações direita do header */}
- <div className="ml-auto flex items-center gap-4 relative z-10">
- <div className="bg-slate-50 border border-slate-200 rounded-lg px-4 py-2 hidden md:flex items-center gap-3">
-     <FontAwesomeIcon icon={faLayerGroup} className="text-slate-400" />
-     <div className="flex flex-col">
-         <span className="text-[9px] text-slate-500 uppercase font-bold tracking-wider">Mapeamentos</span>
-         <span className="text-sm font-bold text-slate-700">{kpisMaterial?.totalMapeados || 0}</span>
-     </div>
- </div>
- <button onClick={onClose} className="px-5 py-2.5 rounded-xl border border-gray-200 bg-white text-gray-600 hover:text-red-600 hover:bg-red-50 hover:border-red-200 transition-all text-sm font-bold flex items-center gap-2 shadow-sm group" title="Sair da Orçamentação">
- <span>Salvar e Fechar</span>
- <span className="text-xl leading-none font-light group-hover:rotate-90 transition-transform">×</span>
- </button>
- </div>
- </header>
+  {/* Ações direita do header */}
+  <div className="ml-auto flex items-center gap-3 relative z-10">
+  <div className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 hidden md:flex items-center gap-2.5">
+      <FontAwesomeIcon icon={faLayerGroup} className="text-slate-400 text-xs" />
+      <div className="flex flex-col">
+          <span className="text-[8px] text-slate-500 uppercase font-black tracking-wider">Mapeamentos</span>
+          <span className="text-xs font-bold text-slate-700 leading-none mt-0.5">{kpisMaterial?.totalMapeados || 0}</span>
+      </div>
+  </div>
+  <button onClick={onClose} className="px-4 py-2 rounded-xl border border-gray-200 bg-white text-gray-655 hover:text-blue-600 hover:bg-blue-50 hover:border-blue-200 transition-all text-xs font-bold flex items-center gap-2 shadow-sm active:scale-95" title="Voltar para a visualização 3D">
+  <FontAwesomeIcon icon={faCube} className="text-[10px]" />
+  <span>Ver no Modelo 3D</span>
+  </button>
+  </div>
+  </header>
 
  {/* ══════════════ CORPO ÚNICO ══════════════ */}
  <div className="flex flex-1 overflow-hidden">
@@ -551,6 +594,18 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
  </div>
  {abaAtiva === 'elementos' && (
  <>
+ <button
+   onClick={() => setApenasNaoMapeados(!apenasNaoMapeados)}
+   title={apenasNaoMapeados ? "Mostrar todos os elementos" : "Mostrar apenas elementos sem mapeamento de orçamento"}
+   className={`p-1.5 px-2.5 text-xs font-bold border rounded-lg transition-all flex items-center gap-1.5 ${
+     apenasNaoMapeados 
+       ? 'bg-amber-50 text-amber-700 border-amber-300 shadow-sm hover:bg-amber-100 bg-white' 
+       : 'border-gray-200 text-gray-500 hover:bg-gray-50 bg-white'
+   }`}
+ >
+   <FontAwesomeIcon icon={faTriangleExclamation} className={apenasNaoMapeados ? 'text-amber-500 animate-pulse' : 'text-gray-400'} />
+   <span>Não Mapeados</span>
+ </button>
  <button onClick={expandirTodas} title="Expandir tudo" className="p-1.5 text-xs border border-gray-200 rounded-lg text-gray-500 hover:bg-gray-50 transition-colors">
  <FontAwesomeIcon icon={faExpand} />
  </button>
@@ -583,7 +638,7 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
  <span className="text-5xl text-gray-300"><FontAwesomeIcon icon={faBoxOpen} /></span>
  <p className="font-semibold text-center">
  Nenhum material vinculado ainda.<br />
- <span className="text-xs">Abra um elemento no sidebar e clique em "<FontAwesomeIcon icon={faLink} className="mx-1" /> vincular" numa propriedade.</span>
+ <span className="text-xs">Abra um elemento no sidebar e clique em &quot;<FontAwesomeIcon icon={faLink} className="mx-1" /> vincular&quot; numa propriedade.</span>
  </p>
  </div>
  ) : (
@@ -607,37 +662,61 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
  )}
  </div>
 
- {/* KPIs materiais */}
- <div className="grid grid-cols-3 gap-3 mb-5">
- <div className="bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2">
- <p className="text-[10px] font-extrabold text-emerald-600 uppercase tracking-wider">Custo Estimado</p>
- <p className="text-lg font-bold text-emerald-800">
- {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(kpisMaterial.custoTotal)}
- </p>
- </div>
- <div className="bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
- <p className="text-[10px] font-extrabold text-blue-600 uppercase tracking-wider">Materiais Mapeados</p>
- <p className="text-lg font-bold text-blue-800">{kpisMaterial.totalMapeados}</p>
- </div>
- <div className="bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
- <p className="text-[10px] font-extrabold text-amber-600 uppercase tracking-wider">Alertas de Sync</p>
- <p className="text-lg font-bold text-amber-800">{kpisMaterial.materialComAlerta}</p>
- </div>
- </div>
+  {/* KPIs materiais */}
+  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+    {/* Card Custo Estimado */}
+    <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm relative overflow-hidden flex items-center gap-4">
+      <div className="w-1.5 h-full bg-emerald-500 absolute left-0 top-0"></div>
+      <div className="w-10 h-10 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center flex-shrink-0">
+        <FontAwesomeIcon icon={faDollarSign} className="text-sm" />
+      </div>
+      <div>
+        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Custo Estimado</p>
+        <p className="text-base font-bold text-gray-800 mt-0.5">
+          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(kpisMaterial.custoTotal)}
+        </p>
+      </div>
+    </div>
 
- {/* Tabela de quantitativos por material */}
- <table className="w-full text-sm border-collapse">
- <thead className="bg-gray-50 border-b-2 border-gray-200">
- <tr>
- <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Material</th>
- <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase">Unid.</th>
- <th className="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase">Quantidade</th>
- <th className="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase">R$ Unit.</th>
- <th className="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase">Total Est.</th>
- <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase">Elem.</th>
- <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase">Ações</th>
- </tr>
- </thead>
+    {/* Card Materiais Mapeados */}
+    <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm relative overflow-hidden flex items-center gap-4">
+      <div className="w-1.5 h-full bg-blue-500 absolute left-0 top-0"></div>
+      <div className="w-10 h-10 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0">
+        <FontAwesomeIcon icon={faCheck} className="text-sm" />
+      </div>
+      <div>
+        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Materiais Mapeados</p>
+        <p className="text-base font-bold text-gray-800 mt-0.5">{kpisMaterial.totalMapeados}</p>
+      </div>
+    </div>
+
+    {/* Card Alertas de Sync */}
+    <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm relative overflow-hidden flex items-center gap-4">
+      <div className="w-1.5 h-full bg-amber-500 absolute left-0 top-0"></div>
+      <div className="w-10 h-10 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center flex-shrink-0">
+        <FontAwesomeIcon icon={faExclamationTriangle} className="text-sm" />
+      </div>
+      <div>
+        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Alertas de Sync</p>
+        <p className="text-base font-bold text-gray-800 mt-0.5">{kpisMaterial.materialComAlerta}</p>
+      </div>
+    </div>
+  </div>
+
+  {/* Tabela de quantitativos por material */}
+  <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+  <table className="w-full text-sm border-collapse">
+  <thead className="bg-gray-50/75 border-b border-gray-200">
+  <tr>
+  <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Material</th>
+  <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Unid.</th>
+  <th className="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Quantidade</th>
+  <th className="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">R$ Unit.</th>
+  <th className="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Total Est.</th>
+  <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Elem.</th>
+  <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Ações</th>
+  </tr>
+  </thead>
  <tbody>
  {quantitativosAgrupados.map(grupo => {
  const isExpandido = !etapasRecolhidas.has(grupo.etapa_id);
@@ -821,7 +900,8 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
  </tr>
  </tfoot>
  )}
- </table>
+  </table>
+  </div>
  </>
  )}
  </div>
@@ -846,17 +926,18 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
  <p className="font-semibold">Nenhum elemento encontrado{buscaElemento ? ' para a busca realizada' : ' neste modelo'}.</p>
  </div>
  ) : (
+ <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
  <table className="w-full text-sm border-collapse">
- <thead className="bg-gray-50 sticky top-0 z-10 border-b-2 border-gray-200">
+ <thead className="bg-gray-50/75 border-b border-gray-200 sticky top-0 z-10">
  <tr>
  <th className="px-3 py-3 text-left text-xs font-bold text-gray-500 uppercase w-10"></th>
- <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Família / Tipo</th>
- <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Nível</th>
- <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Descrição</th>
- <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase">Inst.</th>
- <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Unidade</th>
- <th className="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase">Quantidade</th>
- <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">SINAPI Revit</th>
+ <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Família / Tipo</th>
+ <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Nível</th>
+ <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Descrição</th>
+ <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Inst.</th>
+ <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Unidade</th>
+ <th className="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Quantidade</th>
+ <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">SINAPI Revit</th>
  </tr>
  </thead>
  <tbody>
@@ -1036,6 +1117,7 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
  })}
  </tbody>
  </table>
+ </div>
  )}
  </>
  )}

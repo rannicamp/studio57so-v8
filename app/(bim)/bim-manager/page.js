@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@/utils/supabase/client';
@@ -59,6 +59,7 @@ export default function BimManagerPage() {
  const [isGanttOpen, setIsGanttOpen] = useState(false);
  const [isInspectorVisible, setIsInspectorVisible] = useState(true);
  const [isQuantitativosOpen, setIsQuantitativosOpen] = useState(false);
+ const [activeMainTab, setActiveMainTab] = useState('viewer'); // 'viewer' | 'orcamento'
 
  // 4. Hook de Gerenciamento de Modelos
  const { loadedFiles, selectedModels, handleToggleModel, handleLoadSet, handleClearAll,
@@ -79,6 +80,11 @@ export default function BimManagerPage() {
  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
  const [activityToEdit, setActivityToEdit] = useState(null);
 
+ // Estados de Vistas e Pranchas 2D (BIM 2.0)
+ const [isVistasDropdownOpen, setIsVistasDropdownOpen] = useState(false);
+ const [vistaAtiva, setVistaAtiva] = useState(null);
+ const vistasDropdownRef = useRef(null);
+
  // --- QUERIES E DADOS ---
 
  // Busca todas as atividades da organização
@@ -95,6 +101,71 @@ export default function BimManagerPage() {
  },
  enabled: !!organizacao_id
  });
+
+ // ─── BIM 2.0: PRANCHAS 2D E VISTAS ───
+ const { data: vistas = [] } = useQuery({
+  queryKey: ['projetos_bim_vistas', fileInUse?.id],
+  queryFn: async () => {
+    if (!fileInUse?.id) return [];
+    const { data, error } = await supabase
+      .from('projetos_bim_vistas')
+      .select('*')
+      .eq('projeto_bim_id', fileInUse.id)
+      .order('tipo', { ascending: false }) // 3D primeiro, depois 2D
+      .order('nome');
+    if (error) console.error('[BIM Vistas] Erro ao carregar:', error);
+    return data || [];
+  },
+  enabled: !!fileInUse?.id,
+ });
+
+ const handleSelectVista = useCallback(async (vista) => {
+  if (!viewerInstance || !fileInUse) return;
+  
+  const rawUrn = fileInUse.urn_autodesk.replace(/^urn:/, '');
+  const fullUrn = `urn:${rawUrn}`;
+  const toastId = toast.loading(`Carregando vista: ${vista.nome}...`);
+
+  window.Autodesk.Viewing.Document.load(fullUrn, (doc) => {
+    const node = doc.getRoot().search({ 'guid': vista.guid })[0];
+    if (node) {
+      // Descarrega os modelos atuais e carrega apenas a prancha 2D/vista
+      const models = viewerInstance.impl.modelQueue().getModels();
+      models.forEach(m => viewerInstance.impl.unloadModel(m));
+      
+      viewerInstance.loadDocumentNode(doc, node).then(() => {
+        toast.success(`Vista ${vista.nome} carregada!`, { id: toastId });
+        viewerInstance.fitToView();
+      }).catch(err => {
+        toast.error("Erro ao abrir vista no visualizador.", { id: toastId });
+        console.error(err);
+      });
+    } else {
+      toast.error("Vista não encontrada no modelo.", { id: toastId });
+    }
+  }, (err) => {
+    toast.error("Falha ao carregar documento da Autodesk.", { id: toastId });
+    console.error(err);
+  });
+ }, [viewerInstance, fileInUse]);
+
+ const handleVoltar3D = useCallback(() => {
+  if (!viewerInstance || !fileInUse) return;
+  // Limpa a seleção e recarrega o modelo no estado inicial do 3D geral
+  handleClearAll();
+  handleToggleModel(fileInUse);
+ }, [viewerInstance, fileInUse, handleClearAll, handleToggleModel]);
+
+ // Fecha o dropdown ao clicar fora
+ useEffect(() => {
+  const clickOutside = (e) => {
+    if (vistasDropdownRef.current && !vistasDropdownRef.current.contains(e.target)) {
+      setIsVistasDropdownOpen(false);
+    }
+  };
+  document.addEventListener('mousedown', clickOutside);
+  return () => document.removeEventListener('mousedown', clickOutside);
+ }, []);
 
  // Filtra atividades visíveis com base nos projetos carregados (para o Gantt)
  const visibleActivities = useMemo(() => {
@@ -133,7 +204,7 @@ export default function BimManagerPage() {
 
  // Tratar comando de seleção vindo do Quantitativos Overlay
  const handleShowQuantitativos = (externalIds, label, modelos) => {
- setIsQuantitativosOpen(false);
+ setActiveMainTab('viewer');
  if (modelos && modelos.length > 0) {
  const loadedIds = loadedFiles.map(f => f.id);
  const missingModels = modelos.filter(m => !loadedIds.includes(m.id));
@@ -329,106 +400,190 @@ export default function BimManagerPage() {
  <div className="flex flex-1 overflow-hidden relative">
  {/* BARRA LATERAL ESQUERDA */}
  <div className={`${isSidebarVisible ? 'w-80' : 'w-0'} transition-all duration-300 border-r bg-white z-20 shrink-0 overflow-hidden`}>
- <BimSidebar onFileSelect={(f) => { const clean = f.urn_autodesk.replace(/^urn:/, ''); if(!selectedModels.includes(clean)) handleToggleModel(f); }} onToggleModel={handleToggleModel} onSelectContext={handleSelectContext} selectedModels={selectedModels} activeUrn={activeUrn} onLoadSet={handleLoadSet} onClearAll={handleClearAll} />
+ <BimSidebar 
+   onFileSelect={(f) => { const clean = f.urn_autodesk.replace(/^urn:/, ''); if(!selectedModels.includes(clean)) handleToggleModel(f); }} 
+   onToggleModel={handleToggleModel} 
+   onSelectContext={handleSelectContext} 
+   selectedModels={selectedModels} 
+   activeUrn={activeUrn} 
+   onLoadSet={handleLoadSet} 
+   onClearAll={handleClearAll} 
+   activeMainTab={activeMainTab}
+   setActiveMainTab={setActiveMainTab}
+ />
  </div>
 
  {/* ÁREA PRINCIPAL */}
  <main className="flex-1 h-full relative flex min-w-0 bg-white">
- <div className="flex-1 relative h-full w-full flex flex-col min-w-0">
- {/* Botões Superiores */}
- <div className="absolute top-4 left-4 z-[60] flex gap-2">
- <button onClick={() => setIsSidebarVisible(!isSidebarVisible)} className="bg-white/90 p-2 rounded-lg shadow-sm border text-gray-600 hover:bg-white transition-all">
- <FontAwesomeIcon icon={isSidebarVisible ? faChevronLeft : faChevronRight} />
- </button>
- <Link href="/painel" className="bg-white/90 p-2 rounded-lg shadow-sm border text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-all" title="Voltar ao Painel">
- <FontAwesomeIcon icon={faHome} />
- </Link>
- <button onClick={toggleEvolutionMode} disabled={isLoadingEvolution || !viewerInstance}
- className={`bg-white/90 p-2 rounded-lg shadow-sm border transition-all flex items-center gap-2 ${isEvolutionMode ? 'text-green-600 border-green-300 ring-1 ring-green-100 bg-green-50' : 'text-gray-600 hover:text-green-600'}`}
- >
- {isLoadingEvolution ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faLayerGroup} />}
- {isEvolutionMode && <span className="text-[10px] font-bold uppercase hidden md:inline">Evolução</span>}
- </button>
+  {/* Botões Superiores do Cockpit */}
+  <div className="absolute top-4 left-4 z-[60] flex gap-2 items-center">
+    {/* Toggle Sidebar */}
+    <button onClick={() => setIsSidebarVisible(!isSidebarVisible)} className="bg-white/95 backdrop-blur-sm p-2 rounded-xl shadow-md border border-gray-200 text-gray-650 hover:bg-white hover:text-gray-800 transition-all active:scale-95 flex items-center justify-center">
+      <FontAwesomeIcon icon={isSidebarVisible ? faChevronLeft : faChevronRight} className="text-xs" />
+    </button>
+    {/* Home */}
+    <Link href="/painel" className="bg-white/95 backdrop-blur-sm p-2 rounded-xl shadow-md border border-gray-200 text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-all active:scale-95 flex items-center justify-center" title="Voltar ao Painel">
+      <FontAwesomeIcon icon={faHome} className="text-xs" />
+    </Link>
 
- <button onClick={() => setIsGanttOpen(!isGanttOpen)} className={`bg-white/90 p-2 rounded-lg shadow-sm border transition-all flex items-center gap-2 ${isGanttOpen ? 'text-blue-600 border-blue-300 ring-1' : ''}`}>
- <FontAwesomeIcon icon={faStream} /> {visibleActivities.length > 0 && !isGanttOpen && <span className="bg-blue-600 text-white text-[10px] px-1.5 rounded-full font-bold ml-1">{visibleActivities.length}</span>}
- </button>
- <button onClick={() => setIsQuantitativosOpen(true)} className="bg-white/90 p-2 rounded-lg shadow-sm border text-gray-600 hover:text-emerald-600 hover:bg-emerald-50 transition-all ml-4"
- title="Abrir Orçamento (Quantitativos)"
- >
- <FontAwesomeIcon icon={faFileInvoiceDollar} />
- <span className="text-[10px] font-bold uppercase hidden md:inline ml-2">Orçamento</span>
- </button>
- <div className="flex items-center ml-4 bg-white/90 rounded-lg shadow-sm border divide-x divide-gray-200 overflow-hidden">
- <button onClick={() => isMarkupActive ? leaveMarkupMode() : enterMarkupMode()} disabled={!viewerInstance}
- className={`p-2 transition-all flex items-center gap-2 ${isMarkupActive ? 'text-blue-600 bg-blue-50' : 'text-gray-600 hover:text-blue-600 hover:bg-gray-50'}`}
- title="Anotações 3D (Desenho livre)"
- >
- <FontAwesomeIcon icon={faPenNib} />
- <span className="text-[10px] font-bold uppercase hidden md:inline">Marcação</span>
- </button>
- <button onClick={() => {
- hideMarkups();
- viewerInstance?.clearSelection();
- toast.info("Anotação e seleções ocultadas na vista principal.");
- }} disabled={!viewerInstance}
- className="p-2 px-3 text-red-500 hover:bg-red-50 transition-all"
- title="Limpar Desenho e Seleção"
- >
- <FontAwesomeIcon icon={faEraser} />
- </button>
- </div>
- </div>
+    {/* Ferramentas Exclusivas do Visualizador 3D */}
+    {activeMainTab === 'viewer' && (
+      <>
+        <div className="h-6 w-px bg-gray-200 mx-1"></div>
 
- <div className="absolute top-4 right-4 z-[60]">
- <button onClick={() => setIsInspectorVisible(!isInspectorVisible)} className="bg-white/90 p-2 rounded-lg shadow-sm border text-gray-600 hover:bg-white transition-all hover:text-purple-600">
- <FontAwesomeIcon icon={isInspectorVisible ? faChevronRight : faChevronLeft} />
- </button>
- </div>
+        {/* Evolução */}
+        <button onClick={toggleEvolutionMode} disabled={isLoadingEvolution || !viewerInstance}
+          className={`bg-white/95 backdrop-blur-sm p-2 rounded-xl shadow-md border border-gray-200 transition-all flex items-center gap-1.5 active:scale-95 ${isEvolutionMode ? 'text-green-600 border-green-300 bg-green-50' : 'text-gray-555 hover:text-green-600 hover:bg-gray-50'}`}
+          title="Evolução Física da Obra"
+        >
+          {isLoadingEvolution ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faLayerGroup} />}
+          {isEvolutionMode && <span className="text-[10px] font-black uppercase hidden md:inline">Evolução</span>}
+        </button>
 
- {/* VISUALIZADOR 3D */}
- <div className="flex-1 w-full relative">
- {isMarkupActive && (
- <BimMarkupToolbar activeTool={activeTool} setMarkupTool={setMarkupTool} onUndo={undo} onClear={clearMarkups} onSave={() => {
- const data = generateMarkupData();
- if (data && data.svgString) {
- handleOpenMarkupNoteCreation(data);
- leaveMarkupMode();
- } else {
- toast.warning("Desenhe algo antes de salvar.");
- }
- }} onCancel={leaveMarkupMode} />
- )}
- <AutodeskViewerAPI urn={null} onViewerReady={setViewerInstance} />
- </div>
+        {/* Cronograma Gantt */}
+        <button onClick={() => setIsGanttOpen(!isGanttOpen)} 
+          className={`bg-white/95 backdrop-blur-sm p-2 rounded-xl shadow-md border border-gray-200 transition-all flex items-center gap-1.5 active:scale-95 ${isGanttOpen ? 'text-blue-600 border-blue-300 bg-blue-50 animate-pulse' : 'text-gray-555 hover:text-blue-600 hover:bg-gray-50'}`}
+          title="Cronograma de Atividades"
+        >
+          <FontAwesomeIcon icon={faStream} /> 
+          {visibleActivities.length > 0 && !isGanttOpen && (
+            <span className="bg-blue-600 text-white text-[9px] px-1.5 py-0.5 rounded-full font-black ml-1">{visibleActivities.length}</span>
+          )}
+        </button>
 
- {/* PAINEL GANTT */}
- <div className={`absolute bottom-0 left-0 right-0 z-[50] bg-white border-t border-gray-200 shadow-[0_-5px_30px_rgba(0,0,0,0.15)] transition-all duration-500 ease-in-out flex flex-col`} style={{ height: isGanttOpen ? '45%' : '0px' }}>
- <div className="h-10 border-b flex items-center justify-between px-4 bg-gray-50 shrink-0">
- <div className="flex items-center gap-2"><FontAwesomeIcon icon={faStream} className="text-blue-600 text-xs" /><span className="text-xs font-bold text-gray-700 uppercase tracking-wider">Cronograma ({visibleActivities.length} atv.)</span></div>
- <button onClick={() => setIsGanttOpen(false)} className="text-gray-400 hover:text-red-500 p-1"><FontAwesomeIcon icon={faChevronDown} /></button>
- </div>
- <div className="flex-1 overflow-hidden relative bg-white p-2">
- {visibleActivities.length > 0 ? (
- <div className="h-full overflow-auto custom-scrollbar">
- <GanttChart activities={visibleActivities} onEditActivity={handleActivitySelect} />
- </div>
- ) : (
- <div className="h-full flex flex-col items-center justify-center text-gray-400 gap-2"><p className="text-sm">Nenhuma atividade.</p></div>
- )}
- </div>
- </div>
- </div>
+        {/* Ferramenta de Anotação/Marcação */}
+        <div className="flex items-center bg-white/95 backdrop-blur-sm rounded-xl shadow-md border border-gray-200 divide-x divide-gray-150 overflow-hidden">
+          <button onClick={() => isMarkupActive ? leaveMarkupMode() : enterMarkupMode()} disabled={!viewerInstance}
+            className={`p-2 transition-all flex items-center gap-1.5 active:scale-95 ${isMarkupActive ? 'text-blue-600 bg-blue-50' : 'text-gray-555 hover:text-blue-600 hover:bg-gray-50'}`}
+            title="Desenhar Anotações no Modelo"
+          >
+            <FontAwesomeIcon icon={faPenNib} />
+            <span className="text-[10px] font-black uppercase hidden md:inline">Marcação</span>
+          </button>
+          <button onClick={() => { hideMarkups(); viewerInstance?.clearSelection(); toast.info("Visualização limpa."); }} disabled={!viewerInstance}
+            className="p-2 px-2.5 text-red-500 hover:bg-red-50 transition-all"
+            title="Limpar Marcações e Seleção"
+          >
+            <FontAwesomeIcon icon={faEraser} />
+          </button>
+        </div>
+      </>
+    )}
+  </div>
 
- {/* INSPECTOR */}
- <div className={`${isInspectorVisible ? 'w-80 border-l' : 'w-0 border-none'} bg-white transition-all duration-300 flex flex-col overflow-hidden shrink-0 z-20 shadow-xl`}>
- <BimInspector viewer={viewerInstance} elementExternalId={selectedElements[0]} selectedElements={selectedElements} selectedCount={fastSelectionCount} projetoBimId={fileInUse?.id} urnAutodesk={activeUrn || fileInUse?.urn_autodesk} onOpenLink={handleOpenLink} onOpenCreate={handleOpenCreate} onOpenNote={handleOpenNoteCreation} onRestoreNote={handleRestoreNoteWrapper} />
- </div>
- {isQuantitativosOpen && (
- <BimQuantitativosOverlay onClose={() => setIsQuantitativosOpen(false)} onShowInModel={handleShowQuantitativos} empreendimentoContextId={fileInUse?.empreendimento_id}
- modelosContextIds={loadedFiles.map(f => f.id)}
- />
- )}
+  {/* Inspector Toggle Button */}
+  {activeMainTab === 'viewer' && (
+    <div className="absolute top-4 right-4 z-[60]">
+      <button onClick={() => setIsInspectorVisible(!isInspectorVisible)} className="bg-white/95 backdrop-blur-sm p-2 rounded-xl shadow-md border border-gray-200 text-gray-500 hover:bg-white hover:text-purple-650 transition-all active:scale-95 flex items-center justify-center">
+        <FontAwesomeIcon icon={isInspectorVisible ? faChevronRight : faChevronLeft} className="text-xs" />
+      </button>
+    </div>
+  )}
+
+  {/* CONTEÚDO CENTRAL (Visualizador 3D ou Planilha de Orçamento) */}
+  <div className="flex-1 relative h-full w-full flex flex-col min-w-0 bg-white">
+    {/* Visualizador 3D (controlado via CSS para não descarregar a URN em memória) */}
+    <div className={`flex-1 w-full relative ${activeMainTab === 'viewer' ? 'block' : 'hidden'}`}>
+      {isMarkupActive && (
+        <BimMarkupToolbar activeTool={activeTool} setMarkupTool={setMarkupTool} onUndo={undo} onClear={clearMarkups} onSave={() => {
+          const data = generateMarkupData();
+          if (data && data.svgString) {
+            handleOpenMarkupNoteCreation(data);
+            leaveMarkupMode();
+          } else {
+            toast.warning("Desenhe algo antes de salvar.");
+          }
+        }} onCancel={leaveMarkupMode} />
+      )}
+
+      {/* SELETOR DE VISTAS/PRANCHAS 2D (BIM 2.0) */}
+      {fileInUse && vistas && vistas.length > 0 && (
+        <div className="absolute top-4 right-4 z-[60]">
+          <div className="relative" ref={vistasDropdownRef}>
+            <button
+              onClick={() => setIsVistasDropdownOpen(!isVistasDropdownOpen)}
+              className="bg-white/95 backdrop-blur-sm border border-gray-200 px-4 py-2 rounded-xl shadow-md text-xs font-bold text-gray-700 hover:bg-white flex items-center gap-2 transition-all active:scale-95 border-b"
+            >
+              <FontAwesomeIcon icon={faLayerGroup} className="text-blue-500 text-xs" />
+              <span>{vistaAtiva ? vistaAtiva.nome : 'Modelo 3D Geral'}</span>
+              <FontAwesomeIcon icon={faChevronDown} className="text-gray-400 text-[10px]" />
+            </button>
+            {isVistasDropdownOpen && (
+              <div className="absolute right-0 mt-2 w-64 bg-white/95 backdrop-blur-sm border border-gray-200 rounded-xl shadow-2xl overflow-hidden flex flex-col z-[100] animate-in fade-in slide-in-from-top-1 duration-200 max-h-80 overflow-y-auto">
+                <div className="px-3 py-2 border-b border-gray-100 bg-gray-50/50">
+                  <span className="text-[9px] font-black text-gray-400 uppercase tracking-wider">Desenhos e Vistas</span>
+                </div>
+                <button
+                  onClick={() => {
+                    setVistaAtiva(null);
+                    setIsVistasDropdownOpen(false);
+                    handleVoltar3D();
+                  }}
+                  className={`w-full text-left px-4 py-2.5 text-xs font-semibold hover:bg-blue-50 hover:text-blue-600 transition-colors flex items-center gap-2 ${!vistaAtiva ? 'bg-blue-50/50 text-blue-600' : 'text-gray-700'}`}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                  Modelo 3D Geral
+                </button>
+                {vistas.map(v => (
+                  <button
+                    key={v.id}
+                    onClick={() => {
+                      setVistaAtiva(v);
+                      setIsVistasDropdownOpen(false);
+                      handleSelectVista(v);
+                    }}
+                    className={`w-full text-left px-4 py-2.5 text-xs font-semibold hover:bg-blue-50 hover:text-blue-600 transition-colors flex items-center gap-2 ${vistaAtiva?.id === v.id ? 'bg-blue-50/50 text-blue-600 font-bold' : 'text-gray-700'}`}
+                  >
+                    <span className={`w-1.5 h-1.5 rounded-full ${v.tipo === '2d' ? 'bg-emerald-400' : 'bg-indigo-400'}`}></span>
+                    <span className="truncate">{v.nome}</span>
+                    <span className="ml-auto text-[8px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full uppercase font-bold">{v.tipo}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      <AutodeskViewerAPI urn={null} onViewerReady={setViewerInstance} />
+    </div>
+
+    {/* Planilha de Orçamento Integrada */}
+    {activeMainTab === 'orcamento' && (
+      <div className="flex-1 w-full h-full bg-gray-50 overflow-hidden">
+        <BimQuantitativosOverlay 
+          onClose={() => setActiveMainTab('viewer')} 
+          onShowInModel={handleShowQuantitativos} 
+          empreendimentoContextId={fileInUse?.empreendimento_id}
+          modelosContextIds={loadedFiles.map(f => f.id)}
+        />
+      </div>
+    )}
+
+    {/* PAINEL GANTT (Exclusivo do Visualizador 3D) */}
+    {activeMainTab === 'viewer' && (
+      <div className={`absolute bottom-0 left-0 right-0 z-[50] bg-white border-t border-gray-200 shadow-[0_-5px_30px_rgba(0,0,0,0.15)] transition-all duration-500 ease-in-out flex flex-col`} style={{ height: isGanttOpen ? '45%' : '0px' }}>
+        <div className="h-10 border-b flex items-center justify-between px-4 bg-gray-50 shrink-0">
+          <div className="flex items-center gap-2"><FontAwesomeIcon icon={faStream} className="text-blue-600 text-xs" /><span className="text-xs font-bold text-gray-700 uppercase tracking-wider">Cronograma ({visibleActivities.length} atv.)</span></div>
+          <button onClick={() => setIsGanttOpen(false)} className="text-gray-400 hover:text-red-500 p-1"><FontAwesomeIcon icon={faChevronDown} /></button>
+        </div>
+        <div className="flex-1 overflow-hidden relative bg-white p-2">
+          {visibleActivities.length > 0 ? (
+            <div className="h-full overflow-auto custom-scrollbar">
+              <GanttChart activities={visibleActivities} onEditActivity={handleActivitySelect} />
+            </div>
+          ) : (
+            <div className="h-full flex flex-col items-center justify-center text-gray-400 gap-2"><p className="text-sm">Nenhuma atividade.</p></div>
+          )}
+        </div>
+      </div>
+    )}
+  </div>
+
+  {/* INSPECTOR (Oculto se a aba for Orçamento) */}
+  <div className={`${isInspectorVisible && activeMainTab === 'viewer' ? 'w-80 border-l' : 'w-0 border-none'} bg-white transition-all duration-300 flex flex-col overflow-hidden shrink-0 z-20 shadow-xl`}>
+    <BimInspector viewer={viewerInstance} elementExternalId={selectedElements[0]} selectedElements={selectedElements} selectedCount={fastSelectionCount} projetoBimId={fileInUse?.id} urnAutodesk={activeUrn || fileInUse?.urn_autodesk} onOpenLink={handleOpenLink} onOpenCreate={handleOpenCreate} onOpenNote={handleOpenNoteCreation} onRestoreNote={handleRestoreNoteWrapper} />
+  </div>
  </main>
  </div>
 
