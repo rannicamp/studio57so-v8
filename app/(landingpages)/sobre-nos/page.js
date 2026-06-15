@@ -29,7 +29,7 @@ export default function SobreNosPage() {
 
         {/* Título Principal */}
         <h1 className="font-roboto font-light text-4xl md:text-6xl text-gray-900 uppercase tracking-widest mb-8">
-          A Nossa Verdade
+          Nossa Essência
         </h1>
 
         {/* Linha Decorativa Sutil */}
