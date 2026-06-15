@@ -464,7 +464,66 @@ export default function CrmPage() {
  const deleteColumnCardsMutation = useMutation({ mutationFn: async (colId) => { await supabase.from('contatos_no_funil').delete().eq('coluna_id', colId).throwOnError(); return "Cards excluídos!"; }, ...mutationOptions });
  const deleteCardMutation = useMutation({ mutationFn: async (cardId) => { await supabase.from('contatos_no_funil').delete().eq('id', cardId).throwOnError(); return "Card excluído!"; }, ...mutationOptions });
  const dissociateProductMutation = useMutation({ mutationFn: async (id) => { await supabase.from('contatos_no_funil_produtos').delete().eq('id', id).throwOnError(); return "Produto removido!"; }, ...mutationOptions });
- const associateCorretorMutation = useMutation({ mutationFn: async ({ contactId, corretorId }) => { await supabase.from('contatos_no_funil').update({ corretor_id: corretorId }).eq('id', contactId).throwOnError(); return "Corretor associado!"; }, ...mutationOptions });
+  const associateCorretorMutation = useMutation({
+    mutationFn: async ({ contactId, corretorId }) => {
+      // 1. Obter o contato_id real a partir do card do funil
+      const { data: leadCard, error: cardError } = await supabase
+        .from('contatos_no_funil')
+        .select('contato_id')
+        .eq('id', contactId)
+        .single();
+
+      if (cardError || !leadCard) {
+        throw new Error(cardError?.message || "Card de lead no funil não encontrado.");
+      }
+
+      const realContatoId = leadCard.contato_id;
+
+      // 2. Atualizar o corretor_id na tabela contatos_no_funil
+      await supabase
+        .from('contatos_no_funil')
+        .update({ corretor_id: corretorId })
+        .eq('id', contactId)
+        .throwOnError();
+
+      // 3. Buscar a Stella IA (usuário) da organização
+      const { data: stellaUser } = await supabase
+        .from('usuarios')
+        .select('contato_id')
+        .eq('email', `stella.org${organizacaoId}@elo57.com.br`)
+        .maybeSingle();
+
+      const isStella = stellaUser?.contato_id && corretorId === stellaUser.contato_id;
+
+      // 4. Atualizar o flag ia_atendimento_ativo da tabela contatos
+      await supabase
+        .from('contatos')
+        .update({ ia_atendimento_ativo: isStella ? true : false })
+        .eq('id', realContatoId)
+        .throwOnError();
+
+      // 5. Se for a Stella, acionar a rota trigger-autopilot de forma assíncrona
+      if (isStella) {
+        console.log(`[CRM] Stella atribuída ao lead ${realContatoId}. Disparando trigger-autopilot...`);
+        fetch('/api/whatsapp/trigger-autopilot', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contato_id: realContatoId,
+            organizacao_id: organizacaoId
+          })
+        }).then(async (res) => {
+          const resJson = await res.json();
+          console.log(`[CRM] Resposta do trigger-autopilot:`, resJson);
+        }).catch(err => {
+          console.error(`[CRM] Erro ao chamar trigger-autopilot:`, err);
+        });
+      }
+
+      return isStella ? "Stella IA associada e piloto automático ativado!" : "Corretor associado com sucesso!";
+    },
+    ...mutationOptions
+  });
  const editColumnMutation = useMutation({ mutationFn: async ({ columnId, newName }) => { const { error } = await supabase.from('colunas_funil').update({ nome: newName }).eq('id', columnId).eq('organizacao_id', organizacaoId); if (error) throw error; return "Nome da etapa atualizado!"; }, ...mutationOptions });
 
  // --- EXCLUSÃO DE COLUNA: Move cards para ENTRADA nativa da Org por segurança ---

@@ -79,12 +79,21 @@ export async function findOrCreateContactAndConversation(supabaseAdmin, message,
   // 2. Se não achou, CRIA TUDO (Lead, Telefone, Funil)
   if (!contatoId) {
     console.log('[CRM] Criando novo Lead...');
-    const { data: newContact, error: createError } = await supabaseAdmin.from('contatos').insert({
+    const insertPayload = {
       nome: contatoNome,
       tipo_contato: 'Lead',
       organizacao_id: orgId,
       is_awaiting_name_response: false
-    }).select().single();
+    };
+
+    if (message.referral) {
+      insertPayload.meta_referral_data = message.referral;
+      if (message.referral.source_type === 'ad') {
+        insertPayload.meta_ad_id = message.referral.source_id;
+      }
+    }
+
+    const { data: newContact, error: createError } = await supabaseAdmin.from('contatos').insert(insertPayload).select().single();
 
     if (createError) throw new Error(`Erro criar contato: ${createError.message}`);
 
@@ -182,6 +191,20 @@ export async function findOrCreateContactAndConversation(supabaseAdmin, message,
     } catch(e) {}
     
   } else {
+    // Se o contato existe e a mensagem traz dados de referral (Click-to-WhatsApp), atualiza a origem e o ad_id
+    if (message.referral) {
+      console.log('[CRM] Atualizando dados de referral no Lead existente...');
+      const updatePayload = {
+        meta_referral_data: message.referral
+      };
+      if (message.referral.source_type === 'ad') {
+        updatePayload.meta_ad_id = message.referral.source_id;
+      }
+      await supabaseAdmin.from('contatos')
+        .update(updatePayload)
+        .eq('id', contatoId);
+    }
+
     // Se já existe, verifica se estamos esperando o nome dele
     const { data: existing } = await supabaseAdmin.from('contatos').select('nome, is_awaiting_name_response').eq('id', contatoId).single();
     if (existing) {

@@ -1027,6 +1027,23 @@ CREATE TABLE public.funis (
     is_sistema boolean DEFAULT false
 );
 
+CREATE TABLE public.historico_elementos_bim (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    organizacao_id bigint NOT NULL,
+    projeto_bim_id bigint NOT NULL,
+    versao_anterior integer,
+    versao_nova integer NOT NULL,
+    external_id text NOT NULL,
+    categoria text,
+    familia text,
+    tipo text,
+    acao text NOT NULL,
+    propriedade_alterada text,
+    valor_anterior text,
+    valor_novo text,
+    created_at timestamp with time zone DEFAULT now()
+);
+
 CREATE TABLE public.historico_lancamentos_financeiros (
     id uuid NOT NULL DEFAULT gen_random_uuid(),
     lancamento_id bigint NOT NULL,
@@ -1688,6 +1705,31 @@ CREATE TABLE public.projetos_bim (
     organizacao_id bigint,
     is_lixeira boolean DEFAULT false,
     atualizado_em timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.projetos_bim_versoes (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    organizacao_id bigint NOT NULL,
+    projeto_bim_id bigint NOT NULL,
+    versao integer NOT NULL,
+    urn_autodesk text NOT NULL,
+    nome_arquivo text NOT NULL,
+    tamanho_bytes bigint,
+    criado_por uuid DEFAULT auth.uid(),
+    criado_em timestamp with time zone DEFAULT now(),
+    comentarios text
+);
+
+CREATE TABLE public.projetos_bim_vistas (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    organizacao_id bigint NOT NULL,
+    projeto_bim_id bigint NOT NULL,
+    guid text NOT NULL,
+    nome text NOT NULL,
+    tipo text NOT NULL,
+    role text,
+    thumbnail_url text,
+    created_at timestamp with time zone DEFAULT now()
 );
 
 CREATE TABLE public.rdo_fotos_uploads (

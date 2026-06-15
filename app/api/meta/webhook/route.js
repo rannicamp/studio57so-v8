@@ -264,7 +264,7 @@ export async function POST(request) {
     // Em ambientes serverless (Netlify/AWS), se não usarmos await no processo principal,
     // o container da função desliga assim que a resposta HTTP é enviada, congelando/abortando
     // as chamadas de rede do WhatsApp e os inserts pendentes no banco de dados.
-    await processWebhook(body);
+    await processWebhook(body, request);
   } catch (err) {
     console.error('[WEBHOOK] Erro no processamento do lead:', err.message);
   }
@@ -272,7 +272,7 @@ export async function POST(request) {
   return NextResponse.json({ status: 'received' }, { status: 200 });
 }
 
-async function processWebhook(body) {
+async function processWebhook(body, request) {
   const supabase = getSupabaseAdmin();
   if (!supabase) throw new Error('Supabase Admin nao configurado.');
 
@@ -646,6 +646,29 @@ async function processWebhook(body) {
               }
             }
           }
+        }
+      }
+
+      // 3i. DISPARAR REDE DE PROTEÇÃO PARA CLICK-TO-WHATSAPP (STELLA IA ACTIVE CHECK)
+      if (stellaContatoId) {
+        try {
+          const protocol = request.headers.get('x-forwarded-proto') || 'http';
+          const host = request.headers.get('host');
+          const triggerUrl = `${protocol}://${host}/api/whatsapp/trigger-autopilot`;
+
+          console.log(`[Meta Webhook] Disparando trigger-autopilot para contato ${contactIdToUse} na org ${orgId}...`);
+          const triggerRes = await fetch(triggerUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contato_id: contactIdToUse,
+              organizacao_id: orgId
+            })
+          });
+          const triggerResult = await triggerRes.json();
+          console.log(`[Meta Webhook] Resultado do trigger-autopilot para contato ${contactIdToUse}:`, triggerResult);
+        } catch (errTrigger) {
+          console.error(`[Meta Webhook Trigger Error] Falha ao acionar trigger-autopilot:`, errTrigger.message);
         }
       }
     }
