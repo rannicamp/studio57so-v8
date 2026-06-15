@@ -67,29 +67,54 @@ export async function POST(request) {
       return NextResponse.json({ status: 'ignored_not_stella_corretor' });
     }
 
-    // 4. Buscar a última mensagem desse contato na tabela whatsapp_messages
-    const { data: ultimaMsg, error: msgErr } = await supabaseAdmin
-      .from('whatsapp_messages')
-      .select('id, content, direction, created_at, sender_id')
-      .eq('contato_id', contato_id)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    // 4. Buscar a última mensagem global e a última mensagem inbound
+    const [msgGlobalRes, msgInboundRes] = await Promise.all([
+      supabaseAdmin
+        .from('whatsapp_messages')
+        .select('id, content, direction, created_at, sender_id')
+        .eq('contato_id', contato_id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+      supabaseAdmin
+        .from('whatsapp_messages')
+        .select('created_at')
+        .eq('contato_id', contato_id)
+        .eq('direction', 'inbound')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+    ]);
 
-    if (msgErr) {
-      console.error(`[Trigger Autopilot] Erro ao buscar última mensagem:`, msgErr.message);
-      return NextResponse.json({ error: msgErr.message }, { status: 500 });
+    if (msgGlobalRes.error) {
+      console.error(`[Trigger Autopilot] Erro ao buscar última mensagem:`, msgGlobalRes.error.message);
+      return NextResponse.json({ error: msgGlobalRes.error.message }, { status: 500 });
     }
 
-    if (!ultimaMsg) {
-      console.log(`[Trigger Autopilot] Nenhuma mensagem encontrada no histórico para o contato ${contato_id}.`);
-      return NextResponse.json({ status: 'ignored_no_history' });
-    }
+    const ultimaMsgGlobal = msgGlobalRes.data;
+    const ultimaMsgInbound = msgInboundRes.data;
 
-    // Se a última mensagem for OUTBOUND (ou seja, nós já respondemos), cancelamos
-    if (ultimaMsg.direction !== 'inbound') {
-      console.log(`[Trigger Autopilot] A última mensagem do contato ${contato_id} é outbound (já respondida). Ignorando.`);
-      return NextResponse.json({ status: 'ignored_already_replied' });
+    // A janela de 24 horas está aberta se a última mensagem inbound foi recebida há menos de 24h
+    const isJanelaAberta = ultimaMsgInbound && (new Date() - new Date(ultimaMsgInbound.created_at) < 24 * 60 * 60 * 1000);
+
+    console.log(`[Trigger Autopilot] Contato ${contato_id}: Janela de 24h está ${isJanelaAberta ? 'ABERTA' : 'FECHADA'}.`);
+
+    if (isJanelaAberta) {
+      // Se a janela estiver aberta, mas a última mensagem geral foi outbound (nossa resposta), ignoramos
+      if (ultimaMsgGlobal && ultimaMsgGlobal.direction !== 'inbound') {
+        console.log(`[Trigger Autopilot] A última mensagem do contato ${contato_id} é outbound (já respondida dentro da janela aberta). Ignorando.`);
+        return NextResponse.json({ status: 'ignored_already_replied' });
+      }
+    } else {
+      // Se a janela estiver fechada, mas enviamos uma mensagem outbound nas últimas 12 horas,
+      // ignoramos o trigger automático para evitar loops de templates recorrentes sem resposta do lead
+      if (ultimaMsgGlobal && ultimaMsgGlobal.direction === 'outbound') {
+        const tempoDesdeUltimoEnvio = new Date() - new Date(ultimaMsgGlobal.created_at);
+        if (tempoDesdeUltimoEnvio < 12 * 60 * 60 * 1000) {
+          console.log(`[Trigger Autopilot] Janela fechada, mas enviamos uma mensagem outbound há menos de 12 horas. Evitando spam. Ignorando.`);
+          return NextResponse.json({ status: 'ignored_antispam_prevent' });
+        }
+      }
     }
 
     // 5. Buscar o telefone do contato para envio
@@ -106,12 +131,43 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Telefone do cliente não cadastrado.' }, { status: 404 });
     }
 
-    // 6. Chamar a Stella (chat-analysis) para obter a resposta recomendada
+    // 6. Se a janela estiver fechada, buscar os templates de WhatsApp aprovados da Meta
+    let templatesDisponiveis = [];
+    if (!isJanelaAberta) {
+      console.log(`[Trigger Autopilot] Buscando templates Meta da Org ${organizacao_id} para reengajamento...`);
+      const { data: config } = await supabaseAdmin
+        .from('configuracoes_whatsapp')
+        .select('whatsapp_permanent_token, whatsapp_business_account_id')
+        .eq('organizacao_id', organizacao_id)
+        .limit(1)
+        .single();
+
+      if (config?.whatsapp_business_account_id) {
+        const token = config.whatsapp_permanent_token || process.env.WHATSAPP_SYSTEM_USER_TOKEN;
+        const url = `https://graph.facebook.com/v20.0/${config.whatsapp_business_account_id}/message_templates?fields=name,status,category,language,components&limit=100`;
+        try {
+          const res = await fetch(url, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (res.ok) {
+            const resJson = await res.json();
+            templatesDisponiveis = (resJson.data || []).filter(t => t.status === 'APPROVED');
+            console.log(`[Trigger Autopilot] Encontrados ${templatesDisponiveis.length} templates aprovados na Meta.`);
+          } else {
+            console.warn(`[Trigger Autopilot] Falha ao consultar templates da Meta. Status: ${res.status}`);
+          }
+        } catch (errTemplates) {
+          console.error('[Trigger Autopilot] Erro ao buscar templates Meta:', errTemplates.message);
+        }
+      }
+    }
+
+    // 7. Chamar a Stella (chat-analysis) para obter a resposta ou o template recomendado
     const protocol = request.headers.get('x-forwarded-proto') || 'http';
     const host = request.headers.get('host');
     const apiUrl = `${protocol}://${host}/api/ai/chat-analysis`;
 
-    console.log(`[Trigger Autopilot] Última mensagem do contato é inbound e pendente: "${ultimaMsg.content}". Invocando Stella...`);
+    console.log(`[Trigger Autopilot] Invocando chat-analysis (Janela Aberta: ${isJanelaAberta})...`);
 
     const aiResponse = await fetch(apiUrl, {
       method: 'POST',
@@ -120,7 +176,9 @@ export async function POST(request) {
         contato_id: contato_id,
         organizacao_id: organizacao_id,
         force: true,
-        quickResponse: true
+        quickResponse: true,
+        janelaFechada: !isJanelaAberta,
+        templatesDisponiveis: templatesDisponiveis
       })
     });
 
@@ -130,13 +188,41 @@ export async function POST(request) {
     }
 
     const aiResult = await aiResponse.json();
+
+    const sendTextUrl = `${protocol}://${host}/api/whatsapp/send`;
+
+    // 8. Se a IA sugerir o envio de um template (Janela Fechada)
+    if (aiResult.template_selecionado) {
+      console.log(`[Trigger Autopilot] Stella sugeriu template "${aiResult.template_selecionado}". Enviando...`);
+      const sendTemplateResponse = await fetch(sendTextUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: cleanPhone,
+          type: 'template',
+          templateName: aiResult.template_selecionado,
+          components: aiResult.template_componentes || [],
+          contact_id: contato_id,
+          organizacao_id: organizacao_id,
+          usuario_id: stellaUser.id
+        })
+      });
+
+      if (!sendTemplateResponse.ok) {
+        const errText = await sendTemplateResponse.text();
+        console.error(`[Trigger Autopilot] Erro ao enviar template:`, errText);
+        return NextResponse.json({ error: `Erro ao enviar template: ${errText}` }, { status: 500 });
+      }
+
+      return NextResponse.json({ status: 'success', sent_template: aiResult.template_selecionado });
+    }
+
     if (!aiResult?.proxima_resposta_sugerida) {
       console.log(`[Trigger Autopilot] Stella não retornou sugestão de resposta para o contato ${contato_id}.`);
       return NextResponse.json({ status: 'no_suggestion' });
     }
 
-    // 7. Enviar a resposta gerada em pílulas pelo WhatsApp
-    const sendTextUrl = `${protocol}://${host}/api/whatsapp/send`;
+    // 9. Enviar a resposta gerada em pílulas pelo WhatsApp (Janela Aberta)
     const fullText = aiResult.proxima_resposta_sugerida || '';
     const messagesParts = fullText
       .split(/\n\n+/)

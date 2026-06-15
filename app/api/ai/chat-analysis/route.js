@@ -578,7 +578,7 @@ async function processarConfeccaoContrato(supabaseAdmin, contatoId, organizacaoI
 
 export async function POST(request) {
   try {
-    const { contato_id, organizacao_id, force, quickResponse, human_input, canal = 'whatsapp' } = await request.json();
+    const { contato_id, organizacao_id, force, quickResponse, human_input, canal = 'whatsapp', janelaFechada = false, templatesDisponiveis = [] } = await request.json();
 
     if (!contato_id || !organizacao_id) {
       return NextResponse.json({ error: 'Faltam parâmetros obrigatórios.' }, { status: 400 });
@@ -1194,11 +1194,57 @@ ${metaReferralString}
       }
     });
 
+    // Formata a lista de templates disponíveis caso a janela esteja fechada
+    let templatesContext = "";
+    if (janelaFechada && Array.isArray(templatesDisponiveis) && templatesDisponiveis.length > 0) {
+      templatesContext = templatesDisponiveis.map(t => {
+        return `Nome do Template: "${t.name}"\nIdioma: "${t.language?.code || t.language || 'pt_BR'}"\nComponentes (Estrutura de variáveis):\n${JSON.stringify(t.components, null, 2)}`;
+      }).join('\n\n');
+    }
+
+    const instrucoesJanelaFechada = janelaFechada ? `
+# 🚨🚨🚨 ALERTA CRÍTICO: JANELA DE ATENDIMENTO DE 24h FECHADA 🚨🚨🚨
+- A janela de conversação de 24 horas do WhatsApp está FECHADA para este contato.
+- Você **NÃO PODE** enviar mensagens normais de texto livre. Qualquer tentativa de enviar mensagem normal causará falha de entrega.
+- Você **DEVE OBRIGATORIAMENTE** selecionar o template de WhatsApp mais adequado da lista de templates aprovados abaixo para abrir a janela de conversação.
+- Se o lead demonstrou interesse em um empreendimento específico (como Pero Vaz ou Residencial Alfa), prefira um template específico que mencione esse empreendimento, se houver.
+- Se não houver nenhum template específico ou adequado ao contexto, você deve escolher um template genérico (ex: "Podemos continuar nossa conversa?" ou similar).
+- Para o template selecionado, você deve preencher os parâmetros correspondentes (como o primeiro nome do cliente se o template possuir variáveis do tipo {{1}} no componente BODY).
+- No JSON de retorno:
+  1. Preencha "template_selecionado" with o nome exato do template escolhido (ex: "saudacao_entrada_v3").
+  2. Preencha "template_componentes" com os componentes formatados contendo as variáveis reais (como o primeiro nome do lead) no formato de payload da Meta (veja o formato abaixo).
+  3. No campo "proxima_resposta_sugerida", escreva apenas "Template: [nome_do_template]" para fins de log.
+
+### MODELOS DE WHATSAPP APROVADOS DISPONÍVEIS:
+${templatesContext}
+
+### FORMATO JSON REQUERIDO PARA TEMPLATE:
+Se você escolher um template, o seu JSON de retorno deve ter a seguinte estrutura:
+{
+  "template_selecionado": "NOME_DO_TEMPLATE_EXATO",
+  "template_componentes": [
+    {
+      "type": "body",
+      "parameters": [
+        {
+          "type": "text",
+          "text": "Valor da variável 1 (ex: Nome do cliente)"
+        }
+      ]
+    }
+  ],
+  "proxima_resposta_sugerida": "Template: NOME_DO_TEMPLATE_EXATO",
+  "mover_para_coluna_id": null,
+  "justificativa_movimentacao": null,
+  "dados_cliente": null
+}
+` : "";
+
     // Construção condicional do Prompt
     let prompt = '';
     
     if (quickResponse) {
-      prompt = `
+      prompt = `${instrucoesJanelaFechada}
 Você é Stella, a super Assistente Comercial e SDR (Sales Development Representative) de Pré-Atendimento do Studio 57.
 Sua missão nesta chamada rápida é responder ao lead no WhatsApp de forma imediata, qualificando-o e sugerindo o anexo ideal para envio se necessário.
 
@@ -1276,6 +1322,18 @@ ${chatLog}
 Escreva um JSON rigoroso nos seguintes moldes:
 {
   "proxima_resposta_sugerida": "A resposta exata e natural para enviar ao cliente no WhatsApp. Siga rigorosamente a regra das pílulas curtas e do disclaimer inicial na primeira mensagem, se aplicável. Use no máximo 1 emoji.",
+  "template_selecionado": "NOME_DO_TEMPLATE_EXATO ou null (Se janelaFechada for true, preencha com o nome do melhor template de WhatsApp aprovado dentre os disponíveis. Se for false, deixe obrigatoriamente null.)",
+  "template_componentes": [
+    {
+      "type": "body",
+      "parameters": [
+        {
+          "type": "text",
+          "text": "Valor da variável 1 (ex: primeiro nome do cliente se o template possuir variáveis do tipo {{1}} no componente BODY)"
+        }
+      ]
+    }
+  ] ou null (Se template_selecionado for null, retorne null. Caso contrário, retorne o array contendo as variáveis preenchidas no formato acima)",
   "empreendimento_detectado_id": 1, 5, 6 ou null,
   "anexo_sugerido": {
     "id": ID_DO_ARQUIVO,
@@ -1297,14 +1355,14 @@ Escreva um JSON rigoroso nos seguintes moldes:
   "justificativa_movimentacao": "Motivo resumido da movimentação de etapa comercial (obrigatório se mover_para_coluna_id não for null, justificando a qualificação, perda por evasivas ou intervenção humana)."
 }
 `;    } else {
-      prompt = `
+      prompt = `${instrucoesJanelaFechada}
 Você é Stella, a super Assistente Comercial e SDR (Sales Development Representative) de Pré-Atendimento do Studio 57.
 Graduada em inteligência de leads, sua missão é classificar o lead, analisar a origem da campanha e o perfil do cliente, qualificar o lead utilizando o método BANT e gerar uma RESPOSTA SUGERIDA PRONTA para o corretor ou para envio automático no WhatsApp.
 
 # 1. Regras de Rapport, Tom de Voz e Apresentação (Transparência de IA)
 1. **Disclaimer de IA na Primeira Mensagem e Uso de Dados do Anúncio/Formulário**:
    - Analise o histórico recente da conversa. Se você AINDA não enviou nenhuma mensagem nesta conversa (ou seja, se a conversa está no início ou sem mensagens enviadas por você), você deve obrigatoriamente se apresentar e incluir o disclaimer de transparência de forma simpática.
-   - **Click-to-WhatsApp e Formulários de Anúncios**: Se houver dados em 'ORIGEM DO META ADS' ou 'Respostas do Formulário' demonstrando interesse em um empreendimento específico (como 'Residencial Alfa', 'Studios Beta', etc.) ou exibindo uma mensagem de clique (ex: 'Mande um oi para receber mais informações...'), cite isso de forma simpática (ex: 'Olá! Vi que você se interessou pelo nosso anúncio do Residencial Alfa!').
+   - **Click-to-WhatsApp e Formulários de Anúncios**: Se houver dados em 'ORIGEM DO META ADS' ou 'Respostas do Formulário' demonstrando interesse in um empreendimento específico (como 'Residencial Alfa', 'Studios Beta', etc.) ou exibindo uma mensagem de clique (ex: 'Mande um oi para receber mais informações...'), cite isso de forma simpática (ex: 'Olá! Vi que você se interessou pelo nosso anúncio do Residencial Alfa!').
    - **Extração de Nome de Formulários**: Se o nome do contato estiver preenchido nas respostas do formulário da Meta ou nos dados cadastrais, chame-o diretamente pelo nome (ex: 'Olá, Nelson!' ou 'Olá, Leandro! Vi que você se interessou...') e **É TERMINANTEMENTE PROIBIDO perguntar o nome do contato novamente**.
    - Adicione o disclaimer padrão de transparência de forma fluida e simpática no final:
      "Sou a Stella, a inteligência artificial de pré-atendimento do Studio 57. 😊 Como sou uma inteligência artificial comercial, minhas respostas podem conter erros e todas as simulações e dados técnicos do nosso papo serão confirmados por um corretor humano antes do fechamento do negócio. Se a qualquer momento preferir falar com um corretor do time, é só me avisar! Como posso te ajudar hoje?"
@@ -1394,6 +1452,18 @@ Com base SOMENTE neste histórico recente e contexto do projeto, escreva um JSON
   "fase_crm_atual": "${crmStatus}",
   "proxima_acao_sugerida": "Dica direta e acionável para o corretor.",
   "proxima_resposta_sugerida": "A resposta exata e natural para enviar ao cliente no WhatsApp. Siga rigorosamente a regra das pílulas curtas e do disclaimer inicial na primeira mensagem, se aplicável. Use no máximo 1 emoji.",
+  "template_selecionado": "NOME_DO_TEMPLATE_EXATO ou null (Se janelaFechada for true, preencha com o nome do melhor template de WhatsApp aprovado dentre os disponíveis. Se for false, deixe obrigatoriamente null.)",
+  "template_componentes": [
+    {
+      "type": "body",
+      "parameters": [
+        {
+          "type": "text",
+          "text": "Valor da variável 1 (ex: primeiro nome do cliente se o template possuir variáveis do tipo {{1}} no componente BODY)"
+        }
+      ]
+    }
+  ] ou null (Se template_selecionado for null, retorne null. Caso contrário, retorne o array contendo as variáveis preenchidas no formato acima)",
   "empreendimento_detectado_id": 1, 5, 6 ou null,
   "anexo_sugerido": {
     "id": ID_DO_ARQUIVO,
@@ -1852,6 +1922,8 @@ Com base SOMENTE neste histórico recente e contexto do projeto, escreva um JSON
         proxima_resposta_sugerida: parsedResult.proxima_resposta_sugerida,
         empreendimento_detectado_id: parsedResult.empreendimento_detectado_id,
         anexo_sugerido: parsedResult.anexo_sugerido,
+        template_selecionado: parsedResult.template_selecionado || null,
+        template_componentes: parsedResult.template_componentes || null,
         last_updated: new Date().toISOString()
       };
     }
