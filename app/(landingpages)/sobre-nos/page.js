@@ -5,7 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Montserrat, Roboto } from 'next/font/google';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faHandshake, faPenRuler, faHardHat } from '@fortawesome/free-solid-svg-icons';
+import { faHandshake } from '@fortawesome/free-solid-svg-icons';
 
 // Fontes
 const montserrat = Montserrat({ subsets: ['latin'], weight: ['300', '400', '700', '900'] });
@@ -43,8 +43,40 @@ export default function SobreNosPage() {
 
       </section>
 
+      {/* --- SEÇÃO DE MÉTRICAS (STATS) --- */}
+      <section className="py-16 bg-gray-950 text-white border-y border-gray-900">
+        <div className="container mx-auto px-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-0 text-center">
+            {/* Stat 1 */}
+            <div className="flex flex-col items-center justify-center p-6 md:border-r border-gray-800 last:border-0">
+              <span className="text-5xl md:text-6xl font-light font-roboto tracking-tight text-blue-500 mb-2">15</span>
+              <span className="text-sm font-bold uppercase tracking-[0.2em] text-gray-400">Anos de Experiência</span>
+              <p className="text-xs text-gray-500 mt-2 font-roboto font-light max-w-xs leading-relaxed">
+                Moldando a arquitetura e engenharia de alta performance desde 2011.
+              </p>
+            </div>
+            {/* Stat 2 */}
+            <div className="flex flex-col items-center justify-center p-6 md:border-r border-gray-800 last:border-0">
+              <span className="text-5xl md:text-6xl font-light font-roboto tracking-tight text-blue-500 mb-2">350+</span>
+              <span className="text-sm font-bold uppercase tracking-[0.2em] text-gray-400">Projetos no Portfólio</span>
+              <p className="text-xs text-gray-500 mt-2 font-roboto font-light max-w-xs leading-relaxed">
+                Soluções imobiliárias planejadas com rigor técnico e tecnologia BIM.
+              </p>
+            </div>
+            {/* Stat 3 */}
+            <div className="flex flex-col items-center justify-center p-6">
+              <span className="text-5xl md:text-6xl font-light font-roboto tracking-tight text-blue-500 mb-2">161</span>
+              <span className="text-sm font-bold uppercase tracking-[0.2em] text-gray-400">Clientes Atendidos</span>
+              <p className="text-xs text-gray-500 mt-2 font-roboto font-light max-w-xs leading-relaxed">
+                Parcerias de valor construídas com previsibilidade e transparência.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* --- PRÓLOGO: EXPERTISE COMPLEMENTAR (BLOCO 3) --- */}
-      <section className="py-20 md:py-32 border-t border-gray-100 bg-gray-50">
+      <section className="py-20 md:py-32 bg-gray-50">
         <div className="container mx-auto px-6">
           <div className="text-center mb-16">
             <span className="text-sm font-bold tracking-[0.3em] text-blue-600 uppercase">Expertise Complementar</span>
@@ -133,7 +165,7 @@ export default function SobreNosPage() {
                 A história do Studio 57 não começou com o desejo de apenas desenhar edifícios, mas com a necessidade de modernizar como eles são feitos. Muito antes do mercado falar sobre inovação, entendemos que o maior risco da construção civil era a falta de controle sobre a informação.
               </p>
               <p>
-                Ainda em 2009, adotamos a tecnologia BIM (Building Information Modeling) de forma pioneira. Não como uma ferramenta de desenho, mas como um simulador de realidade.
+                Ainda em 2009, adotamos a tecnologia BIM (Building Information Modeling) de forma pioneira. Não como uma ferramenta de desenho, mas como um simulador de reality.
               </p>
               <p>
                 Compreendemos cedo uma premissa que guia nossos negócios até hoje: <strong>quem domina a informação e os dados do projeto, domina o custo e o prazo da obra.</strong> Nós passamos a construir o prédio virtualmente, antecipando falhas, eliminando desperdícios e garantindo a viabilidade financeira antes mesmo do primeiro tijolo ser assentado.
@@ -167,7 +199,7 @@ export default function SobreNosPage() {
                   Nessa jornada de evolução, em janeiro de 2024, a Larissa Ventura encerrou seu ciclo no Studio para dedicar-se a outros projetos pessoais. A empresa seguiu firme, honrando o legado construído e focada na sua nova missão.
                 </p>
                 <p className="font-medium text-gray-900 text-xl border-l-4 border-black pl-4">
-                  Para o cliente final, isso significa morar exatamente no que foi sonhado. Para o investidor, significa segurança absoluta. Ao controlar o processo de ponta a ponta, mitigamos os riscos de estouro de orçamento, garantimos os cronogramas e protegemos o capital investido.
+                  Para o client final, isso significa morar exatamente no que foi sonhado. Para o investidor, significa segurança absoluta. Ao controlar o processo de ponta a ponta, mitigamos os riscos de estouro de orçamento, garantimos os cronogramas e protegemos o capital investido.
                 </p>
               </div>
             </div>
