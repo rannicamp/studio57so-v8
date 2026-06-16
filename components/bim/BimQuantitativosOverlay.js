@@ -1337,6 +1337,9 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
  </Fragment>
  );
  })}
+ </Fragment>
+ );
+ })}
  </tbody>
  </table>
  </div>
