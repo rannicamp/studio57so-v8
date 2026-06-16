@@ -199,7 +199,7 @@ export default function SobreNosPage() {
                   Nessa jornada de evolução, em janeiro de 2024, a Larissa Ventura encerrou seu ciclo no Studio para dedicar-se a outros projetos pessoais. A empresa seguiu firme, honrando o legado construído e focada na sua nova missão.
                 </p>
                 <p className="font-medium text-gray-900 text-xl border-l-4 border-black pl-4">
-                  Para o client final, isso significa morar exatamente no que foi sonhado. Para o investidor, significa segurança absoluta. Ao controlar o processo de ponta a ponta, mitigamos os riscos de estouro de orçamento, garantimos os cronogramas e protegemos o capital investido.
+                  Para o cliente final, isso significa morar exatamente no que foi sonhado. Para o investidor, significa segurança absoluta. Ao controlar o processo de ponta a ponta, mitigamos os riscos de estouro de orçamento, garantimos os cronogramas e protegemos o capital investido.
                 </p>
               </div>
             </div>
