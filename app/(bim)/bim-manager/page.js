@@ -65,8 +65,10 @@ export default function BimManagerPage() {
  const { loadedFiles, selectedModels, handleToggleModel, handleLoadSet, handleClearAll,
  loadedModelsRef } = useBimModels(viewerInstance, setIsGanttOpen);
 
- // FIX: Garante que temos um arquivo ativo para passar o ID do projeto
- const fileInUse = activeFile || (loadedFiles.length > 0 ? loadedFiles[0] : null);
+ // FIX: Garante que o fileInUse pertença aos arquivos atualmente carregados na tela
+ const fileInUse = (activeFile && loadedFiles.some(f => f.id === activeFile.id))
+    ? activeFile
+    : (loadedFiles.length > 0 ? loadedFiles[0] : null);
 
  // 5. Hook de Notas
  const {
