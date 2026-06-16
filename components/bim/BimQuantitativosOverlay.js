@@ -1119,41 +1119,50 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
   )}
   </td>
   <td className="px-4 py-2.5 text-center" onClick={(e) => e.stopPropagation()}>
-    {mapeamentoCat ? (
+    <div className="flex items-center justify-center gap-1.5">
       <button
-        onClick={(e) => {
-          e.stopPropagation();
-          setMaterialGerenciar({
-            material_id: mapeamentoCat.material_id,
-            sinapi_id: mapeamentoCat.sinapi_id,
-            origem: mapeamentoCat.material_id ? 'proprio' : 'sinapi',
-            nome: mapeamentoCat.material?.nome || mapeamentoCat.sinapi?.descricao || 'Material Vinculado'
-          });
-        }}
-        className="w-7 h-7 rounded-full text-emerald-600 bg-emerald-50 hover:bg-emerald-100 flex items-center justify-center transition-all mx-auto"
-        title="Gerenciar Vínculo da Categoria"
+        onClick={() => handleShowInModel(elementosCat.map(el => el.external_id), cat.categoria)}
+        className="w-7 h-7 rounded-full text-blue-600 bg-blue-50 hover:bg-blue-100 flex items-center justify-center transition-all"
+        title="Visualizar Categoria no 3D"
       >
-        <FontAwesomeIcon icon={faLink} className="text-xs" />
+        <FontAwesomeIcon icon={faCubes} className="text-xs" />
       </button>
-    ) : (
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          setVinculoModal({
-            propriedade: { nome: '', valor: 0, unidade: 'un' },
-            elemento: {
-              categoria: cat.categoria,
-              familia: null,
-              tipo: null
-            }
-          });
-        }}
-        className="w-7 h-7 rounded-full flex items-center justify-center transition-all mx-auto text-gray-400 hover:text-blue-600 hover:bg-blue-50 opacity-0 group-hover:opacity-100"
-        title="Vincular Categoria a Material"
-      >
-        <FontAwesomeIcon icon={faLink} className="text-xs" />
-      </button>
-    )}
+      {mapeamentoCat ? (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setMaterialGerenciar({
+              material_id: mapeamentoCat.material_id,
+              sinapi_id: mapeamentoCat.sinapi_id,
+              origem: mapeamentoCat.material_id ? 'proprio' : 'sinapi',
+              nome: mapeamentoCat.material?.nome || mapeamentoCat.sinapi?.descricao || 'Material Vinculado'
+            });
+          }}
+          className="w-7 h-7 rounded-full text-emerald-600 bg-emerald-50 hover:bg-emerald-100 flex items-center justify-center transition-all"
+          title="Gerenciar Vínculo da Categoria"
+        >
+          <FontAwesomeIcon icon={faLink} className="text-xs" />
+        </button>
+      ) : (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setVinculoModal({
+              propriedade: { nome: '', valor: 0, unidade: 'un' },
+              elemento: {
+                categoria: cat.categoria,
+                familia: null,
+                tipo: null
+              }
+            });
+          }}
+          className="w-7 h-7 rounded-full flex items-center justify-center transition-all text-gray-400 hover:text-blue-600 hover:bg-blue-50 opacity-0 group-hover:opacity-100"
+          title="Vincular Categoria a Material"
+        >
+          <FontAwesomeIcon icon={faLink} className="text-xs" />
+        </button>
+      )}
+    </div>
   </td>
   </tr>
  
@@ -1235,41 +1244,50 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
   )}
   </td>
   <td className="px-4 py-2 text-center" onClick={(e) => e.stopPropagation()}>
-    {mapeamentoFam ? (
+    <div className="flex items-center justify-center gap-1.5">
       <button
-        onClick={(e) => {
-          e.stopPropagation();
-          setMaterialGerenciar({
-            material_id: mapeamentoFam.material_id,
-            sinapi_id: mapeamentoFam.sinapi_id,
-            origem: mapeamentoFam.material_id ? 'proprio' : 'sinapi',
-            nome: mapeamentoFam.material?.nome || mapeamentoFam.sinapi?.descricao || 'Material Vinculado'
-          });
-        }}
-        className="w-7 h-7 rounded-full text-emerald-600 bg-emerald-50 hover:bg-emerald-100 flex items-center justify-center transition-all mx-auto"
-        title="Gerenciar Vínculo da Família"
+        onClick={() => handleShowInModel(elementosFam.map(el => el.external_id), fam.familia)}
+        className="w-7 h-7 rounded-full text-blue-600 bg-blue-50 hover:bg-blue-100 flex items-center justify-center transition-all"
+        title="Visualizar Família no 3D"
       >
-        <FontAwesomeIcon icon={faLink} className="text-xs" />
+        <FontAwesomeIcon icon={faCubes} className="text-xs" />
       </button>
-    ) : (
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          setVinculoModal({
-            propriedade: { nome: '', valor: 0, unidade: 'un' },
-            elemento: {
-              categoria: cat.categoria,
-              familia: fam.familia,
-              tipo: null
-            }
-          });
-        }}
-        className="w-7 h-7 rounded-full flex items-center justify-center transition-all mx-auto text-gray-400 hover:text-blue-600 hover:bg-blue-50 opacity-0 group-hover:opacity-100"
-        title="Vincular Família a Material"
-      >
-        <FontAwesomeIcon icon={faLink} className="text-xs" />
-      </button>
-    )}
+      {mapeamentoFam ? (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setMaterialGerenciar({
+              material_id: mapeamentoFam.material_id,
+              sinapi_id: mapeamentoFam.sinapi_id,
+              origem: mapeamentoFam.material_id ? 'proprio' : 'sinapi',
+              nome: mapeamentoFam.material?.nome || mapeamentoFam.sinapi?.descricao || 'Material Vinculado'
+            });
+          }}
+          className="w-7 h-7 rounded-full text-emerald-600 bg-emerald-50 hover:bg-emerald-100 flex items-center justify-center transition-all"
+          title="Gerenciar Vínculo da Família"
+        >
+          <FontAwesomeIcon icon={faLink} className="text-xs" />
+        </button>
+      ) : (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setVinculoModal({
+              propriedade: { nome: '', valor: 0, unidade: 'un' },
+              elemento: {
+                categoria: cat.categoria,
+                familia: fam.familia,
+                tipo: null
+              }
+            });
+          }}
+          className="w-7 h-7 rounded-full flex items-center justify-center transition-all text-gray-400 hover:text-blue-600 hover:bg-blue-50 opacity-0 group-hover:opacity-100"
+          title="Vincular Família a Material"
+        >
+          <FontAwesomeIcon icon={faLink} className="text-xs" />
+        </button>
+      )}
+    </div>
   </td>
   </tr>
  
@@ -1380,41 +1398,50 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
     )}
   </td>
   <td className="px-4 py-2 text-center" onClick={(e) => e.stopPropagation()}>
-     {mapeamentoTipo ? (
-       <button
-         onClick={(e) => {
-           e.stopPropagation();
-           setMaterialGerenciar({
-             material_id: mapeamentoTipo.material_id,
-             sinapi_id: mapeamentoTipo.sinapi_id,
-             origem: mapeamentoTipo.material_id ? 'proprio' : 'sinapi',
-             nome: mapeamentoTipo.material?.nome || mapeamentoTipo.sinapi?.descricao || 'Material Vinculado'
-           });
-         }}
-         className="w-7 h-7 rounded-full text-emerald-600 bg-emerald-50 hover:bg-emerald-100 flex items-center justify-center transition-all mx-auto"
-         title="Gerenciar Vínculo do Tipo"
-       >
-         <FontAwesomeIcon icon={faLink} className="text-xs" />
-       </button>
-     ) : (
-       <button
-         onClick={(e) => {
-           e.stopPropagation();
-           setVinculoModal({
-             propriedade: { nome: '', valor: 0, unidade: 'un' },
-             elemento: {
-               categoria: cat.categoria,
-               familia: fam.familia,
-               tipo: t.tipo
-             }
-           });
-         }}
-         className="w-7 h-7 rounded-full flex items-center justify-center transition-all mx-auto text-gray-400 hover:text-blue-600 hover:bg-blue-50 opacity-0 group-hover:opacity-100"
-         title="Vincular Tipo a Material"
-       >
-         <FontAwesomeIcon icon={faLink} className="text-xs" />
-       </button>
-     )}
+    <div className="flex items-center justify-center gap-1.5">
+      <button
+        onClick={() => handleShowInModel((t.elementos || []).map(el => el.external_id), t.tipo)}
+        className="w-7 h-7 rounded-full text-blue-600 bg-blue-50 hover:bg-blue-100 flex items-center justify-center transition-all"
+        title="Visualizar Tipo no 3D"
+      >
+        <FontAwesomeIcon icon={faCubes} className="text-xs" />
+      </button>
+      {mapeamentoTipo ? (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setMaterialGerenciar({
+              material_id: mapeamentoTipo.material_id,
+              sinapi_id: mapeamentoTipo.sinapi_id,
+              origem: mapeamentoTipo.material_id ? 'proprio' : 'sinapi',
+              nome: mapeamentoTipo.material?.nome || mapeamentoTipo.sinapi?.descricao || 'Material Vinculado'
+            });
+          }}
+          className="w-7 h-7 rounded-full text-emerald-600 bg-emerald-50 hover:bg-emerald-100 flex items-center justify-center transition-all"
+          title="Gerenciar Vínculo do Tipo"
+        >
+          <FontAwesomeIcon icon={faLink} className="text-xs" />
+        </button>
+      ) : (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setVinculoModal({
+              propriedade: { nome: '', valor: 0, unidade: 'un' },
+              elemento: {
+                categoria: cat.categoria,
+                familia: fam.familia,
+                tipo: t.tipo
+              }
+            });
+          }}
+          className="w-7 h-7 rounded-full flex items-center justify-center transition-all text-gray-400 hover:text-blue-600 hover:bg-blue-50 opacity-0 group-hover:opacity-100"
+          title="Vincular Tipo a Material"
+        >
+          <FontAwesomeIcon icon={faLink} className="text-xs" />
+        </button>
+      )}
+    </div>
   </td>
   </tr>
  
@@ -1478,43 +1505,52 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
     )}
   </td>
   <td className="px-4 py-1.5 text-center text-[10px]" onClick={(e) => e.stopPropagation()}>
-    {mapeamentoEl ? (
+    <div className="flex items-center justify-center gap-1.5">
       <button
-        onClick={(e) => {
-          e.stopPropagation();
-          setMaterialGerenciar({
-            material_id: mapeamentoEl.material_id,
-            sinapi_id: mapeamentoEl.sinapi_id,
-            origem: mapeamentoEl.material_id ? 'proprio' : 'sinapi',
-            nome: mapeamentoEl.material?.nome || mapeamentoEl.sinapi?.descricao || 'Material Vinculado'
-          });
-        }}
-        className="w-6 h-6 rounded-full text-emerald-600 bg-emerald-50 hover:bg-emerald-100 flex items-center justify-center transition-all mx-auto"
-        title="Gerenciar Vínculo da Instância"
+        onClick={() => handleShowInModel([el.external_id], props['Name'] || props['Nome'] || 'Instância')}
+        className="w-6 h-6 rounded-full text-blue-600 bg-blue-50 hover:bg-blue-100 flex items-center justify-center transition-all"
+        title="Visualizar Instância no 3D"
       >
-        <FontAwesomeIcon icon={faLink} className="text-[10px]" />
+        <FontAwesomeIcon icon={faCubes} className="text-[9px]" />
       </button>
-    ) : (
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          setInspecaoModal({
-            elemento: {
-              id: el.id,
-              external_id: el.external_id,
-              categoria: cat.categoria,
-              familia: fam.familia,
-              tipo: t.tipo,
-              propriedades: el.propriedades
-            }
-          });
-        }}
-        className="w-6 h-6 rounded-full flex items-center justify-center transition-all mx-auto text-gray-400 hover:text-blue-600 hover:bg-blue-50 opacity-0 group-hover:opacity-100"
-        title="Visualizar Propriedades da Instância"
-      >
-        <FontAwesomeIcon icon={faLink} className="text-[10px]" />
-      </button>
-    )}
+      {mapeamentoEl ? (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setMaterialGerenciar({
+              material_id: mapeamentoEl.material_id,
+              sinapi_id: mapeamentoEl.sinapi_id,
+              origem: mapeamentoEl.material_id ? 'proprio' : 'sinapi',
+              nome: mapeamentoEl.material?.nome || mapeamentoEl.sinapi?.descricao || 'Material Vinculado'
+            });
+          }}
+          className="w-6 h-6 rounded-full text-emerald-600 bg-emerald-50 hover:bg-emerald-100 flex items-center justify-center transition-all"
+          title="Gerenciar Vínculo da Instância"
+        >
+          <FontAwesomeIcon icon={faLink} className="text-[10px]" />
+        </button>
+      ) : (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setInspecaoModal({
+              elemento: {
+                id: el.id,
+                external_id: el.external_id,
+                categoria: cat.categoria,
+                familia: fam.familia,
+                tipo: t.tipo,
+                propriedades: el.propriedades
+              }
+            });
+          }}
+          className="w-6 h-6 rounded-full flex items-center justify-center transition-all text-gray-400 hover:text-blue-600 hover:bg-blue-50 opacity-0 group-hover:opacity-100"
+          title="Visualizar Propriedades da Instância"
+        >
+          <FontAwesomeIcon icon={faLink} className="text-[10px]" />
+        </button>
+      )}
+    </div>
   </td>
    </tr>
   );
