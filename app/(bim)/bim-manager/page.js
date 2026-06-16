@@ -229,6 +229,17 @@ export default function BimManagerPage() {
     const allModels = viewerInstance.impl.modelQueue().getModels();
     if (allModels.length === 0) return;
 
+    // FIX: Verifica se algum dos modelos carregados ainda está baixando/processando a árvore de propriedades (Property Database)
+    // Se estiver, agenda um retry automático em 800ms para evitar falha silenciosa de mapeamento (muito comum em federações de múltiplos modelos)
+    const modelsStillLoading = allModels.filter(m => !m.isObjectTreeLoaded());
+    if (modelsStillLoading.length > 0) {
+      console.log(`⏳ Devonildo: ${modelsStillLoading.length} modelos ainda carregando a árvore de propriedades no visualizador. Re-agendando seleção em 800ms...`);
+      setTimeout(() => {
+        selectExternalIdsInViewer(externalIdsList, successMessage);
+      }, 800);
+      return;
+    }
+
     // Ativa o ghosting globalmente para o visualizador
     viewerInstance.setGhosting(true);
 
