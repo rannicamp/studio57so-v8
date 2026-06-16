@@ -51,7 +51,7 @@ export default function BimVinculoMaterialModal({
  useEffect(() => {
  if (isOpen) {
  if (mapeamentoExistente) {
- setEscopo(mapeamentoExistente.escopo || (elemento?.external_id ? 'elemento' : elemento?.tipo ? 'tipo' : 'categoria'));
+ setEscopo(mapeamentoExistente.escopo || (elemento?.external_id ? 'elemento' : elemento?.tipo ? 'tipo' : elemento?.familia ? 'familia' : 'categoria'));
  setTipoVinculo(mapeamentoExistente.tipo_vinculo || 'material');
  setFatorConversao(mapeamentoExistente.fator_conversao || '');
  setBusca('');
@@ -67,7 +67,7 @@ export default function BimVinculoMaterialModal({
  }
  } else {
  setBusca('');
- setEscopo(elemento?.external_id && elemento?.tipo ? 'elemento' : elemento?.tipo ? 'tipo' : 'familia');
+ setEscopo(elemento?.external_id && elemento?.tipo ? 'elemento' : elemento?.tipo ? 'tipo' : elemento?.familia ? 'familia' : 'categoria');
  setTipoVinculo('material');
  setFatorConversao('');
  setMaterialSel(null);

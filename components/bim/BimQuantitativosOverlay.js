@@ -24,6 +24,45 @@ import { createClient } from '@/utils/supabase/client';
 const fmt2 = (v) => new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v || 0);
 const fmtData = (d) => d ? new Date(d).toLocaleDateString('pt-BR') : '—';
 
+const extrairPropriedadesAcumuladas = (elementos) => {
+  const acumulados = {};
+  const configUnidades = {
+    'Volume': 'm³',
+    'Área': 'm²',
+    'Area': 'm²',
+    'Comprimento': 'm',
+    'Length': 'm',
+    'Espessura': 'm',
+    'Largura': 'm',
+    'Altura': 'm',
+    'Height': 'm',
+    'Diâmetro': 'mm',
+    'Diâmetro interno': 'mm',
+    'DN': 'mm'
+  };
+
+  (elementos || []).forEach(el => {
+    const props = el.propriedades || {};
+    Object.entries(props).forEach(([chave, valor]) => {
+      const valorNum = parseFloat(valor);
+      if (isNaN(valorNum) || valorNum <= 0) return;
+      
+      if (configUnidades[chave]) {
+        if (!acumulados[chave]) {
+          acumulados[chave] = {
+            nome: chave,
+            valor: 0,
+            unidade: configUnidades[chave]
+          };
+        }
+        acumulados[chave].valor += valorNum;
+      }
+    });
+  });
+
+  return Object.values(acumulados);
+};
+
 const BadgeStatus = ({ status }) => {
  const cfg = {
  processado: 'bg-green-50 text-green-700 border-green-200',
@@ -173,9 +212,16 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
   const handleSalvarMapeamento = async (payload) => {
     try {
       const res = await criarMapeamento(payload);
-      if (payload.tipo_bim) {
-        const chave = tipoChave(payload.categoria_bim, payload.familia_bim, payload.tipo_bim);
-        setLinhaDestacadaChave(chave);
+      let chaveDestacada = null;
+      if (payload.escopo === 'tipo' && payload.tipo_bim) {
+        chaveDestacada = tipoChave(payload.categoria_bim, payload.familia_bim, payload.tipo_bim);
+      } else if (payload.escopo === 'familia' && payload.familia_bim) {
+        chaveDestacada = `fam-${payload.categoria_bim}|||${payload.familia_bim}`;
+      } else if (payload.escopo === 'categoria' && payload.categoria_bim) {
+        chaveDestacada = `cat-${payload.categoria_bim}`;
+      }
+      if (chaveDestacada) {
+        setLinhaDestacadaChave(chaveDestacada);
         setTimeout(() => setLinhaDestacadaChave(null), 2000);
       }
       return res;
@@ -189,10 +235,19 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
     try {
       const mapeamento = mapeamentos.find(m => m.id === id);
       const res = await deletarMapeamento(id);
-      if (mapeamento && mapeamento.tipo_bim) {
-        const chave = tipoChave(mapeamento.categoria_bim, mapeamento.familia_bim, mapeamento.tipo_bim);
-        setLinhaDestacadaChave(chave);
-        setTimeout(() => setLinhaDestacadaChave(null), 2000);
+      if (mapeamento) {
+        let chaveDestacada = null;
+        if (mapeamento.escopo === 'tipo' && mapeamento.tipo_bim) {
+          chaveDestacada = tipoChave(mapeamento.categoria_bim, mapeamento.familia_bim, mapeamento.tipo_bim);
+        } else if (mapeamento.escopo === 'familia' && mapeamento.familia_bim) {
+          chaveDestacada = `fam-${mapeamento.categoria_bim}|||${mapeamento.familia_bim}`;
+        } else if (mapeamento.escopo === 'categoria' && mapeamento.categoria_bim) {
+          chaveDestacada = `cat-${mapeamento.categoria_bim}`;
+        }
+        if (chaveDestacada) {
+          setLinhaDestacadaChave(chaveDestacada);
+          setTimeout(() => setLinhaDestacadaChave(null), 2000);
+        }
       }
       return res;
     } catch (e) {
@@ -987,362 +1042,615 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
  </div>
  ) : (
  <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
- <table className="w-full text-sm border-collapse">
- <thead className="bg-gray-50/75 border-b border-gray-200 sticky top-0 z-10">
- <tr>
- <th className="px-3 py-3 text-left text-xs font-bold text-gray-500 uppercase w-10"></th>
- <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Família / Tipo</th>
- <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Nível</th>
- <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Descrição</th>
- <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Inst.</th>
- <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Unidade</th>
- <th className="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Quantidade</th>
- <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">SINAPI Revit</th>
- </tr>
- </thead>
- <tbody>
- {gruposFiltrados.map(cat => {
- const catExpandida = categoriasExpandidas.has(cat.categoria);
- return (
- <Fragment key={`frag-cat-${cat.categoria}`}>
- {/* ── L1: Categoria ── */}
- <tr
- key={`cat-${cat.categoria}`}
- onClick={() => {
-    carregarFamiliasDaCategoria(cat.categoria);
-    toggleCategoria(cat.categoria);
-  }}
- className="bg-gray-200 cursor-pointer hover:bg-gray-300 transition-colors border-t-2 border-gray-300"
- >
- <td className="px-3 py-2.5 text-center">
- <FontAwesomeIcon icon={catExpandida ? faAngleDown : faAngleRight} className="text-gray-500" />
- </td>
- <td className="px-4 py-2.5 font-bold text-gray-700 text-xs uppercase tracking-wide" colSpan={5}>
- <FontAwesomeIcon icon={faLayerGroup} className="mr-2 text-blue-500" />
- {cat.categoria}
- </td>
- <td className="px-4 py-2.5 text-center text-xs font-bold text-gray-600">
- {cat.total_elementos.toLocaleString('pt-BR')} elem.
- </td>
- <td className="px-4 py-2.5 text-right text-xs text-gray-500">
- {cat.area_total_categoria > 0 ? fmt2(cat.area_total_categoria) + ' m²' : ''}
- </td>
- <td className="px-4 py-2.5 text-center"></td>
- </tr>
+  <table className="w-full text-sm border-collapse">
+  <thead className="bg-gray-50/75 border-b border-gray-200 sticky top-0 z-10">
+  <tr>
+  <th className="px-3 py-3 text-left text-xs font-bold text-gray-500 uppercase w-10"></th>
+  <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Família / Tipo / Categoria</th>
+  <th className="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider w-40">Quantidade</th>
+  <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider w-36">SINAPI Revit</th>
+  <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider w-16">Ações</th>
+  </tr>
+  </thead>
+  <tbody>
+  {gruposFiltrados.map(cat => {
+  const catExpandida = categoriasExpandidas.has(cat.categoria);
+  const mapeamentoCat = mapeamentos.find(m =>
+    m.escopo === 'categoria' &&
+    m.categoria_bim === cat.categoria
+  );
+  const elementosCat = todosElementos.filter(el => el.categoria === cat.categoria);
+  const propriedadesCat = extrairPropriedadesAcumuladas(elementosCat);
 
- {catExpandida && cat.carregandoFamilias && (
-    <tr key={`loading-cat-${cat.categoria}`} className="bg-gray-50/50">
-      <td className="px-3 py-3 text-center pl-10" colSpan={8}>
-        <div className="flex items-center gap-2 text-xs text-blue-600 font-black animate-pulse">
-          <FontAwesomeIcon icon={faSpinner} spin className="text-xs" />
-          <span>Buscando famílias da categoria no banco de dados...</span>
-        </div>
-      </td>
-    </tr>
-  )}
-
-  {catExpandida && !cat.carregandoFamilias && cat.familias.length === 0 && (
-    <tr key={`empty-cat-${cat.categoria}`} className="bg-gray-50/30">
-      <td className="px-3 py-3 text-center pl-10 text-xs text-gray-400 font-semibold italic" colSpan={8}>
-        Nenhuma família encontrada para esta categoria.
-      </td>
-    </tr>
-  )}
-
-  {catExpandida && !cat.carregandoFamilias && cat.familias.map(fam => {
- const famChave = `${cat.categoria}|||${fam.familia}`;
- const famExpandida = familiasExpandidas.has(famChave);
- return (
- <Fragment key={`frag-fam-${famChave}`}>
- {/* ── L2: Família ── */}
- <tr
- key={`fam-${famChave}`}
- className="bg-blue-50 cursor-pointer hover:bg-blue-100 transition-colors border-t border-blue-100"
- >
- <td
- className="px-3 py-2 text-center pl-7"
- onClick={() => toggleFamiliaExpandida(famChave)}
- >
- <FontAwesomeIcon icon={famExpandida ? faAngleDown : faAngleRight} className="text-blue-400 text-xs" />
- </td>
- <td
- className="px-4 py-2 font-semibold text-blue-800 text-xs"
- colSpan={5}
- onClick={() => toggleFamiliaExpandida(famChave)}
- >
- {fam.familia}
- <span className="ml-2 text-[10px] text-blue-400 font-normal">
- {fam.tipos.length} tipo{fam.tipos.length !== 1 ? 's' : ''}
- </span>
- </td>
- <td
- className="px-4 py-2 text-center text-xs font-bold text-blue-600"
- onClick={() => toggleFamiliaExpandida(famChave)}
- >
- {fam.total_elementos.toLocaleString('pt-BR')}
- </td>
- {/* Botão de detalhes da Família removido, clique gerencia só expansão */}
- <td className="px-3 py-2 text-right">
- </td>
- <td className="px-4 py-2"></td>
- </tr>
-
- {famExpandida && fam.carregando && (
- <tr key={`loading-fam-${famChave}`} className="bg-gray-50/20">
- <td className="px-3 py-3.5 text-center pl-12" colSpan={9}>
- <div className="flex items-center gap-2 text-xs text-blue-600 font-black animate-pulse">
- <FontAwesomeIcon icon={faSpinner} spin className="text-xs" />
- <span>Buscando tipos e medidas no banco de dados...</span>
- </div>
- </td>
- </tr>
- )}
-
- {famExpandida && !fam.carregando && fam.tipos.map((t, idx) => {
- const tChave = tipoChave(cat.categoria, fam.familia, t.tipo);
- const tExpandido = tiposExpandidos.has(tChave);
- const medidaAtiva = getMedidaAtiva(cat.categoria, fam.familia, t);
- const temMultiplas = t.medidas.length > 1;
-
- // Extrair descrição do primeiro elemento do tipo
- const primeiroEl = t.elementos[0]?.propriedades || {};
- const descricaoTipo = primeiroEl['Descrição'] || primeiroEl['Description'] || primeiroEl['Comentários de tipo'] || primeiroEl['Type Comments'] || '—';
-
- return (
- <Fragment key={`frag-t-${tChave}`}>
- {/* ── L3: Tipo ── */}
- <tr
- key={`tipo-${tChave}`}
- className={`border-b border-gray-100 group transition-colors duration-1000 ${
-   linhaDestacadaChave === tChave 
-     ? 'bg-emerald-100/80 transition-none' 
-     : 'hover:bg-blue-50/30'
- }`}
- >
- <td className="px-3 py-2 text-center pl-12">
- <button
- onClick={() => toggleTipoExpandido(tChave)}
- className="w-5 h-5 rounded hover:bg-gray-200 text-gray-400 hover:text-blue-600 transition-all flex items-center justify-center mx-auto"
- title="Expandir elementos individuais"
- >
- <FontAwesomeIcon icon={tExpandido ? faAngleDown : faAngleRight} className="text-xs" />
- </button>
- </td>
- {/* Nome do tipo — clica apenas para expandir, não abre sidebar */}
- <td
- className="px-4 py-2 text-xs text-gray-700 cursor-pointer hover:text-blue-700 font-medium"
- onClick={() => toggleTipoExpandido(tChave)}
- >
- {t.tipo === '(sem tipo)' ? <em className="text-gray-400">sem tipo</em> : t.tipo}
- </td>
- <td className="px-4 py-2 text-[10px] text-gray-400">{t.nivel}</td>
- {/* Nova Coluna Descrição */}
- <td className="px-4 py-2 text-[10px] text-gray-500 truncate max-w-[150px]" title={descricaoTipo !== '—' ? descricaoTipo : ''}>
- {descricaoTipo}
- </td>
- <td className="px-4 py-2 text-center">
- <span className="bg-blue-100 text-blue-700 text-[10px] font-bold px-1.5 py-0.5 rounded-full">
- {t.qtd_total}
- </span>
- </td>
- {/* Unidade — badge padronizado */}
- <td className="px-4 py-2">
- {t.medidas.length === 0 ? (
- <BadgeUnidade unidade="un" />
- ) : temMultiplas ? (
- <div className="flex flex-wrap gap-1">
- {t.medidas.map(m => (
- <BadgeUnidade
- key={m.chave}
- unidade={m.unidade}
- ativo={medidaAtiva?.chave === m.chave}
- onClick={() => setMedidasSelecionadas(prev => ({ ...prev, [tChave]: m.chave }))}
- />
- ))}
- </div>
- ) : (
- <BadgeUnidade unidade={medidaAtiva?.unidade || 'un'} />
- )}
- </td>
- <td className="px-4 py-2 text-right">
- <span className="text-sm font-bold text-gray-800">
- {medidaAtiva ? fmt2(medidaAtiva.valor) : t.qtd_total}
- </span>
- </td>
- <td className="px-4 py-2">
- {t.sinapi_revit
- ? <span className="bg-indigo-50 text-indigo-700 text-[10px] font-bold px-2 py-0.5 rounded border border-indigo-100 font-mono">{t.sinapi_revit}</span>
- : <span className="text-gray-200 text-[10px]">—</span>}
- </td>
- <td className="px-4 py-2 text-center relative">
-    {(() => {
-      const mapeamentoTipo = mapeamentos.find(m => 
-        m.escopo === 'tipo' && 
-        m.categoria_bim === cat.categoria && 
-        m.familia_bim === fam.familia && 
-        m.tipo_bim === t.tipo
-      );
-
-      if (mapeamentoTipo) {
-        return (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setMaterialGerenciar({
-                material_id: mapeamentoTipo.material_id,
-                sinapi_id: mapeamentoTipo.sinapi_id,
-                origem: mapeamentoTipo.material_id ? 'proprio' : 'sinapi',
-                nome: mapeamentoTipo.material?.nome || mapeamentoTipo.sinapi?.descricao || 'Material Vinculado'
-              });
-            }}
-            className="w-7 h-7 rounded-full text-emerald-600 bg-emerald-50 hover:bg-emerald-100 flex items-center justify-center transition-all mx-auto"
-            title="Gerenciar Vínculo do Tipo"
-          >
-            <FontAwesomeIcon icon={faLink} className="text-xs" />
-          </button>
-        );
-      }
-
-      return (
-        <div className="relative">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setPopoverChave(popoverChave === tChave ? null : tChave);
-            }}
-            className={`w-7 h-7 rounded-full flex items-center justify-center transition-all mx-auto popover-vinculo-trigger
-              ${popoverChave === tChave
-                ? 'bg-blue-600 text-white'
-                : 'text-gray-400 hover:text-blue-600 hover:bg-blue-50 opacity-0 group-hover:opacity-100'
-              }`}
-            title="Vincular Tipo a Material"
-          >
-            <FontAwesomeIcon icon={faLink} className="text-xs" />
-          </button>
-
-          {popoverChave === tChave && (
-            <div className="absolute right-0 mt-2 w-64 bg-white border border-gray-100 rounded-xl shadow-xl z-[40] p-2 text-left popover-vinculo-content">
-              <div className="px-3 py-1.5 border-b border-gray-100 mb-1">
-                <p className="text-[10px] font-black text-gray-400 uppercase tracking-wider">Escolha a propriedade</p>
-              </div>
-              <div className="max-h-60 overflow-y-auto space-y-0.5">
-                {t.medidas && t.medidas.length > 0 ? (
-                  t.medidas.map(m => (
-                    <button
-                      key={m.chave}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setVinculoModal({
-                          propriedade: { nome: m.chave, valor: m.valor, unidade: m.unidade },
-                          elemento: {
-                            categoria: cat.categoria,
-                            familia: fam.familia,
-                            tipo: t.tipo,
-                            external_id: null
-                          }
-                        });
-                        setPopoverChave(null);
-                      }}
-                      className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 flex justify-between items-center transition-colors text-xs font-semibold text-gray-700"
-                    >
-                      <span>{m.chave}</span>
-                      <span className="text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded font-mono font-bold">
-                        {fmt2(m.valor)} {m.unidade}
-                      </span>
-                    </button>
-                  ))
-                ) : (
-                  <div className="px-3 py-2 text-center text-xs text-gray-400 font-semibold italic">
-                    Nenhuma propriedade quantitativa encontrada.
-                  </div>
-                )}
-
-                <div className="border-t border-gray-100 my-1"></div>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setVinculoModal({
-                      propriedade: { nome: 'Quantidade', valor: t.qtd_total, unidade: 'un' },
-                      elemento: {
-                        categoria: cat.categoria,
-                        familia: fam.familia,
-                        tipo: t.tipo,
-                        external_id: null
-                      }
-                    });
-                    setPopoverChave(null);
-                  }}
-                  className="w-full text-left px-3 py-2 rounded-lg hover:bg-blue-50 text-blue-700 flex justify-between items-center transition-colors text-xs font-bold"
-                >
-                  <span className="flex items-center gap-1.5">
-                    <span>🔢 Contar por Unidades</span>
-                  </span>
-                  <span className="text-[10px] bg-blue-100 px-1.5 py-0.5 rounded font-mono">
-                    {t.qtd_total} un
-                  </span>
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      );
-    })()}
+  return (
+  <Fragment key={`frag-cat-${cat.categoria}`}>
+  {/* ── L1: Categoria ── */}
+  <tr
+    key={`cat-${cat.categoria}`}
+    onClick={() => {
+      carregarFamiliasDaCategoria(cat.categoria);
+      toggleCategoria(cat.categoria);
+    }}
+    className={`bg-gray-200 cursor-pointer hover:bg-gray-300 transition-all duration-1000 border-t-2 border-gray-300 group ${
+      linhaDestacadaChave === `cat-${cat.categoria}` 
+        ? 'bg-emerald-100/80 transition-none' 
+        : ''
+    }`}
+  >
+  <td className="px-3 py-2.5 text-center">
+  <FontAwesomeIcon icon={catExpandida ? faAngleDown : faAngleRight} className="text-gray-500" />
   </td>
- </tr>
+  <td className="px-4 py-2.5 font-bold text-gray-700 text-xs uppercase tracking-wide">
+  <FontAwesomeIcon icon={faLayerGroup} className="mr-2 text-blue-500" />
+  {cat.categoria}
+  </td>
+  <td className="px-4 py-2.5 text-right text-xs font-bold text-gray-600">
+  {cat.total_elementos.toLocaleString('pt-BR')} elem.
+  </td>
+  <td className="px-4 py-2.5 text-left">
+  {mapeamentoCat ? (
+    mapeamentoCat.sinapi_id ? (
+      <span className="bg-indigo-50 text-indigo-700 text-[10px] font-bold px-2 py-0.5 rounded border border-indigo-100 font-mono">
+        {mapeamentoCat.sinapi?.["Código da Composição"] || 'SINAPI'}
+      </span>
+    ) : (
+      <span className="bg-emerald-50 text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded border border-emerald-100 font-mono">
+        Próprio
+      </span>
+    )
+  ) : (
+    <span className="text-gray-300 text-[10px] font-normal">—</span>
+  )}
+  </td>
+  <td className="px-4 py-2.5 text-center relative" onClick={(e) => e.stopPropagation()}>
+    {mapeamentoCat ? (
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          setMaterialGerenciar({
+            material_id: mapeamentoCat.material_id,
+            sinapi_id: mapeamentoCat.sinapi_id,
+            origem: mapeamentoCat.material_id ? 'proprio' : 'sinapi',
+            nome: mapeamentoCat.material?.nome || mapeamentoCat.sinapi?.descricao || 'Material Vinculado'
+          });
+        }}
+        className="w-7 h-7 rounded-full text-emerald-600 bg-emerald-50 hover:bg-emerald-100 flex items-center justify-center transition-all mx-auto"
+        title="Gerenciar Vínculo da Categoria"
+      >
+        <FontAwesomeIcon icon={faLink} className="text-xs" />
+      </button>
+    ) : (
+      <div className="relative">
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            const chaveL1 = `cat-${cat.categoria}`;
+            setPopoverChave(popoverChave === chaveL1 ? null : chaveL1);
+          }}
+          className={`w-7 h-7 rounded-full flex items-center justify-center transition-all mx-auto popover-vinculo-trigger
+            ${popoverChave === `cat-${cat.categoria}`
+              ? 'bg-blue-600 text-white'
+              : 'text-gray-400 hover:text-blue-600 hover:bg-blue-50 opacity-0 group-hover:opacity-100'
+            }`}
+          title="Vincular Categoria a Material"
+        >
+          <FontAwesomeIcon icon={faLink} className="text-xs" />
+        </button>
 
- {/* ── L4: Elementos individuais ── */}
- {tExpandido && t.elementos.map(el => {
- const props = el.propriedades || {};
- const valorEl = medidaAtiva ? parseFloat(props[medidaAtiva.chave] || 0) : null;
- return (
- <tr key={`el-${el.id}`} className="border-b border-gray-50 bg-amber-50/20 hover:bg-amber-50/60 cursor-pointer group transition-colors"
- onClick={() => setSidebarItem({ tipo: 'elemento', dados: el, cat: cat.categoria, fam: fam.familia })}
- >
- <td className="px-3 py-1.5 pl-16 text-amber-300 text-center group-hover:text-amber-500">
- <FontAwesomeIcon icon={faAngleRight} className="text-[10px] opacity-0 group-hover:opacity-100 transition-opacity" />
- </td>
- <td className="px-4 py-1.5 text-[10px] text-gray-500">
- Nome: <span className="font-mono text-gray-600">{props['Name'] || props['Nome'] || props['Mark'] || props['Marca'] || 'Instância'}</span>
- </td>
- <td className="px-4 py-1.5 text-[10px] text-gray-400">{el.nivel || '—'}</td>
- <td className="px-4 py-1.5"></td>
- <td className="px-4 py-1.5 text-center text-[10px] text-gray-400">1</td>
- <td className="px-4 py-1.5">
- {medidaAtiva && <BadgeUnidade unidade={medidaAtiva.unidade} />}
- </td>
- <td className="px-4 py-1.5 text-right text-[10px] text-gray-600 font-medium">
- {valorEl && valorEl > 0 ? fmt2(valorEl) : '—'}
- </td>
- <td className="px-4 py-1.5">
- {props['SINAPI'] && <span className="text-[10px] font-mono text-indigo-400">{props['SINAPI']}</span>}
- </td>
- <td className="px-4 py-1.5 text-center">
-    <button
-      onClick={(e) => {
-        e.stopPropagation();
-        setSidebarItem({ tipo: 'elemento', dados: el, cat: cat.categoria, fam: fam.familia });
-      }}
-      className="w-6 h-6 rounded-full text-blue-500 hover:bg-blue-50 flex items-center justify-center transition-all mx-auto opacity-0 group-hover:opacity-100"
-      title="Ver detalhes na Sidebar"
-    >
-      <FontAwesomeIcon icon={faArrowRight} className="text-[10px]" />
-    </button>
+        {popoverChave === `cat-${cat.categoria}` && (
+          <div className="absolute right-0 mt-2 w-64 bg-white border border-gray-100 rounded-xl shadow-xl z-[40] p-2 text-left popover-vinculo-content">
+            <div className="px-3 py-1.5 border-b border-gray-100 mb-1">
+              <p className="text-[10px] font-black text-gray-400 uppercase tracking-wider">Propriedades da Categoria</p>
+            </div>
+            <div className="max-h-60 overflow-y-auto space-y-0.5">
+              {propriedadesCat && propriedadesCat.length > 0 ? (
+                propriedadesCat.map(m => (
+                  <button
+                    key={m.nome}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setVinculoModal({
+                        propriedade: { nome: m.nome, valor: m.valor, unidade: m.unidade },
+                        elemento: {
+                          categoria: cat.categoria,
+                          familia: null,
+                          tipo: null,
+                          external_id: null
+                        }
+                      });
+                      setPopoverChave(null);
+                    }}
+                    className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 flex justify-between items-center transition-colors text-xs font-semibold text-gray-700"
+                  >
+                    <span>{m.nome}</span>
+                    <span className="text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded font-mono font-bold">
+                      {fmt2(m.valor)} {m.unidade}
+                    </span>
+                  </button>
+                ))
+              ) : (
+                <div className="px-3 py-2 text-center text-xs text-gray-400 font-semibold italic">
+                  Nenhuma propriedade quantitativa encontrada.
+                </div>
+              )}
+
+              <div className="border-t border-gray-100 my-1"></div>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setVinculoModal({
+                    propriedade: { nome: 'Quantidade', valor: cat.total_elementos, unidade: 'un' },
+                    elemento: {
+                      categoria: cat.categoria,
+                      familia: null,
+                      tipo: null,
+                      external_id: null
+                    }
+                  });
+                  setPopoverChave(null);
+                }}
+                className="w-full text-left px-3 py-2 rounded-lg hover:bg-blue-50 text-blue-700 flex justify-between items-center transition-colors text-xs font-bold"
+              >
+                <span className="flex items-center gap-1.5">
+                  <span>🔢 Contar por Unidades</span>
+                </span>
+                <span className="text-[10px] bg-blue-100 px-1.5 py-0.5 rounded font-mono">
+                  {cat.total_elementos} un
+                </span>
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    )}
   </td>
   </tr>
- );
- })}
- </Fragment>
- );
- })}
- </Fragment>
- );
- })}
- </Fragment>
- );
- })}
- </tbody>
- </table>
- </div>
+ 
+  {catExpandida && cat.carregandoFamilias && (
+     <tr key={`loading-cat-${cat.categoria}`} className="bg-gray-50/50">
+       <td className="px-3 py-3 text-center pl-10" colSpan={5}>
+         <div className="flex items-center gap-2 text-xs text-blue-600 font-black animate-pulse">
+           <FontAwesomeIcon icon={faSpinner} spin className="text-xs" />
+           <span>Buscando famílias da categoria no banco de dados...</span>
+         </div>
+       </td>
+     </tr>
+   )}
+ 
+   {catExpandida && !cat.carregandoFamilias && cat.familias.length === 0 && (
+     <tr key={`empty-cat-${cat.categoria}`} className="bg-gray-50/30">
+       <td className="px-3 py-3 text-center pl-10 text-xs text-gray-400 font-semibold italic" colSpan={5}>
+         Nenhuma família encontrada para esta categoria.
+       </td>
+     </tr>
+   )}
+ 
+   {catExpandida && !cat.carregandoFamilias && cat.familias.map(fam => {
+  const famChave = `${cat.categoria}|||${fam.familia}`;
+  const famExpandida = familiasExpandidas.has(famChave);
+  const mapeamentoFam = mapeamentos.find(m =>
+    m.escopo === 'familia' &&
+    m.categoria_bim === cat.categoria &&
+    m.familia_bim === fam.familia
+  );
+  const elementosFam = todosElementos.filter(el => el.categoria === cat.categoria && el.familia === fam.familia);
+  const propriedadesFam = extrairPropriedadesAcumuladas(elementosFam);
+
+  return (
+  <Fragment key={`frag-fam-${famChave}`}>
+  {/* ── L2: Família ── */}
+  <tr
+  key={`fam-${famChave}`}
+  className={`bg-blue-50 cursor-pointer hover:bg-blue-100 transition-all duration-1000 border-t border-blue-100 group ${
+    linhaDestacadaChave === `fam-${famChave}` 
+      ? 'bg-emerald-100/80 transition-none' 
+      : ''
+  }`}
+  >
+  <td
+  className="px-3 py-2 text-center pl-7"
+  onClick={() => toggleFamiliaExpandida(famChave)}
+  >
+  <FontAwesomeIcon icon={famExpandida ? faAngleDown : faAngleRight} className="text-blue-400 text-xs" />
+  </td>
+  <td
+  className="px-4 py-2 font-semibold text-blue-800 text-xs"
+  onClick={() => toggleFamiliaExpandida(famChave)}
+  >
+  {fam.familia}
+  <span className="ml-2 text-[10px] text-blue-400 font-normal">
+  {fam.tipos.length} tipo{fam.tipos.length !== 1 ? 's' : ''}
+  </span>
+  </td>
+  <td
+  className="px-4 py-2 text-right text-xs font-bold text-blue-600"
+  onClick={() => toggleFamiliaExpandida(famChave)}
+  >
+  {fam.total_elementos.toLocaleString('pt-BR')} elem.
+  </td>
+  <td className="px-4 py-2 text-left">
+  {mapeamentoFam ? (
+    mapeamentoFam.sinapi_id ? (
+      <span className="bg-indigo-50 text-indigo-700 text-[10px] font-bold px-2 py-0.5 rounded border border-indigo-100 font-mono">
+        {mapeamentoFam.sinapi?.["Código da Composição"] || 'SINAPI'}
+      </span>
+    ) : (
+      <span className="bg-emerald-50 text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded border border-emerald-100 font-mono">
+        Próprio
+      </span>
+    )
+  ) : (
+    <span className="text-gray-300 text-[10px] font-normal">—</span>
+  )}
+  </td>
+  <td className="px-4 py-2 text-center relative" onClick={(e) => e.stopPropagation()}>
+    {mapeamentoFam ? (
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          setMaterialGerenciar({
+            material_id: mapeamentoFam.material_id,
+            sinapi_id: mapeamentoFam.sinapi_id,
+            origem: mapeamentoFam.material_id ? 'proprio' : 'sinapi',
+            nome: mapeamentoFam.material?.nome || mapeamentoFam.sinapi?.descricao || 'Material Vinculado'
+          });
+        }}
+        className="w-7 h-7 rounded-full text-emerald-600 bg-emerald-50 hover:bg-emerald-100 flex items-center justify-center transition-all mx-auto"
+        title="Gerenciar Vínculo da Família"
+      >
+        <FontAwesomeIcon icon={faLink} className="text-xs" />
+      </button>
+    ) : (
+      <div className="relative">
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            const chaveL2 = `fam-${famChave}`;
+            setPopoverChave(popoverChave === chaveL2 ? null : chaveL2);
+          }}
+          className={`w-7 h-7 rounded-full flex items-center justify-center transition-all mx-auto popover-vinculo-trigger
+            ${popoverChave === `fam-${famChave}`
+              ? 'bg-blue-600 text-white'
+              : 'text-gray-400 hover:text-blue-600 hover:bg-blue-50 opacity-0 group-hover:opacity-100'
+            }`}
+          title="Vincular Família a Material"
+        >
+          <FontAwesomeIcon icon={faLink} className="text-xs" />
+        </button>
+
+        {popoverChave === `fam-${famChave}` && (
+          <div className="absolute right-0 mt-2 w-64 bg-white border border-gray-100 rounded-xl shadow-xl z-[40] p-2 text-left popover-vinculo-content">
+            <div className="px-3 py-1.5 border-b border-gray-100 mb-1">
+              <p className="text-[10px] font-black text-gray-400 uppercase tracking-wider">Propriedades da Família</p>
+            </div>
+            <div className="max-h-60 overflow-y-auto space-y-0.5">
+              {propriedadesFam && propriedadesFam.length > 0 ? (
+                propriedadesFam.map(m => (
+                  <button
+                    key={m.nome}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setVinculoModal({
+                        propriedade: { nome: m.nome, valor: m.valor, unidade: m.unidade },
+                        elemento: {
+                          categoria: cat.categoria,
+                          familia: fam.familia,
+                          tipo: null,
+                          external_id: null
+                        }
+                      });
+                      setPopoverChave(null);
+                    }}
+                    className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 flex justify-between items-center transition-colors text-xs font-semibold text-gray-700"
+                  >
+                    <span>{m.nome}</span>
+                    <span className="text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded font-mono font-bold">
+                      {fmt2(m.valor)} {m.unidade}
+                    </span>
+                  </button>
+                ))
+              ) : (
+                <div className="px-3 py-2 text-center text-xs text-gray-400 font-semibold italic">
+                  Nenhuma propriedade quantitativa encontrada.
+                </div>
+              )}
+
+              <div className="border-t border-gray-100 my-1"></div>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setVinculoModal({
+                    propriedade: { nome: 'Quantidade', valor: fam.total_elementos, unidade: 'un' },
+                    elemento: {
+                      categoria: cat.categoria,
+                      familia: fam.familia,
+                      tipo: null,
+                      external_id: null
+                    }
+                  });
+                  setPopoverChave(null);
+                }}
+                className="w-full text-left px-3 py-2 rounded-lg hover:bg-blue-50 text-blue-700 flex justify-between items-center transition-colors text-xs font-bold"
+              >
+                <span className="flex items-center gap-1.5">
+                  <span>🔢 Contar por Unidades</span>
+                </span>
+                <span className="text-[10px] bg-blue-100 px-1.5 py-0.5 rounded font-mono">
+                  {fam.total_elementos} un
+                </span>
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    )}
+  </td>
+  </tr>
+ 
+  {famExpandida && fam.carregando && (
+  <tr key={`loading-fam-${famChave}`} className="bg-gray-50/20">
+  <td className="px-3 py-3.5 text-center pl-12" colSpan={5}>
+  <div className="flex items-center gap-2 text-xs text-blue-600 font-black animate-pulse">
+  <FontAwesomeIcon icon={faSpinner} spin className="text-xs" />
+  <span>Buscando tipos e medidas no banco de dados...</span>
+  </div>
+  </td>
+  </tr>
+  )}
+ 
+  {famExpandida && !fam.carregando && fam.tipos.map((t, idx) => {
+  const tChave = tipoChave(cat.categoria, fam.familia, t.tipo);
+  const tExpandido = tiposExpandidos.has(tChave);
+  const medidaAtiva = getMedidaAtiva(cat.categoria, fam.familia, t);
+  const temMultiplas = t.medidas.length > 1;
+  const propriedadesTipo = extrairPropriedadesAcumuladas(t.elementos || []);
+ 
+  // Extrair descrição do primeiro elemento do tipo
+  const primeiroEl = t.elementos[0]?.propriedades || {};
+  const descricaoTipo = primeiroEl['Descrição'] || primeiroEl['Description'] || primeiroEl['Comentários de tipo'] || primeiroEl['Type Comments'] || '—';
+  const mapeamentoTipo = mapeamentos.find(m => 
+    m.escopo === 'tipo' && 
+    m.categoria_bim === cat.categoria && 
+    m.familia_bim === fam.familia && 
+    m.tipo_bim === t.tipo
+  );
+
+  return (
+  <Fragment key={`frag-t-${tChave}`}>
+  {/* ── L3: Tipo ── */}
+  <tr
+  key={`tipo-${tChave}`}
+  className={`border-b border-gray-100 group transition-all duration-1000 ${
+    linhaDestacadaChave === tChave 
+      ? 'bg-emerald-100/80 transition-none' 
+      : 'hover:bg-blue-50/30'
+  }`}
+  >
+  <td className="px-3 py-2 text-center pl-12">
+  <button
+  onClick={() => toggleTipoExpandido(tChave)}
+  className="w-5 h-5 rounded hover:bg-gray-200 text-gray-400 hover:text-blue-600 transition-all flex items-center justify-center mx-auto"
+  title="Expandir elementos individuais"
+  >
+  <FontAwesomeIcon icon={tExpandido ? faAngleDown : faAngleRight} className="text-xs" />
+  </button>
+  </td>
+  {/* Nome do tipo — clica apenas para expandir, não abre sidebar */}
+  <td
+  className="px-4 py-2 text-xs text-gray-700 cursor-pointer hover:text-blue-700 font-medium"
+  onClick={() => toggleTipoExpandido(tChave)}
+  >
+  <div>
+    <div className="font-semibold">{t.tipo === '(sem tipo)' ? <em className="text-gray-400">sem tipo</em> : t.tipo}</div>
+    {descricaoTipo !== '—' && <div className="text-[9px] text-gray-400 max-w-[400px] truncate" title={descricaoTipo}>{descricaoTipo}</div>}
+  </div>
+  </td>
+  {/* Unidade + Quantidade condensados */}
+  <td className="px-4 py-2 text-right">
+    <div className="flex flex-col items-end justify-center">
+      <span className="text-xs font-bold text-gray-800">
+        {medidaAtiva ? fmt2(medidaAtiva.valor) : t.qtd_total}
+      </span>
+      <div className="mt-1">
+        {t.medidas.length === 0 ? (
+          <BadgeUnidade unidade="un" />
+        ) : temMultiplas ? (
+          <div className="flex justify-end gap-1 flex-wrap max-w-[150px]">
+            {t.medidas.map(m => (
+              <BadgeUnidade
+                key={m.chave}
+                unidade={m.unidade}
+                ativo={medidaAtiva?.chave === m.chave}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setMedidasSelecionadas(prev => ({ ...prev, [tChave]: m.chave }));
+                }}
+              />
+            ))}
+          </div>
+        ) : (
+          <BadgeUnidade unidade={medidaAtiva?.unidade || 'un'} />
+        )}
+      </div>
+    </div>
+  </td>
+  <td className="px-4 py-2 text-left">
+    {t.sinapi_revit ? (
+      <span className="bg-indigo-50 text-indigo-700 text-[10px] font-bold px-2 py-0.5 rounded border border-indigo-100 font-mono">
+        {t.sinapi_revit}
+      </span>
+    ) : mapeamentoTipo ? (
+      mapeamentoTipo.sinapi_id ? (
+        <span className="bg-indigo-50 text-indigo-700 text-[10px] font-bold px-2 py-0.5 rounded border border-indigo-100 font-mono">
+          {mapeamentoTipo.sinapi?.["Código da Composição"] || 'SINAPI'}
+        </span>
+      ) : (
+        <span className="bg-emerald-50 text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded border border-emerald-100 font-mono">
+          Próprio
+        </span>
+      )
+    ) : (
+      <span className="text-gray-200 text-[10px]">—</span>
+    )}
+  </td>
+  <td className="px-4 py-2 text-center relative" onClick={(e) => e.stopPropagation()}>
+     {mapeamentoTipo ? (
+       <button
+         onClick={(e) => {
+           e.stopPropagation();
+           setMaterialGerenciar({
+             material_id: mapeamentoTipo.material_id,
+             sinapi_id: mapeamentoTipo.sinapi_id,
+             origem: mapeamentoTipo.material_id ? 'proprio' : 'sinapi',
+             nome: mapeamentoTipo.material?.nome || mapeamentoTipo.sinapi?.descricao || 'Material Vinculado'
+           });
+         }}
+         className="w-7 h-7 rounded-full text-emerald-600 bg-emerald-50 hover:bg-emerald-100 flex items-center justify-center transition-all mx-auto"
+         title="Gerenciar Vínculo do Tipo"
+       >
+         <FontAwesomeIcon icon={faLink} className="text-xs" />
+       </button>
+     ) : (
+       <div className="relative">
+         <button
+           onClick={(e) => {
+             e.stopPropagation();
+             const chaveL3 = `tipo-${tChave}`;
+             setPopoverChave(popoverChave === chaveL3 ? null : chaveL3);
+           }}
+           className={`w-7 h-7 rounded-full flex items-center justify-center transition-all mx-auto popover-vinculo-trigger
+             ${popoverChave === `tipo-${tChave}`
+               ? 'bg-blue-600 text-white'
+               : 'text-gray-400 hover:text-blue-600 hover:bg-blue-50 opacity-0 group-hover:opacity-100'
+             }`}
+           title="Vincular Tipo a Material"
+         >
+           <FontAwesomeIcon icon={faLink} className="text-xs" />
+         </button>
+ 
+         {popoverChave === `tipo-${tChave}` && (
+           <div className="absolute right-0 mt-2 w-64 bg-white border border-gray-100 rounded-xl shadow-xl z-[40] p-2 text-left popover-vinculo-content">
+             <div className="px-3 py-1.5 border-b border-gray-100 mb-1">
+               <p className="text-[10px] font-black text-gray-400 uppercase tracking-wider">Propriedades do Tipo</p>
+             </div>
+             <div className="max-h-60 overflow-y-auto space-y-0.5">
+               {propriedadesTipo && propriedadesTipo.length > 0 ? (
+                 propriedadesTipo.map(m => (
+                   <button
+                     key={m.nome}
+                     onClick={(e) => {
+                       e.stopPropagation();
+                       setVinculoModal({
+                         propriedade: { nome: m.nome, valor: m.valor, unidade: m.unidade },
+                         elemento: {
+                           categoria: cat.categoria,
+                           familia: fam.familia,
+                           tipo: t.tipo,
+                           external_id: null
+                         }
+                       });
+                       setPopoverChave(null);
+                     }}
+                     className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 flex justify-between items-center transition-colors text-xs font-semibold text-gray-700"
+                   >
+                     <span>{m.nome}</span>
+                     <span className="text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded font-mono font-bold">
+                       {fmt2(m.valor)} {m.unidade}
+                     </span>
+                   </button>
+                 ))
+               ) : (
+                 <div className="px-3 py-2 text-center text-xs text-gray-400 font-semibold italic">
+                   Nenhuma propriedade quantitativa encontrada.
+                 </div>
+               )}
+ 
+               <div className="border-t border-gray-100 my-1"></div>
+               <button
+                 onClick={(e) => {
+                   e.stopPropagation();
+                   setVinculoModal({
+                     propriedade: { nome: 'Quantidade', valor: t.qtd_total, unidade: 'un' },
+                     elemento: {
+                       categoria: cat.categoria,
+                       familia: fam.familia,
+                       tipo: t.tipo,
+                       external_id: null
+                     }
+                   });
+                   setPopoverChave(null);
+                 }}
+                 className="w-full text-left px-3 py-2 rounded-lg hover:bg-blue-50 text-blue-700 flex justify-between items-center transition-colors text-xs font-bold"
+               >
+                 <span className="flex items-center gap-1.5">
+                   <span>🔢 Contar por Unidades</span>
+                 </span>
+                 <span className="text-[10px] bg-blue-100 px-1.5 py-0.5 rounded font-mono">
+                   {t.qtd_total} un
+                 </span>
+               </button>
+             </div>
+           </div>
+         )}
+       </div>
+     )}
+  </td>
+  </tr>
+ 
+  {/* ── L4: Elementos individuais ── */}
+  {tExpandido && t.elementos.map(el => {
+  const props = el.propriedades || {};
+  const valorEl = medidaAtiva ? parseFloat(props[medidaAtiva.chave] || 0) : null;
+  return (
+  <tr key={`el-${el.id}`} className="border-b border-gray-50 bg-amber-50/20 hover:bg-amber-50/60 cursor-pointer group transition-colors"
+  onClick={() => setSidebarItem({ tipo: 'elemento', dados: el, cat: cat.categoria, fam: fam.familia })}
+  >
+  <td className="px-3 py-1.5 pl-16 text-amber-300 text-center group-hover:text-amber-500">
+  <FontAwesomeIcon icon={faAngleRight} className="text-[10px] opacity-0 group-hover:opacity-100 transition-opacity" />
+  </td>
+  <td className="px-4 py-1.5 text-[10px] text-gray-500">
+  Nome: <span className="font-mono text-gray-600">{props['Name'] || props['Nome'] || props['Mark'] || props['Marca'] || 'Instância'}</span>
+  </td>
+  <td className="px-4 py-1.5 text-right text-[10px] text-gray-600 font-medium">
+  <div className="flex items-center justify-end gap-1.5">
+    <span>{valorEl && valorEl > 0 ? fmt2(valorEl) : '1'}</span>
+    <BadgeUnidade unidade={medidaAtiva?.unidade || 'un'} />
+  </div>
+  </td>
+  <td className="px-4 py-1.5 text-left">
+  {props['SINAPI'] ? (
+    <span className="text-[10px] font-mono text-indigo-400">{props['SINAPI']}</span>
+  ) : (
+    <span className="text-gray-200 text-[10px]">—</span>
+  )}
+  </td>
+  <td className="px-4 py-1.5 text-center">
+     <button
+       onClick={(e) => {
+         e.stopPropagation();
+         setSidebarItem({ tipo: 'elemento', dados: el, cat: cat.categoria, fam: fam.familia });
+       }}
+       className="w-6 h-6 rounded-full text-blue-500 hover:bg-blue-50 flex items-center justify-center transition-all mx-auto opacity-0 group-hover:opacity-100"
+       title="Ver detalhes na Sidebar"
+     >
+       <FontAwesomeIcon icon={faArrowRight} className="text-[10px]" />
+     </button>
+   </td>
+   </tr>
+  );
+  })}
+  </Fragment>
+  );
+  })}
+  </Fragment>
+  );
+  })}
+  </Fragment>
+  );
+  })}
+  </tbody>
+  </table>
+</div>
  )}
  </>
  )}
