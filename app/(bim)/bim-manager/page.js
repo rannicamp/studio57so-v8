@@ -232,6 +232,15 @@ export default function BimManagerPage() {
     const allModels = viewerInstance.impl.modelQueue().getModels();
     if (allModels.length === 0) return;
 
+    console.log(`🔍 [BIM Diagnóstico] Chamada para selectExternalIdsInViewer. Itens a buscar:`, externalIdsList?.length, `Tentativa: ${attempt}`);
+    console.log(`🔍 [BIM Diagnóstico] Lista de IDs de busca (primeiros 5):`, externalIdsList?.slice(0, 5));
+    console.log(`🔍 [BIM Diagnóstico] Modelos carregados no viewer:`, allModels.map(m => ({
+      id: m.id,
+      nome_arquivo: m.studio57_context?.nome_arquivo || 'Principal/Sem contexto',
+      urn: m.studio57_context?.urn_autodesk || 'N/A',
+      isTreeLoaded: m.isObjectTreeLoaded()
+    })));
+
     // FIX: Verifica se algum dos modelos carregados ainda está baixando/processando a árvore de propriedades (Property Database)
     // Se estiver, agenda um retry automático em 800ms para evitar falha silenciosa de mapeamento (muito comum em federações de múltiplos modelos)
     // Colocamos um limite de 5 tentativas (4 segundos de tolerância) para não travar a tela com modelos lentos ou com erros
@@ -248,6 +257,7 @@ export default function BimManagerPage() {
     viewerInstance.setGhosting(true);
 
     if (!externalIdsList || externalIdsList.length === 0) {
+      console.log(`🔍 [BIM Diagnóstico] Nenhuma ID selecionada. Limpando cena e restaurando visibilidade.`);
       // Se não há seleção, restaura tudo (exibe todos os modelos e remove isolamento)
       allModels.forEach(m => {
         viewerInstance.showModel(m.id);
@@ -276,12 +286,23 @@ export default function BimManagerPage() {
 
     // Converte ExternalID -> DbID em todos os modelos e agrupa
     await Promise.all(allModels.map(m => new Promise(resolve => {
+      const nomeMod = m.studio57_context?.nome_arquivo || `Model_${m.id}`;
+      console.log(`📡 [BIM Diagnóstico] Solicitando getExternalIdMapping para o modelo: ${nomeMod}`);
+      
       m.getExternalIdMapping(map => {
         // Previne erro fatal se map for null ou undefined (modelo sem propriedades carregadas)
         if (!map) {
+          console.warn(`⚠️ [BIM Diagnóstico] O mapeamento de IDs retornou nulo/vazio para o modelo: ${nomeMod}`);
           resolve();
           return;
         }
+        
+        const chavesViewer = Object.keys(map);
+        console.log(`📡 [BIM Diagnóstico] Modelo [${nomeMod}] mapeamento carregado com ${chavesViewer.length} chaves.`);
+        if (chavesViewer.length > 0) {
+          console.log(`📡 [BIM Diagnóstico] Modelo [${nomeMod}] primeiras 5 chaves no visualizador:`, chavesViewer.slice(0, 5));
+        }
+
         const dbIdsInThisModel = [];
         let lowercaseMap = null;
         let sufixoMap = null;
@@ -293,6 +314,7 @@ export default function BimManagerPage() {
           if (map[cleanEid] !== undefined) { 
             dbIdsInThisModel.push(map[cleanEid]); 
             totalSelecionados++;
+            console.log(`🎯 [BIM Match Exato] Encontrado no modelo [${nomeMod}] -> ID original: ${cleanEid} -> dbId: ${map[cleanEid]}`);
           } else {
             // 2. Tenta correspondência case-insensitive se falhar a exata
             if (!lowercaseMap) {
@@ -305,6 +327,7 @@ export default function BimManagerPage() {
             if (lowercaseMap[lowerEid] !== undefined) {
               dbIdsInThisModel.push(lowercaseMap[lowerEid]);
               totalSelecionados++;
+              console.log(`🎯 [BIM Match CaseInsensitive] Encontrado no modelo [${nomeMod}] -> ID original: ${cleanEid} -> dbId: ${lowercaseMap[lowerEid]}`);
             } else {
               // 3. Tenta correspondência por sufixo de ID do Revit (caso o GUID de link mude)
               const sufixoEid = extrairSufixoRevit(cleanEid);
@@ -321,6 +344,7 @@ export default function BimManagerPage() {
                 if (sufixoMap[sufixoEid] !== undefined) {
                   dbIdsInThisModel.push(sufixoMap[sufixoEid]);
                   totalSelecionados++;
+                  console.log(`🎯 [BIM Match Sufixo] Encontrado no modelo [${nomeMod}] -> ID original: ${cleanEid} (sufixo: ${sufixoEid}) -> dbId: ${sufixoMap[sufixoEid]}`);
                 }
               }
             }
@@ -328,10 +352,16 @@ export default function BimManagerPage() {
         });
 
         if (dbIdsInThisModel.length > 0) {
+          console.log(`✅ [BIM Diagnóstico] Modelo [${nomeMod}] acumulou ${dbIdsInThisModel.length} dbIds.`);
           aggregateDocs.push({ id: m.id, model: m, ids: dbIdsInThisModel, selection: dbIdsInThisModel });
         }
         resolve();
       });
+    })));
+
+    console.log(`🔍 [BIM Diagnóstico] Agrupamento final para seleção (aggregateDocs):`, aggregateDocs.map(d => ({
+      modelName: d.model?.studio57_context?.nome_arquivo || 'Principal',
+      dbIdsCount: d.ids?.length
     })));
 
     if (aggregateDocs.length > 0) { 

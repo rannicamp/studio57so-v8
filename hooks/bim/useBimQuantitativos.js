@@ -228,7 +228,7 @@ export function useBimQuantitativos({ organizacaoId }) {
       const { data, error } = await supabase
         .from('elementos_bim')
         .select('id, external_id, categoria, familia, tipo, nivel, propriedades, is_active')
-        .in('projeto_bim_id', modelosSelecionadosIds)
+        .in('projeto_bim_id', modelosSelecionadosIds.map(Number))
         .eq('categoria', categoria)
         .eq('familia', familia)
         .limit(100000);
@@ -361,7 +361,6 @@ export function useBimQuantitativos({ organizacaoId }) {
     });
   }, [esqueletoCategorias, familiasPorCategoria, detalhesFamilias, carregandoFamiliasIds, carregandoCategoriasIds]);
 
-  // Lista flat de todos os elementos (inclui ativos e inativos) para mapeamentos
   const { data: todosElementos = [] } = useQuery({
     queryKey: ['bimQuant_elementos_flat', [...modelosSelecionadosIds].sort().join(','), organizacaoId],
     queryFn: async () => {
@@ -369,7 +368,7 @@ export function useBimQuantitativos({ organizacaoId }) {
       const { data, error } = await supabase
         .from('elementos_bim')
         .select('id, external_id, categoria, familia, tipo, nivel, propriedades, is_active')
-        .in('projeto_bim_id', modelosSelecionadosIds)
+        .in('projeto_bim_id', modelosSelecionadosIds.map(Number))
         .not('categoria', 'in', '("Revit Level","Revit Grids","Revit Scope Boxes","Revit Reference Planes","<Indesejado>")')
         .limit(100000);
       if (error) throw error;
