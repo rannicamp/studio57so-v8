@@ -207,14 +207,16 @@ export default function BimManagerPage() {
   const handleShowQuantitativos = (externalIds, label, modelos) => {
     setActiveMainTab('viewer');
     if (modelos && modelos.length > 0) {
+      // Filtrar preventivamente apenas os concluídos para evitar auto-load indesejado de arquivos em processamento ou com erro
+      const modelosConcluidos = modelos.filter(m => m.status?.toLowerCase() === 'concluido');
       const loadedIds = loadedFiles.map(f => f.id);
-      const missingModels = modelos.filter(m => !loadedIds.includes(m.id));
+      const missingModels = modelosConcluidos.filter(m => !loadedIds.includes(m.id));
       if (missingModels.length > 0) {
         toast.info('Modelos vinculados não estão carregados, realizando auto-load...');
-        handleLoadSet(modelos);
+        handleLoadSet(modelosConcluidos);
         // Manda pro localStorage pra rodar no auto-load effect
         localStorage.setItem('bimSelectionPending', JSON.stringify({
-          externalIds, notify: label || 'elementos destacados no modelo.', modelos
+          externalIds, notify: label || 'elementos destacados no modelo.', modelos: modelosConcluidos
         }));
         return;
       }
@@ -348,15 +350,15 @@ export default function BimManagerPage() {
         
         // Se pertencer ao mesmo empreendimento dos elementos selecionados
         if (modelEmpId && targetEmpreendimentoIds.includes(modelEmpId)) {
-          viewerInstance.showModel(m.id); // Garante que esteja visível
-          
           const docForModel = aggregateDocs.find(doc => doc.id === m.id);
           if (docForModel) {
+            viewerInstance.showModel(m.id); // Garante que esteja visível
             // Se tem elementos selecionados nesse modelo, isola-os
             viewerInstance.isolate(docForModel.ids, m);
           } else {
-            // Se não tem elementos selecionados mas é do mesmo empreendimento, deixa em ghosting
-            viewerInstance.isolate([0], m); // Isola ID inexistente para forçar o ghost completo no modelo
+            // Se o modelo não possui nenhum elemento selecionado nessa federação, oculta-o
+            // Isso evita usar o isolate([0], m) que causava sumiço de seleção em múltiplos modelos
+            viewerInstance.hideModel(m.id);
           }
         } else {
           // Se for de outro empreendimento, oculta completamente
