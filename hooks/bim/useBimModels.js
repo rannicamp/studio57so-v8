@@ -47,7 +47,27 @@ export function useBimModels(viewerInstance, setIsGanttOpen) {
             };
 
             window.Autodesk.Viewing.Document.load(fullUrn, (doc) => {
-                const viewables = doc.getRoot().getDefaultGeometry();
+                let viewables = doc.getRoot().getDefaultGeometry();
+                if (!viewables) {
+                    console.log("⚠️ Devonildo aviso: Vista padrão não encontrada, buscando geometrias 3D alternativas...");
+                    const geom3d = doc.getRoot().search({ type: 'geometry', role: '3d' });
+                    if (geom3d && geom3d.length > 0) {
+                        viewables = geom3d[0];
+                    } else {
+                        console.log("⚠️ Devonildo aviso: Vista 3D não encontrada, buscando pranchas 2D...");
+                        const geom2d = doc.getRoot().search({ type: 'geometry', role: '2d' });
+                        if (geom2d && geom2d.length > 0) {
+                            viewables = geom2d[0];
+                        }
+                    }
+                }
+
+                if (!viewables) {
+                    console.error("❌ Devonildo erro: Nenhuma geometria visualizável encontrada no documento Autodesk.");
+                    toast.error(`O arquivo ${file.nome_arquivo} não possui geometrias visualizáveis.`);
+                    return;
+                }
+
                 viewerInstance.loadModel(doc.getViewablePath(viewables), loadOptions, (model) => {
                     model.studio57_context = file;
                     loadedModelsRef.current[urnBancoLimpa] = model;
@@ -112,7 +132,25 @@ export function useBimModels(viewerInstance, setIsGanttOpen) {
                 };
 
                 window.Autodesk.Viewing.Document.load(fullUrn, (doc) => {
-                    const viewables = doc.getRoot().getDefaultGeometry();
+                    let viewables = doc.getRoot().getDefaultGeometry();
+                    if (!viewables) {
+                        const geom3d = doc.getRoot().search({ type: 'geometry', role: '3d' });
+                        if (geom3d && geom3d.length > 0) {
+                            viewables = geom3d[0];
+                        } else {
+                            const geom2d = doc.getRoot().search({ type: 'geometry', role: '2d' });
+                            if (geom2d && geom2d.length > 0) {
+                                viewables = geom2d[0];
+                            }
+                        }
+                    }
+
+                    if (!viewables) {
+                        console.error(`❌ Devonildo erro: Nenhuma geometria visualizável encontrada para ${file.nome_arquivo}`);
+                        resolve();
+                        return;
+                    }
+
                     viewerInstance.loadModel(doc.getViewablePath(viewables), loadOptions, (model) => {
                         model.studio57_context = file;
                         loadedModelsRef.current[urn] = model;
