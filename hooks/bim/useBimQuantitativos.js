@@ -46,13 +46,13 @@ export function useBimQuantitativos({ organizacaoId }) {
     queryFn: async () => {
       if (!organizacaoId) return [];
 
-      // Busca IDs de empreendimentos que têm modelos BIM Concluídos com elementos extraídos
+      // Busca IDs de empreendimentos que têm modelos BIM ativos com elementos extraídos (ignorando apenas modelos com erro)
       const { data: modData, error: modError } = await supabase
         .from('projetos_bim')
         .select('empreendimento_id')
         .eq('organizacao_id', organizacaoId)
         .eq('is_lixeira', false)
-        .ilike('status', 'Concluido')
+        .neq('status', 'Erro')
         .not('empreendimento_id', 'is', null);
 
       if (modError) throw modError;
@@ -105,7 +105,7 @@ export function useBimQuantitativos({ organizacaoId }) {
     }
   }, [empreendimentosRaw, empreendimentoSelecionadoId]);
 
-  // ─── Query 2: Modelos BIM do Empreendimento (Apenas os com status Concluido) ───────────────────────────
+  // ─── Query 2: Modelos BIM do Empreendimento (Ignorando apenas os com status Erro) ───────────────────────────
   const { data: modelos = [], isLoading: carregandoModelos } = useQuery({
     queryKey: ['bimQuant_modelos', empreendimentoSelecionadoId, organizacaoId],
     queryFn: async () => {
@@ -116,7 +116,7 @@ export function useBimQuantitativos({ organizacaoId }) {
         .eq('empreendimento_id', empreendimentoSelecionadoId)
         .eq('organizacao_id', organizacaoId)
         .eq('is_lixeira', false)
-        .ilike('status', 'Concluido')
+        .neq('status', 'Erro')
         .order('criado_em', { ascending: false });
       if (error) throw error;
       return data || [];

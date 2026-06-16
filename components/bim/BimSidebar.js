@@ -505,9 +505,9 @@ export default function BimSidebar({ onSelectContext, onFileSelect, onToggleMode
                 <div className="flex items-center gap-1.5">
                   <button 
                     onClick={() => {
-                      const concluidos = filteredFiles.filter(f => f.status?.toLowerCase() === 'concluido');
+                      const concluidos = filteredFiles.filter(f => f.status?.toLowerCase() !== 'erro');
                       if (concluidos.length === 0) {
-                        toast.error("Nenhum modelo concluído disponível no filtro para carregar.");
+                        toast.error("Nenhum modelo válido disponível no filtro para carregar.");
                         return;
                       }
                       onLoadSet(concluidos);

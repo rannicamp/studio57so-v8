@@ -207,16 +207,16 @@ export default function BimManagerPage() {
   const handleShowQuantitativos = (externalIds, label, modelos) => {
     setActiveMainTab('viewer');
     if (modelos && modelos.length > 0) {
-      // Filtrar preventivamente apenas os concluídos para evitar auto-load indesejado de arquivos em processamento ou com erro
-      const modelosConcluidos = modelos.filter(m => m.status?.toLowerCase() === 'concluido');
+      // Filtrar preventivamente apenas arquivos válidos (ignorando os de status Erro) para evitar auto-load de arquivos inválidos
+      const modelosValidos = modelos.filter(m => m.status?.toLowerCase() !== 'erro');
       const loadedIds = loadedFiles.map(f => f.id);
-      const missingModels = modelosConcluidos.filter(m => !loadedIds.includes(m.id));
+      const missingModels = modelosValidos.filter(m => !loadedIds.includes(m.id));
       if (missingModels.length > 0) {
         toast.info('Modelos vinculados não estão carregados, realizando auto-load...');
-        handleLoadSet(modelosConcluidos);
+        handleLoadSet(modelosValidos);
         // Manda pro localStorage pra rodar no auto-load effect
         localStorage.setItem('bimSelectionPending', JSON.stringify({
-          externalIds, notify: label || 'elementos destacados no modelo.', modelos: modelosConcluidos
+          externalIds, notify: label || 'elementos destacados no modelo.', modelos: modelosValidos
         }));
         return;
       }
