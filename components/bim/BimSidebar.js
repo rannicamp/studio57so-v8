@@ -121,46 +121,69 @@ export default function BimSidebar({ onSelectContext, onFileSelect, onToggleMode
     enabled: !!organizacaoId
   });
 
-  // Enriquecer dados de arquivos ativos
+  // Enriquecer dados de arquivos ativos (filtrando preventivamente arquivos de empreendimentos arquivados)
   const enrichedFiles = useMemo(() => {
     if (!data?.files) return [];
-    return data.files.filter(f => !f.is_lixeira).map(f => {
-      const emp = data.obs?.find(o => o.id === f.empreendimento_id);
-      const disc = data.discs?.find(d => d.id === f.disciplina_id);
-      return {
-        ...f,
-        empreendimento_nome: emp ? emp.nome : 'Sem Empreendimento',
-        disciplina_sigla: disc ? disc.sigla : 'BIM',
-        disciplina_nome: disc ? disc.nome : 'Sem Disciplina'
-      };
-    });
+    return data.files
+      .filter(f => !f.is_lixeira)
+      .filter(f => {
+        // Se o arquivo tem empreendimento associado, este empreendimento deve estar ativo (não arquivado)
+        if (f.empreendimento_id && data?.obs) {
+          return data.obs.some(o => o.id === f.empreendimento_id);
+        }
+        return true;
+      })
+      .map(f => {
+        const emp = data.obs?.find(o => o.id === f.empreendimento_id);
+        const disc = data.discs?.find(d => d.id === f.disciplina_id);
+        return {
+          ...f,
+          empreendimento_nome: emp ? emp.nome : 'Sem Empreendimento',
+          disciplina_sigla: disc ? disc.sigla : 'BIM',
+          disciplina_nome: disc ? disc.nome : 'Sem Disciplina'
+        };
+      });
   }, [data]);
 
-  // Enriquecer dados da lixeira
+  // Enriquecer dados da lixeira (filtrando preventivamente arquivos de empreendimentos arquivados)
   const enrichedTrash = useMemo(() => {
     if (!data?.trash) return [];
-    return data.trash.map(f => {
-      const emp = data.obs?.find(o => o.id === f.empreendimento_id);
-      const disc = data.discs?.find(d => d.id === f.disciplina_id);
-      return {
-        ...f,
-        empreendimento_nome: emp ? emp.nome : 'Sem Empreendimento',
-        disciplina_sigla: disc ? disc.sigla : 'BIM',
-        disciplina_nome: disc ? disc.nome : 'Sem Disciplina'
-      };
-    });
+    return data.trash
+      .filter(f => {
+        if (f.empreendimento_id && data?.obs) {
+          return data.obs.some(o => o.id === f.empreendimento_id);
+        }
+        return true;
+      })
+      .map(f => {
+        const emp = data.obs?.find(o => o.id === f.empreendimento_id);
+        const disc = data.discs?.find(d => d.id === f.disciplina_id);
+        return {
+          ...f,
+          empreendimento_nome: emp ? emp.nome : 'Sem Empreendimento',
+          disciplina_sigla: disc ? disc.sigla : 'BIM',
+          disciplina_nome: disc ? disc.nome : 'Sem Disciplina'
+        };
+      });
   }, [data]);
 
-  // Enriquecer sets (vistas federadas)
+  // Enriquecer sets / vistas federadas (filtrando preventivamente sets de empreendimentos arquivados)
   const enrichedSets = useMemo(() => {
     if (!data?.sets) return [];
-    return data.sets.map(s => {
-      const emp = data.obs?.find(o => o.id === s.empreendimento_id);
-      return {
-        ...s,
-        empreendimento_nome: emp ? emp.nome : 'Sem Empreendimento'
-      };
-    });
+    return data.sets
+      .filter(s => {
+        if (s.empreendimento_id && data?.obs) {
+          return data.obs.some(o => o.id === s.empreendimento_id);
+        }
+        return true;
+      })
+      .map(s => {
+        const emp = data.obs?.find(o => o.id === s.empreendimento_id);
+        return {
+          ...s,
+          empreendimento_nome: emp ? emp.nome : 'Sem Empreendimento'
+        };
+      });
   }, [data]);
 
   // Filtrar empreendimentos por empresa no seletor
@@ -481,7 +504,14 @@ export default function BimSidebar({ onSelectContext, onFileSelect, onToggleMode
                 <span>{filteredFiles.length} modelo{filteredFiles.length !== 1 ? 's' : ''} filtrado{filteredFiles.length !== 1 ? 's' : ''}</span>
                 <div className="flex items-center gap-1.5">
                   <button 
-                    onClick={() => onLoadSet(filteredFiles)}
+                    onClick={() => {
+                      const concluidos = filteredFiles.filter(f => f.status?.toLowerCase() === 'concluido');
+                      if (concluidos.length === 0) {
+                        toast.error("Nenhum modelo concluído disponível no filtro para carregar.");
+                        return;
+                      }
+                      onLoadSet(concluidos);
+                    }}
                     className="text-blue-600 hover:text-blue-800 transition-colors flex items-center gap-1 bg-blue-50/50 hover:bg-blue-50 px-2 py-0.5 rounded border border-blue-100 font-black"
                     title="Selecionar todos os modelos visíveis no filtro"
                   >

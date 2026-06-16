@@ -223,7 +223,8 @@ export default function BimManagerPage() {
   };
 
   // Função genérica para selecionar external_ids no viewer com isolamento inteligente e ghosting
-  const selectExternalIdsInViewer = async (externalIdsList, successMessage = 'elementos selecionados.') => {
+  // Adicionado o parâmetro 'attempt' para evitar retries infinitos se um modelo falhar permanentemente
+  const selectExternalIdsInViewer = async (externalIdsList, successMessage = 'elementos selecionados.', attempt = 0) => {
     if (!viewerInstance) return;
 
     const allModels = viewerInstance.impl.modelQueue().getModels();
@@ -231,11 +232,12 @@ export default function BimManagerPage() {
 
     // FIX: Verifica se algum dos modelos carregados ainda está baixando/processando a árvore de propriedades (Property Database)
     // Se estiver, agenda um retry automático em 800ms para evitar falha silenciosa de mapeamento (muito comum em federações de múltiplos modelos)
+    // Colocamos um limite de 5 tentativas (4 segundos de tolerância) para não travar a tela com modelos lentos ou com erros
     const modelsStillLoading = allModels.filter(m => !m.isObjectTreeLoaded());
-    if (modelsStillLoading.length > 0) {
-      console.log(`⏳ Devonildo: ${modelsStillLoading.length} modelos ainda carregando a árvore de propriedades no visualizador. Re-agendando seleção em 800ms...`);
+    if (modelsStillLoading.length > 0 && attempt < 5) {
+      console.log(`⏳ Devonildo: ${modelsStillLoading.length} modelos ainda carregando a árvore de propriedades no visualizador. Re-agendando seleção em 800ms... (Tentativa ${attempt + 1}/5)`);
       setTimeout(() => {
-        selectExternalIdsInViewer(externalIdsList, successMessage);
+        selectExternalIdsInViewer(externalIdsList, successMessage, attempt + 1);
       }, 800);
       return;
     }
@@ -272,6 +274,11 @@ export default function BimManagerPage() {
     // Converte ExternalID -> DbID em todos os modelos e agrupa
     await Promise.all(allModels.map(m => new Promise(resolve => {
       m.getExternalIdMapping(map => {
+        // Previne erro fatal se map for null ou undefined (modelo sem propriedades carregadas)
+        if (!map) {
+          resolve();
+          return;
+        }
         const dbIdsInThisModel = [];
         let lowercaseMap = null;
         let sufixoMap = null;
