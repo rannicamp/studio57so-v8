@@ -16,8 +16,10 @@ import { useBimMapeamentos } from '@/hooks/bim/useBimMapeamentos';
 import { toast } from 'sonner';
 import BimImportModal from '@/components/orcamento/BimImportModal';
 import BimVinculoMaterialModal from '@/components/bim/BimVinculoMaterialModal';
+import BimVinculoSimplificadoModal from '@/components/bim/BimVinculoSimplificadoModal';
 import BimGerenciarVinculosModal from '@/components/bim/BimGerenciarVinculosModal';
 import BimInsumoAvulsoModal from '@/components/bim/BimInsumoAvulsoModal';
+import BimElementPropertiesModal from '@/components/bim/BimElementPropertiesModal';
 import { useQuery } from '@tanstack/react-query';
 import { createClient } from '@/utils/supabase/client';
 
@@ -202,11 +204,34 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
 
   // Modais / Seletoes (Vínculo & Exclusão)
   const [vinculoModal, setVinculoModal] = useState(null);
+  const [inspecaoModal, setInspecaoModal] = useState(null);
   const [insumoAvulsoModalOpen, setInsumoAvulsoModalOpen] = useState(false);
   const [materialGerenciar, setMaterialGerenciar] = useState(null);
 
-  const [popoverChave, setPopoverChave] = useState(null);
+
   const [linhaDestacadaChave, setLinhaDestacadaChave] = useState(null);
+
+  const handleVincularPropriedadeDeElemento = (propNome, propValor, elemento) => {
+    setInspecaoModal(null);
+    
+    const detectarUnidadeLocal = (nome) => {
+      const l = (nome || '').toLowerCase();
+      if (l.includes('volume'))      return 'm³';
+      if (l.includes('área') || l.includes('area')) return 'm²';
+      if (l.includes('comprimento') || l.includes('length')) return 'm';
+      if (l.includes('diâmetro') || l.includes('diametro')) return 'mm';
+      return 'un';
+    };
+
+    setVinculoModal({
+      propriedade: {
+        nome: propNome,
+        valor: propValor,
+        unidade: detectarUnidadeLocal(propNome)
+      },
+      elemento: elemento
+    });
+  };
 
   // Handlers locais envelopados para aplicar a animação (piscada verde) de sucesso
   const handleSalvarMapeamento = async (payload) => {
@@ -219,6 +244,11 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
         chaveDestacada = `fam-${payload.categoria_bim}|||${payload.familia_bim}`;
       } else if (payload.escopo === 'categoria' && payload.categoria_bim) {
         chaveDestacada = `cat-${payload.categoria_bim}`;
+      } else if (payload.escopo === 'elemento' && payload.elemento_id) {
+        const elObj = todosElementos.find(el => String(el.external_id) === String(payload.elemento_id));
+        if (elObj) {
+          chaveDestacada = `el-${elObj.id}`;
+        }
       }
       if (chaveDestacada) {
         setLinhaDestacadaChave(chaveDestacada);
@@ -243,6 +273,11 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
           chaveDestacada = `fam-${mapeamento.categoria_bim}|||${mapeamento.familia_bim}`;
         } else if (mapeamento.escopo === 'categoria' && mapeamento.categoria_bim) {
           chaveDestacada = `cat-${mapeamento.categoria_bim}`;
+        } else if (mapeamento.escopo === 'elemento' && mapeamento.elemento_id) {
+          const elObj = todosElementos.find(el => String(el.external_id) === String(mapeamento.elemento_id));
+          if (elObj) {
+            chaveDestacada = `el-${elObj.id}`;
+          }
         }
         if (chaveDestacada) {
           setLinhaDestacadaChave(chaveDestacada);
@@ -293,21 +328,9 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
  return () => document.removeEventListener('mousedown', handle);
  }, []);
 
-  // Fecha o popover de propriedades ao clicar fora
-  useEffect(() => {
-    const handleOutsideClick = (e) => {
-      if (popoverChave && !e.target.closest('.popover-vinculo-trigger') && !e.target.closest('.popover-vinculo-content')) {
-        setPopoverChave(null);
-      }
-    };
-    document.addEventListener('mousedown', handleOutsideClick);
-    return () => document.removeEventListener('mousedown', handleOutsideClick);
-  }, [popoverChave]);
-
-  // Reset medidas + expansão ao trocar modelo
+  // Reset medidas ao trocar modelo
   useEffect(() => {
   setMedidasSelecionadas({});
-  setPopoverChave(null);
   }, [modelosSelecionadosIds]);
 
  // Estado para elementos expandidos (chave = 'cat|||fam|||tipo')
@@ -605,14 +628,7 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
   return (
   <div className="w-full h-full flex flex-col bg-gray-50 overflow-hidden font-sans animate-in fade-in duration-200">
 
-  {/* Sidebar de detalhes */}
-  <SidebarDetalhes />
-  {sidebarItem && (
-  <div
-  className="fixed inset-0 z-40 bg-black/10 backdrop-blur-[1px]"
-  onClick={fecharSidebar}
-  />
-  )}
+
 
   {/* ══════════════ HEADER ══════════════ */}
   <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between gap-4 flex-shrink-0 shadow-sm relative overflow-hidden">
@@ -1102,7 +1118,7 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
     <span className="text-gray-300 text-[10px] font-normal">—</span>
   )}
   </td>
-  <td className="px-4 py-2.5 text-center relative" onClick={(e) => e.stopPropagation()}>
+  <td className="px-4 py-2.5 text-center" onClick={(e) => e.stopPropagation()}>
     {mapeamentoCat ? (
       <button
         onClick={(e) => {
@@ -1120,88 +1136,23 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
         <FontAwesomeIcon icon={faLink} className="text-xs" />
       </button>
     ) : (
-      <div className="relative">
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            const chaveL1 = `cat-${cat.categoria}`;
-            setPopoverChave(popoverChave === chaveL1 ? null : chaveL1);
-          }}
-          className={`w-7 h-7 rounded-full flex items-center justify-center transition-all mx-auto popover-vinculo-trigger
-            ${popoverChave === `cat-${cat.categoria}`
-              ? 'bg-blue-600 text-white'
-              : 'text-gray-400 hover:text-blue-600 hover:bg-blue-50 opacity-0 group-hover:opacity-100'
-            }`}
-          title="Vincular Categoria a Material"
-        >
-          <FontAwesomeIcon icon={faLink} className="text-xs" />
-        </button>
-
-        {popoverChave === `cat-${cat.categoria}` && (
-          <div className="absolute right-0 mt-2 w-64 bg-white border border-gray-100 rounded-xl shadow-xl z-[40] p-2 text-left popover-vinculo-content">
-            <div className="px-3 py-1.5 border-b border-gray-100 mb-1">
-              <p className="text-[10px] font-black text-gray-400 uppercase tracking-wider">Propriedades da Categoria</p>
-            </div>
-            <div className="max-h-60 overflow-y-auto space-y-0.5">
-              {propriedadesCat && propriedadesCat.length > 0 ? (
-                propriedadesCat.map(m => (
-                  <button
-                    key={m.nome}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setVinculoModal({
-                        propriedade: { nome: m.nome, valor: m.valor, unidade: m.unidade },
-                        elemento: {
-                          categoria: cat.categoria,
-                          familia: null,
-                          tipo: null,
-                          external_id: null
-                        }
-                      });
-                      setPopoverChave(null);
-                    }}
-                    className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 flex justify-between items-center transition-colors text-xs font-semibold text-gray-700"
-                  >
-                    <span>{m.nome}</span>
-                    <span className="text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded font-mono font-bold">
-                      {fmt2(m.valor)} {m.unidade}
-                    </span>
-                  </button>
-                ))
-              ) : (
-                <div className="px-3 py-2 text-center text-xs text-gray-400 font-semibold italic">
-                  Nenhuma propriedade quantitativa encontrada.
-                </div>
-              )}
-
-              <div className="border-t border-gray-100 my-1"></div>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setVinculoModal({
-                    propriedade: { nome: 'Quantidade', valor: cat.total_elementos, unidade: 'un' },
-                    elemento: {
-                      categoria: cat.categoria,
-                      familia: null,
-                      tipo: null,
-                      external_id: null
-                    }
-                  });
-                  setPopoverChave(null);
-                }}
-                className="w-full text-left px-3 py-2 rounded-lg hover:bg-blue-50 text-blue-700 flex justify-between items-center transition-colors text-xs font-bold"
-              >
-                <span className="flex items-center gap-1.5">
-                  <span>🔢 Contar por Unidades</span>
-                </span>
-                <span className="text-[10px] bg-blue-100 px-1.5 py-0.5 rounded font-mono">
-                  {cat.total_elementos} un
-                </span>
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          setVinculoModal({
+            propriedade: { nome: '', valor: 0, unidade: 'un' },
+            elemento: {
+              categoria: cat.categoria,
+              familia: null,
+              tipo: null
+            }
+          });
+        }}
+        className="w-7 h-7 rounded-full flex items-center justify-center transition-all mx-auto text-gray-400 hover:text-blue-600 hover:bg-blue-50 opacity-0 group-hover:opacity-100"
+        title="Vincular Categoria a Material"
+      >
+        <FontAwesomeIcon icon={faLink} className="text-xs" />
+      </button>
     )}
   </td>
   </tr>
@@ -1283,7 +1234,7 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
     <span className="text-gray-300 text-[10px] font-normal">—</span>
   )}
   </td>
-  <td className="px-4 py-2 text-center relative" onClick={(e) => e.stopPropagation()}>
+  <td className="px-4 py-2 text-center" onClick={(e) => e.stopPropagation()}>
     {mapeamentoFam ? (
       <button
         onClick={(e) => {
@@ -1301,88 +1252,23 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
         <FontAwesomeIcon icon={faLink} className="text-xs" />
       </button>
     ) : (
-      <div className="relative">
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            const chaveL2 = `fam-${famChave}`;
-            setPopoverChave(popoverChave === chaveL2 ? null : chaveL2);
-          }}
-          className={`w-7 h-7 rounded-full flex items-center justify-center transition-all mx-auto popover-vinculo-trigger
-            ${popoverChave === `fam-${famChave}`
-              ? 'bg-blue-600 text-white'
-              : 'text-gray-400 hover:text-blue-600 hover:bg-blue-50 opacity-0 group-hover:opacity-100'
-            }`}
-          title="Vincular Família a Material"
-        >
-          <FontAwesomeIcon icon={faLink} className="text-xs" />
-        </button>
-
-        {popoverChave === `fam-${famChave}` && (
-          <div className="absolute right-0 mt-2 w-64 bg-white border border-gray-100 rounded-xl shadow-xl z-[40] p-2 text-left popover-vinculo-content">
-            <div className="px-3 py-1.5 border-b border-gray-100 mb-1">
-              <p className="text-[10px] font-black text-gray-400 uppercase tracking-wider">Propriedades da Família</p>
-            </div>
-            <div className="max-h-60 overflow-y-auto space-y-0.5">
-              {propriedadesFam && propriedadesFam.length > 0 ? (
-                propriedadesFam.map(m => (
-                  <button
-                    key={m.nome}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setVinculoModal({
-                        propriedade: { nome: m.nome, valor: m.valor, unidade: m.unidade },
-                        elemento: {
-                          categoria: cat.categoria,
-                          familia: fam.familia,
-                          tipo: null,
-                          external_id: null
-                        }
-                      });
-                      setPopoverChave(null);
-                    }}
-                    className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 flex justify-between items-center transition-colors text-xs font-semibold text-gray-700"
-                  >
-                    <span>{m.nome}</span>
-                    <span className="text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded font-mono font-bold">
-                      {fmt2(m.valor)} {m.unidade}
-                    </span>
-                  </button>
-                ))
-              ) : (
-                <div className="px-3 py-2 text-center text-xs text-gray-400 font-semibold italic">
-                  Nenhuma propriedade quantitativa encontrada.
-                </div>
-              )}
-
-              <div className="border-t border-gray-100 my-1"></div>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setVinculoModal({
-                    propriedade: { nome: 'Quantidade', valor: fam.total_elementos, unidade: 'un' },
-                    elemento: {
-                      categoria: cat.categoria,
-                      familia: fam.familia,
-                      tipo: null,
-                      external_id: null
-                    }
-                  });
-                  setPopoverChave(null);
-                }}
-                className="w-full text-left px-3 py-2 rounded-lg hover:bg-blue-50 text-blue-700 flex justify-between items-center transition-colors text-xs font-bold"
-              >
-                <span className="flex items-center gap-1.5">
-                  <span>🔢 Contar por Unidades</span>
-                </span>
-                <span className="text-[10px] bg-blue-100 px-1.5 py-0.5 rounded font-mono">
-                  {fam.total_elementos} un
-                </span>
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          setVinculoModal({
+            propriedade: { nome: '', valor: 0, unidade: 'un' },
+            elemento: {
+              categoria: cat.categoria,
+              familia: fam.familia,
+              tipo: null
+            }
+          });
+        }}
+        className="w-7 h-7 rounded-full flex items-center justify-center transition-all mx-auto text-gray-400 hover:text-blue-600 hover:bg-blue-50 opacity-0 group-hover:opacity-100"
+        title="Vincular Família a Material"
+      >
+        <FontAwesomeIcon icon={faLink} className="text-xs" />
+      </button>
     )}
   </td>
   </tr>
@@ -1435,7 +1321,7 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
   <FontAwesomeIcon icon={tExpandido ? faAngleDown : faAngleRight} className="text-xs" />
   </button>
   </td>
-  {/* Nome do tipo — clica apenas para expandir, não abre sidebar */}
+  {/* Nome do tipo — clica apenas para expandir */}
   <td
   className="px-4 py-2 text-xs text-gray-700 cursor-pointer hover:text-blue-700 font-medium"
   onClick={() => toggleTipoExpandido(tChave)}
@@ -1493,7 +1379,7 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
       <span className="text-gray-200 text-[10px]">—</span>
     )}
   </td>
-  <td className="px-4 py-2 text-center relative" onClick={(e) => e.stopPropagation()}>
+  <td className="px-4 py-2 text-center" onClick={(e) => e.stopPropagation()}>
      {mapeamentoTipo ? (
        <button
          onClick={(e) => {
@@ -1511,88 +1397,23 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
          <FontAwesomeIcon icon={faLink} className="text-xs" />
        </button>
      ) : (
-       <div className="relative">
-         <button
-           onClick={(e) => {
-             e.stopPropagation();
-             const chaveL3 = `tipo-${tChave}`;
-             setPopoverChave(popoverChave === chaveL3 ? null : chaveL3);
-           }}
-           className={`w-7 h-7 rounded-full flex items-center justify-center transition-all mx-auto popover-vinculo-trigger
-             ${popoverChave === `tipo-${tChave}`
-               ? 'bg-blue-600 text-white'
-               : 'text-gray-400 hover:text-blue-600 hover:bg-blue-50 opacity-0 group-hover:opacity-100'
-             }`}
-           title="Vincular Tipo a Material"
-         >
-           <FontAwesomeIcon icon={faLink} className="text-xs" />
-         </button>
- 
-         {popoverChave === `tipo-${tChave}` && (
-           <div className="absolute right-0 mt-2 w-64 bg-white border border-gray-100 rounded-xl shadow-xl z-[40] p-2 text-left popover-vinculo-content">
-             <div className="px-3 py-1.5 border-b border-gray-100 mb-1">
-               <p className="text-[10px] font-black text-gray-400 uppercase tracking-wider">Propriedades do Tipo</p>
-             </div>
-             <div className="max-h-60 overflow-y-auto space-y-0.5">
-               {propriedadesTipo && propriedadesTipo.length > 0 ? (
-                 propriedadesTipo.map(m => (
-                   <button
-                     key={m.nome}
-                     onClick={(e) => {
-                       e.stopPropagation();
-                       setVinculoModal({
-                         propriedade: { nome: m.nome, valor: m.valor, unidade: m.unidade },
-                         elemento: {
-                           categoria: cat.categoria,
-                           familia: fam.familia,
-                           tipo: t.tipo,
-                           external_id: null
-                         }
-                       });
-                       setPopoverChave(null);
-                     }}
-                     className="w-full text-left px-3 py-2 rounded-lg hover:bg-slate-100 flex justify-between items-center transition-colors text-xs font-semibold text-gray-700"
-                   >
-                     <span>{m.nome}</span>
-                     <span className="text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded font-mono font-bold">
-                       {fmt2(m.valor)} {m.unidade}
-                     </span>
-                   </button>
-                 ))
-               ) : (
-                 <div className="px-3 py-2 text-center text-xs text-gray-400 font-semibold italic">
-                   Nenhuma propriedade quantitativa encontrada.
-                 </div>
-               )}
- 
-               <div className="border-t border-gray-100 my-1"></div>
-               <button
-                 onClick={(e) => {
-                   e.stopPropagation();
-                   setVinculoModal({
-                     propriedade: { nome: 'Quantidade', valor: t.qtd_total, unidade: 'un' },
-                     elemento: {
-                       categoria: cat.categoria,
-                       familia: fam.familia,
-                       tipo: t.tipo,
-                       external_id: null
-                     }
-                   });
-                   setPopoverChave(null);
-                 }}
-                 className="w-full text-left px-3 py-2 rounded-lg hover:bg-blue-50 text-blue-700 flex justify-between items-center transition-colors text-xs font-bold"
-               >
-                 <span className="flex items-center gap-1.5">
-                   <span>🔢 Contar por Unidades</span>
-                 </span>
-                 <span className="text-[10px] bg-blue-100 px-1.5 py-0.5 rounded font-mono">
-                   {t.qtd_total} un
-                 </span>
-               </button>
-             </div>
-           </div>
-         )}
-       </div>
+       <button
+         onClick={(e) => {
+           e.stopPropagation();
+           setVinculoModal({
+             propriedade: { nome: '', valor: 0, unidade: 'un' },
+             elemento: {
+               categoria: cat.categoria,
+               familia: fam.familia,
+               tipo: t.tipo
+             }
+           });
+         }}
+         className="w-7 h-7 rounded-full flex items-center justify-center transition-all mx-auto text-gray-400 hover:text-blue-600 hover:bg-blue-50 opacity-0 group-hover:opacity-100"
+         title="Vincular Tipo a Material"
+       >
+         <FontAwesomeIcon icon={faLink} className="text-xs" />
+       </button>
      )}
   </td>
   </tr>
@@ -1601,12 +1422,34 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
   {tExpandido && t.elementos.map(el => {
   const props = el.propriedades || {};
   const valorEl = medidaAtiva ? parseFloat(props[medidaAtiva.chave] || 0) : null;
+  const mapeamentoEl = mapeamentos.find(m => 
+    m.escopo === 'elemento' && 
+    String(m.elemento_id) === String(el.external_id)
+  );
+
   return (
-  <tr key={`el-${el.id}`} className="border-b border-gray-50 bg-amber-50/20 hover:bg-amber-50/60 cursor-pointer group transition-colors"
-  onClick={() => setSidebarItem({ tipo: 'elemento', dados: el, cat: cat.categoria, fam: fam.familia })}
+  <tr 
+    key={`el-${el.id}`} 
+    onClick={() => {
+      setInspecaoModal({
+        elemento: {
+          id: el.id,
+          external_id: el.external_id,
+          categoria: cat.categoria,
+          familia: fam.familia,
+          tipo: t.tipo,
+          propriedades: el.propriedades
+        }
+      });
+    }}
+    className={`border-b border-gray-50 cursor-pointer transition-colors duration-1000 ${
+      linhaDestacadaChave === `el-${el.id}` 
+        ? 'bg-emerald-100/80 transition-none' 
+        : 'bg-amber-50/20 hover:bg-amber-50/60'
+    }`}
   >
-  <td className="px-3 py-1.5 pl-16 text-amber-300 text-center group-hover:text-amber-500">
-  <FontAwesomeIcon icon={faAngleRight} className="text-[10px] opacity-0 group-hover:opacity-100 transition-opacity" />
+  <td className="px-3 py-1.5 pl-16 text-amber-300 text-center">
+  <FontAwesomeIcon icon={faAngleRight} className="text-[10px] opacity-25" />
   </td>
   <td className="px-4 py-1.5 text-[10px] text-gray-500">
   Nome: <span className="font-mono text-gray-600">{props['Name'] || props['Nome'] || props['Mark'] || props['Marca'] || 'Instância'}</span>
@@ -1618,24 +1461,61 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
   </div>
   </td>
   <td className="px-4 py-1.5 text-left">
-  {props['SINAPI'] ? (
-    <span className="text-[10px] font-mono text-indigo-400">{props['SINAPI']}</span>
-  ) : (
-    <span className="text-gray-200 text-[10px]">—</span>
-  )}
+    {mapeamentoEl ? (
+      mapeamentoEl.sinapi_id ? (
+        <span className="bg-indigo-50 text-indigo-700 text-[9px] font-bold px-1.5 py-0.5 rounded border border-indigo-100 font-mono">
+          {mapeamentoEl.sinapi?.["Código da Composição"] || 'SINAPI'}
+        </span>
+      ) : (
+        <span className="bg-emerald-50 text-emerald-700 text-[9px] font-bold px-1.5 py-0.5 rounded border border-emerald-100 font-mono">
+          Próprio
+        </span>
+      )
+    ) : props['SINAPI'] ? (
+      <span className="text-[9px] font-mono text-indigo-450">{props['SINAPI']}</span>
+    ) : (
+      <span className="text-gray-255 text-[9px]">—</span>
+    )}
   </td>
-  <td className="px-4 py-1.5 text-center">
-     <button
-       onClick={(e) => {
-         e.stopPropagation();
-         setSidebarItem({ tipo: 'elemento', dados: el, cat: cat.categoria, fam: fam.familia });
-       }}
-       className="w-6 h-6 rounded-full text-blue-500 hover:bg-blue-50 flex items-center justify-center transition-all mx-auto opacity-0 group-hover:opacity-100"
-       title="Ver detalhes na Sidebar"
-     >
-       <FontAwesomeIcon icon={faArrowRight} className="text-[10px]" />
-     </button>
-   </td>
+  <td className="px-4 py-1.5 text-center text-[10px]" onClick={(e) => e.stopPropagation()}>
+    {mapeamentoEl ? (
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          setMaterialGerenciar({
+            material_id: mapeamentoEl.material_id,
+            sinapi_id: mapeamentoEl.sinapi_id,
+            origem: mapeamentoEl.material_id ? 'proprio' : 'sinapi',
+            nome: mapeamentoEl.material?.nome || mapeamentoEl.sinapi?.descricao || 'Material Vinculado'
+          });
+        }}
+        className="w-6 h-6 rounded-full text-emerald-600 bg-emerald-50 hover:bg-emerald-100 flex items-center justify-center transition-all mx-auto"
+        title="Gerenciar Vínculo da Instância"
+      >
+        <FontAwesomeIcon icon={faLink} className="text-[10px]" />
+      </button>
+    ) : (
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          setInspecaoModal({
+            elemento: {
+              id: el.id,
+              external_id: el.external_id,
+              categoria: cat.categoria,
+              familia: fam.familia,
+              tipo: t.tipo,
+              propriedades: el.propriedades
+            }
+          });
+        }}
+        className="w-6 h-6 rounded-full flex items-center justify-center transition-all mx-auto text-gray-400 hover:text-blue-600 hover:bg-blue-50 opacity-0 group-hover:opacity-100"
+        title="Visualizar Propriedades da Instância"
+      >
+        <FontAwesomeIcon icon={faLink} className="text-[10px]" />
+      </button>
+    )}
+  </td>
    </tr>
   );
   })}
@@ -1658,18 +1538,50 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
  </main>
  </div>
 
- {/* ─── MODAL: Vincular Propriedade BIM ao Material ─── */}
- <BimVinculoMaterialModal
- isOpen={!!vinculoModal}
- onClose={() => setVinculoModal(null)}
- propriedade={vinculoModal?.propriedade}
- elemento={vinculoModal?.elemento}
- todosElementos={todosElementos}
- organizacaoId={organizacao_id}
- onSalvar={handleSalvarMapeamento}
- onExcluir={handleExcluirMapeamento}
- mapeamentoExistente={vinculoModal ? resolverMapeamento(vinculoModal.elemento, vinculoModal.propriedade.nome) : null}
- />
+  {/* ─── MODAL: Vincular Propriedade BIM ao Material (Simplificado para Categoria/Família/Tipo, Completo para Instância/Elemento) ─── */}
+  {vinculoModal && (
+    vinculoModal.elemento?.propriedades ? (
+      <BimVinculoMaterialModal
+        isOpen={!!vinculoModal}
+        onClose={() => setVinculoModal(null)}
+        elemento={vinculoModal.elemento}
+        todosElementos={todosElementos}
+        organizacaoId={organizacao_id}
+        onSalvar={handleSalvarMapeamento}
+        onExcluir={handleExcluirMapeamento}
+        mapeamentoExistente={resolverMapeamento(vinculoModal.elemento, vinculoModal.propriedade?.nome)}
+        mapeamentos={mapeamentos}
+        propriedadeInicialNome={vinculoModal.propriedade?.nome}
+      />
+    ) : (
+      <BimVinculoSimplificadoModal
+        isOpen={!!vinculoModal}
+        onClose={() => setVinculoModal(null)}
+        elemento={vinculoModal.elemento}
+        todosElementos={todosElementos}
+        organizacaoId={organizacao_id}
+        onSalvar={handleSalvarMapeamento}
+        onExcluir={handleExcluirMapeamento}
+        mapeamentoExistente={resolverMapeamento(
+          vinculoModal.elemento, 
+          `[ELEMENTO] ${vinculoModal.elemento?.tipo || vinculoModal.elemento?.familia || vinculoModal.elemento?.categoria}`
+        )}
+      />
+    )
+  )}
+
+  {/* ─── MODAL: Inspecionar Propriedades da Instância (Nível L4) ─── */}
+  {inspecaoModal && (
+    <BimElementPropertiesModal
+      isOpen={!!inspecaoModal}
+      onClose={() => setInspecaoModal(null)}
+      elemento={inspecaoModal.elemento}
+      propriedadesMapeadas={propriedadesMapeadas}
+      onVincularPropriedade={(propNome, propValor) => 
+        handleVincularPropriedadeDeElemento(propNome, propValor, inspecaoModal.elemento)
+      }
+    />
+  )}
 
  {/* ─── MODAL: Gerenciar/Desvincular Regras do Material ─── */}
  <BimGerenciarVinculosModal
