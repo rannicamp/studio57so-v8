@@ -165,7 +165,7 @@ export default function SobreNosPage() {
                 A história do Studio 57 não começou com o desejo de apenas desenhar edifícios, mas com a necessidade de modernizar como eles são feitos. Muito antes do mercado falar sobre inovação, entendemos que o maior risco da construção civil era a falta de controle sobre a informação.
               </p>
               <p>
-                Ainda em 2009, adotamos a tecnologia BIM (Building Information Modeling) de forma pioneira. Não como uma ferramenta de desenho, mas como um simulador de reality.
+                Ainda em 2009, adotamos a tecnologia BIM (Building Information Modeling) de forma pioneira. Não como uma ferramenta de desenho, mas como um simulador de realidade.
               </p>
               <p>
                 Compreendemos cedo uma premissa que guia nossos negócios até hoje: <strong>quem domina a informação e os dados do projeto, domina o custo e o prazo da obra.</strong> Nós passamos a construir o prédio virtualmente, antecipando falhas, eliminando desperdícios e garantindo a viabilidade financeira antes mesmo do primeiro tijolo ser assentado.
