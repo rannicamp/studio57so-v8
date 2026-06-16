@@ -263,7 +263,8 @@ export default function BimManagerPage() {
     // Função auxiliar para extrair o sufixo numérico/hexadecimal do ID (comum em links do Revit)
     const extrairSufixoRevit = (id) => {
       if (!id) return null;
-      const partes = String(id).split('-');
+      // Divide por hífen, barra, contra-barra, dois pontos ou sublinhado (comuns em caminhos de links da Autodesk)
+      const partes = String(id).split(/[-/\\:_]/);
       if (partes.length > 0) {
         const ultimo = partes[partes.length - 1];
         if (ultimo && ultimo.match(/^[0-9a-fA-F]+$/)) {

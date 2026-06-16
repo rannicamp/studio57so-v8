@@ -103,7 +103,7 @@ export function useBimViewer() {
 
                             if (missingIds.length > 0) {
                                 for (const missingId of missingIds) {
-                                    const partes = String(missingId).split('-');
+                                    const partes = String(missingId).split(/[-/\\:_]/);
                                     const sufixo = partes[partes.length - 1];
                                     if (sufixo && sufixo.match(/^[0-9a-fA-F]+$/)) {
                                         const { data: fallbackData } = await supabase
@@ -126,7 +126,7 @@ export function useBimViewer() {
                                     dbMap.set(el.external_id.toLowerCase(), el);
                                     
                                     // Mapeamento extra por sufixo
-                                    const partes = String(el.external_id).split('-');
+                                    const partes = String(el.external_id).split(/[-/\\:_]/);
                                     const sufixo = partes[partes.length - 1];
                                     if (sufixo) {
                                         dbMap.set(sufixo.toLowerCase(), el);
@@ -139,7 +139,7 @@ export function useBimViewer() {
                                     let bdItem = dbMap.get(cleanId);
                                     
                                     if (!bdItem) {
-                                        const partes = cleanId.split('-');
+                                        const partes = cleanId.split(/[-/\\:_]/);
                                         const sufixo = partes[partes.length - 1];
                                         if (sufixo) {
                                             bdItem = dbMap.get(sufixo);
