@@ -243,16 +243,67 @@ export default function BimManagerPage() {
     let totalSelecionados = 0;
     const aggregateDocs = [];
 
+    // Função auxiliar para extrair o sufixo numérico/hexadecimal do ID (comum em links do Revit)
+    const extrairSufixoRevit = (id) => {
+      if (!id) return null;
+      const partes = String(id).split('-');
+      if (partes.length > 0) {
+        const ultimo = partes[partes.length - 1];
+        if (ultimo && ultimo.match(/^[0-9a-fA-F]+$/)) {
+          return ultimo.toLowerCase();
+        }
+      }
+      return null;
+    };
+
     // Converte ExternalID -> DbID em todos os modelos e agrupa
     await Promise.all(allModels.map(m => new Promise(resolve => {
       m.getExternalIdMapping(map => {
         const dbIdsInThisModel = [];
+        let lowercaseMap = null;
+        let sufixoMap = null;
+
         externalIdsList.forEach(eid => { 
-          if(map[eid]) { 
-            dbIdsInThisModel.push(map[eid]); 
+          const cleanEid = String(eid).trim();
+          
+          // 1. Tenta correspondência exata
+          if (map[cleanEid] !== undefined) { 
+            dbIdsInThisModel.push(map[cleanEid]); 
             totalSelecionados++;
-          } 
+          } else {
+            // 2. Tenta correspondência case-insensitive se falhar a exata
+            if (!lowercaseMap) {
+              lowercaseMap = {};
+              for (const key in map) {
+                lowercaseMap[key.toLowerCase()] = map[key];
+              }
+            }
+            const lowerEid = cleanEid.toLowerCase();
+            if (lowercaseMap[lowerEid] !== undefined) {
+              dbIdsInThisModel.push(lowercaseMap[lowerEid]);
+              totalSelecionados++;
+            } else {
+              // 3. Tenta correspondência por sufixo de ID do Revit (caso o GUID de link mude)
+              const sufixoEid = extrairSufixoRevit(cleanEid);
+              if (sufixoEid) {
+                if (!sufixoMap) {
+                  sufixoMap = {};
+                  for (const key in map) {
+                    const suf = extrairSufixoRevit(key);
+                    if (suf) {
+                      sufixoMap[suf] = map[key];
+                    }
+                  }
+                }
+                if (sufixoMap[sufixoEid] !== undefined) {
+                  dbIdsInThisModel.push(sufixoMap[sufixoEid]);
+                  totalSelecionados++;
+                }
+              }
+            }
+          }
         });
+
         if (dbIdsInThisModel.length > 0) {
           aggregateDocs.push({ id: m.id, model: m, ids: dbIdsInThisModel, selection: dbIdsInThisModel });
         }

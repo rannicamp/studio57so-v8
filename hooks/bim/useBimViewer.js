@@ -88,7 +88,7 @@ export function useBimViewer() {
                         const supabase = createClient();
                         const externalIds = allData.map(item => item.externalId);
                         
-                        const { data: dbData, error } = await supabase
+                        let { data: dbData, error } = await supabase
                             .from('elementos_bim')
                             .select('external_id, familia, tipo')
                             .in('external_id', externalIds);
@@ -96,24 +96,67 @@ export function useBimViewer() {
                         if (error) {
                             console.error("Supabase Error Enriching:", error);
                             toast.error("Erro RLS ao buscar Família do BD.");
-                        } else if (!dbData || dbData.length === 0) {
-                            toast.warning("As IDs clicadas no visualizador não batem com o banco.");
                         } else {
-                            const dbMap = new Map();
-                            dbData.forEach(el => dbMap.set(el.external_id, el));
+                            // Se nem todos os elementos foram encontrados, fazemos busca secundária por sufixo (tolerante a links)
+                            const foundIds = new Set((dbData || []).map(d => d.external_id.toLowerCase()));
+                            const missingIds = externalIds.filter(id => !foundIds.has(id.toLowerCase()));
 
-                            // Mescla o dado oficial do banco na lista final
-                            allData = allData.map(item => {
-                                const bdItem = dbMap.get(item.externalId);
-                                if (bdItem) {
-                                    return {
-                                        ...item,
-                                        familia: bdItem.familia ? bdItem.familia : (item.familia !== 'Desconhecido' ? item.familia : 'S/ Família no BD'),
-                                        tipo: bdItem.tipo ? bdItem.tipo : item.tipo
-                                    };
+                            if (missingIds.length > 0) {
+                                for (const missingId of missingIds) {
+                                    const partes = String(missingId).split('-');
+                                    const sufixo = partes[partes.length - 1];
+                                    if (sufixo && sufixo.match(/^[0-9a-fA-F]+$/)) {
+                                        const { data: fallbackData } = await supabase
+                                            .from('elementos_bim')
+                                            .select('external_id, familia, tipo')
+                                            .ilike('external_id', `%-${sufixo}`);
+                                        
+                                        if (fallbackData && fallbackData.length > 0) {
+                                            dbData = [...(dbData || []), ...fallbackData];
+                                        }
+                                    }
                                 }
-                                return item;
-                            });
+                            }
+
+                            if (!dbData || dbData.length === 0) {
+                                toast.warning("As IDs clicadas no visualizador não batem com o banco.");
+                            } else {
+                                const dbMap = new Map();
+                                dbData.forEach(el => {
+                                    dbMap.set(el.external_id.toLowerCase(), el);
+                                    
+                                    // Mapeamento extra por sufixo
+                                    const partes = String(el.external_id).split('-');
+                                    const sufixo = partes[partes.length - 1];
+                                    if (sufixo) {
+                                        dbMap.set(sufixo.toLowerCase(), el);
+                                    }
+                                });
+
+                                // Mescla o dado oficial do banco na lista final
+                                allData = allData.map(item => {
+                                    const cleanId = String(item.externalId).trim().toLowerCase();
+                                    let bdItem = dbMap.get(cleanId);
+                                    
+                                    if (!bdItem) {
+                                        const partes = cleanId.split('-');
+                                        const sufixo = partes[partes.length - 1];
+                                        if (sufixo) {
+                                            bdItem = dbMap.get(sufixo);
+                                        }
+                                    }
+
+                                    if (bdItem) {
+                                        return {
+                                            ...item,
+                                            externalId: bdItem.external_id, // normaliza o ID para bater com o banco
+                                            familia: bdItem.familia ? bdItem.familia : (item.familia !== 'Desconhecido' ? item.familia : 'S/ Família no BD'),
+                                            tipo: bdItem.tipo ? bdItem.tipo : item.tipo
+                                        };
+                                    }
+                                    return item;
+                                });
+                            }
                         }
                     } catch (dbErr) {
                         console.error("Aviso: Falha ao enriquecer dados com Supabase", dbErr);
