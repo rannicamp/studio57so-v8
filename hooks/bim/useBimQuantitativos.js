@@ -373,26 +373,9 @@ export function useBimQuantitativos({ organizacaoId }) {
     });
   }, [esqueletoCategorias, familiasPorCategoria, detalhesFamilias, carregandoFamiliasIds, carregandoCategoriasIds]);
 
-  const { data: todosElementos = [], isLoading: carregandoTodosElementos } = useQuery({
-    queryKey: ['bimQuant_elementos_flat', [...modelosSelecionadosIds].sort().join(','), organizacaoId],
-    queryFn: async () => {
-      if (modelosSelecionadosIds.length === 0 || !organizacaoId) return [];
-      console.log(`📡 [BIM Quantitativos] Buscando elementos flat via RPC leve para os projetos:`, modelosSelecionadosIds);
-      const { data, error } = await supabase.rpc('get_elementos_projeto_leve', {
-        p_projeto_ids: modelosSelecionadosIds.map(Number)
-      });
-      
-      if (error) {
-        console.error(`❌ [BIM Quantitativos] Erro na RPC get_elementos_projeto_leve:`, error);
-        throw error;
-      }
-      
-      console.log(`✅ [BIM Quantitativos] Busca concluída via RPC. Total retornado: ${data?.length || 0}`);
-      return data || [];
-    },
-    enabled: modelosSelecionadosIds.length > 0 && !!organizacaoId,
-    staleTime: 3 * 60 * 1000,
-  });
+  // Query flat desativada - o cálculo e agrupamento de categorias BIM agora é feito 100% no banco de dados via RPC
+  const todosElementos = [];
+  const carregandoTodosElementos = false;
 
   // Query 5 desativada - Cálculo de Orçamento foi portado 100% para o Banco de Dados (RPC)
   const todosElementosEmpreendimento = [];
@@ -440,7 +423,7 @@ export function useBimQuantitativos({ organizacaoId }) {
     handleSelectModelos,
     // Elementos do modelo selecionado
     grupos,
-    todosElementos,              // flat do modelo selecionado (para preview de impacto no modal)
+    todosElementos,              // flat do modelo selecionado (vazio)
     carregandoElementos,
     carregandoTodosElementos,
     kpis,

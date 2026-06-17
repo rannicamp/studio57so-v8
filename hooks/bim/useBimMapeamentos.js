@@ -94,6 +94,7 @@ export function useBimMapeamentos({ organizacaoId, empreendimentoId, modelosIds 
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bim_mapeamentos', organizacaoId] });
       queryClient.invalidateQueries({ queryKey: ['bim_quantitativos_orcamentacao'] });
+      queryClient.invalidateQueries({ queryKey: ['bim_quantitativos_categoria'] });
     },
     onError: (err) => console.error('[useBimMapeamentos] Erro ao salvar mapeamento:', err),
   });
@@ -111,6 +112,7 @@ export function useBimMapeamentos({ organizacaoId, empreendimentoId, modelosIds 
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bim_mapeamentos', organizacaoId] });
       queryClient.invalidateQueries({ queryKey: ['bim_quantitativos_orcamentacao'] });
+      queryClient.invalidateQueries({ queryKey: ['bim_quantitativos_categoria'] });
     },
   });
 
@@ -134,15 +136,14 @@ export function useBimMapeamentos({ organizacaoId, empreendimentoId, modelosIds 
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bim_mapeamentos', organizacaoId] });
       queryClient.invalidateQueries({ queryKey: ['bim_quantitativos_orcamentacao'] });
+      queryClient.invalidateQueries({ queryKey: ['bim_quantitativos_categoria'] });
     },
   });
 
   // ─── Lookup rápido: dado (categoria, familia, propriedade) → mapeamento ───
   const mapeamentoPor = useMemo(() => {
-    // Para cada chave, guarda o mapeamento de maior prioridade (mais específico)
     const mapa = {};
     mapeamentos.forEach(m => {
-      // Gera candidatos de chave a este mapeamento
       const candidatos = [];
       if (m.escopo === 'projeto')  candidatos.push(`projeto|||${m.propriedade_nome}`);
       if (m.escopo === 'categoria') candidatos.push(`categoria|||${m.categoria_bim}|||${m.propriedade_nome}`);
@@ -177,13 +178,12 @@ export function useBimMapeamentos({ organizacaoId, empreendimentoId, modelosIds 
     );
   };
 
-  // ─── Calcular quantitativos consolidados por material ──────────────────────
   // ─── Calcular quantitativos consolidados por material (Via Banco / RPC) ────
   const { data: quantitativoPorMaterial = [], isLoading: carregandoQuantitativoPorMaterial } = useQuery({
     queryKey: ['bim_quantitativos_orcamentacao', organizacaoId, empreendimentoId, [...modelosIds].sort().join(',')],
     queryFn: async () => {
       if (!empreendimentoId || !organizacaoId) return [];
-      if (!modelosIds || modelosIds.length === 0) return []; // Retorna vazio se nenhum modelo estiver selecionado
+      if (!modelosIds || modelosIds.length === 0) return [];
 
       console.log(`[BimMapeamentos] Chamando RPC get_quantitativos_orcamentacao_bim com modelos:`, modelosIds);
       const { data, error } = await supabase.rpc('get_quantitativos_orcamentacao_bim', {
@@ -197,11 +197,9 @@ export function useBimMapeamentos({ organizacaoId, empreendimentoId, modelosIds 
         throw error;
       }
 
-      // Processar a matemática do fator customizado (ex: [q] / 10)
       const parseFormula = (fatorStr, valorBruto) => {
         if (!fatorStr) return valorBruto;
         try {
-          // Troca vírgula por ponto (para aceitar [q]/1,85 no Brasil) e mapeia a tag
           const expressao = fatorStr
             .replace(/,/g, '.')
             .replace(/\[quantidade\]|\[q\]/gi, valorBruto.toString());
@@ -233,7 +231,63 @@ export function useBimMapeamentos({ organizacaoId, empreendimentoId, modelosIds 
       return resultado;
     },
     enabled: !!organizacaoId && !!empreendimentoId,
-    staleTime: 1000 * 60 * 5, // 5 min
+    staleTime: 1000 * 60 * 5,
+  });
+
+  // ─── Calcular quantitativos consolidados por categoria (Via Banco / RPC) ────
+  const { data: quantitativoPorCategoria = [], isLoading: carregandoQuantitativoPorCategoria } = useQuery({
+    queryKey: ['bim_quantitativos_categoria', organizacaoId, empreendimentoId, [...modelosIds].sort().join(',')],
+    queryFn: async () => {
+      if (!empreendimentoId || !organizacaoId) return [];
+      if (!modelosIds || modelosIds.length === 0) return [];
+
+      console.log(`[BimMapeamentos] Chamando RPC get_quantitativos_por_categoria_bim com modelos:`, modelosIds);
+      const { data, error } = await supabase.rpc('get_quantitativos_por_categoria_bim', {
+        p_organizacao_id: organizacaoId,
+        p_empreendimento_id: empreendimentoId,
+        p_projeto_ids: modelosIds.map(Number)
+      });
+
+      if (error) {
+        console.error('[BimMapeamentos] Erro na RPC get_quantitativos_por_categoria_bim:', error.message, error.details, error.hint, error);
+        throw error;
+      }
+
+      const parseFormula = (fatorStr, valorBruto) => {
+        if (!fatorStr) return valorBruto;
+        try {
+          const expressao = fatorStr
+            .replace(/,/g, '.')
+            .replace(/\[quantidade\]|\[q\]/gi, valorBruto.toString());
+          // eslint-disable-next-line no-new-func
+          const fn = new Function('return ' + expressao);
+          const resultado = fn();
+          return typeof resultado === 'number' && !isNaN(resultado) ? resultado : valorBruto;
+        } catch (e) {
+          console.error('[BimMapeamentos] Erro ao interpretar fator de conversao:', fatorStr, e);
+          return valorBruto;
+        }
+      };
+
+      const resultado = (data || []).map(item => {
+        if (item.fator_conversao) {
+          const original = Number(item.quantidade) || 0;
+          const preco = Number(item.preco_unitario) || 0;
+          const novaQuantidade = parseFormula(item.fator_conversao, original);
+          return {
+            ...item,
+            quantidadeOriginalApenasParaInfo: original,
+            quantidade: novaQuantidade,
+            custo_total: novaQuantidade * preco
+          };
+        }
+        return item;
+      });
+
+      return resultado;
+    },
+    enabled: !!organizacaoId && !!empreendimentoId,
+    staleTime: 1000 * 60 * 5,
   });
 
   // ─── Lookup: propriedades que estão mapeadas (para badge no sidebar) ───────
@@ -243,29 +297,30 @@ export function useBimMapeamentos({ organizacaoId, empreendimentoId, modelosIds 
     return set;
   }, [mapeamentos]);
 
-    // KPIs da aba "Orçamentação" (Por Material) ───────────────────────────
-    const kpisMaterial = useMemo(() => {
-      const custoTotal         = quantitativoPorMaterial.reduce((s, m) => s + m.custo_total, 0);
-      const materialComAlerta  = quantitativoPorMaterial.filter(m => m.tem_alertas).length;
-      const totalMapeados      = quantitativoPorMaterial.length;
-      const propriedadesUsadas = mapeamentos.filter(m => m.tipo_vinculo === 'material').length;
-      return { custoTotal, materialComAlerta, totalMapeados, propriedadesUsadas };
-    }, [quantitativoPorMaterial, mapeamentos]);
-  
-    return {
-      mapeamentos,
-      carregandoMapeamentos,
-      criarMapeamento,
-      deletarMapeamento,
-      atualizarFatorMaterial,
-      criando,
-      deletando,
-      atualizandoFator,
-      resolverMapeamento,
-      quantitativoPorMaterial,
-      carregandoQuantitativoPorMaterial,
-      propriedadesMapeadas,
-      kpisMaterial,
-    };
-  }
-  
+  // KPIs da aba "Orçamentação" (Por Material) ───────────────────────────
+  const kpisMaterial = useMemo(() => {
+    const custoTotal         = quantitativoPorMaterial.reduce((s, m) => s + m.custo_total, 0);
+    const materialComAlerta  = quantitativoPorMaterial.filter(m => m.tem_alertas).length;
+    const totalMapeados      = quantitativoPorMaterial.length;
+    const propriedadesUsadas = mapeamentos.filter(m => m.tipo_vinculo === 'material').length;
+    return { custoTotal, materialComAlerta, totalMapeados, propriedadesUsadas };
+  }, [quantitativoPorMaterial, mapeamentos]);
+
+  return {
+    mapeamentos,
+    carregandoMapeamentos,
+    criarMapeamento,
+    deletarMapeamento,
+    atualizarFatorMaterial,
+    criando,
+    deletando,
+    atualizandoFator,
+    resolverMapeamento,
+    quantitativoPorMaterial,
+    carregandoQuantitativoPorMaterial,
+    quantitativoPorCategoria,
+    carregandoQuantitativoPorCategoria,
+    propriedadesMapeadas,
+    kpisMaterial,
+  };
+}

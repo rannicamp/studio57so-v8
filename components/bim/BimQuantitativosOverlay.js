@@ -144,6 +144,8 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
  resolverMapeamento,
  quantitativoPorMaterial,
  carregandoQuantitativoPorMaterial,
+ quantitativoPorCategoria,
+ carregandoQuantitativoPorCategoria,
  kpisMaterial,
  atualizarFatorMaterial,
  propriedadesMapeadas,
@@ -210,223 +212,48 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
 
  // ─── Agrupamento de Orçamento por Categoria Revit ─────────────────────────────
   const quantitativosPorCategoria = useMemo(() => {
-    const mapCategorias = new Map((mapeamentos || []).map(m => [m.id, m.categoria_bim]));
-    const elementosMap = new Map((todosElementos || []).map(el => [el.external_id ? el.external_id.toLowerCase() : '', el]));
     const grupos = {};
 
-    const parseFormulaLocal = (fatorStr, valorBruto) => {
-      if (!fatorStr) return valorBruto;
-      try {
-        const expressao = fatorStr
-          .replace(/,/g, '.')
-          .replace(/\[quantidade\]|\[q\]/gi, valorBruto.toString());
-        const fn = new Function('return ' + expressao);
-        const resultado = fn();
-        return typeof resultado === 'number' && !isNaN(resultado) ? resultado : valorBruto;
-      } catch (e) {
-        return valorBruto;
-      }
-    };
+    quantitativoPorCategoria.forEach(item => {
+      const catNome = item.categoria_nome || 'Materiais do Projeto';
 
-    quantitativoPorMaterial.forEach(item => {
-      const keyMaterialBase = item.material_id 
-        ? `mat_${item.material_id}` 
-        : (item.sinapi_id ? `sinapi_${item.sinapi_id}` : `nome_${item.nome}`);
-
-      // Se for avulso, não há elementos vinculados fisicamente. Vai direto para "Materiais do Projeto".
-      if (item.is_avulso || !item.mapeamento_id || !item.external_ids_ativos || item.external_ids_ativos.length === 0) {
-        const catNome = 'Materiais do Projeto';
-        if (!grupos[catNome]) {
-          grupos[catNome] = {
-            categoria_nome: catNome,
-            custo_total: 0,
-            tem_alertas: false,
-            materiaisMap: {}
-          };
-        }
-        const g = grupos[catNome];
-        g.custo_total += item.custo_total;
-        if (item.tem_alertas) g.tem_alertas = true;
-
-        if (!g.materiaisMap[keyMaterialBase]) {
-          g.materiaisMap[keyMaterialBase] = {
-            key: `${catNome}_${keyMaterialBase}`,
-            nome: item.nome,
-            unidade: item.unidade,
-            preco_unitario: item.preco_unitario,
-            classificacao: item.classificacao,
-            quantidade: 0,
-            qtd_elementos: 0,
-            external_ids_ativos: [],
-            external_ids_inativos: [],
-            custo_total: 0,
-            tem_alertas: false,
-            origem: item.origem,
-            is_avulso: item.is_avulso,
-            pai_mapeamento_id: item.pai_mapeamento_id,
-            fator_conversao: item.fator_conversao,
-            quantidadeOriginalApenasParaInfo: 0
-          };
-        }
-        const mat = g.materiaisMap[keyMaterialBase];
-        mat.quantidade += item.quantidade;
-        mat.custo_total += item.custo_total;
-        if (item.tem_alertas) mat.tem_alertas = true;
-        if (item.quantidadeOriginalApenasParaInfo) {
-          mat.quantidadeOriginalApenasParaInfo += item.quantidadeOriginalApenasParaInfo;
-        } else if (item.fator_conversao) {
-          mat.quantidadeOriginalApenasParaInfo += item.quantidadeOriginalApenasParaInfo || item.quantidade;
-        }
-        return;
+      if (!grupos[catNome]) {
+        grupos[catNome] = {
+          categoria_nome: catNome,
+          custo_total: 0,
+          tem_alertas: false,
+          materiais: []
+        };
       }
 
-      // Se não for avulso, vamos descobrir a categoria real de cada elemento que gerou a quantidade!
-      const mapObj = (mapeamentos || []).find(m => m.id === item.mapeamento_id);
-      const propNome = mapObj ? mapObj.propriedade_nome : null;
-      const catBim = mapCategorias.get(item.mapeamento_id);
+      const g = grupos[catNome];
+      g.custo_total += item.custo_total;
+      if (item.tem_alertas) g.tem_alertas = true;
 
-      // Se não tivermos o nome da propriedade para ler dos elementos, caímos no agrupamento clássico pela categoria do mapeamento ou default
-      if (!propNome) {
-        let catNome = catBim || 'Materiais do Projeto';
-
-        if (!grupos[catNome]) {
-          grupos[catNome] = {
-            categoria_nome: catNome,
-            custo_total: 0,
-            tem_alertas: false,
-            materiaisMap: {}
-          };
-        }
-        const g = grupos[catNome];
-        g.custo_total += item.custo_total;
-        if (item.tem_alertas) g.tem_alertas = true;
-
-        if (!g.materiaisMap[keyMaterialBase]) {
-          g.materiaisMap[keyMaterialBase] = {
-            key: `${catNome}_${keyMaterialBase}`,
-            nome: item.nome,
-            unidade: item.unidade,
-            preco_unitario: item.preco_unitario,
-            classificacao: item.classificacao,
-            quantidade: 0,
-            qtd_elementos: 0,
-            external_ids_ativos: [],
-            external_ids_inativos: [],
-            custo_total: 0,
-            tem_alertas: false,
-            origem: item.origem,
-            is_avulso: item.is_avulso,
-            pai_mapeamento_id: item.pai_mapeamento_id,
-            fator_conversao: item.fator_conversao,
-            quantidadeOriginalApenasParaInfo: 0
-          };
-        }
-        const mat = g.materiaisMap[keyMaterialBase];
-        mat.quantidade += item.quantidade;
-        mat.qtd_elementos += item.qtd_elementos;
-        mat.custo_total += item.custo_total;
-        if (item.tem_alertas) mat.tem_alertas = true;
-        if (item.external_ids_ativos) {
-          item.external_ids_ativos.forEach(id => {
-            if (!mat.external_ids_ativos.includes(id)) mat.external_ids_ativos.push(id);
-          });
-        }
-        if (item.external_ids_inativos) {
-          item.external_ids_inativos.forEach(id => {
-            if (!mat.external_ids_inativos.includes(id)) mat.external_ids_inativos.push(id);
-          });
-        }
-        return;
-      }
-
-      // Temos a propriedade! Vamos decompor os elementos ativos
-      item.external_ids_ativos.forEach(extId => {
-        const el = elementosMap.get(extId ? extId.toLowerCase() : '');
-        // Categoria real do elemento com fallback para a categoria do mapeamento ou default
-        const catNome = el ? (el.categoria || 'Materiais do Projeto') : (catBim || 'Materiais do Projeto');
-
-        if (!grupos[catNome]) {
-          grupos[catNome] = {
-            categoria_nome: catNome,
-            custo_total: 0,
-            tem_alertas: false,
-            materiaisMap: {}
-          };
-        }
-
-        const g = grupos[catNome];
-
-        if (!g.materiaisMap[keyMaterialBase]) {
-          g.materiaisMap[keyMaterialBase] = {
-            key: `${catNome}_${keyMaterialBase}`,
-            nome: item.nome,
-            unidade: item.unidade,
-            preco_unitario: item.preco_unitario,
-            classificacao: item.classificacao,
-            quantidade: 0,
-            qtd_elementos: 0,
-            external_ids_ativos: [],
-            external_ids_inativos: [],
-            custo_total: 0,
-            tem_alertas: false,
-            origem: item.origem,
-            is_avulso: item.is_avulso,
-            pai_mapeamento_id: item.pai_mapeamento_id,
-            fator_conversao: item.fator_conversao,
-            quantidadeOriginalApenasParaInfo: 0
-          };
-        }
-
-        const mat = g.materiaisMap[keyMaterialBase];
-
-        // Usamos a estimativa proporcional de forma permanente: dividimos a quantidade total e original do item
-        // de forma exata e proporcional entre todos os seus elementos ativos.
-        // Isso garante que o valor e custo somado de todas as categorias bata 100% com o orçamento da RPC.
-        const originalElemento = item.quantidadeOriginalApenasParaInfo 
-          ? (item.quantidadeOriginalApenasParaInfo / item.external_ids_ativos.length) 
-          : (item.quantidade / item.external_ids_ativos.length);
-        
-        const qtdElemento = item.quantidade / item.external_ids_ativos.length;
-
-        const custoElemento = qtdElemento * item.preco_unitario;
-
-        mat.quantidade += qtdElemento;
-        mat.quantidadeOriginalApenasParaInfo += originalElemento;
-        mat.custo_total += custoElemento;
-        mat.qtd_elementos += 1;
-        if (!mat.external_ids_ativos.includes(extId)) {
-          mat.external_ids_ativos.push(extId);
-        }
-
-        // Acumula o custo total no grupo da categoria
-        g.custo_total += custoElemento;
+      g.materiais.push({
+        key: `${catNome}_${item.key}`,
+        nome: item.nome,
+        unidade: item.unidade,
+        preco_unitario: item.preco_unitario,
+        classificacao: item.classificacao,
+        quantidade: item.quantidade,
+        qtd_elementos: item.qtd_elementos,
+        external_ids_ativos: item.external_ids_ativos || [],
+        external_ids_inativos: item.external_ids_inativos || [],
+        custo_total: item.custo_total,
+        tem_alertas: item.tem_alertas,
+        origem: item.origem,
+        is_avulso: item.is_avulso,
+        pai_mapeamento_id: item.pai_mapeamento_id,
+        fator_conversao: item.fator_conversao,
+        quantidadeOriginalApenasParaInfo: item.quantidadeOriginalApenasParaInfo || 0
       });
-
-      // Se houver elementos inativos (removidos), tratamos
-      if (item.external_ids_inativos && item.external_ids_inativos.length > 0) {
-        item.external_ids_inativos.forEach(extId => {
-          const el = elementosMap.get(extId ? extId.toLowerCase() : '');
-          const catNome = el ? (el.categoria || 'Materiais do Projeto') : (catBim || 'Materiais do Projeto');
-
-          if (grupos[catNome] && grupos[catNome].materiaisMap[keyMaterialBase]) {
-            const mat = grupos[catNome].materiaisMap[keyMaterialBase];
-            if (!mat.external_ids_inativos.includes(extId)) {
-              mat.external_ids_inativos.push(extId);
-            }
-            mat.tem_alertas = true;
-            grupos[catNome].tem_alertas = true;
-          }
-        });
-      }
     });
 
-    // Converte os materiaisMap para arrays reais em cada categoria
     const listaGrupos = Object.values(grupos).map(g => {
       return {
-        categoria_nome: g.categoria_nome,
-        custo_total: g.custo_total,
-        tem_alertas: g.tem_alertas,
-        materiais: Object.values(g.materiaisMap).sort((a, b) => b.custo_total - a.custo_total)
+        ...g,
+        materiais: g.materiais.sort((a, b) => b.custo_total - a.custo_total)
       };
     });
 
@@ -435,7 +262,7 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
       if (b.categoria_nome === 'Materiais do Projeto') return -1;
       return a.categoria_nome.localeCompare(b.categoria_nome);
     });
-  }, [quantitativoPorMaterial, mapeamentos, todosElementos]);
+  }, [quantitativoPorCategoria]);
 
  // ─── Agrupamento de Orçamento por Material Consolidado ────────────────────────
  const quantitativosPorMaterialConsolidado = useMemo(() => {
@@ -1178,7 +1005,7 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
  <span>
  <strong>{empreendimentoSelecionado?.nome}</strong>
  {' · '}{modelosSelecionados.length} modelo{modelosSelecionados.length !== 1 ? 's' : ''} selecionado{modelosSelecionados.length !== 1 ? 's' : ''}
- {' · '}<strong>{todosElementos.length.toLocaleString('pt-BR')}</strong> elementos no escopo
+ {' · '}<strong>{kpis.totalElementos.toLocaleString('pt-BR')}</strong> elementos no escopo
  </span>
  </>
  )}
@@ -1360,12 +1187,12 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
 
     {/* 2. VISÃO POR CATEGORIA REVIT */}
     {tipoVisualizacao === 'categoria' && (
-      carregandoTodosElementos ? (
+      carregandoQuantitativoPorCategoria ? (
         <tr>
           <td colSpan={7} className="px-4 py-20 text-center">
             <div className="flex flex-col items-center justify-center text-blue-600 font-bold gap-3 animate-pulse">
               <FontAwesomeIcon icon={faSpinner} spin className="text-2xl" />
-              <span className="text-xs">Mapeando elementos às categorias reais do Revit...</span>
+              <span className="text-xs">Calculando custos por categoria do Revit...</span>
             </div>
           </td>
         </tr>
