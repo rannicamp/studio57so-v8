@@ -210,39 +210,155 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
  // ─── Agrupamento de Orçamento por Categoria Revit ─────────────────────────────
  const quantitativosPorCategoria = useMemo(() => {
  const mapCategorias = new Map((mapeamentos || []).map(m => [m.id, m.categoria_bim]));
+ const elementosMap = new Map((todosElementos || []).map(el => [el.external_id, el]));
  const grupos = {};
 
- quantitativoPorMaterial.forEach(item => {
- let catNome = 'Materiais do Projeto'; // Nome para itens avulsos e sem categoria cadastrada
+ const parseFormulaLocal = (fatorStr, valorBruto) => {
+ if (!fatorStr) return valorBruto;
+ try {
+ const expressao = fatorStr
+ .replace(/,/g, '.')
+ .replace(/\[quantidade\]|\[q\]/gi, valorBruto.toString());
+ const fn = new Function('return ' + expressao);
+ const resultado = fn();
+ return typeof resultado === 'number' && !isNaN(resultado) ? resultado : valorBruto;
+ } catch (e) {
+ return valorBruto;
+ }
+ };
 
- if (!item.is_avulso && item.mapeamento_id) {
+ quantitativoPorMaterial.forEach(item => {
+ const keyMaterialBase = item.material_id 
+ ? `mat_${item.material_id}` 
+ : (item.sinapi_id ? `sinapi_${item.sinapi_id}` : `nome_${item.nome}`);
+
+ // Se for avulso, não há elementos vinculados fisicamente. Vai direto para "Materiais do Projeto".
+ if (item.is_avulso || !item.mapeamento_id || !item.external_ids_ativos || item.external_ids_ativos.length === 0) {
+ const catNome = 'Materiais do Projeto';
+ if (!grupos[catNome]) {
+ grupos[catNome] = {
+ categoria_nome: catNome,
+ custo_total: 0,
+ tem_alertas: false,
+ materiaisMap: {}
+ };
+ }
+ const g = grupos[catNome];
+ g.custo_total += item.custo_total;
+ if (item.tem_alertas) g.tem_alertas = true;
+
+ if (!g.materiaisMap[keyMaterialBase]) {
+ g.materiaisMap[keyMaterialBase] = {
+ key: `${catNome}_${keyMaterialBase}`,
+ nome: item.nome,
+ unidade: item.unidade,
+ preco_unitario: item.preco_unitario,
+ classificacao: item.classificacao,
+ quantidade: 0,
+ qtd_elementos: 0,
+ external_ids_ativos: [],
+ external_ids_inativos: [],
+ custo_total: 0,
+ tem_alertas: false,
+ origem: item.origem,
+ is_avulso: item.is_avulso,
+ pai_mapeamento_id: item.pai_mapeamento_id,
+ fator_conversao: item.fator_conversao,
+ quantidadeOriginalApenasParaInfo: 0
+ };
+ }
+ const mat = g.materiaisMap[keyMaterialBase];
+ mat.quantidade += item.quantidade;
+ mat.custo_total += item.custo_total;
+ if (item.tem_alertas) mat.tem_alertas = true;
+ if (item.quantidadeOriginalApenasParaInfo) {
+ mat.quantidadeOriginalApenasParaInfo += item.quantidadeOriginalApenasParaInfo;
+ } else if (item.fator_conversao) {
+ mat.quantidadeOriginalApenasParaInfo += item.quantidadeOriginalApenasParaInfo || item.quantidade;
+ }
+ return;
+ }
+
+ // Se não for avulso, vamos descobrir a categoria real de cada elemento que gerou a quantidade!
+ const mapObj = (mapeamentos || []).find(m => m.id === item.mapeamento_id);
+ const propNome = mapObj ? mapObj.propriedade_nome : null;
+
+ // Se não tivermos o nome da propriedade para ler dos elementos, caímos no agrupamento clássico pela categoria do mapeamento ou default
+ if (!propNome) {
+ let catNome = 'Materiais do Projeto';
  const catBim = mapCategorias.get(item.mapeamento_id);
- if (catBim) {
- catNome = catBim;
- }
- }
+ if (catBim) catNome = catBim;
 
  if (!grupos[catNome]) {
  grupos[catNome] = {
  categoria_nome: catNome,
  custo_total: 0,
  tem_alertas: false,
- materiaisMap: {} // Usamos um map interno temporário para consolidar por material
+ materiaisMap: {}
  };
  }
-
  const g = grupos[catNome];
  g.custo_total += item.custo_total;
  if (item.tem_alertas) g.tem_alertas = true;
 
- // Chave de consolidação do material dentro da categoria
- const keyMaterial = item.material_id 
- ? `mat_${item.material_id}` 
- : (item.sinapi_id ? `sinapi_${item.sinapi_id}` : `nome_${item.nome}`);
+ if (!g.materiaisMap[keyMaterialBase]) {
+ g.materiaisMap[keyMaterialBase] = {
+ key: `${catNome}_${keyMaterialBase}`,
+ nome: item.nome,
+ unidade: item.unidade,
+ preco_unitario: item.preco_unitario,
+ classificacao: item.classificacao,
+ quantidade: 0,
+ qtd_elementos: 0,
+ external_ids_ativos: [],
+ external_ids_inativos: [],
+ custo_total: 0,
+ tem_alertas: false,
+ origem: item.origem,
+ is_avulso: item.is_avulso,
+ pai_mapeamento_id: item.pai_mapeamento_id,
+ fator_conversao: item.fator_conversao,
+ quantidadeOriginalApenasParaInfo: 0
+ };
+ }
+ const mat = g.materiaisMap[keyMaterialBase];
+ mat.quantidade += item.quantidade;
+ mat.qtd_elementos += item.qtd_elementos;
+ mat.custo_total += item.custo_total;
+ if (item.tem_alertas) mat.tem_alertas = true;
+ if (item.external_ids_ativos) {
+ item.external_ids_ativos.forEach(id => {
+ if (!mat.external_ids_ativos.includes(id)) mat.external_ids_ativos.push(id);
+ });
+ }
+ if (item.external_ids_inativos) {
+ item.external_ids_inativos.forEach(id => {
+ if (!mat.external_ids_inativos.includes(id)) mat.external_ids_inativos.push(id);
+ });
+ }
+ return;
+ }
 
- if (!g.materiaisMap[keyMaterial]) {
- g.materiaisMap[keyMaterial] = {
- key: `${catNome}_${keyMaterial}`,
+ // Temos a propriedade! Vamos decompor os elementos ativos
+ item.external_ids_ativos.forEach(extId => {
+ const el = elementosMap.get(extId);
+ // Categoria real do elemento
+ const catNome = el ? (el.categoria || 'Materiais do Projeto') : 'Materiais do Projeto';
+
+ if (!grupos[catNome]) {
+ grupos[catNome] = {
+ categoria_nome: catNome,
+ custo_total: 0,
+ tem_alertas: false,
+ materiaisMap: {}
+ };
+ }
+
+ const g = grupos[catNome];
+
+ if (!g.materiaisMap[keyMaterialBase]) {
+ g.materiaisMap[keyMaterialBase] = {
+ key: `${catNome}_${keyMaterialBase}`,
  nome: item.nome,
  unidade: item.unidade,
  preco_unitario: item.preco_unitario,
@@ -261,26 +377,52 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
  };
  }
 
- const mat = g.materiaisMap[keyMaterial];
- mat.quantidade += item.quantidade;
- mat.qtd_elementos += item.qtd_elementos;
- mat.custo_total += item.custo_total;
- if (item.tem_alertas) mat.tem_alertas = true;
+ const mat = g.materiaisMap[keyMaterialBase];
 
- if (item.quantidadeOriginalApenasParaInfo) {
- mat.quantidadeOriginalApenasParaInfo += item.quantidadeOriginalApenasParaInfo;
- } else if (item.fator_conversao) {
- mat.quantidadeOriginalApenasParaInfo += item.quantidadeOriginalApenasParaInfo || item.quantidade;
+ // Lê a propriedade física do elemento
+ const valorBrutoStr = el ? el.propriedades?.[propNome] : null;
+ const valorBruto = parseFloat((valorBrutoStr || '').replace(',', '.'));
+ 
+ let qtdElemento = 0;
+ let originalElemento = 0;
+
+ if (!isNaN(valorBruto) && valorBruto > 0) {
+ originalElemento = valorBruto;
+ qtdElemento = parseFormulaLocal(item.fator_conversao, valorBruto);
+ } else {
+ // Fallback para mapeamento do tipo 'elemento' onde a quantidade é unitária
+ originalElemento = 1.0;
+ qtdElemento = parseFormulaLocal(item.fator_conversao, 1.0);
  }
 
- if (item.external_ids_ativos) {
- item.external_ids_ativos.forEach(id => {
- if (!mat.external_ids_ativos.includes(id)) mat.external_ids_ativos.push(id);
+ const custoElemento = qtdElemento * item.preco_unitario;
+
+ mat.quantidade += qtdElemento;
+ mat.quantidadeOriginalApenasParaInfo += originalElemento;
+ mat.custo_total += custoElemento;
+ mat.qtd_elementos += 1;
+ if (!mat.external_ids_ativos.includes(extId)) {
+ mat.external_ids_ativos.push(extId);
+ }
+
+ // Acumula o custo total no grupo da categoria
+ g.custo_total += custoElemento;
  });
+
+ // Se houver elementos inativos (removidos), tratamos
+ if (item.external_ids_inativos && item.external_ids_inativos.length > 0) {
+ item.external_ids_inativos.forEach(extId => {
+ const el = elementosMap.get(extId);
+ const catNome = el ? (el.categoria || 'Materiais do Projeto') : 'Materiais do Projeto';
+
+ if (grupos[catNome] && grupos[catNome].materiaisMap[keyMaterialBase]) {
+ const mat = grupos[catNome].materiaisMap[keyMaterialBase];
+ if (!mat.external_ids_inativos.includes(extId)) {
+ mat.external_ids_inativos.push(extId);
  }
- if (item.external_ids_inativos) {
- item.external_ids_inativos.forEach(id => {
- if (!mat.external_ids_inativos.includes(id)) mat.external_ids_inativos.push(id);
+ mat.tem_alertas = true;
+ grupos[catNome].tem_alertas = true;
+ }
  });
  }
  });
@@ -300,7 +442,7 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
  if (b.categoria_nome === 'Materiais do Projeto') return -1;
  return a.categoria_nome.localeCompare(b.categoria_nome);
  });
- }, [quantitativoPorMaterial, mapeamentos]);
+ }, [quantitativoPorMaterial, mapeamentos, todosElementos]);
 
  // ─── Agrupamento de Orçamento por Material Consolidado ────────────────────────
  const quantitativosPorMaterialConsolidado = useMemo(() => {
