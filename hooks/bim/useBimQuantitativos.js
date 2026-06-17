@@ -377,22 +377,18 @@ export function useBimQuantitativos({ organizacaoId }) {
     queryKey: ['bimQuant_elementos_flat', [...modelosSelecionadosIds].sort().join(','), organizacaoId],
     queryFn: async () => {
       if (modelosSelecionadosIds.length === 0 || !organizacaoId) return [];
-      console.log(`📡 [BIM Quantitativos] Buscando elementos flat para os projetos:`, modelosSelecionadosIds);
-      const { data, error } = await supabase
-        .from('elementos_bim')
-        .select('id, external_id, categoria, familia, tipo, nivel, propriedades, is_active')
-        .in('projeto_bim_id', modelosSelecionadosIds.map(Number))
-        .limit(100000);
+      console.log(`📡 [BIM Quantitativos] Buscando elementos flat via RPC leve para os projetos:`, modelosSelecionadosIds);
+      const { data, error } = await supabase.rpc('get_elementos_projeto_leve', {
+        p_projeto_ids: modelosSelecionadosIds.map(Number)
+      });
       
       if (error) {
-        console.error(`❌ [BIM Quantitativos] Erro na query de todosElementos:`, error);
+        console.error(`❌ [BIM Quantitativos] Erro na RPC get_elementos_projeto_leve:`, error);
         throw error;
       }
       
-      const indesejados = new Set(["Revit Level", "Revit Grids", "Revit Scope Boxes", "Revit Reference Planes", "<Indesejado>"]);
-      const filtrados = (data || []).filter(el => !indesejados.has(el.categoria));
-      console.log(`✅ [BIM Quantitativos] Busca concluída. Total retornado: ${data?.length || 0}. Após filtros: ${filtrados.length}`);
-      return filtrados;
+      console.log(`✅ [BIM Quantitativos] Busca concluída via RPC. Total retornado: ${data?.length || 0}`);
+      return data || [];
     },
     enabled: modelosSelecionadosIds.length > 0 && !!organizacaoId,
     staleTime: 3 * 60 * 1000,

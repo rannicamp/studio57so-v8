@@ -379,28 +379,14 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
 
         const mat = g.materiaisMap[keyMaterialBase];
 
-        let qtdElemento = 0;
-        let originalElemento = 0;
-
-        if (el) {
-          // Lê a propriedade física do elemento
-          const valorBrutoStr = el.propriedades?.[propNome];
-          const valorBruto = parseFloat((valorBrutoStr || '').replace(',', '.'));
-          if (!isNaN(valorBruto) && valorBruto > 0) {
-            originalElemento = valorBruto;
-            qtdElemento = parseFormulaLocal(item.fator_conversao, valorBruto);
-          } else {
-            // Fallback para mapeamento do tipo 'elemento' onde a quantidade é unitária
-            originalElemento = 1.0;
-            qtdElemento = parseFormulaLocal(item.fator_conversao, 1.0);
-          }
-        } else {
-          // Se não temos o elemento carregado ainda na memória (ou a query está carregando),
-          // estimamos de forma proporcional dividindo a quantidade total do item pelo número de elementos ativos.
-          // Isso garante que o valor e custos totais do orçamento não fiquem distorcidos ou zerados/unitários.
-          originalElemento = item.quantidadeOriginalApenasParaInfo ? (item.quantidadeOriginalApenasParaInfo / item.external_ids_ativos.length) : (item.quantidade / item.external_ids_ativos.length);
-          qtdElemento = item.quantidade / item.external_ids_ativos.length;
-        }
+        // Usamos a estimativa proporcional de forma permanente: dividimos a quantidade total e original do item
+        // de forma exata e proporcional entre todos os seus elementos ativos.
+        // Isso garante que o valor e custo somado de todas as categorias bata 100% com o orçamento da RPC.
+        const originalElemento = item.quantidadeOriginalApenasParaInfo 
+          ? (item.quantidadeOriginalApenasParaInfo / item.external_ids_ativos.length) 
+          : (item.quantidade / item.external_ids_ativos.length);
+        
+        const qtdElemento = item.quantidade / item.external_ids_ativos.length;
 
         const custoElemento = qtdElemento * item.preco_unitario;
 

@@ -106,35 +106,58 @@ export default function BimVinculoMaterialModal({
 
   // 2. Scanner dinâmico de todas as propriedades das instâncias
   const propriedadesDisponiveis = useMemo(() => {
-    if (elementosNoEscopo.length === 0) return [];
-
     const mapaProp = {};
-    elementosNoEscopo.forEach(el => {
-      const props = el.propriedades || {};
-      Object.entries(props).forEach(([chave, valor]) => {
+
+    // Garante que as propriedades do elemento de referência selecionado estejam sempre listadas
+    if (elemento && elemento.propriedades) {
+      Object.entries(elemento.propriedades).forEach(([chave, valor]) => {
         if (!chave || chave.startsWith('<') || chave.includes('id') || chave === 'projeto_bim_id') return;
 
         const valorNum = parseFloat(valor);
         const ehNumerico = !isNaN(valorNum);
 
-        if (!mapaProp[chave]) {
-          mapaProp[chave] = {
-            nome: chave,
-            valorAmostra: valor,
-            ehNumerico,
-            soma: 0,
-            unidade: ehNumerico ? detectarUnidade(chave) : 'txt'
-          };
-        }
-
-        if (ehNumerico && valorNum > 0) {
-          mapaProp[chave].soma += valorNum;
-        }
+        mapaProp[chave] = {
+          nome: chave,
+          valorAmostra: valor,
+          ehNumerico,
+          soma: ehNumerico && valorNum > 0 ? valorNum : 0,
+          unidade: ehNumerico ? detectarUnidade(chave) : 'txt'
+        };
       });
-    });
+    }
+
+    // Varre as propriedades dos outros elementos no escopo se existirem (fallback)
+    if (elementosNoEscopo.length > 0) {
+      elementosNoEscopo.forEach(el => {
+        // Evita somar o próprio elemento de referência duas vezes na soma acumulada
+        if (elemento && String(el.external_id) === String(elemento.external_id)) return;
+        
+        const props = el.propriedades || {};
+        Object.entries(props).forEach(([chave, valor]) => {
+          if (!chave || chave.startsWith('<') || chave.includes('id') || chave === 'projeto_bim_id') return;
+
+          const valorNum = parseFloat(valor);
+          const ehNumerico = !isNaN(valorNum);
+
+          if (!mapaProp[chave]) {
+            mapaProp[chave] = {
+              nome: chave,
+              valorAmostra: valor,
+              ehNumerico,
+              soma: 0,
+              unidade: ehNumerico ? detectarUnidade(chave) : 'txt'
+            };
+          }
+
+          if (ehNumerico && valorNum > 0) {
+            mapaProp[chave].soma += valorNum;
+          }
+        });
+      });
+    }
 
     return Object.values(mapaProp).sort((a, b) => a.nome.localeCompare(b.nome));
-  }, [elementosNoEscopo]);
+  }, [elementosNoEscopo, elemento]);
 
   // 3. Inicialização e Reset de estados
   useEffect(() => {
