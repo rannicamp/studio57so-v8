@@ -373,7 +373,7 @@ export function useBimQuantitativos({ organizacaoId }) {
     });
   }, [esqueletoCategorias, familiasPorCategoria, detalhesFamilias, carregandoFamiliasIds, carregandoCategoriasIds]);
 
-  const { data: todosElementos = [] } = useQuery({
+  const { data: todosElementos = [], isLoading: carregandoTodosElementos } = useQuery({
     queryKey: ['bimQuant_elementos_flat', [...modelosSelecionadosIds].sort().join(','), organizacaoId],
     queryFn: async () => {
       if (modelosSelecionadosIds.length === 0 || !organizacaoId) return [];
@@ -446,6 +446,7 @@ export function useBimQuantitativos({ organizacaoId }) {
     grupos,
     todosElementos,              // flat do modelo selecionado (para preview de impacto no modal)
     carregandoElementos,
+    carregandoTodosElementos,
     kpis,
     // Elementos do empreendimento inteiro (Por Material)
     todosElementosEmpreendimento,
