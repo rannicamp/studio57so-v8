@@ -1126,7 +1126,30 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
           if (ids.length === 0) {
             ids = elementosCat.map(el => el.external_id);
           }
-          handleShowInModel(ids, cat.categoria);
+          if (ids.length === 0) {
+            const toastId = toast.loading(`Buscando elementos da categoria ${cat.categoria}...`);
+            supabase
+              .from('elementos_bim')
+              .select('external_id')
+              .in('projeto_bim_id', modelosSelecionadosIds.map(Number))
+              .eq('categoria', cat.categoria)
+              .then(({ data, error }) => {
+                toast.dismiss(toastId);
+                if (error) {
+                  console.error(error);
+                  toast.error(`Erro ao buscar elementos da categoria.`);
+                  return;
+                }
+                const queryIds = (data || []).map(el => el.external_id);
+                if (queryIds.length > 0) {
+                  handleShowInModel(queryIds, cat.categoria);
+                } else {
+                  toast.warning('Nenhum elemento associado encontrado para exibir.');
+                }
+              });
+          } else {
+            handleShowInModel(ids, cat.categoria);
+          }
         }}
         className="w-7 h-7 rounded-full text-blue-600 bg-blue-50 hover:bg-blue-100 flex items-center justify-center transition-all"
         title="Visualizar Categoria no 3D"
@@ -1257,7 +1280,31 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
           if (ids.length === 0) {
             ids = elementosFam.map(el => el.external_id);
           }
-          handleShowInModel(ids, fam.familia);
+          if (ids.length === 0) {
+            const toastId = toast.loading(`Buscando elementos da família ${fam.familia}...`);
+            supabase
+              .from('elementos_bim')
+              .select('external_id')
+              .in('projeto_bim_id', modelosSelecionadosIds.map(Number))
+              .eq('categoria', cat.categoria)
+              .eq('familia', fam.familia)
+              .then(({ data, error }) => {
+                toast.dismiss(toastId);
+                if (error) {
+                  console.error(error);
+                  toast.error(`Erro ao buscar elementos da família.`);
+                  return;
+                }
+                const queryIds = (data || []).map(el => el.external_id);
+                if (queryIds.length > 0) {
+                  handleShowInModel(queryIds, fam.familia);
+                } else {
+                  toast.warning('Nenhum elemento associado encontrado para exibir.');
+                }
+              });
+          } else {
+            handleShowInModel(ids, fam.familia);
+          }
         }}
         className="w-7 h-7 rounded-full text-blue-600 bg-blue-50 hover:bg-blue-100 flex items-center justify-center transition-all"
         title="Visualizar Família no 3D"
@@ -1412,7 +1459,35 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
   <td className="px-4 py-2 text-center" onClick={(e) => e.stopPropagation()}>
     <div className="flex items-center justify-center gap-1.5">
       <button
-        onClick={() => handleShowInModel((t.elementos || []).map(el => el.external_id), t.tipo)}
+        onClick={() => {
+          const ids = (t.elementos || []).map(el => el.external_id);
+          if (ids.length === 0) {
+            const toastId = toast.loading(`Buscando elementos do tipo ${t.tipo}...`);
+            supabase
+              .from('elementos_bim')
+              .select('external_id')
+              .in('projeto_bim_id', modelosSelecionadosIds.map(Number))
+              .eq('categoria', cat.categoria)
+              .eq('familia', fam.familia)
+              .eq('tipo', t.tipo)
+              .then(({ data, error }) => {
+                toast.dismiss(toastId);
+                if (error) {
+                  console.error(error);
+                  toast.error(`Erro ao buscar elementos do tipo.`);
+                  return;
+                }
+                const queryIds = (data || []).map(el => el.external_id);
+                if (queryIds.length > 0) {
+                  handleShowInModel(queryIds, t.tipo);
+                } else {
+                  toast.warning('Nenhum elemento associado encontrado para exibir.');
+                }
+              });
+          } else {
+            handleShowInModel(ids, t.tipo);
+          }
+        }}
         className="w-7 h-7 rounded-full text-blue-600 bg-blue-50 hover:bg-blue-100 flex items-center justify-center transition-all"
         title="Visualizar Tipo no 3D"
       >

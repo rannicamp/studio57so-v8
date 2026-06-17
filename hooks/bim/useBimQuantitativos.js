@@ -365,14 +365,22 @@ export function useBimQuantitativos({ organizacaoId }) {
     queryKey: ['bimQuant_elementos_flat', [...modelosSelecionadosIds].sort().join(','), organizacaoId],
     queryFn: async () => {
       if (modelosSelecionadosIds.length === 0 || !organizacaoId) return [];
+      console.log(`📡 [BIM Quantitativos] Buscando elementos flat para os projetos:`, modelosSelecionadosIds);
       const { data, error } = await supabase
         .from('elementos_bim')
         .select('id, external_id, categoria, familia, tipo, nivel, propriedades, is_active')
         .in('projeto_bim_id', modelosSelecionadosIds.map(Number))
-        .not('categoria', 'in', '("Revit Level","Revit Grids","Revit Scope Boxes","Revit Reference Planes","<Indesejado>")')
         .limit(100000);
-      if (error) throw error;
-      return data || [];
+      
+      if (error) {
+        console.error(`❌ [BIM Quantitativos] Erro na query de todosElementos:`, error);
+        throw error;
+      }
+      
+      const indesejados = new Set(["Revit Level", "Revit Grids", "Revit Scope Boxes", "Revit Reference Planes", "<Indesejado>"]);
+      const filtrados = (data || []).filter(el => !indesejados.has(el.categoria));
+      console.log(`✅ [BIM Quantitativos] Busca concluída. Total retornado: ${data?.length || 0}. Após filtros: ${filtrados.length}`);
+      return filtrados;
     },
     enabled: modelosSelecionadosIds.length > 0 && !!organizacaoId,
     staleTime: 3 * 60 * 1000,
