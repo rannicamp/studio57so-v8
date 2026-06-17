@@ -227,16 +227,75 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
  categoria_nome: catNome,
  custo_total: 0,
  tem_alertas: false,
- materiais: []
+ materiaisMap: {} // Usamos um map interno temporário para consolidar por material
  };
  }
 
- grupos[catNome].custo_total += item.custo_total;
- if (item.tem_alertas) grupos[catNome].tem_alertas = true;
- grupos[catNome].materiais.push(item);
+ const g = grupos[catNome];
+ g.custo_total += item.custo_total;
+ if (item.tem_alertas) g.tem_alertas = true;
+
+ // Chave de consolidação do material dentro da categoria
+ const keyMaterial = item.material_id 
+ ? `mat_${item.material_id}` 
+ : (item.sinapi_id ? `sinapi_${item.sinapi_id}` : `nome_${item.nome}`);
+
+ if (!g.materiaisMap[keyMaterial]) {
+ g.materiaisMap[keyMaterial] = {
+ key: `${catNome}_${keyMaterial}`,
+ nome: item.nome,
+ unidade: item.unidade,
+ preco_unitario: item.preco_unitario,
+ classificacao: item.classificacao,
+ quantidade: 0,
+ qtd_elementos: 0,
+ external_ids_ativos: [],
+ external_ids_inativos: [],
+ custo_total: 0,
+ tem_alertas: false,
+ origem: item.origem,
+ is_avulso: item.is_avulso,
+ pai_mapeamento_id: item.pai_mapeamento_id,
+ fator_conversao: item.fator_conversao,
+ quantidadeOriginalApenasParaInfo: 0
+ };
+ }
+
+ const mat = g.materiaisMap[keyMaterial];
+ mat.quantidade += item.quantidade;
+ mat.qtd_elementos += item.qtd_elementos;
+ mat.custo_total += item.custo_total;
+ if (item.tem_alertas) mat.tem_alertas = true;
+
+ if (item.quantidadeOriginalApenasParaInfo) {
+ mat.quantidadeOriginalApenasParaInfo += item.quantidadeOriginalApenasParaInfo;
+ } else if (item.fator_conversao) {
+ mat.quantidadeOriginalApenasParaInfo += item.quantidadeOriginalApenasParaInfo || item.quantidade;
+ }
+
+ if (item.external_ids_ativos) {
+ item.external_ids_ativos.forEach(id => {
+ if (!mat.external_ids_ativos.includes(id)) mat.external_ids_ativos.push(id);
+ });
+ }
+ if (item.external_ids_inativos) {
+ item.external_ids_inativos.forEach(id => {
+ if (!mat.external_ids_inativos.includes(id)) mat.external_ids_inativos.push(id);
+ });
+ }
  });
 
- return Object.values(grupos).sort((a, b) => {
+ // Converte os materiaisMap para arrays reais em cada categoria
+ const listaGrupos = Object.values(grupos).map(g => {
+ return {
+ categoria_nome: g.categoria_nome,
+ custo_total: g.custo_total,
+ tem_alertas: g.tem_alertas,
+ materiais: Object.values(g.materiaisMap).sort((a, b) => b.custo_total - a.custo_total)
+ };
+ });
+
+ return listaGrupos.sort((a, b) => {
  if (a.categoria_nome === 'Materiais do Projeto') return 1;
  if (b.categoria_nome === 'Materiais do Projeto') return -1;
  return a.categoria_nome.localeCompare(b.categoria_nome);
