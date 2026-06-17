@@ -222,7 +222,7 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
           categoria_nome: catNome,
           custo_total: 0,
           tem_alertas: false,
-          materiais: []
+          materiaisMap: {}
         };
       }
 
@@ -230,30 +230,62 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
       g.custo_total += item.custo_total;
       if (item.tem_alertas) g.tem_alertas = true;
 
-      g.materiais.push({
-        key: `${catNome}_${item.key}`,
-        nome: item.nome,
-        unidade: item.unidade,
-        preco_unitario: item.preco_unitario,
-        classificacao: item.classificacao,
-        quantidade: item.quantidade,
-        qtd_elementos: item.qtd_elementos,
-        external_ids_ativos: item.external_ids_ativos || [],
-        external_ids_inativos: item.external_ids_inativos || [],
-        custo_total: item.custo_total,
-        tem_alertas: item.tem_alertas,
-        origem: item.origem,
-        is_avulso: item.is_avulso,
-        pai_mapeamento_id: item.pai_mapeamento_id,
-        fator_conversao: item.fator_conversao,
-        quantidadeOriginalApenasParaInfo: item.quantidadeOriginalApenasParaInfo || 0
-      });
+      // Define a chave única do material dentro desta categoria
+      const keyMaterial = item.material_id 
+        ? `mat_${item.material_id}` 
+        : (item.sinapi_id ? `sinapi_${item.sinapi_id}` : `nome_${item.nome}`);
+
+      if (!g.materiaisMap[keyMaterial]) {
+        g.materiaisMap[keyMaterial] = {
+          key: `${catNome}_${keyMaterial}`,
+          nome: item.nome,
+          unidade: item.unidade,
+          preco_unitario: item.preco_unitario,
+          classificacao: item.classificacao,
+          quantidade: 0,
+          qtd_elementos: 0,
+          external_ids_ativos: [],
+          external_ids_inativos: [],
+          custo_total: 0,
+          tem_alertas: false,
+          origem: item.origem,
+          is_avulso: item.is_avulso,
+          pai_mapeamento_id: item.pai_mapeamento_id,
+          fator_conversao: item.fator_conversao,
+          quantidadeOriginalApenasParaInfo: 0
+        };
+      }
+
+      const mat = g.materiaisMap[keyMaterial];
+      mat.quantidade += item.quantidade;
+      mat.qtd_elementos += item.qtd_elementos;
+      mat.custo_total += item.custo_total;
+      if (item.tem_alertas) mat.tem_alertas = true;
+      if (item.quantidadeOriginalApenasParaInfo) {
+        mat.quantidadeOriginalApenasParaInfo += item.quantidadeOriginalApenasParaInfo;
+      } else if (item.fator_conversao) {
+        mat.quantidadeOriginalApenasParaInfo += item.quantidadeOriginalApenasParaInfo || item.quantidade;
+      }
+
+      // Concatena os arrays de IDs de forma única
+      if (item.external_ids_ativos) {
+        item.external_ids_ativos.forEach(id => {
+          if (!mat.external_ids_ativos.includes(id)) mat.external_ids_ativos.push(id);
+        });
+      }
+      if (item.external_ids_inativos) {
+        item.external_ids_inativos.forEach(id => {
+          if (!mat.external_ids_inativos.includes(id)) mat.external_ids_inativos.push(id);
+        });
+      }
     });
 
     const listaGrupos = Object.values(grupos).map(g => {
       return {
-        ...g,
-        materiais: g.materiais.sort((a, b) => b.custo_total - a.custo_total)
+        categoria_nome: g.categoria_nome,
+        custo_total: g.custo_total,
+        tem_alertas: g.tem_alertas,
+        materiais: Object.values(g.materiaisMap).sort((a, b) => b.custo_total - a.custo_total)
       };
     });
 
