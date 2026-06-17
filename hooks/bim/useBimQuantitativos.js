@@ -288,6 +288,18 @@ export function useBimQuantitativos({ organizacaoId }) {
           g._acumuladores[chave].soma += val;
           g._acumuladores[chave].qtd_com_valor += 1;
         });
+
+        // Suporte dinâmico para acúmulo de concreto do Eberick/AltoQi na chave 'Volume'
+        Object.entries(props).forEach(([chave, valor]) => {
+          const val = parseFloat(valor);
+          if (isNaN(val) || val <= 0) return;
+          if (chave.toLowerCase().startsWith('concreto -') || chave.toLowerCase().includes('concreto - c')) {
+            const chaveAcum = 'Volume';
+            if (!g._acumuladores[chaveAcum]) g._acumuladores[chaveAcum] = { soma: 0, qtd_com_valor: 0 };
+            g._acumuladores[chaveAcum].soma += val;
+            g._acumuladores[chaveAcum].qtd_com_valor += 1;
+          }
+        });
       });
 
       const tipos = Object.values(tipoMap)

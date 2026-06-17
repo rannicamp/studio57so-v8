@@ -49,15 +49,24 @@ const extrairPropriedadesAcumuladas = (elementos) => {
       const valorNum = parseFloat(valor);
       if (isNaN(valorNum) || valorNum <= 0) return;
       
-      if (configUnidades[chave]) {
-        if (!acumulados[chave]) {
-          acumulados[chave] = {
-            nome: chave,
+      let unidade = configUnidades[chave];
+      let nomeExibicao = chave;
+
+      // Fallback dinâmico para concreto do Eberick/AltoQi (Ex: "Concreto - C-40 - Abatimento 5 cm...")
+      if (!unidade && (chave.toLowerCase().startsWith('concreto -') || chave.toLowerCase().includes('concreto - c'))) {
+        unidade = 'm³';
+        nomeExibicao = 'Volume de Concreto';
+      }
+
+      if (unidade) {
+        if (!acumulados[nomeExibicao]) {
+          acumulados[nomeExibicao] = {
+            nome: nomeExibicao,
             valor: 0,
-            unidade: configUnidades[chave]
+            unidade: unidade
           };
         }
-        acumulados[chave].valor += valorNum;
+        acumulados[nomeExibicao].valor += valorNum;
       }
     });
   });
@@ -92,6 +101,7 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
  const [medidasSelecionadas, setMedidasSelecionadas] = useState({});
  const [abaAtiva, setAbaAtiva] = useState('elementos'); // 'elementos' | 'por-material'
  const [apenasNaoMapeados, setApenasNaoMapeados] = useState(false);
+ const [tipoVisualizacao, setTipoVisualizacao] = useState('etapa'); // 'etapa' | 'categoria' | 'material'
  const dropdownRef = useRef(null);
 
  // Orçamentos etapas
@@ -196,6 +206,193 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
  return a.etapa_nome.localeCompare(b.etapa_nome);
  });
  }, [quantitativoPorMaterial]);
+
+ // ─── Agrupamento de Orçamento por Categoria Revit ─────────────────────────────
+ const quantitativosPorCategoria = useMemo(() => {
+ const mapCategorias = new Map((mapeamentos || []).map(m => [m.id, m.categoria_bim]));
+ const grupos = {};
+
+ quantitativoPorMaterial.forEach(item => {
+ let catNome = 'Materiais do Projeto'; // Nome para itens avulsos e sem categoria cadastrada
+
+ if (!item.is_avulso && item.mapeamento_id) {
+ const catBim = mapCategorias.get(item.mapeamento_id);
+ if (catBim) {
+ catNome = catBim;
+ }
+ }
+
+ if (!grupos[catNome]) {
+ grupos[catNome] = {
+ categoria_nome: catNome,
+ custo_total: 0,
+ tem_alertas: false,
+ materiais: []
+ };
+ }
+
+ grupos[catNome].custo_total += item.custo_total;
+ if (item.tem_alertas) grupos[catNome].tem_alertas = true;
+ grupos[catNome].materiais.push(item);
+ });
+
+ return Object.values(grupos).sort((a, b) => {
+ if (a.categoria_nome === 'Materiais do Projeto') return 1;
+ if (b.categoria_nome === 'Materiais do Projeto') return -1;
+ return a.categoria_nome.localeCompare(b.categoria_nome);
+ });
+ }, [quantitativoPorMaterial, mapeamentos]);
+
+ // ─── Agrupamento de Orçamento por Material Consolidado ────────────────────────
+ const quantitativosPorMaterialConsolidado = useMemo(() => {
+ const grupos = {};
+
+ quantitativoPorMaterial.forEach(item => {
+ const keyMaterial = item.material_id 
+ ? `mat_${item.material_id}` 
+ : (item.sinapi_id ? `sinapi_${item.sinapi_id}` : `nome_${item.nome}`);
+
+ if (!grupos[keyMaterial]) {
+ grupos[keyMaterial] = {
+ key: keyMaterial,
+ nome: item.nome,
+ unidade: item.unidade,
+ preco_unitario: item.preco_unitario,
+ classificacao: item.classificacao,
+ quantidade: 0,
+ qtd_elementos: 0,
+ external_ids_ativos: [],
+ external_ids_inativos: [],
+ custo_total: 0,
+ tem_alertas: false,
+ origem: item.origem,
+ is_avulso: item.is_avulso
+ };
+ }
+
+ const g = grupos[keyMaterial];
+ g.quantidade += item.quantidade;
+ g.qtd_elementos += item.qtd_elementos;
+ g.custo_total += item.custo_total;
+ if (item.tem_alertas) g.tem_alertas = true;
+
+ if (item.external_ids_ativos) {
+ item.external_ids_ativos.forEach(id => {
+ if (!g.external_ids_ativos.includes(id)) g.external_ids_ativos.push(id);
+ });
+ }
+ if (item.external_ids_inativos) {
+ item.external_ids_inativos.forEach(id => {
+ if (!g.external_ids_inativos.includes(id)) g.external_ids_inativos.push(id);
+ });
+ }
+ });
+
+ return Object.values(grupos).sort((a, b) => b.custo_total - a.custo_total);
+ }, [quantitativoPorMaterial]);
+
+  const renderMaterialRow = (item, paddingClass = "pl-12") => {
+    return (
+      <tr
+        key={item.key}
+        className={`border-b border-gray-100 hover:bg-white transition-colors ${
+          item.tem_alertas ? 'bg-amber-50/20' : 'bg-white'
+        }`}
+      >
+        <td className={`px-4 py-2 ${paddingClass} border-l-2 border-transparent hover:border-blue-400`}>
+          <div className="flex items-center gap-2">
+            {item.tem_alertas && (
+              <span title={`${item.external_ids_inativos.length} elementos removidos do modelo`}>
+                <FontAwesomeIcon icon={faTriangleExclamation} className="text-amber-400 text-[10px]" />
+              </span>
+            )}
+            <div>
+              <p className="text-xs font-semibold text-gray-700">{item.nome}</p>
+              {item.tem_alertas && (
+                <p className="text-[9px] text-amber-600">
+                  {item.external_ids_inativos.length} elem. removidos do 3D
+                </p>
+              )}
+              {item.pai_mapeamento_id && (
+                <p className="text-[9px] text-emerald-600 font-bold bg-emerald-50 px-1.5 py-0.5 rounded inline-block mt-0.5" title="A quantidade desta linha depende da quantidade de outro Material">
+                  <FontAwesomeIcon icon={faLink} className="mr-1" />
+                  Composição Filha
+                </p>
+              )}
+              {item.is_avulso && !item.pai_mapeamento_id && (
+                <p className="text-[9px] text-slate-500 font-bold bg-slate-100 px-1.5 py-0.5 rounded inline-block mt-0.5" title="Foi adicionado manualmente e possui quantidade travada">
+                  <FontAwesomeIcon icon={faBoxOpen} className="mr-1" />
+                  Avulso Inicial
+                </p>
+              )}
+            </div>
+          </div>
+        </td>
+        <td className="px-4 py-2 text-center">
+          <BadgeUnidade unidade={item.unidade} />
+        </td>
+        <td className="px-4 py-2 text-right">
+          {item.fator_conversao ? (
+            <div className="flex flex-col items-end cursor-pointer group" onClick={() => handleEditFator(item)}>
+              <span className="text-[9px] text-gray-400 font-semibold strike-through line-through decorative group-hover:text-blue-400 transition-colors">
+                {fmt2(item.quantidadeOriginalApenasParaInfo)}
+              </span>
+              <span className="font-bold text-blue-700 bg-blue-50/50 px-1 py-0.5 rounded group-hover:bg-blue-100 transition-colors" title={`Fórmula: ${item.fator_conversao} (Clique para editar)`}>
+                {fmt2(item.quantidade)}
+              </span>
+            </div>
+          ) : (
+            <span className="text-xs font-bold text-gray-700 cursor-pointer hover:text-blue-600 border-b border-dashed border-transparent hover:border-blue-400 transition-colors"
+              onClick={() => handleEditFator(item)}
+              title="Adicionar conversão"
+            >
+              {fmt2(item.quantidade)}
+            </span>
+          )}
+        </td>
+        <td className="px-4 py-2 text-right text-gray-400 text-[10px]">
+          {item.preco_unitario > 0
+            ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.preco_unitario)
+            : <span className="text-gray-300">—</span>}
+        </td>
+        <td className="px-4 py-2 text-right">
+          {item.preco_unitario > 0 ? (
+            <span className="text-xs font-bold text-emerald-600">
+              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.custo_total)}
+            </span>
+          ) : <span className="text-gray-300">—</span>}
+        </td>
+        <td className="px-4 py-2 text-center">
+          {item.is_avulso && !item.pai_mapeamento_id ? (
+            <div className="text-[10px] text-slate-400 font-semibold" title="Sem amarração com modelo 3D">
+              -
+            </div>
+          ) : (
+            <div className="flex bg-blue-50 border border-blue-100 rounded overflow-hidden shadow-sm mx-auto w-max">
+              <span className="text-blue-600 text-[10px] font-bold px-2 py-1.5 border-r border-blue-100">
+                {item.qtd_elementos}
+              </span>
+              <button onClick={() => handleShowInModel(item.external_ids_ativos, item.nome)}
+                className="px-2 py-1 bg-white hover:bg-blue-600 text-blue-500 hover:text-white transition-colors"
+                title="Ver no 3D"
+              >
+                <FontAwesomeIcon icon={faCubes} className="text-[10px]" />
+              </button>
+            </div>
+          )}
+        </td>
+        <td className="px-4 py-2 text-center">
+          <button
+            onClick={() => setMaterialGerenciar(item)}
+            className="w-7 h-7 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-all flex items-center justify-center"
+            title="Gerenciar Vínculos"
+          >
+            <FontAwesomeIcon icon={faLink} className="text-xs" />
+          </button>
+        </td>
+      </tr>
+    );
+  };
 
  const [etapasRecolhidas, setEtapasRecolhidas] = useState(new Set());
  const toggleEtapaOrcamento = (id) => setEtapasRecolhidas(prev => {
@@ -834,6 +1031,51 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
     </div>
   </div>
 
+  {/* Alternador de Visualização do Orçamento */}
+  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5">
+    <div className="bg-gray-100 p-1 rounded-xl inline-flex items-center gap-1 border border-gray-200/80 shadow-sm">
+      <button
+        onClick={() => setTipoVisualizacao('etapa')}
+        className={`flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
+          tipoVisualizacao === 'etapa'
+            ? 'bg-black text-white shadow-sm'
+            : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200/50'
+        }`}
+      >
+        <FontAwesomeIcon icon={faLayerGroup} />
+        Por Etapa / Subetapa
+      </button>
+      <button
+        onClick={() => setTipoVisualizacao('categoria')}
+        className={`flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
+          tipoVisualizacao === 'categoria'
+            ? 'bg-black text-white shadow-sm'
+            : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200/50'
+        }`}
+      >
+        <FontAwesomeIcon icon={faCubes} />
+        Por Categoria Revit
+      </button>
+      <button
+        onClick={() => setTipoVisualizacao('material')}
+        className={`flex items-center gap-2 px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
+          tipoVisualizacao === 'material'
+            ? 'bg-black text-white shadow-sm'
+            : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200/50'
+        }`}
+      >
+        <FontAwesomeIcon icon={faBarcode} />
+        Por Material Consolidado
+      </button>
+    </div>
+    
+    <div className="text-[11px] text-gray-500 font-semibold bg-gray-50/75 px-3 py-1.5 border border-gray-200 rounded-lg shadow-sm">
+      {tipoVisualizacao === 'etapa' && 'Visualização em árvore agrupada por etapa e subetapa do cronograma.'}
+      {tipoVisualizacao === 'categoria' && 'Visualização agrupada pelas categorias do modelo 3D (Eberick/Revit).'}
+      {tipoVisualizacao === 'material' && 'Visualização consolidada com a soma total de cada material no projeto.'}
+    </div>
+  </div>
+
   {/* Tabela de quantitativos por material */}
   <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
   <table className="w-full text-sm border-collapse">
@@ -848,178 +1090,124 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
   <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Ações</th>
   </tr>
   </thead>
- <tbody>
- {quantitativosAgrupados.map(grupo => {
- const isExpandido = !etapasRecolhidas.has(grupo.etapa_id);
- return (
- <Fragment key={grupo.etapa_id}>
- {/* L1: Cabeçalho da Etapa */}
- <tr className="bg-blue-50 border-t-2 border-blue-200 cursor-pointer hover:bg-blue-100 transition-colors"
- onClick={() => toggleEtapaOrcamento(grupo.etapa_id)}
- >
- <td colSpan={4} className="px-4 py-2.5">
- <div className="flex items-center gap-2">
- <FontAwesomeIcon icon={isExpandido ? faAngleDown : faAngleRight} className="text-blue-500 w-3" />
- <h3 className="text-xs font-bold text-blue-800 uppercase tracking-wide">
- {grupo.etapa_nome}
- </h3>
- {grupo.tem_alertas && <FontAwesomeIcon icon={faTriangleExclamation} className="text-amber-500 ml-2" title="Possui itens com alertas/removidos" />}
- <button
- onClick={(e) => {
- e.stopPropagation();
- const ids = Object.values(grupo.subetapas).flatMap(s => s.materiais.flatMap(m => m.external_ids_ativos));
- handleShowInModel(ids, grupo.etapa_nome);
- }}
- className="ml-3 text-[9px] bg-blue-100 hover:bg-blue-600 text-blue-700 hover:text-white px-2 py-0.5 rounded-full font-bold transition-colors shadow-sm"
- title="Ver todos elementos desta etapa no modelo 3D"
- >
- <FontAwesomeIcon icon={faCubes} className="mr-1" /> 3D
- </button>
- </div>
- </td>
- <td className="px-4 py-2.5 text-right font-extrabold text-blue-800">
- {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(grupo.custo_total)}
- </td>
- <td colSpan={2}></td>
- </tr>
+  <tbody>
+    {/* 1. VISÃO POR ETAPA / SUBETAPA */}
+    {tipoVisualizacao === 'etapa' && quantitativosAgrupados.map(grupo => {
+      const isExpandido = !etapasRecolhidas.has(grupo.etapa_id);
+      return (
+        <Fragment key={grupo.etapa_id}>
+          {/* L1: Cabeçalho da Etapa */}
+          <tr className="bg-blue-50 border-t-2 border-blue-200 cursor-pointer hover:bg-blue-100 transition-colors"
+            onClick={() => toggleEtapaOrcamento(grupo.etapa_id)}
+          >
+            <td colSpan={4} className="px-4 py-2.5">
+              <div className="flex items-center gap-2">
+                <FontAwesomeIcon icon={isExpandido ? faAngleDown : faAngleRight} className="text-blue-500 w-3" />
+                <h3 className="text-xs font-bold text-blue-800 uppercase tracking-wide">
+                  {grupo.etapa_nome}
+                </h3>
+                {grupo.tem_alertas && <FontAwesomeIcon icon={faTriangleExclamation} className="text-amber-500 ml-2" title="Possui itens com alertas/removidos" />}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const ids = Object.values(grupo.subetapas).flatMap(s => s.materiais.flatMap(m => m.external_ids_ativos));
+                    handleShowInModel(ids, grupo.etapa_nome);
+                  }}
+                  className="ml-3 text-[9px] bg-blue-100 hover:bg-blue-600 text-blue-700 hover:text-white px-2 py-0.5 rounded-full font-bold transition-colors shadow-sm"
+                  title="Ver todos elementos desta etapa no modelo 3D"
+                >
+                  <FontAwesomeIcon icon={faCubes} className="mr-1" /> 3D
+                </button>
+              </div>
+            </td>
+            <td className="px-4 py-2.5 text-right font-extrabold text-blue-800">
+              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(grupo.custo_total)}
+            </td>
+            <td colSpan={2}></td>
+          </tr>
 
- {/* L2: Subetapas e Materiais */}
- {isExpandido && Object.values(grupo.subetapas).map(sub => (
- <Fragment key={sub.subetapa_id}>
- {/* Cabeçalho Subetapa (se houver nome) */}
- {sub.subetapa_nome && (
- <tr className="bg-gray-100 border-t border-gray-200">
- <td colSpan={4} className="px-8 py-2">
- <h4 className="text-[10px] font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2">
- <FontAwesomeIcon icon={faLayerGroup} className="text-gray-400" />
- {sub.subetapa_nome}
- <button
- onClick={(e) => {
- e.stopPropagation();
- const ids = sub.materiais.flatMap(m => m.external_ids_ativos);
- handleShowInModel(ids, sub.subetapa_nome);
- }}
- className="ml-2 text-[9px] text-gray-400 hover:text-blue-600 border border-transparent hover:border-blue-200 hover:bg-blue-50 px-1.5 py-0.5 rounded transition-all"
- title="Ver elementos desta subetapa no modelo 3D"
- >
- <FontAwesomeIcon icon={faCubes} />
- </button>
- </h4>
- </td>
- <td className="px-4 py-2 text-right text-[10px] font-bold text-gray-500">
- {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(sub.custo_total)}
- </td>
- <td colSpan={2}></td>
- </tr>
- )}
+          {/* L2: Subetapas e Materiais */}
+          {isExpandido && Object.values(grupo.subetapas).map(sub => (
+            <Fragment key={sub.subetapa_id}>
+              {/* Cabeçalho Subetapa (se houver nome) */}
+              {sub.subetapa_nome && (
+                <tr className="bg-gray-100 border-t border-gray-200">
+                  <td colSpan={4} className="px-8 py-2">
+                    <h4 className="text-[10px] font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2">
+                      <FontAwesomeIcon icon={faLayerGroup} className="text-gray-400" />
+                      {sub.subetapa_nome}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const ids = sub.materiais.flatMap(m => m.external_ids_ativos);
+                          handleShowInModel(ids, sub.subetapa_nome);
+                        }}
+                        className="ml-2 text-[9px] text-gray-400 hover:text-blue-600 border border-transparent hover:border-blue-200 hover:bg-blue-50 px-1.5 py-0.5 rounded transition-all"
+                        title="Ver elementos desta subetapa no modelo 3D"
+                      >
+                        <FontAwesomeIcon icon={faCubes} />
+                      </button>
+                    </h4>
+                  </td>
+                  <td className="px-4 py-2 text-right text-[10px] font-bold text-gray-500">
+                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(sub.custo_total)}
+                  </td>
+                  <td colSpan={2}></td>
+                </tr>
+              )}
 
- {/* Itens Materiais */}
- {sub.materiais.map(item => (
- <tr
- key={item.key}
- className={`border-b border-gray-100 hover:bg-white transition-colors ${
- item.tem_alertas ? 'bg-amber-50/20' : 'bg-white'
- }`}
- >
- <td className="px-4 py-2 pl-12 border-l-2 border-transparent hover:border-blue-400">
- <div className="flex items-center gap-2">
- {item.tem_alertas && (
- <span title={`${item.external_ids_inativos.length} elementos removidos do modelo`}>
- <FontAwesomeIcon icon={faTriangleExclamation} className="text-amber-400 text-[10px]" />
- </span>
- )}
- <div>
- <p className="text-xs font-semibold text-gray-700">{item.nome}</p>
- {item.tem_alertas && (
- <p className="text-[9px] text-amber-600">
- {item.external_ids_inativos.length} elem. removidos do 3D
- </p>
- )}
- {item.pai_mapeamento_id && (
- <p className="text-[9px] text-emerald-600 font-bold bg-emerald-50 px-1.5 py-0.5 rounded inline-block mt-0.5" title="A quantidade desta linha depende da quantidade de outro Material">
- <FontAwesomeIcon icon={faLink} className="mr-1" />
- Composição Filha
- </p>
- )}
- {item.is_avulso && !item.pai_mapeamento_id && (
- <p className="text-[9px] text-slate-500 font-bold bg-slate-100 px-1.5 py-0.5 rounded inline-block mt-0.5" title="Foi adicionado manualmente e possui quantidade travada">
- <FontAwesomeIcon icon={faBoxOpen} className="mr-1" />
- Avulso Inicial
- </p>
- )}
- </div>
- </div>
- </td>
- <td className="px-4 py-2 text-center">
- <BadgeUnidade unidade={item.unidade} />
- </td>
- <td className="px-4 py-2 text-right">
- {item.fator_conversao ? (
- <div className="flex flex-col items-end cursor-pointer group" onClick={() => handleEditFator(item)}>
- <span className="text-[9px] text-gray-400 font-semibold strike-through line-through decorative group-hover:text-blue-400 transition-colors">
- {fmt2(item.quantidadeOriginalApenasParaInfo)}
- </span>
- <span className="font-bold text-blue-700 bg-blue-50/50 px-1 py-0.5 rounded group-hover:bg-blue-100 transition-colors" title={`Fórmula: ${item.fator_conversao} (Clique para editar)`}>
- {fmt2(item.quantidade)}
- </span>
- </div>
- ) : (
- <span className="text-xs font-bold text-gray-700 cursor-pointer hover:text-blue-600 border-b border-dashed border-transparent hover:border-blue-400 transition-colors"
- onClick={() => handleEditFator(item)}
- title="Adicionar conversão"
- >
- {fmt2(item.quantidade)}
- </span>
- )}
- </td>
- <td className="px-4 py-2 text-right text-gray-400 text-[10px]">
- {item.preco_unitario > 0
- ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.preco_unitario)
- : <span className="text-gray-300">—</span>}
- </td>
- <td className="px-4 py-2 text-right">
- {item.preco_unitario > 0 ? (
- <span className="text-xs font-bold text-emerald-600">
- {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.custo_total)}
- </span>
- ) : <span className="text-gray-300">—</span>}
- </td>
- <td className="px-4 py-2 text-center">
- {item.is_avulso && !item.pai_mapeamento_id ? (
- <div className="text-[10px] text-slate-400 font-semibold" title="Sem amarração com modelo 3D">
- -
- </div>
- ) : (
- <div className="flex bg-blue-50 border border-blue-100 rounded overflow-hidden shadow-sm mx-auto w-max">
- <span className="text-blue-600 text-[10px] font-bold px-2 py-1.5 border-r border-blue-100">
- {item.qtd_elementos}
- </span>
- <button onClick={() => handleShowInModel(item.external_ids_ativos, item.nome)}
- className="px-2 py-1 bg-white hover:bg-blue-600 text-blue-500 hover:text-white transition-colors"
- title="Ver no 3D"
- >
- <FontAwesomeIcon icon={faCubes} className="text-[10px]" />
- </button>
- </div>
- )}
- </td>
- <td className="px-4 py-2 text-center">
- <button
- onClick={() => setMaterialGerenciar(item)}
- className="w-7 h-7 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-all flex items-center justify-center"
- title="Gerenciar Vínculos"
- >
- <FontAwesomeIcon icon={faLink} className="text-xs" />
- </button>
- </td>
- </tr>
- ))}
- </Fragment>
- ))}
- </Fragment>
- );
- })}
- </tbody>
+              {/* Itens Materiais */}
+              {sub.materiais.map(item => renderMaterialRow(item, "pl-12"))}
+            </Fragment>
+          ))}
+        </Fragment>
+      );
+    })}
+
+    {/* 2. VISÃO POR CATEGORIA REVIT */}
+    {tipoVisualizacao === 'categoria' && quantitativosPorCategoria.map(grupo => {
+      const isExpandido = !etapasRecolhidas.has(grupo.categoria_nome);
+      return (
+        <Fragment key={grupo.categoria_nome}>
+          {/* L1: Cabeçalho da Categoria */}
+          <tr className="bg-blue-50 border-t-2 border-blue-200 cursor-pointer hover:bg-blue-100 transition-colors"
+            onClick={() => toggleEtapaOrcamento(grupo.categoria_nome)}
+          >
+            <td colSpan={4} className="px-4 py-2.5">
+              <div className="flex items-center gap-2">
+                <FontAwesomeIcon icon={isExpandido ? faAngleDown : faAngleRight} className="text-blue-500 w-3" />
+                <h3 className="text-xs font-bold text-blue-800 uppercase tracking-wide">
+                  {grupo.categoria_nome}
+                </h3>
+                {grupo.tem_alertas && <FontAwesomeIcon icon={faTriangleExclamation} className="text-amber-500 ml-2" title="Possui itens com alertas/removidos" />}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const ids = grupo.materiais.flatMap(m => m.external_ids_ativos);
+                    handleShowInModel(ids, grupo.categoria_nome);
+                  }}
+                  className="ml-3 text-[9px] bg-blue-100 hover:bg-blue-600 text-blue-700 hover:text-white px-2 py-0.5 rounded-full font-bold transition-colors shadow-sm"
+                  title="Ver todos elementos desta categoria no modelo 3D"
+                >
+                  <FontAwesomeIcon icon={faCubes} className="mr-1" /> 3D
+                </button>
+              </div>
+            </td>
+            <td className="px-4 py-2.5 text-right font-extrabold text-blue-800">
+              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(grupo.custo_total)}
+            </td>
+            <td colSpan={2}></td>
+          </tr>
+
+          {/* L2: Materiais da Categoria */}
+          {isExpandido && grupo.materiais.map(item => renderMaterialRow(item, "pl-8"))}
+        </Fragment>
+      );
+    })}
+
+    {/* 3. VISÃO POR MATERIAL CONSOLIDADO */}
+    {tipoVisualizacao === 'material' && quantitativosPorMaterialConsolidado.map(item => renderMaterialRow(item, "pl-8"))}
+  </tbody>
  {quantitativoPorMaterial.some(m => m.preco_unitario > 0) && (
  <tfoot className="bg-gray-50 border-t-2 border-gray-200">
  <tr>
