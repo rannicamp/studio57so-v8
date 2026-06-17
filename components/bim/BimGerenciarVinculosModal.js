@@ -31,29 +31,6 @@ export default function BimGerenciarVinculosModal({
   const [materialSelecionadoParaTroca, setMaterialSelecionadoParaTroca] = useState(null);
   const [atualizandoMaterial, setAtualizandoMaterial] = useState(false);
 
-  if (!isOpen || !materialOuSinapi) return null;
-
-  // Filtra mapeamentos que pertencem DIRETAMENTE a este material (e não a um pai avulso)
-  const mapeamentosDesteItem = mapeamentos.filter(m => {
-    if (materialOuSinapi.origem === 'sinapi') {
-      const mId = m.sinapi?.id || m.sinapi_id;
-      return mId && String(mId) === String(materialOuSinapi.sinapi_id) && !m.vinculo_pai_id;
-    }
-    const mId = m.material?.id || m.material_id;
-    return mId && String(mId) === String(materialOuSinapi.material_id) && !m.vinculo_pai_id;
-  });
-
-  // Filtra os arquivos "Avulsos" que estão "pendurados" em UM dos mapeamentos deste Pai
-  const idsMapeamentosPai = mapeamentosDesteItem.map(m => m.id);
-  const filhos = mapeamentos.filter(m => m.vinculo_pai_id && idsMapeamentosPai.includes(m.vinculo_pai_id));
-
-  // Pra evitar complexidade extrema de sub-ramos matemáticos, a Subcomposição será pendurada 
-  // no PRIMEIRO mapeamento válido do Pai. Se ele foi atrelado à Parede, penduramos lá.
-  const mapeamentoPrincipalPai = mapeamentosDesteItem[0];
-
-  // Extraimos materiais avulsos que podem ser escolhidos como filho (que ainda não foram pendurados em ngm)
-  const itensAvulsosOrfaos = mapeamentos.filter(m => m.tipo_vinculo === 'avulso' && !m.vinculo_pai_id);
-
   // Busca reativa de materiais propios + SINAPI para a edição/troca inline
   const { data: resultadosBusca = [], isFetching: buscando } = useQuery({
     queryKey: ['bim_busca_material_gerenciar', buscaMaterial, organizacaoId],
@@ -80,9 +57,32 @@ export default function BimGerenciarVinculosModal({
         ...(sinapi || []).map(s => ({ ...s, nome: s.descricao || s.nome, origem: 'sinapi' })),
       ];
     },
-    enabled: !!mapeamentoEditandoId && buscaMaterial.trim().length >= 2,
+    enabled: !!materialOuSinapi && !!mapeamentoEditandoId && buscaMaterial.trim().length >= 2,
     staleTime: 30 * 1000,
   });
+
+  if (!isOpen || !materialOuSinapi) return null;
+
+  // Filtra mapeamentos que pertencem DIRETAMENTE a este material (e não a um pai avulso)
+  const mapeamentosDesteItem = mapeamentos.filter(m => {
+    if (materialOuSinapi.origem === 'sinapi') {
+      const mId = m.sinapi?.id || m.sinapi_id;
+      return mId && String(mId) === String(materialOuSinapi.sinapi_id) && !m.vinculo_pai_id;
+    }
+    const mId = m.material?.id || m.material_id;
+    return mId && String(mId) === String(materialOuSinapi.material_id) && !m.vinculo_pai_id;
+  });
+
+  // Filtra os arquivos "Avulsos" que estão "pendurados" em UM dos mapeamentos deste Pai
+  const idsMapeamentosPai = mapeamentosDesteItem.map(m => m.id);
+  const filhos = mapeamentos.filter(m => m.vinculo_pai_id && idsMapeamentosPai.includes(m.vinculo_pai_id));
+
+  // Pra evitar complexidade extrema de sub-ramos matemáticos, a Subcomposição será pendurada 
+  // no PRIMEIRO mapeamento válido do Pai. Se ele foi atrelado à Parede, penduramos lá.
+  const mapeamentoPrincipalPai = mapeamentosDesteItem[0];
+
+  // Extraimos materiais avulsos que podem ser escolhidos como filho (que ainda não foram pendurados em ngm)
+  const itensAvulsosOrfaos = mapeamentos.filter(m => m.tipo_vinculo === 'avulso' && !m.vinculo_pai_id);
 
   // Salvar a troca do material em um mapeamento
   const handleConfirmarTroca = async (mapeamentoId) => {
