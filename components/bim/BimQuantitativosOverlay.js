@@ -250,6 +250,8 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
           tem_alertas: false,
           origem: item.origem,
           is_avulso: item.is_avulso,
+          material_id: item.material_id,
+          sinapi_id: item.sinapi_id,
           pai_mapeamento_id: item.pai_mapeamento_id,
           fator_conversao: item.fator_conversao,
           quantidadeOriginalApenasParaInfo: 0
@@ -319,7 +321,9 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
  custo_total: 0,
  tem_alertas: false,
  origem: item.origem,
- is_avulso: item.is_avulso
+ is_avulso: item.is_avulso,
+ material_id: item.material_id,
+ sinapi_id: item.sinapi_id
  };
  }
 
@@ -678,7 +682,7 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
               ...f,
               tipos: f.tipos.filter(t => !tipoTemMapeamento(cat.categoria, f.familia, t))
             }))
-            .filter(f => f.tipos.length > 0)
+            .filter(f => f.familias.length > 0)
         }))
         .filter(cat => cat.familias.length > 0);
     }
@@ -1019,7 +1023,7 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
  <span className="text-5xl text-gray-300"><FontAwesomeIcon icon={faBoxOpen} /></span>
  <p className="font-semibold text-center">
  Nenhum material vinculado ainda.<br />
- <span className="text-xs">Abra um elemento no sidebar e clique em &quot;<FontAwesomeIcon icon={faLink} className="mx-1" /> vincular&quot; numa propriedade.</span>
+ <span className="text-xs">Abra um elemento no sidebar e clique e clique em &quot;<FontAwesomeIcon icon={faLink} className="mx-1" /> vincular&quot; numa propriedade.</span>
  </p>
  </div>
  ) : (
@@ -1965,6 +1969,7 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
  materialOuSinapi={materialGerenciar}
  mapeamentos={mapeamentos}
  onExcluir={handleExcluirMapeamento}
+ organizacaoId={organizacao_id}
  />
 
  {/* ─── MODAL BIM IMPORT ─── */}
