@@ -1210,8 +1210,9 @@ ${metaReferralString}
 - Se o lead demonstrou interesse em um empreendimento específico (como Pero Vaz ou Residencial Alfa), prefira um template específico que mencione esse empreendimento, se houver.
 - Se não houver nenhum template específico ou adequado ao contexto, você deve escolher um template genérico (ex: "Podemos continuar nossa conversa?" ou similar).
 - Para o template selecionado, você deve preencher os parâmetros correspondentes (como o primeiro nome do cliente se o template possuir variáveis do tipo {{1}} no componente BODY).
+- ⚠️⚠️⚠️ **REGRA DE OURO DOS BOTÕES**: Se o template selecionado possuir botões do tipo QUICK_REPLY ou botões estáticos (com textos como "SIM" e "NÃO" rápidos), você **NUNCA** deve incluí-los no array "template_componentes". A Meta rejeita componentes de botão estáticos no payload de envio. O array "template_componentes" deve conter **apenas** o componente do tipo "body" (e "header" se houver variáveis dinâmicas de cabeçalho). É **TERMINANTEMENTE PROIBIDO** enviar objetos com type: "BUTTONS" ou type: "buttons" ou chaves de botões no array "template_componentes".
 - No JSON de retorno:
-  1. Preencha "template_selecionado" with o nome exato do template escolhido (ex: "saudacao_entrada_v3").
+  1. Preencha "template_selecionado" com o nome exato do template escolhido (ex: "saudacao_entrada_v3").
   2. Preencha "template_componentes" com os componentes formatados contendo as variáveis reais (como o primeiro nome do lead) no formato de payload da Meta (veja o formato abaixo).
   3. No campo "proxima_resposta_sugerida", escreva apenas "Template: [nome_do_template]" para fins de log.
 
@@ -1219,7 +1220,7 @@ ${metaReferralString}
 ${templatesContext}
 
 ### FORMATO JSON REQUERIDO PARA TEMPLATE:
-Se você escolher um template, o seu JSON de retorno deve ter a seguinte estrutura:
+Se você escolher um template, o seu JSON de retorno deve ter a seguinte estrutura (repare que NÃO enviamos o componente de botões, apenas o body):
 {
   "template_selecionado": "NOME_DO_TEMPLATE_EXATO",
   "template_componentes": [

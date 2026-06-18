@@ -171,10 +171,17 @@ export async function POST(request) {
       messageContentForDb = text;
     }
     else if (type === 'template') {
+      const cleanComponents = (components || []).filter(c => {
+        const typeLower = (c.type || '').toLowerCase();
+        // Remove componentes do tipo BUTTONS da Meta API de definição, pois a Meta Cloud API de envio os rejeita
+        if (typeLower === 'buttons') return false;
+        return true;
+      });
+
       payload.template = {
         name: templateName,
         language: { code: languageCode || 'pt_BR' },
-        components: components || []
+        components: cleanComponents
       };
       messageContentForDb = custom_content || `Template: ${templateName}`;
     }
