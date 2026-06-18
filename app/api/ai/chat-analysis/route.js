@@ -1592,6 +1592,41 @@ Com base SOMENTE neste histórico recente e contexto do projeto, escreva um JSON
       
       // Adiciona o timestamp da análise
       parsedResult.last_updated = new Date().toISOString();
+
+      // --- BLINDAGEM DE JANELA FECHADA E TEMPLATES DE RETOMADA ---
+      if (janelaFechada) {
+        const tSel = parsedResult.template_selecionado;
+        if (!tSel || tSel === 'null' || tSel === null) {
+          console.log(`[Stella AI Blindagem] Janela fechada, mas a IA retornou template_selecionado nulo. Forçando template de reengajamento...`);
+          
+          // Tenta obter o nome do contato do banco ou do próprio parsedResult
+          const primeiroNome = (parsedResult.dados_cliente?.nome || contatoInfo?.nome || '')
+            .split(' ')[0]
+            .replace(/[^a-zA-ZáàâãéèêíïóôõöúçÑñÁÀÂÃÉÈÍÏÓÔÕÖÚÇ]/g, '')
+            .trim();
+
+          if (primeiroNome && primeiroNome.length > 1 && !primeiroNome.toLowerCase().includes('lead')) {
+            parsedResult.template_selecionado = 'reativar_contato';
+            parsedResult.template_componentes = [
+              {
+                type: 'body',
+                parameters: [
+                  {
+                    type: 'text',
+                    text: primeiroNome
+                  }
+                ]
+              }
+            ];
+            console.log(`[Stella AI Blindagem] Forçado template reativar_contato para ${primeiroNome}`);
+          } else {
+            parsedResult.template_selecionado = 'oi_tudo_bem_';
+            parsedResult.template_componentes = null;
+            console.log(`[Stella AI Blindagem] Nome indisponível ou genérico. Forçado template oi_tudo_bem_`);
+          }
+          parsedResult.proxima_resposta_sugerida = `Template: ${parsedResult.template_selecionado}`;
+        }
+      }
     } catch (e) {
       console.error('[AI Parser Error]', textOutput, e);
       return NextResponse.json({ error: 'Falha ao processar o JSON retornado pela IA' }, { status: 500 });
