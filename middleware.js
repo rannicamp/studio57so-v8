@@ -2,6 +2,19 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/middleware'
 
+// Função auxiliar para redirecionar copiando cookies da response original
+function redirectWithCookies(targetUrl, sourceResponse) {
+  const redirectRes = NextResponse.redirect(targetUrl);
+  sourceResponse.cookies.getAll().forEach(cookie => {
+    redirectRes.cookies.set(cookie.name, cookie.value, {
+      path: cookie.path,
+      domain: cookie.domain,
+      maxAge: cookie.maxAge,
+    });
+  });
+  return redirectRes;
+}
+
 export async function middleware(req) {
   // 1. Configuração Inicial do Supabase
   const { supabase, response } = createClient(req)
@@ -61,7 +74,7 @@ export async function middleware(req) {
   // Se não tem sessão (user) e NÃO é uma rota pública: Manda pro Login
   if (!user && !isPublicPath) {
     const redirectUrl = new URL('/login', req.url);
-    return NextResponse.redirect(redirectUrl);
+    return redirectWithCookies(redirectUrl, response);
   }
 
   // =================================================================
@@ -88,9 +101,11 @@ export async function middleware(req) {
         funcaoId = parseInt(funcaoId, 10);
       }
 
-      if (funcaoId === 4) return NextResponse.redirect(new URL('/bim-manager', req.url));
-      if (funcaoId === 20 || funcaoId === 21) return NextResponse.redirect(new URL('/portal-painel', req.url));
-      return NextResponse.redirect(new URL('/painel', req.url));
+      if (funcaoId === 4) return redirectWithCookies(new URL('/bim-manager', req.url), response);
+      if (funcaoId === 20 || funcaoId === 21 || funcaoId === 30 || funcaoId === 31) {
+        return redirectWithCookies(new URL('/portal-painel', req.url), response);
+      }
+      return redirectWithCookies(new URL('/painel', req.url), response);
     }
 
     // --- REGRAS DE ACESSO POR CARGO (Acesso restrito) ---
@@ -127,7 +142,7 @@ export async function middleware(req) {
     if (path.startsWith('/admin')) {
       if (!isSuperAdmin) {
         // Ocultar a área de backoffice mandando ele pra home do sistema dele
-        return NextResponse.redirect(new URL('/painel', req.url))
+        return redirectWithCookies(new URL('/painel', req.url), response)
       }
     }
 
@@ -136,7 +151,7 @@ export async function middleware(req) {
       const isBimManager = path.startsWith('/bim-manager');
       const isApi = path.startsWith('/api/');
       if (!isBimManager && !isApi && !isPublicPath) {
-        return NextResponse.redirect(new URL('/bim-manager', req.url))
+        return redirectWithCookies(new URL('/bim-manager', req.url), response)
       }
     }
 
@@ -150,7 +165,7 @@ export async function middleware(req) {
         path.startsWith('/api/');
 
       if (!isPortalCorretor && !isPublicPath) {
-        return NextResponse.redirect(new URL('/portal-painel', req.url))
+        return redirectWithCookies(new URL('/portal-painel', req.url), response)
       }
     }
   }

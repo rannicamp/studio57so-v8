@@ -53,7 +53,7 @@ export default function ContratosPage() {
  const router = useRouter();
 
  // Identifica se o usuário logado tem a função de Corretor
- const isCorretor = authUser?.funcoes?.nome_funcao?.toLowerCase().includes('corretor') || authUser?.funcao_id === 20;
+ const isCorretor = authUser?.funcoes?.nome_funcao === 'Corretor' || authUser?.funcao_id === 20 || authUser?.funcao_id === 30;
 
  const [filters, setFilters] = useState({
  searchTerm: '', clienteId: [], produtoId: [], empreendimentoId: [],

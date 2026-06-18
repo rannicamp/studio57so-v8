@@ -6,7 +6,7 @@ import { createClient } from '../../utils/supabase/client';
 import { useAuth } from '../../contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
-  faPlus, faTrash, faSearch, faFilter, faTimes, faMagic, faEraser, faSpinner, faCheckDouble, faSliders
+  faPlus, faTrash, faSearch, faFilter, faTimes, faMagic, faEraser, faSpinner, faCheckDouble, faSliders, faChevronDown
 } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 
@@ -25,35 +25,40 @@ const HighlightedText = ({ text = '', highlight = '' }) => {
   );
 };
 
-const STANDARD_FIELDS = [
+// Mapeamento de tipos de regras padrões e seus labels amigáveis
+const FILTER_TYPES = [
   { value: 'categoria', label: 'Categoria' },
   { value: 'familia', label: 'Família' },
   { value: 'tipo', label: 'Tipo' },
   { value: 'nivel', label: 'Nível' },
   { value: 'sistema', label: 'Sistema' },
-  { value: 'status_execucao', label: 'Status' }
+  { value: 'status', label: 'Status' },
+  { value: 'custom', label: 'Propriedade Customizada (Parâmetro)...' }
 ];
+
+const STANDARD_FIELDS = ['familia', 'tipo', 'categoria', 'nivel', 'status_execucao', 'sistema'];
 
 export default function BimFilterPanel({ viewer, projetoBimId }) {
   const supabase = createClient();
   const { organizacao_id } = useAuth();
   
+  // Estado inicial das regras em formato estruturado
   const [filters, setFilters] = useState([
-    { id: 1, field: 'categoria', value: '' }
+    { id: 1, type: 'categoria', customField: '', value: '' }
   ]);
   
   const [isSearching, setIsSearching] = useState(false);
   const [isAutocompleteLoading, setIsAutocompleteLoading] = useState(false);
   const [suggestions, setSuggestions] = useState([]);
   
-  // Controle de popups de sugestão (por linha de filtro)
+  // Controles de exibição de popups de sugestão (por ID de linha da regra)
   const [activeFieldRow, setActiveFieldRow] = useState(null); // Autocomplete de Valores
-  const [activeFieldRowSuggestions, setActiveFieldRowSuggestions] = useState(null); // Autocomplete de Campos
-  const [fieldSuggestions, setFieldSuggestions] = useState([]); // Lista filtrada de campos
+  const [activeFieldRowSuggestions, setActiveFieldRowSuggestions] = useState(null); // Autocomplete de Parâmetros Customizados
+  const [fieldSuggestions, setFieldSuggestions] = useState([]); // Lista filtrada de parâmetros do projeto
   
   const dropdownRef = useRef(null);
 
-  // Fecha todos os dropdowns de sugestão ao clicar fora
+  // Fecha dropdowns de sugestão quando o usuário clica fora
   useEffect(() => {
     function handleClickOutside(event) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -65,7 +70,7 @@ export default function BimFilterPanel({ viewer, projetoBimId }) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Query reativa para buscar as propriedades reais do projeto BIM ativo
+  // Query reativa para buscar todos os parâmetros reais do projeto BIM ativo
   const { data: projectProperties = [], isFetching: carregandoPropriedades } = useQuery({
     queryKey: ['bim_project_properties', organizacao_id, projetoBimId],
     queryFn: async () => {
@@ -75,7 +80,7 @@ export default function BimFilterPanel({ viewer, projetoBimId }) {
         p_projeto_bim_id: Number(projetoBimId)
       });
       if (error) {
-        console.error('[BimFilterPanel] Erro ao carregar propriedades do projeto:', error);
+        console.error('[BimFilterPanel] Erro ao carregar parâmetros do projeto:', error);
         throw error;
       }
       return data?.map(d => d.nome_propriedade) || [];
@@ -86,14 +91,14 @@ export default function BimFilterPanel({ viewer, projetoBimId }) {
 
   const addRow = () => {
     const newId = filters.length > 0 ? Math.max(...filters.map(f => f.id)) + 1 : 1;
-    // Sugere por padrão o próximo campo mais lógico ou família
-    const camposUsados = filters.map(f => f.field);
-    let defaultField = 'familia';
-    if (camposUsados.includes('categoria') && !camposUsados.includes('familia')) defaultField = 'familia';
-    else if (camposUsados.includes('familia') && !camposUsados.includes('tipo')) defaultField = 'tipo';
-    else if (camposUsados.includes('tipo') && !camposUsados.includes('nivel')) defaultField = 'nivel';
+    // Tenta prever a próxima seleção mais lógica baseada no que já foi selecionado
+    const tiposUsados = filters.map(f => f.type);
+    let defaultType = 'familia';
+    if (tiposUsados.includes('categoria') && !tiposUsados.includes('familia')) defaultType = 'familia';
+    else if (tiposUsados.includes('familia') && !tiposUsados.includes('tipo')) defaultType = 'tipo';
+    else if (tiposUsados.includes('tipo') && !tiposUsados.includes('nivel')) defaultType = 'nivel';
 
-    setFilters([...filters, { id: newId, field: defaultField, value: '' }]);
+    setFilters([...filters, { id: newId, type: defaultType, customField: '', value: '' }]);
   };
 
   const removeRow = (id) => {
@@ -102,52 +107,69 @@ export default function BimFilterPanel({ viewer, projetoBimId }) {
   };
 
   const updateFilter = (id, key, newValue) => {
-    setFilters(filters.map(f => f.id === id ? { ...f, [key]: newValue } : f));
-    if (key === 'field') {
-      // Reseta o valor correspondente ao mudar o campo para não gerar lixo
-      setFilters(filters.map(f => f.id === id ? { ...f, field: newValue, value: '' } : f));
-      setSuggestions([]);
-    }
+    setFilters(filters.map(f => {
+      if (f.id === id) {
+        const updated = { ...f, [key]: newValue };
+        // Se mudou o tipo de filtro, zera o parâmetro customizado e o valor para evitar lixo
+        if (key === 'type') {
+          updated.customField = '';
+          updated.value = '';
+        }
+        return updated;
+      }
+      return f;
+    }));
+    setSuggestions([]);
   };
 
-  // Aciona a listagem de sugestões de campos
-  const handleFieldFocus = (rowId, searchText) => {
-    setActiveFieldRow(rowId); // Fecha valor
+  // Abre e carrega a listagem de parâmetros customizados (Nível 2)
+  const handleCustomFieldFocus = (rowId, searchText) => {
+    setActiveFieldRow(null); // Fecha popup de valor
     setActiveFieldRowSuggestions(rowId);
     
-    const allCandidateFields = [
-      ...STANDARD_FIELDS.map(sf => sf.value),
-      ...projectProperties
-    ];
-    
     const term = (searchText || '').toLowerCase();
-    const filtered = allCandidateFields.filter(f => 
-      f.toLowerCase().includes(term)
+    const filtered = projectProperties.filter(p => 
+      p.toLowerCase().includes(term)
     );
     setFieldSuggestions(filtered);
   };
 
-  // Autocomplete de Valores em Cascata Inteligente (com filtros acumulados)
-  const fetchSuggestions = async (rowId, field, searchText) => {
-    if (!field || field.trim() === '') return;
+  // Autocomplete de Valores em Cascata Inteligente (Nível 3)
+  const fetchSuggestions = async (rowId, filterItem, searchText) => {
+    // Determina o nome do campo real de banco de dados
+    let targetField = '';
+    if (filterItem.type === 'custom') {
+      targetField = filterItem.customField;
+    } else {
+      targetField = filterItem.type === 'status' ? 'status_execucao' : filterItem.type;
+    }
+
+    if (!targetField || targetField.trim() === '') return;
     
-    setActiveFieldRowSuggestions(null); // Fecha campo
+    setActiveFieldRowSuggestions(null); // Fecha popup de campo
     setActiveFieldRow(rowId);
     setIsAutocompleteLoading(true);
     
     try {
-      // Agrupa todas as outras regras preenchidas em um objeto key-value
+      // Monta os filtros de outras linhas como um objeto key-value
       const activeFiltersObj = {};
       filters.forEach(f => {
-        if (f.id !== rowId && f.field && f.value && f.value.trim() !== '') {
-          activeFiltersObj[f.field] = f.value.trim();
+        if (f.id !== rowId && f.value && f.value.trim() !== '') {
+          if (f.type === 'custom') {
+            if (f.customField && f.customField.trim() !== '') {
+              activeFiltersObj[f.customField.trim()] = f.value.trim();
+            }
+          } else {
+            const dbField = f.type === 'status' ? 'status_execucao' : f.type;
+            activeFiltersObj[dbField] = f.value.trim();
+          }
         }
       });
 
       const { data, error } = await supabase.rpc('get_bim_field_values', {
         p_organizacao_id: Number(organizacao_id),
         p_projeto_bim_id: Number(projetoBimId),
-        p_campo: field,
+        p_campo: targetField,
         p_search: searchText || '',
         p_filtros_ativos: activeFiltersObj
       });
@@ -156,7 +178,7 @@ export default function BimFilterPanel({ viewer, projetoBimId }) {
       const cleanData = data?.map(d => d.valor).filter(Boolean) || [];
       setSuggestions(cleanData);
     } catch (error) {
-      console.error("[BimFilterPanel] Erro ao buscar autocompleta de valores:", error);
+      console.error("[BimFilterPanel] Erro ao carregar sugestões de valores:", error);
       setSuggestions([]);
     } finally {
       setIsAutocompleteLoading(false);
@@ -170,7 +192,13 @@ export default function BimFilterPanel({ viewer, projetoBimId }) {
       return;
     }
 
-    const activeFilters = filters.filter(f => f.value && f.value.trim() !== '');
+    const activeFilters = filters.filter(f => {
+      if (f.type === 'custom') {
+        return f.customField && f.customField.trim() !== '' && f.value && f.value.trim() !== '';
+      }
+      return f.value && f.value.trim() !== '';
+    });
+
     if (activeFilters.length === 0) {
       clearFilters();
       return;
@@ -181,17 +209,27 @@ export default function BimFilterPanel({ viewer, projetoBimId }) {
       viewer.clearSelection();
       viewer.clearThemingColors();
 
-      // Monta consulta SQL com restrição obrigatória ao projeto BIM ativo
+      // Monta consulta SQL restringindo obrigatoriamente ao projeto BIM ativo
       let query = supabase.from('elementos_bim').select('external_id');
       query = query.eq('organizacao_id', Number(organizacao_id));
       query = query.eq('projeto_bim_id', Number(projetoBimId));
 
       activeFilters.forEach(f => {
-        const isStandard = STANDARD_FIELDS.some(sf => sf.value === f.field);
-        if (isStandard) {
-          query = query.ilike(f.field, `%${f.value}%`);
+        let targetField = '';
+        let isStandard = false;
+
+        if (f.type === 'custom') {
+          targetField = f.customField.trim();
+          isStandard = STANDARD_FIELDS.includes(targetField);
         } else {
-          query = query.ilike(`propriedades->>${f.field}`, `%${f.value}%`);
+          targetField = f.type === 'status' ? 'status_execucao' : f.type;
+          isStandard = true;
+        }
+
+        if (isStandard) {
+          query = query.ilike(targetField, `%${f.value}%`);
+        } else {
+          query = query.ilike(`propriedades->>${targetField}`, `%${f.value}%`);
         }
       });
 
@@ -212,7 +250,7 @@ export default function BimFilterPanel({ viewer, projetoBimId }) {
       viewer.showAll();
       viewer.setGhosting(true);
       if (viewer.impl && viewer.impl.setGhostingBrightness) {
-        viewer.impl.setGhostingBrightness(0.12); // Elementos fantasmas discretos
+        viewer.impl.setGhostingBrightness(0.12);
       }
 
       const allModels = viewer.impl.modelQueue().getModels();
@@ -257,7 +295,7 @@ export default function BimFilterPanel({ viewer, projetoBimId }) {
           viewer.fitToView(allDbIdsForFit);
         }
 
-        toast.success(`${totalFound} elementos encontrados e destacados!`);
+        toast.success(`${totalFound} elementos destacados no modelo!`);
       } else {
         toast.warning("Elementos localizados no banco, mas ausentes nos modelos carregados.");
       }
@@ -270,7 +308,7 @@ export default function BimFilterPanel({ viewer, projetoBimId }) {
   };
 
   const clearFilters = () => {
-    setFilters([{ id: 1, field: 'categoria', value: '' }]);
+    setFilters([{ id: 1, type: 'categoria', customField: '', value: '' }]);
     if (viewer) {
       viewer.impl.visibilityManager.aggregateIsolate([]); 
       viewer.showAll();
@@ -294,7 +332,7 @@ export default function BimFilterPanel({ viewer, projetoBimId }) {
             <FontAwesomeIcon icon={faSliders} className="text-slate-800" /> Filtros Avançados
           </h3>
           <p className="text-[10px] text-gray-400 mt-0.5">
-            Crie regras inteligentes para isolar peças.
+            Monte regras em camadas para isolar peças.
           </p>
         </div>
         <button 
@@ -309,16 +347,15 @@ export default function BimFilterPanel({ viewer, projetoBimId }) {
       {/* Lista de Filtros Dinâmicos */}
       <div className="flex-1 overflow-y-auto p-3 space-y-3 custom-scrollbar">
         {filters.map((filter, index) => {
-          // Resolve label de exibição do campo ativo
-          const std = STANDARD_FIELDS.find(sf => sf.value === filter.field);
-          const activeFieldName = std ? std.label : filter.field;
+          const isCustom = filter.type === 'custom';
 
           return (
             <div 
               key={filter.id} 
-              className="flex flex-col gap-1 bg-white p-3.5 rounded-xl border border-slate-200 shadow-sm relative transition-all hover:border-slate-350"
+              className="flex flex-col gap-3 bg-white p-4 rounded-xl border border-slate-200 shadow-sm relative transition-all hover:border-slate-350"
             >
-              <div className="flex justify-between items-center mb-2">
+              {/* Topo da linha com remoção */}
+              <div className="flex justify-between items-center border-b border-slate-100 pb-1.5">
                 <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">
                   {index === 0 ? 'Filtro Principal' : 'Adicional (AND)'}
                 </span>
@@ -333,65 +370,80 @@ export default function BimFilterPanel({ viewer, projetoBimId }) {
                 )}
               </div>
 
-              <div className="grid grid-cols-1 gap-2.5">
-                {/* Campo */}
+              <div className="flex flex-col gap-2.5">
+                
+                {/* Camada 1: Tipo de Filtro (Dropdown Fixo) */}
                 <div>
-                  <label className="text-[9px] uppercase font-bold text-gray-400 mb-1 block">Parâmetro / Propriedade</label>
+                  <label className="text-[9px] uppercase font-bold text-gray-400 mb-1 block">1. Filtrar por</label>
                   <div className="relative">
-                    <input 
-                      type="text"
-                      placeholder="Ex: familia ou Nivel..."
-                      className="w-full px-2.5 py-2 border border-gray-300 rounded-lg text-xs focus:ring-1 focus:ring-slate-800 focus:border-slate-800 outline-none h-[36px] font-semibold text-slate-700"
-                      value={filter.field}
-                      onFocus={(e) => handleFieldFocus(filter.id, e.target.value)}
-                      onChange={(e) => {
-                        updateFilter(filter.id, 'field', e.target.value);
-                        handleFieldFocus(filter.id, e.target.value);
-                      }}
-                    />
-                    <div className="absolute right-3 top-2.5 text-gray-300 text-[10px]">
-                      {carregandoPropriedades ? (
-                        <FontAwesomeIcon icon={faSpinner} spin />
-                      ) : (
-                        <FontAwesomeIcon icon={faFilter} />
-                      )}
+                    <select
+                      value={filter.type}
+                      onChange={(e) => updateFilter(filter.id, 'type', e.target.value)}
+                      className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-xs font-semibold text-slate-700 focus:ring-1 focus:ring-slate-800 focus:border-slate-800 outline-none h-[36px] appearance-none"
+                    >
+                      {FILTER_TYPES.map(ft => (
+                        <option key={ft.value} value={ft.value}>{ft.label}</option>
+                      ))}
+                    </select>
+                    <div className="absolute right-3.5 top-3 text-slate-400 text-[10px] pointer-events-none">
+                      <FontAwesomeIcon icon={faChevronDown} />
                     </div>
+                  </div>
+                </div>
 
-                    {/* Autocomplete de Nomes de Campos */}
-                    {activeFieldRowSuggestions === filter.id && fieldSuggestions.length > 0 && (
-                      <ul className="absolute z-20 w-full bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto mt-1 animate-in fade-in zoom-in-95 duration-100 p-1">
-                        {fieldSuggestions.map((sugField, i) => {
-                          const isStd = STANDARD_FIELDS.find(sf => sf.value === sugField);
-                          const label = isStd ? isStd.label : sugField;
-                          
-                          return (
+                {/* Camada 2: Seleção do Parâmetro Customizado (Condicional) */}
+                {isCustom && (
+                  <div className="animate-in fade-in slide-in-from-top-2 duration-200">
+                    <label className="text-[9px] uppercase font-bold text-gray-400 mb-1 block">2. Nome do Parâmetro</label>
+                    <div className="relative">
+                      <input 
+                        type="text"
+                        placeholder="Ex: Espessura, Volume, Área..."
+                        className="w-full px-2.5 py-2 border border-gray-300 rounded-lg text-xs focus:ring-1 focus:ring-slate-800 focus:border-slate-800 outline-none h-[36px] font-semibold text-slate-700"
+                        value={filter.customField}
+                        onFocus={(e) => handleCustomFieldFocus(filter.id, e.target.value)}
+                        onChange={(e) => {
+                          updateFilter(filter.id, 'customField', e.target.value);
+                          handleCustomFieldFocus(filter.id, e.target.value);
+                        }}
+                      />
+                      <div className="absolute right-3 top-2.5 text-gray-300 text-[10px]">
+                        {carregandoPropriedades ? (
+                          <FontAwesomeIcon icon={faSpinner} spin />
+                        ) : (
+                          <FontAwesomeIcon icon={faFilter} />
+                        )}
+                      </div>
+
+                      {/* Autocomplete de Parâmetros Customizados */}
+                      {activeFieldRowSuggestions === filter.id && fieldSuggestions.length > 0 && (
+                        <ul className="absolute z-20 w-full bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto mt-1 animate-in fade-in zoom-in-95 duration-100 p-1">
+                          {fieldSuggestions.map((sugField, i) => (
                             <li 
                               key={i} 
                               onClick={() => {
-                                updateFilter(filter.id, 'field', sugField);
+                                updateFilter(filter.id, 'customField', sugField);
                                 setFieldSuggestions([]);
                                 setActiveFieldRowSuggestions(null);
                               }}
                               className="p-2 hover:bg-slate-50 rounded cursor-pointer text-xs text-gray-700 border-b border-gray-50 last:border-0 flex items-center justify-between font-semibold"
                             >
-                              <span>{label}</span>
-                              <span className={`text-[8px] uppercase px-1.5 py-0.2 rounded font-bold ${
-                                isStd ? 'bg-slate-100 text-slate-500' : 'bg-blue-50 text-blue-600'
-                              }`}>
-                                {isStd ? 'Padrão' : 'Custom'}
+                              <span>{sugField}</span>
+                              <span className="text-[8px] uppercase px-1.5 py-0.2 rounded font-bold bg-blue-50 text-blue-600">
+                                Custom
                               </span>
                             </li>
-                          );
-                        })}
-                      </ul>
-                    )}
+                          ))}
+                        </ul>
+                      )}
+                    </div>
                   </div>
-                </div>
+                )}
 
-                {/* Valor */}
+                {/* Camada 3: Valor (Autocomplete) */}
                 <div className="relative">
                   <label className="text-[9px] uppercase font-bold text-gray-400 mb-1 block">
-                    Valor de {activeFieldName || 'Campo'}
+                    {isCustom ? '3. Valor do Parâmetro' : '2. Valor'}
                   </label>
                   <div className="relative">
                     <input 
@@ -399,10 +451,10 @@ export default function BimFilterPanel({ viewer, projetoBimId }) {
                       placeholder="Selecione ou digite..."
                       className="w-full px-2.5 py-2 border border-gray-300 rounded-lg text-xs focus:ring-1 focus:ring-slate-800 focus:border-slate-800 outline-none h-[36px]"
                       value={filter.value}
-                      onFocus={() => fetchSuggestions(filter.id, filter.field, filter.value)}
+                      onFocus={() => fetchSuggestions(filter.id, filter, filter.value)}
                       onChange={(e) => {
                         updateFilter(filter.id, 'value', e.target.value);
-                        fetchSuggestions(filter.id, filter.field, e.target.value);
+                        fetchSuggestions(filter.id, filter, e.target.value);
                       }}
                     />
                     <div className="absolute right-3 top-2.5 text-gray-300 text-xs">
@@ -457,7 +509,7 @@ export default function BimFilterPanel({ viewer, projetoBimId }) {
         </button>
       </div>
 
-      {/* Ação de Aplicar */}
+      {/* Botão de Ação de Filtrar */}
       <div className="p-3 border-t bg-white shrink-0">
         <button 
           onClick={applyFilters}

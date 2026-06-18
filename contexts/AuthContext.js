@@ -37,6 +37,12 @@ export function AuthProvider({ children }) {
         setPermissions({});
         setIsProprietario(false);
         setOrganizacaoId(null);
+        
+        // Limpa os cookies de controle do middleware
+        if (typeof window !== 'undefined') {
+            document.cookie = "sys_user_role=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;";
+            document.cookie = "sys_is_admin=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;";
+        }
         setLoading(false);
         router.push('/login?error=Sessão inválida ou usuário não encontrado.');
     }, [supabase, router]);
@@ -63,6 +69,12 @@ export function AuthProvider({ children }) {
             console.error("URGENTE: Usuário da sessão não foi encontrado na tabela 'usuarios'. Forçando logout.", error);
             await forceLogout();
             return;
+        }
+
+        // Sincroniza os cookies de acesso com o navegador para o middleware
+        if (typeof window !== 'undefined') {
+            document.cookie = `sys_user_role=${profileData.funcao_id || ''}; path=/; max-age=${60 * 30}; SameSite=Lax`;
+            document.cookie = `sys_is_admin=${profileData.is_superadmin ? 'true' : 'false'}; path=/; max-age=${60 * 30}; SameSite=Lax`;
         }
 
         // Buscar dados extras (CRECI, Telefone) na tabela de Contatos associada ao usuário (Corretores)

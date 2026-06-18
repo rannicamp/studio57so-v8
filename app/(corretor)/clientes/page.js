@@ -57,7 +57,7 @@ export default function ClientesCorretor() {
  const supabase = createClient()
 
  // Identifica se o usuário logado tem a função de Corretor
- const isCorretor = authUser?.funcoes?.nome_funcao?.toLowerCase().includes('corretor') || authUser?.funcao_id === 20;
+ const isCorretor = authUser?.funcoes?.nome_funcao === 'Corretor' || authUser?.funcao_id === 20 || authUser?.funcao_id === 30;
 
  const [isModalOpen, setIsModalOpen] = useState(false)
  const isInitialMount = useRef(true)

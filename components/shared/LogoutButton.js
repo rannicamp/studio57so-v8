@@ -10,9 +10,13 @@ export default function LogoutButton() {
  const router = useRouter();
 
  const handleLogout = async () => {
- await supabase.auth.signOut();
- router.push('/login');
- router.refresh();
+  if (typeof window !== 'undefined') {
+    document.cookie = "sys_user_role=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;";
+    document.cookie = "sys_is_admin=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;";
+  }
+  await supabase.auth.signOut();
+  router.push('/login');
+  router.refresh();
  };
 
  return (
