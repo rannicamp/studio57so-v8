@@ -1208,12 +1208,18 @@ ${metaReferralString}
 - A janela de conversação de 24 horas do WhatsApp está FECHADA para este contato.
 - Você **NÃO PODE** enviar mensagens normais de texto livre. Qualquer tentativa de enviar mensagem normal causará falha de entrega.
 - Você **DEVE OBRIGATORIAMENTE** selecionar o template de WhatsApp mais adequado da lista de templates aprovados abaixo para abrir a janela de conversação.
-- Se o lead demonstrou interesse em um empreendimento específico (como Pero Vaz ou Residencial Alfa), prefira um template específico que mencione esse empreendimento, se houver.
-- Se não houver nenhum template específico ou adequado ao contexto, você deve escolher um template genérico (ex: "Podemos continuar nossa conversa?" ou similar).
+- **DIRETRIZ DE SELEÇÃO DE TEMPLATE (CRÍTICO)**:
+  1. **Priorize templates 100% textuais, simples e amigáveis** para reatar a conversa e obter resposta. O ideal para o cliente é a simplicidade.
+  2. Templates Recomendados (Em Português):
+     - **"reativar_contato"** (Usa variável {{1}} para o primeiro nome do cliente. Ex: "Olá Nelson, tudo bem com você? Podemos continuar a nossa conversa?"). Escolha este como padrão se souber o nome do cliente.
+     - **"oi_tudo_bem_"** (Sem variáveis. Ex: "Oi, aqui é do studio 57 arquitetura e incorporação, tudo bem com você?"). Escolha este se não souber o nome do cliente ou para contatos brasileiros gerais.
+     - **"eua_retomar_conversa"** (Sem variáveis. Ex: "Estou passando para verificar se você conseguiu acessar as informações que enviamos anteriormente. Deu tudo certo?"). Muito bom para acompanhamento geral.
+  3. Se o lead estiver inativo há mais tempo e você já possuir um relacionamento mínimo, você pode usar **"reativar_contato_em_andamento"** ou **"reativar_contato_perdido"** (ambos usam variável {{1}} para o primeiro nome do cliente).
+  4. **Evite** escolher templates de marketing complexos com imagem no cabeçalho (como "beta_suites_1"), a menos que o cliente esteja altamente interessado ou discutindo especificamente aquele empreendimento. (Lembre-se de que se selecionar "beta_suites_1", o backend inserirá uma imagem padrão se você não fornecer a variável de cabeçalho).
 - Para o template selecionado, você deve preencher os parâmetros correspondentes (como o primeiro nome do cliente se o template possuir variáveis do tipo {{1}} no componente BODY).
 - ⚠️⚠️⚠️ **REGRA DE OURO DOS BOTÕES**: Se o template selecionado possuir botões do tipo QUICK_REPLY ou botões estáticos (com textos como "SIM" e "NÃO" rápidos), você **NUNCA** deve incluí-los no array "template_componentes". A Meta rejeita componentes de botão estáticos no payload de envio. O array "template_componentes" deve conter **apenas** o componente do tipo "body" (e "header" se houver variáveis dinâmicas de cabeçalho). É **TERMINANTEMENTE PROIBIDO** enviar objetos com type: "BUTTONS" ou type: "buttons" ou chaves de botões no array "template_componentes".
 - No JSON de retorno:
-  1. Preencha "template_selecionado" com o nome exato do template escolhido (ex: "saudacao_entrada_v3").
+  1. Preencha "template_selecionado" com o nome exato do template escolhido (ex: "reativar_contato").
   2. Preencha "template_componentes" com os componentes formatados contendo as variáveis reais (como o primeiro nome do lead) no formato de payload da Meta (veja o formato abaixo).
   3. No campo "proxima_resposta_sugerida", escreva apenas "Template: [nome_do_template]" para fins de log.
 

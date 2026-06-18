@@ -133,7 +133,7 @@ export async function POST(request) {
       console.warn('[WhatsApp Send Warning] Erro ao buscar usuário da Stella:', stellaErr.message);
     }
 
-    // Quem está enviando é um humano confirmado?
+    // Quem está enviando é um humano confirmed?
     // É humano se requestUserId existe e NÃO é o ID da Stella da organização
     const isHumanSending = requestUserId && requestUserId !== stellaUserId;
 
@@ -178,6 +178,51 @@ export async function POST(request) {
         if (typeLower === 'buttons') return false;
         return true;
       });
+
+      // Blindagem contra cabeçalhos do tipo IMAGE ausentes no payload para templates específicos conhecidos
+      const temHeader = cleanComponents.some(c => (c.type || '').toLowerCase() === 'header');
+      if (!temHeader) {
+        if (templateName === 'beta_suites_1') {
+          console.log(`[WhatsApp Send Blindagem] Injetando header IMAGE padrão para o template beta_suites_1`);
+          cleanComponents.unshift({
+            type: 'header',
+            parameters: [
+              {
+                type: 'image',
+                image: {
+                  link: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/LOGO-P_1764944008469.png'
+                }
+              }
+            ]
+          });
+        } else if (templateName === 'caixa_clientes_alfa') {
+          console.log(`[WhatsApp Send Blindagem] Injetando header IMAGE padrão para o template caixa_clientes_alfa`);
+          cleanComponents.unshift({
+            type: 'header',
+            parameters: [
+              {
+                type: 'image',
+                image: {
+                  link: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/1/IMG_1759098853021.png'
+                }
+              }
+            ]
+          });
+        } else if (templateName === 'apresentacao_imagem_') {
+          console.log(`[WhatsApp Send Blindagem] Injetando header IMAGE padrão para o template apresentacao_imagem_`);
+          cleanComponents.unshift({
+            type: 'header',
+            parameters: [
+              {
+                type: 'image',
+                image: {
+                  link: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/1/IMG_1759092334426.PNG'
+                }
+              }
+            ]
+          });
+        }
+      }
 
       payload.template = {
         name: templateName,

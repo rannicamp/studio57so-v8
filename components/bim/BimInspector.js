@@ -54,7 +54,7 @@ export default function BimInspector({ elementExternalId, selectedElements = [],
  </button>
 
  <button onClick={() => setActiveTab('properties')} disabled={selectedCount === 0} className={`min-w-[60px] flex-1 py-3 text-[10px] font-bold uppercase tracking-wide border-b-2 transition-all flex flex-col gap-1 items-center justify-center ${activeTab === 'properties' ? 'border-blue-600 text-blue-600 bg-blue-50/50' : 'border-transparent text-gray-400 hover:bg-gray-50 disabled:opacity-40'}`}>
- <FontAwesomeIcon icon={faLayerGroup} className="text-sm"/> Dados
+ <FontAwesomeIcon icon={faLayerGroup} className="text-sm"/> Propriedades
  </button>
  {/* MUDANÇA AQUI: disabled={selectedCount === 0} (Antes era !== 1) */}
  <button onClick={() => setActiveTab('planning')} disabled={selectedCount === 0} className={`min-w-[60px] flex-1 py-3 text-[10px] font-bold uppercase tracking-wide border-b-2 transition-all flex flex-col gap-1 items-center justify-center ${activeTab === 'planning' ? 'border-blue-600 text-blue-600 bg-blue-50' : 'border-transparent text-gray-400 hover:bg-gray-50 disabled:opacity-40'}`}>
