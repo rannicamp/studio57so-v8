@@ -1,5 +1,36 @@
-CREATE OR REPLACE FUNCTION public.get_quantitativos_orcamentacao_bim(p_organizacao_id bigint, p_empreendimento_id bigint)
- RETURNS TABLE(key text, mapeamento_id bigint, nome text, unidade text, preco_unitario numeric, classificacao text, quantidade numeric, qtd_elementos bigint, external_ids_ativos text[], external_ids_inativos text[], fator_conversao text, material_id bigint, sinapi_id bigint, etapa_id bigint, subetapa_id bigint, etapa_nome text, subetapa_nome text, custo_total numeric, tem_alertas boolean, origem text, is_avulso boolean, pai_mapeamento_id bigint)
+-- 1. Garante a remoção da assinatura antiga com 2 parâmetros para evitar conflitos no overload
+DROP FUNCTION IF EXISTS public.get_quantitativos_orcamentacao_bim(bigint, bigint);
+
+-- 2. Recria/Atualiza a RPC oficial de 3 parâmetros com a blindagem contra mapeamentos sem material
+CREATE OR REPLACE FUNCTION public.get_quantitativos_orcamentacao_bim(
+    p_organizacao_id bigint, 
+    p_empreendimento_id bigint, 
+    p_projeto_ids bigint[] DEFAULT NULL::bigint[]
+)
+ RETURNS TABLE(
+    key text, 
+    mapeamento_id bigint, 
+    nome text, 
+    unidade text, 
+    preco_unitario numeric, 
+    classificacao text, 
+    quantidade numeric, 
+    qtd_elementos bigint, 
+    external_ids_ativos text[], 
+    external_ids_inativos text[], 
+    fator_conversao text, 
+    material_id bigint, 
+    sinapi_id bigint, 
+    etapa_id bigint, 
+    subetapa_id bigint, 
+    etapa_nome text, 
+    subetapa_nome text, 
+    custo_total numeric, 
+    tem_alertas boolean, 
+    origem text, 
+    is_avulso boolean, 
+    pai_mapeamento_id bigint
+ )
  LANGUAGE plpgsql
 AS $function$
 BEGIN
@@ -21,6 +52,7 @@ BEGIN
         WHERE p.empreendimento_id = p_empreendimento_id
           AND p.organizacao_id = p_organizacao_id
           AND p.is_lixeira = false
+          AND (p_projeto_ids IS NULL OR cardinality(p_projeto_ids) = 0 OR p.id = ANY(p_projeto_ids))
           AND e.categoria NOT IN ('Revit Level', 'Revit Grids', 'Revit Scope Boxes', 'Revit Reference Planes', '<Indesejado>')
     ),
     mapeamentos AS (
@@ -50,6 +82,8 @@ BEGIN
         FROM public.bim_mapeamentos_propriedades m
         WHERE m.organizacao_id = p_organizacao_id
           AND m.tipo_vinculo IN ('material', 'elemento', 'avulso')
+          -- Ignorar mapeamentos órfãos/incompletos que não possuam nenhum material ou sinapi vinculados
+          AND (m.material_id IS NOT NULL OR m.sinapi_id IS NOT NULL)
     ),
     vinculos_material AS (
         SELECT 
@@ -251,4 +285,4 @@ BEGIN
     LEFT JOIN public.subetapas so ON a.subetapa_id = so.id
     ORDER BY a.etapa_id NULLS LAST, custo_total DESC;
 END;
-$function$
+$function$;

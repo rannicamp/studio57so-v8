@@ -99,6 +99,10 @@ export default function BimVinculoSimplificadoModal({
 
   // Filtrar elementos do escopo atual para contar quantidade
   const elementosNoEscopo = useMemo(() => {
+    // Se temos a contagem direta no elemento, podemos retornar um array fictício desse tamanho
+    if (elemento?.total_elementos !== undefined && elemento.total_elementos !== null) {
+      return Array(elemento.total_elementos).fill({});
+    }
     if (!todosElementos || todosElementos.length === 0 || !elemento) return [];
     const cat = elemento.categoria || '';
     const fam = elemento.familia || '';
@@ -368,7 +372,7 @@ export default function BimVinculoSimplificadoModal({
           {/* Fator de conversão */}
           <div className="pt-4">
             <p className="text-[10px] font-black text-gray-400 uppercase tracking-wider mb-2">Fator de Conversão Matemático</p>
-            <p className="text-[11px] text-gray-500 mb-3 leading-relaxed">
+            <p className="text-[11px] text-gray-550 mb-3 leading-relaxed">
               Exemplo: Para adicionar uma margem de quebra de 5% sobre a contagem de peças, digite <code className="bg-gray-150 text-pink-650 px-1 py-0.5 rounded font-bold font-mono">[q] * 1.05</code>
             </p>
             <input
@@ -423,7 +427,7 @@ export default function BimVinculoSimplificadoModal({
               )}
             </div>
             <div className="flex gap-3">
-              <button onClick={onClose} className="px-5 py-2 text-sm text-gray-650 hover:text-gray-800 transition-colors font-medium">
+              <button onClick={onClose} className="px-5 py-2 text-sm text-gray-655 hover:text-gray-850 transition-colors font-medium">
                 Cancelar
               </button>
               <button

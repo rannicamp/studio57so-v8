@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '../../utils/supabase/client';
 import { useAuth } from '../../contexts/AuthContext';
@@ -29,6 +29,67 @@ export default function BimSidebar({ onSelectContext, onFileSelect, onToggleMode
   const [filterEmpreendimentoId, setFilterEmpreendimentoId] = useState('');
   const [filterDisciplinaId, setFilterDisciplinaId] = useState('');
   const [isFiltersExpanded, setIsFiltersExpanded] = useState(false);
+
+  // ─── Persistência e Restauração de Filtros (Anti-F5) ───
+  const didRestoreFiltersRef = useRef(false);
+
+  useEffect(() => {
+    if (didRestoreFiltersRef.current) return;
+
+    try {
+      const savedActiveTab = localStorage.getItem('bim_sidebar_activeTab');
+      if (savedActiveTab) setActiveTab(savedActiveTab);
+
+      const savedEmpresaId = localStorage.getItem('bim_sidebar_filterEmpresaId');
+      if (savedEmpresaId) setFilterEmpresaId(savedEmpresaId);
+
+      const savedEmpreendimentoId = localStorage.getItem('bim_sidebar_filterEmpreendimentoId');
+      if (savedEmpreendimentoId) setFilterEmpreendimentoId(savedEmpreendimentoId);
+
+      const savedDisciplinaId = localStorage.getItem('bim_sidebar_filterDisciplinaId');
+      if (savedDisciplinaId) setFilterDisciplinaId(savedDisciplinaId);
+
+      const savedSearchTerm = localStorage.getItem('bim_sidebar_searchTerm');
+      if (savedSearchTerm) setSearchTerm(savedSearchTerm);
+
+      const savedFiltersExpanded = localStorage.getItem('bim_sidebar_isFiltersExpanded');
+      if (savedFiltersExpanded !== null) setIsFiltersExpanded(savedFiltersExpanded === 'true');
+    } catch (e) {
+      console.warn('[BimSidebar] Erro ao restaurar filtros do localStorage:', e);
+    }
+    
+    didRestoreFiltersRef.current = true;
+  }, []);
+
+  useEffect(() => {
+    if (!didRestoreFiltersRef.current) return;
+    localStorage.setItem('bim_sidebar_activeTab', activeTab);
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (!didRestoreFiltersRef.current) return;
+    localStorage.setItem('bim_sidebar_filterEmpresaId', filterEmpresaId);
+  }, [filterEmpresaId]);
+
+  useEffect(() => {
+    if (!didRestoreFiltersRef.current) return;
+    localStorage.setItem('bim_sidebar_filterEmpreendimentoId', filterEmpreendimentoId);
+  }, [filterEmpreendimentoId]);
+
+  useEffect(() => {
+    if (!didRestoreFiltersRef.current) return;
+    localStorage.setItem('bim_sidebar_filterDisciplinaId', filterDisciplinaId);
+  }, [filterDisciplinaId]);
+
+  useEffect(() => {
+    if (!didRestoreFiltersRef.current) return;
+    localStorage.setItem('bim_sidebar_searchTerm', searchTerm);
+  }, [searchTerm]);
+
+  useEffect(() => {
+    if (!didRestoreFiltersRef.current) return;
+    localStorage.setItem('bim_sidebar_isFiltersExpanded', String(isFiltersExpanded));
+  }, [isFiltersExpanded]);
 
   // Estados de Modais
   const [modalState, setModalState] = useState({ upload: false, edit: false, set: false, mode: 'create', file: null });

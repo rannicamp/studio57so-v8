@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { toast } from 'sonner';
 
 export function useBimModels(viewerInstance, setIsGanttOpen) {
@@ -7,6 +7,39 @@ export function useBimModels(viewerInstance, setIsGanttOpen) {
     
     const loadedModelsRef = useRef({});
     const globalOffsetRef = useRef(null);
+
+    const didRestoreModelsRef = useRef(false);
+
+    // ─── Auto-load retrospectivo dos modelos salvos ───
+    useEffect(() => {
+        if (!viewerInstance || didRestoreModelsRef.current) return;
+        
+        try {
+            const saved = localStorage.getItem('bim_loadedFiles');
+            if (saved) {
+                const files = JSON.parse(saved);
+                if (files && files.length > 0) {
+                    console.log('⚡ Devonildo: Restaurando modelos carregados anteriormente via auto-load:', files);
+                    // Dispara a carga em lote
+                    handleLoadSet(files);
+                }
+            }
+        } catch (e) {
+            console.error("Erro ao fazer auto-load de modelos do localStorage:", e);
+        }
+        
+        didRestoreModelsRef.current = true;
+    }, [viewerInstance]);
+
+    // ─── Salva no localStorage quando a lista de carregados muda ───
+    useEffect(() => {
+        if (!didRestoreModelsRef.current) return;
+        if (loadedFiles.length > 0) {
+            localStorage.setItem('bim_loadedFiles', JSON.stringify(loadedFiles));
+        } else {
+            localStorage.removeItem('bim_loadedFiles');
+        }
+    }, [loadedFiles]);
 
     // Carregar/Descarregar Único Modelo
     const handleToggleModel = async (file) => {

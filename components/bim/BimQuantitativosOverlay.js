@@ -87,7 +87,7 @@ const BadgeStatus = ({ status }) => {
  {status || 'Disponível'}
  </span>
  );
-};
+ };
 
 // ─── Componente Principal ─────────────────────────────────────────────────────
 
@@ -563,16 +563,112 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
  }
  };
 
- // Enviar comando ao BIM Manager para destacar os elementos
- const handleShowInModel = (externalIds, label) => {
+ // Enviar comando ao BIM Manager para destacar os elementos (silent adicionado)
+ const handleShowInModel = (externalIds, label, silent = false) => {
  if (!externalIds || externalIds.length === 0) {
  toast.warning('Nenhum elemento associado encontrado para exibir.');
  return;
  }
  // Chama a prop passando dados ao invés de usar localStorage/router
  if (onShowInModel) {
- onShowInModel(externalIds, label, modelos);
+ onShowInModel(externalIds, label, modelos, silent);
  }
+ };
+
+ // Auxiliares para destacar e isolar elementos 3D a partir das ramificações
+ const selecionarCategoriaNo3D = (cat, silent = false) => {
+   let ids = (cat.familias || []).flatMap(f => (f.tipos || []).flatMap(t => (t.elementos || []).map(el => el.external_id)));
+   if (ids.length === 0) {
+     const elementosCat = todosElementos.filter(el => el.categoria === cat.categoria);
+     ids = elementosCat.map(el => el.external_id);
+   }
+   if (ids.length === 0) {
+     const toastId = toast.loading(`Buscando elementos da categoria ${cat.categoria}...`);
+     supabase
+       .from('elementos_bim')
+       .select('external_id')
+       .in('projeto_bim_id', modelosSelecionadosIds.map(Number))
+       .eq('categoria', cat.categoria)
+       .then(({ data, error }) => {
+         toast.dismiss(toastId);
+         if (error) {
+           console.error(error);
+           toast.error(`Erro ao buscar elementos da categoria.`);
+           return;
+         }
+         const queryIds = (data || []).map(el => el.external_id);
+         if (queryIds.length > 0) {
+           handleShowInModel(queryIds, cat.categoria, silent);
+         } else {
+           toast.warning('Nenhum elemento associado encontrado para exibir.');
+         }
+       });
+   } else {
+     handleShowInModel(ids, cat.categoria, silent);
+   }
+ };
+
+ const selecionarFamiliaNo3D = (cat, fam, silent = false) => {
+   let ids = (fam.tipos || []).flatMap(t => (t.elementos || []).map(el => el.external_id));
+   if (ids.length === 0) {
+     const elementosFam = todosElementos.filter(el => el.categoria === cat.categoria && el.familia === fam.familia);
+     ids = elementosFam.map(el => el.external_id);
+   }
+   if (ids.length === 0) {
+     const toastId = toast.loading(`Buscando elementos da família ${fam.familia}...`);
+     supabase
+       .from('elementos_bim')
+       .select('external_id')
+       .in('projeto_bim_id', modelosSelecionadosIds.map(Number))
+       .eq('categoria', cat.categoria)
+       .eq('familia', fam.familia)
+       .then(({ data, error }) => {
+         toast.dismiss(toastId);
+         if (error) {
+           console.error(error);
+           toast.error(`Erro ao buscar elementos da família.`);
+           return;
+         }
+         const queryIds = (data || []).map(el => el.external_id);
+         if (queryIds.length > 0) {
+           handleShowInModel(queryIds, fam.familia, silent);
+         } else {
+           toast.warning('Nenhum elemento associado encontrado para exibir.');
+         }
+       });
+   } else {
+     handleShowInModel(ids, fam.familia, silent);
+   }
+ };
+
+ const selecionarTipoNo3D = (cat, fam, t, silent = false) => {
+   const ids = (t.elementos || []).map(el => el.external_id);
+   if (ids.length === 0) {
+     const toastId = toast.loading(`Buscando elementos do tipo ${t.tipo}...`);
+     supabase
+       .from('elementos_bim')
+       .select('external_id')
+       .in('projeto_bim_id', modelosSelecionadosIds.map(Number))
+       .eq('categoria', cat.categoria)
+       .eq('familia', fam.familia)
+       .eq('tipo', t.tipo)
+       .then(({ data, error }) => {
+         toast.dismiss(toastId);
+         if (error) {
+           console.error(error);
+           toast.error(`Erro ao buscar elementos do tipo.`);
+           return;
+         }
+         const queryIds = (data || []).map(el => el.external_id);
+         if (queryIds.length > 0) {
+           handleShowInModel(queryIds, t.tipo, silent);
+         } else {
+           toast.warning('Nenhum elemento associado encontrado para exibir.');
+         }
+       });
+   } else {
+     handleShowInModel(ids, t.tipo, silent);
+   }
  };
 
  // Fecha dropdown ao clicar fora
@@ -624,7 +720,7 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
  'm²': 'bg-blue-50 text-blue-700 border-blue-200',
  'm': 'bg-blue-50 text-blue-700 border-blue-200',
  'mm': 'bg-gray-50 text-gray-700 border-gray-200',
- 'un': 'bg-gray-50 text-gray-600 border-gray-200',
+ 'un': 'bg-gray-50 text-gray-655 border-gray-200',
  };
  const BadgeUnidade = ({ unidade, ativo = true, onClick }) => {
  const cor = UNIDADE_COR[unidade] || UNIDADE_COR['un'];
@@ -774,7 +870,7 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3">Quantidades</p>
  <div className="grid grid-cols-2 gap-2">
  {medidasExibir.map(m => (
- <div key={m.chave} className="bg-gray-50 rounded-lg px-3 py-2.5 border border-gray-100">
+ <div key={m.chave} className="bg-gray-50 rounded-lg px-3 py-2.5 border border-gray-105">
  <p className="text-[10px] text-gray-400 uppercase tracking-wide font-semibold">{m.label}</p>
  <p className="text-base font-bold text-gray-800 mt-0.5">
  {fmt2(m.valor)} <span className="text-[10px] font-normal text-gray-400">{m.unidade}</span>
@@ -808,7 +904,7 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
  <button
  key={t.tipo}
  onClick={() => setSidebarItem({ tipo: 'tipo', dados: t, cat, fam: dados.familia })}
- className="w-full text-left bg-gray-50 hover:bg-blue-50 border border-gray-100 hover:border-blue-200 rounded-lg px-3 py-2 transition-all"
+ className="w-full text-left bg-gray-55 hover:bg-blue-50 border border-gray-105 hover:border-blue-200 rounded-lg px-3 py-2 transition-all"
  >
  <p className="text-xs font-semibold text-gray-700">{t.tipo}</p>
  <p className="text-[10px] text-gray-400 mt-0.5">
@@ -826,7 +922,7 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
  {nivel === 'elemento' && (
  <div className="px-5 py-4">
  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-3">Propriedades do Revit</p>
- <div className="space-y-0 border border-gray-100 rounded-lg overflow-hidden">
+ <div className="space-y-0 border border-gray-105 rounded-lg overflow-hidden">
  {propKeys.map((k, i) => {
  const jaMapeada = propriedadesMapeadas.has(k);
  const valNum = parseFloat(props[k]);
@@ -835,7 +931,7 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
  <div
  key={k}
  className={`flex items-center gap-2 px-3 py-2 text-xs ${
- i % 2 === 0 ? 'bg-white' : 'bg-gray-50'
+   i % 2 === 0 ? 'bg-white' : 'bg-gray-55'
  } group hover:bg-blue-50/50 transition-colors`}
  >
  <span className="text-gray-500 font-medium shrink-0 max-w-[40%] truncate" title={k}>{k}</span>
@@ -973,26 +1069,26 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
  />
  </div>
  {abaAtiva === 'elementos' && (
- <>
- <button
-   onClick={() => setApenasNaoMapeados(!apenasNaoMapeados)}
-   title={apenasNaoMapeados ? "Mostrar todos os elementos" : "Mostrar apenas elementos sem mapeamento de orçamento"}
-   className={`p-1.5 px-2.5 text-xs font-bold border rounded-lg transition-all flex items-center gap-1.5 ${
-     apenasNaoMapeados 
-       ? 'bg-amber-50 text-amber-700 border-amber-300 shadow-sm hover:bg-amber-100 bg-white' 
-       : 'border-gray-200 text-gray-500 hover:bg-gray-50 bg-white'
-   }`}
- >
-   <FontAwesomeIcon icon={faTriangleExclamation} className={apenasNaoMapeados ? 'text-amber-500 animate-pulse' : 'text-gray-400'} />
-   <span>Não Mapeados</span>
- </button>
- <button onClick={expandirTodas} title="Expandir tudo" className="p-1.5 text-xs border border-gray-200 rounded-lg text-gray-500 hover:bg-gray-50 transition-colors">
- <FontAwesomeIcon icon={faExpand} />
- </button>
- <button onClick={recolherTodas} title="Recolher tudo" className="p-1.5 text-xs border border-gray-200 rounded-lg text-gray-500 hover:bg-gray-50 transition-colors">
- <FontAwesomeIcon icon={faCompress} />
- </button>
- </>
+  <>
+  <button
+    onClick={() => setApenasNaoMapeados(!apenasNaoMapeados)}
+    title={apenasNaoMapeados ? "Mostrar todos os elementos" : "Mostrar apenas elementos sem mapeamento de orçamento"}
+    className={`p-1.5 px-2.5 text-xs font-bold border rounded-lg transition-all flex items-center gap-1.5 ${
+      apenasNaoMapeados 
+        ? 'bg-amber-50 text-amber-700 border-amber-300 shadow-sm hover:bg-amber-100 bg-white' 
+        : 'border-gray-200 text-gray-500 hover:bg-gray-50 bg-white'
+    }`}
+  >
+    <FontAwesomeIcon icon={faTriangleExclamation} className={apenasNaoMapeados ? 'text-amber-500 animate-pulse' : 'text-gray-400'} />
+    <span>Não Mapeados</span>
+  </button>
+  <button onClick={expandirTodas} title="Expandir tudo" className="p-1.5 text-xs border border-gray-200 rounded-lg text-gray-500 hover:bg-gray-50 transition-colors">
+  <FontAwesomeIcon icon={faExpand} />
+  </button>
+  <button onClick={recolherTodas} title="Recolher tudo" className="p-1.5 text-xs border border-gray-200 rounded-lg text-gray-500 hover:bg-gray-50 transition-colors">
+  <FontAwesomeIcon icon={faCompress} />
+  </button>
+  </>
  )}
  {abaAtiva === 'por-material' && (
  <button
@@ -1126,7 +1222,7 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
       </button>
     </div>
     
-    <div className="text-[11px] text-gray-500 font-semibold bg-gray-50/75 px-3 py-1.5 border border-gray-200 rounded-lg shadow-sm">
+    <div className="text-[11px] text-gray-550 font-semibold bg-gray-50/75 px-3 py-1.5 border border-gray-200 rounded-lg shadow-sm">
       {tipoVisualizacao === 'etapa' && 'Visualização em árvore agrupada por etapa e subetapa do cronograma.'}
       {tipoVisualizacao === 'categoria' && 'Visualização agrupada pelas categorias do modelo 3D (Eberick/Revit).'}
       {tipoVisualizacao === 'material' && 'Visualização consolidada com a soma total de cada material no projeto.'}
@@ -1279,7 +1375,7 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
  {quantitativoPorMaterial.some(m => m.preco_unitario > 0) && (
  <tfoot className="bg-gray-50 border-t-2 border-gray-200">
  <tr>
- <td colSpan={4} className="px-4 py-2.5 text-xs font-extrabold text-gray-600 uppercase tracking-wide">Total Estimado</td>
+ <td colSpan={4} className="px-4 py-2.5 text-xs font-extrabold text-gray-650 uppercase tracking-wide">Total Estimado</td>
  <td className="px-4 py-2.5 text-right font-extrabold text-emerald-700">
  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(kpisMaterial.custoTotal)}
  </td>
@@ -1287,8 +1383,8 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
  </tr>
  </tfoot>
  )}
-  </table>
-  </div>
+ </table>
+ </div>
  </>
  )}
  </div>
@@ -1298,618 +1394,540 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
  {(abaAtiva === 'elementos' || !modelosSelecionadosIds || modelosSelecionadosIds.length === 0) && (
  <>
  {carregandoElementos ? (
- <div className="flex flex-col items-center justify-center h-full text-blue-400 gap-3">
- <FontAwesomeIcon icon={faSpinner} spin size="2x" />
- <p className="text-sm text-gray-500">Carregando elementos BIM...</p>
- </div>
+  <div className="flex flex-col items-center justify-center h-full text-blue-400 gap-3">
+  <FontAwesomeIcon icon={faSpinner} spin size="2x" />
+  <p className="text-sm text-gray-500">Carregando elementos BIM...</p>
+  </div>
  ) : (!modelosSelecionadosIds || modelosSelecionadosIds.length === 0) ? (
- <div className="flex flex-col items-center justify-center h-full text-gray-400 gap-3">
- <FontAwesomeIcon icon={faCubes} className="text-5xl text-gray-200" />
- <p className="font-semibold">Selecione um modelo BIM à esquerda para visualizar os elementos.</p>
- </div>
+  <div className="flex flex-col items-center justify-center h-full text-gray-400 gap-3">
+  <FontAwesomeIcon icon={faCubes} className="text-5xl text-gray-200" />
+  <p className="font-semibold">Selecione um modelo BIM à esquerda para visualizar os elementos.</p>
+  </div>
  ) : gruposFiltrados.length === 0 ? (
- <div className="flex flex-col items-center justify-center h-full text-gray-400 gap-3">
- <FontAwesomeIcon icon={faBoxOpen} className="text-5xl text-gray-200" />
- <p className="font-semibold">Nenhum elemento encontrado{buscaElemento ? ' para a busca realizada' : ' neste modelo'}.</p>
- </div>
+  <div className="flex flex-col items-center justify-center h-full text-gray-400 gap-3">
+  <FontAwesomeIcon icon={faBoxOpen} className="text-5xl text-gray-200" />
+  <p className="font-semibold">Nenhum elemento encontrado{buscaElemento ? ' para a busca realizada' : ' neste modelo'}.</p>
+  </div>
  ) : (
- <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
-  <table className="w-full text-sm border-collapse">
-  <thead className="bg-gray-50/75 border-b border-gray-200 sticky top-0 z-10">
-  <tr>
-  <th className="px-3 py-3 text-left text-xs font-bold text-gray-500 uppercase w-10"></th>
-  <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Família / Tipo / Categoria</th>
-  <th className="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider w-40">Quantidade</th>
-  <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider w-36">SINAPI Revit</th>
-  <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider w-16">Ações</th>
-  </tr>
-  </thead>
-  <tbody>
-  {gruposFiltrados.map(cat => {
-  const catExpandida = categoriasExpandidas.has(cat.categoria);
-  const mapeamentoCat = mapeamentos.find(m =>
-    m.escopo === 'categoria' &&
-    m.categoria_bim === cat.categoria
-  );
-  const elementosCat = todosElementos.filter(el => el.categoria === cat.categoria);
-  const propriedadesCat = extrairPropriedadesAcumuladas(elementosCat);
-
-  return (
-  <Fragment key={`frag-cat-${cat.categoria}`}>
-  {/* ── L1: Categoria ── */}
-  <tr
-    key={`cat-${cat.categoria}`}
-    onClick={() => {
-      carregarFamiliasDaCategoria(cat.categoria);
-      toggleCategoria(cat.categoria);
-    }}
-    className={`bg-gray-200 cursor-pointer hover:bg-gray-300 transition-all duration-1000 border-t-2 border-gray-300 group ${
-      linhaDestacadaChave === `cat-${cat.categoria}` 
-        ? 'bg-emerald-100/80 transition-none' 
-        : ''
-    }`}
-  >
-  <td className="px-3 py-2.5 text-center">
-  <FontAwesomeIcon icon={catExpandida ? faAngleDown : faAngleRight} className="text-gray-500" />
-  </td>
-  <td className="px-4 py-2.5 font-bold text-gray-700 text-xs uppercase tracking-wide">
-  <FontAwesomeIcon icon={faLayerGroup} className="mr-2 text-blue-500" />
-  {cat.categoria}
-  </td>
-  <td className="px-4 py-2.5 text-right text-xs font-bold text-gray-600">
-  {cat.total_elementos.toLocaleString('pt-BR')} elem.
-  </td>
-  <td className="px-4 py-2.5 text-left">
-  {mapeamentoCat ? (
-    mapeamentoCat.sinapi_id ? (
-      <span className="bg-indigo-50 text-indigo-700 text-[10px] font-bold px-2 py-0.5 rounded border border-indigo-100 font-mono">
-        {mapeamentoCat.sinapi?.["Código da Composição"] || 'SINAPI'}
-      </span>
-    ) : (
-      <span className="bg-emerald-50 text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded border border-emerald-100 font-mono">
-        Próprio
-      </span>
-    )
-  ) : (
-    <span className="text-gray-300 text-[10px] font-normal">—</span>
-  )}
-  </td>
-  <td className="px-4 py-2.5 text-center" onClick={(e) => e.stopPropagation()}>
-    <div className="flex items-center justify-center gap-1.5">
-      <button
-        onClick={() => {
-          let ids = (cat.familias || []).flatMap(f => (f.tipos || []).flatMap(t => (t.elementos || []).map(el => el.external_id)));
-          if (ids.length === 0) {
-            ids = elementosCat.map(el => el.external_id);
-          }
-          if (ids.length === 0) {
-            const toastId = toast.loading(`Buscando elementos da categoria ${cat.categoria}...`);
-            supabase
-              .from('elementos_bim')
-              .select('external_id')
-              .in('projeto_bim_id', modelosSelecionadosIds.map(Number))
-              .eq('categoria', cat.categoria)
-              .then(({ data, error }) => {
-                toast.dismiss(toastId);
-                if (error) {
-                  console.error(error);
-                  toast.error(`Erro ao buscar elementos da categoria.`);
-                  return;
-                }
-                const queryIds = (data || []).map(el => el.external_id);
-                if (queryIds.length > 0) {
-                  handleShowInModel(queryIds, cat.categoria);
-                } else {
-                  toast.warning('Nenhum elemento associado encontrado para exibir.');
-                }
-              });
-          } else {
-            handleShowInModel(ids, cat.categoria);
-          }
-        }}
-        className="w-7 h-7 rounded-full text-blue-600 bg-blue-50 hover:bg-blue-100 flex items-center justify-center transition-all"
-        title="Visualizar Categoria no 3D"
-      >
-        <FontAwesomeIcon icon={faCubes} className="text-xs" />
-      </button>
-      {mapeamentoCat ? (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            setMaterialGerenciar({
-              material_id: mapeamentoCat.material_id,
-              sinapi_id: mapeamentoCat.sinapi_id,
-              origem: mapeamentoCat.material_id ? 'proprio' : 'sinapi',
-              nome: mapeamentoCat.material?.nome || mapeamentoCat.sinapi?.descricao || 'Material Vinculado'
-            });
-          }}
-          className="w-7 h-7 rounded-full text-emerald-600 bg-emerald-50 hover:bg-emerald-100 flex items-center justify-center transition-all"
-          title="Gerenciar Vínculo da Categoria"
-        >
-          <FontAwesomeIcon icon={faLink} className="text-xs" />
-        </button>
-      ) : (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            setVinculoModal({
-              propriedade: { nome: '', valor: 0, unidade: 'un' },
-              elemento: {
-                categoria: cat.categoria,
-                familia: null,
-                tipo: null
-              }
-            });
-          }}
-          className="w-7 h-7 rounded-full flex items-center justify-center transition-all text-gray-400 hover:text-blue-600 hover:bg-blue-50 opacity-0 group-hover:opacity-100"
-          title="Vincular Categoria a Material"
-        >
-          <FontAwesomeIcon icon={faLink} className="text-xs" />
-        </button>
-      )}
-    </div>
-  </td>
-  </tr>
- 
-  {catExpandida && cat.carregandoFamilias && (
-     <tr key={`loading-cat-${cat.categoria}`} className="bg-gray-50/50">
-       <td className="px-3 py-3 text-center pl-10" colSpan={5}>
-         <div className="flex items-center gap-2 text-xs text-blue-600 font-black animate-pulse">
-           <FontAwesomeIcon icon={faSpinner} spin className="text-xs" />
-           <span>Buscando famílias da categoria no banco de dados...</span>
-         </div>
-       </td>
-     </tr>
-   )}
- 
-   {catExpandida && !cat.carregandoFamilias && cat.familias.length === 0 && (
-     <tr key={`empty-cat-${cat.categoria}`} className="bg-gray-50/30">
-       <td className="px-3 py-3 text-center pl-10 text-xs text-gray-400 font-semibold italic" colSpan={5}>
-         Nenhuma família encontrada para esta categoria.
-       </td>
-     </tr>
-   )}
- 
-   {catExpandida && !cat.carregandoFamilias && cat.familias.map(fam => {
-  const famChave = `${cat.categoria}|||${fam.familia}`;
-  const famExpandida = familiasExpandidas.has(famChave);
-  const mapeamentoFam = mapeamentos.find(m =>
-    m.escopo === 'familia' &&
-    m.categoria_bim === cat.categoria &&
-    m.familia_bim === fam.familia
-  );
-  const elementosFam = todosElementos.filter(el => el.categoria === cat.categoria && el.familia === fam.familia);
-  const propriedadesFam = extrairPropriedadesAcumuladas(elementosFam);
-
-  return (
-  <Fragment key={`frag-fam-${famChave}`}>
-  {/* ── L2: Família ── */}
-  <tr
-  key={`fam-${famChave}`}
-  className={`bg-blue-50 cursor-pointer hover:bg-blue-100 transition-all duration-1000 border-t border-blue-100 group ${
-    linhaDestacadaChave === `fam-${famChave}` 
-      ? 'bg-emerald-100/80 transition-none' 
-      : ''
-  }`}
-  >
-  <td
-  className="px-3 py-2 text-center pl-7"
-  onClick={() => toggleFamiliaExpandida(famChave)}
-  >
-  <FontAwesomeIcon icon={famExpandida ? faAngleDown : faAngleRight} className="text-blue-400 text-xs" />
-  </td>
-  <td
-  className="px-4 py-2 font-semibold text-blue-800 text-xs"
-  onClick={() => toggleFamiliaExpandida(famChave)}
-  >
-  {fam.familia}
-  <span className="ml-2 text-[10px] text-blue-400 font-normal">
-  {fam.tipos.length} tipo{fam.tipos.length !== 1 ? 's' : ''}
-  </span>
-  </td>
-  <td
-  className="px-4 py-2 text-right text-xs font-bold text-blue-600"
-  onClick={() => toggleFamiliaExpandida(famChave)}
-  >
-  {fam.total_elementos.toLocaleString('pt-BR')} elem.
-  </td>
-  <td className="px-4 py-2 text-left">
-  {mapeamentoFam ? (
-    mapeamentoFam.sinapi_id ? (
-      <span className="bg-indigo-50 text-indigo-700 text-[10px] font-bold px-2 py-0.5 rounded border border-indigo-100 font-mono">
-        {mapeamentoFam.sinapi?.["Código da Composição"] || 'SINAPI'}
-      </span>
-    ) : (
-      <span className="bg-emerald-50 text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded border border-emerald-100 font-mono">
-        Próprio
-      </span>
-    )
-  ) : (
-    <span className="text-gray-300 text-[10px] font-normal">—</span>
-  )}
-  </td>
-  <td className="px-4 py-2 text-center" onClick={(e) => e.stopPropagation()}>
-    <div className="flex items-center justify-center gap-1.5">
-      <button
-        onClick={() => {
-          let ids = (fam.tipos || []).flatMap(t => (t.elementos || []).map(el => el.external_id));
-          if (ids.length === 0) {
-            ids = elementosFam.map(el => el.external_id);
-          }
-          if (ids.length === 0) {
-            const toastId = toast.loading(`Buscando elementos da família ${fam.familia}...`);
-            supabase
-              .from('elementos_bim')
-              .select('external_id')
-              .in('projeto_bim_id', modelosSelecionadosIds.map(Number))
-              .eq('categoria', cat.categoria)
-              .eq('familia', fam.familia)
-              .then(({ data, error }) => {
-                toast.dismiss(toastId);
-                if (error) {
-                  console.error(error);
-                  toast.error(`Erro ao buscar elementos da família.`);
-                  return;
-                }
-                const queryIds = (data || []).map(el => el.external_id);
-                if (queryIds.length > 0) {
-                  handleShowInModel(queryIds, fam.familia);
-                } else {
-                  toast.warning('Nenhum elemento associado encontrado para exibir.');
-                }
-              });
-          } else {
-            handleShowInModel(ids, fam.familia);
-          }
-        }}
-        className="w-7 h-7 rounded-full text-blue-600 bg-blue-50 hover:bg-blue-100 flex items-center justify-center transition-all"
-        title="Visualizar Família no 3D"
-      >
-        <FontAwesomeIcon icon={faCubes} className="text-xs" />
-      </button>
-      {mapeamentoFam ? (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            setMaterialGerenciar({
-              material_id: mapeamentoFam.material_id,
-              sinapi_id: mapeamentoFam.sinapi_id,
-              origem: mapeamentoFam.material_id ? 'proprio' : 'sinapi',
-              nome: mapeamentoFam.material?.nome || mapeamentoFam.sinapi?.descricao || 'Material Vinculado'
-            });
-          }}
-          className="w-7 h-7 rounded-full text-emerald-600 bg-emerald-50 hover:bg-emerald-100 flex items-center justify-center transition-all"
-          title="Gerenciar Vínculo da Família"
-        >
-          <FontAwesomeIcon icon={faLink} className="text-xs" />
-        </button>
-      ) : (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            setVinculoModal({
-              propriedade: { nome: '', valor: 0, unidade: 'un' },
-              elemento: {
-                categoria: cat.categoria,
-                familia: fam.familia,
-                tipo: null
-              }
-            });
-          }}
-          className="w-7 h-7 rounded-full flex items-center justify-center transition-all text-gray-400 hover:text-blue-600 hover:bg-blue-50 opacity-0 group-hover:opacity-100"
-          title="Vincular Família a Material"
-        >
-          <FontAwesomeIcon icon={faLink} className="text-xs" />
-        </button>
-      )}
-    </div>
-  </td>
-  </tr>
- 
-  {famExpandida && fam.carregando && (
-  <tr key={`loading-fam-${famChave}`} className="bg-gray-50/20">
-  <td className="px-3 py-3.5 text-center pl-12" colSpan={5}>
-  <div className="flex items-center gap-2 text-xs text-blue-600 font-black animate-pulse">
-  <FontAwesomeIcon icon={faSpinner} spin className="text-xs" />
-  <span>Buscando tipos e medidas no banco de dados...</span>
-  </div>
-  </td>
-  </tr>
-  )}
- 
-  {famExpandida && !fam.carregando && fam.tipos.map((t, idx) => {
-  const tChave = tipoChave(cat.categoria, fam.familia, t.tipo);
-  const tExpandido = tiposExpandidos.has(tChave);
-  const medidaAtiva = getMedidaAtiva(cat.categoria, fam.familia, t);
-  const temMultiplas = t.medidas.length > 1;
-  const propriedadesTipo = extrairPropriedadesAcumuladas(t.elementos || []);
- 
-  // Extrair descrição do primeiro elemento do tipo
-  const primeiroEl = t.elementos[0]?.propriedades || {};
-  const descricaoTipo = primeiroEl['Descrição'] || primeiroEl['Description'] || primeiroEl['Comentários de tipo'] || primeiroEl['Type Comments'] || '—';
-  const mapeamentoTipo = mapeamentos.find(m => 
-    m.escopo === 'tipo' && 
-    m.categoria_bim === cat.categoria && 
-    m.familia_bim === fam.familia && 
-    m.tipo_bim === t.tipo
-  );
-
-  return (
-  <Fragment key={`frag-t-${tChave}`}>
-  {/* ── L3: Tipo ── */}
-  <tr
-  key={`tipo-${tChave}`}
-  className={`border-b border-gray-100 group transition-all duration-1000 ${
-    linhaDestacadaChave === tChave 
-      ? 'bg-emerald-100/80 transition-none' 
-      : 'hover:bg-blue-50/30'
-  }`}
-  >
-  <td className="px-3 py-2 text-center pl-12">
-  <button
-  onClick={() => toggleTipoExpandido(tChave)}
-  className="w-5 h-5 rounded hover:bg-gray-200 text-gray-400 hover:text-blue-600 transition-all flex items-center justify-center mx-auto"
-  title="Expandir elementos individuais"
-  >
-  <FontAwesomeIcon icon={tExpandido ? faAngleDown : faAngleRight} className="text-xs" />
-  </button>
-  </td>
-  {/* Nome do tipo — clica apenas para expandir */}
-  <td
-  className="px-4 py-2 text-xs text-gray-700 cursor-pointer hover:text-blue-700 font-medium"
-  onClick={() => toggleTipoExpandido(tChave)}
-  >
-  <div>
-    <div className="font-semibold">{t.tipo === '(sem tipo)' ? <em className="text-gray-400">sem tipo</em> : t.tipo}</div>
-    {descricaoTipo !== '—' && <div className="text-[9px] text-gray-400 max-w-[400px] truncate" title={descricaoTipo}>{descricaoTipo}</div>}
-  </div>
-  </td>
-  {/* Unidade + Quantidade condensados */}
-  <td className="px-4 py-2 text-right">
-    <div className="flex flex-col items-end justify-center">
-      <span className="text-xs font-bold text-gray-800">
-        {medidaAtiva ? fmt2(medidaAtiva.valor) : t.qtd_total}
-      </span>
-      <div className="mt-1">
-        {t.medidas.length === 0 ? (
-          <BadgeUnidade unidade="un" />
-        ) : temMultiplas ? (
-          <div className="flex justify-end gap-1 flex-wrap max-w-[150px]">
-            {t.medidas.map(m => (
-              <BadgeUnidade
-                key={m.chave}
-                unidade={m.unidade}
-                ativo={medidaAtiva?.chave === m.chave}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setMedidasSelecionadas(prev => ({ ...prev, [tChave]: m.chave }));
-                }}
-              />
-            ))}
-          </div>
-        ) : (
-          <BadgeUnidade unidade={medidaAtiva?.unidade || 'un'} />
-        )}
-      </div>
-    </div>
-  </td>
-  <td className="px-4 py-2 text-left">
-    {t.sinapi_revit ? (
-      <span className="bg-indigo-50 text-indigo-700 text-[10px] font-bold px-2 py-0.5 rounded border border-indigo-100 font-mono">
-        {t.sinapi_revit}
-      </span>
-    ) : mapeamentoTipo ? (
-      mapeamentoTipo.sinapi_id ? (
-        <span className="bg-indigo-50 text-indigo-700 text-[10px] font-bold px-2 py-0.5 rounded border border-indigo-100 font-mono">
-          {mapeamentoTipo.sinapi?.["Código da Composição"] || 'SINAPI'}
-        </span>
-      ) : (
-        <span className="bg-emerald-50 text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded border border-emerald-100 font-mono">
-          Próprio
-        </span>
-      )
-    ) : (
-      <span className="text-gray-200 text-[10px]">—</span>
-    )}
-  </td>
-  <td className="px-4 py-2 text-center" onClick={(e) => e.stopPropagation()}>
-    <div className="flex items-center justify-center gap-1.5">
-      <button
-        onClick={() => {
-          const ids = (t.elementos || []).map(el => el.external_id);
-          if (ids.length === 0) {
-            const toastId = toast.loading(`Buscando elementos do tipo ${t.tipo}...`);
-            supabase
-              .from('elementos_bim')
-              .select('external_id')
-              .in('projeto_bim_id', modelosSelecionadosIds.map(Number))
-              .eq('categoria', cat.categoria)
-              .eq('familia', fam.familia)
-              .eq('tipo', t.tipo)
-              .then(({ data, error }) => {
-                toast.dismiss(toastId);
-                if (error) {
-                  console.error(error);
-                  toast.error(`Erro ao buscar elementos do tipo.`);
-                  return;
-                }
-                const queryIds = (data || []).map(el => el.external_id);
-                if (queryIds.length > 0) {
-                  handleShowInModel(queryIds, t.tipo);
-                } else {
-                  toast.warning('Nenhum elemento associado encontrado para exibir.');
-                }
-              });
-          } else {
-            handleShowInModel(ids, t.tipo);
-          }
-        }}
-        className="w-7 h-7 rounded-full text-blue-600 bg-blue-50 hover:bg-blue-100 flex items-center justify-center transition-all"
-        title="Visualizar Tipo no 3D"
-      >
-        <FontAwesomeIcon icon={faCubes} className="text-xs" />
-      </button>
-      {mapeamentoTipo ? (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            setMaterialGerenciar({
-              material_id: mapeamentoTipo.material_id,
-              sinapi_id: mapeamentoTipo.sinapi_id,
-              origem: mapeamentoTipo.material_id ? 'proprio' : 'sinapi',
-              nome: mapeamentoTipo.material?.nome || mapeamentoTipo.sinapi?.descricao || 'Material Vinculado'
-            });
-          }}
-          className="w-7 h-7 rounded-full text-emerald-600 bg-emerald-50 hover:bg-emerald-100 flex items-center justify-center transition-all"
-          title="Gerenciar Vínculo do Tipo"
-        >
-          <FontAwesomeIcon icon={faLink} className="text-xs" />
-        </button>
-      ) : (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            setVinculoModal({
-              propriedade: { nome: '', valor: 0, unidade: 'un' },
-              elemento: {
-                categoria: cat.categoria,
-                familia: fam.familia,
-                tipo: t.tipo
-              }
-            });
-          }}
-          className="w-7 h-7 rounded-full flex items-center justify-center transition-all text-gray-400 hover:text-blue-600 hover:bg-blue-50 opacity-0 group-hover:opacity-100"
-          title="Vincular Tipo a Material"
-        >
-          <FontAwesomeIcon icon={faLink} className="text-xs" />
-        </button>
-      )}
-    </div>
-  </td>
-  </tr>
- 
-  {/* ── L4: Elementos individuais ── */}
-  {tExpandido && t.elementos.map(el => {
-  const props = el.propriedades || {};
-  const valorEl = medidaAtiva ? parseFloat(props[medidaAtiva.chave] || 0) : null;
-  const mapeamentoEl = mapeamentos.find(m => 
-    m.escopo === 'elemento' && 
-    String(m.elemento_id) === String(el.external_id)
-  );
-
-  return (
-  <tr 
-    key={`el-${el.id}`} 
-    onClick={() => {
-      setInspecaoModal({
-        elemento: {
-          id: el.id,
-          external_id: el.external_id,
-          categoria: cat.categoria,
-          familia: fam.familia,
-          tipo: t.tipo,
-          propriedades: el.propriedades
-        }
-      });
-    }}
-    className={`border-b border-gray-50 cursor-pointer transition-colors duration-1000 ${
-      linhaDestacadaChave === `el-${el.id}` 
-        ? 'bg-emerald-100/80 transition-none' 
-        : 'bg-amber-50/20 hover:bg-amber-50/60'
-    }`}
-  >
-  <td className="px-3 py-1.5 pl-16 text-amber-300 text-center">
-  <FontAwesomeIcon icon={faAngleRight} className="text-[10px] opacity-25" />
-  </td>
-  <td className="px-4 py-1.5 text-[10px] text-gray-500">
-  Nome: <span className="font-mono text-gray-600">{props['Name'] || props['Nome'] || props['Mark'] || props['Marca'] || 'Instância'}</span>
-  </td>
-  <td className="px-4 py-1.5 text-right text-[10px] text-gray-600 font-medium">
-  <div className="flex items-center justify-end gap-1.5">
-    <span>{valorEl && valorEl > 0 ? fmt2(valorEl) : '1'}</span>
-    <BadgeUnidade unidade={medidaAtiva?.unidade || 'un'} />
-  </div>
-  </td>
-  <td className="px-4 py-1.5 text-left">
-    {mapeamentoEl ? (
-      mapeamentoEl.sinapi_id ? (
-        <span className="bg-indigo-50 text-indigo-700 text-[9px] font-bold px-1.5 py-0.5 rounded border border-indigo-100 font-mono">
-          {mapeamentoEl.sinapi?.["Código da Composição"] || 'SINAPI'}
-        </span>
-      ) : (
-        <span className="bg-emerald-50 text-emerald-700 text-[9px] font-bold px-1.5 py-0.5 rounded border border-emerald-100 font-mono">
-          Próprio
-        </span>
-      )
-    ) : props['SINAPI'] ? (
-      <span className="text-[9px] font-mono text-indigo-450">{props['SINAPI']}</span>
-    ) : (
-      <span className="text-gray-255 text-[9px]">—</span>
-    )}
-  </td>
-  <td className="px-4 py-1.5 text-center text-[10px]" onClick={(e) => e.stopPropagation()}>
-    <div className="flex items-center justify-center gap-1.5">
-      <button
-        onClick={() => handleShowInModel([el.external_id], props['Name'] || props['Nome'] || 'Instância')}
-        className="w-6 h-6 rounded-full text-blue-600 bg-blue-50 hover:bg-blue-100 flex items-center justify-center transition-all"
-        title="Visualizar Instância no 3D"
-      >
-        <FontAwesomeIcon icon={faCubes} className="text-[9px]" />
-      </button>
-      {mapeamentoEl ? (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            setMaterialGerenciar({
-              material_id: mapeamentoEl.material_id,
-              sinapi_id: mapeamentoEl.sinapi_id,
-              origem: mapeamentoEl.material_id ? 'proprio' : 'sinapi',
-              nome: mapeamentoEl.material?.nome || mapeamentoEl.sinapi?.descricao || 'Material Vinculado'
-            });
-          }}
-          className="w-6 h-6 rounded-full text-emerald-600 bg-emerald-50 hover:bg-emerald-100 flex items-center justify-center transition-all"
-          title="Gerenciar Vínculo da Instância"
-        >
-          <FontAwesomeIcon icon={faLink} className="text-[10px]" />
-        </button>
-      ) : (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            setInspecaoModal({
-              elemento: {
-                id: el.id,
-                external_id: el.external_id,
-                categoria: cat.categoria,
-                familia: fam.familia,
-                tipo: t.tipo,
-                propriedades: el.propriedades
-              }
-            });
-          }}
-          className="w-6 h-6 rounded-full flex items-center justify-center transition-all text-gray-400 hover:text-blue-600 hover:bg-blue-50 opacity-0 group-hover:opacity-100"
-          title="Visualizar Propriedades da Instância"
-        >
-          <FontAwesomeIcon icon={faLink} className="text-[10px]" />
-        </button>
-      )}
-    </div>
-  </td>
+  <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+   <table className="w-full text-sm border-collapse">
+   <thead className="bg-gray-50/75 border-b border-gray-200 sticky top-0 z-10">
+   <tr>
+   <th className="px-3 py-3 text-left text-xs font-bold text-gray-500 uppercase w-10"></th>
+   <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Família / Tipo / Categoria</th>
+   <th className="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider w-40">Quantidade</th>
+   <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider w-36">SINAPI Revit</th>
+   <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider w-16">Ações</th>
    </tr>
-  );
-  })}
-  </Fragment>
-  );
-  })}
-  </Fragment>
-  );
-  })}
-  </Fragment>
-  );
-  })}
-  </tbody>
-  </table>
-</div>
+   </thead>
+   <tbody>
+   {gruposFiltrados.map(cat => {
+   const catExpandida = categoriasExpandidas.has(cat.categoria);
+   const mapeamentoCat = mapeamentos.find(m =>
+     m.escopo === 'categoria' &&
+     m.categoria_bim === cat.categoria
+   );
+   const elementosCat = todosElementos.filter(el => el.categoria === cat.categoria);
+   const propriedadesCat = extrairPropriedadesAcumuladas(elementosCat);
+
+   return (
+   <Fragment key={`frag-cat-${cat.categoria}`}>
+   {/* ── L1: Categoria ── */}
+   <tr
+     key={`cat-${cat.categoria}`}
+     onClick={() => {
+       carregarFamiliasDaCategoria(cat.categoria);
+       toggleCategoria(cat.categoria);
+     }}
+     className={`bg-gray-200 cursor-pointer hover:bg-gray-300 transition-all duration-1000 border-t-2 border-gray-300 group ${
+       linhaDestacadaChave === `cat-${cat.categoria}` 
+         ? 'bg-emerald-100/80 transition-none' 
+         : ''
+     }`}
+   >
+   <td className="px-3 py-2.5 text-center">
+   <FontAwesomeIcon icon={catExpandida ? faAngleDown : faAngleRight} className="text-gray-500" />
+   </td>
+   <td className="px-4 py-2.5 font-bold text-gray-700 text-xs uppercase tracking-wide">
+   <FontAwesomeIcon icon={faLayerGroup} className="mr-2 text-blue-500" />
+   {cat.categoria}
+   </td>
+   <td className="px-4 py-2.5 text-right text-xs font-bold text-gray-600">
+   {cat.total_elementos.toLocaleString('pt-BR')} elem.
+   </td>
+   <td className="px-4 py-2.5 text-left">
+   {mapeamentoCat ? (
+     mapeamentoCat.sinapi_id ? (
+       <span className="bg-indigo-50 text-indigo-700 text-[10px] font-bold px-2 py-0.5 rounded border border-indigo-100 font-mono">
+         {mapeamentoCat.sinapi?.["Código da Composição"] || 'SINAPI'}
+       </span>
+     ) : (
+       <span className="bg-emerald-50 text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded border border-emerald-100 font-mono">
+         Próprio
+       </span>
+     )
+   ) : (
+     <span className="text-gray-300 text-[10px] font-normal">—</span>
+   )}
+   </td>
+   <td className="px-4 py-2.5 text-center" onClick={(e) => e.stopPropagation()}>
+     <div className="flex items-center justify-center gap-1.5">
+       <button
+         onClick={() => selecionarCategoriaNo3D(cat, false)}
+         className="w-7 h-7 rounded-full text-blue-600 bg-blue-50 hover:bg-blue-100 flex items-center justify-center transition-all"
+         title="Visualizar Categoria no 3D"
+       >
+         <FontAwesomeIcon icon={faCubes} className="text-xs" />
+       </button>
+       {mapeamentoCat ? (
+         <button
+           onClick={(e) => {
+             e.stopPropagation();
+             selecionarCategoriaNo3D(cat, true);
+             setMaterialGerenciar({
+               material_id: mapeamentoCat.material_id,
+               sinapi_id: mapeamentoCat.sinapi_id,
+               origem: mapeamentoCat.material_id ? 'proprio' : 'sinapi',
+               nome: mapeamentoCat.material?.nome || mapeamentoCat.sinapi?.descricao || 'Material Vinculado'
+             });
+           }}
+           className="w-7 h-7 rounded-full text-emerald-600 bg-emerald-50 hover:bg-emerald-100 flex items-center justify-center transition-all"
+           title="Gerenciar Vínculo da Categoria"
+         >
+           <FontAwesomeIcon icon={faLink} className="text-xs" />
+         </button>
+       ) : (
+         <button
+           onClick={(e) => {
+             e.stopPropagation();
+             selecionarCategoriaNo3D(cat, true);
+             setVinculoModal({
+               propriedade: { nome: '', valor: 0, unidade: 'un' },
+               elemento: {
+                 categoria: cat.categoria,
+                 familia: null,
+                 tipo: null,
+                 total_elementos: cat.total_elementos
+               }
+             });
+           }}
+           className="w-7 h-7 rounded-full flex items-center justify-center transition-all text-gray-400 hover:text-blue-600 hover:bg-blue-50 opacity-0 group-hover:opacity-100"
+           title="Vincular Categoria a Material"
+         >
+           <FontAwesomeIcon icon={faLink} className="text-xs" />
+         </button>
+       )}
+     </div>
+   </td>
+   </tr>
+  
+   {catExpandida && cat.carregandoFamilias && (
+      <tr key={`loading-cat-${cat.categoria}`} className="bg-gray-50/50">
+        <td className="px-3 py-3 text-center pl-10" colSpan={5}>
+          <div className="flex items-center gap-2 text-xs text-blue-600 font-black animate-pulse">
+            <FontAwesomeIcon icon={faSpinner} spin className="text-xs" />
+            <span>Buscando famílias da categoria no banco de dados...</span>
+          </div>
+        </td>
+      </tr>
+    )}
+  
+    {catExpandida && !cat.carregandoFamilias && cat.familias.length === 0 && (
+      <tr key={`empty-cat-${cat.categoria}`} className="bg-gray-50/30">
+        <td className="px-3 py-3 text-center pl-10 text-xs text-gray-400 font-semibold italic" colSpan={5}>
+          Nenhuma família encontrada para esta categoria.
+        </td>
+      </tr>
+    )}
+  
+    {catExpandida && !cat.carregandoFamilias && cat.familias.map(fam => {
+   const famChave = `${cat.categoria}|||${fam.familia}`;
+   const famExpandida = familiasExpandidas.has(famChave);
+   const mapeamentoFam = mapeamentos.find(m =>
+     m.escopo === 'familia' &&
+     m.categoria_bim === cat.categoria &&
+     m.familia_bim === fam.familia
+   );
+   const elementosFam = todosElementos.filter(el => el.categoria === cat.categoria && el.familia === fam.familia);
+   const propriedadesFam = extrairPropriedadesAcumuladas(elementosFam);
+
+   return (
+   <Fragment key={`frag-fam-${famChave}`}>
+   {/* ── L2: Família ── */}
+   <tr
+   key={`fam-${famChave}`}
+   className={`bg-blue-50 cursor-pointer hover:bg-blue-100 transition-all duration-1000 border-t border-blue-100 group ${
+     linhaDestacadaChave === `fam-${famChave}` 
+       ? 'bg-emerald-100/80 transition-none' 
+       : ''
+   }`}
+   >
+   <td
+   className="px-3 py-2 text-center pl-7"
+   onClick={() => toggleFamiliaExpandida(famChave)}
+   >
+   <FontAwesomeIcon icon={famExpandida ? faAngleDown : faAngleRight} className="text-blue-400 text-xs" />
+   </td>
+   <td
+   className="px-4 py-2 font-semibold text-blue-800 text-xs"
+   onClick={() => toggleFamiliaExpandida(famChave)}
+   >
+   {fam.familia}
+   <span className="ml-2 text-[10px] text-blue-400 font-normal">
+   {fam.tipos.length} tipo{fam.tipos.length !== 1 ? 's' : ''}
+   </span>
+   </td>
+   <td
+   className="px-4 py-2 text-right text-xs font-bold text-blue-600"
+   onClick={() => toggleFamiliaExpandida(famChave)}
+   >
+   {fam.total_elementos.toLocaleString('pt-BR')} elem.
+   </td>
+   <td className="px-4 py-2 text-left">
+   {mapeamentoFam ? (
+     mapeamentoFam.sinapi_id ? (
+       <span className="bg-indigo-50 text-indigo-700 text-[10px] font-bold px-2 py-0.5 rounded border border-indigo-100 font-mono">
+         {mapeamentoFam.sinapi?.["Código da Composição"] || 'SINAPI'}
+       </span>
+     ) : (
+       <span className="bg-emerald-50 text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded border border-emerald-100 font-mono">
+         Próprio
+       </span>
+     )
+   ) : (
+     <span className="text-gray-300 text-[10px] font-normal">—</span>
+   )}
+   </td>
+   <td className="px-4 py-2 text-center" onClick={(e) => e.stopPropagation()}>
+     <div className="flex items-center justify-center gap-1.5">
+       <button
+         onClick={() => selecionarFamiliaNo3D(cat, fam, false)}
+         className="w-7 h-7 rounded-full text-blue-600 bg-blue-50 hover:bg-blue-100 flex items-center justify-center transition-all"
+         title="Visualizar Família no 3D"
+       >
+         <FontAwesomeIcon icon={faCubes} className="text-xs" />
+       </button>
+       {mapeamentoFam ? (
+         <button
+           onClick={(e) => {
+             e.stopPropagation();
+             selecionarFamiliaNo3D(cat, fam, true);
+             setMaterialGerenciar({
+               material_id: mapeamentoFam.material_id,
+               sinapi_id: mapeamentoFam.sinapi_id,
+               origem: mapeamentoFam.material_id ? 'proprio' : 'sinapi',
+               nome: mapeamentoFam.material?.nome || mapeamentoFam.sinapi?.descricao || 'Material Vinculado'
+             });
+           }}
+           className="w-7 h-7 rounded-full text-emerald-600 bg-emerald-50 hover:bg-emerald-100 flex items-center justify-center transition-all"
+           title="Gerenciar Vínculo da Família"
+         >
+           <FontAwesomeIcon icon={faLink} className="text-xs" />
+         </button>
+       ) : (
+         <button
+           onClick={(e) => {
+             e.stopPropagation();
+             selecionarFamiliaNo3D(cat, fam, true);
+             setVinculoModal({
+               propriedade: { nome: '', valor: 0, unidade: 'un' },
+               elemento: {
+                 categoria: cat.categoria,
+                 familia: fam.familia,
+                 tipo: null,
+                 total_elementos: fam.total_elementos
+               }
+             });
+           }}
+           className="w-7 h-7 rounded-full flex items-center justify-center transition-all text-gray-400 hover:text-blue-600 hover:bg-blue-50 opacity-0 group-hover:opacity-100"
+           title="Vincular Família a Material"
+         >
+           <FontAwesomeIcon icon={faLink} className="text-xs" />
+         </button>
+       )}
+     </div>
+   </td>
+   </tr>
+  
+   {famExpandida && fam.carregando && (
+   <tr key={`loading-fam-${famChave}`} className="bg-gray-50/20">
+   <td className="px-3 py-3.5 text-center pl-12" colSpan={5}>
+   <div className="flex items-center gap-2 text-xs text-blue-600 font-black animate-pulse">
+   <FontAwesomeIcon icon={faSpinner} spin className="text-xs" />
+   <span>Buscando tipos e medidas no banco de dados...</span>
+   </div>
+   </td>
+   </tr>
+   )}
+  
+   {famExpandida && !fam.carregando && fam.tipos.map((t, idx) => {
+   const tChave = tipoChave(cat.categoria, fam.familia, t.tipo);
+   const tExpandido = tiposExpandidos.has(tChave);
+   const medidaAtiva = getMedidaAtiva(cat.categoria, fam.familia, t);
+   const temMultiplas = t.medidas.length > 1;
+   const propriedadesTipo = extrairPropriedadesAcumuladas(t.elementos || []);
+  
+   // Extrair descrição do primeiro elemento do tipo
+   const primeiroEl = t.elementos[0]?.propriedades || {};
+   const descricaoTipo = primeiroEl['Descrição'] || primeiroEl['Description'] || primeiroEl['Comentários de tipo'] || primeiroEl['Type Comments'] || '—';
+   const mapeamentoTipo = mapeamentos.find(m => 
+     m.escopo === 'tipo' && 
+     m.categoria_bim === cat.categoria && 
+     m.familia_bim === fam.familia && 
+     m.tipo_bim === t.tipo
+   );
+
+   return (
+   <Fragment key={`frag-t-${tChave}`}>
+   {/* ── L3: Tipo ── */}
+   <tr
+   key={`tipo-${tChave}`}
+   className={`border-b border-gray-100 group transition-all duration-1000 ${
+     linhaDestacadaChave === tChave 
+       ? 'bg-emerald-100/80 transition-none' 
+       : 'hover:bg-blue-50/30'
+   }`}
+   >
+   <td className="px-3 py-2 text-center pl-12">
+   <button
+   onClick={() => toggleTipoExpandido(tChave)}
+   className="w-5 h-5 rounded hover:bg-gray-200 text-gray-400 hover:text-blue-600 transition-all flex items-center justify-center mx-auto"
+   title="Expandir elementos individuais"
+   >
+   <FontAwesomeIcon icon={tExpandido ? faAngleDown : faAngleRight} className="text-xs" />
+   </button>
+   </td>
+   {/* Nome do tipo — clica apenas para expandir */}
+   <td
+   className="px-4 py-2 text-xs text-gray-700 cursor-pointer hover:text-blue-700 font-medium"
+   onClick={() => toggleTipoExpandido(tChave)}
+   >
+   <div>
+     <div className="font-semibold">{t.tipo === '(sem tipo)' ? <em className="text-gray-400">sem tipo</em> : t.tipo}</div>
+     {descricaoTipo !== '—' && <div className="text-[9px] text-gray-400 max-w-[400px] truncate" title={descricaoTipo}>{descricaoTipo}</div>}
+   </div>
+   </td>
+   {/* Unidade + Quantidade condensados */}
+   <td className="px-4 py-2 text-right">
+     <div className="flex flex-col items-end justify-center">
+       <span className="text-xs font-bold text-gray-800">
+         {medidaAtiva ? fmt2(medidaAtiva.valor) : t.qtd_total}
+       </span>
+       <div className="mt-1">
+         {t.medidas.length === 0 ? (
+           <BadgeUnidade unidade="un" />
+         ) : temMultiplas ? (
+           <div className="flex justify-end gap-1 flex-wrap max-w-[150px]">
+             {t.medidas.map(m => (
+               <BadgeUnidade
+                 key={m.chave}
+                 unidade={m.unidade}
+                 ativo={medidaAtiva?.chave === m.chave}
+                 onClick={(e) => {
+                   e.stopPropagation();
+                   setMedidasSelecionadas(prev => ({ ...prev, [tChave]: m.chave }));
+                 }}
+               />
+             ))}
+           </div>
+         ) : (
+           <BadgeUnidade unidade={medidaAtiva?.unidade || 'un'} />
+         )}
+       </div>
+     </div>
+   </td>
+   <td className="px-4 py-2 text-left">
+     {t.sinapi_revit ? (
+       <span className="bg-indigo-50 text-indigo-700 text-[10px] font-bold px-2 py-0.5 rounded border border-indigo-100 font-mono">
+         {t.sinapi_revit}
+       </span>
+     ) : mapeamentoTipo ? (
+       mapeamentoTipo.sinapi_id ? (
+         <span className="bg-indigo-50 text-indigo-700 text-[10px] font-bold px-2 py-0.5 rounded border border-indigo-100 font-mono">
+           {mapeamentoTipo.sinapi?.["Código da Composição"] || 'SINAPI'}
+         </span>
+       ) : (
+         <span className="bg-emerald-55 text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded border border-emerald-100 font-mono">
+           Próprio
+         </span>
+       )
+     ) : (
+       <span className="text-gray-200 text-[10px]">—</span>
+     )}
+   </td>
+   <td className="px-4 py-2 text-center" onClick={(e) => e.stopPropagation()}>
+     <div className="flex items-center justify-center gap-1.5">
+       <button
+         onClick={() => selecionarTipoNo3D(cat, fam, t, false)}
+         className="w-7 h-7 rounded-full text-blue-600 bg-blue-50 hover:bg-blue-100 flex items-center justify-center transition-all"
+         title="Visualizar Tipo no 3D"
+       >
+         <FontAwesomeIcon icon={faCubes} className="text-xs" />
+       </button>
+       {mapeamentoTipo ? (
+         <button
+           onClick={(e) => {
+             e.stopPropagation();
+             selecionarTipoNo3D(cat, fam, t, true);
+             setMaterialGerenciar({
+               material_id: mapeamentoTipo.material_id,
+               sinapi_id: mapeamentoTipo.sinapi_id,
+               origem: mapeamentoTipo.material_id ? 'proprio' : 'sinapi',
+               nome: mapeamentoTipo.material?.nome || mapeamentoTipo.sinapi?.descricao || 'Material Vinculado'
+             });
+           }}
+           className="w-7 h-7 rounded-full text-emerald-600 bg-emerald-50 hover:bg-emerald-100 flex items-center justify-center transition-all"
+           title="Gerenciar Vínculo do Tipo"
+         >
+           <FontAwesomeIcon icon={faLink} className="text-xs" />
+         </button>
+       ) : (
+         <button
+           onClick={(e) => {
+             e.stopPropagation();
+             selecionarTipoNo3D(cat, fam, t, true);
+             setVinculoModal({
+               propriedade: { nome: '', valor: 0, unidade: 'un' },
+               elemento: {
+                 categoria: cat.categoria,
+                 familia: fam.familia,
+                 tipo: t.tipo,
+                 total_elementos: t.qtd_total
+               }
+             });
+           }}
+           className="w-7 h-7 rounded-full flex items-center justify-center transition-all text-gray-400 hover:text-blue-600 hover:bg-blue-50 opacity-0 group-hover:opacity-100"
+           title="Vincular Tipo a Material"
+         >
+           <FontAwesomeIcon icon={faLink} className="text-xs" />
+         </button>
+       )}
+     </div>
+   </td>
+   </tr>
+  
+   {/* ── L4: Elementos individuais ── */}
+   {tExpandido && t.elementos.map(el => {
+   const props = el.propriedades || {};
+   const valorEl = medidaAtiva ? parseFloat(props[medidaAtiva.chave] || 0) : null;
+   const mapeamentoEl = mapeamentos.find(m => 
+     m.escopo === 'elemento' && 
+     String(m.elemento_id) === String(el.external_id)
+   );
+
+   return (
+   <tr 
+     key={`el-${el.id}`} 
+     onClick={() => {
+       setInspecaoModal({
+         elemento: {
+           id: el.id,
+           external_id: el.external_id,
+           categoria: cat.categoria,
+           familia: fam.familia,
+           tipo: t.tipo,
+           propriedades: el.propriedades
+         }
+       });
+     }}
+     className={`border-b border-gray-55 cursor-pointer transition-colors duration-1000 ${
+       linhaDestacadaChave === `el-${el.id}` 
+         ? 'bg-emerald-100/80 transition-none' 
+         : 'bg-amber-50/20 hover:bg-amber-50/60'
+     }`}
+   >
+   <td className="px-3 py-1.5 pl-16 text-amber-300 text-center">
+   <FontAwesomeIcon icon={faAngleRight} className="text-[10px] opacity-25" />
+   </td>
+   <td className="px-4 py-1.5 text-[10px] text-gray-555">
+   Nome: <span className="font-mono text-gray-655">{props['Name'] || props['Nome'] || props['Mark'] || props['Marca'] || 'Instância'}</span>
+   </td>
+   <td className="px-4 py-1.5 text-right text-[10px] text-gray-655 font-medium">
+   <div className="flex items-center justify-end gap-1.5">
+     <span>{valorEl && valorEl > 0 ? fmt2(valorEl) : '1'}</span>
+     <BadgeUnidade unidade={medidaAtiva?.unidade || 'un'} />
+   </div>
+   </td>
+   <td className="px-4 py-1.5 text-left">
+     {mapeamentoEl ? (
+       mapeamentoEl.sinapi_id ? (
+         <span className="bg-indigo-50 text-indigo-700 text-[9px] font-bold px-1.5 py-0.5 rounded border border-indigo-100 font-mono">
+           {mapeamentoEl.sinapi?.["Código da Composição"] || 'SINAPI'}
+         </span>
+       ) : (
+         <span className="bg-emerald-50 text-emerald-700 text-[9px] font-bold px-1.5 py-0.5 rounded border border-emerald-100 font-mono">
+           Próprio
+         </span>
+       )
+     ) : props['SINAPI'] ? (
+       <span className="text-[9px] font-mono text-indigo-450">{props['SINAPI']}</span>
+     ) : (
+       <span className="text-gray-255 text-[9px]">—</span>
+     )}
+   </td>
+   <td className="px-4 py-1.5 text-center text-[10px]" onClick={(e) => e.stopPropagation()}>
+     <div className="flex items-center justify-center gap-1.5">
+       <button
+         onClick={() => handleShowInModel([el.external_id], props['Name'] || props['Nome'] || 'Instância', false)}
+         className="w-6 h-6 rounded-full text-blue-600 bg-blue-50 hover:bg-blue-100 flex items-center justify-center transition-all"
+         title="Visualizar Instância no 3D"
+       >
+         <FontAwesomeIcon icon={faCubes} className="text-[9px]" />
+       </button>
+       {mapeamentoEl ? (
+         <button
+           onClick={(e) => {
+             e.stopPropagation();
+             setMaterialGerenciar({
+               material_id: mapeamentoEl.material_id,
+               sinapi_id: mapeamentoEl.sinapi_id,
+               origem: mapeamentoEl.material_id ? 'proprio' : 'sinapi',
+               nome: mapeamentoEl.material?.nome || mapeamentoEl.sinapi?.descricao || 'Material Vinculado'
+             });
+           }}
+           className="w-6 h-6 rounded-full text-emerald-600 bg-emerald-55 hover:bg-emerald-100 flex items-center justify-center transition-all"
+           title="Gerenciar Vínculo da Instância"
+         >
+           <FontAwesomeIcon icon={faLink} className="text-[10px]" />
+         </button>
+       ) : (
+         <button
+           onClick={(e) => {
+             e.stopPropagation();
+             setInspecaoModal({
+               elemento: {
+                 id: el.id,
+                 external_id: el.external_id,
+                 categoria: cat.categoria,
+                 familia: fam.familia,
+                 tipo: t.tipo,
+                 propriedades: el.propriedades
+               }
+             });
+           }}
+           className="w-6 h-6 rounded-full flex items-center justify-center transition-all text-gray-400 hover:text-blue-600 hover:bg-blue-50 opacity-0 group-hover:opacity-100"
+           title="Visualizar Propriedades da Instância"
+         >
+           <FontAwesomeIcon icon={faLink} className="text-[10px]" />
+         </button>
+       )}
+     </div>
+   </td>
+    </tr>
+   );
+   })}
+   </Fragment>
+   );
+   })}
+   </Fragment>
+   );
+   })}
+   </Fragment>
+   );
+   })}
+   </tbody>
+   </table>
+ </div>
  )}
  </>
  )}

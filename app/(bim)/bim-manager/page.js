@@ -61,6 +61,59 @@ export default function BimManagerPage() {
  const [isQuantitativosOpen, setIsQuantitativosOpen] = useState(false);
  const [activeMainTab, setActiveMainTab] = useState('viewer'); // 'viewer' | 'orcamento'
 
+ // ─── Persistência do Cockpit BIM (Anti-F5) ───
+ const didRestoreLayoutRef = useRef(false);
+
+ useEffect(() => {
+   if (didRestoreLayoutRef.current) return;
+
+   try {
+     const savedSidebar = localStorage.getItem('bim_layout_isSidebarVisible');
+     if (savedSidebar !== null) setIsSidebarVisible(savedSidebar === 'true');
+
+     const savedInspector = localStorage.getItem('bim_layout_isInspectorVisible');
+     if (savedInspector !== null) setIsInspectorVisible(savedInspector === 'true');
+
+     const savedGantt = localStorage.getItem('bim_layout_isGanttOpen');
+     if (savedGantt !== null) setIsGanttOpen(savedGantt === 'true');
+
+     const savedQuantitativos = localStorage.getItem('bim_layout_isQuantitativosOpen');
+     if (savedQuantitativos !== null) setIsQuantitativosOpen(savedQuantitativos === 'true');
+
+     const savedMainTab = localStorage.getItem('bim_layout_activeMainTab');
+     if (savedMainTab) setActiveMainTab(savedMainTab);
+   } catch (e) {
+     console.warn('[BimManager] Erro ao restaurar layout do localStorage:', e);
+   }
+
+   didRestoreLayoutRef.current = true;
+ }, []);
+
+ useEffect(() => {
+   if (!didRestoreLayoutRef.current) return;
+   localStorage.setItem('bim_layout_isSidebarVisible', String(isSidebarVisible));
+ }, [isSidebarVisible]);
+
+ useEffect(() => {
+   if (!didRestoreLayoutRef.current) return;
+   localStorage.setItem('bim_layout_isInspectorVisible', String(isInspectorVisible));
+ }, [isInspectorVisible]);
+
+ useEffect(() => {
+   if (!didRestoreLayoutRef.current) return;
+   localStorage.setItem('bim_layout_isGanttOpen', String(isGanttOpen));
+ }, [isGanttOpen]);
+
+ useEffect(() => {
+   if (!didRestoreLayoutRef.current) return;
+   localStorage.setItem('bim_layout_isQuantitativosOpen', String(isQuantitativosOpen));
+ }, [isQuantitativosOpen]);
+
+ useEffect(() => {
+   if (!didRestoreLayoutRef.current) return;
+   localStorage.setItem('bim_layout_activeMainTab', activeMainTab);
+ }, [activeMainTab]);
+
  // 4. Hook de Gerenciamento de Modelos
  const { loadedFiles, selectedModels, handleToggleModel, handleLoadSet, handleClearAll,
  loadedModelsRef } = useBimModels(viewerInstance, setIsGanttOpen);
@@ -159,15 +212,15 @@ export default function BimManagerPage() {
  }, [viewerInstance, fileInUse, handleClearAll, handleToggleModel]);
 
  // Fecha o dropdown ao clicar fora
- useEffect(() => {
-  const clickOutside = (e) => {
-    if (vistasDropdownRef.current && !vistasDropdownRef.current.contains(e.target)) {
-      setIsVistasDropdownOpen(false);
-    }
-  };
-  document.addEventListener('mousedown', clickOutside);
-  return () => document.removeEventListener('mousedown', clickOutside);
- }, []);
+   useEffect(() => {
+    const clickOutside = (e) => {
+      if (vistasDropdownRef.current && !vistasDropdownRef.current.contains(e.target)) {
+        setIsVistasDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', clickOutside);
+    return () => document.removeEventListener('mousedown', clickOutside);
+   }, []);
 
  // Filtra atividades visíveis com base nos projetos carregados (para o Gantt)
  const visibleActivities = useMemo(() => {
@@ -203,9 +256,15 @@ export default function BimManagerPage() {
     await selectExternalIdsInViewer(externalIdsToSelect, `elementos vinculados selecionados.`);
   };
 
-  // Tratar comando de seleção vindo do Quantitativos Overlay
-  const handleShowQuantitativos = (externalIds, label, modelos) => {
-    setActiveMainTab('viewer');
+  // Tratar comando de seleção vindo do Quantitativos Overlay (parâmetro silent adicionado)
+  const handleShowQuantitativos = (externalIds, label, modelosOrSilent, silentParam) => {
+    // Se o terceiro parâmetro for boolean, significa que o chamador passou (ids, label, silent) em vez de (ids, label, modelos, silent)
+    const silent = typeof modelosOrSilent === 'boolean' ? modelosOrSilent : (silentParam === true);
+    const modelos = typeof modelosOrSilent === 'boolean' ? null : modelosOrSilent;
+
+    if (!silent) {
+      setActiveMainTab('viewer');
+    }
     if (modelos && modelos.length > 0) {
       // Filtrar preventivamente apenas arquivos válidos (ignorando os de status Erro) para evitar auto-load de arquivos inválidos
       const modelosValidos = modelos.filter(m => m.status?.toLowerCase() !== 'erro');
@@ -464,10 +523,10 @@ export default function BimManagerPage() {
  }
  }, [viewerInstance, loadedFiles]); // Roda quando o viewer inicia ou novos arquivos carregam
  const handleOpenLink = (targetData) => {
- resolveSelection(targetData, (ids) => {
- setContextTarget({ ...targetData, externalIds: ids });
- setIsLinkModalOpen(true);
- });
+  resolveSelection(targetData, (ids) => {
+  setContextTarget({ ...targetData, externalIds: ids });
+  setIsLinkModalOpen(true);
+  });
  };
 
  // ABRIR MODAL DE CRIAÇÃO (CORRIGIDO PARA EVITAR ERRO DE SCHEMA)
@@ -483,70 +542,70 @@ export default function BimManagerPage() {
 
  // EXECUTAR VÍNCULO (Apenas Link)
  const executeLink = async (activityId) => {
- if (!contextTarget || !activityId) {
- toast.error("Dados incompletos para vínculo.");
- return;
- }
+  if (!contextTarget || !activityId) {
+  toast.error("Dados incompletos para vínculo.");
+  return;
+  }
 
- const ids = contextTarget.externalIds || [contextTarget.externalId];
- const rows = ids.map(id => ({ organizacao_id: organizacao_id || user?.user_metadata?.organizacao_id, atividade_id: activityId, projeto_bim_id: contextTarget.projetoBimId, external_id: String(id) }));
+  const ids = contextTarget.externalIds || [contextTarget.externalId];
+  const rows = ids.map(id => ({ organizacao_id: organizacao_id || user?.user_metadata?.organizacao_id, atividade_id: activityId, projeto_bim_id: contextTarget.projetoBimId, external_id: String(id) }));
 
- const { error } = await supabase
- .from('atividades_elementos')
- .upsert(rows, { onConflict: 'atividade_id, projeto_bim_id, external_id' });
+  const { error } = await supabase
+  .from('atividades_elementos')
+  .upsert(rows, { onConflict: 'atividade_id, projeto_bim_id, external_id' });
 
- if (!error) { toast.success("Atividade vinculada com sucesso!"); setIsLinkModalOpen(false); setContextTarget(null); queryClient.invalidateQueries(['bimElementLinks']); queryClient.invalidateQueries(['bimActivities']);
- } else {
- console.error(error);
- toast.error("Erro ao salvar vínculo.");
- }
+  if (!error) { toast.success("Atividade vinculada com sucesso!"); setIsLinkModalOpen(false); setContextTarget(null); queryClient.invalidateQueries(['bimElementLinks']); queryClient.invalidateQueries(['bimActivities']);
+  } else {
+  console.error(error);
+  toast.error("Erro ao salvar vínculo.");
+  }
  };
 
  // CALLBACK APÓS CRIAR NOVA ATIVIDADE (CORRIGIDO: VINCULA APÓS CRIAR)
  // O AtividadeModal precisa chamar onSuccess(novaAtividade)
  const executeCreate = async (novaAtividade) => { setIsCreateModalOpen(false); // Verifica se o modal retornou a atividade e se temos itens para vincular
- if (novaAtividade?.id && contextTarget?.ids_para_vincular) {
- try {
- const rows = contextTarget.ids_para_vincular.map(id => ({ organizacao_id: organizacao_id || user?.user_metadata?.organizacao_id, atividade_id: novaAtividade.id, projeto_bim_id: contextTarget.projetoBimId, external_id: String(id) }));
+  if (novaAtividade?.id && contextTarget?.ids_para_vincular) {
+  try {
+  const rows = contextTarget.ids_para_vincular.map(id => ({ organizacao_id: organizacao_id || user?.user_metadata?.organizacao_id, atividade_id: novaAtividade.id, projeto_bim_id: contextTarget.projetoBimId, external_id: String(id) }));
 
- const { error } = await supabase
- .from('atividades_elementos') // TABELA CERTA DE VINCULOS
- .insert(rows);
+  const { error } = await supabase
+  .from('atividades_elementos') // TABELA CERTA DE VINCULOS
+  .insert(rows);
 
- if (error) throw error;
- toast.success("Atividade criada e vinculada automaticamente!");
- } catch (err) {
- console.error("Erro ao vincular após criar:", err);
- toast.warning("Atividade criada, mas houve erro ao vincular elementos.");
- }
- } else {
- // Se o modal não retornar o objeto, apenas fecha
- if (contextTarget) toast.success("Atividade criada.");
- }
+  if (error) throw error;
+  toast.success("Atividade criada e vinculada automaticamente!");
+  } catch (err) {
+  console.error("Erro ao vincular após criar:", err);
+  toast.warning("Atividade criada, mas houve erro ao vincular elementos.");
+  }
+  } else {
+  // Se o modal não retornar o objeto, apenas fecha
+  if (contextTarget) toast.success("Atividade criada.");
+  }
 
- setActivityToEdit(null); setModalInitialData(null); setContextTarget(null);
- queryClient.invalidateQueries(['bimActivities']);
- queryClient.invalidateQueries(['bimElementLinks']); // Atualiza painel lateral
+  setActivityToEdit(null); setModalInitialData(null); setContextTarget(null);
+  queryClient.invalidateQueries(['bimActivities']);
+  queryClient.invalidateQueries(['bimElementLinks']); // Atualiza painel lateral
  };
 
  // Sincronizar propriedades
  const handleSelectContext = useCallback(async (ctx) => {
- if (ctx.type === 'sync' && viewerInstance) {
- const urnClean = ctx.file.urn_autodesk.replace(/^urn:/, '');
- const m = loadedModelsRef.current[urnClean];
- if(m) { toast.promise(
- extrairDadosDoModelo(m, ctx.file.id, organizacao_id),
- {
- loading: 'Extraindo dados...',
- success: 'Sincronizado!',
- error: 'Erro na extração.'
- }
- );
- setTimeout(() => queryClient.invalidateQueries(['bimElementProperties']), 2000);
- } else {
- toast.error("Modelo não carregado.");
- }
- }
+  if (ctx.type === 'sync' && viewerInstance) {
+  const urnClean = ctx.file.urn_autodesk.replace(/^urn:/, '');
+  const m = loadedModelsRef.current[urnClean];
+  if(m) { toast.promise(
+  extrairDadosDoModelo(m, ctx.file.id, organizacao_id),
+  {
+  loading: 'Extraindo dados...',
+  success: 'Sincronizado!',
+  error: 'Erro na extração.'
+  }
+  );
+  setTimeout(() => queryClient.invalidateQueries(['bimElementProperties']), 2000);
+  } else {
+  toast.error("Modelo não carregado.");
+  }
+  }
  }, [viewerInstance, organizacao_id, queryClient, loadedModelsRef]);
 
  // --- RENDERIZAÇÃO ---
@@ -555,7 +614,7 @@ export default function BimManagerPage() {
  <div className="flex h-screen w-full overflow-hidden bg-gray-50 flex-col font-sans">
  <div className="flex flex-1 overflow-hidden relative">
  {/* BARRA LATERAL ESQUERDA */}
- <div className={`${isSidebarVisible ? 'w-80' : 'w-0'} transition-all duration-300 border-r bg-white z-20 shrink-0 overflow-hidden`}>
+ <div className={`${isSidebarVisible ? 'w-80' : 'w-0'} transition-all duration-350 border-r bg-white z-20 shrink-0 overflow-hidden`}>
  <BimSidebar 
    onFileSelect={(f) => { const clean = f.urn_autodesk.replace(/^urn:/, ''); if(!selectedModels.includes(clean)) handleToggleModel(f); }} 
    onToggleModel={handleToggleModel} 
