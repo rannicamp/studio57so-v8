@@ -95,6 +95,20 @@ export async function GET(request) {
       try {
         console.log(`[CRON Stella] Processando Atividade ID ${act.id} para Contato ID ${act.contato_id}...`);
 
+        // Trava de concorrência atômica: atualiza o status para 'Processando'
+        // para que outras execuções concorrentes do cron não processem o mesmo item.
+        const { data: lockResult, error: lockError } = await supabaseAdmin
+          .from('activities')
+          .update({ status: 'Processando', updated_at: new Date().toISOString() })
+          .eq('id', act.id)
+          .eq('status', 'Não iniciado')
+          .select('id');
+
+        if (lockError || !lockResult || lockResult.length === 0) {
+          console.log(`[CRON Stella] ⏭️ Atividade ID ${act.id} já foi travada ou processada por outra execução concorrente. Ignorando.`);
+          continue;
+        }
+
         // 0. Verificar se piloto automático está ativo para o contato e se o lead está atribuído à Stella
         // Mudamos funilRes para usar limit(1) e evitar erro de múltiplas linhas
         const [contatoInfoRes, stellaUserRes, funilRes] = await Promise.all([
@@ -550,6 +564,19 @@ Observação: Se o template escolhido não possuir variáveis no corpo, retorne 
       } catch (err) {
         console.error(`[CRON Stella Error] Falha ao processar atividade ID ${act.id}:`, err.message);
         resultados.push({ id: act.id, status: 'erro', erro: err.message });
+        
+        try {
+          await supabaseAdmin
+            .from('activities')
+            .update({ 
+              status: 'Não iniciado', 
+              updated_at: new Date().toISOString() 
+            })
+            .eq('id', act.id);
+          console.log(`[CRON Stella] Status da atividade ID ${act.id} revertido para 'Não iniciado' após falha.`);
+        } catch (revertErr) {
+          console.error(`[CRON Stella Error] Falha ao reverter status da atividade ID ${act.id}:`, revertErr.message);
+        }
       }
 
       await new Promise(resolve => setTimeout(resolve, 500));
