@@ -1,4 +1,5 @@
 // app/api/whatsapp/trigger-autopilot/route.js
+export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
@@ -153,11 +154,33 @@ export async function POST(request) {
             const resJson = await res.json();
             templatesDisponiveis = (resJson.data || []).filter(t => t.status === 'APPROVED');
             console.log(`[Trigger Autopilot] Encontrados ${templatesDisponiveis.length} templates aprovados na Meta.`);
+            
+            if (templatesDisponiveis.length === 0) {
+              await supabaseAdmin.from('app_logs').insert({
+                origem: 'STELLA TEMPLATE WARNING',
+                mensagem: `Nenhum template aprovado na Meta foi retornado para a Org ${organizacao_id}.`,
+                payload: { site_response: resJson },
+                organizacao_id: organizacao_id
+              });
+            }
           } else {
+            const errText = await res.text();
             console.warn(`[Trigger Autopilot] Falha ao consultar templates da Meta. Status: ${res.status}`);
+            await supabaseAdmin.from('app_logs').insert({
+              origem: 'STELLA TEMPLATE ERROR',
+              mensagem: `Erro ao consultar templates da Meta (Status ${res.status}) para a Org ${organizacao_id}.`,
+              payload: { response: errText },
+              organizacao_id: organizacao_id
+            });
           }
         } catch (errTemplates) {
           console.error('[Trigger Autopilot] Erro ao buscar templates Meta:', errTemplates.message);
+          await supabaseAdmin.from('app_logs').insert({
+            origem: 'STELLA TEMPLATE ERROR',
+            mensagem: `Erro de rede ao buscar templates Meta para a Org ${organizacao_id}: ${errTemplates.message}`,
+            payload: { stack: errTemplates.stack },
+            organizacao_id: organizacao_id
+          });
         }
       }
     }
@@ -192,7 +215,7 @@ export async function POST(request) {
     const sendTextUrl = `${protocol}://${host}/api/whatsapp/send`;
 
     // 8. Se a IA sugerir o envio de um template (Janela Fechada)
-    if (aiResult.template_selecionado) {
+    if (aiResult.template_selecionado && aiResult.template_selecionado !== 'null') {
       console.log(`[Trigger Autopilot] Stella sugeriu template "${aiResult.template_selecionado}". Enviando...`);
       const sendTemplateResponse = await fetch(sendTextUrl, {
         method: 'POST',
@@ -215,6 +238,15 @@ export async function POST(request) {
       }
 
       return NextResponse.json({ status: 'success', sent_template: aiResult.template_selecionado });
+    }
+
+    // Se a janela estiver fechada, mas a IA não sugeriu nenhum template de reengajamento,
+    // nós bloqueamos sumariamente o envio de texto livre para evitar falhas de entrega da Meta
+    if (!isJanelaAberta) {
+      console.warn(`[Trigger Autopilot Blocked] A janela está fechada e a IA não sugeriu nenhum template Meta. Abortando envio de texto livre para evitar erro de reengajamento.`);
+      return NextResponse.json({ 
+        error: 'Envio de texto livre bloqueado: janela de 24 horas está fechada e nenhum template foi sugerido pela IA.' 
+      }, { status: 400 });
     }
 
     if (!aiResult?.proxima_resposta_sugerida) {
