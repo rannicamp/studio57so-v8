@@ -5,17 +5,9 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '../../utils/supabase/client';
 import { useAuth } from '../../contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner, faEye, faEyeSlash, faTag, faMousePointer, faDatabase, faCheckCircle, faHardHat } from '@fortawesome/free-solid-svg-icons';
+import { faSpinner, faEye, faEyeSlash, faTag, faMousePointer, faDatabase } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 import { useBimMapeamentos } from '../../hooks/bim/useBimMapeamentos';
-
-// Mapeamento de Cores e Rótulos para os Status
-const STATUS_OPTIONS = {
- 'nao_iniciado': { label: 'Não Iniciado', color: 'bg-gray-100 text-gray-600 border-gray-200' },
- 'em_andamento': { label: 'Em Andamento', color: 'bg-blue-50 text-blue-700 border-blue-200' },
- 'pausado': { label: 'Pausado', color: 'bg-blue-600 text-blue-600 border-blue-600' },
- 'concluido': { label: 'Concluído', color: 'bg-green-50 text-green-700 border-green-200' }
-};
 
 export default function BimProperties({ selectedIds = [], elementExternalId, selectedCount, projetoBimId, urnAutodesk }) {
  const supabase = createClient();
@@ -32,7 +24,6 @@ export default function BimProperties({ selectedIds = [], elementExternalId, sel
  const [showEmpty, setShowEmpty] = useState(false);
  const [editingKey, setEditingKey] = useState(null);
  const [tempValue, setTempValue] = useState('');
- const [updatingStatus, setUpdatingStatus] = useState(false);
 
  // Mapeamentos BIM (Quantitativos) - Para mostrar tag 'vinculado'
  const { propriedadesMapeadas } = useBimMapeamentos({ organizacaoId: organizacao_id });
@@ -58,33 +49,6 @@ export default function BimProperties({ selectedIds = [], elementExternalId, sel
     enabled: targetIds.length > 0 && !!organizacao_id,
     staleTime: 1000 * 60 * 5,
   });
-
-  // 2. FUNÇÃO PARA ATUALIZAR STATUS (Funciona em Lote!)
-  const handleStatusChange = async (newStatus) => {
-    if (!targetIds || targetIds.length === 0) return;
-    setUpdatingStatus(true);
-    try {
-      // Atualiza TODOS os IDs selecionados de uma vez
-      const { error } = await supabase
-        .from('elementos_bim')
-        .update({ 
-          status_execucao: newStatus,
-          atualizado_em: new Date()
-        })
-        .eq('organizacao_id', organizacao_id)
-        .in('external_id', targetIds);
-
-      if (error) throw error;
-
-      toast.success(`Status atualizado para ${targetIds.length} elemento(s)!`);
-      queryClient.invalidateQueries({ queryKey: ['bimElementPropertiesConsolidated'] });
-    } catch (error) {
-      console.error(error);
-      toast.error("Erro ao atualizar status.");
-    } finally {
-      setUpdatingStatus(false);
-    }
-  };
 
   // --- RENDERIZADORES ---
   const formatValue = (val) => {
@@ -131,11 +95,7 @@ export default function BimProperties({ selectedIds = [], elementExternalId, sel
   };
 
   const props = propriedadesConsolidadas?.propriedades || {};
-  const statusAtual = propriedadesConsolidadas?.status_execucao || 'nao_iniciado';
-  const isStatusVaries = statusAtual === '__VARIES__';
 
-  // Determina a cor do dropdown baseado no status atual
-  const statusColorClass = !isStatusVaries && STATUS_OPTIONS[statusAtual] ? STATUS_OPTIONS[statusAtual].color : 'bg-gray-50 text-gray-500 border-gray-200';
 
  const getDestaqueValue = (colName, jsonNames) => {
  if (!propriedadesConsolidadas) return '...';
@@ -206,38 +166,6 @@ export default function BimProperties({ selectedIds = [], elementExternalId, sel
  {/* Identificação */}
  <h3 className="text-[13px] font-black text-gray-900 leading-tight uppercase italic truncate">{destaques.familia}</h3>
  <p className="text-[10px] font-bold text-blue-600 uppercase tracking-tighter truncate mb-3">{destaques.tipo}</p>
-
- {/* --- AQUI ESTÁ O DESTAQUE: SELETOR DE STATUS --- */}
- <div className="bg-gray-50 p-2 rounded-lg border border-gray-100 mb-2">
- <div className="flex items-center gap-1 mb-1">
- <FontAwesomeIcon icon={faHardHat} className="text-[10px] text-gray-400" />
- <span className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Status de Execução</span>
- </div>
- <div className="relative">
- {updatingStatus ? (
- <div className="w-full h-8 flex items-center justify-center bg-gray-100 rounded border border-gray-200 text-xs text-gray-500">
- <FontAwesomeIcon icon={faSpinner} spin className="mr-2" /> Atualizando...
- </div>
- ) : (
- <select value={isStatusVaries ? "" : statusAtual}
- onChange={(e) => handleStatusChange(e.target.value)}
- className={`w-full h-8 text-xs font-bold rounded px-2 outline-none appearance-none border-2 cursor-pointer transition-all ${statusColorClass} hover:opacity-80`}
- >
- {isStatusVaries && <option value="" disabled>-- Vários Status (Selecione para Alterar) --</option>}
- <option value="nao_iniciado">⚪ Não Iniciado</option>
- <option value="em_andamento">🔵 Em Andamento</option>
- <option value="pausado">🟠 Pausado</option>
- <option value="concluido">🟢 Concluído</option>
- </select>
- )}
- {/* Ícone Check decorativo */}
- {!updatingStatus && (
- <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400 opacity-50">
- <FontAwesomeIcon icon={faCheckCircle} />
- </div>
- )}
- </div>
- </div>
 
  {/* Quantitativos Rápidos */}
  <div className="grid grid-cols-3 gap-2 py-2 border-t border-gray-50 mt-1">
