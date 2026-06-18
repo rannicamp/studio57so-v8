@@ -37,121 +37,105 @@ export default function BimProperties({ selectedIds = [], elementExternalId, sel
  // Mapeamentos BIM (Quantitativos) - Para mostrar tag 'vinculado'
  const { propriedadesMapeadas } = useBimMapeamentos({ organizacaoId: organizacao_id });
 
- // 1. BUSCA DE DADOS
- const { data: elementos, isFetching } = useQuery({
- queryKey: ['bimElementProperties', targetIds],
- queryFn: async () => {
- if (!targetIds || targetIds.length === 0) return [];
- if (!organizacao_id) return [];
+ // 1. BUSCA DE DADOS CONSOLIDADOS VIA RPC (No Backend)
+ const { data: propriedadesConsolidadas, isFetching } = useQuery({
+    queryKey: ['bimElementPropertiesConsolidated', targetIds, organizacao_id],
+    queryFn: async () => {
+      if (!targetIds || targetIds.length === 0) return null;
+      if (!organizacao_id) return null;
 
- const { data, error } = await supabase
- .from('elementos_bim')
- .select('*')
- .eq('organizacao_id', organizacao_id)
- .in('external_id', targetIds);
+      const { data, error } = await supabase.rpc('get_consolidated_element_properties', {
+        p_organizacao_id: Number(organizacao_id),
+        p_external_ids: targetIds.map(String)
+      });
 
- if (error) throw error;
- return data || [];
- },
- enabled: targetIds.length > 0 && !!organizacao_id,
- staleTime: 1000 * 60 * 5, });
+      if (error) {
+        console.error('Erro ao chamar RPC get_consolidated_element_properties:', error);
+        throw error;
+      }
+      return data || null;
+    },
+    enabled: targetIds.length > 0 && !!organizacao_id,
+    staleTime: 1000 * 60 * 5,
+  });
 
- // 2. MESCLAGEM DE DADOS (Agora inclui status_execucao)
- const propriedadesConsolidadas = useMemo(() => {
- if (!elementos || elementos.length === 0) return null;
- if (elementos.length === 1) return elementos[0];
+  // 2. FUNÇÃO PARA ATUALIZAR STATUS (Funciona em Lote!)
+  const handleStatusChange = async (newStatus) => {
+    if (!targetIds || targetIds.length === 0) return;
+    setUpdatingStatus(true);
+    try {
+      // Atualiza TODOS os IDs selecionados de uma vez
+      const { error } = await supabase
+        .from('elementos_bim')
+        .update({ 
+          status_execucao: newStatus,
+          atualizado_em: new Date()
+        })
+        .eq('organizacao_id', organizacao_id)
+        .in('external_id', targetIds);
 
- const base = { ...elementos[0] };
- const baseProps = { ...(base.propriedades || {}) }; // Adicionei status_execucao aqui para ser comparado
- const camposEspeciais = ['familia', 'tipo', 'categoria', 'nivel', 'status_execucao'];
+      if (error) throw error;
 
- for (let i = 1; i < elementos.length; i++) {
- const atual = elementos[i];
- const propsAtual = atual.propriedades || {};
+      toast.success(`Status atualizado para ${targetIds.length} elemento(s)!`);
+      queryClient.invalidateQueries({ queryKey: ['bimElementPropertiesConsolidated'] });
+    } catch (error) {
+      console.error(error);
+      toast.error("Erro ao atualizar status.");
+    } finally {
+      setUpdatingStatus(false);
+    }
+  };
 
- camposEspeciais.forEach(campo => {
- const valBase = base[campo] || '';
- const valAtual = atual[campo] || '';
- if (base[campo] !== '__VARIES__' && valBase !== valAtual) {
- base[campo] = '__VARIES__';
- }
- });
+  // --- RENDERIZADORES ---
+  const formatValue = (val) => {
+    if (val === '__VARIES__') return <span className="italic text-gray-400 font-normal">&lt;Vários&gt;</span>;
+    if (val === null || val === undefined) return "";
+    const stringVal = String(val).trim();
+    if (stringVal === "-" || stringVal === "" || stringVal.toLowerCase() === "null") return "";
+    const num = parseFloat(stringVal);
+    if (!isNaN(num) && isFinite(num)) {
+      return Number.isInteger(num) ? num.toString() : num.toFixed(2);
+    }
+    return stringVal;
+  };
 
- const todasChaves = new Set([...Object.keys(baseProps), ...Object.keys(propsAtual)]);
- todasChaves.forEach(key => {
- if (baseProps[key] === '__VARIES__') return;
- const valA = baseProps[key];
- const valB = propsAtual[key];
- if (String(valA) !== String(valB)) {
- baseProps[key] = '__VARIES__';
- }
- });
- }
- return { ...base, propriedades: baseProps };
- }, [elementos]);
+  const autoSave = async (key, newValue) => {
+    if (targetIds.length > 1) {
+      toast.error("Edição de propriedades em massa não disponível (apenas Status).");
+      setEditingKey(null);
+      return;
+    }
 
- // 3. FUNÇÃO PARA ATUALIZAR STATUS (Funciona em Lote!)
- const handleStatusChange = async (newStatus) => {
- if (!targetIds || targetIds.length === 0) return;
- setUpdatingStatus(true);
- try {
- // Atualiza TODOS os IDs selecionados de uma vez
- const { error } = await supabase
- .from('elementos_bim')
- .update({ status_execucao: newStatus,
- atualizado_em: new Date()
- })
- .eq('organizacao_id', organizacao_id)
- .in('external_id', targetIds);
+    try {
+      const novasPropriedades = { ...(propriedadesConsolidadas?.propriedades || {}), [key]: newValue };
+      
+      const { error } = await supabase
+        .from('elementos_bim')
+        .update({ 
+          propriedades: novasPropriedades, 
+          atualizado_em: new Date() 
+        })
+        .eq('organizacao_id', organizacao_id)
+        .eq('external_id', targetIds[0]);
 
- if (error) throw error;
+      if (error) throw error;
+      
+      toast.success(`Salvo!`);
+      queryClient.invalidateQueries({ queryKey: ['bimElementPropertiesConsolidated'] });
+    } catch (error) { 
+      toast.error("Erro ao salvar."); 
+      console.error(error);
+    } finally { 
+      setEditingKey(null); 
+    }
+  };
 
- toast.success(`Status atualizado para ${targetIds.length} elemento(s)!`);
- queryClient.invalidateQueries(['bimElementProperties']);
- } catch (error) {
- console.error(error);
- toast.error("Erro ao atualizar status.");
- } finally {
- setUpdatingStatus(false);
- }
- };
+  const props = propriedadesConsolidadas?.propriedades || {};
+  const statusAtual = propriedadesConsolidadas?.status_execucao || 'nao_iniciado';
+  const isStatusVaries = statusAtual === '__VARIES__';
 
- // --- RENDERIZADORES ---
- const formatValue = (val) => {
- if (val === '__VARIES__') return <span className="italic text-gray-400 font-normal">&lt;Vários&gt;</span>;
- if (val === null || val === undefined) return "";
- const stringVal = String(val).trim();
- if (stringVal === "-" || stringVal === "" || stringVal.toLowerCase() === "null") return "";
- const num = parseFloat(stringVal);
- if (!isNaN(num) && isFinite(num)) {
- return Number.isInteger(num) ? num.toString() : num.toFixed(2);
- }
- return stringVal;
- };
-
- const autoSave = async (key, newValue) => {
- if (targetIds.length > 1) {
- toast.error("Edição de propriedades em massa não disponível (apenas Status).");
- setEditingKey(null);
- return;
- }
- const elementoUnico = elementos?.[0];
- if (!elementoUnico) return;
-
- try {
- const novasPropriedades = { ...(elementoUnico.propriedades || {}), [key]: newValue };
- await supabase.from('elementos_bim').update({ propriedades: novasPropriedades, atualizado_em: new Date() }).eq('id', elementoUnico.id);
- toast.success(`Salvo!`);
- queryClient.invalidateQueries(['bimElementProperties']);
- } catch (error) { toast.error("Erro ao salvar."); } finally { setEditingKey(null); }
- };
-
- const props = propriedadesConsolidadas?.propriedades || {};
- const statusAtual = propriedadesConsolidadas?.status_execucao || 'nao_iniciado';
- const isStatusVaries = statusAtual === '__VARIES__';
-
- // Determina a cor do dropdown baseado no status atual
- const statusColorClass = !isStatusVaries && STATUS_OPTIONS[statusAtual] ? STATUS_OPTIONS[statusAtual].color : 'bg-gray-50 text-gray-500 border-gray-200';
+  // Determina a cor do dropdown baseado no status atual
+  const statusColorClass = !isStatusVaries && STATUS_OPTIONS[statusAtual] ? STATUS_OPTIONS[statusAtual].color : 'bg-gray-50 text-gray-500 border-gray-200';
 
  const getDestaqueValue = (colName, jsonNames) => {
  if (!propriedadesConsolidadas) return '...';
@@ -203,7 +187,7 @@ export default function BimProperties({ selectedIds = [], elementExternalId, sel
 
  if (isFetching) return <div className="h-full flex flex-col items-center justify-center text-gray-400 gap-2 opacity-50"><FontAwesomeIcon icon={faSpinner} spin size="2x" /><span className="text-xs font-bold uppercase">Carregando...</span></div>;
 
- if (!elementos || elementos.length === 0) return <div className="p-4 text-center text-gray-400 text-xs">Dados não sincronizados.</div>;
+ if (!propriedadesConsolidadas) return <div className="p-4 text-center text-gray-400 text-xs">Dados não sincronizados.</div>;
 
  return (
  <div className="h-full flex flex-col bg-gray-50">
