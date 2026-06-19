@@ -610,8 +610,13 @@ export default function BimManagerPage() {
 
  // --- RENDERIZAÇÃO ---
 
- return (
- <div className="flex h-screen w-full overflow-hidden bg-gray-50 flex-col font-sans">
+  const isSidebarBottom = user?.sidebar_position === 'bottom';
+
+  return (
+  <div 
+    className="flex h-screen w-full overflow-hidden bg-gray-50 flex-col font-sans"
+    style={{ paddingBottom: isSidebarBottom ? '65px' : '0px' }}
+  >
  <div className="flex flex-1 overflow-hidden relative">
  {/* BARRA LATERAL ESQUERDA */}
  <div className={`${isSidebarVisible ? 'w-80' : 'w-0'} transition-all duration-350 border-r bg-white z-20 shrink-0 overflow-hidden`}>
