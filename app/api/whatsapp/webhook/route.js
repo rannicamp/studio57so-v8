@@ -6,6 +6,7 @@ import { createClient } from '@supabase/supabase-js';
 import { logWebhook } from './services/helpers';
 import { findOrCreateContactAndConversation } from './services/crm';
 import { handleMessageInsert, handleReaction } from './services/message';
+import { processarAnaliseStella } from '../../ai/chat-analysis/route';
 
 // Configuração do Supabase Admin
 const getSupabaseAdmin = () => createClient(
@@ -258,23 +259,24 @@ export async function POST(request) {
 
                   console.log(`[Autopilot] Executando chamada à IA para o contato ${contatoId} (Tentativa ${attempt}/${maxWebhookRetries + 1})...`);
                   
-                  const apiUrl = `${protocol}://${host}/api/ai/chat-analysis`;
                   const isMedia = message.type === 'document' || message.type === 'image';
                   const quickResponse = !isMedia;
 
-                  const aiResponse = await fetch(apiUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                      contato_id: contatoId, 
-                      organizacao_id: config.organizacao_id, 
-                      force: true,
-                      quickResponse: quickResponse
-                    })
+                  // Chamada direta do processarAnaliseStella em JS (sem fetch local de rede)
+                  const aiResult = await processarAnaliseStella({ 
+                    contato_id: contatoId, 
+                    organizacao_id: config.organizacao_id, 
+                    force: true,
+                    quickResponse: quickResponse,
+                    canal: 'whatsapp'
                   });
 
-                  if (aiResponse.ok) {
-                    const aiResult = await aiResponse.json();
+                  if (aiResult?._concorrencia_abortada) {
+                    console.log(`[Autopilot] Concorrência ativa para contato ID ${contatoId}. Abortando thread paralela.`);
+                    return; // Interrompe o processamento silenciosamente
+                  }
+
+                  if (aiResult && !aiResult.error) {
                     
                     if (aiResult?.proxima_resposta_sugerida) {
                       const cleanPhone = (message.from || '').replace(/[^0-9]/g, '');
@@ -406,9 +408,8 @@ export async function POST(request) {
                     success = true;
                     break; // Sucesso, sai do loop de retentativas
                   } else {
-                    const errText = await aiResponse.text().catch(() => 'Erro desconhecido');
-                    ultimoErro = `Status ${aiResponse.status} - ${errText}`;
-                    console.warn(`[Autopilot Retry Warning] Tentativa ${attempt}/${maxWebhookRetries + 1} falhou com erro na API comercial chat-analysis: ${ultimoErro}`);
+                    ultimoErro = aiResult?.error || 'Retorno de análise inválido ou vazio';
+                    console.warn(`[Autopilot Retry Warning] Tentativa ${attempt}/${maxWebhookRetries + 1} falhou com erro na Stella: ${ultimoErro}`);
                   }
                 } catch (autopilotErr) {
                   ultimoErro = autopilotErr.message;

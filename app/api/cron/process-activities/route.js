@@ -1,11 +1,9 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { generateContentWithTelemetry } from '../../../../utils/gemini';
 
 // Força carregamento dinâmico
 export const dynamic = 'force-dynamic';
-
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
 // Função utilitária para calcular data 2 dias úteis a partir de uma data inicial (ignora finais de semana)
 function calcularDataDoisDiasUteis(dataInicial = new Date()) {
@@ -225,14 +223,6 @@ export async function GET(request) {
 
         if (janelaAberta) {
           // --- FLUXO JANELA ABERTA ---
-          console.log(`[CRON Stella] Processando fluxo de texto livre...`);
-          const model = genAI.getGenerativeModel({
-            model: 'gemini-3.1-pro-preview',
-            generationConfig: {
-              responseMimeType: "application/json",
-            }
-          });
-
           const prompt = `
 Você é Stella, a super Analista Comercial de Elite e Assistente Copiloto da Studio 57.
 Você está realizando um retorno de contato automático que foi agendado anteriormente.
@@ -264,7 +254,17 @@ Retorne um JSON no formato:
 }
           `;
 
-          const result = await model.generateContent([{ text: prompt }]);
+          const result = await generateContentWithTelemetry({
+            modelName: 'gemini-3.1-pro-preview',
+            promptContent: [{ text: prompt }],
+            generationConfig: {
+              responseMimeType: "application/json",
+            },
+            origem: 'cron-process-activities',
+            context: 'Tarefa Comercial - Janela Aberta',
+            contatoId: act.contato_id,
+            organizacaoId: act.organizacao_id
+          });
           const textOutput = result.response.text();
 
           let generatedMessage = '';
@@ -331,12 +331,7 @@ Retorne um JSON no formato:
             throw new Error('Nenhum template aprovado na Meta encontrado para reabrir a janela de conversação.');
           }
 
-          const model = genAI.getGenerativeModel({
-            model: 'gemini-3.1-pro-preview',
-            generationConfig: {
-              responseMimeType: "application/json",
-            }
-          });
+          // Instanciação removida, a chamada será feita pelo wrapper generateContentWithTelemetry
 
           const prompt = `
 Você é Stella, a super Analista Comercial de Elite e Assistente Copiloto da Studio 57.
@@ -392,7 +387,17 @@ ${JSON.stringify(approvedTemplates, null, 2)}
 Observação: Se o template escolhido não possuir variáveis no corpo, retorne "components": [] e o texto estático do template no "custom_content".
 `;
 
-          const result = await model.generateContent([{ text: prompt }]);
+          const result = await generateContentWithTelemetry({
+            modelName: 'gemini-3.1-pro-preview',
+            promptContent: [{ text: prompt }],
+            generationConfig: {
+              responseMimeType: "application/json",
+            },
+            origem: 'cron-process-activities',
+            context: 'Tarefa Comercial - Janela Fechada',
+            contatoId: act.contato_id,
+            organizacaoId: act.organizacao_id
+          });
           const textOutput = result.response.text();
 
           let aiResponse = {};

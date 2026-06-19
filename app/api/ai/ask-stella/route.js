@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { GoogleGenerativeAI } from '@google/generative-ai';
-
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+import { generateContentWithTelemetry } from '../../../../utils/gemini';
 
 export async function POST(request) {
   try {
@@ -92,8 +90,6 @@ export async function POST(request) {
       : 'Nenhuma unidade disponível em estoque.';
 
     // 3. Montar o prompt para a Stella responder ao Corretor
-    const model = genAI.getGenerativeModel({ model: 'gemini-3.1-pro-preview' });
-
     const prompt = `
 Você é a Stella, a inteligência artificial de elite do Studio 57.
 Um corretor humano está com dúvidas técnicas sobre o empreendimento "${empData.nome}" e te fez uma pergunta.
@@ -117,7 +113,14 @@ Regras de Resposta:
 Escreva a resposta final abaixo:
 `;
 
-    const result = await model.generateContent([{ text: prompt }]);
+    const result = await generateContentWithTelemetry({
+      modelName: 'gemini-3.1-pro-preview',
+      promptContent: [{ text: prompt }],
+      origem: 'ask-stella',
+      context: 'Dúvida do Corretor',
+      contatoId: contato_id,
+      organizacaoId: organizacao_id
+    });
     const answer = result.response.text().trim();
 
     return NextResponse.json({ answer });

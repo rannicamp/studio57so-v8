@@ -1,61 +1,8 @@
 export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { generateContentWithTelemetry } from '../../../../utils/gemini';
 
-// Instância do SDK do Gemini
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
-
-// Função auxiliar para calcular e registrar o custo de tokens da API do Gemini
-function calcularERegistrarCusto(result, modelName, context, contatoId, organizacaoId, supabaseAdmin) {
-  try {
-    const usageMetadata = result?.response?.usageMetadata;
-    if (!usageMetadata) return null;
-
-    const inputTokens = usageMetadata.promptTokenCount || 0;
-    const outputTokens = usageMetadata.candidatesTokenCount || 0;
-
-    // Configuração de precificação por milhão de tokens
-    const pricingTable = {
-      'gemini-1.5-flash': { input: 0.075, output: 0.30 },
-      'gemini-1.5-pro': { input: 1.25, output: 5.00 },
-      'gemini-2.5-flash': { input: 0.30, output: 2.50 },
-      'gemini-2.5-pro': { input: 1.25, output: 10.00 },
-      'gemini-3.1-flash-lite': { input: 0.25, output: 1.50 },
-      'gemini-3.1-flash-lite-preview': { input: 0.25, output: 1.50 },
-      'gemini-3.1-pro': { input: 2.00, output: 12.00 },
-      'gemini-3.5-flash': { input: 1.50, output: 9.00 }
-    };
-
-    const rates = pricingTable[modelName] || pricingTable['gemini-2.5-flash'];
-    const inputCost = inputTokens * (rates.input / 1000000);
-    const outputCost = outputTokens * (rates.output / 1000000);
-    const costUSD = parseFloat((inputCost + outputCost).toFixed(8));
-
-    // Salvar log na tabela app_logs de forma assíncrona
-    supabaseAdmin.from('app_logs').insert({
-      origem: 'GEMINI COST',
-      mensagem: `Custo da Stella (${modelName}) - ${context} para o contato ID ${contatoId}: $${costUSD.toFixed(6)} USD (Tokens: ${inputTokens} entrada / ${outputTokens} saída)`,
-      payload: {
-        contato_id: contatoId,
-        organizacao_id: organizacaoId,
-        model: modelName,
-        context: context,
-        input_tokens: inputTokens,
-        output_tokens: outputTokens,
-        cost_usd: costUSD
-      },
-      organizacao_id: organizacaoId
-    }).then(({ error }) => {
-      if (error) console.error('[Stella AI Cost Log Error] Falha ao salvar log de custo:', error.message);
-    });
-
-    return { costUSD, inputTokens, outputTokens };
-  } catch (err) {
-    console.error('[Stella AI Cost Log Utility Error] Erro ao calcular/registrar custo:', err);
-    return null;
-  }
-}
 
 // Função auxiliar para obter ou criar o registro da Stella na tabela funcionarios
 async function obterOuCriarFuncionarioStella(supabaseAdmin, organizacaoId, contatoId) {
@@ -577,14 +524,51 @@ async function processarConfeccaoContrato(supabaseAdmin, contatoId, organizacaoI
   return contractId;
 }
 
-export async function POST(request) {
+export async function processarAnaliseStella({
+  contato_id,
+  organizacao_id,
+  force,
+  quickResponse,
+  human_input,
+  canal = 'whatsapp',
+  janelaFechada = false,
+  templatesDisponiveis = []
+}) {
+  if (!contato_id || !organizacao_id) {
+    return { error: 'Faltam parâmetros obrigatórios.', status: 400 };
+  }
+
+  const supabaseAdmin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY
+  );
+
+  // 1. Tentar adquirir a trava exclusiva contra concorrência via RPC do Postgres
+  const { data: lockAdquirido, error: lockError } = await supabaseAdmin.rpc('adquirir_lock_stella', {
+    p_contato_id: contato_id,
+    p_segundos: 30
+  });
+
+  if (lockError) {
+    console.error('[Stella AI Lock Error] Falha ao tentar adquirir lock no Supabase:', lockError.message);
+  }
+
+  // Se não obteve o lock, retorna o cache atual e aborta silenciosamente
+  if (!lockAdquirido) {
+    console.log(`[Stella AI Lock] Concorrência detectada para contato ID ${contato_id}. Abortando execução.`);
+    const { data: contactCache } = await supabaseAdmin
+      .from('contatos')
+      .select('ai_analysis')
+      .eq('id', contato_id)
+      .single();
+
+    return {
+      ...(contactCache?.ai_analysis || {}),
+      _concorrencia_abortada: true
+    };
+  }
+
   try {
-    const { contato_id, organizacao_id, force, quickResponse, human_input, canal = 'whatsapp', janelaFechada = false, templatesDisponiveis = [] } = await request.json();
-
-    if (!contato_id || !organizacao_id) {
-      return NextResponse.json({ error: 'Faltam parâmetros obrigatórios.' }, { status: 400 });
-    }
-
     // Obter data e hora atual do servidor ajustados para o fuso de Brasília (UTC-3)
     const dataAtualObj = new Date();
     const optionsDate = { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: 'numeric' };
@@ -595,12 +579,6 @@ export async function POST(request) {
     const horaAtualStr = dataAtualObj.toLocaleTimeString('pt-BR', optionsTime);
     const diaSemanaStr = dataAtualObj.toLocaleDateString('pt-BR', optionsWeekday);
 
-    // Cliente com permissões de administrador (bypass RLS se necessário, ou atua sobre tudo da organização)
-    const supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.SUPABASE_SERVICE_ROLE_KEY
-    );
-
     // 1. Tentar ler do Cache se não foi forçado a atualizar
     if (!force) {
       const { data: contactCache } = await supabaseAdmin
@@ -610,12 +588,12 @@ export async function POST(request) {
         .single();
         
       if (contactCache?.ai_analysis) {
-        return NextResponse.json(contactCache.ai_analysis);
+        return contactCache.ai_analysis;
       }
     }
 
     if (!process.env.GEMINI_API_KEY) {
-       return NextResponse.json({ error: 'Chave GEMINI_API_KEY não configurada no servidor.' }, { status: 500 });
+       throw new Error('Chave GEMINI_API_KEY não configurada no servidor.');
     }
 
     // Alterna dinamicamente as queries do histórico de chat dependendo do canal
@@ -779,7 +757,6 @@ export async function POST(request) {
 
       // 3. Gerar a reescrita da resposta comercial (Modelo dinâmico)
       const geminiModel = process.env.GEMINI_MODEL || 'gemini-3.1-flash-lite';
-      const modelPro = genAI.getGenerativeModel({ model: geminiModel });
       
       const reversedMessages = [...(messages || [])].reverse();
       const chatLogForRewriting = reversedMessages.filter(m => m.content).map(m => {
@@ -800,7 +777,7 @@ ${chatLogForRewriting}
 
 Escreva a resposta de WhatsApp perfeita e polida para o cliente. 
 REGRAS CRÍTICAS DO WHATSAPP:
-1. Seja EXTREMAMENTE SUCINTA e envie a resposta em PÍLULAS (mensagens curtas por parágrafo, no máximo 2 a 3 pílulas separadas por \n\n). Cada parágrafo/pílula de texto deve ter no máximo 1 a 2 linhas de extensão! Evite textões longos.
+1. Seja EXTREMAMENTE SUCINTA e envie a resposta em PÍLULAS (mensagens curtas por parágrafo, no máximo 2 a 3 pílulas separadas por \n\n). Cada parágrafo/pílula de texto deve ter no máximo 1 a 2 lines de extensão! Evite textões longos.
 2. Use tom caloroso, empático e humano (evite linguajar robótico).
 3. Não use termos proibidos como "hiper-compacto" ou "compacto".
 4. Termine com uma única pergunta bem simples e curta para guiar o fechamento ou avanço.
@@ -813,10 +790,14 @@ Retorne rigorosamente um objeto JSON nos seguintes moldes:
 
       let respostaSugeridaReescrita = "";
       try {
-        const rewriteResult = await modelPro.generateContent([{ text: reescreverPrompt }]);
-        
-        // Logar custo de tokens
-        calcularERegistrarCusto(rewriteResult, geminiModel, 'Active Learning - Reescrita', contato_id, organizacao_id, supabaseAdmin);
+        const rewriteResult = await generateContentWithTelemetry({
+          modelName: geminiModel,
+          promptContent: [{ text: reescreverPrompt }],
+          origem: 'chat-analysis',
+          context: 'Active Learning - Reescrita',
+          contatoId: contato_id,
+          organizacaoId: organizacao_id
+        });
         
         const rewriteText = rewriteResult.response.text();
         const cleanRewrite = rewriteText.replace(/```json/gi, '').replace(/```/gi, '').trim();
@@ -849,10 +830,14 @@ Instruções:
 `;
 
         try {
-          const learnResult = await modelPro.generateContent([{ text: aprenderPrompt }]);
-          
-          // Logar custo de tokens
-          calcularERegistrarCusto(learnResult, geminiModel, 'Active Learning - Enriquecimento Dossiê', contato_id, organizacao_id, supabaseAdmin);
+          const learnResult = await generateContentWithTelemetry({
+            modelName: geminiModel,
+            promptContent: [{ text: aprenderPrompt }],
+            origem: 'chat-analysis',
+            context: 'Active Learning - Enriquecimento Dossiê',
+            contatoId: contato_id,
+            organizacaoId: organizacao_id
+          });
           
           const novoDossie = learnResult.response.text().trim();
           
@@ -1122,78 +1107,60 @@ Instruções:
       ).join('\n');
     }
 
-    // Formata o formulário da Meta de forma legível
-    let metaFormString = "Nenhum formulário de lead respondido.";
-    if (contatoInfo?.meta_form_data) {
-      try {
-        const formData = typeof contatoInfo.meta_form_data === 'string' 
-          ? JSON.parse(contatoInfo.meta_form_data) 
-          : contatoInfo.meta_form_data;
-        
-        if (Array.isArray(formData)) {
-          metaFormString = formData.map(f => `- Pergunta: ${f.name || f.question} | Resposta: ${f.value || f.response}`).join('\n');
-        } else if (typeof formData === 'object') {
-          metaFormString = Object.entries(formData).map(([key, val]) => `- ${key}: ${val}`).join('\n');
-        }
-      } catch (e) {
-        metaFormString = JSON.stringify(contatoInfo.meta_form_data);
-      }
-    }
-
-    // Formata os dados de Referral do Click-to-WhatsApp de forma legível
-    let metaReferralString = "Nenhum dado de referral de anúncio (Click-to-WhatsApp) disponível.";
-    if (contatoInfo?.meta_referral_data) {
-      try {
-        const refData = typeof contatoInfo.meta_referral_data === 'string'
-          ? JSON.parse(contatoInfo.meta_referral_data)
-          : contatoInfo.meta_referral_data;
-        
-        if (typeof refData === 'object' && refData !== null) {
-          const parts = [];
-          if (refData.source_type) parts.push(`- Tipo de Origem: ${refData.source_type}`);
-          if (refData.source_id) parts.push(`- ID da Origem (Anúncio): ${refData.source_id}`);
-          if (refData.headline) parts.push(`- Título do Anúncio (Headline): "${refData.headline}"`);
-          if (refData.body) parts.push(`- Texto do Anúncio (Body): "${refData.body}"`);
-          if (refData.source_url) parts.push(`- URL de Origem: ${refData.source_url}`);
-          metaReferralString = parts.join('\n');
-        }
-      } catch (e) {
-        metaReferralString = JSON.stringify(contatoInfo.meta_referral_data);
-      }
-    }
+    // Criação do objeto estruturado com todos os dados do lead em formato JSON para o contexto da Stella
+    const dadosClienteJSON = {
+      id: contato_id,
+      nome_completo_crm: contatoInfo?.nome || null,
+      tipo_contato: contatoInfo?.tipo_contato || 'Lead',
+      origem_declarada: contatoInfo?.origem || null,
+      objetivo_interesse: contatoInfo?.objetivo || null,
+      observacoes_crm: contatoInfo?.observations || null,
+      renda_familiar: contatoInfo?.renda_familiar || null,
+      possui_fgts: contatoInfo?.fgts || null,
+      mais_de_3_anos_clt: contatoInfo?.mais_de_3_anos_clt || null,
+      estado_civil: contatoInfo?.estado_civil || null,
+      profissao_cargo: contatoInfo?.cargo || null,
+      data_nascimento: contatoInfo?.birth_date || null,
+      endereco: {
+        cep: contatoInfo?.cep || null,
+        rua: contatoInfo?.address_street || null,
+        numero: contatoInfo?.address_number || null,
+        complemento: contatoInfo?.address_complement || null,
+        bairro: contatoInfo?.neighborhood || null,
+        cidade: contatoInfo?.city || null,
+        state: contatoInfo?.state || null
+      },
+      marketing_ads: {
+        campanha: contatoInfo?.meta_campaign_name || null,
+        conjunto_anuncios: contatoInfo?.meta_adset_name || null,
+        anuncio: contatoInfo?.meta_ad_name || null,
+        respostas_formulario_lead: contatoInfo?.meta_form_data ? (
+          typeof contatoInfo.meta_form_data === 'string' 
+            ? JSON.parse(contatoInfo.meta_form_data) 
+            : contatoInfo.meta_form_data
+        ) : null,
+        dados_referral_click_to_whatsapp: contatoInfo?.meta_referral_data ? (
+          typeof contatoInfo.meta_referral_data === 'string'
+            ? JSON.parse(contatoInfo.meta_referral_data)
+            : contatoInfo.meta_referral_data
+        ) : null
+      },
+      fase_crm_atual: crmStatus,
+      produtos_interesse_vinculados: produtosRaw,
+      tentativas_insistencia: contatoInfo?.ai_analysis?.tentativas_insistencia || 0
+    };
 
     const fichaLead = `
-### FICHA CADASTRAL E DADOS DE ORIGEM (CRM e Facebook/Meta Ads)
-- Nome cadastrado: ${contatoInfo?.nome || 'Não informado'}
-- Tipo de contato cadastrado no CRM: ${contatoInfo?.tipo_contato || 'Lead'}
-- Origem declarada: ${contatoInfo?.origem || 'Não informada'}
-- Objetivo cadastrado no CRM: ${contatoInfo?.objetivo || 'Não informado (Precisa ser detectado)'}
-- Observações no CRM: ${contatoInfo?.observations || 'Nenhuma observação cadastrada'}
-- Renda familiar cadastrada: ${contatoInfo?.renda_familiar ? `R$ ${contatoInfo.renda_familiar}` : 'Não cadastrada'}
-- FGTS cadastrado: ${contatoInfo?.fgts ? 'Sim' : 'Não informado'}
-- Tempo de CLT cadastrado: ${contatoInfo?.mais_de_3_anos_clt ? 'Mais de 3 anos' : 'Não informado'}
-- Estado Civil cadastrado: ${contatoInfo?.estado_civil || 'Não informado'}
-- Profissão/Cargo cadastrado: ${contatoInfo?.cargo || 'Não informado'}
-- Tentativas de insistência comercial: ${contatoInfo?.ai_analysis?.tentativas_insistencia || 0}
-
-### ORIGEM DO META ADS (FACEBOOK/INSTAGRAM CAMPANHAS)
-- Campanha do anúncio: ${contatoInfo?.meta_campaign_name || 'Nenhuma campanha associada'}
-- Conjunto de anúncios (Adset): ${contatoInfo?.meta_adset_name || 'Nenhum conjunto associado'}
-- Nome do anúncio: ${contatoInfo?.meta_ad_name || 'Nenhum anúncio associado'}
-- Respostas do Formulário de Lead da Meta (Perguntas/Respostas respondidas no anúncio):
-${metaFormString}
-- Dados de Origem de Clique no WhatsApp (Click-to-WhatsApp Referral):
-${metaReferralString}
+### DADOS CADASTRAIS COMPLETOS DO CLIENTE NO CRM (JSON ESTRUTURADO)
+Você DEVE analisar o JSON de contexto abaixo antes de dar qualquer resposta.
+Se o campo "nome_completo_crm" contiver um nome válido (não nulo e que não seja um número de telefone ou contiver a palavra "Lead"), chame o cliente pelo seu primeiro nome de forma simpática (ex: Nelson) e **é estritamente proibido perguntar o nome do cliente de novo**.
+Se houver informações sobre renda, FGTS, CLT, etc. no JSON, use-as para pular etapas redundantes de qualificação e vá direto para as informações que ainda faltam ser qualificadas no método BANT.
+JSON de Contexto:
+${JSON.stringify(dadosClienteJSON, null, 2)}
     `;
 
     // 4. Invocar a IA (Modelo configurável)
     const geminiModel = process.env.GEMINI_MODEL || 'gemini-3.1-flash-lite';
-    const model = genAI.getGenerativeModel({
-      model: geminiModel,
-      generationConfig: {
-        responseMimeType: "application/json",
-      }
-    });
 
     // Formata a lista de templates disponíveis caso a janela esteja fechada
     let templatesContext = "";
@@ -1542,7 +1509,17 @@ Com base SOMENTE neste histórico recente e contexto do projeto, escreva um JSON
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         console.log(`[Stella AI] Tentando gerar resposta com ${geminiModel} (Tentativa ${attempt}/${maxRetries})...`);
-        result = await model.generateContent(promptContent);
+        result = await generateContentWithTelemetry({
+          modelName: geminiModel,
+          promptContent: promptContent,
+          generationConfig: {
+            responseMimeType: "application/json",
+          },
+          origem: 'chat-analysis',
+          context: 'Chat Autônomo',
+          contatoId: contato_id,
+          organizacaoId: organizacao_id
+        });
         textOutput = result.response.text();
         console.log(`[Stella AI] Resposta gerada com sucesso na tentativa ${attempt}!`);
         break; // Sucesso, sai do loop
@@ -1564,11 +1541,24 @@ Com base SOMENTE neste histórico recente e contexto do projeto, escreva um JSON
     let outputTokens = 0;
 
     try {
-      const costInfo = calcularERegistrarCusto(result, geminiModel, 'Chat Autônomo', contato_id, organizacao_id, supabaseAdmin);
-      if (costInfo) {
-        custoChamada = costInfo.costUSD;
-        inputTokens = costInfo.inputTokens;
-        outputTokens = costInfo.outputTokens;
+      const usageMetadata = result?.response?.usageMetadata;
+      if (usageMetadata) {
+        inputTokens = usageMetadata.promptTokenCount || 0;
+        outputTokens = usageMetadata.candidatesTokenCount || 0;
+        
+        // Custo estimado local
+        const rates = {
+          'gemini-1.5-flash': { input: 0.075, output: 0.30 },
+          'gemini-2.5-flash': { input: 0.075, output: 0.30 },
+          'gemini-3.1-flash-lite': { input: 0.25, output: 1.50 },
+          'gemini-3.1-flash-lite-preview': { input: 0.25, output: 1.50 },
+          'gemini-1.5-pro': { input: 1.25, output: 5.00 },
+          'gemini-2.5-pro': { input: 1.25, output: 5.00 },
+          'gemini-3.1-pro': { input: 2.00, output: 12.00 },
+          'gemini-3.1-pro-preview': { input: 2.00, output: 12.00 }
+        };
+        const activeRate = rates[geminiModel] || rates['gemini-2.5-flash'];
+        custoChamada = (inputTokens * (activeRate.input / 1000000)) + (outputTokens * (activeRate.output / 1000000));
         
         const oldAnalysis = contatoInfo?.ai_analysis || {};
         const custoAnterior = oldAnalysis.custo_gemini_acumulado || 0;
@@ -2048,10 +2038,34 @@ Com base SOMENTE neste histórico recente e contexto do projeto, escreva um JSON
       }
     }
 
-    return NextResponse.json(mergedAnalysis);
+    return mergedAnalysis;
 
   } catch (error) {
-    console.error('[AI API Error]', error);
+    console.error('[processarAnaliseStella Error]', error);
+    return { error: error.message, status: 500 };
+  } finally {
+    // 2. Liberar a trava de concorrência no banco de dados
+    try {
+      await supabaseAdmin.rpc('liberar_lock_stella', { p_contato_id: contato_id });
+      console.log(`[Stella AI Lock] Trava de concorrência liberada para o contato ${contato_id}`);
+    } catch (liberarErr) {
+      console.error('[Stella AI Lock Error] Erro ao liberar lock da Stella:', liberarErr.message || liberarErr);
+    }
+  }
+}
+
+export async function POST(request) {
+  try {
+    const params = await request.json();
+    const result = await processarAnaliseStella(params);
+    
+    if (result && result.error) {
+      return NextResponse.json({ error: result.error }, { status: result.status || 500 });
+    }
+    
+    return NextResponse.json(result);
+  } catch (error) {
+    console.error('[AI API POST Error]', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

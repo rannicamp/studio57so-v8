@@ -1,11 +1,5 @@
-import { GoogleGenerativeAI, SchemaType } from '@google/generative-ai';
-import { createClient } from '@supabase/supabase-js';
-
-// Cliente de administração do Supabase para registrar logs
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-  process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-);
+import { SchemaType } from '@google/generative-ai';
+import { generateContentWithTelemetry } from '../../../../../utils/gemini';
 
 export async function transcribeAudioSync(publicUrl, mimeType, contatoId = null, organizacaoId = null) {
   try {
@@ -26,8 +20,6 @@ export async function transcribeAudioSync(publicUrl, mimeType, contatoId = null,
 
     console.log(`[Transcription] Audio convertido (${base64Audio.substring(0,20)}...)... Invocando Gemini...`);
     
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    
     const generationConfig = {
       responseMimeType: "application/json",
       responseSchema: {
@@ -39,62 +31,33 @@ export async function transcribeAudioSync(publicUrl, mimeType, contatoId = null,
       }
     };
     
-    // Modelo estável final gemini-3.1-flash-lite
-    const model = genAI.getGenerativeModel({ model: "gemini-3.1-flash-lite", generationConfig });
-    
     const prompt = "Você é um excelente transcritor. Ouça este áudio e retorne APENAS o texto falado exatamente como ele é dito (transcrição). Se não houver nada compreensível, retorne '[Áudio Inaudível]'.";
     
-    const result = await model.generateContent([
-       prompt,
-       {
-          inlineData: {
-            data: base64Audio,
-            mimeType: formattedMime
-          }
-       }
-    ]);
+    const promptParts = [
+      prompt,
+      {
+        inlineData: {
+          data: base64Audio,
+          mimeType: formattedMime
+        }
+      }
+    ];
+
+    // Chamando o Gemini via wrapper de telemetria
+    const result = await generateContentWithTelemetry({
+      modelName: 'gemini-3.1-flash-lite',
+      promptContent: promptParts,
+      generationConfig,
+      origem: 'whatsapp-webhook-services-ai',
+      context: 'Transcrição de Áudio',
+      contatoId,
+      organizacaoId
+    });
     
     const responseText = result.response.text();
     const json = JSON.parse(responseText);
     
     console.log(`[Transcription] Sucesso: ${json.transcricao}`);
-
-    // --- CÁLCULO E LOG DE CUSTO DO ÁUDIO ---
-    try {
-      const usageMetadata = result.response.usageMetadata;
-      if (usageMetadata) {
-        const inputTokens = usageMetadata.promptTokenCount || 0;
-        const outputTokens = usageMetadata.candidatesTokenCount || 0;
-        
-        // Gemini 3.1 Flash-Lite: $0.25 entrada / $1.50 saída por milhão
-        const inputCost = inputTokens * 0.00000025;
-        const outputCost = outputTokens * 0.0000015;
-        const costUSD = parseFloat((inputCost + outputCost).toFixed(8));
-
-        if (contatoId && organizacaoId) {
-          // Gravar log assíncrono na tabela app_logs
-          supabaseAdmin.from('app_logs').insert({
-            origem: 'GEMINI COST',
-            mensagem: `Custo Stella (gemini-3.1-flash-lite) - Transcrição de Áudio para contato ID ${contatoId}: $${costUSD.toFixed(6)} USD (Tokens: ${inputTokens} entrada / ${outputTokens} saída)`,
-            payload: {
-              contato_id: contatoId,
-              organizacao_id: organizacaoId,
-              model: 'gemini-3.1-flash-lite',
-              context: 'Transcrição de Áudio',
-              input_tokens: inputTokens,
-              output_tokens: outputTokens,
-              cost_usd: costUSD
-            },
-            organizacao_id: organizacaoId
-          }).then(({ error }) => {
-            if (error) console.error('[Transcription Cost Log Error] Falha ao salvar log de custo:', error.message);
-          });
-        }
-      }
-    } catch (logErr) {
-      console.error('[Transcription Cost Log Error] Erro ao calcular/registrar custo:', logErr);
-    }
-    
     return json.transcricao;
   } catch (error) {
     console.error('[Transcription] Erro ao transcrever:', error);

@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { GoogleGenerativeAI } from '@google/generative-ai';
-
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+import { generateContentWithTelemetry } from '../../../../utils/gemini';
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
@@ -44,7 +42,7 @@ export async function GET(request) {
         id,
         contato_id,
         updated_at,
-        contatos(id, nome, ia_atendimento_ativo, telefone:telefones(telefone))
+        contatos(id, nome, ia_atendimento_ativo, telegram_chat_id, telefone:telefones(telefone))
       `)
       .eq('organizacao_id', organizacaoId)
       .eq('coluna_id', colunaMensagemEnviadaId)
@@ -99,7 +97,6 @@ export async function GET(request) {
       console.log(`[Reactivator Cron] Reativando lead elegível: ${nomeCliente} (Telefone: ${numTelefone})`);
 
       // 5. Chamar o Gemini para gerar uma mensagem curta e simpática de reativação
-      const model = genAI.getGenerativeModel({ model: 'gemini-3.1-pro-preview' });
       const promptReativacao = `
 Você é a Stella, a assistente comercial super amigável do Studio 57.
 Sua missão é enviar um lembrete curto no WhatsApp para o cliente ${nomeCliente} que se cadastrou há mais de uma semana mas nunca respondeu ao nosso primeiro contato.
@@ -114,7 +111,14 @@ Gere apenas o texto final da mensagem de WhatsApp, sem explicações ou formata�
 
       let mensagemReativacao = '';
       try {
-        const result = await model.generateContent([{ text: promptReativacao }]);
+        const result = await generateContentWithTelemetry({
+          modelName: 'gemini-3.1-pro-preview',
+          promptContent: [{ text: promptReativacao }],
+          origem: 'cron-reactivate-leads',
+          context: 'Reativação de Leads',
+          contatoId: contatoId,
+          organizacaoId: organizacaoId
+        });
         mensagemReativacao = result.response.text().trim();
       } catch (geminiErr) {
         console.error('[Reactivator Cron] Erro ao gerar texto no Gemini:', geminiErr);
@@ -132,7 +136,7 @@ Gere apenas o texto final da mensagem de WhatsApp, sem explicações ou formata�
             text: mensagemReativacao,
             contact_id: contatoId,
             organizacao_id: organizacaoId,
-            usuario_id: stellaUserId // Passando stellaUserId
+            usuario_id: stellaUserId
           })
         });
 

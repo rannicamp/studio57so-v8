@@ -1,34 +1,32 @@
-import { GoogleGenerativeAI, SchemaType } from '@google/generative-ai';
+import { SchemaType } from '@google/generative-ai';
 import { NextResponse } from 'next/server';
+import { generateContentWithTelemetry } from '../../../../utils/gemini';
 
 export async function POST(req) {
- try {
- const { text } = await req.json();
+  try {
+    const { text } = await req.json();
 
- if (!text) {
- return NextResponse.json({ error: 'O texto é obrigatório para ser corrigido.' }, { status: 400 });
- }
+    if (!text) {
+      return NextResponse.json({ error: 'O texto é obrigatório para ser corrigido.' }, { status: 400 });
+    }
 
- const apiKey = process.env.GEMINI_API_KEY;
- if (!apiKey) {
- return NextResponse.json({ error: 'GEMINI_API_KEY não configurada no servidor.' }, { status: 500 });
- }
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      return NextResponse.json({ error: 'GEMINI_API_KEY não configurada no servidor.' }, { status: 500 });
+    }
 
- const genAI = new GoogleGenerativeAI(apiKey);
- const generationConfig = {
- responseMimeType: "application/json",
- responseSchema: {
- type: SchemaType.OBJECT,
- properties: {
- conteudo: { type: SchemaType.STRING, description: "Texto corrigido e formatado" },
- },
- required: ["conteudo"],
- },
- };
+    const generationConfig = {
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: SchemaType.OBJECT,
+        properties: {
+          conteudo: { type: SchemaType.STRING, description: "Texto corrigido e formatado" },
+        },
+        required: ["conteudo"],
+      },
+    };
 
- const model = genAI.getGenerativeModel({ model: 'gemini-3.1-pro-preview', generationConfig });
-
- const prompt = `
+    const prompt = `
 Você é uma IA de correção gramatical invisível.
 Sua única tarefa é atuar como um REVISOR ORTOGRÁFICO E GRAMATICAL LEVE. O texto final deve permanecer extremamente fiel à versão original escrita pelo usuário.
 
@@ -43,22 +41,29 @@ Sua única tarefa é atuar como um REVISOR ORTOGRÁFICO E GRAMATICAL LEVE. O tex
 "${text}"
 `;
 
- const result = await model.generateContent(prompt);
- const response = await result.response;
- let parsedJson;
- try {
- parsedJson = JSON.parse(response.text());
- } catch(e) {
- console.error("Falha ao parsear output da IA:", response.text());
- return NextResponse.json({ error: "Resposta inválida da Inteligência Artificial." }, { status: 500 });
- }
+    const result = await generateContentWithTelemetry({
+      modelName: 'gemini-3.1-pro-preview',
+      promptContent: [{ text: prompt }],
+      generationConfig,
+      origem: 'chat-suggestion',
+      context: 'Correção Gramatical Leve'
+    });
 
- return NextResponse.json({
- conteudo: parsedJson.conteudo || text
- });
+    const response = await result.response;
+    let parsedJson;
+    try {
+      parsedJson = JSON.parse(response.text());
+    } catch(e) {
+      console.error("Falha ao parsear output da IA:", response.text());
+      return NextResponse.json({ error: "Resposta inválida da Inteligência Artificial." }, { status: 500 });
+    }
 
- } catch (error) {
- console.error("Erro na chamada de IA no Chat:", error);
- return NextResponse.json({ error: error.message }, { status: 500 });
- }
+    return NextResponse.json({
+      conteudo: parsedJson.conteudo || text
+    });
+
+  } catch (error) {
+    console.error("Erro na chamada de IA no Chat:", error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
 }
