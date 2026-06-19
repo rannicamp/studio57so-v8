@@ -1974,9 +1974,11 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
       onClose={() => setInspecaoModal(null)}
       elemento={inspecaoModal.elemento}
       propriedadesMapeadas={propriedadesMapeadas}
+      resolverMapeamento={resolverMapeamento}
       onVincularPropriedade={(propNome, propValor) => 
         handleVincularPropriedadeDeElemento(propNome, propValor, inspecaoModal.elemento)
       }
+      onDesvincularPropriedade={handleExcluirMapeamento}
     />
   )}
 

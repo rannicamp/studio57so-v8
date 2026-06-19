@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faTimes, faLink, faInfoCircle } from '@fortawesome/free-solid-svg-icons';
+import { faTimes, faLink, faInfoCircle, faTrash } from '@fortawesome/free-solid-svg-icons';
 
 // Detecta a unidade de uma medida a partir do label
 function detectarUnidade(label) {
@@ -21,7 +21,9 @@ export default function BimElementPropertiesModal({
   onClose,
   elemento, // { id, external_id, categoria, familia, tipo, propriedades }
   propriedadesMapeadas, // Set contendo chaves mapeadas
+  resolverMapeamento,
   onVincularPropriedade, // (propNome, propValor)
+  onDesvincularPropriedade,
 }) {
   const [busca, setBusca] = useState('');
   const [mostrarTodas, setMostrarTodas] = useState(false);
@@ -136,7 +138,8 @@ export default function BimElementPropertiesModal({
           ) : (
             <div className="border border-gray-100 rounded-xl overflow-hidden divide-y divide-gray-100 bg-white shadow-sm">
               {propriedadesExibidas.map((p) => {
-                const jaMapeada = propriedadesMapeadas?.has(p.chave);
+                const mapeamento = resolverMapeamento ? resolverMapeamento(elemento, p.chave) : null;
+                const jaMapeada = !!mapeamento;
 
                 return (
                   <div 
@@ -167,12 +170,28 @@ export default function BimElementPropertiesModal({
                       )}
                     </div>
 
-                    {/* Ação (Vincular) */}
-                    <div className="w-20 text-right shrink-0">
+                    {/* Ação (Vincular / Desvincular) */}
+                    <div className="w-56 text-right shrink-0 flex items-center justify-end gap-2">
                       {jaMapeada ? (
-                        <span className="text-[9px] bg-green-150 text-green-700 border border-green-255 px-2 py-0.5 rounded-full font-extrabold uppercase select-none">
-                          Vinculado
-                        </span>
+                        <>
+                          <div className="text-right">
+                            <span className="text-[9px] bg-green-150 text-green-700 border border-green-255 px-2 py-0.5 rounded-full font-extrabold uppercase select-none block ml-auto w-max">
+                              Vinculado
+                            </span>
+                            <span className="text-[8px] text-gray-400 font-semibold block mt-0.5 max-w-[150px] truncate" title={mapeamento.material?.nome || mapeamento.sinapi?.descricao || mapeamento.sinapi?.nome}>
+                              {mapeamento.material?.nome || mapeamento.sinapi?.descricao || mapeamento.sinapi?.nome}
+                            </span>
+                          </div>
+                          {onDesvincularPropriedade && (
+                            <button
+                              onClick={() => onDesvincularPropriedade(mapeamento.id)}
+                              className="p-1 px-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg text-[10px] font-bold transition-all ml-1 flex items-center justify-center shrink-0"
+                              title="Remover este vínculo"
+                            >
+                              <FontAwesomeIcon icon={faTrash} />
+                            </button>
+                          )}
+                        </>
                       ) : p.temValorNumerico ? (
                         <button
                           onClick={() => onVincularPropriedade(p.chave, p.valorNumerico)}
