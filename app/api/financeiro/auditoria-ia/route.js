@@ -1,14 +1,13 @@
 // app/api/financeiro/auditoria-ia/route.js
 import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
-import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
+import { SchemaType } from "@google/generative-ai";
+import { generateContentWithTelemetry } from '@/utils/gemini';
 
-const apiKey = process.env.GEMINI_API_KEY;
-const genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null;
-const MODEL_NAME = "gemini-2.0-flash"; export async function POST(request) {
- try {
- // 1. Configurações Iniciais
- if (!genAI) return NextResponse.json({ error: "Chave GEMINI não configurada." }, { status: 500 });
+const MODEL_NAME = "gemini-3.1-flash-lite";
+
+export async function POST(request) {
+  try {
 
  const supabase = await createClient(); const { data: { user }, error: authError } = await supabase.auth.getUser();
  if (authError || !user) {
@@ -100,10 +99,17 @@ const MODEL_NAME = "gemini-2.0-flash"; export async function POST(request) {
  },
  };
 
- // 5. Chamada à IA
- const model = genAI.getGenerativeModel({ model: MODEL_NAME, generationConfig });
- const result = await model.generateContent(promptParts);
- const textResponse = result.response.text();
+  // 5. Chamada à IA com Telemetria
+  const result = await generateContentWithTelemetry({
+    modelName: MODEL_NAME,
+    promptContent: promptParts,
+    generationConfig,
+    origem: '/api/financeiro/auditoria-ia',
+    context: 'Auditoria de Anexos Financeiros',
+    contatoId: null,
+    organizacaoId: usuarioOrganizacaoId
+  });
+  const textResponse = result.response.text();
  let dadosIa;
  try {
  dadosIa = JSON.parse(textResponse);

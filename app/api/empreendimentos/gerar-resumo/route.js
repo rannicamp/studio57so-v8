@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { generateContentWithTelemetry } from '@/utils/gemini';
 
 export const dynamic = 'force-dynamic';
 
@@ -8,10 +8,6 @@ export const dynamic = 'force-dynamic';
 export async function POST(request) {
  try {
  const supabase = await createClient();
-
- // ***** ATUALIZAÇÃO DO MODELO DE IA *****
- const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
- const generativeModel = genAI.getGenerativeModel({ model: "gemini-1.5-pro-latest" }); // Usando o 1.5 Pro
 
  const { empreendimentoId } = await request.json();
  if (!empreendimentoId) {
@@ -72,7 +68,12 @@ export async function POST(request) {
  Gere a apresentação completa do empreendimento.
  `;
 
- const result = await generativeModel.generateContent(promptFinal);
+ const result = await generateContentWithTelemetry({
+    modelName: 'gemini-3.1-flash-lite',
+    promptContent: promptFinal,
+    origem: '/api/empreendimentos/gerar-resumo',
+    context: 'Geração de Apresentação de Empreendimento'
+  });
  const response = await result.response;
  const summary = response.text();
  return NextResponse.json({ summary });

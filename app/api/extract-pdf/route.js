@@ -1,14 +1,8 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
 import { NextResponse } from "next/server";
-
-const apiKey = process.env.GEMINI_API_KEY;
-const genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null;
+import { generateContentWithTelemetry } from "@/utils/gemini";
 
 export async function POST(req) {
  try {
- if (!genAI) {
- return NextResponse.json({ error: "Chave GEMINI_API_KEY não configurada no servidor." }, { status: 500 });
- }
 
  const formData = await req.formData();
  const file = formData.get("file");
@@ -21,9 +15,7 @@ export async function POST(req) {
  const buffer = Buffer.from(arrayBuffer);
  const base64Data = buffer.toString("base64");
 
- // CORREÇÃO PRINCIPAL: Atualizado para o modelo 2.0 Flash
- // Se o 2.0 ainda não estiver disponível na sua região, tente 'gemini-1.5-flash-002'
- const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+ // O modelo foi unificado para o gemini-3.1-flash-lite
 
  // Data atual para ajudar a IA no contexto de virada de ano
  const hoje = new Date();
@@ -54,15 +46,20 @@ export async function POST(req) {
  Processe o documento fornecido e gere o CSV agora.
  `;
 
- const result = await model.generateContent([
- prompt,
- {
- inlineData: {
- data: base64Data,
- mimeType: file.type || "application/pdf",
- },
- },
- ]);
+  const result = await generateContentWithTelemetry({
+    modelName: 'gemini-3.1-flash-lite',
+    promptContent: [
+      prompt,
+      {
+        inlineData: {
+          data: base64Data,
+          mimeType: file.type || "application/pdf",
+        },
+      },
+    ],
+    origem: '/api/extract-pdf',
+    context: 'Conversão de PDF para CSV'
+  });
 
  const response = await result.response;
  const text = response.text();

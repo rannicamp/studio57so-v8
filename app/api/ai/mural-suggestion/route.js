@@ -44,7 +44,7 @@ Conteúdo: "${text}"
 `;
 
     const result = await generateContentWithTelemetry({
-      modelName: 'gemini-3.1-pro-preview',
+      modelName: 'gemini-3.1-flash-lite',
       promptContent: [{ text: prompt }],
       generationConfig,
       origem: 'mural-suggestion',

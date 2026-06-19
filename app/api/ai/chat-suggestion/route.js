@@ -42,7 +42,7 @@ Sua única tarefa é atuar como um REVISOR ORTOGRÁFICO E GRAMATICAL LEVE. O tex
 `;
 
     const result = await generateContentWithTelemetry({
-      modelName: 'gemini-3.1-pro-preview',
+      modelName: 'gemini-3.1-flash-lite',
       promptContent: [{ text: prompt }],
       generationConfig,
       origem: 'chat-suggestion',

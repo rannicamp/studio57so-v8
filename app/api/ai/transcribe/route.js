@@ -28,7 +28,7 @@ export async function POST(req) {
     ];
 
     const result = await generateContentWithTelemetry({
-      modelName: 'gemini-3.1-pro-preview', // Using 3.1-pro-preview for audio
+      modelName: 'gemini-3.1-flash-lite',
       promptContent: promptParts,
       origem: 'transcribe',
       context: 'Transcrição de Áudio (UI)'

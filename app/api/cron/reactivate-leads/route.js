@@ -112,7 +112,7 @@ Gere apenas o texto final da mensagem de WhatsApp, sem explicações ou formata�
       let mensagemReativacao = '';
       try {
         const result = await generateContentWithTelemetry({
-          modelName: 'gemini-3.1-pro-preview',
+          modelName: 'gemini-3.1-flash-lite',
           promptContent: [{ text: promptReativacao }],
           origem: 'cron-reactivate-leads',
           context: 'Reativação de Leads',
