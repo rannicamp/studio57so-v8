@@ -110,6 +110,14 @@ export async function GET(request) {
       if (!translateRes.ok) {
         const errorText = await translateRes.text();
         console.error('[APS IFC Job Error]:', errorText);
+        
+        try {
+          const errJson = JSON.parse(errorText);
+          if (errJson.Result === 'Conflict' || translateRes.status === 409) {
+            return NextResponse.json({ success: false, status: 'processing', message: 'Conversão em andamento na Autodesk.' });
+          }
+        } catch (e) {}
+
         return NextResponse.json({ success: false, status: 'error', error: 'Erro ao disparar conversão IFC na Autodesk.' });
       }
 
