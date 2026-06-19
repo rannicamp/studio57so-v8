@@ -116,7 +116,7 @@ export default function BimManagerPage() {
 
  // 4. Hook de Gerenciamento de Modelos
  const { loadedFiles, selectedModels, handleToggleModel, handleLoadSet, handleClearAll,
- loadedModelsRef } = useBimModels(viewerInstance, setIsGanttOpen);
+ loadedModelsRef } = useBimModels(viewerInstance, setIsGanttOpen, enrichedFiles);
 
  // FIX: Garante que o fileInUse pertença aos arquivos atualmente carregados na tela
  const fileInUse = (activeFile && loadedFiles.some(f => f.id === activeFile.id))

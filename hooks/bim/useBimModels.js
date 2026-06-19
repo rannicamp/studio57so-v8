@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { toast } from 'sonner';
 
-export function useBimModels(viewerInstance, setIsGanttOpen) {
+export function useBimModels(viewerInstance, setIsGanttOpen, activeFiles) {
     const [loadedFiles, setLoadedFiles] = useState([]);
     const [selectedModels, setSelectedModels] = useState([]);
     
@@ -10,18 +10,28 @@ export function useBimModels(viewerInstance, setIsGanttOpen) {
 
     const didRestoreModelsRef = useRef(false);
 
-    // ─── Auto-load retrospectivo dos modelos salvos ───
+    // ─── Auto-load retrospectivo dos modelos salvos (Validando contra ativos do banco) ───
     useEffect(() => {
-        if (!viewerInstance || didRestoreModelsRef.current) return;
+        // Só rodamos o auto-load se o viewer estiver pronto e se tivermos os arquivos ativos do banco
+        if (!viewerInstance || !activeFiles || activeFiles.length === 0 || didRestoreModelsRef.current) return;
         
         try {
             const saved = localStorage.getItem('bim_loadedFiles');
             if (saved) {
                 const files = JSON.parse(saved);
                 if (files && files.length > 0) {
-                    console.log('⚡ Devonildo: Restaurando modelos carregados anteriormente via auto-load:', files);
-                    // Dispara a carga em lote
-                    handleLoadSet(files);
+                    // FILTRO PREVENTIVO: Mantém apenas arquivos que estão atualmente ativos e no banco
+                    const activeFilesIds = activeFiles.map(af => af.id);
+                    const validFiles = files.filter(f => activeFilesIds.includes(f.id));
+                    
+                    if (validFiles.length > 0) {
+                        console.log('⚡ Devonildo: Restaurando modelos carregados anteriormente via auto-load (ativos):', validFiles);
+                        // Dispara a carga em lote
+                        handleLoadSet(validFiles);
+                    } else {
+                        // Se nenhum arquivo restaurado é ativo, limpa o localStorage
+                        localStorage.removeItem('bim_loadedFiles');
+                    }
                 }
             }
         } catch (e) {
@@ -29,7 +39,7 @@ export function useBimModels(viewerInstance, setIsGanttOpen) {
         }
         
         didRestoreModelsRef.current = true;
-    }, [viewerInstance]);
+    }, [viewerInstance, activeFiles]);
 
     // ─── Salva no localStorage quando a lista de carregados muda ───
     useEffect(() => {
@@ -45,6 +55,11 @@ export function useBimModels(viewerInstance, setIsGanttOpen) {
     const handleToggleModel = async (file) => {
         if (!viewerInstance) {
             console.error("❌ Devonildo diz: O Viewer ainda não foi iniciado!");
+            return;
+        }
+
+        if (file?.is_lixeira) {
+            console.warn("⚠️ Devonildo aviso: Tentativa de carregar arquivo da lixeira ignorada.");
             return;
         }
 
@@ -124,7 +139,7 @@ export function useBimModels(viewerInstance, setIsGanttOpen) {
             }, (code, message, errors) => {
                 console.error("❌ Erro ao acessar Documento Autodesk:", { code, message, errors });
                 if (code === 403) {
-                    toast.error("Acesso negado! Verifique se o domínio studio57.arq.br está autorizado na Autodesk.");
+                    toast.error("Acesso negado! Verifique se o domínio studio57.arq.br está authorized na Autodesk.");
                 } else {
                     toast.error(`Falha Autodesk: ${message}`);
                 }
@@ -136,9 +151,16 @@ export function useBimModels(viewerInstance, setIsGanttOpen) {
         if (!viewerInstance) return;
         if (!filesInSet || filesInSet.length === 0) return toast.error("Conjunto vazio.");
 
-        const newUrns = filesInSet.map(f => f.urn_autodesk.replace(/^urn:/, ''));
+        // Filtra para remover preventivamente qualquer arquivo marcado como lixeira
+        const validFilesInSet = filesInSet.filter(f => !f.is_lixeira);
+        if (validFilesInSet.length === 0) {
+            toast.warning("Nenhum modelo ativo para carregar no conjunto.");
+            return;
+        }
+
+        const newUrns = validFilesInSet.map(f => f.urn_autodesk.replace(/^urn:/, ''));
         const urnsToRemove = selectedModels.filter(urn => !newUrns.includes(urn));
-        const filesToAdd = filesInSet.filter(f => !selectedModels.includes(f.urn_autodesk.replace(/^urn:/, '')));
+        const filesToAdd = validFilesInSet.filter(f => !selectedModels.includes(f.urn_autodesk.replace(/^urn:/, '')));
         
         const toastId = toast.loading("Carregando conjunto...");
 
@@ -195,7 +217,7 @@ export function useBimModels(viewerInstance, setIsGanttOpen) {
         }
 
         setSelectedModels(newUrns);
-        setLoadedFiles(filesInSet);
+        setLoadedFiles(validFilesInSet);
         setTimeout(() => { if (viewerInstance) viewerInstance.fitToView(); }, 500);
         toast.dismiss(toastId);
         toast.success("Conjunto carregado!");
