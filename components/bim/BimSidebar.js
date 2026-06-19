@@ -16,6 +16,7 @@ import BimFileItem from './BimFileItem';
 import BimUploadModal from './BimUploadModal';
 import BimEditModal from './BimEditModal';
 import BimSetModal from './BimSetModal';
+import BimDownloadModal from './BimDownloadModal';
 
 export default function BimSidebar({ onSelectContext, onFileSelect, onToggleModel, selectedModels = [], selectedContext, activeUrn, onLoadSet, onClearAll, activeMainTab = 'viewer', setActiveMainTab }) {
   const supabase = createClient();
@@ -92,7 +93,7 @@ export default function BimSidebar({ onSelectContext, onFileSelect, onToggleMode
   }, [isFiltersExpanded]);
 
   // Estados de Modais
-  const [modalState, setModalState] = useState({ upload: false, edit: false, set: false, mode: 'create', file: null });
+  const [modalState, setModalState] = useState({ upload: false, edit: false, set: false, download: false, mode: 'create', file: null });
 
   // Ações do item individual
   const handleFileAction = useCallback((type, file) => {
@@ -102,6 +103,8 @@ export default function BimSidebar({ onSelectContext, onFileSelect, onToggleMode
       setModalState({ ...modalState, upload: true, mode: 'version', file });
     } else if (type === 'edit') {
       setModalState({ ...modalState, edit: true, file });
+    } else if (type === 'download') {
+      setModalState({ ...modalState, download: true, file });
     } else if (type === 'trash') {
       if(confirm(`Mover o arquivo "${file.nome_arquivo}" para a lixeira?`)) moveToTrash(file.id);
     }
@@ -689,6 +692,11 @@ export default function BimSidebar({ onSelectContext, onFileSelect, onToggleMode
         onClose={() => setModalState({...modalState, set: false})} 
         selectedFiles={data?.files?.filter(f => selectedModels.includes(f.urn_autodesk?.replace(/^urn:/, '')))} 
         onSuccess={() => refetch()} 
+      />
+      <BimDownloadModal
+        isOpen={modalState.download}
+        onClose={() => setModalState({...modalState, download: false})}
+        file={modalState.file}
       />
     </div>
   );

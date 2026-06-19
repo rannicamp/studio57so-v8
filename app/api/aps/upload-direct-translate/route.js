@@ -32,7 +32,15 @@ export async function POST(request) {
  const translateRes = await fetch(derivativeUrl, {
  method: 'POST',
  headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json', 'x-ads-force': 'true' },
- body: JSON.stringify({ input: { urn: urn }, output: { formats: [{ type: 'svf', views: ['2d', '3d'] }] } })
+ body: JSON.stringify({ 
+   input: { urn: urn }, 
+   output: { 
+     formats: [
+       { type: 'svf', views: ['2d', '3d'] },
+       { type: 'ifc' }
+     ] 
+   } 
+ })
  });
 
  if (!translateRes.ok) {

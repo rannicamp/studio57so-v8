@@ -17,8 +17,9 @@ export default function BimUploader({ onUploadComplete }) {
  setIsUppyOpen(false);
  if (!file) return;
 
- if (!file.name.endsWith('.rvt')) {
- alert('Por favor, envie apenas arquivos Revit (.rvt)');
+ const extension = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
+ if (extension !== '.rvt' && extension !== '.ifc') {
+ alert('Por favor, envie apenas arquivos Revit (.rvt) ou IFC (.ifc)');
  return;
  }
 
@@ -114,8 +115,8 @@ export default function BimUploader({ onUploadComplete }) {
  onClose={() => setIsUppyOpen(false)}
  onFileSelected={handleFileChange}
  title="Importar Arquivo BIM"
- allowedFileTypes={['.rvt']}
- note="Selecione ou arraste o arquivo .rvt do Revit"
+ allowedFileTypes={['.rvt', '.ifc']}
+ note="Selecione ou arraste o arquivo .rvt ou .ifc"
  maxFileSize={500 * 1024 * 1024} // Permitir até 500MB para arquivos BIM
  />
 

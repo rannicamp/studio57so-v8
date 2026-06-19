@@ -5,7 +5,7 @@ import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
   faCheckSquare, faSquare, faClock, faEllipsisV, faCloudUploadAlt, 
-  faPen, faDatabase, faTrash, faCog, faExclamationTriangle
+  faPen, faDatabase, faTrash, faCog, faExclamationTriangle, faDownload
 } from '@fortawesome/free-solid-svg-icons';
 
 const BimFileItem = React.memo(({ file, isActive, isSelected, onFileSelect, onToggleModel, onAction }) => {
@@ -207,6 +207,12 @@ const BimFileItem = React.memo(({ file, isActive, isSelected, onFileSelect, onTo
                 className="w-full text-left px-3.5 py-2 text-[10px] font-bold text-gray-600 hover:bg-blue-50 hover:text-blue-600 flex items-center gap-2 transition-colors"
               >
                 <FontAwesomeIcon icon={faPen} className="w-3 text-blue-400" /> Editar / Mover
+              </button>
+              <button 
+                onClick={(e) => handleMenuAction(e, 'download')} 
+                className="w-full text-left px-3.5 py-2 text-[10px] font-bold text-gray-600 hover:bg-blue-50 hover:text-blue-600 flex items-center gap-2 transition-colors"
+              >
+                <FontAwesomeIcon icon={faDownload} className="w-3 text-blue-400" /> Baixar Modelo
               </button>
               <button 
                 onClick={(e) => handleMenuAction(e, 'sync')} 

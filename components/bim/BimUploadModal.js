@@ -50,11 +50,27 @@ export default function BimUploadModal({ isOpen, onClose, preSelectedContext, on
  }, [isOpen, preSelectedContext, mode]);
 
  // --- FUNÇÃO DE UPLOAD CORRIGIDA (CLIENT-SIDE -> SUPABASE -> LINK -> API) ---
- const handleDirectUpload = async () => {
- if (!file) return toast.error("Selecione um arquivo .RVT!");
- if (mode === 'create') {
- if (!selectedDisciplina || !selectedObra) return toast.error("Selecione Obra e Disciplina!");
- }
+  const handleDirectUpload = async () => {
+    if (!file) return toast.error("Selecione um arquivo .RVT ou .IFC!");
+    
+    const extNovo = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
+    if (extNovo !== '.rvt' && extNovo !== '.ifc') {
+      return toast.error("Por favor, envie apenas arquivos .RVT ou .IFC");
+    }
+
+    if (mode === 'version' && fileToUpdate) {
+      const extOriginal = fileToUpdate.nome_arquivo.toLowerCase().substring(fileToUpdate.nome_arquivo.lastIndexOf('.'));
+      const isOriginalIfc = extOriginal === '.ifc' || fileToUpdate.nome_arquivo.toLowerCase().includes('.ifc.rvt');
+      const isNovoIfc = extNovo === '.ifc' || file.name.toLowerCase().includes('.ifc.rvt');
+      
+      if (isOriginalIfc !== isNovoIfc) {
+        return toast.error(`A extensão do arquivo atualizado (${isNovoIfc ? 'IFC' : 'RVT'}) não corresponde à versão original (${isOriginalIfc ? 'IFC' : 'RVT'}).`);
+      }
+    }
+
+    if (mode === 'create') {
+      if (!selectedDisciplina || !selectedObra) return toast.error("Selecione Obra e Disciplina!");
+    }
 
  setIsUploading(true);
  try {
@@ -281,7 +297,7 @@ export default function BimUploadModal({ isOpen, onClose, preSelectedContext, on
  )}
 
  <div className="relative">
- <input type="file" id="bim-file-input" accept=".rvt" className="hidden" onChange={(e) => setFile(e.target.files[0])} disabled={isUploading}
+ <input type="file" id="bim-file-input" accept=".rvt,.ifc" className="hidden" onChange={(e) => setFile(e.target.files[0])} disabled={isUploading}
  />
  <label htmlFor="bim-file-input" className={`
  block border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all
@@ -300,7 +316,7 @@ export default function BimUploadModal({ isOpen, onClose, preSelectedContext, on
  ) : (
  <div>
  <p className="text-sm font-bold text-gray-600">Clique para selecionar</p>
- <p className="text-xs text-gray-400 mt-1">Suporta apenas arquivos .RVT</p>
+ <p className="text-xs text-gray-400 mt-1">Suporta arquivos .RVT ou .IFC</p>
  </div>
  )}
  </label>
