@@ -200,8 +200,12 @@ export function useBimMapeamentos({ organizacaoId, empreendimentoId, modelosIds 
       const parseFormula = (fatorStr, valorBruto) => {
         if (!fatorStr) return valorBruto;
         try {
-          const expressao = fatorStr
-            .replace(/,/g, '.')
+          const limpo = fatorStr.trim().replace(/,/g, '.');
+          // Se for apenas um número puro, assume que é multiplicador direto
+          if (/^[0-9]+(\.[0-9]+)?$/.test(limpo)) {
+            return valorBruto * parseFloat(limpo);
+          }
+          const expressao = limpo
             .replace(/\[quantidade\]|\[q\]/gi, valorBruto.toString());
           // eslint-disable-next-line no-new-func
           const fn = new Function('return ' + expressao);
@@ -256,8 +260,12 @@ export function useBimMapeamentos({ organizacaoId, empreendimentoId, modelosIds 
       const parseFormula = (fatorStr, valorBruto) => {
         if (!fatorStr) return valorBruto;
         try {
-          const expressao = fatorStr
-            .replace(/,/g, '.')
+          const limpo = fatorStr.trim().replace(/,/g, '.');
+          // Se for apenas um número puro, assume que é multiplicador direto
+          if (/^[0-9]+(\.[0-9]+)?$/.test(limpo)) {
+            return valorBruto * parseFloat(limpo);
+          }
+          const expressao = limpo
             .replace(/\[quantidade\]|\[q\]/gi, valorBruto.toString());
           // eslint-disable-next-line no-new-func
           const fn = new Function('return ' + expressao);

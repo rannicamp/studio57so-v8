@@ -170,45 +170,77 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
     }
   }, [modelosContextIds, modelosSelecionadosIds, handleSelectModelos]);
 
- // ─── Agrupamento de Orçamento por Etapas ─────────────────────────────────────
- const quantitativosAgrupados = useMemo(() => {
- const grupos = {};
- quantitativoPorMaterial.forEach(item => {
- const eId = item.etapa_id || 'sem_etapa';
- const eNome = item.etapa_nome || 'Sem Etapa Vinculada';
- const sId = item.subetapa_id || 'sem_subetapa';
- const sNome = item.subetapa_nome || '';
+  // Helper de Ordenação Hierárquica para Composições Filhas
+  const organizarMateriaisHierarquico = (listaMateriais) => {
+    const pais = listaMateriais.filter(m => !m.pai_mapeamento_id);
+    const filhos = listaMateriais.filter(m => m.pai_mapeamento_id);
+    
+    const resultado = [];
+    pais.forEach(pai => {
+      resultado.push(pai);
+      
+      const filhosDestePai = filhos.filter(f => f.pai_mapeamento_id === pai.mapeamento_id);
+      filhosDestePai.sort((a, b) => b.custo_total - a.custo_total);
+      
+      resultado.push(...filhosDestePai);
+    });
+    
+    const idsInseridos = new Set(resultado.map(r => r.key));
+    const orfaos = filhos.filter(f => !idsInseridos.has(f.key));
+    if (orfaos.length > 0) {
+      resultado.push(...orfaos);
+    }
+    
+    return resultado;
+  };
 
- if (!grupos[eId]) {
- grupos[eId] = {
- etapa_id: eId,
- etapa_nome: eNome,
- custo_total: 0,
- tem_alertas: false,
- subetapas: {}
- };
- }
- if (!grupos[eId].subetapas[sId]) {
- grupos[eId].subetapas[sId] = {
- subetapa_id: sId,
- subetapa_nome: sNome,
- custo_total: 0,
- materiais: []
- };
- }
+  // ─── Agrupamento de Orçamento por Etapas ─────────────────────────────────────
+  const quantitativosAgrupados = useMemo(() => {
+    const grupos = {};
+    quantitativoPorMaterial.forEach(item => {
+      const eId = item.etapa_id || 'sem_etapa';
+      const eNome = item.etapa_nome || 'Sem Etapa Vinculada';
+      const sId = item.subetapa_id || 'sem_subetapa';
+      const sNome = item.subetapa_nome || '';
 
- grupos[eId].custo_total += item.custo_total;
- if (item.tem_alertas) grupos[eId].tem_alertas = true;
- grupos[eId].subetapas[sId].custo_total += item.custo_total;
- grupos[eId].subetapas[sId].materiais.push(item);
- });
+      if (!grupos[eId]) {
+        grupos[eId] = {
+          etapa_id: eId,
+          etapa_nome: eNome,
+          custo_total: 0,
+          tem_alertas: false,
+          subetapas: {}
+        };
+      }
+      if (!grupos[eId].subetapas[sId]) {
+        grupos[eId].subetapas[sId] = {
+          subetapa_id: sId,
+          subetapa_nome: sNome,
+          custo_total: 0,
+          materiais: []
+        };
+      }
 
- return Object.values(grupos).sort((a, b) => {
- if (a.etapa_id === 'sem_etapa') return 1;
- if (b.etapa_id === 'sem_etapa') return -1;
- return a.etapa_nome.localeCompare(b.etapa_nome);
- });
- }, [quantitativoPorMaterial]);
+      grupos[eId].custo_total += item.custo_total;
+      if (item.tem_alertas) grupos[eId].tem_alertas = true;
+      grupos[eId].subetapas[sId].custo_total += item.custo_total;
+      grupos[eId].subetapas[sId].materiais.push(item);
+    });
+
+    const etapasOrdenadas = Object.values(grupos).sort((a, b) => {
+      if (a.etapa_id === 'sem_etapa') return 1;
+      if (b.etapa_id === 'sem_etapa') return -1;
+      return a.etapa_nome.localeCompare(b.etapa_nome);
+    });
+
+    etapasOrdenadas.forEach(et => {
+      Object.values(et.subetapas).forEach(sub => {
+        sub.materiais = organizarMateriaisHierarquico(sub.materiais);
+      });
+    });
+
+    return etapasOrdenadas;
+  }, [quantitativoPorMaterial]);
 
  // ─── Agrupamento de Orçamento por Categoria Revit ─────────────────────────────
   const quantitativosPorCategoria = useMemo(() => {
@@ -252,6 +284,7 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
           is_avulso: item.is_avulso,
           material_id: item.material_id,
           sinapi_id: item.sinapi_id,
+          mapeamento_id: item.mapeamento_id,
           pai_mapeamento_id: item.pai_mapeamento_id,
           fator_conversao: item.fator_conversao,
           quantidadeOriginalApenasParaInfo: 0
@@ -283,11 +316,12 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
     });
 
     const listaGrupos = Object.values(grupos).map(g => {
+      const materiaisOrdenados = organizarMateriaisHierarquico(Object.values(g.materiaisMap));
       return {
         categoria_nome: g.categoria_nome,
         custo_total: g.custo_total,
         tem_alertas: g.tem_alertas,
-        materiais: Object.values(g.materiaisMap).sort((a, b) => b.custo_total - a.custo_total)
+        materiais: materiaisOrdenados
       };
     });
 
@@ -349,34 +383,42 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
  }, [quantitativoPorMaterial]);
 
   const renderMaterialRow = (item, paddingClass = "pl-12") => {
+    const isFilho = !!item.pai_mapeamento_id;
+    const paddingCels = isFilho ? "pl-20 bg-slate-50/25" : paddingClass;
+
     return (
       <tr
         key={item.key}
-        className={`border-b border-gray-100 hover:bg-white transition-colors ${
-          item.tem_alertas ? 'bg-amber-50/20' : 'bg-white'
+        className={`border-b border-gray-100 hover:bg-slate-50/50 transition-colors ${
+          item.tem_alertas ? 'bg-amber-50/20' : (isFilho ? 'bg-slate-50/10' : 'bg-white')
         }`}
       >
-        <td className={`px-4 py-2 ${paddingClass} border-l-2 border-transparent hover:border-blue-400`}>
+        <td className={`px-4 py-2 ${paddingCels} border-l-2 ${isFilho ? 'border-emerald-300' : 'border-transparent'} hover:border-blue-400`}>
           <div className="flex items-center gap-2">
+            {isFilho && (
+              <span className="text-emerald-500 font-extrabold text-[11px] select-none mr-1" title="Subitem de composição">
+                └─
+              </span>
+            )}
             {item.tem_alertas && (
               <span title={`${item.external_ids_inativos.length} elementos removidos do modelo`}>
                 <FontAwesomeIcon icon={faTriangleExclamation} className="text-amber-400 text-[10px]" />
               </span>
             )}
             <div>
-              <p className="text-xs font-semibold text-gray-700">{item.nome}</p>
+              <p className={`text-xs ${isFilho ? 'font-medium text-slate-650' : 'font-semibold text-gray-700'}`}>{item.nome}</p>
               {item.tem_alertas && (
                 <p className="text-[9px] text-amber-600">
                   {item.external_ids_inativos.length} elem. removidos do 3D
                 </p>
               )}
-              {item.pai_mapeamento_id && (
-                <p className="text-[9px] text-emerald-600 font-bold bg-emerald-50 px-1.5 py-0.5 rounded inline-block mt-0.5" title="A quantidade desta linha depende da quantidade de outro Material">
-                  <FontAwesomeIcon icon={faLink} className="mr-1" />
-                  Composição Filha
+              {isFilho && (
+                <p className="text-[8px] text-emerald-600 font-bold bg-emerald-50 px-1 py-0.2 rounded inline-block mt-0.5" title="A quantidade desta linha depende da quantidade de outro Material">
+                  <FontAwesomeIcon icon={faLink} className="mr-1 text-[7px]" />
+                  Subitem
                 </p>
               )}
-              {item.is_avulso && !item.pai_mapeamento_id && (
+              {item.is_avulso && !isFilho && (
                 <p className="text-[9px] text-slate-500 font-bold bg-slate-100 px-1.5 py-0.5 rounded inline-block mt-0.5" title="Foi adicionado manualmente e possui quantidade travada">
                   <FontAwesomeIcon icon={faBoxOpen} className="mr-1" />
                   Avulso Inicial

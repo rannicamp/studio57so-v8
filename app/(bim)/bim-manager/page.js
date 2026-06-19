@@ -114,9 +114,25 @@ export default function BimManagerPage() {
    localStorage.setItem('bim_layout_activeMainTab', activeMainTab);
  }, [activeMainTab]);
 
- // 4. Hook de Gerenciamento de Modelos
- const { loadedFiles, selectedModels, handleToggleModel, handleLoadSet, handleClearAll,
- loadedModelsRef } = useBimModels(viewerInstance, setIsGanttOpen, enrichedFiles);
+  // Query para obter os arquivos ativos do banco e passar para a validação do auto-load do hook
+  const { data: activeFiles = [] } = useQuery({
+    queryKey: ['projetos_bim_ativos', organizacao_id],
+    queryFn: async () => {
+      if (!organizacao_id) return [];
+      const { data, error } = await supabase
+        .from('projetos_bim')
+        .select('id')
+        .eq('organizacao_id', organizacao_id)
+        .eq('is_lixeira', false);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!organizacao_id
+  });
+
+  // 4. Hook de Gerenciamento de Modelos
+  const { loadedFiles, selectedModels, handleToggleModel, handleLoadSet, handleClearAll,
+  loadedModelsRef } = useBimModels(viewerInstance, setIsGanttOpen, activeFiles);
 
  // FIX: Garante que o fileInUse pertença aos arquivos atualmente carregados na tela
  const fileInUse = (activeFile && loadedFiles.some(f => f.id === activeFile.id))

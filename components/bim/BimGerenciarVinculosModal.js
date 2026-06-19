@@ -3,7 +3,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
   faTimes, faTrash, faExclamationTriangle, faLink, 
   faBoxOpen, faSave, faSpinner, faDiagramProject, 
-  faPen, faCheck, faSearch 
+  faPen, faCheck, faSearch, faPlus, faTimesCircle
 } from '@fortawesome/free-solid-svg-icons';
 import { createClient } from '@/utils/supabase/client';
 import { toast } from 'sonner';
@@ -23,13 +23,23 @@ export default function BimGerenciarVinculosModal({
   const [excluindo, setExcluindo] = useState(false);
   const [abaAtiva, setAbaAtiva] = useState('exclusao'); // 'exclusao' | 'composicao'
   const [salvandoFilho, setSalvandoFilho] = useState(false);
-  const [novoFilhoSelecaoId, setNovoFilhoSelecaoId] = useState('');
 
   // Estados de edição / troca de material
   const [mapeamentoEditandoId, setMapeamentoEditandoId] = useState(null);
   const [buscaMaterial, setBuscaMaterial] = useState('');
   const [materialSelecionadoParaTroca, setMaterialSelecionadoParaTroca] = useState(null);
   const [atualizandoMaterial, setAtualizandoMaterial] = useState(false);
+
+  // Novos estados para a criação de composições filhas diretamente
+  const [buscaMaterialFilho, setBuscaMaterialFilho] = useState('');
+  const [materialFilhoSel, setMaterialFilhoSel] = useState(null);
+  const [fatorConversaoFilho, setFatorConversaoFilho] = useState('3'); // padrão 3x a quantidade do pai (ex: dobradiças por porta)
+
+  const [modoCriarMaterial, setModoCriarMaterial] = useState(false);
+  const [novoMaterialNome, setNovoMaterialNome] = useState('');
+  const [novoMaterialUnidade, setNovoMaterialUnidade] = useState('un');
+  const [novoMaterialPreco, setNovoMaterialPreco] = useState('');
+  const [novoMaterialGrupo, setNovoMaterialGrupo] = useState('BIM');
 
   // Busca reativa de materiais propios + SINAPI para a edição/troca inline
   const { data: resultadosBusca = [], isFetching: buscando } = useQuery({
@@ -61,6 +71,36 @@ export default function BimGerenciarVinculosModal({
     staleTime: 30 * 1000,
   });
 
+  // Busca reativa de materiais para atrelar como Composição Filha
+  const { data: resultadosBuscaFilho = [], isFetching: buscandoFilho } = useQuery({
+    queryKey: ['bim_busca_material_filho', buscaMaterialFilho, organizacaoId],
+    queryFn: async () => {
+      if (buscaMaterialFilho.trim().length < 2) return [];
+      const termo = `%${buscaMaterialFilho}%`;
+
+      const [{ data: props }, { data: sinapi }] = await Promise.all([
+        supabase
+          .from('materiais')
+          .select('id, nome, unidade_medida, preco_unitario, classificacao')
+          .eq('organizacao_id', organizacaoId)
+          .ilike('nome', termo)
+          .limit(10),
+        supabase
+          .from('sinapi')
+          .select('id, nome, descricao, unidade_medida, "Código da Composição"')
+          .ilike('nome', termo)
+          .limit(10),
+      ]);
+
+      return [
+        ...(props || []).map(m => ({ ...m, origem: 'proprio' })),
+        ...(sinapi || []).map(s => ({ ...s, nome: s.descricao || s.nome, origem: 'sinapi' })),
+      ];
+    },
+    enabled: isOpen && abaAtiva === 'composicao' && buscaMaterialFilho.trim().length >= 2,
+    staleTime: 30 * 1000,
+  });
+
   if (!isOpen || !materialOuSinapi) return null;
 
   // Filtra mapeamentos que pertencem DIRETAMENTE a este material (e não a um pai avulso)
@@ -73,16 +113,12 @@ export default function BimGerenciarVinculosModal({
     return mId && String(mId) === String(materialOuSinapi.material_id) && !m.vinculo_pai_id;
   });
 
-  // Filtra os arquivos "Avulsos" que estão "pendurados" em UM dos mapeamentos deste Pai
+  // Filtra as composições filhas que estão penduradas em um dos mapeamentos deste Pai
   const idsMapeamentosPai = mapeamentosDesteItem.map(m => m.id);
   const filhos = mapeamentos.filter(m => m.vinculo_pai_id && idsMapeamentosPai.includes(m.vinculo_pai_id));
 
-  // Pra evitar complexidade extrema de sub-ramos matemáticos, a Subcomposição será pendurada 
-  // no PRIMEIRO mapeamento válido do Pai. Se ele foi atrelado à Parede, penduramos lá.
+  // Pendura no primeiro mapeamento ativo do Pai
   const mapeamentoPrincipalPai = mapeamentosDesteItem[0];
-
-  // Extraimos materiais avulsos que podem ser escolhidos como filho (que ainda não foram pendurados em ngm)
-  const itensAvulsosOrfaos = mapeamentos.filter(m => m.tipo_vinculo === 'avulso' && !m.vinculo_pai_id);
 
   // Salvar a troca do material em um mapeamento
   const handleConfirmarTroca = async (mapeamentoId) => {
@@ -163,41 +199,118 @@ export default function BimGerenciarVinculosModal({
     }
   };
 
-  const handlePlugarFilho = async () => {
-    if (!novoFilhoSelecaoId || !mapeamentoPrincipalPai) return;
-
+  // Criar material rápido diretamente do modal e selecionar como filho
+  const handleCriarMaterialRapido = async () => {
+    if (!novoMaterialNome.trim()) {
+      toast.error('Informe o nome do material.');
+      return;
+    }
     try {
       setSalvandoFilho(true);
-      const { error } = await supabase
-        .from('bim_mapeamentos_propriedades')
-        .update({ vinculo_pai_id: mapeamentoPrincipalPai.id })
-        .eq('id', novoFilhoSelecaoId);
+      
+      const { data: newMat, error: errMat } = await supabase
+        .from('materiais')
+        .insert({
+          nome: novoMaterialNome.trim(),
+          descricao: novoMaterialNome.trim(),
+          unidade_medida: novoMaterialUnidade,
+          preco_unitario: novoMaterialPreco ? parseFloat(novoMaterialPreco) : 0,
+          Grupo: novoMaterialGrupo || 'BIM',
+          Origem: 'BIM',
+          organizacao_id: organizacaoId
+        })
+        .select()
+        .single();
 
-      if (error) throw error;
-      toast.success('Insumo atrelado à composição principal com sucesso!');
-      setNovoFilhoSelecaoId('');
-      onClose(); // fecha para reconstruir
+      if (errMat) throw errMat;
+
+      toast.success(`Material "${newMat.nome}" cadastrado com sucesso no catálogo!`);
+
+      // Define como selecionado e sai do modo de criação
+      setMaterialFilhoSel({
+        id: newMat.id,
+        nome: newMat.nome,
+        unidade_medida: newMat.unidade_medida,
+        origem: 'proprio'
+      });
+      setModoCriarMaterial(false);
+      setBuscaMaterialFilho('');
     } catch (err) {
-      toast.error('Ocorreu um erro ao atrelar o material.');
+      toast.error('Erro ao cadastrar novo material.');
       console.error(err);
     } finally {
       setSalvandoFilho(false);
     }
   };
 
+  // Adicionar composição filha diretamente buscando no catálogo
+  const handleAdicionarFilhoDireto = async () => {
+    if (!materialFilhoSel || !mapeamentoPrincipalPai) return;
+
+    try {
+      setSalvandoFilho(true);
+      const isProprio = materialFilhoSel.origem === 'proprio';
+
+      const payload = {
+        organizacao_id: organizacaoId,
+        propriedade_nome: mapeamentoPrincipalPai.propriedade_nome || 'Quantidade',
+        propriedade_quantidade: mapeamentoPrincipalPai.propriedade_quantidade || null,
+        tipo_vinculo: 'material',
+        escopo: mapeamentoPrincipalPai.escopo || 'tipo',
+        material_id: isProprio ? materialFilhoSel.id : null,
+        sinapi_id: !isProprio ? materialFilhoSel.id : null,
+        unidade_override: materialFilhoSel.unidade_medida || 'un',
+        fator_conversao: fatorConversaoFilho || '1',
+        vinculo_pai_id: mapeamentoPrincipalPai.id,
+        categoria_bim: mapeamentoPrincipalPai.categoria_bim || null,
+        familia_bim: mapeamentoPrincipalPai.familia_bim || null,
+        tipo_bim: mapeamentoPrincipalPai.tipo_bim || null,
+        elemento_id: mapeamentoPrincipalPai.elemento_id || null
+      };
+
+      const { error } = await supabase
+        .from('bim_mapeamentos_propriedades')
+        .insert([payload]);
+
+      if (error) throw error;
+
+      toast.success('Insumo atrelado à composição filha com sucesso! Carregamento Mágico ativado.');
+      setMaterialFilhoSel(null);
+      setBuscaMaterialFilho('');
+      setFatorConversaoFilho('3');
+
+      // Atualiza caches em background
+      queryClient.invalidateQueries({ queryKey: ['bim_mapeamentos'] });
+      queryClient.invalidateQueries({ queryKey: ['bim_quantitativos_orcamentacao'] });
+      queryClient.invalidateQueries({ queryKey: ['bim_quantitativos_categoria'] });
+      
+      onClose(); // fecha para atualizar
+    } catch (err) {
+      toast.error('Ocorreu um erro ao adicionar composição filha.');
+      console.error(err);
+    } finally {
+      setSalvandoFilho(false);
+    }
+  };
+
+  // Excluir a composição filha permanentemente
   const handleDesplugarFilho = async (idFilho) => {
     try {
       setExcluindo(true);
       const { error } = await supabase
         .from('bim_mapeamentos_propriedades')
-        .update({ vinculo_pai_id: null })
+        .delete()
         .eq('id', idFilho);
 
       if (error) throw error;
-      toast.success('Tornado Insumo Avulso novamente.');
+      toast.success('Insumo removido da composição com sucesso!');
+      
+      queryClient.invalidateQueries({ queryKey: ['bim_mapeamentos'] });
+      queryClient.invalidateQueries({ queryKey: ['bim_quantitativos_orcamentacao'] });
+      queryClient.invalidateQueries({ queryKey: ['bim_quantitativos_categoria'] });
       onClose();
     } catch (err) {
-      toast.error('Erro ao desatrelar.');
+      toast.error('Erro ao remover da composição.');
       console.error(err);
     } finally {
       setExcluindo(false);
@@ -525,7 +638,7 @@ export default function BimGerenciarVinculosModal({
                   Como funcionam as Composições?
                 </h3>
                 <p className="text-[11px] text-blue-700 leading-relaxed font-medium">
-                  Você pode atrelar a &quot;Quantidade&quot; de um item invisível no 3D (ex: Prego) para depender da quantidade deste item principal (Pai), através de um fator multiplicador.
+                  Você pode adicionar insumos (ex: dobradiças, fechaduras) atrelados à quantidade deste material principal (Pai), usando uma fórmula de conversão ou multiplicador (ex: <span className="font-mono bg-blue-150 px-1 rounded text-blue-800">[q] * 3</span>).
                 </p>
               </div>
               
@@ -534,7 +647,7 @@ export default function BimGerenciarVinculosModal({
               </div>
 
               {filhos.length === 0 ? (
-                <div className="text-center py-6 text-gray-400 bg-gray-50 rounded-lg border border-dashed border-gray-200">
+                <div className="text-center py-6 text-gray-400 bg-gray-50 rounded-lg border border-dashed border-gray-200 mb-5">
                   <FontAwesomeIcon icon={faBoxOpen} className="text-2xl mb-2 text-gray-300" />
                   <p className="text-xs font-medium">Nenhum insumo atrelado ainda.</p>
                 </div>
@@ -551,12 +664,12 @@ export default function BimGerenciarVinculosModal({
                           <div>
                             <p className="text-[11px] font-bold text-gray-700 leading-tight">{obj.nome || obj.descricao}</p>
                             <p className="text-[10px] text-gray-500 font-semibold mt-0.5">
-                              1 {materialOuSinapi.unidade} (Pai) = <span className="text-emerald-600 font-bold bg-emerald-50 px-1 rounded">{f.fator_conversao || '1'} {f.unidade_override || obj.unidade_medida || 'UN'}</span> (Filho)
+                              1 {materialOuSinapi.unidade || 'UN'} (Pai) = <span className="text-emerald-600 font-bold bg-emerald-50 px-1 rounded">{f.fator_conversao || '1'} {f.unidade_override || obj.unidade_medida || 'UN'}</span> (Filho)
                             </p>
                           </div>
                         </div>
                         <button onClick={() => handleDesplugarFilho(f.id)} className="text-[10px] text-red-400 hover:bg-red-50 hover:text-red-600 px-2 py-1 rounded"
-                          title="Desatrelar este insumo"
+                          title="Desatrelar e remover este insumo"
                         >
                           <FontAwesomeIcon icon={faTimes} />
                         </button>
@@ -566,40 +679,238 @@ export default function BimGerenciarVinculosModal({
                 </div>
               )}
 
-              {/* CONTROLES PARA ATRELAR NEW FILHO */}
-              <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-lg">
-                <label className="block text-[11px] font-bold text-emerald-800 uppercase tracking-wider mb-2">
-                  Atrelar Novo Insumo
-                </label>
-                <div className="flex flex-col gap-2">
-                  <select
-                    value={novoFilhoSelecaoId}
-                    onChange={e => setNovoFilhoSelecaoId(e.target.value)}
-                    className="w-full text-xs p-2 border border-emerald-200 rounded outline-none focus:ring-1 focus:ring-emerald-400"
-                  >
-                    <option value="">-- Selecione o item avulso --</option>
-                    {itensAvulsosOrfaos.map(m => {
-                      const mObj = m.material || m.sinapi;
-                      return (
-                        <option key={m.id} value={m.id}>
-                          {mObj?.nome || mObj?.descricao || 'Desconhecido'} (Quant. Base: {m.fator_conversao || 0})
-                        </option>
-                      );
-                    })}
-                  </select>
-                  <button
-                    onClick={handlePlugarFilho}
-                    disabled={!novoFilhoSelecaoId || salvandoFilho}
-                    className="flex items-center justify-center gap-2 w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded transition-colors disabled:opacity-50"
-                  >
-                    {salvandoFilho ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faLink} />}
-                    Atrelar a este Item
-                  </button>
-                  <p className="text-[10px] text-emerald-600/80 leading-tight mt-1 text-center font-medium">
-                    Apenas Itens Avulsos orfãos adicionados ao orçamento podem ser atrelados.
+              {/* CONTROLES PARA BUSCAR E ATRELAR NEW FILHO */}
+              {!mapeamentoPrincipalPai ? (
+                <div className="p-4 bg-amber-50 border border-amber-100 rounded-lg text-center">
+                  <FontAwesomeIcon icon={faExclamationTriangle} className="text-amber-500 text-lg mb-1" />
+                  <p className="text-xs font-bold text-amber-800">Associação Necessária</p>
+                  <p className="text-[10px] text-amber-700 mt-1 leading-normal">
+                    Para adicionar composições filhas, primeiro configure uma Regra de Vínculo na primeira aba para este material.
                   </p>
                 </div>
-              </div>
+              ) : (
+                <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-lg">
+                  <label className="block text-[10px] font-bold text-emerald-800 uppercase tracking-wider mb-2">
+                    {modoCriarMaterial ? 'Cadastrar Novo Insumo no Catálogo' : 'Buscar e Adicionar Insumo Filho'}
+                  </label>
+
+                  {modoCriarMaterial ? (
+                    <div className="flex flex-col gap-3">
+                      <div>
+                        <label className="block text-[9px] font-black text-emerald-700 uppercase tracking-widest mb-1">
+                          Nome do Insumo
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Ex: Dobradiça de Latão 3x3"
+                          value={novoMaterialNome}
+                          onChange={e => setNovoMaterialNome(e.target.value)}
+                          className="w-full text-xs p-2 border border-emerald-200 rounded outline-none focus:ring-1 focus:ring-emerald-400 bg-white text-gray-800 font-medium"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-[9px] font-black text-emerald-700 uppercase tracking-widest mb-1">
+                            Unidade de Medida
+                          </label>
+                          <select
+                            value={novoMaterialUnidade}
+                            onChange={e => setNovoMaterialUnidade(e.target.value)}
+                            className="w-full text-xs p-1.5 border border-emerald-200 rounded outline-none focus:ring-1 focus:ring-emerald-400 bg-white text-gray-850 font-medium h-[34px]"
+                          >
+                            <option value="un">un</option>
+                            <option value="m">m</option>
+                            <option value="m²">m²</option>
+                            <option value="m³">m³</option>
+                            <option value="kg">kg</option>
+                            <option value="par">par</option>
+                            <option value="cj">cj</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-[9px] font-black text-emerald-700 uppercase tracking-widest mb-1">
+                            Preço Unitário (R$)
+                          </label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            placeholder="0.00"
+                            value={novoMaterialPreco}
+                            onChange={e => setNovoMaterialPreco(e.target.value)}
+                            className="w-full text-xs p-2 border border-emerald-200 rounded outline-none focus:ring-1 focus:ring-emerald-400 bg-white text-gray-800 font-medium"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex gap-2 mt-1">
+                        <button
+                          type="button"
+                          onClick={() => setModoCriarMaterial(false)}
+                          className="flex-1 py-2 border border-emerald-300 text-emerald-700 font-bold text-xs rounded hover:bg-emerald-100/50 transition-colors"
+                        >
+                          Voltar para Busca
+                        </button>
+                        <button
+                          type="button"
+                          disabled={salvandoFilho}
+                          onClick={handleCriarMaterialRapido}
+                          className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded transition-colors shadow-sm disabled:opacity-50"
+                        >
+                          {salvandoFilho ? (
+                            <>
+                              <FontAwesomeIcon icon={faSpinner} spin className="mr-1" />
+                              Cadastrando...
+                            </>
+                          ) : (
+                            'Cadastrar e Selecionar'
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-3">
+                      {/* Campo de Busca de Material */}
+                      <div className="relative">
+                        <span className="absolute inset-y-0 left-0 flex items-center pl-2.5 text-gray-400">
+                          <FontAwesomeIcon icon={faSearch} className="text-xs" />
+                        </span>
+                        <input
+                          type="text"
+                          placeholder="Buscar material para a composição..."
+                          value={buscaMaterialFilho}
+                          onChange={e => {
+                            setBuscaMaterialFilho(e.target.value);
+                            setMaterialFilhoSel(null);
+                          }}
+                          className="w-full text-xs pl-8 pr-8 py-2 border border-emerald-200 rounded focus:ring-1 focus:ring-emerald-400 focus:border-emerald-400 outline-none bg-white text-gray-800 font-medium"
+                        />
+                        {buscaMaterialFilho && (
+                          <button 
+                            type="button"
+                            onClick={() => { setBuscaMaterialFilho(''); setMaterialFilhoSel(null); }}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                          >
+                            <FontAwesomeIcon icon={faTimesCircle} className="text-xs" />
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Atalho para cadastrar novo material se não achar ou quiser */}
+                      <div className="flex justify-between items-center text-[10px] -mt-1.5 px-0.5">
+                        <span className="text-emerald-700/60 font-semibold">Não encontrou o material?</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setNovoMaterialNome(buscaMaterialFilho);
+                            setNovoMaterialUnidade('un');
+                            setNovoMaterialPreco('');
+                            setNovoMaterialGrupo(mapeamentoPrincipalPai?.categoria_bim || 'BIM');
+                            setModoCriarMaterial(true);
+                          }}
+                          className="text-emerald-700 hover:text-emerald-900 font-black underline"
+                        >
+                          Cadastrar novo material
+                        </button>
+                      </div>
+
+                      {/* Resultados de Busca Filho */}
+                      {buscaMaterialFilho.trim().length >= 2 && !materialFilhoSel && (
+                        <div className="max-h-[140px] overflow-y-auto border border-emerald-100 rounded bg-white shadow-sm p-1">
+                          {buscandoFilho ? (
+                            <div className="text-center py-3 text-[10px] text-gray-400 font-semibold flex justify-center items-center gap-1.5">
+                              <FontAwesomeIcon icon={faSpinner} spin className="text-emerald-500" />
+                              Buscando materiais...
+                            </div>
+                          ) : resultadosBuscaFilho.length === 0 ? (
+                            <p className="text-center py-3 text-[10px] text-gray-400 font-semibold">
+                              Nenhum material encontrado.
+                            </p>
+                          ) : (
+                            <div className="flex flex-col gap-0.5">
+                              {resultadosBuscaFilho.map(res => (
+                                <button
+                                  type="button"
+                                  key={`${res.origem}_${res.id}`}
+                                  onClick={() => setMaterialFilhoSel(res)}
+                                  className="w-full text-left text-xs p-1.5 rounded hover:bg-emerald-50 text-gray-700 transition-colors flex items-center justify-between font-medium"
+                                >
+                                  <span className="truncate mr-2">{res.nome}</span>
+                                  <div className="flex items-center gap-1 shrink-0">
+                                    <span className="text-[8px] uppercase px-1 py-0.2 bg-slate-100 text-slate-500 rounded font-mono">
+                                      {res.unidade_medida}
+                                    </span>
+                                    <span className={`text-[8px] font-bold px-1 rounded-full uppercase border ${
+                                      res.origem === 'sinapi' 
+                                        ? 'bg-amber-50 text-amber-700 border-amber-200' 
+                                        : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                    }`}>
+                                      {res.origem}
+                                    </span>
+                                  </div>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Insumo Filho Selecionado */}
+                      {materialFilhoSel && (
+                        <div className="bg-emerald-600 text-white rounded p-2.5 text-xs flex items-center justify-between font-semibold shadow-sm">
+                          <span className="truncate mr-2">
+                            Selecionado: {materialFilhoSel.nome} ({materialFilhoSel.unidade_medida})
+                          </span>
+                          <button 
+                            type="button"
+                            onClick={() => setMaterialFilhoSel(null)}
+                            className="text-white hover:text-emerald-250 px-1"
+                          >
+                            <FontAwesomeIcon icon={faTimes} />
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Fator de Conversão / Fórmula */}
+                      <div>
+                        <label className="block text-[9px] font-black text-emerald-700 uppercase tracking-widest mb-1">
+                          Fator de Conversão / Multiplicador (Fórmula)
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Ex: 3 ou [q] * 3"
+                          value={fatorConversaoFilho}
+                          onChange={e => setFatorConversaoFilho(e.target.value)}
+                          className="w-full text-xs p-2 border border-emerald-200 rounded outline-none focus:ring-1 focus:ring-emerald-400 bg-white font-medium text-gray-800"
+                        />
+                        <span className="text-[8px] text-emerald-600/70 font-semibold block mt-1 leading-tight">
+                          Use números simples (ex: <span className="font-mono bg-emerald-100 px-0.5 rounded">3</span>) ou fórmulas (ex: <span className="font-mono bg-emerald-100 px-0.5 rounded">[q] * 3</span>) com a quantidade do pai.
+                        </span>
+                      </div>
+
+                      {/* Botão de Gravação */}
+                      <button
+                        type="button"
+                        onClick={handleAdicionarFilhoDireto}
+                        disabled={!materialFilhoSel || salvandoFilho}
+                        className="flex items-center justify-center gap-2 w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded transition-colors disabled:opacity-50 shadow-sm"
+                      >
+                        {salvandoFilho ? (
+                          <>
+                            <FontAwesomeIcon icon={faSpinner} spin className="mr-1" />
+                            Adicionando...
+                          </>
+                        ) : (
+                          <>
+                            <FontAwesomeIcon icon={faPlus} className="mr-1" />
+                            Adicionar à Composição Filha
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>
