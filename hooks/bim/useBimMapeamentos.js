@@ -31,8 +31,8 @@ export function useBimMapeamentos({ organizacaoId, empreendimentoId, modelosIds 
       const { data, error } = await supabase
         .from('bim_mapeamentos_propriedades')
         .select(`
-          id, propriedade_nome, categoria_bim, familia_bim,
-          tipo_vinculo, escopo, unidade_override, criado_em,
+          id, propriedade_nome, categoria_bim, familia_bim, tipo_bim, elemento_id,
+          tipo_vinculo, escopo, unidade_override, criado_em, fator_conversao,
           material:material_id ( id, nome, unidade_medida, preco_unitario, classificacao ),
           sinapi:sinapi_id   ( id, nome, descricao, unidade_medida, "Código da Composição" )
         `)
