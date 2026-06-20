@@ -10,6 +10,7 @@ import {
  faTriangleExclamation, faBoxOpen, faExpand, faCompress,
  faSearch, faBarcode, faLink, faBan, faRuler as faRulerIcon,
  faDollarSign, faExclamationTriangle, faChevronRight as faChevRight, faFileInvoiceDollar, faCube,
+ faShoppingCart,
 } from '@fortawesome/free-solid-svg-icons';
 import { useBimQuantitativos } from '@/hooks/bim/useBimQuantitativos';
 import { useBimMapeamentos } from '@/hooks/bim/useBimMapeamentos';
@@ -20,6 +21,7 @@ import BimVinculoSimplificadoModal from '@/components/bim/BimVinculoSimplificado
 import BimGerenciarVinculosModal from '@/components/bim/BimGerenciarVinculosModal';
 import BimInsumoAvulsoModal from '@/components/bim/BimInsumoAvulsoModal';
 import BimElementPropertiesModal from '@/components/bim/BimElementPropertiesModal';
+import BimSolicitarCompraModal from '@/components/bim/BimSolicitarCompraModal';
 import { useQuery } from '@tanstack/react-query';
 import { createClient } from '@/utils/supabase/client';
 
@@ -103,6 +105,10 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
  const [apenasNaoMapeados, setApenasNaoMapeados] = useState(false);
  const [tipoVisualizacao, setTipoVisualizacao] = useState('etapa'); // 'etapa' | 'categoria' | 'material'
  const dropdownRef = useRef(null);
+
+ // Estados para seleção de itens e modal de compras
+ const [itensSelecionados, setItensSelecionados] = useState({});
+ const [isSolicitarCompraModalAberto, setIsSolicitarCompraModalAberto] = useState(false);
 
  // Orçamentos etapas
  const { data: etapas = [] } = useQuery({
@@ -242,7 +248,7 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
     return etapasOrdenadas;
   }, [quantitativoPorMaterial]);
 
- // ─── Agrupamento de Orçamento por Categoria Revit ─────────────────────────────
+  // ─── Agrupamento de Orçamento por Categoria Revit ─────────────────────────────
   const quantitativosPorCategoria = useMemo(() => {
     const grupos = {};
 
@@ -332,67 +338,132 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
     });
   }, [quantitativoPorCategoria]);
 
- // ─── Agrupamento de Orçamento por Material Consolidado ────────────────────────
- const quantitativosPorMaterialConsolidado = useMemo(() => {
- const grupos = {};
+  // ─── Agrupamento de Orçamento por Material Consolidado ────────────────────────
+  const quantitativosPorMaterialConsolidado = useMemo(() => {
+    const grupos = {};
 
- quantitativoPorMaterial.forEach(item => {
- const keyMaterial = item.material_id 
- ? `mat_${item.material_id}` 
- : (item.sinapi_id ? `sinapi_${item.sinapi_id}` : `nome_${item.nome}`);
+    quantitativoPorMaterial.forEach(item => {
+      const keyMaterial = item.material_id 
+        ? `mat_${item.material_id}` 
+        : (item.sinapi_id ? `sinapi_${item.sinapi_id}` : `nome_${item.nome}`);
 
- if (!grupos[keyMaterial]) {
- grupos[keyMaterial] = {
- key: keyMaterial,
- nome: item.nome,
- unidade: item.unidade,
- preco_unitario: item.preco_unitario,
- classificacao: item.classificacao,
- quantidade: 0,
- qtd_elementos: 0,
- external_ids_ativos: [],
- external_ids_inativos: [],
- custo_total: 0,
- tem_alertas: false,
- origem: item.origem,
- is_avulso: item.is_avulso,
- material_id: item.material_id,
- sinapi_id: item.sinapi_id
- };
- }
+      if (!grupos[keyMaterial]) {
+        grupos[keyMaterial] = {
+          key: keyMaterial,
+          nome: item.nome,
+          unidade: item.unidade,
+          preco_unitario: item.preco_unitario,
+          classificacao: item.classificacao,
+          quantidade: 0,
+          qtd_elementos: 0,
+          external_ids_ativos: [],
+          external_ids_inativos: [],
+          custo_total: 0,
+          tem_alertas: false,
+          origem: item.origem,
+          is_avulso: item.is_avulso,
+          material_id: item.material_id,
+          sinapi_id: item.sinapi_id
+        };
+      }
 
- const g = grupos[keyMaterial];
- g.quantidade += item.quantidade;
- g.qtd_elementos += item.qtd_elementos;
- g.custo_total += item.custo_total;
- if (item.tem_alertas) g.tem_alertas = true;
+      const g = grupos[keyMaterial];
+      g.quantidade += item.quantidade;
+      g.qtd_elementos += item.qtd_elementos;
+      g.custo_total += item.custo_total;
+      if (item.tem_alertas) g.tem_alertas = true;
 
- if (item.external_ids_ativos) {
- item.external_ids_ativos.forEach(id => {
- if (!g.external_ids_ativos.includes(id)) g.external_ids_ativos.push(id);
- });
- }
- if (item.external_ids_inativos) {
- item.external_ids_inativos.forEach(id => {
- if (!g.external_ids_inativos.includes(id)) g.external_ids_inativos.push(id);
- });
- }
- });
+      if (item.external_ids_ativos) {
+        item.external_ids_ativos.forEach(id => {
+          if (!g.external_ids_ativos.includes(id)) g.external_ids_ativos.push(id);
+        });
+      }
+      if (item.external_ids_inativos) {
+        item.external_ids_inativos.forEach(id => {
+          if (!g.external_ids_inativos.includes(id)) g.external_ids_inativos.push(id);
+        });
+      }
+    });
 
- return Object.values(grupos).sort((a, b) => b.custo_total - a.custo_total);
- }, [quantitativoPorMaterial]);
+    return Object.values(grupos).sort((a, b) => b.custo_total - a.custo_total);
+  }, [quantitativoPorMaterial]);
+
+  // ─── Lógica Auxiliar de Seleção de Materiais para Compras ──────────────────────
+  
+  // Computa de forma reativa todos os materiais visíveis na planilha de acordo com a visão selecionada
+  const itensVisiveis = useMemo(() => {
+    if (tipoVisualizacao === 'material') {
+      return quantitativosPorMaterialConsolidado || [];
+    } else if (tipoVisualizacao === 'categoria') {
+      return (quantitativosPorCategoria || []).flatMap(g => g.materiais || []);
+    } else { // 'etapa'
+      return (quantitativosAgrupados || []).flatMap(g => 
+        Object.values(g.subetapas || {}).flatMap(s => s.materiais || [])
+      );
+    }
+  }, [tipoVisualizacao, quantitativosPorMaterialConsolidado, quantitativosPorCategoria, quantitativosAgrupados]);
+
+  // Verifica se todos os itens de materiais visíveis estão selecionados
+  const todosSelecionados = useMemo(() => {
+    if (itensVisiveis.length === 0) return false;
+    return itensVisiveis.every(item => !!itensSelecionados[item.key]);
+  }, [itensVisiveis, itensSelecionados]);
+
+  // Alterna a seleção de um único item
+  const handleToggleSelecionarItem = (item) => {
+    setItensSelecionados(prev => {
+      const novo = { ...prev };
+      if (novo[item.key]) {
+        delete novo[item.key];
+      } else {
+        novo[item.key] = item;
+      }
+      return novo;
+    });
+  };
+
+  // Seleciona ou desmarca todos os materiais visíveis
+  const handleToggleSelecionarTodos = () => {
+    if (todosSelecionados) {
+      setItensSelecionados(prev => {
+        const novo = { ...prev };
+        itensVisiveis.forEach(item => {
+          delete novo[item.key];
+        });
+        return novo;
+      });
+    } else {
+      setItensSelecionados(prev => {
+        const novo = { ...prev };
+        itensVisiveis.forEach(item => {
+          novo[item.key] = item;
+        });
+        return novo;
+      });
+    }
+  };
 
   const renderMaterialRow = (item, paddingClass = "pl-12") => {
     const isFilho = !!item.pai_mapeamento_id;
     const paddingCels = isFilho ? "pl-20 bg-slate-50/25" : paddingClass;
+    const estaSelecionado = !!itensSelecionados[item.key];
 
     return (
       <tr
         key={item.key}
         className={`border-b border-gray-100 hover:bg-slate-50/50 transition-colors ${
-          item.tem_alertas ? 'bg-amber-50/20' : (isFilho ? 'bg-slate-50/10' : 'bg-white')
+          item.tem_alertas ? 'bg-amber-50/20' : (isFilho ? 'bg-slate-50/10' : estaSelecionado ? 'bg-blue-50/10' : 'bg-white')
         }`}
       >
+        {/* Checkbox de Seleção */}
+        <td className="px-4 py-2 text-center w-10">
+          <input
+            type="checkbox"
+            checked={estaSelecionado}
+            onChange={() => handleToggleSelecionarItem(item)}
+            className="w-4 h-4 rounded text-blue-600 border-gray-300 focus:ring-blue-500 cursor-pointer animate-in fade-in"
+          />
+        </td>
         <td className={`px-4 py-2 ${paddingCels} border-l-2 ${isFilho ? 'border-emerald-300' : 'border-transparent'} hover:border-blue-400`}>
           <div className="flex items-center gap-2">
             {isFilho && (
@@ -406,7 +477,7 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
               </span>
             )}
             <div>
-              <p className={`text-xs ${isFilho ? 'font-medium text-slate-650' : 'font-semibold text-gray-700'}`}>{item.nome}</p>
+              <p className={`text-xs ${isFilho ? 'font-medium text-slate-655' : 'font-semibold text-gray-700'}`}>{item.nome}</p>
               {item.tem_alertas && (
                 <p className="text-[9px] text-amber-600">
                   {item.external_ids_inativos.length} elem. removidos do 3D
@@ -503,7 +574,6 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
   const [inspecaoModal, setInspecaoModal] = useState(null);
   const [insumoAvulsoModalOpen, setInsumoAvulsoModalOpen] = useState(false);
   const [materialGerenciar, setMaterialGerenciar] = useState(null);
-
 
   const [linhaDestacadaChave, setLinhaDestacadaChave] = useState(null);
 
@@ -1020,8 +1090,6 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
   return (
   <div className="w-full h-full flex flex-col bg-gray-50 overflow-hidden font-sans animate-in fade-in duration-200">
 
-
-
   {/* ══════════════ HEADER ══════════════ */}
   <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between gap-4 flex-shrink-0 shadow-sm relative overflow-hidden">
   
@@ -1174,14 +1242,14 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
  <span>Calculando quantitativos dos modelos selecionados...</span>
  </>
  ) : (
- <>
- <FontAwesomeIcon icon={faBuilding} className="mr-1" />
- <span>
- <strong>{empreendimentoSelecionado?.nome}</strong>
- {' · '}{modelosSelecionados.length} modelo{modelosSelecionados.length !== 1 ? 's' : ''} selecionado{modelosSelecionados.length !== 1 ? 's' : ''}
- {' · '}<strong>{kpis.totalElementos.toLocaleString('pt-BR')}</strong> elementos no escopo
- </span>
- </>
+  <>
+  <FontAwesomeIcon icon={faBuilding} className="mr-1" />
+  <span>
+  <strong>{empreendimentoSelecionado?.nome}</strong>
+  {' · '}{modelosSelecionados.length} modelo{modelosSelecionados.length !== 1 ? 's' : ''} selecionado{modelosSelecionados.length !== 1 ? 's' : ''}
+  {' · '}<strong>{kpis.totalElementos.toLocaleString('pt-BR')}</strong> elementos no escopo
+  </span>
+  </>
  )}
  </div>
 
@@ -1264,7 +1332,7 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
       </button>
     </div>
     
-    <div className="text-[11px] text-gray-550 font-semibold bg-gray-50/75 px-3 py-1.5 border border-gray-200 rounded-lg shadow-sm">
+    <div className="text-[11px] text-gray-555 font-semibold bg-gray-50/75 px-3 py-1.5 border border-gray-200 rounded-lg shadow-sm">
       {tipoVisualizacao === 'etapa' && 'Visualização em árvore agrupada por etapa e subetapa do cronograma.'}
       {tipoVisualizacao === 'categoria' && 'Visualização agrupada pelas categorias do modelo 3D (Eberick/Revit).'}
       {tipoVisualizacao === 'material' && 'Visualização consolidada com a soma total de cada material no projeto.'}
@@ -1276,6 +1344,16 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
   <table className="w-full text-sm border-collapse">
   <thead className="bg-gray-50/75 border-b border-gray-200">
   <tr>
+  {/* Checkbox Geral de Selecionar Todos */}
+  <th className="px-4 py-3 text-center w-10">
+    <input
+      type="checkbox"
+      checked={todosSelecionados}
+      onChange={handleToggleSelecionarTodos}
+      className="w-4 h-4 rounded text-blue-600 border-gray-300 focus:ring-blue-500 cursor-pointer"
+      title="Selecionar todos os materiais visíveis nesta aba"
+    />
+  </th>
   <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Material</th>
   <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Unid.</th>
   <th className="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Quantidade</th>
@@ -1295,7 +1373,8 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
           <tr className="bg-blue-50 border-t-2 border-blue-200 cursor-pointer hover:bg-blue-100 transition-colors"
             onClick={() => toggleEtapaOrcamento(grupo.etapa_id)}
           >
-            <td colSpan={4} className="px-4 py-2.5">
+            {/* Incrementado colSpan de 4 para 5 devido ao checkbox */}
+            <td colSpan={5} className="px-4 py-2.5">
               <div className="flex items-center gap-2">
                 <FontAwesomeIcon icon={isExpandido ? faAngleDown : faAngleRight} className="text-blue-500 w-3" />
                 <h3 className="text-xs font-bold text-blue-800 uppercase tracking-wide">
@@ -1327,7 +1406,8 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
               {/* Cabeçalho Subetapa (se houver nome) */}
               {sub.subetapa_nome && (
                 <tr className="bg-gray-100 border-t border-gray-200">
-                  <td colSpan={4} className="px-8 py-2">
+                  {/* Incrementado colSpan de 4 para 5 devido ao checkbox */}
+                  <td colSpan={5} className="px-8 py-2">
                     <h4 className="text-[10px] font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2">
                       <FontAwesomeIcon icon={faLayerGroup} className="text-gray-400" />
                       {sub.subetapa_nome}
@@ -1363,7 +1443,7 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
     {tipoVisualizacao === 'categoria' && (
       carregandoQuantitativoPorCategoria ? (
         <tr>
-          <td colSpan={7} className="px-4 py-20 text-center">
+          <td colSpan={8} className="px-4 py-20 text-center">
             <div className="flex flex-col items-center justify-center text-blue-600 font-bold gap-3 animate-pulse">
               <FontAwesomeIcon icon={faSpinner} spin className="text-2xl" />
               <span className="text-xs">Calculando custos por categoria do Revit...</span>
@@ -1378,7 +1458,8 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
             <tr className="bg-blue-50 border-t-2 border-blue-200 cursor-pointer hover:bg-blue-100 transition-colors"
               onClick={() => toggleEtapaOrcamento(grupo.categoria_nome)}
             >
-              <td colSpan={4} className="px-4 py-2.5">
+              {/* Incrementado colSpan de 4 para 5 devido ao checkbox */}
+              <td colSpan={5} className="px-4 py-2.5">
                 <div className="flex items-center gap-2">
                   <FontAwesomeIcon icon={isExpandido ? faAngleDown : faAngleRight} className="text-blue-500 w-3" />
                   <h3 className="text-xs font-bold text-blue-800 uppercase tracking-wide">
@@ -1414,20 +1495,21 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
     {/* 3. VISÃO POR MATERIAL CONSOLIDADO */}
     {tipoVisualizacao === 'material' && quantitativosPorMaterialConsolidado.map(item => renderMaterialRow(item, "pl-8"))}
   </tbody>
- {quantitativoPorMaterial.some(m => m.preco_unitario > 0) && (
- <tfoot className="bg-gray-50 border-t-2 border-gray-200">
- <tr>
- <td colSpan={4} className="px-4 py-2.5 text-xs font-extrabold text-gray-650 uppercase tracking-wide">Total Estimado</td>
- <td className="px-4 py-2.5 text-right font-extrabold text-emerald-700">
- {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(kpisMaterial.custoTotal)}
- </td>
- <td colSpan={2}></td>
- </tr>
- </tfoot>
- )}
- </table>
- </div>
- </>
+  {quantitativoPorMaterial.some(m => m.preco_unitario > 0) && (
+  <tfoot className="bg-gray-50 border-t-2 border-gray-200">
+  <tr>
+  {/* Incrementado colSpan de 4 para 5 devido ao checkbox */}
+  <td colSpan={5} className="px-4 py-2.5 text-xs font-extrabold text-gray-650 uppercase tracking-wide">Total Estimado</td>
+  <td className="px-4 py-2.5 text-right font-extrabold text-emerald-700">
+  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(kpisMaterial.custoTotal)}
+  </td>
+  <td colSpan={2}></td>
+  </tr>
+  </tfoot>
+  )}
+  </table>
+  </div>
+  </>
  )}
  </div>
  )}
@@ -1572,17 +1654,17 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
           </div>
         </td>
       </tr>
-    )}
+   )}
   
-    {catExpandida && !cat.carregandoFamilias && cat.familias.length === 0 && (
+   {catExpandida && !cat.carregandoFamilias && cat.familias.length === 0 && (
       <tr key={`empty-cat-${cat.categoria}`} className="bg-gray-50/30">
         <td className="px-3 py-3 text-center pl-10 text-xs text-gray-400 font-semibold italic" colSpan={5}>
           Nenhuma família encontrada para esta categoria.
         </td>
       </tr>
-    )}
+   )}
   
-    {catExpandida && !cat.carregandoFamilias && cat.familias.map(fam => {
+   {catExpandida && !cat.carregandoFamilias && cat.familias.map(fam => {
    const famChave = `${cat.categoria}|||${fam.familia}`;
    const famExpandida = familiasExpandidas.has(famChave);
    const mapeamentoFam = mapeamentos.find(m =>
@@ -2055,6 +2137,51 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
  organizacaoId={organizacao_id}
  />
  )}
+
+  {/* Barra de Ação Flutuante para solicitar compras */}
+  {Object.keys(itensSelecionados).length > 0 && (
+    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-gray-900 text-white rounded-full px-6 py-3 flex items-center gap-6 shadow-2xl border border-gray-800 animate-in slide-in-from-bottom-4 duration-300">
+      <div className="flex items-center gap-2 text-xs">
+        <div className="w-5 h-5 bg-blue-600 rounded-full flex items-center justify-center font-bold text-[10px]">
+          {Object.keys(itensSelecionados).length}
+        </div>
+        <span className="font-semibold text-gray-300">
+          {Object.keys(itensSelecionados).length === 1 ? "material selecionado" : "materiais selecionados"}
+        </span>
+      </div>
+      <div className="h-4 w-px bg-gray-700" />
+      <div className="flex gap-2">
+        <button
+          onClick={() => setItensSelecionados({})}
+          className="text-xs font-bold text-gray-400 hover:text-white transition-colors px-3 py-1"
+        >
+          Limpar
+        </button>
+        <button
+          onClick={() => setIsSolicitarCompraModalAberto(true)}
+          className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-1.5 rounded-full flex items-center gap-1.5 transition-all shadow active:scale-95"
+        >
+          <FontAwesomeIcon icon={faShoppingCart} className="text-[10px]" />
+          Solicitar Compra
+        </button>
+      </div>
+    </div>
+  )}
+
+  {/* ─── MODAL: SOLICITAR COMPRA ─── */}
+  {isSolicitarCompraModalAberto && (
+    <BimSolicitarCompraModal
+      isOpen={isSolicitarCompraModalAberto}
+      onClose={() => setIsSolicitarCompraModalAberto(false)}
+      itensSelecionados={Object.values(itensSelecionados)}
+      empreendimento={empreendimentoSelecionado}
+      organizacaoId={organizacao_id}
+      usuarioId={user?.id}
+      onSucesso={() => {
+        setItensSelecionados({});
+      }}
+    />
+  )}
  </div>
  );
 }

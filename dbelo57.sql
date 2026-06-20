@@ -487,7 +487,8 @@ CREATE TABLE public.contatos (
     meta_adset_id text,
     instagram_username text,
     ai_analysis jsonb,
-    ia_atendimento_ativo boolean DEFAULT false
+    ia_atendimento_ativo boolean DEFAULT false,
+    meta_referral_data jsonb
 );
 
 CREATE TABLE public.contatos_no_funil (
