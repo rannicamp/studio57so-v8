@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useRef, useEffect, Fragment } from 'react';
+import { useState, useMemo, useRef, useEffect, Fragment, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -104,6 +104,8 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
  const [abaAtiva, setAbaAtiva] = useState('elementos'); // 'elementos' | 'por-material'
  const [apenasNaoMapeados, setApenasNaoMapeados] = useState(false);
  const [tipoVisualizacao, setTipoVisualizacao] = useState('etapa'); // 'etapa' | 'categoria' | 'material'
+ const [ordenacaoCampo, setOrdenacaoCampo] = useState(null); // 'nome' | 'quantidade' | 'preco' | 'custo' | null
+ const [ordenacaoDirecao, setOrdenacaoDirecao] = useState('asc'); // 'asc' | 'desc'
  const dropdownRef = useRef(null);
 
  // Estados para seleção de itens e modal de compras
@@ -155,6 +157,8 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
  kpisMaterial,
  atualizarFatorMaterial,
  propriedadesMapeadas,
+ entregasPorMaterial,
+ carregandoEntregas,
  } = useBimMapeamentos({
  organizacaoId: organizacao_id,
  empreendimentoId: empreendimentoSelecionadoId,
@@ -176,17 +180,54 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
     }
   }, [modelosContextIds, modelosSelecionadosIds, handleSelectModelos]);
 
+  // Helper para aplicar ordenação de colunas em uma lista de materiais
+  const ordenarMateriais = useCallback((lista) => {
+    if (!ordenacaoCampo) return lista;
+    const copia = [...lista];
+    copia.sort((a, b) => {
+      let valorA, valorB;
+      if (ordenacaoCampo === 'nome') {
+        valorA = (a.nome || '').toLowerCase();
+        valorB = (b.nome || '').toLowerCase();
+        return ordenacaoDirecao === 'asc' 
+          ? valorA.localeCompare(valorB) 
+          : valorB.localeCompare(valorA);
+      } else if (ordenacaoCampo === 'preco') {
+        valorA = Number(a.preco_unitario) || 0;
+        valorB = Number(b.preco_unitario) || 0;
+      } else if (ordenacaoCampo === 'quantidade') {
+        valorA = Number(a.quantidade) || 0;
+        valorB = Number(b.quantidade) || 0;
+      } else if (ordenacaoCampo === 'custo') {
+        valorA = Number(a.custo_total) || 0;
+        valorB = Number(b.custo_total) || 0;
+      }
+      return ordenacaoDirecao === 'asc' ? valorA - valorB : valorB - valorA;
+    });
+    return copia;
+  }, [ordenacaoCampo, ordenacaoDirecao]);
+
   // Helper de Ordenação Hierárquica para Composições Filhas
-  const organizarMateriaisHierarquico = (listaMateriais) => {
-    const pais = listaMateriais.filter(m => !m.pai_mapeamento_id);
+  const organizarMateriaisHierarquico = useCallback((listaMateriais) => {
+    let pais = listaMateriais.filter(m => !m.pai_mapeamento_id);
     const filhos = listaMateriais.filter(m => m.pai_mapeamento_id);
+    
+    // Se houver ordenação ativa, ordena a lista dos pais
+    if (ordenacaoCampo) {
+      pais = ordenarMateriais(pais);
+    }
     
     const resultado = [];
     pais.forEach(pai => {
       resultado.push(pai);
       
-      const filhosDestePai = filhos.filter(f => f.pai_mapeamento_id === pai.mapeamento_id);
-      filhosDestePai.sort((a, b) => b.custo_total - a.custo_total);
+      let filhosDestePai = filhos.filter(f => f.pai_mapeamento_id === pai.mapeamento_id);
+      // Ordena também os filhos se houver campo ativo
+      if (ordenacaoCampo) {
+        filhosDestePai = ordenarMateriais(filhosDestePai);
+      } else {
+        filhosDestePai.sort((a, b) => b.custo_total - a.custo_total);
+      }
       
       resultado.push(...filhosDestePai);
     });
@@ -194,16 +235,60 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
     const idsInseridos = new Set(resultado.map(r => r.key));
     const orfaos = filhos.filter(f => !idsInseridos.has(f.key));
     if (orfaos.length > 0) {
-      resultado.push(...orfaos);
+      let orfaosOrdenados = orfaos;
+      if (ordenacaoCampo) {
+        orfaosOrdenados = ordenarMateriais(orfaos);
+      }
+      resultado.push(...orfaosOrdenados);
     }
     
     return resultado;
+  }, [ordenacaoCampo, ordenarMateriais]);
+
+  // Helper para renderizar o cabeçalho ordenável de forma consistente
+  const renderHeaderOrdenavel = (campo, label, alignClass = "text-right") => {
+    const isAtivo = ordenacaoCampo === campo;
+    return (
+      <button
+        onClick={() => {
+          if (ordenacaoCampo === campo) {
+            if (ordenacaoDirecao === 'asc') {
+              setOrdenacaoDirecao('desc');
+            } else {
+              setOrdenacaoCampo(null);
+            }
+          } else {
+            setOrdenacaoCampo(campo);
+            setOrdenacaoDirecao('asc');
+          }
+        }}
+        className={`group inline-flex items-center gap-1.5 focus:outline-none hover:text-blue-600 transition-colors font-bold uppercase tracking-wider text-xs ${
+          isAtivo ? 'text-blue-600' : 'text-gray-500'
+        }`}
+      >
+        <span>{label}</span>
+        <span className={`text-[10px] transition-all ${isAtivo ? 'opacity-100 font-bold' : 'opacity-0 group-hover:opacity-50'}`}>
+          {isAtivo ? (ordenacaoDirecao === 'asc' ? '▲' : '▼') : '▲'}
+        </span>
+      </button>
+    );
   };
 
   // ─── Agrupamento de Orçamento por Etapas ─────────────────────────────────────
   const quantitativosAgrupados = useMemo(() => {
     const grupos = {};
-    quantitativoPorMaterial.forEach(item => {
+    const termo = buscaElemento.trim().toLowerCase();
+
+    // Filtra o array original
+    const itensFiltrados = quantitativoPorMaterial.filter(item => {
+      if (!termo) return true;
+      const nomeMaterial = (item.nome || '').toLowerCase();
+      const nomeEtapa = (item.etapa_nome || '').toLowerCase();
+      const nomeSubetapa = (item.subetapa_nome || '').toLowerCase();
+      return nomeMaterial.includes(termo) || nomeEtapa.includes(termo) || nomeSubetapa.includes(termo);
+    });
+
+    itensFiltrados.forEach(item => {
       const eId = item.etapa_id || 'sem_etapa';
       const eNome = item.etapa_nome || 'Sem Etapa Vinculada';
       const sId = item.subetapa_id || 'sem_subetapa';
@@ -240,19 +325,36 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
     });
 
     etapasOrdenadas.forEach(et => {
-      Object.values(et.subetapas).forEach(sub => {
+      // Ordena as subetapas colocando 'sem_subetapa' no topo, e as demais em ordem alfabética de nome
+      const subetapasOrdenadas = Object.values(et.subetapas).sort((a, b) => {
+        if (a.subetapa_id === 'sem_subetapa') return -1;
+        if (b.subetapa_id === 'sem_subetapa') return 1;
+        return (a.subetapa_nome || '').localeCompare(b.subetapa_nome || '');
+      });
+      et.subetapasLista = subetapasOrdenadas;
+
+      subetapasOrdenadas.forEach(sub => {
         sub.materiais = organizarMateriaisHierarquico(sub.materiais);
       });
     });
 
     return etapasOrdenadas;
-  }, [quantitativoPorMaterial]);
+  }, [quantitativoPorMaterial, buscaElemento, organizarMateriaisHierarquico]);
 
   // ─── Agrupamento de Orçamento por Categoria Revit ─────────────────────────────
   const quantitativosPorCategoria = useMemo(() => {
     const grupos = {};
+    const termo = buscaElemento.trim().toLowerCase();
 
-    quantitativoPorCategoria.forEach(item => {
+    // Filtra o array original
+    const itensFiltrados = quantitativoPorCategoria.filter(item => {
+      if (!termo) return true;
+      const nomeMaterial = (item.nome || '').toLowerCase();
+      const nomeCategoria = (item.categoria_nome || '').toLowerCase();
+      return nomeMaterial.includes(termo) || nomeCategoria.includes(termo);
+    });
+
+    itensFiltrados.forEach(item => {
       const catNome = item.categoria_nome || 'Materiais do Projeto';
 
       if (!grupos[catNome]) {
@@ -336,13 +438,22 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
       if (b.categoria_nome === 'Materiais do Projeto') return -1;
       return a.categoria_nome.localeCompare(b.categoria_nome);
     });
-  }, [quantitativoPorCategoria]);
+  }, [quantitativoPorCategoria, buscaElemento, organizarMateriaisHierarquico]);
 
   // ─── Agrupamento de Orçamento por Material Consolidado ────────────────────────
   const quantitativosPorMaterialConsolidado = useMemo(() => {
     const grupos = {};
+    const termo = buscaElemento.trim().toLowerCase();
 
-    quantitativoPorMaterial.forEach(item => {
+    // Filtra o array original
+    const itensFiltrados = quantitativoPorMaterial.filter(item => {
+      if (!termo) return true;
+      const nomeMaterial = (item.nome || '').toLowerCase();
+      const nomeClassificacao = (item.classificacao || '').toLowerCase();
+      return nomeMaterial.includes(termo) || nomeClassificacao.includes(termo);
+    });
+
+    itensFiltrados.forEach(item => {
       const keyMaterial = item.material_id 
         ? `mat_${item.material_id}` 
         : (item.sinapi_id ? `sinapi_${item.sinapi_id}` : `nome_${item.nome}`);
@@ -385,8 +496,17 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
       }
     });
 
-    return Object.values(grupos).sort((a, b) => b.custo_total - a.custo_total);
-  }, [quantitativoPorMaterial]);
+    let listaConsolidada = Object.values(grupos);
+
+    // Se houver ordenação ativa, aplica a ordenação no array consolidado
+    if (ordenacaoCampo) {
+      listaConsolidada = ordenarMateriais(listaConsolidada);
+    } else {
+      listaConsolidada.sort((a, b) => b.custo_total - a.custo_total);
+    }
+
+    return listaConsolidada;
+  }, [quantitativoPorMaterial, buscaElemento, ordenacaoCampo, ordenarMateriais]);
 
   // ─── Lógica Auxiliar de Seleção de Materiais para Compras ──────────────────────
   
@@ -398,7 +518,7 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
       return (quantitativosPorCategoria || []).flatMap(g => g.materiais || []);
     } else { // 'etapa'
       return (quantitativosAgrupados || []).flatMap(g => 
-        Object.values(g.subetapas || {}).flatMap(s => s.materiais || [])
+        (g.subetapasLista || []).flatMap(s => s.materiais || [])
       );
     }
   }, [tipoVisualizacao, quantitativosPorMaterialConsolidado, quantitativosPorCategoria, quantitativosAgrupados]);
@@ -447,6 +567,26 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
     const isFilho = !!item.pai_mapeamento_id;
     const paddingCels = isFilho ? "pl-20 bg-slate-50/25" : paddingClass;
     const estaSelecionado = !!itensSelecionados[item.key];
+
+    const quantidadeEntregue = item.material_id ? (entregasPorMaterial[item.material_id] || 0) : null;
+    let classeCor = "";
+    let iconeAlerta = null;
+    if (quantidadeEntregue !== null) {
+      if (quantidadeEntregue < item.quantidade) {
+        classeCor = "text-amber-700 bg-amber-50 border border-amber-200/60";
+      } else if (Math.abs(quantidadeEntregue - item.quantidade) < 0.001) {
+        classeCor = "text-emerald-700 bg-emerald-50 border border-emerald-200/60";
+      } else {
+        classeCor = "text-red-700 bg-red-50 border border-red-200/60";
+        iconeAlerta = (
+          <FontAwesomeIcon
+            icon={faTriangleExclamation}
+            className="text-red-500 mr-1 animate-pulse"
+            title="Quantidade entregue é superior à projetada!"
+          />
+        );
+      }
+    }
 
     return (
       <tr
@@ -517,6 +657,16 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
               title="Adicionar conversão"
             >
               {fmt2(item.quantidade)}
+            </span>
+          )}
+        </td>
+        <td className="px-4 py-2 text-right">
+          {quantidadeEntregue === null ? (
+            <span className="text-gray-300">—</span>
+          ) : (
+            <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-bold ${classeCor}`} title={`Projetado: ${fmt2(item.quantidade)}`}>
+              {iconeAlerta}
+              {fmt2(quantidadeEntregue)}
             </span>
           )}
         </td>
@@ -1354,13 +1504,28 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
       title="Selecionar todos os materiais visíveis nesta aba"
     />
   </th>
-  <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Material</th>
+  <th className="px-6 py-3 text-left">
+    {renderHeaderOrdenavel('nome', 'Material')}
+  </th>
   <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Unid.</th>
-  <th className="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Quantidade</th>
-  <th className="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">R$ Unit.</th>
-  <th className="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Total Est.</th>
-  <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Elem.</th>
-  <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Ações</th>
+  <th className="px-6 py-3 text-right">
+    <div className="flex justify-end w-full">
+      {renderHeaderOrdenavel('quantidade', 'Quantidade')}
+    </div>
+  </th>
+  <th className="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider w-32">Entregue</th>
+  <th className="px-6 py-3 text-right">
+    <div className="flex justify-end w-full">
+      {renderHeaderOrdenavel('preco', 'R$ Unit.')}
+    </div>
+  </th>
+  <th className="px-6 py-3 text-right">
+    <div className="flex justify-end w-full">
+      {renderHeaderOrdenavel('custo', 'Total Est.')}
+    </div>
+  </th>
+  <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider w-16">Elem.</th>
+  <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider w-16">Ações</th>
   </tr>
   </thead>
   <tbody>
@@ -1373,8 +1538,8 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
           <tr className="bg-blue-50 border-t-2 border-blue-200 cursor-pointer hover:bg-blue-100 transition-colors"
             onClick={() => toggleEtapaOrcamento(grupo.etapa_id)}
           >
-            {/* Incrementado colSpan de 4 para 5 devido ao checkbox */}
-            <td colSpan={5} className="px-4 py-2.5">
+            {/* Incrementado colSpan de 5 para 6 devido à nova coluna Entregue */}
+            <td colSpan={6} className="px-4 py-2.5">
               <div className="flex items-center gap-2">
                 <FontAwesomeIcon icon={isExpandido ? faAngleDown : faAngleRight} className="text-blue-500 w-3" />
                 <h3 className="text-xs font-bold text-blue-800 uppercase tracking-wide">
@@ -1384,7 +1549,7 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    const ids = Object.values(grupo.subetapas).flatMap(s => s.materiais.flatMap(m => m.external_ids_ativos));
+                    const ids = (grupo.subetapasLista || []).flatMap(s => s.materiais.flatMap(m => m.external_ids_ativos));
                     handleShowInModel(ids, grupo.etapa_nome);
                   }}
                   className="ml-3 text-[9px] bg-blue-100 hover:bg-blue-600 text-blue-700 hover:text-white px-2 py-0.5 rounded-full font-bold transition-colors shadow-sm"
@@ -1401,13 +1566,13 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
           </tr>
 
           {/* L2: Subetapas e Materiais */}
-          {isExpandido && Object.values(grupo.subetapas).map(sub => (
+          {isExpandido && (grupo.subetapasLista || []).map(sub => (
             <Fragment key={sub.subetapa_id}>
               {/* Cabeçalho Subetapa (se houver nome) */}
               {sub.subetapa_nome && (
                 <tr className="bg-gray-100 border-t border-gray-200">
-                  {/* Incrementado colSpan de 4 para 5 devido ao checkbox */}
-                  <td colSpan={5} className="px-8 py-2">
+                  {/* Incrementado colSpan de 5 para 6 devido à nova coluna Entregue */}
+                  <td colSpan={6} className="px-8 py-2">
                     <h4 className="text-[10px] font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2">
                       <FontAwesomeIcon icon={faLayerGroup} className="text-gray-400" />
                       {sub.subetapa_nome}
@@ -1443,7 +1608,7 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
     {tipoVisualizacao === 'categoria' && (
       carregandoQuantitativoPorCategoria ? (
         <tr>
-          <td colSpan={8} className="px-4 py-20 text-center">
+          <td colSpan={9} className="px-4 py-20 text-center">
             <div className="flex flex-col items-center justify-center text-blue-600 font-bold gap-3 animate-pulse">
               <FontAwesomeIcon icon={faSpinner} spin className="text-2xl" />
               <span className="text-xs">Calculando custos por categoria do Revit...</span>
@@ -1458,8 +1623,8 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
             <tr className="bg-blue-50 border-t-2 border-blue-200 cursor-pointer hover:bg-blue-100 transition-colors"
               onClick={() => toggleEtapaOrcamento(grupo.categoria_nome)}
             >
-              {/* Incrementado colSpan de 4 para 5 devido ao checkbox */}
-              <td colSpan={5} className="px-4 py-2.5">
+              {/* Incrementado colSpan de 5 para 6 devido à nova coluna Entregue */}
+              <td colSpan={6} className="px-4 py-2.5">
                 <div className="flex items-center gap-2">
                   <FontAwesomeIcon icon={isExpandido ? faAngleDown : faAngleRight} className="text-blue-500 w-3" />
                   <h3 className="text-xs font-bold text-blue-800 uppercase tracking-wide">
@@ -1498,8 +1663,8 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
   {quantitativoPorMaterial.some(m => m.preco_unitario > 0) && (
   <tfoot className="bg-gray-50 border-t-2 border-gray-200">
   <tr>
-  {/* Incrementado colSpan de 4 para 5 devido ao checkbox */}
-  <td colSpan={5} className="px-4 py-2.5 text-xs font-extrabold text-gray-650 uppercase tracking-wide">Total Estimado</td>
+  {/* Incrementado colSpan de 5 para 6 devido à nova coluna Entregue */}
+  <td colSpan={6} className="px-4 py-2.5 text-xs font-extrabold text-gray-650 uppercase tracking-wide">Total Estimado</td>
   <td className="px-4 py-2.5 text-right font-extrabold text-emerald-700">
   {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(kpisMaterial.custoTotal)}
   </td>

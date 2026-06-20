@@ -298,6 +298,42 @@ export function useBimMapeamentos({ organizacaoId, empreendimentoId, modelosIds 
     staleTime: 1000 * 60 * 5,
   });
 
+  // ─── Calcular quantitativos consolidados por entregas (Via Supabase) ───────
+  const { data: entregasPorMaterial = {}, isLoading: carregandoEntregas } = useQuery({
+    queryKey: ['estoque_entregas_total', organizacaoId, empreendimentoId],
+    queryFn: async () => {
+      if (!empreendimentoId || !organizacaoId) return {};
+      
+      const { data, error } = await supabase
+        .from('movimentacoes_estoque')
+        .select(`
+          quantidade,
+          estoque!inner(material_id, empreendimento_id)
+        `)
+        .eq('organizacao_id', Number(organizacaoId))
+        .eq('estoque.empreendimento_id', Number(empreendimentoId))
+        .eq('tipo', 'Entrada por Compra');
+
+      if (error) {
+        console.error('[useBimMapeamentos] Erro ao buscar movimentações de entrega:', error);
+        return {};
+      }
+
+      // Agrupa e soma por material_id
+      const mapaEntregas = {};
+      (data || []).forEach(mov => {
+        const matId = mov.estoque?.material_id;
+        if (matId) {
+          mapaEntregas[matId] = (mapaEntregas[matId] || 0) + Number(mov.quantidade || 0);
+        }
+      });
+
+      return mapaEntregas;
+    },
+    enabled: !!organizacaoId && !!empreendimentoId,
+    staleTime: 1000 * 60 * 2, // 2 minutos de cache
+  });
+
   // ─── Lookup: propriedades que estão mapeadas (para badge no sidebar) ───────
   const propriedadesMapeadas = useMemo(() => {
     const set = new Set();
@@ -328,6 +364,8 @@ export function useBimMapeamentos({ organizacaoId, empreendimentoId, modelosIds 
     carregandoQuantitativoPorMaterial,
     quantitativoPorCategoria,
     carregandoQuantitativoPorCategoria,
+    entregasPorMaterial,
+    carregandoEntregas,
     propriedadesMapeadas,
     kpisMaterial,
   };
