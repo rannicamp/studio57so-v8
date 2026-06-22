@@ -114,7 +114,7 @@ Escreva a resposta final abaixo:
 `;
 
     const result = await generateContentWithTelemetry({
-      modelName: 'gemini-3.1-flash-lite',
+      modelName: 'gemini-2.5-flash',
       promptContent: [{ text: prompt }],
       origem: 'ask-stella',
       context: 'Dúvida do Corretor',

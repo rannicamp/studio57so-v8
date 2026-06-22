@@ -45,7 +45,7 @@ export async function transcribeAudioSync(publicUrl, mimeType, contatoId = null,
 
     // Chamando o Gemini via wrapper de telemetria
     const result = await generateContentWithTelemetry({
-      modelName: 'gemini-3.1-flash-lite',
+      modelName: 'gemini-2.5-flash',
       promptContent: promptParts,
       generationConfig,
       origem: 'whatsapp-webhook-services-ai',

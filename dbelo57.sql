@@ -1541,7 +1541,12 @@ CREATE TABLE public.organizacoes (
     nome text NOT NULL,
     created_at timestamp with time zone DEFAULT now(),
     public_form_slug text,
-    entidade_principal_id bigint
+    entidade_principal_id bigint,
+    asaas_customer_id text,
+    asaas_subscription_id text,
+    subscription_status text DEFAULT 'trialing'::text,
+    trial_ends_at timestamp with time zone DEFAULT (now() + '15 days'::interval),
+    subscription_expires_at timestamp with time zone DEFAULT (now() + '15 days'::interval)
 );
 
 CREATE TABLE public.parcelas_adicionais (

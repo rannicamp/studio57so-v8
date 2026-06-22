@@ -69,7 +69,7 @@ export async function POST(request) {
  `;
 
  const result = await generateContentWithTelemetry({
-    modelName: 'gemini-3.1-flash-lite',
+    modelName: 'gemini-2.5-flash',
     promptContent: promptFinal,
     origem: '/api/empreendimentos/gerar-resumo',
     context: 'Geração de Apresentação de Empreendimento'

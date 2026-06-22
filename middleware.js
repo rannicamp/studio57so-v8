@@ -112,31 +112,90 @@ export async function middleware(req) {
     // NOVO: Sistema Anti-Timeout (Cache via Cookies) para não explodir a Edge Function da Netlify
     let funcaoId = req.cookies.get('sys_user_role')?.value;
     let isSuperAdmin = req.cookies.get('sys_is_admin')?.value;
+    let orgId = req.cookies.get('sys_org_id')?.value;
+    let subStatus = req.cookies.get('sys_sub_status')?.value;
+    let subExpires = req.cookies.get('sys_sub_expires')?.value;
 
-    if (!funcaoId || isSuperAdmin === undefined) {
+    if (!funcaoId || isSuperAdmin === undefined || !orgId || !subStatus || !subExpires) {
       try {
         const { data: profile } = await supabase
           .from('usuarios')
-          .select('funcao_id, is_superadmin')
+          .select('funcao_id, is_superadmin, organizacao_id')
           .eq('id', user.id)
           .single()
 
         funcaoId = profile?.funcao_id;
         isSuperAdmin = profile?.is_superadmin ? 'true' : 'false';
+        orgId = profile?.organizacao_id ? String(profile.organizacao_id) : '';
 
-        // Salva no cookie para que as próximas 100 requisições (e prefetchs) não batam no banco de dados!
-        response.cookies.set('sys_user_role', String(funcaoId || ''), { maxAge: 60 * 30 }); // 30 minutos
-        response.cookies.set('sys_is_admin', isSuperAdmin, { maxAge: 60 * 30 });
+        // Buscar status da assinatura da organização
+        let status = 'trialing';
+        let expiresAt = new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString();
+
+        if (profile?.organizacao_id) {
+          const { data: org } = await supabase
+            .from('organizacoes')
+            .select('subscription_status, subscription_expires_at, trial_ends_at')
+            .eq('id', profile.organizacao_id)
+            .single();
+
+          if (org) {
+            status = org.subscription_status || 'trialing';
+            expiresAt = org.subscription_expires_at || org.trial_ends_at || expiresAt;
+          }
+        }
+
+        subStatus = status;
+        subExpires = expiresAt;
+
+        // Salva nos cookies
+        response.cookies.set('sys_user_role', String(funcaoId || ''), { maxAge: 60 * 30 }); // Função/Cargo: 30 min
+        response.cookies.set('sys_is_admin', isSuperAdmin, { maxAge: 60 * 30 });            // Admin status: 30 min
+        response.cookies.set('sys_org_id', orgId, { maxAge: 60 * 30 });                     // Org ID: 30 min
+        
+        // NOVO: Assinatura e Expiração têm cache curto de 1 minuto (60s) 
+        // para bloquear acessos rapidamente em caso de inadimplência real ou cancelamento no Asaas
+        response.cookies.set('sys_sub_status', subStatus, { maxAge: 60 }); 
+        response.cookies.set('sys_sub_expires', subExpires, { maxAge: 60 });
       } catch (dbErr) {
-         console.error("Erro ao buscar profile (edge):", dbErr.message);
-         // Default fallback securely
+         console.error("Erro ao buscar profile/assinatura (edge):", dbErr.message);
          funcaoId = null;
          isSuperAdmin = false;
+         orgId = '';
+         subStatus = 'trialing';
+         subExpires = new Date().toISOString();
       }
     } else {
       funcaoId = parseInt(funcaoId, 10);
       isSuperAdmin = isSuperAdmin === 'true';
     }
+
+
+    // =================================================================
+    // 4.5. BLOQUEIO POR ASSINATURA VENCIDA OU INATIVA
+    // =================================================================
+    const isSuperAdminUser = isSuperAdmin === true || isSuperAdmin === 'true';
+    const isMatriz = orgId === '1' || orgId === 1;
+
+    console.log(`[Middleware Debug] Path: ${path} | Org: ${orgId} | Status: ${subStatus} | Expira: ${subExpires} | Admin: ${isSuperAdminUser} | Matriz: ${isMatriz}`);
+
+    if (!isSuperAdminUser && !isMatriz) {
+      const dataAtual = new Date();
+      const dataExpiracao = new Date(subExpires);
+      const assinaturaInativa = ['overdue', 'suspended', 'canceled'].includes(subStatus);
+      const trialVencido = subStatus === 'trialing' && dataAtual > dataExpiracao;
+      const assinaturaExpirada = dataAtual > dataExpiracao;
+
+      // Impede acesso se a assinatura expirou e não está na página de checkout/assinatura ou rotas públicas
+      if ((assinaturaInativa || trialVencido || assinaturaExpirada) && 
+          path !== '/configuracoes/assinatura' && 
+          !isPublicPath) {
+        
+        console.warn(`[Assinatura] Acesso bloqueado. Org: ${orgId}, Status: ${subStatus}, Expira em: ${subExpires}`);
+        return redirectWithCookies(new URL('/configuracoes/assinatura?bloqueado=true', req.url), response);
+      }
+    }
+
 
     // REGRA DE SUPER ADMIN (ACESSO AO /admin)
     if (path.startsWith('/admin')) {

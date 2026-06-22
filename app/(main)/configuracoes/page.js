@@ -20,7 +20,8 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
  faBell,
  faBookReader,
  faCommentDots,
- faListOl
+ faListOl,
+ faCreditCard
 } from '@fortawesome/free-solid-svg-icons';
 
 const ConfigCard = ({ href, icon, title, description, color = "bg-blue-50 text-blue-600" }) => (
@@ -47,6 +48,13 @@ export default function ConfiguracoesPage() {
  }, [setPageTitle]);
 
  const configOptions = [
+ {
+ title: 'Assinatura do Sistema',
+ description: 'Gerencie o plano da sua organização, faturas e dados de cobrança.',
+ icon: faCreditCard,
+ href: '/configuracoes/assinatura',
+ color: 'bg-emerald-50 text-emerald-600'
+ },
  {
  title: 'Notificações Automáticas',
  description: 'Crie regras para o sistema avisar a equipe quando dados importantes mudarem.',

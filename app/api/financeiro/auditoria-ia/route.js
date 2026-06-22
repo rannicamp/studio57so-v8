@@ -4,7 +4,7 @@ import { createClient } from '@/utils/supabase/server';
 import { SchemaType } from "@google/generative-ai";
 import { generateContentWithTelemetry } from '@/utils/gemini';
 
-const MODEL_NAME = "gemini-3.1-flash-lite";
+const MODEL_NAME = "gemini-2.5-flash";
 
 export async function POST(request) {
   try {

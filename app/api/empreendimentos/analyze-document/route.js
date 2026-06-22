@@ -27,7 +27,7 @@ export async function POST(request) {
     const fullPrompt = `${prompt}. Responda APENAS com um objeto JSON válido, sem nenhum texto adicional, markdown ou formatação. Se alguma informação não for encontrada, retorne um valor nulo para a chave correspondente.`;
 
     const result = await generateContentWithTelemetry({
-      modelName: "gemini-3.1-flash-lite",
+      modelName: "gemini-2.5-flash",
       promptContent: [fullPrompt, imagePart],
       origem: '/api/empreendimentos/analyze-document',
       context: 'Análise de Documento de Venda'

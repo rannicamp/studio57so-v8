@@ -15,7 +15,7 @@ export async function POST(req) {
  const buffer = Buffer.from(arrayBuffer);
  const base64Data = buffer.toString("base64");
 
- // O modelo foi unificado para o gemini-3.1-flash-lite
+ // O modelo foi unificado para o gemini-2.5-flash
 
  // Data atual para ajudar a IA no contexto de virada de ano
  const hoje = new Date();
@@ -47,7 +47,7 @@ export async function POST(req) {
  `;
 
   const result = await generateContentWithTelemetry({
-    modelName: 'gemini-3.1-flash-lite',
+    modelName: 'gemini-2.5-flash',
     promptContent: [
       prompt,
       {

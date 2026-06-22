@@ -255,7 +255,7 @@ Retorne um JSON no formato:
           `;
 
           const result = await generateContentWithTelemetry({
-            modelName: 'gemini-3.1-flash-lite',
+            modelName: 'gemini-2.5-flash',
             promptContent: [{ text: prompt }],
             generationConfig: {
               responseMimeType: "application/json",
@@ -388,7 +388,7 @@ Observação: Se o template escolhido não possuir variáveis no corpo, retorne 
 `;
 
           const result = await generateContentWithTelemetry({
-            modelName: 'gemini-3.1-flash-lite',
+            modelName: 'gemini-2.5-flash',
             promptContent: [{ text: prompt }],
             generationConfig: {
               responseMimeType: "application/json",
