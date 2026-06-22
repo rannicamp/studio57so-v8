@@ -72,8 +72,9 @@ export async function POST(request) {
     const [msgGlobalRes, msgInboundRes] = await Promise.all([
       supabaseAdmin
         .from('whatsapp_messages')
-        .select('id, content, direction, created_at, sender_id')
+        .select('id, content, direction, created_at, sender_id, status')
         .eq('contato_id', contato_id)
+        .not('status', 'eq', 'failed')
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle(),
