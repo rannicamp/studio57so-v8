@@ -3,6 +3,33 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { generateContentWithTelemetry } from '../../../../utils/gemini';
 
+// Função auxiliar recursiva para remover chaves cujo valor seja nulo, indefinido ou objeto vazio
+function removerCamposNulos(obj) {
+  if (obj === null || obj === undefined) return undefined;
+  if (Array.isArray(obj)) {
+    return obj.length > 0 ? obj : undefined;
+  }
+  if (typeof obj === 'object') {
+    const cleanObj = {};
+    let hasKeys = false;
+    for (const key in obj) {
+      if (obj[key] !== null && obj[key] !== undefined) {
+        if (typeof obj[key] === 'object') {
+          const nested = removerCamposNulos(obj[key]);
+          if (nested !== undefined) {
+            cleanObj[key] = nested;
+            hasKeys = true;
+          }
+        } else {
+          cleanObj[key] = obj[key];
+          hasKeys = true;
+        }
+      }
+    }
+    return hasKeys ? cleanObj : undefined;
+  }
+  return obj;
+}
 
 // Função auxiliar para obter ou criar o registro da Stella na tabela funcionarios
 async function obterOuCriarFuncionarioStella(supabaseAdmin, organizacaoId, contatoId) {
@@ -1156,7 +1183,7 @@ Você DEVE analisar o JSON de contexto abaixo antes de dar qualquer resposta.
 Se o campo "nome_completo_crm" contiver um nome válido (não nulo e que não seja um número de telefone ou contiver a palavra "Lead"), chame o cliente pelo seu primeiro nome de forma simpática (ex: Nelson) e **é estritamente proibido perguntar o nome do cliente de novo**.
 Se houver informações sobre renda, FGTS, CLT, etc. no JSON, use-as para pular etapas redundantes de qualificação e vá direto para as informações que ainda faltam ser qualificadas no método BANT.
 JSON de Contexto:
-${JSON.stringify(dadosClienteJSON, null, 2)}
+${JSON.stringify(removerCamposNulos(dadosClienteJSON) || {}, null, 2)}
     `;
 
     // 4. Invocar a IA (Modelo configurável)

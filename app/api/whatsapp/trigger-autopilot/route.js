@@ -218,6 +218,31 @@ export async function POST(request) {
     // 8. Se a IA sugerir o envio de um template (Janela Fechada)
     if (aiResult.template_selecionado && aiResult.template_selecionado !== 'null') {
       console.log(`[Trigger Autopilot] Stella sugeriu template "${aiResult.template_selecionado}". Enviando...`);
+
+      // Tentar reconstruir o texto completo do template com as variáveis preenchidas para exibir no chat do CRM
+      let resolvedTemplateText = `Template: ${aiResult.template_selecionado}`;
+      try {
+        const matchedTemp = (templatesDisponiveis || []).find(t => t.name === aiResult.template_selecionado);
+        if (matchedTemp) {
+          const bodyComponent = (matchedTemp.components || []).find(c => c.type === 'BODY' || c.type === 'body');
+          if (bodyComponent && bodyComponent.text) {
+            let textTemplate = bodyComponent.text;
+            // Buscar parâmetros do body enviados pela IA em template_componentes
+            const bodyParamsObj = (aiResult.template_componentes || []).find(c => (c.type || '').toLowerCase() === 'body');
+            const parameters = bodyParamsObj?.parameters || [];
+
+            // Substituir {{1}}, {{2}}, etc. pelos parâmetros correspondentes
+            parameters.forEach((param, idx) => {
+              const val = param.text || '';
+              textTemplate = textTemplate.replace(new RegExp(`\\{\\{${idx + 1}\\}\\}`, 'g'), val);
+            });
+            resolvedTemplateText = textTemplate;
+          }
+        }
+      } catch (errResolve) {
+        console.error('[Trigger Autopilot] Erro ao resolver texto do template:', errResolve.message);
+      }
+
       const sendTemplateResponse = await fetch(sendTextUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -226,6 +251,7 @@ export async function POST(request) {
           type: 'template',
           templateName: aiResult.template_selecionado,
           components: aiResult.template_componentes || [],
+          custom_content: resolvedTemplateText,
           contact_id: contato_id,
           organizacao_id: organizacao_id,
           usuario_id: stellaUser.id
