@@ -272,15 +272,39 @@ export function useBimModels(viewerInstance, setIsGanttOpen, activeFiles) {
 
     const handleClearAll = () => {
         if (!viewerInstance) return;
-        selectedModels.forEach(urn => {
+        
+        // 1. Limpa fisicamente TODOS os modelos carregados na fila do visualizador Autodesk
+        try {
+            const modelsInViewer = viewerInstance.impl.modelQueue().getModels();
+            console.log(`🧹 Devonildo: Limpando fisicamente ${modelsInViewer.length} modelos do visualizador.`);
+            modelsInViewer.forEach(model => {
+                if (model) {
+                    viewerInstance.impl.unloadModel(model);
+                }
+            });
+        } catch (err) {
+            console.error('[ClearAll] Erro ao descarregar da fila do viewer:', err);
+        }
+        
+        // 2. Garante a limpeza via chaves locais de referências
+        Object.keys(loadedModelsRef.current).forEach(urn => {
             const model = loadedModelsRef.current[urn];
-            if (model) viewerInstance.impl.unloadModel(model);
+            if (model) {
+                try {
+                    viewerInstance.impl.unloadModel(model);
+                } catch (e) {}
+            }
         });
+
         loadedModelsRef.current = {};
         globalOffsetRef.current = null;
         setSelectedModels([]);
         setLoadedFiles([]);
+        
+        // Limpa a seleção visual e desativa qualquer efeito de ghosting
         viewerInstance.clearSelection();
+        viewerInstance.setGhosting(false);
+        
         toast.success("Seleção limpa.");
     };
 
