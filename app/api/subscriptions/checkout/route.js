@@ -40,17 +40,39 @@ export async function POST(request) {
 
         let asaasCustomerId = org.asaas_customer_id;
 
-        // 4. Obter ou Criar o cliente no Asaas
-        if (!asaasCustomerId) {
-            console.log(`[Checkout API] Organização ${org.nome} sem asaas_customer_id. Criando no Asaas...`);
-            const customer = await obterOuCriarCliente({
-                nome: org.nome,
-                email: user.email,
-                cpfCnpj: null // Pode ser preenchido pelo cliente na tela de checkout do Asaas
-            });
-            asaasCustomerId = customer.id;
+        // 4. Buscar dados cadastrais da empresa local para enviar ao Asaas
+        console.log(`[Checkout API] Buscando dados cadastrais da empresa para a Org ${orgId}...`);
+        const { data: empresa } = await supabase
+            .from('cadastro_empresa')
+            .select('cnpj, cep, address_number, telefone, email, razao_social')
+            .eq('organizacao_id', orgId)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
 
-            // Salvar o ID do cliente Asaas no banco
+        const dadosCadastro = {
+            nome: empresa?.razao_social || org.nome,
+            email: empresa?.email || user.email,
+            cpfCnpj: empresa?.cnpj ? empresa.cnpj.replace(/\D/g, '') : null,
+            phone: empresa?.telefone ? empresa.telefone.replace(/\D/g, '') : null,
+            postalCode: empresa?.cep ? empresa.cep.replace(/\D/g, '') : null,
+            addressNumber: empresa?.address_number || 'S/N'
+        };
+
+        // Validação amigável do Elo 57: Exige CPF ou CNPJ de faturamento
+        if (!dadosCadastro.cpfCnpj) {
+            return NextResponse.json({ 
+                error: 'Falta CPF ou CNPJ de faturamento. Preencha o CNPJ no cadastro da sua empresa em Configurações antes de assinar.' 
+            }, { status: 400 });
+        }
+
+        console.log(`[Checkout API] Sincronizando cliente no Asaas...`);
+        const customer = await obterOuCriarCliente(dadosCadastro);
+        asaasCustomerId = customer.id;
+
+        // Se o asaas_customer_id local estava vazio ou for diferente, atualiza no banco
+        if (org.asaas_customer_id !== asaasCustomerId) {
+            console.log(`[Checkout API] Gravando novo asaas_customer_id no banco: ${asaasCustomerId}`);
             const { error: updateError } = await supabase
                 .from('organizacoes')
                 .update({ asaas_customer_id: asaasCustomerId })
