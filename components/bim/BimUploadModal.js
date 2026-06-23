@@ -72,171 +72,165 @@ export default function BimUploadModal({ isOpen, onClose, preSelectedContext, on
       if (!selectedDisciplina || !selectedObra) return toast.error("Selecione Obra e Disciplina!");
     }
 
- setIsUploading(true);
- try {
- // PASSO 1: Obter Link Direto de Upload Autodesk
- setStatusStep('1/5: Conectando com Autodesk (Direct Upload)...');
+    setIsUploading(true);
+    try {
+      // PASSO 1: Obter Link Direto de Upload Autodesk
+      setStatusStep('1/5: Conectando com Autodesk (Direct Upload)...');
 
- // HIGIENE CRÍTICA DO NOME DO ARQUIVO: Remove espaços, acentos, ~, ç, !, etc., trocando tudo por "_"
- // Isso evita que a Autodesk "engasgue" no Model Derivative e cause um TARGET_READ_TIMEOUT fantasma.
- const safeFileName = file.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9.\-_]/g, '_');
+      let uploadName = file.name;
+      const lastDotIndex = file.name.lastIndexOf('.');
+      const nameWithoutExt = lastDotIndex !== -1 ? file.name.substring(0, lastDotIndex) : file.name;
+      const ext = lastDotIndex !== -1 ? file.name.substring(lastDotIndex) : '';
+      
+      if (mode === 'version' && fileToUpdate) {
+        const nextVersion = (fileToUpdate.versao || 1) + 1;
+        uploadName = `${nameWithoutExt}_v${nextVersion}_${Date.now()}${ext}`;
+      } else {
+        uploadName = `${nameWithoutExt}_v1_${Date.now()}${ext}`;
+      }
 
- const startRes = await fetch('/api/aps/upload-direct-start', {
- method: 'POST',
- headers: { 'Content-Type': 'application/json' },
- body: JSON.stringify({ fileName: safeFileName })
- });
+      // HIGIENE CRÍTICA DO NOME DO ARQUIVO: Remove espaços, acentos, ~, ç, !, etc., trocando tudo por "_"
+      // Isso evita que a Autodesk "engasgue" no Model Derivative e cause um TARGET_READ_TIMEOUT fantasma.
+      const safeFileName = uploadName.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9.\-_]/g, '_');
 
- const startText = await startRes.text();
- let startData = {};
- try { startData = JSON.parse(startText); } catch(e) { }
+      const startRes = await fetch('/api/aps/upload-direct-start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileName: safeFileName })
+      });
 
- if (!startRes.ok) throw new Error(startData.error || `Falha ao conectar com Autodesk (Erro ${startRes.status}).`);
- const { uploadUrl, uploadKey, objectKey } = startData;
+      const startText = await startRes.text();
+      let startData = {};
+      try { startData = JSON.parse(startText); } catch(e) { }
 
- // PASSO 2: Upload GIGANTE direto Browser -> Autodesk S3
- setStatusStep(`2/5: Enviando arquivo de ${(file.size / 1024 / 1024).toFixed(1)}MB para nuvem Autodesk...`);
+      if (!startRes.ok) throw new Error(startData.error || `Falha ao conectar com Autodesk (Erro ${startRes.status}).`);
+      const { uploadUrl, uploadKey, objectKey } = startData;
 
- let s3UploadRes;
- try {
- s3UploadRes = await fetch(uploadUrl, {
- method: 'PUT',
- body: file
- });
- } catch (fetchErr) {
- throw new Error(`PASSO 2 - Falha ao enviar para S3 da Autodesk (CORS ou rede): ${fetchErr.message}`);
- }
+      // PASSO 2: Upload GIGANTE direto Browser -> Autodesk S3
+      setStatusStep(`2/5: Enviando arquivo de ${(file.size / 1024 / 1024).toFixed(1)}MB para nuvem Autodesk...`);
 
- if (!s3UploadRes.ok) {
- throw new Error(`PASSO 2 - Upload S3 falhou: ${s3UploadRes.status} ${s3UploadRes.statusText}`);
- }
+      let s3UploadRes;
+      try {
+        s3UploadRes = await fetch(uploadUrl, {
+          method: 'PUT',
+          body: file
+        });
+      } catch (fetchErr) {
+        throw new Error(`PASSO 2 - Falha ao enviar para S3 da Autodesk (CORS ou rede): ${fetchErr.message}`);
+      }
 
- // PASSO 3: Finaliza Upload S3
- setStatusStep('3/5: Finalizando upload na nuvem (Autodesk S3)...');
+      if (!s3UploadRes.ok) {
+        throw new Error(`PASSO 2 - Upload S3 falhou: ${s3UploadRes.status} ${s3UploadRes.statusText}`);
+      }
 
- const finalizeRes = await fetch('/api/aps/upload-direct-finalize', {
- method: 'POST',
- headers: { 'Content-Type': 'application/json' },
- body: JSON.stringify({ uploadKey, objectKey })
- });
+      // PASSO 3: Finaliza Upload S3
+      setStatusStep('3/5: Finalizando upload na nuvem (Autodesk S3)...');
 
- const finalizeText = await finalizeRes.text();
- let finalizeData = {};
- try { finalizeData = JSON.parse(finalizeText); } catch(e) { }
+      const finalizeRes = await fetch('/api/aps/upload-direct-finalize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uploadKey, objectKey })
+      });
 
- if (!finalizeRes.ok) throw new Error(finalizeData.error || `Erro do Servidor (Autodesk Finalize): ${finalizeRes.status}`);
- if (!finalizeData.urn) throw new Error('Não recebi o código URN de visualização.');
+      const finalizeText = await finalizeRes.text();
+      let finalizeData = {};
+      try { finalizeData = JSON.parse(finalizeText); } catch(e) { }
 
- // ✅ PASSO 4: SALVAR NO BANCO DE DADOS IMEDIATAMENTE (sem esperar tradução!)
- // O arquivo JÁ ESTÁ na Autodesk com segurança. Não precisamos mais bloquear o usuário.
- setStatusStep('4/5: Salvando registro no banco de dados...');
+      if (!finalizeRes.ok) throw new Error(finalizeData.error || `Erro do Servidor (Autodesk Finalize): ${finalizeRes.status}`);
+      if (!finalizeData.urn) throw new Error('Não recebi o código URN de visualização.');
 
- const updateData = {
- urn_autodesk: finalizeData.urn,
- nome_arquivo: file.name,
- tamanho_bytes: file.size,
- status: 'Processando',
- caminho_storage: null,
- criado_em: new Date().toISOString()
- };
+      // ✅ PASSO 4: SALVAR NO BANCO DE DADOS IMEDIATAMENTE (sem esperar tradução!)
+      setStatusStep('4/5: Salvando registro no banco de dados...');
 
- if (mode === 'version' && fileToUpdate) {
- // Update
- const nextVersion = (fileToUpdate.versao || 1) + 1;
- const { error: dbError } = await supabase
- .from('projetos_bim')
- .update({
- ...updateData,
- versao: nextVersion
- })
- .eq('id', fileToUpdate.id);
- if (dbError) throw dbError;
+      const updateData = {
+        urn_autodesk: finalizeData.urn,
+        nome_arquivo: file.name,
+        tamanho_bytes: file.size,
+        status: 'Processando',
+        caminho_storage: null,
+        criado_em: new Date().toISOString()
+      };
 
- // Registrar a nova versão em projetos_bim_versoes (BIM 2.0)
- const { error: versionError } = await supabase
- .from('projetos_bim_versoes')
- .insert({
- projeto_bim_id: fileToUpdate.id,
- organizacao_id: organizacaoId,
- versao: nextVersion,
- urn_autodesk: finalizeData.urn,
- nome_arquivo: file.name,
- tamanho_bytes: file.size,
- criado_por: user.id,
- comentarios: `Upload de revisão via uploader`
- });
- if (versionError) console.error('[BIM Versioning] Erro ao salvar histórico de versão:', versionError);
+      if (mode === 'version' && fileToUpdate) {
+        // Update
+        const oldUrn = fileToUpdate.urn_autodesk;
+        const nextVersion = (fileToUpdate.versao || 1) + 1;
+        const { error: dbError } = await supabase
+          .from('projetos_bim')
+          .update({
+            ...updateData,
+            versao: nextVersion
+          })
+          .eq('id', fileToUpdate.id);
+        if (dbError) throw dbError;
 
- toast.success(`Versão atualizada para v${nextVersion}!`);
- } else {
- // Insert
- const { data: newProj, error: dbError } = await supabase
- .from('projetos_bim')
- .insert({
- ...updateData,
- empresa_id: selectedEmpresa,
- empreendimento_id: selectedObra,
- disciplina_id: selectedDisciplina,
- organizacao_id: organizacaoId,
- criado_por: user.id,
- versao: 1
- })
- .select('id')
- .single();
- 
- if (dbError) throw dbError;
+        // Chama a exclusão física do arquivo antigo na Autodesk em background
+        if (oldUrn && oldUrn !== finalizeData.urn) {
+          console.log(`[BIM] Solicitando exclusão física da URN anterior da Autodesk: ${oldUrn}`);
+          fetch('/api/aps/delete-object', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ urn: oldUrn })
+          }).then(res => res.json())
+            .then(data => {
+              console.log('[BIM] Sucesso ao deletar objeto antigo na Autodesk:', data);
+            })
+            .catch(err => {
+              console.error('[BIM] Falha ao deletar objeto antigo na Autodesk:', err);
+            });
+        }
 
- // Registrar a versão 1 em projetos_bim_versoes (BIM 2.0)
- if (newProj) {
- const { error: versionError } = await supabase
- .from('projetos_bim_versoes')
- .insert({
- projeto_bim_id: newProj.id,
- organizacao_id: organizacaoId,
- versao: 1,
- urn_autodesk: finalizeData.urn,
- nome_arquivo: file.name,
- tamanho_bytes: file.size,
- criado_por: user.id,
- comentarios: `Upload inicial`
- });
- if (versionError) console.error('[BIM Versioning] Erro ao salvar histórico de versão:', versionError);
- }
+        toast.success(`Versão atualizada para v${nextVersion}!`);
+      } else {
+        // Insert
+        const { error: dbError } = await supabase
+          .from('projetos_bim')
+          .insert({
+            ...updateData,
+            empresa_id: selectedEmpresa,
+            empreendimento_id: selectedObra,
+            disciplina_id: selectedDisciplina,
+            organizacao_id: organizacaoId,
+            criado_por: user.id,
+            versao: 1
+          });
+        
+        if (dbError) throw dbError;
 
- toast.success("Projeto criado com sucesso!");
- }
- queryClient.invalidateQueries({ queryKey: ['bimStructureWithFiles', organizacaoId] });
- // ✅ PASSO 5: Fechar o modal AGORA — o arquivo está salvo e seguro!
- setStatusStep('5/5: Arquivo salvo! Iniciando processamento 3D...');
- if (onSuccess) onSuccess();
- onClose();
+        toast.success("Projeto criado com sucesso!");
+      }
 
- // 🚀 FIRE AND FORGET: dispara a tradução DEPOIS de fechar, sem bloquear.
- // Se a Autodesk demorar 30s para responder, o usuário já está feliz na tela com a engrenagem girando.
- const urnParaTraduzir = finalizeData.urn;
- fetch('/api/aps/upload-direct-translate', {
- method: 'POST',
- headers: { 'Content-Type': 'application/json' },
- body: JSON.stringify({ urn: urnParaTraduzir })
- }).then(async (res) => {
- if (!res.ok) {
- const txt = await res.text().catch(() => '');
- console.warn('[BIM] Tradução iniciada mas retornou erro (ignorado, polling vai assumir):', txt);
- } else {
- console.log('[BIM] ✅ Tradução 3D disparada com sucesso.');
- }
- }).catch((err) => {
- console.warn('[BIM] Falha ao disparar tradução (ignorado, polling vai assumir):', err);
- });
+      queryClient.invalidateQueries({ queryKey: ['bimStructureWithFiles', organizacaoId] });
+      // ✅ PASSO 5: Fechar o modal AGORA — o arquivo está salvo e seguro!
+      setStatusStep('5/5: Arquivo salvo! Iniciando processamento 3D...');
+      if (onSuccess) onSuccess();
+      onClose();
 
- } catch (err) {
- console.error("Erro no upload:", err);
- toast.error(`Falha: ${err.message}`);
- } finally {
- setIsUploading(false);
- setStatusStep('');
- }
- };
+      // 🚀 FIRE AND FORGET: dispara a tradução DEPOIS de fechar, sem bloquear.
+      const urnParaTraduzir = finalizeData.urn;
+      fetch('/api/aps/upload-direct-translate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ urn: urnParaTraduzir })
+      }).then(async (res) => {
+        if (!res.ok) {
+          const txt = await res.text().catch(() => '');
+          console.warn('[BIM] Tradução iniciada mas retornou erro (ignorado, polling vai assumir):', txt);
+        } else {
+          console.log('[BIM] ✅ Tradução 3D disparada com sucesso.');
+        }
+      }).catch((err) => {
+        console.warn('[BIM] Falha ao disparar tradução (ignorado, polling vai assumir):', err);
+      });
+
+    } catch (err) {
+      console.error("Erro no upload:", err);
+      toast.error(`Falha: ${err.message}`);
+    } finally {
+      setIsUploading(false);
+      setStatusStep('');
+    }
+  };
 
  if (!isOpen) return null;
  const isVersionMode = mode === 'version';

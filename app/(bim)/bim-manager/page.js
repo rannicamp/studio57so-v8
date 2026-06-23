@@ -31,6 +31,13 @@ import { useBimMarkup } from '@/hooks/bim/useBimMarkup';
 export default function BimManagerPage() {
  const supabase = createClient();
  const queryClient = useQueryClient();
+
+ useEffect(() => {
+   if (typeof window !== 'undefined') {
+     window.studio57_queryClient = queryClient;
+   }
+ }, [queryClient]);
+
  const { organizacao_id, user } = useAuth();
  // 1. Hook do Visualizador (Core)
  const { viewerInstance, setViewerInstance, selectedElements, setSelectedElements, fastSelectionCount, activeFile, activeUrn, resolveSelection } = useBimViewer();

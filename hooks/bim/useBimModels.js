@@ -1,5 +1,50 @@
 import { useState, useRef, useEffect } from 'react';
 import { toast } from 'sonner';
+import { createClient } from '../../utils/supabase/client';
+import { extrairDadosDoModelo } from '../../utils/bim/bim-extractor';
+
+// Função de checagem e sincronização automática baseada na URN
+const checkAndAutoSync = async (model, file) => {
+    try {
+        const supabase = createClient();
+        
+        // Verifica se já existem elementos extraídos para esta URN específica deste projeto
+        const { count, error } = await supabase
+            .from('elementos_bim')
+            .select('id', { count: 'exact', head: true })
+            .eq('projeto_bim_id', file.id)
+            .eq('urn_autodesk', file.urn_autodesk);
+            
+        if (error) {
+            console.error('[AutoSync] Erro ao checar elementos:', error);
+            return;
+        }
+        
+        if (count === 0) {
+            console.log(`[AutoSync] Detectado que a URN ${file.urn_autodesk} não possui elementos extraídos. Iniciando sincronização automática em background...`);
+            
+            // Exibe um toast amigável informando a sincronização em background
+            const syncToastId = toast.loading(`Sincronizando novos quantitativos BIM para ${file.nome_arquivo}...`);
+            
+            try {
+                await extrairDadosDoModelo(model, file.id, file.organizacao_id);
+                toast.success(`Quantitativos de ${file.nome_arquivo} sincronizados com sucesso!`, { id: syncToastId });
+                
+                // Invalida a query de propriedades de elementos para atualizar a tela
+                if (typeof window !== 'undefined' && window.studio57_queryClient) {
+                    window.studio57_queryClient.invalidateQueries(['bimElementProperties']);
+                    window.studio57_queryClient.invalidateQueries(['bimElementLinks']);
+                    window.studio57_queryClient.invalidateQueries(['bimQuantitativos']);
+                }
+            } catch (syncErr) {
+                console.error('[AutoSync] Erro durante a extração automática:', syncErr);
+                toast.error(`Falha ao sincronizar quantitativos de ${file.nome_arquivo}.`, { id: syncToastId });
+            }
+        }
+    } catch (err) {
+        console.error('[AutoSync] Erro geral:', err);
+    }
+};
 
 export function useBimModels(viewerInstance, setIsGanttOpen, activeFiles) {
     const [loadedFiles, setLoadedFiles] = useState([]);
@@ -132,6 +177,7 @@ export function useBimModels(viewerInstance, setIsGanttOpen, activeFiles) {
                     
                     viewerInstance.fitToView(); 
                     toast.success(`${file.nome_arquivo} carregado`);
+                    checkAndAutoSync(model, file);
                 }, (err) => {
                     console.error("❌ Erro de Renderização Autodesk:", err);
                     toast.error("Erro ao renderizar modelo no navegador.");
@@ -210,6 +256,7 @@ export function useBimModels(viewerInstance, setIsGanttOpen, activeFiles) {
                         model.studio57_context = file;
                         loadedModelsRef.current[urn] = model;
                         if (!globalOffsetRef.current) globalOffsetRef.current = model.getData().globalOffset;
+                        checkAndAutoSync(model, file);
                         resolve();
                     }, (err) => { console.error(err); resolve(); });
                 }, (err) => { console.error(err); resolve(); });
