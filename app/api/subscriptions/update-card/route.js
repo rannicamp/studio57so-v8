@@ -6,6 +6,9 @@ export async function POST(request) {
     const supabase = await createClient();
 
     try {
+        const ip = request.headers.get('x-forwarded-for') || '127.0.0.1';
+        const remoteIp = ip.split(',')[0].trim();
+
         // 1. Validar a sessão do usuário
         const { data: { user }, error: authError } = await supabase.auth.getUser();
         if (authError || !user) {
@@ -143,7 +146,8 @@ export async function POST(request) {
             // Cenário A: Possui assinatura recorrente -> atualiza cartão na recorrência
             const responseAsaas = await atualizarCartaoAssinatura(org.asaas_subscription_id, {
                 creditCard,
-                creditCardHolderInfo
+                creditCardHolderInfo,
+                remoteIp
             });
 
             // Gravar a bandeira e final do cartão no banco local para espelhamento rápido da UI
