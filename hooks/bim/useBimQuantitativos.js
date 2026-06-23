@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useMemo, useEffect, useRef } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@/utils/supabase/client';
 
 /**
@@ -11,6 +11,7 @@ import { createClient } from '@/utils/supabase/client';
  */
 export function useBimQuantitativos({ organizacaoId }) {
   const supabase = createClient();
+  const queryClient = useQueryClient();
 
   // ─── Estados de Seleção ───────────────────────────────────────────────
   const [empreendimentoSelecionadoId, setEmpreendimentoSelecionadoId] = useState('');
@@ -125,6 +126,52 @@ export function useBimQuantitativos({ organizacaoId }) {
     staleTime: 2 * 60 * 1000,
   });
 
+  // Efeito para auto-corrigir status de modelos travados em 'Processando'
+  useEffect(() => {
+    if (!modelos || modelos.length === 0) return;
+    
+    const modelosProcessando = modelos.filter(m => 
+      m.status === 'Processando' || 
+      m.status === 'processing' || 
+      m.status === 'Processando_Autodesk'
+    );
+    
+    modelosProcessando.forEach(async (modelo) => {
+      if (!modelo.urn_autodesk) return;
+      try {
+        const rawUrn = modelo.urn_autodesk.replace(/^urn:/, '');
+        const res = await fetch('/api/aps/status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ urn: rawUrn })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.status === 'success') {
+            // Atualiza status local para 'Concluido'
+            await supabase
+              .from('projetos_bim')
+              .update({ status: 'Concluido' })
+              .eq('id', modelo.id);
+            
+            // Invalida as queries do react-query para recarregar com o status atualizado
+            queryClient.invalidateQueries({ queryKey: ['bimQuant_modelos', empreendimentoSelecionadoId, organizacaoId] });
+            queryClient.invalidateQueries({ queryKey: ['bimStructureWithFiles', organizacaoId] });
+          } else if (data.status === 'failed' || data.status === 'timeout') {
+            await supabase
+              .from('projetos_bim')
+              .update({ status: 'Erro' })
+              .eq('id', modelo.id);
+            queryClient.invalidateQueries({ queryKey: ['bimQuant_modelos', empreendimentoSelecionadoId, organizacaoId] });
+            queryClient.invalidateQueries({ queryKey: ['bimStructureWithFiles', organizacaoId] });
+          }
+        }
+      } catch (err) {
+        console.warn(`[Auto-Status] Erro ao auto-corrigir status do modelo ${modelo.id}:`, err);
+      }
+    });
+  }, [modelos, empreendimentoSelecionadoId, organizacaoId, supabase, queryClient]);
+
   const modelosSelecionados = useMemo(
     () => modelos.filter(m => modelosSelecionadosIds.includes(String(m.id))),
     [modelos, modelosSelecionadosIds]
@@ -225,15 +272,38 @@ export function useBimQuantitativos({ organizacaoId }) {
     });
 
     try {
-      const { data, error } = await supabase
-        .from('elementos_bim')
-        .select('id, external_id, categoria, familia, tipo, nivel, propriedades, is_active')
-        .in('projeto_bim_id', modelosSelecionadosIds.map(Number))
-        .eq('categoria', categoria)
-        .eq('familia', familia)
-        .limit(100000);
+      let todosElementos = [];
+      let temMais = true;
+      let pagina = 0;
+      const tamanhoPagina = 1000;
 
-      if (error) throw error;
+      while (temMais) {
+        const fromRange = pagina * tamanhoPagina;
+        const toRange = fromRange + tamanhoPagina - 1;
+
+        const { data: chunk, error } = await supabase
+          .from('elementos_bim')
+          .select('id, external_id, categoria, familia, tipo, nivel, propriedades, is_active')
+          .in('projeto_bim_id', modelosSelecionadosIds.map(Number))
+          .eq('categoria', categoria)
+          .eq('familia', familia)
+          .range(fromRange, toRange);
+
+        if (error) throw error;
+
+        if (!chunk || chunk.length === 0) {
+          temMais = false;
+        } else {
+          todosElementos = [...todosElementos, ...chunk];
+          if (chunk.length < tamanhoPagina) {
+            temMais = false;
+          } else {
+            pagina++;
+          }
+        }
+      }
+
+      const data = todosElementos;
 
       // Agrupa os elementos da família por Tipo
       const MEDIDAS_CONFIG = [

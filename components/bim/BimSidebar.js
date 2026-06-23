@@ -8,7 +8,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
   faSearch, faSpinner, faPlus, faSave, faCube, faChevronRight, 
   faRecycle, faTrash, faTimes, faTimesCircle, faFilter, faFileInvoiceDollar,
-  faCheckDouble
+  faCheckDouble, faSyncAlt
 } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 
@@ -94,6 +94,37 @@ export default function BimSidebar({ onSelectContext, onFileSelect, onToggleMode
 
   // Estados de Modais
   const [modalState, setModalState] = useState({ upload: false, edit: false, set: false, download: false, mode: 'create', file: null });
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleGlobalRefresh = useCallback(async () => {
+    if (isRefreshing) return;
+    setIsRefreshing(true);
+    const toastId = toast.loading("Atualizando versões de modelos e quantitativos no banco...");
+    try {
+      const empId = filterEmpreendimentoId ? Number(filterEmpreendimentoId) : null;
+      console.log('[BimSidebar] Disparando refresh de versões para emp:', empId, 'org:', organizacaoId);
+      
+      const { data, error } = await supabase.rpc('refresh_versoes_projetos_bim', {
+        p_empreendimento_id: empId,
+        p_organizacao_id: Number(organizacaoId)
+      });
+
+      if (error) throw error;
+
+      console.log('[BimSidebar] Retorno do refresh:', data);
+      toast.dismiss(toastId);
+      toast.success("Modelos e quantitativos atualizados com sucesso!");
+      
+      // Invalida todos os dados do BIM para forçar o recarregamento na tela
+      queryClient.invalidateQueries();
+    } catch (err) {
+      console.error('[BimSidebar] Erro no refresh global:', err);
+      toast.dismiss(toastId);
+      toast.error(`Erro ao atualizar modelos: ${err.message}`);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [supabase, queryClient, filterEmpreendimentoId, organizacaoId, isRefreshing]);
 
   // Ações do item individual
   const handleFileAction = useCallback((type, file) => {
@@ -337,12 +368,22 @@ export default function BimSidebar({ onSelectContext, onFileSelect, onToggleMode
       <div className="p-4 border-b border-gray-100 bg-white z-10 flex flex-col gap-3 shrink-0">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-black text-gray-800 uppercase tracking-wider">Modelos BIM</h2>
-          <button 
-            onClick={() => setModalState({ ...modalState, upload: true, mode: 'create', file: null })} 
-            className="bg-blue-600 text-white py-1.5 px-3 rounded-lg font-bold text-xs shadow-sm hover:bg-blue-700 transition-colors flex items-center gap-1.5"
-          >
-            <FontAwesomeIcon icon={faPlus} /> Novo
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button 
+              onClick={handleGlobalRefresh}
+              disabled={isRefreshing}
+              className="bg-gray-50 border border-gray-250 text-gray-600 hover:text-gray-900 hover:bg-gray-100 p-1.5 px-2 rounded-lg font-bold text-xs shadow-sm transition-all flex items-center justify-center gap-1"
+              title="Atualizar versões de modelos e limpar lixo no banco de dados"
+            >
+              <FontAwesomeIcon icon={faSyncAlt} className={isRefreshing ? 'animate-spin' : ''} />
+            </button>
+            <button 
+              onClick={() => setModalState({ ...modalState, upload: true, mode: 'create', file: null })} 
+              className="bg-blue-600 text-white py-1.5 px-3 rounded-lg font-bold text-xs shadow-sm hover:bg-blue-700 transition-colors flex items-center gap-1.5"
+            >
+              <FontAwesomeIcon icon={faPlus} /> Novo
+            </button>
+          </div>
         </div>
 
         {/* Chaveador de Modo de Visualização */}

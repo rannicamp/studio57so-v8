@@ -182,12 +182,18 @@ export async function middleware(req) {
     if (!isSuperAdminUser && !isMatriz) {
       const dataAtual = new Date();
       const dataExpiracao = new Date(subExpires);
+      const dataValida = !isNaN(dataExpiracao.getTime());
+      
       const assinaturaInativa = ['overdue', 'suspended', 'canceled'].includes(subStatus);
-      const trialVencido = subStatus === 'trialing' && dataAtual > dataExpiracao;
-      const assinaturaExpirada = dataAtual > dataExpiracao;
+      const trialVencido = subStatus === 'trialing' && dataValida && dataAtual > dataExpiracao;
+      const assinaturaExpirada = dataValida && dataAtual > dataExpiracao;
+      
+      // Se for vitalício (lifetime), ignora o bloqueio
+      const isLifetime = subStatus === 'lifetime';
 
       // Impede acesso se a assinatura expirou e não está na página de checkout/assinatura ou rotas públicas
-      if ((assinaturaInativa || trialVencido || assinaturaExpirada) && 
+      if (!isLifetime && 
+          (assinaturaInativa || trialVencido || (dataValida && assinaturaExpirada)) && 
           path !== '/configuracoes/assinatura' && 
           !isPublicPath) {
         

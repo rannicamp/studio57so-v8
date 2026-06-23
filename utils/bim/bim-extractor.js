@@ -55,11 +55,9 @@ export async function extrairDadosDoModelo(viewer, projetoBimId, organizacaoId, 
     const totalItems = leafIds.length;
     if (totalItems === 0) throw new Error("Nenhum elemento encontrado no modelo 3D.");
 
-    // --- 3. EXTRAÇÃO E ENVIO (CHUNKING) ---
-    let processed = 0;
-    const CHUNK_SIZE = 1000; 
-    const syncSession = new Date().toISOString(); // Assinatura de tempo para o Soft-Delete seguro
-    let todosElementosNovos = []; // Acumulador para cálculo do Delta no final
+    // --- 3. AGRUPAMENTO RÁPIDO POR CATEGORIA ---
+    console.log(`[Elo 57] Agrupando ${totalItems} elementos por categoria no Viewer...`);
+    if (onProgress) onProgress(5);
 
     // Função auxiliar para ler propriedades promisified
     const getPropsPromise = (ids) => {
@@ -71,98 +69,162 @@ export async function extrairDadosDoModelo(viewer, projetoBimId, organizacaoId, 
         });
     };
 
-    console.log(`[Elo 57] Iniciando extração de ${totalItems} elementos em lotes de ${CHUNK_SIZE}...`);
-
-    for (let i = 0; i < totalItems; i += CHUNK_SIZE) {
-        const chunkIds = leafIds.slice(i, i + CHUNK_SIZE);
-
-        // Lê do Viewer
-        const rawResults = await getPropsPromise(chunkIds);
-
-        // Processa e Limpa os Dados
-        const processedChunk = rawResults.map(item => {
-            const propsObj = {};
-            let categoria = '';
-            let familia = '';
-            let tipo = '';
-            let nivel = '';
-
-            // Garante External ID
-            const externalId = item.externalId || `ext-${item.dbId}`;
-
-            if (item.properties) {
-                item.properties.forEach(p => {
-                    let val = p.displayValue;
-                    if (val === "" || val === null || val === undefined) {
-                        val = p.value;
-                    }
-
-                    if (val !== "" && val !== null && val !== undefined) {
-                        const rawName = String(p.displayName || p.attributeName || p.name || `Propriedade_${p.dbId || 'Desconhecida'}`);
-                        const safeKey = rawName.replace(/[".]/g, '');
-                        propsObj[safeKey] = val;
-                        
-                        const nameLower = rawName.toLowerCase();
-                        
-                        if (!categoria && (nameLower === 'category' || nameLower === 'categoria')) categoria = val;
-                        if (!familia && (nameLower === 'family' || nameLower === 'família')) familia = val;
-                        if (!tipo && (nameLower === 'type name' || nameLower === 'nome do tipo' || nameLower === 'type' || nameLower === 'tipo')) tipo = val;
-                        if (!nivel && (nameLower.includes('level') || nameLower.includes('nível') || nameLower.includes('nivel'))) nivel = val;
-                    }
-                });
-            }
-
-            if (!familia && item.name) {
-                const nomeItem = String(item.name);
-                familia = nomeItem.includes('[') ? nomeItem.split('[')[0].trim() : nomeItem.trim();
-            }
-
-            if (!tipo && item.name) {
-                const nomeItem = String(item.name);
-                if (nomeItem.includes('[') && nomeItem.includes(']')) {
-                    tipo = nomeItem.substring(nomeItem.indexOf('[') + 1, nomeItem.indexOf(']')).trim();
-                } else {
-                    tipo = nomeItem.trim();
-                }
-            }
-
-            return {
-                external_id: externalId,
-                categoria: categoria || 'Outros (Instalações)',
-                familia: familia || 'Desconhecido',
-                tipo: tipo || 'Elemento MEP',
-                nivel: nivel || 'Não definido',
-                propriedades: propsObj
-            };
+    // Busca apenas a propriedade de categoria para agrupar as folhas de forma rápida
+    const catResults = await new Promise((resolve) => {
+        model.getBulkProperties(leafIds, { propFilter: ['Category', 'Categoria'] }, (results) => resolve(results), (err) => {
+            console.warn("Erro ao ler categorias das folhas:", err);
+            resolve([]);
         });
+    });
 
-        // Acumula os novos elementos na memória para calcular o delta
-        todosElementosNovos = todosElementosNovos.concat(processedChunk);
+    // Mapeia dbId para sua respectiva categoria
+    const dbIdsPorCategoria = {};
+    const dbIdsSemCategoria = [];
 
-        // ENVIA ESTE LOTE PARA O BANCO IMEDIATAMENTE
-        if (processedChunk.length > 0) {
-            try {
-                const { error: chunkError } = await supabase.rpc('sync_bim_elements_chunk', {
-                    p_organizacao_id: organizacaoId,
-                    p_projeto_id: projetoBimId,
-                    p_urn: cleanUrn,
-                    p_sync_session: syncSession,
-                    p_elementos: processedChunk
-                });
-
-                if (chunkError) {
-                    console.error(`[Elo 57] Erro na RPC sinc. Lote ${i/CHUNK_SIZE}:`, chunkError);
-                    throw new Error("Falha Supabase ao salvar lote: " + chunkError.message);
-                }
-            } catch (err) {
-                 console.error(`[Elo 57] Falha fatal no chunk de extração. Erro:`, err);
-                 throw err;
+    catResults.forEach(item => {
+        let categoria = null;
+        if (item.properties) {
+            const pCat = item.properties.find(p => {
+                const nameLower = (p.displayName || p.attributeName || p.name || '').toLowerCase();
+                return nameLower === 'category' || nameLower === 'categoria';
+            });
+            if (pCat && pCat.displayValue) {
+                categoria = String(pCat.displayValue).trim();
             }
         }
+        
+        if (categoria) {
+            if (!dbIdsPorCategoria[categoria]) dbIdsPorCategoria[categoria] = [];
+            dbIdsPorCategoria[categoria].push(item.dbId);
+        } else {
+            dbIdsSemCategoria.push(item.dbId);
+        }
+    });
 
-        processed += chunkIds.length;
-        if (onProgress) onProgress(Math.round((processed / totalItems) * 80));
+    // Trata os dbIds que não vieram no getBulkProperties (fallbacks)
+    const faltantes = leafIds.filter(id => {
+        const jaMapeado = dbIdsSemCategoria.includes(id) || Object.values(dbIdsPorCategoria).some(list => list.includes(id));
+        return !jaMapeado;
+    });
+    dbIdsSemCategoria.push(...faltantes);
+
+    if (dbIdsSemCategoria.length > 0) {
+        dbIdsPorCategoria['Outros (Instalações)'] = dbIdsSemCategoria;
     }
+
+    const categoriasOrdenadas = Object.keys(dbIdsPorCategoria).sort();
+    console.log(`[Elo 57] Elementos agrupados em ${categoriasOrdenadas.length} categorias para sincronização.`);
+
+    // --- 4. EXTRAÇÃO E ENVIO SEQUENCIAL POR CATEGORIA (EVITA TIMEOUT) ---
+    let processed = 0;
+    const CHUNK_SIZE = 200; // Reduzido de 1000 para 200 para deixar o payload JSON bem pequeno e leve
+    const syncSession = new Date().toISOString(); // Assinatura de tempo para o Soft-Delete seguro
+    let todosElementosNovos = []; // Acumulador para cálculo do Delta no final
+
+    for (let c = 0; c < categoriasOrdenadas.length; c++) {
+        const categoriaNome = categoriasOrdenadas[c];
+        const idsDaCategoria = dbIdsPorCategoria[categoriaNome];
+        const totalCat = idsDaCategoria.length;
+
+        console.log(`[Elo 57] Sincronizando categoria "${categoriaNome}" (${totalCat} elementos)...`);
+
+        for (let i = 0; i < totalCat; i += CHUNK_SIZE) {
+            const chunkIds = idsDaCategoria.slice(i, i + CHUNK_SIZE);
+
+            if (onProgress) {
+                // Atualiza o progresso entre 5% e 85% do processo total
+                const percent = Math.round((processed / totalItems) * 80) + 5;
+                onProgress(percent);
+            }
+
+            // Lê do Viewer
+            const rawResults = await getPropsPromise(chunkIds);
+
+            // Processa e Limpa os Dados
+            const processedChunk = rawResults.map(item => {
+                const propsObj = {};
+                let categoria = categoriaNome; // Usa o nome da categoria agrupada por padrão
+                let familia = '';
+                let tipo = '';
+                let nivel = '';
+
+                // Garante External ID
+                const externalId = item.externalId || `ext-${item.dbId}`;
+
+                if (item.properties) {
+                    item.properties.forEach(p => {
+                        let val = p.displayValue;
+                        if (val === "" || val === null || val === undefined) {
+                            val = p.value;
+                        }
+
+                        if (val !== "" && val !== null && val !== undefined) {
+                            const rawName = String(p.displayName || p.attributeName || p.name || `Propriedade_${p.dbId || 'Desconhecida'}`);
+                            const safeKey = rawName.replace(/[".]/g, '');
+                            propsObj[safeKey] = val;
+                            
+                            const nameLower = rawName.toLowerCase();
+                            
+                            if (nameLower === 'category' || nameLower === 'categoria') categoria = val;
+                            if (nameLower === 'family' || nameLower === 'família') familia = val;
+                            if (nameLower === 'type name' || nameLower === 'nome do tipo' || nameLower === 'type' || nameLower === 'tipo') tipo = val;
+                            if (nameLower.includes('level') || nameLower.includes('nível') || nameLower.includes('nivel')) nivel = val;
+                        }
+                    });
+                }
+
+                if (!familia && item.name) {
+                    const nomeItem = String(item.name);
+                    familia = nomeItem.includes('[') ? nomeItem.split('[')[0].trim() : nomeItem.trim();
+                }
+
+                if (!tipo && item.name) {
+                    const nomeItem = String(item.name);
+                    if (nomeItem.includes('[') && nomeItem.includes(']')) {
+                        tipo = nomeItem.substring(nomeItem.indexOf('[') + 1, nomeItem.indexOf(']')).trim();
+                    } else {
+                        tipo = nomeItem.trim();
+                    }
+                }
+
+                return {
+                    external_id: externalId,
+                    categoria: categoria || categoriaNome,
+                    familia: familia || 'Desconhecido',
+                    tipo: tipo || 'Elemento MEP',
+                    nivel: nivel || 'Não definido',
+                    propriedades: propsObj
+                };
+            });
+
+            // Acumula os novos elementos na memória para calcular o delta
+            todosElementosNovos = todosElementosNovos.concat(processedChunk);
+
+            // ENVIA ESTE LOTE PARA O BANCO IMEDIATAMENTE
+            if (processedChunk.length > 0) {
+                try {
+                    const { error: chunkError } = await supabase.rpc('sync_bim_elements_chunk', {
+                        p_organizacao_id: organizacaoId,
+                        p_projeto_id: projetoBimId,
+                        p_urn: cleanUrn,
+                        p_sync_session: syncSession,
+                        p_elementos: processedChunk
+                    });
+
+                    if (chunkError) {
+                        console.error(`[Elo 57] Erro na RPC sinc. Categoria ${categoriaNome}, Lote ${i/CHUNK_SIZE}:`, chunkError);
+                        throw new Error(`Falha Supabase ao salvar lote da categoria ${categoriaNome}: ` + chunkError.message);
+                    }
+                } catch (err) {
+                     console.error(`[Elo 57] Falha fatal no chunk de extração. Erro:`, err);
+                     throw err;
+                }
+            }
+
+            processed += chunkIds.length;
+        }
+    }
+
 
     // --- 4. FINALIZAÇÃO E SOFT DELETE (RPC) ---
     console.log(`[Elo 57] Todos os lotes enviados. Finalizando sincronização...`);
