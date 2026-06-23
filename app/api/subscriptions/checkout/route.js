@@ -98,7 +98,8 @@ export async function POST(request) {
             valor: valorPlano,
             ciclo: cicloPlano,
             descricao: descPlano,
-            dataVencimento: nextDueDate
+            dataVencimento: nextDueDate,
+            formaPagamento: 'UNDEFINED'
         });
 
         // 7. Atualizar a organização com o ID da assinatura e status de trialing (se no trial) ou active

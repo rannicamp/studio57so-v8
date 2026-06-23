@@ -189,6 +189,10 @@ export async function POST(request) {
 
     } catch (error) {
         console.error('[Update Card API] Erro na rota de atualização de cartão:', error.message);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+        let msg = error.message;
+        if (msg.includes('403') || msg.toLowerCase().includes('permissão') || msg.toLowerCase().includes('gerente')) {
+            msg = 'Habilitação Pendente no Asaas: A tokenização direta de cartão via API exige autorização da equipe do Asaas. Solicite a liberação da Tokenização de Cartão ao suporte do Asaas ou utilize o checkout seguro para cadastrar seu cartão.';
+        }
+        return NextResponse.json({ error: msg }, { status: 400 });
     }
 }
