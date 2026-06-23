@@ -85,7 +85,7 @@ export async function POST(request) {
         if (orgId === 2 || String(orgId) === '2') {
             console.log('[Checkout API] Aplicando promoção de teste de R$ 12,00 Anual para a Org 2');
             valorPlano = 12.00;
-            cicloPlano = 'ANNUAL';
+            cicloPlano = 'YEARLY';
             descPlano = `Assinatura Elo 57 - Plano Promocional Anual (${org.nome})`;
             nextDueDate = dataAmanhaStr; // Força vencimento para amanhã para permitir o débito de teste imediato!
         }
