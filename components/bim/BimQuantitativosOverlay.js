@@ -825,6 +825,177 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
  }
  };
 
+  // Auxiliares para destacar e isolar elementos 3D a partir das ramificações
+  const selecionarCategoriaNo3D = (cat, silent = false) => {
+    let ids = (cat.familias || []).flatMap(f => (f.tipos || []).flatMap(t => (t.elementos || []).map(el => el.external_id)));
+    if (ids.length === 0) {
+      const elementosCat = todosElementos.filter(el => el.categoria === cat.categoria);
+      ids = elementosCat.map(el => el.external_id);
+    }
+    if (ids.length === 0) {
+      const toastId = toast.loading(`Buscando elementos da categoria ${cat.categoria}...`);
+      
+      const buscar = async () => {
+        let acumulados = [];
+        let temMais = true;
+        let pagina = 0;
+        const limite = 1000;
+        
+        while (temMais) {
+          const { data, error } = await supabase
+            .from('elementos_bim')
+            .select('external_id')
+            .in('projeto_bim_id', modelosSelecionadosIds.map(Number))
+            .eq('categoria', cat.categoria)
+            .range(pagina * limite, (pagina + 1) * limite - 1);
+            
+          if (error) throw error;
+          if (!data || data.length === 0) {
+            temMais = false;
+          } else {
+            acumulados = [...acumulados, ...data.map(el => el.external_id)];
+            if (data.length < limite) {
+              temMais = false;
+            } else {
+              pagina++;
+            }
+          }
+        }
+        return acumulados;
+      };
+
+      buscar()
+        .then((queryIds) => {
+          toast.dismiss(toastId);
+          if (queryIds.length > 0) {
+            handleShowInModel(queryIds, cat.categoria, silent);
+          } else {
+            toast.warning('Nenhum elemento associado encontrado para exibir.');
+          }
+        })
+        .catch((error) => {
+          toast.dismiss(toastId);
+          console.error(error);
+          toast.error(`Erro ao buscar elementos da categoria.`);
+        });
+    } else {
+      handleShowInModel(ids, cat.categoria, silent);
+    }
+  };
+
+  const selecionarFamiliaNo3D = (cat, fam, silent = false) => {
+    let ids = (fam.tipos || []).flatMap(t => (t.elementos || []).map(el => el.external_id));
+    if (ids.length === 0) {
+      const elementosFam = todosElementos.filter(el => el.categoria === cat.categoria && el.familia === fam.familia);
+      ids = elementosFam.map(el => el.external_id);
+    }
+    if (ids.length === 0) {
+      const toastId = toast.loading(`Buscando elementos da família ${fam.familia}...`);
+      
+      const buscar = async () => {
+        let acumulados = [];
+        let temMais = true;
+        let pagina = 0;
+        const limite = 1000;
+        
+        while (temMais) {
+          const { data, error } = await supabase
+            .from('elementos_bim')
+            .select('external_id')
+            .in('projeto_bim_id', modelosSelecionadosIds.map(Number))
+            .eq('categoria', cat.categoria)
+            .eq('familia', fam.familia)
+            .range(pagina * limite, (pagina + 1) * limite - 1);
+            
+          if (error) throw error;
+          if (!data || data.length === 0) {
+            temMais = false;
+          } else {
+            acumulados = [...acumulados, ...data.map(el => el.external_id)];
+            if (data.length < limite) {
+              temMais = false;
+            } else {
+              pagina++;
+            }
+          }
+        }
+        return acumulados;
+      };
+
+      buscar()
+        .then((queryIds) => {
+          toast.dismiss(toastId);
+          if (queryIds.length > 0) {
+            handleShowInModel(queryIds, fam.familia, silent);
+          } else {
+            toast.warning('Nenhum elemento associado encontrado para exibir.');
+          }
+        })
+        .catch((error) => {
+          toast.dismiss(toastId);
+          console.error(error);
+          toast.error(`Erro ao buscar elementos da família.`);
+        });
+    } else {
+      handleShowInModel(ids, fam.familia, silent);
+    }
+  };
+
+  const selecionarTipoNo3D = (cat, fam, t, silent = false) => {
+    const ids = (t.elementos || []).map(el => el.external_id);
+    if (ids.length === 0) {
+      const toastId = toast.loading(`Buscando elementos do tipo ${t.tipo}...`);
+      
+      const buscar = async () => {
+        let acumulados = [];
+        let temMais = true;
+        let pagina = 0;
+        const limite = 1000;
+        
+        while (temMais) {
+          const { data, error } = await supabase
+            .from('elementos_bim')
+            .select('external_id')
+            .in('projeto_bim_id', modelosSelecionadosIds.map(Number))
+            .eq('categoria', cat.categoria)
+            .eq('familia', fam.familia)
+            .eq('tipo', t.tipo)
+            .range(pagina * limite, (pagina + 1) * limite - 1);
+            
+          if (error) throw error;
+          if (!data || data.length === 0) {
+            temMais = false;
+          } else {
+            acumulados = [...acumulados, ...data.map(el => el.external_id)];
+            if (data.length < limite) {
+              temMais = false;
+            } else {
+              pagina++;
+            }
+          }
+        }
+        return acumulados;
+      };
+
+      buscar()
+        .then((queryIds) => {
+          toast.dismiss(toastId);
+          if (queryIds.length > 0) {
+            handleShowInModel(queryIds, t.tipo, silent);
+          } else {
+            toast.warning('Nenhum elemento associado encontrado para exibir.');
+          }
+        })
+        .catch((error) => {
+          toast.dismiss(toastId);
+          console.error(error);
+          toast.error(`Erro ao buscar elementos do tipo.`);
+        });
+    } else {
+      handleShowInModel(ids, t.tipo, silent);
+    }
+  };
+
  // Enviar comando ao BIM Manager para destacar os elementos (silent adicionado)
  const handleShowInModel = (externalIds, label, silent = false) => {
  if (!externalIds || externalIds.length === 0) {
@@ -835,102 +1006,6 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
  if (onShowInModel) {
  onShowInModel(externalIds, label, modelos, silent);
  }
- };
-
- // Auxiliares para destacar e isolar elementos 3D a partir das ramificações
- const selecionarCategoriaNo3D = (cat, silent = false) => {
-   let ids = (cat.familias || []).flatMap(f => (f.tipos || []).flatMap(t => (t.elementos || []).map(el => el.external_id)));
-   if (ids.length === 0) {
-     const elementosCat = todosElementos.filter(el => el.categoria === cat.categoria);
-     ids = elementosCat.map(el => el.external_id);
-   }
-   if (ids.length === 0) {
-     const toastId = toast.loading(`Buscando elementos da categoria ${cat.categoria}...`);
-     supabase
-       .from('elementos_bim')
-       .select('external_id')
-       .in('projeto_bim_id', modelosSelecionadosIds.map(Number))
-       .eq('categoria', cat.categoria)
-       .then(({ data, error }) => {
-         toast.dismiss(toastId);
-         if (error) {
-           console.error(error);
-           toast.error(`Erro ao buscar elementos da categoria.`);
-           return;
-         }
-         const queryIds = (data || []).map(el => el.external_id);
-         if (queryIds.length > 0) {
-           handleShowInModel(queryIds, cat.categoria, silent);
-         } else {
-           toast.warning('Nenhum elemento associado encontrado para exibir.');
-         }
-       });
-   } else {
-     handleShowInModel(ids, cat.categoria, silent);
-   }
- };
-
- const selecionarFamiliaNo3D = (cat, fam, silent = false) => {
-   let ids = (fam.tipos || []).flatMap(t => (t.elementos || []).map(el => el.external_id));
-   if (ids.length === 0) {
-     const elementosFam = todosElementos.filter(el => el.categoria === cat.categoria && el.familia === fam.familia);
-     ids = elementosFam.map(el => el.external_id);
-   }
-   if (ids.length === 0) {
-     const toastId = toast.loading(`Buscando elementos da família ${fam.familia}...`);
-     supabase
-       .from('elementos_bim')
-       .select('external_id')
-       .in('projeto_bim_id', modelosSelecionadosIds.map(Number))
-       .eq('categoria', cat.categoria)
-       .eq('familia', fam.familia)
-       .then(({ data, error }) => {
-         toast.dismiss(toastId);
-         if (error) {
-           console.error(error);
-           toast.error(`Erro ao buscar elementos da família.`);
-           return;
-         }
-         const queryIds = (data || []).map(el => el.external_id);
-         if (queryIds.length > 0) {
-           handleShowInModel(queryIds, fam.familia, silent);
-         } else {
-           toast.warning('Nenhum elemento associado encontrado para exibir.');
-         }
-       });
-   } else {
-     handleShowInModel(ids, fam.familia, silent);
-   }
- };
-
- const selecionarTipoNo3D = (cat, fam, t, silent = false) => {
-   const ids = (t.elementos || []).map(el => el.external_id);
-   if (ids.length === 0) {
-     const toastId = toast.loading(`Buscando elementos do tipo ${t.tipo}...`);
-     supabase
-       .from('elementos_bim')
-       .select('external_id')
-       .in('projeto_bim_id', modelosSelecionadosIds.map(Number))
-       .eq('categoria', cat.categoria)
-       .eq('familia', fam.familia)
-       .eq('tipo', t.tipo)
-       .then(({ data, error }) => {
-         toast.dismiss(toastId);
-         if (error) {
-           console.error(error);
-           toast.error(`Erro ao buscar elementos do tipo.`);
-           return;
-         }
-         const queryIds = (data || []).map(el => el.external_id);
-         if (queryIds.length > 0) {
-           handleShowInModel(queryIds, t.tipo, silent);
-         } else {
-           toast.warning('Nenhum elemento associado encontrado para exibir.');
-         }
-       });
-   } else {
-     handleShowInModel(ids, t.tipo, silent);
-   }
  };
 
  // Fecha dropdown ao clicar fora

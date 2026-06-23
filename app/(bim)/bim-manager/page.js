@@ -396,7 +396,7 @@ export default function BimManagerPage() {
           if (map[cleanEid] !== undefined) { 
             dbIdsInThisModel.push(map[cleanEid]); 
             totalSelecionados++;
-            console.log(`🎯 [BIM Match Exato] Encontrado no modelo [${nomeMod}] -> ID original: ${cleanEid} -> dbId: ${map[cleanEid]}`);
+            // console.log(`🎯 [BIM Match Exato] Encontrado no modelo [${nomeMod}] -> ID original: ${cleanEid} -> dbId: ${map[cleanEid]}`);
           } else {
             // 2. Tenta correspondência case-insensitive se falhar a exata
             if (!lowercaseMap) {
@@ -409,7 +409,7 @@ export default function BimManagerPage() {
             if (lowercaseMap[lowerEid] !== undefined) {
               dbIdsInThisModel.push(lowercaseMap[lowerEid]);
               totalSelecionados++;
-              console.log(`🎯 [BIM Match CaseInsensitive] Encontrado no modelo [${nomeMod}] -> ID original: ${cleanEid} -> dbId: ${lowercaseMap[lowerEid]}`);
+              // console.log(`🎯 [BIM Match CaseInsensitive] Encontrado no modelo [${nomeMod}] -> ID original: ${cleanEid} -> dbId: ${lowercaseMap[lowerEid]}`);
             } else {
               // 3. Tenta correspondência por sufixo de ID do Revit (caso o GUID de link mude)
               const sufixoEid = extrairSufixoRevit(cleanEid);
@@ -426,7 +426,7 @@ export default function BimManagerPage() {
                 if (sufixoMap[sufixoEid] !== undefined) {
                   dbIdsInThisModel.push(sufixoMap[sufixoEid]);
                   totalSelecionados++;
-                  console.log(`🎯 [BIM Match Sufixo] Encontrado no modelo [${nomeMod}] -> ID original: ${cleanEid} (sufixo: ${sufixoEid}) -> dbId: ${sufixoMap[sufixoEid]}`);
+                  // console.log(`🎯 [BIM Match Sufixo] Encontrado no modelo [${nomeMod}] -> ID original: ${cleanEid} (sufixo: ${sufixoEid}) -> dbId: ${sufixoMap[sufixoEid]}`);
                 }
               }
             }
