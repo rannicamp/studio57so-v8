@@ -391,8 +391,8 @@ case 'OVERDUE':
                             </div>
                         )}
 
-                        {/* Se não possuir assinatura Asaas criada, exibe botão para Iniciar Assinatura */}
-                        {!organizacao?.status || organizacao.status === 'trialing' && !cartao ? (
+                        {/* Se não possuir assinatura ativa no Asaas, exibe botão para Iniciar Assinatura */}
+                        {(!organizacao?.status || ['canceled', 'inactive'].includes(organizacao.status) || (organizacao.status === 'trialing' && !cartao)) ? (
                             <button
                                 onClick={handleAssinar}
                                 disabled={loadingCheckout}
@@ -454,16 +454,13 @@ case 'OVERDUE':
                             <span>Alterar Cartão</span>
                         </button>
                     ) : (
-                        // Caso não tenha cartão mas já tenha assinatura (ex: Boleto)
-                        organizacao?.status && (
-                            <button
-                                onClick={() => setIsModalCardOpen(true)}
-                                className="w-full py-3 px-4 bg-black hover:bg-gray-900 text-white font-semibold rounded-xl text-sm transition-all flex items-center justify-center gap-1.5 active:scale-[0.98]"
-                            >
-                                <FontAwesomeIcon icon={faCreditCard} />
-                                <span>Cadastrar Cartão</span>
-                            </button>
-                        )
+                        <button
+                            onClick={() => setIsModalCardOpen(true)}
+                            className="w-full py-3 px-4 bg-black hover:bg-gray-900 text-white font-semibold rounded-xl text-sm transition-all flex items-center justify-center gap-1.5 active:scale-[0.98]"
+                        >
+                            <FontAwesomeIcon icon={faCreditCard} />
+                            <span>Cadastrar Cartão</span>
+                        </button>
                     )}
                 </div>
             </div>

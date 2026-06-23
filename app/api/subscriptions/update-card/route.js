@@ -1,6 +1,6 @@
 import { createClient } from '@/utils/supabase/server';
 import { NextResponse } from 'next/server';
-import { atualizarCartaoAssinatura } from '@/lib/asaas';
+import { atualizarCartaoAssinatura, tokenizarCartao, obterOuCriarCliente } from '@/lib/asaas';
 
 export async function POST(request) {
     const supabase = await createClient();
@@ -32,11 +32,29 @@ export async function POST(request) {
             .eq('id', orgId)
             .single();
 
-        if (orgError || !org || !org.asaas_subscription_id) {
-            return NextResponse.json({ error: 'Sua organização não possui uma assinatura ativa para atualizar.' }, { status: 400 });
+        if (orgError || !org) {
+            return NextResponse.json({ error: 'Erro ao carregar dados da organização.' }, { status: 400 });
         }
 
-        // 4. Ler os dados do novo cartão do corpo do POST
+        // 4. Garantir que a organização tenha um asaas_customer_id
+        let asaasCustomerId = org.asaas_customer_id;
+        if (!asaasCustomerId) {
+            console.log(`[Update Card API] Organização ${org.nome} sem asaas_customer_id. Criando cliente no Asaas...`);
+            const customer = await obterOuCriarCliente({
+                nome: org.nome,
+                email: user.email,
+                cpfCnpj: null
+            });
+            asaasCustomerId = customer.id;
+
+            // Grava o ID do cliente criado no banco
+            await supabase
+                .from('organizacoes')
+                .update({ asaas_customer_id: asaasCustomerId })
+                .eq('id', orgId);
+        }
+
+        // 5. Ler os dados do novo cartão do corpo do POST
         const body = await request.json();
         const { holderName, number, expiryMonth, expiryYear, ccv } = body;
 
@@ -44,27 +62,28 @@ export async function POST(request) {
             return NextResponse.json({ error: 'Todos os campos do cartão são obrigatórios.' }, { status: 400 });
         }
 
-        // 5. Obter dados do cliente no Asaas para usar como dados fiscais do titular (creditCardHolderInfo)
-        // Isso evita que precisemos exigir que o cliente digite CPF, CEP, etc., de novo.
+        // 6. Obter dados cadastrais fiscais do Asaas (ou fallback local) para o creditCardHolderInfo
         const ASAAS_API_KEY = process.env.ASAAS_API_KEY;
         const ASAAS_API_URL = process.env.ASAAS_API_URL || 'https://api.asaas.com/v3';
         
-        console.log(`[Update Card API] Buscando dados cadastrais do cliente no Asaas: ${org.asaas_customer_id}`);
-        const customerResponse = await fetch(`${ASAAS_API_URL}/customers/${org.asaas_customer_id}`, {
-            headers: {
-                'access_token': ASAAS_API_KEY,
-                'Content-Type': 'application/json'
-            }
-        });
+        let customer = { cpfCnpj: null, postalCode: null, addressNumber: null, email: user.email };
+        try {
+            console.log(`[Update Card API] Buscando dados cadastrais do cliente no Asaas: ${asaasCustomerId}`);
+            const customerResponse = await fetch(`${ASAAS_API_URL}/customers/${asaasCustomerId}`, {
+                headers: {
+                    'access_token': ASAAS_API_KEY,
+                    'Content-Type': 'application/json'
+                }
+            });
 
-        if (!customerResponse.ok) {
-            throw new Error('Falha ao obter os dados do cliente no Asaas para validação.');
+            if (customerResponse.ok) {
+                customer = await customerResponse.json();
+            }
+        } catch (err) {
+            console.warn('[Update Card API] Não foi possível buscar o cliente no Asaas. Usando fallbacks locais.', err.message);
         }
 
-        const customer = await customerResponse.json();
-
-        // 6. Configurar fallbacks para os dados do titular se faltar algo no cadastro do Asaas
-        // Buscamos dados locais da empresa se os dados no Asaas estiverem nulos
+        // Configurar fallbacks para os dados do titular se faltar algo no cadastro do Asaas
         let cpfCnpj = customer.cpfCnpj;
         let postalCode = customer.postalCode;
         let addressNumber = customer.addressNumber;
@@ -90,22 +109,21 @@ export async function POST(request) {
             }
         }
 
-        // Se após o fallback ainda faltar CPF/CNPJ ou CEP (cenário raro de assinatura manual/teste incompleta),
-        // nós geramos um erro solicitando que ele utilize o checkout do Asaas ou cadastre os dados nas configurações
+        // Validação final de dados fiscais necessários
         if (!cpfCnpj) {
             return NextResponse.json({ 
-                error: 'Falta CPF ou CNPJ de faturamento. Preencha o cadastro da sua empresa antes de atualizar o cartão.' 
+                error: 'Falta CPF ou CNPJ de faturamento. Preencha o cadastro da sua empresa antes de cadastrar o cartão.' 
             }, { status: 400 });
         }
         if (!postalCode) {
             return NextResponse.json({ 
-                error: 'Falta o CEP de faturamento. Preencha o CEP da empresa antes de atualizar o cartão.' 
+                error: 'Falta o CEP de faturamento. Preencha o CEP da empresa antes de cadastrar o cartão.' 
             }, { status: 400 });
         }
 
         const creditCard = {
             holderName,
-            number: number.replace(/\s+/g, ''), // remove espaços
+            number: number.replace(/\s+/g, ''),
             expiryMonth,
             expiryYear,
             ccv
@@ -120,14 +138,54 @@ export async function POST(request) {
             phone: phone ? phone.replace(/\D/g, '') : undefined
         };
 
-        // 7. Chamar o Asaas para realizar a atualização segura da assinatura
-        await atualizarCartaoAssinatura(org.asaas_subscription_id, {
-            creditCard,
-            creditCardHolderInfo
-        });
+        // 7. Salvar ou Tokenizar dependendo de possuir assinatura recorrente ou não
+        if (org.asaas_subscription_id) {
+            // Cenário A: Possui assinatura recorrente -> atualiza cartão na recorrência
+            const responseAsaas = await atualizarCartaoAssinatura(org.asaas_subscription_id, {
+                creditCard,
+                creditCardHolderInfo
+            });
+
+            // Gravar a bandeira e final do cartão no banco local para espelhamento rápido da UI
+            const cardBrand = responseAsaas.creditCard?.creditCardBrand || 'N/A';
+            const cardLastDigits = (responseAsaas.creditCard?.creditCardNumber || '').slice(-4) || 'N/A';
+
+            await supabase
+                .from('organizacoes')
+                .update({
+                    card_brand: cardBrand,
+                    card_last_digits: cardLastDigits
+                })
+                .eq('id', orgId);
+
+            console.log(`[Update Card API] Cartão atualizado e salvo localmente para assinatura recorrente.`);
+        } else {
+            // Cenário B: Não possui assinatura recorrente (ex: vitalícia ou apenas quer salvar o cartão avulso)
+            // Tokenizar o cartão diretamente no cliente no Asaas
+            const responseAsaas = await tokenizarCartao(asaasCustomerId, {
+                creditCard,
+                creditCardHolderInfo
+            });
+
+            const cardToken = responseAsaas.creditCardToken;
+            const cardBrand = responseAsaas.creditCardBrand || 'N/A';
+            const cardLastDigits = (responseAsaas.creditCardNumber || '').slice(-4) || 'N/A';
+
+            // Salva o token do cartão, bandeira e últimos 4 dígitos no banco de dados do Elo 57
+            await supabase
+                .from('organizacoes')
+                .update({
+                    asaas_card_token: cardToken,
+                    card_brand: cardBrand,
+                    card_last_digits: cardLastDigits
+                })
+                .eq('id', orgId);
+
+            console.log(`[Update Card API] Cartão tokenizado de forma avulsa e salvo localmente.`);
+        }
 
         // 8. Responder sucesso (nenhum dado de cartão de crédito permanece em memória após isso)
-        return NextResponse.json({ success: true, message: 'Cartão de crédito atualizado com sucesso!' });
+        return NextResponse.json({ success: true, message: 'Cartão de crédito cadastrado com sucesso!' });
 
     } catch (error) {
         console.error('[Update Card API] Erro na rota de atualização de cartão:', error.message);

@@ -69,7 +69,11 @@ export async function POST(request) {
         amanha.setDate(hoje.getDate() + 1);
         const dataAmanhaStr = amanha.toISOString().split('T')[0];
 
+        let valorPlano = PLAN_VALUE;
+        let cicloPlano = 'MONTHLY';
+        let descPlano = `Assinatura Elo 57 - Plano Mensal (${org.nome})`;
         let nextDueDate = dataAmanhaStr;
+
         if (org.trial_ends_at) {
             const dataTrial = new Date(org.trial_ends_at);
             if (dataTrial > amanha) {
@@ -77,14 +81,23 @@ export async function POST(request) {
             }
         }
 
+        // Teste promocional solicitado pelo "seu lindo" para a Org 2 (Studio 57)
+        if (orgId === 2 || String(orgId) === '2') {
+            console.log('[Checkout API] Aplicando promoção de teste de R$ 12,00 Anual para a Org 2');
+            valorPlano = 12.00;
+            cicloPlano = 'ANNUAL';
+            descPlano = `Assinatura Elo 57 - Plano Promocional Anual (${org.nome})`;
+            nextDueDate = dataAmanhaStr; // Força vencimento para amanhã para permitir o débito de teste imediato!
+        }
+
         console.log(`[Checkout API] Primeiro vencimento agendado para: ${nextDueDate}`);
 
         // 6. Criar a assinatura (recorrência) no Asaas
         const assinatura = await criarAssinatura({
             clienteId: asaasCustomerId,
-            valor: PLAN_VALUE,
-            ciclo: 'MONTHLY',
-            descricao: `Assinatura Elo 57 - Plano Mensal (${org.nome})`,
+            valor: valorPlano,
+            ciclo: cicloPlano,
+            descricao: descPlano,
             dataVencimento: nextDueDate
         });
 
