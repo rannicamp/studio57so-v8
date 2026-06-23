@@ -818,7 +818,19 @@ export default function BimManagerPage() {
 
   {/* INSPECTOR (Oculto se a aba for Orçamento) */}
   <div className={`${isInspectorVisible && activeMainTab === 'viewer' ? 'w-80 border-l' : 'w-0 border-none'} bg-white transition-all duration-300 flex flex-col overflow-hidden shrink-0 z-20 shadow-xl`}>
-    <BimInspector viewer={viewerInstance} elementExternalId={selectedElements[0]} selectedElements={selectedElements} selectedCount={fastSelectionCount} projetoBimId={fileInUse?.id} urnAutodesk={activeUrn || fileInUse?.urn_autodesk} onOpenLink={handleOpenLink} onOpenCreate={handleOpenCreate} onOpenNote={handleOpenNoteCreation} onRestoreNote={handleRestoreNoteWrapper} />
+    <BimInspector 
+      viewer={viewerInstance} 
+      elementExternalId={selectedElements[0]} 
+      selectedElements={selectedElements} 
+      selectedCount={fastSelectionCount} 
+      projetoBimId={fileInUse?.id} 
+      loadedProjectIds={loadedFiles.map(f => f.id)}
+      urnAutodesk={activeUrn || fileInUse?.urn_autodesk} 
+      onOpenLink={handleOpenLink} 
+      onOpenCreate={handleOpenCreate} 
+      onOpenNote={handleOpenNoteCreation} 
+      onRestoreNote={handleRestoreNoteWrapper} 
+    />
   </div>
  </main>
  </div>

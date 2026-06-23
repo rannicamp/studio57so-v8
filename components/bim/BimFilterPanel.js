@@ -38,7 +38,7 @@ const FILTER_TYPES = [
 
 const STANDARD_FIELDS = ['familia', 'tipo', 'categoria', 'nivel', 'status_execucao', 'sistema'];
 
-export default function BimFilterPanel({ viewer, projetoBimId }) {
+export default function BimFilterPanel({ viewer, projetoBimId, loadedProjectIds = [] }) {
   const supabase = createClient();
   const { organizacao_id } = useAuth();
   
@@ -72,12 +72,13 @@ export default function BimFilterPanel({ viewer, projetoBimId }) {
 
   // Query reativa para buscar todos os parâmetros reais do projeto BIM ativo
   const { data: projectProperties = [], isFetching: carregandoPropriedades } = useQuery({
-    queryKey: ['bim_project_properties', organizacao_id, projetoBimId],
+    queryKey: ['bim_project_properties', organizacao_id, projetoBimId, [...loadedProjectIds].sort().join(',')],
     queryFn: async () => {
       if (!projetoBimId || !organizacao_id) return [];
-      const { data, error } = await supabase.rpc('get_bim_project_properties', {
+      const ids = loadedProjectIds && loadedProjectIds.length > 0 ? loadedProjectIds : [projetoBimId];
+      const { data, error } = await supabase.rpc('get_bim_project_properties_v2', {
         p_organizacao_id: Number(organizacao_id),
-        p_projeto_bim_id: Number(projetoBimId)
+        p_projeto_ids: ids.map(Number)
       });
       if (error) {
         console.error('[BimFilterPanel] Erro ao carregar parâmetros do projeto:', error);
@@ -166,9 +167,10 @@ export default function BimFilterPanel({ viewer, projetoBimId }) {
         }
       });
 
-      const { data, error } = await supabase.rpc('get_bim_field_values', {
+      const ids = loadedProjectIds && loadedProjectIds.length > 0 ? loadedProjectIds : [projetoBimId];
+      const { data, error } = await supabase.rpc('get_bim_field_values_v2', {
         p_organizacao_id: Number(organizacao_id),
-        p_projeto_bim_id: Number(projetoBimId),
+        p_projeto_ids: ids.map(Number),
         p_campo: targetField,
         p_search: searchText || '',
         p_filtros_ativos: activeFiltersObj
@@ -209,10 +211,12 @@ export default function BimFilterPanel({ viewer, projetoBimId }) {
       viewer.clearSelection();
       viewer.clearThemingColors();
 
-      // Monta consulta SQL restringindo obrigatoriamente ao projeto BIM ativo
+      // Monta consulta SQL restringindo aos projetos BIM ativos
       let query = supabase.from('elementos_bim').select('external_id');
       query = query.eq('organizacao_id', Number(organizacao_id));
-      query = query.eq('projeto_bim_id', Number(projetoBimId));
+      
+      const ids = loadedProjectIds && loadedProjectIds.length > 0 ? loadedProjectIds : [projetoBimId];
+      query = query.in('projeto_bim_id', ids.map(Number));
 
       activeFilters.forEach(f => {
         let targetField = '';

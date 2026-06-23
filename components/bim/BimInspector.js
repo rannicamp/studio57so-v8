@@ -9,7 +9,7 @@ import BimElementBudget from './BimElementBudget';
 import BimNotesList from './BimNotesList';
 import BimFilterPanel from './BimFilterPanel';
 
-export default function BimInspector({ elementExternalId, selectedElements = [], selectedCount = 0, projetoBimId, urnAutodesk, onOpenLink,
+export default function BimInspector({ elementExternalId, selectedElements = [], selectedCount = 0, projetoBimId, loadedProjectIds = [], urnAutodesk, onOpenLink,
  onOpenCreate,
  onOpenNote,
  onRestoreNote,
@@ -132,7 +132,7 @@ export default function BimInspector({ elementExternalId, selectedElements = [],
  )}
 
  {activeTab === 'filter' && (
- <BimFilterPanel viewer={viewer} projetoBimId={activeProjectId} />
+ <BimFilterPanel viewer={viewer} projetoBimId={activeProjectId} loadedProjectIds={loadedProjectIds} />
  )}
 
  {activeTab === 'notes' && (
