@@ -31,7 +31,8 @@ export async function POST(request) {
       custom_content, 
       location, 
       organizacao_id, 
-      usuario_id 
+      usuario_id,
+      bypass_autopilot
     } = body;
 
     // Trava de Segurança Básica
@@ -137,7 +138,7 @@ export async function POST(request) {
     // É humano se requestUserId existe e NÃO é o ID da Stella da organização
     const isHumanSending = requestUserId && requestUserId !== stellaUserId;
 
-    if (!isHumanSending) {
+    if (!isHumanSending && !bypass_autopilot) {
       // Se NÃO for um humano confirmado (ou seja, é a Stella IA ou a requisição é sem identificação de usuário),
       // e o piloto automático do contato estiver desligado, bloqueia sumariamente!
       if (!contatoIaAtivo) {

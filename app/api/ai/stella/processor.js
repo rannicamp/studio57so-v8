@@ -182,7 +182,8 @@ export async function processarAnaliseStella({
   human_input,
   canal = 'whatsapp',
   janelaFechada = false,
-  templatesDisponiveis = []
+  templatesDisponiveis = [],
+  pular_atualizacao_crm = false
 }) {
   if (!contato_id || !organizacao_id) {
     return { error: 'Faltam parâmetros obrigatórios.', status: 400 };
@@ -682,7 +683,7 @@ ${chatLog}
     }
 
     // --- MOVIMENTAÇÃO DE LEADS NO FUNIL ---
-    if (parsedResult.mover_para_coluna_id && funil && funil.id) {
+    if (!pular_atualizacao_crm && parsedResult.mover_para_coluna_id && funil && funil.id) {
       const novaColunaId = parsedResult.mover_para_coluna_id;
       const colunaAtualId = funil.coluna_id;
 
@@ -783,5 +784,97 @@ ${chatLog}
     } catch (liberarErr) {
       console.error('[Stella Processor Lock Error] Erro ao liberar lock:', liberarErr.message);
     }
+  }
+}
+
+/**
+ * Executa a movimentação do lead no CRM (funil e piloto automático) e grava nota explicativa.
+ * Chamada de forma síncrona/backgroundizada pelo route.js somente após o envio bem-sucedido das mensagens.
+ */
+export async function executarMovimentacaoCRMStella(supabaseAdmin, contato_id, organizacao_id, parsedResult) {
+  if (!parsedResult || !parsedResult.mover_para_coluna_id) {
+    return;
+  }
+
+  try {
+    console.log(`[Stella CRM Handoff] Iniciando atualização de CRM pós-mensagens para contato ${contato_id}...`);
+
+    // 1. Obter o card no funil
+    const { data: funil } = await supabaseAdmin
+      .from('contatos_no_funil')
+      .select('id, coluna_id')
+      .eq('contato_id', contato_id)
+      .eq('organizacao_id', organizacao_id)
+      .limit(1)
+      .maybeSingle();
+
+    if (!funil) {
+      console.warn(`[Stella CRM Handoff Warning] Card no funil não encontrado para o contato ${contato_id} na org ${organizacao_id}.`);
+      return;
+    }
+
+    const novaColunaId = parsedResult.mover_para_coluna_id;
+    const colunaAtualId = funil.coluna_id;
+
+    if (novaColunaId !== colunaAtualId) {
+      console.log(`[Stella CRM Handoff] Movendo lead de ${colunaAtualId} para ${novaColunaId}...`);
+
+      // Buscar colunas da organização
+      const { data: colunas } = await supabaseAdmin
+        .from('colunas_funil')
+        .select('id, nome')
+        .eq('organizacao_id', organizacao_id);
+
+      const colunasDisponiveis = colunas || [];
+      const novaColInfo = colunasDisponiveis.find(c => c.id === novaColunaId);
+      const nomeNovaColuna = novaColInfo ? novaColInfo.nome : 'Nova Etapa';
+
+      const { error: updateFunnelError } = await supabaseAdmin
+        .from('contatos_no_funil')
+        .update({ coluna_id: novaColunaId })
+        .eq('id', funil.id);
+
+      if (updateFunnelError) {
+        console.error('[Stella CRM Handoff Error] Falha ao atualizar coluna no funil:', updateFunnelError.message);
+        return;
+      }
+
+      console.log(`[Stella CRM Handoff] Lead movido com sucesso para a coluna ${nomeNovaColuna}!`);
+
+      // Se for movido para uma coluna humana, desliga o piloto automático no contato
+      const colunasDesativarIA = [
+        '4b9b7e6d-5e4f-3a2b-1c0d-e9f8a7b6c5d4', // QUALIFICAÇÃO STELLA (Transbordo)
+        '0553d8db-5259-41bc-ae9e-b8803014ed93', // CLIENTE POTENCIAL
+        'feaa8511-261d-451b-bf99-24c8a6d6e7e0', // PERDIDO
+        '7de9b5b4-05fa-4813-82d8-7790406ee268'  // INTERVENÇÃO HUMANA (Transbordo)
+      ];
+      
+      if (colunasDesativarIA.includes(novaColunaId)) {
+        console.log(`[Stella CRM Handoff] Desativando piloto automático do lead ${contato_id} por transbordo.`);
+        await supabaseAdmin
+          .from('contatos')
+          .update({ ia_atendimento_ativo: false })
+          .eq('id', contato_id);
+      }
+
+      // Gravar nota no CRM relatando a movimentação
+      try {
+        const stellaUserRecord = await obterOuCriarUsuarioStella(supabaseAdmin, organizacao_id);
+        await supabaseAdmin.from('crm_notas').insert({
+          contato_id: contato_id,
+          contato_no_funil_id: funil.id,
+          conteudo: parsedResult.justificativa_movimentacao || `Piloto Automático Stella: Lead movido para a etapa "${nomeNovaColuna}".`,
+          usuario_id: stellaUserRecord?.userId || null,
+          organizacao_id: organizacao_id
+        });
+        console.log(`[Stella CRM Handoff] Nota do CRM cadastrada com sucesso.`);
+      } catch (noteErr) {
+        console.error('[Stella CRM Handoff Note Error] Falha ao gravar nota:', noteErr.message);
+      }
+    } else {
+      console.log(`[Stella CRM Handoff] O lead já estava na coluna ${novaColunaId}. Nenhuma ação necessária.`);
+    }
+  } catch (error) {
+    console.error('[Stella CRM Handoff Critical Error] Falha na execução da movimentação do CRM:', error.message);
   }
 }

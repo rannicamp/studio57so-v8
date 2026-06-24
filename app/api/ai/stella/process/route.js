@@ -1,8 +1,9 @@
 // app/api/ai/stella/process/route.js
 export const dynamic = 'force-dynamic';
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { processarAnaliseStella } from '../../chat-analysis/route';
+import { executarMovimentacaoCRMStella } from '../processor';
 
 const getSupabaseAdmin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -35,7 +36,7 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Faltam dados obrigatórios do contato ou organização.' }, { status: 400 });
     }
 
-    // 1. Buscar contato e a conversa vinculada em paralelo
+    // 1. Buscar contato e a conversa vinculada em paralelo (Validação Rápida)
     const [contatoRes, convRes] = await Promise.all([
       supabaseAdmin
         .from('contatos')
@@ -72,232 +73,255 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Telefone do contato inválido ou vazio.' }, { status: 400 });
     }
 
-    // 2. DEBOUNCE CONTRA ENVIOS EM RAJADA PICADOS (4 segundos)
-    console.log(`[Stella Background Process] Iniciando debounce de 4 segundos para contato ${contatoId}...`);
-    await new Promise(resolve => setTimeout(resolve, 4000));
-
-    // Verifica se o cliente enviou outra mensagem inbound mais recente durante o debounce
-    try {
-      const { data: msgAtualRecord } = await supabaseAdmin
-        .from('whatsapp_messages')
-        .select('created_at')
-        .eq('message_id', messageId)
-        .maybeSingle();
-
-      if (msgAtualRecord) {
-        const { data: msgPosterior } = await supabaseAdmin
-          .from('whatsapp_messages')
-          .select('id, created_at')
-          .eq('contato_id', contatoId)
-          .gt('created_at', msgAtualRecord.created_at)
-          .eq('direction', 'inbound')
-          .limit(1)
-          .maybeSingle();
-
-        if (msgPosterior) {
-          console.log(`[Stella Background Process] Abortando processamento. Mensagem mais recente detectada durante o debounce.`);
-          return NextResponse.json({ status: 'ignored_newer_message' });
-        }
-      }
-    } catch (debounceErr) {
-      console.error('[Stella Background Process] Erro no fluxo de debounce:', debounceErr.message);
-    }
-
-    // 3. Buscar configurações do WhatsApp para saber o ID do usuário Stella correspondente
-    const { data: config } = await supabaseAdmin
-      .from('configuracoes_whatsapp')
-      .select('*')
-      .eq('organizacao_id', organizacaoId)
-      .limit(1)
-      .maybeSingle();
-
-    if (!config) {
-      console.error(`[Stella Background Process] Configuração do WhatsApp não encontrada para a org ${organizacaoId}.`);
-      return NextResponse.json({ error: 'Configuração do WhatsApp não encontrada para a organização.' }, { status: 404 });
-    }
-
-    // Buscar o ID da Stella na public.usuarios
-    const { data: stellaUserRes } = await supabaseAdmin
-      .from('usuarios')
-      .select('id, contato_id')
-      .eq('email', `stella.org${organizacaoId}@elo57.com.br`)
-      .maybeSingle();
-
-    const stellaUserId = stellaUserRes?.id || null;
-    const stellaContatoId = stellaUserRes?.contato_id || null;
-
-    console.log(`[Stella Background Process] Executando chamada à IA para o contato ${contatoId}...`);
-    
-    // Roda a orquestração do Gemini
-    const aiResult = await processarAnaliseStella({ 
-      contato_id: contatoId, 
-      organizacao_id: organizacaoId, 
-      force: true,
-      quickResponse: true,
-      canal: 'whatsapp'
-    });
-
-    if (aiResult?._concorrencia_abortada) {
-      console.log(`[Stella Background Process] Concorrência activa para o contato ${contatoId}. Abortando.`);
-      return NextResponse.json({ status: 'concurrency_aborted' });
-    }
-
     const protocol = request.headers.get('x-forwarded-proto') || 'https';
     const host = request.headers.get('host');
 
-    if (aiResult && !aiResult.error) {
-      if (aiResult?.proxima_resposta_sugerida) {
-        const sendTextUrl = `${protocol}://${host}/api/whatsapp/send`;
+    // -------------------------------------------------------------
+    // ENCAPSULA A LOGICA PESADA NO AFTER() PARA EXECUÇÃO EM BACKGROUND
+    // -------------------------------------------------------------
+    after(async () => {
+      try {
+        // 2. DEBOUNCE CONTRA ENVIOS EM RAJADA PICADOS (4 segundos)
+        console.log(`[Stella Background Process] Iniciando debounce de 4 segundos para contato ${contatoId}...`);
+        await new Promise(resolve => setTimeout(resolve, 4000));
 
-        const fullText = aiResult.proxima_resposta_sugerida || '';
-        let messagesParts = fullText
-          .split(/\n\n+/)
-          .map(part => part.trim())
-          .filter(part => part.length > 0);
+        // Verifica se o cliente enviou outra mensagem inbound mais recente durante o debounce
+        try {
+          const { data: msgAtualRecord } = await supabaseAdmin
+            .from('whatsapp_messages')
+            .select('created_at')
+            .eq('message_id', messageId)
+            .maybeSingle();
 
-        // Reordena as pílulas para garantir o disclaimer no início e a pergunta no final
-        messagesParts = reordenarPilulas(messagesParts);
+          if (msgAtualRecord) {
+            const { data: msgPosterior } = await supabaseAdmin
+              .from('whatsapp_messages')
+              .select('id, created_at')
+              .eq('contato_id', contatoId)
+              .gt('created_at', msgAtualRecord.created_at)
+              .eq('direction', 'inbound')
+              .limit(1)
+              .maybeSingle();
 
-        if (messagesParts.length === 0) {
-          messagesParts.push('Olá! Tudo bem?');
-        }
-
-        console.log(`[Stella Background Process] Enviando ${messagesParts.length} pílula(s) para o WhatsApp.`);
-
-        for (let i = 0; i < messagesParts.length; i++) {
-          const partText = messagesParts[i];
-          
-          if (i > 0) {
-            const delayMs = 1500;
-            console.log(`[Stella Background Process] Aguardando ${delayMs}ms antes da próxima pílula...`);
-            await new Promise(resolve => setTimeout(resolve, delayMs));
-          }
-
-          const sendTextResponse = await fetch(sendTextUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              to: cleanPhone,
-              type: 'text',
-              text: partText,
-              contact_id: contatoId,
-              organizacao_id: organizacaoId,
-              usuario_id: stellaUserId
-            })
-          });
-
-          if (sendTextResponse.ok) {
-            console.log(`[Stella Background Process] Pílula ${i + 1}/${messagesParts.length} enviada.`);
-          } else {
-            const errText = await sendTextResponse.text();
-            console.error(`[Stella Background Process] Erro pílula ${i + 1}/${messagesParts.length}:`, errText);
-          }
-        }
-
-        // Envio do Anexo se sugerido pela Stella
-        if (aiResult.anexo_sugerido && aiResult.anexo_sugerido.caminho_arquivo) {
-          const anexo = aiResult.anexo_sugerido;
-          console.log(`[Stella Background Process] Enviando anexo automático: "${anexo.nome_arquivo}"`);
-          
-          const { data: urlData } = supabaseAdmin.storage
-            .from('empreendimento-anexos')
-            .getPublicUrl(anexo.caminho_arquivo);
-            
-          if (urlData?.publicUrl) {
-            const ext = (anexo.nome_arquivo || '').split('.').pop().toLowerCase();
-            let mediaType = 'document';
-            if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) {
-              mediaType = 'image';
-            } else if (['mp4', 'mov', 'avi', 'mpeg'].includes(ext)) {
-              mediaType = 'video';
+            if (msgPosterior) {
+              console.log(`[Stella Background Process] Abortando processamento. Mensagem mais recente detectada durante o debounce.`);
+              return;
             }
-            
-            const sendMediaResponse = await fetch(sendTextUrl, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                to: cleanPhone,
-                type: mediaType,
-                link: urlData.publicUrl,
-                filename: anexo.nome_arquivo,
-                caption: '',
-                contact_id: contatoId,
-                organizacao_id: organizacaoId,
-                usuario_id: stellaUserId
-              })
-            });
-            
-            const sendMediaResult = await sendMediaResponse.json();
-            
-            if (sendMediaResponse.ok) {
-              console.log('[Stella Background Process] Anexo enviado com sucesso.');
+          }
+        } catch (debounceErr) {
+          console.error('[Stella Background Process] Erro no fluxo de debounce:', debounceErr.message);
+        }
+
+        // 3. Buscar configurações do WhatsApp para saber o ID do usuário Stella correspondente
+        const { data: config } = await supabaseAdmin
+          .from('configuracoes_whatsapp')
+          .select('*')
+          .eq('organizacao_id', organizacaoId)
+          .limit(1)
+          .maybeSingle();
+
+        if (!config) {
+          console.error(`[Stella Background Process] Configuração do WhatsApp não encontrada para a org ${organizacaoId}.`);
+          return;
+        }
+
+        // Buscar o ID da Stella na public.usuarios
+        const { data: stellaUserRes } = await supabaseAdmin
+          .from('usuarios')
+          .select('id, contato_id')
+          .eq('email', `stella.org${organizacaoId}@elo57.com.br`)
+          .maybeSingle();
+
+        const stellaUserId = stellaUserRes?.id || null;
+
+        console.log(`[Stella Background Process] Executando chamada à IA para o contato ${contatoId}...`);
+        
+        // Roda a orquestração do Gemini, mas PULANDO a atualização síncrona do CRM no banco
+        const aiResult = await processarAnaliseStella({ 
+          contato_id: contatoId, 
+          organizacao_id: organizacaoId, 
+          force: true,
+          quickResponse: true,
+          canal: 'whatsapp',
+          pular_atualizacao_crm: true // <--- NÃO ATUALIZA O CRM AINDA!
+        });
+
+        if (aiResult?._concorrencia_abortada) {
+          console.log(`[Stella Background Process] Concorrência activa para o contato ${contatoId}. Abortando.`);
+          return;
+        }
+
+        if (aiResult && !aiResult.error) {
+          if (aiResult?.proxima_resposta_sugerida) {
+            const sendTextUrl = `${protocol}://${host}/api/whatsapp/send`;
+
+            const fullText = aiResult.proxima_resposta_sugerida || '';
+            let messagesParts = fullText
+              .split(/\n\n+/)
+              .map(part => part.trim())
+              .filter(part => part.length > 0);
+
+            // Reordena as pílulas para garantir o disclaimer no início e a pergunta no final
+            messagesParts = reordenarPilulas(messagesParts);
+
+            if (messagesParts.length === 0) {
+              messagesParts.push('Olá! Tudo bem?');
+            }
+
+            console.log(`[Stella Background Process] Enviando ${messagesParts.length} pílula(s) para o WhatsApp.`);
+
+            for (let i = 0; i < messagesParts.length; i++) {
+              const partText = messagesParts[i];
               
-              const saveAttachmentUrl = `${protocol}://${host}/api/whatsapp/save-attachment`;
-              await fetch(saveAttachmentUrl, {
+              if (i > 0) {
+                const delayMs = 1500;
+                console.log(`[Stella Background Process] Aguardando ${delayMs}ms antes da próxima pílula...`);
+                await new Promise(resolve => setTimeout(resolve, delayMs));
+              }
+
+              const sendTextResponse = await fetch(sendTextUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                  contato_id: contatoId,
-                  message_id: sendMediaResult.data?.messages?.[0]?.id,
-                  storage_path: anexo.caminho_arquivo,
-                  public_url: urlData.publicUrl,
-                  file_name: anexo.nome_arquivo,
-                  file_type: mediaType === 'image' ? 'image/jpeg' : mediaType === 'video' ? 'video/mp4' : 'application/pdf',
-                  file_size: 0,
-                  organizacao_id: organizacaoId
+                  to: cleanPhone,
+                  type: 'text',
+                  text: partText,
+                  contact_id: contatoId,
+                  organizacao_id: organizacaoId,
+                  usuario_id: stellaUserId,
+                  bypass_autopilot: true // Garante envio da despedida mesmo se o piloto for desligado síncronamente
                 })
-              }).catch(e => console.error('[Stella Background Process] Erro ao salvar histórico de anexo:', e));
+              });
 
-              // Envio da pergunta pós-anexo se ela existir
-              if (anexo.pergunta_pos_anexo) {
-                const delayPosAnexoMs = 1500;
-                console.log(`[Stella Background Process] Aguardando ${delayPosAnexoMs}ms para pergunta pós-anexo...`);
-                await new Promise(resolve => setTimeout(resolve, delayPosAnexoMs));
+              if (sendTextResponse.ok) {
+                console.log(`[Stella Background Process] Pílula ${i + 1}/${messagesParts.length} enviada.`);
+              } else {
+                const errText = await sendTextResponse.text();
+                console.error(`[Stella Background Process] Erro pílula ${i + 1}/${messagesParts.length}:`, errText);
+              }
+            }
+
+            // Envio do Anexo se sugerido pela Stella
+            if (aiResult.anexo_sugerido && aiResult.anexo_sugerido.caminho_arquivo) {
+              const anexo = aiResult.anexo_sugerido;
+              console.log(`[Stella Background Process] Enviando anexo automático: "${anexo.nome_arquivo}"`);
+              
+              const { data: urlData } = supabaseAdmin.storage
+                .from('empreendimento-anexos')
+                .getPublicUrl(anexo.caminho_arquivo);
                 
-                await fetch(sendTextUrl, {
+              if (urlData?.publicUrl) {
+                const ext = (anexo.nome_arquivo || '').split('.').pop().toLowerCase();
+                let mediaType = 'document';
+                if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) {
+                  mediaType = 'image';
+                } else if (['mp4', 'mov', 'avi', 'mpeg'].includes(ext)) {
+                  mediaType = 'video';
+                }
+                
+                const sendMediaResponse = await fetch(sendTextUrl, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({
                     to: cleanPhone,
-                    type: 'text',
-                    text: anexo.pergunta_pos_anexo,
+                    type: mediaType,
+                    link: urlData.publicUrl,
+                    filename: anexo.nome_arquivo,
+                    caption: '',
                     contact_id: contatoId,
                     organizacao_id: organizacaoId,
-                    usuario_id: stellaUserId
+                    usuario_id: stellaUserId,
+                    bypass_autopilot: true
                   })
                 });
-                console.log('[Stella Background Process] Pergunta pós-anexo enviada.');
+                
+                const sendMediaResult = await sendMediaResponse.json();
+                
+                if (sendMediaResponse.ok) {
+                  console.log('[Stella Background Process] Anexo enviado com sucesso.');
+                  
+                  const saveAttachmentUrl = `${protocol}://${host}/api/whatsapp/save-attachment`;
+                  await fetch(saveAttachmentUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      contato_id: contatoId,
+                      message_id: sendMediaResult.data?.messages?.[0]?.id,
+                      storage_path: anexo.caminho_arquivo,
+                      public_url: urlData.publicUrl,
+                      file_name: anexo.nome_arquivo,
+                      file_type: mediaType === 'image' ? 'image/jpeg' : mediaType === 'video' ? 'video/mp4' : 'application/pdf',
+                      file_size: 0,
+                      organizacao_id: organizacaoId
+                    })
+                  }).catch(e => console.error('[Stella Background Process] Erro ao salvar histórico de anexo:', e));
+
+                  // Envio da pergunta pós-anexo se ela existir
+                  if (anexo.pergunta_pos_anexo) {
+                    const delayPosAnexoMs = 1500;
+                    console.log(`[Stella Background Process] Aguardando ${delayPosAnexoMs}ms para pergunta pós-anexo...`);
+                    await new Promise(resolve => setTimeout(resolve, delayPosAnexoMs));
+                    
+                    await fetch(sendTextUrl, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        to: cleanPhone,
+                        type: 'text',
+                        text: anexo.pergunta_pos_anexo,
+                        contact_id: contatoId,
+                        organizacao_id: organizacaoId,
+                        usuario_id: stellaUserId,
+                        bypass_autopilot: true
+                      })
+                    });
+                    console.log('[Stella Background Process] Pergunta pós-anexo enviada.');
+                  }
+                } else {
+                  console.error('[Stella Background Process] Erro ao enviar anexo:', sendMediaResult);
+                }
               }
-            } else {
-              console.error('[Stella Background Process] Erro ao enviar anexo:', sendMediaResult);
             }
           }
+
+          // ------------------------------------------------------------------------
+          // 🚀 ORDEM CORRIGIDA: ATUALIZA O CRM NO BANCO SOMENTE APÓS ENVIAR AS MENSAGENS!
+          // ------------------------------------------------------------------------
+          if (aiResult.mover_para_coluna_id) {
+            console.log(`[Stella Background Process CRM] Mensagens enviadas. Agora movendo o lead para a coluna ${aiResult.mover_para_coluna_id}...`);
+            await executarMovimentacaoCRMStella(supabaseAdmin, contatoId, organizacaoId, aiResult);
+          }
+
+        } else {
+          const errReason = aiResult?.error || 'Erro na Stella IA';
+          console.error('[Stella Background Process] Stella IA retornou erro:', errReason);
+          
+          // Aciona o transbordo emergencial
+          await executarTransbordoEmergencia(supabaseAdmin, contatoId, config, cleanPhone, stellaUserId, protocol, host, errReason);
         }
+      } catch (innerErr) {
+        console.error('[Stella Background Process Inner Error]', innerErr);
+        await executarTransbordoEmergencia(supabaseAdmin, contatoId, config, cleanPhone, stellaUserId, protocol, host, innerErr.message);
       }
-      return NextResponse.json({ status: 'success', analysis: aiResult });
-    } else {
-      const errReason = aiResult?.error || 'Erro na Stella IA';
-      console.error('[Stella Background Process] Stella IA retornou erro:', errReason);
-      
-      // Aciona o transbordo emergencial
-      await executarTransbordoEmergencia(supabaseAdmin, contatoId, config, cleanPhone, stellaUserId, protocol, host, errReason);
-      return NextResponse.json({ error: errReason }, { status: 500 });
-    }
+    });
+
+    // Retorna HTTP 200 de imediato para fechar a conexão com a Meta/Fila em menos de 100ms
+    return NextResponse.json({ status: 'processing_in_background' });
+
   } catch (err) {
     console.error('[Stella Background Process Fatal Error]', err);
-    // Aciona o transbordo emergencial
+    // Aciona o transbordo emergencial imediato se falhar o parsing do payload básico
     const protocol = request.headers.get('x-forwarded-proto') || 'https';
     const host = request.headers.get('host');
     try {
       const configRes = await supabaseAdmin.from('configuracoes_whatsapp').select('*').eq('organizacao_id', organizacaoId).limit(1).maybeSingle();
       const userRes = await supabaseAdmin.from('usuarios').select('id').eq('email', `stella.org${organizacaoId}@elo57.com.br`).maybeSingle();
-      const convRes = await supabaseAdmin.from('whatsapp_conversations').select('phone_number').eq('contato_id', contatoId).maybeSingle();
       
       await executarTransbordoEmergencia(
         supabaseAdmin,
         contatoId,
         configRes.data,
-        convRes.data?.phone_number || messageFrom,
+        messageFrom,
         userRes.data?.id || null,
         protocol,
         host,
@@ -331,7 +355,8 @@ async function executarTransbordoEmergencia(supabaseAdmin, contatoId, config, fr
         text: textoFallback,
         contact_id: contatoId,
         organizacao_id: config.organizacao_id,
-        usuario_id: stellaUserId
+        usuario_id: stellaUserId,
+        bypass_autopilot: true
       })
     });
   } catch (errSend) {
@@ -404,10 +429,9 @@ function reordenarPilulas(messagesParts) {
     const pLower = p.toLowerCase();
     
     if (pLower.includes('tudo bem?') || pLower.includes('como vai?') || pLower.includes('tudo joia?') || pLower.includes('como você está?') || pLower.includes('como voce esta?')) {
-      if (p.length < 35) return false; // Se for uma frase curta de saudação, ignora
+      if (p.length < 35) return false;
     }
     
-    // Verificar se existe "?" nos últimos 15 caracteres da pílula
     const finalStr = p.slice(-15);
     return finalStr.includes('?');
   });
@@ -417,7 +441,6 @@ function reordenarPilulas(messagesParts) {
     pergunta = messagesParts.splice(perguntaIdx, 1)[0];
   }
 
-  // Reagrupar: disclaimer no início, pergunta no final
   if (disclaimer) {
     messagesParts.unshift(disclaimer);
   }
