@@ -314,6 +314,14 @@ O **Studio 57** é o ambiente de desenvolvimento e laboratório central. O **Elo
     - **Unificação da Rota do Simulador:** Restaurado o Simulador de Financiamento na navegação oficial do painel (removido `target="_blank"`). A arquitetura atual utiliza o componente universal `SimuladorTabs`.
     - **Blindagem Anti-Crash (Application Error):** Escudo preventivo inserido contra telas brancas da morte no formulário de busca de clientes do Simulador. Resolvido o erro letal gerado por chamadas imperativas de `toLowerCase()` em contatos históricos do CRM que estavam desprovidos de caracter/nome (`null`).
 
+- *2026-06-24:* **🏗️ Homologação e Redesenho do Cockpit BIM (Orçamento & Interface):**
+    - **Correção da RPC de Orçamentação:** Corrigido o erro de sintaxe/alias na RPC `get_quantitativos_orcamentacao_bim` que tentava ler a tabela `subetapas` pelo alias `so` no `SELECT` mas usava `sa` no `LEFT JOIN`. Ajustado o alias no banco de dados e exportado para `functions.json` e `dbelo57.sql`.
+    - **Reestruturação e Simetria do Cockpit:** Removido o botão de casinha (Home) obsoleto. Mapeamos as ações de Toggle Sidebar esquerda e direita diretamente embutidas em seus cabeçalhos (`BimSidebar` e `BimInspector`) usando ícones de layout de painel sutil. Botões de reabertura flutuam discretamente apenas quando as sidebars estão fechadas.
+    - **Padronização Visual:** Fixada a altura de todos os botões do cockpit e barra superior do visualizador em `36px (h-9)`, alinhando e uniformizando as ferramentas de Evolução, Gantt, Marcações e o Seletor de Vistas/Pranchas.
+    - **Seletor de Vistas Reposicionado:** Mapeado o dropdown "Modelo 3D Geral" do visualizador para o cockpit superior esquerdo (alinhado a `left-0`), liberando o ViewCube e a área limpa do visualizador 3D da Autodesk no canto direito.
+    - **Ajuste de Altura Anti-Overlapping (Menu Iniciar):** Alterada a classe do contêiner da página do BIM de `h-screen` para `h-full`, ajustando a viewport aos limites reais da página descontando o cabeçalho global. A barra de ferramentas da Autodesk no rodapé agora é exibida perfeitamente na tela, sem ficar oculta sob a barra de tarefas do Windows.
+    - **Padding Inteligente no Orçamento:** Criado padding dinâmico (`pl-16`) no cabeçalho de `BimQuantitativosOverlay.js` quando a sidebar está oculta, impedindo que o botão flutuante de reabertura encoste ou tampe o título do empreendimento.
+
 ---
 
 ### 12. Gestão de Custos BIM (Autodesk API) - *A FAZER*
