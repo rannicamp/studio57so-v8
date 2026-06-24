@@ -12,3 +12,6 @@
    - Nunca insira mensagens fictícias, altere colunas de funil ou simule webhooks utilizando IDs de contatos de clientes reais no banco de dados de produção. Isso evita poluição visual no chat e confusão operacional para a equipe comercial.
    - Para qualquer teste de envio de mensagens ou simulação de API/Webhook, **crie contatos fictícios do zero** no banco ou utilize exclusivamente o número de WhatsApp do Ranniere para testes: `5533991912291` (DDI 55, DDD 33, número 99191-2291).
 
+## 🤖 Algoritmo e Regras da Stella IA
+1. Sempre que for solicitada alguma alteração nas respostas, no comportamento ou nas regras cognitivas da Stella IA, consulte e siga rigorosamente o workflow/manual em [.agents/workflows/algoritmo-stella.md](file:///c:/Projetos/studio57so-v8/.agents/workflows/algoritmo-stella.md).
+2. Qualquer mudança de comportamento da Stella IA deve ser documentada e refletida na matriz de eventos deste arquivo para manter a consistência histórica do projeto.
