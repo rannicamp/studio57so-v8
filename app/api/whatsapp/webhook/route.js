@@ -1,5 +1,5 @@
 // app/api/whatsapp/webhook/route.js
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
 // IMPORTANTE: Importando os serviços novos
@@ -253,39 +253,49 @@ export async function POST(request) {
       if (isAutopilotActive) {
         console.log(`[Webhook Autopilot] Acionando processamento assíncrono em background para Contato ${contatoId}...`);
         
-        // Disparo assíncrono em background (fetch sem await) para responder à Meta de imediato
-        const processUrl = `${protocol}://${host}/api/ai/stella/process`;
-        fetch(processUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            record: {
-              id: message.id,
-              contato_id: contatoId,
-              organizacao_id: config.organizacao_id,
-              direction: 'inbound',
-              from: message.from
-            }
-          })
-        }).catch(err => {
-          console.error('[Webhook Autopilot Trigger Error] Erro ao invocar processamento assíncrono:', err.message);
+        after(async () => {
+          const processUrl = `${protocol}://${host}/api/ai/stella/process`;
+          try {
+            const res = await fetch(processUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                record: {
+                  id: message.id,
+                  contato_id: contatoId,
+                  organizacao_id: config.organizacao_id,
+                  direction: 'inbound',
+                  from: message.from
+                }
+              })
+            });
+            console.log(`[Webhook Autopilot] Disparo de processamento assíncrono finalizado com status: ${res.status}`);
+          } catch (err) {
+            console.error('[Webhook Autopilot Trigger Error] Erro ao invocar processamento assíncrono:', err.message);
+          }
         });
       } else {
         // Se estiver desativado, atualizamos o cache em background para fins de análise histórica do CRM
         console.log(`[Webhook] Atendimento automático inativo para o contato ${contatoId}. Atualizando cache da análise...`);
-        const processUrl = `${protocol}://${host}/api/ai/chat-analysis`;
-        fetch(processUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contato_id: contatoId,
-            organizacao_id: config.organizacao_id,
-            force: true,
-            quickResponse: false,
-            canal: 'whatsapp'
-          })
-        }).catch(err => {
-          console.error('[Webhook Cache Trigger Error] Erro ao invocar atualização de cache:', err.message);
+        
+        after(async () => {
+          const processUrl = `${protocol}://${host}/api/ai/chat-analysis`;
+          try {
+            const res = await fetch(processUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                contato_id: contatoId,
+                organizacao_id: config.organizacao_id,
+                force: true,
+                quickResponse: false,
+                canal: 'whatsapp'
+              })
+            });
+            console.log(`[Webhook Cache] Disparo de atualização de cache finalizado com status: ${res.status}`);
+          } catch (err) {
+            console.error('[Webhook Cache Trigger Error] Erro ao invocar atualização de cache:', err.message);
+          }
         });
       }
     }

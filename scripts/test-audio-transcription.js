@@ -8,7 +8,7 @@ const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.
 
 const TEST_CONTACT_ID = 5923; // ID do contato de teste (Ranniere Campos)
 const ORGANIZACAO_ID = 2;
-const MESSAGE_ID = 24660; // ID da mensagem de áudio transcrita
+const MESSAGE_ID = 24688; // ID da mensagem de áudio transcrita (Simulação)
 
 async function run() {
   console.log('=== TESTANDO RESPOSTA DA TRANSCRIÇÃO DE ÁUDIO LOCALMENTE ===');

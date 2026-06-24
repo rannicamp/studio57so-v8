@@ -651,7 +651,11 @@ ${chatLog}
         };
 
         atualizarSeDiferente('cargo', dc.profissao);
-        atualizarSeDiferente('estado_civil', dc.composicao_familiar); // No CRM podemos salvar na observação ou campo correspondente
+        atualizarSeDiferente('estado_civil', dc.composicao_familiar);
+        atualizarSeDiferente('renda_familiar', dc.renda_familiar);
+        atualizarSeDiferente('fgts', dc.possui_fgts);
+        atualizarSeDiferente('mais_de_3_anos_clt', dc.mais_de_3_anos_clt);
+        atualizarSeDiferente('city', dc.cidade_atual);
 
         if (dc.objetivo && ['MORADIA', 'INVESTIMENTO', 'LAZER'].includes(dc.objetivo.trim().toUpperCase())) {
           updateData.objetivo = dc.objetivo.trim().toUpperCase();
