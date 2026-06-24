@@ -183,13 +183,12 @@ export function useBimMapeamentos({ organizacaoId, empreendimentoId, modelosIds 
     queryKey: ['bim_quantitativos_orcamentacao', organizacaoId, empreendimentoId, [...modelosIds].sort().join(',')],
     queryFn: async () => {
       if (!empreendimentoId || !organizacaoId) return [];
-      if (!modelosIds || modelosIds.length === 0) return [];
 
       console.log(`[BimMapeamentos] Chamando RPC get_quantitativos_orcamentacao_bim com modelos:`, modelosIds);
       const { data, error } = await supabase.rpc('get_quantitativos_orcamentacao_bim', {
         p_organizacao_id: organizacaoId,
         p_empreendimento_id: empreendimentoId,
-        p_projeto_ids: modelosIds.map(Number)
+        p_projeto_ids: modelosIds && modelosIds.length > 0 ? modelosIds.map(Number) : null
       });
 
       if (error) {
@@ -243,13 +242,12 @@ export function useBimMapeamentos({ organizacaoId, empreendimentoId, modelosIds 
     queryKey: ['bim_quantitativos_categoria', organizacaoId, empreendimentoId, [...modelosIds].sort().join(',')],
     queryFn: async () => {
       if (!empreendimentoId || !organizacaoId) return [];
-      if (!modelosIds || modelosIds.length === 0) return [];
 
       console.log(`[BimMapeamentos] Chamando RPC get_quantitativos_por_categoria_bim com modelos:`, modelosIds);
       const { data, error } = await supabase.rpc('get_quantitativos_por_categoria_bim', {
         p_organizacao_id: organizacaoId,
         p_empreendimento_id: empreendimentoId,
-        p_projeto_ids: modelosIds.map(Number)
+        p_projeto_ids: modelosIds && modelosIds.length > 0 ? modelosIds.map(Number) : null
       });
 
       if (error) {
