@@ -93,7 +93,7 @@ const BadgeStatus = ({ status }) => {
 
 // ─── Componente Principal ─────────────────────────────────────────────────────
 
-export default function BimQuantitativosOverlay({ onClose, onShowInModel, empreendimentoContextId, modelosContextIds }) {
+export default function BimQuantitativosOverlay({ onClose, onShowInModel, empreendimentoContextId, modelosContextIds, isSidebarVisible = true }) {
  const supabase = createClient();
  const { organizacao_id, user } = useAuth();
 
@@ -1316,7 +1316,7 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
   <div className="w-full h-full flex flex-col bg-gray-50 overflow-hidden font-sans animate-in fade-in duration-200">
 
   {/* ══════════════ HEADER ══════════════ */}
-  <header className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between gap-4 flex-shrink-0 shadow-sm relative overflow-hidden">
+  <header className={`bg-white border-b border-gray-200 py-4 flex items-center justify-between gap-4 flex-shrink-0 shadow-sm relative overflow-hidden transition-all duration-300 ${isSidebarVisible ? 'px-6' : 'pl-16 pr-6'}`}>
   
   <div className="flex items-center gap-4 relative z-10">
   <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100 shadow-sm">

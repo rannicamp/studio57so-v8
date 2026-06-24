@@ -13,7 +13,8 @@ export default function BimInspector({ elementExternalId, selectedElements = [],
  onOpenCreate,
  onOpenNote,
  onRestoreNote,
- viewer }) {
+ viewer,
+ onToggleSidebar }) {
  // Se tiver itens selecionados, muda para properties ou mantém onde estava
  const [activeTab, setActiveTab] = useState('filter');
  const [expandedRowId, setExpandedRowId] = useState(null);
@@ -42,11 +43,33 @@ export default function BimInspector({ elementExternalId, selectedElements = [],
  <div className="w-80 bg-white border-l border-gray-200 h-full flex flex-col shadow-2xl z-30 transition-all duration-300">
  {/* HEADER */}
  <div className="bg-white border-b shrink-0">
- <div className="flex items-center justify-center p-3 border-b border-gray-100 bg-gray-50">
- <h3 className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest text-center">
- {selectedCount > 1 ? `${selectedCount} SELECIONADOS` : (safeId ? 'ELEMENTO SELECIONADO' : 'FERRAMENTAS BIM')}
- </h3>
- </div>
+ <div className="flex items-center justify-between px-3 py-2 border-b border-gray-100 bg-gray-50 h-[38px]">
+    {onToggleSidebar ? (
+      <div className="flex-1 flex justify-center pl-6">
+        <h3 className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">
+          {selectedCount > 1 ? `${selectedCount} SELECIONADOS` : (safeId ? 'ELEMENTO SELECIONADO' : 'FERRAMENTAS BIM')}
+        </h3>
+      </div>
+    ) : (
+      <div className="flex-1 flex justify-center">
+        <h3 className="text-[10px] font-extrabold text-gray-500 uppercase tracking-widest">
+          {selectedCount > 1 ? `${selectedCount} SELECIONADOS` : (safeId ? 'ELEMENTO SELECIONADO' : 'FERRAMENTAS BIM')}
+        </h3>
+      </div>
+    )}
+    {onToggleSidebar && (
+      <button 
+        onClick={onToggleSidebar}
+        className="text-gray-400 hover:text-gray-700 transition-colors flex items-center justify-center p-1 rounded-lg hover:bg-gray-200 active:scale-95 shrink-0"
+        title="Colapsar Painel Lateral"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-4 h-4">
+          <rect width="18" height="18" x="3" y="3" rx="2" />
+          <path d="M15 3v18" />
+        </svg>
+      </button>
+    )}
+  </div>
  {/* Abas */}
  <div className="flex overflow-x-auto scrollbar-hide">
  <button onClick={() => setActiveTab('selection')} disabled={selectedCount === 0} className={`min-w-[60px] flex-1 py-3 text-[10px] font-bold uppercase tracking-wide border-b-2 transition-all flex flex-col gap-1 items-center justify-center ${activeTab === 'selection' ? 'border-blue-600 text-blue-600 bg-blue-50' : 'border-transparent text-gray-400 hover:bg-gray-50 disabled:opacity-40'}`}>
