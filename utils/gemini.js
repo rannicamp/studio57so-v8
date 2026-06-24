@@ -46,7 +46,8 @@ export async function generateContentWithTelemetry({
   context = 'Chamada Geral',
   contatoId = null,
   organizacaoId = null,
-  usuarioId = null
+  usuarioId = null,
+  tools = null
 }) {
   if (!process.env.GEMINI_API_KEY) {
     throw new Error('Chave GEMINI_API_KEY não configurada no servidor.');
@@ -54,7 +55,14 @@ export async function generateContentWithTelemetry({
 
   // Se o modelo passado for nulo ou vazio, define fallback para o flash leve
   const modelToUse = modelName || 'gemini-2.5-flash';
-  const model = genAI.getGenerativeModel({ model: modelToUse, generationConfig });
+  const modelParams = { model: modelToUse, generationConfig };
+  if (tools) {
+    modelParams.tools = tools;
+  }
+  const model = genAI.getGenerativeModel(
+    modelParams,
+    { timeout: 60000 } // Aumentado para 60 segundos para evitar timeouts na API do Gemini Pro
+  );
   
   const startTime = Date.now();
   let result = null;

@@ -1,5 +1,5 @@
 // app/api/whatsapp/webhook/route.js
-import { NextResponse, after } from 'next/server';
+import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
 // IMPORTANTE: Importando os serviços novos
@@ -181,7 +181,7 @@ export async function POST(request) {
             .maybeSingle(),
           supabaseAdmin
             .from('contatos_no_funil')
-            .select('corretor_id')
+            .select('id, corretor_id, coluna_id')
             .eq('contato_id', contatoId)
             .limit(1)
         ]);
@@ -189,6 +189,47 @@ export async function POST(request) {
         stellaUserId = stellaUserRes.data?.id;
         const stellaContatoId = stellaUserRes.data?.contato_id;
         const leadCorretorId = funilRes.data?.[0]?.corretor_id;
+        const leadColunaId = funilRes.data?.[0]?.coluna_id;
+        const funilRecordId = funilRes.data?.[0]?.id;
+
+        // --- AUTO-RECUPERAÇÃO DE LEADS COM FALHAS DE ENTREGA OU SILENCIADOS ---
+        const colunaFalhasId = '2b975bc0-b96c-456d-ac30-48ab6f6dddca';
+        const colunaEmAtendimentoId = '029c8d6a-4799-4f4b-a55e-b4d5426718c0';
+
+        if (!isAutopilotActive) {
+          const ehColunaFalhas = leadColunaId === colunaFalhasId;
+          const semCorretorOuEhStella = !leadCorretorId || (stellaContatoId && leadCorretorId === stellaContatoId);
+
+          if (ehColunaFalhas || semCorretorOuEhStella) {
+            console.log(`[Webhook Auto-recuperação] Cliente ${contatoId} respondeu voluntariamente. Reativando piloto automático e movendo para EM ATENDIMENTO.`);
+            isAutopilotActive = true;
+            
+            // 1. Reativar autopilot no contato
+            await supabaseAdmin
+              .from('contatos')
+              .update({ ia_atendimento_ativo: true })
+              .eq('id', contatoId);
+
+            // 2. Mover de volta para EM ATENDIMENTO se estiver na coluna de FALHAS
+            if (funilRecordId && ehColunaFalhas) {
+              await supabaseAdmin
+                .from('contatos_no_funil')
+                .update({ coluna_id: colunaEmAtendimentoId, updated_at: new Date().toISOString() })
+                .eq('id', funilRecordId);
+
+              // 3. Gravar nota no CRM
+              await supabaseAdmin
+                .from('crm_notas')
+                .insert({
+                  contato_id: contatoId,
+                  contato_no_funil_id: funilRecordId,
+                  conteudo: `🤖 [Auto-recuperação Stella] O lead respondeu ativamente ao WhatsApp. O piloto automático foi reativado com sucesso e o lead foi movido de volta para a coluna EM ATENDIMENTO.`,
+                  organizacao_id: config.organizacao_id,
+                  usuario_id: stellaUserId
+                });
+            }
+          }
+        }
 
         if (isAutopilotActive) {
           // Se o piloto automático está ativo, mas o lead no funil está atribuído a um corretor humano (não é Stella),
@@ -206,243 +247,45 @@ export async function POST(request) {
         console.error('[Webhook] Erro ao verificar ia_atendimento_ativo / atribuição Stella:', err);
       }
 
-      const protocol = request.headers.get('x-forwarded-proto') || 'http';
+      const protocol = request.headers.get('x-forwarded-proto') || 'https';
       const host = request.headers.get('host');
 
       if (isAutopilotActive) {
-        after(async () => {
-          // --- DEBOUNCE CONTRA ENVIOS EM RAJADA PICADOS ---
-          console.log(`[Autopilot Debounce] Aguardando 4 segundos para garantir que o cliente ${contatoId} não está digitando mensagens adicionais...`);
-          await new Promise(resolve => setTimeout(resolve, 4000));
-
-          try {
-            const { data: msgAtualRecord } = await supabaseAdmin
-              .from('whatsapp_messages')
-              .select('created_at')
-              .eq('message_id', message.id)
-              .maybeSingle();
-
-            if (msgAtualRecord) {
-              const { data: msgPosterior } = await supabaseAdmin
-                .from('whatsapp_messages')
-                .select('id, created_at')
-                .eq('contato_id', contatoId)
-                .gt('created_at', msgAtualRecord.created_at)
-                .eq('direction', 'inbound')
-                .limit(1)
-                .maybeSingle();
-
-              if (msgPosterior) {
-                console.log(`[Autopilot Debounce] Ignorando este disparo. O cliente enviou outra mensagem inbound mais recente durante o debounce de 4s.`);
-                return;
-              }
+        console.log(`[Webhook Autopilot] Acionando processamento assíncrono em background para Contato ${contatoId}...`);
+        
+        // Disparo assíncrono em background (fetch sem await) para responder à Meta de imediato
+        const processUrl = `${protocol}://${host}/api/ai/stella/process`;
+        fetch(processUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            record: {
+              id: message.id,
+              contato_id: contatoId,
+              organizacao_id: config.organizacao_id,
+              direction: 'inbound',
+              from: message.from
             }
-          } catch (debounceErr) {
-            console.error('[Autopilot Debounce Warning] Erro no fluxo de debounce:', debounceErr.message);
-          }
-
-          console.log(`[Autopilot] Contato ${contatoId} está com atendimento automático ATIVO. Acionando Stella de forma assíncrona...`);
-          if (host) {
-            const maxWebhookRetries = 2; // Tentativa inicial + 2 retentativas
-            const retryDelayMs = 60000;  // 1 minuto (60 segundos) entre retentativas
-            let success = false;
-            let ultimoErro = '';
-
-            // Roda as tentativas de reprocessamento em background
-            (async () => {
-              for (let attempt = 1; attempt <= (maxWebhookRetries + 1); attempt++) {
-                try {
-                  if (attempt > 1) {
-                    console.log(`[Autopilot Retry] Aguardando ${retryDelayMs / 1000}s antes da retentativa ${attempt - 1}/${maxWebhookRetries} para o contato ${contatoId}...`);
-                    await new Promise(resolve => setTimeout(resolve, retryDelayMs));
-                  }
-
-                  console.log(`[Autopilot] Executando chamada à IA para o contato ${contatoId} (Tentativa ${attempt}/${maxWebhookRetries + 1})...`);
-                  
-                  const isMedia = message.type === 'document' || message.type === 'image';
-                  const quickResponse = !isMedia;
-
-                  // Chamada direta do processarAnaliseStella em JS (sem fetch local de rede)
-                  const aiResult = await processarAnaliseStella({ 
-                    contato_id: contatoId, 
-                    organizacao_id: config.organizacao_id, 
-                    force: true,
-                    quickResponse: quickResponse,
-                    canal: 'whatsapp'
-                  });
-
-                  if (aiResult?._concorrencia_abortada) {
-                    console.log(`[Autopilot] Concorrência ativa para contato ID ${contatoId}. Abortando thread paralela.`);
-                    return; // Interrompe o processamento silenciosamente
-                  }
-
-                  if (aiResult && !aiResult.error) {
-                    
-                    if (aiResult?.proxima_resposta_sugerida) {
-                      const cleanPhone = (message.from || '').replace(/[^0-9]/g, '');
-                      
-                      if (cleanPhone) {
-                        const sendTextUrl = `${protocol}://${host}/api/whatsapp/send`;
-                        const fullText = aiResult.proxima_resposta_sugerida || '';
-                        const messagesParts = fullText
-                          .split(/\n\n+/)
-                          .map(part => part.trim())
-                          .filter(part => part.length > 0);
-
-                        if (messagesParts.length === 0) {
-                          messagesParts.push('Olá! Tudo bem?');
-                        }
-
-                        console.log(`[Autopilot] Dividindo mensagem em ${messagesParts.length} pílula(s) para o WhatsApp.`);
-
-                        for (let i = 0; i < messagesParts.length; i++) {
-                          const partText = messagesParts[i];
-                          
-                          if (i > 0) {
-                            const delayMs = 2500;
-                            console.log(`[Autopilot] Aguardando ${delayMs}ms antes de enviar a próxima pílula...`);
-                            await new Promise(resolve => setTimeout(resolve, delayMs));
-                          }
-
-                          const sendTextResponse = await fetch(sendTextUrl, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                              to: cleanPhone,
-                              type: 'text',
-                              text: partText,
-                              contact_id: contatoId,
-                              organizacao_id: config.organizacao_id,
-                              usuario_id: stellaUserId
-                            })
-                          });
-
-                          if (sendTextResponse.ok) {
-                            console.log(`[Autopilot] Pílula ${i + 1}/${messagesParts.length} enviada com sucesso!`);
-                          } else {
-                            const errText = await sendTextResponse.text();
-                            console.error(`[Autopilot] Erro ao enviar pílula ${i + 1}/${messagesParts.length}:`, errText);
-                          }
-                        }
-                        
-                        if (aiResult.anexo_sugerido && aiResult.anexo_sugerido.caminho_arquivo) {
-                          const anexo = aiResult.anexo_sugerido;
-                          console.log(`[Autopilot] Stella sugeriu anexo exato "${anexo.nome_arquivo}". Disparando anexo automático...`);
-                          
-                          const { data: urlData } = supabaseAdmin.storage
-                            .from('empreendimento-anexos')
-                            .getPublicUrl(anexo.caminho_arquivo);
-                            
-                          if (urlData?.publicUrl) {
-                            const ext = (anexo.nome_arquivo || '').split('.').pop().toLowerCase();
-                            let mediaType = 'document';
-                            if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) {
-                              mediaType = 'image';
-                            } else if (['mp4', 'mov', 'avi', 'mpeg'].includes(ext)) {
-                              mediaType = 'video';
-                            }
-                            
-                            const sendMediaResponse = await fetch(sendTextUrl, {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({
-                                to: cleanPhone,
-                                type: mediaType,
-                                link: urlData.publicUrl,
-                                filename: anexo.nome_arquivo,
-                                caption: '',
-                                contact_id: contatoId,
-                                organizacao_id: config.organizacao_id,
-                                usuario_id: stellaUserId
-                              })
-                            });
-                            
-                            const sendMediaResult = await sendMediaResponse.json();
-                            
-                            if (sendMediaResponse.ok) {
-                               console.log('[Autopilot] Anexo enviado com sucesso!');
-                               
-                               const saveAttachmentUrl = `${protocol}://${host}/api/whatsapp/save-attachment`;
-                               await fetch(saveAttachmentUrl, {
-                                 method: 'POST',
-                                 headers: { 'Content-Type': 'application/json' },
-                                 body: JSON.stringify({
-                                   contato_id: contatoId,
-                                   message_id: sendMediaResult.data?.messages?.[0]?.id,
-                                   storage_path: anexo.caminho_arquivo,
-                                   public_url: urlData.publicUrl,
-                                   file_name: anexo.nome_arquivo,
-                                   file_type: mediaType === 'image' ? 'image/jpeg' : mediaType === 'video' ? 'video/mp4' : 'application/pdf',
-                                   file_size: 0,
-                                   organizacao_id: config.organizacao_id
-                                 })
-                               }).catch(e => console.error('[Autopilot] Erro ao salvar histórico de anexo:', e));
-
-                               // Envio da pergunta pós-anexo se ela existir
-                               if (anexo.pergunta_pos_anexo) {
-                                 const delayPosAnexoMs = 2500;
-                                 console.log(`[Autopilot] Aguardando ${delayPosAnexoMs}ms para enviar a pergunta pós-anexo...`);
-                                 await new Promise(resolve => setTimeout(resolve, delayPosAnexoMs));
-                                 
-                                 await fetch(sendTextUrl, {
-                                   method: 'POST',
-                                   headers: { 'Content-Type': 'application/json' },
-                                   body: JSON.stringify({
-                                     to: cleanPhone,
-                                     type: 'text',
-                                     text: anexo.pergunta_pos_anexo,
-                                     contact_id: contatoId,
-                                     organizacao_id: config.organizacao_id,
-                                     usuario_id: stellaUserId
-                                   })
-                                 });
-                                 console.log(`[Autopilot] Pergunta pós-anexo enviada com sucesso: "${anexo.pergunta_pos_anexo}"`);
-                               }
-                            } else {
-                              console.error('[Autopilot] Erro ao enviar mídia via API:', sendMediaResult.error);
-                            }
-                          }
-                        }
-                      }
-                    }
-                    success = true;
-                    break; // Sucesso, sai do loop de retentativas
-                  } else {
-                    ultimoErro = aiResult?.error || 'Retorno de análise inválido ou vazio';
-                    console.warn(`[Autopilot Retry Warning] Tentativa ${attempt}/${maxWebhookRetries + 1} falhou com erro na Stella: ${ultimoErro}`);
-                  }
-                } catch (autopilotErr) {
-                  ultimoErro = autopilotErr.message;
-                  console.warn(`[Autopilot Retry Warning] Tentativa ${attempt}/${maxWebhookRetries + 1} falhou com erro de rede/conexão: ${ultimoErro}`);
-                }
-              }
-
-              if (!success) {
-                console.error(`[Autopilot Fatal Error] Todas as ${maxWebhookRetries + 1} tentativas falharam para o contato ${contatoId}. Acionando transbordo de emergência...`);
-                await executarTransbordoEmergencia(supabaseAdmin, contatoId, config, message.from, stellaUserId, protocol, host, ultimoErro);
-              }
-            })();
-          }
+          })
+        }).catch(err => {
+          console.error('[Webhook Autopilot Trigger Error] Erro ao invocar processamento assíncrono:', err.message);
         });
       } else {
-        console.log(`[Webhook] Contato ${contatoId} com atendimento automático DESATIVADO. Disparando análise em background via after...`);
-        after(async () => {
-          try {
-            if (host) {
-              const apiUrl = `${protocol}://${host}/api/ai/chat-analysis`;
-              const aiResponse = await fetch(apiUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ contato_id: contatoId, organizacao_id: config.organizacao_id, force: true, quickResponse: false })
-              });
-              if (!aiResponse.ok) {
-                const errText = await aiResponse.text();
-                console.error('[Webhook after] Erro na requisição de análise de IA:', errText);
-              }
-            }
-          } catch (e) {
-            console.error('[Webhook after Background Error]', e);
-          }
+        // Se estiver desativado, atualizamos o cache em background para fins de análise histórica do CRM
+        console.log(`[Webhook] Atendimento automático inativo para o contato ${contatoId}. Atualizando cache da análise...`);
+        const processUrl = `${protocol}://${host}/api/ai/chat-analysis`;
+        fetch(processUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contato_id: contatoId,
+            organizacao_id: config.organizacao_id,
+            force: true,
+            quickResponse: false,
+            canal: 'whatsapp'
+          })
+        }).catch(err => {
+          console.error('[Webhook Cache Trigger Error] Erro ao invocar atualização de cache:', err.message);
         });
       }
     }
@@ -455,7 +298,6 @@ export async function POST(request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
-
 
 // --- FUNÇÃO DE EMERGÊNCIA: EVITA VÁCUO DE CLIENTE SE A IA FALHAR (DUNNING/GOOGLE 503) ---
 async function executarTransbordoEmergencia(supabaseAdmin, contatoId, config, fromPhone, stellaUserId, protocol, host, motivoErro) {

@@ -88,21 +88,26 @@ async function run() {
 
   console.log(`Mensagem do cliente simulada com sucesso! ID no banco: ${insertedMsg.id}`);
 
-  // 3. Disparar a rota trigger-autopilot (tentando porta 3000 e depois 3001)
+  // 3. Disparar o novo processador de background (tentando porta 3000 e depois 3001)
   const ports = ['3000', '3001'];
   let successTrigger = false;
 
   for (const port of ports) {
-    const triggerUrl = `http://localhost:${port}/api/whatsapp/trigger-autopilot`;
-    console.log(`\n3. Tentando disparar trigger de piloto automático na porta ${port}: ${triggerUrl}...`);
+    const triggerUrl = `http://localhost:${port}/api/ai/stella/process`;
+    console.log(`\n3. Tentando disparar processamento da Stella na porta ${port}: ${triggerUrl}...`);
     
     try {
       const res = await fetch(triggerUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          contato_id: TEST_CONTACT_ID,
-          organizacao_id: ORGANIZACAO_ID
+          record: {
+            id: insertedMsg.id,
+            contato_id: TEST_CONTACT_ID,
+            organizacao_id: ORGANIZACAO_ID,
+            direction: 'inbound',
+            from: '5533991912291'
+          }
         })
       });
 

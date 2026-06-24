@@ -7,3 +7,8 @@
    - **Passo 2:** Iniciar e rodar o servidor local (ex: `npm run dev`) e testar as novas telas e APIs.
    - **Passo 3:** Apresentar as mudanças e colher o feedback do usuário ("seu lindo") para que ele também teste em ambiente local.
    - **Passo 4:** Somente após a **aprovação explícita** dele localmente, prosseguir com o commit e push para o repositório remoto.
+
+3. **PROIBIDO USAR CLIENTES REAIS DO BANCO DE DADOS PARA TESTES:** 
+   - Nunca insira mensagens fictícias, altere colunas de funil ou simule webhooks utilizando IDs de contatos de clientes reais no banco de dados de produção. Isso evita poluição visual no chat e confusão operacional para a equipe comercial.
+   - Para qualquer teste de envio de mensagens ou simulação de API/Webhook, **crie contatos fictícios do zero** no banco ou utilize exclusivamente o número de WhatsApp do Ranniere para testes: `5533991912291` (DDI 55, DDD 33, número 99191-2291).
+
