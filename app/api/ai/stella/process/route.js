@@ -155,6 +155,17 @@ export async function POST(request) {
           .map(part => part.trim())
           .filter(part => part.length > 0);
 
+        // Heurística de Ouro: Garante que o disclaimer de IA seja enviado em primeiro lugar
+        const disclaimerIdx = messagesParts.findIndex(part => {
+          const p = part.toLowerCase();
+          return p.includes('sou a stella') || (p.includes('inteligência artificial') && p.includes('corretor humano'));
+        });
+        if (disclaimerIdx > -1) {
+          const disclaimer = messagesParts.splice(disclaimerIdx, 1)[0];
+          messagesParts.unshift(disclaimer);
+          console.log(`[Stella Background Process] Disclaimer de IA detectado e reordenado para a primeira pílula.`);
+        }
+
         if (messagesParts.length === 0) {
           messagesParts.push('Olá! Tudo bem?');
         }
