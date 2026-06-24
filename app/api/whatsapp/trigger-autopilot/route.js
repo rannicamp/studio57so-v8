@@ -283,21 +283,13 @@ export async function POST(request) {
 
     // 9. Enviar a resposta gerada em pílulas pelo WhatsApp (Janela Aberta)
     const fullText = aiResult.proxima_resposta_sugerida || '';
-    const messagesParts = fullText
+    let messagesParts = fullText
       .split(/\n\n+/)
       .map(part => part.trim())
       .filter(part => part.length > 0);
 
-    // Heurística de Ouro: Garante que o disclaimer de IA seja enviado em primeiro lugar
-    const disclaimerIdx = messagesParts.findIndex(part => {
-      const p = part.toLowerCase();
-      return p.includes('sou a stella') || (p.includes('inteligência artificial') && p.includes('corretor humano'));
-    });
-    if (disclaimerIdx > -1) {
-      const disclaimer = messagesParts.splice(disclaimerIdx, 1)[0];
-      messagesParts.unshift(disclaimer);
-      console.log(`[Trigger Autopilot] Disclaimer de IA detectado e reordenado para a primeira pílula.`);
-    }
+    // Reordena as pílulas para garantir o disclaimer no início e a pergunta no final
+    messagesParts = reordenarPilulas(messagesParts);
 
     console.log(`[Trigger Autopilot] Enviando ${messagesParts.length} pílulas de resposta para ${cleanPhone}...`);
 
@@ -391,4 +383,51 @@ export async function POST(request) {
     console.error(`[Trigger Autopilot Critical Error]`, err.message);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
+}
+
+// HEURÍSTICA DE OURO: Garante disclaimer no início e pergunta de engajamento no final das pílulas
+function reordenarPilulas(messagesParts) {
+  if (!Array.isArray(messagesParts) || messagesParts.length <= 1) {
+    return messagesParts;
+  }
+
+  // 1. Identificar e remover o disclaimer para a primeira posição
+  const disclaimerIdx = messagesParts.findIndex(part => {
+    const p = part.toLowerCase();
+    return p.includes('sou a stella') || (p.includes('inteligência artificial') && p.includes('corretor humano'));
+  });
+
+  let disclaimer = null;
+  if (disclaimerIdx > -1) {
+    disclaimer = messagesParts.splice(disclaimerIdx, 1)[0];
+  }
+
+  // 2. Identificar a pílula de pergunta de engajamento (contém "?" nos últimos 15 caracteres e não é uma saudação curta)
+  const perguntaIdx = messagesParts.findIndex(part => {
+    const p = part.trim();
+    const pLower = p.toLowerCase();
+    
+    if (pLower.includes('tudo bem?') || pLower.includes('como vai?') || pLower.includes('tudo joia?') || pLower.includes('como você está?') || pLower.includes('como voce esta?')) {
+      if (p.length < 35) return false; // Se for uma frase curta de saudação, ignora
+    }
+    
+    // Verificar se existe "?" nos últimos 15 caracteres da pílula
+    const finalStr = p.slice(-15);
+    return finalStr.includes('?');
+  });
+
+  let pergunta = null;
+  if (perguntaIdx > -1) {
+    pergunta = messagesParts.splice(perguntaIdx, 1)[0];
+  }
+
+  // Reagrupar: disclaimer no início, pergunta no final
+  if (disclaimer) {
+    messagesParts.unshift(disclaimer);
+  }
+  if (pergunta) {
+    messagesParts.push(pergunta);
+  }
+
+  return messagesParts;
 }
