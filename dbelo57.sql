@@ -1309,6 +1309,17 @@ CREATE TABLE public.logs_erros_ui (
     browser_info text
 );
 
+CREATE TABLE public.logs_exclusao_organizacoes (
+    id bigint NOT NULL,
+    superadmin_id uuid,
+    superadmin_nome text,
+    superadmin_email text,
+    org_id bigint,
+    org_nome text,
+    excluido_em timestamp with time zone DEFAULT now(),
+    organizacao_id bigint DEFAULT 1
+);
+
 CREATE TABLE public.marcas_uploads (
     id bigint NOT NULL,
     descricao text,
@@ -1546,7 +1557,10 @@ CREATE TABLE public.organizacoes (
     asaas_subscription_id text,
     subscription_status text DEFAULT 'trialing'::text,
     trial_ends_at timestamp with time zone DEFAULT (now() + '15 days'::interval),
-    subscription_expires_at timestamp with time zone DEFAULT (now() + '15 days'::interval)
+    subscription_expires_at timestamp with time zone DEFAULT (now() + '15 days'::interval),
+    asaas_card_token text,
+    card_brand text,
+    card_last_digits text
 );
 
 CREATE TABLE public.parcelas_adicionais (
