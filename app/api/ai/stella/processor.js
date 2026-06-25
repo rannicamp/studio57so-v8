@@ -745,6 +745,8 @@ ${chatLog}
         anexo_sugerido: parsedResult.anexo_sugerido,
         template_selecionado: parsedResult.template_selecionado || null,
         template_componentes: parsedResult.template_componentes || null,
+        mover_para_coluna_id: parsedResult.mover_para_coluna_id || null,
+        justificativa_movimentacao: parsedResult.justificativa_movimentacao || null,
         last_updated: new Date().toISOString()
       };
     }

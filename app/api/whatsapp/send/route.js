@@ -222,6 +222,19 @@ export async function POST(request) {
               }
             ]
           });
+        } else if (templateName === 'refugio_acompanhamento_1') {
+          console.log(`[WhatsApp Send Blindagem] Injetando header IMAGE padrão para o template refugio_acompanhamento_1`);
+          cleanComponents.unshift({
+            type: 'header',
+            parameters: [
+              {
+                type: 'image',
+                image: {
+                  link: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/6/IMG_1760615854574.png'
+                }
+              }
+            ]
+          });
         }
       }
 

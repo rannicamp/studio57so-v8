@@ -80,6 +80,8 @@ export async function POST(request) {
     // ENCAPSULA A LOGICA PESADA NO AFTER() PARA EXECUÇÃO EM BACKGROUND
     // -------------------------------------------------------------
     after(async () => {
+      let config = null;
+      let stellaUserId = null;
       try {
         // 2. DEBOUNCE CONTRA ENVIOS EM RAJADA PICADOS (4 segundos)
         console.log(`[Stella Background Process] Iniciando debounce de 4 segundos para contato ${contatoId}...`);
@@ -113,12 +115,14 @@ export async function POST(request) {
         }
 
         // 3. Buscar configurações do WhatsApp para saber o ID do usuário Stella correspondente
-        const { data: config } = await supabaseAdmin
+        const { data: configData } = await supabaseAdmin
           .from('configuracoes_whatsapp')
           .select('*')
           .eq('organizacao_id', organizacaoId)
           .limit(1)
           .maybeSingle();
+
+        config = configData;
 
         if (!config) {
           console.error(`[Stella Background Process] Configuração do WhatsApp não encontrada para a org ${organizacaoId}.`);
@@ -132,7 +136,7 @@ export async function POST(request) {
           .eq('email', `stella.org${organizacaoId}@elo57.com.br`)
           .maybeSingle();
 
-                const stellaUserId = stellaUserRes?.id || null;
+        stellaUserId = stellaUserRes?.id || null;
 
         // 3b. Calcular se a janela de 24h está aberta
         const { data: ultimaMsgInbound, error: errorInbound } = await supabaseAdmin
