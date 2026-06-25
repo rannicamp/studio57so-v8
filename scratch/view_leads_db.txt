@@ -1,0 +1,205 @@
+﻿[dotenv@17.3.1] injecting env (39) from .env.local -- tip: ­ƒñû agentic secret storage: https://dotenvx.com/as2
+=== DADOS DOS CONTATOS NO BANCO ===
+ÔöîÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö¼ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö¼ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö¼ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö¼ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö¼ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö¼ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö¼ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö¼ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö¼ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö¼ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÉ
+Ôöé (index) Ôöé id   Ôöé nome                  Ôöé ia_atendimento_ativo Ôöé origem         Ôöé objetivo        Ôöé renda_familiar Ôöé fgts  Ôöé created_at                         Ôöé meta_campaign_name             Ôöé meta_form_data Ôöé
+Ôö£ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö╝ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö╝ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö╝ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö╝ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö╝ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö╝ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö╝ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö╝ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö╝ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö╝ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöñ
+Ôöé 0       Ôöé 3401 Ôöé 'C├íssila Gon├ºalves'   Ôöé true                 Ôöé 'Meta Lead Ad' Ôöé 'INVESTIMENTO'  Ôöé 10000          Ôöé false Ôöé '2025-07-28T17:20:13.021489+00:00' Ôöé 'EUA - NOVA CAMPANHA DE LEADS' Ôöé [Object]       Ôöé
+Ôöé 1       Ôöé 3467 Ôöé 'Will'                Ôöé true                 Ôöé 'Meta Lead Ad' Ôöé 'INVESTIMENTO'  Ôöé 10000          Ôöé false Ôöé '2025-07-28T17:20:42.03223+00:00'  Ôöé 'EUA - NOVA CAMPANHA DE LEADS' Ôöé [Object]       Ôöé
+Ôöé 2       Ôöé 6051 Ôöé 'T├®o Rodrigues Costa' Ôöé true                 Ôöé 'Meta Lead Ad' Ôöé 'moradia'       Ôöé null           Ôöé false Ôöé '2026-06-22T17:55:35.294728+00:00' Ôöé 'REF├ÜGIO BRA├ÜNAS - LEAD'       Ôöé [Object]       Ôöé
+Ôöé 3       Ôöé 6058 Ôöé 'Mariza Dias Lima'    Ôöé true                 Ôöé 'Meta Lead Ad' Ôöé 'investimento_' Ôöé null           Ôöé false Ôöé '2026-06-22T20:47:20.049032+00:00' Ôöé 'REF├ÜGIO BRA├ÜNAS - LEAD'       Ôöé [Object]       Ôöé
+Ôöé 4       Ôöé 6067 Ôöé 'Geneci Dutra'        Ôöé true                 Ôöé 'Meta Lead Ad' Ôöé 'moradia'       Ôöé null           Ôöé false Ôöé '2026-06-23T18:13:34.152813+00:00' Ôöé 'EUA - NOVA CAMPANHA DE LEADS' Ôöé [Object]       Ôöé
+ÔööÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö┤ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö┤ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö┤ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö┤ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö┤ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö┤ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö┤ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö┤ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö┤ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔö┤ÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÇÔöÿ
+
+======================================================
+MENSAGENS DO CONTATO ID: 6067
+======================================================
+[2026-06-23T18:13:35.780554+00:00] [OUTBOUND] Status: failed | Erro: Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.
+Conte├║do: "(Automa├º├úo) Template: saudacao_entrada_v3"
+------------------------------------------------------
+[2026-06-23T18:13:38.837299+00:00] [INBOUND] Status: delivered | Erro: Nenhum
+Conte├║do: "Hello! I filled out your form and would like to know more about your business.
+
+Full name: Geneci Dutra
+Phone number: +17814089929
+Objetivo?: MORADIA
+Renda Familiar Bruta?: Menos de R$ 10.000,00
+Possui FGTS?: N├úo"
+------------------------------------------------------
+[2026-06-25T12:49:28.191552+00:00] [OUTBOUND] Status: failed | Erro: Meta Error 131047: Re-engagement message
+Conte├║do: "Sou a Stella, a intelig├¬ncia artificial de pr├®-atendimento do Studio 57. ­ƒÿè Como sou uma IA, minhas respostas podem conter erros e todas as simula├º├Áes do nosso papo ser├úo confirmadas por um corretor humano antes do fechamento. Se preferir falar com um corretor a qualquer momento, ├® s├│ me avisar!"
+------------------------------------------------------
+[2026-06-25T12:49:31.891286+00:00] [OUTBOUND] Status: failed | Erro: Meta Error 131047: Re-engagement message
+Conte├║do: "Ol├í, Geneci! Vi aqui que voc├¬ preencheu nosso formul├írio e busca uma op├º├úo para moradia, muito bacana."
+------------------------------------------------------
+[2026-06-25T12:49:35.832484+00:00] [OUTBOUND] Status: failed | Erro: Meta Error 131047: Re-engagement message
+Conte├║do: "J├í anotei todas as suas informa├º├Áes e estou te transferindo agora mesmo para o nosso especialista do Studio 57. Ele vai te apresentar a melhor op├º├úo para o seu perfil. Qual seria o melhor hor├írio para ele entrar em contato com voc├¬?"
+------------------------------------------------------
+
+======================================================
+MENSAGENS DO CONTATO ID: 3401
+======================================================
+[2025-12-10T16:56:11.186703+00:00] [OUTBOUND] Status: failed | Erro: Nenhum
+Conte├║do: "Oi C├íssila!
+
+O Studio 57 tem um novo empreendimento para te apresentar.
+
+Quer saber mais?"
+------------------------------------------------------
+[2026-06-24T12:08:56.082507+00:00] [OUTBOUND] Status: failed | Erro: Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.
+Conte├║do: "(Automa├º├úo) Template: saudacao_entrada_v3"
+------------------------------------------------------
+[2026-06-24T12:09:03.540111+00:00] [INBOUND] Status: delivered | Erro: Nenhum
+Conte├║do: "Hello! I filled out your form and would like to know more about your business.
+
+Full name: C├íssila Gon├ºalves
+Phone number: +17816058301
+Objetivo?: INVESTIMENTO
+Renda Familiar Bruta?: Mais de R$ 10.000,00
+Possui FGTS?: N├úo"
+------------------------------------------------------
+[2026-06-25T12:49:28.592695+00:00] [OUTBOUND] Status: failed | Erro: Meta Error 131047: Re-engagement message
+Conte├║do: "Sou a Stella, a intelig├¬ncia artificial de pr├®-atendimento do Studio 57. ­ƒÿè Como sou uma IA, minhas respostas podem conter erros e todas as simula├º├Áes do nosso papo ser├úo confirmadas por um corretor humano antes do fechamento. Se preferir falar com um corretor a qualquer momento, ├® s├│ me avisar!"
+------------------------------------------------------
+[2026-06-25T12:49:32.316653+00:00] [OUTBOUND] Status: failed | Erro: Meta Error 131047: Re-engagement message
+Conte├║do: "Ol├í, C├íssila, tudo bem? Vi que voc├¬ se cadastrou em nosso an├║ncio do Beta Su├¡tes, uma excelente escolha para investimento."
+------------------------------------------------------
+[2026-06-25T12:49:36.097516+00:00] [OUTBOUND] Status: failed | Erro: Meta Error 131047: Re-engagement message
+Conte├║do: "Vou te enviar o Book para Investidores com todos os detalhes. A prop├│sito, voc├¬ mora aqui em Governador Valadares ou em outra regi├úo?"
+------------------------------------------------------
+[2026-06-25T12:49:38.734624+00:00] [OUTBOUND] Status: failed | Erro: Meta Error 131047: Re-engagement message
+Conte├║do: "Book_Investidor_Beta_Suites.pdf"
+------------------------------------------------------
+[2026-06-25T12:49:44.041706+00:00] [OUTBOUND] Status: failed | Erro: Meta Error 131047: Re-engagement message
+Conte├║do: "C├íssila, voc├¬ conseguiu abrir a apresenta├º├úo? O que mais te chamou a aten├º├úo no projeto?"
+------------------------------------------------------
+
+======================================================
+MENSAGENS DO CONTATO ID: 3467
+======================================================
+[2025-12-10T17:08:28.397331+00:00] [OUTBOUND] Status: failed | Erro: Nenhum
+Conte├║do: "Oi Will!
+
+O Studio 57 tem um novo empreendimento para te apresentar.
+
+Quer saber mais?"
+------------------------------------------------------
+[2026-06-24T02:13:06.493512+00:00] [OUTBOUND] Status: failed | Erro: Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.
+Conte├║do: "(Automa├º├úo) Template: saudacao_entrada_v3"
+------------------------------------------------------
+[2026-06-24T02:13:09.986777+00:00] [INBOUND] Status: delivered | Erro: Nenhum
+Conte├║do: "Hello! I filled out your form and would like to know more about your business.
+
+Full name: Guilherme ruas
+Phone number: +15084319236
+Objetivo?: INVESTIMENTO
+Renda Familiar Bruta?: Mais de R$ 10.000,00
+Possui FGTS?: N├úo"
+------------------------------------------------------
+[2026-06-25T12:49:31.38298+00:00] [OUTBOUND] Status: failed | Erro: Meta Error 131047: Re-engagement message
+Conte├║do: "Sou a Stella, a intelig├¬ncia artificial de pr├®-atendimento do Studio 57. ­ƒÿè Como sou uma IA, minhas respostas podem conter erros e todas as simula├º├Áes do nosso papo ser├úo confirmadas por um corretor humano antes do fechamento. Se preferir falar com um corretor a qualquer momento, ├® s├│ me avisar!"
+------------------------------------------------------
+[2026-06-25T12:49:35.163087+00:00] [OUTBOUND] Status: failed | Erro: Meta Error 131047: Re-engagement message
+Conte├║do: "Ol├í, Will! Vi que voc├¬ se interessou pelo nosso Beta Su├¡tes. ├ë uma excelente escolha para investimento, com alta rentabilidade e liquidez no melhor bairro da cidade."
+------------------------------------------------------
+[2026-06-25T12:49:38.956767+00:00] [OUTBOUND] Status: failed | Erro: Meta Error 131047: Re-engagement message
+Conte├║do: "Vou te enviar a apresenta├º├úo completa dele para voc├¬ conhecer os detalhes do projeto."
+------------------------------------------------------
+[2026-06-25T12:49:42.148206+00:00] [OUTBOUND] Status: failed | Erro: Meta Error 131047: Re-engagement message
+Conte├║do: "Book_Investidor_Beta_Suites.pdf"
+------------------------------------------------------
+[2026-06-25T12:49:46.147156+00:00] [OUTBOUND] Status: failed | Erro: Meta Error 131047: Re-engagement message
+Conte├║do: "Enquanto voc├¬ analisa, me conta: voc├¬ ├® daqui de Governador Valadares mesmo ou mora fora do pa├¡s?"
+------------------------------------------------------
+
+======================================================
+MENSAGENS DO CONTATO ID: 6051
+======================================================
+[2026-06-22T17:55:36.493688+00:00] [OUTBOUND] Status: read | Erro: Nenhum
+Conte├║do: "(Automa├º├úo) Template: saudacao_entrada_v3"
+------------------------------------------------------
+[2026-06-22T17:57:44.942603+00:00] [INBOUND] Status: delivered | Erro: Nenhum
+Conte├║do: "[Bot├úo]: Sim, por favor!"
+------------------------------------------------------
+[2026-06-22T17:58:52.346781+00:00] [OUTBOUND] Status: read | Erro: Nenhum
+Conte├║do: "Que ├│timo! Fico feliz com seu interesse. ­ƒÿè
+Vou te enviar agora mesmo o book digital do Ref├║gio Bra├║nas para voc├¬ conhecer todos os detalhes."
+------------------------------------------------------
+[2026-06-22T17:58:54.070159+00:00] [OUTBOUND] Status: read | Erro: Nenhum
+Conte├║do: "[BOK] - BOOK DE VENDAS- REFUGIO BRAUNAS_studio57.pdf"
+------------------------------------------------------
+[2026-06-22T17:58:58.680475+00:00] [OUTBOUND] Status: read | Erro: Nenhum
+Conte├║do: "O que achou do book? Voc├¬ busca para moradia, investimento ou lazer?"
+------------------------------------------------------
+[2026-06-22T18:03:22.123786+00:00] [INBOUND] Status: delivered | Erro: Nenhum
+Conte├║do: "Moradia"
+------------------------------------------------------
+[2026-06-22T18:04:46.001523+00:00] [OUTBOUND] Status: read | Erro: Nenhum
+Conte├║do: "Entendi, para moradia pr├│pria ├® uma excelente escolha aqui no Ref├║gio Bra├║nas!"
+------------------------------------------------------
+[2026-06-22T18:04:49.11369+00:00] [OUTBOUND] Status: read | Erro: Nenhum
+Conte├║do: "Seria para voc├¬ e sua fam├¡lia? Assim consigo entender melhor o que buscam. ­ƒÿè"
+------------------------------------------------------
+[2026-06-22T18:19:28.132531+00:00] [INBOUND] Status: delivered | Erro: Nenhum
+Conte├║do: "Sim, estou come├ºando a pensar sobre comprar um lote para construir no futuro"
+------------------------------------------------------
+[2026-06-22T18:19:54.312348+00:00] [INBOUND] Status: delivered | Erro: Nenhum
+Conte├║do: "Gostaria de saber dos valores e quais est├úo dispon├¡veis"
+------------------------------------------------------
+[2026-06-22T18:20:09.654286+00:00] [OUTBOUND] Status: read | Erro: Nenhum
+Conte├║do: "├ôtimo! Entendi que o plano ├® construir para sua fam├¡lia. ­ƒÿè"
+------------------------------------------------------
+[2026-06-22T18:20:37.131513+00:00] [OUTBOUND] Status: read | Erro: Nenhum
+Conte├║do: "Para te ajudar melhor a encontrar o lote ideal no Studio 57, voc├¬ j├í tem uma ideia de quando gostaria de come├ºar a construir?"
+------------------------------------------------------
+[2026-06-22T18:21:54.637635+00:00] [INBOUND] Status: delivered | Erro: Nenhum
+Conte├║do: "Ainda n├úo"
+------------------------------------------------------
+[2026-06-22T18:22:38.149447+00:00] [OUTBOUND] Status: read | Erro: Nenhum
+Conte├║do: "Os lotes no Ref├║gio Bra├║nas come├ºam a partir de R$ 350 o metro quadrado, com ├íreas de mais de 1.000 m┬▓!"
+------------------------------------------------------
+[2026-06-22T18:22:52.30528+00:00] [OUTBOUND] Status: read | Erro: Nenhum
+Conte├║do: "Voc├¬ j├í tem alguma ideia de quanto gostaria de investir no seu futuro lar? ­ƒÿè"
+------------------------------------------------------
+[2026-06-22T18:23:56.209879+00:00] [INBOUND] Status: delivered | Erro: Nenhum
+Conte├║do: "Num lote, pensei at├® 400 mil"
+------------------------------------------------------
+[2026-06-22T18:25:01.992212+00:00] [OUTBOUND] Status: read | Erro: Nenhum
+Conte├║do: "Entendi perfeitamente! Um valor de at├® R$ 400 mil ├® muito bom para encontrar um lote excelente aqui no Studio 57. ­ƒÿè"
+------------------------------------------------------
+[2026-06-22T18:27:01.205689+00:00] [OUTBOUND] Status: read | Erro: Nenhum
+Conte├║do: "Pensando no seu plano de construir no futuro, voc├¬ j├í tem alguma ideia de quando seria o ideal para come├ºar, tipo nos pr├│ximos 1 ou 2 anos?"
+------------------------------------------------------
+[2026-06-22T18:29:41.597154+00:00] [INBOUND] Status: delivered | Erro: Nenhum
+Conte├║do: "Pensei 4~5"
+------------------------------------------------------
+[2026-06-25T12:49:27.996849+00:00] [OUTBOUND] Status: failed | Erro: Meta Error 131047: Re-engagement message
+Conte├║do: "Excelente plano, T├®o! Construir em 4 a 5 anos ├® um ├│timo prazo para valoriza├º├úo do seu patrim├┤nio."
+------------------------------------------------------
+[2026-06-25T12:49:31.808714+00:00] [OUTBOUND] Status: failed | Erro: Meta Error 131047: Re-engagement message
+Conte├║do: "Temos v├írias op├º├Áes de lotes excelentes at├® R$ 400 mil, conforme voc├¬ busca. Para eu te enviar as melhores unidades, voc├¬ ├® daqui de Governador Valadares mesmo ou mora em outra cidade?"
+------------------------------------------------------
+
+======================================================
+MENSAGENS DO CONTATO ID: 6058
+======================================================
+[2026-06-22T20:47:21.39053+00:00] [OUTBOUND] Status: read | Erro: Nenhum
+Conte├║do: "(Automa├º├úo) Template: saudacao_entrada_v3"
+------------------------------------------------------
+[2026-06-22T21:33:03.350865+00:00] [INBOUND] Status: delivered | Erro: Nenhum
+Conte├║do: "[Bot├úo]: Sim, por favor!"
+------------------------------------------------------
+[2026-06-25T12:49:32.947996+00:00] [OUTBOUND] Status: failed | Erro: Meta Error 131047: Re-engagement message
+Conte├║do: "Sou a Stella, a intelig├¬ncia artificial de pr├®-atendimento do Studio 57. ­ƒÿè Como sou uma IA, minhas respostas podem conter erros e todas as simula├º├Áes do nosso papo ser├úo confirmadas por um corretor humano antes do fechamento. Se preferir falar com um corretor a qualquer momento, ├® s├│ me avisar!"
+------------------------------------------------------
+[2026-06-25T12:49:37.051091+00:00] [OUTBOUND] Status: failed | Erro: Meta Error 131047: Re-engagement message
+Conte├║do: "Ol├í, Mariza! Que ├│timo ter voc├¬ por aqui. Vi que seu interesse ├® no Ref├║gio Bra├║nas, uma excelente escolha para investimento."
+------------------------------------------------------
+[2026-06-25T12:49:41.047532+00:00] [OUTBOUND] Status: failed | Erro: Meta Error 131047: Re-engagement message
+Conte├║do: "Vou te enviar nosso book de apresenta├º├úo para voc├¬ conhecer todos os detalhes do projeto."
+------------------------------------------------------
+[2026-06-25T12:49:43.592083+00:00] [OUTBOUND] Status: failed | Erro: Meta Error 131047: Re-engagement message
+Conte├║do: "[BOK] - BOOK DE VENDAS- REFUGIO BRAUNAS_studio57.pdf"
+------------------------------------------------------
+[2026-06-25T12:49:47.843369+00:00] [OUTBOUND] Status: failed | Erro: Meta Error 131047: Re-engagement message
+Conte├║do: "Me avise assim que conseguir abrir, por favor. O que voc├¬ mais gostou na proposta do Ref├║gio Bra├║nas?"
+------------------------------------------------------

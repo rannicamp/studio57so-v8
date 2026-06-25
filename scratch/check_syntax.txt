@@ -1,0 +1,316 @@
+﻿[ABRE] Linha 3, Col 9 | Total abertas: 1
+[FECHA] Linha 3, Col 31 | Fecha a chave da Linha 3, Col 9 | Restam: 0
+[ABRE] Linha 4, Col 9 | Total abertas: 1
+[FECHA] Linha 4, Col 24 | Fecha a chave da Linha 4, Col 9 | Restam: 0
+[ABRE] Linha 5, Col 9 | Total abertas: 1
+[FECHA] Linha 5, Col 34 | Fecha a chave da Linha 5, Col 9 | Restam: 0
+[ABRE] Linha 6, Col 9 | Total abertas: 1
+[FECHA] Linha 6, Col 41 | Fecha a chave da Linha 6, Col 9 | Restam: 0
+[ABRE] Linha 11, Col 4 | Total abertas: 1
+[ABRE] Linha 11, Col 12 | Total abertas: 2
+[FECHA] Linha 11, Col 88 | Fecha a chave da Linha 11, Col 12 | Restam: 1
+[FECHA] Linha 11, Col 90 | Fecha a chave da Linha 11, Col 4 | Restam: 0
+[ABRE] Linha 14, Col 38 | Total abertas: 1
+[ABRE] Linha 21, Col 8 | Total abertas: 2
+[ABRE] Linha 26, Col 19 | Total abertas: 3
+[ABRE] Linha 27, Col 33 | Total abertas: 4
+[FECHA] Linha 27, Col 93 | Fecha a chave da Linha 27, Col 33 | Restam: 3
+[ABRE] Linha 27, Col 96 | Total abertas: 4
+[FECHA] Linha 27, Col 110 | Fecha a chave da Linha 27, Col 96 | Restam: 3
+[FECHA] Linha 28, Col 6 | Fecha a chave da Linha 26, Col 19 | Restam: 2
+[ABRE] Linha 35, Col 40 | Total abertas: 3
+[ABRE] Linha 36, Col 33 | Total abertas: 4
+[FECHA] Linha 36, Col 97 | Fecha a chave da Linha 36, Col 33 | Restam: 3
+[ABRE] Linha 36, Col 100 | Total abertas: 4
+[FECHA] Linha 36, Col 114 | Fecha a chave da Linha 36, Col 100 | Restam: 3
+[FECHA] Linha 37, Col 6 | Fecha a chave da Linha 35, Col 40 | Restam: 2
+[ABRE] Linha 54, Col 28 | Total abertas: 3
+[ABRE] Linha 56, Col 33 | Total abertas: 4
+[FECHA] Linha 56, Col 67 | Fecha a chave da Linha 56, Col 33 | Restam: 3
+[ABRE] Linha 56, Col 70 | Total abertas: 4
+[FECHA] Linha 56, Col 84 | Fecha a chave da Linha 56, Col 70 | Restam: 3
+[FECHA] Linha 57, Col 6 | Fecha a chave da Linha 54, Col 28 | Restam: 2
+[ABRE] Linha 62, Col 53 | Total abertas: 3
+[ABRE] Linha 63, Col 91 | Total abertas: 4
+[FECHA] Linha 63, Col 101 | Fecha a chave da Linha 63, Col 91 | Restam: 3
+[ABRE] Linha 64, Col 33 | Total abertas: 4
+[FECHA] Linha 64, Col 65 | Fecha a chave da Linha 64, Col 33 | Restam: 3
+[FECHA] Linha 65, Col 6 | Fecha a chave da Linha 62, Col 53 | Restam: 2
+[ABRE] Linha 71, Col 23 | Total abertas: 3
+[ABRE] Linha 72, Col 91 | Total abertas: 4
+[FECHA] Linha 72, Col 101 | Fecha a chave da Linha 72, Col 91 | Restam: 3
+[ABRE] Linha 73, Col 33 | Total abertas: 4
+[FECHA] Linha 73, Col 83 | Fecha a chave da Linha 73, Col 33 | Restam: 3
+[ABRE] Linha 73, Col 86 | Total abertas: 4
+[FECHA] Linha 73, Col 100 | Fecha a chave da Linha 73, Col 86 | Restam: 3
+[FECHA] Linha 74, Col 6 | Fecha a chave da Linha 71, Col 23 | Restam: 2
+[ABRE] Linha 82, Col 24 | Total abertas: 3
+[ABRE] Linha 83, Col 12 | Total abertas: 4
+[ABRE] Linha 85, Col 98 | Total abertas: 5
+[FECHA] Linha 85, Col 108 | Fecha a chave da Linha 85, Col 98 | Restam: 4
+[ABRE] Linha 89, Col 14 | Total abertas: 5
+[ABRE] Linha 90, Col 18 | Total abertas: 6
+[FECHA] Linha 90, Col 41 | Fecha a chave da Linha 90, Col 18 | Restam: 5
+[ABRE] Linha 96, Col 32 | Total abertas: 6
+[ABRE] Linha 97, Col 20 | Total abertas: 7
+[FECHA] Linha 97, Col 41 | Fecha a chave da Linha 97, Col 20 | Restam: 6
+[ABRE] Linha 106, Col 32 | Total abertas: 7
+[FECHA] Linha 109, Col 14 | Fecha a chave da Linha 106, Col 32 | Restam: 6
+[FECHA] Linha 110, Col 12 | Fecha a chave da Linha 96, Col 32 | Restam: 5
+[FECHA] Linha 111, Col 10 | Fecha a chave da Linha 89, Col 14 | Restam: 4
+[ABRE] Linha 111, Col 32 | Total abertas: 5
+[FECHA] Linha 113, Col 10 | Fecha a chave da Linha 111, Col 32 | Restam: 4
+[ABRE] Linha 116, Col 16 | Total abertas: 5
+[FECHA] Linha 116, Col 31 | Fecha a chave da Linha 116, Col 16 | Restam: 4
+[ABRE] Linha 123, Col 23 | Total abertas: 5
+[ABRE] Linha 124, Col 107 | Total abertas: 6
+[FECHA] Linha 124, Col 121 | Fecha a chave da Linha 124, Col 107 | Restam: 5
+[FECHA] Linha 126, Col 10 | Fecha a chave da Linha 123, Col 23 | Restam: 4
+[ABRE] Linha 129, Col 16 | Total abertas: 5
+[FECHA] Linha 129, Col 38 | Fecha a chave da Linha 129, Col 16 | Restam: 4
+[ABRE] Linha 132, Col 37 | Total abertas: 5
+[FECHA] Linha 132, Col 51 | Fecha a chave da Linha 132, Col 37 | Restam: 4
+[ABRE] Linha 138, Col 16 | Total abertas: 5
+[FECHA] Linha 138, Col 62 | Fecha a chave da Linha 138, Col 16 | Restam: 4
+[ABRE] Linha 143, Col 33 | Total abertas: 5
+[FECHA] Linha 143, Col 52 | Fecha a chave da Linha 143, Col 33 | Restam: 4
+[ABRE] Linha 147, Col 28 | Total abertas: 5
+[FECHA] Linha 149, Col 10 | Fecha a chave da Linha 147, Col 28 | Restam: 4
+[ABRE] Linha 152, Col 60 | Total abertas: 5
+[FECHA] Linha 152, Col 70 | Fecha a chave da Linha 152, Col 60 | Restam: 4
+[ABRE] Linha 152, Col 93 | Total abertas: 5
+[FECHA] Linha 152, Col 131 | Fecha a chave da Linha 152, Col 93 | Restam: 4
+[ABRE] Linha 152, Col 155 | Total abertas: 5
+[FECHA] Linha 152, Col 195 | Fecha a chave da Linha 152, Col 155 | Restam: 4
+[ABRE] Linha 156, Col 31 | Total abertas: 5
+[ABRE] Linha 157, Col 85 | Total abertas: 6
+[FECHA] Linha 157, Col 99 | Fecha a chave da Linha 157, Col 85 | Restam: 5
+[ABRE] Linha 158, Col 54 | Total abertas: 6
+[ABRE] Linha 160, Col 61 | Total abertas: 7
+[FECHA] Linha 160, Col 97 | Fecha a chave da Linha 160, Col 61 | Restam: 6
+[ABRE] Linha 161, Col 18 | Total abertas: 7
+[ABRE] Linha 162, Col 45 | Total abertas: 8
+[ABRE] Linha 163, Col 27 | Total abertas: 9
+[ABRE] Linha 163, Col 55 | Total abertas: 10
+[FECHA] Linha 163, Col 61 | Fecha a chave da Linha 163, Col 55 | Restam: 9
+[FECHA] Linha 163, Col 64 | Fecha a chave da Linha 163, Col 27 | Restam: 8
+[FECHA] Linha 164, Col 16 | Fecha a chave da Linha 162, Col 45 | Restam: 7
+[ABRE] Linha 165, Col 28 | Total abertas: 8
+[ABRE] Linha 168, Col 72 | Total abertas: 9
+[FECHA] Linha 168, Col 100 | Fecha a chave da Linha 168, Col 72 | Restam: 8
+[FECHA] Linha 169, Col 16 | Fecha a chave da Linha 165, Col 28 | Restam: 7
+[ABRE] Linha 169, Col 23 | Total abertas: 8
+[ABRE] Linha 170, Col 107 | Total abertas: 9
+[FECHA] Linha 170, Col 118 | Fecha a chave da Linha 170, Col 107 | Restam: 8
+[FECHA] Linha 171, Col 16 | Fecha a chave da Linha 169, Col 23 | Restam: 7
+[FECHA] Linha 172, Col 14 | Fecha a chave da Linha 161, Col 18 | Restam: 6
+[ABRE] Linha 172, Col 37 | Total abertas: 7
+[FECHA] Linha 174, Col 14 | Fecha a chave da Linha 172, Col 37 | Restam: 6
+[FECHA] Linha 175, Col 12 | Fecha a chave da Linha 158, Col 54 | Restam: 5
+[FECHA] Linha 176, Col 10 | Fecha a chave da Linha 156, Col 31 | Restam: 4
+[ABRE] Linha 178, Col 91 | Total abertas: 5
+[FECHA] Linha 178, Col 101 | Fecha a chave da Linha 178, Col 91 | Restam: 4
+[ABRE] Linha 181, Col 56 | Total abertas: 5
+[FECHA] Linha 190, Col 10 | Fecha a chave da Linha 181, Col 56 | Restam: 4
+[ABRE] Linha 192, Col 48 | Total abertas: 5
+[ABRE] Linha 193, Col 89 | Total abertas: 6
+[FECHA] Linha 193, Col 99 | Fecha a chave da Linha 193, Col 89 | Restam: 5
+[FECHA] Linha 195, Col 10 | Fecha a chave da Linha 192, Col 48 | Restam: 4
+[ABRE] Linha 197, Col 43 | Total abertas: 5
+[ABRE] Linha 198, Col 34 | Total abertas: 6
+[FECHA] Linha 198, Col 43 | Fecha a chave da Linha 198, Col 34 | Restam: 5
+[ABRE] Linha 198, Col 48 | Total abertas: 6
+[FECHA] Linha 198, Col 53 | Fecha a chave da Linha 198, Col 48 | Restam: 5
+[ABRE] Linha 201, Col 133 | Total abertas: 6
+[ABRE] Linha 202, Col 81 | Total abertas: 7
+[FECHA] Linha 202, Col 111 | Fecha a chave da Linha 202, Col 81 | Restam: 6
+[ABRE] Linha 205, Col 53 | Total abertas: 7
+[FECHA] Linha 205, Col 83 | Fecha a chave da Linha 205, Col 53 | Restam: 6
+[ABRE] Linha 206, Col 18 | Total abertas: 7
+[ABRE] Linha 208, Col 33 | Total abertas: 8
+[ABRE] Linha 210, Col 59 | Total abertas: 9
+[ABRE] Linha 215, Col 55 | Total abertas: 10
+[ABRE] Linha 217, Col 72 | Total abertas: 11
+[ABRE] Linha 217, Col 75 | Total abertas: 12
+[ABRE] Linha 217, Col 77 | Total abertas: 13
+[FECHA] Linha 217, Col 85 | Fecha a chave da Linha 217, Col 77 | Restam: 12
+[FECHA] Linha 217, Col 88 | Fecha a chave da Linha 217, Col 75 | Restam: 11
+[FECHA] Linha 217, Col 91 | Fecha a chave da Linha 217, Col 72 | Restam: 10
+[FECHA] Linha 218, Col 20 | Fecha a chave da Linha 215, Col 55 | Restam: 9
+[FECHA] Linha 220, Col 18 | Fecha a chave da Linha 210, Col 59 | Restam: 8
+[FECHA] Linha 221, Col 16 | Fecha a chave da Linha 208, Col 33 | Restam: 7
+[FECHA] Linha 222, Col 14 | Fecha a chave da Linha 206, Col 18 | Restam: 6
+[ABRE] Linha 222, Col 35 | Total abertas: 7
+[FECHA] Linha 224, Col 14 | Fecha a chave da Linha 222, Col 35 | Restam: 6
+[ABRE] Linha 226, Col 68 | Total abertas: 7
+[ABRE] Linha 228, Col 25 | Total abertas: 8
+[FECHA] Linha 228, Col 62 | Fecha a chave da Linha 228, Col 25 | Restam: 7
+[ABRE] Linha 229, Col 37 | Total abertas: 8
+[FECHA] Linha 238, Col 16 | Fecha a chave da Linha 229, Col 37 | Restam: 7
+[FECHA] Linha 239, Col 14 | Fecha a chave da Linha 226, Col 68 | Restam: 6
+[ABRE] Linha 241, Col 44 | Total abertas: 7
+[ABRE] Linha 244, Col 59 | Total abertas: 8
+[FECHA] Linha 244, Col 67 | Fecha a chave da Linha 244, Col 59 | Restam: 7
+[FECHA] Linha 245, Col 14 | Fecha a chave da Linha 241, Col 44 | Restam: 6
+[FECHA] Linha 248, Col 12 | Fecha a chave da Linha 201, Col 133 | Restam: 5
+[ABRE] Linha 250, Col 38 | Total abertas: 6
+[FECHA] Linha 253, Col 12 | Fecha a chave da Linha 250, Col 38 | Restam: 5
+[ABRE] Linha 255, Col 58 | Total abertas: 6
+[ABRE] Linha 265, Col 46 | Total abertas: 7
+[FECHA] Linha 267, Col 14 | Fecha a chave da Linha 265, Col 46 | Restam: 6
+[ABRE] Linha 269, Col 65 | Total abertas: 7
+[FECHA] Linha 269, Col 86 | Fecha a chave da Linha 269, Col 65 | Restam: 6
+[ABRE] Linha 271, Col 61 | Total abertas: 7
+[ABRE] Linha 274, Col 27 | Total abertas: 8
+[ABRE] Linha 276, Col 71 | Total abertas: 9
+[FECHA] Linha 276, Col 79 | Fecha a chave da Linha 276, Col 71 | Restam: 8
+[FECHA] Linha 278, Col 16 | Fecha a chave da Linha 274, Col 27 | Restam: 7
+[ABRE] Linha 280, Col 66 | Total abertas: 8
+[ABRE] Linha 282, Col 27 | Total abertas: 9
+[FECHA] Linha 282, Col 64 | Fecha a chave da Linha 282, Col 27 | Restam: 8
+[ABRE] Linha 283, Col 39 | Total abertas: 9
+[FECHA] Linha 291, Col 18 | Fecha a chave da Linha 283, Col 39 | Restam: 8
+[FECHA] Linha 292, Col 16 | Fecha a chave da Linha 280, Col 66 | Restam: 7
+[ABRE] Linha 294, Col 41 | Total abertas: 8
+[ABRE] Linha 295, Col 67 | Total abertas: 9
+[FECHA] Linha 295, Col 73 | Fecha a chave da Linha 295, Col 67 | Restam: 8
+[ABRE] Linha 295, Col 76 | Total abertas: 9
+[FECHA] Linha 295, Col 97 | Fecha a chave da Linha 295, Col 76 | Restam: 8
+[FECHA] Linha 296, Col 16 | Fecha a chave da Linha 294, Col 41 | Restam: 7
+[ABRE] Linha 296, Col 23 | Total abertas: 8
+[ABRE] Linha 298, Col 74 | Total abertas: 9
+[FECHA] Linha 298, Col 80 | Fecha a chave da Linha 298, Col 74 | Restam: 8
+[ABRE] Linha 298, Col 83 | Total abertas: 9
+[FECHA] Linha 298, Col 104 | Fecha a chave da Linha 298, Col 83 | Restam: 8
+[ABRE] Linha 299, Col 59 | Total abertas: 9
+[FECHA] Linha 299, Col 67 | Fecha a chave da Linha 299, Col 59 | Restam: 8
+[FECHA] Linha 300, Col 16 | Fecha a chave da Linha 296, Col 23 | Restam: 7
+[FECHA] Linha 301, Col 14 | Fecha a chave da Linha 271, Col 61 | Restam: 6
+[FECHA] Linha 302, Col 12 | Fecha a chave da Linha 255, Col 58 | Restam: 5
+[ABRE] Linha 305, Col 86 | Total abertas: 6
+[ABRE] Linha 307, Col 86 | Total abertas: 7
+[FECHA] Linha 307, Col 105 | Fecha a chave da Linha 307, Col 86 | Restam: 6
+[ABRE] Linha 309, Col 22 | Total abertas: 7
+[FECHA] Linha 309, Col 38 | Fecha a chave da Linha 309, Col 22 | Restam: 6
+[ABRE] Linha 313, Col 40 | Total abertas: 7
+[ABRE] Linha 316, Col 75 | Total abertas: 8
+[FECHA] Linha 318, Col 18 | Fecha a chave da Linha 316, Col 75 | Restam: 7
+[ABRE] Linha 318, Col 74 | Total abertas: 8
+[FECHA] Linha 320, Col 18 | Fecha a chave da Linha 318, Col 74 | Restam: 7
+[ABRE] Linha 322, Col 69 | Total abertas: 8
+[ABRE] Linha 324, Col 29 | Total abertas: 9
+[FECHA] Linha 324, Col 66 | Fecha a chave da Linha 324, Col 29 | Restam: 8
+[ABRE] Linha 325, Col 41 | Total abertas: 9
+[FECHA] Linha 335, Col 20 | Fecha a chave da Linha 325, Col 41 | Restam: 8
+[FECHA] Linha 336, Col 18 | Fecha a chave da Linha 322, Col 69 | Restam: 7
+[ABRE] Linha 340, Col 44 | Total abertas: 8
+[ABRE] Linha 343, Col 48 | Total abertas: 9
+[FECHA] Linha 343, Col 57 | Fecha a chave da Linha 343, Col 48 | Restam: 8
+[ABRE] Linha 343, Col 62 | Total abertas: 9
+[FECHA] Linha 343, Col 67 | Fecha a chave da Linha 343, Col 62 | Restam: 8
+[ABRE] Linha 344, Col 51 | Total abertas: 9
+[ABRE] Linha 346, Col 31 | Total abertas: 10
+[FECHA] Linha 346, Col 68 | Fecha a chave da Linha 346, Col 31 | Restam: 9
+[ABRE] Linha 347, Col 43 | Total abertas: 10
+[FECHA] Linha 356, Col 22 | Fecha a chave da Linha 347, Col 43 | Restam: 9
+[FECHA] Linha 357, Col 20 | Fecha a chave da Linha 344, Col 51 | Restam: 8
+[ABRE] Linha 360, Col 50 | Total abertas: 9
+[ABRE] Linha 362, Col 75 | Total abertas: 10
+[FECHA] Linha 362, Col 91 | Fecha a chave da Linha 362, Col 75 | Restam: 9
+[ABRE] Linha 365, Col 47 | Total abertas: 10
+[ABRE] Linha 367, Col 33 | Total abertas: 11
+[FECHA] Linha 367, Col 70 | Fecha a chave da Linha 367, Col 33 | Restam: 10
+[ABRE] Linha 368, Col 45 | Total abertas: 11
+[FECHA] Linha 376, Col 24 | Fecha a chave da Linha 368, Col 45 | Restam: 10
+[FECHA] Linha 377, Col 22 | Fecha a chave da Linha 365, Col 47 | Restam: 9
+[FECHA] Linha 379, Col 20 | Fecha a chave da Linha 360, Col 50 | Restam: 8
+[FECHA] Linha 380, Col 18 | Fecha a chave da Linha 340, Col 44 | Restam: 7
+[ABRE] Linha 380, Col 25 | Total abertas: 8
+[FECHA] Linha 382, Col 18 | Fecha a chave da Linha 380, Col 25 | Restam: 7
+[FECHA] Linha 383, Col 16 | Fecha a chave da Linha 313, Col 40 | Restam: 6
+[FECHA] Linha 384, Col 14 | Fecha a chave da Linha 305, Col 86 | Restam: 5
+[FECHA] Linha 385, Col 12 | Fecha a chave da Linha 197, Col 43 | Restam: 4
+[ABRE] Linha 390, Col 47 | Total abertas: 5
+[ABRE] Linha 391, Col 115 | Total abertas: 6
+[FECHA] Linha 391, Col 145 | Fecha a chave da Linha 391, Col 115 | Restam: 5
+[FECHA] Linha 393, Col 12 | Fecha a chave da Linha 390, Col 47 | Restam: 4
+[FECHA] Linha 395, Col 10 | Fecha a chave da Linha 83, Col 12 | Restam: 3
+[ABRE] Linha 395, Col 17 | Total abertas: 4
+[FECHA] Linha 401, Col 10 | Fecha a chave da Linha 395, Col 17 | Restam: 3
+[FECHA] Linha 402, Col 8 | Fecha a chave da Linha 82, Col 24 | Restam: 2
+[ABRE] Linha 402, Col 27 | Total abertas: 3
+[FECHA] Linha 405, Col 8 | Fecha a chave da Linha 402, Col 27 | Restam: 2
+[FECHA] Linha 406, Col 6 | Fecha a chave da Linha 21, Col 8 | Restam: 1
+[ABRE] Linha 409, Col 31 | Total abertas: 2
+[FECHA] Linha 409, Col 68 | Fecha a chave da Linha 409, Col 31 | Restam: 1
+[FECHA] Linha 411, Col 4 | Fecha a chave da Linha 14, Col 38 | Restam: 0
+[ABRE] Linha 411, Col 18 | Total abertas: 1
+[ABRE] Linha 416, Col 10 | Total abertas: 2
+[ABRE] Linha 418, Col 98 | Total abertas: 3
+[FECHA] Linha 418, Col 112 | Fecha a chave da Linha 418, Col 98 | Restam: 2
+[FECHA] Linha 430, Col 6 | Fecha a chave da Linha 416, Col 10 | Restam: 1
+[ABRE] Linha 430, Col 26 | Total abertas: 2
+[FECHA] Linha 432, Col 6 | Fecha a chave da Linha 430, Col 26 | Restam: 1
+[ABRE] Linha 433, Col 31 | Total abertas: 2
+[FECHA] Linha 433, Col 52 | Fecha a chave da Linha 433, Col 31 | Restam: 1
+[ABRE] Linha 433, Col 55 | Total abertas: 2
+[FECHA] Linha 433, Col 69 | Fecha a chave da Linha 433, Col 55 | Restam: 1
+[FECHA] Linha 434, Col 4 | Fecha a chave da Linha 411, Col 18 | Restam: 0
+[ABRE] Linha 438, Col 133 | Total abertas: 1
+[ABRE] Linha 439, Col 98 | Total abertas: 2
+[FECHA] Linha 439, Col 108 | Fecha a chave da Linha 439, Col 98 | Restam: 1
+[ABRE] Linha 439, Col 120 | Total abertas: 2
+[FECHA] Linha 439, Col 131 | Fecha a chave da Linha 439, Col 120 | Restam: 1
+[ABRE] Linha 443, Col 26 | Total abertas: 2
+[FECHA] Linha 443, Col 35 | Fecha a chave da Linha 443, Col 26 | Restam: 1
+[ABRE] Linha 443, Col 40 | Total abertas: 2
+[FECHA] Linha 443, Col 45 | Fecha a chave da Linha 443, Col 40 | Restam: 1
+[ABRE] Linha 448, Col 8 | Total abertas: 2
+[ABRE] Linha 449, Col 31 | Total abertas: 3
+[ABRE] Linha 451, Col 17 | Total abertas: 4
+[FECHA] Linha 451, Col 54 | Fecha a chave da Linha 451, Col 17 | Restam: 3
+[ABRE] Linha 452, Col 29 | Total abertas: 4
+[FECHA] Linha 460, Col 8 | Fecha a chave da Linha 452, Col 29 | Restam: 3
+[FECHA] Linha 461, Col 6 | Fecha a chave da Linha 449, Col 31 | Restam: 2
+[FECHA] Linha 462, Col 4 | Fecha a chave da Linha 448, Col 8 | Restam: 1
+[ABRE] Linha 462, Col 22 | Total abertas: 2
+[FECHA] Linha 464, Col 4 | Fecha a chave da Linha 462, Col 22 | Restam: 1
+[ABRE] Linha 467, Col 8 | Total abertas: 2
+[ABRE] Linha 468, Col 12 | Total abertas: 3
+[FECHA] Linha 468, Col 26 | Fecha a chave da Linha 468, Col 12 | Restam: 2
+[ABRE] Linha 477, Col 23 | Total abertas: 3
+[ABRE] Linha 480, Col 18 | Total abertas: 4
+[FECHA] Linha 480, Col 89 | Fecha a chave da Linha 480, Col 18 | Restam: 3
+[ABRE] Linha 486, Col 18 | Total abertas: 4
+[ABRE] Linha 489, Col 186 | Total abertas: 5
+[FECHA] Linha 489, Col 197 | Fecha a chave da Linha 489, Col 186 | Restam: 4
+[FECHA] Linha 492, Col 10 | Fecha a chave da Linha 486, Col 18 | Restam: 3
+[FECHA] Linha 493, Col 6 | Fecha a chave da Linha 477, Col 23 | Restam: 2
+[FECHA] Linha 494, Col 4 | Fecha a chave da Linha 467, Col 8 | Restam: 1
+[ABRE] Linha 494, Col 20 | Total abertas: 2
+[FECHA] Linha 496, Col 4 | Fecha a chave da Linha 494, Col 20 | Restam: 1
+[ABRE] Linha 499, Col 8 | Total abertas: 2
+[ABRE] Linha 502, Col 16 | Total abertas: 3
+[FECHA] Linha 502, Col 46 | Fecha a chave da Linha 502, Col 16 | Restam: 2
+[FECHA] Linha 504, Col 4 | Fecha a chave da Linha 499, Col 8 | Restam: 1
+[ABRE] Linha 504, Col 23 | Total abertas: 2
+[FECHA] Linha 506, Col 4 | Fecha a chave da Linha 504, Col 23 | Restam: 1
+[FECHA] Linha 507, Col 2 | Fecha a chave da Linha 438, Col 133 | Restam: 0
+[ABRE] Linha 510, Col 43 | Total abertas: 1
+[ABRE] Linha 511, Col 68 | Total abertas: 2
+[FECHA] Linha 513, Col 4 | Fecha a chave da Linha 511, Col 68 | Restam: 1
+[ABRE] Linha 516, Col 58 | Total abertas: 2
+[FECHA] Linha 519, Col 4 | Fecha a chave da Linha 516, Col 58 | Restam: 1
+[ABRE] Linha 522, Col 28 | Total abertas: 2
+[FECHA] Linha 524, Col 4 | Fecha a chave da Linha 522, Col 28 | Restam: 1
+[ABRE] Linha 527, Col 56 | Total abertas: 2
+[ABRE] Linha 531, Col 181 | Total abertas: 3
+[FECHA] Linha 533, Col 6 | Fecha a chave da Linha 531, Col 181 | Restam: 2
+[FECHA] Linha 537, Col 4 | Fecha a chave da Linha 527, Col 56 | Restam: 1
+[ABRE] Linha 540, Col 26 | Total abertas: 2
+[FECHA] Linha 542, Col 4 | Fecha a chave da Linha 540, Col 26 | Restam: 1
+[ABRE] Linha 544, Col 20 | Total abertas: 2
+[FECHA] Linha 546, Col 4 | Fecha a chave da Linha 544, Col 20 | Restam: 1
+[ABRE] Linha 547, Col 18 | Total abertas: 2
+[FECHA] Linha 549, Col 4 | Fecha a chave da Linha 547, Col 18 | Restam: 1
+[FECHA] Linha 552, Col 2 | Fecha a chave da Linha 510, Col 43 | Restam: 0

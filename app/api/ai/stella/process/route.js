@@ -132,7 +132,48 @@ export async function POST(request) {
           .eq('email', `stella.org${organizacaoId}@elo57.com.br`)
           .maybeSingle();
 
-        const stellaUserId = stellaUserRes?.id || null;
+                const stellaUserId = stellaUserRes?.id || null;
+
+        // 3b. Calcular se a janela de 24h está aberta
+        const { data: ultimaMsgInbound, error: errorInbound } = await supabaseAdmin
+          .from('whatsapp_messages')
+          .select('created_at')
+          .eq('contato_id', contatoId)
+          .eq('direction', 'inbound')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (errorInbound) {
+          console.error('[Stella Background Process] Erro ao buscar última mensagem inbound:', errorInbound.message);
+        }
+
+        const isJanelaAberta = ultimaMsgInbound && (new Date() - new Date(ultimaMsgInbound.created_at) < 24 * 60 * 60 * 1000);
+        console.log(`[Stella Background Process] Contato ${contatoId}: Janela de 24h está ${isJanelaAberta ? 'ABERTA' : 'FECHADA'} (Última msg inbound: ${ultimaMsgInbound?.created_at || 'Nunca'}).`);
+
+        // 3c. Se a janela estiver fechada, buscar os templates de WhatsApp aprovados da Meta
+        let templatesDisponiveis = [];
+        if (!isJanelaAberta) {
+          console.log(`[Stella Background Process] Buscando templates Meta da Org ${organizacaoId} para reengajamento...`);
+          if (config?.whatsapp_business_account_id) {
+            const token = config.whatsapp_permanent_token || process.env.WHATSAPP_SYSTEM_USER_TOKEN;
+            const url = `https://graph.facebook.com/v20.0/${config.whatsapp_business_account_id}/message_templates?fields=name,status,category,language,components&limit=100`;
+            try {
+              const res = await fetch(url, {
+                headers: { 'Authorization': `Bearer ${token}` }
+              });
+              if (res.ok) {
+                const resJson = await res.json();
+                templatesDisponiveis = (resJson.data || []).filter(t => t.status === 'APPROVED');
+                console.log(`[Stella Background Process] Encontrados ${templatesDisponiveis.length} templates aprovados na Meta.`);
+              } else {
+                console.warn(`[Stella Background Process] Falha ao consultar templates da Meta. Status: ${res.status}`);
+              }
+            } catch (errTemplates) {
+              console.error('[Stella Background Process] Erro ao buscar templates Meta:', errTemplates.message);
+            }
+          }
+        }
 
         console.log(`[Stella Background Process] Executando chamada à IA para o contato ${contatoId}...`);
         
@@ -143,6 +184,8 @@ export async function POST(request) {
           force: true,
           quickResponse: true,
           canal: 'whatsapp',
+          janelaFechada: !isJanelaAberta,
+          templatesDisponiveis: templatesDisponiveis,
           pular_atualizacao_crm: true // <--- NÃO ATUALIZA O CRM AINDA!
         });
 
@@ -152,9 +195,64 @@ export async function POST(request) {
         }
 
         if (aiResult && !aiResult.error) {
-          if (aiResult?.proxima_resposta_sugerida) {
-            const sendTextUrl = `${protocol}://${host}/api/whatsapp/send`;
+          const sendTextUrl = `${protocol}://${host}/api/whatsapp/send`;
 
+          // A. Se a IA sugerir o envio de um template (Janela Fechada)
+          if (aiResult.template_selecionado && aiResult.template_selecionado !== 'null' && aiResult.template_selecionado !== null) {
+            console.log(`[Stella Background Process] Stella sugeriu template "${aiResult.template_selecionado}". Enviando...`);
+
+            // Tentar reconstruir o texto completo do template com as variáveis preenchidas para exibir no chat do CRM
+            let resolvedTemplateText = `Template: ${aiResult.template_selecionado}`;
+            try {
+              const matchedTemp = (templatesDisponiveis || []).find(t => t.name === aiResult.template_selecionado);
+              if (matchedTemp) {
+                const bodyComponent = (matchedTemp.components || []).find(c => c.type === 'BODY' || c.type === 'body');
+                if (bodyComponent && bodyComponent.text) {
+                  let textTemplate = bodyComponent.text;
+                  const bodyParamsObj = (aiResult.template_componentes || []).find(c => (c.type || '').toLowerCase() === 'body');
+                  const parameters = bodyParamsObj?.parameters || [];
+
+                  parameters.forEach((param, idx) => {
+                    const val = param.text || '';
+                    textTemplate = textTemplate.replace(new RegExp(`\\{\\{${idx + 1}\\}\\}`, 'g'), val);
+                  });
+                  resolvedTemplateText = textTemplate;
+                }
+              }
+            } catch (errResolve) {
+              console.error('[Stella Background Process] Erro ao resolver texto do template:', errResolve.message);
+            }
+
+            const sendTemplateResponse = await fetch(sendTextUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                to: cleanPhone,
+                type: 'template',
+                templateName: aiResult.template_selecionado,
+                components: aiResult.template_componentes || [],
+                custom_content: resolvedTemplateText,
+                contact_id: contatoId,
+                organizacao_id: organizacaoId,
+                usuario_id: stellaUserId
+              })
+            });
+
+            if (!sendTemplateResponse.ok) {
+              const errText = await sendTemplateResponse.text();
+              console.error(`[Stella Background Process] Erro ao enviar template:`, errText);
+              throw new Error(`Erro ao enviar template: ${errText}`);
+            }
+            
+            console.log(`[Stella Background Process] Template enviado com sucesso!`);
+          }
+          // B. Se a janela estiver fechada e a IA não sugerir template, bloqueamos texto livre para evitar erro de reengajamento da Meta
+          else if (!isJanelaAberta) {
+            console.warn(`[Stella Background Process Blocked] A janela está fechada e a IA não sugeriu nenhum template Meta. Abortando.`);
+            throw new Error('Janela de 24h fechada e nenhum template selecionado pela IA.');
+          }
+          // C. Janela Aberta: enviar pílulas normais de texto livre
+          else if (aiResult?.proxima_resposta_sugerida) {
             const fullText = aiResult.proxima_resposta_sugerida || '';
             let messagesParts = fullText
               .split(/\n\n+/)
@@ -198,8 +296,10 @@ export async function POST(request) {
               } else {
                 const errText = await sendTextResponse.text();
                 console.error(`[Stella Background Process] Erro pílula ${i + 1}/${messagesParts.length}:`, errText);
+                throw new Error(`Erro ao enviar pílula: ${errText}`);
               }
             }
+          }
 
             // Envio do Anexo se sugerido pela Stella
             if (aiResult.anexo_sugerido && aiResult.anexo_sugerido.caminho_arquivo) {
@@ -282,7 +382,6 @@ export async function POST(request) {
                 }
               }
             }
-          }
 
           // ------------------------------------------------------------------------
           // 🚀 ORDEM CORRIGIDA: ATUALIZA O CRM NO BANCO SOMENTE APÓS ENVIAR AS MENSAGENS!
