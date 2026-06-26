@@ -6,9 +6,10 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
  faArrowLeft, faSpinner, faSync, faBoxOpen, faExclamationCircle,
  faEnvelopeOpen, faCheckSquare, faSquare, faTrash, faArchive, faEnvelope,
- faSearch, faTimes
+ faSearch, faTimes, faLock
 } from '@fortawesome/free-solid-svg-icons';
 import { format } from 'date-fns';
+import { useAuth } from '@/contexts/AuthContext';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
 import EmailActionMenu from './EmailActionMenu';
@@ -81,6 +82,8 @@ export default function EmailListPanel({
  onChangeTab,
  canViewWhatsapp
 }) {
+ const { user } = useAuth();
+ const organizacaoId = user?.organizacao_id;
  const [filterStatus, setFilterStatus] = useState('unread');
  const [selectedIds, setSelectedIds] = useState(new Set());
  const [lastSelectedId, setLastSelectedId] = useState(null);
@@ -247,14 +250,29 @@ export default function EmailListPanel({
  <FontAwesomeIcon icon={faWhatsapp} className="text-lg" /> WhatsApp
  </button>
  )}
- {canViewWhatsapp && (
- <button
- onClick={() => onChangeTab('instagram')}
- className="flex-1 py-4 text-sm font-medium flex justify-center items-center gap-2 border-b-2 border-transparent text-gray-500 hover:bg-gray-100 transition-colors touch-manipulation"
- >
- <FontAwesomeIcon icon={faInstagram} className="text-lg" style={{ color: '#e1306c' }} /> Insta
- </button>
- )}
+          {canViewWhatsapp && (
+            organizacaoId === 2 ? (
+              <button
+                onClick={() => onChangeTab('instagram')}
+                className="flex-1 py-4 text-sm font-medium flex justify-center items-center gap-2 border-b-2 border-transparent text-gray-500 hover:bg-gray-100 transition-colors touch-manipulation"
+              >
+                <FontAwesomeIcon icon={faInstagram} className="text-lg" style={{ color: '#e1306c' }} /> Insta
+              </button>
+            ) : (
+              <button 
+                disabled 
+                className="flex-1 py-1 px-1 text-sm font-medium flex flex-col justify-center items-center gap-0.5 border-b-2 border-transparent text-gray-400 cursor-not-allowed bg-gray-50/50 transition-colors touch-manipulation"
+                title="Instagram - Ajustes em andamento"
+              >
+                <span className="flex items-center gap-1 justify-center">
+                  <FontAwesomeIcon icon={faInstagram} className="text-base opacity-70" />
+                  Insta
+                  <FontAwesomeIcon icon={faLock} className="text-[10px] text-gray-400" />
+                </span>
+                <span className="text-[9px] font-normal text-gray-400 leading-none">em ajustes</span>
+              </button>
+            )
+          )}
  <button className="flex-1 py-4 text-sm font-bold flex justify-center items-center gap-2 border-b-2 border-blue-600 text-blue-600 bg-white transition-colors touch-manipulation">
  <FontAwesomeIcon icon={faEnvelope} className="text-lg" /> E-mail
  </button>

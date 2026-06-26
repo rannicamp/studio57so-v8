@@ -13,10 +13,11 @@ export const revalidate = 0;
 export default async function ContratoPage({ params }) {
 
  const supabase = await createClient();
- const { id } = params; const { data: { user } } = await supabase.auth.getUser();
- if (!user) {
- redirect('/login');
- }
+  const { id } = await params;
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    redirect('/login');
+  }
 
  try {
  const { data: userProfile, error: profileError } = await supabase

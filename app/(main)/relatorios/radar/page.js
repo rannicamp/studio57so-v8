@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, Suspense } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { getRadarStats, resolveMetaIds, getDicionarioContatos } from './actions';
@@ -29,10 +29,24 @@ const COLORS_COMERCIAL = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6',
 
 function RadarPageContent() {
   const params = useSearchParams();
-  const initTab = params.get('tab') || 'radar';
   const { user } = useAuth();
+  const isOrg2 = user?.organizacao_id ? Number(user.organizacao_id) === 2 : false;
+
+  let initTab = params.get('tab') || (isOrg2 ? 'radar' : 'comercial');
+  if (initTab === 'radar' && !isOrg2) {
+    initTab = 'comercial';
+  }
   const [activeTab, setActiveTab] = useState(initTab); // 'radar', 'comercial', 'ads'
   const [somenteMarketing, setSomenteMarketing] = useState(true);
+
+  // Forçar aba comercial apenas se tentarem forçar acesso ao Radar (Tráfego)
+  useEffect(() => {
+    if (user?.organizacao_id && Number(user.organizacao_id) !== 2) {
+      if (activeTab === 'radar') {
+        setActiveTab('comercial');
+      }
+    }
+  }, [user?.organizacao_id, activeTab]);
 
   // Controle de Datas Unificado
   const [dateRange, setDateRange] = useState({
@@ -306,18 +320,22 @@ function RadarPageContent() {
     <div className="mb-8 p-6 bg-white rounded-2xl shadow-sm border border-gray-100 flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
       <div>
         <h1 className="text-2xl font-black text-gray-900 tracking-tight flex items-center">
-          <FontAwesomeIcon icon={activeTab === 'ads' ? faMeta : faEye} className={`${activeTab === 'ads' ? 'text-blue-600' : 'text-indigo-600'} mr-3 text-3xl`} />
-          {activeTab === 'ads' ? 'Hub de Marketing' : 'Radar Studio'}
+          <FontAwesomeIcon icon={activeTab === 'ads' ? faMeta : (isOrg2 ? faEye : faChartPie)} className={`${activeTab === 'ads' ? 'text-blue-600' : 'text-slate-650'} mr-3 text-3xl`} />
+          {activeTab === 'ads' ? 'Hub de Marketing' : (isOrg2 ? 'Radar Studio' : 'Comercial & Vendas')}
         </h1>
-        <p className="text-sm text-gray-500 mt-1">Inteligência de Tráfego, Atribuição e CRM Unificado.</p>
+        <p className="text-sm text-gray-500 mt-1">
+          {activeTab === 'ads' ? 'Gestão de campanhas de anúncios e conversões.' : (isOrg2 ? 'Inteligência de Tráfego, Atribuição e CRM Unificado.' : 'Inteligência de Vendas, Funil e Atendimento Comercial.')}
+        </p>
       </div>
 
       <div className="flex flex-col md:flex-row items-end md:items-center gap-4">
         {/* Seletor de Abas */}
         <div className="bg-gray-100 p-1 rounded-lg flex overflow-x-auto w-full md:w-auto">
-          <button onClick={() => setActiveTab('radar')} className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-semibold transition whitespace-nowrap ${activeTab === 'radar' ? 'bg-white text-gray-900 shadow-sm border border-gray-200' : 'text-gray-500 hover:text-gray-900'}`}>
-            <FontAwesomeIcon icon={faChartLine} /> Radar (Tráfego)
-          </button>
+          {isOrg2 && (
+            <button onClick={() => setActiveTab('radar')} className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-semibold transition whitespace-nowrap ${activeTab === 'radar' ? 'bg-white text-gray-900 shadow-sm border border-gray-200' : 'text-gray-500 hover:text-gray-900'}`}>
+              <FontAwesomeIcon icon={faChartLine} /> Radar (Tráfego)
+            </button>
+          )}
           <button onClick={() => setActiveTab('comercial')} className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-semibold transition whitespace-nowrap ${activeTab === 'comercial' ? 'bg-white text-gray-900 shadow-sm border border-gray-200' : 'text-gray-500 hover:text-gray-900'}`}>
             <FontAwesomeIcon icon={faBuilding} /> Vendas & CRM
           </button>

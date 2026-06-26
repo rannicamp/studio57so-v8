@@ -1,0 +1,684 @@
+=== RELATÓRIO DE AUDITORIA DE LEADS E VARREDURA DE ATENDIMENTO ===
+Executado em: 2026-06-25T14:22:33.647Z
+
+Total de mensagens trafegadas nesta semana: 732
+Total de contatos ativos na semana: 106
+
+🚨 LEADS SEM RESPOSTA (Última mensagem enviada pelo cliente): 9
+1. Contato: Geovane Marques (ID: 4936)
+   Coluna CRM: CLIENTE POTENCIAL
+   Piloto Automático: DESLIGADO 👤
+   Data da Mensagem: 2026-06-22T13:35:58.451638+00:00
+   Conteúdo recebido: "Tá bom"
+------------------------------------------------------------
+2. Contato: Elson Louzada de Oliveira (ID: 5887)
+   Coluna CRM: ACOMPANHAMENTO
+   Piloto Automático: DESLIGADO 👤
+   Data da Mensagem: 2026-06-22T14:32:18.236863+00:00
+   Conteúdo recebido: "valeu"
+------------------------------------------------------------
+3. Contato: Wanessa Fazzolo (ID: 5880)
+   Coluna CRM: PERDIDO
+   Piloto Automático: LIGADO 🤖
+   Data da Mensagem: 2026-06-22T18:04:35.02674+00:00
+   Conteúdo recebido: "[Botão]: Não, Obrigado!"
+------------------------------------------------------------
+4. Contato: Lead (553388296616) (ID: 4919)
+   Coluna CRM: PERDIDO
+   Piloto Automático: DESLIGADO 👤
+   Data da Mensagem: 2026-06-23T16:54:57.101789+00:00
+   Conteúdo recebido: "📷 Imagem"
+------------------------------------------------------------
+5. Contato: Ana Clara Castro Cardoso (ID: 6068)
+   Coluna CRM: Sem coluna / Inbox
+   Piloto Automático: DESLIGADO 👤
+   Data da Mensagem: 2026-06-24T16:45:54.436203+00:00
+   Conteúdo recebido: "📄 Curriculo_Ana_Clara.pdf"
+------------------------------------------------------------
+6. Contato: Ana Julia Lourenço Da Silva (ID: 6071)
+   Coluna CRM: Sem coluna / Inbox
+   Piloto Automático: DESLIGADO 👤
+   Data da Mensagem: 2026-06-23T23:45:25.751428+00:00
+   Conteúdo recebido: "📷 Imagem"
+------------------------------------------------------------
+7. Contato: Margarete Correia (ID: 6072)
+   Coluna CRM: PERDIDO
+   Piloto Automático: DESLIGADO 👤
+   Data da Mensagem: 2026-06-24T01:24:35.063106+00:00
+   Conteúdo recebido: "🎙️ *Transcrição:* _Aí, minhas gatinhas, vocês estão as minhas gatinhas são muito bonitas. Deixa eu te falar, eu moro sozinho, quem sabe um de vocês quer fazer companhia. Qualquer um de vocês me serve, entendeu? Tá a fim de caçar a companhia boa. Que sabe um de vocês vai ser vai ser uma dessas. Fala comigo, e me retorna aqui, beleza? E com Deus, aí, um abraço. Tchau pra vocês. Estou esperando, um abraço. Um beijo._"
+------------------------------------------------------------
+8. Contato: Anna Lia da Silva Vicente (ID: 6076)
+   Coluna CRM: Sem coluna / Inbox
+   Piloto Automático: DESLIGADO 👤
+   Data da Mensagem: 2026-06-24T00:35:18.882015+00:00
+   Conteúdo recebido: "Ainda estão contratando?"
+------------------------------------------------------------
+9. Contato: Sonia Maria Campos (ID: 656)
+   Coluna CRM: VENDIDO
+   Piloto Automático: LIGADO 🤖
+   Data da Mensagem: 2026-06-24T21:45:10.162867+00:00
+   Conteúdo recebido: "Ok. Obrigada!!!"
+------------------------------------------------------------
+
+⚠️ LEADS COM FALHA DE ENVIO (Tentativa de resposta falhou): 6
+1. Contato: Cleo Matos teixeira (ID: 5977)
+   Coluna CRM: FALHAS
+   Piloto Automático: DESLIGADO 👤
+   Data da Falha: 2026-06-22T12:41:52.060434+00:00
+   Último Status: failed (Erro: Meta Error 130472: User's number is part of an experiment)
+   Texto que falhou: "Template: reativar_contato"
+------------------------------------------------------------
+2. Contato: Anderson Elias de Almeida (ID: 6056)
+   Coluna CRM: FALHAS
+   Piloto Automático: DESLIGADO 👤
+   Data da Falha: 2026-06-24T14:18:23.157665+00:00
+   Último Status: failed (Erro: Meta Error 131047: Re-engagement message)
+   Texto que falhou: "Bom dia Anderson, tudo bem? "
+------------------------------------------------------------
+3. Contato: Vilma Marulanda (ID: 6073)
+   Coluna CRM: QUALIFICAÇÃO STELLA
+   Piloto Automático: DESLIGADO 👤
+   Data da Falha: 2026-06-24T00:09:57.970829+00:00
+   Último Status: failed (Erro: Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.)
+   Texto que falhou: "(Automação) Template: saudacao_entrada_v3"
+------------------------------------------------------------
+4. Contato: Renilda  carneiro (ID: 6077)
+   Coluna CRM: PERDIDO
+   Piloto Automático: DESLIGADO 👤
+   Data da Falha: 2026-06-24T10:18:26.972158+00:00
+   Último Status: failed (Erro: Meta Error 131026: Message undeliverable)
+   Texto que falhou: "(Automação) Template: saudacao_entrada_v3"
+------------------------------------------------------------
+5. Contato: Cicero Nascimento Alves (ID: 5020)
+   Coluna CRM: PERDIDO
+   Piloto Automático: DESLIGADO 👤
+   Data da Falha: 2026-06-24T16:12:03.973866+00:00
+   Último Status: failed (Erro: Meta Error 131026: Message undeliverable)
+   Texto que falhou: "(Automação) Template: saudacao_entrada_v3"
+------------------------------------------------------------
+6. Contato: Márcio Fernandes (ID: 6087)
+   Coluna CRM: PERDIDO
+   Piloto Automático: DESLIGADO 👤
+   Data da Falha: 2026-06-25T11:37:18.289977+00:00
+   Último Status: failed (Erro: Meta Error 131026: Message undeliverable)
+   Texto que falhou: "(Automação) Template: saudacao_entrada_v3"
+------------------------------------------------------------
+
+🟢 LEADS BEM ATENDIDOS (Última mensagem é nossa ou enviada com sucesso): 91
+1. Contato: Christiane Viana (ID: 6035)
+   Coluna CRM: PERDIDO
+   Piloto Automático: DESLIGADO 👤
+   Data: 2026-06-21T14:34:33.833801+00:00
+   Última Mensagem: "Infelizmente não temos nenhum imóvel construído nessas regiões ..."
+------------------------------------------------------------
+2. Contato: Carlos Alberto da Cruz (ID: 6036)
+   Coluna CRM: EM ATENDIMENTO 
+   Piloto Automático: DESLIGADO 👤
+   Data: 2026-06-23T11:42:45.98603+00:00
+   Última Mensagem: "Da uma olhada nesse empreendimento e me diz se ele se encaixa melhor no que você..."
+------------------------------------------------------------
+3. Contato: Ricardo Araujo Mariz (ID: 6037)
+   Coluna CRM: EM ATENDIMENTO 
+   Piloto Automático: LIGADO 🤖
+   Data: 2026-06-22T12:31:30.681659+00:00
+   Última Mensagem: "Template: reativar_contato..."
+------------------------------------------------------------
+4. Contato: cida (ID: 6038)
+   Coluna CRM: MENSAGEM ENVIADA
+   Piloto Automático: LIGADO 🤖
+   Data: 2026-06-21T12:24:44.187372+00:00
+   Última Mensagem: "(Automação) Template: saudacao_entrada_v3..."
+------------------------------------------------------------
+5. Contato: Breno (ID: 6021)
+   Coluna CRM: EM ATENDIMENTO 
+   Piloto Automático: DESLIGADO 👤
+   Data: 2026-06-23T11:41:23.427403+00:00
+   Última Mensagem: "Bom dia Breno, tudo bem com você? ..."
+------------------------------------------------------------
+6. Contato: Lucelia Dias de Oliveira (ID: 5961)
+   Coluna CRM: INTERVENÇÃO HUMANA
+   Piloto Automático: DESLIGADO 👤
+   Data: 2026-06-22T11:54:58.351113+00:00
+   Última Mensagem: "Estou passando para verificar se você conseguiu acessar as informações que envia..."
+------------------------------------------------------------
+7. Contato: Ana Carolina Menezes (ID: 5133)
+   Coluna CRM: EM ATENDIMENTO 
+   Piloto Automático: LIGADO 🤖
+   Data: 2026-06-22T02:34:54.855241+00:00
+   Última Mensagem: "Assim, consigo verificar qual das nossas unidades atuais melhor se encaixa no se..."
+------------------------------------------------------------
+8. Contato: João Geraldo Soares de Souza (ID: 6039)
+   Coluna CRM: MENSAGEM ENVIADA
+   Piloto Automático: LIGADO 🤖
+   Data: 2026-06-21T13:55:35.127336+00:00
+   Última Mensagem: "(Automação) Template: saudacao_entrada_v3..."
+------------------------------------------------------------
+9. Contato: nina reis (ID: 6041)
+   Coluna CRM: MENSAGEM ENVIADA
+   Piloto Automático: LIGADO 🤖
+   Data: 2026-06-21T15:07:58.323787+00:00
+   Última Mensagem: "(Automação) Template: saudacao_entrada_v3..."
+------------------------------------------------------------
+10. Contato: Pedro Ferreira (ID: 6042)
+   Coluna CRM: EM ATENDIMENTO 
+   Piloto Automático: LIGADO 🤖
+   Data: 2026-06-22T12:32:07.623436+00:00
+   Última Mensagem: "O que achou do book do Beta Suítes?..."
+------------------------------------------------------------
+11. Contato: Lauro Coelho Neto (ID: 3347)
+   Coluna CRM: MENSAGEM ENVIADA
+   Piloto Automático: LIGADO 🤖
+   Data: 2026-06-21T18:50:31.027108+00:00
+   Última Mensagem: "(Automação) Template: saudacao_entrada_v3..."
+------------------------------------------------------------
+12. Contato: Warley santos siva (ID: 6043)
+   Coluna CRM: EM ATENDIMENTO 
+   Piloto Automático: DESLIGADO 👤
+   Data: 2026-06-22T17:54:52.108771+00:00
+   Última Mensagem: "Da uma olhadinha no nosso book e me diz se é o que você procura ..."
+------------------------------------------------------------
+13. Contato: Cíntia Martins Almeida | Advogada (ID: 6044)
+   Coluna CRM: MENSAGEM ENVIADA
+   Piloto Automático: LIGADO 🤖
+   Data: 2026-06-21T23:23:38.579368+00:00
+   Última Mensagem: "(Automação) Template: saudacao_entrada_v3..."
+------------------------------------------------------------
+14. Contato: Amanda Silva (ID: 5420)
+   Coluna CRM: EM ATENDIMENTO 
+   Piloto Automático: LIGADO 🤖
+   Data: 2026-06-22T12:29:30.736157+00:00
+   Última Mensagem: "Conseguiu dar uma olhada no book? O que achou do projeto?..."
+------------------------------------------------------------
+15. Contato: Victor Gabriel (ID: 6045)
+   Coluna CRM: MENSAGEM ENVIADA
+   Piloto Automático: LIGADO 🤖
+   Data: 2026-06-22T02:11:08.713828+00:00
+   Última Mensagem: "(Automação) Template: saudacao_entrada_v3..."
+------------------------------------------------------------
+16. Contato: Marcella Novais (ID: 6046)
+   Coluna CRM: MENSAGEM ENVIADA
+   Piloto Automático: LIGADO 🤖
+   Data: 2026-06-22T02:12:27.654251+00:00
+   Última Mensagem: "(Automação) Template: saudacao_entrada_v3..."
+------------------------------------------------------------
+17. Contato: Marilene Barcellos (ID: 6047)
+   Coluna CRM: MENSAGEM ENVIADA
+   Piloto Automático: LIGADO 🤖
+   Data: 2026-06-22T02:17:27.007279+00:00
+   Última Mensagem: "(Automação) Template: saudacao_entrada_v3..."
+------------------------------------------------------------
+18. Contato: Delcy A. Oliveira (ID: 3424)
+   Coluna CRM: CLIENTE POTENCIAL
+   Piloto Automático: DESLIGADO 👤
+   Data: 2026-06-24T15:56:31.497902+00:00
+   Última Mensagem: "Oi Delcy , tudo bem? 
+
+Fiquei sem seu retorno e queria saber: ficou alguma dúvid..."
+------------------------------------------------------------
+19. Contato: Mateus Dias (ID: 5962)
+   Coluna CRM: MENSAGEM ENVIADA
+   Piloto Automático: DESLIGADO 👤
+   Data: 2026-06-22T17:50:40.069819+00:00
+   Última Mensagem: "Olá! Recebemos o seu cadastro e respeitamos muito a sua privacidade. 🔒
+
+Você go..."
+------------------------------------------------------------
+20. Contato: Sarah (ID: 5976)
+   Coluna CRM: MENSAGEM ENVIADA
+   Piloto Automático: DESLIGADO 👤
+   Data: 2026-06-22T11:49:38.405+00:00
+   Última Mensagem: "Olá! Recebemos o seu cadastro e respeitamos muito a sua privacidade. 🔒
+
+Você go..."
+------------------------------------------------------------
+21. Contato: Paulo Saantos (ID: 5933)
+   Coluna CRM: MENSAGEM ENVIADA
+   Piloto Automático: DESLIGADO 👤
+   Data: 2026-06-22T11:50:18.821361+00:00
+   Última Mensagem: "Olá! Recebemos o seu cadastro e respeitamos muito a sua privacidade. 🔒
+
+Você go..."
+------------------------------------------------------------
+22. Contato: Leonardo Gomes (ID: 5950)
+   Coluna CRM: MENSAGEM ENVIADA
+   Piloto Automático: DESLIGADO 👤
+   Data: 2026-06-22T11:50:41.721954+00:00
+   Última Mensagem: "Olá! Recebemos o seu cadastro e respeitamos muito a sua privacidade. 🔒
+
+Você go..."
+------------------------------------------------------------
+23. Contato: Barros EUA (ID: 6017)
+   Coluna CRM: FALHAS
+   Piloto Automático: LIGADO 🤖
+   Data: 2026-06-22T11:51:34.468065+00:00
+   Última Mensagem: "Olá! Recebemos o seu cadastro e respeitamos muito a sua privacidade. 🔒
+
+Você go..."
+------------------------------------------------------------
+24. Contato: Larissa Aguiar de Carvalho Meireles (ID: 5996)
+   Coluna CRM: MENSAGEM ENVIADA
+   Piloto Automático: DESLIGADO 👤
+   Data: 2026-06-22T11:51:54.103566+00:00
+   Última Mensagem: "Olá! Recebemos o seu cadastro e respeitamos muito a sua privacidade. 🔒
+
+Você go..."
+------------------------------------------------------------
+25. Contato: Layla Marina (ID: 5970)
+   Coluna CRM: INTERVENÇÃO HUMANA
+   Piloto Automático: DESLIGADO 👤
+   Data: 2026-06-22T11:53:12.296899+00:00
+   Última Mensagem: "Olá Layla, tudo bem com você?
+Podemos continuar a nossa conversa?..."
+------------------------------------------------------------
+26. Contato: Cassio Coelho (ID: 5296)
+   Coluna CRM: INTERVENÇÃO HUMANA
+   Piloto Automático: DESLIGADO 👤
+   Data: 2026-06-22T11:53:29.228952+00:00
+   Última Mensagem: "Olá Cassio, tudo bem com você?
+Podemos continuar a nossa conversa?..."
+------------------------------------------------------------
+27. Contato: Junior (ID: 5988)
+   Coluna CRM: INTERVENÇÃO HUMANA
+   Piloto Automático: DESLIGADO 👤
+   Data: 2026-06-22T11:54:10.649864+00:00
+   Última Mensagem: "Olá! Recebemos o seu cadastro e respeitamos muito a sua privacidade. 🔒
+
+Você go..."
+------------------------------------------------------------
+28. Contato: Junio Teles (ID: 4696)
+   Coluna CRM: FALHAS
+   Piloto Automático: DESLIGADO 👤
+   Data: 2026-06-22T11:56:29.713994+00:00
+   Última Mensagem: "Estou passando para verificar se você conseguiu acessar as informações que envia..."
+------------------------------------------------------------
+29. Contato: Marcelo Ramos (ID: 5916)
+   Coluna CRM: EM ATENDIMENTO 
+   Piloto Automático: DESLIGADO 👤
+   Data: 2026-06-22T11:57:44.61794+00:00
+   Última Mensagem: "Oi, aqui é do studio 57 arquitetura e incorporação, tudo bem com você?..."
+------------------------------------------------------------
+30. Contato: Luiz Ricardo Fernandes Neves (ID: 5912)
+   Coluna CRM: EM ATENDIMENTO 
+   Piloto Automático: DESLIGADO 👤
+   Data: 2026-06-22T11:58:01.835209+00:00
+   Última Mensagem: "Olá! Recebemos o seu cadastro e respeitamos muito a sua privacidade. 🔒
+
+Você go..."
+------------------------------------------------------------
+31. Contato: Marcone Caldeira Monteiro (ID: 5858)
+   Coluna CRM: FALHAS
+   Piloto Automático: LIGADO 🤖
+   Data: 2026-06-22T11:58:48.378694+00:00
+   Última Mensagem: "Estou passando para verificar se você conseguiu acessar as informações que envia..."
+------------------------------------------------------------
+32. Contato: Dulce Helena Ribeiro Martins (ID: 5908)
+   Coluna CRM: EM ATENDIMENTO 
+   Piloto Automático: DESLIGADO 👤
+   Data: 2026-06-22T11:59:09.736579+00:00
+   Última Mensagem: "Estou passando para verificar se você conseguiu acessar as informações que envia..."
+------------------------------------------------------------
+33. Contato: Enzo Portela (ID: 5978)
+   Coluna CRM: ACOMPANHAMENTO
+   Piloto Automático: DESLIGADO 👤
+   Data: 2026-06-22T19:43:03.458606+00:00
+   Última Mensagem: "Amém 🙌..."
+------------------------------------------------------------
+34. Contato: Rosely Rocha Dos Santos (ID: 5993)
+   Coluna CRM: EM ATENDIMENTO 
+   Piloto Automático: DESLIGADO 👤
+   Data: 2026-06-22T13:18:18.255878+00:00
+   Última Mensagem: "Qual o melhor dia e horário para você Rosely? ..."
+------------------------------------------------------------
+35. Contato: Bruna Nunes Martins Berto (ID: 6013)
+   Coluna CRM: EM ATENDIMENTO 
+   Piloto Automático: DESLIGADO 👤
+   Data: 2026-06-22T11:59:56.216761+00:00
+   Última Mensagem: "Estou passando para verificar se você conseguiu acessar as informações que envia..."
+------------------------------------------------------------
+36. Contato: Heleno Ramos Sanabio (ID: 5414)
+   Coluna CRM: CLIENTE POTENCIAL
+   Piloto Automático: DESLIGADO 👤
+   Data: 2026-06-22T12:01:26.438038+00:00
+   Última Mensagem: "Oi, aqui é do studio 57 arquitetura e incorporação, tudo bem com você?..."
+------------------------------------------------------------
+37. Contato: Marcio (ID: 5947)
+   Coluna CRM: FALHAS
+   Piloto Automático: LIGADO 🤖
+   Data: 2026-06-22T12:01:53.226524+00:00
+   Última Mensagem: "Estou passando para verificar se você conseguiu acessar as informações que envia..."
+------------------------------------------------------------
+38. Contato: Diogo Batysta Chinão (ID: 5989)
+   Coluna CRM: CLIENTE POTENCIAL
+   Piloto Automático: DESLIGADO 👤
+   Data: 2026-06-22T12:02:12.207298+00:00
+   Última Mensagem: "Estou passando para verificar se você conseguiu acessar as informações que envia..."
+------------------------------------------------------------
+39. Contato: Erasto (ID: 5894)
+   Coluna CRM: INTERVENÇÃO HUMANA
+   Piloto Automático: DESLIGADO 👤
+   Data: 2026-06-25T12:30:01.18155+00:00
+   Última Mensagem: "Entrando em contato para saber se você fechou com a WR ou se ainda temos chances..."
+------------------------------------------------------------
+40. Contato: Francimario Batista (ID: 6001)
+   Coluna CRM: EM ATENDIMENTO 
+   Piloto Automático: DESLIGADO 👤
+   Data: 2026-06-22T12:03:14.332822+00:00
+   Última Mensagem: "Olá Francimario! Tudo bem com você?..."
+------------------------------------------------------------
+41. Contato: Arthur (ID: 5575)
+   Coluna CRM: NEGOCIAÇÃO
+   Piloto Automático: LIGADO 🤖
+   Data: 2026-06-22T12:05:46.250929+00:00
+   Última Mensagem: "Estou passando para verificar se você conseguiu acessar as informações que envia..."
+------------------------------------------------------------
+42. Contato: Michelle Ramos (ID: 5687)
+   Coluna CRM: PERDIDO
+   Piloto Automático: DESLIGADO 👤
+   Data: 2026-06-22T12:07:21.769432+00:00
+   Última Mensagem: "Oi, aqui é do studio 57 arquitetura e incorporação, tudo bem com você?..."
+------------------------------------------------------------
+43. Contato: Samuel Souza (ID: 5879)
+   Coluna CRM: PERDIDO
+   Piloto Automático: DESLIGADO 👤
+   Data: 2026-06-22T12:12:03.319205+00:00
+   Última Mensagem: "Muito obrigada pelo seu retorno Samuel. O cenario mudando é só me chamar que est..."
+------------------------------------------------------------
+44. Contato: Adriana Rodrigues (ID: 6032)
+   Coluna CRM: INTERVENÇÃO HUMANA
+   Piloto Automático: DESLIGADO 👤
+   Data: 2026-06-22T20:53:45.715812+00:00
+   Última Mensagem: "certo Adriana, e você já tem em mente o valor que pretende investir?..."
+------------------------------------------------------------
+45. Contato: Dr. Edson Chiba - Oftalmopediatria e Adulto (ID: 6011)
+   Coluna CRM: CLIENTE POTENCIAL
+   Piloto Automático: DESLIGADO 👤
+   Data: 2026-06-22T12:22:47.301017+00:00
+   Última Mensagem: "Olá  Edson ! Tudo bem com você?..."
+------------------------------------------------------------
+46. Contato: Reginaldo dos Santos (ID: 6023)
+   Coluna CRM: EM ATENDIMENTO 
+   Piloto Automático: LIGADO 🤖
+   Data: 2026-06-22T12:30:16.732852+00:00
+   Última Mensagem: "Template: oi_tudo_bem_..."
+------------------------------------------------------------
+47. Contato: Luana Lima (ID: 6025)
+   Coluna CRM: EM ATENDIMENTO 
+   Piloto Automático: LIGADO 🤖
+   Data: 2026-06-22T12:30:36.480222+00:00
+   Última Mensagem: "Template: reativar_contato..."
+------------------------------------------------------------
+48. Contato: Marlucio Fernandes (ID: 6030)
+   Coluna CRM: EM ATENDIMENTO 
+   Piloto Automático: LIGADO 🤖
+   Data: 2026-06-22T12:31:02.646302+00:00
+   Última Mensagem: "Template: reativar_contato..."
+------------------------------------------------------------
+49. Contato: Claudia Cristina (ID: 6050)
+   Coluna CRM: EM ATENDIMENTO 
+   Piloto Automático: LIGADO 🤖
+   Data: 2026-06-22T14:57:02.817817+00:00
+   Última Mensagem: "Book_Investidor_Beta_Suites.pdf..."
+------------------------------------------------------------
+50. Contato: Joana Darc Aguiar (ID: 5870)
+   Coluna CRM: MENSAGEM ENVIADA
+   Piloto Automático: DESLIGADO 👤
+   Data: 2026-06-22T17:43:26.054491+00:00
+   Última Mensagem: "Olá! Recebemos o seu cadastro e respeitamos muito a sua privacidade. 🔒
+
+Você go..."
+------------------------------------------------------------
+51. Contato: Nillo Emanuel (ID: 5878)
+   Coluna CRM: EM ATENDIMENTO 
+   Piloto Automático: DESLIGADO 👤
+   Data: 2026-06-22T17:47:58.715991+00:00
+   Última Mensagem: "Olá Nillo, tudo bem com você?
+Podemos continuar a nossa conversa?..."
+------------------------------------------------------------
+52. Contato: Henrique Tiradentes (ID: 5904)
+   Coluna CRM: EM ATENDIMENTO 
+   Piloto Automático: DESLIGADO 👤
+   Data: 2026-06-22T17:48:22.643337+00:00
+   Última Mensagem: "Olá Henrique, tudo bem com você?
+Podemos continuar a nossa conversa?..."
+------------------------------------------------------------
+53. Contato: Diana Figueiredo (ID: 5930)
+   Coluna CRM: MENSAGEM ENVIADA
+   Piloto Automático: DESLIGADO 👤
+   Data: 2026-06-22T17:49:42.773191+00:00
+   Última Mensagem: "Olá! Recebemos o seu cadastro e respeitamos muito a sua privacidade. 🔒
+
+Você go..."
+------------------------------------------------------------
+54. Contato: Laíza Maia (ID: 5964)
+   Coluna CRM: INTERVENÇÃO HUMANA
+   Piloto Automático: DESLIGADO 👤
+   Data: 2026-06-22T17:51:28.944453+00:00
+   Última Mensagem: "Olá! Recebemos o seu cadastro e respeitamos muito a sua privacidade. 🔒
+
+Você go..."
+------------------------------------------------------------
+55. Contato: Paloma Meireles (ID: 5981)
+   Coluna CRM: INTERVENÇÃO HUMANA
+   Piloto Automático: DESLIGADO 👤
+   Data: 2026-06-22T17:51:34.294679+00:00
+   Última Mensagem: "Olá! Recebemos o seu cadastro e respeitamos muito a sua privacidade. 🔒
+
+Você go..."
+------------------------------------------------------------
+56. Contato: Joao Claudio Ribeiro Natal (ID: 5985)
+   Coluna CRM: CLIENTE POTENCIAL
+   Piloto Automático: DESLIGADO 👤
+   Data: 2026-06-25T12:01:44.646092+00:00
+   Última Mensagem: "Olá Joao! Tudo bem com você?..."
+------------------------------------------------------------
+57. Contato: Simôni Marina Marinho (ID: 6028)
+   Coluna CRM: PERDIDO
+   Piloto Automático: DESLIGADO 👤
+   Data: 2026-06-23T11:56:00.746925+00:00
+   Última Mensagem: "Tudo bem Simone, continuo a disposição. Qualquer mudança no cenário só me procur..."
+------------------------------------------------------------
+58. Contato: Téo Rodrigues Costa (ID: 6051)
+   Coluna CRM: QUALIFICAÇÃO STELLA
+   Piloto Automático: DESLIGADO 👤
+   Data: 2026-06-25T14:22:50.403658+00:00
+   Última Mensagem: "Entendi Téo. Você conhece a localização?..."
+------------------------------------------------------------
+59. Contato: Leandro Silva (ID: 5943)
+   Coluna CRM: EM ATENDIMENTO 
+   Piloto Automático: DESLIGADO 👤
+   Data: 2026-06-22T20:14:32.375903+00:00
+   Última Mensagem: "Áudio enviado..."
+------------------------------------------------------------
+60. Contato: Nelson Lopes de Sousa Sousa (ID: 5956)
+   Coluna CRM: EM ATENDIMENTO 
+   Piloto Automático: DESLIGADO 👤
+   Data: 2026-06-22T17:56:14.507113+00:00
+   Última Mensagem: "Olá Nelson, tudo bem com você?
+Podemos continuar a nossa conversa?..."
+------------------------------------------------------------
+61. Contato: Ludimila Campos Marques (ID: 3690)
+   Coluna CRM: Sem coluna / Inbox
+   Piloto Automático: LIGADO 🤖
+   Data: 2026-06-22T18:30:24.898449+00:00
+   Última Mensagem: "Ainda buscando para moradia ou investimento?..."
+------------------------------------------------------------
+62. Contato: CTJA (ID: 6053)
+   Coluna CRM: EM ATENDIMENTO 
+   Piloto Automático: LIGADO 🤖
+   Data: 2026-06-22T19:39:34.540249+00:00
+   Última Mensagem: "O que achou do book do Beta Suítes? 😊..."
+------------------------------------------------------------
+63. Contato: Lara Torres (ID: 6054)
+   Coluna CRM: EM ATENDIMENTO 
+   Piloto Automático: LIGADO 🤖
+   Data: 2026-06-22T18:57:20.546128+00:00
+   Última Mensagem: "Olá! Que bom seu interesse no Studio 57! Sou a Stella, IA de pré-atendimento. 😊..."
+------------------------------------------------------------
+64. Contato: Cida Maria (ID: 6057)
+   Coluna CRM: MENSAGEM ENVIADA
+   Piloto Automático: LIGADO 🤖
+   Data: 2026-06-22T19:40:44.055267+00:00
+   Última Mensagem: "(Automação) Template: saudacao_entrada_v3..."
+------------------------------------------------------------
+65. Contato: Mariza Dias Lima (ID: 6058)
+   Coluna CRM: EM ATENDIMENTO 
+   Piloto Automático: DESLIGADO 👤
+   Data: 2026-06-25T14:19:54.549375+00:00
+   Última Mensagem: "O que você achou do vídeo, Mariza? A localização e a segurança jurídica com matr..."
+------------------------------------------------------------
+66. Contato: Sueli Santos (ID: 6059)
+   Coluna CRM: MENSAGEM ENVIADA
+   Piloto Automático: LIGADO 🤖
+   Data: 2026-06-25T14:22:30.90942+00:00
+   Última Mensagem: "Oi! Tudo bem? Recebemos o seu interesse em nossos empreendimentos. Podemos liber..."
+------------------------------------------------------------
+67. Contato: Alexsandro Nunes (ID: 6060)
+   Coluna CRM: MENSAGEM ENVIADA
+   Piloto Automático: LIGADO 🤖
+   Data: 2026-06-22T21:30:09.961498+00:00
+   Última Mensagem: "(Automação) Template: saudacao_entrada_v3..."
+------------------------------------------------------------
+68. Contato: Silvana Albuquerque (ID: 6061)
+   Coluna CRM: MENSAGEM ENVIADA
+   Piloto Automático: LIGADO 🤖
+   Data: 2026-06-23T15:47:15.326929+00:00
+   Última Mensagem: "(Automação) Template: saudacao_entrada_v3..."
+------------------------------------------------------------
+69. Contato: Dário elias (ID: 6062)
+   Coluna CRM: MENSAGEM ENVIADA
+   Piloto Automático: LIGADO 🤖
+   Data: 2026-06-23T02:13:23.71827+00:00
+   Última Mensagem: "(Automação) Template: saudacao_entrada_v3..."
+------------------------------------------------------------
+70. Contato: vilmar siuves (ID: 6063)
+   Coluna CRM: MENSAGEM ENVIADA
+   Piloto Automático: LIGADO 🤖
+   Data: 2026-06-23T14:54:09.102758+00:00
+   Última Mensagem: "(Automação) Template: saudacao_entrada_v3..."
+------------------------------------------------------------
+71. Contato: Rone Silva (ID: 6064)
+   Coluna CRM: EM ATENDIMENTO 
+   Piloto Automático: LIGADO 🤖
+   Data: 2026-06-23T20:53:26.186477+00:00
+   Última Mensagem: "O que você achou do projeto e das fotos? Ele corresponde ao que busca para sua c..."
+------------------------------------------------------------
+72. Contato: Danila Pinheiro (ID: 4837)
+   Coluna CRM: MENSAGEM ENVIADA
+   Piloto Automático: LIGADO 🤖
+   Data: 2026-06-23T15:04:47.261287+00:00
+   Última Mensagem: "(Automação) Template: saudacao_entrada_v3..."
+------------------------------------------------------------
+73. Contato: W.Tira@ Family (ID: 4695)
+   Coluna CRM: MENSAGEM ENVIADA
+   Piloto Automático: LIGADO 🤖
+   Data: 2026-06-23T16:42:49.115094+00:00
+   Última Mensagem: "(Automação) Template: saudacao_entrada_v3..."
+------------------------------------------------------------
+74. Contato: Evônio Rosa Gomes (ID: 6065)
+   Coluna CRM: MENSAGEM ENVIADA
+   Piloto Automático: LIGADO 🤖
+   Data: 2026-06-23T17:03:30.453243+00:00
+   Última Mensagem: "(Automação) Template: saudacao_entrada_v3..."
+------------------------------------------------------------
+75. Contato: Lead (553398038384) (ID: 6066)
+   Coluna CRM: Sem coluna / Inbox
+   Piloto Automático: DESLIGADO 👤
+   Data: 2026-06-24T16:38:43.637275+00:00
+   Última Mensagem: "no periodo da tarde é tranquilo aqui a partir das 14h..."
+------------------------------------------------------------
+76. Contato: Geneci Dutra (ID: 6067)
+   Coluna CRM: EM ATENDIMENTO 
+   Piloto Automático: LIGADO 🤖
+   Data: 2026-06-25T14:00:09.817999+00:00
+   Última Mensagem: "Estou passando para verificar se você conseguiu acessar as informações que envia..."
+------------------------------------------------------------
+77. Contato: Daniela Chaves (ID: 6069)
+   Coluna CRM: EM ATENDIMENTO 
+   Piloto Automático: LIGADO 🤖
+   Data: 2026-06-23T22:55:01.695528+00:00
+   Última Mensagem: "Conseguiu dar uma olhada no book? O que mais te chamou atenção?..."
+------------------------------------------------------------
+78. Contato: Victor Rodrigues (ID: 6070)
+   Coluna CRM: EM ATENDIMENTO 
+   Piloto Automático: LIGADO 🤖
+   Data: 2026-06-23T23:29:01.933069+00:00
+   Última Mensagem: "Olá! Que bom que você se interessou pelo Studio 57! 😊..."
+------------------------------------------------------------
+79. Contato: Will (ID: 3467)
+   Coluna CRM: EM ATENDIMENTO 
+   Piloto Automático: LIGADO 🤖
+   Data: 2026-06-25T14:22:26.942961+00:00
+   Última Mensagem: "Estou passando para verificar se você conseguiu acessar as informações que envia..."
+------------------------------------------------------------
+80. Contato: Cássila Gonçalves (ID: 3401)
+   Coluna CRM: EM ATENDIMENTO 
+   Piloto Automático: LIGADO 🤖
+   Data: 2026-06-25T13:58:02.887664+00:00
+   Última Mensagem: "Cássila, só para confirmar: o link direto que te enviei abriu o material correta..."
+------------------------------------------------------------
+81. Contato: Bem-Te-Viva │ Festas Afetivas (ID: 6078)
+   Coluna CRM: EM ATENDIMENTO 
+   Piloto Automático: LIGADO 🤖
+   Data: 2026-06-24T14:34:45.786886+00:00
+   Última Mensagem: "Conseguiu dar uma olhada no material? O projeto te agradou?..."
+------------------------------------------------------------
+82. Contato: Fabiano Celestino (ID: 6079)
+   Coluna CRM: EM ATENDIMENTO 
+   Piloto Automático: LIGADO 🤖
+   Data: 2026-06-24T14:25:31.081591+00:00
+   Última Mensagem: "O que achou do book do Beta Suítes?..."
+------------------------------------------------------------
+83. Contato: Nálber Ricardo (ID: 6080)
+   Coluna CRM: Sem coluna / Inbox
+   Piloto Automático: LIGADO 🤖
+   Data: 2026-06-24T19:14:34.229449+00:00
+   Última Mensagem: "Sou a Stella, a inteligência artificial de pré-atendimento do Studio 57. 😊 Como..."
+------------------------------------------------------------
+84. Contato: Helio Junio (ID: 6082)
+   Coluna CRM: MENSAGEM ENVIADA
+   Piloto Automático: LIGADO 🤖
+   Data: 2026-06-24T21:40:05.249485+00:00
+   Última Mensagem: "(Automação) Template: saudacao_entrada_v3..."
+------------------------------------------------------------
+85. Contato: Diego Simões (ID: 6083)
+   Coluna CRM: MENSAGEM ENVIADA
+   Piloto Automático: DESLIGADO 👤
+   Data: 2026-06-24T22:27:12.220357+00:00
+   Última Mensagem: "Para isso, só preciso confirmar: vi no seu cadastro que a renda familiar é de at..."
+------------------------------------------------------------
+86. Contato: Dr Roni Oliveira (ID: 6084)
+   Coluna CRM: MENSAGEM ENVIADA
+   Piloto Automático: DESLIGADO 👤
+   Data: 2026-06-24T23:02:40.326015+00:00
+   Última Mensagem: "Conseguiu abrir o book, Dr. Roni? O que achou do projeto? Ele parece se alinhar ..."
+------------------------------------------------------------
+87. Contato: Vera Lucia Vitorino Nunes (ID: 6085)
+   Coluna CRM: MENSAGEM ENVIADA
+   Piloto Automático: LIGADO 🤖
+   Data: 2026-06-25T00:46:32.956762+00:00
+   Última Mensagem: "(Automação) Template: saudacao_entrada_v3..."
+------------------------------------------------------------
+88. Contato: Andre Oliveira (ID: 6086)
+   Coluna CRM: MENSAGEM ENVIADA
+   Piloto Automático: LIGADO 🤖
+   Data: 2026-06-25T02:09:43.53209+00:00
+   Última Mensagem: "(Automação) Template: saudacao_entrada_v3..."
+------------------------------------------------------------
+89. Contato: Ranniere Campos (ID: 5923)
+   Coluna CRM: ENTRADA
+   Piloto Automático: DESLIGADO 👤
+   Data: 2026-06-25T10:42:03.107393+00:00
+   Última Mensagem: "Ranniere, o que você acha desse modelo de investimento focado em aluguel para es..."
+------------------------------------------------------------
+90. Contato: Adamastor José (ID: 3626)
+   Coluna CRM: INTERVENÇÃO HUMANA
+   Piloto Automático: DESLIGADO 👤
+   Data: 2026-06-25T12:03:46.511356+00:00
+   Última Mensagem: "Te encaminhei nosso book. O Beta Suites é o tipo de empreendimento que você proc..."
+------------------------------------------------------------
+91. Contato: Lenice Fernandes (ID: 3321)
+   Coluna CRM: MENSAGEM ENVIADA
+   Piloto Automático: LIGADO 🤖
+   Data: 2026-06-25T12:19:17.419161+00:00
+   Última Mensagem: "(Automação) Template: saudacao_entrada_v3..."
+------------------------------------------------------------

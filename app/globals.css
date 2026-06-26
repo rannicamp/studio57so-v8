@@ -75,3 +75,19 @@
     background: white;
   }
 }
+
+/* Ocultar Netlify Dev Badge e Widgets de Desenvolvimento Local */
+#netlify-devkit-widget, 
+netlify-devkit-widget,
+.netlify-devkit-widget,
+[id*="netlify"],
+[class*="netlify"],
+#webpack-hot-middleware-clientOverlay,
+#nextjs-portal,
+#__next-build-watcher,
+#__next-prerender-indicator {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}

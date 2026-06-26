@@ -10,11 +10,12 @@ import {
  faFolder, faPlus, faCog, faSpinner,
  faChevronRight, faChevronDown, faUserCircle, faEllipsisV,
  faCheckDouble, faEraser, faSync, faWandMagicSparkles,
- faEye, faEyeSlash, faTimes
+ faEye, faEyeSlash, faTimes, faLock
 } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp, faInstagram } from '@fortawesome/free-brands-svg-icons';
 import { toast } from 'sonner';
 import EmailAutoSync from './EmailAutoSync';
+import { useAuth } from '@/contexts/AuthContext';
 
 const FOLDER_EXPANSION_KEY = 'email_expanded_folders_final_v1';
 
@@ -413,6 +414,8 @@ export default function EmailSidebar({
  selectedFolder, onSelectFolder, onCompose, onConfig, onChangeTab,
  searchTerm, onSearchChange, onCreateFolder, canViewWhatsapp = true, className = ''
 }) {
+ const { user } = useAuth();
+ const organizacaoId = user?.organizacao_id;
  const [expandedPaths, setExpandedPaths] = useState(new Set());
  const [isHydrated, setIsHydrated] = useState(false);
  const queryClient = useQueryClient();
@@ -478,9 +481,24 @@ export default function EmailSidebar({
  </button>
  )}
  {canViewWhatsapp && onChangeTab && (
- <button onClick={() => onChangeTab('instagram')} className="flex-1 py-4 text-sm font-medium flex justify-center items-center gap-2 border-b-2 transition-colors border-transparent text-gray-500 hover:bg-gray-100">
- <FontAwesomeIcon icon={faInstagram} className="text-lg" /> Instagram
- </button>
+   organizacaoId === 2 ? (
+     <button onClick={() => onChangeTab('instagram')} className="flex-1 py-4 text-sm font-medium flex justify-center items-center gap-2 border-b-2 transition-colors border-transparent text-gray-500 hover:bg-gray-100">
+       <FontAwesomeIcon icon={faInstagram} className="text-lg" /> Instagram
+     </button>
+   ) : (
+     <button 
+       disabled 
+       className="flex-1 py-2 px-1 text-sm font-medium flex flex-col justify-center items-center gap-0.5 border-b-2 transition-colors border-transparent text-gray-400 cursor-not-allowed bg-gray-50/50"
+       title="Instagram - Ajustes em andamento"
+     >
+       <span className="flex items-center gap-1.5 justify-center">
+         <FontAwesomeIcon icon={faInstagram} className="text-base opacity-70" />
+         Instagram
+         <FontAwesomeIcon icon={faLock} className="text-[10px] text-gray-400" />
+       </span>
+       <span className="text-[9px] font-normal text-gray-400 leading-none">ajustes em andamento</span>
+     </button>
+   )
  )}
  <button className="flex-1 py-4 text-sm font-bold flex justify-center items-center gap-2 border-b-2 transition-colors border-blue-600 text-blue-600 bg-white">
  <FontAwesomeIcon icon={faEnvelope} className="text-lg" /> E-mail

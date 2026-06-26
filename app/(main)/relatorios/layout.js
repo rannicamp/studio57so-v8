@@ -13,10 +13,12 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import { Suspense, useEffect } from 'react';
 import { useLayout } from '@/contexts/LayoutContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 function RelatoriosLayoutContent({ children }) {
   const pathname = usePathname();
   const { setPageTitle } = useLayout();
+  const { organizacao_id } = useAuth();
 
   useEffect(() => {
     setPageTitle('Relatórios Consolidados');
@@ -26,7 +28,11 @@ function RelatoriosLayoutContent({ children }) {
   const isActive = (path) => pathname.includes(path);
 
   const navItems = [
-    { label: 'Radar Studio', path: '/relatorios/radar', icon: faChartPie },
+    { 
+      label: Number(organizacao_id) === 2 ? 'Radar Studio' : 'Comercial & Marketing', 
+      path: '/relatorios/radar', 
+      icon: Number(organizacao_id) === 2 ? faChartPie : faChartLine 
+    },
     { label: 'RH & Pessoas', path: '/relatorios/rh', icon: faUsers },
     { label: 'Financeiro', path: '/relatorios/financeiro', icon: faMoneyBillWave },
     { label: 'Empreendimentos', path: '/relatorios/empreendimentos', icon: faBuilding },

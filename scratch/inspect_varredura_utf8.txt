@@ -1,0 +1,252 @@
+=== INSPECIONANDO DETALHES DOS LEADS PENDENTES E COM FALHA ===
+
+======================================================
+ID: 656 | Nome: Sonia Maria Campos | Tel: 553391660011
+Origem: N/A | Piloto: LIGADO 🤖
+Coluna CRM: VENDIDO
+------------------------------------------------------
+[2026-06-24T21:43:31.560564+00:00] [INBOUND] Status: delivered | Erro: Nenhum
+   "🎙️ *Transcrição:* _Brasil Eu vou analisar o Brasil titular a apresentação enviada e depois eu faço o contato novamente. Obrigada._"
+[2026-06-24T21:43:54.836555+00:00] [OUTBOUND] Status: read | Erro: Nenhum
+   "Combinado, Sonia! Fique à vontade para analisar a apresentação com calma."
+[2026-06-24T21:43:57.148532+00:00] [OUTBOUND] Status: read | Erro: Nenhum
+   "O projeto tem um grande potencial de valorização, principalmente pela alta demanda de aluguel para estudantes na região."
+[2026-06-24T21:43:59.375238+00:00] [OUTBOUND] Status: read | Erro: Nenhum
+   "Quando quiser, me chame aqui e eu te ajudo a simular o potencial de rendimento. 😊"
+[2026-06-24T21:45:10.162867+00:00] [INBOUND] Status: delivered | Erro: Nenhum
+   "Ok. Obrigada!!!"
+
+======================================================
+ID: 3467 | Nome: Will | Tel: 15084319236
+Origem: Meta Lead Ad | Piloto: DESLIGADO 👤
+Coluna CRM: FALHAS
+------------------------------------------------------
+[2026-06-25T12:49:46.147156+00:00] [OUTBOUND] Status: failed | Erro: Meta Error 131047: Re-engagement message
+   "Enquanto você analisa, me conta: você é daqui de Governador Valadares mesmo ou mora fora do país?"
+[2026-06-25T13:17:30.060033+00:00] [OUTBOUND] Status: failed | Erro: Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.
+   "Olá Will, tudo bem com você?
+Podemos continuar a nossa conversa?"
+[2026-06-25T13:45:19.715694+00:00] [OUTBOUND] Status: delivered | Erro: Nenhum
+   "Estou passando para verificar se você conseguiu acessar as informações que enviamos anteriormente. Deu tudo certo?"
+[2026-06-25T13:57:56.050188+00:00] [OUTBOUND] Status: failed | Erro: Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.
+   "Oi Will, tudo bem? 
+
+Fiquei sem seu retorno e queria saber: ficou alguma dúvida ou o empreendimento não faz mais sentido pra você?
+
+Posso te apresentar outras opções que se encaixem melhor?"
+[2026-06-25T14:00:11.036119+00:00] [OUTBOUND] Status: failed | Erro: Meta Error 131047: Re-engagement message
+   "Olá! Notei uma pequena oscilação temporária no meu sistema de dados agora. Para não te deixar esperando, já chamei um de nossos corretores para falar com você em instantes! Obrigado pela paciência. 🙏"
+
+======================================================
+ID: 4919 | Nome: Lead (553388296616) | Tel: 553388296616
+Origem: N/A | Piloto: DESLIGADO 👤
+Coluna CRM: Inbox / Sem Coluna
+------------------------------------------------------
+[2026-06-23T16:54:44.066761+00:00] [INBOUND] Status: delivered | Erro: Nenhum
+   "*LINDA INOX*
+
+*Excelência em cubas, tanques e acessórios em aço inox*
+
+A *Linda Inox*, sediada em *Governador Valadares – MG* e liderada pelo gestor *Gustavo Lopes*, nasceu com o propósito de transformar cozinhas e áreas gourmet por meio de produtos que unem *qualidade, sofisticação e funcionalidade*.
+
+Especializada em *cubas de aço inox, tanques e acessórios*, a empresa desenvolve soluções que agregam valor aos ambientes, atendendo às necessidades de clientes, empresas e profissionais da arquitetura e construção.
+
+*Nossos diferenciais*
+
+*Qualidade Rigorosa*
+Selecionamos matérias-primas de alta resistência e durabilidade, garantindo produtos que preservam sua beleza e desempenho ao longo do tempo.
+
+*Acabamento Premium*
+Cada detalhe é cuidadosamente desenvolvido para oferecer estética sofisticada, superfícies de fácil limpeza e excelente experiência de uso.
+
+*Design Diferenciado*
+Mais do que produtos funcionais, criamos peças que valorizam projetos arquitetônicos e elevam o padrão de cozinhas e áreas gourmet.
+
+Na *Linda Inox*, acreditamos que cada ambiente merece soluções que combinem *design, inovação e excelência*. Por isso, investimos continuamente em produtos e atendimento de alto padrão, construindo relações de confiança e entregando qualidade em cada detalhe.
+
+*Linda Inox — Onde a qualidade encontra o design.*"
+[2026-06-23T16:54:45.482762+00:00] [INBOUND] Status: delivered | Erro: Nenhum
+   "📷 Imagem"
+[2026-06-23T16:54:45.523565+00:00] [INBOUND] Status: delivered | Erro: Nenhum
+   "📷 Imagem"
+[2026-06-23T16:54:56.818205+00:00] [INBOUND] Status: delivered | Erro: Nenhum
+   "📷 Imagem"
+[2026-06-23T16:54:57.101789+00:00] [INBOUND] Status: delivered | Erro: Nenhum
+   "📷 Imagem"
+
+======================================================
+ID: 4936 | Nome: Geovane Marques | Tel: 5533988981920
+Origem: Meta Lead Ad | Piloto: DESLIGADO 👤
+Coluna CRM: CLIENTE POTENCIAL
+------------------------------------------------------
+[2026-06-22T12:34:04.889719+00:00] [INBOUND] Status: delivered | Erro: Nenhum
+   "Tudo bem"
+[2026-06-22T12:36:17.814848+00:00] [OUTBOUND] Status: read | Erro: Nenhum
+   "Que maravilha Geovane. Você tem um tempinho para irmos a obra essa semana? "
+[2026-06-22T12:59:36.184237+00:00] [INBOUND] Status: delivered | Erro: Nenhum
+   "Essa semana está corrido"
+[2026-06-22T13:11:55.838142+00:00] [OUTBOUND] Status: read | Erro: Nenhum
+   "Compreendo Geovane. Na semana que vem eu te chamo novamente para tentarmos uma nova data 😊"
+[2026-06-22T13:35:58.451638+00:00] [INBOUND] Status: delivered | Erro: Nenhum
+   "Tá bom"
+
+======================================================
+ID: 5020 | Nome: Cicero Nascimento Alves | Tel: 553391793618
+Origem: Meta Lead Ad | Piloto: DESLIGADO 👤
+Coluna CRM: FALHAS
+------------------------------------------------------
+[2026-06-24T16:12:03.973866+00:00] [OUTBOUND] Status: failed | Erro: Meta Error 131026: Message undeliverable
+   "(Automação) Template: saudacao_entrada_v3"
+
+======================================================
+ID: 5880 | Nome: Wanessa Fazzolo | Tel: 5533984011443
+Origem: Meta Lead Ad | Piloto: LIGADO 🤖
+Coluna CRM: PERDIDO
+------------------------------------------------------
+[2026-06-08T22:46:19.207829+00:00] [OUTBOUND] Status: read | Erro: Nenhum
+   "(Automação) Template: saudacao_entrada_v3"
+[2026-06-22T17:50:46.810485+00:00] [OUTBOUND] Status: read | Erro: Nenhum
+   "Olá! Recebemos o seu cadastro e respeitamos muito a sua privacidade. 🔒
+
+Você gostaria que um consultor do Studio 57 lhe enviasse mais detalhes sobre os nossos empreendimentos?"
+[2026-06-22T18:04:35.02674+00:00] [INBOUND] Status: delivered | Erro: Nenhum
+   "[Botão]: Não, Obrigado!"
+
+======================================================
+ID: 5887 | Nome: Elson Louzada de Oliveira | Tel: 5533984275347
+Origem: Meta Lead Ad | Piloto: DESLIGADO 👤
+Coluna CRM: ACOMPANHAMENTO
+------------------------------------------------------
+[2026-06-22T14:06:25.074792+00:00] [OUTBOUND] Status: read | Erro: Nenhum
+   "Ah que pena Elson. Você ficou tão interessado nos nossos lotes "
+[2026-06-22T14:07:40.867793+00:00] [OUTBOUND] Status: read | Erro: Nenhum
+   "Você acha que se conseguirmos uma condição de pagamento diferenciada você estudaria a viabilidade de adquirir o lote mesmo tendo que comprar o apartamento em BH? "
+[2026-06-22T14:08:24.176055+00:00] [INBOUND] Status: delivered | Erro: Nenhum
+   "agora vai me apertar"
+[2026-06-22T14:09:54.026924+00:00] [OUTBOUND] Status: read | Erro: Nenhum
+   "Entendi Elson. Caso o canário mude, é só me procurar viu. Continuo as ordens 😊"
+[2026-06-22T14:32:18.236863+00:00] [INBOUND] Status: delivered | Erro: Nenhum
+   "valeu"
+
+======================================================
+ID: 5977 | Nome: Cleo Matos teixeira | Tel: 5533987231869
+Origem: Meta Lead Ad | Piloto: DESLIGADO 👤
+Coluna CRM: FALHAS
+------------------------------------------------------
+[2026-06-18T02:32:40.063643+00:00] [INBOUND] Status: delivered | Erro: Nenhum
+   "Oi, gostaria de mais informações sobre o Refúgio Braúnas"
+[2026-06-18T11:14:31.074454+00:00] [OUTBOUND] Status: delivered | Erro: Nenhum
+   "Olá Cleo. Tudo bem?
+Me chamo Ludimila e faço parte do time de vendas do Studio 57.
+
+Vi que você demonstrou interesse em um dos nossos empreendimentos e estou aqui para poder te apresentar 😊"
+[2026-06-18T11:15:01.116855+00:00] [OUTBOUND] Status: delivered | Erro: Nenhum
+   "Atualmente temos 3 ótimas oportunidades em nosso catálogo:
+
+🏢 Residencial Alfa – Aptos 2 quartos | a partir de R$ 431 mil | financiamento próprio | entrega 09/2027
+🏢 Beta Suítes – Studios | a partir de R$ 190 mil | financiamento próprio | início 06/2026
+🌿 Refúgio Braúnas – Lotes 1.000m² | a partir de R$ 350/m² | até 5 anos para pagar
+
+Qual faz mais sentido pra você?"
+[2026-06-22T11:51:01.32917+00:00] [OUTBOUND] Status: failed | Erro: Meta Error 130472: User's number is part of an experiment
+   "Olá Cleo, tudo bem com você?
+Podemos continuar a nossa conversa?"
+[2026-06-22T12:41:52.060434+00:00] [OUTBOUND] Status: failed | Erro: Meta Error 130472: User's number is part of an experiment
+   "Template: reativar_contato"
+
+======================================================
+ID: 6056 | Nome: Anderson Elias de Almeida | Tel: 5533991653371
+Origem: Meta Lead Ad | Piloto: DESLIGADO 👤
+Coluna CRM: FALHAS
+------------------------------------------------------
+[2026-06-22T19:46:18.054985+00:00] [INBOUND] Status: delivered | Erro: Nenhum
+   "Nós próximos 6 meses"
+[2026-06-24T14:06:33.903736+00:00] [INBOUND] Status: delivered | Erro: Nenhum
+   "Gostaria de agendar para visitar o empreendimento amanhã às 14h!"
+[2026-06-24T14:15:53.448021+00:00] [OUTBOUND] Status: failed | Erro: Meta Error 131047: Re-engagement message
+   "Bom dia Anderson, tudo bem? "
+[2026-06-24T14:16:11.43767+00:00] [OUTBOUND] Status: failed | Erro: Meta Error 131047: Re-engagement message
+   "Eu sou a Ludimila e darei seguimento ao seu atendimento. "
+[2026-06-24T14:18:23.157665+00:00] [OUTBOUND] Status: failed | Erro: Meta Error 131047: Re-engagement message
+   "Bom dia Anderson, tudo bem? "
+
+======================================================
+ID: 6059 | Nome: Sueli Santos | Tel: 5533999317303
+Origem: Meta Lead Ad | Piloto: DESLIGADO 👤
+Coluna CRM: FALHAS
+------------------------------------------------------
+[2026-06-22T21:12:19.62796+00:00] [OUTBOUND] Status: read | Erro: Nenhum
+   "(Automação) Template: saudacao_entrada_v3"
+[2026-06-24T14:32:36.251565+00:00] [OUTBOUND] Status: failed | Erro: Meta Error 131047: Re-engagement message
+   "Olá, Sueli! Recebi seu contato através do nosso anúncio do Beta Suítes. 😊"
+
+======================================================
+ID: 6068 | Nome: Ana Clara Castro Cardoso | Tel: 553391062429
+Origem: N/A | Piloto: DESLIGADO 👤
+Coluna CRM: Inbox / Sem Coluna
+------------------------------------------------------
+[2026-06-23T20:53:22.388586+00:00] [INBOUND] Status: delivered | Erro: Nenhum
+   "Oii, tudo bem?
+Meu nome é Ana Clara e tenho interesse na vaga anunciada. Gostaria de saber quais são os requisitos e se ainda estão recebendo currículos."
+[2026-06-24T16:35:49.554478+00:00] [OUTBOUND] Status: delivered | Erro: Nenhum
+   "Boa tarde, tudo bem?"
+[2026-06-24T16:36:08.043468+00:00] [OUTBOUND] Status: delivered | Erro: Nenhum
+   "Pode enviar o curriculo pra gente "
+[2026-06-24T16:45:54.436203+00:00] [INBOUND] Status: delivered | Erro: Nenhum
+   "📄 Curriculo_Ana_Clara.pdf"
+
+======================================================
+ID: 6071 | Nome: Ana Julia Lourenço Da Silva | Tel: 553398391612
+Origem: N/A | Piloto: DESLIGADO 👤
+Coluna CRM: Inbox / Sem Coluna
+------------------------------------------------------
+[2026-06-23T23:45:25.751428+00:00] [INBOUND] Status: delivered | Erro: Nenhum
+   "📷 Imagem"
+
+======================================================
+ID: 6072 | Nome: Margarete Correia | Tel: 5533998762842
+Origem: Meta Lead Ad | Piloto: DESLIGADO 👤
+Coluna CRM: PERDIDO
+------------------------------------------------------
+[2026-06-23T23:50:41.3242+00:00] [OUTBOUND] Status: read | Erro: Nenhum
+   "(Automação) Template: saudacao_entrada_v3"
+[2026-06-24T00:59:40.099746+00:00] [INBOUND] Status: delivered | Erro: Nenhum
+   "🎙️ *Transcrição:* _Boa noite, meninas. Estão todas boa, beleza? Vocês são umas gatinhas muito bonita. Eu moro sozinho, se vocês quer, se vocês têm interesse em vir um dia ou não, vocês não vai ir ou não. E me retorna aqui, beleza? Eu tô dando companhia, que sabe de companhia pra poder ir, ser um de vocês. Alô, gatinha, um abraço e um beijo. Tchau você. Se me retorna aqui, beleza? Tchau você._"
+[2026-06-24T01:24:35.063106+00:00] [INBOUND] Status: delivered | Erro: Nenhum
+   "🎙️ *Transcrição:* _Aí, minhas gatinhas, vocês estão as minhas gatinhas são muito bonitas. Deixa eu te falar, eu moro sozinho, quem sabe um de vocês quer fazer companhia. Qualquer um de vocês me serve, entendeu? Tá a fim de caçar a companhia boa. Que sabe um de vocês vai ser vai ser uma dessas. Fala comigo, e me retorna aqui, beleza? E com Deus, aí, um abraço. Tchau pra vocês. Estou esperando, um abraço. Um beijo._"
+
+======================================================
+ID: 6073 | Nome: Vilma Marulanda | Tel: 17816320909
+Origem: Meta Lead Ad | Piloto: DESLIGADO 👤
+Coluna CRM: FALHAS
+------------------------------------------------------
+[2026-06-24T00:09:57.970829+00:00] [OUTBOUND] Status: failed | Erro: Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.
+   "(Automação) Template: saudacao_entrada_v3"
+
+======================================================
+ID: 6076 | Nome: Anna Lia da Silva Vicente | Tel: 553388461948
+Origem: N/A | Piloto: DESLIGADO 👤
+Coluna CRM: Inbox / Sem Coluna
+------------------------------------------------------
+[2026-06-24T00:33:40.711414+00:00] [INBOUND] Status: delivered | Erro: Nenhum
+   "Boa noite"
+[2026-06-24T00:34:10.415818+00:00] [INBOUND] Status: delivered | Erro: Nenhum
+   "📄 Anna Lia currículo "
+[2026-06-24T00:35:18.882015+00:00] [INBOUND] Status: delivered | Erro: Nenhum
+   "Ainda estão contratando?"
+
+======================================================
+ID: 6077 | Nome: Renilda  carneiro | Tel: 351920350081
+Origem: Meta Lead Ad | Piloto: DESLIGADO 👤
+Coluna CRM: FALHAS
+------------------------------------------------------
+[2026-06-24T10:18:26.972158+00:00] [OUTBOUND] Status: failed | Erro: Meta Error 131026: Message undeliverable
+   "(Automação) Template: saudacao_entrada_v3"
+
+======================================================
+ID: 6087 | Nome: Márcio Fernandes | Tel: 556173155132
+Origem: Meta Lead Ad | Piloto: DESLIGADO 👤
+Coluna CRM: FALHAS
+------------------------------------------------------
+[2026-06-25T11:37:18.289977+00:00] [OUTBOUND] Status: failed | Erro: Meta Error 131026: Message undeliverable
+   "(Automação) Template: saudacao_entrada_v3"

@@ -1,0 +1,337 @@
+=== RELATÓRIO DE AUDITORIA DE CONVERSAS RECENTES ===
+Período: de 25/06/2026 16:00 até 26/06/2026 08:45 (Fuso local)
+Executado em: 2026-06-26T11:44:43.014Z
+
+Total de mensagens trafegadas no período: 70
+Total de contatos ativos no período: 16
+
+======================================================================
+1. Lead: Sueli Santos (ID: 6059)
+   Coluna CRM: MENSAGEM ENVIADA
+   Piloto Automático: DESLIGADO 👤
+   Origem: Meta Lead Ad
+   Mensagens trocadas no período: 6
+----------------------------------------------------------------------
+   [25/06/2026, 17:03:28] [CLIENTE] 
+   "[Botão]: Sim, por favor!"
+
+   [25/06/2026, 17:04:12] [STELLA / SISTEMA 🤖] [Status: read]
+   "Sou a Stella, a inteligência artificial de pré-atendimento do Studio 57. 😊 Como sou uma IA, minhas respostas podem conter erros e todas as simulações do nosso papo serão confirmadas por um corretor humano antes do fechamento. Se preferir falar com um corretor a qualquer momento, é só me avisar!"
+
+   [25/06/2026, 17:04:14] [STELLA / SISTEMA 🤖] [Status: read]
+   "Olá Sueli, claro! Conforme você solicitou, estou te enviando o book completo do Beta Suítes para você conhecer os detalhes."
+
+   [25/06/2026, 17:04:16] [STELLA / SISTEMA 🤖] [Status: read]
+   "Assim que conseguir dar uma olhada, me conta o que você achou do projeto?"
+
+   [25/06/2026, 17:04:17] [STELLA / SISTEMA 🤖] [Status: read]
+   "Book_Investidor_Beta_Suites.pdf"
+
+   [25/06/2026, 17:04:20] [STELLA / SISTEMA 🤖] [Status: read]
+   "Assim que conseguir dar uma olhada, me conta o que você achou do projeto?"
+
+======================================================================
+2. Lead: José Luiz De Souza (ID: 6117)
+   Coluna CRM: MENSAGEM ENVIADA
+   Piloto Automático: LIGADO 🤖
+   Origem: Meta Lead Ad
+   Mensagens trocadas no período: 1
+----------------------------------------------------------------------
+   [25/06/2026, 17:26:39] [STELLA / SISTEMA 🤖] [Status: delivered]
+   "(Automação) Template: saudacao_entrada_v3"
+
+======================================================================
+3. Lead: Mariza Dias Lima (ID: 6058)
+   Coluna CRM: QUALIFICAÇÃO STELLA
+   Piloto Automático: DESLIGADO 👤
+   Origem: Meta Lead Ad
+   Mensagens trocadas no período: 5
+----------------------------------------------------------------------
+   [25/06/2026, 18:22:01] [STELLA / SISTEMA 🤖] [Status: read]
+   "Seguimos as ordens MAriza."
+
+   [25/06/2026, 18:22:42] [STELLA / SISTEMA 🤖] [Status: read]
+   "Mas poderia me informar o motivo da desistencia? assim posso entender melhor o que você procura e te apresentar melhores opções"
+
+   [25/06/2026, 19:22:08] [CLIENTE] 
+   "Valores"
+
+   [25/06/2026, 19:22:16] [CLIENTE] 
+   "Não tenho esse valor"
+
+   [25/06/2026, 20:45:17] [STELLA / SISTEMA 🤖] [Status: read]
+   "Entendi Mariza, mas caso o canário mude é só nos procurar ☺️"
+
+======================================================================
+4. Lead: Renato (ID: 4781)
+   Coluna CRM: MENSAGEM ENVIADA
+   Piloto Automático: LIGADO 🤖
+   Origem: Meta Lead Ad
+   Mensagens trocadas no período: 1
+----------------------------------------------------------------------
+   [25/06/2026, 19:06:39] [STELLA / SISTEMA 🤖] [Status: delivered]
+   "(Automação) Template: saudacao_entrada_v3"
+
+======================================================================
+5. Lead: Sandra Silva (ID: 6118)
+   Coluna CRM: MENSAGEM ENVIADA
+   Piloto Automático: LIGADO 🤖
+   Origem: Meta Lead Ad
+   Mensagens trocadas no período: 1
+----------------------------------------------------------------------
+   [25/06/2026, 19:15:44] [STELLA / SISTEMA 🤖] [Status: read]
+   "(Automação) Template: saudacao_entrada_v3"
+
+======================================================================
+6. Lead: Sarah (ID: 5976)
+   Coluna CRM: MENSAGEM ENVIADA
+   Piloto Automático: DESLIGADO 👤
+   Origem: Meta Lead Ad
+   Mensagens trocadas no período: 15
+----------------------------------------------------------------------
+   [25/06/2026, 20:40:05] [STELLA / SISTEMA 🤖] [Status: read]
+   "(Automação) Template: saudacao_entrada_v3"
+
+   [25/06/2026, 20:41:32] [CLIENTE] 
+   "[Botão]: Sim, por favor!"
+
+   [25/06/2026, 20:41:45] [CLIENTE] 
+   "Sobre o apartamento na planta"
+
+   [25/06/2026, 20:41:54] [STELLA / SISTEMA 🤖] [Status: read]
+   "Sou a Stella, a inteligência artificial de pré-atendimento do Studio 57. 😊 Como sou uma IA, minhas respostas podem conter erros e todas as simulações do nosso papo serão confirmadas por um corretor humano antes do fechamento. Se preferir falar com um corretor a qualquer momento, é só me avisar!"
+
+   [25/06/2026, 20:41:56] [STELLA / SISTEMA 🤖] [Status: read]
+   "Olá, Sarah! Que ótimo receber seu contato."
+
+   [25/06/2026, 20:41:59] [STELLA / SISTEMA 🤖] [Status: read]
+   "Vi aqui no seu cadastro que seu interesse é para moradia. O nosso Residencial Alfa é a opção ideal! Vou te enviar o book completo dele para você conhecer os detalhes."
+
+   [25/06/2026, 20:42:00] [STELLA / SISTEMA 🤖] [Status: read]
+   "[BOK] - BOOK ALFA - 2025_COMP..pdf"
+
+   [25/06/2026, 20:42:02] [STELLA / SISTEMA 🤖] [Status: read]
+   "Dá uma olhadinha com calma e me fala o que você mais gostou no projeto, combinado?"
+
+   [25/06/2026, 20:46:32] [CLIENTE] 
+   "58m"
+
+   [25/06/2026, 20:46:55] [STELLA / SISTEMA 🤖] [Status: read]
+   "Excelente escolha, Sarah! A planta de 58m² do Alfa é realmente muito bem planejada e uma das mais procuradas. 👍"
+
+   [25/06/2026, 20:46:57] [STELLA / SISTEMA 🤖] [Status: read]
+   "Me diz uma coisa, você é aqui de Governador Valadares mesmo ou está se mudando pra cá?"
+
+   [25/06/2026, 21:04:26] [CLIENTE] 
+   "GV"
+
+   [25/06/2026, 21:04:50] [STELLA / SISTEMA 🤖] [Status: read]
+   "Que ótimo, Sarah! Sendo de GV, você já conhece bem a localização privilegiada do Alfa."
+
+   [25/06/2026, 21:04:52] [STELLA / SISTEMA 🤖] [Status: read]
+   "Para eu já te adiantar uma simulação de pagamento personalizada, preciso só confirmar os dados do seu cadastro inicial."
+
+   [25/06/2026, 21:04:54] [STELLA / SISTEMA 🤖] [Status: read]
+   "Sua renda familiar é na faixa de até R$10.000 e você tem FGTS, certo? Você possui mais de 3 anos de trabalho com carteira assinada? 🤔"
+
+======================================================================
+7. Lead: Anderson Elias de Almeida (ID: 6056)
+   Coluna CRM: INTERVENÇÃO HUMANA
+   Piloto Automático: DESLIGADO 👤
+   Origem: Meta Lead Ad
+   Mensagens trocadas no período: 8
+----------------------------------------------------------------------
+   [25/06/2026, 20:46:25] [STELLA / SISTEMA 🤖] [Status: delivered]
+   "Ei Anderson, ainda deseja agendar a visita para amanhã?"
+
+   [25/06/2026, 21:07:20] [CLIENTE] 
+   "Vamos deixar pra semana que vem 
+Porque tô apertado com trabalho sem ajudante"
+
+   [25/06/2026, 21:08:00] [CLIENTE] 
+   "Eu ti falo pra vc mim encontrar lá"
+
+   [25/06/2026, 21:08:55] [STELLA / SISTEMA 🤖] [Status: delivered]
+   "Tá beleza, na semana que vem combinamos o melhor dia e horário para nos encontrarmos lá ☺️"
+
+   [25/06/2026, 21:10:37] [CLIENTE] 
+   "Beleza vai dar certo"
+
+   [25/06/2026, 21:11:05] [STELLA / SISTEMA 🤖] [Status: sent]
+   "Vai sim"
+
+   [25/06/2026, 21:12:03] [CLIENTE] 
+   "Eu ti aviso obrigado por enquanto Deus abençoe boa noite"
+
+   [25/06/2026, 21:13:08] [STELLA / SISTEMA 🤖] [Status: delivered]
+   "Vamos nos falando Anderson, Deus te abençoe e ótima noite 🙏🏻☺️"
+
+======================================================================
+8. Lead: Adriane (ID: 6119)
+   Coluna CRM: MENSAGEM ENVIADA
+   Piloto Automático: LIGADO 🤖
+   Origem: Meta Lead Ad
+   Mensagens trocadas no período: 1
+----------------------------------------------------------------------
+   [25/06/2026, 21:05:01] [STELLA / SISTEMA 🤖] [Status: read]
+   "(Automação) Template: saudacao_entrada_v3"
+
+======================================================================
+9. Lead: Philipe Feliciano (ID: 6120)
+   Coluna CRM: MENSAGEM ENVIADA
+   Piloto Automático: DESLIGADO 👤
+   Origem: Meta Lead Ad
+   Mensagens trocadas no período: 7
+----------------------------------------------------------------------
+   [25/06/2026, 21:05:28] [STELLA / SISTEMA 🤖] [Status: read]
+   "(Automação) Template: saudacao_entrada_v3"
+
+   [25/06/2026, 21:07:51] [CLIENTE] 
+   "[Botão]: Sim, por favor!"
+
+   [25/06/2026, 21:08:27] [STELLA / SISTEMA 🤖] [Status: delivered]
+   "Sou a Stella, a inteligência artificial de pré-atendimento do Studio 57. 😊 Como sou uma IA, minhas respostas podem conter erros e todas as simulações do nosso papo serão confirmadas por um corretor humano antes do fechamento. Se preferir falar com um corretor a qualquer momento, é só me avisar!"
+
+   [25/06/2026, 21:08:29] [STELLA / SISTEMA 🤖] [Status: delivered]
+   "Olá, Philipe! Que ótimo seu interesse em investir com o Studio 57."
+
+   [25/06/2026, 21:08:31] [STELLA / SISTEMA 🤖] [Status: delivered]
+   "O Beta Suítes é realmente uma excelente escolha para rentabilidade. Vou te enviar o book de apresentação dele para você conhecer os detalhes."
+
+   [25/06/2026, 21:08:33] [STELLA / SISTEMA 🤖] [Status: delivered]
+   "Book_Investidor_Beta_Suites.pdf"
+
+   [25/06/2026, 21:08:35] [STELLA / SISTEMA 🤖] [Status: delivered]
+   "O que você achou do projeto, Philipe? A proposta de rentabilidade faz sentido para seus objetivos de investimento?"
+
+======================================================================
+10. Lead: Lead (553387180386) (ID: 6121)
+   Coluna CRM: Inbox / Sem Coluna
+   Piloto Automático: DESLIGADO 👤
+   Origem: N/A
+   Mensagens trocadas no período: 4
+----------------------------------------------------------------------
+   [25/06/2026, 22:42:55] [CLIENTE] 
+   "Boa noite 
+Vocês estão contratando?"
+
+   [25/06/2026, 22:43:16] [STELLA / SISTEMA 🤖] [Status: read]
+   "Sou a Stella, a inteligência artificial de pré-atendimento do Studio 57. 😊 Como sou uma IA, minhas respostas podem conter erros e todas as simulações do nosso papo serão confirmadas por um corretor humano antes do fechamento. Se preferir falar com um corretor a qualquer momento, é só me avisar!"
+
+   [25/06/2026, 22:43:18] [STELLA / SISTEMA 🤖] [Status: read]
+   "Olá, boa noite! Meu foco aqui é ajudar clientes a encontrar o imóvel ideal, seja para morar, investir ou lazer."
+
+   [25/06/2026, 22:43:21] [STELLA / SISTEMA 🤖] [Status: read]
+   "Sobre oportunidades de trabalho, vou direcionar sua mensagem para a nossa equipe interna para que eles possam verificar, combinado?"
+
+======================================================================
+11. Lead: Alves Eddie (ID: 6122)
+   Coluna CRM: FALHAS
+   Piloto Automático: DESLIGADO 👤
+   Origem: Meta Lead Ad
+   Mensagens trocadas no período: 1
+----------------------------------------------------------------------
+   [25/06/2026, 23:26:18] [STELLA / SISTEMA 🤖] [Status: failed - Erro: Meta Error 131049: This message was not delivered to maintain healthy ecosystem engagement.]
+   "(Automação) Template: saudacao_entrada_v3"
+
+======================================================================
+12. Lead: Claudim de Sousa (ID: 6123)
+   Coluna CRM: FALHAS
+   Piloto Automático: DESLIGADO 👤
+   Origem: Meta Lead Ad
+   Mensagens trocadas no período: 1
+----------------------------------------------------------------------
+   [25/06/2026, 23:49:00] [STELLA / SISTEMA 🤖] [Status: failed - Erro: Meta Error 131026: Message undeliverable]
+   "(Automação) Template: saudacao_entrada_v3"
+
+======================================================================
+13. Lead: Hudson Mota (ID: 6124)
+   Coluna CRM: FALHAS
+   Piloto Automático: DESLIGADO 👤
+   Origem: Meta Lead Ad
+   Mensagens trocadas no período: 7
+----------------------------------------------------------------------
+   [26/06/2026, 00:06:14] [STELLA / SISTEMA 🤖] [Status: read]
+   "(Automação) Template: saudacao_entrada_v3"
+
+   [26/06/2026, 07:58:23] [CLIENTE] 
+   "[Botão]: Sim, por favor!"
+
+   [26/06/2026, 07:58:49] [STELLA / SISTEMA 🤖] [Status: delivered]
+   "Sou a Stella, a inteligência artificial de pré-atendimento do Studio 57. 😊 Como sou uma IA, minhas respostas podem conter erros e todas as simulações do nosso papo serão confirmadas por um corretor humano antes do fechamento. Se preferir falar com um corretor a qualquer momento, é só me avisar!"
+
+   [26/06/2026, 07:58:51] [STELLA / SISTEMA 🤖] [Status: delivered]
+   "Olá, Hudson! Vi que você se interessou pelo nosso Beta Suítes, uma excelente opção para investimento."
+
+   [26/06/2026, 07:58:54] [STELLA / SISTEMA 🤖] [Status: delivered]
+   "Vou te enviar nosso book com todos os detalhes. Enquanto você analisa, pode me dizer se você é aqui de Governador Valadares mesmo ou de outra cidade?"
+
+   [26/06/2026, 07:58:54] [STELLA / SISTEMA 🤖] [Status: failed - Erro: Meta Error 131053: Media upload error]
+   "Book Comercial - Beta Suítes.pdf"
+
+   [26/06/2026, 07:59:06] [STELLA / SISTEMA 🤖] [Status: delivered]
+   "O que você achou do projeto, Hudson? Atende às suas expectativas de investimento?"
+
+======================================================================
+14. Lead: Thatiane (ID: 6125)
+   Coluna CRM: MENSAGEM ENVIADA
+   Piloto Automático: DESLIGADO 👤
+   Origem: Meta Lead Ad
+   Mensagens trocadas no período: 4
+----------------------------------------------------------------------
+   [26/06/2026, 00:39:11] [STELLA / SISTEMA 🤖] [Status: read]
+   "(Automação) Template: saudacao_entrada_v3"
+
+   [26/06/2026, 00:39:13] [CLIENTE] 
+   "Olá! Preenchi seu formulário e gostaria de saber mais sobre sua empresa.
+
+Full name: Thatiane
+Phone number: +18572463361
+Objetivo?: INVESTIMENTO
+Renda Familiar Bruta?: Mais de R$ 10.000,00
+Possui FGTS?: Não"
+
+   [26/06/2026, 00:39:53] [STELLA / SISTEMA 🤖] [Status: read]
+   "Book_Investidor_Beta_Suites.pdf"
+
+   [26/06/2026, 00:39:55] [STELLA / SISTEMA 🤖] [Status: read]
+   "Assim que puder, me diga o que mais chamou sua atenção no projeto. Combinado? 😉"
+
+======================================================================
+15. Lead: Joyce Neves (ID: 6126)
+   Coluna CRM: FALHAS
+   Piloto Automático: DESLIGADO 👤
+   Origem: Meta Lead Ad
+   Mensagens trocadas no período: 1
+----------------------------------------------------------------------
+   [26/06/2026, 07:05:46] [STELLA / SISTEMA 🤖] [Status: failed - Erro: Meta Error 130472: User's number is part of an experiment]
+   "(Automação) Template: saudacao_entrada_v3"
+
+======================================================================
+16. Lead: Iris Moreira (ID: 6127)
+   Coluna CRM: MENSAGEM ENVIADA
+   Piloto Automático: DESLIGADO 👤
+   Origem: Meta Lead Ad
+   Mensagens trocadas no período: 7
+----------------------------------------------------------------------
+   [26/06/2026, 08:13:20] [STELLA / SISTEMA 🤖] [Status: read]
+   "(Automação) Template: saudacao_entrada_v3"
+
+   [26/06/2026, 08:23:47] [CLIENTE] 
+   "[Botão]: Sim, por favor!"
+
+   [26/06/2026, 08:24:19] [STELLA / SISTEMA 🤖] [Status: delivered]
+   "Sou a Stella, a inteligência artificial de pré-atendimento do Studio 57. 😊 Como sou uma IA, minhas respostas podem conter erros e todas as simulações do nosso papo serão confirmadas por um corretor humano antes do fechamento. Se preferir falar com um corretor a qualquer momento, é só me avisar!"
+
+   [26/06/2026, 08:24:22] [STELLA / SISTEMA 🤖] [Status: sent]
+   "Olá, Iris, tudo bem? Vi que você se interessou pelo Refúgio Braúnas, uma excelente escolha para investimento."
+
+   [26/06/2026, 08:24:24] [STELLA / SISTEMA 🤖] [Status: delivered]
+   "Vou te encaminhar o book do projeto para você conhecer melhor. É um material lindo!"
+
+   [26/06/2026, 08:24:25] [STELLA / SISTEMA 🤖] [Status: delivered]
+   "[BOK] - BOOK DE VENDAS- REFUGIO BRAUNAS_studio57.pdf"
+
+   [26/06/2026, 08:24:28] [STELLA / SISTEMA 🤖] [Status: delivered]
+   "Assim que conseguir ver, me diz o que mais te chamou a atenção no projeto?"
+

@@ -136,13 +136,13 @@ const AddContactModal = ({ isOpen, onClose, onSearch, results, onAddContact, exi
 const fetchFunilData = async (supabase, organizacaoId, funilId, filters) => {
  if (!organizacaoId || !funilId) return { colunasDoFunil: [], contatosNoFunil: [] };
 
- // 1. Busca TODAS as Colunas deste Funil
- const { data: cols } = await supabase
- .from('colunas_funil')
- .select('id, nome, ordem, tipo_coluna, funil_id')
- .eq('funil_id', funilId)
- .eq('organizacao_id', organizacaoId)
- .order('ordem', { ascending: true });
+  // 1. Busca TODAS as Colunas deste Funil (da própria Org ou do Sistema/Org 1)
+  const { data: cols } = await supabase
+    .from('colunas_funil')
+    .select('id, nome, ordem, tipo_coluna, funil_id')
+    .eq('funil_id', funilId)
+    .or(`organizacao_id.eq.${organizacaoId},organizacao_id.eq.1`)
+    .order('ordem', { ascending: true });
  const todasColunas = cols || [];
 
  // 2. Busca os Contatos (Leads) — filtrando pelas colunas DESTE funil
@@ -213,14 +213,14 @@ const fetchFunilData = async (supabase, organizacaoId, funilId, filters) => {
 
 // --- LISTA TODOS OS FUNIS DA ORGANIZAÇÃO (o is_sistema aparece primeiro) ---
 const fetchAllFunils = async (supabase, organizacaoId) => {
- if (!organizacaoId) return [];
- const { data } = await supabase
- .from('funis')
- .select('id, nome, is_sistema')
- .eq('organizacao_id', organizacaoId)
- .order('is_sistema', { ascending: false }) // Sistema primeiro
- .order('id', { ascending: true });
- return data || [];
+  if (!organizacaoId) return [];
+  const { data } = await supabase
+    .from('funis')
+    .select('id, nome, is_sistema')
+    .or(`organizacao_id.eq.${organizacaoId},organizacao_id.eq.1`)
+    .order('is_sistema', { ascending: false }) // Sistema primeiro
+    .order('id', { ascending: true });
+  return data || [];
 };
 
 const fetchFilterData = async (supabase, organizacaoId) => {

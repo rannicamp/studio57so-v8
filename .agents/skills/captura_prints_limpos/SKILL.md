@@ -169,22 +169,225 @@ async function run() {
   const printsDir = 'c:\\Projetos\\studio57so-v8\\public\\prints';
   if (!fs.existsSync(printsDir)) fs.mkdirSync(printsDir, { recursive: true });
 
-  // Capturar as páginas de interesse
-  const urls = [
-    { name: 'painel.png', url: 'http://localhost:3000/painel', delay: 4000 },
-    { name: 'pedidos_compras.png', url: 'http://localhost:3000/pedidos', delay: 4000 },
-    { name: 'rdo_modelo.png', url: `http://localhost:3000/rdo/${rdoId}`, delay: 4000 },
-    { name: 'bim_manager.png', url: 'http://localhost:3000/bim-manager', delay: 8000 }
-  ];
+  // Função utilitária para limpar badges de desenvolvimento e tirar o print
+  async function cleanAndScreenshot(url, outputPath, timeout = 4000) {
+    await page.goto(url);
+    await page.waitForTimeout(timeout);
+    
+    await page.evaluate(() => {
+      const devtools = document.querySelector('netlify-devtools');
+      if (devtools) devtools.remove();
 
-  for (const item of urls) {
-    console.log(`Navegando para: ${item.url}...`);
-    await page.goto(item.url);
-    await page.waitForTimeout(item.delay);
-    await page.screenshot({ path: path.join(printsDir, item.name) });
-    console.log(`[OK] Foto salva: ${item.name}`);
+      const overlay = document.querySelector('next-dev-overlay');
+      if (overlay) overlay.remove();
+
+      const portal = document.querySelector('nextjs-portal');
+      if (portal) portal.remove();
+
+      const suspDivs = document.querySelectorAll('div');
+      suspDivs.forEach(div => {
+        if (div.innerText && (div.innerText.includes('1 issue') || div.innerText.includes('Issue') || div.innerText === 'N' || div.innerText.includes('Netlify'))) {
+          div.remove();
+        }
+      });
+
+      const style = document.createElement('style');
+      style.innerHTML = `
+        nextjs-portal, next-dev-overlay, netlify-devtools, [id*="netlify"], [class*="netlify"],
+        #__next-build-watcher, div[style*="position: fixed"][style*="bottom"][style*="left"] {
+          display: none !important; opacity: 0 !important; visibility: hidden !important;
+          pointer-events: none !important; width: 0 !important; height: 0 !important;
+        }
+      `;
+      document.head.appendChild(style);
+    });
+
+    await page.waitForTimeout(500);
+    await page.screenshot({ path: outputPath });
   }
 
+  // 1. Dashboard / Painel
+  console.log('Capturando tela: Dashboard...');
+  await cleanAndScreenshot('http://localhost:3000/painel', path.join(printsDir, 'painel.png'), 4000);
+
+  // 2. Kanban de Compras
+  console.log('Capturando tela: Kanban de Compras...');
+  await cleanAndScreenshot('http://localhost:3000/pedidos', path.join(printsDir, 'pedidos_compras.png'), 4000);
+
+  // 3. Relatório Diário de Obra (RDO)
+  console.log(`Capturando tela: RDO...`);
+  await cleanAndScreenshot(`http://localhost:3000/rdo/${rdoId}`, path.join(printsDir, 'rdo_modelo.png'), 4000);
+
+  // 4. BIM Manager com carregamento de modelo
+  console.log('Capturando tela: BIM Manager com Modelo 3D...');
+  await page.evaluate(() => {
+    const fileObjNum = {
+      id: 50,
+      nome_arquivo: "2024_000_ESTRUTURA_CORRETA.rvt",
+      urn_autodesk: "dXJuOmFkc2sub2JqZWN0czpvcy5vYmplY3Q6c3R1ZGlvNTdfYmltX2J1Y2tldF9qYXV0OXdzMDhyanpkb256ZXdhbmp1Zzdia2R2MzJ5dDB1bmRkYTY5eTJ2ZXNlYmMvMjAyNF8wMDBfRVNUUlVUVVJBX0NPUlJFVEEucnZ0",
+      status: "Concluido",
+      empreendimento_id: 14,
+      disciplina_id: 9,
+      versao: 5,
+      organizacao_id: 57,
+      is_lixeira: false
+    };
+    
+    const fileObjStr = {
+      id: "50",
+      nome_arquivo: "2024_000_ESTRUTURA_CORRETA.rvt",
+      urn_autodesk: "dXJuOmFkc2sub2JqZWN0czpvcy5vYmplY3Q6c3R1ZGlvNTdfYmltX2J1Y2tldF9qYXV0OXdzMDhyanpkb256ZXdhbmp1Zzdia2R2MzJ5dDB1bmRkYTY5eTJ2ZXNlYmMvMjAyNF8wMDBfRVNUUlVUVVJBX0NPUlJFVEEucnZ0",
+      status: "Concluido",
+      empreendimento_id: 14,
+      disciplina_id: 9,
+      versao: 5,
+      organizacao_id: 57,
+      is_lixeira: false
+    };
+
+    localStorage.setItem('bim_loadedFiles', JSON.stringify([fileObjNum, fileObjStr]));
+    localStorage.setItem('bim_layout_isSidebarVisible', 'true');
+    localStorage.setItem('bim_layout_activeMainTab', 'viewer');
+  });
+
+  await page.goto('http://localhost:3000/bim-manager');
+  await page.waitForTimeout(4000);
+
+  try {
+    const isModelActive = await page.evaluate(() => {
+      return window.NOP_VIEWER && 
+             window.NOP_VIEWER.modelQueue && 
+             window.NOP_VIEWER.modelQueue().getModels &&
+             window.NOP_VIEWER.modelQueue().getModels().length > 0;
+    });
+
+    if (!isModelActive) {
+      await page.waitForSelector('text=2024_000_ESTRUTURA_CORRETA.rvt', { timeout: 15000 });
+      await page.waitForTimeout(2000);
+      await page.click('text=2024_000_ESTRUTURA_CORRETA.rvt');
+    }
+
+    await page.waitForFunction(() => {
+      return window.NOP_VIEWER && 
+             window.NOP_VIEWER.modelQueue && 
+             window.NOP_VIEWER.modelQueue().getModels &&
+             window.NOP_VIEWER.modelQueue().getModels().length > 0;
+    }, undefined, { timeout: 60000 });
+
+    await page.waitForTimeout(8000); // Aguarda renderização WebGL estabilizar
+  } catch (err) {
+    console.warn('Erro ao carregar modelo automaticamente, usando clique fallback:', err.message);
+    try {
+      await page.click('text=2024_000_ESTRUTURA_CORRETA.rvt');
+      await page.waitForTimeout(10000);
+    } catch (e) {}
+  }
+
+  // Limpeza final antes de fotografar
+  await page.evaluate(() => {
+    ['netlify-devtools', 'next-dev-overlay', 'nextjs-portal'].forEach(tag => {
+      const el = document.querySelector(tag);
+      if (el) el.remove();
+    });
+    const style = document.createElement('style');
+    style.innerHTML = `
+      nextjs-portal, next-dev-overlay, netlify-devtools, [id*="netlify"], [class*="netlify"],
+      #__next-build-watcher, div[style*="position: fixed"][style*="bottom"][style*="left"] {
+        display: none !important; opacity: 0 !important; visibility: hidden !important;
+        pointer-events: none !important; width: 0 !important; height: 0 !important;
+      }
+    `;
+    document.head.appendChild(style);
+  });
+  await page.waitForTimeout(500);
+
+  await page.screenshot({ path: path.join(printsDir, 'bim_manager.png') });
+  console.log('[OK] Foto salva: bim_manager.png');
+
+  // 5. Captura Mobile para PWA (iPhone 12 Emulação)
+  console.log('--- INICIANDO CAPTURA MÓVEL (PWA) ---');
+  const cookies = await context.cookies();
+  
+  const mobileContext = await browser.newContext({
+    viewport: { width: 390, height: 800 },
+    userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile/15E148 Safari/604.1',
+    deviceScaleFactor: 3,
+    isMobile: true,
+    hasTouch: true
+  });
+  
+  await mobileContext.addCookies(cookies);
+  const mobilePage = await mobileContext.newPage();
+  
+  await mobilePage.addInitScript(() => {
+    const style = document.createElement('style');
+    style.innerHTML = `
+      nextjs-portal, next-dev-overlay, netlify-devtools, [id*="netlify"], [class*="netlify"],
+      [data-netlify], #__next-build-watcher, div[style*="position: fixed"][style*="bottom: 0"][style*="left: 0"] {
+        display: none !important; opacity: 0 !important; visibility: hidden !important;
+        pointer-events: none !important; width: 0 !important; height: 0 !important;
+      }
+    `;
+    document.head ? document.head.appendChild(style) : document.documentElement.appendChild(style);
+
+    setInterval(() => {
+      ['nextjs-portal', 'next-dev-overlay', 'netlify-devtools'].forEach(tag => {
+        const el = document.querySelector(tag);
+        if (el) el.remove();
+      });
+    }, 100);
+  });
+
+  // A. Capturar RDO Mobile (Página Inteira para Rolagem)
+  await mobilePage.goto(`http://localhost:3000/rdo/${rdoId}`);
+  await mobilePage.waitForTimeout(5000);
+  
+  await mobilePage.evaluate(() => {
+    ['netlify-devtools', 'next-dev-overlay', 'nextjs-portal'].forEach(tag => {
+      const el = document.querySelector(tag);
+      if (el) el.remove();
+    });
+    const style = document.createElement('style');
+    style.innerHTML = `
+      nextjs-portal, next-dev-overlay, netlify-devtools, [id*="netlify"], [class*="netlify"],
+      #__next-build-watcher, div[style*="position: fixed"][style*="bottom"][style*="left"] {
+        display: none !important; opacity: 0 !important; visibility: hidden !important;
+      }
+    `;
+    document.head.appendChild(style);
+  });
+  await mobilePage.waitForTimeout(500);
+
+  await mobilePage.screenshot({ 
+    path: path.join(printsDir, 'rdo_mobile.png'),
+    fullPage: true 
+  });
+  console.log('[OK] Foto salva: rdo_mobile.png');
+
+  // B. Capturar Painel/Dashboard Mobile (Página Inteira para Rolagem)
+  await mobilePage.goto('http://localhost:3000/painel');
+  await mobilePage.waitForTimeout(5000);
+  
+  await mobilePage.evaluate(() => {
+    ['netlify-devtools', 'next-dev-overlay', 'nextjs-portal'].forEach(tag => {
+      const el = document.querySelector(tag);
+      if (el) el.remove();
+    });
+  });
+  await mobilePage.waitForTimeout(500);
+
+  await mobilePage.screenshot({ 
+    path: path.join(printsDir, 'painel_mobile.png'),
+    fullPage: true 
+  });
+  console.log('[OK] Foto salva: painel_mobile.png');
+
+  await mobileContext.close();
   await browser.close();
 }
+
+run().catch(err => {
+  console.error(err);
+  process.exit(1);
+});
 ```

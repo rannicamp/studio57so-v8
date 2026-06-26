@@ -141,11 +141,12 @@ async function sendTemplateMessage(supabaseAdmin, config, to, contato, templateN
  * 2. Fallback: qualquer coluna tipo_coluna='entrada' da org (banco legado)
  */
 async function getOrgEntryColumnId(supabase, orgId) {
-  // TENTATIVA 1: Funil com is_sistema=true
+  // TENTATIVA 1: Funil com is_sistema=true da Org 1 (Funil de Entrada global)
   const { data: funilSistema } = await supabase
     .from('funis')
     .select('id')
-    .eq('organizacao_id', orgId)
+    .eq('organizacao_id', 1)
+    .eq('nome', 'Funil de Entrada')
     .eq('is_sistema', true)
     .maybeSingle();
 
@@ -157,17 +158,18 @@ async function getOrgEntryColumnId(supabase, orgId) {
       .eq('tipo_coluna', 'entrada')
       .maybeSingle();
     if (coluna) {
-      console.log(`[Org ${orgId}] ENTRADA via Funil de Entrada (is_sistema=true), coluna id=${coluna.id}`);
+      console.log(`[Webhook] ENTRADA via Funil de Entrada global da Org 1, coluna id=${coluna.id}`);
       return coluna.id;
     }
   }
 
-  // FALLBACK: qualquer coluna tipo_coluna='entrada' desta org
+  // FALLBACK: qualquer coluna tipo_coluna='entrada' desta org ou da Org 1 (sistema)
   const { data: fallback } = await supabase
     .from('colunas_funil')
     .select('id')
-    .eq('organizacao_id', orgId)
+    .or(`organizacao_id.eq.${orgId},organizacao_id.eq.1`)
     .eq('tipo_coluna', 'entrada')
+    .order('organizacao_id', { ascending: false })
     .order('id', { ascending: true })
     .limit(1)
     .maybeSingle();

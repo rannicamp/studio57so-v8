@@ -148,8 +148,10 @@ export async function POST(request) {
         }, { status: 400 });
       }
     } else {
-      // Se for um humano confirmado, e o piloto automático ainda constar como ativo no banco, desliga ele!
-      if (contatoIaAtivo && finalContactId) {
+      // Exceção explícita: Se o remetente for a própria Stella IA, NUNCA desliga o piloto automático!
+      const isStella = requestUserId && requestUserId === stellaUserId;
+
+      if (!isStella && contatoIaAtivo && finalContactId) {
         console.log(`[WhatsApp Send] Mensagem enviada manualmente pelo usuário humano ${requestUserId}. Desativando piloto automático para o contato ${finalContactId}.`);
         await supabaseAdmin
           .from('contatos')

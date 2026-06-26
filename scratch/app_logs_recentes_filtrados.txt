@@ -1,0 +1,194 @@
+=== APP_LOGS DE DETALHE DOS LEADS RECENTES ===
+
+[25/06/2026, 20:41:45] ID: 56667 | Mensagem: "Custo Gemini (gemini-2.5-pro) - chat-analysis-v2 (Orquestrador com Tools): $0.006587 USD (Tokens: 5166 entrada / 26 saída | Duração: 8951ms)"
+Payload: {
+  "error": null,
+  "modelo": "gemini-2.5-pro",
+  "success": true,
+  "contexto": "Orquestrador com Tools",
+  "cost_usd": 0.0065875,
+  "contato_id": 5976,
+  "usuario_id": null,
+  "duration_ms": 8951,
+  "input_tokens": 5166,
+  "output_tokens": 26,
+  "organizacao_id": 2,
+  "origem_chamada": "chat-analysis-v2"
+}
+--------------------------------------------------------------------------------
+[25/06/2026, 20:41:53] ID: 56669 | Mensagem: "Custo Gemini (gemini-2.5-pro) - chat-analysis-v2 (Orquestrador com Tools - Iteração 2): $0.012246 USD (Tokens: 8033 entrada / 441 saída | Duração: 7748ms)"
+Payload: {
+  "error": null,
+  "modelo": "gemini-2.5-pro",
+  "success": true,
+  "contexto": "Orquestrador com Tools - Iteração 2",
+  "cost_usd": 0.01224625,
+  "contato_id": 5976,
+  "usuario_id": null,
+  "duration_ms": 7748,
+  "input_tokens": 8033,
+  "output_tokens": 441,
+  "organizacao_id": 2,
+  "origem_chamada": "chat-analysis-v2"
+}
+--------------------------------------------------------------------------------
+[25/06/2026, 20:46:54] ID: 56671 | Mensagem: "Custo Gemini (gemini-2.5-pro) - chat-analysis-v2 (Orquestrador com Tools): $0.008341 USD (Tokens: 5589 entrada / 271 saída | Duração: 16831ms)"
+Payload: {
+  "error": null,
+  "modelo": "gemini-2.5-pro",
+  "success": true,
+  "contexto": "Orquestrador com Tools",
+  "cost_usd": 0.00834125,
+  "contato_id": 5976,
+  "usuario_id": null,
+  "duration_ms": 16831,
+  "input_tokens": 5589,
+  "output_tokens": 271,
+  "organizacao_id": 2,
+  "origem_chamada": "chat-analysis-v2"
+}
+--------------------------------------------------------------------------------
+[25/06/2026, 21:04:49] ID: 56673 | Mensagem: "Custo Gemini (gemini-2.5-pro) - chat-analysis-v2 (Orquestrador com Tools): $0.008721 USD (Tokens: 5721 entrada / 314 saída | Duração: 17992ms)"
+Payload: {
+  "error": null,
+  "modelo": "gemini-2.5-pro",
+  "success": true,
+  "contexto": "Orquestrador com Tools",
+  "cost_usd": 0.00872125,
+  "contato_id": 5976,
+  "usuario_id": null,
+  "duration_ms": 17992,
+  "input_tokens": 5721,
+  "output_tokens": 314,
+  "organizacao_id": 2,
+  "origem_chamada": "chat-analysis-v2"
+}
+--------------------------------------------------------------------------------
+[25/06/2026, 21:08:15] ID: 56746 | Mensagem: "Custo Gemini (gemini-2.5-pro) - chat-analysis-v2 (Orquestrador com Tools): $0.006340 USD (Tokens: 4968 entrada / 26 saída | Duração: 19580ms)"
+Payload: {
+  "error": null,
+  "modelo": "gemini-2.5-pro",
+  "success": true,
+  "contexto": "Orquestrador com Tools",
+  "cost_usd": 0.00634,
+  "contato_id": 6120,
+  "usuario_id": null,
+  "duration_ms": 19580,
+  "input_tokens": 4968,
+  "output_tokens": 26,
+  "organizacao_id": 2,
+  "origem_chamada": "chat-analysis-v2"
+}
+--------------------------------------------------------------------------------
+[25/06/2026, 21:08:26] ID: 56748 | Mensagem: "Custo Gemini (gemini-2.5-pro) - chat-analysis-v2 (Orquestrador com Tools - Iteração 2): $0.010665 USD (Tokens: 6716 entrada / 454 saída | Duração: 10215ms)"
+Payload: {
+  "error": null,
+  "modelo": "gemini-2.5-pro",
+  "success": true,
+  "contexto": "Orquestrador com Tools - Iteração 2",
+  "cost_usd": 0.010665,
+  "contato_id": 6120,
+  "usuario_id": null,
+  "duration_ms": 10215,
+  "input_tokens": 6716,
+  "output_tokens": 454,
+  "organizacao_id": 2,
+  "origem_chamada": "chat-analysis-v2"
+}
+--------------------------------------------------------------------------------
+[25/06/2026, 21:10:59] ID: 56750 | Mensagem: "Custo Gemini (gemini-2.5-pro) - chat-analysis-v2 (Orquestrador com Tools): $0.009345 USD (Tokens: 6120 entrada / 339 saída | Duração: 21633ms)"
+Payload: {
+  "error": null,
+  "modelo": "gemini-2.5-pro",
+  "success": true,
+  "contexto": "Orquestrador com Tools",
+  "cost_usd": 0.009345,
+  "contato_id": 6056,
+  "usuario_id": null,
+  "duration_ms": 21633,
+  "input_tokens": 6120,
+  "output_tokens": 339,
+  "organizacao_id": 2,
+  "origem_chamada": "chat-analysis-v2"
+}
+--------------------------------------------------------------------------------
+[26/06/2026, 00:39:43] ID: 56924 | Mensagem: "Custo Gemini (gemini-2.5-pro) - chat-analysis-v2 (Orquestrador com Tools): $0.008157 USD (Tokens: 5778 entrada / 187 saída | Duração: 25641ms)"
+Payload: {
+  "error": null,
+  "modelo": "gemini-2.5-pro",
+  "success": true,
+  "contexto": "Orquestrador com Tools",
+  "cost_usd": 0.0081575,
+  "contato_id": 6125,
+  "usuario_id": null,
+  "duration_ms": 25641,
+  "input_tokens": 5778,
+  "output_tokens": 187,
+  "organizacao_id": 2,
+  "origem_chamada": "chat-analysis-v2"
+}
+--------------------------------------------------------------------------------
+[26/06/2026, 00:39:51] ID: 56925 | Mensagem: "Custo Gemini (gemini-2.5-pro) - chat-analysis-v2 (Orquestrador com Tools - Iteração 2): $0.011229 USD (Tokens: 7687 entrada / 324 saída | Duração: 8003ms)"
+Payload: {
+  "error": null,
+  "modelo": "gemini-2.5-pro",
+  "success": true,
+  "contexto": "Orquestrador com Tools - Iteração 2",
+  "cost_usd": 0.01122875,
+  "contato_id": 6125,
+  "usuario_id": null,
+  "duration_ms": 8003,
+  "input_tokens": 7687,
+  "output_tokens": 324,
+  "organizacao_id": 2,
+  "origem_chamada": "chat-analysis-v2"
+}
+--------------------------------------------------------------------------------
+[26/06/2026, 07:58:48] ID: 56965 | Mensagem: "Custo Gemini (gemini-2.5-pro) - chat-analysis-v2 (Orquestrador com Tools): $0.008385 USD (Tokens: 4964 entrada / 436 saída | Duração: 19775ms)"
+Payload: {
+  "error": null,
+  "modelo": "gemini-2.5-pro",
+  "success": true,
+  "contexto": "Orquestrador com Tools",
+  "cost_usd": 0.008385,
+  "contato_id": 6124,
+  "usuario_id": null,
+  "duration_ms": 19775,
+  "input_tokens": 4964,
+  "output_tokens": 436,
+  "organizacao_id": 2,
+  "origem_chamada": "chat-analysis-v2"
+}
+--------------------------------------------------------------------------------
+[26/06/2026, 08:24:14] ID: 57001 | Mensagem: "Custo Gemini (gemini-2.5-pro) - chat-analysis-v2 (Orquestrador com Tools): $0.006336 USD (Tokens: 4965 entrada / 26 saída | Duração: 21343ms)"
+Payload: {
+  "error": null,
+  "modelo": "gemini-2.5-pro",
+  "success": true,
+  "contexto": "Orquestrador com Tools",
+  "cost_usd": 0.00633625,
+  "contato_id": 6127,
+  "usuario_id": null,
+  "duration_ms": 21343,
+  "input_tokens": 4965,
+  "output_tokens": 26,
+  "organizacao_id": 2,
+  "origem_chamada": "chat-analysis-v2"
+}
+--------------------------------------------------------------------------------
+[26/06/2026, 08:24:17] ID: 57002 | Mensagem: "Custo Gemini (gemini-2.5-pro) - chat-analysis-v2 (Orquestrador com Tools - Iteração 2): $0.010631 USD (Tokens: 6757 entrada / 437 saída | Duração: 3795ms)"
+Payload: {
+  "error": null,
+  "modelo": "gemini-2.5-pro",
+  "success": true,
+  "contexto": "Orquestrador com Tools - Iteração 2",
+  "cost_usd": 0.01063125,
+  "contato_id": 6127,
+  "usuario_id": null,
+  "duration_ms": 3795,
+  "input_tokens": 6757,
+  "output_tokens": 437,
+  "organizacao_id": 2,
+  "origem_chamada": "chat-analysis-v2"
+}
+--------------------------------------------------------------------------------

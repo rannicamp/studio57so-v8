@@ -3,10 +3,11 @@
 import Link from 'next/link';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
- faTachometerAlt, faBuilding, faProjectDiagram, faUsers, faTasks,
- faClipboardList, faAddressBook, faDollarSign, faShoppingCart,
- faInbox, faBullseye, faFileSignature, faCalculator,
- faBoxOpen, faFileInvoiceDollar, faTags, faCube, faCubes, faChartLine
+  faTachometerAlt, faBuilding, faProjectDiagram, faUsers, faTasks,
+  faClipboardList, faAddressBook, faDollarSign, faShoppingCart,
+  faInbox, faBullseye, faFileSignature, faCalculator,
+  faBoxOpen, faFileInvoiceDollar, faTags, faCube, faCubes, faChartLine,
+  faPercent
 } from '@fortawesome/free-solid-svg-icons';
 import { faMeta } from '@fortawesome/free-brands-svg-icons';
 // CORREÇÃO: Usando @/ para o contexto
@@ -14,7 +15,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import Tooltip from './Tooltip';
 
 export default function Sidebar({ isOpen, closeSidebar }) {
- const { hasPermission, user } = useAuth();
+  const { hasPermission, user, isProprietario: isProprietarioFromAuth } = useAuth();
  const sidebarPosition = user?.sidebar_position || 'left';
 
  // Configuração dos itens - Totalmente Mapeada
@@ -29,7 +30,7 @@ export default function Sidebar({ isOpen, closeSidebar }) {
  { href: '/empreendimentos', label: 'Empreendimentos', icon: faProjectDiagram, recurso: 'empreendimentos' },
  { href: '/contratos', label: 'Contratos', icon: faFileSignature, recurso: 'contratos' },
  { href: '/relatorios', label: 'Relatórios', icon: faChartLine, recurso: 'relatorios' },
- { href: '/financeiro/indices', label: 'Índices Financeiros', icon: faChartLine, recurso: 'financeiro' },
+ { href: '/financeiro/indices', label: 'Índices Financeiros', icon: faPercent, recurso: 'financeiro' },
  ]
  },
  {
@@ -55,7 +56,7 @@ export default function Sidebar({ isOpen, closeSidebar }) {
  {
  title: 'Coordenação BIM',
  items: [
- { href: '/bim-manager', label: 'BIM Manager 3D', icon: faBuilding, recurso: 'bim' },
+ { href: '/bim-manager', label: 'BIM Manager 3D', icon: faCubes, recurso: 'bim' },
  ]
  },
  ];
@@ -63,7 +64,23 @@ export default function Sidebar({ isOpen, closeSidebar }) {
  const logoUrl = "/marca/logo-elo57-horizontal.svg";
  const logoIconUrl = "/marca/icone-elo57.svg";
 
- const isProprietario = user?.funcao_id === 1 || user?.funcao_id === 9 || user?.funcao === 'Proprietário' || user?.nome_funcao === 'Proprietário' || user?.role === 'Proprietário';
+  const checkProprietarioText = (text) => {
+    if (!text) return false;
+    const normalized = text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    return normalized === 'proprietario';
+  };
+
+  const isProprietario = isProprietarioFromAuth || 
+    user?.funcao_id === 1 || 
+    user?.funcao_id === 9 || 
+    user?.funcao_id === 32 || 
+    String(user?.funcao_id) === '1' ||
+    String(user?.funcao_id) === '9' ||
+    String(user?.funcao_id) === '32' ||
+    checkProprietarioText(user?.funcao) || 
+    checkProprietarioText(user?.nome_funcao) || 
+    checkProprietarioText(user?.role) || 
+    checkProprietarioText(user?.funcoes?.nome_funcao);
 
  const isHorizontal = sidebarPosition === 'top' || sidebarPosition === 'bottom';
 
@@ -79,7 +96,7 @@ export default function Sidebar({ isOpen, closeSidebar }) {
  <nav className="flex items-center gap-2 overflow-x-auto flex-nowrap no-scrollbar py-2 max-w-[80vw]">
  {allItems.map((item) => {
  let canViewItem = hasPermission(item.recurso, 'pode_ver') || ['painel', 'perfil', 'caixa_de_entrada'].includes(item.recurso);
- if (item.recurso === 'relatorios') canViewItem = isProprietario;
+ if (item.recurso === 'relatorios') canViewItem = isProprietario || hasPermission('relatorios', 'pode_ver');
  if (!item || !canViewItem) return null;
  return (
  <Tooltip key={item.label} label={item.label} position={sidebarPosition === 'top' ? 'bottom' : 'top'}>
@@ -125,7 +142,7 @@ export default function Sidebar({ isOpen, closeSidebar }) {
  {navSections.map((section) => {
  const sectionItems = section.items || [];
  const visibleItems = sectionItems.filter(item => {
- if (item.recurso === 'relatorios') return isProprietario;
+ if (item.recurso === 'relatorios') return isProprietario || hasPermission('relatorios', 'pode_ver');
  return hasPermission(item.recurso, 'pode_ver') || ['painel', 'perfil', 'caixa_de_entrada'].includes(item.recurso);
  });
 

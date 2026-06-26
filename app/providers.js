@@ -9,13 +9,13 @@ import QueryProvider from './QueryProvider';
 export function Providers({ children }) {
  return (
  <SessionProvider refetchOnWindowFocus={false} refetchInterval={0}>
+ <QueryProvider>
  <AuthProvider>
  <OrganizationProvider>
- <QueryProvider>
  {children}
- </QueryProvider>
  </OrganizationProvider>
  </AuthProvider>
+ </QueryProvider>
  </SessionProvider>
  );
 }

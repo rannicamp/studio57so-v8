@@ -1,0 +1,269 @@
+=== TEMPLATES APROVADOS DA META (ORG 2) ===
+
+1. Nome: saudacao_entrada_v3 | Categoria: MARKETING | Idioma: pt_BR
+   Componentes:
+     - Tipo: BODY
+       Texto: "Oi! Tudo bem? Recebemos o seu interesse em nossos empreendimentos. Podemos liberar e te enviar os materiais completos por aqui?"
+     - Tipo: BUTTONS
+       Botões: [{"type":"QUICK_REPLY","text":"Sim, por favor!"},{"type":"QUICK_REPLY","text":"Não, Obrigado!"}]
+------------------------------------------------------------
+2. Nome: patrimonio_de_afetacao | Categoria: MARKETING | Idioma: pt_BR
+   Componentes:
+     - Tipo: HEADER
+       Texto: "Tem medo de investir em imóvel na planta?"
+       Formato: TEXT
+     - Tipo: BODY
+       Texto: "Acabamos de publicar um vídeo rápido explicando como garantimos a entrega da sua obra com total segurança (você já ouviu falar em Patrimônio de Afetação?). Confira aqui: 👇"
+     - Tipo: BUTTONS
+       Botões: [{"type":"URL","text":"Acesse nosso Insta.","url":"https://www.instagram.com/reel/DZDoqg6hcx7/?utm_source=ig_web_copy_link&igsh=MzRlODBiNWFlZA=="}]
+------------------------------------------------------------
+3. Nome: saudacao_entrada_v2 | Categoria: UTILITY | Idioma: pt_BR
+   Componentes:
+     - Tipo: BODY
+       Texto: "Olá! Recebemos o seu cadastro e respeitamos muito a sua privacidade. 🔒
+
+Você gostaria que um consultor do Studio 57 lhe enviasse mais detalhes sobre os nossos empreendimentos?"
+     - Tipo: BUTTONS
+       Botões: [{"type":"QUICK_REPLY","text":"Sim, gostaria!"}]
+------------------------------------------------------------
+4. Nome: beta_suites_1 | Categoria: MARKETING | Idioma: pt_BR
+   Componentes:
+     - Tipo: HEADER
+       Formato: IMAGE
+     - Tipo: BODY
+       Texto: "⚠️ AVISO DE PRÉ-LANÇAMENTO:
+
+O Beta Suítes entrou em fase de reserva técnica e as primeiras unidades estão se esgotando rápido.
+
+Se você busca um ativo imobiliário seguro, com alta liquidez e excelente taxa de retorno em Governador Valadares, essa é a sua chance:
+
+📈 Invista com apenas 20% de entrada e parcelas de R$ 1.800. 🎓 Localização estratégica ao lado da UFJF e Polo Médico.
+
+Quer ver as plantas e garantir as condições de tabela especial? Clique em Quero saber mais!👇"
+     - Tipo: BUTTONS
+       Botões: [{"type":"QUICK_REPLY","text":"Quero saber mais!"}]
+------------------------------------------------------------
+5. Nome: eua_retomar_conversa | Categoria: UTILITY | Idioma: pt_BR
+   Componentes:
+     - Tipo: BODY
+       Texto: "Estou passando para verificar se você conseguiu acessar as informações que enviamos anteriormente. Deu tudo certo?"
+------------------------------------------------------------
+6. Nome: oi_tudo_bem_ | Categoria: MARKETING | Idioma: pt_BR
+   Componentes:
+     - Tipo: BODY
+       Texto: "Oi, aqui é do studio 57 arquitetura e incorporação, tudo bem com você?"
+------------------------------------------------------------
+7. Nome: refugio_acompanhamento_1 | Categoria: MARKETING | Idioma: pt_BR
+   Componentes:
+     - Tipo: HEADER
+       Formato: IMAGE
+     - Tipo: BODY
+       Texto: "Olá {{1}}, tudo bem?
+
+Estou entrando em contato de forma pontual para te apresentar um ativo de valorização altíssima que o Studio 57 acabou de colocar no mercado.
+
+Lançamos o Refúgio Braúnas. Diferente de 90% das áreas rurais da região, nosso empreendimento tem matrícula individualizada (100% regular) para cada lote de 1.000m². Isso significa liquidez imediata e segurança jurídica total para o seu patrimônio.
+
+Foram 21 lotes exclusivos. Investidores e parceiros já arremataram 11 deles apenas no pré-lançamento. Temos as últimas 10 unidades.
+
+✅ Entrada de apenas 20% (podendo diluir em 3 parcelas). ✅ Saldo em até 60x com a própria incorporadora.
+
+Você tem interesse em analisar as plantas e a tabela de viabilidade dos últimos lotes disponíveis? Me avise que eu te envio o material completo."
+     - Tipo: BUTTONS
+       Botões: [{"type":"QUICK_REPLY","text":"Quero saber mais!"}]
+------------------------------------------------------------
+8. Nome: s57_entrada_lead_v1 | Categoria: MARKETING | Idioma: pt_BR
+   Componentes:
+     - Tipo: BODY
+       Texto: "Olá, {{1}}! Tudo bem? 🌟
+
+Sou do time comercial do *Studio 57* e recebemos o seu cadastro com sucesso! Ficamos muito felizes pelo seu interesse em nossos empreendimentos.
+
+Estou aqui para tirar todas as suas dúvidas e te apresentar as melhores oportunidades que temos hoje. Para eu conseguir te direcionar certinho, você está buscando um imóvel mais voltado para *moradia* ou para *investimento*?"
+     - Tipo: FOOTER
+       Texto: "Studio 57 Arquitetura e Incorporação"
+     - Tipo: BUTTONS
+       Botões: [{"type":"QUICK_REPLY","text":"Para Morar"},{"type":"QUICK_REPLY","text":"Para Investir"}]
+------------------------------------------------------------
+9. Nome: reativar_contato_em_andamento | Categoria: MARKETING | Idioma: pt_BR
+   Componentes:
+     - Tipo: BODY
+       Texto: "Oi {{1}}, tudo bem? 
+
+Fiquei sem seu retorno e queria saber: ficou alguma dúvida ou o empreendimento não faz mais sentido pra você?
+
+Posso te apresentar outras opções que se encaixem melhor?"
+     - Tipo: BUTTONS
+       Botões: [{"type":"QUICK_REPLY","text":"SIM"},{"type":"QUICK_REPLY","text":"NÃO"}]
+------------------------------------------------------------
+10. Nome: reativar_contato_perdido | Categoria: MARKETING | Idioma: pt_BR
+   Componentes:
+     - Tipo: BODY
+       Texto: "Oi {{1}}! Tudo bem?
+
+O Studio 57 está com três empreendimentos ainda com unidades disponíveis, todos com ótimo potencial de rentabilidade e valorização.
+
+Quer que eu te mostre rapidinho as opções?"
+     - Tipo: BUTTONS
+       Botões: [{"type":"QUICK_REPLY","text":"SIM"},{"type":"QUICK_REPLY","text":"NÃO"}]
+------------------------------------------------------------
+11. Nome: iniciar_contato | Categoria: MARKETING | Idioma: en
+   Componentes:
+     - Tipo: BODY
+       Texto: "Olá {{1}}! Tudo bem com você?"
+------------------------------------------------------------
+12. Nome: alfa_caixa_conteudo | Categoria: MARKETING | Idioma: en
+   Componentes:
+     - Tipo: HEADER
+       Formato: IMAGE
+     - Tipo: BODY
+       Texto: "Notícia excelente: O Residencial Alfa conquistou a certificação GERIC da Caixa Econômica! ✅🏦
+
+Isso atesta a solidez do Studio 57 e garante a você:
+
+Entrega Assegurada: Recursos monitorados pelo banco.
+
+Valorização Imediata: Mais segurança para o seu patrimônio.
+
+⚠️ OPORTUNIDADE DE MIGRAÇÃO Com o selo Caixa, você pode transferir seu financiamento direto conosco para o banco. O objetivo: Trocar o prazo curto por até 35 anos e reduzir sua parcela mensal.
+
+Quer uma simulação sem compromisso para ver a economia? Responda a esta mensagem.
+
+Atenciosamente, 
+Studio 57 - Ludimila Marques"
+     - Tipo: BUTTONS
+       Botões: [{"type":"QUICK_REPLY","text":"Quero migrar"},{"type":"QUICK_REPLY","text":"Não quero migrar"}]
+------------------------------------------------------------
+13. Nome: caixa_clientes_alfa | Categoria: MARKETING | Idioma: en
+   Componentes:
+     - Tipo: HEADER
+       Formato: IMAGE
+     - Tipo: BODY
+       Texto: "Olá {{1}}! Tudo bem?
+
+Notícia excelente: O Residencial Alfa conquistou a certificação GERIC da Caixa Econômica! ✅🏦
+
+Isso atesta a solidez do Studio 57 e garante a você:
+
+Entrega Assegurada: Recursos monitorados pelo banco.
+
+Valorização Imediata: Mais segurança para o seu patrimônio.
+
+⚠️ OPORTUNIDADE DE MIGRAÇÃO Com o selo Caixa, você pode transferir seu financiamento direto conosco para o banco. O objetivo: Trocar o prazo curto por até 35 anos e reduzir sua parcela mensal.
+
+Quer uma simulação sem compromisso para ver a economia? Responda a esta mensagem.
+
+Atenciosamente, 
+Studio 57 - Ludimila Marques"
+     - Tipo: BUTTONS
+       Botões: [{"type":"QUICK_REPLY","text":"Quero migrar"},{"type":"QUICK_REPLY","text":"Não quero migrar"}]
+------------------------------------------------------------
+14. Nome: novo_lead_beta_eua | Categoria: MARKETING | Idioma: en
+   Componentes:
+     - Tipo: BODY
+       Texto: "Olá {{1}}, tudo bem com você?
+Me chamo Ludimila e faço parte do time de vendas do Studio 57.
+
+Vi que você demonstrou interesse no Beta Suítes e gostaria de entender melhor suas perspectivas. 
+
+Seu interesse é para moradia ou investimento?"
+------------------------------------------------------------
+15. Nome: cadastro_corretor | Categoria: MARKETING | Idioma: pt_BR
+   Componentes:
+     - Tipo: BODY
+       Texto: "Olá {{1}}
+
+🚀 Chegou o Portal do Corretor Studio 57!
+
+Parceiro(a), agora você tem muito mais agilidade nas suas vendas. Acabamos de lançar nossa plataforma exclusiva onde você pode:
+
+🏢 Consultar disponibilidade dos empreendimentos em tempo real;
+
+📝 Cadastrar clientes e fazer reservas;
+
+📊 Realizar simulações de pagamento;
+
+✍️ Formalizar contratos digitalmente.
+
+Tudo em um só lugar para facilitar o seu dia a dia.
+
+Faça seu cadastro clicando no botão abaixo.
+
+Conte com a gente!"
+     - Tipo: BUTTONS
+       Botões: [{"type":"URL","text":"Cadastro","url":"https://studio57.arq.br/cadastro-corretor"}]
+------------------------------------------------------------
+16. Nome: mensagem_novo_lead_beta | Categoria: MARKETING | Idioma: pt_PT
+   Componentes:
+     - Tipo: BODY
+       Texto: "Olá {{1}}, tudo bem com você?
+Me chamo Ludimila e faço parte do time de vendas do Studio 57.
+
+Vi que você demonstrou interesse no Beta Suítes e gostaria de entender melhor suas perspectivas. 
+
+Seu interesse é para moradia ou investimento?"
+------------------------------------------------------------
+17. Nome: reativar_contato | Categoria: MARKETING | Idioma: pt_BR
+   Componentes:
+     - Tipo: BODY
+       Texto: "Olá {{1}}, tudo bem com você?
+Podemos continuar a nossa conversa?"
+------------------------------------------------------------
+18. Nome: informativo_corretores_pre_beta | Categoria: MARKETING | Idioma: pt_BR
+   Componentes:
+     - Tipo: BODY
+       Texto: "🚀 Pré-lançamento Exclusivo: Beta Suítes
+
+Olá, {{1}}!
+
+Vem aí o nosso mais novo lançamento: Beta Suítes. Estamos iniciando agora a fase de Pré-Lançamento e queremos que você e seus clientes saiam na frente.
+
+Como vai funcionar? Trabalharemos com Termo de Interesse. 
+✅ Custo ZERO: O cliente assina o termo sem pagar nada agora. 
+✅ Fila de Prioridade: A assinatura garante a posição de escolha da unidade assim que abrirmos as vendas (quem assina antes, escolhe antes).
+
+💰 Sua Comissão: 4% sobre a venda efetivada.
+
+⚠️ Importante: Por se tratar de um pré-lançamento, tanto o projeto quanto a tabela de vendas podem sofrer alterações sem aviso prévio. Fique tranquilo: todas as atualizações serão enviadas imediatamente para os corretores cadastrados.
+
+Próximos Passos: Em breve, liberaremos um link de cadastro. Ao concordar com os termos, você terá acesso exclusivo ao Sistema Studio 57, com todas as ferramentas e materiais para te apoiar na venda."
+------------------------------------------------------------
+19. Nome: apresentacao_imagem_ | Categoria: MARKETING | Idioma: en
+   Componentes:
+     - Tipo: HEADER
+       Formato: IMAGE
+     - Tipo: BODY
+       Texto: "Oi {{1}}!
+
+O Studio 57 tem um novo empreendimento para te apresentar.
+
+Quer saber mais?"
+     - Tipo: BUTTONS
+       Botões: [{"type":"QUICK_REPLY","text":"Sim"},{"type":"QUICK_REPLY","text":"Não"}]
+------------------------------------------------------------
+20. Nome: apresentacao_empreendimento | Categoria: MARKETING | Idioma: pt_BR
+   Componentes:
+     - Tipo: BODY
+       Texto: "O Studio 57 tem um novo empreendimento para te apresentar!
+
+Quer saber mais?"
+     - Tipo: BUTTONS
+       Botões: [{"type":"QUICK_REPLY","text":"Sim"},{"type":"QUICK_REPLY","text":"Não"}]
+------------------------------------------------------------
+21. Nome: saudacao_novo_lead | Categoria: MARKETING | Idioma: en
+   Componentes:
+     - Tipo: BODY
+       Texto: "Olá, {{1}}! Tudo bem?
+
+Recebemos seu cadastro, em breve um de nossos consultores entrará em contato com você."
+------------------------------------------------------------
+22. Nome: hello_world | Categoria: UTILITY | Idioma: en_US
+   Componentes:
+     - Tipo: HEADER
+       Texto: "Hello World"
+       Formato: TEXT
+     - Tipo: BODY
+       Texto: "Welcome and congratulations!! This message demonstrates your ability to send a WhatsApp message notification from the Cloud API, hosted by Meta. Thank you for taking the time to test with us."
+     - Tipo: FOOTER
+       Texto: "WhatsApp Business Platform sample message"
+------------------------------------------------------------

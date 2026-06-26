@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import EmailConfigModal from '@/components/email/EmailConfigModal';
 import EmailListPanel from '@/components/email/EmailListPanel';
 import EmailViewPanel from '@/components/email/EmailViewPanel';
@@ -15,99 +16,105 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { useDebounce } from 'use-debounce';
 import { toast } from 'sonner';
 
-const EMAIL_UI_STATE_KEY = 'emailUiState_v2';
-
-const getCachedData = () => {
- if (typeof window === 'undefined') return null;
- try {
- const cachedData = localStorage.getItem(EMAIL_UI_STATE_KEY);
- return cachedData ? JSON.parse(cachedData) : null;
- } catch (error) {
- return null;
- }
-};
-
 function EmailInboxContent({ onChangeTab, canViewWhatsapp }) {
- const cachedState = getCachedData();
- const queryClient = useQueryClient();
- const searchParams = useSearchParams();
- const router = useRouter();
- const supabase = createClient();
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const supabase = createClient();
 
- const [searchTerm, setSearchTerm] = useState(cachedState?.searchTerm || '');
- const [selectedEmailFolder, setSelectedEmailFolder] = useState(cachedState?.selectedEmailFolder || null);
- const [selectedEmail, setSelectedEmail] = useState(cachedState?.selectedEmail || null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedEmailFolder, setSelectedEmailFolder] = useState(null);
+  const [selectedEmail, setSelectedEmail] = useState(null);
 
- const [isEmailConfigOpen, setIsEmailConfigOpen] = useState(cachedState?.isEmailConfigOpen || false);
- const [configInitialTab, setConfigInitialTab] = useState(cachedState?.configInitialTab || 'connection');
- const [isComposeOpen, setIsComposeOpen] = useState(cachedState?.isComposeOpen || false);
- const [isCreateFolderOpen, setIsCreateFolderOpen] = useState(false);
- const [rulePrefill, setRulePrefill] = useState(null);
+  const [isEmailConfigOpen, setIsEmailConfigOpen] = useState(false);
+  const [configInitialTab, setConfigInitialTab] = useState('connection');
+  const [isComposeOpen, setIsComposeOpen] = useState(false);
+  const [isCreateFolderOpen, setIsCreateFolderOpen] = useState(false);
+  const [rulePrefill, setRulePrefill] = useState(null);
 
- const [debouncedSearchTerm] = useDebounce(searchTerm, 600);
- const hasRestoredUiState = useRef(false);
+  const [debouncedSearchTerm] = useDebounce(searchTerm, 600);
+  const hasRestoredUiState = useRef(false);
 
- // --- LÓGICA DE DEEP LINK ---
- useEffect(() => {
- const emailId = searchParams.get('email_id');
- if (emailId) {
- console.log("🔗 Deep Link detectado para e-mail:", emailId);
+  // --- RESTAURAÇÃO DE CACHE DE UI POR USUÁRIO ---
+  useEffect(() => {
+    if (user?.id && !hasRestoredUiState.current) {
+      try {
+        const cachedData = localStorage.getItem(`emailUiState_v2_${user.id}`);
+        if (cachedData) {
+          const parsed = JSON.parse(cachedData);
+          if (parsed.searchTerm) setSearchTerm(parsed.searchTerm);
+          if (parsed.selectedEmailFolder) setSelectedEmailFolder(parsed.selectedEmailFolder);
+          if (parsed.selectedEmail) setSelectedEmail(parsed.selectedEmail);
+          if (parsed.isEmailConfigOpen !== undefined) setIsEmailConfigOpen(parsed.isEmailConfigOpen);
+          if (parsed.configInitialTab) setConfigInitialTab(parsed.configInitialTab);
+          if (parsed.isComposeOpen !== undefined) setIsComposeOpen(parsed.isComposeOpen);
+        }
+      } catch (error) {
+        console.error("Erro ao ler cache de e-mail local:", error);
+      }
+      hasRestoredUiState.current = true;
+    }
+  }, [user?.id]);
 
- const fetchEmail = async () => {
- const { data, error } = await supabase
- .from('email_messages_cache')
- .select('*')
- .eq('id', emailId)
- .single();
+  // --- LÓGICA DE DEEP LINK ---
+  useEffect(() => {
+    const emailId = searchParams.get('email_id');
+    if (emailId) {
+      console.log("🔗 Deep Link detectado para e-mail:", emailId);
 
- if (data && !error) {
- setSelectedEmail(data);
- setSelectedEmailFolder({
- path: data.folder_path,
- name: data.folder_path.split('/').pop(),
- display_name: data.folder_path,
- accountId: data.account_id
- });
- router.replace('/caixa-de-entrada', { scroll: false });
- }
- };
- fetchEmail();
- }
- }, [searchParams, supabase, router]);
+      const fetchEmail = async () => {
+        const { data, error } = await supabase
+          .from('email_messages_cache')
+          .select('*')
+          .eq('id', emailId)
+          .single();
 
- const uiStateToSave = {
- selectedEmailFolder,
- searchTerm,
- selectedEmail,
- isEmailConfigOpen,
- configInitialTab,
- isComposeOpen
- };
+        if (data && !error) {
+          setSelectedEmail(data);
+          setSelectedEmailFolder({
+            path: data.folder_path,
+            name: data.folder_path.split('/').pop(),
+            display_name: data.folder_path,
+            accountId: data.account_id
+          });
+          router.replace('/caixa-de-entrada', { scroll: false });
+        }
+      };
+      fetchEmail();
+    }
+  }, [searchParams, supabase, router]);
 
- const [debouncedUiState] = useDebounce(uiStateToSave, 1000);
+  const uiStateToSave = {
+    selectedEmailFolder,
+    searchTerm,
+    selectedEmail,
+    isEmailConfigOpen,
+    configInitialTab,
+    isComposeOpen
+  };
 
- useEffect(() => {
- hasRestoredUiState.current = true;
- }, []);
+  const [debouncedUiState] = useDebounce(uiStateToSave, 1000);
 
- useEffect(() => {
- if (typeof window !== 'undefined' && hasRestoredUiState.current) {
- localStorage.setItem(EMAIL_UI_STATE_KEY, JSON.stringify(debouncedUiState));
- }
- }, [debouncedUiState]);
+  // --- SALVAMENTO DE CACHE DE UI POR USUÁRIO ---
+  useEffect(() => {
+    if (typeof window !== 'undefined' && user?.id && hasRestoredUiState.current) {
+      localStorage.setItem(`emailUiState_v2_${user.id}`, JSON.stringify(debouncedUiState));
+    }
+  }, [debouncedUiState, user?.id]);
 
- const handleUnreadUpdate = useCallback((accountId, folderPath, newCount) => {
- queryClient.setQueryData(['emailFolderCounts', accountId], (oldData) => {
- if (!oldData) return { counts: { [folderPath]: newCount } };
- return {
- ...oldData,
- counts: {
- ...oldData.counts,
- [folderPath]: newCount
- }
- };
- });
- }, [queryClient]);
+  const handleUnreadUpdate = useCallback((accountId, folderPath, newCount) => {
+    queryClient.setQueryData(['emailFolderCounts', accountId], (oldData) => {
+      if (!oldData) return { counts: { [folderPath]: newCount } };
+      return {
+        ...oldData,
+        counts: {
+          ...oldData.counts,
+          [folderPath]: newCount
+        }
+      };
+    });
+  }, [queryClient]);
 
  const handleSelectEmail = (email) => setSelectedEmail(email);
 

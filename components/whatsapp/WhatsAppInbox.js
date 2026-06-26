@@ -12,48 +12,62 @@ import BroadcastPanel from '@/components/whatsapp/BroadcastPanel';
 import ContactProfile from '@/components/whatsapp/ContactProfile';
 import { Toaster } from 'sonner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSearch, faEnvelope, faSpinner, faArrowRight, faCheckDouble } from '@fortawesome/free-solid-svg-icons';
+import { faSearch, faEnvelope, faSpinner, faArrowRight, faCheckDouble, faLock } from '@fortawesome/free-solid-svg-icons';
 import { faWhatsapp, faInstagram } from '@fortawesome/free-brands-svg-icons';
 import { useDebounce } from 'use-debounce';
 
-const WHATSAPP_UI_STATE_KEY = 'whatsappUiState';
-
-const getCachedData = () => {
- if (typeof window === 'undefined') return null;
- try {
- const cachedData = localStorage.getItem(WHATSAPP_UI_STATE_KEY);
- return cachedData ? JSON.parse(cachedData) : null;
- } catch (error) {
- return null;
- }
-};
-
 export default function WhatsAppInbox({ onChangeTab, initialContactId }) {
- const cachedState = getCachedData();
- const router = useRouter();
+  const router = useRouter();
 
- const [searchTerm, setSearchTerm] = useState(cachedState?.searchTerm || '');
- const [showUnreadOnly, setShowUnreadOnly] = useState(cachedState?.showUnreadOnly || false);
- const [selectedContact, setSelectedContact] = useState(cachedState?.selectedContact || null);
- const [selectedList, setSelectedList] = useState(cachedState?.selectedList || null);
- const [selectedCorretor, setSelectedCorretor] = useState(cachedState?.selectedCorretor || 'all');
- const [selectedColuna, setSelectedColuna] = useState(cachedState?.selectedColuna || 'all');
- const [selectedCountry, setSelectedCountry] = useState(cachedState?.selectedCountry || 'all');
- const [selectedWindow, setSelectedWindow] = useState(cachedState?.selectedWindow || 'all');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showUnreadOnly, setShowUnreadOnly] = useState(false);
+  const [selectedContact, setSelectedContact] = useState(null);
+  const [selectedList, setSelectedList] = useState(null);
+  const [selectedCorretor, setSelectedCorretor] = useState('all');
+  const [selectedColuna, setSelectedColuna] = useState('all');
+  const [selectedCountry, setSelectedCountry] = useState('all');
+  const [selectedWindow, setSelectedWindow] = useState('all');
 
- const queryClient = useQueryClient();
- const supabase = createClient();
- const { user } = useAuth();
- const organizacaoId = user?.organizacao_id;
+  const queryClient = useQueryClient();
+  const supabase = createClient();
+  const { user } = useAuth();
+  const organizacaoId = user?.organizacao_id;
+  const hasRestoredUiState = React.useRef(false);
 
- const uiStateToSave = { selectedContact, selectedList, searchTerm, selectedCorretor, selectedColuna, showUnreadOnly, selectedCountry, selectedWindow };
- const [debouncedUiState] = useDebounce(uiStateToSave, 1000);
+  // --- RESTAURAÇÃO DE CACHE DE UI POR USUÁRIO ---
+  useEffect(() => {
+    if (user?.id && !hasRestoredUiState.current) {
+      try {
+        const cachedData = localStorage.getItem(`whatsappUiState_${user.id}`);
+        if (cachedData) {
+          const parsed = JSON.parse(cachedData);
+          if (parsed.searchTerm) setSearchTerm(parsed.searchTerm);
+          if (parsed.showUnreadOnly !== undefined) setShowUnreadOnly(parsed.showUnreadOnly);
+          if (parsed.selectedContact) setSelectedContact(parsed.selectedContact);
+          if (parsed.selectedList) setSelectedList(parsed.selectedList);
+          if (parsed.selectedCorretor) setSelectedCorretor(parsed.selectedCorretor);
+          if (parsed.selectedColuna) setSelectedColuna(parsed.selectedColuna);
+          if (parsed.selectedCountry) setSelectedCountry(parsed.selectedCountry);
+          if (parsed.selectedWindow) setSelectedWindow(parsed.selectedWindow);
+        }
+      } catch (error) {
+        console.error("Erro ao ler cache de WhatsApp local:", error);
+      }
+      hasRestoredUiState.current = true;
+    }
+  }, [user?.id]);
 
- useEffect(() => {
- if (typeof window !== 'undefined') {
- try { localStorage.setItem(WHATSAPP_UI_STATE_KEY, JSON.stringify(debouncedUiState)); } catch (e) { }
- }
- }, [debouncedUiState]);
+  const uiStateToSave = { selectedContact, selectedList, searchTerm, selectedCorretor, selectedColuna, showUnreadOnly, selectedCountry, selectedWindow };
+  const [debouncedUiState] = useDebounce(uiStateToSave, 1000);
+
+  // --- SALVAMENTO DE CACHE DE UI POR USUÁRIO ---
+  useEffect(() => {
+    if (typeof window !== 'undefined' && user?.id && hasRestoredUiState.current) {
+      try { 
+        localStorage.setItem(`whatsappUiState_${user.id}`, JSON.stringify(debouncedUiState)); 
+      } catch (e) { }
+    }
+  }, [debouncedUiState, user?.id]);
 
  // 1. O GATEKEEPER
  const { data: whatsappConfig, isLoading: isLoadingConfig } = useQuery({
@@ -242,11 +256,26 @@ export default function WhatsAppInbox({ onChangeTab, initialContactId }) {
  <button className="flex-1 py-4 text-sm font-bold flex justify-center items-center gap-2 border-b-2 transition-colors border-[#00a884] text-[#00a884] bg-white">
  <FontAwesomeIcon icon={faWhatsapp} className="text-lg" /> WhatsApp
  </button>
- {onChangeTab && (
- <button onClick={() => onChangeTab('instagram')} className="flex-1 py-4 text-sm font-medium flex justify-center items-center gap-2 border-b-2 transition-colors border-transparent text-gray-500 hover:bg-gray-100">
- <FontAwesomeIcon icon={faInstagram} className="text-lg" /> Instagram
- </button>
- )}
+  {onChangeTab && (
+    organizacaoId === 2 ? (
+      <button onClick={() => onChangeTab('instagram')} className="flex-1 py-4 text-sm font-medium flex justify-center items-center gap-2 border-b-2 transition-colors border-transparent text-gray-500 hover:bg-gray-100">
+        <FontAwesomeIcon icon={faInstagram} className="text-lg" /> Instagram
+      </button>
+    ) : (
+      <button 
+        disabled 
+        className="flex-1 py-2 px-1 text-sm font-medium flex flex-col justify-center items-center gap-0.5 border-b-2 transition-colors border-transparent text-gray-400 cursor-not-allowed bg-gray-50/50"
+        title="Instagram - Ajustes em andamento"
+      >
+        <span className="flex items-center gap-1.5 justify-center">
+          <FontAwesomeIcon icon={faInstagram} className="text-base opacity-70" />
+          Instagram
+          <FontAwesomeIcon icon={faLock} className="text-[10px] text-gray-400" />
+        </span>
+        <span className="text-[9px] font-normal text-gray-400 leading-none">ajustes em andamento</span>
+      </button>
+    )
+  )}
  {onChangeTab && (
  <button onClick={() => onChangeTab('email')} className="flex-1 py-4 text-sm font-medium flex justify-center items-center gap-2 border-b-2 transition-colors border-transparent text-gray-500 hover:bg-gray-100">
  <FontAwesomeIcon icon={faEnvelope} className="text-lg" /> E-mail

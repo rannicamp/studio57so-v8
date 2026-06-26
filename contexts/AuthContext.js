@@ -5,12 +5,14 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { createClient } from '../utils/supabase/client';
 import { useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 
 const AuthContext = createContext();
 
 export function AuthProvider({ children }) {
     const supabase = createClient();
     const router = useRouter();
+    const queryClient = useQueryClient();
 
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -32,6 +34,12 @@ export function AuthProvider({ children }) {
             }
         }
 
+        try {
+            queryClient.clear();
+        } catch (e) {
+            console.error("Erro ao limpar cache do TanStack Query no forceLogout:", e);
+        }
+
         await supabase.auth.signOut();
         setUser(null);
         setPermissions({});
@@ -45,7 +53,7 @@ export function AuthProvider({ children }) {
         }
         setLoading(false);
         router.push('/login?error=Sessão inválida ou usuário não encontrado.');
-    }, [supabase, router]);
+    }, [supabase, router, queryClient]);
 
     const fetchProfileAndPermissions = useCallback(async (currentUser) => {
         if (!currentUser) {
@@ -110,6 +118,8 @@ export function AuthProvider({ children }) {
         const combinedUser = {
             ...currentUser,
             ...profileData,
+            nome_funcao: profileData?.funcoes?.nome_funcao || '',
+            funcao: profileData?.funcoes?.nome_funcao || '',
             telefone: telefoneContato || funcionarioData?.phone || '',
             creci: contatoData?.creci || ''
         };
@@ -122,7 +132,7 @@ export function AuthProvider({ children }) {
         setIsProprietario(isUserProprietario);
 
         if (isUserProprietario) {
-            const allResources = ['painel', 'financeiro', 'recursos_humanos', 'funcionarios', 'funcionarios_salario_debug', 'ponto', 'empresas', 'empreendimentos', 'contratos', 'caixa_de_entrada', 'crm', 'tabela_vendas', 'anuncios', 'contatos', 'simulador', 'orcamento', 'pedidos', 'almoxarifado', 'rdo', 'atividades', 'bim', 'usuarios', 'permissoes', 'config_usuarios', 'config_permissoes', 'config_jornadas', 'config_tipos_documento', 'config_integracoes', 'config_materiais', 'config_treinamento_ia', 'config_kpi_builder', 'config_financeiro_importar', 'config_menu'];
+            const allResources = ['painel', 'financeiro', 'recursos_humanos', 'funcionarios', 'funcionarios_salario_debug', 'ponto', 'empresas', 'empreendimentos', 'contratos', 'relatorios', 'caixa_de_entrada', 'crm', 'tabela_vendas', 'anuncios', 'contatos', 'simulador', 'orcamento', 'pedidos', 'almoxarifado', 'rdo', 'atividades', 'bim', 'usuarios', 'permissoes', 'config_usuarios', 'config_permissoes', 'config_jornadas', 'config_tipos_documento', 'config_integracoes', 'config_materiais', 'config_treinamento_ia', 'config_kpi_builder', 'config_financeiro_importar', 'config_menu'];
             const allPermissions = allResources.reduce((acc, resource) => {
                 acc[resource] = { pode_criar: true, pode_excluir: true, pode_editar: true, pode_ver: true };
                 return acc;
@@ -145,13 +155,20 @@ export function AuthProvider({ children }) {
     useEffect(() => {
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
             const currentUser = session?.user;
+            if (!currentUser) {
+                try {
+                    queryClient.clear();
+                } catch (e) {
+                    console.error("Erro ao limpar cache do TanStack Query no onAuthStateChange:", e);
+                }
+            }
             fetchProfileAndPermissions(currentUser);
         });
 
         return () => {
             subscription.unsubscribe();
         };
-    }, [supabase, fetchProfileAndPermissions]);
+    }, [supabase, fetchProfileAndPermissions, queryClient]);
 
     const refreshAuthUser = useCallback(async () => {
         const { data: { user: currentUser } } = await supabase.auth.getUser();

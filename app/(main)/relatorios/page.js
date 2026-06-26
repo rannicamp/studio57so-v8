@@ -5,8 +5,11 @@ import Link from 'next/link';
 import NotificationTimeline from '@/components/dashboard/NotificationTimeline';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faChartLine, faMoneyBillWave, faUsers, faChartPie } from '@fortawesome/free-solid-svg-icons';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function DashboardGeralPage() {
+ const { organizacao_id } = useAuth();
+
  // Lista de Relatórios Disponíveis (Adaptado para FontAwesome)
  const relatorios = [
  // --- NOVO: Radar Studio (Destaque no topo) ---
@@ -17,7 +20,8 @@ export default function DashboardGeralPage() {
  icon: faChartPie, // Ícone de Pizza/Analítico
  cor: "text-indigo-600",
  bg: "bg-indigo-50",
- border: "border-indigo-100"
+ border: "border-indigo-100",
+ isRadar: true
  },
  {
  titulo: "Comercial & Marketing",
@@ -46,7 +50,7 @@ export default function DashboardGeralPage() {
  bg: "bg-purple-50",
  border: "border-purple-100"
  }
- ];
+ ].filter(relatorio => !relatorio.isRadar || Number(organizacao_id) === 2);
 
  return (
  <div className="h-full space-y-6">
