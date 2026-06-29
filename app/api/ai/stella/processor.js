@@ -684,7 +684,39 @@ ${chatLog}
 
     // --- MOVIMENTAÇÃO DE LEADS NO FUNIL ---
     if (!pular_atualizacao_crm && parsedResult.mover_para_coluna_id && funil && funil.id) {
-      const novaColunaId = parsedResult.mover_para_coluna_id;
+      let novaColunaId = parsedResult.mover_para_coluna_id;
+      
+      // Resolução dinâmica de colunas de Recrutamento/RH para multitenancy
+      if (novaColunaId === 'RECRUTAMENTO' || novaColunaId === 'RH') {
+        console.log(`[Stella Processor CRM] Resolvendo coluna de RH de forma dinâmica...`);
+        const { data: funilRh } = await supabaseAdmin
+          .from('funis')
+          .select('id')
+          .eq('organizacao_id', organizacao_id)
+          .eq('nome', 'Recrutamento & Talentos')
+          .limit(1)
+          .maybeSingle();
+
+        if (funilRh) {
+          const { data: colRh } = await supabaseAdmin
+            .from('colunas_funil')
+            .select('id, nome')
+            .eq('funil_id', funilRh.id)
+            .eq('tipo_coluna', 'entrada')
+            .limit(1)
+            .maybeSingle();
+
+          if (colRh) {
+            novaColunaId = colRh.id;
+            console.log(`[Stella Processor CRM] Coluna de RH resolvida para: ${novaColunaId} (${colRh.nome})`);
+            // Adiciona a coluna recém-descoberta no array em memória caso não esteja lá
+            if (!colunasDisponiveis.some(c => c.id === novaColunaId)) {
+              colunasDisponiveis.push({ id: colRh.id, nome: colRh.nome });
+            }
+          }
+        }
+      }
+
       const colunaAtualId = funil.coluna_id;
 
       if (novaColunaId !== colunaAtualId) {
@@ -703,7 +735,7 @@ ${chatLog}
         } else {
           console.log(`[Stella Processor CRM] Lead movido com sucesso para a coluna ${nomeNovaColuna}!`);
 
-          // Se for movido para uma coluna humana, o piloto automático é desligado
+          // Se for movido para uma coluna humana ou RH, o piloto automático é desligado
           const colunasDesativarIA = [
             '4b9b7e6d-5e4f-3a2b-1c0d-e9f8a7b6c5d4', // QUALIFICAÇÃO STELLA (Transbordo)
             '0553d8db-5259-41bc-ae9e-b8803014ed93', // CLIENTE POTENCIAL
@@ -711,7 +743,7 @@ ${chatLog}
             '7de9b5b4-05fa-4813-82d8-7790406ee268'  // INTERVENÇÃO HUMANA (Transbordo)
           ];
           
-          if (colunasDesativarIA.includes(novaColunaId)) {
+          if (colunasDesativarIA.includes(novaColunaId) || parsedResult.mover_para_coluna_id === 'RECRUTAMENTO' || parsedResult.mover_para_coluna_id === 'RH') {
             console.log(`[Stella Processor CRM] Desativando piloto automático do lead ${contato_id} por transbordo.`);
             await supabaseAdmin.from('contatos').update({ ia_atendimento_ativo: false }).eq('id', contato_id);
           }
@@ -815,7 +847,35 @@ export async function executarMovimentacaoCRMStella(supabaseAdmin, contato_id, o
       return;
     }
 
-    const novaColunaId = parsedResult.mover_para_coluna_id;
+    let novaColunaId = parsedResult.mover_para_coluna_id;
+    
+    // Resolução dinâmica de colunas de Recrutamento/RH para multitenancy
+    if (novaColunaId === 'RECRUTAMENTO' || novaColunaId === 'RH') {
+      console.log(`[Stella CRM Handoff] Resolvendo coluna de RH de forma dinâmica...`);
+      const { data: funilRh } = await supabaseAdmin
+        .from('funis')
+        .select('id')
+        .eq('organizacao_id', organizacao_id)
+        .eq('nome', 'Recrutamento & Talentos')
+        .limit(1)
+        .maybeSingle();
+
+      if (funilRh) {
+        const { data: colRh } = await supabaseAdmin
+          .from('colunas_funil')
+          .select('id, nome')
+          .eq('funil_id', funilRh.id)
+          .eq('tipo_coluna', 'entrada')
+          .limit(1)
+          .maybeSingle();
+
+        if (colRh) {
+          novaColunaId = colRh.id;
+          console.log(`[Stella CRM Handoff] Coluna de RH resolvida para: ${novaColunaId} (${colRh.nome})`);
+        }
+      }
+    }
+
     const colunaAtualId = funil.coluna_id;
 
     if (novaColunaId !== colunaAtualId) {
@@ -843,7 +903,7 @@ export async function executarMovimentacaoCRMStella(supabaseAdmin, contato_id, o
 
       console.log(`[Stella CRM Handoff] Lead movido com sucesso para a coluna ${nomeNovaColuna}!`);
 
-      // Se for movido para uma coluna humana, desliga o piloto automático no contato
+      // Se for movido para uma coluna humana ou RH, desliga o piloto automático no contato
       const colunasDesativarIA = [
         '4b9b7e6d-5e4f-3a2b-1c0d-e9f8a7b6c5d4', // QUALIFICAÇÃO STELLA (Transbordo)
         '0553d8db-5259-41bc-ae9e-b8803014ed93', // CLIENTE POTENCIAL
@@ -851,7 +911,7 @@ export async function executarMovimentacaoCRMStella(supabaseAdmin, contato_id, o
         '7de9b5b4-05fa-4813-82d8-7790406ee268'  // INTERVENÇÃO HUMANA (Transbordo)
       ];
       
-      if (colunasDesativarIA.includes(novaColunaId)) {
+      if (colunasDesativarIA.includes(novaColunaId) || parsedResult.mover_para_coluna_id === 'RECRUTAMENTO' || parsedResult.mover_para_coluna_id === 'RH') {
         console.log(`[Stella CRM Handoff] Desativando piloto automático do lead ${contato_id} por transbordo.`);
         await supabaseAdmin
           .from('contatos')

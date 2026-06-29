@@ -1,0 +1,202 @@
+=== AUDITORIA DE MENSAGENS DO FDS (2026-06-26T00:00:00.000Z até agora) ===
+
+Total de mensagens inbound encontradas no período: 99
+Contatos que mencionaram currículo/vagas: 5
+
+=== LEADS ENCONTRADOS QUE ENVIARAM CURRÍCULO/RH ===
+
+Lead: Anderson Elias de Almeida (ID: 6056)
+  - Piloto Automático: DESLIGADO
+  - Coluna Atual no CRM: INTERVENÇÃO HUMANA
+  - Organização: 2
+  - Mensagens relevantes enviadas no FDS:
+    [2026-06-26T00:07:20.805109+00:00] "Vamos deixar pra semana que vem 
+Porque tô apertado com trabalho sem ajudante"
+  - Diálogo completo no FDS:
+    [INBOUND] Vamos deixar pra semana que vem 
+Porque tô apertado com trabalho sem ajudante
+    [INBOUND] Eu ti falo pra vc mim encontrar lá
+    [OUTBOUND] Tá beleza, na semana que vem combinamos o melhor dia e horário para nos encontrarmos lá ☺️
+    [INBOUND] Beleza vai dar certo
+    [OUTBOUND] Vai sim 
+    [INBOUND] Eu ti aviso obrigado por enquanto Deus abençoe boa noite
+    [OUTBOUND] Vamos nos falando Anderson, Deus te abençoe e ótima noite 🙏🏻☺️
+--------------------------------------------------------------------------
+
+Lead: Lead (553387180386) (ID: 6121)
+  - Piloto Automático: DESLIGADO
+  - Coluna Atual no CRM: Fora do Funil
+  - Organização: 2
+  - Mensagens relevantes enviadas no FDS:
+    [2026-06-26T01:42:55.525404+00:00] "Boa noite 
+Vocês estão contratando?"
+  - Diálogo completo no FDS:
+    [INBOUND] Boa noite 
+Vocês estão contratando?
+    [OUTBOUND] Sou a Stella, a inteligência artificial de pré-atendimento do Studio 57. 😊 Como sou uma IA, minhas respostas podem conter erros e todas as simulações do nosso papo serão confirmadas por um corretor humano antes do fechamento. Se preferir falar com um corretor a qualquer momento, é só me avisar!
+    [OUTBOUND] Olá, boa noite! Meu foco aqui é ajudar clientes a encontrar o imóvel ideal, seja para morar, investir ou lazer.
+    [OUTBOUND] Sobre oportunidades de trabalho, vou direcionar sua mensagem para a nossa equipe interna para que eles possam verificar, combinado?
+--------------------------------------------------------------------------
+
+Lead: Filipe (ID: 6137)
+  - Piloto Automático: LIGADO
+  - Coluna Atual no CRM: Fora do Funil
+  - Organização: 2
+  - Mensagens relevantes enviadas no FDS:
+    [2026-06-26T21:47:57.966234+00:00] "Tudo bem? Me chamo.o Filipe gostaria de saber a respeito da vaga em vendas que vocês estão oferecendo"
+    [2026-06-26T21:48:53.161368+00:00] "Vaga de emprego"
+    [2026-06-29T11:35:44.32092+00:00] "Gostaria de saber sobre a vaga de emprego?"
+  - Diálogo completo no FDS:
+    [INBOUND] Oi, gostaria de saber mais sobre as últimas unidades do Residencial Alfa
+    [INBOUND] Ola
+    [OUTBOUND] Sou a Stella, a inteligência artificial de pré-atendimento do Studio 57. 😊 Como sou uma IA, minhas respostas podem conter erros e todas as simulações do nosso papo serão confirmadas por um corretor humano antes do fechamento. Se preferir falar com um corretor a qualquer momento, é só me avisar!
+    [INBOUND] Tudo bem? Me chamo.o Filipe gostaria de saber a respeito da vaga em vendas que vocês estão oferecendo
+    [OUTBOUND] Olá, tudo bem? Que ótimo seu interesse no Residencial Alfa! Estamos mesmo nas últimas unidades disponíveis.
+    [OUTBOUND] Temos opções a partir de R$ 431 mil. Antes de te passar os detalhes, como posso te chamar?
+    [OUTBOUND] Olá, Filipe, prazer em te conhecer!
+    [OUTBOUND] Vi que você mencionou interesse tanto nas unidades do Residencial Alfa quanto em uma vaga. Para eu te direcionar corretamente, qual assunto você prefere que a gente converse primeiro? 😊
+    [INBOUND] Vaga de emprego
+    [OUTBOUND] Entendi, Filipe! Minha especialidade aqui é ajudar com os detalhes dos nossos empreendimentos.
+    [OUTBOUND] Vou te transferir para a pessoa responsável do nosso time de RH para que ela possa te ajudar com a vaga, tudo bem?
+    [INBOUND] Obrigado
+    [OUTBOUND] De nada, Filipe!
+    [OUTBOUND] Já direcionei sua mensagem para o setor responsável. Eles entrarão em contato assim que possível para falar sobre a vaga, combinado? 😊
+    [INBOUND] Ola
+    [INBOUND] Bom dia. Tudo bem?
+    [OUTBOUND] Olá, Filipe, tudo bem?
+    [OUTBOUND] Na nossa última conversa, você tinha perguntado sobre as últimas unidades do Residencial Alfa.
+    [OUTBOUND] Você ainda tem interesse em saber mais sobre ele? 😊
+    [INBOUND] Gostaria de saber sobre a vaga de emprego?
+    [OUTBOUND] Entendido, Filipe! Seu interesse é na oportunidade de emprego.
+    [OUTBOUND] Minha função é focada nos detalhes dos imóveis, então já reforcei o seu contato com a nossa equipe de RH, que é a responsável pelo processo seletivo.
+    [OUTBOUND] Eles entrarão em contato assim que possível para falar sobre a vaga, combinado? 😊
+    [INBOUND] Tudo bem. Obrigado
+--------------------------------------------------------------------------
+
+Lead: Regilainy Fagundes (ID: 6165)
+  - Piloto Automático: DESLIGADO
+  - Coluna Atual no CRM: QUALIFICAÇÃO STELLA
+  - Organização: 2
+  - Mensagens relevantes enviadas no FDS:
+    [2026-06-29T01:14:18.927271+00:00] "Pois trabalho dia todo ,mas se for necessário posso falar por ligação pelo WhatsApp"
+    [2026-06-29T10:42:54.553947+00:00] "Trabalho o dia todo"
+  - Diálogo completo no FDS:
+    [INBOUND] Hello! I filled out your form and would like to know more about your business.
+
+Full name: Regilainy Fagundes
+Phone number: +17815000497
+Objetivo?: INVESTIMENTO
+Renda Familiar Bruta?: Menos de R$ 10.000,00
+Possui FGTS?: Não
+    [OUTBOUND] Sou a Stella, a inteligência artificial de pré-atendimento do Studio 57. 😊 Como sou uma IA, minhas respostas podem conter erros e todas as simulações do nosso papo serão confirmadas por um corretor humano antes do fechamento. Se preferir falar com um corretor a qualquer momento, é só me avisar!
+    [OUTBOUND] Olá, Regilainy! Vi que você se interessou pelo nosso Beta Suítes, que é a nossa melhor opção para investidores que buscam renda com aluguel.
+    [OUTBOUND] Vou te enviar agora o nosso book comercial para você conhecer o incrível potencial do projeto.
+    [OUTBOUND] Book_Investidor_Beta_Suites.pdf
+    [OUTBOUND] Dê uma olhada com calma e me diga o que mais te chamou a atenção no projeto, por favor?
+    [INBOUND] Estou buscando apartamento de 2 quartos
+    [INBOUND] Não estúdio
+    [OUTBOUND] Entendi, Regilainy! O Beta Suítes é focado em unidades compactas para investimento e locação.
+    [OUTBOUND] Para apartamentos de 2 ou 3 quartos com foco em moradia, o nosso residencial de alto padrão é o Residencial Alfa. 😊
+    [OUTBOUND] O seu objetivo seria para morar ou para investir mesmo?
+    [INBOUND] Investir
+    [INBOUND] Posso ter mais informações,inclusive fotos
+    [OUTBOUND] Ótimo, Regilany! O Residencial Alfa também é uma excelente opção de investimento patrimonial.
+    [OUTBOUND] Ele tem um grande potencial de valorização e atrai um perfil de inquilino familiar, que busca contratos de aluguel mais longos.
+    [OUTBOUND] Vou te enviar o book completo dele para você conhecer os detalhes.
+    [OUTBOUND] [BOK] - BOOK ALFA - 2025_COMP..pdf
+    [OUTBOUND] Dê uma olhada com calma e me diga se o projeto te agrada, por favor?
+    [INBOUND] Sim
+    [OUTBOUND] Que bom que gostou do Residencial Alfa, Regilainy! É uma excelente escolha para investimento com foco em valorização e segurança.
+    [OUTBOUND] Para que o nosso especialista possa montar a melhor proposta de investimento para você, como você planeja fazer o pagamento? Seria com recursos próprios ou através de um financiamento aqui no Brasil?
+    [INBOUND] Qual o endereço desse proveito?
+Quantas garagens pra cada apartamento?
+    [OUTBOUND] Claro, Regilainy! O endereço é na Avenida Doutor Sérvulo Teixeira, 725, no bairro Alto Esplanada, uma das áreas mais nobres e seguras da cidade.
+    [OUTBOUND] O projeto conta com dois pavimentos de garagem para garantir as vagas de todos os apartamentos. 😊
+    [OUTBOUND] Vi que seu contato é dos EUA. Você reside fora do Brasil atualmente? Pergunto pois as condições de pagamento e investimento para quem mora no exterior podem ser bem atrativas.
+    [INBOUND] E financiamento próprio?
+    [OUTBOUND] Excelente pergunta, Regilainy! Sim, nós temos um plano de pagamento direto com o Studio 57, muito usado por nossos investidores.
+    [OUTBOUND] Para eu preparar uma simulação exata para você, só preciso de dois detalhes. 😊
+    [OUTBOUND] Você reside nos EUA mesmo? E qual é a faixa de renda familiar que podemos usar para montar a sua proposta?
+    [INBOUND] Sim,morro em Boston
+    [OUTBOUND] Entendido, Regilainy! Boston é uma cidade incrível.
+    [OUTBOUND] Para eu te enviar a simulação do financiamento direto que você perguntou, só falta um detalhe para o nosso especialista.
+    [OUTBOUND] Você havia preenchido no formulário uma renda familiar abaixo de R$ 10.000, certo? Só confirmando para montarmos a melhor proposta para seu perfil. 😊
+    [INBOUND] Sim,meu salário é de $7.000,00 ao mês
+    [INBOUND] Dólares
+    [OUTBOUND] Perfeito, Regilainy! Agradeço a confirmação da sua renda, essa informação é muito importante.
+    [OUTBOUND] Já reuni todos os detalhes e estou direcionando seu atendimento para um de nossos especialistas em investimentos imobiliários. Ele vai preparar a simulação do financiamento direto para você. 😊
+    [OUTBOUND] Qual seria o melhor horário para ele te contatar, por favor? (Considerando o fuso horário de Boston)
+    [OUTBOUND] Excelente, Regilainy! Agradeço a confirmação. Com essa informação da sua renda, já temos tudo o que é preciso para montar uma proposta de financiamento direto com o Studio 57 para você.
+    [OUTBOUND] Já anotei todas as informações e estou te transferindo agora mesmo para o nosso especialista em investimentos. Ele vai preparar a simulação detalhada que você solicitou. 😊
+    [OUTBOUND] Qual seria o melhor horário para ele entrar em contato com você, considerando o fuso horário de Boston?
+    [INBOUND] A diferença de hora e apenas 1 hora
+    [INBOUND] Ou seja,aqui é 9:12 da noite e aí seria 10:12 da noite
+    [INBOUND] Posso falar amanhã umas 6:00 a 7:00 da noite aqui
+    [INBOUND] Pois trabalho dia todo ,mas se for necessário posso falar por ligação pelo WhatsApp
+    [INBOUND] Esses apartamentos já estão prontos?
+    [INBOUND] Se não ,quando seria a entrega ?
+    [OUTBOUND] Olá Regilainy. Tudo bem?
+Me chamo Ludimila e faço parte do time de vendas do Studio 57.
+
+Vi que você demonstrou interesse em um dos nossos empreendimentos, o Residencial Alfa. E estou aqui para poder te apresenta-lo 😊
+
+
+    [OUTBOUND] Podemos ir nos falando por mensagem por aqui mesmo ou você prefereque conversemos por ligação hoje as 7PM do horário dai? 
+    [INBOUND] Ola,bom dia
+    [INBOUND] As 7:00
+    [INBOUND] Trabalho o dia todo
+    [INBOUND] Gostaria de informações como ,valores e detalhe do apartmento
+    [OUTBOUND] Agendado Regilainy. As 7pm eu te ligo para conversarmos melhor. Irei te ligar do meu numero pessoal tá (33)999106089. 
+    [INBOUND] Ok
+    [OUTBOUND] Perfeito, na nossa ligação eu te explico melhor cada detalhe desse empreendimento incível que é o Residencial Alfa. Tenha um excelente dia de trabalho 😊
+--------------------------------------------------------------------------
+
+Lead: Lead (553399493228) (ID: 6170)
+  - Piloto Automático: LIGADO
+  - Coluna Atual no CRM: Fora do Funil
+  - Organização: 2
+  - Mensagens relevantes enviadas no FDS:
+    [2026-06-29T10:52:44.886807+00:00] "Não usaria o FGTS e trabalho há mais de 3 anos como contratada"
+  - Diálogo completo no FDS:
+    [INBOUND] Oi, gostaria de saber mais sobre as últimas unidades do Residencial Alfa
+    [OUTBOUND] Sou a Stella, a inteligência artificial de pré-atendimento do Studio 57. 😊 Como sou uma IA, minhas respostas podem conter erros e todas as simulações do nosso papo serão confirmadas por um corretor humano antes do fechamento. Se preferir falar com um corretor a qualquer momento, é só me avisar!
+    [OUTBOUND] Vou te enviar o book completo do empreendimento. O seu objetivo com o imóvel seria para moradia ou investimento?
+    [OUTBOUND] Olá, tudo bem? Que ótimo o seu interesse no Residencial Alfa! Estamos mesmo nas últimas unidades disponíveis. Antes de prosseguirmos, como posso te chamar?
+    [OUTBOUND] [BOK] - BOOK ALFA - 2025_COMP..pdf
+    [OUTBOUND] Me diga se conseguiu abrir o arquivo, por favor. O seu objetivo com o imóvel seria para moradia ou investimento?
+    [INBOUND] E do beta suítes por favor
+    [OUTBOUND] Legal! O Beta Suítes é um projeto fantástico, com foco em investimento para aluguel.
+    [OUTBOUND] Estou te enviando o book dele também para você conhecer. Assim você pode comparar com a proposta residencial do Alfa. 😊
+    [OUTBOUND] BOOK_BETA_SUITES_2026.pdf
+    [OUTBOUND] Me diga qual dos dois projetos te agradou mais!
+    [INBOUND] Aguardo o ebook do beta suites
+    [OUTBOUND] Opa! Eu já te enviei o book do Beta Suítes um pouco acima na nossa conversa, às 10:39.
+    [OUTBOUND] Você conseguiu localizar o arquivo? Se não encontrar, me avisa que eu te envio novamente!
+    [OUTBOUND] Assim que visualizar, me diga qual dos dois projetos te agradou mais. 😊
+    [INBOUND] Não localizei, envia novamente por favor
+    [OUTBOUND] Claro, sem problemas! Estou enviando novamente o book do Beta Suítes.
+    [OUTBOUND] Assim que conseguir visualizar, me diga qual dos dois projetos te agradou mais, por favor. 😊
+    [OUTBOUND] Book_Investidor_Beta_Suites.pdf
+    [OUTBOUND] Qual dos dois projetos te agradou mais, o Alfa ou o Beta?
+    [INBOUND] O Alfa
+    [OUTBOUND] Excelente escolha! O Residencial Alfa é realmente um projeto diferenciado, pensado em cada detalhe.
+    [OUTBOUND] Para eu te ajudar melhor, o seu objetivo com o imóvel seria para moradia própria ou como forma de investimento? 😊
+    [INBOUND] Moradia, quais seriam os valores e formas de pagamento
+    [OUTBOUND] Ótima escolha! O Alfa é perfeito para moradia.
+    [OUTBOUND] As últimas unidades partem de R$ 431 mil. Para eu preparar uma simulação de pagamento exata para você, qual é a renda mensal familiar aproximada de vocês? 😊
+    [INBOUND] R$7000,00
+    [OUTBOUND] Entendido, R$ 7.000. Já é uma ótima base para a simulação.
+    [OUTBOUND] Para deixá-la ainda mais precisa, vocês pretendem usar saldo do FGTS na entrada? E trabalham há mais de 3 anos em regime CLT? 🤔
+    [INBOUND] Não usaria o FGTS e trabalho há mais de 3 anos como contratada
+    [OUTBOUND] Perfeito, muito obrigada pelas informações! Já tenho quase tudo aqui.
+    [OUTBOUND] Para finalizar e eu já poder enviar sua simulação ao nosso especialista, como posso te chamar? E você é de Governador Valadares mesmo ou mora em outra cidade? 😊
+    [INBOUND] Maria, de Governador Valadares
+    [OUTBOUND] Excelente, Maria! Muito obrigado por compartilhar as informações.
+    [OUTBOUND] Já anotei tudo e estou te transferindo agora mesmo para o nosso especialista. Ele vai preparar a melhor simulação para você!
+    [OUTBOUND] Qual seria o melhor horário para ele entrar em contato?
+    [INBOUND] Via whatsapp, qualquer horário
+    [OUTBOUND] Combinado, Maria! ✨
+    [OUTBOUND] Já anotei sua preferência de contato e nosso especialista já recebeu todas as suas informações.
+    [OUTBOUND] Ele te chamará no WhatsApp em breve para apresentar a simulação detalhada do Alfa. Tenha um ótimo dia!
+    [INBOUND] Aguardo, obrigada!
+--------------------------------------------------------------------------

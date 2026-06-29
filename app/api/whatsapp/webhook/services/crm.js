@@ -117,7 +117,7 @@ export async function findOrCreateContactAndConversation(supabaseAdmin, message,
       .from('funis')
       .select('id')
       .eq('organizacao_id', orgId)
-      .order('criado_em', { ascending: true })
+      .order('created_at', { ascending: true })
       .limit(1)
       .maybeSingle();
 
