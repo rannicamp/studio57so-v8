@@ -525,19 +525,20 @@ O **Studio 57** é o ambiente de desenvolvimento e laboratório central. O **Elo
 - [ ] **Planos/Pacotes:** Permitir que o cliente compre lotes de créditos (ex: 10 uploads).
 - [ ] **Bloqueio no Front-end/Back-end:** Antes de iniciar o `upload-direct-start`, verificar saldo na `carteira_bim`. Se saldo > 0, desconta 1 e permite o upload. Se saldo = 0, exibir modal para compra de pacote.
 
----
+### 13. 📸 Integração Instagram e DMs (IA e Nomes de Perfil) - *EM REVISÃO*
 
-### 13. 📸 Melhorias da Integração Instagram - *A FAZER (FUTURAMENTE)*
+> **Status atual (29/06/2026):** Integração do Instagram ativa com o aplicativo **"CRM - Studio 57" (ID: 1518358099511142)**. A leitura de nomes de clientes finais de fora do app está retornando `"Usuário <número>"` porque a permissão `instagram_manage_messages` está em `Standard access` no painel da Meta. O deploy das melhorias do prompt (RH e Spam) e da inteligência de CRM da Stella foi concluído com sucesso.
 
-> **Status atual (20/03/2026):** Caixa de entrada de DMs do Instagram operacional! Conversas sincronizadas, mensagens lidas e envio de respostas funcionando via `graph.instagram.com`. Webhook configurado em produção.
+#### Próximas Etapas Imediatas (Amanhã - 30/06/2026):
+- [ ] **Solicitar Acesso Avançado na Meta:** Ranniere enviará o App Review no aplicativo `1518358099511142` clicando em *"Editar solicitação de análise do app"*, colando o texto explicativo profissional e anexando a gravação de tela (screencast) demonstrativa.
+- [ ] **Habilitar Stella IA SDR no Instagram Direct:** Mapear e testar o roteamento de mensagens inbound do Instagram (`app/api/instagram/webhook/route.js`) para processar e disparar a Stella IA, permitindo responder aos leads diretamente via DMs do Instagram, de forma equivalente ao WhatsApp.
+- [ ] **Sincronizar Novos Contatos:** Garantir que novos contatos orgânicos do Instagram criem cards de entrada automaticamente de forma multitenant.
 
-#### Melhorias Planejadas:
+#### Melhorias Futuras Planejadas:
 - [ ] **Link DM ↔ Lead no CRM:** Quando um DM chegar, verificar automaticamente se o remetente já é um lead na base. Se sim, exibir o card do lead na sidebar do chat.
 - [ ] **Sidebar de Perfil do Contato:** Ao abrir um DM, mostrar followers, bio, foto e últimos posts da pessoa.
 - [ ] **Módulo de Comentários:** Ler e responder comentários dos posts do @arqstudio57 direto do CRM sem abrir o Instagram.
 - [ ] **Dashboard de Engajamento:** Painel com métricas por post (alcance, impressões, curtidas, salvamentos) e crescimento de seguidores.
-- [ ] **Auto-resposta por Palavra-chave:** Configurar respostas automáticas para DMs com palavras específicas (ex: "preço", "orçamento").
-- [ ] **Análise de Melhor Horário:** Usar Insights da API para identificar quando o público está mais ativo.
 - [ ] **Token de Longa Duração:** Automatizar a renovação do Instagram Access Token antes de expirar (60 dias).
 
 ---
