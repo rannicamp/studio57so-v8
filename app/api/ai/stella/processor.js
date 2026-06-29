@@ -642,6 +642,39 @@ ${chatLog}
           }
         }
 
+        const converterParaBooleano = (val) => {
+          if (val === undefined || val === null) return null;
+          if (typeof val === 'boolean') return val;
+          const s = String(val).trim().toLowerCase();
+          if (s === 'sim' || s === 'true' || s === 's' || s === '1') return true;
+          if (s === 'não' || s === 'nao' || s === 'false' || s === 'n' || s === '0') return false;
+          return null;
+        };
+
+        const converterParaNumerico = (val) => {
+          if (val === undefined || val === null) return null;
+          if (typeof val === 'number') return val;
+          
+          let cleanVal = String(val)
+            .replace(/R\$/g, '')
+            .replace(/\s/g, '')
+            .trim();
+            
+          if (cleanVal === '') return null;
+          
+          // Tratamento de formato brasileiro: 7.000,00 -> remove pontos, troca vírgula por ponto
+          if (cleanVal.includes(',') && cleanVal.includes('.')) {
+            cleanVal = cleanVal.replace(/\./g, '').replace(/,/g, '.');
+          } 
+          // Se contiver apenas vírgula como decimal: 7000,00 -> troca por ponto
+          else if (cleanVal.includes(',') && !cleanVal.includes('.')) {
+            cleanVal = cleanVal.replace(/,/g, '.');
+          }
+          
+          const num = parseFloat(cleanVal);
+          return isNaN(num) ? null : num;
+        };
+
         const atualizarSeDiferente = (field, value) => {
           if (value !== undefined && value !== null && String(value).trim() !== '') {
             const currentValue = currentContact[field];
@@ -653,9 +686,9 @@ ${chatLog}
 
         atualizarSeDiferente('cargo', dc.profissao);
         atualizarSeDiferente('estado_civil', dc.composicao_familiar);
-        atualizarSeDiferente('renda_familiar', dc.renda_familiar);
-        atualizarSeDiferente('fgts', dc.possui_fgts);
-        atualizarSeDiferente('mais_de_3_anos_clt', dc.mais_de_3_anos_clt);
+        atualizarSeDiferente('renda_familiar', converterParaNumerico(dc.renda_familiar));
+        atualizarSeDiferente('fgts', converterParaBooleano(dc.possui_fgts));
+        atualizarSeDiferente('mais_de_3_anos_clt', converterParaBooleano(dc.mais_de_3_anos_clt));
         atualizarSeDiferente('city', dc.cidade_atual);
 
         if (dc.objetivo && ['MORADIA', 'INVESTIMENTO', 'LAZER'].includes(dc.objetivo.trim().toUpperCase())) {
