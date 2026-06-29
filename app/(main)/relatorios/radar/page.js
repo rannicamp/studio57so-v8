@@ -396,7 +396,15 @@ function RadarPageContent() {
       {/* --- ABA COMERCIAL (Vendas & CRM) --- */}
       {activeTab === 'comercial' && (
         <div className="space-y-6 animate-fade-in-up">
-           <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+          {errorComercial ? (
+            <div className="flex flex-col items-center justify-center min-h-[400px] text-red-500 bg-white rounded-2xl border border-slate-100 p-8 shadow-sm w-full">
+              <FontAwesomeIcon icon={faExclamationTriangle} className="text-4xl mb-4 text-rose-500" />
+              <p className="font-semibold text-slate-800 text-lg">Não foi possível carregar os dados de vendas.</p>
+              <p className="text-sm text-slate-400 mt-2 max-w-md text-center">{errorComercial?.message || 'Verifique sua conexão ou privilégios de acesso.'}</p>
+            </div>
+          ) : (
+            <>
+              <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
              <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center gap-4 hover:shadow-md transition-shadow">
                <div className="h-12 w-12 rounded-full bg-blue-50 flex items-center justify-center">
                  <FontAwesomeIcon icon={faUsers} className="text-blue-600 text-xl" />
@@ -1082,6 +1090,8 @@ function RadarPageContent() {
                 </div>
               </div>
             </section>
+            </>
+          )}
         </div>
       )}
 

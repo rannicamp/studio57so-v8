@@ -6,14 +6,14 @@ export function useRelatorioComercial(organizacaoId, dataInicio, dataFim) {
   const supabase = createClientComponentClient();
 
   return useQuery({
-    queryKey: ['relatorioComercial', organizacaoId, format(dataInicio, 'yyyy-MM-dd'), format(dataFim, 'yyyy-MM-dd')],
+    queryKey: ['relatorioComercial', Number(organizacaoId), format(dataInicio, 'yyyy-MM-dd'), format(dataFim, 'yyyy-MM-dd')],
     queryFn: async () => {
       if (!organizacaoId) return null;
 
       const { data, error } = await supabase.rpc('fn_relatorio_comercial', {
         p_data_inicio: format(dataInicio, 'yyyy-MM-dd'),
         p_data_fim: format(dataFim, 'yyyy-MM-dd'),
-        p_organizacao_id: organizacaoId,
+        p_organizacao_id: Number(organizacaoId),
       });
 
       if (error) {
