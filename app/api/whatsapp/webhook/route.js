@@ -139,7 +139,8 @@ export async function POST(request) {
       }
 
       // A. Garante que contato e conversa existem
-      const { contatoId, conversationRecordId } = await findOrCreateContactAndConversation(supabaseAdmin, message, config);
+      const profileName = change.contacts?.[0]?.profile?.name || null;
+      const { contatoId, conversationRecordId } = await findOrCreateContactAndConversation(supabaseAdmin, message, config, profileName);
 
       // B. Verifica duplicidade
       const { data: existing } = await supabaseAdmin.from('whatsapp_messages').select('id').eq('message_id', message.id).maybeSingle();

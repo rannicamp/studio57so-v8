@@ -1,12 +1,12 @@
 import { logWebhook, getTextContent } from './helpers';
 import { formatarParaWhatsAppBR } from '@/utils/phoneUtils';
 
-export async function findOrCreateContactAndConversation(supabaseAdmin, message, config) {
+export async function findOrCreateContactAndConversation(supabaseAdmin, message, config, profileName = null) {
   const rawFrom = message.from;
   const orgId = config.organizacao_id;
   let contatoId = null;
   let conversationRecordId = null;
-  let contatoNome = `Lead (${rawFrom})`;
+  let contatoNome = profileName || `Lead (${rawFrom})`;
 
   // GARANTIA DE UNICIDADE DO 9º DÍGITO
   // Passamos isFromMeta = true pois a Meta sempre envia o número com DDI.
@@ -19,6 +19,28 @@ export async function findOrCreateContactAndConversation(supabaseAdmin, message,
   } else if (from.startsWith('55') && from.length === 13 && from[4] === '9') {
     possiblePhones.push('55' + from.substring(2, 4) + from.substring(5));
   }
+
+  // Adiciona a versão do phone_number bruto da Meta limpo e com "+"
+  const cleanRawFrom = rawFrom.replace(/[^0-9]/g, '');
+  if (!possiblePhones.includes(cleanRawFrom)) {
+    possiblePhones.push(cleanRawFrom);
+  }
+
+  // Gera a lista expandida com e sem o "+" para compatibilidade com bases antigas
+  const possiblePhonesExpanded = [];
+  possiblePhones.forEach(phone => {
+    if (!possiblePhonesExpanded.includes(phone)) {
+      possiblePhonesExpanded.push(phone);
+    }
+    const withPlus = '+' + phone;
+    if (!possiblePhonesExpanded.includes(withPlus)) {
+      possiblePhonesExpanded.push(withPlus);
+    }
+    const cleanPhone = phone.replace(/[^0-9]/g, '');
+    if (!possiblePhonesExpanded.includes(cleanPhone)) {
+      possiblePhonesExpanded.push(cleanPhone);
+    }
+  });
 
   // 1. Tentar achar o contato inteligentemente
   try {
@@ -64,7 +86,7 @@ export async function findOrCreateContactAndConversation(supabaseAdmin, message,
     const { data: conversaExistente } = await supabaseAdmin
       .from('whatsapp_conversations')
       .select('id, contato_id, phone_number, meta_wa_id')
-      .in('phone_number', possiblePhones)
+      .in('phone_number', possiblePhonesExpanded)
       .eq('organizacao_id', orgId)
       .order('updated_at', { ascending: false })
       .limit(1)
@@ -233,7 +255,7 @@ export async function findOrCreateContactAndConversation(supabaseAdmin, message,
           .from('funis')
           .select('id')
           .eq('organizacao_id', orgId)
-          .order('criado_em', { ascending: true })
+          .order('created_at', { ascending: true })
           .limit(1)
           .maybeSingle();
 

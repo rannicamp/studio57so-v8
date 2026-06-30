@@ -184,6 +184,10 @@ export default function MessageList({ messages, onMediaClick }) {
  payload = raw || {};
  }
  } catch (e) { }
+
+ const contextId = payload?.context?.id;
+ const repliedMsg = contextId ? messages?.find(m => m.message_id === contextId) : null;
+
  let mediaUrl = msg.media_url || payload?.image?.link || payload?.video?.link || payload?.audio?.link || payload?.document?.link;
  let isImage = !isDeleted && (payload?.type === 'image' || payload?.image);
  let isAudio = !isDeleted && (payload?.type === 'audio' || payload?.audio);
@@ -249,7 +253,7 @@ export default function MessageList({ messages, onMediaClick }) {
  const reaction = msg.reaction_data;
 
  return (
- <div key={msg.id} className="flex flex-col">
+ <div id={`msg-${msg.id}`} key={msg.id} className="flex flex-col">
  {showDateSeparator && (
  <div className="flex justify-center my-4 sticky top-2 z-10">
  <span className="bg-[#e1f3fb] text-gray-600 text-xs font-medium px-3 py-1.5 rounded-lg shadow-sm border border-[#e1f3fb]/50 uppercase tracking-wide opacity-95">
@@ -268,6 +272,23 @@ export default function MessageList({ messages, onMediaClick }) {
  </div>
  ) : (
   <>
+  {/* CARD DE REPLY / RESPOSTA */}
+  {repliedMsg && (
+    <div 
+      onClick={() => {
+        const el = document.getElementById(`msg-${repliedMsg.id}`);
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }}
+      className="mx-2 mt-1.5 mb-1.5 p-2 bg-black/[0.04] border-l-4 border-[#00a884] rounded text-xs cursor-pointer select-none text-left"
+    >
+      <p className="font-bold text-[10px] text-[#00a884] leading-none mb-1">
+        {repliedMsg.direction === 'outbound' ? 'Você' : (repliedMsg.nome_remetente || 'Cliente')}
+      </p>
+      <p className="text-gray-600 truncate text-[11px] leading-tight">
+        {repliedMsg.content || '[Mídia / Anexo]'}
+      </p>
+    </div>
+  )}
   {/* RENDERIZAÇÃO DE MÍDIAS */}
   {isImage && mediaUrl && <div className="rounded overflow-hidden mb-1 cursor-pointer bg-[#cfd4d2]" onClick={() => onMediaClick({ url: mediaUrl, type: 'image' })}><img src={mediaUrl} className="w-full h-auto max-h-80 object-cover" loading="lazy" alt="Imagem" /></div>}
   {isVideo && mediaUrl && <div className="rounded overflow-hidden mb-1 bg-black relative flex items-center justify-center min-h-[150px]"><button className="absolute inset-0 z-20 w-full h-full cursor-pointer opacity-0" onClick={() => onMediaClick({ url: mediaUrl, type: 'video' })}></button><div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none"><div className="w-12 h-12 bg-black/50 rounded-full flex items-center justify-center text-white backdrop-blur-sm shadow-lg"><FontAwesomeIcon icon={faPlayCircle} size="2x" /></div></div><video src={mediaUrl} className="w-full max-h-80 opacity-80 pointer-events-none object-cover" /></div>}

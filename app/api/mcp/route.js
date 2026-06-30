@@ -812,10 +812,10 @@ function getToolSecurity(toolName) {
  */
 async function verificarPermissao(supabase, usuarioId, recurso, acao) {
   try {
-    // 1. Obter a funcao_id e is_superadmin do usuário
+    // 1. Obter a funcao_id, is_superadmin e nome da funcao do usuário
     const { data: usuario, error: userErr } = await supabase
       .from('usuarios')
-      .select('funcao_id, is_superadmin')
+      .select('funcao_id, is_superadmin, funcoes(nome_funcao)')
       .eq('id', usuarioId)
       .maybeSingle();
 
@@ -829,8 +829,9 @@ async function verificarPermissao(supabase, usuarioId, recurso, acao) {
       return false;
     }
 
-    // Superadmins do sistema têm passe livre para qualquer ação/recurso
-    if (usuario.is_superadmin === true) {
+    // Superadmins ou Proprietários da organização têm passe livre completo
+    const isProprietario = usuario.is_superadmin === true || usuario.funcoes?.nome_funcao === 'Proprietário';
+    if (isProprietario) {
       return true;
     }
     

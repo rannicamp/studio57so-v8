@@ -5,7 +5,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
-import { getConversations, getBroadcastLists, markMessagesAsRead, getWhatsappConfig } from '@/app/(main)/caixa-de-entrada/data-fetching';
+import { getConversations, getBroadcastLists, markMessagesAsRead, getWhatsappConfig, getCanonicalPhone } from '@/app/(main)/caixa-de-entrada/data-fetching';
 import ConversationList from '@/components/whatsapp/ConversationList';
 import MessagePanel from '@/components/whatsapp/MessagePanel';
 import BroadcastPanel from '@/components/whatsapp/BroadcastPanel';
@@ -90,7 +90,8 @@ export default function WhatsAppInbox({ onChangeTab, initialContactId }) {
  if (!rawConversations) return [];
  const seen = new Set();
  return rawConversations.filter(c => {
- const identifier = c.phone_number || c.contato_id;
+ const canonicalPhone = c.phone_number ? getCanonicalPhone(c.phone_number) : null;
+ const identifier = canonicalPhone || c.contato_id;
  if (!identifier) return true; // Se não tem identificador, deixa passar
  if (seen.has(identifier)) return false;
  seen.add(identifier);
