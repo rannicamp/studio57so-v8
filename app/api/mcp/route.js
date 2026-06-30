@@ -620,6 +620,27 @@ async function handleMcpRequest(rpcRequest, supabase, user) {
                 required: ['funcionario_id', 'valor', 'data_vale', 'data_pagamento', 'conta_id']
               }
             },
+            {
+              name: 'relatar_pendencias_ponto',
+              description: 'Consulta e relata quais colaboradores possuem pendências na folha de ponto no mês atual (marcações ausentes ou incompletas).',
+              inputSchema: {
+                type: 'object',
+                properties: {}
+              }
+            },
+            {
+              name: 'consultar_horas_trabalhadas',
+              description: 'Consulta as horas trabalhadas, previstas e o saldo de minutos diário de um funcionário em um determinado período.',
+              inputSchema: {
+                type: 'object',
+                properties: {
+                  funcionario_id: { type: 'integer', description: 'ID do funcionário.' },
+                  data_inicio: { type: 'string', description: 'Data de início YYYY-MM-DD (opcional).' },
+                  data_fim: { type: 'string', description: 'Data de fim YYYY-MM-DD (opcional).' }
+                },
+                required: ['funcionario_id']
+              }
+            },
 
             // ==================== EMPREENDIMENTOS / VENDAS ====================
             {
@@ -774,6 +795,8 @@ function getToolSecurity(toolName) {
     'atualizar_funcionario': { recurso: 'funcionarios', acao: 'editar' },
     'lancar_ponto_funcionario': { recurso: 'ponto', acao: 'criar' },
     'lancar_vale_funcionario': { recurso: 'financeiro', acao: 'criar' },
+    'relatar_pendencias_ponto': { recurso: 'funcionarios', acao: 'ver' },
+    'consultar_horas_trabalhadas': { recurso: 'funcionarios', acao: 'ver' },
     
     // Empreendimentos / Unidades
     'listar_empreendimentos': { recurso: 'empreendimentos', acao: 'ver' },
@@ -1707,6 +1730,48 @@ async function executeTool(name, args, supabase, user) {
 
       if (error) throw new Error(error.message);
       return { message: 'Vale agendado na folha de pagamento e débito financeiro provisionado!', dados: data };
+    }
+
+    case 'relatar_pendencias_ponto': {
+      const { data, error } = await supabase.rpc('get_funcionarios_com_pendencias_ponto');
+      if (error) throw new Error(error.message);
+      return data;
+    }
+
+    case 'consultar_horas_trabalhadas': {
+      const { funcionario_id, data_inicio, data_fim } = args;
+      
+      let query = supabase
+        .from('saldos_diarios_ponto')
+        .select('data, minutos_trabalhados, minutos_previstos, saldo_minutos_dia')
+        .eq('funcionario_id', funcionario_id)
+        .order('data', { ascending: false });
+
+      if (data_inicio) {
+        query = query.gte('data', data_inicio);
+      }
+      if (data_fim) {
+        query = query.lte('data', data_fim);
+      }
+
+      const { data, error } = await query;
+      if (error) throw new Error(error.message);
+
+      return data.map(row => {
+        const minTrabalhados = row.minutos_trabalhados ? Number(row.minutos_trabalhados) : 0;
+        const minPrevistos = row.minutos_previstos ? Number(row.minutos_previstos) : 0;
+        const saldoMinutos = row.saldo_minutos_dia ? Number(row.saldo_minutos_dia) : 0;
+
+        return {
+          data: row.data,
+          horas_trabalhadas: Number((minTrabalhados / 60).toFixed(2)),
+          horas_previstas: Number((minPrevistos / 60).toFixed(2)),
+          saldo_horas: Number((saldoMinutos / 60).toFixed(2)),
+          minutos_trabalhados: minTrabalhados,
+          minutos_previstos: minPrevistos,
+          saldo_minutos: saldoMinutos
+        };
+      });
     }
 
     // ==================== EMPREENDIMENTOS / VENDAS ====================
