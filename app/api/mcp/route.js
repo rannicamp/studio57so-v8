@@ -1,136 +1,71 @@
 import { authenticateMcpKey } from '@/utils/supabase/mcp';
-import { v4 as uuidv4 } from 'uuid';
 
 export const dynamic = 'force-dynamic';
 
-// Mapa de conexões ativas na memória do processo (útil em dev local e servidores com estado)
-if (!global.mcpConnections) {
-  global.mcpConnections = new Map();
-}
-const connections = global.mcpConnections;
-
 /**
  * GET /api/mcp
- * Estabelece a conexão Server-Sent Events (SSE) com o agente de IA.
+ * Retorna apenas informações de status do servidor MCP e direciona para o uso do Stdio Bridge.
  */
-export async function GET(request) {
-  // 1. Extrair a chave de API do usuário
+export async function GET() {
+  return new Response(
+    JSON.stringify({
+      status: 'online',
+      message: 'Servidor MCP Elo 57 ativo. Para conectar seu agente de IA, utilize o script bridge de stdio local (scripts/mcp-bridge.js) apontando para este endpoint via POST.'
+    }),
+    { status: 200, headers: { 'Content-Type': 'application/json' } }
+  );
+}
+
+/**
+ * POST /api/mcp
+ * Recebe comandos JSON-RPC do script bridge local e os processa síncronamente em nome do usuário.
+ */
+export async function POST(request) {
+  // 1. Extrair a chave de API do usuário do header Authorization
   const authHeader = request.headers.get('authorization');
   let token = '';
   if (authHeader && authHeader.startsWith('Bearer ')) {
     token = authHeader.substring(7);
   } else {
+    // Fallback: query string para facilidade de testes rápidos
     const url = new URL(request.url);
     token = url.searchParams.get('token') || '';
   }
 
   if (!token) {
     return new Response(
-      JSON.stringify({ error: 'Chave de API (Bearer Token) ausente.' }),
+      JSON.stringify({
+        jsonrpc: '2.0',
+        error: { code: -32001, message: 'Não autorizado: Chave de API (Bearer Token) ausente.' },
+        id: null
+      }),
       { status: 401, headers: { 'Content-Type': 'application/json' } }
     );
   }
 
-  // 2. Autenticar a chave de API e obter o cliente Supabase com JWT do usuário
+  // 2. Autenticar a chave de API e obter o cliente Supabase com JWT do usuário (RLS ativo)
   const mcpContext = await authenticateMcpKey(token);
   if (!mcpContext) {
     return new Response(
-      JSON.stringify({ error: 'Chave de API inválida, inativa ou expirada.' }),
+      JSON.stringify({
+        jsonrpc: '2.0',
+        error: { code: -32002, message: 'Não autorizado: Chave de API inválida, inativa ou expirada.' },
+        id: null
+      }),
       { status: 401, headers: { 'Content-Type': 'application/json' } }
     );
   }
 
-  const connectionId = uuidv4();
-  const encoder = new TextEncoder();
-
-  console.log(`[MCP] Nova conexão SSE estabelecida. ID: ${connectionId} (Usuário: ${mcpContext.user.id}, Org: ${mcpContext.user.organizacao_id})`);
-
-  // 3. Retornar o Stream SSE
-  const stream = new ReadableStream({
-    start(controller) {
-      // Salva a conexão ativa
-      connections.set(connectionId, {
-        controller,
-        supabase: mcpContext.supabase,
-        user: mcpContext.user
-      });
-
-      // Envia o cabeçalho 'endpoint' inicial (exigência do protocolo MCP SSE)
-      const endpointUrl = `/api/mcp?connectionId=${connectionId}`;
-      controller.enqueue(encoder.encode(`event: endpoint\ndata: ${endpointUrl}\n\n`));
-
-      // Mantém a conexão viva enviando pings a cada 15 segundos
-      const pingInterval = setInterval(() => {
-        try {
-          controller.enqueue(encoder.encode(`: ping\n\n`));
-        } catch (e) {
-          clearInterval(pingInterval);
-          connections.delete(connectionId);
-        }
-      }, 15000);
-
-      // Limpa no encerramento
-      request.signal.addEventListener('abort', () => {
-        clearInterval(pingInterval);
-        connections.delete(connectionId);
-        console.log(`[MCP] Conexão SSE abortada pelo cliente. ID: ${connectionId}`);
-      });
-    },
-    cancel() {
-      connections.delete(connectionId);
-      console.log(`[MCP] Conexão SSE cancelada. ID: ${connectionId}`);
-    }
-  });
-
-  return new Response(stream, {
-    headers: {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive',
-      'Access-Control-Allow-Origin': '*',
-    },
-  });
-}
-
-/**
- * POST /api/mcp
- * Recebe comandos JSON-RPC do cliente e processa as ferramentas.
- */
-export async function POST(request) {
-  const url = new URL(request.url);
-  const connectionId = url.searchParams.get('connectionId');
-
-  if (!connectionId) {
-    return new Response(
-      JSON.stringify({ error: 'connectionId ausente na query string.' }),
-      { status: 400, headers: { 'Content-Type': 'application/json' } }
-    );
-  }
-
-  const connection = connections.get(connectionId);
-  if (!connection) {
-    return new Response(
-      JSON.stringify({ error: 'Conexão MCP inativa ou não encontrada. Abra a conexão via GET primeiro.' }),
-      { status: 404, headers: { 'Content-Type': 'application/json' } }
-    );
-  }
+  const { supabase, user } = mcpContext;
 
   try {
     const rpcRequest = await request.json();
-    console.log(`[MCP] Requisição recebida para conexão ${connectionId}:`, rpcRequest.method);
+    console.log(`[MCP] Requisição síncrona recebida para o método: ${rpcRequest.method} (User: ${user.id}, Org: ${user.organizacao_id})`);
 
-    // Processa a requisição JSON-RPC
-    const rpcResponse = await handleMcpRequest(rpcRequest, connection.supabase, connection.user);
+    // 3. Processar a requisição JSON-RPC de forma síncrona/stateless
+    const rpcResponse = await handleMcpRequest(rpcRequest, supabase, user);
 
-    // Envia no canal SSE como evento 'message' (padrão oficial MCP SSE)
-    const encoder = new TextEncoder();
-    try {
-      connection.controller.enqueue(encoder.encode(`event: message\ndata: ${JSON.stringify(rpcResponse)}\n\n`));
-    } catch (sseErr) {
-      console.warn(`[MCP] Erro ao enviar resposta via SSE para ${connectionId}:`, sseErr.message);
-    }
-
-    // Retorna também a resposta diretamente no POST para compatibilidade máxima com SDKs simplificados
+    // 4. Retornar a resposta JSON-RPC diretamente no corpo do POST
     return new Response(JSON.stringify(rpcResponse), {
       status: 200,
       headers: {
@@ -139,11 +74,11 @@ export async function POST(request) {
       }
     });
   } catch (err) {
-    console.error(`[MCP] Erro ao processar POST para ${connectionId}:`, err);
+    console.error('[MCP] Erro síncrono ao processar requisição:', err);
     return new Response(
       JSON.stringify({
         jsonrpc: '2.0',
-        error: { code: -32603, message: 'Erro interno ao processar requisição.' },
+        error: { code: -32603, message: `Erro interno no servidor: ${err.message}` },
         id: null
       }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
@@ -152,7 +87,7 @@ export async function POST(request) {
 }
 
 /**
- * PROCESSADOR DE REQUISIÇÕES JSON-RPC DO MCP
+ * PROCESSADOR DE REQUISIÇÕES JSON-RPC DO MCP (Síncrono/Stateless)
  */
 async function handleMcpRequest(rpcRequest, supabase, user) {
   const { method, params, id } = rpcRequest;
@@ -169,7 +104,7 @@ async function handleMcpRequest(rpcRequest, supabase, user) {
           },
           serverInfo: {
             name: 'elo57-mcp-server',
-            version: '1.1.0'
+            version: '1.2.0'
           }
         },
         id
@@ -449,7 +384,7 @@ async function handleMcpRequest(rpcRequest, supabase, user) {
 }
 
 /**
- * EXECUTOR DAS FERRAMENTAS DO MCP
+ * EXECUTOR DAS FERRAMENTAS DO MCP (Stateless)
  */
 async function executeTool(name, args, supabase, user) {
   switch (name) {
@@ -567,7 +502,6 @@ async function executeTool(name, args, supabase, user) {
       const horaInicio = startDateTime.toTimeString().split(' ')[0]; // HH:MM:SS
       const duracaoHoras = Number((duracao / 60).toFixed(2));
 
-      // Calcular data de fim prevista
       const endDateTime = new Date(startDateTime.getTime() + duracao * 60 * 1000);
       const dataFimPrevista = endDateTime.toISOString().split('T')[0];
 
@@ -596,7 +530,6 @@ async function executeTool(name, args, supabase, user) {
     case 'lancar_despesa': {
       const { descricao, valor, data_vencimento, conta_financeira_id, categoria_id, empreendimento_id, data_pagamento, status = 'Pendente', observacao } = args;
 
-      // Garantir sinal negativo no valor de despesa (regra de sinal financeiro automático)
       const valorFormatado = -Math.abs(Number(valor));
 
       const { data, error } = await supabase
@@ -627,7 +560,6 @@ async function executeTool(name, args, supabase, user) {
     case 'lancar_receita': {
       const { descricao, valor, data_vencimento, conta_financeira_id, categoria_id, empreendimento_id, data_pagamento, status = 'Pendente', observacao } = args;
 
-      // Garantir sinal positivo no valor de receita
       const valorFormatado = Math.abs(Number(valor));
 
       const { data, error } = await supabase

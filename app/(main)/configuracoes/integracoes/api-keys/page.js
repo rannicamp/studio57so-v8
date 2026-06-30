@@ -123,7 +123,7 @@ export default function ApiKeysPage() {
     setTimeout(() => setCopiedConfig(false), 2000);
   };
 
-  // Monta o JSON de exemplo de configuração do MCP
+  // Monta o JSON de exemplo de configuração do MCP (Ponte Stdio)
   const getMcpConfigString = (tokenValue) => {
     const host = typeof window !== 'undefined' ? window.location.origin : 'https://elo57.com.br';
     const finalUrl = showConfigLocal ? 'http://localhost:3000/api/mcp' : `${host}/api/mcp`;
@@ -131,10 +131,11 @@ export default function ApiKeysPage() {
     const configObj = {
       mcpServers: {
         "elo57": {
-          "type": "sse",
-          "url": finalUrl,
-          "headers": {
-            "Authorization": `Bearer ${tokenValue || 'SUA_CHAVE_DE_API_AQUI'}`
+          "command": "node",
+          "args": ["c:/Projetos/studio57so-v8/scripts/mcp-bridge.js"],
+          "env": {
+            "ELO57_API_KEY": tokenValue || "SUA_CHAVE_DE_API_AQUI",
+            "ELO57_API_URL": finalUrl
           }
         }
       }
@@ -277,7 +278,7 @@ export default function ApiKeysPage() {
             Como Conectar o Agente
           </h3>
           <p className="text-gray-600 text-sm leading-relaxed mb-4">
-            O Elo 57 implementa o **Model Context Protocol (MCP)** sobre SSE. Você pode conectar seu agente externo de duas formas:
+            O Elo 57 implementa o **Model Context Protocol (MCP)** via Stdio Bridge local. Isso resolve timeouts de conexões persistentes em ambientes Serverless na nuvem.
           </p>
 
           <div className="border-t border-gray-200/50 pt-4 flex-grow">
