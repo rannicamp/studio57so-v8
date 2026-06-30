@@ -20,3 +20,6 @@
 ## 🤖 Algoritmo e Regras da Stella IA
 1. Sempre que for solicitada alguma alteração nas respostas, no comportamento ou nas regras cognitivas da Stella IA, consulte e siga rigorosamente o workflow/manual em [.agents/workflows/algoritmo-stella.md](file:///c:/Projetos/studio57so-v8/.agents/workflows/algoritmo-stella.md).
 2. Qualquer mudança de comportamento da Stella IA deve ser documentada e refletida na matriz de eventos deste arquivo para manter a consistência histórica do projeto.
+
+## 📊 Workflow de Relatório de Conversas (/relatorio-conversas)
+1. Sempre que o usuário solicitar um relatório geral ou auditoria do andamento das conversas no WhatsApp e fases dos clientes, utilize e execute o workflow mapeado em [.agents/workflows/relatorio-conversas.md](file:///c:/Projetos/studio57so-v8/.agents/workflows/relatorio-conversas.md).
