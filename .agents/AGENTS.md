@@ -23,3 +23,8 @@
 
 ## 📊 Workflow de Relatório de Conversas (/relatorio-conversas)
 1. Sempre que o usuário solicitar um relatório geral ou auditoria do andamento das conversas no WhatsApp e fases dos clientes, utilize e execute o workflow mapeado em [.agents/workflows/relatorio-conversas.md](file:///c:/Projetos/studio57so-v8/.agents/workflows/relatorio-conversas.md).
+
+## 💎 Diretriz de Reutilização de RPCs (Banco de Dados)
+1. Sempre que for solicitada a criação, modificação ou expansão de ferramentas do Servidor MCP ou lógicas que envolvam operações no banco de dados, você **deve** obrigatoriamente consultar o arquivo `functions.json` e as migrações em `supabase/migrations/` para verificar se já existe uma função (RPC) ou trigger correspondente criada.
+2. Dê preferência absoluta a chamar a RPC nativa do banco de dados (ex: `auto_merge_contacts_and_relink`, `agendar_vale`, `marcar_pedido_entregue`) em vez de recriar a lógica com inserts/updates manuais no JavaScript do Next.js. Isso garante que a integridade das triggers e regras do banco seja preservada.
+

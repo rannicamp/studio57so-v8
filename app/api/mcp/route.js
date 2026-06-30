@@ -27,7 +27,6 @@ export async function POST(request) {
   if (authHeader && authHeader.startsWith('Bearer ')) {
     token = authHeader.substring(7);
   } else {
-    // Fallback: query string para facilidade de testes rápidos
     const url = new URL(request.url);
     token = url.searchParams.get('token') || '';
   }
@@ -104,7 +103,7 @@ async function handleMcpRequest(rpcRequest, supabase, user) {
           },
           serverInfo: {
             name: 'elo57-mcp-server',
-            version: '1.2.0'
+            version: '2.0.0'
           }
         },
         id
@@ -115,17 +114,230 @@ async function handleMcpRequest(rpcRequest, supabase, user) {
         jsonrpc,
         result: {
           tools: [
+            // ==================== ALMOXARIFADO ====================
             {
-              name: 'listar_empreendimentos',
-              description: 'Lista todos os empreendimentos imobiliários/obras ativos da organização.',
+              name: 'listar_estoque',
+              description: 'Lista o inventário físico de materiais em estoque de uma obra/empreendimento.',
+              inputSchema: {
+                type: 'object',
+                properties: {
+                  empreendimento_id: {
+                    type: 'integer',
+                    description: 'Filtrar pelo ID do empreendimento imobiliário/obra.'
+                  }
+                }
+              }
+            },
+            {
+              name: 'registrar_movimentacao_estoque',
+              description: 'Registra movimentações físicas (Entrada manual, Retirada por funcionário, Devolução de material) no almoxarifado de uma obra.',
+              inputSchema: {
+                type: 'object',
+                properties: {
+                  empreendimento_id: {
+                    type: 'integer',
+                    description: 'ID do empreendimento associado.'
+                  },
+                  material_id: {
+                    type: 'integer',
+                    description: 'ID do insumo/material.'
+                  },
+                  quantidade: {
+                    type: 'number',
+                    description: 'Quantidade movimentada.'
+                  },
+                  tipo: {
+                    type: 'string',
+                    description: 'Tipo de movimentação.',
+                    enum: ['Entrada', 'Retirada', 'Devolucao']
+                  },
+                  funcionario_id: {
+                    type: 'integer',
+                    description: 'ID do funcionário que realizou a retirada (obrigatório se tipo for Retirada).'
+                  },
+                  observacao: {
+                    type: 'string',
+                    description: 'Notas ou justificativas da movimentação.'
+                  }
+                },
+                required: ['empreendimento_id', 'material_id', 'quantidade', 'tipo']
+              }
+            },
+
+            // ==================== ATIVIDADES ====================
+            {
+              name: 'listar_atividades',
+              description: 'Lista o cronograma de atividades comerciais, tarefas ou reuniões do time.',
               inputSchema: {
                 type: 'object',
                 properties: {}
               }
             },
             {
+              name: 'criar_atividade',
+              description: 'Agenda uma nova atividade comercial ou tarefa associada a um contato/cliente ou funcionário.',
+              inputSchema: {
+                type: 'object',
+                properties: {
+                  contato_id: { type: 'integer', description: 'ID do contato/cliente vinculado.' },
+                  funcionario_id: { type: 'integer', description: 'ID do funcionário executor (opcional).' },
+                  titulo: { type: 'string', description: 'Nome/Título da atividade.' },
+                  descricao: { type: 'string', description: 'Notas da atividade.' },
+                  tipo: {
+                    type: 'string',
+                    enum: ['Ligação', 'Reunião', 'Mensagem', 'Visita', 'Tarefa']
+                  },
+                  data_inicio: { type: 'string', description: 'Data/Hora de início prevista (ISO 8601).' },
+                  duracao_minutos: { type: 'integer', description: 'Duração da atividade em minutos (padrão 30).' }
+                },
+                required: ['contato_id', 'titulo', 'tipo', 'data_inicio']
+              }
+            },
+            {
+              name: 'atualizar_atividade',
+              description: 'Atualiza dados de uma atividade ou tarefa cadastrada.',
+              inputSchema: {
+                type: 'object',
+                properties: {
+                  id: { type: 'integer', description: 'ID da atividade.' },
+                  titulo: { type: 'string' },
+                  descricao: { type: 'string' },
+                  status: {
+                    type: 'string',
+                    enum: ['Não iniciado', 'Em andamento', 'Concluído', 'Cancelado']
+                  },
+                  data_inicio_prevista: { type: 'string', description: 'Data de início YYYY-MM-DD.' },
+                  hora_inicio: { type: 'string', description: 'Hora de início HH:MM:SS.' }
+                },
+                required: ['id']
+              }
+            },
+            {
+              name: 'deletar_atividade',
+              description: 'Exclui uma atividade do sistema.',
+              inputSchema: {
+                type: 'object',
+                properties: {
+                  id: { type: 'integer', description: 'ID da atividade.' }
+                },
+                required: ['id']
+              }
+            },
+
+            // ==================== CRM / CONTATOS ====================
+            {
+              name: 'listar_clientes_crm',
+              description: 'Busca e lista contatos/leads cadastrados no CRM.',
+              inputSchema: {
+                type: 'object',
+                properties: {
+                  busca: { type: 'string', description: 'Termo de pesquisa (nome, email ou celular).' }
+                }
+              }
+            },
+            {
+              name: 'criar_contato_crm',
+              description: 'Cadastra um novo cliente/lead na base de dados.',
+              inputSchema: {
+                type: 'object',
+                properties: {
+                  nome: { type: 'string', description: 'Nome completo.' },
+                  email: { type: 'string' },
+                  celular: { type: 'string', description: 'Celular com DDD (ex: 5533991912291).' },
+                  origem: { type: 'string', description: 'Origem do lead (ex: Meta Ads, Indicação).' },
+                  status: { type: 'string', description: 'Fase inicial do contato.' }
+                },
+                required: ['nome']
+              }
+            },
+            {
+              name: 'atualizar_contato_crm',
+              description: 'Edita a ficha de dados cadastrais de um contato/lead.',
+              inputSchema: {
+                type: 'object',
+                properties: {
+                  id: { type: 'integer', description: 'ID do contato.' },
+                  nome: { type: 'string' },
+                  email: { type: 'string' },
+                  celular: { type: 'string' },
+                  status: { type: 'string' }
+                },
+                required: ['id']
+              }
+            },
+            {
+              name: 'unir_contatos_crm',
+              description: 'Funde contatos duplicados em um único, migrando todas as referências do banco de dados para o mais antigo (vencedor) e excluindo as duplicatas.',
+              inputSchema: {
+                type: 'object',
+                properties: {
+                  contato_ids: {
+                    type: 'array',
+                    items: { type: 'integer' },
+                    description: 'Lista de IDs numéricos dos contatos duplicados.'
+                  }
+                },
+                required: ['contato_ids']
+              }
+            },
+            {
+              name: 'listar_colunas_funil',
+              description: 'Lista as colunas/etapas configuradas no Funil do CRM Kanban.',
+              inputSchema: {
+                type: 'object',
+                properties: {}
+              }
+            },
+            {
+              name: 'listar_leads_funil',
+              description: 'Exibe a listagem de todos os contatos ativos que estão atualmente dentro de fases do funil comercial.',
+              inputSchema: {
+                type: 'object',
+                properties: {}
+              }
+            },
+            {
+              name: 'mover_lead_funil',
+              description: 'Move um lead/contato de uma fase para outra dentro do Kanban do CRM.',
+              inputSchema: {
+                type: 'object',
+                properties: {
+                  contato_id: { type: 'integer' },
+                  coluna_id: { type: 'integer', description: 'ID da coluna destino no funil.' }
+                },
+                required: ['contato_id', 'coluna_id']
+              }
+            },
+
+            // ==================== DIÁRIO DE OBRAS ====================
+            {
+              name: 'listar_diarios_obra',
+              description: 'Consulta o histórico de relatórios diários de obras (RDO) lançados.',
+              inputSchema: {
+                type: 'object',
+                properties: {}
+              }
+            },
+            {
+              name: 'criar_diario_obra',
+              description: 'Gera um novo relatório diário de obra (RDO) registrando as condições e o responsável.',
+              inputSchema: {
+                type: 'object',
+                properties: {
+                  empreendimento_id: { type: 'integer' },
+                  data_relatorio: { type: 'string', description: 'Data do diário (YYYY-MM-DD).' },
+                  responsavel_rdo: { type: 'string', description: 'Nome do engenheiro/encarregado responsável.' },
+                  condicoes_climaticas: { type: 'string', description: 'Condições do tempo (ex: Ensolarado, Chuvoso).' },
+                  condicoes_trabalho: { type: 'string', description: 'Condições de trabalho (ex: Praticável, Parcial).' }
+                },
+                required: ['empreendimento_id', 'data_relatorio', 'responsavel_rdo']
+              }
+            },
+
+            // ==================== FINANCEIRO ====================
+            {
               name: 'listar_contas_financeiras',
-              description: 'Lista as contas bancárias e cartões de crédito cadastrados na organização. Use para obter o ID correto da conta antes de fazer lançamentos.',
+              description: 'Lista as contas bancárias e cartões de crédito da organização.',
               inputSchema: {
                 type: 'object',
                 properties: {}
@@ -133,13 +345,12 @@ async function handleMcpRequest(rpcRequest, supabase, user) {
             },
             {
               name: 'listar_categorias_financeiras',
-              description: 'Lista as categorias e subcategorias financeiras do sistema. Use para obter o ID correto da categoria antes de fazer lançamentos.',
+              description: 'Lista o plano de categorias financeiras.',
               inputSchema: {
                 type: 'object',
                 properties: {
                   tipo: {
                     type: 'string',
-                    description: 'Filtrar pelo tipo da categoria',
                     enum: ['Despesa', 'Receita']
                   }
                 }
@@ -147,195 +358,302 @@ async function handleMcpRequest(rpcRequest, supabase, user) {
             },
             {
               name: 'buscar_lancamentos_financeiros',
-              description: 'Consulta o extrato de lançamentos financeiros (despesas/receitas) com filtros avançados. Útil para verificar status de pagamentos, conciliar e gerar relatórios.',
+              description: 'Consulta lançamentos financeiros (despesas/receitas) com filtros.',
               inputSchema: {
                 type: 'object',
                 properties: {
-                  busca: {
-                    type: 'string',
-                    description: 'Termo para pesquisar na descrição ou observações'
-                  },
-                  data_inicio: {
-                    type: 'string',
-                    description: 'Data de início para filtro do período (YYYY-MM-DD)'
-                  },
-                  data_fim: {
-                    type: 'string',
-                    description: 'Data final para filtro do período (YYYY-MM-DD)'
-                  },
-                  tipo: {
-                    type: 'string',
-                    description: 'Filtrar tipo de lançamento',
-                    enum: ['Despesa', 'Receita']
-                  },
-                  status: {
-                    type: 'string',
-                    description: 'Filtrar pelo status do lançamento',
-                    enum: ['Pago', 'Pendente']
-                  },
-                  conta_id: {
-                    type: 'integer',
-                    description: 'ID da conta financeira específica'
-                  },
-                  categoria_id: {
-                    type: 'integer',
-                    description: 'ID da categoria financeira específica'
-                  },
-                  limite: {
-                    type: 'integer',
-                    description: 'Quantidade máxima de lançamentos (padrão 50, máx 200)',
-                    default: 50
-                  }
+                  busca: { type: 'string' },
+                  data_inicio: { type: 'string', description: 'Filtro inicial (YYYY-MM-DD)' },
+                  data_fim: { type: 'string', description: 'Filtro final (YYYY-MM-DD)' },
+                  tipo: { type: 'string', enum: ['Despesa', 'Receita'] },
+                  status: { type: 'string', enum: ['Pago', 'Pendente'] },
+                  conta_id: { type: 'integer' },
+                  categoria_id: { type: 'integer' }
                 }
-              }
-            },
-            {
-              name: 'listar_clientes_crm',
-              description: 'Busca contatos/leads cadastrados no CRM da organização.',
-              inputSchema: {
-                type: 'object',
-                properties: {
-                  busca: {
-                    type: 'string',
-                    description: 'Termo para pesquisar por nome, email ou celular'
-                  },
-                  limite: {
-                    type: 'integer',
-                    description: 'Limite máximo de contatos a retornar (padrão 20)',
-                    default: 20
-                  }
-                }
-              }
-            },
-            {
-              name: 'criar_atividade_crm',
-              description: 'Agenda uma nova atividade comercial ou de tarefas vinculada a um cliente/contato no CRM.',
-              inputSchema: {
-                type: 'object',
-                properties: {
-                  contato_id: {
-                    type: 'integer',
-                    description: 'ID numérico do contato associado. Se não souber, busque com listar_clientes_crm.'
-                  },
-                  titulo: {
-                    type: 'string',
-                    description: 'Nome ou título da atividade. Se não fornecido, pergunte.'
-                  },
-                  descricao: {
-                    type: 'string',
-                    description: 'Detalhamento ou notas da atividade'
-                  },
-                  tipo: {
-                    type: 'string',
-                    description: 'Tipo de atividade',
-                    enum: ['Ligação', 'Reunião', 'Mensagem', 'Visita', 'Tarefa']
-                  },
-                  data_inicio: {
-                    type: 'string',
-                    description: 'Data e hora de início (ISO 8601, ex: YYYY-MM-DDTHH:mm:ssZ). Se não fornecida, pergunte ao usuário.'
-                  },
-                  duracao_minutos: {
-                    type: 'integer',
-                    description: 'Duração da atividade em minutos (padrão 30)'
-                  }
-                },
-                required: ['contato_id', 'titulo', 'tipo', 'data_inicio']
               }
             },
             {
               name: 'lancar_despesa',
-              description: 'Cria uma nova despesa no financeiro da organização. REGRAS DE DIÁLOGO: Se o usuário não informar a Conta, Categoria ou Obra/Empreendimento, você DEVE listar as opções e perguntar a ele antes de executar o lançamento!',
+              description: 'Cria uma nova despesa pendente ou paga (sinal negativo automático).',
               inputSchema: {
                 type: 'object',
                 properties: {
-                  descricao: {
-                    type: 'string',
-                    description: 'Descrição ou nome detalhado da despesa. O usuário deve informar. Se ausente, pergunte.'
-                  },
-                  valor: {
-                    type: 'number',
-                    description: 'Valor positivo da despesa (ex: 150.00). Não envie sinal negativo, a API ou o banco cuidará disso.'
-                  },
-                  data_vencimento: {
-                    type: 'string',
-                    description: 'Data de vencimento (Formato YYYY-MM-DD). Se não fornecida, pergunte ao usuário.'
-                  },
-                  conta_financeira_id: {
-                    type: 'integer',
-                    description: 'ID da conta financeira de origem. ATENÇÃO: Se não souber ou o usuário não informou, use a ferramenta listar_contas_financeiras e pergunte qual conta usar.'
-                  },
-                  categoria_id: {
-                    type: 'integer',
-                    description: 'ID da categoria financeira. ATENÇÃO: Se não souber ou o usuário não informou, use a ferramenta listar_categorias_financeiras (filtrando por Despesa) e pergunte.'
-                  },
-                  empreendimento_id: {
-                    type: 'integer',
-                    description: 'ID da obra/empreendimento associada (opcional). Se o usuário disser que é de uma obra, use listar_empreendimentos para obter o ID. Se ele não mencionar, pergunte se pertence a alguma obra ou se é custo administrativo.'
-                  },
-                  data_pagamento: {
-                    type: 'string',
-                    description: 'Data em que foi paga (Formato YYYY-MM-DD). Passe apenas se a despesa já estiver liquidada/paga.'
-                  },
-                  status: {
-                    type: 'string',
-                    description: 'Status do lançamento',
-                    enum: ['Pago', 'Pendente'],
-                    default: 'Pendente'
-                  },
-                  observacao: {
-                    type: 'string',
-                    description: 'Notas ou observações adicionais para o lançamento'
-                  }
+                  descricao: { type: 'string' },
+                  valor: { type: 'number', description: 'Valor em formato decimal (positivo).' },
+                  data_vencimento: { type: 'string', description: 'Data YYYY-MM-DD' },
+                  conta_financeira_id: { type: 'integer' },
+                  categoria_id: { type: 'integer' },
+                  empreendimento_id: { type: 'integer' },
+                  data_pagamento: { type: 'string', description: 'Se pago, passe a data de pagamento YYYY-MM-DD' },
+                  status: { type: 'string', enum: ['Pago', 'Pendente'], default: 'Pendente' },
+                  observacao: { type: 'string' }
                 },
                 required: ['descricao', 'valor', 'data_vencimento', 'conta_financeira_id', 'categoria_id']
               }
             },
             {
               name: 'lancar_receita',
-              description: 'Cria uma nova receita no financeiro da organização. REGRAS DE DIÁLOGO: Se o usuário não informar a Conta, Categoria ou Obra/Empreendimento, você DEVE listar as opções e perguntar a ele antes de executar o lançamento!',
+              description: 'Cria uma nova receita pendente ou paga.',
               inputSchema: {
                 type: 'object',
                 properties: {
-                  descricao: {
-                    type: 'string',
-                    description: 'Descrição ou nome detalhado da receita. O usuário deve informar. Se ausente, pergunte.'
-                  },
-                  valor: {
-                    type: 'number',
-                    description: 'Valor positivo da receita (ex: 5000.00).'
-                  },
-                  data_vencimento: {
-                    type: 'string',
-                    description: 'Data de vencimento (Formato YYYY-MM-DD). Se não fornecida, pergunte ao usuário.'
-                  },
-                  conta_financeira_id: {
-                    type: 'integer',
-                    description: 'ID da conta financeira de destino. ATENÇÃO: Se não souber ou o usuário não informou, use a ferramenta listar_contas_financeiras e pergunte qual conta usar.'
-                  },
-                  categoria_id: {
-                    type: 'integer',
-                    description: 'ID da categoria financeira. ATENÇÃO: Se não souber ou o usuário não informou, use a ferramenta listar_categorias_financeiras (filtrando por Receita) e pergunte.'
-                  },
-                  empreendimento_id: {
-                    type: 'integer',
-                    description: 'ID da obra/empreendimento associada (opcional). Se o usuário disser que é de uma obra, use listar_empreendimentos para obter o ID. Se ele não mencionar, pergunte se pertence a alguma obra.'
-                  },
-                  data_pagamento: {
-                    type: 'string',
-                    description: 'Data do recebimento (Formato YYYY-MM-DD). Passe apenas se a receita já tiver sido recebida/paga.'
-                  },
-                  status: {
-                    type: 'string',
-                    description: 'Status do lançamento',
-                    enum: ['Pago', 'Pendente'],
-                    default: 'Pendente'
-                  },
-                  observacao: {
-                    type: 'string',
-                    description: 'Notas ou observações adicionais para o lançamento'
-                  }
+                  descricao: { type: 'string' },
+                  valor: { type: 'number', description: 'Valor em formato decimal.' },
+                  data_vencimento: { type: 'string', description: 'Data YYYY-MM-DD' },
+                  conta_financeira_id: { type: 'integer' },
+                  categoria_id: { type: 'integer' },
+                  empreendimento_id: { type: 'integer' },
+                  data_pagamento: { type: 'string', description: 'Se recebido, passe a data YYYY-MM-DD' },
+                  status: { type: 'string', enum: ['Pago', 'Pendente'], default: 'Pendente' },
+                  observacao: { type: 'string' }
                 },
                 required: ['descricao', 'valor', 'data_vencimento', 'conta_financeira_id', 'categoria_id']
+              }
+            },
+            {
+              name: 'atualizar_lancamento',
+              description: 'Edita dados ou status de um lançamento financeiro.',
+              inputSchema: {
+                type: 'object',
+                properties: {
+                  id: { type: 'integer', description: 'ID do lançamento.' },
+                  descricao: { type: 'string' },
+                  valor: { type: 'number' },
+                  status: { type: 'string', enum: ['Pago', 'Pendente', 'Conciliado'] },
+                  data_vencimento: { type: 'string' },
+                  data_pagamento: { type: 'string' }
+                },
+                required: ['id']
+              }
+            },
+            {
+              name: 'deletar_lancamento',
+              description: 'Exclui definitivamente um lançamento financeiro.',
+              inputSchema: {
+                type: 'object',
+                properties: {
+                  id: { type: 'integer', description: 'ID do lançamento.' }
+                },
+                required: ['id']
+              }
+            },
+
+            // ==================== ORÇAMENTOS ====================
+            {
+              name: 'listar_orcamentos',
+              description: 'Lista orçamentos de obras cadastrados.',
+              inputSchema: {
+                type: 'object',
+                properties: {}
+              }
+            },
+            {
+              name: 'listar_itens_orcamento',
+              description: 'Exibe os materiais e insumos planejados de um orçamento.',
+              inputSchema: {
+                type: 'object',
+                properties: {
+                  orcamento_id: { type: 'integer' }
+                },
+                required: ['orcamento_id']
+              }
+            },
+            {
+              name: 'adicionar_item_orcamento',
+              description: 'Adiciona um insumo e quantidade no orçamento planejado.',
+              inputSchema: {
+                type: 'object',
+                properties: {
+                  orcamento_id: { type: 'integer' },
+                  material_id: { type: 'integer' },
+                  quantidade: { type: 'number' },
+                  valor_unitario: { type: 'number' }
+                },
+                required: ['orcamento_id', 'material_id', 'quantidade', 'valor_unitario']
+              }
+            },
+
+            // ==================== PEDIDOS / COMPRAS ====================
+            {
+              name: 'listar_pedidos_compra',
+              description: 'Consulta os pedidos de compra de insumos do almoxarifado.',
+              inputSchema: {
+                type: 'object',
+                properties: {}
+              }
+            },
+            {
+              name: 'criar_pedido_compra',
+              description: 'Abre um novo pedido de compras em fase inicial.',
+              inputSchema: {
+                type: 'object',
+                properties: {
+                  empreendimento_id: { type: 'integer' },
+                  fornecedor_id: { type: 'integer', description: 'ID do contato do fornecedor.' },
+                  fase_id: { type: 'integer', description: 'ID da fase do funil de compras.' },
+                  data_pedido: { type: 'string', description: 'Data YYYY-MM-DD.' },
+                  condicao_pagamento: { type: 'string' }
+                },
+                required: ['empreendimento_id', 'fornecedor_id', 'fase_id', 'data_pedido']
+              }
+            },
+            {
+              name: 'listar_itens_pedido_compra',
+              description: 'Exibe a listagem de itens de um pedido de compras.',
+              inputSchema: {
+                type: 'object',
+                properties: {
+                  pedido_compra_id: { type: 'integer' }
+                },
+                required: ['pedido_compra_id']
+              }
+            },
+            {
+              name: 'adicionar_item_pedido_compra',
+              description: 'Adiciona material e valor cotado a um pedido de compra.',
+              inputSchema: {
+                type: 'object',
+                properties: {
+                  pedido_compra_id: { type: 'integer' },
+                  material_id: { type: 'integer' },
+                  quantidade: { type: 'number' },
+                  valor_unitario: { type: 'number' }
+                },
+                required: ['pedido_compra_id', 'material_id', 'quantidade', 'valor_unitario']
+              }
+            },
+            {
+              name: 'deletar_item_pedido_compra',
+              description: 'Exclui um item específico de um pedido de compra.',
+              inputSchema: {
+                type: 'object',
+                properties: {
+                  id: { type: 'integer', description: 'ID do item do pedido.' }
+                },
+                required: ['id']
+              }
+            },
+            {
+              name: 'marcar_pedido_entregue',
+              description: 'Marca o pedido como entregue, atualizando o status e gerando entrada automática de insumos no estoque da obra.',
+              inputSchema: {
+                type: 'object',
+                properties: {
+                  pedido_compra_id: { type: 'integer' }
+                },
+                required: ['pedido_compra_id']
+              }
+            },
+
+            // ==================== RECURSOS HUMANOS ====================
+            {
+              name: 'listar_funcionarios',
+              description: 'Lista colaboradores da empresa, seus CPFs e salários.',
+              inputSchema: {
+                type: 'object',
+                properties: {}
+              }
+            },
+            {
+              name: 'criar_funcionario',
+              description: 'Insere a ficha de contratação de um novo colaborador no Departamento Pessoal.',
+              inputSchema: {
+                type: 'object',
+                properties: {
+                  full_name: { type: 'string', description: 'Nome completo.' },
+                  cpf: { type: 'string', description: 'Formatado com máscara.' },
+                  rg: { type: 'string' },
+                  admission_date: { type: 'string', description: 'Data de admissão YYYY-MM-DD.' },
+                  empresa_id: { type: 'integer', description: 'ID da empresa pagadora/prestadora.' },
+                  empreendimento_atual_id: { type: 'integer', description: 'ID da obra em que vai atuar.' },
+                  birth_date: { type: 'string', description: 'YYYY-MM-DD.' },
+                  phone: { type: 'string' },
+                  email: { type: 'string' },
+                  base_salary: { type: 'string', description: 'Salário base (ex: 2500.00).' },
+                  payment_method: { type: 'string', description: 'PIX, Depósito, etc.' },
+                  pix_key: { type: 'string' }
+                },
+                required: ['full_name', 'cpf', 'admission_date', 'empresa_id']
+              }
+            },
+            {
+              name: 'atualizar_funcionario',
+              description: 'Edita a ficha cadastral de um colaborador.',
+              inputSchema: {
+                type: 'object',
+                properties: {
+                  id: { type: 'integer', description: 'ID do funcionário.' },
+                  full_name: { type: 'string' },
+                  status: { type: 'string', enum: ['Ativo', 'Férias', 'Afastado', 'Demitido'] },
+                  base_salary: { type: 'string' },
+                  empreendimento_atual_id: { type: 'integer' }
+                },
+                required: ['id']
+              }
+            },
+            {
+              name: 'lancar_ponto_funcionario',
+              description: 'Registra a batida de ponto físico (entrada/saída) de um colaborador.',
+              inputSchema: {
+                type: 'object',
+                properties: {
+                  funcionario_id: { type: 'integer' },
+                  data_hora: { type: 'string', description: 'Data/Hora do registro (ISO 8601).' },
+                  tipo_registro: { type: 'string', enum: ['Entrada', 'Saída'] },
+                  observacao: { type: 'string' }
+                },
+                required: ['funcionario_id', 'data_hora', 'tipo_registro']
+              }
+            },
+            {
+              name: 'lancar_vale_funcionario',
+              description: 'Lança um adiantamento/vale de pagamento para o colaborador (chama a RPC do banco, gerando o agendamento de vale e a despesa financeira).',
+              inputSchema: {
+                type: 'object',
+                properties: {
+                  funcionario_id: { type: 'integer' },
+                  valor: { type: 'number', description: 'Valor do adiantamento.' },
+                  data_vale: { type: 'string', description: 'Mês/Período de referência (YYYY-MM-DD).' },
+                  data_pagamento: { type: 'string', description: 'Data em que será realizado o pagamento YYYY-MM-DD.' },
+                  conta_id: { type: 'integer', description: 'Conta financeira pagadora.' }
+                },
+                required: ['funcionario_id', 'valor', 'data_vale', 'data_pagamento', 'conta_id']
+              }
+            },
+
+            // ==================== EMPREENDIMENTOS / VENDAS ====================
+            {
+              name: 'listar_empreendimentos',
+              description: 'Lista os empreendimentos ativos da construtora.',
+              inputSchema: {
+                type: 'object',
+                properties: {}
+              }
+            },
+            {
+              name: 'listar_unidades_empreendimento',
+              description: 'Consulta a tabela de vendas de lotes/apartamentos de um empreendimento.',
+              inputSchema: {
+                type: 'object',
+                properties: {
+                  empreendimento_id: { type: 'integer', description: 'ID da obra.' }
+                }
+              }
+            },
+            {
+              name: 'atualizar_unidade_empreendimento',
+              description: 'Atualiza dados de preço ou status de disponibilidade de um lote/unidade.',
+              inputSchema: {
+                type: 'object',
+                properties: {
+                  id: { type: 'integer', description: 'ID do lote/unidade.' },
+                  valor_base: { type: 'number', description: 'Preço base de tabela.' },
+                  status: {
+                    type: 'string',
+                    enum: ['Disponível', 'Reservado', 'Vendido']
+                  }
+                },
+                required: ['id']
               }
             }
           ]
@@ -346,6 +664,23 @@ async function handleMcpRequest(rpcRequest, supabase, user) {
     case 'tools/call': {
       const { name, arguments: args } = params;
       try {
+        // 1. Validar a governança de permissões por cargo
+        const security = getToolSecurity(name);
+        if (security) {
+          const permitido = await verificarPermissao(supabase, user.id, security.recurso, security.acao);
+          if (!permitido) {
+            return {
+              jsonrpc,
+              error: {
+                code: -32003,
+                message: `Não autorizado: Seu cargo não tem permissão para '${security.acao}' no recurso '${security.recurso}'.`
+              },
+              id
+            };
+          }
+        }
+
+        // 2. Executar a ferramenta
         const toolResult = await executeTool(name, args, supabase, user);
         return {
           jsonrpc,
@@ -384,20 +719,590 @@ async function handleMcpRequest(rpcRequest, supabase, user) {
 }
 
 /**
+ * MAPEAR RECURSOS E AÇÕES PARA GOVERNANÇA DE CARGO
+ */
+function getToolSecurity(toolName) {
+  const mapping = {
+    // Almoxarifado
+    'listar_estoque': { recurso: 'almoxarifado', acao: 'ver' },
+    'registrar_movimentacao_estoque': { recurso: 'almoxarifado', acao: 'criar' },
+    
+    // Atividades
+    'listar_atividades': { recurso: 'atividades', acao: 'ver' },
+    'criar_atividade': { recurso: 'atividades', acao: 'criar' },
+    'atualizar_atividade': { recurso: 'atividades', acao: 'editar' },
+    'deletar_atividade': { recurso: 'atividades', acao: 'excluir' },
+    
+    // CRM / Contatos
+    'listar_clientes_crm': { recurso: 'contatos', acao: 'ver' },
+    'criar_contato_crm': { recurso: 'contatos', acao: 'criar' },
+    'atualizar_contato_crm': { recurso: 'contatos', acao: 'editar' },
+    'unir_contatos_crm': { recurso: 'contatos', acao: 'excluir' },
+    'listar_colunas_funil': { recurso: 'crm', acao: 'ver' },
+    'listar_leads_funil': { recurso: 'crm', acao: 'ver' },
+    'mover_lead_funil': { recurso: 'crm', acao: 'editar' },
+    
+    // RDO
+    'listar_diarios_obra': { recurso: 'rdo', acao: 'ver' },
+    'criar_diario_obra': { recurso: 'rdo', acao: 'criar' },
+    
+    // Financeiro
+    'listar_contas_financeiras': { recurso: 'financeiro', acao: 'ver' },
+    'listar_categorias_financeiras': { recurso: 'financeiro', acao: 'ver' },
+    'buscar_lancamentos_financeiros': { recurso: 'financeiro', acao: 'ver' },
+    'lancar_despesa': { recurso: 'financeiro', acao: 'criar' },
+    'lancar_receita': { recurso: 'financeiro', acao: 'criar' },
+    'atualizar_lancamento': { recurso: 'financeiro', acao: 'editar' },
+    'deletar_lancamento': { recurso: 'financeiro', acao: 'excluir' },
+    
+    // Orçamentos
+    'listar_orcamentos': { recurso: 'orcamento', acao: 'ver' },
+    'listar_itens_orcamento': { recurso: 'orcamento', acao: 'ver' },
+    'adicionar_item_orcamento': { recurso: 'orcamento', acao: 'criar' },
+    
+    // Compras / Pedidos
+    'listar_pedidos_compra': { recurso: 'pedidos', acao: 'ver' },
+    'criar_pedido_compra': { recurso: 'pedidos', acao: 'criar' },
+    'listar_itens_pedido_compra': { recurso: 'pedidos', acao: 'ver' },
+    'adicionar_item_pedido_compra': { recurso: 'pedidos', acao: 'criar' },
+    'deletar_item_pedido_compra': { recurso: 'pedidos', acao: 'excluir' },
+    'marcar_pedido_entregue': { recurso: 'pedidos', acao: 'editar' },
+    
+    // Funcionários / RH
+    'listar_funcionarios': { recurso: 'funcionarios', acao: 'ver' },
+    'criar_funcionario': { recurso: 'funcionarios', acao: 'criar' },
+    'atualizar_funcionario': { recurso: 'funcionarios', acao: 'editar' },
+    'lancar_ponto_funcionario': { recurso: 'ponto', acao: 'criar' },
+    'lancar_vale_funcionario': { recurso: 'financeiro', acao: 'criar' },
+    
+    // Empreendimentos / Unidades
+    'listar_empreendimentos': { recurso: 'empreendimentos', acao: 'ver' },
+    'listar_unidades_empreendimento': { recurso: 'empreendimentos', acao: 'ver' },
+    'atualizar_unidade_empreendimento': { recurso: 'empreendimentos', acao: 'editar' }
+  };
+  
+  return mapping[toolName] || null;
+}
+
+/**
+ * FUNÇÃO DE GOVERNANÇA DE PERMISSÕES POR CARGO
+ */
+async function verificarPermissao(supabase, usuarioId, recurso, acao) {
+  try {
+    // 1. Obter a funcao_id e is_superadmin do usuário
+    const { data: usuario, error: userErr } = await supabase
+      .from('usuarios')
+      .select('funcao_id, is_superadmin')
+      .eq('id', usuarioId)
+      .maybeSingle();
+
+    if (userErr) {
+      console.error(`[MCP Permissões] Erro ao buscar usuário ${usuarioId}:`, userErr.message);
+      return false;
+    }
+
+    if (!usuario) {
+      console.error(`[MCP Permissões] Usuário ${usuarioId} não encontrado.`);
+      return false;
+    }
+
+    // Superadmins do sistema têm passe livre para qualquer ação/recurso
+    if (usuario.is_superadmin === true) {
+      return true;
+    }
+    
+    if (!usuario.funcao_id) {
+      console.warn(`[MCP Permissões] Usuário ${usuarioId} não possui funcao_id associada.`);
+      return false;
+    }
+
+    // 2. Buscar as permissões cadastradas para a função e o recurso
+    const { data: permissao, error: permErr } = await supabase
+      .from('permissoes')
+      .select('pode_ver, pode_criar, pode_editar, pode_excluir')
+      .eq('funcao_id', usuario.funcao_id)
+      .eq('recurso', recurso)
+      .maybeSingle();
+
+    if (permErr) {
+      console.error(`[MCP Permissões] Erro ao buscar permissões para funcao_id ${usuario.funcao_id} e recurso ${recurso}:`, permErr.message);
+      return false;
+    }
+
+    if (!permissao) {
+      // Se não houver registro de permissão explícito, assume sem acesso por padrão
+      return false;
+    }
+
+    // 3. Checar a coluna correspondente à ação solicitada
+    switch (acao) {
+      case 'ver': return !!permissao.pode_ver;
+      case 'criar': return !!permissao.pode_criar;
+      case 'editar': return !!permissao.pode_editar;
+      case 'excluir': return !!permissao.pode_excluir;
+      default: return false;
+    }
+  } catch (err) {
+    console.error('[MCP Permissões] Erro inesperado ao validar permissão:', err);
+    return false;
+  }
+}
+
+/**
  * EXECUTOR DAS FERRAMENTAS DO MCP (Stateless)
  */
 async function executeTool(name, args, supabase, user) {
   switch (name) {
-    case 'listar_empreendimentos': {
+    // ==================== ALMOXARIFADO ====================
+    case 'listar_estoque': {
+      const { empreendimento_id } = args;
+      let query = supabase
+        .from('estoque')
+        .select(`
+          id, 
+          quantidade_atual, 
+          quantidade_em_uso, 
+          custo_medio, 
+          material:materiais(id, nome, descricao, unidade_medida),
+          empreendimento:empreendimentos(id, nome)
+        `);
+
+      if (empreendimento_id) {
+        query = query.eq('empreendimento_id', empreendimento_id);
+      }
+
+      const { data, error } = await query;
+      if (error) throw new Error(error.message);
+      return data;
+    }
+
+    case 'registrar_movimentacao_estoque': {
+      const { empreendimento_id, material_id, quantidade, tipo, funcionario_id, observacao } = args;
+
+      // 1. Buscar ou cadastrar a linha correspondente de estoque
+      let { data: estoque, error: findErr } = await supabase
+        .from('estoque')
+        .select('id, quantidade_atual, quantidade_em_uso')
+        .eq('empreendimento_id', empreendimento_id)
+        .eq('material_id', material_id)
+        .maybeSingle();
+
+      if (findErr) throw new Error(`Erro ao localizar estoque: ${findErr.message}`);
+
+      let estoqueId = estoque?.id;
+
+      if (tipo === 'Entrada') {
+        const obsEntrada = observacao || `Entrada manual via MCP`;
+        if (estoque) {
+          // Incrementa
+          const novaQtd = Number(estoque.quantidade_atual) + Number(quantidade);
+          const { error: updErr } = await supabase
+            .from('estoque')
+            .update({ quantidade_atual: novaQtd, ultima_atualizacao: new Date().toISOString() })
+            .eq('id', estoqueId);
+
+          if (updErr) throw new Error(updErr.message);
+        } else {
+          // Cria
+          const { data: material } = await supabase
+            .from('materiais')
+            .select('unidade_medida')
+            .eq('id', material_id)
+            .single();
+
+          const { data: newEstoque, error: insErr } = await supabase
+            .from('estoque')
+            .insert({
+              empreendimento_id,
+              material_id,
+              quantidade_atual: quantidade,
+              unidade_medida: material?.unidade_medida || 'UN',
+              organizacao_id: user.organizacao_id
+            })
+            .select('id')
+            .single();
+
+          if (insErr) throw new Error(insErr.message);
+          estoqueId = newEstoque.id;
+        }
+
+        // Registrar movimentação de entrada
+        const { error: movErr } = await supabase
+          .from('movimentacoes_estoque')
+          .insert({
+            estoque_id: estoqueId,
+            tipo: 'Entrada por Compra',
+            quantidade,
+            usuario_id: user.id,
+            observacao: obsEntrada,
+            organizacao_id: user.organizacao_id
+          });
+
+        if (movErr) throw new Error(movErr.message);
+        return { message: 'Material adicionado ao estoque com sucesso!' };
+
+      } else if (tipo === 'Retirada') {
+        if (!estoqueId) throw new Error('Não há estoque registrado deste material para esta obra.');
+        if (!funcionario_id) throw new Error('ID do funcionário é obrigatório para registrar retiradas.');
+
+        // Executar RPC de Retirada
+        const { error: rpcErr } = await supabase.rpc('registrar_retirada_estoque', {
+          p_estoque_id: estoqueId,
+          p_organizacao_id: user.organizacao_id,
+          p_quantidade: quantidade,
+          p_usuario_id: user.id,
+          p_observacao: observacao || 'Retirada via MCP',
+          p_funcionario_id: funcionario_id
+        });
+
+        if (rpcErr) throw new Error(rpcErr.message);
+        return { message: 'Retirada registrada com sucesso!' };
+
+      } else if (tipo === 'Devolucao') {
+        if (!estoqueId) throw new Error('Não há estoque registrado deste material para esta obra.');
+
+        // Executar RPC de Devolução
+        const { error: rpcErr } = await supabase.rpc('registrar_devolucao_estoque', {
+          p_estoque_id: estoqueId,
+          p_organizacao_id: user.organizacao_id,
+          p_quantidade: quantidade,
+          p_usuario_id: user.id,
+          p_observacao: observacao || 'Devolução via MCP'
+        });
+
+        if (rpcErr) throw new Error(rpcErr.message);
+        return { message: 'Devolução registrada com sucesso!' };
+      }
+      throw new Error(`Tipo de movimentação inválido: ${tipo}`);
+    }
+
+    // ==================== ATIVIDADES ====================
+    case 'listar_atividades': {
       const { data, error } = await supabase
-        .from('empreendimentos')
-        .select('id, nome, codigo, status, created_at')
-        .order('nome');
+        .from('activities')
+        .select(`
+          id, 
+          nome, 
+          descricao, 
+          tipo_atividade, 
+          status, 
+          data_inicio_prevista, 
+          hora_inicio, 
+          duracao_horas,
+          contato:contatos(id, nome),
+          funcionario:funcionarios(id, full_name)
+        `)
+        .order('data_inicio_prevista', { ascending: false });
 
       if (error) throw new Error(error.message);
       return data;
     }
 
+    case 'criar_atividade': {
+      const { contato_id, funcionario_id, titulo, descricao, tipo, data_inicio, duracao_minutos = 30 } = args;
+
+      const startDateTime = new Date(data_inicio);
+      const dataInicioPrevista = data_inicio.split('T')[0];
+      const horaInicio = startDateTime.toTimeString().split(' ')[0];
+      const duracaoHoras = Number((duracao_minutos / 60).toFixed(2));
+      const endDateTime = new Date(startDateTime.getTime() + duracao_minutos * 60 * 1000);
+      const dataFimPrevista = endDateTime.toISOString().split('T')[0];
+
+      const { data, error } = await supabase
+        .from('activities')
+        .insert({
+          nome: titulo,
+          descricao: descricao || '',
+          tipo_atividade: tipo,
+          contato_id,
+          funcionario_id: funcionario_id || null,
+          data_inicio_prevista: dataInicioPrevista,
+          hora_inicio: horaInicio,
+          duracao_horas: duracaoHoras,
+          data_fim_prevista: dataFimPrevista,
+          status: 'Não iniciado',
+          criado_por_usuario_id: user.id,
+          organizacao_id: user.organizacao_id
+        })
+        .select('id, nome, status')
+        .single();
+
+      if (error) throw new Error(error.message);
+      return { message: 'Atividade agendada com sucesso!', atividade: data };
+    }
+
+    case 'atualizar_atividade': {
+      const { id, ...fields } = args;
+      const { data, error } = await supabase
+        .from('activities')
+        .update(fields)
+        .eq('id', id)
+        .select('id, nome, status')
+        .single();
+
+      if (error) throw new Error(error.message);
+      return { message: 'Atividade atualizada!', atividade: data };
+    }
+
+    case 'deletar_atividade': {
+      const { id } = args;
+      const { error } = await supabase
+        .from('activities')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw new Error(error.message);
+      return { message: 'Atividade deletada com sucesso.' };
+    }
+
+    // ==================== CRM / CONTATOS ====================
+    case 'listar_clientes_crm': {
+      const { busca } = args;
+      
+      let contatoIds = null;
+      if (busca) {
+        // 1. Buscar se o termo bate com e-mail ou telefone
+        const { data: telMatch } = await supabase
+          .from('telefones')
+          .select('contato_id')
+          .ilike('telefone', `%${busca}%`);
+          
+        const { data: emailMatch } = await supabase
+          .from('emails')
+          .select('contato_id')
+          .ilike('email', `%${busca}%`);
+          
+        const ids = new Set();
+        telMatch?.forEach(t => ids.add(t.contato_id));
+        emailMatch?.forEach(e => ids.add(e.contato_id));
+        
+        if (ids.size > 0) {
+          contatoIds = Array.from(ids);
+        }
+      }
+
+      let query = supabase
+        .from('contatos')
+        .select(`
+          id, 
+          nome, 
+          status, 
+          origem, 
+          created_at,
+          telefones(telefone),
+          emails(email)
+        `)
+        .order('created_at', { ascending: false })
+        .limit(100);
+
+      if (busca) {
+        if (contatoIds && contatoIds.length > 0) {
+          query = query.or(`nome.ilike.%${busca}%,id.in.(${contatoIds.join(',')})`);
+        } else {
+          query = query.ilike('nome', `%${busca}%`);
+        }
+      }
+
+      const { data, error } = await query;
+      if (error) throw new Error(error.message);
+      
+      // Formata a resposta para simplificar o consumo pela IA
+      return data.map(c => ({
+        id: c.id,
+        nome: c.nome,
+        status: c.status,
+        origem: c.origem,
+        created_at: c.created_at,
+        celular: c.telefones?.[0]?.telefone || null,
+        email: c.emails?.[0]?.email || null
+      }));
+    }
+
+    case 'criar_contato_crm': {
+      const { nome, email, celular, origem, status } = args;
+      
+      // 1. Insere o contato
+      const { data: contato, error } = await supabase
+        .from('contatos')
+        .insert({
+          nome,
+          origem: origem || null,
+          status: status || 'Novo Lead',
+          organizacao_id: user.organizacao_id
+        })
+        .select('id, nome, status')
+        .single();
+
+      if (error) throw new Error(error.message);
+
+      // 2. Se informou celular, insere na tabela telefones
+      if (celular) {
+        await supabase
+          .from('telefones')
+          .insert({
+            contato_id: contato.id,
+            telefone: celular,
+            organizacao_id: user.organizacao_id
+          });
+      }
+
+      // 3. Se informou email, insere na tabela emails
+      if (email) {
+        await supabase
+          .from('emails')
+          .insert({
+            contato_id: contato.id,
+            email: email,
+            organizacao_id: user.organizacao_id
+          });
+      }
+
+      return { 
+        message: 'Contato e vínculos criados com sucesso!', 
+        contato: {
+          id: contato.id,
+          nome: contato.nome,
+          status: contato.status,
+          celular,
+          email
+        }
+      };
+    }
+
+    case 'atualizar_contato_crm': {
+      const { id, nome, status, celular, email } = args;
+      
+      // 1. Atualizar campos básicos do contato
+      const updateData = {};
+      if (nome !== undefined) updateData.nome = nome;
+      if (status !== undefined) updateData.status = status;
+
+      if (Object.keys(updateData).length > 0) {
+        const { error } = await supabase.from('contatos').update(updateData).eq('id', id);
+        if (error) throw new Error(error.message);
+      }
+
+      // 2. Atualizar celular se passado
+      if (celular !== undefined) {
+        await supabase.from('telefones').delete().eq('contato_id', id);
+        if (celular) {
+          await supabase.from('telefones').insert({
+            contato_id: id,
+            telefone: celular,
+            organizacao_id: user.organizacao_id
+          });
+        }
+      }
+
+      // 3. Atualizar email se passado
+      if (email !== undefined) {
+        await supabase.from('emails').delete().eq('contato_id', id);
+        if (email) {
+          await supabase.from('emails').insert({
+            contato_id: id,
+            email: email,
+            organizacao_id: user.organizacao_id
+          });
+        }
+      }
+
+      return { message: 'Ficha do contato e vínculos atualizados com sucesso!' };
+    }
+
+    case 'unir_contatos_crm': {
+      const { contato_ids } = args;
+
+      // Executa a RPC do Postgres de Fusão Completa de Contatos
+      const { error } = await supabase.rpc('auto_merge_contacts_and_relink', {
+        p_contact_ids: contato_ids,
+        p_organizacao_id: user.organizacao_id
+      });
+
+      if (error) throw new Error(error.message);
+      return { message: `Mesclagem de ${contato_ids.length} contatos efetuada com sucesso! Vínculos e históricos consolidados.` };
+    }
+
+    case 'listar_colunas_funil': {
+      const { data, error } = await supabase
+        .from('funil_colunas')
+        .select('id, nome, ordem, funil_id')
+        .order('ordem');
+
+      if (error) throw new Error(error.message);
+      return data;
+    }
+
+    case 'listar_leads_funil': {
+      const { data, error } = await supabase
+        .from('contatos_no_funil')
+        .select(`
+          id,
+          contato:contatos(id, nome, celular, status),
+          coluna:funil_colunas(id, nome, ordem),
+          created_at
+        `);
+
+      if (error) throw new Error(error.message);
+      return data;
+    }
+
+    case 'mover_lead_funil': {
+      const { contato_id, coluna_id } = args;
+      const { data, error } = await supabase
+        .from('contatos_no_funil')
+        .update({ coluna_id })
+        .eq('contato_id', contato_id)
+        .select('id, contato_id, coluna_id')
+        .single();
+
+      if (error) throw new Error(error.message);
+      return { message: 'Lead movido no funil Kanban!', dados: data };
+    }
+
+    // ==================== DIÁRIO DE OBRAS ====================
+    case 'listar_diarios_obra': {
+      const { data, error } = await supabase
+        .from('diarios_obra')
+        .select(`
+          id, 
+          data_relatorio, 
+          rdo_numero, 
+          responsavel_rdo, 
+          condicoes_climaticas, 
+          condicoes_trabalho, 
+          pdf_url,
+          empreendimento:empreendimentos(id, nome)
+        `)
+        .order('data_relatorio', { ascending: false });
+
+      if (error) throw new Error(error.message);
+      return data;
+    }
+
+    case 'criar_diario_obra': {
+      const { empreendimento_id, data_relatorio, responsavel_rdo, condicoes_climaticas, condicoes_trabalho } = args;
+
+      const { data, error } = await supabase
+        .from('diarios_obra')
+        .insert({
+          empreendimento_id,
+          data_relatorio,
+          responsavel_rdo,
+          condicoes_climaticas: condicoes_climaticas || 'Ensolarado',
+          condicoes_trabalho: condicoes_trabalho || 'Praticável',
+          usuario_responsavel_id: user.id,
+          organizacao_id: user.organizacao_id,
+          status_atividades: [],
+          mao_de_obra: []
+        })
+        .select('id, data_relatorio, rdo_numero')
+        .single();
+
+      if (error) throw new Error(error.message);
+      return { message: 'Relatório Diário de Obra criado!', rdo: data };
+    }
+
+    // ==================== FINANCEIRO ====================
     case 'listar_contas_financeiras': {
       const { data, error } = await supabase
         .from('contas_financeiras')
@@ -425,7 +1330,7 @@ async function executeTool(name, args, supabase, user) {
     }
 
     case 'buscar_lancamentos_financeiros': {
-      const { busca, data_inicio, data_fim, tipo, status, conta_id, categoria_id, limite = 50 } = args;
+      const { busca, data_inicio, data_fim, tipo, status, conta_id, categoria_id } = args;
       
       let query = supabase
         .from('lancamentos')
@@ -443,88 +1348,21 @@ async function executeTool(name, args, supabase, user) {
           empreendimento:empreendimentos(id, nome)
         `)
         .order('data_vencimento', { ascending: false })
-        .limit(Math.min(limite, 200));
+        .limit(100);
 
       if (busca) {
         query = query.or(`descricao.ilike.%${busca}%,observacao.ilike.%${busca}%`);
       }
-      if (data_inicio) {
-        query = query.gte('data_vencimento', data_inicio);
-      }
-      if (data_fim) {
-        query = query.lte('data_vencimento', data_fim);
-      }
-      if (tipo) {
-        query = query.eq('tipo', tipo);
-      }
-      if (status) {
-        query = query.eq('status', status);
-      }
-      if (conta_id) {
-        query = query.eq('conta_id', conta_id);
-      }
-      if (categoria_id) {
-        query = query.eq('categoria_id', categoria_id);
-      }
+      if (data_inicio) query = query.gte('data_vencimento', data_inicio);
+      if (data_fim) query = query.lte('data_vencimento', data_fim);
+      if (tipo) query = query.eq('tipo', tipo);
+      if (status) query = query.eq('status', status);
+      if (conta_id) query = query.eq('conta_id', conta_id);
+      if (categoria_id) query = query.eq('categoria_id', categoria_id);
 
       const { data, error } = await query;
       if (error) throw new Error(error.message);
       return data;
-    }
-
-    case 'listar_clientes_crm': {
-      const { busca, limite } = args;
-      let query = supabase
-        .from('contatos')
-        .select('id, nome, email, celular, status, created_at')
-        .order('created_at', { ascending: false })
-        .limit(limite || 20);
-
-      if (busca) {
-        query = query.or(`nome.ilike.%${busca}%,email.ilike.%${busca}%,celular.ilike.%${busca}%`);
-      }
-
-      const { data, error } = await query;
-      if (error) throw new Error(error.message);
-      return data;
-    }
-
-    case 'criar_atividade_crm': {
-      const { contato_id, titulo, descricao, tipo, data_inicio, duracao_minutos } = args;
-
-      const startDateTime = new Date(data_inicio);
-      if (isNaN(startDateTime.getTime())) {
-        throw new Error('Formato de data_inicio inválido. Use ISO 8601.');
-      }
-
-      const duracao = duracao_minutos || 30;
-      const dataInicioPrevista = data_inicio.split('T')[0];
-      const horaInicio = startDateTime.toTimeString().split(' ')[0]; // HH:MM:SS
-      const duracaoHoras = Number((duracao / 60).toFixed(2));
-
-      const endDateTime = new Date(startDateTime.getTime() + duracao * 60 * 1000);
-      const dataFimPrevista = endDateTime.toISOString().split('T')[0];
-
-      const { data, error } = await supabase
-        .from('activities')
-        .insert({
-          nome: titulo,
-          descricao: descricao || '',
-          tipo_atividade: tipo,
-          contato_id: contato_id,
-          data_inicio_prevista: dataInicioPrevista,
-          hora_inicio: horaInicio,
-          duracao_horas: duracaoHoras,
-          data_fim_prevista: dataFimPrevista,
-          status: 'Não iniciado',
-          criado_por_usuario_id: user.id,
-          organizacao_id: user.organizacao_id
-        })
-        .select('id, nome, status, data_inicio_prevista')
-        .single();
-
-      if (error) throw new Error(error.message);
-      return { message: 'Atividade criada com sucesso!', atividade: data };
     }
 
     case 'lancar_despesa': {
@@ -550,7 +1388,7 @@ async function executeTool(name, args, supabase, user) {
           origem_criacao: 'MCP API',
           observacao: observacao || null
         })
-        .select('id, descricao, valor, status, data_vencimento')
+        .select('id, descricao, valor, status')
         .single();
 
       if (error) throw new Error(error.message);
@@ -580,11 +1418,335 @@ async function executeTool(name, args, supabase, user) {
           origem_criacao: 'MCP API',
           observacao: observacao || null
         })
-        .select('id, descricao, valor, status, data_vencimento')
+        .select('id, descricao, valor, status')
         .single();
 
       if (error) throw new Error(error.message);
       return { message: 'Receita lançada com sucesso!', lancamento: data };
+    }
+
+    case 'atualizar_lancamento': {
+      const { id, ...fields } = args;
+      
+      // Auto-formatar o sinal se o valor for editado
+      if (fields.valor) {
+        const { data: lanc } = await supabase.from('lancamentos').select('tipo').eq('id', id).single();
+        if (lanc?.tipo === 'Despesa') {
+          fields.valor = -Math.abs(fields.valor);
+        } else if (lanc?.tipo === 'Receita') {
+          fields.valor = Math.abs(fields.valor);
+        }
+      }
+
+      const { data, error } = await supabase
+        .from('lancamentos')
+        .update(fields)
+        .eq('id', id)
+        .select('id, descricao, valor, status')
+        .single();
+
+      if (error) throw new Error(error.message);
+      return { message: 'Lançamento financeiro atualizado!', lancamento: data };
+    }
+
+    case 'deletar_lancamento': {
+      const { id } = args;
+      const { error } = await supabase
+        .from('lancamentos')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw new Error(error.message);
+      return { message: 'Lançamento financeiro deletado com sucesso.' };
+    }
+
+    // ==================== ORÇAMENTOS ====================
+    case 'listar_orcamentos': {
+      const { data, error } = await supabase
+        .from('orcamentos')
+        .select(`
+          id, 
+          nome, 
+          custo_estimado_total, 
+          custo_real_total, 
+          empreendimento:empreendimentos(id, nome)
+        `);
+
+      if (error) throw new Error(error.message);
+      return data;
+    }
+
+    case 'listar_itens_orcamento': {
+      const { orcamento_id } = args;
+      const { data, error } = await supabase
+        .from('orcamento_itens')
+        .select(`
+          id, 
+          quantidade, 
+          custo_unitario, 
+          material:materiais(id, nome, unidade_medida)
+        `)
+        .eq('orcamento_id', orcamento_id);
+
+      if (error) throw new Error(error.message);
+      return data;
+    }
+
+    case 'adicionar_item_orcamento': {
+      const { orcamento_id, material_id, quantidade, valor_unitario } = args;
+      const { data, error } = await supabase
+        .from('orcamento_itens')
+        .insert({
+          orcamento_id,
+          material_id,
+          quantidade,
+          custo_unitario: valor_unitario,
+          organizacao_id: user.organizacao_id
+        })
+        .select('id, orcamento_id, quantidade')
+        .single();
+
+      if (error) throw new Error(error.message);
+      return { message: 'Item adicionado ao orçamento!', dados: data };
+    }
+
+    // ==================== PEDIDOS / COMPRAS ====================
+    case 'listar_pedidos_compra': {
+      const { data, error } = await supabase
+        .from('pedidos_compra')
+        .select(`
+          id, 
+          data_pedido, 
+          status, 
+          condicao_pagamento, 
+          fornecedor:contatos!fornecedor_id(id, nome), 
+          empreendimento:empreendimentos(id, nome)
+        `)
+        .order('id', { ascending: false });
+
+      if (error) throw new Error(error.message);
+      return data;
+    }
+
+    case 'criar_pedido_compra': {
+      const { empreendimento_id, fornecedor_id, fase_id, data_pedido, condicao_pagamento } = args;
+      const { data, error } = await supabase
+        .from('pedidos_compra')
+        .insert({
+          empreendimento_id,
+          fornecedor_id,
+          coluna_fase_id: fase_id,
+          data_pedido,
+          condicao_pagamento: condicao_pagamento || null,
+          status: 'Pendente',
+          organizacao_id: user.organizacao_id,
+          criado_por_usuario_id: user.id
+        })
+        .select('id, status')
+        .single();
+
+      if (error) throw new Error(error.message);
+      return { message: 'Pedido de compras criado!', pedido: data };
+    }
+
+    case 'listar_itens_pedido_compra': {
+      const { pedido_compra_id } = args;
+      const { data, error } = await supabase
+        .from('pedidos_compra_itens')
+        .select(`
+          id, 
+          quantidade, 
+          preco_unitario_real, 
+          material:materiais(id, nome, unidade_medida)
+        `)
+        .eq('pedido_compra_id', pedido_compra_id);
+
+      if (error) throw new Error(error.message);
+      return data;
+    }
+
+    case 'adicionar_item_pedido_compra': {
+      const { pedido_compra_id, material_id, quantidade, valor_unitario } = args;
+      const { data, error } = await supabase
+        .from('pedidos_compra_itens')
+        .insert({
+          pedido_compra_id,
+          material_id,
+          quantidade,
+          preco_unitario_real: valor_unitario,
+          organizacao_id: user.organizacao_id
+        })
+        .select('id, pedido_compra_id, quantidade')
+        .single();
+
+      if (error) throw new Error(error.message);
+      return { message: 'Item adicionado ao pedido de compra!', dados: data };
+    }
+
+    case 'deletar_item_pedido_compra': {
+      const { id } = args;
+      const { error } = await supabase
+        .from('pedidos_compra_itens')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw new Error(error.message);
+      return { message: 'Item do pedido de compra excluído.' };
+    }
+
+    case 'marcar_pedido_entregue': {
+      const { pedido_compra_id } = args;
+
+      // Executa a RPC do Postgres de recebimento automático de mercadorias
+      const { error } = await supabase.rpc('marcar_pedido_entregue', {
+        p_pedido_id: pedido_compra_id,
+        p_usuario_id: user.id
+      });
+
+      if (error) throw new Error(error.message);
+      return { message: 'Pedido marcado como Entregue! Todos os materiais cotados deram entrada automática no estoque do almoxarifado.' };
+    }
+
+    // ==================== RECURSOS HUMANOS ====================
+    case 'listar_funcionarios': {
+      const { data, error } = await supabase
+        .from('funcionarios')
+        .select(`
+          id, 
+          full_name, 
+          cpf, 
+          rg, 
+          birth_date, 
+          phone, 
+          email, 
+          admission_date, 
+          base_salary, 
+          status, 
+          numero_ponto, 
+          empreendimento:empreendimentos(id, nome)
+        `)
+        .order('full_name');
+
+      if (error) throw new Error(error.message);
+      return data;
+    }
+
+    case 'criar_funcionario': {
+      const { full_name, cpf, rg, admission_date, empresa_id, empreendimento_atual_id, birth_date, phone, email, base_salary, payment_method, pix_key } = args;
+
+      const { data, error } = await supabase
+        .from('funcionarios')
+        .insert({
+          full_name,
+          cpf,
+          rg: rg || null,
+          admission_date,
+          empresa_id,
+          empreendimento_atual_id: empreendimento_atual_id || null,
+          birth_date: birth_date || null,
+          phone: phone || null,
+          email: email || null,
+          base_salary: base_salary || null,
+          payment_method: payment_method || null,
+          pix_key: pix_key || null,
+          status: 'Ativo',
+          organizacao_id: user.organizacao_id
+        })
+        .select('id, full_name, status')
+        .single();
+
+      if (error) throw new Error(error.message);
+      return { message: 'Novo funcionário criado com sucesso no RH!', colaborador: data };
+    }
+
+    case 'atualizar_funcionario': {
+      const { id, ...fields } = args;
+      const { data, error } = await supabase
+        .from('funcionarios')
+        .update(fields)
+        .eq('id', id)
+        .select('id, full_name, status')
+        .single();
+
+      if (error) throw new Error(error.message);
+      return { message: 'Colaborador atualizado!', colaborador: data };
+    }
+
+    case 'lancar_ponto_funcionario': {
+      const { funcionario_id, data_hora, tipo_registro, observacao } = args;
+
+      const { data, error } = await supabase
+        .from('pontos')
+        .insert({
+          funcionario_id,
+          data_hora,
+          tipo_registro: tipo_registro || 'Entrada',
+          observacao: observacao || '',
+          organizacao_id: user.organizacao_id
+        })
+        .select('id, data_hora, tipo_registro')
+        .single();
+
+      if (error) throw new Error(error.message);
+      return { message: 'Batida de ponto física registrada!', ponto: data };
+    }
+
+    case 'lancar_vale_funcionario': {
+      const { funcionario_id, valor, data_vale, data_pagamento, conta_id } = args;
+
+      // Executa a RPC do Postgres de agendamento de adiantamento (Vales)
+      const { data, error } = await supabase.rpc('agendar_vale', {
+        p_funcionario_id: funcionario_id,
+        p_valor_projetado: valor,
+        p_periodo_inicio: data_vale,
+        p_periodo_fim: data_vale,
+        p_data_pagamento: data_pagamento,
+        p_conta_id: conta_id,
+        p_organizacao_id: user.organizacao_id
+      });
+
+      if (error) throw new Error(error.message);
+      return { message: 'Vale agendado na folha de pagamento e débito financeiro provisionado!', dados: data };
+    }
+
+    // ==================== EMPREENDIMENTOS / VENDAS ====================
+    case 'listar_empreendimentos': {
+      const { data, error } = await supabase
+        .from('empreendimentos')
+        .select('id, nome, codigo, status, created_at')
+        .order('nome');
+
+      if (error) throw new Error(error.message);
+      return data;
+    }
+
+    case 'listar_unidades_empreendimento': {
+      const { empreendimento_id } = args;
+      let query = supabase
+        .from('produtos_empreendimento')
+        .select('id, unidade, bloco, area_m2, valor_base, valor_venda_calculado, status, empreendimento_id')
+        .order('unidade');
+
+      if (empreendimento_id) {
+        query = query.eq('empreendimento_id', empreendimento_id);
+      }
+
+      const { data, error } = await query;
+      if (error) throw new Error(error.message);
+      return data;
+    }
+
+    case 'atualizar_unidade_empreendimento': {
+      const { id, ...fields } = args;
+      const { data, error } = await supabase
+        .from('produtos_empreendimento')
+        .update(fields)
+        .eq('id', id)
+        .select('id, unidade, status, valor_base')
+        .single();
+
+      if (error) throw new Error(error.message);
+      return { message: 'Unidade imobiliária atualizada na tabela de vendas!', unidade: data };
     }
 
     default:
