@@ -75,19 +75,20 @@ export default function ExtratoManager({ contas, empresas, filters, setFilters }
    }
  }, [filters?.contaIds]);
 
- const handleSelectConta = (id) => {
-   setContaSelecionadaId(id);
-   if (typeof window !== 'undefined') localStorage.setItem('studio57_last_conta_id', id);
-   setIsDropdownContaOpen(false);
-   
-   // Sincroniza de volta no filtro global
-   if (setFilters) {
-     setFilters(prev => ({
-       ...prev,
-       contaIds: [Number(id)]
-     }));
-   }
- };
+  const handleSelectConta = (id) => {
+    setContaSelecionadaId(id);
+    setLimiteMeses(12); // Reseta a paginação de meses ao mudar de conta!
+    if (typeof window !== 'undefined') localStorage.setItem('studio57_last_conta_id', id);
+    setIsDropdownContaOpen(false);
+    
+    // Sincroniza de volta no filtro global
+    if (setFilters) {
+      setFilters(prev => ({
+        ...prev,
+        contaIds: [Number(id)]
+      }));
+    }
+  };
  const [isDropdownContaOpen, setIsDropdownContaOpen] = useState(false);
  const dropdownContaRef = useRef(null);
 
@@ -108,6 +109,7 @@ export default function ExtratoManager({ contas, empresas, filters, setFilters }
  const [arquivoOfxExpandido, setArquivoOfxExpandido] = useState(null); // id do arq selecionado
  const [modoConciliacaoMes, setModoConciliacaoMes] = useState(null); // ativa o painel duplo e esconde extrato
  const [selectedIds, setSelectedIds] = useState([]); // Array de IDs selecionados para Borderô
+ const [limiteMeses, setLimiteMeses] = useState(12);
 
  const contaSelecionada = contas?.find(c => c.id == contaSelecionadaId);
 
@@ -151,52 +153,68 @@ export default function ExtratoManager({ contas, empresas, filters, setFilters }
 
  // Queries
  const { data: extratoData, isLoading } = useQuery({
- queryKey: ['extrato', contaSelecionadaId, mesSelecionado.toISOString(), organizacaoId],
- queryFn: async () => {
- if (!contaSelecionadaId || !organizacaoId) return null;
+  queryKey: ['extrato', contaSelecionadaId, mesSelecionado.toISOString(), filters?.categoriaIds, organizacaoId],
+  queryFn: async () => {
+  if (!contaSelecionadaId || !organizacaoId) return null;
 
- const startDate = format(startOfMonth(mesSelecionado), 'yyyy-MM-dd');
- const endDate = format(endOfMonth(mesSelecionado), 'yyyy-MM-dd');
+  const startDate = format(startOfMonth(mesSelecionado), 'yyyy-MM-dd');
+  const endDate = format(endOfMonth(mesSelecionado), 'yyyy-MM-dd');
+  const isContaPassivo = contaSelecionada?.tipo === 'Conta de Passivo';
 
- // 1. Busca Saldo Anterior RPC
- const { data: saldoAnteriorAux, error: saldoError } = await supabase.rpc('calcular_saldo_anterior', {
- p_conta_id: Number(contaSelecionadaId),
- p_data_inicio: startDate,
- p_organizacao_id: organizacaoId
- });
- if (saldoError) throw saldoError;
+  // 1. Busca Saldo Anterior RPC
+  const { data: saldoAnteriorAux, error: saldoError } = await supabase.rpc('calcular_saldo_anterior', {
+  p_conta_id: Number(contaSelecionadaId),
+  p_data_inicio: startDate,
+  p_organizacao_id: organizacaoId
+  });
+  if (saldoError) throw saldoError;
 
- const saldoAnterior = saldoAnteriorAux || 0;
+  const saldoAnterior = saldoAnteriorAux || 0;
 
- // 2. Busca Lançamentos Oficiais do Mês (C/ Paginação Robusta para Contas Volumosas)
- let lancamentos = [];
- let from = 0;
- const step = 999;
- let hasMore = true;
+  // 2. Busca Lançamentos Oficiais do Mês (C/ Paginação Robusta para Contas Volumosas)
+  let lancamentos = [];
+  let from = 0;
+  const step = 999;
+  let hasMore = true;
 
- while (hasMore) {
- const { data, error: lancamentosError } = await supabase
- .from('lancamentos')
- .select('*, favorecido:contatos!favorecido_contato_id(*), categoria:categorias_financeiras(*), anexos:lancamentos_anexos(*)')
- .eq('conta_id', Number(contaSelecionadaId))
- .eq('organizacao_id', organizacaoId)
- .gte('data_pagamento', startDate)
- .lte('data_pagamento', endDate)
- .in('status', ['Pago', 'Conciliado'])
- .order('data_pagamento', { ascending: true })
- .order('created_at', { ascending: true })
- .range(from, from + step);
+  while (hasMore) {
+  let query = supabase
+    .from('lancamentos')
+    .select('*, favorecido:contatos!favorecido_contato_id(*), categoria:categorias_financeiras(*), anexos:lancamentos_anexos(*)')
+    .eq('conta_id', Number(contaSelecionadaId))
+    .eq('organizacao_id', organizacaoId);
 
- if (lancamentosError) throw lancamentosError;
+  if (isContaPassivo) {
+    query = query
+      .in('status', ['Pago', 'Conciliado', 'Pendente'])
+      .or(`and(status.in.(Pago,Conciliado),data_pagamento.gte.${startDate},data_pagamento.lte.${endDate}),and(status.eq.Pendente,data_vencimento.gte.${startDate},data_vencimento.lte.${endDate})`);
+  } else {
+    query = query
+      .in('status', ['Pago', 'Conciliado'])
+      .gte('data_pagamento', startDate)
+      .lte('data_pagamento', endDate);
+  }
 
- if (!data || data.length === 0) {
- hasMore = false;
- } else {
- lancamentos = [...lancamentos, ...data];
- if (data.length < (step + 1)) hasMore = false;
- else from += step + 1;
- }
- }
+  // Filtragem de categoria direto no banco (Ticket 177)
+  if (filters?.categoriaIds && filters.categoriaIds.length > 0) {
+    query = query.in('categoria_id', filters.categoriaIds);
+  }
+
+  const { data, error: lancamentosError } = await query
+    .order('data_pagamento', { ascending: true })
+    .order('created_at', { ascending: true })
+    .range(from, from + step);
+
+  if (lancamentosError) throw lancamentosError;
+
+  if (!data || data.length === 0) {
+  hasMore = false;
+  } else {
+  lancamentos = [...lancamentos, ...data];
+  if (data.length < (step + 1)) hasMore = false;
+  else from += step + 1;
+  }
+  }
 
  // 3. Agrupamento de Borderô (agrupamento_id) e Totais
  let saldoCorrente = saldoAnterior;
@@ -206,7 +224,15 @@ export default function ExtratoManager({ contas, empresas, filters, setFilters }
  const borderosMap = {};
  const itensFinais = [];
 
- (lancamentos || []).forEach(lanc => {
+  // Ordenação cronológica correta incluindo os pendentes sem data de pagamento (utiliza data de vencimento)
+  const lancamentosOrdenados = [...(lancamentos || [])].sort((a, b) => {
+    const dataA = a.data_pagamento || a.data_vencimento || '1970-01-01';
+    const dataB = b.data_pagamento || b.data_vencimento || '1970-01-01';
+    if (dataA !== dataB) return dataA.localeCompare(dataB);
+    return (a.created_at || '').localeCompare(b.created_at || '');
+  });
+
+  (lancamentosOrdenados || []).forEach(lanc => {
  const valorAbsoluto = Math.abs(Number(lanc.valor));
  const entrada = lanc.tipo === 'Receita' ? valorAbsoluto : 0;
  const saida = lanc.tipo === 'Despesa' ? valorAbsoluto : 0;
@@ -229,7 +255,7 @@ export default function ExtratoManager({ contas, empresas, filters, setFilters }
  descricao: 'Borderô de Lançamentos',
  tipo: l.tipo, // Assume o tipo do primeiro filho
  valorTotal: 0,
- data_pagamento: l.data_pagamento, // Usa a data do primeiro filho encontrado
+ data_pagamento: l.data_pagamento || l.data_vencimento, // Usa a data do primeiro filho encontrado (com fallback para vencimento)
  filhos: [],
  saldo_acumulado: 0, // Será atualizado depois status_exibicao: 'Misto'
  };
@@ -363,11 +389,12 @@ export default function ExtratoManager({ contas, empresas, filters, setFilters }
      }
 
      // 9. Período personalizado de datas (startDate e endDate)
+     const dataParaFiltro = l.data_pagamento || l.data_vencimento;
      if (startDate) {
-       if (l.data_pagamento < startDate) return false;
+       if (dataParaFiltro < startDate) return false;
      }
      if (endDate) {
-       if (l.data_pagamento > endDate) return false;
+       if (dataParaFiltro > endDate) return false;
      }
 
      return true;
@@ -759,7 +786,7 @@ export default function ExtratoManager({ contas, empresas, filters, setFilters }
  <div className="lg:col-span-1 space-y-3">
  <h3 className="text-sm font-bold text-gray-700 uppercase mb-2">Período de Referência</h3>
  <div className="bg-white border text-sm rounded-lg flex flex-col shadow-sm overflow-y-auto max-h-[600px] custom-scrollbar">
- {mesesDisponiveis.map((mes, idx) => {
+  {mesesDisponiveis.slice(0, limiteMeses).map((mes, idx) => {
  const isSelected = isSameMonth(mes, mesSelecionado);
  const isCurrentMonth = isSameMonth(mes, new Date());
  const mesKey = mes.toISOString();
@@ -853,6 +880,15 @@ export default function ExtratoManager({ contas, empresas, filters, setFilters }
  </div>
  );
  })}
+ {mesesDisponiveis.length > limiteMeses && (
+    <button
+      type="button"
+      onClick={() => setLimiteMeses(prev => prev + 12)}
+      className="p-3 text-center text-xs font-bold text-blue-600 hover:text-blue-700 bg-gray-50 hover:bg-gray-100 border-t w-full transition-all cursor-pointer font-sans"
+    >
+      Carregar meses anteriores
+    </button>
+  )}
  </div>
  </div>
 
@@ -975,10 +1011,10 @@ export default function ExtratoManager({ contas, empresas, filters, setFilters }
  {/* Data */}
  <div className="flex-shrink-0 w-16 text-center">
  <div className={`text-sm font-bold ${l.isOfxStandalone ? 'text-orange-600' : 'text-gray-700'}`}>
- {format(parseISO(l.data_pagamento), 'dd')}
+ {format(parseISO(l.data_pagamento || l.data_vencimento), 'dd')}
  </div>
  <div className={`text-[10px] uppercase font-semibold ${l.isOfxStandalone ? 'text-orange-600' : 'text-gray-400'}`}>
- {format(parseISO(l.data_pagamento), 'MMM', { locale: ptBR })}
+ {format(parseISO(l.data_pagamento || l.data_vencimento), 'MMM', { locale: ptBR })}
  </div>
  {l.isOfxStandalone && (
  <div className="text-[10px] text-orange-600 mt-1" title="Apenas no OFX">
@@ -1081,10 +1117,10 @@ export default function ExtratoManager({ contas, empresas, filters, setFilters }
  {/* Data do Primeiro Filho */}
  <div className="flex-shrink-0 w-16 text-center">
  <div className="text-sm font-bold text-indigo-900">
- {format(parseISO(item.data_pagamento), 'dd')}
+ {format(parseISO(item.data_pagamento || item.data_vencimento), 'dd')}
  </div>
  <div className="text-[10px] uppercase font-semibold text-indigo-400">
- {format(parseISO(item.data_pagamento), 'MMM', { locale: ptBR })}
+ {format(parseISO(item.data_pagamento || item.data_vencimento), 'MMM', { locale: ptBR })}
  </div>
  </div>
 

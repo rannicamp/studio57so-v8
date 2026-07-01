@@ -285,7 +285,13 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
       const nomeMaterial = (item.nome || '').toLowerCase();
       const nomeEtapa = (item.etapa_nome || '').toLowerCase();
       const nomeSubetapa = (item.subetapa_nome || '').toLowerCase();
-      return nomeMaterial.includes(termo) || nomeEtapa.includes(termo) || nomeSubetapa.includes(termo);
+      const strMaterialId = String(item.material_id || '').toLowerCase();
+      const strSinapiId = String(item.sinapi_id || '').toLowerCase();
+      return nomeMaterial.includes(termo) || 
+             nomeEtapa.includes(termo) || 
+             nomeSubetapa.includes(termo) || 
+             strMaterialId === termo || 
+             strSinapiId === termo;
     });
 
     itensFiltrados.forEach(item => {
@@ -450,7 +456,12 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
       if (!termo) return true;
       const nomeMaterial = (item.nome || '').toLowerCase();
       const nomeClassificacao = (item.classificacao || '').toLowerCase();
-      return nomeMaterial.includes(termo) || nomeClassificacao.includes(termo);
+      const strMaterialId = String(item.material_id || '').toLowerCase();
+      const strSinapiId = String(item.sinapi_id || '').toLowerCase();
+      return nomeMaterial.includes(termo) || 
+             nomeClassificacao.includes(termo) || 
+             strMaterialId === termo || 
+             strSinapiId === termo;
     });
 
     itensFiltrados.forEach(item => {

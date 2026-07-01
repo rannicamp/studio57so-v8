@@ -173,6 +173,13 @@ export default function ConfiguracoesPage() {
  icon: faListOl,
  href: '/configuracoes/etapas',
  color: 'bg-indigo-100 text-indigo-700'
+ },
+ {
+ title: 'Automação de Atividades CRM',
+ description: 'Mapeie as subatividades automáticas que devem ser geradas para reuniões e visitas no CRM.',
+ icon: faRobot,
+ href: '/configuracoes/atividades',
+ color: 'bg-blue-50 text-blue-600'
  }
  ];
 

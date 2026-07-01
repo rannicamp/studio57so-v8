@@ -205,6 +205,63 @@ export default function ActivityModalRoot({
  await supabase.from('atividades_elementos').insert(vinculosBim);
  }
 
+ // --- 🤖 SUBATIVIDADES AUTOMÁTICAS CRM ---
+ try {
+ const { data: configRegras } = await supabase
+ .from('crm_config_atividades')
+ .select('tarefas_automatizadas')
+ .eq('organizacao_id', organizacaoId)
+ .ilike('tipo_evento', resultActivity.tipo_atividade || '')
+ .maybeSingle();
+
+ const subtasks = configRegras?.tarefas_automatizadas;
+ if (subtasks && Array.isArray(subtasks) && subtasks.length > 0) {
+ console.log(`🤖 [CRM] Criando ${subtasks.length} subatividades automáticas para o evento do tipo ${resultActivity.tipo_atividade}...`);
+ 
+ const subtasksPayload = subtasks.map(task => {
+ let dataPrevista = resultActivity.data_inicio_prevista;
+ if (dataPrevista && task.dias_deslocamento !== undefined) {
+ const dateObj = new Date(dataPrevista + 'T12:00:00');
+ dateObj.setDate(dateObj.getDate() + Number(task.dias_deslocamento));
+ dataPrevista = dateObj.toISOString().split('T')[0];
+ }
+
+ return {
+ organizacao_id: organizacaoId,
+ contato_id: resultActivity.contato_id || null,
+ empreendimento_id: resultActivity.empreendimento_id || null,
+ empresa_id: resultActivity.empresa_id || null,
+ atividade_pai_id: resultActivity.id,
+ nome: task.nome,
+ descricao: task.descricao || '',
+ tipo_atividade: task.tipo_atividade || 'Tarefa',
+ data_inicio_prevista: dataPrevista,
+ data_fim_prevista: dataPrevista,
+ hora_inicio: '09:00:00',
+ duracao_horas: 1.0,
+ duracao_dias: 0,
+ status: 'Não Iniciado',
+ funcionario_id: resultActivity.funcionario_id || null,
+ responsavel_texto: resultActivity.responsavel_texto || null,
+ criado_por_usuario_id: user.id
+ };
+ });
+
+ const { error: batchError } = await supabase
+ .from('activities')
+ .insert(subtasksPayload);
+
+ if (batchError) {
+ console.error("❌ [CRM] Erro ao criar subatividades em lote:", batchError.message);
+ } else {
+ console.log("✅ [CRM] Subatividades criadas com sucesso!");
+ }
+ }
+ } catch (subError) {
+ console.error("❌ [CRM] Erro crítico no processamento de subatividades:", subError);
+ }
+ // ----------------------------------------
+
  await enviarNotificacao({
  userId: user.id,
  titulo: "Nova Atividade",

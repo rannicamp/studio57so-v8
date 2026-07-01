@@ -52,7 +52,7 @@ export function useBimMapeamentos({ organizacaoId, empreendimentoId, modelosIds 
       console.log('[BimMapeamentos] Salvando:', payload);
 
       // 1. Remove qualquer mapeamento existente com a mesma combinação EXATA de chaves
-      //    Filtra obrigatoriamente por: org + propriedade_nome + escopo + categoria + familia
+      //    Filtra obrigatoriamente por: org + propriedade_nome + escopo + categoria + familia + tipo + elemento
       let deleteQuery = supabase
         .from('bim_mapeamentos_propriedades')
         .delete()
@@ -72,6 +72,20 @@ export function useBimMapeamentos({ organizacaoId, empreendimentoId, modelosIds 
         deleteQuery = deleteQuery.eq('familia_bim', payload.familia_bim);
       } else {
         deleteQuery = deleteQuery.is('familia_bim', null);
+      }
+
+      // tipo_bim: só adiciona filtro se vier preenchido no payload
+      if (payload.tipo_bim != null) {
+        deleteQuery = deleteQuery.eq('tipo_bim', payload.tipo_bim);
+      } else {
+        deleteQuery = deleteQuery.is('tipo_bim', null);
+      }
+
+      // elemento_id: só adiciona filtro se vier preenchido no payload
+      if (payload.elemento_id != null) {
+        deleteQuery = deleteQuery.eq('elemento_id', payload.elemento_id);
+      } else {
+        deleteQuery = deleteQuery.is('elemento_id', null);
       }
 
       const { error: delErr, count } = await deleteQuery.select('id');

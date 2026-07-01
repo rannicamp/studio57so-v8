@@ -108,6 +108,18 @@ export default function EtapasConfigPage() {
 
   const deleteEtapaMutation = useMutation({
     mutationFn: async (id) => {
+      // Validação de segurança: impede exclusão de etapa com lançamentos vinculados (passivos já lançados)
+      const { count, error: countError } = await supabase
+        .from('lancamentos')
+        .select('*', { count: 'exact', head: true })
+        .eq('etapa_id', id)
+        .eq('organizacao_id', organizacaoId);
+      
+      if (countError) throw countError;
+      if (count && count > 0) {
+        throw new Error(`Esta etapa possui ${count} lançamento(s) financeiro(s) associado(s). Não é possível excluí-la para preservar a integridade dos passivos lançados.`);
+      }
+
       const { error } = await supabase
         .from('etapa_obra')
         .delete()
@@ -166,6 +178,18 @@ export default function EtapasConfigPage() {
 
   const deleteSubetapaMutation = useMutation({
     mutationFn: async (id) => {
+      // Validação de segurança: impede exclusão de subetapa com lançamentos vinculados (passivos já lançados)
+      const { count, error: countError } = await supabase
+        .from('lancamentos')
+        .select('*', { count: 'exact', head: true })
+        .eq('subetapa_id', id)
+        .eq('organizacao_id', organizacaoId);
+      
+      if (countError) throw countError;
+      if (count && count > 0) {
+        throw new Error(`Esta subetapa possui ${count} lançamento(s) financeiro(s) associado(s). Não é possível excluí-la para preservar a integridade dos passivos lançados.`);
+      }
+
       const { error } = await supabase
         .from('subetapas')
         .delete()
