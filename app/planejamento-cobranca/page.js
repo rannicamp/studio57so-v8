@@ -25,35 +25,207 @@ import {
 } from 'lucide-react';
 
 export default function PlanejamentoCobrancaPage() {
-  // Mapa Mental focado em tarefas concretas a serem feitas no projeto
+  // Mapa Mental focado em tarefas concretas com Título e Descrição visíveis diretamente no Card
   const defaultNodes = [
-    { id: '1', text: 'Roadmap de Faturamento (Elo 57)', x: 30, y: 350, parentId: null, color: '#f25a2f', isRoot: true },
+    { 
+      id: '1', 
+      text: 'Roadmap de Faturamento (Elo 57)', 
+      desc: 'Fluxo unificado de cadastro de planos, carência de trial e bloqueios.', 
+      x: 30, 
+      y: 450, 
+      parentId: null, 
+      color: '#f25a2f', 
+      isRoot: true 
+    },
     
     // Grupo 1: Entrada & Coleta (Amarelo)
-    { id: '2', text: '1. LP: Passar Parâmetros na URL (?plan=pro&promo=MUITOLINDO)', x: 420, y: 80, parentId: '1', color: '#eab308' },
-    { id: '3', text: '2. Cadastro: Validar Coleta de CNPJ, CEP e Telefone no Wizard', x: 420, y: 190, parentId: '1', color: '#eab308' },
+    { 
+      id: '2', 
+      text: '1. LP: Passar plano por parâmetro (?plan=pro)', 
+      desc: 'Modificar botões da landing page para carregar código do plano selecionado na URL.', 
+      x: 450, 
+      y: 50, 
+      parentId: '1', 
+      color: '#eab308' 
+    },
+    { 
+      id: '3', 
+      text: '2. Cadastro: Wizard de Registro', 
+      desc: 'Validar a coleta obrigatória de CNPJ/CPF, CEP completo, telefone e e-mail no formulário.', 
+      x: 450, 
+      y: 190, 
+      parentId: '1', 
+      color: '#eab308' 
+    },
+    { 
+      id: '3b', 
+      text: '3. Cadastro: Redirecionar Pós-Registro', 
+      desc: 'Ajustar o retorno do signUpAction para enviar a URL de checkout direto do Asaas.', 
+      x: 450, 
+      y: 330, 
+      parentId: '1', 
+      color: '#eab308' 
+    },
     
-    // Grupo 2: Banco de Dados (Azul/Indigo)
-    { id: '4', text: '3. DB: Criar Tabela public.planos no Supabase', x: 420, y: 310, parentId: '1', color: '#3b82f6' },
-    { id: '5', text: '4. DB: Criar Tabela public.promocoes (Cupons de Desconto & Trial)', x: 420, y: 420, parentId: '1', color: '#3b82f6' },
-    { id: '6', text: '5. DB: Alterar public.organizacoes (plano_codigo, seats, trial_ends_at)', x: 420, y: 530, parentId: '1', color: '#3b82f6' },
+    // Grupo 2: Banco de Dados (Azul)
+    { 
+      id: '4', 
+      text: '4. DB: Criar Tabela public.planos', 
+      desc: 'Criar tabela no Supabase contendo código do plano, valores e módulos permitidos.', 
+      x: 450, 
+      y: 470, 
+      parentId: '1', 
+      color: '#3b82f6' 
+    },
+    { 
+      id: '5', 
+      text: '5. DB: Criar Tabela public.promocoes', 
+      desc: 'Criar tabela de cupons com desconto percentual e carência (dias de trial).', 
+      x: 450, 
+      y: 610, 
+      parentId: '1', 
+      color: '#3b82f6' 
+    },
+    { 
+      id: '6', 
+      text: '6. DB: Alterar public.organizacoes', 
+      desc: 'Adicionar plano_codigo, seats_contracted e asaas_subscription_id.', 
+      x: 450, 
+      y: 750, 
+      parentId: '1', 
+      color: '#3b82f6' 
+    },
+    { 
+      id: '6b', 
+      text: '7. DB: Criar RPC prorrogar_trial', 
+      desc: 'Criar função SQL no banco para administradores alterarem manualmente a carência.', 
+      x: 450, 
+      y: 890, 
+      parentId: '1', 
+      color: '#3b82f6' 
+    },
 
-    // Grupo 3: Integração Asaas (Roxo)
-    { id: '7', text: '6. API: Sincronizar Cliente no Asaas com CNPJ/CPF da Org', x: 800, y: 220, parentId: '3', color: '#a855f7' },
-    { id: '8', text: '7. API: Gerar Assinatura no Asaas com Vencimento Futuro (Carência)', x: 800, y: 340, parentId: '3', color: '#a855f7' },
-    { id: '9', text: '8. API: Redirecionar para URL de Checkout após Criação da Conta', x: 800, y: 460, parentId: '3', color: '#a855f7' },
+    // Grupo 3: Integração Asaas API (Roxo)
+    { 
+      id: '7', 
+      text: '8. API: Sincronizar Cliente no Asaas', 
+      desc: 'Executar obterOuCriarCliente com CNPJ/CPF e CEP da empresa cadastrada.', 
+      x: 880, 
+      y: 120, 
+      parentId: '3', 
+      color: '#a855f7' 
+    },
+    { 
+      id: '8', 
+      text: '9. API: Calcular Valor e Data do Trial', 
+      desc: 'Calcular valor total (seats * plano) com desconto e definir vencimento para hoje + 90 dias.', 
+      x: 880, 
+      y: 260, 
+      parentId: '3', 
+      color: '#a855f7' 
+    },
+    { 
+      id: '9', 
+      text: '10. API: Chamar API do Asaas', 
+      desc: 'POST /v3/subscriptions enviando billingType como UNDEFINED e o plano recorrente.', 
+      x: 880, 
+      y: 400, 
+      parentId: '3', 
+      color: '#a855f7' 
+    },
+    { 
+      id: '9b', 
+      text: '11. API: Tratar Chaves Sandbox/Prod', 
+      desc: 'Garantir dinamicamente a alternância de chaves dependendo do ambiente.', 
+      x: 880, 
+      y: 540, 
+      parentId: '3', 
+      color: '#a855f7' 
+    },
 
-    // Grupo 4: Segurança & Bloqueio (Vermelho)
-    { id: '10', text: '9. Controle: Bloquear BIM e Módulos Pro se Plano for Essencial', x: 1180, y: 280, parentId: '8', color: '#ef4444' },
-    { id: '11', text: '10. Middleware: Impedir Acesso se status for overdue/pending', x: 1180, y: 400, parentId: '8', color: '#ef4444' },
+    // Grupo 4: Interface do Usuário (Laranja)
+    { 
+      id: '10', 
+      text: '12. UI: Tela de Configurações de Assinatura', 
+      desc: 'Dashboard exibindo dados da assinatura ativa e dados mascarados do cartão salvo.', 
+      x: 1300, 
+      y: 50, 
+      parentId: '8', 
+      color: '#f25a2f' 
+    },
+    { 
+      id: '11', 
+      text: '13. UI: Histórico de Faturas', 
+      desc: 'Listagem de faturas com downloads de comprovante e link do checkout do Asaas.', 
+      x: 1300, 
+      y: 190, 
+      parentId: '8', 
+      color: '#f25a2f' 
+    },
+    { 
+      id: '12', 
+      text: '14. UI: Trocar Cartão de Crédito', 
+      desc: 'Formulário com validação local de cartão que tokeniza e envia via PUT ao Asaas.', 
+      x: 1300, 
+      y: 330, 
+      parentId: '8', 
+      color: '#f25a2f' 
+    },
 
-    // Grupo 5: Confirmação (Verde)
-    { id: '12', text: '11. Webhooks: Escutar payment confirm do Asaas e ativar Org', x: 1560, y: 340, parentId: '11', color: '#10b981' }
+    // Grupo 5: Segurança & Middleware (Vermelho)
+    { 
+      id: '13', 
+      text: '15. Controle: Bloquear Excesso de Assentos', 
+      desc: 'Middleware/Trigger impedindo criação de novos usuários se estourar seats_contracted.', 
+      x: 1300, 
+      y: 470, 
+      parentId: '8', 
+      color: '#ef4444' 
+    },
+    { 
+      id: '14', 
+      text: '16. Controle: Bloqueio do Módulo BIM', 
+      desc: 'Verificar plano do usuário e ocultar/bloquear rota do BIM Manager se plano for Essencial.', 
+      x: 1300, 
+      y: 610, 
+      parentId: '8', 
+      color: '#ef4444' 
+    },
+    { 
+      id: '15', 
+      text: '17. Middleware: Bloqueio de Inadimplentes', 
+      desc: 'Interceptar navegação e redirecionar para cobrança se status for overdue ou pending.', 
+      x: 1300, 
+      y: 750, 
+      parentId: '8', 
+      color: '#ef4444' 
+    },
+
+    // Grupo 6: Webhooks (Verde)
+    { 
+      id: '16', 
+      text: '18. Webhook: Ativar Org no Banco', 
+      desc: 'Escutar PAYMENT_RECEIVED para mudar status para active e prorrogar validade no Supabase.', 
+      x: 1720, 
+      y: 260, 
+      parentId: '12', 
+      color: '#10b981' 
+    },
+    { 
+      id: '17', 
+      text: '19. Webhook: Cancelamento e Atraso', 
+      desc: 'Escutar PAYMENT_OVERDUE e SUB_DELETED para suspender o acesso da organização.', 
+      x: 1720, 
+      y: 400, 
+      parentId: '12', 
+      color: '#10b981' 
+    }
   ];
 
   const [nodes, setNodes] = useState(defaultNodes);
   const [editingId, setEditingId] = useState(null);
   const [editingText, setEditingText] = useState('');
+  const [editingDesc, setEditingDesc] = useState('');
   
   // Drag state
   const [draggedNodeId, setDraggedNodeId] = useState(null);
@@ -68,9 +240,9 @@ export default function PlanejamentoCobrancaPage() {
   const [promoCode, setPromoCode] = useState('MUITOLINDO');
   const [hasPromo, setHasPromo] = useState(true);
 
-  // Node Dimensions
-  const cardWidth = 280;
-  const cardHeight = 84;
+  // Node Dimensions (Updated to fit Description)
+  const cardWidth = 320;
+  const cardHeight = 120;
 
   const planDetails = {
     essencial: { nome: 'Elo Essencial', valor: 127 },
@@ -80,7 +252,7 @@ export default function PlanejamentoCobrancaPage() {
 
   // Node Drag Handlers
   const handleMouseDown = (e, nodeId) => {
-    if (e.target.tagName === 'INPUT' || e.target.closest('button')) return;
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.closest('button')) return;
     
     const node = nodes.find(n => n.id === nodeId);
     if (!node) return;
@@ -119,7 +291,8 @@ export default function PlanejamentoCobrancaPage() {
     
     const newNode = {
       id: newId,
-      text: 'Nova Tarefa / Requisito',
+      text: 'Nova Atividade',
+      desc: 'Descrição da tarefa a ser cumprida.',
       x: 100,
       y: 200 + (Math.random() * 100),
       parentId: null,
@@ -137,7 +310,8 @@ export default function PlanejamentoCobrancaPage() {
     const newId = Date.now().toString();
     const newNode = {
       id: newId,
-      text: 'Nova Subtarefa',
+      text: 'Nova Atividade Filha',
+      desc: 'Tarefa subsequente conectada.',
       x: parent.x + cardWidth + 80,
       y: parent.y + (Math.random() * 120 - 60),
       parentId: parentId,
@@ -162,13 +336,14 @@ export default function PlanejamentoCobrancaPage() {
   const startEditing = (node) => {
     setEditingId(node.id);
     setEditingText(node.text);
+    setEditingDesc(node.desc || '');
   };
 
   const saveEdit = () => {
     if (!editingId) return;
     setNodes(prev => prev.map(n => {
       if (n.id === editingId) {
-        return { ...n, text: editingText };
+        return { ...n, text: editingText, desc: editingDesc };
       }
       return n;
     }));
@@ -176,7 +351,7 @@ export default function PlanejamentoCobrancaPage() {
   };
 
   const handleKeyPress = (e) => {
-    if (e.key === 'Enter') {
+    if (e.key === 'Enter' && e.ctrlKey) {
       saveEdit();
     }
   };
@@ -222,9 +397,9 @@ export default function PlanejamentoCobrancaPage() {
           </div>
           <div>
             <h1 className="text-sm font-bold text-slate-900 tracking-tight flex items-center gap-2">
-              Quadro de Planejamento de Cobrança <span className="text-[10px] font-bold text-[#f25a2f] bg-[#f25a2f]/10 border border-[#f25a2f]/20 px-2 py-0.5 rounded-full uppercase">Tarefas</span>
+              Quadro de Atividades do Asaas <span className="text-[10px] font-bold text-[#f25a2f] bg-[#f25a2f]/10 border border-[#f25a2f]/20 px-2 py-0.5 rounded-full uppercase">Visual Board</span>
             </h1>
-            <p className="text-[10px] text-slate-400 font-light">Seu lindo, monte o plano de ação arrastando e conectando cards para definirmos a entrega local.</p>
+            <p className="text-[10px] text-slate-400 font-light">Seu lindo, arraste e edite os cards contendo o Título e a Descrição do trabalho de faturamento.</p>
           </div>
         </div>
 
@@ -236,14 +411,14 @@ export default function PlanejamentoCobrancaPage() {
             className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg text-xs font-bold text-slate-600 transition-all active:scale-95"
           >
             <RotateCcw className="h-3.5 w-3.5" />
-            Carregar Checklist de Cobrança
+            Carregar Fluxo Detalhado
           </button>
           <button 
             onClick={addNewRootNode}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-[#f25a2f] hover:bg-[#d84a22] text-white rounded-lg text-xs font-bold transition-all active:scale-95 shadow-sm shadow-[#f25a2f]/10"
           >
             <Plus className="h-3.5 w-3.5" />
-            Adicionar Card Raiz
+            Adicionar Atividade
           </button>
           <button 
             onClick={clearCanvas}
@@ -260,7 +435,7 @@ export default function PlanejamentoCobrancaPage() {
         
         {/* VIEWPORT CANVAS */}
         <div className="flex-1 overflow-auto p-4 min-h-[50vh] lg:min-h-0" ref={canvasRef}>
-          <div className="w-[2000px] h-[900px] relative rounded-3xl">
+          <div className="w-[2200px] h-[1100px] relative rounded-3xl">
             
             {/* SVG Connecting Lines Layer */}
             <svg className="absolute inset-0 w-full h-full pointer-events-none z-0">
@@ -299,61 +474,83 @@ export default function PlanejamentoCobrancaPage() {
                     height: `${cardHeight}px`
                   }}
                   onMouseDown={(e) => handleMouseDown(e, node.id)}
-                  className={`absolute rounded-2xl border bg-white shadow-sm p-3.5 flex flex-col justify-between transition-shadow cursor-grab active:cursor-grabbing select-none group z-10 ${
+                  className={`absolute rounded-2xl border bg-white shadow-sm p-4 flex flex-col justify-between transition-shadow cursor-grab active:cursor-grabbing select-none group z-10 ${
                     draggedNodeId === node.id ? 'shadow-lg border-slate-400 ring-2 ring-slate-200/50' : 'border-slate-200/80 hover:shadow-md'
                   }`}
                 >
+                  {/* Left Color Accent */}
                   <div 
                     className="absolute left-0 top-0 bottom-0 w-2 rounded-l-2xl" 
                     style={{ backgroundColor: node.color || '#cbd5e1' }}
                   ></div>
 
-                  <div className="pl-3 pr-6 h-full flex items-center">
+                  {/* Node Content / Inline Editor */}
+                  <div className="pl-2 pr-6 h-full flex flex-col justify-center gap-1.5 overflow-hidden">
                     {isEditing ? (
-                      <div className="flex items-center gap-1.5 w-full">
+                      <div className="flex flex-col gap-2 w-full">
                         <input
                           type="text"
                           value={editingText}
                           onChange={(e) => setEditingText(e.target.value)}
-                          onBlur={saveEdit}
                           onKeyDown={handleKeyPress}
-                          className="w-full bg-slate-50 border border-slate-350 rounded px-2 py-1 text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-[#f25a2f]"
+                          className="w-full bg-slate-50 border border-slate-300 rounded px-2 py-0.5 text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-[#f25a2f]"
+                          placeholder="Título da Tarefa"
                           autoFocus
                         />
-                        <button onClick={saveEdit} className="p-1 bg-green-50 hover:bg-green-100 text-green-700 rounded border border-green-200">
-                          <Check className="h-3 w-3" />
-                        </button>
+                        <textarea
+                          value={editingDesc}
+                          onChange={(e) => setEditingDesc(e.target.value)}
+                          onKeyDown={handleKeyPress}
+                          className="w-full bg-slate-50 border border-slate-300 rounded px-2 py-1 text-[10px] text-slate-600 outline-none resize-none h-12 focus:ring-1 focus:ring-[#f25a2f]"
+                          placeholder="Descrição do trabalho..."
+                        />
+                        <div className="flex justify-end gap-1.5">
+                          <button 
+                            onClick={saveEdit} 
+                            className="px-2 py-0.5 bg-green-50 hover:bg-green-100 text-green-700 rounded border border-green-200 text-[10px] font-bold"
+                          >
+                            Salvar (Ctrl+Enter)
+                          </button>
+                        </div>
                       </div>
                     ) : (
-                      <span 
-                        onDoubleClick={() => startEditing(node)}
-                        className="text-xs font-bold text-slate-800 leading-snug line-clamp-2 select-none"
-                      >
-                        {node.text}
-                      </span>
+                      <>
+                        <span 
+                          onDoubleClick={() => startEditing(node)}
+                          className="text-xs font-bold text-slate-800 leading-snug truncate select-none block"
+                        >
+                          {node.text}
+                        </span>
+                        <p 
+                          onDoubleClick={() => startEditing(node)}
+                          className="text-[10px] text-slate-500 font-light leading-relaxed line-clamp-3 select-none"
+                        >
+                          {node.desc || 'Nenhuma descrição fornecida.'}
+                        </p>
+                      </>
                     )}
                   </div>
 
                   {/* Actions Overlay */}
-                  <div className="absolute right-2 top-1/2 -translate-y-1/2 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                  <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                     <button
                       onClick={() => addChildNode(node.id)}
-                      title="Adicionar nó filho"
-                      className="w-5.5 h-5.5 bg-slate-50 hover:bg-[#f25a2f] border border-slate-200 hover:border-[#f25a2f] hover:text-white rounded flex items-center justify-center transition-all"
+                      title="Adicionar nó subsequente"
+                      className="w-6 h-6 bg-slate-50 hover:bg-[#f25a2f] border border-slate-200 hover:border-[#f25a2f] hover:text-white rounded-lg flex items-center justify-center transition-all"
                     >
-                      <Plus className="h-3 w-3" />
+                      <Plus className="h-3.5 w-3.5" />
                     </button>
                     <button
                       onClick={() => startEditing(node)}
-                      title="Editar Texto"
-                      className="w-5.5 h-5.5 bg-slate-50 hover:bg-blue-500 border border-slate-200 hover:border-blue-500 hover:text-white rounded flex items-center justify-center transition-all"
+                      title="Editar Texto & Descrição"
+                      className="w-6 h-6 bg-slate-50 hover:bg-blue-500 border border-slate-200 hover:border-blue-500 hover:text-white rounded-lg flex items-center justify-center transition-all"
                     >
                       <Edit2 className="h-2.5 w-2.5" />
                     </button>
                     <button
                       onClick={() => deleteNode(node.id)}
-                      title="Deletar"
-                      className="w-5.5 h-5.5 bg-rose-50 hover:bg-rose-500 border border-rose-200 hover:border-rose-500 hover:text-white rounded flex items-center justify-center transition-all"
+                      title="Deletar este nó"
+                      className="w-6 h-6 bg-rose-50 hover:bg-rose-500 border border-rose-200 hover:border-rose-500 hover:text-white rounded-lg flex items-center justify-center transition-all"
                     >
                       <Trash2 className="h-2.5 w-2.5" />
                     </button>
@@ -365,25 +562,25 @@ export default function PlanejamentoCobrancaPage() {
             {nodes.length === 0 && (
               <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-8 z-0">
                 <HelpCircle className="h-10 w-10 text-slate-300 mb-2" />
-                <h4 className="text-slate-400 font-bold text-sm">Seu roadmap está em branco.</h4>
-                <p className="text-slate-450 text-xs mt-1 font-light max-w-sm">Use o botão "Carregar Checklist de Cobrança" para restaurar as tarefas padrão do Asaas.</p>
+                <h4 className="text-slate-400 font-bold text-sm">Seu board está limpo.</h4>
+                <p className="text-slate-450 text-xs mt-1 font-light max-w-sm">Use o botão "Carregar Fluxo Detalhado" para restaurar a lista padrão de tarefas.</p>
               </div>
             )}
 
           </div>
         </div>
 
-        {/* SIDEBAR PANEL: CONEXÕES & SIMULAÇÃO */}
+        {/* SIDEBAR PANEL */}
         <div className="w-full lg:w-96 bg-white border-t lg:border-t-0 lg:border-l border-slate-200/80 p-6 flex flex-col justify-between shadow-lg z-20">
           
           <div className="space-y-6">
             <div>
-              <span className="text-[10px] font-bold text-[#f25a2f] uppercase tracking-wider block">Integração Ativa</span>
-              <h2 className="text-base font-bold text-slate-800 mt-1">Configuração de Planos</h2>
-              <p className="text-[11px] text-slate-400 mt-1 font-light">Defina os valores e ciclos para a carência e simule o payload enviado ao Asaas:</p>
+              <span className="text-[10px] font-bold text-[#f25a2f] uppercase tracking-wider block">Configuração & Carência</span>
+              <h2 className="text-base font-bold text-slate-800 mt-1">Simulador de Recorrência</h2>
+              <p className="text-[11px] text-slate-400 mt-1 font-light">Os valores e carências abaixos alimentam as chamadas simuladas de API no Asaas:</p>
             </div>
 
-            {/* Plan selector */}
+            {/* Plan Selector */}
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-slate-500">Selecione o Plano Comercial</label>
               <select
@@ -445,7 +642,7 @@ export default function PlanejamentoCobrancaPage() {
             {/* Cupom */}
             <div className="space-y-1.5 pt-2 border-t border-slate-100">
               <div className="flex justify-between items-center">
-                <label className="text-xs font-bold text-slate-500">Cupom de Desconto</label>
+                <label className="text-xs font-bold text-slate-500">Cupom Aplicado</label>
                 <button
                   onClick={() => setHasPromo(!hasPromo)}
                   className={`text-[9px] font-black uppercase tracking-wider ${hasPromo ? 'text-green-600' : 'text-slate-400'}`}
@@ -463,7 +660,7 @@ export default function PlanejamentoCobrancaPage() {
               )}
             </div>
 
-            {/* Resumo Financeiro */}
+            {/* Resumo */}
             <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
               <span className="text-xs font-bold text-slate-500">Recorrência Total:</span>
               <span className="text-base font-black text-[#f25a2f]">
@@ -473,17 +670,17 @@ export default function PlanejamentoCobrancaPage() {
 
           </div>
 
-          {/* Instruções do Fluxo */}
+          {/* Links e Dicas */}
           <div className="mt-8 p-4 bg-slate-50 border border-slate-200 rounded-2xl flex gap-3 items-start">
             <Info className="h-4 w-4 text-slate-400 flex-shrink-0 mt-0.5" />
             <div className="text-[10px] text-slate-500 leading-relaxed font-light">
-              <span className="font-bold text-slate-700 block">Links Importantes:</span>
+              <span className="font-bold text-slate-700 block">Links Rápidos:</span>
               <ul className="space-y-1 mt-1 font-mono text-[9px] text-[#f25a2f]">
                 <li>
-                  <a href="/cadastro" className="underline" target="_blank">Página de Cadastro (/cadastro)</a>
+                  <a href="/cadastro" className="underline font-bold" target="_blank">Página de Cadastro (/cadastro)</a>
                 </li>
                 <li>
-                  <a href="/configuracoes/assinatura" className="underline" target="_blank">Página de Assinatura (/configuracoes/assinatura)</a>
+                  <a href="/configuracoes/assinatura" className="underline font-bold" target="_blank">Minha Assinatura (/configuracoes/assinatura)</a>
                 </li>
               </ul>
             </div>
