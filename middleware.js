@@ -45,7 +45,8 @@ export async function middleware(req) {
     '/upload',
     '/politicas',
     '/sitemap.xml',
-    '/robots.txt'
+    '/robots.txt',
+    '/planejamento-cobranca'
   ]
 
   const publicPrefixes = [
