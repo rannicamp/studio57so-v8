@@ -79,7 +79,7 @@ async function runSQL() {
         $$;
 
         -- 2.2 Obter dossiê em Markdown de um empreendimento
-        CREATE OR REPLACE FUNCTION public.fn_stella_obter_dossie(p_empreendimento_id bigint)
+        CREATE OR REPLACE FUNCTION public.fn_stella_obter_dossie(p_empreendimento_id bigint, p_organizacao_id bigint)
         RETURNS text
         LANGUAGE plpgsql
         SECURITY DEFINER
@@ -89,7 +89,7 @@ async function runSQL() {
         BEGIN
             SELECT dossie_ia INTO v_dossie
             FROM public.empreendimentos
-            WHERE id = p_empreendimento_id;
+            WHERE id = p_empreendimento_id AND (organizacao_id = p_organizacao_id OR organizacao_id = 1);
             
             RETURN v_dossie;
         END;

@@ -82,7 +82,8 @@ export async function executarToolStella({ supabaseAdmin, organizacaoId, functio
 
     if (functionName === "fn_stella_obter_dossie") {
       const { data, error } = await supabaseAdmin.rpc("fn_stella_obter_dossie", {
-        p_empreendimento_id: Number(functionArgs.empreendimento_id)
+        p_empreendimento_id: Number(functionArgs.empreendimento_id),
+        p_organizacao_id: Number(organizacaoId)
       });
       if (error) throw error;
       return { dossie: data || "Dossiê não encontrado." };

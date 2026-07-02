@@ -1,7 +1,7 @@
 // app/api/ai/stella/processor.js
 import { createClient } from '@supabase/supabase-js';
 import { generateContentWithTelemetry } from '../../../../utils/gemini';
-import { SYSTEM_PROMPT } from './prompt';
+import { buildSystemPrompt } from './prompt';
 import { GEMINI_TOOLS, executarToolStella } from './tools';
 
 // Função auxiliar para remover chaves vazias ou nulas do JSON antes do prompt
@@ -315,7 +315,8 @@ export async function processarAnaliseStella({
       messagesResult,
       funilResult,
       anexosEnviadosResult,
-      colunasResult
+      colunasResult,
+      promptIaResult
     ] = await Promise.all([
       supabaseAdmin
         .from('contatos')
@@ -354,7 +355,15 @@ export async function processarAnaliseStella({
       supabaseAdmin
         .from('colunas_funil')
         .select('id, nome')
+        .eq('organizacao_id', organizacao_id),
+
+      supabaseAdmin
+        .from('configuracoes_ia')
+        .select('system_prompt')
         .eq('organizacao_id', organizacao_id)
+        .eq('nome', 'stella_whatsapp')
+        .limit(1)
+        .maybeSingle()
     ]);
 
     const { data: contatoInfo, error: contatoError } = contatoResult;
@@ -363,6 +372,7 @@ export async function processarAnaliseStella({
     const { data: funil, error: funilError } = funilResult;
     const { data: anexosEnviados } = anexosEnviadosResult;
     const colunasDisponiveis = colunasResult.data || [];
+    const customPromptText = promptIaResult?.data?.system_prompt || null;
 
     if (contatoError) console.error('Erro ao buscar dados do contato:', contatoError);
     if (funilError) console.error('Erro ao buscar dados do funil:', funilError);
@@ -456,7 +466,8 @@ ${templatesContext}
 ` : "";
 
     // Monta o prompt combinando regras do prompt.js com dados do contato
-    let promptFinal = `${SYSTEM_PROMPT}
+    const systemPromptBase = buildSystemPrompt(customPromptText);
+    let promptFinal = `${systemPromptBase}
 
 ${instrucoesJanelaFechada}
 
