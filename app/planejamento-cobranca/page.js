@@ -224,7 +224,7 @@ export default function PlanejamentoCobrancaPage() {
       y: 610, 
       parentId: '8', 
       color: '#ef4444',
-      completed: false,
+      completed: true,
       longDesc: 'Como o sistema sabe quem bloquear? Cada organização salva no banco possui a coluna plano_codigo (ex: essencial ou pro). O menu lateral lê essa informação do usuário logado. Se a organização do usuário for do plano Essencial (que não inclui o módulo BIM), a opção do menu BIM Manager some. Se o usuário tentar digitar o link direto (/bim-manager) no navegador, o sistema bloqueia o acesso e mostra uma mensagem sugerindo o upgrade para o plano Pro.'
     },
     { 
@@ -235,7 +235,7 @@ export default function PlanejamentoCobrancaPage() {
       y: 750, 
       parentId: '8', 
       color: '#ef4444',
-      completed: false,
+      completed: true,
       longDesc: 'Se o trial de 3 meses expirar e o Asaas não conseguir cobrar o cartão do cliente (por falta de limite ou cartão cancelado), o status da organização muda para overdue (inadimplente). O middleware do sistema intercepta qualquer tentativa de usar a plataforma e redireciona o usuário para a tela de pagamento, bloqueando o restante.'
     },
 
