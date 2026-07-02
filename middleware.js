@@ -116,8 +116,9 @@ export async function middleware(req) {
     let orgId = req.cookies.get('sys_org_id')?.value;
     let subStatus = req.cookies.get('sys_sub_status')?.value;
     let subExpires = req.cookies.get('sys_sub_expires')?.value;
+    let planoCodigo = req.cookies.get('sys_plano_codigo')?.value;
 
-    if (!funcaoId || isSuperAdmin === undefined || !orgId || !subStatus || !subExpires) {
+    if (!funcaoId || isSuperAdmin === undefined || !orgId || !subStatus || !subExpires || !planoCodigo) {
       try {
         const { data: profile } = await supabase
           .from('usuarios')
@@ -132,27 +133,31 @@ export async function middleware(req) {
         // Buscar status da assinatura da organização
         let status = 'trialing';
         let expiresAt = new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString();
+        let currentPlano = 'essencial';
 
         if (profile?.organizacao_id) {
           const { data: org } = await supabase
             .from('organizacoes')
-            .select('subscription_status, subscription_expires_at, trial_ends_at')
+            .select('subscription_status, subscription_expires_at, trial_ends_at, plano_codigo')
             .eq('id', profile.organizacao_id)
             .single();
 
           if (org) {
             status = org.subscription_status || 'trialing';
             expiresAt = org.subscription_expires_at || org.trial_ends_at || expiresAt;
+            currentPlano = org.plano_codigo || 'essencial';
           }
         }
 
         subStatus = status;
         subExpires = expiresAt;
+        planoCodigo = currentPlano;
 
         // Salva nos cookies
         response.cookies.set('sys_user_role', String(funcaoId || ''), { maxAge: 60 * 30 }); // Função/Cargo: 30 min
         response.cookies.set('sys_is_admin', isSuperAdmin, { maxAge: 60 * 30 });            // Admin status: 30 min
         response.cookies.set('sys_org_id', orgId, { maxAge: 60 * 30 });                     // Org ID: 30 min
+        response.cookies.set('sys_plano_codigo', planoCodigo, { maxAge: 60 * 30 });         // Plano: 30 min
         
         // NOVO: Assinatura e Expiração têm cache curto de 1 minuto (60s) 
         // para bloquear acessos rapidamente em caso de inadimplência real ou cancelamento no Asaas
@@ -163,6 +168,7 @@ export async function middleware(req) {
          funcaoId = null;
          isSuperAdmin = false;
          orgId = '';
+         planoCodigo = 'essencial';
          subStatus = 'trialing';
          subExpires = new Date().toISOString();
       }
@@ -200,6 +206,36 @@ export async function middleware(req) {
         
         console.warn(`[Assinatura] Acesso bloqueado. Org: ${orgId}, Status: ${subStatus}, Expira em: ${subExpires}`);
         return redirectWithCookies(new URL('/configuracoes/assinatura?bloqueado=true', req.url), response);
+      }
+
+      // --- TRAVA DE MÓDULOS POR PLANO ---
+      if (!isPublicPath && path !== '/configuracoes/assinatura') {
+        const routeModuleMap = [
+          { prefix: '/bim-manager', module: 'bim' },
+          { prefix: '/crm', module: 'crm' },
+          { prefix: '/recursos-humanos', module: 'recursos_humanos' },
+          { prefix: '/orcamento', module: 'orcamento' },
+          { prefix: '/pedidos', module: 'pedidos' },
+          { prefix: '/almoxarifado', module: 'almoxarifado' },
+          { prefix: '/rdo', module: 'rdo' },
+        ];
+
+        const planoModulosMap = {
+          essencial: { painel: true, financeiro: true, empresas: true, empreendimentos: true, contatos: true, simulador: true, atividades: true },
+          pro: { painel: true, financeiro: true, empresas: true, empreendimentos: true, contatos: true, simulador: true, atividades: true, recursos_humanos: true, crm: true, tabela_vendas: true, orcamento: true, pedidos: true, almoxarifado: true, rdo: true, bim: true },
+          ultra: { painel: true, financeiro: true, empresas: true, empreendimentos: true, contatos: true, simulador: true, atividades: true, recursos_humanos: true, crm: true, tabela_vendas: true, orcamento: true, pedidos: true, almoxarifado: true, rdo: true, bim: true, inteligencia_artificial: true }
+        };
+
+        const modulosPermitidos = planoModulosMap[planoCodigo] || planoModulosMap['essencial'];
+
+        for (const rule of routeModuleMap) {
+          if (path.startsWith(rule.prefix)) {
+            if (!modulosPermitidos[rule.module]) {
+              console.warn(`[Permissões] Acesso bloqueado à rota ${path} para o plano ${planoCodigo}`);
+              return redirectWithCookies(new URL('/configuracoes/assinatura?upgrade=true', req.url), response);
+            }
+          }
+        }
       }
     }
 
