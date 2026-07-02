@@ -174,45 +174,45 @@ const MetaFormData = ({ data }) => {
 };
 
 const HistoricoTimeline = ({ history }) => {
- if (!history || history.length === 0) {
-  return <p className="text-xs text-center text-gray-400 py-4 italic">Nenhuma movimentação registrada.</p>;
- }
+  if (!history || history.length === 0) {
+    return <p className="text-xs text-center text-gray-400 py-4 italic">Nenhuma movimentação registrada.</p>;
+  }
 
- return (
- <div className="flow-root">
-  <ul className="-mb-8">
-  {history.map((item, itemIdx) => (
-  <li key={item.id}>
-   <div className="relative pb-8">
-   {itemIdx !== history.length - 1 ? (
-    <span className="absolute top-4 left-4 -ml-px h-full w-0.5 bg-gray-200" aria-hidden="true" />
-   ) : null}
-   <div className="relative flex space-x-3">
-    <div>
-    <span className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center ring-4 ring-white text-gray-500">
-     <FontAwesomeIcon icon={faHistory} className="w-3 h-3"/>
-    </span>
+  return (
+    <div className="flow-root">
+      <ul className="-mb-8">
+        {history.map((item, itemIdx) => (
+          <li key={item.id}>
+            <div className="relative pb-8">
+              {itemIdx !== history.length - 1 ? (
+                <span className="absolute top-4 left-4 -ml-px h-full w-0.5 bg-gray-100" aria-hidden="true" />
+              ) : null}
+              <div className="relative flex space-x-3">
+                <div>
+                  <span className="h-8 w-8 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center ring-4 ring-white">
+                    <FontAwesomeIcon icon={faCheckCircle} className="w-3.5 h-3.5" />
+                  </span>
+                </div>
+                <div className="flex min-w-0 flex-1 justify-between space-x-4 pt-1.5">
+                  <div className="space-y-0.5">
+                    <p className="text-sm font-bold text-gray-800 uppercase tracking-wider text-[11px]">
+                      {item.coluna_nova?.nome || 'Sem Etapa'}
+                    </p>
+                    <p className="text-[10px] text-gray-400 font-medium">
+                      movido por <span className="text-gray-500 font-semibold">{item.usuario?.nome || 'Sistema'}</span>
+                    </p>
+                  </div>
+                  <div className="whitespace-nowrap text-right text-[10px] text-gray-400 font-semibold bg-gray-50 px-2 py-0.5 rounded-full border border-gray-100 h-fit mt-0.5">
+                    {format(new Date(item.data_movimentacao), 'dd/MM/yy HH:mm')}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </li>
+        ))}
+      </ul>
     </div>
-    <div className="flex min-w-0 flex-1 justify-between space-x-4 pt-1.5">
-    <div>
-     <p className="text-sm text-gray-600">
-     Movido de <strong className="font-medium text-gray-900">{item.coluna_anterior?.nome || 'Início'}</strong> para <strong className="font-medium text-[#00a884]">{item.coluna_nova?.nome}</strong>
-     </p>
-     <p className="text-xs text-gray-500 mt-1">
-     por {item.usuario?.nome || 'Sistema'}
-     </p>
-    </div>
-    <div className="whitespace-nowrap text-right text-[10px] text-gray-400">
-     {format(new Date(item.data_movimentacao), 'dd/MM HH:mm')}
-    </div>
-    </div>
-   </div>
-   </div>
-  </li>
-  ))}
-  </ul>
- </div>
- );
+  );
 };
 
 // --- FUNÇÃO DE BUSCA DE DADOS ---
@@ -1508,7 +1508,7 @@ export default function ContactProfile({ contact }) {
          <div className="text-xs text-center text-gray-400 bg-gray-50 p-3 rounded-lg border border-dashed border-gray-200">Contato fora do funil. Notas indisponíveis.</div>
          )}
 
-         <div className="space-y-3 max-h-64 overflow-y-auto custom-scrollbar pr-1">
+         <div className="space-y-3 pr-1">
          {notes.length > 0 ? notes.map(note => (
          <div key={note.id} className="bg-yellow-50/50 p-3 rounded-lg border border-yellow-100 text-sm group relative hover:shadow-sm transition-shadow">
          {editingNoteId === note.id ? (
@@ -1540,7 +1540,7 @@ export default function ContactProfile({ contact }) {
      {/* TAB: ATIVIDADES */}
      {activeTab === 'atividades' && (
        <div className="animate-in fade-in duration-200">
-         <div className="space-y-3 max-h-64 overflow-y-auto custom-scrollbar pr-1">
+         <div className="space-y-3 pr-1">
          {activities.length > 0 ? activities.map(act => (
          <div key={act.id} className="p-3 bg-white rounded-lg border border-gray-200 border-l-4 border-l-blue-400 group relative hover:shadow-sm transition-shadow">
           <div className="flex justify-between items-start">
@@ -1563,7 +1563,7 @@ export default function ContactProfile({ contact }) {
      {/* TAB: SIMULAÇÕES */}
      {activeTab === 'simulacoes' && (
        <div className="animate-in fade-in duration-200">
-         <div className="space-y-3 max-h-64 overflow-y-auto custom-scrollbar pr-1">
+         <div className="space-y-3 pr-1">
          {simulations.length > 0 ? (
          simulations.map(sim => (
          <div key={sim.id} className="p-3 bg-white rounded-lg border border-gray-200 flex justify-between items-center group hover:shadow-sm transition-shadow">
@@ -1586,7 +1586,7 @@ export default function ContactProfile({ contact }) {
      {/* TAB: HISTÓRICO */}
      {activeTab === 'historico' && (
        <div className="animate-in fade-in duration-200">
-         <div className="max-h-64 overflow-y-auto custom-scrollbar pr-2">
+         <div className="pr-2">
          <HistoricoTimeline history={history} />
          </div>
        </div>
