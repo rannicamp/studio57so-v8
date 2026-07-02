@@ -92,7 +92,7 @@ export default function PlanejamentoCobrancaPage() {
       y: 610, 
       parentId: '1', 
       color: '#3b82f6',
-      longDesc: 'Uma tabela para controlar nossos cupons promocionais. Ela definirá quantos dias grátis o cliente terá (ex: 90 dias de carência/trial) e se ele tem algum desconto percentual no valor da mensalidade (ex: cupom MUITOLINDO).'
+      longDesc: 'Uma tabela para controlar nossos cupons promocionais. Ela definirá quantos dias grátis o cliente terá (ex: 90 dias de carência/trial) e se ele tem algum desconto percentual no valor da mensalidade (ex: cupom AMIGODODONO).'
     },
     { 
       id: '6', 
