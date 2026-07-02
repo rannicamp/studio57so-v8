@@ -2,7 +2,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { 
   Building2, 
   CreditCard, 
@@ -12,21 +12,53 @@ import {
   Code, 
   Sparkles, 
   Plus, 
-  Minus, 
+  Trash2, 
   Calendar, 
   Settings, 
   Info, 
   Layers,
   ArrowRight,
   HelpCircle,
-  AlertTriangle,
-  Play
+  Play,
+  RotateCcw,
+  Edit2,
+  Check,
+  Download,
+  Share2,
+  Trash
 } from 'lucide-react';
 
 export default function PlanejamentoCobrancaPage() {
-  const [selectedNode, setSelectedNode] = useState('cadastro');
+  // Pre-load default mind map nodes (our billing planning)
+  const defaultNodes = [
+    { id: '1', text: 'Onboarding & Cobrança (Elo 57)', x: 50, y: 350, parentId: null, color: '#f25a2f', isRoot: true },
+    
+    // Branch 1: Entrada
+    { id: '2', text: 'Landing Page (Parâmetros de Planos & Cupom na URL)', x: 380, y: 120, parentId: '1', color: '#eab308' },
+    { id: '3', text: 'Cadastro (Criação local de Org e Admin)', x: 380, y: 250, parentId: '1', color: '#3b82f6' },
+    
+    // Branch 2: Integração
+    { id: '4', text: 'Sincronização no Asaas (Criar ou Atualizar Cliente com CNPJ)', x: 740, y: 180, parentId: '3', color: '#6366f1' },
+    { id: '5', text: 'Criação da Assinatura (Ciclo do Plano com 90 dias de Trial)', x: 740, y: 320, parentId: '3', color: '#a855f7' },
+    
+    // Branch 3: Checkout
+    { id: '6', text: 'Checkout Asaas (Redirecionamento para inserir Cartão de Crédito)', x: 1100, y: 250, parentId: '5', color: '#ec4899' },
+    
+    // Branch 4: Retorno & Ativação
+    { id: '7', text: 'Webhook de Ativação (Atualiza Org para active no Supabase)', x: 1440, y: 180, parentId: '6', color: '#10b981' },
+    { id: '8', text: 'Middleware (Bloqueio se status for overdue ou pending_payment)', x: 1440, y: 320, parentId: '6', color: '#ef4444' }
+  ];
+
+  const [nodes, setNodes] = useState(defaultNodes);
+  const [editingId, setEditingId] = useState(null);
+  const [editingText, setEditingText] = useState('');
   
-  // States for Simulator
+  // Drag state
+  const [draggedNodeId, setDraggedNodeId] = useState(null);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const canvasRef = useRef(null);
+
+  // Settings for simulator panel
   const [selectedPlan, setSelectedPlan] = useState('pro');
   const [seats, setSeats] = useState(5);
   const [billingCycle, setBillingCycle] = useState('MONTHLY');
@@ -34,490 +66,441 @@ export default function PlanejamentoCobrancaPage() {
   const [promoCode, setPromoCode] = useState('MUITOLINDO');
   const [hasPromo, setHasPromo] = useState(true);
 
+  // Node Dimensions used for line drawing
+  const cardWidth = 260;
+  const cardHeight = 84;
+
   const planDetails = {
-    essencial: { nome: 'Elo Essencial', valor: 127, desc: 'Recursos essenciais administrativos e financeiros.' },
-    pro: { nome: 'Elo Pro', valor: 297, desc: 'Gestão completa, comercial, funil e BIM 3D.' },
-    ultra: { nome: 'Elo Ultra', valor: 497, desc: 'Automação inteligente e IA especializada.' }
+    essencial: { nome: 'Elo Essencial', valor: 127 },
+    pro: { nome: 'Elo Pro', valor: 297 },
+    ultra: { nome: 'Elo Ultra', valor: 497 }
   };
 
-  const basePricePerUser = planDetails[selectedPlan].valor;
-  const isYearly = billingCycle === 'YEARLY';
-  const discountMultiplier = isYearly ? 0.8 : 1.0;
-  const promoDiscountMultiplier = (hasPromo && promoCode === 'MUITOLINDO') ? 0.9 : 1.0;
-  const unitPriceFinal = Math.round(basePricePerUser * discountMultiplier * promoDiscountMultiplier);
-  const totalValue = unitPriceFinal * seats;
+  // Node Drag Handlers
+  const handleMouseDown = (e, nodeId) => {
+    // Prevent drag when clicking buttons/inputs
+    if (e.target.tagName === 'INPUT' || e.target.closest('button')) return;
+    
+    const node = nodes.find(n => n.id === nodeId);
+    if (!node) return;
 
-  const getTrialExpirationISO = (days) => {
-    const d = new Date();
-    d.setDate(d.getDate() + days);
-    return d.toISOString().split('T')[0];
+    setDraggedNodeId(nodeId);
+    setDragOffset({
+      x: e.clientX - node.x,
+      y: e.clientY - node.y
+    });
   };
 
-  const generateAsaasPayload = () => {
-    return {
-      customer: "cus_000001234567",
-      billingType: "UNDEFINED", // Habilita todos os métodos no checkout do Asaas
-      value: totalValue,
-      nextDueDate: getTrialExpirationISO(trialDays),
-      cycle: billingCycle,
-      description: `Assinatura ${planDetails[selectedPlan].nome} - ${seats} Usuários (Período de Testes de ${trialDays} dias)`,
-      externalReference: "ID_DA_ORGANIZACAO_LOCAL",
-      callback: {
-        successUrl: "https://studio57.arq.br/configuracoes/assinatura?status=ativada",
-        autoRedirect: true
+  const handleMouseMove = (e) => {
+    if (!draggedNodeId) return;
+
+    // Track movement relative to canvas
+    setNodes(prev => prev.map(n => {
+      if (n.id === draggedNodeId) {
+        return {
+          ...n,
+          x: Math.max(10, e.clientX - dragOffset.x),
+          y: Math.max(10, e.clientY - dragOffset.y)
+        };
       }
+      return n;
+    }));
+  };
+
+  const handleMouseUp = () => {
+    setDraggedNodeId(null);
+  };
+
+  // Node Operations
+  const addNewRootNode = () => {
+    const newId = Date.now().toString();
+    const colors = ['#f25a2f', '#3b82f6', '#10b981', '#a855f7', '#ec4899'];
+    const randomColor = colors[Math.floor(Math.random() * colors.length)];
+    
+    const newNode = {
+      id: newId,
+      text: 'Novo Tópico',
+      x: 100,
+      y: 200 + (Math.random() * 100),
+      parentId: null,
+      color: randomColor,
+      isRoot: true
     };
+    setNodes(prev => [...prev, newNode]);
+    startEditing(newNode);
   };
 
-  // Definição dos nós do Mapa Mental
-  const nodes = {
-    landing: {
-      id: 'landing',
-      phase: 'Fase 1: Entrada',
-      title: 'Landing Page (LP)',
-      icon: Sparkles,
-      color: 'border-amber-400 bg-amber-50 text-amber-700',
-      badge: 'Ponto de Partida',
-      summary: 'Captura o plano e o cupom de trial escolhidos pelo usuário.',
-      details: {
-        description: 'O fluxo se inicia quando o cliente navega pela LP do Elo 57 e clica em assinar um plano. A LP envia os parâmetros para a rota de cadastro via URL.',
-        technical: 'Configurar os botões de ação dos planos na Landing Page para redirecionar para:',
-        code: '/cadastro?plan=pro&promo=MUITOLINDO',
-        files: ['app/(landingpages)/elo57/components/PricingSection.js'],
-        checklist: [
-          'Adicionar query params nos links de "Começar Agora" da LP.',
-          'Mapear os códigos dos planos (essencial, pro, ultra) nos links.'
-        ]
+  const addChildNode = (parentId) => {
+    const parent = nodes.find(n => n.id === parentId);
+    if (!parent) return;
+
+    const newId = Date.now().toString();
+    const newNode = {
+      id: newId,
+      text: 'Nova Etapa / Tarefa',
+      x: parent.x + cardWidth + 80,
+      y: parent.y + (Math.random() * 120 - 60),
+      parentId: parentId,
+      color: parent.color
+    };
+    setNodes(prev => [...prev, newNode]);
+    startEditing(newNode);
+  };
+
+  const deleteNode = (nodeId) => {
+    // Delete node and recursively all its descendants
+    const getDescendants = (id) => {
+      const children = nodes.filter(n => n.parentId === id);
+      return children.reduce((acc, child) => {
+        return [...acc, child.id, ...getDescendants(child.id)];
+      }, []);
+    };
+
+    const idsToDelete = [nodeId, ...getDescendants(nodeId)];
+    setNodes(prev => prev.filter(n => !idsToDelete.includes(n.id)));
+  };
+
+  const startEditing = (node) => {
+    setEditingId(node.id);
+    setEditingText(node.text);
+  };
+
+  const saveEdit = () => {
+    if (!editingId) return;
+    setNodes(prev => prev.map(n => {
+      if (n.id === editingId) {
+        return { ...n, text: editingText };
       }
-    },
-    cadastro: {
-      id: 'cadastro',
-      phase: 'Fase 1: Entrada',
-      title: 'Cadastro do Workspace',
-      icon: Building2,
-      color: 'border-blue-500 bg-blue-50 text-blue-700',
-      badge: 'Supabase DB',
-      summary: 'Criação do usuário, organização e empresa local no banco.',
-      details: {
-        description: 'O usuário realiza o cadastro de sua conta administradora e de sua empresa. O sistema cria as tabelas locais no Supabase.',
-        technical: 'Ao criar a Organização no Supabase, ela é criada com o status inicial de "trialing".',
-        code: `// Estrutura criada no Supabase:\npublic.organizacoes (status: 'trialing')\npublic.cadastro_empresa (CNPJ, Razão Social, CEP, etc.)\nauth.users (admin_email, admin_senha)`,
-        files: ['app/cadastro/actions.js', 'app/cadastro/page.js'],
-        checklist: [
-          'Ajustar o wizard de cadastro para receber e persistir os parâmetros da URL.',
-          'Reter os dados fiscais coletados para o próximo nó (Asaas).'
-        ]
-      }
-    },
-    sync_asaas: {
-      id: 'sync_asaas',
-      phase: 'Fase 2: Integração',
-      title: 'Sincronizar Asaas',
-      icon: Database,
-      color: 'border-indigo-500 bg-indigo-50 text-indigo-700',
-      badge: 'Asaas API',
-      summary: 'Cria ou atualiza o cliente no Asaas com dados fiscais locais.',
-      details: {
-        description: 'Para gerar faturas e cartões, o Asaas exige o CPF/CNPJ e dados de endereço completos. Sincronizamos a empresa local com o Asaas.',
-        technical: 'Chamar obterOuCriarCliente passando Razão Social, CNPJ, Telefone e CEP. Se o cliente já existir, atualiza com PUT para garantir o preenchimento de dados.',
-        code: `const customer = await obterOuCriarCliente({\n  nome: empresa.razao_social,\n  cpfCnpj: empresa.cnpj,\n  postalCode: empresa.cep,\n  email: user.email\n});`,
-        files: ['lib/asaas.js', 'app/cadastro/actions.js'],
-        checklist: [
-          'Garantir higienização de strings (remover pontuações de CNPJ e CEP).',
-          'Gravar o asaas_customer_id gerado na tabela public.organizacoes.'
-        ]
-      }
-    },
-    criar_assinatura: {
-      id: 'criar_assinatura',
-      phase: 'Fase 3: Recorrência',
-      title: 'Criar Assinatura (Trial)',
-      icon: Calendar,
-      color: 'border-purple-500 bg-purple-50 text-purple-700',
-      badge: 'Faturamento',
-      summary: 'Configuração do plano e agendamento da primeira cobrança pós-trial.',
-      details: {
-        description: 'Criação do plano de recorrência no Asaas com a primeira cobrança agendada para 90 dias (trial) no futuro.',
-        technical: 'Utilizar cycle como MONTHLY ou YEARLY, billingType como UNDEFINED e nextDueDate como a data de expiração do trial.',
-        code: `const assinatura = await criarAssinatura({\n  clienteId: customer.id,\n  valor: totalCalculado,\n  ciclo: 'YEARLY',\n  dataVencimento: '2026-10-02' // Hoje + 90 dias\n});`,
-        files: ['lib/asaas.js', 'app/api/subscriptions/checkout/route.js'],
-        checklist: [
-          'Mapear a data do trial baseando-se no cupom da promoção.',
-          'Salvar o asaas_subscription_id gerado na tabela public.organizacoes.'
-        ]
-      }
-    },
-    checkout_cartao: {
-      id: 'checkout_cartao',
-      phase: 'Fase 3: Recorrência',
-      title: 'Checkout & Cartão',
-      icon: CreditCard,
-      color: 'border-[#f25a2f] bg-orange-50 text-[#f25a2f]',
-      badge: 'Segurança',
-      summary: 'Redirecionamento ao checkout seguro para inserir o cartão.',
-      details: {
-        description: 'O cliente insere seu cartão no checkout seguro do Asaas. O Asaas valida o cartão e o vincula à assinatura recorrente futura.',
-        technical: 'Redirecionar o usuário para a URL invoiceUrl da primeira cobrança. Ao salvar o cartão, a assinatura se auto-atualiza.',
-        code: `// Redirecionamento no frontend:\nwindow.location.href = checkoutUrl;`,
-        files: ['app/cadastro/page.js', 'app/api/subscriptions/checkout/route.js'],
-        checklist: [
-          'Capturar a URL de checkout retornada na criação da assinatura.',
-          'Redirecionar o usuário para o Asaas após a etapa final do cadastro.'
-        ]
-      }
-    },
-    webhook_ativacao: {
-      id: 'webhook_ativacao',
-      phase: 'Fase 4: Confirmação',
-      title: 'Webhook Ativação',
-      icon: CheckCircle2,
-      color: 'border-emerald-500 bg-emerald-50 text-emerald-700',
-      badge: 'Ativação',
-      summary: 'Notificação do Asaas ativando o plano localmente.',
-      details: {
-        description: 'O webhook processa a resposta do Asaas confirmando que o cartão do cliente foi salvo e validado com sucesso.',
-        technical: 'Escutar eventos PAYMENT_RECEIVED ou PAYMENT_CONFIRMED, buscar a assinatura correspondente e mudar o status para active.',
-        code: `// No webhook:\nawait supabaseAdmin\n  .from('organizacoes')\n  .update({ subscription_status: 'active' })\n  .eq('asaas_subscription_id', subscriptionId);`,
-        files: ['app/api/webhooks/asaas/route.js'],
-        checklist: [
-          'Validar a assinatura do Webhook Token do Asaas por segurança.',
-          'Sincronizar a data final de validade da assinatura no banco.'
-        ]
-      }
-    },
-    middleware_bloqueio: {
-      id: 'middleware_bloqueio',
-      phase: 'Fase 4: Confirmação',
-      title: 'Middleware de Acesso',
-      icon: Settings,
-      color: 'border-rose-500 bg-rose-50 text-rose-700',
-      badge: 'Segurança',
-      summary: 'Redireciona inadimplentes ou trials expirados para a tela de faturamento.',
-      details: {
-        description: 'Middleware que intercepta rotas do ERP e obriga o usuário a regularizar o pagamento caso o trial expire ou ocorra atraso.',
-        technical: 'Se subscription_status for overdue ou pending_payment, redireciona o usuário para /configuracoes/assinatura e bloqueia o restante.',
-        code: `if (org.subscription_status === 'overdue' && path !== '/configuracoes/assinatura') {\n  return NextResponse.redirect('/configuracoes/assinatura');\n}`,
-        files: ['middleware.js'],
-        checklist: [
-          'Ignorar as rotas públicas e estáticas na checagem de assinatura.',
-          'Garantir uma tolerância de 3 dias (Grace Period) antes de bloquear o usuário.'
-        ]
-      }
+      return n;
+    }));
+    setEditingId(null);
+  };
+
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      saveEdit();
     }
   };
 
-  const selectedData = nodes[selectedNode];
+  const resetToTemplate = () => {
+    setNodes(defaultNodes);
+  };
+
+  const clearCanvas = () => {
+    setNodes([]);
+  };
+
+  // Simulator Calculations
+  const basePrice = planDetails[selectedPlan].valor;
+  const discount = billingCycle === 'YEARLY' ? 0.8 : 1.0;
+  const promoDiscount = (hasPromo && promoCode === 'MUITOLINDO') ? 0.9 : 1.0;
+  const priceFinal = Math.round(basePrice * discount * promoDiscount);
+  const totalPrice = priceFinal * seats;
 
   return (
-    <div className="min-h-screen bg-[#fafbfc] text-slate-800 font-sans pb-16 relative">
-      {/* Background Grid Pattern (Blank Canvas / Mental Map feel) */}
-      <div className="absolute inset-0 bg-[linear-gradient(to_right,#e2e8f0_1px,transparent_1px),linear-gradient(to_bottom,#e2e8f0_1px,transparent_1px)] bg-[size:4rem_4rem] opacity-30 pointer-events-none"></div>
+    <div 
+      className="min-h-screen bg-[#fafbfc] text-slate-800 font-sans flex flex-col relative select-none"
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
+    >
+      {/* Background Dots Grid Pattern matching user upload */}
+      <div className="absolute inset-0 bg-[radial-gradient(#cbd5e1_1px,transparent_1px)] bg-[size:20px_20px] opacity-70 pointer-events-none z-0"></div>
 
-      {/* Top Header */}
-      <header className="bg-white border-b border-slate-200/80 py-6 px-8 sticky top-0 z-40 backdrop-blur-md bg-white/90">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-slate-900 flex items-center justify-center text-white shadow-sm font-bold text-lg">
-              E
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
-                Mapa Mental de Implantação <span className="text-xs bg-[#f25a2f]/10 text-[#f25a2f] border border-[#f25a2f]/20 px-2 py-0.5 rounded-full font-bold">Cobrança Asaas</span>
-              </h1>
-              <p className="text-xs text-slate-500 font-light">Seu lindo, clique nos nós do mapa para visualizar os requisitos, SQLs e arquivos de cada fase.</p>
-            </div>
+      {/* Header Dock */}
+      <header className="bg-white/80 border-b border-slate-200/60 py-4 px-6 sticky top-0 z-30 backdrop-blur-md flex items-center justify-between shadow-sm relative">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-slate-900 flex items-center justify-center text-white font-black text-base shadow-sm">
+            E
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-400 font-light mr-2">Servidor local rodando</span>
-            <span className="w-2.5 h-2.5 rounded-full bg-green-500 animate-ping"></span>
+          <div>
+            <h1 className="text-sm font-bold text-slate-900 tracking-tight flex items-center gap-2">
+              Planejamento de Cobrança <span className="text-[10px] font-bold text-[#f25a2f] bg-[#f25a2f]/10 border border-[#f25a2f]/20 px-2 py-0.5 rounded-full uppercase">Mapa Mental</span>
+            </h1>
+            <p className="text-[10px] text-slate-400 font-light">Seu lindo, arraste os cards, dê duplo clique para editar o texto e use o (+) para puxar novos nós!</p>
           </div>
+        </div>
+
+        {/* Action Controls */}
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={resetToTemplate}
+            title="Resetar para o Fluxo Original"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg text-xs font-bold text-slate-600 transition-all active:scale-95"
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+            Restaurar Fluxo Asaas
+          </button>
+          <button 
+            onClick={addNewRootNode}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-[#f25a2f] hover:bg-[#d84a22] text-white rounded-lg text-xs font-bold transition-all active:scale-95 shadow-sm shadow-[#f25a2f]/10"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Adicionar Card Raiz
+          </button>
+          <button 
+            onClick={clearCanvas}
+            title="Limpar Tela"
+            className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-lg transition-all"
+          >
+            <Trash className="h-4 w-4" />
+          </button>
         </div>
       </header>
 
-      {/* Main Container */}
-      <div className="max-w-7xl mx-auto px-8 mt-12 grid lg:grid-cols-12 gap-8 relative z-10">
+      {/* Main Workspace Layout */}
+      <div className="flex-1 flex flex-col lg:flex-row relative z-10 overflow-hidden">
         
-        {/* LEFT COLUMN: MIND MAP CANVAS */}
-        <div className="lg:col-span-7 space-y-8">
-          
-          {/* Canvas Section */}
-          <div className="bg-white border border-slate-200 rounded-3xl p-8 shadow-sm relative overflow-hidden">
-            
-            <div className="flex justify-between items-center mb-10 border-b border-slate-100 pb-4">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400">Fluxo Cronológico de Ativação</h3>
-              <span className="text-[10px] bg-slate-100 px-3 py-1 rounded-full text-slate-500 font-semibold">Clique para selecionar</span>
-            </div>
+        {/* VIEWPORT CANVAS (SCROLLABLE MAP CANVAS) */}
+        <div className="flex-1 overflow-auto p-4 min-h-[50vh] lg:min-h-0" ref={canvasRef}>
+          <div 
+            className="w-[2000px] h-[900px] relative rounded-3xl"
+          >
+            {/* SVG Connecting Lines Layer */}
+            <svg className="absolute inset-0 w-full h-full pointer-events-none z-0">
+              {nodes.map(node => {
+                if (!node.parentId) return null;
+                const parent = nodes.find(n => n.id === node.parentId);
+                if (!parent) return null;
 
-            {/* Mind Map Tree Nodes */}
-            <div className="space-y-12 relative">
+                // Parent Output Port (right side of card)
+                const startX = parent.x + cardWidth;
+                const startY = parent.y + cardHeight / 2;
+
+                // Child Input Port (left side of card)
+                const endX = node.x;
+                const endY = node.y + cardHeight / 2;
+
+                // S-Curve Control Points
+                const controlX1 = startX + 60;
+                const controlY1 = startY;
+                const controlX2 = endX - 60;
+                const controlY2 = endY;
+
+                const pathData = `M ${startX} ${startY} C ${controlX1} ${controlY1}, ${controlX2} ${controlY2}, ${endX} ${endY}`;
+
+                return (
+                  <g key={`link-${node.id}`}>
+                    {/* Shadow trace for depth */}
+                    <path 
+                      d={pathData} 
+                      fill="none" 
+                      stroke="#e2e8f0" 
+                      strokeWidth="5" 
+                      strokeLinecap="round" 
+                    />
+                    {/* Main connector line */}
+                    <path 
+                      d={pathData} 
+                      fill="none" 
+                      stroke={node.color || '#cbd5e1'} 
+                      strokeWidth="2.5" 
+                      strokeLinecap="round" 
+                    />
+                  </g>
+                );
+              })}
+            </svg>
+
+            {/* Render Nodes / Cards */}
+            {nodes.map(node => {
+              const isEditing = editingId === node.id;
               
-              {/* Vertical Connector Line (CSS) */}
-              <div className="absolute left-[31px] top-6 bottom-6 w-0.5 bg-slate-200 -z-10"></div>
-
-              {/* FASE 1 */}
-              <div className="space-y-4">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block ml-[46px]">Fase 1: Entrada de Usuários</span>
-                
-                {/* Node: Landing Page */}
-                <div 
-                  onClick={() => setSelectedNode('landing')}
-                  className={`flex items-start gap-4 p-4 rounded-2xl border cursor-pointer transition-all duration-300 ${selectedNode === 'landing' ? 'border-amber-400 bg-amber-50/50 shadow-md translate-x-2' : 'border-slate-200 bg-white hover:border-slate-350'}`}
+              return (
+                <div
+                  key={node.id}
+                  style={{
+                    left: `${node.x}px`,
+                    top: `${node.y}px`,
+                    width: `${cardWidth}px`,
+                    height: `${cardHeight}px`
+                  }}
+                  onMouseDown={(e) => handleMouseDown(e, node.id)}
+                  className={`absolute rounded-2xl border bg-white shadow-sm p-3.5 flex flex-col justify-between transition-shadow cursor-grab active:cursor-grabbing select-none group z-10 ${
+                    draggedNodeId === node.id ? 'shadow-lg border-slate-400 ring-2 ring-slate-200/50' : 'border-slate-200/80 hover:shadow-md'
+                  }`}
                 >
-                  <div className="w-9 h-9 rounded-xl bg-amber-500 text-white flex items-center justify-center flex-shrink-0 shadow-sm">
-                    <Sparkles className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-bold text-slate-800">Selecione o Plano na LP</h4>
-                    <p className="text-xs text-slate-500 mt-1 font-light">Envio de plano e cupom via URL para a tela de registro.</p>
-                  </div>
-                </div>
+                  {/* Card Border Accent */}
+                  <div 
+                    className="absolute left-0 top-0 bottom-0 w-2.5 rounded-l-2xl" 
+                    style={{ backgroundColor: node.color || '#cbd5e1' }}
+                  ></div>
 
-                {/* Node: Cadastro */}
-                <div 
-                  onClick={() => setSelectedNode('cadastro')}
-                  className={`flex items-start gap-4 p-4 rounded-2xl border cursor-pointer transition-all duration-300 ${selectedNode === 'cadastro' ? 'border-blue-500 bg-blue-50/50 shadow-md translate-x-2' : 'border-slate-200 bg-white hover:border-slate-350'}`}
-                >
-                  <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center flex-shrink-0 shadow-sm">
-                    <Building2 className="h-5 w-5" />
+                  {/* Node Content / Text Editor */}
+                  <div className="pl-3.5 pr-6 h-full flex items-center">
+                    {isEditing ? (
+                      <div className="flex items-center gap-1.5 w-full">
+                        <input
+                          type="text"
+                          value={editingText}
+                          onChange={(e) => setEditingText(e.target.value)}
+                          onBlur={saveEdit}
+                          onKeyDown={handleKeyPress}
+                          className="w-full bg-slate-50 border border-slate-350 rounded px-2 py-1 text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-[#f25a2f]"
+                          autoFocus
+                        />
+                        <button 
+                          onClick={saveEdit}
+                          className="p-1 bg-green-50 hover:bg-green-100 text-green-700 rounded border border-green-200"
+                        >
+                          <Check className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ) : (
+                      <span 
+                        onDoubleClick={() => startEditing(node)}
+                        className="text-xs font-bold text-slate-800 leading-snug line-clamp-2 select-none"
+                      >
+                        {node.text}
+                      </span>
+                    )}
                   </div>
-                  <div>
-                    <h4 className="text-sm font-bold text-slate-800">Criar Workspace no Supabase</h4>
-                    <p className="text-xs text-slate-500 mt-1 font-light">Cadastro do administrador, empresa e organização local.</p>
+
+                  {/* Actions Overlay Dock (Visible on hover) */}
+                  <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                    <button
+                      onClick={() => addChildNode(node.id)}
+                      title="Adicionar nó filho"
+                      className="w-6 h-6 bg-slate-50 hover:bg-[#f25a2f] border border-slate-200 hover:border-[#f25a2f] hover:text-white rounded-lg flex items-center justify-center transition-all"
+                    >
+                      <Plus className="h-3 w-3" />
+                    </button>
+                    <button
+                      onClick={() => startEditing(node)}
+                      title="Editar Texto"
+                      className="w-6 h-6 bg-slate-50 hover:bg-blue-500 border border-slate-200 hover:border-blue-500 hover:text-white rounded-lg flex items-center justify-center transition-all"
+                    >
+                      <Edit2 className="h-2.5 w-2.5" />
+                    </button>
+                    <button
+                      onClick={() => deleteNode(node.id)}
+                      title="Deletar este nó e seus filhos"
+                      className="w-6 h-6 bg-rose-50 hover:bg-rose-500 border border-rose-200 hover:border-rose-500 hover:text-white rounded-lg flex items-center justify-center transition-all"
+                    >
+                      <Trash2 className="h-2.5 w-2.5" />
+                    </button>
                   </div>
+
                 </div>
+              );
+            })}
+
+            {nodes.length === 0 && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-8 z-0">
+                <HelpCircle className="h-10 w-10 text-slate-300 mb-2" />
+                <h4 className="text-slate-400 font-bold text-sm">Seu mapa mental está limpo.</h4>
+                <p className="text-slate-400 text-xs mt-1 font-light max-w-sm">Use o botão "Adicionar Card Raiz" no topo para criar uma caixa e arrastá-la ou resete para carregar a configuração Asaas.</p>
               </div>
-
-              {/* FASE 2 */}
-              <div className="space-y-4">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block ml-[46px]">Fase 2: Conexão Asaas</span>
-                
-                {/* Node: Sync Asaas */}
-                <div 
-                  onClick={() => setSelectedNode('sync_asaas')}
-                  className={`flex items-start gap-4 p-4 rounded-2xl border cursor-pointer transition-all duration-300 ${selectedNode === 'sync_asaas' ? 'border-indigo-500 bg-indigo-50/50 shadow-md translate-x-2' : 'border-slate-200 bg-white hover:border-slate-350'}`}
-                >
-                  <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center flex-shrink-0 shadow-sm">
-                    <Database className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-bold text-slate-800">Sincronizar Cliente no Asaas</h4>
-                    <p className="text-xs text-slate-500 mt-1 font-light">Puxa dados locais da empresa para criar/atualizar cliente no Asaas.</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* FASE 3 */}
-              <div className="space-y-4">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block ml-[46px]">Fase 3: Recorrência & Faturamento</span>
-                
-                {/* Node: Criar Assinatura */}
-                <div 
-                  onClick={() => setSelectedNode('criar_assinatura')}
-                  className={`flex items-start gap-4 p-4 rounded-2xl border cursor-pointer transition-all duration-300 ${selectedNode === 'criar_assinatura' ? 'border-purple-500 bg-purple-50/50 shadow-md translate-x-2' : 'border-slate-200 bg-white hover:border-slate-350'}`}
-                >
-                  <div className="w-9 h-9 rounded-xl bg-purple-600 text-white flex items-center justify-center flex-shrink-0 shadow-sm">
-                    <Calendar className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-bold text-slate-800">Gerar Assinatura com Trial</h4>
-                    <p className="text-xs text-slate-500 mt-1 font-light">Cria a assinatura no Asaas e agenda o vencimento da cobrança para 90 dias.</p>
-                  </div>
-                </div>
-
-                {/* Node: Checkout Cartão */}
-                <div 
-                  onClick={() => setSelectedNode('checkout_cartao')}
-                  className={`flex items-start gap-4 p-4 rounded-2xl border cursor-pointer transition-all duration-300 ${selectedNode === 'checkout_cartao' ? 'border-[#f25a2f] bg-orange-50/50 shadow-md translate-x-2' : 'border-slate-200 bg-white hover:border-slate-350'}`}
-                >
-                  <div className="w-9 h-9 rounded-xl bg-[#f25a2f] text-white flex items-center justify-center flex-shrink-0 shadow-sm">
-                    <CreditCard className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-bold text-slate-800">Checkout e Tokenização do Cartão</h4>
-                    <p className="text-xs text-slate-500 mt-1 font-light">Usuário acessa o Asaas, preenche o cartão e valida os dados.</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* FASE 4 */}
-              <div className="space-y-4">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block ml-[46px]">Fase 4: Liberação de Acesso</span>
-                
-                {/* Node: Webhook Ativação */}
-                <div 
-                  onClick={() => setSelectedNode('webhook_ativacao')}
-                  className={`flex items-start gap-4 p-4 rounded-2xl border cursor-pointer transition-all duration-300 ${selectedNode === 'webhook_ativacao' ? 'border-emerald-500 bg-emerald-50/50 shadow-md translate-x-2' : 'border-slate-200 bg-white hover:border-slate-350'}`}
-                >
-                  <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center flex-shrink-0 shadow-sm">
-                    <CheckCircle2 className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-bold text-slate-800">Webhook de Ativação do Plano</h4>
-                    <p className="text-xs text-slate-500 mt-1 font-light">Asaas avisa que o cartão é válido e o sistema ativa a Org no banco.</p>
-                  </div>
-                </div>
-
-                {/* Node: Middleware Bloqueio */}
-                <div 
-                  onClick={() => setSelectedNode('middleware_bloqueio')}
-                  className={`flex items-start gap-4 p-4 rounded-2xl border cursor-pointer transition-all duration-300 ${selectedNode === 'middleware_bloqueio' ? 'border-rose-500 bg-rose-50/50 shadow-md translate-x-2' : 'border-slate-200 bg-white hover:border-slate-350'}`}
-                >
-                  <div className="w-9 h-9 rounded-xl bg-rose-600 text-white flex items-center justify-center flex-shrink-0 shadow-sm">
-                    <Settings className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-bold text-slate-800">Middleware de Acesso & Bloqueio</h4>
-                    <p className="text-xs text-slate-500 mt-1 font-light">Intercepta rotas do ERP se a assinatura expirar ou atrasar.</p>
-                  </div>
-                </div>
-              </div>
-
-            </div>
+            )}
 
           </div>
         </div>
 
-        {/* RIGHT COLUMN: TECHNICAL PANEL (DETALHES DO NÓ SELECIONADO) */}
-        <div className="lg:col-span-5 space-y-6">
+        {/* SIDEBAR DOCK: ASSINATURA SIMULATOR PANEL */}
+        <div className="w-full lg:w-96 bg-white border-t lg:border-t-0 lg:border-l border-slate-200/80 p-6 flex flex-col justify-between shadow-lg z-20">
           
-          {/* Card Detalhado do Nó */}
-          <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-6">
-            
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">{selectedData.phase}</span>
-              <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${selectedData.color}`}>
-                {selectedData.badge}
+          <div className="space-y-6">
+            <div>
+              <span className="text-[10px] font-bold text-[#f25a2f] uppercase tracking-wider block">Calculadora de Payload</span>
+              <h2 className="text-base font-bold text-slate-800 mt-1">Simulador Recorrente</h2>
+              <p className="text-[11px] text-slate-400 mt-1 font-light">Os valores e ciclos abaixo alimentam dinamicamente a assinatura gerada no nó de Checkout do Mapa Mental.</p>
+            </div>
+
+            {/* Plano */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-500">Qual o Plano?</label>
+              <select
+                value={selectedPlan}
+                onChange={(e) => setSelectedPlan(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-xs font-bold text-slate-700 outline-none"
+              >
+                <option value="essencial">Elo Essencial (R$ 127/usuário)</option>
+                <option value="pro">Elo Pro (R$ 297/usuário)</option>
+                <option value="ultra">Elo Ultra (R$ 497/usuário)</option>
+              </select>
+            </div>
+
+            {/* Ciclo */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-500">Ciclo de Cobrança</label>
+              <div className="grid grid-cols-2 gap-2 bg-slate-50 p-1 border border-slate-200 rounded-lg">
+                <button
+                  onClick={() => setBillingCycle('MONTHLY')}
+                  className={`py-2 rounded-md text-xs font-bold transition-all ${billingCycle === 'MONTHLY' ? 'bg-white text-slate-900 shadow-sm border border-slate-200' : 'text-slate-400'}`}
+                >
+                  Mensal
+                </button>
+                <button
+                  onClick={() => setBillingCycle('YEARLY')}
+                  className={`py-2 rounded-md text-xs font-bold transition-all ${billingCycle === 'YEARLY' ? 'bg-white text-slate-900 shadow-sm border border-slate-200' : 'text-slate-400'}`}
+                >
+                  Anual (-20%)
+                </button>
+              </div>
+            </div>
+
+            {/* Usuários */}
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div>
+                <label className="font-bold text-slate-500 block">Usuários (Assentos)</label>
+                <input 
+                  type="number"
+                  min="1"
+                  max="100"
+                  value={seats}
+                  onChange={(e) => setSeats(Math.max(1, parseInt(e.target.value) || 1))}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 mt-1 font-bold text-slate-700 outline-none"
+                />
+              </div>
+              <div>
+                <label className="font-bold text-slate-500 block">Trial (Dias)</label>
+                <input 
+                  type="number"
+                  min="0"
+                  max="180"
+                  value={trialDays}
+                  onChange={(e) => setTrialDays(Math.max(0, parseInt(e.target.value) || 0))}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 mt-1 font-bold text-slate-700 outline-none"
+                />
+              </div>
+            </div>
+
+            {/* Cupom */}
+            <div className="space-y-1.5 pt-2 border-t border-slate-100">
+              <div className="flex justify-between items-center">
+                <label className="text-xs font-bold text-slate-500">Cupom de Desconto</label>
+                <button
+                  onClick={() => setHasPromo(!hasPromo)}
+                  className={`text-[9px] font-black uppercase tracking-wider ${hasPromo ? 'text-green-600' : 'text-slate-400'}`}
+                >
+                  {hasPromo ? 'Ativo (-10%)' : 'Ativar'}
+                </button>
+              </div>
+              {hasPromo && (
+                <input 
+                  type="text"
+                  value={promoCode}
+                  onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-xs font-bold text-green-700 outline-none uppercase"
+                />
+              )}
+            </div>
+
+            {/* Resumo */}
+            <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-500">Recorrência Total:</span>
+              <span className="text-base font-black text-[#f25a2f]">
+                R$ {totalPrice} <span className="text-[10px] font-normal text-slate-450">/ ciclo</span>
               </span>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center">
-                <selectedData.icon className="h-5 w-5" />
-              </div>
-              <h3 className="text-lg font-bold text-slate-900">{selectedData.title}</h3>
-            </div>
-
-            <p className="text-xs text-slate-600 leading-relaxed font-light">
-              {selectedData.details.description}
-            </p>
-
-            {/* Checklist */}
-            <div className="space-y-2 pt-4 border-t border-slate-150">
-              <span className="text-[10px] font-bold text-slate-450 uppercase tracking-wider block">O que precisa ser feito:</span>
-              <ul className="text-xs text-slate-600 space-y-2">
-                {selectedData.details.checklist.map((item, index) => (
-                  <li key={index} className="flex items-start gap-2 font-light">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#f25a2f] mt-1.5 flex-shrink-0"></span>
-                    <span>{item}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            {/* Código ou Requisito Técnico */}
-            <div className="space-y-2 pt-4 border-t border-slate-150">
-              <span className="text-[10px] font-bold text-slate-450 uppercase tracking-wider block">Comportamento/Script Técnico:</span>
-              <p className="text-[11px] text-slate-500 font-light italic mb-1">{selectedData.details.technical}</p>
-              <pre className="text-[10px] text-green-700 bg-slate-50 p-3 rounded-lg border border-slate-200 font-mono overflow-x-auto whitespace-pre-wrap">
-                {selectedData.details.code}
-              </pre>
-            </div>
-
-            {/* Arquivos Afetados */}
-            <div className="space-y-2 pt-4 border-t border-slate-150">
-              <span className="text-[10px] font-bold text-slate-455 uppercase tracking-wider block">Arquivos do Projeto Afetados:</span>
-              <div className="flex flex-wrap gap-1">
-                {selectedData.details.files.map((file, index) => (
-                  <span key={index} className="text-[10px] font-mono bg-slate-100 text-slate-700 px-2 py-0.5 rounded border border-slate-200">
-                    {file}
-                  </span>
-                ))}
-              </div>
             </div>
 
           </div>
 
-          {/* Simulador Dinâmico Acoplado (Para ver os payloads reais) */}
-          <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Calculadora de Assinaturas</h3>
-            <p className="text-xs text-slate-500 font-light">Simule o payload final que será gerado nos endpoints com base nas escolhas:</p>
-            
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <div>
-                  <span className="text-[10px] text-slate-400 uppercase block font-semibold">Plano</span>
-                  <select 
-                    value={selectedPlan} 
-                    onChange={(e) => setSelectedPlan(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded p-1.5 mt-1 font-bold text-slate-700"
-                  >
-                    <option value="essencial">Elo Essencial (R$ 127)</option>
-                    <option value="pro">Elo Pro (R$ 297)</option>
-                    <option value="ultra">Elo Ultra (R$ 497)</option>
-                  </select>
-                </div>
-                <div>
-                  <span className="text-[10px] text-slate-400 uppercase block font-semibold">Ciclo</span>
-                  <select 
-                    value={billingCycle} 
-                    onChange={(e) => setBillingCycle(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded p-1.5 mt-1 font-bold text-slate-700"
-                  >
-                    <option value="MONTHLY">Mensal</option>
-                    <option value="YEARLY">Anual (-20%)</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <div>
-                  <span className="text-[10px] text-slate-400 uppercase block font-semibold">Usuários (Assentos)</span>
-                  <input 
-                    type="number" 
-                    min="1" 
-                    max="100" 
-                    value={seats} 
-                    onChange={(e) => setSeats(Math.max(1, parseInt(e.target.value) || 1))}
-                    className="w-full bg-slate-50 border border-slate-200 rounded p-1.5 mt-1 font-bold text-slate-700"
-                  />
-                </div>
-                <div>
-                  <span className="text-[10px] text-slate-400 uppercase block font-semibold">Trial (Dias)</span>
-                  <input 
-                    type="number" 
-                    min="0" 
-                    max="180" 
-                    value={trialDays} 
-                    onChange={(e) => setTrialDays(Math.max(0, parseInt(e.target.value) || 0))}
-                    className="w-full bg-slate-50 border border-slate-200 rounded p-1.5 mt-1 font-bold text-slate-700"
-                  />
-                </div>
-              </div>
-
-              {/* Cupom */}
-              <div className="pt-2">
-                <span className="text-[10px] text-slate-400 uppercase block font-semibold">Cupom</span>
-                <input 
-                  type="text" 
-                  value={promoCode} 
-                  onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
-                  className="w-full bg-slate-50 border border-slate-200 rounded p-1.5 mt-1 font-bold text-slate-700 uppercase"
-                  placeholder="EX: MUITOLINDO"
-                />
-              </div>
-
-              {/* Resultado e Payload em JSON */}
-              <div className="pt-4 border-t border-slate-100 flex items-baseline justify-between">
-                <span className="text-xs font-bold text-slate-500">Valor Recorrente:</span>
-                <span className="text-lg font-black text-[#f25a2f]">R$ {totalValue} <span className="text-xs font-normal text-slate-450">/ ciclo</span></span>
-              </div>
-
-              <div className="pt-2">
-                <span className="text-[10px] text-slate-400 uppercase block font-semibold mb-1">Payload JSON gerado para Asaas:</span>
-                <pre className="text-[9px] font-mono text-green-700 bg-slate-50 border border-slate-200 rounded p-3 overflow-x-auto max-h-40">
-                  {JSON.stringify(generateAsaasPayload(), null, 2)}
-                </pre>
-              </div>
+          {/* Dica do Devonildo */}
+          <div className="mt-8 p-4 bg-slate-50 border border-slate-200 rounded-2xl flex gap-3 items-start">
+            <Info className="h-4 w-4 text-slate-400 flex-shrink-0 mt-0.5" />
+            <div className="text-[10px] text-slate-500 leading-relaxed font-light">
+              <span className="font-bold text-slate-700 block">Dica do Devonildo:</span>
+              Este mapa mental e os valores simulados salvam a consistência das rotas no ambiente local. Modifique o mapa à vontade adicionando caixas e notas para organizar as entregas, seu lindo!
             </div>
           </div>
 
