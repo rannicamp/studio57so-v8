@@ -349,8 +349,8 @@ function DossieViewerTab() {
 // --- COMPONENTE PRINCIPAL ---
 export default function ContactProfile({ contact }) {
  const supabase = createClient();
- const { user } = useAuth();
- const organizacaoId = user?.organizacao_id;
+  const { user, hasModuleAccess } = useAuth();
+  const organizacaoId = user?.organizacao_id;
  const queryClient = useQueryClient();
  const notesSectionRef = useRef(null);
  const prevContactIdRef = useRef(null);
@@ -961,18 +961,30 @@ export default function ContactProfile({ contact }) {
         <FontAwesomeIcon icon={faRobot} className={`text-purple-600 ${displayContact?.ia_atendimento_ativo ? 'animate-pulse' : 'opacity-60'}`} />
         <div className="flex flex-col">
           <span className="text-xs font-extrabold leading-tight">Piloto Automático (Stella)</span>
-          <span className="text-[9px] text-purple-700 font-semibold mt-0.5">Stella atende e envia anexos automaticamente</span>
+          {!(hasModuleAccess ? hasModuleAccess('inteligencia_artificial') : false) ? (
+            <span className="text-[9px] text-purple-750 font-extrabold mt-0.5 uppercase tracking-wider bg-purple-100 border border-purple-200 px-1.5 py-0.5 rounded-md w-max">
+              Requer Plano Elo IA 🔒
+            </span>
+          ) : (
+            <span className="text-[9px] text-purple-700 font-semibold mt-0.5">Stella atende e envia anexos automaticamente</span>
+          )}
         </div>
       </div>
       <label className="relative inline-flex items-center cursor-pointer">
         <input 
           type="checkbox" 
-          checked={!!displayContact?.ia_atendimento_ativo} 
-          onChange={(e) => toggleAutopilotMutation.mutate(e.target.checked)}
+          checked={!!((hasModuleAccess ? hasModuleAccess('inteligencia_artificial') : false) && displayContact?.ia_atendimento_ativo)} 
+          onChange={(e) => {
+            if (!(hasModuleAccess ? hasModuleAccess('inteligencia_artificial') : false)) {
+              alert("O piloto automático Stella está desabilitado para o plano Pro. Por favor, atualize sua assinatura para o plano Elo IA!");
+              return;
+            }
+            toggleAutopilotMutation.mutate(e.target.checked);
+          }}
           disabled={toggleAutopilotMutation.isPending}
           className="sr-only peer" 
         />
-        <div className="w-9 h-5 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-600"></div>
+        <div className={`w-9 h-5 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-600 ${!(hasModuleAccess ? hasModuleAccess('inteligencia_artificial') : false) ? 'opacity-50 cursor-not-allowed bg-slate-200' : ''}`}></div>
       </label>
     </div>
   )}

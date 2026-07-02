@@ -268,7 +268,7 @@ const fetchActivityModalData = async (supabase, organizacaoId) => {
 
 export default function CrmPage() {
  const { setPageTitle } = useLayout();
- const { user, userData, hasPermission, loading: authLoading } = useAuth();
+  const { user, userData, hasPermission, hasModuleAccess, loading: authLoading } = useAuth();
  const router = useRouter();
  const organizacaoId = user?.organizacao_id;
  const supabase = createClient();
@@ -494,6 +494,18 @@ export default function CrmPage() {
         .maybeSingle();
 
       const isStella = stellaUser?.contato_id && corretorId === stellaUser.contato_id;
+      const hasAiAccess = hasModuleAccess ? hasModuleAccess('inteligencia_artificial') : false;
+
+      if (isStella && !hasAiAccess) {
+        throw new Error("O corretor Stella (IA) não está disponível no seu plano atual. Por favor, faça o upgrade para o plano Elo IA!");
+      }
+
+      // 2. Atualizar o corretor_id na tabela contatos_no_funil
+      await supabase
+        .from('contatos_no_funil')
+        .update({ corretor_id: corretorId })
+        .eq('id', contactId)
+        .throwOnError();
 
       // 4. Atualizar o flag ia_atendimento_ativo da tabela contatos
       await supabase

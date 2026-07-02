@@ -160,7 +160,46 @@ export async function POST(request) {
           .select('ia_atendimento_ativo, ai_analysis')
           .eq('id', contatoId)
           .single();
-        isAutopilotActive = !!contato?.ia_atendimento_ativo;
+
+        // Verificar se a organização possui acesso à Inteligência Artificial no plano dela
+        let hasAiAccess = false;
+        try {
+          const { data: org } = await supabaseAdmin
+            .from('organizacoes')
+            .select('plano_codigo, planos ( modulos_inclusos )')
+            .eq('id', config.organizacao_id)
+            .single();
+
+          if (org) {
+            if (config.organizacao_id === 1) {
+              hasAiAccess = true;
+            } else {
+              const planoCodigo = org.plano_codigo || 'essencial';
+              const modulos = org.planos?.modulos_inclusos || {};
+              const fallbackModulos = {
+                essencial: { inteligencia_artificial: false },
+                pro: { inteligencia_artificial: false },
+                ia: { inteligencia_artificial: true }
+              };
+              hasAiAccess = modulos.inteligencia_artificial === true || fallbackModulos[planoCodigo]?.inteligencia_artificial === true;
+            }
+          }
+        } catch (errPlan) {
+          console.error('[Webhook Plan Check Error]:', errPlan.message);
+        }
+
+        if (hasAiAccess) {
+          isAutopilotActive = !!contato?.ia_atendimento_ativo;
+        } else {
+          isAutopilotActive = false;
+          if (contato?.ia_atendimento_ativo) {
+            console.log(`[Webhook Plan Enforcer] Desativando Stella para Contato ${contatoId} da Org ${config.organizacao_id} por falta de módulo de IA.`);
+            await supabaseAdmin
+              .from('contatos')
+              .update({ ia_atendimento_ativo: false })
+              .eq('id', contatoId);
+          }
+        }
 
         const cacheAiAnalysis = contato?.ai_analysis || {};
         if (cacheAiAnalysis.tentativas_insistencia && cacheAiAnalysis.tentativas_insistencia > 0) {

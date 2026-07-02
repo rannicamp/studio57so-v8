@@ -539,42 +539,73 @@ async function processWebhook(body, request) {
     // 3g. ATRIBUIÇÃO AUTOMÁTICA DA STELLA IA (Ponto de Entrada Único)
     let stellaContatoId = null;
     try {
-      const { data: stellaUser, error: stellaErr } = await supabase
-        .from('usuarios')
-        .select('contato_id')
-        .eq('email', `stella.org${orgId}@elo57.com.br`)
-        .maybeSingle();
+      // Verificar se a organização possui acesso à Inteligência Artificial no plano dela
+      let hasAiAccess = false;
+      try {
+        const { data: org } = await supabase
+          .from('organizacoes')
+          .select('plano_codigo, planos ( modulos_inclusos )')
+          .eq('id', orgId)
+          .single();
 
-      if (stellaErr) {
-        console.error(`[Org ${orgId}] Erro ao buscar Stella IA:`, stellaErr.message);
-      } else if (stellaUser?.contato_id) {
-        stellaContatoId = stellaUser.contato_id;
-        
-        // Atribui a Stella IA como corretora inicial do lead no funil
-        const { error: updateFunnelErr } = await supabase
-          .from('contatos_no_funil')
-          .update({ corretor_id: stellaContatoId })
-          .eq('id', funilEntry.id);
-
-        if (updateFunnelErr) {
-          console.error(`[Org ${orgId}] Erro ao atribuir Stella como corretora do funil:`, updateFunnelErr.message);
-        } else {
-          console.log(`[Org ${orgId}] Stella IA (contato_id=${stellaContatoId}) atribuida como corretora inicial do lead.`);
+        if (org) {
+          if (orgId === 1) {
+            hasAiAccess = true;
+          } else {
+            const planoCodigo = org.plano_codigo || 'essencial';
+            const modulos = org.planos?.modulos_inclusos || {};
+            const fallbackModulos = {
+              essencial: { inteligencia_artificial: false },
+              pro: { inteligencia_artificial: false },
+              ia: { inteligencia_artificial: true }
+            };
+            hasAiAccess = modulos.inteligencia_artificial === true || fallbackModulos[planoCodigo]?.inteligencia_artificial === true;
+          }
         }
+      } catch (errPlan) {
+        console.error(`[Org ${orgId}] Erro ao verificar plano de IA:`, errPlan.message);
+      }
 
-        // Ativa o piloto automático (ia_atendimento_ativo = true) para o lead na public.contatos
-        const { error: updateContactErr } = await supabase
-          .from('contatos')
-          .update({ ia_atendimento_ativo: true })
-          .eq('id', contactIdToUse);
+      if (hasAiAccess) {
+        const { data: stellaUser, error: stellaErr } = await supabase
+          .from('usuarios')
+          .select('contato_id')
+          .eq('email', `stella.org${orgId}@elo57.com.br`)
+          .maybeSingle();
 
-        if (updateContactErr) {
-          console.error(`[Org ${orgId}] Erro ao ativar piloto automatico para o lead:`, updateContactErr.message);
+        if (stellaErr) {
+          console.error(`[Org ${orgId}] Erro ao buscar Stella IA:`, stellaErr.message);
+        } else if (stellaUser?.contato_id) {
+          stellaContatoId = stellaUser.contato_id;
+          
+          // Atribui a Stella IA como corretora inicial do lead no funil
+          const { error: updateFunnelErr } = await supabase
+            .from('contatos_no_funil')
+            .update({ corretor_id: stellaContatoId })
+            .eq('id', funilEntry.id);
+
+          if (updateFunnelErr) {
+            console.error(`[Org ${orgId}] Erro ao atribuir Stella como corretora do funil:`, updateFunnelErr.message);
+          } else {
+            console.log(`[Org ${orgId}] Stella IA (contato_id=${stellaContatoId}) atribuida como corretora inicial do lead.`);
+          }
+
+          // Ativa o piloto automático (ia_atendimento_ativo = true) para o lead na public.contatos
+          const { error: updateContactErr } = await supabase
+            .from('contatos')
+            .update({ ia_atendimento_ativo: true })
+            .eq('id', contactIdToUse);
+
+          if (updateContactErr) {
+            console.error(`[Org ${orgId}] Erro ao ativar piloto automatico para o lead:`, updateContactErr.message);
+          } else {
+            console.log(`[Org ${orgId}] Piloto automatico Stella IA ativado para o lead.`);
+          }
         } else {
-          console.log(`[Org ${orgId}] Piloto automatico Stella IA ativado para o lead.`);
+          console.warn(`[Org ${orgId}] Stella IA nao encontrada para esta organizacao (email: stella.org${orgId}@elo57.com.br). O lead ficara sem corretor inicial.`);
         }
       } else {
-        console.warn(`[Org ${orgId}] Stella IA nao encontrada para esta organizacao (email: stella.org${orgId}@elo57.com.br). O lead ficara sem corretor inicial.`);
+        console.log(`[Org ${orgId}] Organização no plano Pro/Essencial. Pulando atribuição automática da Stella IA.`);
       }
     } catch (errStella) {
       console.error(`[Org ${orgId}] Falha ao associar Stella IA na entrada do lead:`, errStella.message);

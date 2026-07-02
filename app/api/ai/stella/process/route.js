@@ -64,6 +64,42 @@ export async function POST(request) {
       return NextResponse.json({ status: 'ignored_ia_inactive' });
     }
 
+    // 1b. Verificar se a organização possui acesso à Inteligência Artificial no plano dela
+    let hasAiAccess = false;
+    try {
+      const { data: org } = await supabaseAdmin
+        .from('organizacoes')
+        .select('plano_codigo, planos ( modulos_inclusos )')
+        .eq('id', organizacaoId)
+        .single();
+
+      if (org) {
+        if (organizacaoId === 1) {
+          hasAiAccess = true;
+        } else {
+          const planoCodigo = org.plano_codigo || 'essencial';
+          const modulos = org.planos?.modulos_inclusos || {};
+          const fallbackModulos = {
+            essencial: { inteligencia_artificial: false },
+            pro: { inteligencia_artificial: false },
+            ia: { inteligencia_artificial: true }
+          };
+          hasAiAccess = modulos.inteligencia_artificial === true || fallbackModulos[planoCodigo]?.inteligencia_artificial === true;
+        }
+      }
+    } catch (errPlan) {
+      console.error('[Stella Background Plan Check Error]:', errPlan.message);
+    }
+
+    if (!hasAiAccess) {
+      console.log(`[Stella Background Process] Organização ${organizacaoId} não possui acesso à IA. Forçando ia_atendimento_ativo = false.`);
+      await supabaseAdmin
+        .from('contatos')
+        .update({ ia_atendimento_ativo: false })
+        .eq('id', contatoId);
+      return NextResponse.json({ status: 'blocked_no_ai_plan' });
+    }
+
     // Obter número de telefone de forma segura
     let cleanPhone = messageFrom || conversa?.phone_number || '';
     cleanPhone = cleanPhone.replace(/[^0-9]/g, '');

@@ -452,6 +452,43 @@ async function saveInstaMessage(supabase, { senderIgId, recipientIgId, messageId
       ]);
 
       isAutopilotActive = !!contatoRes.data?.ia_atendimento_ativo;
+
+      // Verificar se a organização possui acesso à Inteligência Artificial no plano dela
+      let hasAiAccess = false;
+      try {
+        const { data: org } = await supabase
+          .from('organizacoes')
+          .select('plano_codigo, planos ( modulos_inclusos )')
+          .eq('id', orgId)
+          .single();
+
+        if (org) {
+          if (orgId === 1) {
+            hasAiAccess = true;
+          } else {
+            const planoCodigo = org.plano_codigo || 'essencial';
+            const modulos = org.planos?.modulos_inclusos || {};
+            const fallbackModulos = {
+              essencial: { inteligencia_artificial: false },
+              pro: { inteligencia_artificial: false },
+              ia: { inteligencia_artificial: true }
+            };
+            hasAiAccess = modulos.inteligencia_artificial === true || fallbackModulos[planoCodigo]?.inteligencia_artificial === true;
+          }
+        }
+      } catch (errPlan) {
+        console.error(`[Instagram Webhook Plan Check Error]:`, errPlan.message);
+      }
+
+      if (!hasAiAccess) {
+        isAutopilotActive = false;
+        if (contatoRes.data?.ia_atendimento_ativo) {
+          await supabase
+            .from('contatos')
+            .update({ ia_atendimento_ativo: false })
+            .eq('id', contatoIdFinal);
+        }
+      }
       stellaUserId = stellaUserRes.data?.id;
       const stellaContatoId = stellaUserRes.data?.contato_id;
       const leadCorretorId = funilRes.data?.[0]?.corretor_id;
