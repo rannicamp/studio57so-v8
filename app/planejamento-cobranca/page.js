@@ -2,7 +2,7 @@
 
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef } from 'react';
 import { 
   Building2, 
   CreditCard, 
@@ -17,36 +17,38 @@ import {
   Settings, 
   Info, 
   Layers,
-  ArrowRight,
-  HelpCircle,
-  Play,
+  Check,
   RotateCcw,
   Edit2,
-  Check,
-  Download,
-  Share2,
+  HelpCircle,
   Trash
 } from 'lucide-react';
 
 export default function PlanejamentoCobrancaPage() {
-  // Pre-load default mind map nodes (our billing planning)
+  // Mapa Mental focado em tarefas concretas a serem feitas no projeto
   const defaultNodes = [
-    { id: '1', text: 'Onboarding & Cobrança (Elo 57)', x: 50, y: 350, parentId: null, color: '#f25a2f', isRoot: true },
+    { id: '1', text: 'Roadmap de Faturamento (Elo 57)', x: 30, y: 350, parentId: null, color: '#f25a2f', isRoot: true },
     
-    // Branch 1: Entrada
-    { id: '2', text: 'Landing Page (Parâmetros de Planos & Cupom na URL)', x: 380, y: 120, parentId: '1', color: '#eab308' },
-    { id: '3', text: 'Cadastro (Criação local de Org e Admin)', x: 380, y: 250, parentId: '1', color: '#3b82f6' },
+    // Grupo 1: Entrada & Coleta (Amarelo)
+    { id: '2', text: '1. LP: Passar Parâmetros na URL (?plan=pro&promo=MUITOLINDO)', x: 420, y: 80, parentId: '1', color: '#eab308' },
+    { id: '3', text: '2. Cadastro: Validar Coleta de CNPJ, CEP e Telefone no Wizard', x: 420, y: 190, parentId: '1', color: '#eab308' },
     
-    // Branch 2: Integração
-    { id: '4', text: 'Sincronização no Asaas (Criar ou Atualizar Cliente com CNPJ)', x: 740, y: 180, parentId: '3', color: '#6366f1' },
-    { id: '5', text: 'Criação da Assinatura (Ciclo do Plano com 90 dias de Trial)', x: 740, y: 320, parentId: '3', color: '#a855f7' },
-    
-    // Branch 3: Checkout
-    { id: '6', text: 'Checkout Asaas (Redirecionamento para inserir Cartão de Crédito)', x: 1100, y: 250, parentId: '5', color: '#ec4899' },
-    
-    // Branch 4: Retorno & Ativação
-    { id: '7', text: 'Webhook de Ativação (Atualiza Org para active no Supabase)', x: 1440, y: 180, parentId: '6', color: '#10b981' },
-    { id: '8', text: 'Middleware (Bloqueio se status for overdue ou pending_payment)', x: 1440, y: 320, parentId: '6', color: '#ef4444' }
+    // Grupo 2: Banco de Dados (Azul/Indigo)
+    { id: '4', text: '3. DB: Criar Tabela public.planos no Supabase', x: 420, y: 310, parentId: '1', color: '#3b82f6' },
+    { id: '5', text: '4. DB: Criar Tabela public.promocoes (Cupons de Desconto & Trial)', x: 420, y: 420, parentId: '1', color: '#3b82f6' },
+    { id: '6', text: '5. DB: Alterar public.organizacoes (plano_codigo, seats, trial_ends_at)', x: 420, y: 530, parentId: '1', color: '#3b82f6' },
+
+    // Grupo 3: Integração Asaas (Roxo)
+    { id: '7', text: '6. API: Sincronizar Cliente no Asaas com CNPJ/CPF da Org', x: 800, y: 220, parentId: '3', color: '#a855f7' },
+    { id: '8', text: '7. API: Gerar Assinatura no Asaas com Vencimento Futuro (Carência)', x: 800, y: 340, parentId: '3', color: '#a855f7' },
+    { id: '9', text: '8. API: Redirecionar para URL de Checkout após Criação da Conta', x: 800, y: 460, parentId: '3', color: '#a855f7' },
+
+    // Grupo 4: Segurança & Bloqueio (Vermelho)
+    { id: '10', text: '9. Controle: Bloquear BIM e Módulos Pro se Plano for Essencial', x: 1180, y: 280, parentId: '8', color: '#ef4444' },
+    { id: '11', text: '10. Middleware: Impedir Acesso se status for overdue/pending', x: 1180, y: 400, parentId: '8', color: '#ef4444' },
+
+    // Grupo 5: Confirmação (Verde)
+    { id: '12', text: '11. Webhooks: Escutar payment confirm do Asaas e ativar Org', x: 1560, y: 340, parentId: '11', color: '#10b981' }
   ];
 
   const [nodes, setNodes] = useState(defaultNodes);
@@ -66,8 +68,8 @@ export default function PlanejamentoCobrancaPage() {
   const [promoCode, setPromoCode] = useState('MUITOLINDO');
   const [hasPromo, setHasPromo] = useState(true);
 
-  // Node Dimensions used for line drawing
-  const cardWidth = 260;
+  // Node Dimensions
+  const cardWidth = 280;
   const cardHeight = 84;
 
   const planDetails = {
@@ -78,7 +80,6 @@ export default function PlanejamentoCobrancaPage() {
 
   // Node Drag Handlers
   const handleMouseDown = (e, nodeId) => {
-    // Prevent drag when clicking buttons/inputs
     if (e.target.tagName === 'INPUT' || e.target.closest('button')) return;
     
     const node = nodes.find(n => n.id === nodeId);
@@ -94,7 +95,6 @@ export default function PlanejamentoCobrancaPage() {
   const handleMouseMove = (e) => {
     if (!draggedNodeId) return;
 
-    // Track movement relative to canvas
     setNodes(prev => prev.map(n => {
       if (n.id === draggedNodeId) {
         return {
@@ -119,7 +119,7 @@ export default function PlanejamentoCobrancaPage() {
     
     const newNode = {
       id: newId,
-      text: 'Novo Tópico',
+      text: 'Nova Tarefa / Requisito',
       x: 100,
       y: 200 + (Math.random() * 100),
       parentId: null,
@@ -137,7 +137,7 @@ export default function PlanejamentoCobrancaPage() {
     const newId = Date.now().toString();
     const newNode = {
       id: newId,
-      text: 'Nova Etapa / Tarefa',
+      text: 'Nova Subtarefa',
       x: parent.x + cardWidth + 80,
       y: parent.y + (Math.random() * 120 - 60),
       parentId: parentId,
@@ -148,7 +148,6 @@ export default function PlanejamentoCobrancaPage() {
   };
 
   const deleteNode = (nodeId) => {
-    // Delete node and recursively all its descendants
     const getDescendants = (id) => {
       const children = nodes.filter(n => n.parentId === id);
       return children.reduce((acc, child) => {
@@ -197,13 +196,22 @@ export default function PlanejamentoCobrancaPage() {
   const priceFinal = Math.round(basePrice * discount * promoDiscount);
   const totalPrice = priceFinal * seats;
 
+  // Connection curve drawing
+  const getSPath = (startX, startY, endX, endY) => {
+    const controlX1 = startX + 60;
+    const controlY1 = startY;
+    const controlX2 = endX - 60;
+    const controlY2 = endY;
+    return `M ${startX} ${startY} C ${controlX1} ${controlY1}, ${controlX2} ${controlY2}, ${endX} ${endY}`;
+  };
+
   return (
     <div 
       className="min-h-screen bg-[#fafbfc] text-slate-800 font-sans flex flex-col relative select-none"
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
     >
-      {/* Background Dots Grid Pattern matching user upload */}
+      {/* Background Dots Grid Pattern */}
       <div className="absolute inset-0 bg-[radial-gradient(#cbd5e1_1px,transparent_1px)] bg-[size:20px_20px] opacity-70 pointer-events-none z-0"></div>
 
       {/* Header Dock */}
@@ -214,9 +222,9 @@ export default function PlanejamentoCobrancaPage() {
           </div>
           <div>
             <h1 className="text-sm font-bold text-slate-900 tracking-tight flex items-center gap-2">
-              Planejamento de Cobrança <span className="text-[10px] font-bold text-[#f25a2f] bg-[#f25a2f]/10 border border-[#f25a2f]/20 px-2 py-0.5 rounded-full uppercase">Mapa Mental</span>
+              Quadro de Planejamento de Cobrança <span className="text-[10px] font-bold text-[#f25a2f] bg-[#f25a2f]/10 border border-[#f25a2f]/20 px-2 py-0.5 rounded-full uppercase">Tarefas</span>
             </h1>
-            <p className="text-[10px] text-slate-400 font-light">Seu lindo, arraste os cards, dê duplo clique para editar o texto e use o (+) para puxar novos nós!</p>
+            <p className="text-[10px] text-slate-400 font-light">Seu lindo, monte o plano de ação arrastando e conectando cards para definirmos a entrega local.</p>
           </div>
         </div>
 
@@ -228,7 +236,7 @@ export default function PlanejamentoCobrancaPage() {
             className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg text-xs font-bold text-slate-600 transition-all active:scale-95"
           >
             <RotateCcw className="h-3.5 w-3.5" />
-            Restaurar Fluxo Asaas
+            Carregar Checklist de Cobrança
           </button>
           <button 
             onClick={addNewRootNode}
@@ -250,11 +258,10 @@ export default function PlanejamentoCobrancaPage() {
       {/* Main Workspace Layout */}
       <div className="flex-1 flex flex-col lg:flex-row relative z-10 overflow-hidden">
         
-        {/* VIEWPORT CANVAS (SCROLLABLE MAP CANVAS) */}
+        {/* VIEWPORT CANVAS */}
         <div className="flex-1 overflow-auto p-4 min-h-[50vh] lg:min-h-0" ref={canvasRef}>
-          <div 
-            className="w-[2000px] h-[900px] relative rounded-3xl"
-          >
+          <div className="w-[2000px] h-[900px] relative rounded-3xl">
+            
             {/* SVG Connecting Lines Layer */}
             <svg className="absolute inset-0 w-full h-full pointer-events-none z-0">
               {nodes.map(node => {
@@ -262,40 +269,17 @@ export default function PlanejamentoCobrancaPage() {
                 const parent = nodes.find(n => n.id === node.parentId);
                 if (!parent) return null;
 
-                // Parent Output Port (right side of card)
                 const startX = parent.x + cardWidth;
                 const startY = parent.y + cardHeight / 2;
-
-                // Child Input Port (left side of card)
                 const endX = node.x;
                 const endY = node.y + cardHeight / 2;
 
-                // S-Curve Control Points
-                const controlX1 = startX + 60;
-                const controlY1 = startY;
-                const controlX2 = endX - 60;
-                const controlY2 = endY;
-
-                const pathData = `M ${startX} ${startY} C ${controlX1} ${controlY1}, ${controlX2} ${controlY2}, ${endX} ${endY}`;
+                const pathData = getSPath(startX, startY, endX, endY);
 
                 return (
                   <g key={`link-${node.id}`}>
-                    {/* Shadow trace for depth */}
-                    <path 
-                      d={pathData} 
-                      fill="none" 
-                      stroke="#e2e8f0" 
-                      strokeWidth="5" 
-                      strokeLinecap="round" 
-                    />
-                    {/* Main connector line */}
-                    <path 
-                      d={pathData} 
-                      fill="none" 
-                      stroke={node.color || '#cbd5e1'} 
-                      strokeWidth="2.5" 
-                      strokeLinecap="round" 
-                    />
+                    <path d={pathData} fill="none" stroke="#e2e8f0" strokeWidth="5" strokeLinecap="round" />
+                    <path d={pathData} fill="none" stroke={node.color || '#cbd5e1'} strokeWidth="2.5" strokeLinecap="round" />
                   </g>
                 );
               })}
@@ -319,14 +303,12 @@ export default function PlanejamentoCobrancaPage() {
                     draggedNodeId === node.id ? 'shadow-lg border-slate-400 ring-2 ring-slate-200/50' : 'border-slate-200/80 hover:shadow-md'
                   }`}
                 >
-                  {/* Card Border Accent */}
                   <div 
-                    className="absolute left-0 top-0 bottom-0 w-2.5 rounded-l-2xl" 
+                    className="absolute left-0 top-0 bottom-0 w-2 rounded-l-2xl" 
                     style={{ backgroundColor: node.color || '#cbd5e1' }}
                   ></div>
 
-                  {/* Node Content / Text Editor */}
-                  <div className="pl-3.5 pr-6 h-full flex items-center">
+                  <div className="pl-3 pr-6 h-full flex items-center">
                     {isEditing ? (
                       <div className="flex items-center gap-1.5 w-full">
                         <input
@@ -338,10 +320,7 @@ export default function PlanejamentoCobrancaPage() {
                           className="w-full bg-slate-50 border border-slate-350 rounded px-2 py-1 text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-[#f25a2f]"
                           autoFocus
                         />
-                        <button 
-                          onClick={saveEdit}
-                          className="p-1 bg-green-50 hover:bg-green-100 text-green-700 rounded border border-green-200"
-                        >
+                        <button onClick={saveEdit} className="p-1 bg-green-50 hover:bg-green-100 text-green-700 rounded border border-green-200">
                           <Check className="h-3 w-3" />
                         </button>
                       </div>
@@ -355,31 +334,30 @@ export default function PlanejamentoCobrancaPage() {
                     )}
                   </div>
 
-                  {/* Actions Overlay Dock (Visible on hover) */}
-                  <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                  {/* Actions Overlay */}
+                  <div className="absolute right-2 top-1/2 -translate-y-1/2 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                     <button
                       onClick={() => addChildNode(node.id)}
                       title="Adicionar nó filho"
-                      className="w-6 h-6 bg-slate-50 hover:bg-[#f25a2f] border border-slate-200 hover:border-[#f25a2f] hover:text-white rounded-lg flex items-center justify-center transition-all"
+                      className="w-5.5 h-5.5 bg-slate-50 hover:bg-[#f25a2f] border border-slate-200 hover:border-[#f25a2f] hover:text-white rounded flex items-center justify-center transition-all"
                     >
                       <Plus className="h-3 w-3" />
                     </button>
                     <button
                       onClick={() => startEditing(node)}
                       title="Editar Texto"
-                      className="w-6 h-6 bg-slate-50 hover:bg-blue-500 border border-slate-200 hover:border-blue-500 hover:text-white rounded-lg flex items-center justify-center transition-all"
+                      className="w-5.5 h-5.5 bg-slate-50 hover:bg-blue-500 border border-slate-200 hover:border-blue-500 hover:text-white rounded flex items-center justify-center transition-all"
                     >
                       <Edit2 className="h-2.5 w-2.5" />
                     </button>
                     <button
                       onClick={() => deleteNode(node.id)}
-                      title="Deletar este nó e seus filhos"
-                      className="w-6 h-6 bg-rose-50 hover:bg-rose-500 border border-rose-200 hover:border-rose-500 hover:text-white rounded-lg flex items-center justify-center transition-all"
+                      title="Deletar"
+                      className="w-5.5 h-5.5 bg-rose-50 hover:bg-rose-500 border border-rose-200 hover:border-rose-500 hover:text-white rounded flex items-center justify-center transition-all"
                     >
                       <Trash2 className="h-2.5 w-2.5" />
                     </button>
                   </div>
-
                 </div>
               );
             })}
@@ -387,27 +365,27 @@ export default function PlanejamentoCobrancaPage() {
             {nodes.length === 0 && (
               <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-8 z-0">
                 <HelpCircle className="h-10 w-10 text-slate-300 mb-2" />
-                <h4 className="text-slate-400 font-bold text-sm">Seu mapa mental está limpo.</h4>
-                <p className="text-slate-400 text-xs mt-1 font-light max-w-sm">Use o botão "Adicionar Card Raiz" no topo para criar uma caixa e arrastá-la ou resete para carregar a configuração Asaas.</p>
+                <h4 className="text-slate-400 font-bold text-sm">Seu roadmap está em branco.</h4>
+                <p className="text-slate-450 text-xs mt-1 font-light max-w-sm">Use o botão "Carregar Checklist de Cobrança" para restaurar as tarefas padrão do Asaas.</p>
               </div>
             )}
 
           </div>
         </div>
 
-        {/* SIDEBAR DOCK: ASSINATURA SIMULATOR PANEL */}
+        {/* SIDEBAR PANEL: CONEXÕES & SIMULAÇÃO */}
         <div className="w-full lg:w-96 bg-white border-t lg:border-t-0 lg:border-l border-slate-200/80 p-6 flex flex-col justify-between shadow-lg z-20">
           
           <div className="space-y-6">
             <div>
-              <span className="text-[10px] font-bold text-[#f25a2f] uppercase tracking-wider block">Calculadora de Payload</span>
-              <h2 className="text-base font-bold text-slate-800 mt-1">Simulador Recorrente</h2>
-              <p className="text-[11px] text-slate-400 mt-1 font-light">Os valores e ciclos abaixo alimentam dinamicamente a assinatura gerada no nó de Checkout do Mapa Mental.</p>
+              <span className="text-[10px] font-bold text-[#f25a2f] uppercase tracking-wider block">Integração Ativa</span>
+              <h2 className="text-base font-bold text-slate-800 mt-1">Configuração de Planos</h2>
+              <p className="text-[11px] text-slate-400 mt-1 font-light">Defina os valores e ciclos para a carência e simule o payload enviado ao Asaas:</p>
             </div>
 
-            {/* Plano */}
+            {/* Plan selector */}
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-500">Qual o Plano?</label>
+              <label className="text-xs font-bold text-slate-500">Selecione o Plano Comercial</label>
               <select
                 value={selectedPlan}
                 onChange={(e) => setSelectedPlan(e.target.value)}
@@ -438,7 +416,7 @@ export default function PlanejamentoCobrancaPage() {
               </div>
             </div>
 
-            {/* Usuários */}
+            {/* Usuários e Carência */}
             <div className="grid grid-cols-2 gap-3 text-xs">
               <div>
                 <label className="font-bold text-slate-500 block">Usuários (Assentos)</label>
@@ -452,7 +430,7 @@ export default function PlanejamentoCobrancaPage() {
                 />
               </div>
               <div>
-                <label className="font-bold text-slate-500 block">Trial (Dias)</label>
+                <label className="font-bold text-slate-500 block">Carência (Trial/Dias)</label>
                 <input 
                   type="number"
                   min="0"
@@ -485,7 +463,7 @@ export default function PlanejamentoCobrancaPage() {
               )}
             </div>
 
-            {/* Resumo */}
+            {/* Resumo Financeiro */}
             <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
               <span className="text-xs font-bold text-slate-500">Recorrência Total:</span>
               <span className="text-base font-black text-[#f25a2f]">
@@ -495,12 +473,19 @@ export default function PlanejamentoCobrancaPage() {
 
           </div>
 
-          {/* Dica do Devonildo */}
+          {/* Instruções do Fluxo */}
           <div className="mt-8 p-4 bg-slate-50 border border-slate-200 rounded-2xl flex gap-3 items-start">
             <Info className="h-4 w-4 text-slate-400 flex-shrink-0 mt-0.5" />
             <div className="text-[10px] text-slate-500 leading-relaxed font-light">
-              <span className="font-bold text-slate-700 block">Dica do Devonildo:</span>
-              Este mapa mental e os valores simulados salvam a consistência das rotas no ambiente local. Modifique o mapa à vontade adicionando caixas e notas para organizar as entregas, seu lindo!
+              <span className="font-bold text-slate-700 block">Links Importantes:</span>
+              <ul className="space-y-1 mt-1 font-mono text-[9px] text-[#f25a2f]">
+                <li>
+                  <a href="/cadastro" className="underline" target="_blank">Página de Cadastro (/cadastro)</a>
+                </li>
+                <li>
+                  <a href="/configuracoes/assinatura" className="underline" target="_blank">Página de Assinatura (/configuracoes/assinatura)</a>
+                </li>
+              </ul>
             </div>
           </div>
 
