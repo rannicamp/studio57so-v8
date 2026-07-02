@@ -2,7 +2,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { 
   Building2, 
   CreditCard, 
@@ -14,51 +14,38 @@ import {
   Plus, 
   Minus, 
   Calendar, 
-  DollarSign, 
-  Percent, 
   Settings, 
   Info, 
   Layers,
-  RefreshCw
+  ArrowRight,
+  HelpCircle,
+  AlertTriangle,
+  Play
 } from 'lucide-react';
 
 export default function PlanejamentoCobrancaPage() {
-  const [activeTab, setActiveTab] = useState('fluxo');
+  const [selectedNode, setSelectedNode] = useState('cadastro');
+  
+  // States for Simulator
   const [selectedPlan, setSelectedPlan] = useState('pro');
   const [seats, setSeats] = useState(5);
-  const [billingCycle, setBillingCycle] = useState('MONTHLY'); // MONTHLY or YEARLY
-  const [trialDays, setTrialDays] = useState(90); // default 90 days (3 months)
+  const [billingCycle, setBillingCycle] = useState('MONTHLY');
+  const [trialDays, setTrialDays] = useState(90);
   const [promoCode, setPromoCode] = useState('MUITOLINDO');
   const [hasPromo, setHasPromo] = useState(true);
 
-  // States for interactive flow
-  const [flowStep, setFlowStep] = useState(1);
-
-  // Preços
   const planDetails = {
-    essencial: { nome: 'Elo Essencial', valor: 127, desc: 'Recursos básicos administrativos e financeiros.' },
+    essencial: { nome: 'Elo Essencial', valor: 127, desc: 'Recursos essenciais administrativos e financeiros.' },
     pro: { nome: 'Elo Pro', valor: 297, desc: 'Gestão completa, comercial, funil e BIM 3D.' },
     ultra: { nome: 'Elo Ultra', valor: 497, desc: 'Automação inteligente e IA especializada.' }
   };
 
-  // Cálculo de Valores
   const basePricePerUser = planDetails[selectedPlan].valor;
   const isYearly = billingCycle === 'YEARLY';
-  
-  // Desconto anual (20%)
   const discountMultiplier = isYearly ? 0.8 : 1.0;
-  // Desconto cupom (10% se ativado)
   const promoDiscountMultiplier = (hasPromo && promoCode === 'MUITOLINDO') ? 0.9 : 1.0;
-  
   const unitPriceFinal = Math.round(basePricePerUser * discountMultiplier * promoDiscountMultiplier);
   const totalValue = unitPriceFinal * seats;
-
-  // Calculo de datas fictícias baseado no trial selecionado
-  const getTrialExpirationDate = (days) => {
-    const d = new Date();
-    d.setDate(d.getDate() + days);
-    return d.toLocaleDateString('pt-BR');
-  };
 
   const getTrialExpirationISO = (days) => {
     const d = new Date();
@@ -66,16 +53,15 @@ export default function PlanejamentoCobrancaPage() {
     return d.toISOString().split('T')[0];
   };
 
-  // Asaas Payload Generator
-  const generatePayload = () => {
+  const generateAsaasPayload = () => {
     return {
-      customer: "cus_000001234567", // ID do cliente sincronizado
-      billingType: "UNDEFINED", // Permite Cartão, Pix ou Boleto no Checkout do Asaas
+      customer: "cus_000001234567",
+      billingType: "UNDEFINED", // Habilita todos os métodos no checkout do Asaas
       value: totalValue,
       nextDueDate: getTrialExpirationISO(trialDays),
       cycle: billingCycle,
-      description: `Assinatura ${planDetails[selectedPlan].nome} - ${seats} Usuários (Contratado via Onboarding)`,
-      externalReference: `ORG_ID_VINCULADA`,
+      description: `Assinatura ${planDetails[selectedPlan].nome} - ${seats} Usuários (Período de Testes de ${trialDays} dias)`,
+      externalReference: "ID_DA_ORGANIZACAO_LOCAL",
       callback: {
         successUrl: "https://studio57.arq.br/configuracoes/assinatura?status=ativada",
         autoRedirect: true
@@ -83,633 +69,459 @@ export default function PlanejamentoCobrancaPage() {
     };
   };
 
-  const sqlSchemaPlanos = `CREATE TABLE public.planos (
-  id serial PRIMARY KEY,
-  codigo text UNIQUE NOT NULL, -- 'essencial', 'pro', 'ultra'
-  nome text NOT NULL,
-  valor_mensal numeric(10,2) NOT NULL,
-  valor_anual numeric(10,2) NOT NULL,
-  modulos_inclusos text[], -- array de permissões / módulos
-  ativo boolean DEFAULT true,
-  created_at timestamp with time zone DEFAULT now()
-);`;
+  // Definição dos nós do Mapa Mental
+  const nodes = {
+    landing: {
+      id: 'landing',
+      phase: 'Fase 1: Entrada',
+      title: 'Landing Page (LP)',
+      icon: Sparkles,
+      color: 'border-amber-400 bg-amber-50 text-amber-700',
+      badge: 'Ponto de Partida',
+      summary: 'Captura o plano e o cupom de trial escolhidos pelo usuário.',
+      details: {
+        description: 'O fluxo se inicia quando o cliente navega pela LP do Elo 57 e clica em assinar um plano. A LP envia os parâmetros para a rota de cadastro via URL.',
+        technical: 'Configurar os botões de ação dos planos na Landing Page para redirecionar para:',
+        code: '/cadastro?plan=pro&promo=MUITOLINDO',
+        files: ['app/(landingpages)/elo57/components/PricingSection.js'],
+        checklist: [
+          'Adicionar query params nos links de "Começar Agora" da LP.',
+          'Mapear os códigos dos planos (essencial, pro, ultra) nos links.'
+        ]
+      }
+    },
+    cadastro: {
+      id: 'cadastro',
+      phase: 'Fase 1: Entrada',
+      title: 'Cadastro do Workspace',
+      icon: Building2,
+      color: 'border-blue-500 bg-blue-50 text-blue-700',
+      badge: 'Supabase DB',
+      summary: 'Criação do usuário, organização e empresa local no banco.',
+      details: {
+        description: 'O usuário realiza o cadastro de sua conta administradora e de sua empresa. O sistema cria as tabelas locais no Supabase.',
+        technical: 'Ao criar a Organização no Supabase, ela é criada com o status inicial de "trialing".',
+        code: `// Estrutura criada no Supabase:\npublic.organizacoes (status: 'trialing')\npublic.cadastro_empresa (CNPJ, Razão Social, CEP, etc.)\nauth.users (admin_email, admin_senha)`,
+        files: ['app/cadastro/actions.js', 'app/cadastro/page.js'],
+        checklist: [
+          'Ajustar o wizard de cadastro para receber e persistir os parâmetros da URL.',
+          'Reter os dados fiscais coletados para o próximo nó (Asaas).'
+        ]
+      }
+    },
+    sync_asaas: {
+      id: 'sync_asaas',
+      phase: 'Fase 2: Integração',
+      title: 'Sincronizar Asaas',
+      icon: Database,
+      color: 'border-indigo-500 bg-indigo-50 text-indigo-700',
+      badge: 'Asaas API',
+      summary: 'Cria ou atualiza o cliente no Asaas com dados fiscais locais.',
+      details: {
+        description: 'Para gerar faturas e cartões, o Asaas exige o CPF/CNPJ e dados de endereço completos. Sincronizamos a empresa local com o Asaas.',
+        technical: 'Chamar obterOuCriarCliente passando Razão Social, CNPJ, Telefone e CEP. Se o cliente já existir, atualiza com PUT para garantir o preenchimento de dados.',
+        code: `const customer = await obterOuCriarCliente({\n  nome: empresa.razao_social,\n  cpfCnpj: empresa.cnpj,\n  postalCode: empresa.cep,\n  email: user.email\n});`,
+        files: ['lib/asaas.js', 'app/cadastro/actions.js'],
+        checklist: [
+          'Garantir higienização de strings (remover pontuações de CNPJ e CEP).',
+          'Gravar o asaas_customer_id gerado na tabela public.organizacoes.'
+        ]
+      }
+    },
+    criar_assinatura: {
+      id: 'criar_assinatura',
+      phase: 'Fase 3: Recorrência',
+      title: 'Criar Assinatura (Trial)',
+      icon: Calendar,
+      color: 'border-purple-500 bg-purple-50 text-purple-700',
+      badge: 'Faturamento',
+      summary: 'Configuração do plano e agendamento da primeira cobrança pós-trial.',
+      details: {
+        description: 'Criação do plano de recorrência no Asaas com a primeira cobrança agendada para 90 dias (trial) no futuro.',
+        technical: 'Utilizar cycle como MONTHLY ou YEARLY, billingType como UNDEFINED e nextDueDate como a data de expiração do trial.',
+        code: `const assinatura = await criarAssinatura({\n  clienteId: customer.id,\n  valor: totalCalculado,\n  ciclo: 'YEARLY',\n  dataVencimento: '2026-10-02' // Hoje + 90 dias\n});`,
+        files: ['lib/asaas.js', 'app/api/subscriptions/checkout/route.js'],
+        checklist: [
+          'Mapear a data do trial baseando-se no cupom da promoção.',
+          'Salvar o asaas_subscription_id gerado na tabela public.organizacoes.'
+        ]
+      }
+    },
+    checkout_cartao: {
+      id: 'checkout_cartao',
+      phase: 'Fase 3: Recorrência',
+      title: 'Checkout & Cartão',
+      icon: CreditCard,
+      color: 'border-[#f25a2f] bg-orange-50 text-[#f25a2f]',
+      badge: 'Segurança',
+      summary: 'Redirecionamento ao checkout seguro para inserir o cartão.',
+      details: {
+        description: 'O cliente insere seu cartão no checkout seguro do Asaas. O Asaas valida o cartão e o vincula à assinatura recorrente futura.',
+        technical: 'Redirecionar o usuário para a URL invoiceUrl da primeira cobrança. Ao salvar o cartão, a assinatura se auto-atualiza.',
+        code: `// Redirecionamento no frontend:\nwindow.location.href = checkoutUrl;`,
+        files: ['app/cadastro/page.js', 'app/api/subscriptions/checkout/route.js'],
+        checklist: [
+          'Capturar a URL de checkout retornada na criação da assinatura.',
+          'Redirecionar o usuário para o Asaas após a etapa final do cadastro.'
+        ]
+      }
+    },
+    webhook_ativacao: {
+      id: 'webhook_ativacao',
+      phase: 'Fase 4: Confirmação',
+      title: 'Webhook Ativação',
+      icon: CheckCircle2,
+      color: 'border-emerald-500 bg-emerald-50 text-emerald-700',
+      badge: 'Ativação',
+      summary: 'Notificação do Asaas ativando o plano localmente.',
+      details: {
+        description: 'O webhook processa a resposta do Asaas confirmando que o cartão do cliente foi salvo e validado com sucesso.',
+        technical: 'Escutar eventos PAYMENT_RECEIVED ou PAYMENT_CONFIRMED, buscar a assinatura correspondente e mudar o status para active.',
+        code: `// No webhook:\nawait supabaseAdmin\n  .from('organizacoes')\n  .update({ subscription_status: 'active' })\n  .eq('asaas_subscription_id', subscriptionId);`,
+        files: ['app/api/webhooks/asaas/route.js'],
+        checklist: [
+          'Validar a assinatura do Webhook Token do Asaas por segurança.',
+          'Sincronizar a data final de validade da assinatura no banco.'
+        ]
+      }
+    },
+    middleware_bloqueio: {
+      id: 'middleware_bloqueio',
+      phase: 'Fase 4: Confirmação',
+      title: 'Middleware de Acesso',
+      icon: Settings,
+      color: 'border-rose-500 bg-rose-50 text-rose-700',
+      badge: 'Segurança',
+      summary: 'Redireciona inadimplentes ou trials expirados para a tela de faturamento.',
+      details: {
+        description: 'Middleware que intercepta rotas do ERP e obriga o usuário a regularizar o pagamento caso o trial expire ou ocorra atraso.',
+        technical: 'Se subscription_status for overdue ou pending_payment, redireciona o usuário para /configuracoes/assinatura e bloqueia o restante.',
+        code: `if (org.subscription_status === 'overdue' && path !== '/configuracoes/assinatura') {\n  return NextResponse.redirect('/configuracoes/assinatura');\n}`,
+        files: ['middleware.js'],
+        checklist: [
+          'Ignorar as rotas públicas e estáticas na checagem de assinatura.',
+          'Garantir uma tolerância de 3 dias (Grace Period) antes de bloquear o usuário.'
+        ]
+      }
+    }
+  };
 
-  const sqlSchemaPromocoes = `CREATE TABLE public.promocoes (
-  id serial PRIMARY KEY,
-  codigo text UNIQUE NOT NULL, -- ex: 'MUITOLINDO'
-  desconto_percentual numeric(5,2) DEFAULT 0.00,
-  trial_days integer DEFAULT 15,
-  ativo boolean DEFAULT true,
-  valido_ate timestamp with time zone,
-  created_at timestamp with time zone DEFAULT now()
-);`;
-
-  const sqlAlterOrganizacoes = `ALTER TABLE public.organizacoes 
-ADD COLUMN plano_codigo text REFERENCES public.planos(codigo),
-ADD COLUMN seats_contracted integer DEFAULT 1,
-ADD COLUMN cupom_aplicado text REFERENCES public.promocoes(codigo);`;
+  const selectedData = nodes[selectedNode];
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans pb-16">
-      {/* Header */}
-      <div className="relative overflow-hidden bg-slate-900 border-b border-slate-800 py-12 px-6">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-[#f25a2f]/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
-        <div className="absolute bottom-0 left-0 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl -ml-20 -mb-20"></div>
+    <div className="min-h-screen bg-[#fafbfc] text-slate-800 font-sans pb-16 relative">
+      {/* Background Grid Pattern (Blank Canvas / Mental Map feel) */}
+      <div className="absolute inset-0 bg-[linear-gradient(to_right,#e2e8f0_1px,transparent_1px),linear-gradient(to_bottom,#e2e8f0_1px,transparent_1px)] bg-[size:4rem_4rem] opacity-30 pointer-events-none"></div>
+
+      {/* Top Header */}
+      <header className="bg-white border-b border-slate-200/80 py-6 px-8 sticky top-0 z-40 backdrop-blur-md bg-white/90">
+        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-slate-900 flex items-center justify-center text-white shadow-sm font-bold text-lg">
+              E
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
+                Mapa Mental de Implantação <span className="text-xs bg-[#f25a2f]/10 text-[#f25a2f] border border-[#f25a2f]/20 px-2 py-0.5 rounded-full font-bold">Cobrança Asaas</span>
+              </h1>
+              <p className="text-xs text-slate-500 font-light">Seu lindo, clique nos nós do mapa para visualizar os requisitos, SQLs e arquivos de cada fase.</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-400 font-light mr-2">Servidor local rodando</span>
+            <span className="w-2.5 h-2.5 rounded-full bg-green-500 animate-ping"></span>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Container */}
+      <div className="max-w-7xl mx-auto px-8 mt-12 grid lg:grid-cols-12 gap-8 relative z-10">
         
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
-          <div>
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-[#f25a2f]/20 text-[#f25a2f] border border-[#f25a2f]/30 mb-3 animate-pulse">
-              <Sparkles className="h-3 w-3" /> Devonildo Mentor IA
-            </span>
-            <h1 className="text-3xl md:text-5xl font-black tracking-tight text-white">
-              Painel de Planejamento de <span className="text-[#f25a2f]">Cobrança</span>
-            </h1>
-            <p className="mt-2 text-slate-400 text-sm md:text-base font-light max-w-2xl">
-              Seu lindo, criei este espaço exclusivo para desenharmos e validarmos juntos o fluxo de assinaturas, tabela de planos, cupons de trial e integração definitiva com o Asaas.
+        {/* LEFT COLUMN: MIND MAP CANVAS */}
+        <div className="lg:col-span-7 space-y-8">
+          
+          {/* Canvas Section */}
+          <div className="bg-white border border-slate-200 rounded-3xl p-8 shadow-sm relative overflow-hidden">
+            
+            <div className="flex justify-between items-center mb-10 border-b border-slate-100 pb-4">
+              <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400">Fluxo Cronológico de Ativação</h3>
+              <span className="text-[10px] bg-slate-100 px-3 py-1 rounded-full text-slate-500 font-semibold">Clique para selecionar</span>
+            </div>
+
+            {/* Mind Map Tree Nodes */}
+            <div className="space-y-12 relative">
+              
+              {/* Vertical Connector Line (CSS) */}
+              <div className="absolute left-[31px] top-6 bottom-6 w-0.5 bg-slate-200 -z-10"></div>
+
+              {/* FASE 1 */}
+              <div className="space-y-4">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block ml-[46px]">Fase 1: Entrada de Usuários</span>
+                
+                {/* Node: Landing Page */}
+                <div 
+                  onClick={() => setSelectedNode('landing')}
+                  className={`flex items-start gap-4 p-4 rounded-2xl border cursor-pointer transition-all duration-300 ${selectedNode === 'landing' ? 'border-amber-400 bg-amber-50/50 shadow-md translate-x-2' : 'border-slate-200 bg-white hover:border-slate-350'}`}
+                >
+                  <div className="w-9 h-9 rounded-xl bg-amber-500 text-white flex items-center justify-center flex-shrink-0 shadow-sm">
+                    <Sparkles className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-800">Selecione o Plano na LP</h4>
+                    <p className="text-xs text-slate-500 mt-1 font-light">Envio de plano e cupom via URL para a tela de registro.</p>
+                  </div>
+                </div>
+
+                {/* Node: Cadastro */}
+                <div 
+                  onClick={() => setSelectedNode('cadastro')}
+                  className={`flex items-start gap-4 p-4 rounded-2xl border cursor-pointer transition-all duration-300 ${selectedNode === 'cadastro' ? 'border-blue-500 bg-blue-50/50 shadow-md translate-x-2' : 'border-slate-200 bg-white hover:border-slate-350'}`}
+                >
+                  <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center flex-shrink-0 shadow-sm">
+                    <Building2 className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-800">Criar Workspace no Supabase</h4>
+                    <p className="text-xs text-slate-500 mt-1 font-light">Cadastro do administrador, empresa e organização local.</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* FASE 2 */}
+              <div className="space-y-4">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block ml-[46px]">Fase 2: Conexão Asaas</span>
+                
+                {/* Node: Sync Asaas */}
+                <div 
+                  onClick={() => setSelectedNode('sync_asaas')}
+                  className={`flex items-start gap-4 p-4 rounded-2xl border cursor-pointer transition-all duration-300 ${selectedNode === 'sync_asaas' ? 'border-indigo-500 bg-indigo-50/50 shadow-md translate-x-2' : 'border-slate-200 bg-white hover:border-slate-350'}`}
+                >
+                  <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center flex-shrink-0 shadow-sm">
+                    <Database className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-800">Sincronizar Cliente no Asaas</h4>
+                    <p className="text-xs text-slate-500 mt-1 font-light">Puxa dados locais da empresa para criar/atualizar cliente no Asaas.</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* FASE 3 */}
+              <div className="space-y-4">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block ml-[46px]">Fase 3: Recorrência & Faturamento</span>
+                
+                {/* Node: Criar Assinatura */}
+                <div 
+                  onClick={() => setSelectedNode('criar_assinatura')}
+                  className={`flex items-start gap-4 p-4 rounded-2xl border cursor-pointer transition-all duration-300 ${selectedNode === 'criar_assinatura' ? 'border-purple-500 bg-purple-50/50 shadow-md translate-x-2' : 'border-slate-200 bg-white hover:border-slate-350'}`}
+                >
+                  <div className="w-9 h-9 rounded-xl bg-purple-600 text-white flex items-center justify-center flex-shrink-0 shadow-sm">
+                    <Calendar className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-800">Gerar Assinatura com Trial</h4>
+                    <p className="text-xs text-slate-500 mt-1 font-light">Cria a assinatura no Asaas e agenda o vencimento da cobrança para 90 dias.</p>
+                  </div>
+                </div>
+
+                {/* Node: Checkout Cartão */}
+                <div 
+                  onClick={() => setSelectedNode('checkout_cartao')}
+                  className={`flex items-start gap-4 p-4 rounded-2xl border cursor-pointer transition-all duration-300 ${selectedNode === 'checkout_cartao' ? 'border-[#f25a2f] bg-orange-50/50 shadow-md translate-x-2' : 'border-slate-200 bg-white hover:border-slate-350'}`}
+                >
+                  <div className="w-9 h-9 rounded-xl bg-[#f25a2f] text-white flex items-center justify-center flex-shrink-0 shadow-sm">
+                    <CreditCard className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-800">Checkout e Tokenização do Cartão</h4>
+                    <p className="text-xs text-slate-500 mt-1 font-light">Usuário acessa o Asaas, preenche o cartão e valida os dados.</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* FASE 4 */}
+              <div className="space-y-4">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block ml-[46px]">Fase 4: Liberação de Acesso</span>
+                
+                {/* Node: Webhook Ativação */}
+                <div 
+                  onClick={() => setSelectedNode('webhook_ativacao')}
+                  className={`flex items-start gap-4 p-4 rounded-2xl border cursor-pointer transition-all duration-300 ${selectedNode === 'webhook_ativacao' ? 'border-emerald-500 bg-emerald-50/50 shadow-md translate-x-2' : 'border-slate-200 bg-white hover:border-slate-350'}`}
+                >
+                  <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center flex-shrink-0 shadow-sm">
+                    <CheckCircle2 className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-800">Webhook de Ativação do Plano</h4>
+                    <p className="text-xs text-slate-500 mt-1 font-light">Asaas avisa que o cartão é válido e o sistema ativa a Org no banco.</p>
+                  </div>
+                </div>
+
+                {/* Node: Middleware Bloqueio */}
+                <div 
+                  onClick={() => setSelectedNode('middleware_bloqueio')}
+                  className={`flex items-start gap-4 p-4 rounded-2xl border cursor-pointer transition-all duration-300 ${selectedNode === 'middleware_bloqueio' ? 'border-rose-500 bg-rose-50/50 shadow-md translate-x-2' : 'border-slate-200 bg-white hover:border-slate-350'}`}
+                >
+                  <div className="w-9 h-9 rounded-xl bg-rose-600 text-white flex items-center justify-center flex-shrink-0 shadow-sm">
+                    <Settings className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-800">Middleware de Acesso & Bloqueio</h4>
+                    <p className="text-xs text-slate-500 mt-1 font-light">Intercepta rotas do ERP se a assinatura expirar ou atrasar.</p>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+          </div>
+        </div>
+
+        {/* RIGHT COLUMN: TECHNICAL PANEL (DETALHES DO NÓ SELECIONADO) */}
+        <div className="lg:col-span-5 space-y-6">
+          
+          {/* Card Detalhado do Nó */}
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-6">
+            
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">{selectedData.phase}</span>
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${selectedData.color}`}>
+                {selectedData.badge}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center">
+                <selectedData.icon className="h-5 w-5" />
+              </div>
+              <h3 className="text-lg font-bold text-slate-900">{selectedData.title}</h3>
+            </div>
+
+            <p className="text-xs text-slate-600 leading-relaxed font-light">
+              {selectedData.details.description}
             </p>
-          </div>
-          <div className="flex gap-2">
-            <a 
-              href="/configuracoes/assinatura" 
-              className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200 rounded-xl transition-all border border-slate-700 active:scale-95"
-            >
-              Ver Tela Atual de Assinatura
-            </a>
-          </div>
-        </div>
-      </div>
 
-      {/* Tabs Nav */}
-      <div className="max-w-7xl mx-auto px-6 mt-8">
-        <div className="flex border-b border-slate-800 bg-slate-900/60 p-1.5 rounded-xl gap-2">
-          <button 
-            onClick={() => setActiveTab('fluxo')}
-            className={`flex-1 md:flex-initial flex items-center justify-center gap-2 px-6 py-3 rounded-lg text-xs font-bold transition-all ${activeTab === 'fluxo' ? 'bg-[#f25a2f] text-white shadow-lg shadow-[#f25a2f]/20' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'}`}
-          >
-            <RefreshCw className="h-4 w-4" /> Ciclo de Vida do Cliente
-          </button>
-          <button 
-            onClick={() => setActiveTab('banco')}
-            className={`flex-1 md:flex-initial flex items-center justify-center gap-2 px-6 py-3 rounded-lg text-xs font-bold transition-all ${activeTab === 'banco' ? 'bg-[#f25a2f] text-white shadow-lg shadow-[#f25a2f]/20' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'}`}
-          >
-            <Database className="h-4 w-4" /> Modelagem de Dados (SQL)
-          </button>
-          <button 
-            onClick={() => setActiveTab('calculadora')}
-            className={`flex-1 md:flex-initial flex items-center justify-center gap-2 px-6 py-3 rounded-lg text-xs font-bold transition-all ${activeTab === 'calculadora' ? 'bg-[#f25a2f] text-white shadow-lg shadow-[#f25a2f]/20' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'}`}
-          >
-            <Code className="h-4 w-4" /> Simulador de Checkout (API)
-          </button>
-          <button 
-            onClick={() => setActiveTab('roadmap')}
-            className={`flex-1 md:flex-initial flex items-center justify-center gap-2 px-6 py-3 rounded-lg text-xs font-bold transition-all ${activeTab === 'roadmap' ? 'bg-[#f25a2f] text-white shadow-lg shadow-[#f25a2f]/20' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'}`}
-          >
-            <Settings className="h-4 w-4" /> Roadmap de Execução
-          </button>
-        </div>
-      </div>
-
-      {/* Tab Content */}
-      <div className="max-w-7xl mx-auto px-6 mt-8">
-        
-        {/* TAB 1: CICLO DE VIDA DO FLUXO */}
-        {activeTab === 'fluxo' && (
-          <div className="space-y-8 animate-in fade-in duration-300">
-            <div className="grid lg:grid-cols-3 gap-8">
-              
-              {/* Navegação Lateral do Fluxo */}
-              <div className="lg:col-span-1 space-y-4">
-                <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
-                  <h3 className="text-sm font-bold uppercase text-slate-400 tracking-wider mb-4">Etapas do Funil de Assinatura</h3>
-                  
-                  <div className="space-y-3">
-                    {[
-                      { step: 1, title: '1. Seleção na Landing Page', desc: 'Usuário clica em começar em um plano.' },
-                      { step: 2, title: '2. Cadastro e Onboarding', desc: 'Preenchimento de dados cadastrais da empresa.' },
-                      { step: 3, title: '3. Ativação via Checkout Asaas', desc: 'Inserção do cartão (R$ 0,00 cobrado na hora).' },
-                      { step: 4, title: '4. Webhook / Registro Ativo', desc: 'O Asaas confirma o cartão e libera a conta.' },
-                      { step: 5, title: '5. Fim do Trial / Primeira Cobrança', desc: 'Débito automático no cartão após o trial.' }
-                    ].map(s => (
-                      <div 
-                        key={s.step}
-                        onClick={() => setFlowStep(s.step)}
-                        className={`p-4 rounded-xl border text-left cursor-pointer transition-all duration-200 ${flowStep === s.step ? 'bg-slate-800 border-[#f25a2f]' : 'bg-slate-950 hover:bg-slate-800/40 border-slate-800/80'}`}
-                      >
-                        <h4 className={`text-xs font-bold ${flowStep === s.step ? 'text-[#f25a2f]' : 'text-slate-200'}`}>{s.title}</h4>
-                        <p className="text-[11px] text-slate-400 mt-1 font-light">{s.desc}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Detalhe da Etapa Selecionada */}
-              <div className="lg:col-span-2">
-                <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 h-full flex flex-col justify-between">
-                  <div>
-                    <span className="text-xs bg-[#f25a2f]/10 text-[#f25a2f] border border-[#f25a2f]/20 font-bold px-3 py-1 rounded-full">
-                      Etapa Selecionada
-                    </span>
-
-                    {/* Detalhes Dinâmicos */}
-                    {flowStep === 1 && (
-                      <div className="mt-6 space-y-6">
-                        <h2 className="text-2xl font-bold text-white">1. Seleção na Landing Page</h2>
-                        <p className="text-sm text-slate-350 font-light leading-relaxed">
-                          O potencial cliente acessa a Landing Page do Elo 57. Ele visualiza os preços dos planos baseados em assentos (usuários ativos). 
-                          Ao escolher um plano (ex: **Elo Pro** por R$ 297/mês), ele é direcionado para a tela de cadastro carregando o plano e as condições de trial (ex: *3 meses grátis*) na URL.
-                        </p>
-                        <div className="p-4 bg-slate-950 rounded-xl border border-slate-800 space-y-2">
-                          <h4 className="text-xs font-bold text-[#f25a2f]">Exemplo de URL de Redirecionamento:</h4>
-                          <code className="text-xs text-blue-400 block break-all bg-slate-900 p-2.5 rounded">
-                            {"https://studio57.arq.br/cadastro?plan=pro&promo=MUITOLINDO"}
-                          </code>
-                        </div>
-                      </div>
-                    )}
-
-                    {flowStep === 2 && (
-                      <div className="mt-6 space-y-6">
-                        <h2 className="text-2xl font-bold text-white">2. Cadastro e Onboarding</h2>
-                        <p className="text-sm text-slate-350 font-light leading-relaxed">
-                          O usuário completa as 3 etapas clássicas de cadastro que já criamos: define Natureza Jurídica (PF/PJ), preenche CNPJ/CPF e Endereço, e cria as credenciais administrativas da conta.
-                        </p>
-                        <div className="grid md:grid-cols-2 gap-4">
-                          <div className="p-4 bg-slate-950 rounded-xl border border-slate-800">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">O que ocorre no banco:</span>
-                            <ul className="text-xs text-slate-300 space-y-1.5 mt-2">
-                              <li className="flex items-center gap-1.5"><CheckCircle2 className="h-3.5 w-3.5 text-green-500" /> Criação da Organização (`status: 'trialing'`)</li>
-                              <li className="flex items-center gap-1.5"><CheckCircle2 className="h-3.5 w-3.5 text-green-500" /> Criação do registro em `cadastro_empresa`</li>
-                              <li className="flex items-center gap-1.5"><CheckCircle2 className="h-3.5 w-3.5 text-green-500" /> Criação do login na tabela `auth.users`</li>
-                            </ul>
-                          </div>
-                          <div className="p-4 bg-slate-950 rounded-xl border border-slate-800">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Integração do Onboarding:</span>
-                            <p className="text-xs text-slate-400 mt-2 font-light leading-relaxed">
-                              Em vez de redirecionar para a tela final de login comum, mantemos o usuário no fluxo e acionamos a sincronização com o Asaas para obter a URL do gateway seguro.
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {flowStep === 3 && (
-                      <div className="mt-6 space-y-6">
-                        <h2 className="text-2xl font-bold text-white">3. Ativação via Checkout Asaas (R$ 0,00 Cobrado na Hora)</h2>
-                        <p className="text-sm text-slate-350 font-light leading-relaxed">
-                          A API cria a assinatura no Asaas com a primeira cobrança agendada para 90 dias no futuro. O cliente é redirecionado para a página segura do Asaas para preencher os dados de faturamento e salvar o cartão de crédito.
-                        </p>
-                        <div className="p-4 bg-[#f25a2f]/10 border border-[#f25a2f]/20 rounded-xl flex gap-3">
-                          <Info className="h-5 w-5 text-[#f25a2f] flex-shrink-0 mt-0.5" />
-                          <div className="text-xs text-slate-300 leading-relaxed">
-                            <span className="font-bold text-white block">PCI Compliance & Segurança:</span>
-                            Nenhum número de cartão passa ou fica guardado no nosso banco. Tudo é preenchido diretamente na URL criptografada do Asaas. O Asaas faz uma transação de teste de R$ 0,00 no cartão do cliente para validar a integridade da conta e salvar a recorrência.
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {flowStep === 4 && (
-                      <div className="mt-6 space-y-6">
-                        <h2 className="text-2xl font-bold text-white">4. Webhook / Registro Ativo</h2>
-                        <p className="text-sm text-slate-350 font-light leading-relaxed">
-                          Ao concluir a transação de verificação do cartão, o webhook do Asaas dispara uma notificação segura para o nosso endpoint `/api/webhooks/asaas`. O sistema prorroga os limites da conta no banco de dados e ativa o plano.
-                        </p>
-                        <div className="p-4 bg-slate-950 rounded-xl border border-slate-800 space-y-2">
-                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Payload de Notificação Recebido:</span>
-                          <pre className="text-[10px] text-green-400 bg-slate-900 p-3 rounded overflow-x-auto max-h-40 font-mono">
-{`{
-  "event": "PAYMENT_RECEIVED",
-  "payment": {
-    "id": "pay_982138237912",
-    "subscription": "sub_jitkldn06mp8405q",
-    "value": 0.00,
-    "status": "RECEIVED"
-  }
-}`}
-                          </pre>
-                        </div>
-                      </div>
-                    )}
-
-                    {flowStep === 5 && (
-                      <div className="mt-6 space-y-6">
-                        <h2 className="text-2xl font-bold text-white">5. Fim do Trial / Primeira Cobrança</h2>
-                        <p className="text-sm text-slate-350 font-light leading-relaxed">
-                          Decorridos os 90 dias do período promocional grátis, o sistema de recorrência do Asaas executa de forma automática o débito do valor contratado (ex: R$ 1.485,00 para 5 assentos no plano Elo Pro) no cartão cadastrado.
-                        </p>
-                        <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl flex gap-3">
-                          <Sparkles className="h-5 w-5 text-blue-400 flex-shrink-0 mt-0.5" />
-                          <div className="text-xs text-slate-300 leading-relaxed">
-                            <span className="font-bold text-white block">Automação Silenciosa:</span>
-                            Caso o cartão do cliente seja recusado por falta de limite ou expiração, o Asaas nos notifica via webhook com `PAYMENT_OVERDUE`. Nosso middleware suspende a conta localmente até que um novo cartão seja preenchido nas Configurações.
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                  </div>
-
-                  {/* Fluxograma Horizontal de Status */}
-                  <div className="mt-8 border-t border-slate-800 pt-6">
-                    <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-950 p-4 rounded-xl">
-                      <div className="text-center">
-                        <span className="text-[9px] font-bold text-slate-500 uppercase block">Landing Page</span>
-                        <span className="text-xs font-semibold text-slate-300">Escolha do Plano</span>
-                      </div>
-                      <ChevronRight className="h-4 w-4 text-slate-700 hidden sm:block" />
-                      <div className="text-center">
-                        <span className="text-[9px] font-bold text-slate-500 uppercase block">Banco de Dados</span>
-                        <span className="text-xs font-semibold text-slate-300">Criar Org (Trialing)</span>
-                      </div>
-                      <ChevronRight className="h-4 w-4 text-slate-700 hidden sm:block" />
-                      <div className="text-center">
-                        <span className="text-[9px] font-bold text-[#f25a2f] uppercase block">Asaas API</span>
-                        <span className="text-xs font-semibold text-slate-300">Checkout Gerado</span>
-                      </div>
-                      <ChevronRight className="h-4 w-4 text-slate-700 hidden sm:block" />
-                      <div className="text-center">
-                        <span className="text-[9px] font-bold text-green-500 uppercase block">Webhook</span>
-                        <span className="text-xs font-semibold text-slate-300">Ativação da Conta</span>
-                      </div>
-                    </div>
-                  </div>
-
-                </div>
-              </div>
-
+            {/* Checklist */}
+            <div className="space-y-2 pt-4 border-t border-slate-150">
+              <span className="text-[10px] font-bold text-slate-450 uppercase tracking-wider block">O que precisa ser feito:</span>
+              <ul className="text-xs text-slate-600 space-y-2">
+                {selectedData.details.checklist.map((item, index) => (
+                  <li key={index} className="flex items-start gap-2 font-light">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#f25a2f] mt-1.5 flex-shrink-0"></span>
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
-          </div>
-        )}
 
-        {/* TAB 2: MODELAGEM DE BANCO (SQL) */}
-        {activeTab === 'banco' && (
-          <div className="space-y-6 animate-in fade-in duration-300">
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
-              <div className="flex items-center gap-3 mb-6">
-                <Database className="h-6 w-6 text-[#f25a2f]" />
+            {/* Código ou Requisito Técnico */}
+            <div className="space-y-2 pt-4 border-t border-slate-150">
+              <span className="text-[10px] font-bold text-slate-450 uppercase tracking-wider block">Comportamento/Script Técnico:</span>
+              <p className="text-[11px] text-slate-500 font-light italic mb-1">{selectedData.details.technical}</p>
+              <pre className="text-[10px] text-green-700 bg-slate-50 p-3 rounded-lg border border-slate-200 font-mono overflow-x-auto whitespace-pre-wrap">
+                {selectedData.details.code}
+              </pre>
+            </div>
+
+            {/* Arquivos Afetados */}
+            <div className="space-y-2 pt-4 border-t border-slate-150">
+              <span className="text-[10px] font-bold text-slate-455 uppercase tracking-wider block">Arquivos do Projeto Afetados:</span>
+              <div className="flex flex-wrap gap-1">
+                {selectedData.details.files.map((file, index) => (
+                  <span key={index} className="text-[10px] font-mono bg-slate-100 text-slate-700 px-2 py-0.5 rounded border border-slate-200">
+                    {file}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+          </div>
+
+          {/* Simulador Dinâmico Acoplado (Para ver os payloads reais) */}
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
+            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Calculadora de Assinaturas</h3>
+            <p className="text-xs text-slate-500 font-light">Simule o payload final que será gerado nos endpoints com base nas escolhas:</p>
+            
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-2 text-xs">
                 <div>
-                  <h3 className="text-lg font-bold text-white">Modelagem do Banco de Dados</h3>
-                  <p className="text-xs text-slate-400 font-light">Estruturas necessárias no Supabase para controlar planos, preços e promoções.</p>
+                  <span className="text-[10px] text-slate-400 uppercase block font-semibold">Plano</span>
+                  <select 
+                    value={selectedPlan} 
+                    onChange={(e) => setSelectedPlan(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded p-1.5 mt-1 font-bold text-slate-700"
+                  >
+                    <option value="essencial">Elo Essencial (R$ 127)</option>
+                    <option value="pro">Elo Pro (R$ 297)</option>
+                    <option value="ultra">Elo Ultra (R$ 497)</option>
+                  </select>
                 </div>
-              </div>
-
-              <div className="grid lg:grid-cols-3 gap-6">
-                {/* Tabela de Planos */}
-                <div className="bg-slate-950 rounded-xl p-5 border border-slate-800 flex flex-col justify-between">
-                  <div>
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-xs font-bold text-[#f25a2f] uppercase">Tabela 1: planos</span>
-                      <span className="text-[10px] bg-slate-800 px-2 py-0.5 rounded font-mono">public.planos</span>
-                    </div>
-                    <p className="text-xs text-slate-400 font-light mb-4">
-                      Tabela estática para guardar os planos cadastrados na plataforma e seus respectivos valores.
-                    </p>
-                    <pre className="text-[10px] text-slate-300 bg-slate-900 p-3 rounded font-mono overflow-x-auto whitespace-pre-wrap">
-                      {sqlSchemaPlanos}
-                    </pre>
-                  </div>
-                </div>
-
-                {/* Tabela de Promoções / Cupons */}
-                <div className="bg-slate-950 rounded-xl p-5 border border-slate-800 flex flex-col justify-between">
-                  <div>
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-xs font-bold text-[#f25a2f] uppercase">Tabela 2: promocoes</span>
-                      <span className="text-[10px] bg-slate-800 px-2 py-0.5 rounded font-mono">public.promocoes</span>
-                    </div>
-                    <p className="text-xs text-slate-400 font-light mb-4">
-                      Tabela para cupons e promoções com dias de trial estendidos (ex: 90 dias) e descontos no plano.
-                    </p>
-                    <pre className="text-[10px] text-slate-300 bg-slate-900 p-3 rounded font-mono overflow-x-auto whitespace-pre-wrap">
-                      {sqlSchemaPromocoes}
-                    </pre>
-                  </div>
-                </div>
-
-                {/* Alterações em Organizações */}
-                <div className="bg-slate-950 rounded-xl p-5 border border-slate-800 flex flex-col justify-between">
-                  <div>
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-xs font-bold text-[#f25a2f] uppercase">Alter: organizacoes</span>
-                      <span className="text-[10px] bg-slate-800 px-2 py-0.5 rounded font-mono">public.organizacoes</span>
-                    </div>
-                    <p className="text-xs text-slate-400 font-light mb-4">
-                      Modificações na tabela de organizações para referenciar qual plano ela assinou, usuários contratados e cupom aplicado.
-                    </p>
-                    <pre className="text-[10px] text-slate-300 bg-slate-900 p-3 rounded font-mono overflow-x-auto whitespace-pre-wrap">
-                      {sqlAlterOrganizacoes}
-                    </pre>
-                  </div>
-                </div>
-              </div>
-
-              {/* Relação Relacional */}
-              <div className="mt-8 p-6 bg-slate-950 rounded-xl border border-slate-800">
-                <h4 className="text-sm font-bold text-white mb-4">Mapeamento de Multitenancy Relacional</h4>
-                <div className="grid md:grid-cols-3 gap-6 text-xs font-light text-slate-300">
-                  <div className="space-y-2">
-                    <span className="font-bold text-white block">1. Usuários por Assento (Seats)</span>
-                    <p>
-                      Em vez de plano de valor fixo, o sistema computa o limite de usuários ativos cadastrados no time baseando-se no campo `seats_contracted`. O middleware bloqueia a criação de novos usuários se ultrapassar esse número.
-                    </p>
-                  </div>
-                  <div className="space-y-2">
-                    <span className="font-bold text-white block">2. Cupom Fiel à Origem</span>
-                    <p>
-                      O cupom usado no checkout da LP é salvo diretamente na Organização. Isso garante rastreabilidade e impede fraudes na data de vencimento da mensalidade gerada.
-                    </p>
-                  </div>
-                  <div className="space-y-2">
-                    <span className="font-bold text-white block">3. Tolerância Automática (Grace Period)</span>
-                    <p>
-                      As faturas vencidas no Asaas mudam o `subscription_status` local para `'overdue'`. O middleware garante uma tolerância padrão (Grace Period) de 3 dias de atraso antes de bloquear totalmente o login ou operações do cliente.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-            </div>
-          </div>
-        )}
-
-        {/* TAB 3: CALCULADORA DE CHECKOUT */}
-        {activeTab === 'calculadora' && (
-          <div className="space-y-6 animate-in fade-in duration-300">
-            <div className="grid lg:grid-cols-12 gap-8">
-              
-              {/* Controles do Simulador */}
-              <div className="lg:col-span-5 space-y-6">
-                <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-6">
-                  
-                  <div>
-                    <h3 className="text-sm font-bold uppercase text-slate-400 tracking-wider mb-2">Simulador de Assinatura</h3>
-                    <p className="text-xs text-slate-500">Configure as condições para simular o payload de envio para o Asaas.</p>
-                  </div>
-
-                  {/* Seleção do Plano */}
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold text-slate-300 block">1. Selecione o Plano</label>
-                    <div className="grid grid-cols-3 gap-2">
-                      {Object.keys(planDetails).map(p => (
-                        <button
-                          key={p}
-                          type="button"
-                          onClick={() => setSelectedPlan(p)}
-                          className={`p-3 rounded-lg border text-xs font-bold transition-all ${selectedPlan === p ? 'bg-[#f25a2f] border-[#f25a2f] text-white shadow-lg' : 'bg-slate-950 hover:bg-slate-800 border-slate-800 text-slate-400'}`}
-                        >
-                          {planDetails[p].nome}
-                          <span className="block text-[9px] font-normal mt-1">R$ {planDetails[p].valor}/mês</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Número de Assentos (Seats) */}
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <label className="text-xs font-bold text-slate-300">2. Número de Assentos (Usuários)</label>
-                      <span className="text-xs font-bold text-[#f25a2f] bg-[#f25a2f]/10 px-2.5 py-0.5 rounded-full">{seats} usuários</span>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <button 
-                        onClick={() => setSeats(prev => Math.max(1, prev - 1))}
-                        className="w-10 h-10 bg-slate-950 border border-slate-800 hover:bg-slate-800 rounded-lg flex items-center justify-center font-bold text-lg"
-                      >
-                        <Minus className="h-4 w-4" />
-                      </button>
-                      <input 
-                        type="range" 
-                        min="1" 
-                        max="50" 
-                        value={seats}
-                        onChange={(e) => setSeats(parseInt(e.target.value))}
-                        className="flex-1 accent-[#f25a2f]"
-                      />
-                      <button 
-                        onClick={() => setSeats(prev => Math.min(100, prev + 1))}
-                        className="w-10 h-10 bg-slate-950 border border-slate-800 hover:bg-slate-800 rounded-lg flex items-center justify-center font-bold text-lg"
-                      >
-                        <Plus className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Frequência de Faturamento */}
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold text-slate-300 block">3. Ciclo de Cobrança</label>
-                    <div className="grid grid-cols-2 gap-2 bg-slate-950 p-1 rounded-lg border border-slate-850">
-                      <button
-                        type="button"
-                        onClick={() => setBillingCycle('MONTHLY')}
-                        className={`py-2 rounded-md text-xs font-bold transition-all ${billingCycle === 'MONTHLY' ? 'bg-slate-850 text-white shadow' : 'text-slate-500'}`}
-                      >
-                        Mensal
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setBillingCycle('YEARLY')}
-                        className={`py-2 rounded-md text-xs font-bold transition-all ${billingCycle === 'YEARLY' ? 'bg-slate-850 text-white shadow' : 'text-slate-500'}`}
-                      >
-                        Anual (-20%)
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Período de Testes (Trial) */}
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <label className="text-xs font-bold text-slate-300">4. Período de Testes Grátis (Trial)</label>
-                      <span className="text-xs font-bold text-slate-400">{trialDays} dias</span>
-                    </div>
-                    <div className="grid grid-cols-4 gap-2">
-                      {[0, 15, 30, 90].map(d => (
-                        <button
-                          key={d}
-                          type="button"
-                          onClick={() => setTrialDays(d)}
-                          className={`py-2 rounded-lg border text-xs font-bold transition-all ${trialDays === d ? 'bg-[#f25a2f]/20 border-[#f25a2f] text-[#f25a2f]' : 'bg-slate-950 hover:bg-slate-850 border-slate-800 text-slate-400'}`}
-                        >
-                          {d === 0 ? 'Sem Trial' : `${d} dias`}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Cupom Promocional */}
-                  <div className="space-y-2 pt-4 border-t border-slate-800">
-                    <div className="flex justify-between items-center">
-                      <label className="text-xs font-bold text-slate-300">Cupom de Desconto</label>
-                      <button 
-                        onClick={() => setHasPromo(!hasPromo)}
-                        className={`text-[10px] uppercase tracking-wider font-extrabold ${hasPromo ? 'text-green-500' : 'text-slate-500'}`}
-                      >
-                        {hasPromo ? 'Ativado (-10%)' : 'Desativar'}
-                      </button>
-                    </div>
-                    {hasPromo && (
-                      <div className="relative">
-                        <input
-                          type="text"
-                          value={promoCode}
-                          onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
-                          className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-green-400 font-bold focus:ring-1 focus:ring-green-500 outline-none uppercase"
-                          placeholder="Digite o cupom"
-                        />
-                        <Percent className="absolute right-3 top-3 h-4 w-4 text-green-600" />
-                      </div>
-                    )}
-                  </div>
-
-                </div>
-              </div>
-
-              {/* Visualização de Resumos & Payload do Asaas */}
-              <div className="lg:col-span-7 space-y-6">
-                
-                {/* Resumo Gerencial de Valores */}
-                <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 grid sm:grid-cols-3 gap-6">
-                  <div className="sm:col-span-1 border-r border-slate-800/80 pr-4">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase block tracking-wider">Preço Unitário / Usuário</span>
-                    <div className="mt-1 flex items-baseline text-white">
-                      <span className="text-2xl font-black">R$ {unitPriceFinal}</span>
-                      <span className="text-[10px] text-slate-500 ml-1">/mês</span>
-                    </div>
-                    {isYearly && <span className="text-[9px] text-green-400 font-bold">-20% desconto anual</span>}
-                  </div>
-                  
-                  <div className="sm:col-span-1 border-r border-slate-800/80 pr-4">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase block tracking-wider">Primeiro Pagamento</span>
-                    <div className="mt-1 flex items-center text-white">
-                      <Calendar className="h-4 w-4 text-slate-500 mr-1.5" />
-                      <span className="text-sm font-bold">{getTrialExpirationDate(trialDays)}</span>
-                    </div>
-                    {trialDays > 0 ? (
-                      <span className="text-[9px] text-[#f25a2f] font-semibold">{trialDays} dias de trial grátis</span>
-                    ) : (
-                      <span className="text-[9px] text-slate-500">Cobrança gerada hoje</span>
-                    )}
-                  </div>
-
-                  <div className="sm:col-span-1">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase block tracking-wider">Valor total recorrente</span>
-                    <div className="mt-1 flex items-baseline text-white">
-                      <span className="text-2xl font-black text-[#f25a2f]">R$ {totalValue}</span>
-                      <span className="text-[10px] text-slate-500 ml-1">/ciclo</span>
-                    </div>
-                    <span className="text-[9px] text-slate-500">Recorrência no ciclo {billingCycle === 'MONTHLY' ? 'Mensal' : 'Anual'}</span>
-                  </div>
-                </div>
-
-                {/* Exibição do Payload do Asaas */}
-                <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
-                  <div className="flex justify-between items-center mb-3">
-                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Payload Gerado para a API do Asaas</span>
-                    <span className="text-[10px] bg-slate-950 px-2 py-0.5 rounded text-blue-400 font-mono">POST /v3/subscriptions</span>
-                  </div>
-                  <pre className="text-xs text-green-400 bg-slate-950 p-4 rounded-xl border border-slate-850 font-mono overflow-x-auto whitespace-pre-wrap">
-                    {JSON.stringify(generatePayload(), null, 2)}
-                  </pre>
-                </div>
-
-              </div>
-
-            </div>
-          </div>
-        )}
-
-        {/* TAB 4: ROADMAP DE EXECUÇÃO */}
-        {activeTab === 'roadmap' && (
-          <div className="space-y-6 animate-in fade-in duration-350">
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
-              
-              <div className="flex items-center gap-3 mb-6">
-                <Layers className="h-6 w-6 text-[#f25a2f]" />
                 <div>
-                  <h3 className="text-lg font-bold text-white">Roadmap e Checklist de Implementação</h3>
-                  <p className="text-xs text-slate-400 font-light">A ordem de trabalho recomendada para implantarmos as modificações sem quebrar o sistema atual.</p>
+                  <span className="text-[10px] text-slate-400 uppercase block font-semibold">Ciclo</span>
+                  <select 
+                    value={billingCycle} 
+                    onChange={(e) => setBillingCycle(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded p-1.5 mt-1 font-bold text-slate-700"
+                  >
+                    <option value="MONTHLY">Mensal</option>
+                    <option value="YEARLY">Anual (-20%)</option>
+                  </select>
                 </div>
               </div>
 
-              <div className="space-y-6 mt-8">
-                
-                {/* Fase 1 */}
-                <div className="p-5 bg-slate-950 rounded-xl border border-slate-850">
-                  <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2 mb-3">
-                    <h4 className="text-sm font-bold text-[#f25a2f] flex items-center gap-2">
-                      Fase 1: Execução das Migrações e Atualização do Schema
-                    </h4>
-                    <span className="text-[10px] px-2.5 py-0.5 bg-slate-800 rounded-full font-bold text-slate-300">Fácil</span>
-                  </div>
-                  <p className="text-xs text-slate-400 leading-relaxed font-light mb-4">
-                    Precisamos rodar no Supabase o script DDL que cria a tabela `planos` (com os registros de base de R$ 127, R$ 297 e R$ 497), a tabela de `promocoes`, e atualiza a tabela de `organizacoes` para permitir guardar o plano selecionado.
-                  </p>
-                  <div className="p-3 bg-slate-900 border border-slate-800 rounded-lg">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase block">Ação do DevOps:</span>
-                    <span className="text-xs font-mono text-slate-300 block mt-1">Executar as queries criadas no Tab 2 pelo console do Supabase.</span>
-                  </div>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div>
+                  <span className="text-[10px] text-slate-400 uppercase block font-semibold">Usuários (Assentos)</span>
+                  <input 
+                    type="number" 
+                    min="1" 
+                    max="100" 
+                    value={seats} 
+                    onChange={(e) => setSeats(Math.max(1, parseInt(e.target.value) || 1))}
+                    className="w-full bg-slate-50 border border-slate-200 rounded p-1.5 mt-1 font-bold text-slate-700"
+                  />
                 </div>
-
-                {/* Fase 2 */}
-                <div className="p-5 bg-slate-950 rounded-xl border border-slate-850">
-                  <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2 mb-3">
-                    <h4 className="text-sm font-bold text-white flex items-center gap-2">
-                      Fase 2: Expansão da API de Registro (`app/cadastro/actions.js`)
-                    </h4>
-                    <span className="text-[10px] px-2.5 py-0.5 bg-blue-500/20 rounded-full font-bold text-blue-400">Médio</span>
-                  </div>
-                  <p className="text-xs text-slate-400 leading-relaxed font-light mb-4">
-                    Modificar a ação executada em "Criar a minha conta". Em vez de apenas salvar no banco, ela vai:
-                    1. Computar a promoção na tabela `promocoes` (para ver o tempo de trial e cupom).
-                    2. Chamar o Asaas para registrar o cliente (`obterOuCriarCliente`).
-                    3. Gerar a assinatura de ciclo do plano, calculando a data de vencimento da primeira parcela (`nextDueDate`) com o trial correspondente.
-                    4. Salvar o `asaas_subscription_id` e a URL de checkout no retorno.
-                  </p>
-                  <div className="p-3 bg-slate-900 border border-slate-800 rounded-lg">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase block">Arquivo a ser editado:</span>
-                    <span className="text-xs font-mono text-[#f25a2f] block mt-1">app/cadastro/actions.js</span>
-                  </div>
+                <div>
+                  <span className="text-[10px] text-slate-400 uppercase block font-semibold">Trial (Dias)</span>
+                  <input 
+                    type="number" 
+                    min="0" 
+                    max="180" 
+                    value={trialDays} 
+                    onChange={(e) => setTrialDays(Math.max(0, parseInt(e.target.value) || 0))}
+                    className="w-full bg-slate-50 border border-slate-200 rounded p-1.5 mt-1 font-bold text-slate-700"
+                  />
                 </div>
-
-                {/* Fase 3 */}
-                <div className="p-5 bg-slate-950 rounded-xl border border-slate-850">
-                  <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2 mb-3">
-                    <h4 className="text-sm font-bold text-white flex items-center gap-2">
-                      Fase 3: Fluxo de Redirecionamento da LP e Onboarding
-                    </h4>
-                    <span className="text-[10px] px-2.5 py-0.5 bg-blue-500/20 rounded-full font-bold text-blue-400">Médio</span>
-                  </div>
-                  <p className="text-xs text-slate-400 leading-relaxed font-light mb-4">
-                    Adicionar na Landing Page o redirecionamento com parâmetros do plano escolhido (`/cadastro?plan=pro`). No frontend de cadastro, o wizard captura isso e insere no payload de submissão do formulário. Assim que a conta é criada, redirecionamos o usuário automaticamente para a URL de pagamento seguro do Asaas.
-                  </p>
-                  <div className="p-3 bg-slate-900 border border-slate-800 rounded-lg">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase block">Arquivos a serem editados:</span>
-                    <span className="text-xs font-mono text-[#f25a2f] block mt-1">app/(landingpages)/elo57/components/PricingSection.js e app/cadastro/page.js</span>
-                  </div>
-                </div>
-
-                {/* Fase 4 */}
-                <div className="p-5 bg-slate-950 rounded-xl border border-slate-850">
-                  <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2 mb-3">
-                    <h4 className="text-sm font-bold text-white flex items-center gap-2">
-                      Fase 4: Expansão do Middleware de Acesso & Roteamento
-                    </h4>
-                    <span className="text-[10px] px-2.5 py-0.5 bg-[#f25a2f]/20 rounded-full font-bold text-[#f25a2f]">Complexo</span>
-                  </div>
-                  <p className="text-xs text-slate-400 leading-relaxed font-light mb-4">
-                    Caso a organização assine mas abandone o checkout do Asaas antes de preencher o cartão, ela não terá um cartão tokenizado cadastrado e a assinatura constará como inadimplente. O middleware de rotas (`middleware.js`) deve interceptar usuários com `subscription_status = 'pending_payment'` ou `'overdue'` e redirecioná-los forçadamente para a página de faturamento para regularizarem o cartão de crédito, impedindo que acessem o ERP.
-                  </p>
-                  <div className="p-3 bg-slate-900 border border-slate-800 rounded-lg">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase block">Arquivos a serem editados:</span>
-                    <span className="text-xs font-mono text-[#f25a2f] block mt-1">middleware.js</span>
-                  </div>
-                </div>
-
               </div>
 
+              {/* Cupom */}
+              <div className="pt-2">
+                <span className="text-[10px] text-slate-400 uppercase block font-semibold">Cupom</span>
+                <input 
+                  type="text" 
+                  value={promoCode} 
+                  onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
+                  className="w-full bg-slate-50 border border-slate-200 rounded p-1.5 mt-1 font-bold text-slate-700 uppercase"
+                  placeholder="EX: MUITOLINDO"
+                />
+              </div>
+
+              {/* Resultado e Payload em JSON */}
+              <div className="pt-4 border-t border-slate-100 flex items-baseline justify-between">
+                <span className="text-xs font-bold text-slate-500">Valor Recorrente:</span>
+                <span className="text-lg font-black text-[#f25a2f]">R$ {totalValue} <span className="text-xs font-normal text-slate-450">/ ciclo</span></span>
+              </div>
+
+              <div className="pt-2">
+                <span className="text-[10px] text-slate-400 uppercase block font-semibold mb-1">Payload JSON gerado para Asaas:</span>
+                <pre className="text-[9px] font-mono text-green-700 bg-slate-50 border border-slate-200 rounded p-3 overflow-x-auto max-h-40">
+                  {JSON.stringify(generateAsaasPayload(), null, 2)}
+                </pre>
+              </div>
             </div>
           </div>
-        )}
+
+        </div>
 
       </div>
     </div>
