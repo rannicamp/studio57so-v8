@@ -52,7 +52,7 @@ export default function PlanejamentoCobrancaPage() {
       parentId: '1', 
       color: '#eab308',
       completed: false,
-      longDesc: 'Quando o cliente estiver navegando na nossa página inicial de vendas e escolher um plano, o sistema vai anexar essa escolha na barra de endereço dele. Assim, quando ele for para a tela de criar conta, o sistema já sabe se ele quer o plano Essencial, Pro ou Ultra, carregando essa configuração automaticamente.'
+      longDesc: 'Quando o cliente estiver navegando na nossa página inicial de vendas e escolher um plano, o sistema vai anexar essa escolha na barra de endereço dele. Assim, quando ele for para a tela de criar conta, o sistema já sabe se ele quer o plano Essencial, Pro ou Elo IA, carregando essa configuração automaticamente.'
     },
     { 
       id: '3', 
@@ -697,7 +697,7 @@ export default function PlanejamentoCobrancaPage() {
                   <p className="text-xs text-slate-600 leading-relaxed font-light">
                     O Supabase armazena na tabela de organizações o campo <code className="bg-white px-1.5 py-0.5 rounded font-mono font-bold">plano_codigo</code>. 
                     Quando o Ranniere se logar na organização **STUDIO 57 (Org ID 2)** ou na **Vanguard (Org ID 57)**, o sistema lê essa informação do usuário ativo.
-                    Se mudarmos a Org para o plano <code className="bg-white px-1.5 py-0.5 rounded font-mono font-bold">essencial</code>, o sistema desabilita visualmente o módulo BIM e bloqueia a navegação. Se mudarmos para <code className="bg-white px-1.5 py-0.5 rounded font-mono font-bold">pro</code> ou <code className="bg-white px-1.5 py-0.5 rounded font-mono font-bold">ultra</code>, os recursos são liberados!
+                    Se mudarmos a Org para o plano <code className="bg-white px-1.5 py-0.5 rounded font-mono font-bold">essencial</code>, o sistema desabilita visualmente o módulo BIM e bloqueia a navegação. Se mudarmos para <code className="bg-white px-1.5 py-0.5 rounded font-mono font-bold">pro</code> ou <code className="bg-white px-1.5 py-0.5 rounded font-mono font-bold">ia</code>, os recursos são liberados!
                   </p>
                 </div>
               )}

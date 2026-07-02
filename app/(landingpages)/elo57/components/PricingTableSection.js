@@ -54,30 +54,30 @@ const CATEGORIES = [
 
 const INITIAL_STATE = {
   // Administrativo
-  'financeiro': { essencial: true, pro: true, ultra: true },
-  'recursos-humanos': { essencial: false, pro: true, ultra: true },
-  'empresas': { essencial: true, pro: true, ultra: true },
-  'empreendimentos': { essencial: true, pro: true, ultra: true },
-  'contratos': { essencial: false, pro: true, ultra: true },
-  'relatorios': { essencial: false, pro: true, ultra: true },
-  'indices-financeiros': { essencial: false, pro: false, ultra: true },
+  'financeiro': { essencial: true, pro: true, ia: true },
+  'recursos-humanos': { essencial: false, pro: true, ia: true },
+  'empresas': { essencial: true, pro: true, ia: true },
+  'empreendimentos': { essencial: true, pro: true, ia: true },
+  'contratos': { essencial: false, pro: true, ia: true },
+  'relatorios': { essencial: false, pro: true, ia: true },
+  'indices-financeiros': { essencial: false, pro: false, ia: true },
 
   // Comercial
-  'caixa-entrada': { essencial: false, pro: true, ultra: true },
-  'funil-vendas': { essencial: false, pro: true, ultra: true },
-  'tabela-vendas': { essencial: false, pro: true, ultra: true },
-  'contatos': { essencial: true, pro: true, ultra: true },
-  'simulador': { essencial: true, pro: true, ultra: true },
+  'caixa-entrada': { essencial: false, pro: true, ia: true },
+  'funil-vendas': { essencial: false, pro: true, ia: true },
+  'tabela-vendas': { essencial: false, pro: true, ia: true },
+  'contatos': { essencial: true, pro: true, ia: true },
+  'simulador': { essencial: true, pro: true, ia: true },
 
   // Obra
-  'orcamentacao': { essencial: false, pro: false, ultra: true },
-  'pedidos-compra': { essencial: false, pro: true, ultra: true },
-  'almoxarifado': { essencial: false, pro: true, ultra: true },
-  'diario-obra': { essencial: false, pro: true, ultra: true },
-  'atividades': { essencial: true, pro: true, ultra: true },
+  'orcamentacao': { essencial: false, pro: false, ia: true },
+  'pedidos-compra': { essencial: false, pro: true, ia: true },
+  'almoxarifado': { essencial: false, pro: true, ia: true },
+  'diario-obra': { essencial: false, pro: true, ia: true },
+  'atividades': { essencial: true, pro: true, ia: true },
 
   // Coordenação BIM
-  'bim-manager': { essencial: false, pro: true, ultra: true },
+  'bim-manager': { essencial: false, pro: true, ia: true },
 };
 
 export default function PricingTableSection() {
@@ -100,7 +100,7 @@ export default function PricingTableSection() {
   }, []);
 
   const handleToggle = (moduleId, planKey) => {
-    const currentModule = planMatrix[moduleId] || { essencial: false, pro: false, ultra: false };
+    const currentModule = planMatrix[moduleId] || { essencial: false, pro: false, ia: false };
     const newState = {
       ...planMatrix,
       [moduleId]: {
@@ -164,7 +164,7 @@ export default function PricingTableSection() {
                   Elo Pro
                 </th>
                 <th className="py-4 px-4 text-center text-xs font-bold text-slate-950 w-1/6">
-                  Elo Ultra
+                  Elo IA
                 </th>
               </tr>
             </thead>
@@ -180,7 +180,7 @@ export default function PricingTableSection() {
                   
                   {/* Linhas dos Módulos */}
                   {category.modules.map((module) => {
-                    const status = planMatrix[module.id] || { essencial: false, pro: false, ultra: false };
+                    const status = planMatrix[module.id] || { essencial: false, pro: false, ia: false };
                     
                     return (
                       <tr 
@@ -218,12 +218,12 @@ export default function PricingTableSection() {
                           </div>
                         </td>
 
-                        {/* Coluna Ultra */}
+                        {/* Coluna IA */}
                         <td className="py-3 px-4 text-center">
                           <div className="flex justify-center">
                             <InteractiveCheckbox 
-                              checked={status.ultra} 
-                              onChange={() => handleToggle(module.id, 'ultra')} 
+                              checked={status.ia} 
+                              onChange={() => handleToggle(module.id, 'ia')} 
                             />
                           </div>
                         </td>
