@@ -21,7 +21,9 @@ import {
   RotateCcw,
   Edit2,
   HelpCircle,
-  Trash
+  Trash,
+  X,
+  Eye
 } from 'lucide-react';
 
 export default function PlanejamentoCobrancaPage() {
@@ -31,11 +33,12 @@ export default function PlanejamentoCobrancaPage() {
       id: '1', 
       text: 'Roadmap de Faturamento (Elo 57)', 
       desc: 'Fluxo unificado de cadastro de planos, carência de trial e bloqueios.', 
-      x: 50, 
+      x: 30, 
       y: 450, 
       parentId: null, 
       color: '#f25a2f', 
-      isRoot: true 
+      isRoot: true,
+      longDesc: 'Esta é a base do nosso ecossistema de faturamento. A partir daqui, definimos as regras para novos cadastros de clientes, aplicação de períodos de carência de 3 meses, criação das assinaturas no Asaas e as regras de controle de acesso a módulos premium do Elo 57 baseados no plano escolhido.'
     },
     
     // Grupo 1: Entrada & Coleta (Amarelo)
@@ -46,7 +49,8 @@ export default function PlanejamentoCobrancaPage() {
       x: 480, 
       y: 50, 
       parentId: '1', 
-      color: '#eab308' 
+      color: '#eab308',
+      longDesc: 'Quando o cliente estiver navegando na nossa página inicial de vendas e escolher um plano, o sistema vai anexar essa escolha na barra de endereço dele. Assim, quando ele for para a tela de criar conta, o sistema já sabe se ele quer o plano Essencial, Pro ou Ultra, carregando essa configuração automaticamente.'
     },
     { 
       id: '3', 
@@ -55,7 +59,8 @@ export default function PlanejamentoCobrancaPage() {
       x: 480, 
       y: 190, 
       parentId: '1', 
-      color: '#eab308' 
+      color: '#eab308',
+      longDesc: 'Na tela de cadastro, coletaremos os dados de endereço e o CNPJ ou CPF do cliente. O Asaas exige essas informações por lei para poder emitir cobranças e gerar assinaturas. Se o cliente for Pessoa Jurídica, o sistema busca automaticamente a Razão Social pelo CNPJ para facilitar a digitação. Todos esses dados são salvos em nosso banco de dados no Supabase.'
     },
     { 
       id: '3b', 
@@ -64,7 +69,8 @@ export default function PlanejamentoCobrancaPage() {
       x: 480, 
       y: 330, 
       parentId: '1', 
-      color: '#eab308' 
+      color: '#eab308',
+      longDesc: 'Assim que o cliente terminar de criar a sua conta (finalizar o cadastro de 3 etapas), ele não irá para a tela convencional de login. O sistema gerará a assinatura promocional em background e redirecionará o cliente automaticamente para a tela de checkout do Asaas para inserir seu cartão de crédito, garantindo que a conta só seja utilizável após o registro do cartão.'
     },
     
     // Grupo 2: Banco de Dados (Azul)
@@ -75,7 +81,8 @@ export default function PlanejamentoCobrancaPage() {
       x: 480, 
       y: 470, 
       parentId: '1', 
-      color: '#3b82f6' 
+      color: '#3b82f6',
+      longDesc: 'Criaremos uma tabela interna para organizar os planos. Cada plano listará quais ferramentas estão liberadas (como financeiro, RH, diário de obra) e quais estão bloqueadas. É o mapa de acessos que o sistema consultará para saber o que cada cliente pode fazer.'
     },
     { 
       id: '5', 
@@ -84,7 +91,8 @@ export default function PlanejamentoCobrancaPage() {
       x: 480, 
       y: 610, 
       parentId: '1', 
-      color: '#3b82f6' 
+      color: '#3b82f6',
+      longDesc: 'Uma tabela para controlar nossos cupons promocionais. Ela definirá quantos dias grátis o cliente terá (ex: 90 dias de carência/trial) e se ele tem algum desconto percentual no valor da mensalidade (ex: cupom MUITOLINDO).'
     },
     { 
       id: '6', 
@@ -93,7 +101,8 @@ export default function PlanejamentoCobrancaPage() {
       x: 480, 
       y: 750, 
       parentId: '1', 
-      color: '#3b82f6' 
+      color: '#3b82f6',
+      longDesc: 'Modificamos o cadastro das empresas clientes no banco de dados para anotar qual plano elas escolheram, quantos usuários ativos elas contrataram, o ID da assinatura do Asaas correspondente e a data em que o período de testes vai expirar.'
     },
     { 
       id: '6b', 
@@ -102,7 +111,8 @@ export default function PlanejamentoCobrancaPage() {
       x: 480, 
       y: 890, 
       parentId: '1', 
-      color: '#3b82f6' 
+      color: '#3b82f6',
+      longDesc: 'Criamos uma ferramenta administrativa para que você, Ranniere, consiga prorrogar os dias de testes de um cliente ou alterar a data de vencimento da mensalidade de forma manual e segura directamente no banco de dados, sem risco de quebrar o histórico.'
     },
 
     // Grupo 3: Integração Asaas API (Roxo)
@@ -113,7 +123,8 @@ export default function PlanejamentoCobrancaPage() {
       x: 920, 
       y: 120, 
       parentId: '3', 
-      color: '#a855f7' 
+      color: '#a855f7',
+      longDesc: 'O sistema pega o CNPJ/CPF e o endereço que o cliente digitou no cadastro e cria uma ficha de cliente dentro do Asaas. Se a empresa já existir lá, o sistema atualiza os dados automaticamente para manter tudo sincronizado.'
     },
     { 
       id: '8', 
@@ -122,7 +133,8 @@ export default function PlanejamentoCobrancaPage() {
       x: 920, 
       y: 260, 
       parentId: '3', 
-      color: '#a855f7' 
+      color: '#a855f7',
+      longDesc: 'O sistema multiplica a quantidade de usuários contratados pelo valor unitário do plano e aplica o desconto do cupom. Depois, calcula a data exata da primeira cobrança, somando os 90 dias de carência (trial) a partir do dia do cadastro.'
     },
     { 
       id: '9', 
@@ -131,7 +143,8 @@ export default function PlanejamentoCobrancaPage() {
       x: 920, 
       y: 400, 
       parentId: '3', 
-      color: '#a855f7' 
+      color: '#a855f7',
+      longDesc: 'Envia os dados calculados para o Asaas para registrar a assinatura. Definimos o tipo de cobrança como "Indefinido" para que o próprio checkout do Asaas exiba a opção de Cartão de Crédito e Pix, gerando a URL de pagamento seguro.'
     },
     { 
       id: '9b', 
@@ -140,7 +153,8 @@ export default function PlanejamentoCobrancaPage() {
       x: 920, 
       y: 540, 
       parentId: '3', 
-      color: '#a855f7' 
+      color: '#a855f7',
+      longDesc: 'Uma regra interna para que, enquanto estivermos testando localmente, o sistema use cartões e dinheiro simulado do Asaas. Quando colocarmos no ar para clientes reais, o sistema passa a cobrar cartões verdadeiros de forma automática sem mudar o código.'
     },
 
     // Grupo 4: Interface do Usuário (Laranja)
@@ -151,7 +165,8 @@ export default function PlanejamentoCobrancaPage() {
       x: 1360, 
       y: 50, 
       parentId: '8', 
-      color: '#f25a2f' 
+      color: '#f25a2f',
+      longDesc: 'Uma tela dentro do painel de configurações do cliente que mostra o status da conta dele (Ativo, Em Período de Testes, Atrasado), a data da próxima cobrança e a bandeira e final do cartão que ele deixou cadastrado (mascarado por segurança).'
     },
     { 
       id: '11', 
@@ -160,7 +175,8 @@ export default function PlanejamentoCobrancaPage() {
       x: 1360, 
       y: 190, 
       parentId: '8', 
-      color: '#f25a2f' 
+      color: '#f25a2f',
+      longDesc: 'Uma tabela simples dentro do painel do cliente para ele ver todas as faturas passadas e futuras emitidas pelo Asaas. Ele pode clicar para baixar o PDF do boleto/comprovante ou pagar via Pix.'
     },
     { 
       id: '12', 
@@ -169,7 +185,8 @@ export default function PlanejamentoCobrancaPage() {
       x: 1360, 
       y: 330, 
       parentId: '8', 
-      color: '#f25a2f' 
+      color: '#f25a2f',
+      longDesc: 'Um botão na área do cliente para ele atualizar o cartão de crédito caso o dele expire, seja bloqueado ou ele queira trocar o método de pagamento por outro cartão.'
     },
 
     // Grupo 5: Segurança & Middleware (Vermelho)
@@ -180,7 +197,8 @@ export default function PlanejamentoCobrancaPage() {
       x: 1360, 
       y: 470, 
       parentId: '8', 
-      color: '#ef4444' 
+      color: '#ef4444',
+      longDesc: 'Se o cliente contratou um plano para 5 usuários, o sistema bloqueia automaticamente a criação de um 6º usuário na tela de equipe. Para liberar novos cadastros, o cliente deve clicar em um botão para aumentar a quantidade de assentos da sua assinatura.'
     },
     { 
       id: '14', 
@@ -189,7 +207,8 @@ export default function PlanejamentoCobrancaPage() {
       x: 1360, 
       y: 610, 
       parentId: '8', 
-      color: '#ef4444' 
+      color: '#ef4444',
+      longDesc: 'Como o sistema sabe quem bloquear? Cada organização salva no banco possui a coluna plano_codigo (ex: essencial ou pro). O menu lateral lê essa informação do usuário logado. Se a organização do usuário for do plano Essencial (que não inclui o módulo BIM), a opção do menu BIM Manager some. Se o usuário tentar digitar o link direto (/bim-manager) no navegador, o sistema bloqueia o acesso e mostra uma mensagem sugerindo o upgrade para o plano Pro.'
     },
     { 
       id: '15', 
@@ -198,7 +217,8 @@ export default function PlanejamentoCobrancaPage() {
       x: 1360, 
       y: 750, 
       parentId: '8', 
-      color: '#ef4444' 
+      color: '#ef4444',
+      longDesc: 'Se o trial de 3 meses expirar e o Asaas não conseguir cobrar o cartão do cliente (por falta de limite ou cartão cancelado), o status da organização muda para overdue (inadimplente). O middleware do sistema intercepta qualquer tentativa de usar a plataforma e redireciona o usuário para a tela de pagamento, bloqueando o restante.'
     },
 
     // Grupo 6: Webhooks (Verde)
@@ -209,7 +229,8 @@ export default function PlanejamentoCobrancaPage() {
       x: 1800, 
       y: 260, 
       parentId: '12', 
-      color: '#10b981' 
+      color: '#10b981',
+      longDesc: 'Quando o cliente preenche o cartão no checkout, o Asaas nos envia um aviso silencioso. Nosso webhook recebe, valida a segurança do aviso, encontra a empresa correspondente no Supabase e ativa a conta dela, liberando o acesso ao ERP.'
     },
     { 
       id: '17', 
@@ -218,7 +239,8 @@ export default function PlanejamentoCobrancaPage() {
       x: 1800, 
       y: 400, 
       parentId: '12', 
-      color: '#10b981' 
+      color: '#10b981',
+      longDesc: 'Se a mensalidade atrasar ou o cliente cancelar o plano, o Asaas envia um alerta ao nosso webhook. O sistema imediatamente altera o status da organização para suspenso no Supabase, bloqueando a entrada dos usuários.'
     }
   ];
 
@@ -227,7 +249,10 @@ export default function PlanejamentoCobrancaPage() {
   const [editingText, setEditingText] = useState('');
   const [editingDesc, setEditingDesc] = useState('');
   
-  // Canvas Panning State (Miro / Infinite Scrolling Style)
+  // Modal State for detailed business descriptions
+  const [activeModalNode, setActiveModalNode] = useState(null);
+
+  // Canvas Panning State (Miro Style)
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
@@ -258,7 +283,6 @@ export default function PlanejamentoCobrancaPage() {
 
   // Canvas Pan Handlers
   const handleCanvasMouseDown = (e) => {
-    // Only pan if clicking on empty space or grid background
     if (e.target === canvasRef.current || e.target.tagName === 'svg' || e.target.id === 'canvas-wrapper') {
       setIsPanning(true);
       setPanStart({
@@ -303,6 +327,7 @@ export default function PlanejamentoCobrancaPage() {
       id: newId,
       text: 'Nova Atividade',
       desc: 'Descrição da tarefa a ser cumprida.',
+      longDesc: 'Escreva aqui o detalhamento de negócio desta etapa de forma simples e direta.',
       x: 100 - panOffset.x,
       y: 300 - panOffset.y,
       parentId: null,
@@ -322,6 +347,7 @@ export default function PlanejamentoCobrancaPage() {
       id: newId,
       text: 'Nova Atividade Filha',
       desc: 'Tarefa subsequente conectada.',
+      longDesc: 'Detalhamento de negócio para esta subtarefa.',
       x: parent.x + cardWidth + 80,
       y: parent.y + (Math.random() * 120 - 60),
       parentId: parentId,
@@ -397,7 +423,7 @@ export default function PlanejamentoCobrancaPage() {
       ></div>
 
       {/* Header Dock */}
-      <header className="bg-white/90 border-b border-slate-200/60 py-4 px-6 z-35 backdrop-blur-md flex items-center justify-between shadow-sm relative shrink-0">
+      <header className="bg-white/90 border-b border-slate-200/60 py-4 px-6 z-25 backdrop-blur-md flex items-center justify-between shadow-sm relative shrink-0">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-slate-900 flex items-center justify-center text-white font-black text-base shadow-sm">
             E
@@ -406,7 +432,7 @@ export default function PlanejamentoCobrancaPage() {
             <h1 className="text-sm font-bold text-slate-900 tracking-tight flex items-center gap-2">
               Quadro de Atividades do Asaas <span className="text-[10px] font-bold text-[#f25a2f] bg-[#f25a2f]/10 border border-[#f25a2f]/20 px-2 py-0.5 rounded-full uppercase">Miro Canvas</span>
             </h1>
-            <p className="text-[10px] text-slate-450 font-light">Seu lindo, clique e arraste no fundo para mover a tela | Arraste os cards para organizar | (+) adiciona nós.</p>
+            <p className="text-[10px] text-slate-450 font-light">Seu lindo, clique nos cards para ver o detalhamento completo de negócio sem complicações de código.</p>
           </div>
         </div>
 
@@ -529,15 +555,25 @@ export default function PlanejamentoCobrancaPage() {
                     </div>
                   ) : (
                     <>
-                      <span 
-                        onDoubleClick={() => startEditing(node)}
-                        className="text-xs font-bold text-slate-850 leading-snug truncate select-none block"
-                      >
-                        {node.text}
-                      </span>
+                      <div className="flex items-center justify-between gap-1 w-full overflow-hidden">
+                        <span 
+                          onDoubleClick={() => startEditing(node)}
+                          className="text-xs font-bold text-slate-850 leading-snug truncate select-none block flex-1"
+                        >
+                          {node.text}
+                        </span>
+                        {/* Details Modal Trigger */}
+                        <button 
+                          onClick={() => setActiveModalNode(node)}
+                          className="text-[#f25a2f] hover:text-[#d84a22] p-0.5 rounded hover:bg-[#f25a2f]/5 shrink-0 flex items-center justify-center"
+                          title="Ver Detalhamento de Negócio"
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
                       <p 
                         onDoubleClick={() => startEditing(node)}
-                        className="text-[10.5px] text-slate-500 font-light leading-relaxed line-clamp-3 select-none"
+                        className="text-[10px] text-slate-500 font-light leading-relaxed line-clamp-3 select-none"
                       >
                         {node.desc || 'Nenhuma descrição fornecida.'}
                       </p>
@@ -576,13 +612,73 @@ export default function PlanejamentoCobrancaPage() {
         </div>
       </div>
 
+      {/* DETAILED BUSINESS EXPLANATION POP-UP MODAL */}
+      {activeModalNode && (
+        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div 
+            className="bg-white border border-slate-200 rounded-3xl p-8 max-w-2xl w-full shadow-2xl relative animate-in fade-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close Button */}
+            <button 
+              onClick={() => setActiveModalNode(null)}
+              className="absolute top-4 right-4 p-1.5 hover:bg-slate-100 rounded-full text-slate-400 hover:text-slate-700 transition-colors"
+            >
+              <X className="h-5 w-5" />
+            </button>
+
+            {/* Modal Title */}
+            <div className="flex items-center gap-3.5 mb-5">
+              <div 
+                className="w-3.5 h-8 rounded-full" 
+                style={{ backgroundColor: activeModalNode.color || '#cbd5e1' }}
+              ></div>
+              <div>
+                <h3 className="text-lg font-black text-slate-900">{activeModalNode.text}</h3>
+                <span className="text-[10px] font-bold text-slate-450 uppercase tracking-widest block mt-0.5">Detalhamento Operacional e Regras</span>
+              </div>
+            </div>
+
+            {/* Non-Technical Business Description */}
+            <div className="space-y-4 text-sm text-slate-650 font-light leading-relaxed">
+              <p className="bg-slate-50 border border-slate-150 p-4 rounded-2xl text-slate-700">
+                {activeModalNode.longDesc || activeModalNode.desc || 'Nenhuma descrição detalhada disponível para esta atividade.'}
+              </p>
+
+              {/* Informative Explanation on Plans Enforcing */}
+              {activeModalNode.id === '14' && (
+                <div className="mt-4 p-4 bg-[#f25a2f]/10 border border-[#f25a2f]/20 rounded-2xl">
+                  <span className="font-bold text-slate-800 block text-xs mb-1">Como o sistema diferencia Org 2 de Org 3?</span>
+                  <p className="text-xs text-slate-600 leading-relaxed font-light">
+                    O Supabase armazena na tabela de organizações o campo <code className="bg-white px-1.5 py-0.5 rounded font-mono font-bold">plano_codigo</code>. 
+                    Quando Ranniere (Org 2) se loga, seu cadastro aponta para o plano <code className="bg-white px-1.5 py-0.5 rounded font-mono font-bold text-[#f25a2f]">pro</code>, o que habilita as chaves de acesso a todos os módulos no menu lateral e nas permissões da API. 
+                    Se uma nova empresa (Org 3) assinar o plano <code className="bg-white px-1.5 py-0.5 rounded font-mono font-bold">essencial</code>, o sistema desabilita visualmente o módulo BIM e bloqueia a navegação para impedir o uso.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Footer buttons */}
+            <div className="flex justify-end pt-6 mt-6 border-t border-slate-100">
+              <button 
+                onClick={() => setActiveModalNode(null)}
+                className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl transition-all active:scale-95"
+              >
+                Entendi, Devonildo!
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Floating Instructions Banner (Bottom Left) */}
       <div className="absolute bottom-5 left-5 bg-white/90 border border-slate-200/80 px-4 py-3 rounded-2xl shadow-md z-30 max-w-sm backdrop-blur-sm flex items-start gap-3 pointer-events-auto">
         <Info className="h-4 w-4 text-[#f25a2f] mt-0.5 flex-shrink-0" />
         <div className="text-[10px] text-slate-500 leading-relaxed font-light">
           <span className="font-bold text-slate-700 block mb-0.5">Navegação do Canvas:</span>
           Arrastar Tela: Clique e arraste no fundo milimetrado.<br />
-          Mover Cards: Clique e arraste nas caixas de tarefas.<br />
+          Ver Detalhes: Clique no ícone de "Olho" (<Eye className="h-3 w-3 inline" />) no card.<br />
+          Mover Cards: Arraste as caixas de tarefas.<br />
           Links: <a href="/cadastro" target="_blank" className="underline font-bold text-[#f25a2f]">Cadastro</a> | <a href="/configuracoes/assinatura" target="_blank" className="underline font-bold text-[#f25a2f]">Assinatura</a>
         </div>
       </div>
