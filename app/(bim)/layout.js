@@ -9,6 +9,7 @@ import { AuthProvider, useAuth } from '../../contexts/AuthContext';
 import { Toaster } from 'sonner';
 import Sidebar from '@/components/shared/sidebar';
 import Header from '@/components/shared/Header';
+import ModuleGuard from '@/components/shared/ModuleGuard';
 
 // Importa estilos globais e FontAwesome (igual ao main)
 import '../globals.css'; 
@@ -45,12 +46,14 @@ function BimLayoutContent({ children, isSidebarOpen, setIsSidebarOpen, toggleSid
         style={{ paddingTop }}
       >
         {/* Conteúdo Dinâmico do BIM Manager (Flex Item 2) */}
-        <div className="flex-1 h-full relative overflow-hidden transition-all duration-300">
-          {/* Toaster para notificações (Sucesso/Erro upload) */}
-          <Toaster position="top-right" richColors />
-          {/* O conteúdo da página BIM (Visualizadores web GL) */}
-          {children}
-        </div>
+          <div className="flex-1 h-full relative overflow-hidden transition-all duration-300">
+            {/* Toaster para notificações (Sucesso/Erro upload) */}
+            <Toaster position="top-right" richColors />
+            {/* O conteúdo da página BIM (Visualizadores web GL) */}
+            <ModuleGuard modulo="bim">
+              {children}
+            </ModuleGuard>
+          </div>
       </div>
 
     </div>

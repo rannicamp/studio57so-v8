@@ -15,8 +15,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import Tooltip from './Tooltip';
 
 export default function Sidebar({ isOpen, closeSidebar }) {
-  const { hasPermission, user, isProprietario: isProprietarioFromAuth } = useAuth();
- const sidebarPosition = user?.sidebar_position || 'left';
+  const { hasPermission, hasModuleAccess, user, isProprietario: isProprietarioFromAuth } = useAuth();
+  const sidebarPosition = user?.sidebar_position || 'left';
 
  // Configuração dos itens - Totalmente Mapeada
  const navSections = [
@@ -95,6 +95,7 @@ export default function Sidebar({ isOpen, closeSidebar }) {
  </div>
  <nav className="flex items-center gap-2 overflow-x-auto flex-nowrap no-scrollbar py-2 max-w-[80vw]">
  {allItems.map((item) => {
+ if (hasModuleAccess && user && !hasModuleAccess(item.recurso)) return null;
  let canViewItem = hasPermission(item.recurso, 'pode_ver') || ['painel', 'perfil', 'caixa_de_entrada'].includes(item.recurso);
  if (item.recurso === 'relatorios') canViewItem = isProprietario || hasPermission('relatorios', 'pode_ver');
  if (!item || !canViewItem) return null;
@@ -142,9 +143,10 @@ export default function Sidebar({ isOpen, closeSidebar }) {
  {navSections.map((section) => {
  const sectionItems = section.items || [];
  const visibleItems = sectionItems.filter(item => {
- if (item.recurso === 'relatorios') return isProprietario || hasPermission('relatorios', 'pode_ver');
- return hasPermission(item.recurso, 'pode_ver') || ['painel', 'perfil', 'caixa_de_entrada'].includes(item.recurso);
- });
+  if (hasModuleAccess && user && !hasModuleAccess(item.recurso)) return false;
+  if (item.recurso === 'relatorios') return isProprietario || hasPermission('relatorios', 'pode_ver');
+  return hasPermission(item.recurso, 'pode_ver') || ['painel', 'perfil', 'caixa_de_entrada'].includes(item.recurso);
+  });
 
  if (visibleItems.length === 0) return null;
 

@@ -69,7 +69,7 @@ export function AuthProvider({ children }) {
 
         const { data: profileData, error } = await supabase
             .from('usuarios')
-            .select('*, funcoes ( id, nome_funcao )')
+            .select('*, funcoes ( id, nome_funcao ), organizacoes ( plano_codigo, seats_contracted )')
             .eq('id', currentUser.id)
             .single();
 
@@ -115,13 +115,35 @@ export function AuthProvider({ children }) {
             .limit(1)
             .maybeSingle();
 
+        // Buscar permissões de módulos do plano da organização
+        let planoModulos = null;
+        if (profileData?.organizacoes?.plano_codigo) {
+            const { data: planoData } = await supabase
+                .from('planos')
+                .select('modulos_inclusos')
+                .eq('codigo', profileData.organizacoes.plano_codigo)
+                .maybeSingle();
+            if (planoData) planoModulos = planoData.modulos_inclusos;
+        }
+
+        const fallbackModulos = {
+            essencial: { painel: true, financeiro: true, empresas: true, empreendimentos: true, contatos: true, simulador: true, atividades: true },
+            pro: { painel: true, financeiro: true, empresas: true, empreendimentos: true, contatos: true, simulador: true, atividades: true, recursos_humanos: true, crm: true, tabela_vendas: true, orcamento: true, pedidos: true, almoxarifado: true, rdo: true, bim: true },
+            ultra: { painel: true, financeiro: true, empresas: true, empreendimentos: true, contatos: true, simulador: true, atividades: true, recursos_humanos: true, crm: true, tabela_vendas: true, orcamento: true, pedidos: true, almoxarifado: true, rdo: true, bim: true, inteligencia_artificial: true }
+        };
+        const activePlan = profileData?.organizacoes?.plano_codigo || 'essencial';
+        const modulosPermitidos = planoModulos || fallbackModulos[activePlan] || fallbackModulos['essencial'];
+
         const combinedUser = {
             ...currentUser,
             ...profileData,
             nome_funcao: profileData?.funcoes?.nome_funcao || '',
             funcao: profileData?.funcoes?.nome_funcao || '',
             telefone: telefoneContato || funcionarioData?.phone || '',
-            creci: contatoData?.creci || ''
+            creci: contatoData?.creci || '',
+            plano_codigo: activePlan,
+            modulos_permitidos: modulosPermitidos,
+            seats_contracted: profileData?.organizacoes?.seats_contracted || 1
         };
 
         setUser(combinedUser);
@@ -183,6 +205,12 @@ export function AuthProvider({ children }) {
         return permissions[recurso]?.[permissao] || false;
     };
 
+    const hasModuleAccess = useCallback((modulo) => {
+        if (!user) return false;
+        if (user.is_superadmin || user.organizacao_id === 1) return true;
+        return user.modulos_permitidos?.[modulo] === true;
+    }, [user]);
+
     // =================================================================================
     // AQUI ESTÁ A CORREÇÃO MÁGICA
     // O PORQUÊ: Adicionamos a propriedade 'userData' que é um espelho da 'user'.
@@ -196,6 +224,7 @@ export function AuthProvider({ children }) {
         isProprietario,
         permissions,
         hasPermission,
+        hasModuleAccess,
         organizacao_id,
         refreshAuthUser
     };
