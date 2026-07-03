@@ -54,7 +54,7 @@ export async function POST(request) {
     ];
 
     const model = genAI.getGenerativeModel({
-      model: 'gemini-3.1-pro-preview',
+      model: 'gemini-2.5-pro',
       tools: tools,
       systemInstruction: `Você é Stella, a super Analista Comercial de Elite e Assistente Copiloto da Studio 57.
 Sua missão é gerar uma RESPOSTA SUGERIDA PRONTA natural e humanizada para o corretor copiar e enviar ao cliente no WhatsApp.

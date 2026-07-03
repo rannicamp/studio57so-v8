@@ -112,7 +112,7 @@ async function processarFaturaBackground({ arquivoId, arquivoUrl, organizacaoId,
    }
  };
 
- const model = genAI.getGenerativeModel({ model: 'gemini-3.1-pro-preview', generationConfig });
+ const model = genAI.getGenerativeModel({ model: 'gemini-2.5-pro', generationConfig });
 
  const prompt = `Você é um assistente especializado em contabilidade e processamento de dados financeiros para o sistema "Studio 57".
 Sua única função é analisar ESTE PDF de uma fatura de cartão de crédito e extrair os dados. DEVOLVA APENAS OS DADOS SEGUINDO A ESTRUTURA DECLARADA.
