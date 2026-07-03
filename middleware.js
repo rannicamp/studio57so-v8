@@ -191,7 +191,7 @@ export async function middleware(req) {
       const dataExpiracao = new Date(subExpires);
       const dataValida = !isNaN(dataExpiracao.getTime());
       
-      const assinaturaInativa = ['overdue', 'suspended', 'canceled'].includes(subStatus);
+      const assinaturaInativa = ['pending', 'inactive', 'overdue', 'suspended', 'canceled'].includes(subStatus);
       const trialVencido = subStatus === 'trialing' && dataValida && dataAtual > dataExpiracao;
       const assinaturaExpirada = dataValida && dataAtual > dataExpiracao;
       

@@ -95,6 +95,35 @@ export async function POST(request) {
             }
         }
 
+        // NOVO: Registro do cartão no Asaas altera status de pending para trialing (desbloqueando o acesso)
+        if (event === 'SUB_UPDATED' || event === 'SUB_CREATED') {
+            const subId = subscription ? subscription.id : (body.subscriptionId || null);
+            if (subId && subscription && subscription.billingType === 'CREDIT_CARD') {
+                console.log(`[Asaas Webhook] Assinatura atualizada com cartão no Asaas: ${subId}`);
+
+                const updatePayload = {
+                    subscription_status: 'trialing'
+                };
+
+                // Asaas retorna dados do cartão se tokenizado
+                if (subscription.creditCard) {
+                    updatePayload.card_brand = subscription.creditCard.creditCardBrand || null;
+                    updatePayload.card_last_digits = subscription.creditCard.creditCardNumber || null;
+                }
+
+                const { error } = await supabaseAdmin
+                    .from('organizacoes')
+                    .update(updatePayload)
+                    .eq('asaas_subscription_id', subId);
+
+                if (error) {
+                    console.error('[Asaas Webhook] Erro ao atualizar status de trial no banco:', error.message);
+                } else {
+                    console.log(`[Asaas Webhook] Assinatura ${subId} marcada como trialing (desbloqueada).`);
+                }
+            }
+        }
+
         // Retornar HTTP 200 para confirmar recebimento ao Asaas
         return NextResponse.json({ success: true });
 

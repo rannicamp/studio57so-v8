@@ -2,15 +2,18 @@
 
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Building2, User, ChevronRight, ChevronLeft, CheckCircle2, Factory, Loader2 } from 'lucide-react';
 import { IMaskInput } from 'react-imask';
 import { signUpAction } from './actions';
 import { buscarCNPJ, buscarCEP } from '@/utils/apiConsultas';
 
-export default function CadastroPage() {
+function CadastroForm() {
  const router = useRouter();
+ const searchParams = useSearchParams();
+ const planParam = searchParams.get('plan') || 'essencial';
+ const cupomParam = searchParams.get('cupom') || searchParams.get('coupon') || 'AMIGODODONO';
 
  // Estados do Wizard
  const [step, setStep] = useState(1);
@@ -159,6 +162,8 @@ export default function CadastroPage() {
 
  const formDataPayload = new FormData();
  formDataPayload.append('tipoPessoa', tipoPessoa);
+ formDataPayload.append('plano_codigo', planParam);
+ formDataPayload.append('cupom', cupomParam);
 
  // Envia tudo pro action (ignorando o campo de confirmação de senha pois o backend n precisa)
  Object.keys(formData).forEach(key => {
@@ -172,6 +177,8 @@ export default function CadastroPage() {
  if (result.error) {
  setError(result.error.message || 'Erro inesperado ao criar a conta.');
  setLoading(false);
+ } else if (result.paymentUrl) {
+ window.location.href = result.paymentUrl;
  } else {
  router.push('/login?message=Organização criada com sucesso! Verifique seu e-mail para validar o acesso da administração.');
  }
@@ -611,4 +618,16 @@ export default function CadastroPage() {
  </div>
  </div>
  );
+}
+
+export default function CadastroPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Loader2 className="animate-spin h-8 w-8 text-blue-600" />
+      </div>
+    }>
+      <CadastroForm />
+    </Suspense>
+  );
 }
