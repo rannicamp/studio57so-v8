@@ -153,7 +153,7 @@ export async function POST(request) {
             ciclo: cicloPlano,
             descricao: descPlano,
             dataVencimento: dataVencimentoStr,
-            formaPagamento: 'CREDIT_CARD'
+            formaPagamento: cupomAplicado ? 'CREDIT_CARD' : 'UNDEFINED'
         });
 
         // 10. Atualizar a organização com a assinatura e vencimentos
