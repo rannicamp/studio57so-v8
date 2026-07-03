@@ -114,10 +114,11 @@ O **Studio 57** é o ambiente de desenvolvimento e laboratório central. O **Elo
 
 ---
 
-### 16. 👥 Reestruturação Visual do Módulo de RH - *A FAZER (PRÓXIMO OBJETIVO)*
-- [ ] **Layout Padrão Ouro (Estilo Extrato):** Substituir a tela antiquada do RH pelo modelo `Master-Detail` super responsivo que consagramos nos Extratos de Cartão.
+### 16. 👥 Reestruturação Visual do Módulo de RH - *A FAZER (PRIORIZADO EM 03/07/2026)*
+- [ ] **Layout Padrão Ouro (Estilo Extrato):** Substituir a tela antiquada do RH pelo modelo `Master-Detail` de duas colunas (Mestre-Detalhe) aproveitando melhor o espaço lateral, semelhante ao layout de Extratos do Financeiro.
 - [ ] **Side-panel de Navegação (Esquerda):** Ao invés de exibir os meses (como nas faturas), exibir a **lista de funcionários** no histórico lateral com busca rápida em tempo real e destaque no ativo.
 - [ ] **Ficha do Colaborador (Direita):** Linha do tempo dos pontos, documentação (Uppy), holerites e informações contratuais carregadas na aba central, garantindo transição incrivelmente fluída para a gestão do DP.
+- [ ] **Alinhamento do Design System:** Corrigir as inconsistências visuais e fontes para unificar o design do RH com a identidade visual sóbria do restante da plataforma.
 
 ### 12. 🤖 Módulo da Stella (IA Comercial e Piloto Automático)
 - [ ] **Agendamento Autônomo de Atividades:** Ensinar a Stella a detectar intenções de agendamento na conversa (ex: "estou viajando, volto semana que vem" ou "só posso conversar após as 18h") e criar automaticamente uma atividade correspondente na tabela `activities`.
