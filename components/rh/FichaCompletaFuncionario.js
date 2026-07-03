@@ -137,16 +137,26 @@ const DocumentosSection = ({ documentos: initialDocuments, employeeId, employeeN
  setPreviewAnexo(doc);
  };
 
- const handleDownload = async (doc) => {
- let filePath = doc.caminho_arquivo || doc;
- const { data } = supabase.storage.from('funcionarios-documentos').getPublicUrl(filePath);
- const a = document.createElement('a');
- a.href = data.publicUrl;
- a.download = doc.nome_documento || 'documento';
- document.body.appendChild(a);
- a.click();
- document.body.removeChild(a);
- };
+  const handleDownload = async (doc) => {
+    let filePath = doc.caminho_arquivo || doc;
+    const { data } = supabase.storage.from('funcionarios-documentos').getPublicUrl(filePath);
+    
+    // Extrai a extensão correta do caminho físico no storage
+    const ext = filePath.includes('.') ? filePath.split('.').pop().toLowerCase() : '';
+    
+    // Garante que o nome de download tenha a extensão caso esteja sem ela
+    let docName = doc.nome_documento || 'documento';
+    if (ext && !docName.toLowerCase().endsWith('.' + ext)) {
+      docName = `${docName}.${ext}`;
+    }
+    
+    const a = document.createElement('a');
+    a.href = data.publicUrl;
+    a.download = docName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
 
  const handleCopyLink = async (doc) => {
  let filePath = doc.caminho_arquivo || doc;

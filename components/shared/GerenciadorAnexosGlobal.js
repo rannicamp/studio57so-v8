@@ -67,12 +67,19 @@ export default function GerenciadorAnexosGlobal({ anexos, viewMode: initialViewM
   };
 
  const getFileType = (anexo) => {
- // Puxa a extensão preferencial do nome do arquivo (mais confiável)
- const nameToUse = anexo.nome_arquivo || anexo.caminho_arquivo || '';
- const ext = nameToUse.split('.').pop().toLowerCase();
- if (['mp4', 'webm', 'ogg', 'mov', 'avi'].includes(ext)) return 'video';
- if (['pdf'].includes(ext)) return 'pdf';
- return 'image';
+  // O caminho do arquivo no Storage (caminho_arquivo) sempre tem a extensão física real (ex: .pdf, .png)
+  const path = anexo.caminho_arquivo || '';
+  let ext = path.includes('.') ? path.split('.').pop().toLowerCase() : '';
+  
+  // Se não encontrar no caminho, tenta usar a do nome_arquivo
+  if (!ext) {
+    const name = anexo.nome_arquivo || '';
+    ext = name.includes('.') ? name.split('.').pop().toLowerCase() : '';
+  }
+  
+  if (['mp4', 'webm', 'ogg', 'mov', 'avi'].includes(ext)) return 'video';
+  if (['pdf'].includes(ext)) return 'pdf';
+  return 'image';
  };
 
  // Busca movida para o topo para evitar Hooks condicinais

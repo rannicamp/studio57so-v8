@@ -19,13 +19,20 @@ export default function FilePreviewModal({ anexo, onClose }) {
 
  if (!anexo) return null;
 
- // A extensão deve priorizar o nome_arquivo (mais seguro pós-upload dinâmico).
- const nameToUse = anexo.nome_arquivo || anexo.caminho_arquivo || '';
- const ext = nameToUse.split('.').pop().toLowerCase();
- const isPdf = ext === 'pdf';
- const isVideo = ['mp4', 'webm', 'ogg', 'mov', 'avi'].includes(ext);
- const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext);
- const isUnsupported = !isPdf && !isVideo && !isImage;
+  // A extensão física do arquivo no Storage (caminho_arquivo) é a mais confiável.
+  const path = anexo.caminho_arquivo || '';
+  let ext = path.includes('.') ? path.split('.').pop().toLowerCase() : '';
+  
+  // Se não houver no caminho, tenta extrair do nome_arquivo
+  if (!ext) {
+    const name = anexo.nome_arquivo || '';
+    ext = name.includes('.') ? name.split('.').pop().toLowerCase() : '';
+  }
+
+  const isPdf = ext === 'pdf';
+  const isVideo = ['mp4', 'webm', 'ogg', 'mov', 'avi'].includes(ext);
+  const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext);
+  const isUnsupported = !isPdf && !isVideo && !isImage;
 
  return (
  <>
