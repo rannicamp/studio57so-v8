@@ -220,12 +220,13 @@ export async function middleware(req) {
           { prefix: '/rdo', module: 'rdo' },
           { prefix: '/contratos', module: 'contratos' },
           { prefix: '/relatorios', module: 'relatorios' },
+          { prefix: '/caixa-de-entrada', module: 'caixa_de_entrada' },
         ];
 
         const planoModulosMap = {
           essencial: { painel: true, financeiro: true, empresas: true, empreendimentos: true, contatos: true, simulador: true, atividades: true, contratos: true },
-          pro: { painel: true, financeiro: true, empresas: true, empreendimentos: true, contatos: true, simulador: true, atividades: true, contratos: true, recursos_humanos: true, crm: true, tabela_vendas: true, orcamento: true, pedidos: true, almoxarifado: true, rdo: true, bim: true, relatorios: true },
-          ia: { painel: true, financeiro: true, empresas: true, empreendimentos: true, contatos: true, simulador: true, atividades: true, contratos: true, recursos_humanos: true, crm: true, tabela_vendas: true, orcamento: true, pedidos: true, almoxarifado: true, rdo: true, bim: true, relatorios: true, inteligencia_artificial: true }
+          pro: { painel: true, financeiro: true, empresas: true, empreendimentos: true, contatos: true, simulador: true, atividades: true, contratos: true, recursos_humanos: true, crm: true, tabela_vendas: true, orcamento: true, pedidos: true, almoxarifado: true, rdo: true, bim: true, relatorios: true, caixa_de_entrada: true },
+          ia: { painel: true, financeiro: true, empresas: true, empreendimentos: true, contatos: true, simulador: true, atividades: true, contratos: true, recursos_humanos: true, crm: true, tabela_vendas: true, orcamento: true, pedidos: true, almoxarifado: true, rdo: true, bim: true, relatorios: true, inteligencia_artificial: true, caixa_de_entrada: true }
         };
 
         const modulosPermitidos = planoModulosMap[planoCodigo] || planoModulosMap['essencial'];

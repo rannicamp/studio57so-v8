@@ -35,8 +35,8 @@ WITH CHECK (organizacao_id = public.get_auth_user_org());
 INSERT INTO public.planos (codigo, nome, valor_mensal, valor_anual, modulos_inclusos, organizacao_id)
 VALUES 
 ('essencial', 'Elo Essencial', 127.00, 101.60, '{"painel": true, "financeiro": true, "empresas": true, "empreendimentos": true, "contatos": true, "simulador": true, "atividades": true, "contratos": true}'::jsonb, 1),
-('pro', 'Elo Pro', 297.00, 237.60, '{"painel": true, "financeiro": true, "empresas": true, "empreendimentos": true, "contatos": true, "simulador": true, "atividades": true, "contratos": true, "recursos_humanos": true, "crm": true, "tabela_vendas": true, "orcamento": true, "pedidos": true, "almoxarifado": true, "rdo": true, "bim": true, "relatorios": true}'::jsonb, 1),
-('ia', 'Elo IA', 497.00, 397.60, '{"painel": true, "financeiro": true, "empresas": true, "empreendimentos": true, "contatos": true, "simulador": true, "atividades": true, "contratos": true, "recursos_humanos": true, "crm": true, "tabela_vendas": true, "orcamento": true, "pedidos": true, "almoxarifado": true, "rdo": true, "bim": true, "relatorios": true, "inteligencia_artificial": true}'::jsonb, 1)
+('pro', 'Elo Pro', 297.00, 237.60, '{"painel": true, "financeiro": true, "empresas": true, "empreendimentos": true, "contatos": true, "simulador": true, "atividades": true, "contratos": true, "recursos_humanos": true, "crm": true, "tabela_vendas": true, "orcamento": true, "pedidos": true, "almoxarifado": true, "rdo": true, "bim": true, "relatorios": true, "caixa_de_entrada": true}'::jsonb, 1),
+('ia', 'Elo IA', 497.00, 397.60, '{"painel": true, "financeiro": true, "empresas": true, "empreendimentos": true, "contatos": true, "simulador": true, "atividades": true, "contratos": true, "recursos_humanos": true, "crm": true, "tabela_vendas": true, "orcamento": true, "pedidos": true, "almoxarifado": true, "rdo": true, "bim": true, "relatorios": true, "inteligencia_artificial": true, "caixa_de_entrada": true}'::jsonb, 1)
 ON CONFLICT (codigo) DO UPDATE 
 SET nome = EXCLUDED.nome, valor_mensal = EXCLUDED.valor_mensal, valor_anual = EXCLUDED.valor_anual, modulos_inclusos = EXCLUDED.modulos_inclusos;
 

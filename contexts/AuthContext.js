@@ -128,8 +128,8 @@ export function AuthProvider({ children }) {
 
         const fallbackModulos = {
             essencial: { painel: true, financeiro: true, empresas: true, empreendimentos: true, contatos: true, simulador: true, atividades: true, contratos: true },
-            pro: { painel: true, financeiro: true, empresas: true, empreendimentos: true, contatos: true, simulador: true, atividades: true, contratos: true, recursos_humanos: true, crm: true, tabela_vendas: true, orcamento: true, pedidos: true, almoxarifado: true, rdo: true, bim: true, relatorios: true },
-            ia: { painel: true, financeiro: true, empresas: true, empreendimentos: true, contatos: true, simulador: true, atividades: true, contratos: true, recursos_humanos: true, crm: true, tabela_vendas: true, orcamento: true, pedidos: true, almoxarifado: true, rdo: true, bim: true, relatorios: true, inteligencia_artificial: true }
+            pro: { painel: true, financeiro: true, empresas: true, empreendimentos: true, contatos: true, simulador: true, atividades: true, contratos: true, recursos_humanos: true, crm: true, tabela_vendas: true, orcamento: true, pedidos: true, almoxarifado: true, rdo: true, bim: true, relatorios: true, caixa_de_entrada: true },
+            ia: { painel: true, financeiro: true, empresas: true, empreendimentos: true, contatos: true, simulador: true, atividades: true, contratos: true, recursos_humanos: true, crm: true, tabela_vendas: true, orcamento: true, pedidos: true, almoxarifado: true, rdo: true, bim: true, relatorios: true, inteligencia_artificial: true, caixa_de_entrada: true }
         };
         const activePlan = profileData?.organizacoes?.plano_codigo || 'essencial';
         const modulosPermitidos = planoModulos || fallbackModulos[activePlan] || fallbackModulos['essencial'];
