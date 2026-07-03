@@ -250,3 +250,39 @@ export async function signUpAction(formData) {
   return { error: { message: 'Falha grave no Edge DB Connect.' } }
  }
 }
+
+export async function validarCupomAction(cupomCodigo) {
+  try {
+    const supabaseAdmin = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_ROLE_KEY,
+      { cookies: { get(name) { return null; } } }
+    );
+
+    const { data, error } = await supabaseAdmin
+      .from('promocoes')
+      .select('*')
+      .eq('codigo', cupomCodigo.toUpperCase().trim())
+      .eq('ativo', true)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Erro ao validar cupom:', error.message);
+      return { error: 'Falha ao consultar cupom.' };
+    }
+
+    if (!data) {
+      return { error: 'Cupom inválido ou expirado.' };
+    }
+
+    return {
+      success: true,
+      codigo: data.codigo,
+      trial_days: data.trial_days || 15,
+      desconto_percentual: Number(data.desconto_percentual) || 0
+    };
+  } catch (err) {
+    console.error('Crash ao validar cupom:', err);
+    return { error: 'Erro de conexão com o banco.' };
+  }
+}

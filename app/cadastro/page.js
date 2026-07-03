@@ -2,11 +2,11 @@
 
 'use client';
 
-import { useState, Suspense } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Building2, User, ChevronRight, ChevronLeft, CheckCircle2, Factory, Loader2 } from 'lucide-react';
 import { IMaskInput } from 'react-imask';
-import { signUpAction } from './actions';
+import { signUpAction, validarCupomAction } from './actions';
 import { buscarCNPJ, buscarCEP } from '@/utils/apiConsultas';
 
 function CadastroForm() {
@@ -20,6 +20,14 @@ function CadastroForm() {
  const [tipoPessoa, setTipoPessoa] = useState(null); // 'PF' ou 'PJ'
  const [loading, setLoading] = useState(false);
  const [error, setError] = useState('');
+
+ // Estados da Assinatura (Passo 4)
+ const [selectedPlan, setSelectedPlan] = useState(planParam);
+ const [couponCode, setCouponCode] = useState(cupomParam);
+ const [couponDiscount, setCouponDiscount] = useState(0);
+ const [couponTrialDays, setCouponTrialDays] = useState(15);
+ const [validatingCoupon, setValidatingCoupon] = useState(false);
+ const [couponMessage, setCouponMessage] = useState('');
 
  // Estados de Busca Externa
  const [buscandoCNPJ, setBuscandoCNPJ] = useState(false);
@@ -86,12 +94,81 @@ function CadastroForm() {
  if (!formData.admin_nome.trim()) return setError('O Nome Completo é obrigatório.');
  }
 
+ // Validação Passo 3
+ if (step === 3) {
+   if (tipoPessoa === 'PJ' && !formData.admin_nome.trim()) {
+     return setError('O Nome Completo do Administrador é obrigatório.');
+   }
+   if (!formData.admin_telefone.trim()) {
+     return setError('O Celular/WhatsApp é obrigatório.');
+   }
+   if (!formData.admin_email.trim()) {
+     return setError('O E-mail de Acesso é obrigatório.');
+   }
+   if (formData.admin_senha.length < 6) {
+     return setError('A senha deve ter no mínimo 6 caracteres.');
+   }
+   if (formData.admin_senha !== formData.admin_senha_confirmacao) {
+     return setError('As senhas não coincidem.');
+   }
+ }
+
  setStep(step + 1);
  };
 
  const prevStep = () => {
  setError('');
  setStep(step - 1);
+ };
+
+ const handleApplyCoupon = async (codeToApply = couponCode) => {
+   if (!codeToApply.trim()) return;
+   setValidatingCoupon(true);
+   setCouponMessage('');
+   try {
+     const result = await validarCupomAction(codeToApply);
+     if (result.error) {
+       setCouponDiscount(0);
+       setCouponTrialDays(15);
+       setCouponMessage(`❌ ${result.error}`);
+     } else if (result.success) {
+       setCouponDiscount(result.desconto_percentual);
+       setCouponTrialDays(result.trial_days);
+       setCouponMessage(`✅ Cupom aplicado! ${result.desconto_percentual}% de desconto + ${result.trial_days} dias de carência.`);
+     }
+   } catch (err) {
+     setCouponMessage('❌ Erro de conexão ao aplicar cupom.');
+   } finally {
+     setValidatingCoupon(false);
+   }
+ };
+
+ useEffect(() => {
+   if (cupomParam) {
+     handleApplyCoupon(cupomParam);
+   }
+ }, [cupomParam]);
+
+ const planPrices = {
+   essencial: 127.00,
+   pro: 297.00,
+   ia: 497.00
+ };
+
+ const planNames = {
+   essencial: 'Elo Essencial',
+   pro: 'Elo Pro',
+   ia: 'Elo IA'
+ };
+
+ const basePrice = planPrices[selectedPlan] || 127.00;
+ const discountValue = basePrice * (couponDiscount / 100);
+ const finalPrice = basePrice - discountValue;
+
+ const calculateFirstPaymentDate = () => {
+   const d = new Date();
+   d.setDate(d.getDate() + couponTrialDays);
+   return d.toLocaleDateString('pt-BR');
  };
 
  // Buscas Externas
@@ -162,8 +239,8 @@ function CadastroForm() {
 
  const formDataPayload = new FormData();
  formDataPayload.append('tipoPessoa', tipoPessoa);
- formDataPayload.append('plano_codigo', planParam);
- formDataPayload.append('cupom', cupomParam);
+ formDataPayload.append('plano_codigo', selectedPlan);
+ formDataPayload.append('cupom', couponCode);
 
  // Envia tudo pro action (ignorando o campo de confirmação de senha pois o backend n precisa)
  Object.keys(formData).forEach(key => {
@@ -209,7 +286,7 @@ function CadastroForm() {
  <div className="absolute top-0 left-0 w-full h-1 bg-gray-100">
  <div
  className="h-full bg-blue-600 transition-all duration-500 ease-out"
- style={{ width: `${(step / 3) * 100}%` }}
+ style={{ width: `${(step / 4) * 100}%` }}
  />
  </div>
 
@@ -558,6 +635,130 @@ function CadastroForm() {
  </div>
  )}
 
+ {/* PASSO 4: Escolha de Plano & Cupom */}
+ {step === 4 && (
+  <div className="animate-in fade-in slide-in-from-right-4 duration-500 space-y-6">
+    <div className="text-center mb-6">
+      <h3 className="text-lg font-semibold text-gray-900">Escolha o seu Plano & Benefícios</h3>
+      <p className="text-sm text-gray-500 mt-1">Selecione o plano ideal e confirme seus dados para faturamento.</p>
+    </div>
+
+    {/* Seleção de Planos (3 Cards) */}
+    <div className="space-y-3">
+      {/* Plano Essencial */}
+      <div
+        onClick={() => setSelectedPlan('essencial')}
+        className={`relative rounded-xl border-2 p-4 cursor-pointer text-left transition-all duration-200 ${selectedPlan === 'essencial'
+        ? 'border-blue-600 bg-blue-50/40 shadow-sm'
+        : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50'
+        }`}
+      >
+        <div className="flex justify-between items-center mb-1">
+          <h4 className="text-sm font-bold text-gray-900">Elo Essencial</h4>
+          <span className="text-sm font-extrabold text-blue-600">R$ 127/mês</span>
+        </div>
+        <p className="text-xs text-gray-500">Operação básica de obras, financeiro centralizado e contratos.</p>
+      </div>
+
+      {/* Plano Pro */}
+      <div
+        onClick={() => setSelectedPlan('pro')}
+        className={`relative rounded-xl border-2 p-4 cursor-pointer text-left transition-all duration-200 ${selectedPlan === 'pro'
+        ? 'border-blue-600 bg-blue-50/40 shadow-sm'
+        : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50'
+        }`}
+      >
+        <div className="absolute -top-2.5 right-4 bg-blue-600 text-white text-[9px] font-bold uppercase tracking-wider py-0.5 px-2 rounded-full shadow-xs">
+          Mais Recomendado
+        </div>
+        <div className="flex justify-between items-center mb-1">
+          <h4 className="text-sm font-bold text-gray-900">Elo Pro</h4>
+          <span className="text-sm font-extrabold text-blue-600">R$ 297/mês</span>
+        </div>
+        <p className="text-xs text-gray-500">BIM 3D, CRM completo, Almoxarifado, Pedidos, Diário de Obra e RH.</p>
+      </div>
+
+      {/* Plano Elo IA */}
+      <div
+        onClick={() => setSelectedPlan('ia')}
+        className={`relative rounded-xl border-2 p-4 cursor-pointer text-left transition-all duration-200 ${selectedPlan === 'ia'
+        ? 'border-blue-600 bg-blue-50/40 shadow-sm'
+        : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50'
+        }`}
+      >
+        <div className="flex justify-between items-center mb-1">
+          <h4 className="text-sm font-bold text-gray-900">Elo IA</h4>
+          <span className="text-sm font-extrabold text-blue-600">R$ 497/mês</span>
+        </div>
+        <p className="text-xs text-gray-500">Completo (Pro) + Automação de WhatsApp e qualificação da Stella IA.</p>
+      </div>
+    </div>
+
+    {/* Input de Cupom */}
+    <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/60 text-left">
+      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Cupom de Desconto / Trial</label>
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={couponCode}
+          onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+          placeholder="Digite o cupom (Ex: AMIGODODONO)"
+          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-xs uppercase focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
+        />
+        <button
+          type="button"
+          onClick={() => handleApplyCoupon()}
+          disabled={validatingCoupon}
+          className="px-4 py-2 bg-slate-900 text-white font-semibold text-xs rounded-lg hover:bg-slate-800 disabled:opacity-50 transition-colors"
+        >
+          {validatingCoupon ? 'Validando...' : 'Aplicar'}
+        </button>
+      </div>
+      {couponMessage && (
+        <p className={`text-[11px] font-semibold mt-2 ${couponMessage.startsWith('❌') ? 'text-red-600' : 'text-emerald-700'}`}>
+          {couponMessage}
+        </p>
+      )}
+    </div>
+
+    {/* Resumo Financeiro */}
+    <div className="bg-blue-50/30 border border-blue-100 p-4 rounded-xl space-y-2 text-left">
+      <h4 className="font-bold text-blue-800 uppercase tracking-wider text-[10px]">Detalhamento da Assinatura</h4>
+      <div className="text-xs space-y-1 text-slate-700">
+        <div className="flex justify-between">
+          <span>Mensalidade ({planNames[selectedPlan]}):</span>
+          <span>R$ {basePrice.toFixed(2).replace('.', ',')}</span>
+        </div>
+        {couponDiscount > 0 && (
+          <div className="flex justify-between text-emerald-700 font-medium">
+            <span>Desconto do Cupom ({couponDiscount}%):</span>
+            <span>- R$ {discountValue.toFixed(2).replace('.', ',')}</span>
+          </div>
+        )}
+        <div className="flex justify-between font-bold text-sm text-slate-900 pt-1.5 border-t border-blue-100/60">
+          <span>Valor Líquido Mensal:</span>
+          <span>R$ {finalPrice.toFixed(2).replace('.', ',')} / mês</span>
+        </div>
+      </div>
+      <div className="text-[11px] text-blue-800 bg-blue-100/40 p-2.5 rounded-lg font-medium leading-relaxed">
+        🎁 <strong>{couponTrialDays} dias de carência incluídos!</strong> O seu cartão de crédito será cadastrado para ativação da conta, mas **nenhum valor será cobrado hoje**. A primeira mensalidade vencerá apenas em {calculateFirstPaymentDate()}.
+      </div>
+    </div>
+
+    {/* Resumo Cadastral */}
+    <div className="bg-slate-50 border border-slate-100 p-4 rounded-xl text-left">
+      <h4 className="font-bold text-slate-500 uppercase tracking-wider text-[10px] mb-2.5">Dados da Empresa / Profissional</h4>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-[11px] text-slate-600">
+        <div><strong className="text-slate-700">Nome:</strong> {tipoPessoa === 'PJ' ? formData.razao_social : formData.admin_nome}</div>
+        <div><strong className="text-slate-700">Documento:</strong> {tipoPessoa === 'PJ' ? formData.cnpj : formData.cpf}</div>
+        <div><strong className="text-slate-700">Responsável:</strong> {formData.admin_nome}</div>
+        <div><strong className="text-slate-700">WhatsApp:</strong> {formData.admin_telefone}</div>
+        <div className="sm:col-span-2"><strong className="text-slate-700">Endereço:</strong> {formData.address_street}, {formData.address_number} - {formData.city}/{formData.state} (CEP: {formData.cep})</div>
+      </div>
+    </div>
+  </div>
+  )}
+
  {/* Controle de Erros Geral */}
  {error && (
  <div className="rounded-md bg-red-50 p-4 animate-in fade-in">
@@ -583,7 +784,7 @@ function CadastroForm() {
  <div></div> // Spacer para manter o botão "Próximo" na direita
  )}
 
- {step < 3 ? (
+ {step < 4 ? (
  <button
  type="button"
  onClick={nextStep}
@@ -600,7 +801,7 @@ function CadastroForm() {
  {loading ? (
  <><Loader2 className="animate-spin mr-2 h-4 w-4" /> Finalizando Cadastro...</>
  ) : (
- <><CheckCircle2 className="mr-2 h-4 w-4" /> Criar a minha Conta</>
+ <><CheckCircle2 className="mr-2 h-4 w-4" /> Ir para Checkout Seguro (Asaas)</>
  )}
  </button>
  )}
