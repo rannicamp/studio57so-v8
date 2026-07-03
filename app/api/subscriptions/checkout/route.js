@@ -1,8 +1,6 @@
 import { createClient } from '@/utils/supabase/server';
 import { NextResponse } from 'next/server';
-import { obterOuCriarCliente, criarAssinatura, obterLinkPagamentoAssinatura } from '@/lib/asaas';
-
-const PLAN_VALUE = 297.00; // Valor mensal padrão da assinatura do Elo 57
+import { obterOuCriarCliente, criarAssinatura, obterLinkPagamentoAssinatura, cancelarAssinatura } from '@/lib/asaas';
 
 export async function POST(request) {
     const supabase = await createClient();
@@ -30,7 +28,7 @@ export async function POST(request) {
         // 3. Buscar informações da organização
         const { data: org, error: orgError } = await supabase
             .from('organizacoes')
-            .select('nome, asaas_customer_id, trial_ends_at')
+            .select('nome, asaas_customer_id, trial_ends_at, asaas_subscription_id')
             .eq('id', orgId)
             .single();
 
@@ -38,9 +36,54 @@ export async function POST(request) {
             return NextResponse.json({ error: 'Erro ao carregar dados da organização.' }, { status: 400 });
         }
 
+        // 4. Ler dados enviados no POST body (plano_codigo e cupom)
+        const body = await request.json().catch(() => ({}));
+        const planoCodigo = body.plano_codigo || 'essencial';
+        const cupom = body.cupom || '';
+
+        // 5. Buscar plano e cupom no banco
+        const { data: planoRecord, error: planoQueryError } = await supabase
+            .from('planos')
+            .select('*')
+            .eq('codigo', planoCodigo)
+            .single();
+
+        if (planoQueryError || !planoRecord) {
+            return NextResponse.json({ error: 'Plano selecionado inválido ou não cadastrado.' }, { status: 400 });
+        }
+
+        let trialDays = 15;
+        let descontoPercentual = 0.00;
+        let cupomAplicado = null;
+
+        if (cupom) {
+            const { data: promocaoRecord } = await supabase
+                .from('promocoes')
+                .select('*')
+                .eq('codigo', cupom.toUpperCase().trim())
+                .eq('ativo', true)
+                .maybeSingle();
+
+            if (promocaoRecord) {
+                trialDays = promocaoRecord.trial_days || 15;
+                descontoPercentual = Number(promocaoRecord.desconto_percentual) || 0.00;
+                cupomAplicado = promocaoRecord.codigo;
+            }
+        }
+
+        // 6. Cancelar assinatura anterior se existir no Asaas para evitar duplicidade de cobrança
+        if (org.asaas_subscription_id) {
+            try {
+                console.log(`[Checkout API] Cancelando assinatura anterior do cliente: ${org.asaas_subscription_id}`);
+                await cancelarAssinatura(org.asaas_subscription_id);
+            } catch (cancelError) {
+                console.warn('[Checkout API] Erro ao cancelar assinatura anterior (pode já estar cancelada):', cancelError.message);
+            }
+        }
+
         let asaasCustomerId = org.asaas_customer_id;
 
-        // 4. Buscar dados cadastrais da empresa local para enviar ao Asaas
+        // 7. Buscar dados cadastrais da empresa local para enviar ao Asaas
         console.log(`[Checkout API] Buscando dados cadastrais da empresa para a Org ${orgId}...`);
         const { data: empresa } = await supabase
             .from('cadastro_empresa')
@@ -59,7 +102,7 @@ export async function POST(request) {
             addressNumber: empresa?.address_number || 'S/N'
         };
 
-        // Validação amigável do Elo 57: Exige CPF ou CNPJ de faturamento
+        // Exige CPF ou CNPJ de faturamento
         if (!dadosCadastro.cpfCnpj) {
             return NextResponse.json({ 
                 error: 'Falta CPF ou CNPJ de faturamento. Preencha o CNPJ no cadastro da sua empresa em Configurações antes de assinar.' 
@@ -83,53 +126,46 @@ export async function POST(request) {
             }
         }
 
-        // 5. Calcular a data de vencimento da primeira mensalidade
-        // Se o trial ainda for válido no futuro, jogamos o primeiro vencimento para o fim do trial.
-        // Caso contrário, o primeiro vencimento será amanhã (o Asaas exige que nextDueDate seja >= amanhã para assinaturas em cartão).
-        const hoje = new Date();
-        const amanha = new Date();
-        amanha.setDate(hoje.getDate() + 1);
-        const dataAmanhaStr = amanha.toISOString().split('T')[0];
+        // 8. Calcular data de vencimento da primeira mensalidade (hoje + trialDays)
+        const dataVenc = new Date();
+        dataVenc.setDate(dataVenc.getDate() + trialDays);
+        const dataVencimentoStr = dataVenc.toISOString().split('T')[0];
 
-        let valorPlano = PLAN_VALUE;
+        let valorPlano = planoRecord.valor_mensal;
+        let valorLiquido = Number((valorPlano * (1 - descontoPercentual / 100)).toFixed(2));
         let cicloPlano = 'MONTHLY';
-        let descPlano = `Assinatura Elo 57 - Plano Mensal (${org.nome})`;
-        let nextDueDate = dataAmanhaStr;
+        let descPlano = `Assinatura Elo 57 - Plano ${planoRecord.nome} (${org.nome})`;
 
-        if (org.trial_ends_at) {
-            const dataTrial = new Date(org.trial_ends_at);
-            if (dataTrial > amanha) {
-                nextDueDate = dataTrial.toISOString().split('T')[0];
-            }
-        }
-
-        // Teste promocional solicitado pelo "seu lindo" para a Org 2 (Studio 57)
-        if (orgId === 2 || String(orgId) === '2') {
+        // Teste promocional solicitado pelo "seu lindo" para a Org 2 (Studio 57) se não houver cupom específico
+        if (!cupom && (orgId === 2 || String(orgId) === '2')) {
             console.log('[Checkout API] Aplicando promoção de teste de R$ 12,00 Anual para a Org 2');
-            valorPlano = 12.00;
+            valorLiquido = 12.00;
             cicloPlano = 'YEARLY';
             descPlano = `Assinatura Elo 57 - Plano Promocional Anual (${org.nome})`;
-            nextDueDate = dataAmanhaStr; // Força vencimento para amanhã para permitir o débito de teste imediato!
         }
 
-        console.log(`[Checkout API] Primeiro vencimento agendado para: ${nextDueDate}`);
+        console.log(`[Checkout API] Primeiro vencimento agendado para: ${dataVencimentoStr}`);
 
-        // 6. Criar a assinatura (recorrência) no Asaas
+        // 9. Criar a assinatura (recorrência) no Asaas
         const assinatura = await criarAssinatura({
             clienteId: asaasCustomerId,
-            valor: valorPlano,
+            valor: valorLiquido,
             ciclo: cicloPlano,
             descricao: descPlano,
-            dataVencimento: nextDueDate,
+            dataVencimento: dataVencimentoStr,
             formaPagamento: 'UNDEFINED'
         });
 
-        // 7. Atualizar a organização com o ID da assinatura e status de trialing (se no trial) ou active
+        // 10. Atualizar a organização com a assinatura e vencimentos
         const { error: updateSubError } = await supabase
             .from('organizacoes')
             .update({
                 asaas_subscription_id: assinatura.id,
-                subscription_status: 'trialing' // O webhook vai atualizar para 'active' assim que o pagamento compensar
+                plano_codigo: planoCodigo,
+                cupom_aplicado: cupomAplicado,
+                subscription_status: 'pending', // trava novamente até preencher cartão no checkout
+                trial_ends_at: dataVenc.toISOString(),
+                subscription_expires_at: dataVenc.toISOString()
             })
             .eq('id', orgId);
 
@@ -137,7 +173,7 @@ export async function POST(request) {
             console.error('[Checkout API] Erro ao atualizar asaas_subscription_id no banco:', updateSubError.message);
         }
 
-        // 8. Obter a URL da primeira fatura de pagamento da assinatura
+        // 11. Obter a URL da primeira fatura de pagamento da assinatura
         const checkoutUrl = await obterLinkPagamentoAssinatura(assinatura.id);
 
         return NextResponse.json({ checkoutUrl });

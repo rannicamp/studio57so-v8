@@ -28,7 +28,7 @@ export async function GET(request) {
         // 3. Buscar os dados da organização
         const { data: org, error: orgError } = await supabase
             .from('organizacoes')
-            .select('nome, asaas_customer_id, asaas_subscription_id, subscription_status, subscription_expires_at, trial_ends_at')
+            .select('nome, asaas_customer_id, asaas_subscription_id, subscription_status, subscription_expires_at, trial_ends_at, plano_codigo, cupom_aplicado')
             .eq('id', orgId)
             .single();
 
@@ -36,14 +36,26 @@ export async function GET(request) {
             return NextResponse.json({ error: 'Erro ao carregar dados da organização.' }, { status: 400 });
         }
 
+        // Buscar dados cadastrais da empresa
+        const { data: empresa } = await supabase
+            .from('cadastro_empresa')
+            .select('cnpj, cep, address_street, address_number, telefone, email, razao_social, city, state')
+            .eq('organizacao_id', orgId)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
         // Resposta base se não houver integração com o Asaas ativa ainda
         const responseData = {
             organizacao: {
                 nome: org.nome,
                 status: org.subscription_status || 'trialing',
                 expiresAt: org.subscription_expires_at,
-                trialEndsAt: org.trial_ends_at
+                trialEndsAt: org.trial_ends_at,
+                plano_codigo: org.plano_codigo,
+                cupom_aplicado: org.cupom_aplicado
             },
+            empresa: empresa || null,
             cartao: null,
             faturas: []
         };

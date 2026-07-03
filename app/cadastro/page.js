@@ -252,12 +252,24 @@ function CadastroForm() {
  const result = await signUpAction(formDataPayload);
 
  if (result.error) {
- setError(result.error.message || 'Erro inesperado ao criar a conta.');
- setLoading(false);
+   const msg = result.error.message || '';
+   if (msg.toLowerCase().includes('already registered') || msg.toLowerCase().includes('ja cadastrado')) {
+     setError(
+       <span>
+         Este e-mail já está cadastrado.{' '}
+         <a href="/login" className="underline font-bold text-red-900 hover:text-red-800">
+           Clique aqui para fazer login e concluir sua assinatura.
+         </a>
+       </span>
+     );
+   } else {
+     setError(msg || 'Erro inesperado ao criar a conta.');
+   }
+   setLoading(false);
  } else if (result.paymentUrl) {
- window.location.href = result.paymentUrl;
+   window.location.href = result.paymentUrl;
  } else {
- router.push('/login?message=Organização criada com sucesso! Verifique seu e-mail para validar o acesso da administração.');
+   router.push('/login?message=Organização criada com sucesso! Verifique seu e-mail para validar o acesso da administração.');
  }
  };
 

@@ -5,6 +5,7 @@ import { useLayout } from '@/contexts/LayoutContext';
 import { createClient } from '@/utils/supabase/client';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'next/navigation';
+import { validarCupomAction } from '@/app/cadastro/actions';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
     faCreditCard,
@@ -26,7 +27,7 @@ export default function AssinaturaPage() {
     const searchParams = useSearchParams();
     const isBloqueado = searchParams.get('bloqueado') === 'true';
     const supabase = createClient();
-    const queryClient = useQueryClient();
+        const queryClient = useQueryClient();
     
     // Estados locais
     const [loadingCheckout, setLoadingCheckout] = useState(false);
@@ -41,6 +42,36 @@ export default function AssinaturaPage() {
     const [submittingCard, setSubmittingCard] = useState(false);
     const [errorCard, setErrorCard] = useState(null);
     const [successCard, setSuccessCard] = useState(false);
+
+    // Novos estados de seleção de plano e cupom (para organizações pendentes/bloqueadas)
+    const [selectedPlan, setSelectedPlan] = useState('essencial');
+    const [couponCode, setCouponCode] = useState('AMIGODODONO');
+    const [couponDiscount, setCouponDiscount] = useState(0);
+    const [couponTrialDays, setCouponTrialDays] = useState(15);
+    const [validatingCoupon, setValidatingCoupon] = useState(false);
+    const [couponMessage, setCouponMessage] = useState('');
+
+    const handleApplyCoupon = async (codeToApply = couponCode) => {
+        if (!codeToApply.trim()) return;
+        setValidatingCoupon(true);
+        setCouponMessage('');
+        try {
+            const result = await validarCupomAction(codeToApply);
+            if (result.error) {
+                setCouponDiscount(0);
+                setCouponTrialDays(15);
+                setCouponMessage(`❌ ${result.error}`);
+            } else if (result.success) {
+                setCouponDiscount(result.desconto_percentual);
+                setCouponTrialDays(result.trial_days);
+                setCouponMessage(`✅ Cupom aplicado! ${result.desconto_percentual}% de desconto + ${result.trial_days} dias de carência.`);
+            }
+        } catch (err) {
+            setCouponMessage('❌ Erro de conexão ao aplicar cupom.');
+        } finally {
+            setValidatingCoupon(false);
+        }
+    };
 
     useEffect(() => {
         setPageTitle('Faturamento & Assinatura');
@@ -59,15 +90,35 @@ export default function AssinaturaPage() {
         }
     });
 
+    const organizacao = faturamento?.organizacao;
+    const cartao = faturamento?.cartao;
+    const faturas = faturamento?.faturas;
+    const empresa = faturamento?.empresa;
+
+    useEffect(() => {
+        if (organizacao) {
+            if (organizacao.plano_codigo) {
+                setSelectedPlan(organizacao.plano_codigo);
+            }
+            if (organizacao.cupom_aplicado) {
+                setCouponCode(organizacao.cupom_aplicado);
+                handleApplyCoupon(organizacao.cupom_aplicado);
+            } else {
+                handleApplyCoupon('AMIGODODONO');
+            }
+        }
+    }, [organizacao]);
+
     // 2. Mutation para gerar o Link de Checkout do Asaas (Assinar plano pela primeira vez)
     const checkoutMutation = useMutation({
-        mutationFn: async () => {
+        mutationFn: async ({ plano_codigo, cupom } = {}) => {
             setLoadingCheckout(true);
             setErrorCheckout(null);
 
             const res = await fetch('/api/subscriptions/checkout', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ plano_codigo, cupom })
             });
 
             const data = await res.json();
@@ -132,7 +183,7 @@ export default function AssinaturaPage() {
     });
 
     const handleAssinar = () => {
-        checkoutMutation.mutate();
+        checkoutMutation.mutate({ plano_codigo: selectedPlan, cupom: couponCode });
     };
 
     // Máscara para número do cartão (0000 0000 0000 0000)
@@ -223,7 +274,7 @@ export default function AssinaturaPage() {
         );
     }
 
-    const { organizacao, cartao, faturas } = faturamento;
+
 
     const diasRestantesTrial = () => {
         if (!organizacao?.trialEndsAt) return 0;
@@ -355,33 +406,152 @@ case 'OVERDUE':
                         <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-50">
                             <div>
                                 <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">Seu Plano</span>
-                                <h2 className="text-2xl font-bold text-gray-800 mt-1">Plano Premium Mensal</h2>
+                                <h2 className="text-2xl font-bold text-gray-800 mt-1">
+                                    {(!organizacao?.status || ['pending', 'inactive', 'canceled'].includes(organizacao.status)) 
+                                        ? `Plano ${planNames[selectedPlan] || 'Essencial'}` 
+                                        : `Plano ${organizacao.plano_codigo ? planNames[organizacao.plano_codigo] : 'Pro'}`}
+                                </h2>
                             </div>
                             {renderStatusBadge()}
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-                            <div className="p-4 bg-gray-50 rounded-xl">
-                                <span className="text-xs text-gray-400 font-semibold block">Organização Beneficiária</span>
-                                <span className="text-gray-800 font-bold text-sm mt-1 block">{organizacao?.nome}</span>
+                        {(!organizacao?.status || ['pending', 'inactive', 'canceled'].includes(organizacao.status)) ? (
+                            <div className="space-y-6">
+                                {/* Escolha do Plano */}
+                                <div>
+                                    <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-3 text-left">Escolha o seu Plano</span>
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                        {/* Elo Essencial */}
+                                        <div
+                                            onClick={() => setSelectedPlan('essencial')}
+                                            className={`relative rounded-xl border-2 p-4 cursor-pointer text-left transition-all duration-200 ${selectedPlan === 'essencial'
+                                                ? 'border-blue-600 bg-blue-50/20 shadow-xs'
+                                                : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50'
+                                            }`}
+                                        >
+                                            <h4 className="text-xs font-bold text-gray-900">Elo Essencial</h4>
+                                            <span className="text-[11px] font-extrabold text-blue-600 block mt-1">R$ 127/mês</span>
+                                            <p className="text-[10px] text-gray-500 mt-2">Obras, financeiro, contratos.</p>
+                                        </div>
+
+                                        {/* Elo Pro */}
+                                        <div
+                                            onClick={() => setSelectedPlan('pro')}
+                                            className={`relative rounded-xl border-2 p-4 cursor-pointer text-left transition-all duration-200 ${selectedPlan === 'pro'
+                                                ? 'border-blue-600 bg-blue-50/20 shadow-xs'
+                                                : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50'
+                                            }`}
+                                        >
+                                            <div className="absolute -top-2.5 right-3 bg-blue-600 text-white text-[8px] font-bold uppercase tracking-wider py-0.5 px-2 rounded-full shadow-xs">
+                                                Recomendado
+                                            </div>
+                                            <h4 className="text-xs font-bold text-gray-900">Elo Pro</h4>
+                                            <span className="text-[11px] font-extrabold text-blue-600 block mt-1">R$ 297/mês</span>
+                                            <p className="text-[10px] text-gray-500 mt-2">BIM 3D, CRM, Almoxarifado, Pedidos, RH.</p>
+                                        </div>
+
+                                        {/* Elo IA */}
+                                        <div
+                                            onClick={() => setSelectedPlan('ia')}
+                                            className={`relative rounded-xl border-2 p-4 cursor-pointer text-left transition-all duration-200 ${selectedPlan === 'ia'
+                                                ? 'border-blue-600 bg-blue-50/20 shadow-xs'
+                                                : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50'
+                                            }`}
+                                        >
+                                            <h4 className="text-xs font-bold text-gray-900">Elo IA</h4>
+                                            <span className="text-[11px] font-extrabold text-blue-600 block mt-1">R$ 497/mês</span>
+                                            <p className="text-[10px] text-gray-500 mt-2">Completo + Stella IA e WhatsApp.</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Input de Cupom */}
+                                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/60 text-left">
+                                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Cupom de Desconto / Trial</label>
+                                    <div className="flex gap-2">
+                                        <input
+                                            type="text"
+                                            value={couponCode}
+                                            onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                                            placeholder="Digite o cupom (Ex: AMIGODODONO)"
+                                            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-xs uppercase focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => handleApplyCoupon()}
+                                            disabled={validatingCoupon}
+                                            className="px-4 py-2 bg-slate-900 text-white font-semibold text-xs rounded-lg hover:bg-slate-800 disabled:opacity-50 transition-colors"
+                                        >
+                                            {validatingCoupon ? 'Validando...' : 'Aplicar'}
+                                        </button>
+                                    </div>
+                                    {couponMessage && (
+                                        <p className={`text-[11px] font-semibold mt-2 ${couponMessage.startsWith('❌') ? 'text-red-600' : 'text-emerald-700'}`}>
+                                            {couponMessage}
+                                        </p>
+                                    )}
+                                </div>
+
+                                {/* Detalhamento da Assinatura */}
+                                <div className="bg-blue-50/30 border border-blue-100 p-4 rounded-xl space-y-2 text-left">
+                                    <div className="text-xs space-y-1 text-slate-700 font-sans">
+                                        <div className="flex justify-between">
+                                            <span>Mensalidade ({planNames[selectedPlan]}):</span>
+                                            <span>R$ {basePrice.toFixed(2).replace('.', ',')}</span>
+                                        </div>
+                                        {couponDiscount > 0 && (
+                                            <div className="flex justify-between text-emerald-700 font-medium">
+                                                <span>Desconto do Cupom ({couponDiscount}%):</span>
+                                                <span>- R$ {discountValue.toFixed(2).replace('.', ',')}</span>
+                                            </div>
+                                        )}
+                                        <div className="flex justify-between font-bold text-sm text-slate-900 pt-1.5 border-t border-blue-100/60">
+                                            <span>Valor Líquido Mensal:</span>
+                                            <span>R$ {finalPrice.toFixed(2).replace('.', ',')} / mês</span>
+                                        </div>
+                                    </div>
+                                    <div className="text-[11px] text-blue-800 bg-blue-100/40 p-2.5 rounded-lg font-medium leading-relaxed">
+                                        🎁 <strong>{couponTrialDays} dias de carência incluídos!</strong> O seu cartão será cadastrado, mas **nenhum valor será cobrado hoje**. A primeira mensalidade vencerá apenas em {calculateFirstPaymentDate()}.
+                                    </div>
+                                </div>
+
+                                {/* Resumo de Dados Cadastrais (Compacto e Elegante) */}
+                                {empresa && (
+                                    <div className="bg-slate-50 border border-slate-100 p-4 rounded-xl text-left">
+                                        <h4 className="font-bold text-slate-500 uppercase tracking-wider text-[10px] mb-2">Dados da Empresa</h4>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 text-[11px] text-slate-600">
+                                            <div><span className="font-semibold text-slate-700">Razão Social:</span> {empresa.razao_social}</div>
+                                            <div><span className="font-semibold text-slate-700">CNPJ:</span> {empresa.cnpj}</div>
+                                            <div><span className="font-semibold text-slate-700">Contato:</span> {empresa.telefone} / {empresa.email}</div>
+                                            <div><span className="font-semibold text-slate-700">Endereço:</span> {empresa.address_street}, {empresa.address_number} - {empresa.city}/{empresa.state}</div>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
-                            <div className="p-4 bg-gray-50 rounded-xl">
-                                <span className="text-xs text-gray-400 font-semibold block">Valor de Cobrança</span>
-                                <span className="text-gray-800 font-bold text-sm mt-1 block">R$ 297,00 / mês</span>
+                        ) : (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                                <div className="p-4 bg-gray-50 rounded-xl">
+                                    <span className="text-xs text-gray-400 font-semibold block">Organização Beneficiária</span>
+                                    <span className="text-gray-800 font-bold text-sm mt-1 block">{organizacao?.nome}</span>
+                                </div>
+                                <div className="p-4 bg-gray-50 rounded-xl">
+                                    <span className="text-xs text-gray-400 font-semibold block">Valor de Cobrança</span>
+                                    <span className="text-gray-800 font-bold text-sm mt-1 block">R$ {Number(organizacao?.valor_mensal || 297).toFixed(2).replace('.', ',')} / mês</span>
+                                </div>
+                                <div className="p-4 bg-gray-50 rounded-xl">
+                                    <span className="text-xs text-gray-400 font-semibold block">Próxima Renovação</span>
+                                    <span className="text-gray-800 font-bold text-sm mt-1 block">
+                                        {organizacao?.status === 'trialing' 
+                                            ? formatarData(organizacao.trialEndsAt) 
+                                            : formatarData(organizacao.expiresAt)}
+                                    </span>
+                                </div>
+                                <div className="p-4 bg-gray-50 rounded-xl">
+                                    <span className="text-xs text-gray-400 font-semibold block">Método de Recorrência</span>
+                                    <span className="text-gray-800 font-bold text-sm mt-1 block">Cartão de Crédito</span>
+                                </div>
                             </div>
-                            <div className="p-4 bg-gray-50 rounded-xl">
-                                <span className="text-xs text-gray-400 font-semibold block">Próxima Renovação</span>
-                                <span className="text-gray-800 font-bold text-sm mt-1 block">
-                                    {organizacao?.status === 'trialing' 
-                                        ? formatarData(organizacao.trialEndsAt) 
-                                        : formatarData(organizacao.expiresAt)}
-                                </span>
-                            </div>
-                            <div className="p-4 bg-gray-50 rounded-xl">
-                                <span className="text-xs text-gray-400 font-semibold block">Método de Recorrência</span>
-                                <span className="text-gray-800 font-bold text-sm mt-1 block">Cartão de Crédito</span>
-                            </div>
-                        </div>
+                        )}
                     </div>
 
                     <div>
@@ -392,7 +562,7 @@ case 'OVERDUE':
                         )}
 
                         {/* Se não possuir assinatura ativa no Asaas, exibe botão para Iniciar Assinatura */}
-                        {(!organizacao?.status || ['canceled', 'inactive'].includes(organizacao.status) || (organizacao.status === 'trialing' && !cartao)) ? (
+                        {(!organizacao?.status || ['canceled', 'inactive', 'pending'].includes(organizacao.status) || (organizacao.status === 'trialing' && !cartao)) ? (
                             <button
                                 onClick={handleAssinar}
                                 disabled={loadingCheckout}
