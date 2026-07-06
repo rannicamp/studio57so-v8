@@ -28,6 +28,7 @@ function CadastroForm() {
  const [couponTrialDays, setCouponTrialDays] = useState(15);
  const [validatingCoupon, setValidatingCoupon] = useState(false);
  const [couponMessage, setCouponMessage] = useState('');
+ const [periodicidade, setPeriodicidade] = useState('anual'); // 'semestral' ou 'anual'
 
  // Estados de Busca Externa
  const [buscandoCNPJ, setBuscandoCNPJ] = useState(false);
@@ -161,9 +162,13 @@ function CadastroForm() {
    ia: 'Elo IA'
  };
 
- const basePrice = planPrices[selectedPlan] || 127.00;
- const discountValue = basePrice * (couponDiscount / 100);
- const finalPrice = basePrice - discountValue;
+  const valorMensalBase = planPrices[selectedPlan] || 127.00;
+  const meses = periodicidade === 'semestral' ? 6 : 12;
+  const parcelasMax = periodicidade === 'semestral' ? 3 : 6;
+  const basePriceTotal = valorMensalBase * meses;
+  const discountValueTotal = basePriceTotal * (couponDiscount / 100);
+  const finalPriceTotal = basePriceTotal - discountValueTotal;
+  const valorParcela = finalPriceTotal / parcelasMax;
 
  const calculateFirstPaymentDate = () => {
    const d = new Date();
@@ -241,6 +246,7 @@ function CadastroForm() {
  formDataPayload.append('tipoPessoa', tipoPessoa);
  formDataPayload.append('plano_codigo', selectedPlan);
  formDataPayload.append('cupom', couponCode);
+ formDataPayload.append('periodicidade', periodicidade);
 
  // Envia tudo pro action (ignorando o campo de confirmação de senha pois o backend n precisa)
  Object.keys(formData).forEach(key => {
@@ -649,113 +655,144 @@ function CadastroForm() {
 
  {/* PASSO 4: Escolha de Plano & Cupom */}
  {step === 4 && (
-  <div className="animate-in fade-in slide-in-from-right-4 duration-500 space-y-6">
-    <div className="text-center mb-6">
-      <h3 className="text-lg font-semibold text-gray-900">Escolha o seu Plano & Benefícios</h3>
-      <p className="text-sm text-gray-500 mt-1">Selecione o plano ideal e confirme seus dados para faturamento.</p>
-    </div>
+   <div className="animate-in fade-in slide-in-from-right-4 duration-500 space-y-6">
+     <div className="text-center mb-4">
+       <h3 className="text-lg font-semibold text-gray-900">Escolha o seu Plano & Benefícios</h3>
+       <p className="text-sm text-gray-500 mt-1">Selecione o plano ideal e confirme seus dados para faturamento.</p>
+     </div>
 
-    {/* Seleção de Planos (3 Cards) */}
-    <div className="space-y-3">
-      {/* Plano Essencial */}
-      <div
-        onClick={() => setSelectedPlan('essencial')}
-        className={`relative rounded-xl border-2 p-4 cursor-pointer text-left transition-all duration-200 ${selectedPlan === 'essencial'
-        ? 'border-blue-600 bg-blue-50/40 shadow-sm'
-        : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50'
-        }`}
-      >
-        <div className="flex justify-between items-center mb-1">
-          <h4 className="text-sm font-bold text-gray-900">Elo Essencial</h4>
-          <span className="text-sm font-extrabold text-blue-600">R$ 127/mês</span>
-        </div>
-        <p className="text-xs text-gray-500">Operação básica de obras, financeiro centralizado e contratos.</p>
-      </div>
+     {/* Seletor de Periodicidade (Tabs) */}
+     <div className="flex justify-center">
+       <div className="inline-flex rounded-lg p-1 bg-slate-100 border border-slate-200">
+         <button
+           type="button"
+           onClick={() => setPeriodicidade('semestral')}
+           className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${periodicidade === 'semestral' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-800'}`}
+         >
+           Semestral (6 meses)
+         </button>
+         <button
+           type="button"
+           onClick={() => setPeriodicidade('anual')}
+           className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${periodicidade === 'anual' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-800'}`}
+         >
+           Anual (12 meses)
+         </button>
+       </div>
+     </div>
 
-      {/* Plano Pro */}
-      <div
-        onClick={() => setSelectedPlan('pro')}
-        className={`relative rounded-xl border-2 p-4 cursor-pointer text-left transition-all duration-200 ${selectedPlan === 'pro'
-        ? 'border-blue-600 bg-blue-50/40 shadow-sm'
-        : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50'
-        }`}
-      >
-        <div className="absolute -top-2.5 right-4 bg-blue-600 text-white text-[9px] font-bold uppercase tracking-wider py-0.5 px-2 rounded-full shadow-xs">
-          Mais Recomendado
-        </div>
-        <div className="flex justify-between items-center mb-1">
-          <h4 className="text-sm font-bold text-gray-900">Elo Pro</h4>
-          <span className="text-sm font-extrabold text-blue-600">R$ 297/mês</span>
-        </div>
-        <p className="text-xs text-gray-500">BIM 3D, CRM completo, Almoxarifado, Pedidos, Diário de Obra e RH.</p>
-      </div>
+     {/* Seleção de Planos (3 Cards) */}
+     <div className="space-y-3">
+       {/* Plano Essencial */}
+       <div
+         onClick={() => setSelectedPlan('essencial')}
+         className={`relative rounded-xl border-2 p-4 cursor-pointer text-left transition-all duration-200 ${selectedPlan === 'essencial'
+         ? 'border-blue-600 bg-blue-50/40 shadow-sm'
+         : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50'
+         }`}
+       >
+         <div className="flex justify-between items-center mb-1">
+           <h4 className="text-sm font-bold text-gray-900">Elo Essencial</h4>
+           <span className="text-xs font-extrabold text-blue-600">R$ 127/mês (Total: R$ {periodicidade === 'semestral' ? '762' : '1.524'})</span>
+         </div>
+         <p className="text-xs text-gray-500">Operação básica de obras, financeiro centralizado e contratos.</p>
+       </div>
 
-      {/* Plano Elo IA */}
-      <div
-        onClick={() => setSelectedPlan('ia')}
-        className={`relative rounded-xl border-2 p-4 cursor-pointer text-left transition-all duration-200 ${selectedPlan === 'ia'
-        ? 'border-blue-600 bg-blue-50/40 shadow-sm'
-        : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50'
-        }`}
-      >
-        <div className="flex justify-between items-center mb-1">
-          <h4 className="text-sm font-bold text-gray-900">Elo IA</h4>
-          <span className="text-sm font-extrabold text-blue-600">R$ 497/mês</span>
-        </div>
-        <p className="text-xs text-gray-500">Completo (Pro) + Automação de WhatsApp e qualificação da Stella IA.</p>
-      </div>
-    </div>
+       {/* Plano Pro */}
+       <div
+         onClick={() => setSelectedPlan('pro')}
+         className={`relative rounded-xl border-2 p-4 cursor-pointer text-left transition-all duration-200 ${selectedPlan === 'pro'
+         ? 'border-blue-600 bg-blue-50/40 shadow-sm'
+         : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50'
+         }`}
+       >
+         <div className="absolute -top-2.5 right-4 bg-blue-600 text-white text-[9px] font-bold uppercase tracking-wider py-0.5 px-2 rounded-full shadow-xs">
+           Mais Recomendado
+         </div>
+         <div className="flex justify-between items-center mb-1">
+           <h4 className="text-sm font-bold text-gray-900">Elo Pro</h4>
+           <span className="text-xs font-extrabold text-blue-600">R$ 297/mês (Total: R$ {periodicidade === 'semestral' ? '1.782' : '3.564'})</span>
+         </div>
+         <p className="text-xs text-gray-500">BIM 3D, CRM completo, Almoxarifado, Pedidos, Diário de Obra e RH.</p>
+       </div>
 
-    {/* Input de Cupom */}
-    <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/60 text-left">
-      <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Cupom de Desconto / Trial</label>
-      <div className="flex gap-2">
-        <input
-          type="text"
-          value={couponCode}
-          onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-          placeholder="Digite o cupom (Ex: AMIGODODONO)"
-          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-xs uppercase focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
-        />
-        <button
-          type="button"
-          onClick={() => handleApplyCoupon()}
-          disabled={validatingCoupon}
-          className="px-4 py-2 bg-slate-900 text-white font-semibold text-xs rounded-lg hover:bg-slate-800 disabled:opacity-50 transition-colors"
-        >
-          {validatingCoupon ? 'Validando...' : 'Aplicar'}
-        </button>
-      </div>
-      {couponMessage && (
-        <p className={`text-[11px] font-semibold mt-2 ${couponMessage.startsWith('❌') ? 'text-red-600' : 'text-emerald-700'}`}>
-          {couponMessage}
-        </p>
-      )}
-    </div>
+       {/* Plano Elo IA */}
+       <div
+         onClick={() => setSelectedPlan('ia')}
+         className={`relative rounded-xl border-2 p-4 cursor-pointer text-left transition-all duration-200 ${selectedPlan === 'ia'
+         ? 'border-blue-600 bg-blue-50/40 shadow-sm'
+         : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50'
+         }`}
+       >
+         <div className="flex justify-between items-center mb-1">
+           <h4 className="text-sm font-bold text-gray-900">Elo IA</h4>
+           <span className="text-xs font-extrabold text-blue-600">R$ 497/mês (Total: R$ {periodicidade === 'semestral' ? '2.982' : '5.964'})</span>
+         </div>
+         <p className="text-xs text-gray-500">Completo (Pro) + Automação de WhatsApp e qualificação da Stella IA.</p>
+       </div>
+     </div>
 
-    {/* Resumo Financeiro */}
-    <div className="bg-blue-50/30 border border-blue-100 p-4 rounded-xl space-y-2 text-left">
-      <h4 className="font-bold text-blue-800 uppercase tracking-wider text-[10px]">Detalhamento da Assinatura</h4>
-      <div className="text-xs space-y-1 text-slate-700">
-        <div className="flex justify-between">
-          <span>Mensalidade ({planNames[selectedPlan]}):</span>
-          <span>R$ {basePrice.toFixed(2).replace('.', ',')}</span>
-        </div>
-        {couponDiscount > 0 && (
-          <div className="flex justify-between text-emerald-700 font-medium">
-            <span>Desconto do Cupom ({couponDiscount}%):</span>
-            <span>- R$ {discountValue.toFixed(2).replace('.', ',')}</span>
-          </div>
-        )}
-        <div className="flex justify-between font-bold text-sm text-slate-900 pt-1.5 border-t border-blue-100/60">
-          <span>Valor Líquido Mensal:</span>
-          <span>R$ {finalPrice.toFixed(2).replace('.', ',')} / mês</span>
-        </div>
-      </div>
-      <div className="text-[11px] text-blue-800 bg-blue-100/40 p-2.5 rounded-lg font-medium leading-relaxed">
-        🎁 <strong>{couponTrialDays} dias de carência incluídos!</strong> O seu cartão de crédito será cadastrado para ativação da conta, mas **nenhum valor será cobrado hoje**. A primeira mensalidade vencerá apenas em {calculateFirstPaymentDate()}.
-      </div>
-    </div>
+     {/* Input de Cupom */}
+     <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/60 text-left">
+       <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Cupom de Desconto / Trial</label>
+       <div className="flex gap-2">
+         <input
+           type="text"
+           value={couponCode}
+           onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+           placeholder="Digite o cupom (Ex: AMIGODODONO)"
+           className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-xs uppercase focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
+         />
+         <button
+           type="button"
+           onClick={() => handleApplyCoupon()}
+           disabled={validatingCoupon}
+           className="px-4 py-2 bg-slate-900 text-white font-semibold text-xs rounded-lg hover:bg-slate-800 disabled:opacity-50 transition-colors"
+         >
+           {validatingCoupon ? 'Validando...' : 'Aplicar'}
+         </button>
+       </div>
+       {couponMessage && (
+         <p className={`text-[11px] font-semibold mt-2 ${couponMessage.startsWith('❌') ? 'text-red-600' : 'text-emerald-700'}`}>
+           {couponMessage}
+         </p>
+       )}
+     </div>
+
+     {/* Resumo Financeiro */}
+     <div className="bg-blue-50/30 border border-blue-100 p-4 rounded-xl space-y-2 text-left">
+       <h4 className="font-bold text-blue-800 uppercase tracking-wider text-[10px]">Detalhamento da Assinatura</h4>
+       <div className="text-xs space-y-1 text-slate-700">
+         <div className="flex justify-between">
+           <span>Valor do Plano ({planNames[selectedPlan]} - {periodicidade === 'semestral' ? 'Semestral' : 'Anual'}):</span>
+           <span>R$ {basePriceTotal.toFixed(2).replace('.', ',')}</span>
+         </div>
+         {couponDiscount > 0 && (
+           <div className="flex justify-between text-emerald-700 font-medium">
+             <span>Desconto do Cupom ({couponDiscount}%):</span>
+             <span>- R$ {discountValueTotal.toFixed(2).replace('.', ',')}</span>
+           </div>
+         )}
+         <div className="flex justify-between font-bold text-sm text-slate-900 pt-1.5 border-t border-blue-100/60">
+           <span>Valor Líquido Total:</span>
+           <span>R$ {finalPriceTotal.toFixed(2).replace('.', ',')}</span>
+         </div>
+         <div className="flex justify-between text-[11px] text-slate-500 font-medium pt-0.5">
+           <span>Opção de parcelamento no cartão:</span>
+           <span>Até {parcelasMax}x de R$ {valorParcela.toFixed(2).replace('.', ',')}</span>
+         </div>
+       </div>
+       
+       {couponDiscount > 0 ? (
+         <div className="text-[11px] text-emerald-800 bg-emerald-100/40 p-2.5 rounded-lg font-medium leading-relaxed mt-2">
+           🎁 <strong>{couponTrialDays} dias de carência incluídos!</strong> O seu cartão de crédito será cadastrado apenas como **garantia** (R$ 0,00 cobrado hoje). O faturamento ocorrerá somente em {calculateFirstPaymentDate()}, quando você poderá confirmar e parcelar a compra.
+         </div>
+       ) : (
+         <div className="text-[11px] text-blue-800 bg-blue-100/40 p-2.5 rounded-lg font-medium leading-relaxed mt-2">
+           💳 <strong>Faturamento imediato via Asaas!</strong> Você poderá parcelar em até {parcelasMax}x sem juros no cartão de crédito, ou pagar à vista via PIX/Boleto no ambiente seguro do Asaas. Seu acesso será liberado assim que o pagamento for detectado.
+         </div>
+       )}
+     </div>
 
     {/* Resumo Cadastral */}
     <div className="bg-slate-50 border border-slate-100 p-4 rounded-xl text-left">

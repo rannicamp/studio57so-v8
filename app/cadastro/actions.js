@@ -4,7 +4,7 @@
 
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
-import { obterOuCriarCliente, criarAssinatura, obterLinkPagamentoAssinatura } from '@/lib/asaas';
+import { obterOuCriarCliente, criarAssinatura, obterLinkPagamentoAssinatura, criarPagamento, cancelarAssinatura } from '@/lib/asaas';
 
 export async function signUpAction(formData) {
  try {
@@ -149,18 +149,20 @@ export async function signUpAction(formData) {
   return { error: { message: 'Erro ao associar entidade principal.' } };
   }
 
+  const periodicidade = formData.get('periodicidade') || 'anual'; // 'semestral' ou 'anual'
+
   // 6. Integração e Sincronização com o Asaas
   let customerId = null;
   let subscriptionId = null;
   let paymentUrl = null;
 
-  // Calculo de carência (trial) e descontos
-  const valorTotal = planoRecord.valor_mensal;
-  const valorLiquido = Number((valorTotal * (1 - descontoPercentual / 100)).toFixed(2));
-
   const dataVenc = new Date();
   dataVenc.setDate(dataVenc.getDate() + trialDays);
   const dataVencimentoStr = dataVenc.toISOString().split('T')[0];
+
+  const meses = periodicidade === 'semestral' ? 6 : 12;
+  const dataExpira = new Date(dataVenc);
+  dataExpira.setMonth(dataExpira.getMonth() + meses);
 
   try {
     const dadosClienteAsaas = {
@@ -180,19 +182,44 @@ export async function signUpAction(formData) {
     const customer = await obterOuCriarCliente(dadosClienteAsaas);
     customerId = customer.id;
 
-    // Criar assinatura recorrente
-    const assinatura = await criarAssinatura({
-      clienteId: customerId,
-      valor: valorLiquido,
-      ciclo: 'MONTHLY',
-      descricao: `Assinatura Elo 57 - Plano ${planoRecord.nome}`,
-      dataVencimento: dataVencimentoStr,
-      formaPagamento: 'UNDEFINED'
-    });
-    subscriptionId = assinatura.id;
+    if (cupomAplicado) {
+      // FLUXO COM CUPOM (Garantia/Trial): Assinatura temporária suspensa pelo webhook após o cadastro do cartão
+      let valorPlano = planoRecord.valor_mensal;
+      let valorLiquido = Number((valorPlano * (1 - descontoPercentual / 100)).toFixed(2));
+      let descPlano = `Garantia Elo 57 - Plano ${planoRecord.nome} (${nomeOrganizacao})`;
 
-    // Gerar URL do checkout do Asaas
-    paymentUrl = await obterLinkPagamentoAssinatura(subscriptionId);
+      console.log(`[Cadastro Actions] Criando assinatura de garantia no Asaas de R$ ${valorLiquido}...`);
+      const assinatura = await criarAssinatura({
+        clienteId: customerId,
+        valor: valorLiquido,
+        ciclo: 'MONTHLY',
+        descricao: descPlano,
+        dataVencimento: dataVencimentoStr,
+        formaPagamento: 'CREDIT_CARD'
+      });
+      subscriptionId = assinatura.id;
+      paymentUrl = await obterLinkPagamentoAssinatura(subscriptionId);
+    } else {
+      // FLUXO SEM CUPOM (Pagamento Imediato): Cobrança parcelada única
+      const parcelasMax = periodicidade === 'semestral' ? 3 : 6;
+      const valorMensal = Number(planoRecord.valor_mensal);
+      const valorTotal = valorMensal * meses;
+      const valorTotalComDesconto = Number((valorTotal * (1 - descontoPercentual / 100)).toFixed(2));
+      const descPlano = `Plano Elo 57 - ${planoRecord.nome} ${periodicidade === 'semestral' ? 'Semestral' : 'Anual'} (${nomeOrganizacao})`;
+
+      console.log(`[Cadastro Actions] Criando cobrança parcelada de R$ ${valorTotalComDesconto} em ${parcelasMax}x...`);
+      const pagamento = await criarPagamento({
+        clienteId: customerId,
+        valor: valorTotalComDesconto,
+        formaPagamento: 'UNDEFINED',
+        dataVencimento: dataVencimentoStr,
+        descricao: descPlano,
+        parcelas: parcelasMax,
+        externalReference: organizacaoId
+      });
+      subscriptionId = pagamento.id;
+      paymentUrl = pagamento.invoiceUrl;
+    }
   } catch (asaasError) {
     console.error("Erro no processamento Asaas durante cadastro:", asaasError.message);
     // Rollback do banco
@@ -212,7 +239,7 @@ export async function signUpAction(formData) {
       asaas_subscription_id: subscriptionId,
       subscription_status: 'pending', // Bloqueado até registrar cartão no checkout
       trial_ends_at: dataVenc.toISOString(),
-      subscription_expires_at: dataVenc.toISOString()
+      subscription_expires_at: cupomAplicado ? dataVenc.toISOString() : dataExpira.toISOString()
     })
     .eq('id', organizacaoId);
 

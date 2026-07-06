@@ -1,6 +1,6 @@
 import { createClient } from '@/utils/supabase/server';
 import { NextResponse } from 'next/server';
-import { obterOuCriarCliente, criarAssinatura, obterLinkPagamentoAssinatura, cancelarAssinatura } from '@/lib/asaas';
+import { obterOuCriarCliente, criarAssinatura, obterLinkPagamentoAssinatura, cancelarAssinatura, criarPagamento } from '@/lib/asaas';
 
 export async function POST(request) {
     const supabase = await createClient();
@@ -36,10 +36,11 @@ export async function POST(request) {
             return NextResponse.json({ error: 'Erro ao carregar dados da organização.' }, { status: 400 });
         }
 
-        // 4. Ler dados enviados no POST body (plano_codigo e cupom)
+        // 4. Ler dados enviados no POST body (plano_codigo, cupom, periodicidade)
         const body = await request.json().catch(() => ({}));
         const planoCodigo = body.plano_codigo || 'essencial';
         const cupom = body.cupom || '';
+        const periodicidade = body.periodicidade || 'anual'; // 'semestral' ou 'anual'
 
         // 5. Buscar plano e cupom no banco
         const { data: planoRecord, error: planoQueryError } = await supabase
@@ -71,7 +72,7 @@ export async function POST(request) {
             }
         }
 
-        // 6. Cancelar assinatura anterior se existir no Asaas para evitar duplicidade de cobrança
+        // 6. Cancelar assinatura/cobrança anterior se existir no Asaas para evitar duplicidade de cobrança
         if (org.asaas_subscription_id) {
             try {
                 console.log(`[Checkout API] Cancelando assinatura anterior do cliente: ${org.asaas_subscription_id}`);
@@ -89,7 +90,7 @@ export async function POST(request) {
             .from('cadastro_empresa')
             .select('cnpj, cep, address_number, telefone, email, razao_social')
             .eq('organizacao_id', orgId)
-            .order('created_at', { ascending: false })
+            .order('created_at', { ascending: false})
             .limit(1)
             .maybeSingle();
 
@@ -102,7 +103,6 @@ export async function POST(request) {
             addressNumber: empresa?.address_number || 'S/N'
         };
 
-        // Exige CPF ou CNPJ de faturamento
         if (!dadosCadastro.cpfCnpj) {
             return NextResponse.json({ 
                 error: 'Falta CPF ou CNPJ de faturamento. Preencha o CNPJ no cadastro da sua empresa em Configurações antes de assinar.' 
@@ -113,7 +113,6 @@ export async function POST(request) {
         const customer = await obterOuCriarCliente(dadosCadastro);
         asaasCustomerId = customer.id;
 
-        // Se o asaas_customer_id local estava vazio ou for diferente, atualiza no banco
         if (org.asaas_customer_id !== asaasCustomerId) {
             console.log(`[Checkout API] Gravando novo asaas_customer_id no banco: ${asaasCustomerId}`);
             const { error: updateError } = await supabase
@@ -126,55 +125,94 @@ export async function POST(request) {
             }
         }
 
-        // 8. Calcular data de vencimento da primeira mensalidade (hoje + trialDays)
+        // 8. Calcular data de vencimento da primeira parcela ou carência (hoje + trialDays)
         const dataVenc = new Date();
         dataVenc.setDate(dataVenc.getDate() + trialDays);
         const dataVencimentoStr = dataVenc.toISOString().split('T')[0];
 
-        let valorPlano = planoRecord.valor_mensal;
-        let valorLiquido = Number((valorPlano * (1 - descontoPercentual / 100)).toFixed(2));
-        let cicloPlano = 'MONTHLY';
-        let descPlano = `Assinatura Elo 57 - Plano ${planoRecord.nome} (${org.nome})`;
-
-        // Teste promocional solicitado pelo "seu lindo" para a Org 2 (Studio 57) se não houver cupom específico
-        if (!cupom && (orgId === 2 || String(orgId) === '2')) {
-            console.log('[Checkout API] Aplicando promoção de teste de R$ 12,00 Anual para a Org 2');
-            valorLiquido = 12.00;
-            cicloPlano = 'YEARLY';
-            descPlano = `Assinatura Elo 57 - Plano Promocional Anual (${org.nome})`;
-        }
-
         console.log(`[Checkout API] Primeiro vencimento agendado para: ${dataVencimentoStr}`);
 
-        // 9. Criar a assinatura (recorrência) no Asaas
-        const assinatura = await criarAssinatura({
-            clienteId: asaasCustomerId,
-            valor: valorLiquido,
-            ciclo: cicloPlano,
-            descricao: descPlano,
-            dataVencimento: dataVencimentoStr,
-            formaPagamento: cupomAplicado ? 'CREDIT_CARD' : 'UNDEFINED'
-        });
+        let checkoutUrl = '';
 
-        // 10. Atualizar a organização com a assinatura e vencimentos
-        const { error: updateSubError } = await supabase
-            .from('organizacoes')
-            .update({
-                asaas_subscription_id: assinatura.id,
-                plano_codigo: planoCodigo,
-                cupom_aplicado: cupomAplicado,
-                subscription_status: 'pending', // trava novamente até preencher cartão no checkout
-                trial_ends_at: dataVenc.toISOString(),
-                subscription_expires_at: dataVenc.toISOString()
-            })
-            .eq('id', orgId);
+        if (cupomAplicado) {
+            // FLUXO DE GARANTIA (Com Cupom): Criamos uma assinatura temporária de R$ 297/mês (ou correspondente)
+            // com vencimento daqui a 90 dias. No webhook, salvaremos os dados do cartão e a cancelaremos na hora.
+            let valorPlano = planoRecord.valor_mensal;
+            let valorLiquido = Number((valorPlano * (1 - descontoPercentual / 100)).toFixed(2));
+            let descPlano = `Garantia Elo 57 - Plano ${planoRecord.nome} (${org.nome})`;
 
-        if (updateSubError) {
-            console.error('[Checkout API] Erro ao atualizar asaas_subscription_id no banco:', updateSubError.message);
+            console.log(`[Checkout API] Criando assinatura de garantia no Asaas no valor de R$ ${valorLiquido}...`);
+            const assinatura = await criarAssinatura({
+                clienteId: asaasCustomerId,
+                valor: valorLiquido,
+                ciclo: 'MONTHLY',
+                descricao: descPlano,
+                dataVencimento: dataVencimentoStr,
+                formaPagamento: 'CREDIT_CARD'
+            });
+
+            // Atualizar a organização no Supabase
+            const { error: updateSubError } = await supabase
+                .from('organizacoes')
+                .update({
+                    asaas_subscription_id: assinatura.id,
+                    plano_codigo: planoCodigo,
+                    cupom_aplicado: cupomAplicado,
+                    subscription_status: 'pending',
+                    trial_ends_at: dataVenc.toISOString(),
+                    subscription_expires_at: dataVenc.toISOString() // durante o trial, expira ao fim dele
+                })
+                .eq('id', orgId);
+
+            if (updateSubError) {
+                console.error('[Checkout API] Erro ao atualizar asaas_subscription_id no banco:', updateSubError.message);
+            }
+
+            checkoutUrl = await obterLinkPagamentoAssinatura(assinatura.id);
+
+        } else {
+            // FLUXO DE PAGAMENTO IMEDIATO/EFETIVO (Sem Cupom ou Pós-Trial): Criamos uma cobrança parcelada única
+            const meses = periodicidade === 'semestral' ? 6 : 12;
+            const parcelasMax = periodicidade === 'semestral' ? 3 : 6;
+            const valorMensal = Number(planoRecord.valor_mensal);
+            const valorTotal = valorMensal * meses;
+            
+            const valorTotalComDesconto = Number((valorTotal * (1 - descontoPercentual / 100)).toFixed(2));
+            const descPlano = `Plano Elo 57 - ${planoRecord.nome} ${periodicidade === 'semestral' ? 'Semestral' : 'Anual'} (${org.nome})`;
+
+            console.log(`[Checkout API] Criando cobrança parcelada de R$ ${valorTotalComDesconto} em ${parcelasMax}x no Asaas...`);
+            const pagamento = await criarPagamento({
+                clienteId: asaasCustomerId,
+                valor: valorTotalComDesconto,
+                formaPagamento: 'UNDEFINED', // PIX, Boleto ou Cartão
+                dataVencimento: dataVencimentoStr,
+                descricao: descPlano,
+                parcelas: parcelasMax,
+                externalReference: orgId
+            });
+
+            const dataExpira = new Date(dataVenc);
+            dataExpira.setMonth(dataExpira.getMonth() + meses);
+
+            // Atualizar a organização no Supabase
+            const { error: updateSubError } = await supabase
+                .from('organizacoes')
+                .update({
+                    asaas_subscription_id: pagamento.id, // salvamos o ID do pagamento/grupo
+                    plano_codigo: planoCodigo,
+                    cupom_aplicado: cupomAplicado,
+                    subscription_status: 'pending',
+                    trial_ends_at: dataVenc.toISOString(),
+                    subscription_expires_at: dataExpira.toISOString() // vigência completa ativada de antemão
+                })
+                .eq('id', orgId);
+
+            if (updateSubError) {
+                console.error('[Checkout API] Erro ao atualizar faturamento no banco:', updateSubError.message);
+            }
+
+            checkoutUrl = pagamento.invoiceUrl;
         }
-
-        // 11. Obter a URL da primeira fatura de pagamento da assinatura
-        const checkoutUrl = await obterLinkPagamentoAssinatura(assinatura.id);
 
         return NextResponse.json({ checkoutUrl });
 

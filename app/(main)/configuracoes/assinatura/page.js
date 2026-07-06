@@ -50,6 +50,7 @@ export default function AssinaturaPage() {
     const [couponTrialDays, setCouponTrialDays] = useState(15);
     const [validatingCoupon, setValidatingCoupon] = useState(false);
     const [couponMessage, setCouponMessage] = useState('');
+    const [periodicidade, setPeriodicidade] = useState('anual'); // 'semestral' ou 'anual'
 
     const handleApplyCoupon = async (codeToApply = couponCode) => {
         if (!codeToApply.trim()) return;
@@ -111,14 +112,14 @@ export default function AssinaturaPage() {
 
     // 2. Mutation para gerar o Link de Checkout do Asaas (Assinar plano pela primeira vez)
     const checkoutMutation = useMutation({
-        mutationFn: async ({ plano_codigo, cupom } = {}) => {
+        mutationFn: async ({ plano_codigo, cupom, periodicidade } = {}) => {
             setLoadingCheckout(true);
             setErrorCheckout(null);
 
             const res = await fetch('/api/subscriptions/checkout', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ plano_codigo, cupom })
+                body: JSON.stringify({ plano_codigo, cupom, periodicidade })
             });
 
             const data = await res.json();
@@ -183,7 +184,7 @@ export default function AssinaturaPage() {
     });
 
     const handleAssinar = () => {
-        checkoutMutation.mutate({ plano_codigo: selectedPlan, cupom: couponCode });
+        checkoutMutation.mutate({ plano_codigo: selectedPlan, cupom: couponCode, periodicidade });
     };
 
     // Máscara para número do cartão (0000 0000 0000 0000)
@@ -275,6 +276,22 @@ export default function AssinaturaPage() {
     }
 
 
+
+    const planNames = { essencial: 'Elo Essencial', pro: 'Elo Pro', ia: 'Elo IA' };
+    const planPrices = { essencial: 127.00, pro: 297.00, ia: 497.00 };
+    const valorMensalBase = planPrices[selectedPlan] || 127.00;
+    const meses = periodicidade === 'semestral' ? 6 : 12;
+    const parcelasMax = periodicidade === 'semestral' ? 3 : 6;
+    const basePriceTotal = valorMensalBase * meses;
+    const discountValueTotal = basePriceTotal * (couponDiscount / 100);
+    const finalPriceTotal = basePriceTotal - discountValueTotal;
+    const valorParcela = finalPriceTotal / parcelasMax;
+
+    const calculateFirstPaymentDate = () => {
+        const d = new Date();
+        d.setDate(d.getDate() + couponTrialDays);
+        return d.toLocaleDateString('pt-BR');
+    };
 
     const diasRestantesTrial = () => {
         if (!organizacao?.trialEndsAt) return 0;
@@ -419,7 +436,25 @@ case 'OVERDUE':
                             <div className="space-y-6">
                                 {/* Escolha do Plano */}
                                 <div>
-                                    <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block mb-3 text-left">Escolha o seu Plano</span>
+                                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+                                        <span className="text-xs font-bold text-gray-400 uppercase tracking-wider block text-left">Escolha o seu Plano</span>
+                                        <div className="inline-flex rounded-lg p-0.5 bg-slate-100 border border-slate-200 self-start sm:self-auto">
+                                            <button
+                                                type="button"
+                                                onClick={() => setPeriodicidade('semestral')}
+                                                className={`px-3 py-1 text-[11px] font-bold rounded-md transition-all ${periodicidade === 'semestral' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-800'}`}
+                                            >
+                                                Semestral (6 meses)
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setPeriodicidade('anual')}
+                                                className={`px-3 py-1 text-[11px] font-bold rounded-md transition-all ${periodicidade === 'anual' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-800'}`}
+                                            >
+                                                Anual (12 meses)
+                                            </button>
+                                        </div>
+                                    </div>
                                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                         {/* Elo Essencial */}
                                         <div
@@ -430,7 +465,7 @@ case 'OVERDUE':
                                             }`}
                                         >
                                             <h4 className="text-xs font-bold text-gray-900">Elo Essencial</h4>
-                                            <span className="text-[11px] font-extrabold text-blue-600 block mt-1">R$ 127/mês</span>
+                                            <span className="text-[11px] font-extrabold text-blue-600 block mt-1">R$ 127/mês (Total: R$ {periodicidade === 'semestral' ? '762' : '1.524'})</span>
                                             <p className="text-[10px] text-gray-500 mt-2">Obras, financeiro, contratos.</p>
                                         </div>
 
@@ -446,7 +481,7 @@ case 'OVERDUE':
                                                 Recomendado
                                             </div>
                                             <h4 className="text-xs font-bold text-gray-900">Elo Pro</h4>
-                                            <span className="text-[11px] font-extrabold text-blue-600 block mt-1">R$ 297/mês</span>
+                                            <span className="text-[11px] font-extrabold text-blue-600 block mt-1">R$ 297/mês (Total: R$ {periodicidade === 'semestral' ? '1.782' : '3.564'})</span>
                                             <p className="text-[10px] text-gray-500 mt-2">BIM 3D, CRM, Almoxarifado, Pedidos, RH.</p>
                                         </div>
 
@@ -459,7 +494,7 @@ case 'OVERDUE':
                                             }`}
                                         >
                                             <h4 className="text-xs font-bold text-gray-900">Elo IA</h4>
-                                            <span className="text-[11px] font-extrabold text-blue-600 block mt-1">R$ 497/mês</span>
+                                            <span className="text-[11px] font-extrabold text-blue-600 block mt-1">R$ 497/mês (Total: R$ {periodicidade === 'semestral' ? '2.982' : '5.964'})</span>
                                             <p className="text-[10px] text-gray-500 mt-2">Completo + Stella IA e WhatsApp.</p>
                                         </div>
                                     </div>
@@ -493,26 +528,37 @@ case 'OVERDUE':
                                 </div>
 
                                 {/* Detalhamento da Assinatura */}
-                                <div className="bg-blue-50/30 border border-blue-100 p-4 rounded-xl space-y-2 text-left">
+                                <div className="bg-blue-50/30 border border-blue-100 p-4 rounded-xl space-y-2 text-left animate-in fade-in">
                                     <div className="text-xs space-y-1 text-slate-700 font-sans">
                                         <div className="flex justify-between">
-                                            <span>Mensalidade ({planNames[selectedPlan]}):</span>
-                                            <span>R$ {basePrice.toFixed(2).replace('.', ',')}</span>
+                                            <span>Valor do Plano ({planNames[selectedPlan]} - {periodicidade === 'semestral' ? 'Semestral' : 'Anual'}):</span>
+                                            <span>R$ {basePriceTotal.toFixed(2).replace('.', ',')}</span>
                                         </div>
                                         {couponDiscount > 0 && (
                                             <div className="flex justify-between text-emerald-700 font-medium">
                                                 <span>Desconto do Cupom ({couponDiscount}%):</span>
-                                                <span>- R$ {discountValue.toFixed(2).replace('.', ',')}</span>
+                                                <span>- R$ {discountValueTotal.toFixed(2).replace('.', ',')}</span>
                                             </div>
                                         )}
                                         <div className="flex justify-between font-bold text-sm text-slate-900 pt-1.5 border-t border-blue-100/60">
-                                            <span>Valor Líquido Mensal:</span>
-                                            <span>R$ {finalPrice.toFixed(2).replace('.', ',')} / mês</span>
+                                            <span>Valor Líquido Total:</span>
+                                            <span>R$ {finalPriceTotal.toFixed(2).replace('.', ',')}</span>
+                                        </div>
+                                        <div className="flex justify-between text-[11px] text-slate-500 font-medium pt-0.5">
+                                            <span>Opção de parcelamento no cartão:</span>
+                                            <span>Até {parcelasMax}x de R$ {valorParcela.toFixed(2).replace('.', ',')}</span>
                                         </div>
                                     </div>
-                                    <div className="text-[11px] text-blue-800 bg-blue-100/40 p-2.5 rounded-lg font-medium leading-relaxed">
-                                        🎁 <strong>{couponTrialDays} dias de carência incluídos!</strong> O seu cartão será cadastrado, mas **nenhum valor será cobrado hoje**. A primeira mensalidade vencerá apenas em {calculateFirstPaymentDate()}.
-                                    </div>
+                                    
+                                    {couponDiscount > 0 ? (
+                                        <div className="text-[11px] text-emerald-800 bg-emerald-100/40 p-2.5 rounded-lg font-medium leading-relaxed mt-2">
+                                            🎁 <strong>{couponTrialDays} dias de carência incluídos!</strong> O seu cartão de crédito será cadastrado apenas como **garantia** (R$ 0,00 cobrado hoje). O faturamento ocorrerá somente em {calculateFirstPaymentDate()}, quando você poderá confirmar e parcelar a compra.
+                                        </div>
+                                    ) : (
+                                        <div className="text-[11px] text-blue-800 bg-blue-100/40 p-2.5 rounded-lg font-medium leading-relaxed mt-2">
+                                            💳 <strong>Faturamento imediato via Asaas!</strong> Você poderá parcelar em até {parcelasMax}x sem juros no cartão de crédito, ou pagar à vista via PIX/Boleto no ambiente seguro do Asaas. Seu acesso será liberado assim que o pagamento for detectado.
+                                        </div>
+                                    )}
                                 </div>
 
                                 {/* Resumo de Dados Cadastrais (Compacto e Elegante) */}
