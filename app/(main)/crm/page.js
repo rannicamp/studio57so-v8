@@ -26,6 +26,7 @@ import FiltroCrm from '@/components/crm/FiltroCrm';
 import MetaFormMappingModal from '@/components/crm/MetaFormMappingModal';
 import RodizioConfigModal from '@/components/crm/RodizioConfigModal';
 import AutomacoesListModal from '@/components/crm/AutomacoesListModal';
+import SparklesIcon from '@/components/shared/SparklesIcon';
 import { useRouter } from 'next/navigation';
 
 // --- CHAVE ÚNICA PARA O LOCALSTORAGE (PERSISTÊNCIA) ---
@@ -782,16 +783,16 @@ export default function CrmPage() {
   className="bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 text-sm font-bold py-2 px-4 rounded-md shadow-sm flex items-center gap-2 transition-colors"
   title="Gerenciar Automações de WhatsApp"
   >
-  <FontAwesomeIcon icon={faRobot} className="text-purple-500" /> Automações
+  <SparklesIcon className="w-4 h-4" active={true} /> Automações
   </button>
   
   {/* Disjuntor Stella IA */}
   <div className="flex items-center gap-2 bg-white border border-gray-300 rounded-md py-2 px-3 shadow-sm select-none h-[38px]" title={isStellaAtiva ? "Stella IA está ATIVA e atendendo novos leads" : "Stella IA está DESACTIVADA e não atenderá nenhum lead"}>
-    <FontAwesomeIcon 
-      icon={isTogglingStella ? faSpinner : faRobot} 
-      spin={isTogglingStella}
-      className={isStellaAtiva ? "text-purple-600" : "text-gray-400"} 
-    />
+    {isTogglingStella ? (
+      <FontAwesomeIcon icon={faSpinner} spin className="text-orange-500 w-4 h-4" />
+    ) : (
+      <SparklesIcon className="w-4 h-4" active={isStellaAtiva} />
+    )}
     <span className="text-xs font-bold text-gray-700">Stella IA</span>
     <button
       onClick={handleToggleStellaGlobal}
@@ -800,7 +801,7 @@ export default function CrmPage() {
       style={{
         width: '32px',
         height: '18px',
-        backgroundColor: isStellaAtiva ? '#9333ea' : '#cbd5e1',
+        backgroundColor: isStellaAtiva ? '#F97316' : '#cbd5e1',
         padding: '2px',
         cursor: isTogglingStella ? 'not-allowed' : 'pointer',
         transition: 'background-color 0.2s ease-in-out'

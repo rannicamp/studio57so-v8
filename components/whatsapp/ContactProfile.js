@@ -21,6 +21,7 @@ import ContatoForm from '@/components/contatos/ContatoForm';
 // Importa o Card do CRM para integração
 import ContatoCardCRM from '@/components/crm/ContatoCardCRM';
 import AtividadeModal from '@/components/atividades/AtividadeModal';
+import SparklesIcon from '@/components/shared/SparklesIcon';
 
 // --- COMPONENTES AUXILIARES ---
 
@@ -956,17 +957,17 @@ export default function ContactProfile({ contact }) {
 
   {/* Trava de teste exclusiva no frontend: Apenas o Ranniere pode ativar a Stella no Piloto Automático */}
   {user?.email && user.email.toLowerCase().includes('ranni') && (
-    <div className="px-4 py-2.5 bg-purple-50 border-b border-purple-100 flex items-center justify-between shadow-inner animate-in fade-in slide-in-from-top-2 duration-300 shrink-0">
-      <div className="flex items-center gap-2.5 text-purple-950">
-        <FontAwesomeIcon icon={faRobot} className={`text-purple-600 ${displayContact?.ia_atendimento_ativo ? 'animate-pulse' : 'opacity-60'}`} />
+    <div className="px-4 py-2.5 bg-orange-50/50 border-b border-orange-100 flex items-center justify-between shadow-inner animate-in fade-in slide-in-from-top-2 duration-300 shrink-0">
+      <div className="flex items-center gap-2.5 text-orange-950">
+        <SparklesIcon className={`w-4 h-4 ${displayContact?.ia_atendimento_ativo ? 'animate-pulse' : 'opacity-60'}`} active={!!displayContact?.ia_atendimento_ativo} />
         <div className="flex flex-col">
           <span className="text-xs font-extrabold leading-tight">Stella IA (Atendimento)</span>
           {!(hasModuleAccess ? hasModuleAccess('inteligencia_artificial') : false) ? (
-            <span className="text-[9px] text-purple-750 font-extrabold mt-0.5 uppercase tracking-wider bg-purple-100 border border-purple-200 px-1.5 py-0.5 rounded-md w-max">
+            <span className="text-[9px] text-orange-750 font-extrabold mt-0.5 uppercase tracking-wider bg-orange-100 border border-orange-200 px-1.5 py-0.5 rounded-md w-max">
               Requer Plano Elo IA 🔒
             </span>
           ) : (
-            <span className="text-[9px] text-purple-700 font-semibold mt-0.5">Stella atende e envia anexos automaticamente</span>
+            <span className="text-[9px] text-orange-700 font-semibold mt-0.5">Stella atende e envia anexos automaticamente</span>
           )}
         </div>
       </div>
@@ -984,7 +985,7 @@ export default function ContactProfile({ contact }) {
           disabled={toggleAutopilotMutation.isPending}
           className="sr-only peer" 
         />
-        <div className={`w-9 h-5 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-600 ${!(hasModuleAccess ? hasModuleAccess('inteligencia_artificial') : false) ? 'opacity-50 cursor-not-allowed bg-slate-200' : ''}`}></div>
+        <div className={`w-9 h-5 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-orange-500 ${!(hasModuleAccess ? hasModuleAccess('inteligencia_artificial') : false) ? 'opacity-50 cursor-not-allowed bg-slate-200' : ''}`}></div>
       </label>
     </div>
   )}
@@ -1050,12 +1051,12 @@ export default function ContactProfile({ contact }) {
         <section className="pb-5 border-b border-gray-100">
           <div className="flex justify-between items-center mb-3">
             <h4 className="font-semibold text-gray-500 text-[11px] uppercase tracking-wider flex items-center gap-2">
-              <FontAwesomeIcon icon={faRobot} className="text-purple-400" /> Análise IA
+              <SparklesIcon className="w-4 h-4" active={true} /> Análise IA
             </h4>
             <button 
               onClick={() => aiAnalysisMutation.mutate(true)}
               disabled={aiAnalysisMutation.isPending}
-              className="text-[10px] text-purple-600 hover:text-purple-800 font-bold uppercase transition-colors flex items-center gap-1.5"
+              className="text-[10px] text-orange-600 hover:text-orange-800 font-bold uppercase transition-colors flex items-center gap-1.5"
               title="Ler conversas e analisar lead com Gemini 3.1 Pro"
             >
               <FontAwesomeIcon icon={aiAnalysisMutation.isPending ? faSpinner : faSyncAlt} spin={aiAnalysisMutation.isPending} /> 
@@ -1105,7 +1106,7 @@ export default function ContactProfile({ contact }) {
                   </h5>
                   <div className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-xs p-3 rounded-lg font-medium shadow-sm flex flex-col gap-3">
                     <div className="flex items-start gap-2.5">
-                      <FontAwesomeIcon icon={faRobot} className="mt-0.5 opacity-90 text-sm shrink-0" />
+                      <SparklesIcon className="mt-0.5 opacity-90 w-4 h-4 shrink-0" active={true} colorOverride="#FFFFFF" />
                       <p className="leading-snug">{displayContact.ai_analysis.proxima_acao_sugerida}</p>
                     </div>
                     <button
@@ -1151,7 +1152,7 @@ export default function ContactProfile({ contact }) {
                       {/* CAIXINHA DE PERGUNTA À STELLA (DÚVIDA RÁPIDA) */}
                       <div className="mt-3 pt-3 border-t border-purple-100 flex flex-col gap-2">
                         <label className="text-[10px] font-extrabold text-purple-900 flex items-center gap-1">
-                          <FontAwesomeIcon icon={faRobot} className="text-purple-600" /> Pergunte à Stella (Dúvida sobre o Empreendimento):
+                          <SparklesIcon className="w-4 h-4" active={true} /> Pergunte à Stella (Dúvida sobre o Empreendimento):
                         </label>
                         <div className="flex gap-2">
                           <input
@@ -1213,7 +1214,7 @@ export default function ContactProfile({ contact }) {
                       {/* CAIXINHA DE APRENDIZADO DA STELLA (ACTIVE LEARNING) */}
                       <div className="mt-3 pt-3 border-t border-purple-100 flex flex-col gap-2">
                         <label className="text-[10px] font-extrabold text-purple-900 flex items-center gap-1">
-                          <FontAwesomeIcon icon={faRobot} className="text-purple-600" /> Ensine a Stella (Fato Novo):
+                          <SparklesIcon className="w-4 h-4" active={true} /> Ensine a Stella (Fato Novo):
                         </label>
                         <textarea
                           placeholder="Digite aqui o fato novo (ex: O valor do condomínio é R$ 350,00 e a piscina é aquecida a gás)."
@@ -1292,8 +1293,8 @@ export default function ContactProfile({ contact }) {
                 )}
               </div>
             ) : (
-              <div className="text-center py-6 bg-white/40 rounded-lg">
-                <FontAwesomeIcon icon={faRobot} className="text-purple-200 text-4xl mb-3" />
+              <div className="text-center py-6 bg-white/40 rounded-lg flex flex-col items-center justify-center">
+                <SparklesIcon className="w-10 h-10 mb-3" active={false} />
                 <p className="text-xs text-gray-500 max-w-xs mx-auto font-medium">
                   IA Inativa. Clique no botão "Gerar Análise" para ler a conversa e diagnosticar este lead.
                 </p>

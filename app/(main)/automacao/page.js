@@ -9,6 +9,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlus, faSpinner, faToggleOn, faToggleOff, faTrash, faPen, faRobot } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 import AutomacaoModal from '@/components/crm/AutomacaoModal';
+import SparklesIcon from '@/components/shared/SparklesIcon';
 
 const fetchAutomations = async (supabase, organizacaoId) => {
  if (!organizacaoId) return [];
@@ -112,7 +113,7 @@ export default function AutomacaoPage() {
 
  <header className="flex justify-between items-center mb-6">
  <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
- <FontAwesomeIcon icon={faRobot} />
+ <SparklesIcon className="w-6 h-6" active={true} />
  Central de Automação
  </h1>
  <button

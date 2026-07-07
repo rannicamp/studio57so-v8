@@ -24,11 +24,17 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
  faCreditCard
 } from '@fortawesome/free-solid-svg-icons';
 
-const ConfigCard = ({ href, icon, title, description, color = "bg-blue-50 text-blue-600" }) => (
+import SparklesIcon from '@/components/shared/SparklesIcon';
+
+const ConfigCard = ({ href, icon: Icon, title, description, color = "bg-blue-50 text-blue-600" }) => (
  <Link href={href} className="block group h-full">
  <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200 h-full flex flex-col hover:-translate-y-1">
  <div className={`w-12 h-12 rounded-lg flex items-center justify-center mb-4 ${color} group-hover:scale-110 transition-transform duration-200`}>
- <FontAwesomeIcon icon={icon} size="lg" />
+ {typeof Icon === 'function' ? (
+   <Icon className="w-6 h-6" active={true} />
+ ) : (
+   <FontAwesomeIcon icon={Icon} size="lg" />
+ )}
  </div>
  <h3 className="text-lg font-semibold text-gray-800 mb-2 group-hover:text-blue-600 transition-colors">
  {title}
@@ -154,11 +160,11 @@ export default function ConfiguracoesPage() {
  color: 'bg-rose-50 text-rose-600'
  },
  {
- title: 'Roteamento de Leads',
- description: 'Configure regras para distribuir novos leads da Meta automaticamente para os funis corretos.',
- icon: faRobot,
- href: '/crm/automacao',
- color: 'bg-indigo-50 text-indigo-600'
+  title: 'Roteamento de Leads',
+  description: 'Configure regras para distribuir novos leads da Meta automaticamente para os funis corretos.',
+  icon: SparklesIcon,
+  href: '/crm/automacao',
+  color: 'bg-orange-50 text-orange-600'
  },
  {
  title: 'Automações de Mensagens',
@@ -175,11 +181,11 @@ export default function ConfiguracoesPage() {
  color: 'bg-indigo-100 text-indigo-700'
  },
  {
- title: 'Automação de Atividades CRM',
- description: 'Mapeie as subatividades automáticas que devem ser geradas para reuniões e visitas no CRM.',
- icon: faRobot,
- href: '/configuracoes/atividades',
- color: 'bg-blue-50 text-blue-600'
+  title: 'Automação de Atividades CRM',
+  description: 'Mapeie as subatividades automáticas que devem ser geradas para reuniões e visitas no CRM.',
+  icon: SparklesIcon,
+  href: '/configuracoes/atividades',
+  color: 'bg-orange-50 text-orange-600'
  }
  ];
 

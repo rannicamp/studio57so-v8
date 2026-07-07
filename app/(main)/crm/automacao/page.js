@@ -14,6 +14,7 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 import Link from 'next/link';
+import SparklesIcon from '@/components/shared/SparklesIcon';
 import { useEffect } from 'react';
 
 const supabase = createClient();
@@ -104,7 +105,7 @@ function NovaRegraForm({ funis, campaigns, ads, organizacaoId, onSaved, onCancel
  return (
  <div className="bg-blue-600 text-white to-indigo-50 border border-blue-200 rounded-xl p-5 space-y-4">
  <h3 className="font-bold text-gray-800 flex items-center gap-2">
- <FontAwesomeIcon icon={faRobot} className="text-blue-500" />
+ <SparklesIcon className="w-4 h-4" active={true} />
  Nova Regra de Roteamento
  </h3>
 
@@ -235,7 +236,7 @@ function RegraCard({ regra, funis, campaigns, ads, organizacaoId }) {
  <div className={`bg-white border rounded-xl p-4 flex items-start gap-4 transition-all ${regra.ativo ? 'border-gray-200 shadow-sm' : 'border-dashed border-gray-200 opacity-60'}`}>
  {/* Ícone + toggle */}
  <div className="flex flex-col items-center gap-2 pt-1">
- <FontAwesomeIcon icon={faRobot} className={`text-xl ${regra.ativo ? 'text-blue-500' : 'text-gray-300'}`} />
+  <SparklesIcon className="w-5 h-5" active={regra.ativo} />
  <button
  onClick={() => toggleMutation.mutate()}
  disabled={toggleMutation.isPending}
@@ -324,55 +325,55 @@ export default function AutomacaoPage() {
 
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-6">
- {/* Header */}
- <div className="flex items-center justify-between">
- <div>
- <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
- <FontAwesomeIcon icon={faRobot} className="text-blue-500" />
- Automação · Roteamento de Leads
- </h1>
- <p className="text-sm text-gray-500 mt-1">
- Define regras para mover leads automaticamente do <strong>Funil de Entrada</strong> para funis específicos.
- </p>
- </div>
- </div>
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
+            <SparklesIcon className="w-6 h-6" active={true} />
+            Automação · Roteamento de Leads
+          </h1>
+          <p className="text-sm text-gray-500 mt-1">
+            Define regras para mover leads automaticamente do <strong>Funil de Entrada</strong> para funis específicos.
+          </p>
+        </div>
+      </div>
 
- {/* Disjuntor Global Stella IA */}
- <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
-   <div className="flex items-start gap-4">
-     <div className={`p-3 rounded-lg ${isStellaAtiva ? 'bg-purple-50 text-purple-600' : 'bg-gray-100 text-gray-400'} transition-colors`}>
-       <FontAwesomeIcon icon={faRobot} className="text-xl" />
-     </div>
-     <div>
-       <h3 className="font-bold text-gray-800 flex items-center gap-2">
-         Piloto Automático Stella IA (SDR)
-         <span className={`px-2 py-0.5 rounded-full text-2xs font-bold ${isStellaAtiva ? 'bg-purple-100 text-purple-700' : 'bg-gray-200 text-gray-600'}`}>
-           {isStellaAtiva ? 'ATIVADO' : 'DESATIVADO'}
-         </span>
-       </h3>
-       <p className="text-sm text-gray-500 mt-0.5 leading-relaxed">
-         Ative ou desative o piloto automático global da Stella para toda a sua organização. Se desativado, nenhum lead novo ou qualificado será respondido pela Inteligência Artificial.
-       </p>
-     </div>
-   </div>
-   
-   <button
-     onClick={() => toggleStellaMutation.mutate(!isStellaAtiva)}
-     disabled={toggleStellaMutation.isPending}
-     className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm transition-all focus:ring-4 focus:ring-purple-100 disabled:opacity-50 ${
-       isStellaAtiva
-         ? 'bg-purple-600 text-white hover:bg-purple-700 shadow-sm shadow-purple-200'
-         : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
-     }`}
-   >
-     {toggleStellaMutation.isPending ? (
-       <FontAwesomeIcon icon={faSpinner} spin />
-     ) : (
-       <FontAwesomeIcon icon={isStellaAtiva ? faToggleOn : faToggleOff} className="text-lg" />
-     )}
-     {isStellaAtiva ? 'Desativar IA' : 'Ativar IA'}
-   </button>
- </div>
+      {/* Disjuntor Global Stella IA */}
+      <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-start gap-4">
+          <div className={`p-3 rounded-lg ${isStellaAtiva ? 'bg-orange-50 text-orange-600' : 'bg-gray-100 text-gray-400'} transition-colors`}>
+            <SparklesIcon className="w-6 h-6" active={isStellaAtiva} />
+          </div>
+          <div>
+            <h3 className="font-bold text-gray-800 flex items-center gap-2">
+              Piloto Automático Stella IA (SDR)
+              <span className={`px-2 py-0.5 rounded-full text-2xs font-bold ${isStellaAtiva ? 'bg-orange-100 text-orange-700' : 'bg-gray-200 text-gray-600'}`}>
+                {isStellaAtiva ? 'ATIVADO' : 'DESATIVADO'}
+              </span>
+            </h3>
+            <p className="text-sm text-gray-500 mt-0.5 leading-relaxed">
+              Ative ou desative o piloto automático global da Stella para toda a sua organização. Se desativado, nenhum lead novo ou qualificado será respondido pela Inteligência Artificial.
+            </p>
+          </div>
+        </div>
+        
+        <button
+          onClick={() => toggleStellaMutation.mutate(!isStellaAtiva)}
+          disabled={toggleStellaMutation.isPending}
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm transition-all focus:ring-4 focus:ring-orange-100 disabled:opacity-50 ${
+            isStellaAtiva
+              ? 'bg-orange-600 text-white hover:bg-orange-700 shadow-sm shadow-orange-200'
+              : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
+          }`}
+        >
+          {toggleStellaMutation.isPending ? (
+            <FontAwesomeIcon icon={faSpinner} spin />
+          ) : (
+            <FontAwesomeIcon icon={isStellaAtiva ? faToggleOn : faToggleOff} className="text-lg" />
+          )}
+          {isStellaAtiva ? 'Desativar IA' : 'Ativar IA'}
+        </button>
+      </div>
 
  {/* Como funciona */}
  <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 text-sm text-indigo-800 space-y-1">
