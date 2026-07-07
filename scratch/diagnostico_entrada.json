@@ -1,0 +1,108 @@
+{
+  "timestamp": "2026-07-07T13:42:24.061Z",
+  "totais": {
+    "total": 7,
+    "sem_mensagens": 5,
+    "sem_resposta_cliente": 0,
+    "outbound_sucesso_parado": 2,
+    "outbound_falha": 0,
+    "ia_ativa": 2,
+    "ia_inativa": 5
+  },
+  "leads": [
+    {
+      "contato_id": 6220,
+      "nome": "Paty Bragança",
+      "organizacao_id": 2,
+      "ia_atendimento_ativo": true,
+      "data_cadastro": "2026-07-04T00:17:58.223918+00:00",
+      "data_entrada_funil": "2026-07-04T00:17:58.322946+00:00",
+      "total_mensagens": 0,
+      "tem_outbound_sucesso": false,
+      "situacao": "Sem mensagens trocadas",
+      "ultima_mensagem": null
+    },
+    {
+      "contato_id": 6235,
+      "nome": "Érika Bregues ",
+      "organizacao_id": 1,
+      "ia_atendimento_ativo": false,
+      "data_cadastro": "2026-07-04T20:39:40.316418+00:00",
+      "data_entrada_funil": "2026-07-04T20:39:40.827989+00:00",
+      "total_mensagens": 0,
+      "tem_outbound_sucesso": false,
+      "situacao": "Sem mensagens trocadas",
+      "ultima_mensagem": null
+    },
+    {
+      "contato_id": 3630,
+      "nome": "Cicero Alves",
+      "organizacao_id": 2,
+      "ia_atendimento_ativo": false,
+      "data_cadastro": "2025-08-01T23:37:29.273633+00:00",
+      "data_entrada_funil": "2026-06-24T16:12:20.959423+00:00",
+      "total_mensagens": 1,
+      "tem_outbound_sucesso": true,
+      "situacao": "Mensagem enviada com sucesso (Status: sent)",
+      "ultima_mensagem": {
+        "direction": "outbound",
+        "status": "sent",
+        "created_at": "2025-12-10T16:22:24.47167+00:00",
+        "content": "Oi Cicero!\n\nO Studio 57 tem um novo empreendimento..."
+      }
+    },
+    {
+      "contato_id": 6040,
+      "nome": "João ",
+      "organizacao_id": 1,
+      "ia_atendimento_ativo": false,
+      "data_cadastro": "2026-06-21T13:56:48.932583+00:00",
+      "data_entrada_funil": "2026-06-21T13:56:49.345041+00:00",
+      "total_mensagens": 0,
+      "tem_outbound_sucesso": false,
+      "situacao": "Sem mensagens trocadas",
+      "ultima_mensagem": null
+    },
+    {
+      "contato_id": 5110,
+      "nome": "Waissan Semi",
+      "organizacao_id": 2,
+      "ia_atendimento_ativo": true,
+      "data_cadastro": "2026-03-28T17:07:00.86128+00:00",
+      "data_entrada_funil": "2026-03-28T17:07:01.816413+00:00",
+      "total_mensagens": 24,
+      "tem_outbound_sucesso": true,
+      "situacao": "Mensagem enviada com sucesso (Status: delivered)",
+      "ultima_mensagem": {
+        "direction": "outbound",
+        "status": "delivered",
+        "created_at": "2026-06-03T15:30:18.507573+00:00",
+        "content": "Acabamos de publicar um vídeo rápido explicando co..."
+      }
+    },
+    {
+      "contato_id": 5934,
+      "nome": "julimar oliveira",
+      "organizacao_id": 2,
+      "ia_atendimento_ativo": false,
+      "data_cadastro": "2026-06-12T04:24:07.421611+00:00",
+      "data_entrada_funil": "2026-06-12T04:24:07.994053+00:00",
+      "total_mensagens": 0,
+      "tem_outbound_sucesso": false,
+      "situacao": "Sem mensagens trocadas",
+      "ultima_mensagem": null
+    },
+    {
+      "contato_id": 5935,
+      "nome": "julimar oliveira",
+      "organizacao_id": 2,
+      "ia_atendimento_ativo": false,
+      "data_cadastro": "2026-06-12T04:24:32.892812+00:00",
+      "data_entrada_funil": "2026-06-12T04:24:33.219146+00:00",
+      "total_mensagens": 0,
+      "tem_outbound_sucesso": false,
+      "situacao": "Sem mensagens trocadas",
+      "ultima_mensagem": null
+    }
+  ]
+}

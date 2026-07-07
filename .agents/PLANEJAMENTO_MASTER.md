@@ -63,6 +63,7 @@ O **Studio 57** é o ambiente de desenvolvimento e laboratório central. O **Elo
 - [ ] Criar Dashboard de Faturamento para o cliente (Portal do Assinante).
 - [ ] Bloqueio de funcionalidades por status de pagamento (Inadimplência).
 - [ ] **Auditoria de VGV:** Desenvolver interface/relatório no front-end para consumir e exibir o histórico inteligente da tabela `historico_vgv` (linha do tempo de valorização dos empreendimentos).
+- [ ] **Flexibilização do Motor de Reajuste (Contratos):** Corrigir a aba de correção do INCC no Extrato do Cliente para possibilitar edição manual do início, meio e fim da incidência das correções. Adicionar opção de "Negociação Personalizada", permitindo selecionar manualmente em quais parcelas específicas a correção monetária será aplicada sobre o saldo devedor (ao invés de seguir estritamente o ordinal trimestral/anual).
 
 ### 6. Branding e Identidade Visual (Transição Elo 57)
 - [x] **Rename:** Substituir ocorrências de "Studio 57" por "Elo 57" na interface.

@@ -230,16 +230,32 @@ export default function WhatsAppInbox({ onChangeTab, initialContactId }) {
     return Array.from(map).sort();
   }, [conversations]);
 
+  const activeContactRef = React.useRef(null);
   const activeContact = React.useMemo(() => {
-    if (!selectedContact) return null;
+    if (!selectedContact) {
+      activeContactRef.current = null;
+      return null;
+    }
     const latest = conversations?.find(c => 
       String(c.contato_id) === String(selectedContact.contato_id) || 
       (c.conversation_id && String(c.conversation_id) === String(selectedContact.conversation_id))
     );
-    if (latest) {
-      return { ...selectedContact, ...latest };
+    const target = latest ? { ...selectedContact, ...latest } : selectedContact;
+    
+    const prev = activeContactRef.current;
+    if (prev && 
+        prev.contato_id === target.contato_id && 
+        prev.unread_count === target.unread_count && 
+        prev.phone_number === target.phone_number &&
+        prev.last_inbound_at === target.last_inbound_at &&
+        prev.nome === target.nome &&
+        prev.avatar_url === target.avatar_url
+    ) {
+      return prev;
     }
-    return selectedContact;
+    
+    activeContactRef.current = target;
+    return target;
   }, [conversations, selectedContact]);
 
   const hasSelection = selectedContact || selectedList;

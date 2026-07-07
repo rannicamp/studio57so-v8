@@ -45,7 +45,7 @@ export default function AssinaturaPage() {
 
     // Novos estados de seleção de plano e cupom (para organizações pendentes/bloqueadas)
     const [selectedPlan, setSelectedPlan] = useState('essencial');
-    const [couponCode, setCouponCode] = useState('AMIGODODONO');
+    const [couponCode, setCouponCode] = useState('');
     const [couponDiscount, setCouponDiscount] = useState(0);
     const [couponTrialDays, setCouponTrialDays] = useState(15);
     const [validatingCoupon, setValidatingCoupon] = useState(false);
@@ -104,8 +104,6 @@ export default function AssinaturaPage() {
             if (organizacao.cupom_aplicado) {
                 setCouponCode(organizacao.cupom_aplicado);
                 handleApplyCoupon(organizacao.cupom_aplicado);
-            } else {
-                handleApplyCoupon('AMIGODODONO');
             }
         }
     }, [organizacao]);

@@ -1,0 +1,3737 @@
+[
+  {
+    "card_id": "cb00ac1e-dae6-488b-a5a3-28b98f30c68b",
+    "contato_id": 6150,
+    "nome": "Jhessiara Alves",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-06-27T18:09:58.622857+00:00",
+    "data_entrada_funil": "2026-06-27T18:09:58.901728+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "1be910d9-c880-4acb-a54f-dddd0937258c",
+    "contato_id": 6164,
+    "nome": "Ronaldo Pedrosa",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-06-28T21:13:42.234036+00:00",
+    "data_entrada_funil": "2026-06-28T21:13:42.330146+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "fbd95d0b-963e-4d09-99a0-9df9fc3f83e1",
+    "contato_id": 6196,
+    "nome": "Antonio Ornelas Michel",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-07-03T11:43:16.213523+00:00",
+    "data_entrada_funil": "2026-07-03T11:43:16.324106+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "9bd2d0de-f967-4a73-ba5d-718f83cee62e",
+    "contato_id": 6219,
+    "nome": "Siloney Dias",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-07-03T23:43:55.121165+00:00",
+    "data_entrada_funil": "2026-07-03T23:43:55.247985+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "20e3edb8-cd93-4e47-bc91-caac00b5886b",
+    "contato_id": 6232,
+    "nome": "Bruna",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-07-04T20:02:14.621819+00:00",
+    "data_entrada_funil": "2026-07-04T20:02:14.737975+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "4f495989-6f17-48ce-8d65-a6b6fe266295",
+    "contato_id": 6244,
+    "nome": "Nilseia Dias",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-07-05T16:14:15.049981+00:00",
+    "data_entrada_funil": "2026-07-05T16:14:15.287931+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "193b8a5d-497b-4517-9006-3e467f52f475",
+    "contato_id": 6259,
+    "nome": "Carol",
+    "ia_atendimento_ativo": false,
+    "data_cadastro": "2026-07-06T19:41:05.283277+00:00",
+    "data_entrada_funil": "2026-07-06T19:41:05.51922+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 1,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 1,
+    "qtd_outbound_falha": 0,
+    "situacao": "Respondido com sucesso (Última outbound status: delivered)",
+    "mensagens": [
+      {
+        "direction": "outbound",
+        "status": "delivered",
+        "created_at": "2026-07-07T13:42:20.281556+00:00",
+        "content": "Oi! Tudo bem? Recebemos o seu interesse em nossos empreendimentos. Podemos liberar e te enviar os materiais completos por aqui?"
+      }
+    ]
+  },
+  {
+    "card_id": "9da6927b-8123-4610-b2fa-42ff3bedb341",
+    "contato_id": 6138,
+    "nome": "Bruno Alves",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-06-26T22:40:16.052493+00:00",
+    "data_entrada_funil": "2026-06-26T22:40:16.603494+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "b7eb1ced-a957-4952-b43e-c7bf9473bc53",
+    "contato_id": 6151,
+    "nome": "Évila Miranda",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-06-27T18:29:14.274632+00:00",
+    "data_entrada_funil": "2026-06-27T18:29:14.380961+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "fc36dcb7-829b-424b-b230-5e87fa2e0f76",
+    "contato_id": 5998,
+    "nome": "Usuário 997106",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-06-18T18:03:01.739715+00:00",
+    "data_entrada_funil": "2026-06-18T18:03:01.92373+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "faab009c-f352-45bd-8c02-79dff9288b5f",
+    "contato_id": 6198,
+    "nome": "Mariana Gomes",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-07-03T12:08:33.50781+00:00",
+    "data_entrada_funil": "2026-07-03T12:08:33.651683+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "b2ee9a05-9124-422d-aed8-8aa60d9658cc",
+    "contato_id": 6220,
+    "nome": "Paty Bragança",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-07-04T00:17:58.223918+00:00",
+    "data_entrada_funil": "2026-07-04T00:17:58.322946+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Vendas",
+    "coluna_id": "e8e88027-c7be-4e8c-9667-e17fa4e06ce5",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "787fc566-83ae-400a-ab30-069cb09fc9cd",
+    "contato_id": 6233,
+    "nome": "Nivaldo Souza",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-07-04T20:02:56.124467+00:00",
+    "data_entrada_funil": "2026-07-04T20:02:56.229292+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 6,
+    "qtd_inbound": 1,
+    "qtd_outbound_sucesso": 5,
+    "qtd_outbound_falha": 0,
+    "situacao": "Respondido com sucesso (Última outbound status: delivered)",
+    "mensagens": [
+      {
+        "direction": "inbound",
+        "status": "delivered",
+        "created_at": "2026-07-04T20:03:13.46748+00:00",
+        "content": "Hello! I filled out your form and would like to know more about your business.\n\nFull name: Nivaldo Souza\nPhone number: +16172594633\nObjetivo?: INVESTIMENTO\nRenda Familiar Bruta?: Mais de R$ 10.000,00\nPossui FGTS?: Não"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-07-04T20:03:42.293041+00:00",
+        "content": "Sou a Stella, a inteligência artificial de pré-atendimento. 😊 Como sou uma IA, minhas respostas podem conter erros e todas as simulações do nosso papo serão confirmadas por um corretor humano antes do fechamento. Se preferir falar com um corretor a qualquer momento, é só me avisar!"
+      },
+      {
+        "direction": "outbound",
+        "status": "delivered",
+        "created_at": "2026-07-04T20:03:44.775291+00:00",
+        "content": "Olá, Nivaldo! Recebi o seu contato e vi que você se interessou pelo nosso empreendimento Beta Suítes, ótimo para investimento."
+      },
+      {
+        "direction": "outbound",
+        "status": "delivered",
+        "created_at": "2026-07-04T20:03:47.074145+00:00",
+        "content": "Vou te enviar agora mesmo o nosso book com todos os detalhes. Só para confirmar, você mora atualmente nos EUA ou em outra região?"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-07-04T20:03:48.071647+00:00",
+        "content": "Book_Investidor_Beta_Suites.pdf"
+      },
+      {
+        "direction": "outbound",
+        "status": "delivered",
+        "created_at": "2026-07-04T20:03:50.462424+00:00",
+        "content": "Conseguiu abrir o book? Me diga o que você achou do potencial de rentabilidade do projeto."
+      }
+    ]
+  },
+  {
+    "card_id": "b67f0e28-d50a-4634-8d56-28cb3c58a524",
+    "contato_id": 6245,
+    "nome": "Adriana Cristina",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-07-05T16:36:37.621915+00:00",
+    "data_entrada_funil": "2026-07-05T16:36:37.829497+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "da31e867-b573-44fd-bf38-6ea5720820a8",
+    "contato_id": 6139,
+    "nome": "Lenira Sousa",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-06-26T23:32:42.655478+00:00",
+    "data_entrada_funil": "2026-06-26T23:32:42.879761+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "5e390b23-0823-41b8-98a5-1ba66bf203f8",
+    "contato_id": 6152,
+    "nome": "𝕷𝖚𝖈𝖎𝖆𝖓𝖆 𝕮𝖔𝖓𝖉𝖊",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-06-27T20:53:13.913815+00:00",
+    "data_entrada_funil": "2026-06-27T20:53:14.313587+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "451111d8-e97a-4c1d-92a7-19b18179a70b",
+    "contato_id": 6166,
+    "nome": "Rogerio fernandes soaree",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-06-29T00:49:56.603868+00:00",
+    "data_entrada_funil": "2026-06-29T00:49:56.68983+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "54897c82-fd7a-4bea-ab32-ad13722757d1",
+    "contato_id": 6199,
+    "nome": "Ailton Miranda 33 988497902",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-07-03T12:34:06.93292+00:00",
+    "data_entrada_funil": "2026-07-03T12:34:07.086083+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "03d9a737-4803-4b67-921e-60e1a42c4c80",
+    "contato_id": 6234,
+    "nome": "Elaine Santos de Oliveira",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-07-04T20:20:53.167638+00:00",
+    "data_entrada_funil": "2026-07-04T20:20:53.330138+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 11,
+    "qtd_inbound": 2,
+    "qtd_outbound_sucesso": 9,
+    "qtd_outbound_falha": 0,
+    "situacao": "Respondido com sucesso (Última outbound status: read)",
+    "mensagens": [
+      {
+        "direction": "inbound",
+        "status": "delivered",
+        "created_at": "2026-07-04T20:21:16.369356+00:00",
+        "content": "Olá! Preenchi seu formulário e gostaria de saber mais sobre sua empresa.\n\nObjetivo?: MORADIA\nRenda Familiar Bruta?: Mais de R$ 10.000,00\nPossui FGTS?: Sim\nFull name: Elaine Santos de Oliveira\nPhone number: +16785982811"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-07-04T20:21:46.62885+00:00",
+        "content": "Sou a Stella, a inteligência artificial de pré-atendimento. 😊 Como sou uma IA, minhas respostas podem conter erros e todas as simulações do nosso papo serão confirmadas por um corretor humano antes do fechamento. Se preferir falar com um corretor a qualquer momento, é só me avisar!"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-07-04T20:21:49.07178+00:00",
+        "content": "Olá, Elaine! É um prazer ter você aqui. Nós do Studio 57 somos uma incorporadora que controla todo o projeto do início ao fim, o que garante máxima qualidade e segurança jurídica na entrega."
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-07-04T20:21:51.588327+00:00",
+        "content": "Vou te encaminhar o Book do Beta Suítes, que foi o material que despertou seu interesse. Você mora aqui na região de Governador Valadares ou em outra cidade?"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-07-04T20:21:52.802647+00:00",
+        "content": "Book_Investidor_Beta_Suites.pdf"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-07-04T20:21:55.659323+00:00",
+        "content": "Conseguiu abrir o arquivo, Elaine? O que achou do projeto?"
+      },
+      {
+        "direction": "inbound",
+        "status": "delivered",
+        "created_at": "2026-07-04T20:23:16.690402+00:00",
+        "content": "Nao"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-07-04T20:23:43.712411+00:00",
+        "content": "Sem problemas, Elaine! Vou te enviar novamente o arquivo para não haver dúvidas."
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-07-04T20:23:46.149252+00:00",
+        "content": "Veja se consegue abrir agora, por favor."
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-07-04T20:23:47.109943+00:00",
+        "content": "Book_Investidor_Beta_Suites.pdf"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-07-04T20:23:49.627396+00:00",
+        "content": "Enquanto você analisa, me conta: você mora aqui na região de Governador Valadares ou em outra cidade?"
+      }
+    ]
+  },
+  {
+    "card_id": "1a93e2dc-8370-4be8-90ea-32510bbaa84e",
+    "contato_id": 6246,
+    "nome": "zizi santos",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-07-05T19:41:48.644473+00:00",
+    "data_entrada_funil": "2026-07-05T19:41:48.875292+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "8648cbbe-53e8-4faf-9063-ed3039fd6a6f",
+    "contato_id": 6140,
+    "nome": "H_brgouvea",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-06-26T23:47:37.925965+00:00",
+    "data_entrada_funil": "2026-06-26T23:47:38.097095+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "0547cd33-97f8-4b38-bfdb-5d547200401f",
+    "contato_id": 6153,
+    "nome": "Vinicius Maciel",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-06-27T23:49:00.35386+00:00",
+    "data_entrada_funil": "2026-06-27T23:49:00.737165+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "42902391-5c43-44e7-af09-8f1f67ebfde3",
+    "contato_id": 6090,
+    "nome": "Usuário 493082",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-06-25T16:19:00.744263+00:00",
+    "data_entrada_funil": "2026-06-25T16:19:01.183327+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "88d652f3-0de8-4da6-ad45-bca4879ae254",
+    "contato_id": 5999,
+    "nome": "Usuário 316090",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-06-18T19:05:29.867786+00:00",
+    "data_entrada_funil": "2026-06-18T19:05:31.055828+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "fb31979b-cf3a-40fb-b2f8-3818d023c293",
+    "contato_id": 6015,
+    "nome": "Usuário 981733",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-06-19T11:22:01.603339+00:00",
+    "data_entrada_funil": "2026-06-19T11:22:03.298675+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "70a25caf-e774-4b04-a1ce-903aee95c7ac",
+    "contato_id": 6167,
+    "nome": "Helcio Leal",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-06-29T01:14:09.890892+00:00",
+    "data_entrada_funil": "2026-06-29T01:14:09.987897+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "4c1e7914-4499-4d69-9418-9bb4211b3356",
+    "contato_id": 6222,
+    "nome": "Marcus Freire",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-07-04T01:12:48.417467+00:00",
+    "data_entrada_funil": "2026-07-04T01:12:48.546287+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "b4307bbc-8a8b-4614-ac8a-417ffc1363f4",
+    "contato_id": 6235,
+    "nome": "Érika Bregues ",
+    "ia_atendimento_ativo": false,
+    "data_cadastro": "2026-07-04T20:39:40.316418+00:00",
+    "data_entrada_funil": "2026-07-04T20:39:40.827989+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Vendas",
+    "coluna_id": "e8e88027-c7be-4e8c-9667-e17fa4e06ce5",
+    "organizacao_id": 1,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "e3233b2d-20f6-42da-b825-60de11d2ee69",
+    "contato_id": 6247,
+    "nome": "Francisco Sales Dantas",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-07-06T00:52:18.109733+00:00",
+    "data_entrada_funil": "2026-07-06T00:52:18.585465+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "f0c3d26a-0b6b-4c11-a7e4-fa6c86864e75",
+    "contato_id": 6141,
+    "nome": "Mister Clean GV",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-06-27T00:52:04.210883+00:00",
+    "data_entrada_funil": "2026-06-27T00:52:04.378976+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 11,
+    "qtd_inbound": 2,
+    "qtd_outbound_sucesso": 9,
+    "qtd_outbound_falha": 0,
+    "situacao": "Respondido com sucesso (Última outbound status: read)",
+    "mensagens": [
+      {
+        "direction": "inbound",
+        "status": "delivered",
+        "created_at": "2026-06-27T00:56:10.628566+00:00",
+        "content": "Oi, gostaria de mais informações sobre o Refúgio Braúnas"
+      },
+      {
+        "direction": "inbound",
+        "status": "delivered",
+        "created_at": "2026-06-27T00:56:39.796428+00:00",
+        "content": "350 e parcelas ou metros quadrado?"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-06-27T00:56:40.306248+00:00",
+        "content": "Sou a Stella, a inteligência artificial de pré-atendimento do Studio 57. 😊 Como sou uma IA, minhas respostas podem conter erros e todas as simulações do nosso papo serão confirmadas por um corretor humano antes do fechamento. Se preferir falar com um corretor a qualquer momento, é só me avisar!"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-06-27T00:56:42.713005+00:00",
+        "content": "Olá! Que ótimo seu interesse no Refúgio Braúnas, é um empreendimento incrível."
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-06-27T00:56:45.296106+00:00",
+        "content": "Antes de começarmos, como posso te chamar?"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-06-27T00:56:46.281665+00:00",
+        "content": "[BOK] - BOOK DE VENDAS- REFUGIO BRAUNAS_studio57.pdf"
+      },
+      {
+        "direction": "outbound",
+        "status": "sent",
+        "created_at": "2026-06-27T00:56:48.780686+00:00",
+        "content": "Estou te enviando o book completo do Refúgio Braúnas. Me diga o que você achou assim que conseguir dar uma olhada. 😉"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-06-27T00:57:11.575168+00:00",
+        "content": "Ótima pergunta! No Refúgio Braúnas, as chácaras são de 1.000m², com valores a partir de R$ 250 mil."
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-06-27T00:57:14.050104+00:00",
+        "content": "Vou te enviar nosso book com todas as imagens e detalhes. Vi aqui que seu objetivo é investimento, correto?"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-06-27T00:57:14.911614+00:00",
+        "content": "[BOK] - BOOK DE VENDAS- REFUGIO BRAUNAS_studio57.pdf"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-06-27T00:57:17.469863+00:00",
+        "content": "Conseguiu abrir? Me diga o que você achou do projeto 😊"
+      }
+    ]
+  },
+  {
+    "card_id": "6a7f8dfd-f17d-4338-8ec4-dd702bed9a08",
+    "contato_id": 3630,
+    "nome": "Cicero Alves",
+    "ia_atendimento_ativo": false,
+    "data_cadastro": "2025-08-01T23:37:29.273633+00:00",
+    "data_entrada_funil": "2026-06-24T16:12:20.959423+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Vendas",
+    "coluna_id": "e8e88027-c7be-4e8c-9667-e17fa4e06ce5",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 1,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 1,
+    "qtd_outbound_falha": 0,
+    "situacao": "Respondido com sucesso (Última outbound status: sent)",
+    "mensagens": [
+      {
+        "direction": "outbound",
+        "status": "sent",
+        "created_at": "2025-12-10T16:22:24.47167+00:00",
+        "content": "Oi Cicero!\n\nO Studio 57 tem um novo empreendimento para te apresentar.\n\nQuer saber mais?"
+      }
+    ]
+  },
+  {
+    "card_id": "ed57b4b7-7ac3-4064-9e27-0e9c34e3c752",
+    "contato_id": 6168,
+    "nome": "Carlos Prates",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-06-29T10:33:51.744488+00:00",
+    "data_entrada_funil": "2026-06-29T10:33:51.952598+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "777aaba9-caf7-4ecb-bb0b-f87c711fd3ae",
+    "contato_id": 6169,
+    "nome": "Stenio Pereira Duarte",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-06-29T10:34:26.584169+00:00",
+    "data_entrada_funil": "2026-06-29T10:34:26.67273+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "26fc3e4e-d03b-484d-a4e1-945ad531ac77",
+    "contato_id": 6091,
+    "nome": "Usuário 493082",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-06-25T16:19:00.760802+00:00",
+    "data_entrada_funil": "2026-06-25T16:19:01.240343+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "f61b80b2-c5c0-4f56-bff6-cfd97dbb8594",
+    "contato_id": 6000,
+    "nome": "Usuário 229981",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-06-18T20:03:39.204937+00:00",
+    "data_entrada_funil": "2026-06-18T20:03:41.134689+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "b01c1698-f60e-40a6-b765-6159c96ae4a3",
+    "contato_id": 6016,
+    "nome": "Usuário 637871",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-06-19T11:25:35.851535+00:00",
+    "data_entrada_funil": "2026-06-19T11:25:38.171264+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "cfaac00a-9e84-4ddc-9816-152023c9ba98",
+    "contato_id": 4960,
+    "nome": "Julio Cezar Dias",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-02-25T02:07:42.741665+00:00",
+    "data_entrada_funil": "2026-02-25T02:07:43.009442+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 6,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 6,
+    "qtd_outbound_falha": 0,
+    "situacao": "Respondido com sucesso (Última outbound status: delivered)",
+    "mensagens": [
+      {
+        "direction": "outbound",
+        "status": "delivered",
+        "created_at": "2026-02-25T11:09:02.345981+00:00",
+        "content": "O Studio 57 tem um novo empreendimento para te apresentar!\n\nQuer saber mais?"
+      },
+      {
+        "direction": "outbound",
+        "status": "delivered",
+        "created_at": "2026-02-26T11:20:19.884342+00:00",
+        "content": "O Studio 57 tem um novo empreendimento para te apresentar!\n\nQuer saber mais?"
+      },
+      {
+        "direction": "outbound",
+        "status": "sent",
+        "created_at": "2026-05-19T14:45:42.549339+00:00",
+        "content": "Olá Julio, tudo bem?\n\nEstou entrando em contato de forma pontual para te apresentar um ativo de valorização altíssima que o Studio 57 acabou de colocar no mercado.\n\nLançamos o Refúgio Braúnas. Diferente de 90% das áreas rurais da região, nosso empreendimento tem matrícula individualizada (100% regular) para cada lote de 1.000m². Isso significa liquidez imediata e segurança jurídica total para o seu patrimônio.\n\nForam 21 lotes exclusivos. Investidores e parceiros já arremataram 11 deles apenas no pré-lançamento. Temos as últimas 10 unidades.\n\n✅ Entrada de apenas 20% (podendo diluir em 3 parcelas). ✅ Saldo em até 60x com a própria incorporadora.\n\nVocê tem interesse em analisar as plantas e a tabela de viabilidade dos últimos lotes disponíveis? Me avise que eu te envio o material completo."
+      },
+      {
+        "direction": "outbound",
+        "status": "sent",
+        "created_at": "2026-05-27T15:04:17.464196+00:00",
+        "content": "⚠️ AVISO DE PRÉ-LANÇAMENTO:\n\nO Beta Suítes entrou em fase de reserva técnica e as primeiras unidades estão se esgotando rápido.\n\nSe você busca um ativo imobiliário seguro, com alta liquidez e excelente taxa de retorno em Governador Valadares, essa é a sua chance:\n\n📈 Invista com apenas 20% de entrada e parcelas de R$ 1.800. 🎓 Localização estratégica ao lado da UFJF e Polo Médico.\n\nQuer ver as plantas e garantir as condições de tabela especial? Clique em Quero saber mais!👇"
+      },
+      {
+        "direction": "outbound",
+        "status": "delivered",
+        "created_at": "2026-06-03T15:16:22.261709+00:00",
+        "content": "Acabamos de publicar um vídeo rápido explicando como garantimos a entrega da sua obra com total segurança (você já ouviu falar em Patrimônio de Afetação?). Confira aqui: 👇"
+      },
+      {
+        "direction": "outbound",
+        "status": "delivered",
+        "created_at": "2026-06-03T15:16:22.278429+00:00",
+        "content": "Acabamos de publicar um vídeo rápido explicando como garantimos a entrega da sua obra com total segurança (você já ouviu falar em Patrimônio de Afetação?). Confira aqui: 👇"
+      }
+    ]
+  },
+  {
+    "card_id": "77be5413-a806-4f64-bfb8-d3c3314a4645",
+    "contato_id": 6223,
+    "nome": "Thiago",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-07-04T07:28:41.389405+00:00",
+    "data_entrada_funil": "2026-07-04T07:28:41.823663+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "f2bcabf7-2d05-4fb5-9573-71a0f6c064ea",
+    "contato_id": 6236,
+    "nome": "Robert Rodrigues",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-07-04T23:23:11.263908+00:00",
+    "data_entrada_funil": "2026-07-04T23:23:11.543504+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "b6f0a4df-f3eb-4b8e-9861-d9ff52c64dea",
+    "contato_id": 6248,
+    "nome": "Creuza Maria Creuza Maria",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-07-06T02:10:21.320897+00:00",
+    "data_entrada_funil": "2026-07-06T02:10:21.640826+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "63656a67-ecd5-4474-9bf2-3be9fec10a5a",
+    "contato_id": 6237,
+    "nome": "Oseias Silva",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-07-04T23:32:09.129443+00:00",
+    "data_entrada_funil": "2026-07-04T23:32:09.264755+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "663833df-640e-4890-9077-6af7aff412d1",
+    "contato_id": 6249,
+    "nome": "Dione Morais",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-07-06T02:30:18.043539+00:00",
+    "data_entrada_funil": "2026-07-06T02:30:18.201305+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "793f5496-04e0-4b5d-97f5-d9f60bf1412f",
+    "contato_id": 6142,
+    "nome": "Penélopcharmosa RJ",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-06-27T02:08:42.659608+00:00",
+    "data_entrada_funil": "2026-06-27T02:08:42.79122+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 4,
+    "qtd_inbound": 1,
+    "qtd_outbound_sucesso": 3,
+    "qtd_outbound_falha": 0,
+    "situacao": "Respondido com sucesso (Última outbound status: delivered)",
+    "mensagens": [
+      {
+        "direction": "inbound",
+        "status": "delivered",
+        "created_at": "2026-06-27T02:08:43.363817+00:00",
+        "content": "Hello! I filled out your form and would like to know more about your business.\n\nFull name: Penélopcharmosa RJ\nPhone number: +17818743459\nObjetivo?: MORADIA\nRenda Familiar Bruta?: Menos de R$ 10.000,00\nPossui FGTS?: Sim"
+      },
+      {
+        "direction": "outbound",
+        "status": "delivered",
+        "created_at": "2026-06-27T02:09:10.879047+00:00",
+        "content": "Sou a Stella, a inteligência artificial de pré-atendimento do Studio 57. 😊 Como sou uma IA, minhas respostas podem conter erros e todas as simulações do nosso papo serão confirmadas por um corretor humano antes do fechamento. Se preferir falar com um corretor a qualquer momento, é só me avisar!"
+      },
+      {
+        "direction": "outbound",
+        "status": "delivered",
+        "created_at": "2026-06-27T02:09:13.46972+00:00",
+        "content": "Olá, Penélopcharmosa, tudo bem? Vi que você se interessou pelo nosso anúncio do Beta Suítes e preencheu no formulário que seu objetivo é moradia."
+      },
+      {
+        "direction": "outbound",
+        "status": "delivered",
+        "created_at": "2026-06-27T02:09:15.964612+00:00",
+        "content": "O Beta Suítes é um projeto fantástico focado em investimento, mas para morar nós temos o Residencial Alfa, que é perfeito para isso! Qual dos dois projetos você gostaria de conhecer primeiro?"
+      }
+    ]
+  },
+  {
+    "card_id": "6cb96c5f-524f-4485-82cd-0f5e4cce0b9f",
+    "contato_id": 6155,
+    "nome": "Mariceia Paixão costa",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-06-28T14:14:42.760722+00:00",
+    "data_entrada_funil": "2026-06-28T14:14:43.01713+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "87d11a88-71a6-46da-b944-7392327068a8",
+    "contato_id": 6204,
+    "nome": "Leandro Assis",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-07-03T18:08:16.187941+00:00",
+    "data_entrada_funil": "2026-07-03T18:08:16.457835+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "8bad0163-5217-4d67-9cb3-ca252f386684",
+    "contato_id": 6081,
+    "nome": "Usuário 999506",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-06-24T20:03:00.90513+00:00",
+    "data_entrada_funil": "2026-06-24T20:03:02.852797+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "0196c767-39fb-44f3-849b-4f1f7d6b604d",
+    "contato_id": 6143,
+    "nome": "Marcelo Fernandes",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-06-27T02:28:03.730953+00:00",
+    "data_entrada_funil": "2026-06-27T02:28:03.834226+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "5edc571e-3797-4fd6-854d-3bd62d425867",
+    "contato_id": 6156,
+    "nome": "Breno Farage Saiter | Advogado",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-06-28T15:00:39.052751+00:00",
+    "data_entrada_funil": "2026-06-28T15:00:39.178672+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "7ed9c88e-5d47-47f1-9360-4b181a52b68f",
+    "contato_id": 6171,
+    "nome": "Diego Souza",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-06-29T12:39:50.481739+00:00",
+    "data_entrada_funil": "2026-06-29T12:39:50.751939+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 6,
+    "qtd_inbound": 1,
+    "qtd_outbound_sucesso": 5,
+    "qtd_outbound_falha": 0,
+    "situacao": "Respondido com sucesso (Última outbound status: read)",
+    "mensagens": [
+      {
+        "direction": "inbound",
+        "status": "delivered",
+        "created_at": "2026-06-29T12:45:03.647696+00:00",
+        "content": "Hello! I filled out your form and would like to know more about your business.\n\nFull name: Diego Souza\nPhone number: +1(781) 350-6089\nObjetivo?: INVESTIMENTO\nRenda Familiar Bruta?: Menos de R$ 10.000,00\nPossui FGTS?: Não"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-06-29T12:45:39.301099+00:00",
+        "content": "Sou a Stella, a inteligência artificial de pré-atendimento do Studio 57. 😊 Como sou uma IA, minhas respostas podem conter erros e todas as simulações do nosso papo serão confirmadas por um corretor humano antes do fechamento. Se preferir falar com um corretor a qualquer momento, é só me avisar!"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-06-29T12:45:41.645863+00:00",
+        "content": "O Beta Suítes é o nosso projeto ideal para isso. Vou te enviar o book completo dele para você conhecer os detalhes."
+      },
+      {
+        "direction": "outbound",
+        "status": "sent",
+        "created_at": "2026-06-29T12:45:44.299906+00:00",
+        "content": "Olá, Diego! Tudo bem? Vi aqui que você preencheu o formulário e seu objetivo é investimento, certo?"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-06-29T12:45:45.312873+00:00",
+        "content": "Book_Investidor_Beta_Suites.pdf"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-06-29T12:45:47.808052+00:00",
+        "content": "Ele é o nosso projeto ideal para quem busca renda de aluguel. Você já costuma investir em imóveis?"
+      }
+    ]
+  },
+  {
+    "card_id": "99b3bbb0-94d9-4809-9f4c-f903597e9edc",
+    "contato_id": 6205,
+    "nome": "Waldirlon Ribeiro Dos Santos",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-07-03T18:08:32.747585+00:00",
+    "data_entrada_funil": "2026-07-03T18:08:32.87829+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "842c5d1b-7d32-4cc5-b797-96d8ed82f222",
+    "contato_id": 6225,
+    "nome": "Adailton De Oliveira",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-07-04T12:53:48.818281+00:00",
+    "data_entrada_funil": "2026-07-04T12:53:49.263872+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "01f58dfc-4a30-4b8c-bca4-b8ff7eeeb0b9",
+    "contato_id": 6238,
+    "nome": "Luciana Serafim",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-07-04T23:57:39.547285+00:00",
+    "data_entrada_funil": "2026-07-04T23:57:39.696295+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "0e289fc9-8c21-4ac0-8215-ba32beec18a2",
+    "contato_id": 6144,
+    "nome": "Leonardo Carvalho",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-06-27T02:31:33.715421+00:00",
+    "data_entrada_funil": "2026-06-27T02:31:33.807636+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 7,
+    "qtd_inbound": 1,
+    "qtd_outbound_sucesso": 6,
+    "qtd_outbound_falha": 0,
+    "situacao": "Respondido com sucesso (Última outbound status: read)",
+    "mensagens": [
+      {
+        "direction": "inbound",
+        "status": "delivered",
+        "created_at": "2026-06-27T02:31:52.195608+00:00",
+        "content": "Olá! Preenchi seu formulário e gostaria de saber mais sobre sua empresa.\n\nObjetivo?: INVESTIMENTO\nFull name: Leonardo Carvalho\nPossui FGTS?: Não\nPhone number: +18573267579\nRenda Familiar Bruta?: Mais de R$ 10.000,00"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-06-27T02:32:26.858257+00:00",
+        "content": "Sou a Stella, a inteligência artificial de pré-atendimento do Studio 57. 😊 Como sou uma IA, minhas respostas podem conter erros e todas as simulações do nosso papo serão confirmadas por um corretor humano antes do fechamento. Se preferir falar com um corretor a qualquer momento, é só me avisar!"
+      },
+      {
+        "direction": "outbound",
+        "status": "delivered",
+        "created_at": "2026-06-27T02:32:29.24802+00:00",
+        "content": "Olá, Leonardo! Que bom receber seu contato."
+      },
+      {
+        "direction": "outbound",
+        "status": "sent",
+        "created_at": "2026-06-27T02:32:31.640872+00:00",
+        "content": "Sobre nós, somos uma incorporadora que controla 100% do processo, da planta à construção. Isso garante segurança total no prazo e na qualidade do que entregamos."
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-06-27T02:32:34.092501+00:00",
+        "content": "Vou te enviar o book completo do Beta Suítes, nosso projeto focado em investidores como você. Ele é perfeito para quem busca renda de aluguel e valorização."
+      },
+      {
+        "direction": "outbound",
+        "status": "sent",
+        "created_at": "2026-06-27T02:32:35.0975+00:00",
+        "content": "Book_Investidor_Beta_Suites.pdf"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-06-27T02:32:37.654391+00:00",
+        "content": "O que você achou do projeto, Leonardo? Ele parece estar alinhado com o que você busca em um investimento?"
+      }
+    ]
+  },
+  {
+    "card_id": "6782c43e-9168-41b4-8b09-31716f70050f",
+    "contato_id": 6083,
+    "nome": "Diego Simões",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-06-24T22:15:12.617514+00:00",
+    "data_entrada_funil": "2026-06-24T22:15:12.923009+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 12,
+    "qtd_inbound": 3,
+    "qtd_outbound_sucesso": 9,
+    "qtd_outbound_falha": 0,
+    "situacao": "Respondido com sucesso (Última outbound status: read)",
+    "mensagens": [
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-06-24T22:15:14.327724+00:00",
+        "content": "(Automação) Template: saudacao_entrada_v3"
+      },
+      {
+        "direction": "inbound",
+        "status": "delivered",
+        "created_at": "2026-06-24T22:15:30.81114+00:00",
+        "content": "[Botão]: Sim, por favor!"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-06-24T22:16:03.024731+00:00",
+        "content": "Sou a Stella, a inteligência artificial de pré-atendimento do Studio 57. 😊 Como sou uma IA, minhas respostas podem conter erros e todas as simulações do nosso papo serão confirmadas por um corretor humano antes do fechamento. Se preferir falar com um corretor a qualquer momento, é só me avisar!"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-06-24T22:16:05.286187+00:00",
+        "content": "Olá, Diego! Vi aqui no seu cadastro que você busca uma nova moradia."
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-06-24T22:16:07.53322+00:00",
+        "content": "O nosso Residencial Alfa foi pensado para isso. Estou te enviando o book digital dele para você conhecer o projeto."
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-06-24T22:16:08.454007+00:00",
+        "content": "[BOK] - BOOK ALFA - 2025_COMP..pdf"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-06-24T22:16:10.949819+00:00",
+        "content": "Assim que conseguir ver, me diga o que mais te chamou a atenção no projeto!"
+      },
+      {
+        "direction": "inbound",
+        "status": "delivered",
+        "created_at": "2026-06-24T22:26:24.134747+00:00",
+        "content": "Ótimo"
+      },
+      {
+        "direction": "inbound",
+        "status": "delivered",
+        "created_at": "2026-06-24T22:26:28.613577+00:00",
+        "content": "Valores??"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-06-24T22:27:07.735379+00:00",
+        "content": "Ótima pergunta, Diego! Temos unidades no Residencial Alfa a partir de R$ 430 mil."
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-06-24T22:27:09.961268+00:00",
+        "content": "Para te ajudar a visualizar as possibilidades, posso pedir ao nosso especialista uma simulação de pagamento personalizada para você."
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-06-24T22:27:12.220357+00:00",
+        "content": "Para isso, só preciso confirmar: vi no seu cadastro que a renda familiar é de até R$10.000 e não possui FGTS, correto? E você mora aqui em Governador Valadares mesmo?"
+      }
+    ]
+  },
+  {
+    "card_id": "92f33f43-5aad-445d-9eb0-a072aead3ef5",
+    "contato_id": 6157,
+    "nome": "Gilda Cezar Lopes Santos",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-06-28T16:45:57.644759+00:00",
+    "data_entrada_funil": "2026-06-28T16:45:58.061609+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "4c6769e2-9261-4b21-bffc-a23a1942ed14",
+    "contato_id": 6003,
+    "nome": "Usuário 816676",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-06-18T20:58:01.409883+00:00",
+    "data_entrada_funil": "2026-06-18T20:58:01.500653+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "b95b7eca-2016-4c64-ab22-96e41f233f65",
+    "contato_id": 6049,
+    "nome": "Usuário 296168",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-06-22T13:35:58.302461+00:00",
+    "data_entrada_funil": "2026-06-22T13:35:58.455218+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "537526a9-b91d-4e37-a0cd-d9800da93adb",
+    "contato_id": 6208,
+    "nome": "Weliton Oliveira",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-07-03T18:50:28.997525+00:00",
+    "data_entrada_funil": "2026-07-03T18:50:29.239658+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "ccf34631-af40-4af9-a8fc-782133824e54",
+    "contato_id": 6226,
+    "nome": "Anecides Bonifacio de Souza Filho",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-07-04T12:59:17.960888+00:00",
+    "data_entrada_funil": "2026-07-04T12:59:18.052705+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "f197cfd2-25db-4385-ab09-d0dd65202674",
+    "contato_id": 6239,
+    "nome": "Betania",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-07-05T03:12:27.475932+00:00",
+    "data_entrada_funil": "2026-07-05T03:12:27.874764+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "665bb605-8a39-44f1-a2aa-7ba1b740da37",
+    "contato_id": 6250,
+    "nome": "Tamiris Alves",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-07-06T13:41:22.408386+00:00",
+    "data_entrada_funil": "2026-07-06T13:41:22.608469+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "44b0bc72-deb9-49cc-85f6-5234fca76d1d",
+    "contato_id": 6145,
+    "nome": "Josilma Oliveira",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-06-27T02:37:53.339846+00:00",
+    "data_entrada_funil": "2026-06-27T02:37:53.430004+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "479dc81c-536c-418a-bda9-db4b13517048",
+    "contato_id": 6158,
+    "nome": "Samuel Azevedo",
+    "ia_atendimento_ativo": false,
+    "data_cadastro": "2026-06-28T18:15:48.29393+00:00",
+    "data_entrada_funil": "2026-06-28T18:15:48.545929+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 5,
+    "qtd_inbound": 1,
+    "qtd_outbound_sucesso": 4,
+    "qtd_outbound_falha": 0,
+    "situacao": "Respondido com sucesso (Última outbound status: read)",
+    "mensagens": [
+      {
+        "direction": "inbound",
+        "status": "delivered",
+        "created_at": "2026-06-28T18:16:07.063976+00:00",
+        "content": "Hello! I filled out your form and would like to know more about your business.\n\nObjetivo?: MORADIA\nFull name: Samuel Azevedo\nPossui FGTS?: Não\nPhone number: +16175866710\nRenda Familiar Bruta?: Menos de R$ 10.000,00"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-06-28T18:16:31.691821+00:00",
+        "content": "Sou a Stella, a inteligência artificial de pré-atendimento do Studio 57. 😊 Como sou uma IA, minhas respostas podem conter erros e todas as simulações do nosso papo serão confirmadas por um corretor humano antes do fechamento. Se preferir falar com um corretor a qualquer momento, é só me avisar!"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-06-28T18:16:34.302721+00:00",
+        "content": "Olá, Samuel, tudo bem? Vi que você preencheu nosso formulário e se interessou pelos projetos do Studio 57. É um prazer te atender!"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-06-28T18:16:36.887588+00:00",
+        "content": "Vi que seu objetivo é moradia. Temos duas excelentes opções: o Beta Suítes, com apartamentos compactos e modernos, e o Residencial Alfa, com apartamentos de alto padrão. Qual dos dois modelos te atrai mais?"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-06-29T10:34:54.933527+00:00",
+        "content": "Olá Samuel. Tudo bem?\nMe chamo Ludimila e faço parte do time de vendas do Studio 57.\n\nVi que você demonstrou interesse em um dos nossos empreendimentos, o Beta Suítes. E estou aqui para poder te apresenta-lo 😊\n\nSeu objetivo é para moradia ou investimento?"
+      }
+    ]
+  },
+  {
+    "card_id": "c61fbfae-e050-4b77-bc02-cdd8e08c09fb",
+    "contato_id": 6209,
+    "nome": "Pedro Bicalho | Comunicação Magnética",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-07-03T19:13:00.378603+00:00",
+    "data_entrada_funil": "2026-07-03T19:13:00.597129+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "94a7b32b-a06c-406e-a48a-7c923689b74f",
+    "contato_id": 6227,
+    "nome": "Herica Adelita Souza",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-07-04T14:55:39.257003+00:00",
+    "data_entrada_funil": "2026-07-04T14:55:39.558784+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "2b2c61a7-7a5d-4925-9dbd-02e9dafd065f",
+    "contato_id": 6240,
+    "nome": "Sonia Barcelos Schubert",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-07-05T11:58:00.415817+00:00",
+    "data_entrada_funil": "2026-07-05T11:58:01.018002+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "86ccd57b-5faf-43f2-af6b-667399259e4f",
+    "contato_id": 6251,
+    "nome": "Lojinha da bag  by Yasmin Lima",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-07-06T14:51:15.309487+00:00",
+    "data_entrada_funil": "2026-07-06T14:51:15.616513+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "4b04739a-1a3a-4968-803f-eb6b8f3036ed",
+    "contato_id": 6172,
+    "nome": "Neilson Costa Ribeiro",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-06-29T13:58:46.845812+00:00",
+    "data_entrada_funil": "2026-06-29T13:58:47.102301+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "b872c962-99c8-460e-b8e6-2eef063905ac",
+    "contato_id": 3916,
+    "nome": "Cristiane Jaeger",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2025-09-21T19:36:37.472761+00:00",
+    "data_entrada_funil": "2025-09-21T19:36:37.910826+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 4,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 4,
+    "qtd_outbound_falha": 0,
+    "situacao": "Respondido com sucesso (Última outbound status: read)",
+    "mensagens": [
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2025-12-10T16:42:17.351683+00:00",
+        "content": "Oi Cristiane!\n\nO Studio 57 tem um novo empreendimento para te apresentar.\n\nQuer saber mais?"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-05-19T13:22:13.219715+00:00",
+        "content": "Olá Cristiane, tudo bem?\n\nEstou entrando em contato de forma pontual para te apresentar um ativo de valorização altíssima que o Studio 57 acabou de colocar no mercado.\n\nLançamos o Refúgio Braúnas. Diferente de 90% das áreas rurais da região, nosso empreendimento tem matrícula individualizada (100% regular) para cada lote de 1.000m². Isso significa liquidez imediata e segurança jurídica total para o seu patrimônio.\n\nForam 21 lotes exclusivos. Investidores e parceiros já arremataram 11 deles apenas no pré-lançamento. Temos as últimas 10 unidades.\n\n✅ Entrada de apenas 20% (podendo diluir em 3 parcelas). ✅ Saldo em até 60x com a própria incorporadora.\n\nVocê tem interesse em analisar as plantas e a tabela de viabilidade dos últimos lotes disponíveis? Me avise que eu te envio o material completo."
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-05-27T14:13:23.018721+00:00",
+        "content": "⚠️ AVISO DE PRÉ-LANÇAMENTO:\n\nO Beta Suítes entrou em fase de reserva técnica e as primeiras unidades estão se esgotando rápido.\n\nSe você busca um ativo imobiliário seguro, com alta liquidez e excelente taxa de retorno em Governador Valadares, essa é a sua chance:\n\n📈 Invista com apenas 20% de entrada e parcelas de R$ 1.800. 🎓 Localização estratégica ao lado da UFJF e Polo Médico.\n\nQuer ver as plantas e garantir as condições de tabela especial? Clique em Quero saber mais!👇"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-06-03T14:41:13.026641+00:00",
+        "content": "Acabamos de publicar um vídeo rápido explicando como garantimos a entrega da sua obra com total segurança (você já ouviu falar em Patrimônio de Afetação?). Confira aqui: 👇"
+      }
+    ]
+  },
+  {
+    "card_id": "4e360160-af03-4941-84d4-4c088a9e2063",
+    "contato_id": 6005,
+    "nome": "Usuário 693964",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-06-18T22:21:02.821675+00:00",
+    "data_entrada_funil": "2026-06-18T22:21:04.430327+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "c1c4a686-a1dd-457a-bf14-d0795649ca7e",
+    "contato_id": 6190,
+    "nome": "Meurly Cristina",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-07-02T17:58:36.140312+00:00",
+    "data_entrada_funil": "2026-07-02T17:58:36.386893+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "25abf42c-62ac-40ef-abf9-23a03188297e",
+    "contato_id": 6228,
+    "nome": "clarice costa",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-07-04T17:00:09.878727+00:00",
+    "data_entrada_funil": "2026-07-04T17:00:10.243932+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "0c408124-766b-4103-93c0-b9c099f3fba5",
+    "contato_id": 6255,
+    "nome": "Agrimar Souza",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-07-06T15:17:33.004336+00:00",
+    "data_entrada_funil": "2026-07-06T15:17:33.094375+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "51098d17-e3b9-4ce8-bec6-d46e639d8cdc",
+    "contato_id": 6241,
+    "nome": "@augusto_ferreira",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-07-05T13:12:01.402491+00:00",
+    "data_entrada_funil": "2026-07-05T13:12:01.769171+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "57cbc009-5a6a-4b70-86c5-058b43bed011",
+    "contato_id": 6147,
+    "nome": "Lucia Duarte",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-06-27T14:36:42.778349+00:00",
+    "data_entrada_funil": "2026-06-27T14:36:43.09343+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "900dd5ec-991e-43e3-ab43-92467e85da33",
+    "contato_id": 6160,
+    "nome": "Renato Bezerra",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-06-28T18:33:21.114262+00:00",
+    "data_entrada_funil": "2026-06-28T18:33:21.252402+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "d7c54e3c-ce43-47ca-8e39-a24299686fa0",
+    "contato_id": 6191,
+    "nome": "Ranolfo Caldeira",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-07-02T19:14:11.246674+00:00",
+    "data_entrada_funil": "2026-07-02T19:14:11.471874+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 6,
+    "qtd_inbound": 1,
+    "qtd_outbound_sucesso": 5,
+    "qtd_outbound_falha": 0,
+    "situacao": "Respondido com sucesso (Última outbound status: read)",
+    "mensagens": [
+      {
+        "direction": "inbound",
+        "status": "delivered",
+        "created_at": "2026-07-02T19:14:19.59959+00:00",
+        "content": "Olá! Preenchi seu formulário e gostaria de saber mais sobre sua empresa.\n\nFull name: Ranolfo Caldeira\nPhone number: +18575059756\nObjetivo?: INVESTIMENTO\nRenda Familiar Bruta?: Menos de R$ 10.000,00\nPossui FGTS?: Não"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-07-02T19:14:57.113958+00:00",
+        "content": "Sou a Stella, a inteligência artificial de pré-atendimento do Studio 57. 😊 Como sou uma IA, minhas respostas podem conter erros e todas as simulações do nosso papo serão confirmadas por um corretor humano antes do fechamento. Se preferir falar com um corretor a qualquer momento, é só me avisar!"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-07-02T19:14:59.413582+00:00",
+        "content": "Olá, Ranolfo, que bom te receber por aqui! Nós somos o Studio 57, uma incorporadora que controla 100% do processo, da concepção do projeto à entrega das chaves, garantindo máxima segurança jurídica e qualidade para você."
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-07-02T19:15:01.798564+00:00",
+        "content": "Vi que seu interesse é em investimento e você veio pelo anúncio do Beta Suítes, uma excelente escolha para renda com aluguel no bairro mais valorizado da cidade. Vou te enviar a apresentação dele para você conhecer os detalhes."
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-07-02T19:15:02.681597+00:00",
+        "content": "Book_Investidor_Beta_Suites.pdf"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-07-02T19:15:05.101697+00:00",
+        "content": "Me diga, você já tem experiência com investimentos em imóveis ou seria sua primeira oportunidade?"
+      }
+    ]
+  },
+  {
+    "card_id": "33d540f7-adff-4db2-86ac-ca5f8497a524",
+    "contato_id": 6210,
+    "nome": "Warlley Falcão",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-07-03T19:43:42.129474+00:00",
+    "data_entrada_funil": "2026-07-03T19:43:42.330567+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "15c4c714-589f-4645-92ed-7da0a4ae009a",
+    "contato_id": 6229,
+    "nome": "F I L L I P E T A L L O N E",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-07-04T17:26:25.293228+00:00",
+    "data_entrada_funil": "2026-07-04T17:26:25.444859+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "f052f4fa-6c55-40bc-9647-f6390d7f7d59",
+    "contato_id": 6242,
+    "nome": "Janaina De Oliveira",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-07-05T14:36:28.369816+00:00",
+    "data_entrada_funil": "2026-07-05T14:36:28.635092+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 6,
+    "qtd_inbound": 1,
+    "qtd_outbound_sucesso": 5,
+    "qtd_outbound_falha": 0,
+    "situacao": "Respondido com sucesso (Última outbound status: read)",
+    "mensagens": [
+      {
+        "direction": "inbound",
+        "status": "delivered",
+        "created_at": "2026-07-05T14:36:34.279566+00:00",
+        "content": "Hello! I filled out your form and would like to know more about your business.\n\nFull name: Janaina De Oliveira\nPhone number: +17819627082\nObjetivo?: MORADIA\nRenda Familiar Bruta?: Mais de R$ 10.000,00\nPossui FGTS?: Não"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-07-05T14:37:01.057538+00:00",
+        "content": "Sou a Stella, a inteligência artificial de pré-atendimento. 😊 Como sou uma IA, minhas respostas podem conter erros e todas as simulações do nosso papo serão confirmadas por um corretor humano antes do fechamento. Se preferir falar com um corretor a qualquer momento, é só me avisar!"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-07-05T14:37:03.544021+00:00",
+        "content": "Olá, Janaina! Tudo bem? Vi que você se interessou pelo nosso empreendimento Beta Suítes."
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-07-05T14:37:05.956867+00:00",
+        "content": "Vou te enviar nosso book digital para você conhecer o projeto em detalhes!"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-07-05T14:37:06.92912+00:00",
+        "content": "Book_Investidor_Beta_Suites.pdf"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-07-05T14:37:09.428019+00:00",
+        "content": "Por favor, me diga se conseguiu abrir e o que achou do projeto!"
+      }
+    ]
+  },
+  {
+    "card_id": "5fdaf5d1-e0aa-4be7-865b-512763b8dc51",
+    "contato_id": 6130,
+    "nome": "Lead Teste Webhook Devonildo",
+    "ia_atendimento_ativo": false,
+    "data_cadastro": "2026-06-26T12:39:42.473329+00:00",
+    "data_entrada_funil": "2026-06-26T12:39:43.048313+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 57,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "0b15528f-4f10-4459-948a-9467a31a7277",
+    "contato_id": 6148,
+    "nome": "VanderleiyGuimarães",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-06-27T14:53:41.678174+00:00",
+    "data_entrada_funil": "2026-06-27T14:53:41.80692+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "115b34a5-3ded-4005-8594-68c507c801ec",
+    "contato_id": 6161,
+    "nome": "Leandro Faria",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-06-28T18:39:53.26085+00:00",
+    "data_entrada_funil": "2026-06-28T18:39:53.418175+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "ce90c821-ffbb-4205-a706-36227d1db1f4",
+    "contato_id": 6007,
+    "nome": "Usuário 403459",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-06-18T22:44:22.567159+00:00",
+    "data_entrada_funil": "2026-06-18T22:44:22.766308+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "67f4be69-be36-4c81-a39c-f17976485926",
+    "contato_id": 6075,
+    "nome": "Usuário 394080",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-06-24T00:10:52.822103+00:00",
+    "data_entrada_funil": "2026-06-24T00:10:53.003689+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "290c65a5-f637-4109-a284-43eefa2cdf2a",
+    "contato_id": 6175,
+    "nome": "Rosângela Lage",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-06-29T20:07:11.465536+00:00",
+    "data_entrada_funil": "2026-06-29T20:07:11.575225+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "2608af13-fcd4-4386-acfd-38531ee91d5a",
+    "contato_id": 6192,
+    "nome": "Patricia Coelho",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-07-02T19:15:56.991617+00:00",
+    "data_entrada_funil": "2026-07-02T19:15:57.097533+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "05bd9a99-1e8e-4a0a-adeb-7f8ca0ef0388",
+    "contato_id": 6213,
+    "nome": "Ângelo Luiz soares",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-07-03T20:34:09.96562+00:00",
+    "data_entrada_funil": "2026-07-03T20:34:10.144005+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "d566f825-ff98-4f41-befc-5b06bfd23127",
+    "contato_id": 6230,
+    "nome": "Juraci Araújo",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-07-04T19:04:14.406946+00:00",
+    "data_entrada_funil": "2026-07-04T19:04:14.57764+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 10,
+    "qtd_inbound": 2,
+    "qtd_outbound_sucesso": 8,
+    "qtd_outbound_falha": 0,
+    "situacao": "Respondido com sucesso (Última outbound status: read)",
+    "mensagens": [
+      {
+        "direction": "inbound",
+        "status": "delivered",
+        "created_at": "2026-07-04T19:04:21.802162+00:00",
+        "content": "Olá! Preenchi seu formulário e gostaria de saber mais sobre sua empresa.\n\nObjetivo?: INVESTIMENTO\nFull name: Juraci Araújo\nPossui FGTS?: Sim\nPhone number: +17812994612\nRenda Familiar Bruta?: Menos de R$ 10.000,00"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-07-04T19:04:54.059532+00:00",
+        "content": "Sou a Stella, a inteligência artificial de pré-atendimento. 😊 Como sou uma IA, minhas respostas podem conter erros e todas as simulações do nosso papo serão confirmadas por um corretor humano antes do fechamento. Se preferir falar com um corretor a qualquer momento, é só me avisar!"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-07-04T19:04:56.626052+00:00",
+        "content": "Olá, Juraci! Seja muito bem-vinda ao Studio 57."
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-07-04T19:04:58.99286+00:00",
+        "content": "Vi aqui no seu cadastro que seu interesse é para investimento, e o Beta Suítes é o nosso projeto ideal para rentabilidade. Vou te mandar o book dele!"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-07-04T19:04:59.926723+00:00",
+        "content": "Book_Investidor_Beta_Suites.pdf"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-07-04T19:05:02.464261+00:00",
+        "content": "Dê uma olhada e me diga o que acha do potencial do projeto! Notei que seu telefone é dos EUA, você mora na região ou em outro país?"
+      },
+      {
+        "direction": "inbound",
+        "status": "delivered",
+        "created_at": "2026-07-04T19:18:23.223301+00:00",
+        "content": "Olá! Preenchi seu formulário e gostaria de saber mais sobre sua empresa.\n\nObjetivo?: INVESTIMENTO\nFull name: Juraci Araújo\nPossui FGTS?: Sim\nPhone number: +17812994612\nRenda Familiar Bruta?: Menos de R$ 10.000,00"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-07-04T19:18:46.051918+00:00",
+        "content": "Claro, Juraci! O nosso maior diferencial é a segurança: nós idealizamos, incorporamos e construímos 100% com equipe própria. 👷‍♂️"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-07-04T19:18:59.379622+00:00",
+        "content": "Isso garante que o projeto no papel seja exatamente o que entregamos, sem surpresas para o seu investimento."
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-07-04T19:19:01.721505+00:00",
+        "content": "Eu te enviei o book do Beta Suítes alguns minutos atrás, você conseguiu visualizar? E sobre minha pergunta anterior, você reside nos EUA mesmo?"
+      }
+    ]
+  },
+  {
+    "card_id": "1d3fd1ed-46df-4fd9-a35d-bc82c383e96a",
+    "contato_id": 6257,
+    "nome": "Livia Gomes",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-07-06T16:11:03.817205+00:00",
+    "data_entrada_funil": "2026-07-06T16:11:03.945083+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "7eaeb15b-5081-4620-86ab-0b339e8935d1",
+    "contato_id": 6149,
+    "nome": "Gaspé",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-06-27T15:17:09.12961+00:00",
+    "data_entrada_funil": "2026-06-27T15:17:09.256014+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "7561bcd0-da45-4e73-8a73-6a3e183271f1",
+    "contato_id": 6162,
+    "nome": "Josilaine Couto",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-06-28T19:04:11.102942+00:00",
+    "data_entrada_funil": "2026-06-28T19:04:11.275437+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "3b6fa1d1-e2b5-45cf-99d0-4b304751b90c",
+    "contato_id": 5991,
+    "nome": "Usuário 255034",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-06-18T13:17:17.515438+00:00",
+    "data_entrada_funil": "2026-06-18T13:17:17.938013+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "219e3140-b4e7-487e-aa72-6706bcb2cb6b",
+    "contato_id": 6074,
+    "nome": "Usuário 394080",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-06-24T00:10:51.989191+00:00",
+    "data_entrada_funil": "2026-06-24T00:10:52.988387+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "151aa777-c1f7-4ca4-8756-8a1ea744ccb5",
+    "contato_id": 6176,
+    "nome": "Cristiane Nunes",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-06-30T03:27:37.318174+00:00",
+    "data_entrada_funil": "2026-06-30T03:27:37.791007+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "a9f970c1-9eff-4243-8911-beaf85f8ad6e",
+    "contato_id": 6193,
+    "nome": "Ilda Carneiro Tiago Gomes",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-07-02T20:30:18.514508+00:00",
+    "data_entrada_funil": "2026-07-02T20:30:18.707425+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "5a33cd13-b6fc-43fc-8a4a-d49768dae88b",
+    "contato_id": 6214,
+    "nome": "Paulo Cesar Campos",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-07-03T21:55:33.92411+00:00",
+    "data_entrada_funil": "2026-07-03T21:55:34.13428+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "0de836a3-c845-4a35-a48d-673addcae4f5",
+    "contato_id": 6215,
+    "nome": "Ana Maria Cunha",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-07-03T21:55:56.398398+00:00",
+    "data_entrada_funil": "2026-07-03T21:55:56.499242+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "54b81e99-6a13-4941-b6ee-93007172ee48",
+    "contato_id": 6231,
+    "nome": "Erica Cristina Nunes",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-07-04T19:55:35.993075+00:00",
+    "data_entrada_funil": "2026-07-04T19:55:36.202235+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "2a5fafd3-c784-45d8-8bb6-93777188e5fb",
+    "contato_id": 5769,
+    "nome": "Viviane Marques",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-06-05T13:23:53.531356+00:00",
+    "data_entrada_funil": "2026-06-05T13:23:53.67997+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 4,
+    "qtd_inbound": 2,
+    "qtd_outbound_sucesso": 1,
+    "qtd_outbound_falha": 1,
+    "situacao": "Falha no envio da última mensagem (Erro: Meta Error 131047: Re-engagement message)",
+    "mensagens": [
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-06-05T13:23:54.708555+00:00",
+        "content": "(Automação) Template: saudacao_entrada_v2"
+      },
+      {
+        "direction": "inbound",
+        "status": "delivered",
+        "created_at": "2026-06-05T13:24:14.317114+00:00",
+        "content": "[Botão]: Sim, gostaria!"
+      },
+      {
+        "direction": "inbound",
+        "status": "delivered",
+        "created_at": "2026-06-06T18:08:32.667455+00:00",
+        "content": "?"
+      },
+      {
+        "direction": "outbound",
+        "status": "failed",
+        "created_at": "2026-06-15T13:10:08.801788+00:00",
+        "content": "Olá! Peço desculpas pela nossa demora em retomar o contato. 😊"
+      }
+    ]
+  },
+  {
+    "card_id": "9658743d-b302-4acb-95f6-fd646a1bf090",
+    "contato_id": 6194,
+    "nome": "Elísia Reis",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-07-02T23:06:21.603748+00:00",
+    "data_entrada_funil": "2026-07-02T23:06:21.790982+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "bc0d31e6-2e96-4a22-ad73-a9ea2bff74e8",
+    "contato_id": 5787,
+    "nome": "Falcony Fidelis",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-06-06T07:39:28.025949+00:00",
+    "data_entrada_funil": "2026-06-06T07:39:28.207415+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 5,
+    "qtd_inbound": 1,
+    "qtd_outbound_sucesso": 4,
+    "qtd_outbound_falha": 0,
+    "situacao": "Respondido com sucesso (Última outbound status: read)",
+    "mensagens": [
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-06-06T07:39:29.871319+00:00",
+        "content": "(Automação) Template: saudacao_entrada_v2"
+      },
+      {
+        "direction": "inbound",
+        "status": "delivered",
+        "created_at": "2026-06-06T07:39:56.173771+00:00",
+        "content": "[Botão]: Sim, gostaria!"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-06-06T14:27:32.504031+00:00",
+        "content": "Ola bom dia, seja bem vindo!"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-06-06T14:27:41.970787+00:00",
+        "content": "Maravilha, vi que seu cadastro é referente ao Beta Suites, esse empreendimento são Studios, com plantas otimizadas variando de 28,95m² a 31,77m² (na planta) no bairro Alto Esplanada, com área de lazer completa."
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-06-06T14:28:12.895733+00:00",
+        "content": "Falcony para eu te direcionar melhor por aqui, me conta esse empreendimento se enquadra dentro do que você busca no momento?"
+      }
+    ]
+  },
+  {
+    "card_id": "f3fb6f93-68ba-4d2f-89d6-1298003fa5f6",
+    "contato_id": 6040,
+    "nome": "João ",
+    "ia_atendimento_ativo": false,
+    "data_cadastro": "2026-06-21T13:56:48.932583+00:00",
+    "data_entrada_funil": "2026-06-21T13:56:49.345041+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Vendas",
+    "coluna_id": "e8e88027-c7be-4e8c-9667-e17fa4e06ce5",
+    "organizacao_id": 1,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "20b7a058-7fe9-4b7f-ac85-46a527ec8d9f",
+    "contato_id": 5110,
+    "nome": "Waissan Semi",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-03-28T17:07:00.86128+00:00",
+    "data_entrada_funil": "2026-03-28T17:07:01.816413+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Vendas",
+    "coluna_id": "e8e88027-c7be-4e8c-9667-e17fa4e06ce5",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 24,
+    "qtd_inbound": 7,
+    "qtd_outbound_sucesso": 17,
+    "qtd_outbound_falha": 0,
+    "situacao": "Respondido com sucesso (Última outbound status: delivered)",
+    "mensagens": [
+      {
+        "direction": "inbound",
+        "status": "delivered",
+        "created_at": "2026-03-28T17:07:43.739734+00:00",
+        "content": "Oi, gostaria de mais informações sobre o Refúgio Braúnas"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-03-28T19:13:17.139709+00:00",
+        "content": "Olá! Tudo bem?\nMe chamo Ludimila e faço parte do time de vendas do Studio 57.\n\nVi que você demonstrou interesse em um dos nossos empreendimentos, o Refúgio Braúnas. \n\nQual seu nome? "
+      },
+      {
+        "direction": "inbound",
+        "status": "delivered",
+        "created_at": "2026-03-28T19:22:42.828714+00:00",
+        "content": "Boa tarde\nWaissan Semi"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-03-28T19:50:22.417281+00:00",
+        "content": "🌿 Seu refúgio particular a poucos minutos do centro da cidade! 🌿\n\nApresentamos o Chacreamento Refúgio Braúnas — o lugar perfeito para quem busca tranquilidade, espaço e qualidade de vida, sem abrir mão da praticidade!\n\n✨ Lotes a partir de 1.000m²\n📄 Documentação 100% regularizada com matrículas individualizadas\n💰 Apenas R$ 350/m²\n📍 Localização estratégica: a apenas 10 minutos do centro da cidade\n\n🏡 Viva a experiência de ter seu cantinho com sensação de área rural dentro da cidade — ideal para construir, investir ou simplesmente desacelerar!\n\n🚀 Condição especial de lançamento\n✔ Lotes já prontos para construir\n✔ 20% de entrada + parcelamento em até 5 anos\n✔ Negociação direta com a empresa — sem burocracia!\n\n🌳 Garanta já o seu espaço no Refúgio Braúnas e transforme seu estilo de vida!"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-03-28T19:50:39.178597+00:00",
+        "content": "BOOK_-_REFUGIO_BRAUNAS.pdf"
+      },
+      {
+        "direction": "inbound",
+        "status": "delivered",
+        "created_at": "2026-03-28T20:30:16.143054+00:00",
+        "content": "Sra. Ludimila, quando estará liberado pra visitação? Este Loteamento, fica antes do Bairro Capim? Tenho interesse real"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-03-28T20:58:53.571378+00:00",
+        "content": "Imagem enviada"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-03-28T21:00:02.589872+00:00",
+        "content": "Conseguiu compreender melhor a localização Waissan? "
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-03-28T21:00:23.459767+00:00",
+        "content": "Lá é aberto a visitação, gostaria de agendar um horário para irmos? "
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-03-30T11:10:57.646062+00:00",
+        "content": "Olá Waissan, tudo bem com você?\nPodemos continuar a nossa conversa?"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-03-31T13:18:03.563559+00:00",
+        "content": "Olá Waissan , tudo bem com você?\nPodemos continuar a nossa conversa?"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-04-01T12:10:59.496588+00:00",
+        "content": "Olá Waissan, tudo bem com você?\nPodemos continuar a nossa conversa?"
+      },
+      {
+        "direction": "inbound",
+        "status": "delivered",
+        "created_at": "2026-04-01T12:26:54.36938+00:00",
+        "content": "Olá"
+      },
+      {
+        "direction": "inbound",
+        "status": "delivered",
+        "created_at": "2026-04-01T12:26:56.951682+00:00",
+        "content": "Bom dia"
+      },
+      {
+        "direction": "inbound",
+        "status": "delivered",
+        "created_at": "2026-04-01T12:27:06.983766+00:00",
+        "content": "Desculpe a ausência"
+      },
+      {
+        "direction": "inbound",
+        "status": "delivered",
+        "created_at": "2026-04-01T12:27:36.273747+00:00",
+        "content": "Vou visitar o local e continuamos nossa conversa"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-04-01T12:31:33.97696+00:00",
+        "content": "Não há o que desculpar Waissan, compreendo a correria do dia a dia. Gostaria que acompanhasse você na visitação? Assim explicamos a planta e posicionamento dos lotes."
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-04-02T11:15:35.304838+00:00",
+        "content": "Bom dia Waissan, tudo bem com você?"
+      },
+      {
+        "direction": "outbound",
+        "status": "delivered",
+        "created_at": "2026-04-06T11:19:57.946287+00:00",
+        "content": "Olá Waissan, tudo bem com você?\nPodemos continuar a nossa conversa?"
+      },
+      {
+        "direction": "outbound",
+        "status": "delivered",
+        "created_at": "2026-04-07T11:33:18.973606+00:00",
+        "content": "Olá Waissan, tudo bem com você?\nPodemos continuar a nossa conversa?"
+      },
+      {
+        "direction": "outbound",
+        "status": "delivered",
+        "created_at": "2026-04-09T12:30:05.731405+00:00",
+        "content": "Olá Waissan , tudo bem com você?\nPodemos continuar a nossa conversa?"
+      },
+      {
+        "direction": "outbound",
+        "status": "delivered",
+        "created_at": "2026-04-13T11:19:34.513283+00:00",
+        "content": "Olá Waissan, tudo bem com você?\nPodemos continuar a nossa conversa?"
+      },
+      {
+        "direction": "outbound",
+        "status": "delivered",
+        "created_at": "2026-04-14T13:33:53.817957+00:00",
+        "content": "Oi Waissan, tudo bem? \n\nFiquei sem seu retorno e queria saber: ficou alguma dúvida ou o empreendimento não faz mais sentido pra você?\n\nPosso te apresentar outras opções que se encaixem melhor?"
+      },
+      {
+        "direction": "outbound",
+        "status": "delivered",
+        "created_at": "2026-06-03T15:30:18.507573+00:00",
+        "content": "Acabamos de publicar um vídeo rápido explicando como garantimos a entrega da sua obra com total segurança (você já ouviu falar em Patrimônio de Afetação?). Confira aqui: 👇"
+      }
+    ]
+  },
+  {
+    "card_id": "83514ada-2a9c-476c-bf70-3111cc31bd61",
+    "contato_id": 4840,
+    "nome": "Maria de Nazaré Borges dos Santos",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-01-24T08:52:03.586698+00:00",
+    "data_entrada_funil": "2026-01-24T08:52:03.702522+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 95,
+    "qtd_inbound": 34,
+    "qtd_outbound_sucesso": 61,
+    "qtd_outbound_falha": 0,
+    "situacao": "Respondido com sucesso (Última outbound status: read)",
+    "mensagens": [
+      {
+        "direction": "inbound",
+        "status": "delivered",
+        "created_at": "2026-01-24T08:52:26.141835+00:00",
+        "content": "Olá! Preenchi seu formulário e gostaria de saber mais sobre sua empresa.\n\nobjetivo?: MORADIA\nfull_name: Nazare Borges\nphone_number: +5533999977819"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-01-24T13:51:05.319241+00:00",
+        "content": "Olá Nazaré, bom dia. Tudo bem com você? Eu sou a Ludimila, responsável pelo setor de vendas do Studio 57 e darei continuidade ao seu atendimento.\n\nVi que você demonstrou interesse no Residencial Alfa e gostaria de entender melhor suas perspectivas para eu poder te direcionar melhor."
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-01-24T13:51:22.342975+00:00",
+        "content": "Você colocou como objetivo a moradia. Você pretende sair do aluguel ou adquirir um novo imóvel?"
+      },
+      {
+        "direction": "inbound",
+        "status": "delivered",
+        "created_at": "2026-01-24T13:58:09.872525+00:00",
+        "content": "Bom dia  esse residencial  é  em gv?"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-01-24T14:03:16.275435+00:00",
+        "content": "É sim, no bairro Alto Esplanada. É nessa região que você procura? "
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-01-26T10:49:23.945489+00:00",
+        "content": "Olá Nazare Borges, tudo bem com você?\nPodemos continuar a nossa conversa?"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-04-01T13:40:20.934222+00:00",
+        "content": "O Studio 57 tem um novo empreendimento para te apresentar!\n\nQuer saber mais?"
+      },
+      {
+        "direction": "inbound",
+        "status": "delivered",
+        "created_at": "2026-04-01T13:40:49.777437+00:00",
+        "content": "[Botão]: Sim"
+      },
+      {
+        "direction": "inbound",
+        "status": "delivered",
+        "created_at": "2026-04-01T13:41:18.982774+00:00",
+        "content": "Sobre   esse empreendimento  ."
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-04-01T13:43:35.316791+00:00",
+        "content": "Olá Nazaré! Tudo bem?\nMe chamo Ludimila e faço parte do time de vendas do Studio 57.\n\nVi que você demonstrou interesse em um dos nossos empreendimentos, o Refúgio BraúnasBeta suítes.\n\nSeu interesse é para moradia ou investimento?"
+      },
+      {
+        "direction": "inbound",
+        "status": "delivered",
+        "created_at": "2026-04-01T13:45:41.812943+00:00",
+        "content": "Moradia"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-04-01T13:46:53.454461+00:00",
+        "content": "✨ Beta Suítes – Seu investimento inteligente em Governador Valadares!\n\nO Beta Suítes traz modernidade e praticidade em 49 unidades de 23 m² a 32 m², perfeitas para morar, alugar ou investir.\n\nLocalizado no Alto Esplanada, um dos bairros mais valorizados da cidade.\n\nDestaques:\n\n🚗 Vagas de garagem limitadas (à parte)\n\n🌇 Terraço gourmet completo com piscina, academia, churrasqueira e vista panorâmica\n\n🛡️ Guarita\n\n🛒 Ponto comercial\n\n🧺 Lavanderia\n\nSuítes a partir de R$ 190 mil — oportunidade única em um empreendimento premium com alto potencial de valorização.\n\nBeta Suítes: custo-benefício, sofisticação e valorização garantida."
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-04-01T13:47:09.995143+00:00",
+        "content": "BOOK_BETA_SUITES.pdf"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-04-01T13:48:55.056602+00:00",
+        "content": "O empreendimento está dentro do que você procura Nazaré?"
+      },
+      {
+        "direction": "inbound",
+        "status": "delivered",
+        "created_at": "2026-04-01T13:49:47.167148+00:00",
+        "content": "Eu só não  entendi  direito  esse  empreendimento  é  um apartamento?"
+      },
+      {
+        "direction": "inbound",
+        "status": "delivered",
+        "created_at": "2026-04-01T13:50:31.017395+00:00",
+        "content": "🎙️ *Transcrição:* _Aí você ainda vai pra lá, você vai fazer quando chegar lá, então, fazer assim. Mais tarde, quando eu chegar em casa, eu vou passar pra você a receita direitinho, escrever, aí você vai olhando. É facinho, não é difícil, não. Aí você olha e faz, vai sair bom, só você tirar o sal do trem bem tiradinho._"
+      },
+      {
+        "direction": "inbound",
+        "status": "delivered",
+        "created_at": "2026-04-01T13:50:40.26483+00:00",
+        "content": "[Tipo: unsupported]"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-04-01T13:52:21.290783+00:00",
+        "content": "O Beta Suítes são kitnets. No momento estamos com dois empreendimentos. Sendo eles:\n\nResidencial Alfa – Bairro Alto Esplanada\nApartamentos de 2 quartos, com obras em andamento e conclusão prevista para setembro de 2027.\nValores a partir de R$ 429.000.\nO financiamento é realizado pela Caixa Econômica Federal, com 20% de entrada (diretamente com a construtora) e o restante financiado pelo banco, mediante análise de crédito.\n\nBeta Suítes – Bairro Alto Esplanada\nStudios (kitnets), nosso mais novo empreendimento em pré-lançamento.\nInício das obras previsto para junho de 2026, com conclusão em dezembro de 2029.\nUnidades a partir de R$ 190.000.\nCondições de pagamento: 20% de entrada, 42 parcelas durante a obra e o saldo restante na entrega das chaves — tudo diretamente com a construtora, com financiamento próprio.\n"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-04-01T13:52:44.90516+00:00",
+        "content": "Qual empreendimento faz mais sentido para você Nazaré?"
+      },
+      {
+        "direction": "inbound",
+        "status": "delivered",
+        "created_at": "2026-04-01T13:53:30.37854+00:00",
+        "content": "Hum gostei  desse kitnets"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-04-01T13:54:07.493119+00:00",
+        "content": "Bacana, foi ela que eu te enviei o book aí em cima. Agora irei explicar como está funcionando."
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-04-01T13:54:23.078628+00:00",
+        "content": "Como está funcionando:\n\n✅ Custo ZERO: O cliente assina o termo sem pagar nada agora (os pagamentos so começam em maio/junho).\n✅ Fila de Prioridade: A assinatura garante a posição de escolha da unidade assim que abrirmos as vendas (quem assina antes, escolhe antes).\n✅A previsão de início das obras é para 06/2026. Somente a partir dessa data começam os pagamentos. \n✅A previsão de entrega da obra é para 12/2029. Serao 3 anos e meio de obra e por isso a possibilidade de parcelar em até 42x a porcentagem de 40% pagas durante a obra. \n\n⚠️ Importante: Por se tratar de um pré-lançamento, tanto o projeto quanto a tabela de vendas podem sofrer alterações sem aviso prévio. Fique tranquilo: todas as atualizações serão enviadas."
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-04-01T13:54:31.791068+00:00",
+        "content": "TABELA_DE_VENDAS_BETA_050326.pdf"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-04-01T13:54:42.872486+00:00",
+        "content": "Vamos fazer sua reserva?"
+      },
+      {
+        "direction": "inbound",
+        "status": "delivered",
+        "created_at": "2026-04-01T14:01:48.171134+00:00",
+        "content": "🎙️ *Transcrição:* _Mas é qual, irmão?_"
+      },
+      {
+        "direction": "inbound",
+        "status": "delivered",
+        "created_at": "2026-04-01T14:02:10.568747+00:00",
+        "content": "Tem como vc esta  me mostrando  pessoalmente"
+      },
+      {
+        "direction": "inbound",
+        "status": "delivered",
+        "created_at": "2026-04-01T15:41:57.641977+00:00",
+        "content": "São  kit nets?"
+      },
+      {
+        "direction": "inbound",
+        "status": "delivered",
+        "created_at": "2026-04-01T16:16:56.565253+00:00",
+        "content": "Como funciona  a reserva?"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-04-01T17:07:31.023029+00:00",
+        "content": "O Beta Suítes são kitnetes. Ainda não está sendo construído. Mas podemos agendar um horário em nosso escritório onde te apresento melhor o empreendimento. O que você acha? "
+      },
+      {
+        "direction": "inbound",
+        "status": "delivered",
+        "created_at": "2026-04-01T17:15:29.343638+00:00",
+        "content": "Sim"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-04-01T17:16:32.881255+00:00",
+        "content": "Amanhã as 8:00 da para você?"
+      },
+      {
+        "direction": "inbound",
+        "status": "delivered",
+        "created_at": "2026-04-01T17:17:29.628819+00:00",
+        "content": "Esse horário  estou no trabalho"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-04-01T17:18:06.128969+00:00",
+        "content": "Qual horário é bom para você?"
+      },
+      {
+        "direction": "inbound",
+        "status": "delivered",
+        "created_at": "2026-04-01T17:19:16.921398+00:00",
+        "content": "Meu horário  é  das sete às  quinze horas"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-04-01T17:20:04.029409+00:00",
+        "content": "Na segunda feira as 15:30 é bom para você?"
+      },
+      {
+        "direction": "inbound",
+        "status": "delivered",
+        "created_at": "2026-04-01T17:21:01.763965+00:00",
+        "content": "Na segunda  geralmente  tenho  outro compromisso  quando  saio daqui  os outros dias  tá tranquilo"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-04-01T17:21:30.200128+00:00",
+        "content": "Na terça as 15:30?"
+      },
+      {
+        "direction": "inbound",
+        "status": "delivered",
+        "created_at": "2026-04-01T17:24:01.192311+00:00",
+        "content": "Onde fica  o escritório?"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-04-01T17:24:43.399332+00:00",
+        "content": "Av. Rio Doce, 1825 - Ilha dos Araújos, Gov. Valadares"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-04-06T11:07:06.008307+00:00",
+        "content": "Olá Maria de Nazaré , tudo bem com você?\nPodemos continuar a nossa conversa?"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-04-07T11:27:58.183233+00:00",
+        "content": "Olá Maria de Nazaré, tudo bem com você?\nPodemos continuar a nossa conversa?"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-04-09T12:16:37.486606+00:00",
+        "content": "Olá Maria de Nazaré , tudo bem com você?\nPodemos continuar a nossa conversa?"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-04-13T11:19:06.464311+00:00",
+        "content": "Olá Maria , tudo bem com você?\nPodemos continuar a nossa conversa?"
+      },
+      {
+        "direction": "inbound",
+        "status": "delivered",
+        "created_at": "2026-04-13T11:20:06.591716+00:00",
+        "content": "Sim"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-04-13T11:27:23.387225+00:00",
+        "content": "Ei Maria, vamos agendar nossa reunião para essa semana?"
+      },
+      {
+        "direction": "inbound",
+        "status": "delivered",
+        "created_at": "2026-04-13T11:36:31.281962+00:00",
+        "content": "🎙️ *Transcrição:* _Ei bom dia, é eu não tô lembrando moça, só pra você me lembrar porque a gente quando chega nos 40 né, a mente já não, é só porque eu só me me, tipo assim pra você me sintonizar. Eu entrei em contato com você pra compra de imóveis, não foi isso? E eu não lembro assim em qual imóvel, em qual local, não lembro disso aí, desse detalhezinho. Mas a gente arruma a marca assim, eu só não posso marcar para hoje, nem pra amanhã. Eu já tenho compromisso após o horário de trabalho. Mas pra quinta, se você tiver um horário, é que o meu esposo também trabalha e ele sai tarde, ele tá, ele tá saindo às seis e poucas, 6:30, 6:40, né? E a gente tem tempo após o trabalho, né? Então se, se você me sintonizar aí, o que é que foi que eu marquei, qual o interesse meu foi no imóvel, não foi, mas eu não lembro onde._"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-04-13T11:44:08.058366+00:00",
+        "content": "Foi em imóvel sim. O nosso novo empreendimento de kitnetes, o Beta Suítes que será constrído no bairro Alto Esplanada, em Governador Valadares. Vou te mandar nosso book novamente para você recordar "
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-04-13T11:44:48.348861+00:00",
+        "content": "BOOK_BETA_SUITES.pdf"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-04-13T11:45:07.321156+00:00",
+        "content": "conseguiu abrir o arquivo?"
+      },
+      {
+        "direction": "inbound",
+        "status": "delivered",
+        "created_at": "2026-04-13T11:48:03.795552+00:00",
+        "content": "🎙️ *Transcrição:* _Ah, sim, agora me lembrei. É porque é tanto trem, tanto oferecer coisa de imóveis, né, que eu entro em vários contatos, pessoas oferecendo imóveis, que eu tô olhando imóvel para mim tentar financiar. Aí eu tô tentando lembrar por isso, você me desculpa, viu._"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-04-13T11:49:37.020418+00:00",
+        "content": "Que isso, estou aqui exatamente para te atender 😊"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-04-13T11:50:00.705357+00:00",
+        "content": "Você está procurando financiar por algum banco ou diretamente com a construtora?"
+      },
+      {
+        "direction": "inbound",
+        "status": "delivered",
+        "created_at": "2026-04-13T11:51:55.177339+00:00",
+        "content": "🎙️ *Transcrição:* _Olha, eu tô procurando um financiamento banco, assim né, financiar um imóvel. Eh, pode ser um apartamento, né? Eu vi esse projeto seu aí, achei muito interessante e parece que os preços vão tá bem bem assim dentro do orçamento, né? Mas eu tô procurando mais é um financiamento mesmo._"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-04-13T11:53:46.925085+00:00",
+        "content": "O nosso financiamento é proprio. Esse empreendimento não é um apartamento, é um Studio (um ambiente só com quarto e cozinha juntos e o banheiro a parte)."
+      },
+      {
+        "direction": "inbound",
+        "status": "delivered",
+        "created_at": "2026-04-13T11:54:36.244723+00:00",
+        "content": "🎙️ *Transcrição:* _Pois é, moço. Eu tô procurando um apartamento, que eu tenho, né, eu só eu, meu filho e meu esposo, só nós três. Meu filho já tem 22 anos, né, mas mesmo assim, ele ainda, ainda tá, nossa, mora ainda dentro comigo na minha casa. Então, assim, se você tiver um empreendimento com apartamento, eu também, né, ou se você tiver um outros imóveis, você pode tá me, me falando sobre eles._"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-04-13T11:55:51.275578+00:00",
+        "content": "Temos um apartamento sim. Ele ja está em fase de contrução com a conclusão da obra prevista para setembro do ano que vem. Vou te mandar as informações sobre ele."
+      },
+      {
+        "direction": "inbound",
+        "status": "delivered",
+        "created_at": "2026-04-13T11:56:30.776738+00:00",
+        "content": "Sim"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-04-13T11:56:52.108069+00:00",
+        "content": "Residencial Alfa – Conforto, valorização e qualidade de vida no Alto Esplanada\n\nApresentamos o Residencial Alfa, um empreendimento moderno e bem localizado no bairro Alto Esplanada, em Governador Valadares/MG — ideal para quem busca morar bem ou investir com segurança.\n\nOs apartamentos contam com 2 quartos, sacada, sala e cozinha conjugados, 49m² de área bem distribuída, proporcionando conforto e funcionalidade no dia a dia. O condomínio oferecerá área de convivência, garagem e ponto comercial no térreo, agregando praticidade e valorização ao imóvel.\n\nAs obras já estão em andamento, com previsão de entrega para setembro de 2027.\n\n💰 Condições facilitadas:\n\nValores a partir de R$ 429.000\nFinanciamento próprio\nEntrada de 20% (podendo parcelar em até 3x)\nParcelamento em até 36x durante a obra\n40% na entrega das chaves\n\n📄 Segurança total: imóvel totalmente legalizado, com matrículas individuais.\n\n📍 Localização estratégica, perfeita tanto para moradia quanto para investimento, em uma região com grande potencial de valorização.\n\nSegue nosso book para você visualizar melhor o empreendimento."
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-04-13T11:57:04.88571+00:00",
+        "content": "BOOK_ALFA.pdf"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-04-13T11:57:28.512414+00:00",
+        "content": "Esse empreendimento tem o perfil que você procura?"
+      },
+      {
+        "direction": "inbound",
+        "status": "delivered",
+        "created_at": "2026-04-13T13:28:08.544296+00:00",
+        "content": "E vc poderia  me passar  mais ou menos  o valor  desse investimento?"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-04-13T13:29:55.805578+00:00",
+        "content": "💰 Condições facilitadas:\n\nValores a partir de R$ 429.000\nFinanciamento próprio\nEntrada de 20% (podendo parcelar em até 3x)\nParcelamento em até 36x durante a obra\n40% na entrega das chaves"
+      },
+      {
+        "direction": "inbound",
+        "status": "delivered",
+        "created_at": "2026-04-13T13:33:47.502259+00:00",
+        "content": "A partir  significa que  os valores  são  variados  né?"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-04-13T13:34:44.684262+00:00",
+        "content": "Exatamente. Tudo depende da posição e altura. Vou te mandar os valores de cada unidade restante. Só um momento "
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-04-13T13:36:09.590476+00:00",
+        "content": "Imagem enviada"
+      },
+      {
+        "direction": "inbound",
+        "status": "delivered",
+        "created_at": "2026-04-13T13:36:13.177512+00:00",
+        "content": "Tá bom"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-04-13T13:36:31.867496+00:00",
+        "content": "Conseguiu abrir o book que te enviei?"
+      },
+      {
+        "direction": "inbound",
+        "status": "delivered",
+        "created_at": "2026-04-13T13:37:04.639678+00:00",
+        "content": "Sim"
+      },
+      {
+        "direction": "inbound",
+        "status": "delivered",
+        "created_at": "2026-04-13T13:38:12.94096+00:00",
+        "content": "Observei que alguns  tem 000"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-04-13T13:39:30.962598+00:00",
+        "content": "São as garagens. Pois as mesmas ja estão inclusas no valor do apartamento. Você é livre para escolher qualquer vaga de garagem que desejar. Os apartamentos e as garagens tem matrículas individuais"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-04-13T19:28:36.371949+00:00",
+        "content": "Ei Maria, conseguiu analisar melhor o empreendimento?"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-04-14T11:28:42.027513+00:00",
+        "content": "Bom dia Maria, tudo bem com você?"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-04-15T11:27:11.593461+00:00",
+        "content": "Oi Maria, tudo bem? \n\nFiquei sem seu retorno e queria saber: ficou alguma dúvida ou o empreendimento não faz mais sentido pra você?\n\nPosso te apresentar outras opções que se encaixem melhor?"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-05-11T16:36:05.308917+00:00",
+        "content": "O Studio 57 tem um novo empreendimento para te apresentar!\n\nQuer saber mais?"
+      },
+      {
+        "direction": "inbound",
+        "status": "delivered",
+        "created_at": "2026-05-11T16:36:46.267882+00:00",
+        "content": "[Botão]: Sim"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-05-11T16:39:28.948763+00:00",
+        "content": "Olá Maria. Tudo bem?\nMe chamo Ludimila e faço parte do time de vendas do Studio 57.\n\nVi que você demonstrou interesse em um dos nossos empreendimentos, o apartamento Pero Vaz. \n\n\nSegue o book para você conhecer melhor o local. "
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-05-11T16:39:40.796712+00:00",
+        "content": "[DOC] - Book de Vendas - Residencial Pero Vaz.pdf"
+      },
+      {
+        "direction": "inbound",
+        "status": "delivered",
+        "created_at": "2026-05-11T16:41:56.437782+00:00",
+        "content": "Esse empreendimento  é  em governador Valadares?"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-05-11T16:45:22.364316+00:00",
+        "content": "É sim Maria, na regia do Vila Isa. Está dentro do que você procura?"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-05-12T11:36:42.596171+00:00",
+        "content": " Oi, Maria! Tudo bem? Passando só para saber se você conseguiu dar uma olhadinha no book do Residencial Pero Vaz. A região do Vila Isa atende ao que você busca hoje ou você tem preferência por outros bairros aqui em Valadares? Me conte um pouco mais para eu te ajudar da melhor forma! 😊"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-05-14T12:39:56.73609+00:00",
+        "content": "Olá Maria, tudo bem com você?\nPodemos continuar a nossa conversa?"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-05-18T12:50:56.408652+00:00",
+        "content": "Olá Maria! Tudo bem com você?"
+      },
+      {
+        "direction": "inbound",
+        "status": "delivered",
+        "created_at": "2026-05-18T12:53:29.583339+00:00",
+        "content": "Tudo"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-05-18T13:12:15.131514+00:00",
+        "content": "Gostaria de retomar o contato com você sobre os apartamentos. Você ainda tem interesse?"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-05-18T13:12:26.887236+00:00",
+        "content": "Gostaria de retomar o contato com você sobre os apartamentos. Você ainda tem interesse?"
+      },
+      {
+        "direction": "outbound",
+        "status": "delivered",
+        "created_at": "2026-05-18T13:12:27.937772+00:00",
+        "content": "Gostaria de retomar o contato com você sobre os apartamentos. Você ainda tem interesse?"
+      },
+      {
+        "direction": "inbound",
+        "status": "delivered",
+        "created_at": "2026-05-18T13:12:51.16456+00:00",
+        "content": "Sim só não  estou me lembrando  de qual AP"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-05-18T13:13:38.660383+00:00",
+        "content": "Vou te encaminhar novamente, é um apartamento na região do Vila Isa por 180mil "
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-05-18T13:13:56.742733+00:00",
+        "content": "[DOC] - Book de Vendas - Residencial Pero Vaz.pdf"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-05-18T13:16:23.4168+00:00",
+        "content": "Esse apartamento está dentro do que você procura maria? "
+      },
+      {
+        "direction": "inbound",
+        "status": "delivered",
+        "created_at": "2026-05-18T13:16:59.767735+00:00",
+        "content": "Sim"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-05-18T13:19:25.11887+00:00",
+        "content": "Que maravilha, Maria! Fico muito feliz em saber disso. 🥰 Como o apartamento atende ao que você busca, o próximo passo seria entendermos as melhores condições para o seu bolso. Você gostaria de fazer uma simulação de financiamento sem compromisso para vermos como ficariam as parcelas, ou prefere agendar um horário para conversarmos melhor e tirar todas as suas dúvidas?"
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-05-19T11:48:30.071858+00:00",
+        "content": "Ei Maria, tudo bem com você? "
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-05-19T14:36:17.23559+00:00",
+        "content": "Olá Maria, tudo bem?\n\nEstou entrando em contato de forma pontual para te apresentar um ativo de valorização altíssima que o Studio 57 acabou de colocar no mercado.\n\nLançamos o Refúgio Braúnas. Diferente de 90% das áreas rurais da região, nosso empreendimento tem matrícula individualizada (100% regular) para cada lote de 1.000m². Isso significa liquidez imediata e segurança jurídica total para o seu patrimônio.\n\nForam 21 lotes exclusivos. Investidores e parceiros já arremataram 11 deles apenas no pré-lançamento. Temos as últimas 10 unidades.\n\n✅ Entrada de apenas 20% (podendo diluir em 3 parcelas). ✅ Saldo em até 60x com a própria incorporadora.\n\nVocê tem interesse em analisar as plantas e a tabela de viabilidade dos últimos lotes disponíveis? Me avise que eu te envio o material completo."
+      },
+      {
+        "direction": "outbound",
+        "status": "read",
+        "created_at": "2026-05-27T14:51:26.291698+00:00",
+        "content": "⚠️ AVISO DE PRÉ-LANÇAMENTO:\n\nO Beta Suítes entrou em fase de reserva técnica e as primeiras unidades estão se esgotando rápido.\n\nSe você busca um ativo imobiliário seguro, com alta liquidez e excelente taxa de retorno em Governador Valadares, essa é a sua chance:\n\n📈 Invista com apenas 20% de entrada e parcelas de R$ 1.800. 🎓 Localização estratégica ao lado da UFJF e Polo Médico.\n\nQuer ver as plantas e garantir as condições de tabela especial? Clique em Quero saber mais!👇"
+      }
+    ]
+  },
+  {
+    "card_id": "4107f39d-77ca-43ea-aca0-5d5ebafc98ff",
+    "contato_id": 5934,
+    "nome": "julimar oliveira",
+    "ia_atendimento_ativo": false,
+    "data_cadastro": "2026-06-12T04:24:07.421611+00:00",
+    "data_entrada_funil": "2026-06-12T04:24:07.994053+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Vendas",
+    "coluna_id": "e8e88027-c7be-4e8c-9667-e17fa4e06ce5",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "b2cecd75-881b-4288-961e-bcfb8dca744a",
+    "contato_id": 5935,
+    "nome": "julimar oliveira",
+    "ia_atendimento_ativo": false,
+    "data_cadastro": "2026-06-12T04:24:32.892812+00:00",
+    "data_entrada_funil": "2026-06-12T04:24:33.219146+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Vendas",
+    "coluna_id": "e8e88027-c7be-4e8c-9667-e17fa4e06ce5",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "ab0324de-8d13-447a-ac6d-cbbb82a48856",
+    "contato_id": 6195,
+    "nome": "Camila Drumond",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-07-03T11:24:07.492188+00:00",
+    "data_entrada_funil": "2026-07-03T11:24:07.724113+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "b3678e64-2351-4ebd-a792-92471824da4e",
+    "contato_id": 4690,
+    "nome": "Elane Mahiara",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-01-08T19:46:52.436509+00:00",
+    "data_entrada_funil": "2026-01-08T19:46:52.436509+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 14,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 14,
+    "qtd_outbound_falha": 0,
+    "situacao": "Respondido com sucesso (Última outbound status: delivered)",
+    "mensagens": [
+      {
+        "direction": "outbound",
+        "status": "delivered",
+        "created_at": "2026-01-08T20:02:04.217964+00:00",
+        "content": "O Studio 57 tem um novo empreendimento para te apresentar!\n\nQuer saber mais?"
+      },
+      {
+        "direction": "outbound",
+        "status": "delivered",
+        "created_at": "2026-01-08T20:14:48.541766+00:00",
+        "content": "Olá Elane, boa tarde. Tudo bem com você? Eu sou a Ludimila, responsável pelo setor de vendas do Studio 57 e darei continuiade ao seu atendimento."
+      },
+      {
+        "direction": "outbound",
+        "status": "delivered",
+        "created_at": "2026-01-08T20:15:13.660542+00:00",
+        "content": "Vi que você demonstrou interesse no Residencial Alfa e gostaria de entender melhor suas perspectivas. \n\nSeu interesse é para moradia ou investimento?"
+      },
+      {
+        "direction": "outbound",
+        "status": "delivered",
+        "created_at": "2026-01-08T20:20:37.423586+00:00",
+        "content": "O Residencial Alfa está localizado em um bairro promissor de médio/alto padrão\ncom acesso rápido ao centro, supermercados, farmácias, escolas e academias. A\nprevisão de término da obra é para 09/2027."
+      },
+      {
+        "direction": "outbound",
+        "status": "delivered",
+        "created_at": "2026-01-08T20:20:56.256688+00:00",
+        "content": "Vou te encaminhar nosso book para você conhecer melhor o empreendimento. "
+      },
+      {
+        "direction": "outbound",
+        "status": "delivered",
+        "created_at": "2026-01-08T20:21:23.057797+00:00",
+        "content": "BOOK_ALFA_-_2025_COMP..pdf"
+      },
+      {
+        "direction": "outbound",
+        "status": "delivered",
+        "created_at": "2026-01-09T14:35:49.938464+00:00",
+        "content": "Bom dia Elane, o que você achou do empreendimento?"
+      },
+      {
+        "direction": "outbound",
+        "status": "sent",
+        "created_at": "2026-01-12T11:42:36.454064+00:00",
+        "content": "Olá Elane Mahiara, tudo bem com você?\nPodemos continuar a nossa conversa?"
+      },
+      {
+        "direction": "outbound",
+        "status": "delivered",
+        "created_at": "2026-05-19T14:25:19.593042+00:00",
+        "content": "Olá Elane, tudo bem?\n\nEstou entrando em contato de forma pontual para te apresentar um ativo de valorização altíssima que o Studio 57 acabou de colocar no mercado.\n\nLançamos o Refúgio Braúnas. Diferente de 90% das áreas rurais da região, nosso empreendimento tem matrícula individualizada (100% regular) para cada lote de 1.000m². Isso significa liquidez imediata e segurança jurídica total para o seu patrimônio.\n\nForam 21 lotes exclusivos. Investidores e parceiros já arremataram 11 deles apenas no pré-lançamento. Temos as últimas 10 unidades.\n\n✅ Entrada de apenas 20% (podendo diluir em 3 parcelas). ✅ Saldo em até 60x com a própria incorporadora.\n\nVocê tem interesse em analisar as plantas e a tabela de viabilidade dos últimos lotes disponíveis? Me avise que eu te envio o material completo."
+      },
+      {
+        "direction": "outbound",
+        "status": "delivered",
+        "created_at": "2026-05-19T14:25:19.71858+00:00",
+        "content": "Olá Elane, tudo bem?\n\nEstou entrando em contato de forma pontual para te apresentar um ativo de valorização altíssima que o Studio 57 acabou de colocar no mercado.\n\nLançamos o Refúgio Braúnas. Diferente de 90% das áreas rurais da região, nosso empreendimento tem matrícula individualizada (100% regular) para cada lote de 1.000m². Isso significa liquidez imediata e segurança jurídica total para o seu patrimônio.\n\nForam 21 lotes exclusivos. Investidores e parceiros já arremataram 11 deles apenas no pré-lançamento. Temos as últimas 10 unidades.\n\n✅ Entrada de apenas 20% (podendo diluir em 3 parcelas). ✅ Saldo em até 60x com a própria incorporadora.\n\nVocê tem interesse em analisar as plantas e a tabela de viabilidade dos últimos lotes disponíveis? Me avise que eu te envio o material completo."
+      },
+      {
+        "direction": "outbound",
+        "status": "delivered",
+        "created_at": "2026-05-27T14:40:05.514101+00:00",
+        "content": "⚠️ AVISO DE PRÉ-LANÇAMENTO:\n\nO Beta Suítes entrou em fase de reserva técnica e as primeiras unidades estão se esgotando rápido.\n\nSe você busca um ativo imobiliário seguro, com alta liquidez e excelente taxa de retorno em Governador Valadares, essa é a sua chance:\n\n📈 Invista com apenas 20% de entrada e parcelas de R$ 1.800. 🎓 Localização estratégica ao lado da UFJF e Polo Médico.\n\nQuer ver as plantas e garantir as condições de tabela especial? Clique em Quero saber mais!👇"
+      },
+      {
+        "direction": "outbound",
+        "status": "delivered",
+        "created_at": "2026-05-27T14:40:05.989774+00:00",
+        "content": "⚠️ AVISO DE PRÉ-LANÇAMENTO:\n\nO Beta Suítes entrou em fase de reserva técnica e as primeiras unidades estão se esgotando rápido.\n\nSe você busca um ativo imobiliário seguro, com alta liquidez e excelente taxa de retorno em Governador Valadares, essa é a sua chance:\n\n📈 Invista com apenas 20% de entrada e parcelas de R$ 1.800. 🎓 Localização estratégica ao lado da UFJF e Polo Médico.\n\nQuer ver as plantas e garantir as condições de tabela especial? Clique em Quero saber mais!👇"
+      },
+      {
+        "direction": "outbound",
+        "status": "delivered",
+        "created_at": "2026-06-03T15:04:24.492222+00:00",
+        "content": "Acabamos de publicar um vídeo rápido explicando como garantimos a entrega da sua obra com total segurança (você já ouviu falar em Patrimônio de Afetação?). Confira aqui: 👇"
+      },
+      {
+        "direction": "outbound",
+        "status": "delivered",
+        "created_at": "2026-06-03T15:04:24.813965+00:00",
+        "content": "Acabamos de publicar um vídeo rápido explicando como garantimos a entrega da sua obra com total segurança (você já ouviu falar em Patrimônio de Afetação?). Confira aqui: 👇"
+      }
+    ]
+  },
+  {
+    "card_id": "40f1ed63-be85-41bb-9841-81a891187685",
+    "contato_id": 6163,
+    "nome": "Rodrigo Mira",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-06-28T21:11:03.674649+00:00",
+    "data_entrada_funil": "2026-06-28T21:11:03.90097+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "f937d143-06ac-45ef-89e8-0159769fd106",
+    "contato_id": 6027,
+    "nome": "Usuário 565001",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-06-20T14:01:02.704065+00:00",
+    "data_entrada_funil": "2026-06-20T14:01:04.367462+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "ea17b9f4-cb58-4939-b05d-440c9e366a36",
+    "contato_id": 4771,
+    "nome": "Andre Luiz Moreira Rodrigues",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-01-18T23:40:50.564964+00:00",
+    "data_entrada_funil": "2026-01-18T23:40:50.564964+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 20,
+    "qtd_inbound": 4,
+    "qtd_outbound_sucesso": 16,
+    "qtd_outbound_falha": 0,
+    "situacao": "Respondido com sucesso (Última outbound status: delivered)",
+    "mensagens": [
+      {
+        "direction": "outbound",
+        "status": "delivered",
+        "created_at": "2026-01-18T23:57:44.685326+00:00",
+        "content": "O Studio 57 tem um novo empreendimento para te apresentar!\n\nQuer saber mais?"
+      },
+      {
+        "direction": "inbound",
+        "status": "delivered",
+        "created_at": "2026-01-18T23:58:09.860092+00:00",
+        "content": "Sim"
+      },
+      {
+        "direction": "outbound",
+        "status": "delivered",
+        "created_at": "2026-01-19T00:01:26.82467+00:00",
+        "content": "Olá André, boa noite. Tudo bem com você? Eu sou a Ludimila, responsável pelo setor de vendas do Studio 57 e darei continuidade ao seu atendimento.\n\nVi que você demonstrou interesse no Residencial Alfa e gostaria de entender melhor suas perspectivas. \n\nSeu interesse é para moradia ou investimento?"
+      },
+      {
+        "direction": "inbound",
+        "status": "delivered",
+        "created_at": "2026-01-19T00:02:18.315851+00:00",
+        "content": "Moradia"
+      },
+      {
+        "direction": "outbound",
+        "status": "delivered",
+        "created_at": "2026-01-19T00:03:21.637073+00:00",
+        "content": "O Residencial Alfa é um empreendimento muito bem localizado no bairro Alto Esplanada, em uma das regiões que mais crescem em Governador Valadares. Além disso, oferece uma excelente oportunidade de compra por meio de financiamento pela Caixa.\n\nVocê pode aproveitar o valor de imóvel na planta, com previsão de entrega em menos de dois anos, e ainda contar com financiamento a longo prazo. A obra já está em andamento, com entrega prevista para setembro de 2027.\n\nVou te enviar nosso book para que você possa conhecer melhor todos os detalhes do empreendimento."
+      },
+      {
+        "direction": "outbound",
+        "status": "delivered",
+        "created_at": "2026-01-19T00:03:37.250065+00:00",
+        "content": "BOOK_ALFA_-_2025_COMP..pdf"
+      },
+      {
+        "direction": "outbound",
+        "status": "delivered",
+        "created_at": "2026-01-19T00:04:49.188896+00:00",
+        "content": "Estive na obra semana passada. Vou te encaminhar um vídeo para você visualizar como está o andamento da construção. Estamos dentro do cronograma e nossa previsão de entrega é para 09/2029 com fortes possibilidades de adiantar."
+      },
+      {
+        "direction": "outbound",
+        "status": "delivered",
+        "created_at": "2026-01-19T00:05:07.082926+00:00",
+        "content": "Vídeo enviado"
+      },
+      {
+        "direction": "outbound",
+        "status": "delivered",
+        "created_at": "2026-01-19T00:05:52.100151+00:00",
+        "content": "O Alfa está dentro do que você procura? "
+      },
+      {
+        "direction": "inbound",
+        "status": "delivered",
+        "created_at": "2026-01-19T00:07:21.174562+00:00",
+        "content": "Quais são os valores?"
+      },
+      {
+        "direction": "outbound",
+        "status": "delivered",
+        "created_at": "2026-01-19T00:09:43.986925+00:00",
+        "content": "No momento temos apenas 4 unidades disponíveis. Irei te mandar a tabela com as unidades e os valores. Sobre a condição de pagamento é pela Caixa. São 20% de entrada podendo ser dividida em até 3x e o restando financiado em até 420 meses."
+      },
+      {
+        "direction": "outbound",
+        "status": "delivered",
+        "created_at": "2026-01-19T00:10:03.230574+00:00",
+        "content": "Imagem enviada"
+      },
+      {
+        "direction": "inbound",
+        "status": "delivered",
+        "created_at": "2026-01-19T00:14:20.362886+00:00",
+        "content": "Esses são com 58m2?"
+      },
+      {
+        "direction": "outbound",
+        "status": "delivered",
+        "created_at": "2026-01-19T00:19:38.589322+00:00",
+        "content": "Todos apartamentos tem a mesma configuração de planta com a mesma metragem interna. O que faz um ter a metragem maior que o outro é a sacada. Finais 01 e 02 tem a sacada maior e finais 03 e 04 tem a sacada menor. Os disponíveis são todos com sacadas menores."
+      },
+      {
+        "direction": "outbound",
+        "status": "delivered",
+        "created_at": "2026-01-19T10:20:54.282822+00:00",
+        "content": "Bom dia André, tuo bem com você?"
+      },
+      {
+        "direction": "outbound",
+        "status": "delivered",
+        "created_at": "2026-05-19T14:33:20.781203+00:00",
+        "content": "Olá Andre, tudo bem?\n\nEstou entrando em contato de forma pontual para te apresentar um ativo de valorização altíssima que o Studio 57 acabou de colocar no mercado.\n\nLançamos o Refúgio Braúnas. Diferente de 90% das áreas rurais da região, nosso empreendimento tem matrícula individualizada (100% regular) para cada lote de 1.000m². Isso significa liquidez imediata e segurança jurídica total para o seu patrimônio.\n\nForam 21 lotes exclusivos. Investidores e parceiros já arremataram 11 deles apenas no pré-lançamento. Temos as últimas 10 unidades.\n\n✅ Entrada de apenas 20% (podendo diluir em 3 parcelas). ✅ Saldo em até 60x com a própria incorporadora.\n\nVocê tem interesse em analisar as plantas e a tabela de viabilidade dos últimos lotes disponíveis? Me avise que eu te envio o material completo."
+      },
+      {
+        "direction": "outbound",
+        "status": "delivered",
+        "created_at": "2026-05-19T14:33:20.919569+00:00",
+        "content": "Olá Andre, tudo bem?\n\nEstou entrando em contato de forma pontual para te apresentar um ativo de valorização altíssima que o Studio 57 acabou de colocar no mercado.\n\nLançamos o Refúgio Braúnas. Diferente de 90% das áreas rurais da região, nosso empreendimento tem matrícula individualizada (100% regular) para cada lote de 1.000m². Isso significa liquidez imediata e segurança jurídica total para o seu patrimônio.\n\nForam 21 lotes exclusivos. Investidores e parceiros já arremataram 11 deles apenas no pré-lançamento. Temos as últimas 10 unidades.\n\n✅ Entrada de apenas 20% (podendo diluir em 3 parcelas). ✅ Saldo em até 60x com a própria incorporadora.\n\nVocê tem interesse em analisar as plantas e a tabela de viabilidade dos últimos lotes disponíveis? Me avise que eu te envio o material completo."
+      },
+      {
+        "direction": "outbound",
+        "status": "delivered",
+        "created_at": "2026-05-26T19:31:27.135509+00:00",
+        "content": "Olá Andre Luiz Moreira Rodrigues, tudo bem com você?\nPodemos continuar a nossa conversa?"
+      },
+      {
+        "direction": "outbound",
+        "status": "delivered",
+        "created_at": "2026-05-27T14:47:20.937226+00:00",
+        "content": "⚠️ AVISO DE PRÉ-LANÇAMENTO:\n\nO Beta Suítes entrou em fase de reserva técnica e as primeiras unidades estão se esgotando rápido.\n\nSe você busca um ativo imobiliário seguro, com alta liquidez e excelente taxa de retorno em Governador Valadares, essa é a sua chance:\n\n📈 Invista com apenas 20% de entrada e parcelas de R$ 1.800. 🎓 Localização estratégica ao lado da UFJF e Polo Médico.\n\nQuer ver as plantas e garantir as condições de tabela especial? Clique em Quero saber mais!👇"
+      },
+      {
+        "direction": "outbound",
+        "status": "delivered",
+        "created_at": "2026-06-03T15:08:21.048046+00:00",
+        "content": "Acabamos de publicar um vídeo rápido explicando como garantimos a entrega da sua obra com total segurança (você já ouviu falar em Patrimônio de Afetação?). Confira aqui: 👇"
+      }
+    ]
+  },
+  {
+    "card_id": "48c8c92a-abdf-4469-b35d-a95b714b5ad0",
+    "contato_id": 6177,
+    "nome": "Flaviana Pereira da  Silva Gonçalves",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-06-30T06:27:30.79951+00:00",
+    "data_entrada_funil": "2026-06-30T06:27:31.27591+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  },
+  {
+    "card_id": "21637ada-f626-42f6-bccc-1d826ad38808",
+    "contato_id": 6218,
+    "nome": "Welber Jesus",
+    "ia_atendimento_ativo": true,
+    "data_cadastro": "2026-07-03T23:18:14.343986+00:00",
+    "data_entrada_funil": "2026-07-03T23:18:14.487929+00:00",
+    "coluna_nome": "ENTRADA",
+    "funil_nome": "Funil de Entrada",
+    "coluna_id": "902f7707-1f11-4fa6-89c3-b15735acfe1d",
+    "organizacao_id": 2,
+    "coluna_organizacao_id": 1,
+    "total_mensagens": 0,
+    "qtd_inbound": 0,
+    "qtd_outbound_sucesso": 0,
+    "qtd_outbound_falha": 0,
+    "situacao": "Sem mensagens no banco",
+    "mensagens": []
+  }
+]

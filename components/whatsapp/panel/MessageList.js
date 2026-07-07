@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, memo } from 'react';
 import dynamic from 'next/dynamic';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCheck, faCheckDouble, faPlayCircle, faMicrophone, faExclamationCircle, faFileAlt, faBan, faMapMarkerAlt, faExternalLinkAlt, faSpinner, faUserCircle, faUserPlus, faPhone } from '@fortawesome/free-solid-svg-icons';
@@ -46,7 +46,7 @@ const useWhatsAppTemplates = () => {
   });
 };
 
-export default function MessageList({ messages, onMediaClick }) {
+function MessageList({ messages, onMediaClick }) {
   const { data: templates } = useWhatsAppTemplates();
   const messagesEndRef = useRef(null);
   const supabase = createClient();
@@ -458,3 +458,5 @@ export default function MessageList({ messages, onMediaClick }) {
  </div>
  );
 }
+
+export default memo(MessageList);

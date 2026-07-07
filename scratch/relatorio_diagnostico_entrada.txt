@@ -1,0 +1,166 @@
+=== RELATÓRIO DE DIAGNÓSTICO DE LEADS NA COLUNA ENTRADA ===
+Data de Execução: 2026-07-07T13:42:53.827Z
+Total Analisado: 114 leads
+
+--------------------------------------------------------
+CATEGORIA A: SEM NENHUMA MENSAGEM NO WHATSAPP (93 leads)
+Estes leads estão cadastrados no funil mas não possuem registros de conversa.
+--------------------------------------------------------
+1. Nome: Jhessiara Alves (ID: 6150) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-06-27T18:09:58.622857+00:00
+2. Nome: Ronaldo Pedrosa (ID: 6164) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-06-28T21:13:42.234036+00:00
+3. Nome: Antonio Ornelas Michel (ID: 6196) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-07-03T11:43:16.213523+00:00
+4. Nome: Siloney Dias (ID: 6219) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-07-03T23:43:55.121165+00:00
+5. Nome: Bruna (ID: 6232) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-07-04T20:02:14.621819+00:00
+6. Nome: Nilseia Dias (ID: 6244) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-07-05T16:14:15.049981+00:00
+7. Nome: Bruno Alves (ID: 6138) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-06-26T22:40:16.052493+00:00
+8. Nome: Évila Miranda (ID: 6151) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-06-27T18:29:14.274632+00:00
+9. Nome: Usuário 997106 (ID: 5998) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-06-18T18:03:01.739715+00:00
+10. Nome: Mariana Gomes (ID: 6198) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-07-03T12:08:33.50781+00:00
+11. Nome: Paty Bragança (ID: 6220) | Funil: Funil de Vendas | Org Contato: 2 | Cadastrado em: 2026-07-04T00:17:58.223918+00:00
+12. Nome: Adriana Cristina (ID: 6245) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-07-05T16:36:37.621915+00:00
+13. Nome: Lenira Sousa (ID: 6139) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-06-26T23:32:42.655478+00:00
+14. Nome: 𝕷𝖚𝖈𝖎𝖆𝖓𝖆 𝕮𝖔𝖓𝖉𝖊 (ID: 6152) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-06-27T20:53:13.913815+00:00
+15. Nome: Rogerio fernandes soaree (ID: 6166) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-06-29T00:49:56.603868+00:00
+16. Nome: Ailton Miranda 33 988497902 (ID: 6199) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-07-03T12:34:06.93292+00:00
+17. Nome: zizi santos (ID: 6246) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-07-05T19:41:48.644473+00:00
+18. Nome: H_brgouvea (ID: 6140) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-06-26T23:47:37.925965+00:00
+19. Nome: Vinicius Maciel (ID: 6153) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-06-27T23:49:00.35386+00:00
+20. Nome: Usuário 493082 (ID: 6090) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-06-25T16:19:00.744263+00:00
+21. Nome: Usuário 316090 (ID: 5999) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-06-18T19:05:29.867786+00:00
+22. Nome: Usuário 981733 (ID: 6015) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-06-19T11:22:01.603339+00:00
+23. Nome: Helcio Leal (ID: 6167) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-06-29T01:14:09.890892+00:00
+24. Nome: Marcus Freire (ID: 6222) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-07-04T01:12:48.417467+00:00
+25. Nome: Érika Bregues  (ID: 6235) | Funil: Funil de Vendas | Org Contato: 1 | Cadastrado em: 2026-07-04T20:39:40.316418+00:00
+26. Nome: Francisco Sales Dantas (ID: 6247) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-07-06T00:52:18.109733+00:00
+27. Nome: Carlos Prates (ID: 6168) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-06-29T10:33:51.744488+00:00
+28. Nome: Stenio Pereira Duarte (ID: 6169) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-06-29T10:34:26.584169+00:00
+29. Nome: Usuário 493082 (ID: 6091) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-06-25T16:19:00.760802+00:00
+30. Nome: Usuário 229981 (ID: 6000) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-06-18T20:03:39.204937+00:00
+31. Nome: Usuário 637871 (ID: 6016) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-06-19T11:25:35.851535+00:00
+32. Nome: Thiago (ID: 6223) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-07-04T07:28:41.389405+00:00
+33. Nome: Robert Rodrigues (ID: 6236) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-07-04T23:23:11.263908+00:00
+34. Nome: Creuza Maria Creuza Maria (ID: 6248) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-07-06T02:10:21.320897+00:00
+35. Nome: Oseias Silva (ID: 6237) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-07-04T23:32:09.129443+00:00
+36. Nome: Dione Morais (ID: 6249) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-07-06T02:30:18.043539+00:00
+37. Nome: Mariceia Paixão costa (ID: 6155) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-06-28T14:14:42.760722+00:00
+38. Nome: Leandro Assis (ID: 6204) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-07-03T18:08:16.187941+00:00
+39. Nome: Usuário 999506 (ID: 6081) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-06-24T20:03:00.90513+00:00
+40. Nome: Marcelo Fernandes (ID: 6143) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-06-27T02:28:03.730953+00:00
+41. Nome: Breno Farage Saiter | Advogado (ID: 6156) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-06-28T15:00:39.052751+00:00
+42. Nome: Waldirlon Ribeiro Dos Santos (ID: 6205) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-07-03T18:08:32.747585+00:00
+43. Nome: Adailton De Oliveira (ID: 6225) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-07-04T12:53:48.818281+00:00
+44. Nome: Luciana Serafim (ID: 6238) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-07-04T23:57:39.547285+00:00
+45. Nome: Gilda Cezar Lopes Santos (ID: 6157) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-06-28T16:45:57.644759+00:00
+46. Nome: Usuário 816676 (ID: 6003) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-06-18T20:58:01.409883+00:00
+47. Nome: Usuário 296168 (ID: 6049) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-06-22T13:35:58.302461+00:00
+48. Nome: Weliton Oliveira (ID: 6208) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-07-03T18:50:28.997525+00:00
+49. Nome: Anecides Bonifacio de Souza Filho (ID: 6226) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-07-04T12:59:17.960888+00:00
+50. Nome: Betania (ID: 6239) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-07-05T03:12:27.475932+00:00
+51. Nome: Tamiris Alves (ID: 6250) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-07-06T13:41:22.408386+00:00
+52. Nome: Josilma Oliveira (ID: 6145) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-06-27T02:37:53.339846+00:00
+53. Nome: Pedro Bicalho | Comunicação Magnética (ID: 6209) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-07-03T19:13:00.378603+00:00
+54. Nome: Herica Adelita Souza (ID: 6227) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-07-04T14:55:39.257003+00:00
+55. Nome: Sonia Barcelos Schubert (ID: 6240) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-07-05T11:58:00.415817+00:00
+56. Nome: Lojinha da bag  by Yasmin Lima (ID: 6251) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-07-06T14:51:15.309487+00:00
+57. Nome: Neilson Costa Ribeiro (ID: 6172) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-06-29T13:58:46.845812+00:00
+58. Nome: Usuário 693964 (ID: 6005) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-06-18T22:21:02.821675+00:00
+59. Nome: Meurly Cristina (ID: 6190) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-07-02T17:58:36.140312+00:00
+60. Nome: clarice costa (ID: 6228) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-07-04T17:00:09.878727+00:00
+61. Nome: Agrimar Souza (ID: 6255) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-07-06T15:17:33.004336+00:00
+62. Nome: @augusto_ferreira (ID: 6241) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-07-05T13:12:01.402491+00:00
+63. Nome: Lucia Duarte (ID: 6147) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-06-27T14:36:42.778349+00:00
+64. Nome: Renato Bezerra (ID: 6160) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-06-28T18:33:21.114262+00:00
+65. Nome: Warlley Falcão (ID: 6210) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-07-03T19:43:42.129474+00:00
+66. Nome: F I L L I P E T A L L O N E (ID: 6229) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-07-04T17:26:25.293228+00:00
+67. Nome: Lead Teste Webhook Devonildo (ID: 6130) | Funil: Funil de Entrada | Org Contato: 57 | Cadastrado em: 2026-06-26T12:39:42.473329+00:00
+68. Nome: VanderleiyGuimarães (ID: 6148) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-06-27T14:53:41.678174+00:00
+69. Nome: Leandro Faria (ID: 6161) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-06-28T18:39:53.26085+00:00
+70. Nome: Usuário 403459 (ID: 6007) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-06-18T22:44:22.567159+00:00
+71. Nome: Usuário 394080 (ID: 6075) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-06-24T00:10:52.822103+00:00
+72. Nome: Rosângela Lage (ID: 6175) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-06-29T20:07:11.465536+00:00
+73. Nome: Patricia Coelho (ID: 6192) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-07-02T19:15:56.991617+00:00
+74. Nome: Ângelo Luiz soares (ID: 6213) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-07-03T20:34:09.96562+00:00
+75. Nome: Livia Gomes (ID: 6257) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-07-06T16:11:03.817205+00:00
+76. Nome: Gaspé (ID: 6149) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-06-27T15:17:09.12961+00:00
+77. Nome: Josilaine Couto (ID: 6162) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-06-28T19:04:11.102942+00:00
+78. Nome: Usuário 255034 (ID: 5991) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-06-18T13:17:17.515438+00:00
+79. Nome: Usuário 394080 (ID: 6074) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-06-24T00:10:51.989191+00:00
+80. Nome: Cristiane Nunes (ID: 6176) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-06-30T03:27:37.318174+00:00
+81. Nome: Ilda Carneiro Tiago Gomes (ID: 6193) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-07-02T20:30:18.514508+00:00
+82. Nome: Paulo Cesar Campos (ID: 6214) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-07-03T21:55:33.92411+00:00
+83. Nome: Ana Maria Cunha (ID: 6215) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-07-03T21:55:56.398398+00:00
+84. Nome: Erica Cristina Nunes (ID: 6231) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-07-04T19:55:35.993075+00:00
+85. Nome: Elísia Reis (ID: 6194) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-07-02T23:06:21.603748+00:00
+86. Nome: João  (ID: 6040) | Funil: Funil de Vendas | Org Contato: 1 | Cadastrado em: 2026-06-21T13:56:48.932583+00:00
+87. Nome: julimar oliveira (ID: 5934) | Funil: Funil de Vendas | Org Contato: 2 | Cadastrado em: 2026-06-12T04:24:07.421611+00:00
+88. Nome: julimar oliveira (ID: 5935) | Funil: Funil de Vendas | Org Contato: 2 | Cadastrado em: 2026-06-12T04:24:32.892812+00:00
+89. Nome: Camila Drumond (ID: 6195) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-07-03T11:24:07.492188+00:00
+90. Nome: Rodrigo Mira (ID: 6163) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-06-28T21:11:03.674649+00:00
+91. Nome: Usuário 565001 (ID: 6027) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-06-20T14:01:02.704065+00:00
+92. Nome: Flaviana Pereira da  Silva Gonçalves (ID: 6177) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-06-30T06:27:30.79951+00:00
+93. Nome: Welber Jesus (ID: 6218) | Funil: Funil de Entrada | Org Contato: 2 | Cadastrado em: 2026-07-03T23:18:14.343986+00:00
+
+--------------------------------------------------------
+CATEGORIA B: AGUARDANDO RESPOSTA (0 leads)
+Estes contatos enviaram mensagens, mas a última mensagem da conversa é do cliente. A Stella ou o corretor humano não responderam.
+--------------------------------------------------------
+
+--------------------------------------------------------
+CATEGORIA C: FALHA DE ENVIO (1 leads)
+Tentativas de enviar mensagem para estes leads falharam (Meta WhatsApp API error).
+--------------------------------------------------------
+1. Nome: Viviane Marques (ID: 5769) | Piloto Ativo: true | Org: 2
+   Data da Falha: 2026-06-15T13:10:08.801788+00:00 | Status: failed
+   Texto que falhou: "Olá! Peço desculpas pela nossa demora em retomar o contato. 😊"
+
+--------------------------------------------------------
+CATEGORIA D: RESPONDIDOS COM SUCESSO MAS PARADOS NA ENTRADA (20 leads)
+Estes leads já receberam resposta com sucesso, mas a coluna no funil não foi atualizada para "MENSAGEM ENVIADA" ou outra posterior.
+--------------------------------------------------------
+1. Nome: Carol (ID: 6259) | Piloto Ativo: false | Org: 2 | Total Msgs: 1
+   Última outbound com sucesso (2026-07-07T13:42:20.281556+00:00): "Oi! Tudo bem? Recebemos o seu interesse em nossos empreendimentos. Podemos liber..."
+2. Nome: Nivaldo Souza (ID: 6233) | Piloto Ativo: true | Org: 2 | Total Msgs: 6
+   Última outbound com sucesso (2026-07-04T20:03:50.462424+00:00): "Conseguiu abrir o book? Me diga o que você achou do potencial de rentabilidade d..."
+3. Nome: Elaine Santos de Oliveira (ID: 6234) | Piloto Ativo: true | Org: 2 | Total Msgs: 11
+   Última outbound com sucesso (2026-07-04T20:23:49.627396+00:00): "Enquanto você analisa, me conta: você mora aqui na região de Governador Valadare..."
+4. Nome: Mister Clean GV (ID: 6141) | Piloto Ativo: true | Org: 2 | Total Msgs: 11
+   Última outbound com sucesso (2026-06-27T00:57:17.469863+00:00): "Conseguiu abrir? Me diga o que você achou do projeto 😊..."
+5. Nome: Cicero Alves (ID: 3630) | Piloto Ativo: false | Org: 2 | Total Msgs: 1
+   Última outbound com sucesso (2025-12-10T16:22:24.47167+00:00): "Oi Cicero!
+
+O Studio 57 tem um novo empreendimento para te apresentar.
+
+Quer sab..."
+6. Nome: Julio Cezar Dias (ID: 4960) | Piloto Ativo: true | Org: 2 | Total Msgs: 6
+   Última outbound com sucesso (2026-06-03T15:16:22.278429+00:00): "Acabamos de publicar um vídeo rápido explicando como garantimos a entrega da sua..."
+7. Nome: Penélopcharmosa RJ (ID: 6142) | Piloto Ativo: true | Org: 2 | Total Msgs: 4
+   Última outbound com sucesso (2026-06-27T02:09:15.964612+00:00): "O Beta Suítes é um projeto fantástico focado em investimento, mas para morar nós..."
+8. Nome: Diego Souza (ID: 6171) | Piloto Ativo: true | Org: 2 | Total Msgs: 6
+   Última outbound com sucesso (2026-06-29T12:45:47.808052+00:00): "Ele é o nosso projeto ideal para quem busca renda de aluguel. Você já costuma in..."
+9. Nome: Leonardo Carvalho (ID: 6144) | Piloto Ativo: true | Org: 2 | Total Msgs: 7
+   Última outbound com sucesso (2026-06-27T02:32:37.654391+00:00): "O que você achou do projeto, Leonardo? Ele parece estar alinhado com o que você ..."
+10. Nome: Diego Simões (ID: 6083) | Piloto Ativo: true | Org: 2 | Total Msgs: 12
+   Última outbound com sucesso (2026-06-24T22:27:12.220357+00:00): "Para isso, só preciso confirmar: vi no seu cadastro que a renda familiar é de at..."
+11. Nome: Samuel Azevedo (ID: 6158) | Piloto Ativo: false | Org: 2 | Total Msgs: 5
+   Última outbound com sucesso (2026-06-29T10:34:54.933527+00:00): "Olá Samuel. Tudo bem?
+Me chamo Ludimila e faço parte do time de vendas do Studio..."
+12. Nome: Cristiane Jaeger (ID: 3916) | Piloto Ativo: true | Org: 2 | Total Msgs: 4
+   Última outbound com sucesso (2026-06-03T14:41:13.026641+00:00): "Acabamos de publicar um vídeo rápido explicando como garantimos a entrega da sua..."
+13. Nome: Ranolfo Caldeira (ID: 6191) | Piloto Ativo: true | Org: 2 | Total Msgs: 6
+   Última outbound com sucesso (2026-07-02T19:15:05.101697+00:00): "Me diga, você já tem experiência com investimentos em imóveis ou seria sua prime..."
+14. Nome: Janaina De Oliveira (ID: 6242) | Piloto Ativo: true | Org: 2 | Total Msgs: 6
+   Última outbound com sucesso (2026-07-05T14:37:09.428019+00:00): "Por favor, me diga se conseguiu abrir e o que achou do projeto!..."
+15. Nome: Juraci Araújo (ID: 6230) | Piloto Ativo: true | Org: 2 | Total Msgs: 10
+   Última outbound com sucesso (2026-07-04T19:19:01.721505+00:00): "Eu te enviei o book do Beta Suítes alguns minutos atrás, você conseguiu visualiz..."
+16. Nome: Falcony Fidelis (ID: 5787) | Piloto Ativo: true | Org: 2 | Total Msgs: 5
+   Última outbound com sucesso (2026-06-06T14:28:12.895733+00:00): "Falcony para eu te direcionar melhor por aqui, me conta esse empreendimento se e..."
+17. Nome: Waissan Semi (ID: 5110) | Piloto Ativo: true | Org: 2 | Total Msgs: 24
+   Última outbound com sucesso (2026-06-03T15:30:18.507573+00:00): "Acabamos de publicar um vídeo rápido explicando como garantimos a entrega da sua..."
+18. Nome: Maria de Nazaré Borges dos Santos (ID: 4840) | Piloto Ativo: true | Org: 2 | Total Msgs: 95
+   Última outbound com sucesso (2026-05-27T14:51:26.291698+00:00): "⚠️ AVISO DE PRÉ-LANÇAMENTO:
+
+O Beta Suítes entrou em fase de reserva técnica e a..."
+19. Nome: Elane Mahiara (ID: 4690) | Piloto Ativo: true | Org: 2 | Total Msgs: 14
+   Última outbound com sucesso (2026-06-03T15:04:24.813965+00:00): "Acabamos de publicar um vídeo rápido explicando como garantimos a entrega da sua..."
+20. Nome: Andre Luiz Moreira Rodrigues (ID: 4771) | Piloto Ativo: true | Org: 2 | Total Msgs: 20
+   Última outbound com sucesso (2026-06-03T15:08:21.048046+00:00): "Acabamos de publicar um vídeo rápido explicando como garantimos a entrega da sua..."

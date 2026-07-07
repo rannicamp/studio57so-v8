@@ -13,7 +13,7 @@ function CadastroForm() {
  const router = useRouter();
  const searchParams = useSearchParams();
  const planParam = searchParams.get('plan') || 'essencial';
- const cupomParam = searchParams.get('cupom') || searchParams.get('coupon') || 'AMIGODODONO';
+ const cupomParam = searchParams.get('cupom') || searchParams.get('coupon') || '';
 
  // Estados do Wizard
  const [step, setStep] = useState(1);

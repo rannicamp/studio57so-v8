@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState, useMemo } from 'react';
+import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getMessages } from '@/app/(main)/caixa-de-entrada/data-fetching';
 import { useAuth } from '@/contexts/AuthContext';
@@ -305,12 +305,32 @@ export default function MessagePanel({ contact, onBack }) {
  onError: (e) => toast.error(`Erro: ${e.message}`)
  });
 
- // Handlers
- const handleSendMessage = (e) => { e.preventDefault(); if (newMessage.trim()) sendMessageMutation.mutate(newMessage); };
- const handleSendAudio = async ({ file, caption }) => { sendAttachmentMutation.mutate({ file, caption }); };
- const recorder = useAudioRecorder(handleSendAudio);
- const handleMediaClick = (media) => { setViewerMedia(media); setIsViewerOpen(true); };
- const handlePasteFile = (file) => { setSelectedFile(file); setIsFilePreviewOpen(true); };
+  // Handlers
+  const handleSendMessage = useCallback(async (textToSend) => {
+    if (textToSend.trim()) {
+      return sendMessageMutation.mutateAsync(textToSend);
+    }
+  }, [sendMessageMutation]);
+
+  const handleSendAudio = useCallback(async ({ file, caption }) => {
+    sendAttachmentMutation.mutate({ file, caption });
+  }, [sendAttachmentMutation]);
+
+  const recorder = useAudioRecorder(handleSendAudio);
+
+  const handleMediaClick = useCallback((media) => {
+    setViewerMedia(media);
+    setIsViewerOpen(true);
+  }, []);
+
+  const handlePasteFile = useCallback((file) => {
+    setSelectedFile(file);
+    setIsFilePreviewOpen(true);
+  }, []);
+
+  const handleOpenUploader = useCallback(() => setIsUploaderOpen(true), []);
+  const handleOpenTemplate = useCallback(() => setIsTemplateModalOpen(true), []);
+  const handleOpenLocation = useCallback(() => setIsLocationModalOpen(true), []);
 
  // Uppy Effects
  useEffect(() => {
@@ -424,16 +444,15 @@ export default function MessagePanel({ contact, onBack }) {
  newMessage={newMessage}
  setNewMessage={setNewMessage}
  onSendMessage={handleSendMessage}
- onOpenUploader={() => setIsUploaderOpen(true)}
- onOpenTemplate={() => setIsTemplateModalOpen(true)}
-
- onOpenLocation={() => setIsLocationModalOpen(true)}
-
+ onOpenUploader={handleOpenUploader}
+ onOpenTemplate={handleOpenTemplate}
+ onOpenLocation={handleOpenLocation}
  recorder={recorder}
  uploadingOrProcessing={sendAttachmentMutation.isPending || sendLocationMutation.isPending}
  onPasteFile={handlePasteFile}
  recipientPhone={cleanPhoneNumber(recipientPhone)}
  isWindowOpen={isWindowOpen}
+ contact={contact}
  />
  </div>
  </>
