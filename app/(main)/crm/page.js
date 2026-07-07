@@ -796,13 +796,25 @@ export default function CrmPage() {
     <button
       onClick={handleToggleStellaGlobal}
       disabled={isTogglingStella}
-      className={`relative inline-flex h-4 w-7 items-center rounded-full transition-colors focus:outline-none disabled:opacity-50 ${
-        isStellaAtiva ? 'bg-purple-600' : 'bg-gray-200'
-      }`}
+      className="relative inline-flex items-center rounded-full transition-colors focus:outline-none disabled:opacity-50 shrink-0"
+      style={{
+        width: '32px',
+        height: '18px',
+        backgroundColor: isStellaAtiva ? '#9333ea' : '#cbd5e1',
+        padding: '2px',
+        cursor: isTogglingStella ? 'not-allowed' : 'pointer',
+        transition: 'background-color 0.2s ease-in-out'
+      }}
     >
-      <span className={`inline-block h-2.5 w-2.5 transform rounded-full bg-white transition-transform ${
-        isStellaAtiva ? 'translate-x-3.5' : 'translate-x-0.5'
-      }`} />
+      <span 
+        className="inline-block rounded-full bg-white" 
+        style={{
+          width: '14px',
+          height: '14px',
+          transform: isStellaAtiva ? 'translateX(14px)' : 'translateX(0px)',
+          transition: 'transform 0.2s ease-in-out'
+        }}
+      />
     </button>
   </div>
 
