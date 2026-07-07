@@ -14,7 +14,6 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
  faChartPie,
  faChartLine,
  faBoxOpen,
- faRobot,
  faShieldAlt,
  faUserTie,
  faBell,

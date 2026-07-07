@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@/utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { 
-  faRobot, faTimes, faPlus, faSpinner, faToggleOn, faToggleOff, 
+  faTimes, faPlus, faSpinner, faToggleOn, faToggleOff, 
   faEdit, faTrash, faArrowRight, faBullhorn, faAd, faSave
 } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';

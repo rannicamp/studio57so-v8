@@ -9,7 +9,7 @@ import SyncAllContactsButton from '@/components/integracoes/SyncAllContactsButto
 import Link from 'next/link';
 import SparklesIcon from '@/components/shared/SparklesIcon';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faRobot } from '@fortawesome/free-solid-svg-icons';
+
 
 export default async function IntegracoesPage() {
   const supabase = await createClient();

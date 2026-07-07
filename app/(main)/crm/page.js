@@ -10,7 +10,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faSpinner, faTimes, faSearch, faPlus, faUsers, faHandshake,
-  faPercent, faSackDollar, faCalendarDay, faRobot, faFilter, faLayerGroup,
+  faPercent, faSackDollar, faCalendarDay, faFilter, faLayerGroup,
   faTable, faSync, faToggleOn, faToggleOff
 } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faTimes, faPlug, faSignature, faRobot } from '@fortawesome/free-solid-svg-icons';
+import { faTimes, faPlug, faSignature } from '@fortawesome/free-solid-svg-icons';
 import { useQuery } from '@tanstack/react-query';
 import EmailConnectionConfig from './EmailConnectionConfig';
 import EmailSignatureConfig from './EmailSignatureConfig';

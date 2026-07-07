@@ -6,7 +6,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createClient } from '../../utils/supabase/client';
 import { useAuth } from '../../contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faRobot, faCheckCircle, faTimesCircle, faExclamationTriangle, faSearch, faSpinner, faFileInvoiceDollar, faEye } from '@fortawesome/free-solid-svg-icons';
+import { faCheckCircle, faTimesCircle, faExclamationTriangle, faSearch, faSpinner, faFileInvoiceDollar, faEye } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 import SparklesIcon from '@/components/shared/SparklesIcon';
 

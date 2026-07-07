@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faEllipsisV, faEnvelope, faEnvelopeOpen, faArchive, faTrash, faFolderOpen, faRobot, faCalendarPlus, faChevronRight, faSpinner,
+import { faEllipsisV, faEnvelope, faEnvelopeOpen, faArchive, faTrash, faFolderOpen, faCalendarPlus, faChevronRight, faSpinner,
  faPlus, faCheck, faTimes, faFolder, faInbox, faPaperPlane, faBan
 } from '@fortawesome/free-solid-svg-icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';

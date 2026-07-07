@@ -9,7 +9,7 @@ import { useLayout } from '@/contexts/LayoutContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
  faPlus, faTrash, faToggleOn, faToggleOff,
- faRobot, faSpinner, faChevronDown, faArrowRight,
+ faSpinner, faChevronDown, faArrowRight,
  faBullhorn, faAd, faGlobe
 } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
@@ -413,7 +413,7 @@ export default function AutomacaoPage() {
  </div>
  ) : regras.length === 0 ? (
  <div className="text-center py-12 text-gray-400">
- <FontAwesomeIcon icon={faRobot} className="text-5xl mb-3 opacity-20" />
+ <SparklesIcon className="text-5xl mb-3 opacity-20" active={true} />
  <p className="font-medium">Nenhuma regra criada ainda.</p>
  <p className="text-sm">Crie a primeira regra para que os leads sejam direcionados automaticamente.</p>
  </div>

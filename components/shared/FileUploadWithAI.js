@@ -2,7 +2,7 @@
 
 import { useState, useRef } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSpinner, faCheckCircle, faTimesCircle, faRobot, faFileLines, faUpload } from '@fortawesome/free-solid-svg-icons';
+import { faSpinner, faCheckCircle, faTimesCircle, faFileLines, faUpload } from '@fortawesome/free-solid-svg-icons';
 import UppyFileImporter from '@/components/ui/UppyFileImporter';
 import SparklesIcon from '@/components/shared/SparklesIcon';
 

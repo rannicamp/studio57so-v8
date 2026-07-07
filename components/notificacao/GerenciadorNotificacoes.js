@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
  faPlus, faEdit, faTrash, faBolt, faSpinner, faMobileAlt, faSync,
- faTable, faCopy, faRobot
+ faTable, faCopy
 } from '@fortawesome/free-solid-svg-icons';
 import RegraForm from './RegraForm';
 import SparklesIcon from '@/components/shared/SparklesIcon';

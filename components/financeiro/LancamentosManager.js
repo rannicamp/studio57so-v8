@@ -6,7 +6,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
  faSpinner, faTimes, faEdit, faTrash, faSort, faSortUp, faSortDown, faLayerGroup,
- faChevronLeft, faChevronRight, faRobot, faCheckCircle, faDollarSign, faCreditCard,
+ faChevronLeft, faChevronRight, faCheckCircle, faDollarSign, faCreditCard,
  faExchangeAlt, faCopy, faReceipt, faLink, faArrowUp, faArrowDown, faBalanceScale, faChevronDown,
  faHistory, faExclamationTriangle, faMoneyBillTransfer, faSearch, faPrint, faDownload
 } from '@fortawesome/free-solid-svg-icons';

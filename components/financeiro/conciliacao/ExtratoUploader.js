@@ -3,7 +3,7 @@
 
 import React, { useRef, useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faCloudUploadAlt, faFileCode, faSpinner, faPaste, faFileCsv, faFilePdf, faRobot } from '@fortawesome/free-solid-svg-icons';
+import { faCloudUploadAlt, faFileCode, faSpinner, faPaste, faFileCsv, faFilePdf } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 import SparklesIcon from '@/components/shared/SparklesIcon';
 

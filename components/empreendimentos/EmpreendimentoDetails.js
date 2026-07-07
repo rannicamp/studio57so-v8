@@ -17,7 +17,7 @@ import {
  faCloudUploadAlt, faWandMagicSparkles, faLink, faDownload,
  faRightLeft, faPlus, faPen, faTimes, faFileContract, faTableCellsLarge, faBars,
  faBold, faItalic, faListUl, faListOl, faUndo, faRedo,
- faUserTie, faArchive, faRobot, faSave
+ faUserTie, faArchive, faSave
 } from '@fortawesome/free-solid-svg-icons';
 import { createClient } from '@/utils/supabase/client';
 import { toast } from 'sonner';

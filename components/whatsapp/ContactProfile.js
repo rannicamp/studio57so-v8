@@ -7,7 +7,7 @@ import { createClient } from '@/utils/supabase/client';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faStickyNote, faTasks, faSpinner, faPlus, faPhone, faEnvelope, faIdCard, faGlobe, faPen, faTrash, faCheckCircle, faBullhorn, faUserTie, faCalculator, faExternalLinkAlt,
  faHistory, faTimes, faBriefcase, faSave, faFunnelDollar, faMoneyBillWave,
- faPiggyBank, faBullseye, faCheck, faTimesCircle, faRobot, faSyncAlt, faCopy, faReply, faFolderOpen, faPaperPlane, faFilePdf, faFileImage, faFileVideo, faFileLines,
+ faPiggyBank, faBullseye, faCheck, faTimesCircle, faSyncAlt, faCopy, faReply, faFolderOpen, faPaperPlane, faFilePdf, faFileImage, faFileVideo, faFileLines,
  faTableCellsLarge, faBars, faBook, faStopwatch, faReplyAll, faCalendarAlt
 } from '@fortawesome/free-solid-svg-icons';
 import { faInstagram } from '@fortawesome/free-brands-svg-icons';
