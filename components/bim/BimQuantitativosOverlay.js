@@ -209,52 +209,76 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
 
   // Helper de Ordenação Hierárquica para Composições Filhas
   const organizarMateriaisHierarquico = useCallback((listaMateriais) => {
-    let pais = listaMateriais.filter(m => !m.pai_mapeamento_id);
-    const filhos = listaMateriais.filter(m => m.pai_mapeamento_id);
+    const mapaItens = new Map(listaMateriais.map(m => [m.mapeamento_id, m]));
+    const mapaItensPorMaterial = new Map(listaMateriais.map(m => [m.material_id, m]));
+    const mapaItensPorSinapi = new Map(listaMateriais.map(m => [m.sinapi_id, m]));
     
-    // Se houver ordenação ativa, ordena a lista dos pais
+    // Função para verificar se o pai de um item está presente na lista
+    const temPaiNaLista = (item) => {
+      if (item.pai_mapeamento_id && mapaItens.has(item.pai_mapeamento_id)) return true;
+      if (item.pai_material_id && mapaItensPorMaterial.has(item.pai_material_id)) return true;
+      if (item.pai_sinapi_id && mapaItensPorSinapi.has(item.pai_sinapi_id)) return true;
+      return false;
+    };
+    
+    // Os pais de primeiro nível são os que não têm pai de forma alguma, ou cujos pais não estão na lista
+    let paisRaiz = listaMateriais.filter(m => !m.pai_mapeamento_id && !m.pai_material_id && !m.pai_sinapi_id);
+    
+    // E também os órfãos cujos pais não estão presentes na lista (eles viram raízes!)
+    const orfaosDePaiAusente = listaMateriais.filter(m => 
+      (m.pai_mapeamento_id || m.pai_material_id || m.pai_sinapi_id) && !temPaiNaLista(m)
+    ).map(o => ({
+      ...o,
+      pai_mapeamento_id: null,
+      pai_material_id: null,
+      pai_sinapi_id: null,
+      nivel: 1, // Viram nível 1!
+      is_orfao: true
+    }));
+    
+    // Une as duas listas de raízes
+    let raizes = [...paisRaiz, ...orfaosDePaiAusente];
+    
+    // Ordena as raízes
     if (ordenacaoCampo) {
-      pais = ordenarMateriais(pais);
+      raizes = ordenarMateriais(raizes);
+    } else {
+      raizes.sort((a, b) => b.custo_total - a.custo_total);
     }
+    
+    // Todos os outros itens são potenciais filhos de algum nível
+    const todosOsFilhos = listaMateriais.filter(m => temPaiNaLista(m) && (m.pai_mapeamento_id || m.pai_material_id || m.pai_sinapi_id));
     
     const resultado = [];
-    pais.forEach(pai => {
-      resultado.push(pai);
-      
-      // Associa filhos ao pai: tenta pelo mapeamento_id original ou, se quebrado por consolidação,
-      // usa o fallback do material_id ou sinapi_id do pai
-      let filhosDestePai = filhos.filter(f => 
-        f.pai_mapeamento_id === pai.mapeamento_id ||
-        (pai.material_id && f.pai_material_id === pai.material_id) ||
-        (pai.sinapi_id && f.pai_sinapi_id === pai.sinapi_id)
+    
+    // Função recursiva para coletar descendentes em pré-ordem
+    const coletarDescendentes = (paiItem) => {
+      // Acha todos os filhos diretos deste pai
+      let filhosDiretos = todosOsFilhos.filter(f => 
+        f.pai_mapeamento_id === paiItem.mapeamento_id ||
+        (paiItem.material_id && f.pai_material_id === paiItem.material_id) ||
+        (paiItem.sinapi_id && f.pai_sinapi_id === paiItem.sinapi_id)
       );
       
-      // Ordena também os filhos se houver campo ativo
+      // Ordena os filhos diretos
       if (ordenacaoCampo) {
-        filhosDestePai = ordenarMateriais(filhosDestePai);
+        filhosDiretos = ordenarMateriais(filhosDiretos);
       } else {
-        filhosDestePai.sort((a, b) => b.custo_total - a.custo_total);
+        filhosDiretos.sort((a, b) => b.custo_total - a.custo_total);
       }
       
-      resultado.push(...filhosDestePai);
-    });
+      // Para cada filho, adiciona-o ao resultado e busca recursivamente os descendentes dele!
+      filhosDiretos.forEach(filho => {
+        resultado.push(filho);
+        coletarDescendentes(filho);
+      });
+    };
     
-    const idsInseridos = new Set(resultado.map(r => r.key));
-    const orfaos = filhos.filter(f => !idsInseridos.has(f.key));
-    if (orfaos.length > 0) {
-      let orfaosOrdenados = orfaos;
-      if (ordenacaoCampo) {
-        orfaosOrdenados = ordenarMateriais(orfaos);
-      }
-      // Se restaram órfãos (o pai de fato não está no orçamento), limpamos o pai_mapeamento_id
-      // para que eles sejam exibidos no primeiro nível da tabela sem setinha de subitem
-      const orfaosTratados = orfaosOrdenados.map(o => ({
-        ...o,
-        pai_mapeamento_id: null,
-        is_orfao: true
-      }));
-      resultado.push(...orfaosTratados);
-    }
+    // Percorre cada raiz, adiciona no resultado e recolhe os seus descendentes recursivamente
+    raizes.forEach(raiz => {
+      resultado.push(raiz);
+      coletarDescendentes(raiz);
+    });
     
     return resultado;
   }, [ordenacaoCampo, ordenarMateriais]);
@@ -589,8 +613,9 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
   };
 
   const renderMaterialRow = (item, paddingClass = "pl-12") => {
-    const isFilho = !!item.pai_mapeamento_id;
-    const paddingCels = isFilho ? "pl-20 bg-slate-50/25" : paddingClass;
+    const nivelProfundidade = Number(item.nivel) || 1;
+    const isFilho = nivelProfundidade > 1;
+    const paddingCels = isFilho ? "bg-slate-50/25" : paddingClass;
     const estaSelecionado = !!itensSelecionados[item.key];
 
     const quantidadeEntregue = item.material_id ? (entregasPorMaterial[item.material_id] || 0) : null;
@@ -630,9 +655,12 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
           />
         </td>
         <td className={`px-4 py-2 ${paddingCels} border-l-2 ${isFilho ? 'border-emerald-300' : 'border-transparent'} hover:border-blue-400`}>
-          <div className="flex items-center gap-2">
+          <div 
+            className="flex items-center gap-2" 
+            style={isFilho ? { paddingLeft: `${(nivelProfundidade - 1) * 16}px` } : {}}
+          >
             {isFilho && (
-              <span className="text-emerald-500 font-extrabold text-[11px] select-none mr-1" title="Subitem de composição">
+              <span className="text-emerald-500 font-extrabold text-[11px] select-none mr-1" title={`Subitem nível ${nivelProfundidade - 1}`}>
                 └─
               </span>
             )}
@@ -642,7 +670,7 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
               </span>
             )}
             <div>
-              <p className={`text-xs ${isFilho ? 'font-medium text-slate-655' : 'font-semibold text-gray-700'}`}>{item.nome}</p>
+              <p className={`text-xs ${isFilho ? 'font-medium text-slate-600' : 'font-semibold text-gray-700'}`}>{item.nome}</p>
               {item.tem_alertas && (
                 <p className="text-[9px] text-amber-600">
                   {item.external_ids_inativos.length} elem. removidos do 3D
@@ -651,7 +679,7 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
               {isFilho && (
                 <p className="text-[8px] text-emerald-600 font-bold bg-emerald-50 px-1 py-0.2 rounded inline-block mt-0.5" title="A quantidade desta linha depende da quantidade de outro Material">
                   <FontAwesomeIcon icon={faLink} className="mr-1 text-[7px]" />
-                  Subitem
+                  Subitem N{nivelProfundidade - 1}
                 </p>
               )}
               {item.is_avulso && !isFilho && (

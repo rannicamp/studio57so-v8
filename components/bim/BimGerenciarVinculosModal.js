@@ -103,8 +103,12 @@ export default function BimGerenciarVinculosModal({
 
   if (!isOpen || !materialOuSinapi) return null;
 
-  // Filtra mapeamentos que pertencem DIRETAMENTE a este material (e não a um pai avulso)
+  // Filtra mapeamentos que pertencem ao item específico clicado, priorizando pelo mapeamento_id
   const mapeamentosDesteItem = mapeamentos.filter(m => {
+    if (materialOuSinapi.mapeamento_id) {
+      return String(m.id) === String(materialOuSinapi.mapeamento_id);
+    }
+    // Fallback legado caso não haja mapeamento_id disponível
     if (materialOuSinapi.origem === 'sinapi') {
       const mId = m.sinapi?.id || m.sinapi_id;
       return mId && String(mId) === String(materialOuSinapi.sinapi_id) && !m.vinculo_pai_id;

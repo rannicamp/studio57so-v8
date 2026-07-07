@@ -230,20 +230,56 @@ export function useBimMapeamentos({ organizacaoId, empreendimentoId, modelosIds 
         }
       };
 
-      const resultado = (data || []).map(item => {
-        if (item.fator_conversao) {
+      const calcularQuantidadesArvore = (itens) => {
+        const itensOrdenados = [...itens].sort((a, b) => (Number(a.nivel) || 1) - (Number(b.nivel) || 1));
+        const qtdPorMapeamento = {};
+        const qtdPorMaterial = {};
+        const qtdPorSinapi = {};
+        
+        return itensOrdenados.map(item => {
           const original = Number(item.quantidade) || 0;
           const preco = Number(item.preco_unitario) || 0;
-          const novaQuantidade = parseFormula(item.fator_conversao, original);
+          let valorReferencia = original;
+          
+          if (item.pai_mapeamento_id || item.pai_material_id || item.pai_sinapi_id) {
+            let paiQtd = null;
+            if (item.pai_mapeamento_id && qtdPorMapeamento[item.pai_mapeamento_id] !== undefined) {
+              paiQtd = qtdPorMapeamento[item.pai_mapeamento_id];
+            } else if (item.pai_material_id && qtdPorMaterial[item.pai_material_id] !== undefined) {
+              paiQtd = qtdPorMaterial[item.pai_material_id];
+            } else if (item.pai_sinapi_id && qtdPorSinapi[item.pai_sinapi_id] !== undefined) {
+              paiQtd = qtdPorSinapi[item.pai_sinapi_id];
+            }
+            
+            if (paiQtd !== null) {
+              valorReferencia = paiQtd;
+            }
+          }
+          
+          const novaQuantidade = parseFormula(item.fator_conversao, valorReferencia);
+          
+          if (item.mapeamento_id) {
+            qtdPorMapeamento[item.mapeamento_id] = novaQuantidade;
+          }
+          if (item.material_id) {
+            qtdPorMaterial[item.material_id] = novaQuantidade;
+          }
+          if (item.sinapi_id) {
+            qtdPorSinapi[item.sinapi_id] = novaQuantidade;
+          }
+          
           return {
             ...item,
             quantidadeOriginalApenasParaInfo: original,
             quantidade: novaQuantidade,
             custo_total: novaQuantidade * preco
           };
-        }
-        return item;
-      });
+        });
+      };
+
+      const itensCalculados = calcularQuantidadesArvore(data || []);
+      const mapaItens = new Map(itensCalculados.map(it => [it.key, it]));
+      const resultado = (data || []).map(originalItem => mapaItens.get(originalItem.key) || originalItem);
 
       return resultado;
     },
@@ -289,20 +325,56 @@ export function useBimMapeamentos({ organizacaoId, empreendimentoId, modelosIds 
         }
       };
 
-      const resultado = (data || []).map(item => {
-        if (item.fator_conversao) {
+      const calcularQuantidadesArvore = (itens) => {
+        const itensOrdenados = [...itens].sort((a, b) => (Number(a.nivel) || 1) - (Number(b.nivel) || 1));
+        const qtdPorMapeamento = {};
+        const qtdPorMaterial = {};
+        const qtdPorSinapi = {};
+        
+        return itensOrdenados.map(item => {
           const original = Number(item.quantidade) || 0;
           const preco = Number(item.preco_unitario) || 0;
-          const novaQuantidade = parseFormula(item.fator_conversao, original);
+          let valorReferencia = original;
+          
+          if (item.pai_mapeamento_id || item.pai_material_id || item.pai_sinapi_id) {
+            let paiQtd = null;
+            if (item.pai_mapeamento_id && qtdPorMapeamento[item.pai_mapeamento_id] !== undefined) {
+              paiQtd = qtdPorMapeamento[item.pai_mapeamento_id];
+            } else if (item.pai_material_id && qtdPorMaterial[item.pai_material_id] !== undefined) {
+              paiQtd = qtdPorMaterial[item.pai_material_id];
+            } else if (item.pai_sinapi_id && qtdPorSinapi[item.pai_sinapi_id] !== undefined) {
+              paiQtd = qtdPorSinapi[item.pai_sinapi_id];
+            }
+            
+            if (paiQtd !== null) {
+              valorReferencia = paiQtd;
+            }
+          }
+          
+          const novaQuantidade = parseFormula(item.fator_conversao, valorReferencia);
+          
+          if (item.mapeamento_id) {
+            qtdPorMapeamento[item.mapeamento_id] = novaQuantidade;
+          }
+          if (item.material_id) {
+            qtdPorMaterial[item.material_id] = novaQuantidade;
+          }
+          if (item.sinapi_id) {
+            qtdPorSinapi[item.sinapi_id] = novaQuantidade;
+          }
+          
           return {
             ...item,
             quantidadeOriginalApenasParaInfo: original,
             quantidade: novaQuantidade,
             custo_total: novaQuantidade * preco
           };
-        }
-        return item;
-      });
+        });
+      };
+
+      const itensCalculados = calcularQuantidadesArvore(data || []);
+      const mapaItens = new Map(itensCalculados.map(it => [it.key, it]));
+      const resultado = (data || []).map(originalItem => mapaItens.get(originalItem.key) || originalItem);
 
       return resultado;
     },
