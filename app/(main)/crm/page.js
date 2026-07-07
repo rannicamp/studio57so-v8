@@ -9,9 +9,9 @@ import { useLayout } from '@/contexts/LayoutContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
- faSpinner, faTimes, faSearch, faPlus, faUsers, faHandshake,
- faPercent, faSackDollar, faCalendarDay, faRobot, faFilter, faLayerGroup,
- faTable, faSync
+  faSpinner, faTimes, faSearch, faPlus, faUsers, faHandshake,
+  faPercent, faSackDollar, faCalendarDay, faRobot, faFilter, faLayerGroup,
+  faTable, faSync, faToggleOn, faToggleOff
 } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 import { differenceInCalendarDays, startOfDay } from 'date-fns';
@@ -358,29 +358,114 @@ export default function CrmPage() {
 
  const { data: filterOptions } = useQuery({ queryKey: ['crmFilterOptions', organizacaoId], queryFn: () => fetchFilterData(supabase, organizacaoId), enabled: !!organizacaoId, staleTime: 1000 * 60 * 15 });
  const { data: availableProducts = [] } = useQuery({ queryKey: ['availableProducts', organizacaoId], queryFn: () => fetchAvailableProducts(supabase, organizacaoId), enabled: !!organizacaoId });
- const { data: activityData } = useQuery({ queryKey: ['activityModalData', organizacaoId], queryFn: () => fetchActivityModalData(supabase, organizacaoId), enabled: !!organizacaoId });
- const { funcionarios = [], empresas = [] } = activityData || {};
+  const { data: activityData } = useQuery({ queryKey: ['activityModalData', organizacaoId], queryFn: () => fetchActivityModalData(supabase, organizacaoId), enabled: !!organizacaoId });
+  const { funcionarios = [], empresas = [] } = activityData || {};
 
- if (funilError) { toast.error(`Erro ao carregar dados do funil: ${funilError.message}`); }
+  // --- QUERY: Dados da organização (incluindo stella_ativa) ---
+  const { data: orgData, refetch: refetchOrgData } = useQuery({
+    queryKey: ['organizacaoInfo', organizacaoId],
+    queryFn: async () => {
+      if (!organizacaoId) return null;
+      const { data, error } = await supabase
+        .from('organizacoes')
+        .select('id, nome, stella_ativa')
+        .eq('id', organizacaoId)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!organizacaoId,
+    staleTime: 1000 * 60 * 5,
+  });
 
- const kpiData = useMemo(() => {
- const dataToAnalyze = contatosNoFunil;
- if (!colunasDoFunil || dataToAnalyze.length === 0) return { totalLeads: 0, vendidos: 0, taxaConversao: 0, valorEmNegociacao: 0, ultimoLead: 'N/A' };
+  const isStellaAtiva = orgData?.stella_ativa !== false;
+  const [isTogglingStella, setIsTogglingStella] = useState(false);
 
- // Usa tipo_coluna para identificar a coluna de conversão de forma robusta
- // (funciona mesmo se o usuário renomear a coluna de 'VENDIDO' para outro nome)
- const colunaVendido = colunasDoFunil.find(c => c.tipo_coluna === 'ganho');
+  const handleToggleStellaGlobal = async () => {
+    const nextStatus = !isStellaAtiva;
+    const confirmMessage = nextStatus
+      ? "Tem certeza que deseja ATIVAR o piloto automático da Stella IA globalmente para toda a sua organização?"
+      : "Tem certeza que deseja DESATIVAR o piloto automático da Stella IA globalmente? Ela não atenderá mais nenhum lead.";
+      
+    if (!confirm(confirmMessage)) return;
 
- const totalLeads = dataToAnalyze.length;
- const vendidos = dataToAnalyze.filter(c => c.coluna_id === colunaVendido?.id).length;
- const taxaConversao = totalLeads > 0 ? (vendidos / totalLeads) * 100 : 0;
- const valorEmNegociacao = dataToAnalyze.filter(contato => { const colunaDoContato = colunasDoFunil.find(c => c.id === contato.coluna_id); return colunaDoContato && colunaVendido && colunaDoContato.ordem < (colunaVendido.ordem || -1); }).reduce((acc, contato) => { const valorProdutos = (contato.produtos_interesse || []).reduce((sum, item) => sum + (item.produto?.valor_venda_calculado || 0), 0); return acc + valorProdutos; }, 0);
- const ultimoLeadDate = dataToAnalyze.length > 0 ? new Date(Math.max(...dataToAnalyze.map(c => new Date(c.created_at)))) : null;
+    setIsTogglingStella(true);
+    try {
+      const { error } = await supabase
+        .from('organizacoes')
+        .update({ stella_ativa: nextStatus })
+        .eq('id', organizacaoId);
 
- return { totalLeads, vendidos, taxaConversao, valorEmNegociacao, ultimoLead: ultimoLeadDate ? formatRelativeDate(ultimoLeadDate) : 'N/A' };
- }, [contatosNoFunil, colunasDoFunil]);
+      if (error) throw error;
+      
+      await refetchOrgData();
+      toast.success(`Stella IA ${nextStatus ? 'ativada' : 'desativada'} com sucesso!`);
+    } catch (err) {
+      toast.error(`Erro ao alterar status da Stella: ${err.message}`);
+    } finally {
+      setIsTogglingStella(false);
+    }
+  };
 
- const mutationOptions = { onSuccess: (message) => { toast.success(message || "Operação realizada com sucesso!"); queryClient.invalidateQueries({ queryKey: ['funilData', organizacaoId, selectedFunilId, debouncedFilters] }); queryClient.invalidateQueries({ queryKey: ['availableProducts', organizacaoId] }); queryClient.invalidateQueries({ queryKey: ['crmFilterOptions', organizacaoId] }); }, onError: (error) => toast.error(error.message) };
+  if (funilError) { toast.error(`Erro ao carregar dados do funil: ${funilError.message}`); }
+
+  // --- QUERY: Dados consolidados de KPIs direto do Banco (para evitar limite de 1000 cards no front) ---
+  const { data: dbKpiData, error: kpiError } = useQuery({
+    queryKey: ['funilKpis', organizacaoId, selectedFunilId, debouncedFilters],
+    queryFn: async () => {
+      if (!organizacaoId || !selectedFunilId) return null;
+      
+      const corretorIds = debouncedFilters.corretorIds?.map(id => id === 'sem_corretor' ? 0 : Number(id)) || null;
+      const tz = getTimezoneOffsetString();
+      const startDate = debouncedFilters.startDate ? debouncedFilters.startDate + 'T00:00:00' + tz : null;
+      const endDate = debouncedFilters.endDate ? debouncedFilters.endDate + 'T23:59:59' + tz : null;
+
+      const { data, error } = await supabase.rpc('obter_kpis_crm', {
+        p_organizacao_id: organizacaoId,
+        p_funil_id: selectedFunilId,
+        p_search_term: debouncedFilters.searchTerm || null,
+        p_corretor_ids: corretorIds,
+        p_origens: debouncedFilters.origens || null,
+        p_campaign_ids: debouncedFilters.campaignIds || null,
+        p_ad_ids: debouncedFilters.adIds || null,
+        p_start_date: startDate,
+        p_end_date: endDate,
+        p_unidade_ids: debouncedFilters.unidadeIds?.map(Number) || null,
+        p_activity_status: debouncedFilters.activityStatus || null
+      });
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!organizacaoId && !!selectedFunilId,
+    staleTime: 1000 * 60 * 5,
+  });
+
+  if (kpiError) { console.error(`Erro ao carregar KPIs do CRM: ${kpiError.message}`); }
+
+  const kpiData = useMemo(() => {
+    if (!dbKpiData) return { totalLeads: 0, vendidos: 0, taxaConversao: 0, valorEmNegociacao: 0, ultimoLead: 'N/A' };
+
+    const ultimoLeadDate = dbKpiData.ultimoLeadAt ? new Date(dbKpiData.ultimoLeadAt) : null;
+    return {
+      totalLeads: Number(dbKpiData.totalLeads || 0),
+      vendidos: Number(dbKpiData.vendidos || 0),
+      taxaConversao: Number(dbKpiData.taxaConversao || 0),
+      valorEmNegociacao: Number(dbKpiData.valorEmNegociacao || 0),
+      ultimoLead: ultimoLeadDate ? formatRelativeDate(ultimoLeadDate) : 'N/A'
+    };
+  }, [dbKpiData]);
+
+  const mutationOptions = { 
+    onSuccess: (message) => { 
+      toast.success(message || "Operação realizada com sucesso!"); 
+      queryClient.invalidateQueries({ queryKey: ['funilData', organizacaoId, selectedFunilId, debouncedFilters] }); 
+      queryClient.invalidateQueries({ queryKey: ['funilKpis'] }); 
+      queryClient.invalidateQueries({ queryKey: ['availableProducts', organizacaoId] }); 
+      queryClient.invalidateQueries({ queryKey: ['crmFilterOptions', organizacaoId] }); 
+    }, 
+    onError: (error) => toast.error(error.message) 
+  };
 
  // --- CRIAÇÃO DE NOVO FUNIL (com colunas-âncora automáticas) ---
  const createFunilMutation = useMutation({
@@ -424,8 +509,12 @@ export default function CrmPage() {
  fetch('/api/crm', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contatoNoFunilId, novaColunaId: newColumnId, organizacaoId }) }).catch(err => console.error("Erro background automação:", err));
  return "Card movido com sucesso!";
  },
- onSuccess: (message) => { toast.success(message); queryClient.invalidateQueries({ queryKey: ['funilData', organizacaoId, debouncedFilters] }); },
- onError: (error) => { toast.error(`Erro ao mover o card: ${error.message}`); }
+  onSuccess: (message) => { 
+    toast.success(message); 
+    queryClient.invalidateQueries({ queryKey: ['funilData', organizacaoId, debouncedFilters] }); 
+    queryClient.invalidateQueries({ queryKey: ['funilKpis'] });
+  },
+  onError: (error) => { toast.error(`Erro ao mover o card: ${error.message}`); }
  });
 
  // --- ADIÇÃO MANUAL DE CONTATO: Usa Coluna ENTRADA do Funil de Entrada (is_sistema=true) ---
@@ -695,6 +784,28 @@ export default function CrmPage() {
   >
   <FontAwesomeIcon icon={faRobot} className="text-purple-500" /> Automações
   </button>
+  
+  {/* Disjuntor Stella IA */}
+  <div className="flex items-center gap-2 bg-white border border-gray-300 rounded-md py-2 px-3 shadow-sm select-none h-[38px]" title={isStellaAtiva ? "Stella IA está ATIVA e atendendo novos leads" : "Stella IA está DESACTIVADA e não atenderá nenhum lead"}>
+    <FontAwesomeIcon 
+      icon={isTogglingStella ? faSpinner : faRobot} 
+      spin={isTogglingStella}
+      className={isStellaAtiva ? "text-purple-600" : "text-gray-400"} 
+    />
+    <span className="text-xs font-bold text-gray-700">Stella IA</span>
+    <button
+      onClick={handleToggleStellaGlobal}
+      disabled={isTogglingStella}
+      className={`relative inline-flex h-4 w-7 items-center rounded-full transition-colors focus:outline-none disabled:opacity-50 ${
+        isStellaAtiva ? 'bg-purple-600' : 'bg-gray-200'
+      }`}
+    >
+      <span className={`inline-block h-2.5 w-2.5 transform rounded-full bg-white transition-transform ${
+        isStellaAtiva ? 'translate-x-3.5' : 'translate-x-0.5'
+      }`} />
+    </button>
+  </div>
+
  <button
  onClick={openAddContactModal}
  className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold py-2 px-4 rounded-md shadow-sm flex items-center gap-2 transition-colors"

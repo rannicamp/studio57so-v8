@@ -453,16 +453,18 @@ async function saveInstaMessage(supabase, { senderIgId, recipientIgId, messageId
 
       isAutopilotActive = !!contatoRes.data?.ia_atendimento_ativo;
 
-      // Verificar se a organização possui acesso à Inteligência Artificial no plano dela
+      // Verificar se a organização possui acesso à Inteligência Artificial no plano dela e se está ativa
       let hasAiAccess = false;
+      let isStellaGloballyAtiva = true;
       try {
         const { data: org } = await supabase
           .from('organizacoes')
-          .select('plano_codigo, planos ( modulos_inclusos )')
+          .select('plano_codigo, stella_ativa, planos ( modulos_inclusos )')
           .eq('id', orgId)
           .single();
 
         if (org) {
+          isStellaGloballyAtiva = org.stella_ativa !== false;
           if (orgId === 1) {
             hasAiAccess = true;
           } else {
@@ -487,6 +489,15 @@ async function saveInstaMessage(supabase, { senderIgId, recipientIgId, messageId
             .from('contatos')
             .update({ ia_atendimento_ativo: false })
             .eq('id', contatoIdFinal);
+        }
+      } else {
+        // Possui plano de IA. Verifica o disjuntor global da organização.
+        if (!isStellaGloballyAtiva) {
+          isAutopilotActive = false;
+          console.log(`[Instagram Webhook] Stella IA está desativada globalmente para a organização ${orgId}.`);
+        } else {
+          // Stella global está ativa. Respeita o toggle individual da conversa
+          isAutopilotActive = !!contatoRes.data?.ia_atendimento_ativo;
         }
       }
       stellaUserId = stellaUserRes.data?.id;

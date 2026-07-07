@@ -21,40 +21,45 @@ const supabase = createClient();
 // ─── helpers ────────────────────────────────────────────────────────────────
 
 const fetchDadosRoteamento = async (organizacaoId) => {
- if (!organizacaoId) return { regras: [], funis: [], campaigns: [], ads: [] };
+  if (!organizacaoId) return { regras: [], funis: [], campaigns: [], ads: [], org: null };
 
- const [
- { data: regras },
- { data: funis },
- { data: contatos },
- ] = await Promise.all([
- supabase.from('regras_roteamento_funil')
- .select('*')
- .eq('organizacao_id', organizacaoId)
- .order('ordem', { ascending: true }),
- supabase.from('funis')
- .select('id, nome, is_sistema')
- .eq('organizacao_id', organizacaoId)
- .order('is_sistema', { ascending: false }),
- supabase.from('contatos')
- .select('meta_campaign_id, meta_campaign_name, meta_ad_id, meta_ad_name')
- .eq('organizacao_id', organizacaoId)
- .not('meta_campaign_id', 'is', null),
- ]);
+  const [
+    { data: regras },
+    { data: funis },
+    { data: contatos },
+    { data: org },
+  ] = await Promise.all([
+    supabase.from('regras_roteamento_funil')
+      .select('*')
+      .eq('organizacao_id', organizacaoId)
+      .order('ordem', { ascending: true }),
+    supabase.from('funis')
+      .select('id, nome, is_sistema')
+      .eq('organizacao_id', organizacaoId)
+      .order('is_sistema', { ascending: false }),
+    supabase.from('contatos')
+      .select('meta_campaign_id, meta_campaign_name, meta_ad_id, meta_ad_name')
+      .eq('organizacao_id', organizacaoId)
+      .not('meta_campaign_id', 'is', null),
+    supabase.from('organizacoes')
+      .select('id, nome, stella_ativa')
+      .eq('id', organizacaoId)
+      .maybeSingle(),
+  ]);
 
- const campaigns = [...new Map(
- (contatos || [])
- .filter(c => c.meta_campaign_id && c.meta_campaign_name)
- .map(c => [c.meta_campaign_id, { id: c.meta_campaign_id, nome: c.meta_campaign_name }])
- ).values()].sort((a, b) => a.nome.localeCompare(b.nome));
+  const campaigns = [...new Map(
+    (contatos || [])
+      .filter(c => c.meta_campaign_id && c.meta_campaign_name)
+      .map(c => [c.meta_campaign_id, { id: c.meta_campaign_id, nome: c.meta_campaign_name }])
+  ).values()].sort((a, b) => a.nome.localeCompare(b.nome));
 
- const ads = [...new Map(
- (contatos || [])
- .filter(c => c.meta_ad_id && c.meta_ad_name)
- .map(c => [c.meta_ad_id, { id: c.meta_ad_id, nome: c.meta_ad_name }])
- ).values()].sort((a, b) => a.nome.localeCompare(b.nome));
+  const ads = [...new Map(
+    (contatos || [])
+      .filter(c => c.meta_ad_id && c.meta_ad_name)
+      .map(c => [c.meta_ad_id, { id: c.meta_ad_id, nome: c.meta_ad_name }])
+  ).values()].sort((a, b) => a.nome.localeCompare(b.nome));
 
- return { regras: regras || [], funis: funis || [], campaigns, ads };
+  return { regras: regras || [], funis: funis || [], campaigns, ads, org: org || null };
 };
 
 // ─── componente de formulário de nova regra ──────────────────────────────────
@@ -280,25 +285,45 @@ function RegraCard({ regra, funis, campaigns, ads, organizacaoId }) {
 // ─── página principal ────────────────────────────────────────────────────────
 
 export default function AutomacaoPage() {
- const { setPageTitle } = useLayout();
- const { user } = useAuth();
- const organizacaoId = user?.organizacao_id;
+  const { setPageTitle } = useLayout();
+  const { user } = useAuth();
+  const organizacaoId = user?.organizacao_id;
+  const queryClient = useQueryClient();
 
- useEffect(() => { if (setPageTitle) setPageTitle('CRM - Automação'); }, [setPageTitle]);
+  useEffect(() => { if (setPageTitle) setPageTitle('CRM - Automação'); }, [setPageTitle]);
 
- const [showForm, setShowForm] = useState(false);
+  const [showForm, setShowForm] = useState(false);
 
- const { data, isLoading } = useQuery({
- queryKey: ['roteamento', organizacaoId],
- queryFn: () => fetchDadosRoteamento(organizacaoId),
- enabled: !!organizacaoId,
- staleTime: 1000 * 60 * 2,
- });
+  const { data, isLoading } = useQuery({
+    queryKey: ['roteamento', organizacaoId],
+    queryFn: () => fetchDadosRoteamento(organizacaoId),
+    enabled: !!organizacaoId,
+    staleTime: 1000 * 60 * 2,
+  });
 
- const { regras = [], funis = [], campaigns = [], ads = [] } = data || {};
+  const { regras = [], funis = [], campaigns = [], ads = [], org = null } = data || {};
+  const isStellaAtiva = org?.stella_ativa !== false;
 
- return (
- <div className="max-w-4xl mx-auto p-6 space-y-6">
+  const toggleStellaMutation = useMutation({
+    mutationFn: async (newValue) => {
+      const { error } = await supabase
+        .from('organizacoes')
+        .update({ stella_ativa: newValue })
+        .eq('id', organizacaoId);
+      if (error) throw error;
+      return newValue;
+    },
+    onSuccess: (val) => {
+      queryClient.invalidateQueries({ queryKey: ['roteamento', organizacaoId] });
+      toast.success(`Stella IA ${val ? 'ativada' : 'desativada'} globalmente para a organização!`);
+    },
+    onError: (err) => {
+      toast.error(`Erro ao alterar status da Stella IA: ${err.message}`);
+    }
+  });
+
+  return (
+    <div className="max-w-4xl mx-auto p-6 space-y-6">
  {/* Header */}
  <div className="flex items-center justify-between">
  <div>
@@ -310,6 +335,43 @@ export default function AutomacaoPage() {
  Define regras para mover leads automaticamente do <strong>Funil de Entrada</strong> para funis específicos.
  </p>
  </div>
+ </div>
+
+ {/* Disjuntor Global Stella IA */}
+ <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+   <div className="flex items-start gap-4">
+     <div className={`p-3 rounded-lg ${isStellaAtiva ? 'bg-purple-50 text-purple-600' : 'bg-gray-100 text-gray-400'} transition-colors`}>
+       <FontAwesomeIcon icon={faRobot} className="text-xl" />
+     </div>
+     <div>
+       <h3 className="font-bold text-gray-800 flex items-center gap-2">
+         Piloto Automático Stella IA (SDR)
+         <span className={`px-2 py-0.5 rounded-full text-2xs font-bold ${isStellaAtiva ? 'bg-purple-100 text-purple-700' : 'bg-gray-200 text-gray-600'}`}>
+           {isStellaAtiva ? 'ATIVADO' : 'DESATIVADO'}
+         </span>
+       </h3>
+       <p className="text-sm text-gray-500 mt-0.5 leading-relaxed">
+         Ative ou desative o piloto automático global da Stella para toda a sua organização. Se desativado, nenhum lead novo ou qualificado será respondido pela Inteligência Artificial.
+       </p>
+     </div>
+   </div>
+   
+   <button
+     onClick={() => toggleStellaMutation.mutate(!isStellaAtiva)}
+     disabled={toggleStellaMutation.isPending}
+     className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm transition-all focus:ring-4 focus:ring-purple-100 disabled:opacity-50 ${
+       isStellaAtiva
+         ? 'bg-purple-600 text-white hover:bg-purple-700 shadow-sm shadow-purple-200'
+         : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
+     }`}
+   >
+     {toggleStellaMutation.isPending ? (
+       <FontAwesomeIcon icon={faSpinner} spin />
+     ) : (
+       <FontAwesomeIcon icon={isStellaAtiva ? faToggleOn : faToggleOff} className="text-lg" />
+     )}
+     {isStellaAtiva ? 'Desativar IA' : 'Ativar IA'}
+   </button>
  </div>
 
  {/* Como funciona */}

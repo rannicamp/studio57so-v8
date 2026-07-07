@@ -109,7 +109,7 @@ export async function GET(request) {
 
         // 0. Verificar se piloto automático está ativo para o contato e se o lead está atribuído à Stella
         // Mudamos funilRes para usar limit(1) e evitar erro de múltiplas linhas
-        const [contatoInfoRes, stellaUserRes, funilRes] = await Promise.all([
+        const [contatoInfoRes, stellaUserRes, funilRes, orgRes] = await Promise.all([
           supabaseAdmin
             .from('contatos')
             .select('ia_atendimento_ativo, ai_analysis')
@@ -124,7 +124,12 @@ export async function GET(request) {
             .from('contatos_no_funil')
             .select('corretor_id')
             .eq('contato_id', act.contato_id)
-            .limit(1)
+            .limit(1),
+          supabaseAdmin
+            .from('organizacoes')
+            .select('stella_ativa')
+            .eq('id', act.organizacao_id)
+            .maybeSingle()
         ]);
 
         const contatoInfo = contatoInfoRes.data;
@@ -132,10 +137,12 @@ export async function GET(request) {
         const stellaUserId = stellaUserRes.data?.id;
         const stellaContatoId = stellaUserRes.data?.contato_id;
         const leadCorretorId = funilRes.data?.[0]?.corretor_id;
+        const isStellaGloballyAtiva = orgRes.data?.stella_ativa !== false;
 
         // Se o lead no funil está atribuído a um corretor humano, desativa o piloto automático por segurança
         let autopilotActive = contatoInfo?.ia_atendimento_ativo;
         let isHumanReassigned = false;
+        let isStellaGloballyDisabled = false;
         
         if (autopilotActive && stellaContatoId && leadCorretorId && stellaContatoId !== leadCorretorId) {
           console.warn(`[CRON Stella] Contato ID ${act.contato_id} atribuído ao corretor humano ID ${leadCorretorId}. Desativando autopilot.`);
@@ -147,12 +154,21 @@ export async function GET(request) {
             .eq('id', act.contato_id);
         }
 
+        if (autopilotActive && !isStellaGloballyAtiva) {
+          console.warn(`[CRON Stella] Stella IA está desativada globalmente para a organização ${act.organizacao_id}. Pulando atividade.`);
+          autopilotActive = false;
+          isStellaGloballyDisabled = true;
+        }
+
         if (contatoInfoErr || !contatoInfo || !autopilotActive) {
-          const motivoCancelamento = isHumanReassigned 
-            ? 'Lead sob responsabilidade de corretor humano' 
-            : 'Piloto automático inativo para este contato';
+          let motivoCancelamento = 'Piloto automático inativo para este contato';
+          if (isHumanReassigned) {
+            motivoCancelamento = 'Lead sob responsabilidade de corretor humano';
+          } else if (isStellaGloballyDisabled) {
+            motivoCancelamento = 'Stella IA desativada globalmente para a organização';
+          }
           
-          console.warn(`[CRON Stella Warning] Contato ID ${act.contato_id} com piloto automático inativo. Cancelando atividade.`);
+          console.warn(`[CRON Stella Warning] Contato ID ${act.contato_id} com piloto automático inativo (${motivoCancelamento}). Cancelando atividade.`);
           await supabaseAdmin
             .from('activities')
             .update({ 

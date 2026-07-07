@@ -586,9 +586,9 @@ export default function ContactProfile({ contact }) {
   },
   onSuccess: (_, newValue) => {
     queryClient.invalidateQueries({ queryKey: ['contactProfileData', contact.contato_id] });
-    toast.success(newValue ? "Piloto automático ativado!" : "Piloto automático desativado!");
+    toast.success(newValue ? "Stella IA ativada para este lead!" : "Stella IA desativada para este lead!");
   },
-  onError: (e) => toast.error("Erro ao alterar piloto automático: " + e.message)
+  onError: (e) => toast.error("Erro ao alterar status da Stella IA: " + e.message)
  });
 
  const sendDirectAttachmentMutation = useMutation({
@@ -960,7 +960,7 @@ export default function ContactProfile({ contact }) {
       <div className="flex items-center gap-2.5 text-purple-950">
         <FontAwesomeIcon icon={faRobot} className={`text-purple-600 ${displayContact?.ia_atendimento_ativo ? 'animate-pulse' : 'opacity-60'}`} />
         <div className="flex flex-col">
-          <span className="text-xs font-extrabold leading-tight">Piloto Automático (Stella)</span>
+          <span className="text-xs font-extrabold leading-tight">Stella IA (Atendimento)</span>
           {!(hasModuleAccess ? hasModuleAccess('inteligencia_artificial') : false) ? (
             <span className="text-[9px] text-purple-750 font-extrabold mt-0.5 uppercase tracking-wider bg-purple-100 border border-purple-200 px-1.5 py-0.5 rounded-md w-max">
               Requer Plano Elo IA 🔒

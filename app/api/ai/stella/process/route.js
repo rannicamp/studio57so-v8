@@ -64,16 +64,18 @@ export async function POST(request) {
       return NextResponse.json({ status: 'ignored_ia_inactive' });
     }
 
-    // 1b. Verificar se a organização possui acesso à Inteligência Artificial no plano dela
+    // 1b. Verificar se a organização possui acesso à Inteligência Artificial no plano dela e se está ativa
     let hasAiAccess = false;
+    let isStellaGloballyAtiva = true;
     try {
       const { data: org } = await supabaseAdmin
         .from('organizacoes')
-        .select('plano_codigo, planos ( modulos_inclusos )')
+        .select('plano_codigo, stella_ativa, planos ( modulos_inclusos )')
         .eq('id', organizacaoId)
         .single();
 
       if (org) {
+        isStellaGloballyAtiva = org.stella_ativa !== false;
         if (organizacaoId === 1) {
           hasAiAccess = true;
         } else {
@@ -98,6 +100,12 @@ export async function POST(request) {
         .update({ ia_atendimento_ativo: false })
         .eq('id', contatoId);
       return NextResponse.json({ status: 'blocked_no_ai_plan' });
+    }
+
+    // Possui o módulo de IA no plano. Agora verifica se o administrador ativou a Stella para a organização
+    if (!isStellaGloballyAtiva) {
+      console.log(`[Stella Background Process] Stella IA está desativada globalmente para a organização ${organizacaoId}.`);
+      return NextResponse.json({ status: 'ignored_stella_disabled_globally' });
     }
 
     // Obter número de telefone de forma segura

@@ -1573,7 +1573,8 @@ CREATE TABLE public.organizacoes (
     card_last_digits text,
     plano_codigo text,
     seats_contracted integer DEFAULT 1,
-    cupom_aplicado text
+    cupom_aplicado text,
+    stella_ativa boolean DEFAULT true
 );
 
 CREATE TABLE public.parcelas_adicionais (

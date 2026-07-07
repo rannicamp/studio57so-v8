@@ -161,16 +161,18 @@ export async function POST(request) {
           .eq('id', contatoId)
           .single();
 
-        // Verificar se a organização possui acesso à Inteligência Artificial no plano dela
+        // Verificar se a organização possui acesso à Inteligência Artificial no plano dela e se está ativa
         let hasAiAccess = false;
+        let isStellaGloballyAtiva = true;
         try {
           const { data: org } = await supabaseAdmin
             .from('organizacoes')
-            .select('plano_codigo, planos ( modulos_inclusos )')
+            .select('plano_codigo, stella_ativa, planos ( modulos_inclusos )')
             .eq('id', config.organizacao_id)
             .single();
 
           if (org) {
+            isStellaGloballyAtiva = org.stella_ativa !== false;
             if (config.organizacao_id === 1) {
               hasAiAccess = true;
             } else {
@@ -188,9 +190,7 @@ export async function POST(request) {
           console.error('[Webhook Plan Check Error]:', errPlan.message);
         }
 
-        if (hasAiAccess) {
-          isAutopilotActive = !!contato?.ia_atendimento_ativo;
-        } else {
+        if (!hasAiAccess) {
           isAutopilotActive = false;
           if (contato?.ia_atendimento_ativo) {
             console.log(`[Webhook Plan Enforcer] Desativando Stella para Contato ${contatoId} da Org ${config.organizacao_id} por falta de módulo de IA.`);
@@ -198,6 +198,15 @@ export async function POST(request) {
               .from('contatos')
               .update({ ia_atendimento_ativo: false })
               .eq('id', contatoId);
+          }
+        } else {
+          // Possui o módulo de IA no plano. Agora verifica se o administrador ativou a Stella para a organização
+          if (!isStellaGloballyAtiva) {
+            isAutopilotActive = false;
+            console.log(`[Webhook] Stella IA está desativada globalmente para a organização ${config.organizacao_id}.`);
+          } else {
+            // Stella global está ativa. Respeita o toggle individual da conversa
+            isAutopilotActive = !!contato?.ia_atendimento_ativo;
           }
         }
 
