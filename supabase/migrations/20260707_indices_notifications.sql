@@ -118,6 +118,24 @@ BEGIN
     v_nome_empreendimento := COALESCE(v_nome_empreendimento, '');
     v_nome_contato := COALESCE(v_nome_contato, '');
 
+    IF (TG_TABLE_NAME = 'indices_governamentais') THEN
+        DECLARE
+            v_acumulado_12m numeric;
+        BEGIN
+            SELECT COALESCE(ROUND(((exp(sum(ln(GREATEST(1 + valor_mensal / 100, 0.00001)))) - 1) * 100)::numeric, 2), 0) INTO v_acumulado_12m
+            FROM (
+                SELECT valor_mensal
+                FROM public.indices_governamentais
+                WHERE nome_indice = NEW.nome_indice
+                  AND data_referencia <= NEW.data_referencia
+                ORDER BY data_referencia DESC
+                LIMIT 12
+            ) sub;
+            
+            v_json_dados := v_json_dados || jsonb_build_object('acumulado_12m', v_acumulado_12m::text);
+        END;
+    END IF;
+
     FOR r_regra IN 
         SELECT 
             t.id, t.regras_avancadas, t.coluna_monitorada, t.valor_gatilho, 
@@ -412,7 +430,7 @@ BEGIN
             NULL, 
             NULL, 
             '📊 Índice Atualizado: {nome_indice}', 
-            'O índice {nome_indice} correspondente a {mes_ano} foi publicado/atualizado com o valor de {valor_mensal}%.', 
+            'O índice {nome_indice} correspondente a {mes_ano} foi publicado: mensal de {valor_mensal}% e acumulado de {acumulado_12m}% nos últimos 12 meses.', 
             '/painel/configuracoes/indices', 
             'fa-line-chart', 
             false, 
@@ -420,6 +438,10 @@ BEGIN
             '[]'::jsonb
         )
         RETURNING id INTO v_template_id;
+    ELSE
+        UPDATE public.sys_notification_templates 
+        SET mensagem_template = 'O índice {nome_indice} correspondente a {mes_ano} foi publicado: mensal de {valor_mensal}% e acumulado de {acumulado_12m}% nos últimos 12 meses.'
+        WHERE id = v_template_id;
     END IF;
 
     -- 5. Associa este template nas configurações de cada organização existente com funcoes_ids = ARRAY[-1] (Geral)
