@@ -221,7 +221,14 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
     pais.forEach(pai => {
       resultado.push(pai);
       
-      let filhosDestePai = filhos.filter(f => f.pai_mapeamento_id === pai.mapeamento_id);
+      // Associa filhos ao pai: tenta pelo mapeamento_id original ou, se quebrado por consolidação,
+      // usa o fallback do material_id ou sinapi_id do pai
+      let filhosDestePai = filhos.filter(f => 
+        f.pai_mapeamento_id === pai.mapeamento_id ||
+        (pai.material_id && f.pai_material_id === pai.material_id) ||
+        (pai.sinapi_id && f.pai_sinapi_id === pai.sinapi_id)
+      );
+      
       // Ordena também os filhos se houver campo ativo
       if (ordenacaoCampo) {
         filhosDestePai = ordenarMateriais(filhosDestePai);
@@ -239,7 +246,14 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
       if (ordenacaoCampo) {
         orfaosOrdenados = ordenarMateriais(orfaos);
       }
-      resultado.push(...orfaosOrdenados);
+      // Se restaram órfãos (o pai de fato não está no orçamento), limpamos o pai_mapeamento_id
+      // para que eles sejam exibidos no primeiro nível da tabela sem setinha de subitem
+      const orfaosTratados = orfaosOrdenados.map(o => ({
+        ...o,
+        pai_mapeamento_id: null,
+        is_orfao: true
+      }));
+      resultado.push(...orfaosTratados);
     }
     
     return resultado;
