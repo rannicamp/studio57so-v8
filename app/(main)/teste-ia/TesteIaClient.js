@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPaperPlane, faRobot, faUser, faSpinner, faDatabase } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
+import SparklesIcon from '@/components/shared/SparklesIcon';
 
 export default function TesteIaClient({ organizacaoId }) {
   const [messages, setMessages] = useState([
@@ -76,7 +77,11 @@ export default function TesteIaClient({ organizacaoId }) {
                 
                 {/* Avatar */}
                 <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center shadow-sm ${isModel ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600'}`}>
-                  <FontAwesomeIcon icon={isModel ? faRobot : faUser} />
+                  {isModel ? (
+                    <SparklesIcon className="w-5 h-5" active={true} colorOverride="#FFFFFF" />
+                  ) : (
+                    <FontAwesomeIcon icon={faUser} />
+                  )}
                 </div>
 
                 {/* Balão de Mensagem */}
@@ -97,7 +102,7 @@ export default function TesteIaClient({ organizacaoId }) {
           <div className="flex justify-start">
             <div className="flex gap-4 max-w-[85%]">
                <div className="flex-shrink-0 w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-sm">
-                  <FontAwesomeIcon icon={faRobot} />
+                  <SparklesIcon className="w-5 h-5" active={true} colorOverride="#FFFFFF" />
                </div>
                <div className="p-4 rounded-2xl bg-white border border-gray-100 text-gray-500 rounded-tl-none flex items-center gap-3">
                   <FontAwesomeIcon icon={faDatabase} className="animate-pulse text-blue-500" />

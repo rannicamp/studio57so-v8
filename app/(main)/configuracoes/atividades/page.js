@@ -9,6 +9,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlus, faSpinner, faTrash, faPen, faSave, faChevronLeft, faClock, faTasks, faRobot } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 import Link from 'next/link';
+import SparklesIcon from '@/components/shared/SparklesIcon';
 
 const EVENT_TYPES = ['Reunião', 'Visita', 'Apresentação', 'Follow-up', 'Proposta', 'Outros'];
 
@@ -145,7 +146,7 @@ export default function ConfigAtividadesPage() {
           </Link>
           <div>
             <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
-              <FontAwesomeIcon icon={faRobot} className="text-blue-600 animate-pulse" />
+              <SparklesIcon className="w-6 h-6 animate-pulse" active={true} />
               Automação de Atividades CRM
             </h1>
             <p className="text-xs text-gray-500">Mapeie as subatividades que devem ser criadas automaticamente ao agendar eventos.</p>

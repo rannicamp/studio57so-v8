@@ -7,6 +7,7 @@ import MetaSetupWizard from '@/components/integracoes/MetaSetupWizard';
 import GoogleCalendarButton from '@/components/integracoes/GoogleCalendarButton';
 import SyncAllContactsButton from '@/components/integracoes/SyncAllContactsButton';
 import Link from 'next/link';
+import SparklesIcon from '@/components/shared/SparklesIcon';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faRobot } from '@fortawesome/free-solid-svg-icons';
 
@@ -68,16 +69,16 @@ export default async function IntegracoesPage() {
         {/* API de Agente IA (MCP) */}
         <Link href="/configuracoes/integracoes/api-keys" className="block group">
           <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200 h-full flex flex-col hover:-translate-y-1">
-            <div className="w-12 h-12 rounded-lg flex items-center justify-center mb-4 bg-purple-50 text-purple-600 group-hover:scale-110 transition-transform duration-200">
-              <FontAwesomeIcon icon={faRobot} size="lg" />
+            <div className="w-12 h-12 rounded-lg flex items-center justify-center mb-4 bg-orange-50 text-orange-600 group-hover:scale-110 transition-transform duration-200">
+              <SparklesIcon className="w-6 h-6" active={true} />
             </div>
-            <h3 className="text-lg font-semibold text-gray-800 mb-2 group-hover:text-purple-600 transition-colors">
+            <h3 className="text-lg font-semibold text-gray-800 mb-2 group-hover:text-orange-600 transition-colors">
               API de Agente IA (MCP)
             </h3>
             <p className="text-gray-500 text-sm leading-relaxed flex-grow">
               Conecte agentes inteligentes (como Antigravity e Cursor) de forma segura à sua organização usando chaves de API personalizadas.
             </p>
-            <div className="mt-4 text-purple-600 font-medium text-sm group-hover:underline">
+            <div className="mt-4 text-orange-600 font-medium text-sm group-hover:underline">
               Gerenciar Chaves →
             </div>
           </div>
