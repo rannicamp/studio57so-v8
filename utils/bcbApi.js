@@ -1,3 +1,4 @@
+"use server";
 // utils/bcbApi.js
 /**
  * Utilitário para integração com a API de Dados Abertos do Banco Central do Brasil (SGS).
@@ -11,7 +12,7 @@ const BCB_SERIES = {
     'INCC': 192,  
     'INPC': 188,  
     'IGP-DI': 190,
-    'IPC-FIPE': 73,
+    'IPC-FIPE': 193,
     'SELIC': 4390, 
     'CDI': 4391,   
     'TR': 226     

@@ -642,6 +642,15 @@ CREATE TABLE public.contratos_terceirizados_anexos (
     organizacao_id bigint
 );
 
+CREATE TABLE public.crm_config_atividades (
+    id bigint NOT NULL,
+    organizacao_id bigint NOT NULL,
+    tipo_evento text NOT NULL,
+    tarefas_automatizadas jsonb NOT NULL DEFAULT '[]'::jsonb,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now()
+);
+
 CREATE TABLE public.crm_notas (
     id uuid NOT NULL DEFAULT gen_random_uuid(),
     contato_no_funil_id uuid NOT NULL,
@@ -1112,7 +1121,8 @@ CREATE TABLE public.indices_governamentais (
     organizacao_id integer NOT NULL DEFAULT 1,
     created_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
     updated_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
-    descricao text
+    descricao text,
+    data_divulgacao_oficial timestamp with time zone
 );
 
 CREATE TABLE public.instagram_conversations (
@@ -1560,7 +1570,10 @@ CREATE TABLE public.organizacoes (
     subscription_expires_at timestamp with time zone DEFAULT (now() + '15 days'::interval),
     asaas_card_token text,
     card_brand text,
-    card_last_digits text
+    card_last_digits text,
+    plano_codigo text,
+    seats_contracted integer DEFAULT 1,
+    cupom_aplicado text
 );
 
 CREATE TABLE public.parcelas_adicionais (
@@ -1667,6 +1680,18 @@ CREATE TABLE public.permissoes (
     organizacao_id bigint
 );
 
+CREATE TABLE public.planos (
+    id integer NOT NULL DEFAULT nextval('planos_id_seq'::regclass),
+    codigo text NOT NULL,
+    nome text NOT NULL,
+    valor_mensal numeric NOT NULL,
+    valor_anual numeric NOT NULL,
+    modulos_inclusos jsonb NOT NULL,
+    ativo boolean DEFAULT true,
+    organizacao_id bigint NOT NULL DEFAULT 1,
+    created_at timestamp with time zone DEFAULT now()
+);
+
 CREATE TABLE public.politicas_plataforma (
     id uuid NOT NULL DEFAULT uuid_generate_v4(),
     tipo text NOT NULL,
@@ -1749,6 +1774,17 @@ CREATE TABLE public.projetos_bim_vistas (
     tipo text NOT NULL,
     role text,
     thumbnail_url text,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.promocoes (
+    id integer NOT NULL DEFAULT nextval('promocoes_id_seq'::regclass),
+    codigo text NOT NULL,
+    desconto_percentual numeric DEFAULT 0.00,
+    trial_days integer DEFAULT 15,
+    ativo boolean DEFAULT true,
+    valido_ate timestamp with time zone,
+    organizacao_id bigint NOT NULL DEFAULT 1,
     created_at timestamp with time zone DEFAULT now()
 );
 
@@ -2028,6 +2064,19 @@ CREATE TABLE public.termos_uso (
     ativo boolean DEFAULT true,
     organizacao_id bigint,
     created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.user_api_keys (
+    id uuid NOT NULL DEFAULT gen_random_uuid(),
+    usuario_id uuid NOT NULL,
+    organizacao_id bigint NOT NULL,
+    key_hash text NOT NULL,
+    key_preview text NOT NULL,
+    nome text NOT NULL,
+    created_at timestamp with time zone NOT NULL DEFAULT now(),
+    expires_at timestamp with time zone,
+    last_used_at timestamp with time zone,
+    ativo boolean NOT NULL DEFAULT true
 );
 
 CREATE TABLE public.usuario_aceite_politicas (

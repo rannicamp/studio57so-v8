@@ -26,7 +26,7 @@ const BCB_SERIES = {
     'IGP-M': { codigo: 189, descricao: 'Índice Geral de Preços - Mercado (FGV)' },
     'IGP-DI': { codigo: 190, descricao: 'Índice Geral de Preços - Disponibilidade Interna (FGV)' },
     'INCC': { codigo: 192, descricao: 'Índice Nacional de Custo da Construção (FGV)' },
-    'IPC-FIPE': { codigo: 73, descricao: 'Índice de Preços ao Consumidor do Município de São Paulo (FIPE)' },
+    'IPC-FIPE': { codigo: 193, descricao: 'Índice de Preços ao Consumidor do Município de São Paulo (FIPE)' },
     'SELIC': { codigo: 4390, descricao: 'Taxa SELIC acumulada no mês (% a.m.)' },
     'CDI': { codigo: 4391, descricao: 'CDI acumulado no mês (% a.m.)' },
     'TR': { codigo: 226, descricao: 'Taxa Referencial (BCB)' }
@@ -79,25 +79,29 @@ async function main() {
         let totalInseridos = 0;
         
         for (const indice of indices) {
-            const historico = await buscarHistorico(indice, dataInicial, dataFinal);
-            console.log(`✅ Recebidos ${historico.length} meses divulgados para o ${indice}. Injetando no banco...`);
-            
-            for (const item of historico) {
-                const { data, error } = await supabase
-                    .from('indices_governamentais')
-                    .insert([item])
-                    .select();
+            try {
+                const historico = await buscarHistorico(indice, dataInicial, dataFinal);
+                console.log(`✅ Recebidos ${historico.length} meses divulgados para o ${indice}. Injetando no banco...`);
                 
-                if (error) {
-                    // Ignora duplicações (pois já botamos constraint UNIQUE pra evitar sujeira)
-                    if (error.code === '23505') {
-                        // console.log(`Ignorando duplicado: ${item.nome_indice} - ${item.mes_ano}`);
+                for (const item of historico) {
+                    const { data, error } = await supabase
+                        .from('indices_governamentais')
+                        .insert([item])
+                        .select();
+                    
+                    if (error) {
+                        // Ignora duplicações (pois já botamos constraint UNIQUE pra evitar sujeira)
+                        if (error.code === '23505') {
+                            // console.log(`Ignorando duplicado: ${item.nome_indice} - ${item.mes_ano}`);
+                        } else {
+                            console.error(`🚨 Erro ao salvar ${indice} de ${item.mes_ano}:`, error.message);
+                        }
                     } else {
-                        console.error(`🚨 Erro ao salvar ${indice} de ${item.mes_ano}:`, error.message);
+                        totalInseridos++;
                     }
-                } else {
-                    totalInseridos++;
                 }
+            } catch (erroIndice) {
+                console.error(`❌ Erro no índice ${indice}:`, erroIndice.message);
             }
         }
         
