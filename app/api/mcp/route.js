@@ -676,6 +676,72 @@ async function handleMcpRequest(rpcRequest, supabase, user) {
                 },
                 required: ['id']
               }
+            },
+            {
+              name: 'listar_documento_tipos',
+              description: 'Lista todos os tipos de documentos e suas siglas correspondentes cadastrados no sistema.',
+              inputSchema: {
+                type: 'object',
+                properties: {}
+              }
+            },
+            {
+              name: 'listar_anexos_por_recurso',
+              description: 'Lista todos os anexos cadastrados vinculados a um recurso específico.',
+              inputSchema: {
+                type: 'object',
+                properties: {
+                  recurso_tipo: {
+                    type: 'string',
+                    enum: ['empreendimento', 'empresa', 'lancamento', 'pedido', 'atividade', 'funcionario', 'contrato', 'contrato_terceirizado'],
+                    description: 'O tipo do recurso ao qual os anexos pertencem.'
+                  },
+                  recurso_id: {
+                    type: 'integer',
+                    description: 'O ID numérico do recurso.'
+                  }
+                },
+                required: ['recurso_tipo', 'recurso_id']
+              }
+            },
+            {
+              name: 'upload_anexo_sistema',
+              description: 'Realiza o upload de um arquivo em base64 para o Supabase Storage e o vincula ao recurso e aba/categoria corretos com a nomenclatura oficial.',
+              inputSchema: {
+                type: 'object',
+                properties: {
+                  conteudo_base64: {
+                    type: 'string',
+                    description: 'O conteúdo do arquivo codificado em base64.'
+                  },
+                  nome_arquivo: {
+                    type: 'string',
+                    description: 'O nome original do arquivo com extensão (ex: rg_joao.pdf).'
+                  },
+                  recurso_tipo: {
+                    type: 'string',
+                    enum: ['empreendimento', 'empresa', 'lancamento', 'pedido', 'atividade', 'funcionario', 'contrato', 'contrato_terceirizado'],
+                    description: 'O tipo do recurso ao qual o anexo pertence.'
+                  },
+                  recurso_id: {
+                    type: 'integer',
+                    description: 'O ID numérico do recurso.'
+                  },
+                  tipo_documento_id: {
+                    type: 'integer',
+                    description: 'O ID do tipo de documento (de listar_documento_tipos).'
+                  },
+                  categoria_aba: {
+                    type: 'string',
+                    description: 'A categoria ou aba (ex: marketing, juridico, geral, marca, etc.).'
+                  },
+                  descricao: {
+                    type: 'string',
+                    description: 'Uma descrição curta para o anexo.'
+                  }
+                },
+                required: ['conteudo_base64', 'nome_arquivo', 'recurso_tipo', 'recurso_id']
+              }
             }
           ]
         },
@@ -686,7 +752,24 @@ async function handleMcpRequest(rpcRequest, supabase, user) {
       const { name, arguments: args } = params;
       try {
         // 1. Validar a governança de permissões por cargo
-        const security = getToolSecurity(name);
+        let security = getToolSecurity(name);
+        if (name === 'listar_anexos_por_recurso' || name === 'upload_anexo_sistema') {
+          const recursoTipo = args?.recurso_tipo;
+          const recursoMap = {
+            'empreendimento': 'empreendimentos',
+            'empresa': 'empresas',
+            'lancamento': 'financeiro',
+            'pedido': 'pedidos',
+            'atividade': 'atividades',
+            'funcionario': 'funcionarios',
+            'contrato': 'contratos',
+            'contrato_terceirizado': 'contratos'
+          };
+          const recurso = recursoMap[recursoTipo] || 'empreendimentos';
+          const acao = name === 'upload_anexo_sistema' ? 'criar' : 'ver';
+          security = { recurso, acao };
+        }
+
         if (security) {
           const permitido = await verificarPermissao(supabase, user.id, security.recurso, security.acao);
           if (!permitido) {
@@ -801,7 +884,10 @@ function getToolSecurity(toolName) {
     // Empreendimentos / Unidades
     'listar_empreendimentos': { recurso: 'empreendimentos', acao: 'ver' },
     'listar_unidades_empreendimento': { recurso: 'empreendimentos', acao: 'ver' },
-    'atualizar_unidade_empreendimento': { recurso: 'empreendimentos', acao: 'editar' }
+    'atualizar_unidade_empreendimento': { recurso: 'empreendimentos', acao: 'editar' },
+
+    // Anexos / Tipos
+    'listar_documento_tipos': { recurso: 'painel', acao: 'ver' }
   };
   
   return mapping[toolName] || null;
@@ -1773,6 +1859,395 @@ async function executeTool(name, args, supabase, user) {
           saldo_minutos: saldoMinutos
         };
       });
+    }
+
+    // ==================== ANEXOS E UPLOADS (PADRÃO OURO) ====================
+    case 'listar_documento_tipos': {
+      const { data, error } = await supabase
+        .from('documento_tipos')
+        .select('id, descricao, sigla')
+        .order('descricao');
+      if (error) throw new Error(error.message);
+      return data;
+    }
+
+    case 'listar_anexos_por_recurso': {
+      const { recurso_tipo, recurso_id } = args;
+      const orgId = user.organizacao_id;
+
+      switch (recurso_tipo) {
+        case 'empreendimento': {
+          const { data, error } = await supabase
+            .from('empreendimento_anexos')
+            .select('*')
+            .eq('empreendimento_id', recurso_id)
+            .eq('organizacao_id', orgId);
+          if (error) throw new Error(error.message);
+          return data;
+        }
+        case 'empresa': {
+          const { data, error } = await supabase
+            .from('empresa_anexos')
+            .select('*')
+            .eq('empresa_id', recurso_id)
+            .eq('organizacao_id', orgId);
+          if (error) throw new Error(error.message);
+          return data;
+        }
+        case 'lancamento': {
+          const { data, error } = await supabase
+            .from('lancamentos_anexos')
+            .select('*')
+            .eq('lancamento_id', recurso_id)
+            .eq('organizacao_id', orgId);
+          if (error) throw new Error(error.message);
+          return data;
+        }
+        case 'pedido': {
+          const { data, error } = await supabase
+            .from('pedidos_compra_anexos')
+            .select('*')
+            .eq('pedido_compra_id', recurso_id)
+            .eq('organizacao_id', orgId);
+          if (error) throw new Error(error.message);
+          return data;
+        }
+        case 'atividade': {
+          const { data, error } = await supabase
+            .from('activity_anexos')
+            .select('*')
+            .eq('activity_id', recurso_id)
+            .eq('organizacao_id', orgId);
+          if (error) throw new Error(error.message);
+          return data;
+        }
+        case 'funcionario': {
+          const { data, error } = await supabase
+            .from('documentos_funcionarios')
+            .select('*')
+            .eq('funcionario_id', recurso_id)
+            .eq('organizacao_id', orgId);
+          if (error) throw new Error(error.message);
+          return data;
+        }
+        case 'contrato': {
+          const { data, error } = await supabase
+            .from('contrato_anexos')
+            .select('*')
+            .eq('contrato_id', recurso_id)
+            .eq('organizacao_id', orgId);
+          if (error) throw new Error(error.message);
+          return data;
+        }
+        case 'contrato_terceirizado': {
+          const { data, error } = await supabase
+            .from('contratos_terceirizados_anexos')
+            .select('*')
+            .eq('contrato_id', recurso_id)
+            .eq('organizacao_id', orgId);
+          if (error) throw new Error(error.message);
+          return data;
+        }
+        default:
+          throw new Error(`Tipo de recurso desconhecido: ${recurso_tipo}`);
+      }
+    }
+
+    case 'upload_anexo_sistema': {
+      const { conteudo_base64, nome_arquivo, recurso_tipo, recurso_id, tipo_documento_id, categoria_aba, descricao } = args;
+      const orgId = user.organizacao_id;
+
+      // 1. Decodificar o arquivo base64 em um Buffer
+      const fileBuffer = Buffer.from(conteudo_base64, 'base64');
+      const fileSize = fileBuffer.length;
+
+      // 2. Higienizar o nome original e detectar MimeType
+      const sanitizeFileName = (name) => {
+        return name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^\w.\-]/g, '_');
+      };
+      const sanitizedName = sanitizeFileName(nome_arquivo);
+
+      const getMimeType = (fileName) => {
+        const ext = fileName.split('.').pop()?.toLowerCase();
+        const mimes = {
+          'pdf': 'application/pdf',
+          'png': 'image/png',
+          'jpg': 'image/jpeg',
+          'jpeg': 'image/jpeg',
+          'gif': 'image/gif',
+          'webp': 'image/webp',
+          'doc': 'application/msword',
+          'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          'xls': 'application/vnd.ms-excel',
+          'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          'txt': 'text/plain',
+          'xml': 'application/xml',
+          'json': 'application/json',
+          'zip': 'application/zip'
+        };
+        return mimes[ext] || 'application/octet-stream';
+      };
+      const contentType = getMimeType(nome_arquivo);
+
+      // 3. Obter sigla do documento
+      let sigla = 'DOC';
+      let docDescricao = 'Documento';
+      if (tipo_documento_id) {
+        const { data: tipoDoc } = await supabase
+          .from('documento_tipos')
+          .select('sigla, descricao')
+          .eq('id', tipo_documento_id)
+          .maybeSingle();
+        if (tipoDoc) {
+          sigla = tipoDoc.sigla || 'DOC';
+          docDescricao = tipoDoc.descricao || 'Documento';
+        }
+      }
+
+      // 4. Executar upload e inserção no banco baseados no tipo do recurso
+      const timeStamp = Date.now();
+      switch (recurso_tipo) {
+        case 'empreendimento': {
+          const bucket = 'empreendimento-anexos';
+          const storagePath = `${recurso_id}/${sigla}_${timeStamp}_${sanitizedName}`;
+
+          const { error: uploadError } = await supabase.storage
+            .from(bucket)
+            .upload(storagePath, fileBuffer, { contentType, upsert: true });
+          if (uploadError) throw new Error(`Falha no upload Storage: ${uploadError.message}`);
+
+          const { data, error } = await supabase
+            .from('empreendimento_anexos')
+            .insert({
+              empreendimento_id: recurso_id,
+              caminho_arquivo: storagePath,
+              nome_arquivo: nome_arquivo,
+              descricao: descricao || '',
+              tipo_documento_id: tipo_documento_id || null,
+              categoria_aba: categoria_aba || 'geral',
+              usuario_id: user.id,
+              organizacao_id: orgId
+            })
+            .select()
+            .single();
+
+          if (error) {
+            await supabase.storage.from(bucket).remove([storagePath]);
+            throw new Error(`Falha no insert Banco: ${error.message}`);
+          }
+          return { message: 'Anexo de Empreendimento enviado com sucesso!', registro: data };
+        }
+
+        case 'empresa': {
+          const bucket = 'empresa-anexos';
+          const storagePath = `${recurso_id}/anexos/${sigla}_${timeStamp}_${sanitizedName}`;
+
+          const { error: uploadError } = await supabase.storage
+            .from(bucket)
+            .upload(storagePath, fileBuffer, { contentType, upsert: true });
+          if (uploadError) throw new Error(`Falha no upload Storage: ${uploadError.message}`);
+
+          const { data, error } = await supabase
+            .from('empresa_anexos')
+            .insert({
+              empresa_id: recurso_id,
+              caminho_arquivo: storagePath,
+              nome_arquivo: nome_arquivo,
+              descricao: descricao || '',
+              tipo_documento_id: tipo_documento_id || null,
+              categoria_aba: categoria_aba || 'geral',
+              organizacao_id: orgId
+            })
+            .select()
+            .single();
+
+          if (error) {
+            await supabase.storage.from(bucket).remove([storagePath]);
+            throw new Error(`Falha no insert Banco: ${error.message}`);
+          }
+          return { message: 'Anexo de Empresa enviado com sucesso!', registro: data };
+        }
+
+        case 'lancamento': {
+          const bucket = 'documentos-financeiro';
+          const storagePath = `public/${orgId}/lancamentos/${recurso_id}/${timeStamp}_${sanitizedName}`;
+
+          const { error: uploadError } = await supabase.storage
+            .from(bucket)
+            .upload(storagePath, fileBuffer, { contentType, upsert: true });
+          if (uploadError) throw new Error(`Falha no upload Storage: ${uploadError.message}`);
+
+          const { data, error } = await supabase
+            .from('lancamentos_anexos')
+            .insert({
+              lancamento_id: recurso_id,
+              caminho_arquivo: storagePath,
+              nome_arquivo: nome_arquivo,
+              descricao: descricao || '',
+              tipo_documento_id: tipo_documento_id || null,
+              organizacao_id: orgId
+            })
+            .select()
+            .single();
+
+          if (error) {
+            await supabase.storage.from(bucket).remove([storagePath]);
+            throw new Error(`Falha no insert Banco: ${error.message}`);
+          }
+          return { message: 'Anexo Financeiro enviado com sucesso!', registro: data };
+        }
+
+        case 'pedido': {
+          const bucket = 'pedidos-anexos';
+          const storagePath = `pedidos/${recurso_id}/${sigla}_${timeStamp}_${sanitizedName}`;
+
+          const { error: uploadError } = await supabase.storage
+            .from(bucket)
+            .upload(storagePath, fileBuffer, { contentType, upsert: true });
+          if (uploadError) throw new Error(`Falha no upload Storage: ${uploadError.message}`);
+
+          const { data, error } = await supabase
+            .from('pedidos_compra_anexos')
+            .insert({
+              pedido_compra_id: recurso_id,
+              caminho_arquivo: storagePath,
+              nome_arquivo: nome_arquivo,
+              descricao: descricao || '',
+              usuario_id: user.id,
+              organizacao_id: orgId
+            })
+            .select()
+            .single();
+
+          if (error) {
+            await supabase.storage.from(bucket).remove([storagePath]);
+            throw new Error(`Falha no insert Banco: ${error.message}`);
+          }
+          return { message: 'Anexo de Pedido de Compra enviado com sucesso!', registro: data };
+        }
+
+        case 'atividade': {
+          const bucket = 'activity-anexos';
+          const storagePath = `${recurso_id}/${timeStamp}_${sanitizedName}`;
+
+          const { error: uploadError } = await supabase.storage
+            .from(bucket)
+            .upload(storagePath, fileBuffer, { contentType, upsert: true });
+          if (uploadError) throw new Error(`Falha no upload Storage: ${uploadError.message}`);
+
+          const { data, error } = await supabase
+            .from('activity_anexos')
+            .insert({
+              activity_id: recurso_id,
+              file_path: storagePath,
+              file_name: nome_arquivo,
+              file_type: contentType,
+              file_size: fileSize,
+              organizacao_id: orgId
+            })
+            .select()
+            .single();
+
+          if (error) {
+            await supabase.storage.from(bucket).remove([storagePath]);
+            throw new Error(`Falha no insert Banco: ${error.message}`);
+          }
+          return { message: 'Anexo de Atividade enviado com sucesso!', registro: data };
+        }
+
+        case 'funcionario': {
+          const bucket = 'funcionarios-documentos';
+          const storagePath = `funcionarios/${recurso_id}/${sigla}_${timeStamp}_${sanitizedName}`;
+
+          const { error: uploadError } = await supabase.storage
+            .from(bucket)
+            .upload(storagePath, fileBuffer, { contentType, upsert: true });
+          if (uploadError) throw new Error(`Falha no upload Storage: ${uploadError.message}`);
+
+          const { data, error } = await supabase
+            .from('documentos_funcionarios')
+            .insert({
+              funcionario_id: recurso_id,
+              caminho_arquivo: storagePath,
+              nome_documento: nome_arquivo,
+              tipo_documento_id: tipo_documento_id || null,
+              criado_por_usuario_id: user.id,
+              organizacao_id: orgId
+            })
+            .select()
+            .single();
+
+          if (error) {
+            await supabase.storage.from(bucket).remove([storagePath]);
+            throw new Error(`Falha no insert Banco: ${error.message}`);
+          }
+          return { message: 'Anexo de Funcionário enviado com sucesso!', registro: data };
+        }
+
+        case 'contrato': {
+          const bucket = 'empreendimento-anexos';
+          const storagePath = `contratos/${recurso_id}/${sigla}_${timeStamp}_${sanitizedName}`;
+
+          const { error: uploadError } = await supabase.storage
+            .from(bucket)
+            .upload(storagePath, fileBuffer, { contentType, upsert: true });
+          if (uploadError) throw new Error(`Falha no upload Storage: ${uploadError.message}`);
+
+          const { data, error } = await supabase
+            .from('contrato_anexos')
+            .insert({
+              contrato_id: recurso_id,
+              caminho_arquivo: storagePath,
+              nome_arquivo: nome_arquivo,
+              tipo_documento: docDescricao,
+              usuario_id: user.id,
+              organizacao_id: orgId
+            })
+            .select()
+            .single();
+
+          if (error) {
+            await supabase.storage.from(bucket).remove([storagePath]);
+            throw new Error(`Falha no insert Banco: ${error.message}`);
+          }
+          return { message: 'Anexo de Contrato enviado com sucesso!', registro: data };
+        }
+
+        case 'contrato_terceirizado': {
+          const bucket = 'contratos-documentos';
+          const storagePath = `contratos/${recurso_id}/${sigla}_${timeStamp}_${sanitizedName}`;
+
+          const { error: uploadError } = await supabase.storage
+            .from(bucket)
+            .upload(storagePath, fileBuffer, { contentType, upsert: true });
+          if (uploadError) throw new Error(`Falha no upload Storage: ${uploadError.message}`);
+
+          const { data, error } = await supabase
+            .from('contratos_terceirizados_anexos')
+            .insert({
+              contrato_id: recurso_id,
+              caminho_arquivo: storagePath,
+              nome_arquivo: nome_arquivo,
+              tipo_arquivo: contentType,
+              tamanho_bytes: fileSize,
+              tipo_documento_id: tipo_documento_id || null,
+              descricao: descricao || '',
+              uploaded_by: user.id,
+              organizacao_id: orgId
+            })
+            .select()
+            .single();
+
+          if (error) {
+            await supabase.storage.from(bucket).remove([storagePath]);
+            throw new Error(`Falha no insert Banco: ${error.message}`);
+          }
+          return { message: 'Anexo de Contrato Terceirizado enviado com sucesso!', registro: data };
+        }
+
+        default:
+          throw new Error(`Tipo de recurso desconhecido: ${recurso_tipo}`);
+      }
     }
 
     // ==================== EMPREENDIMENTOS / VENDAS ====================
