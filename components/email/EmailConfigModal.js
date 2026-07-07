@@ -9,6 +9,7 @@ import { useQuery } from '@tanstack/react-query';
 import EmailConnectionConfig from './EmailConnectionConfig';
 import EmailSignatureConfig from './EmailSignatureConfig';
 import EmailRulesConfig from './EmailRulesConfig';
+import SparklesIcon from '@/components/shared/SparklesIcon';
 
 export default function EmailConfigModal({ isOpen, onClose, initialTab = 'connection', rulePrefill }) {
  const supabase = createClient();
@@ -54,12 +55,12 @@ export default function EmailConfigModal({ isOpen, onClose, initialTab = 'connec
  >
  <FontAwesomeIcon icon={faSignature} /> Assinatura
  </button>
- <button
- onClick={() => setActiveTab('rules')}
- className={`pb-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${activeTab === 'rules' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
- >
- <FontAwesomeIcon icon={faRobot} /> Regras & Automação
- </button>
+  <button
+  onClick={() => setActiveTab('rules')}
+  className={`pb-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${activeTab === 'rules' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+  >
+  <SparklesIcon className="w-4 h-4" active={activeTab === 'rules'} colorOverride={activeTab === 'rules' ? '#2563eb' : '#94a3b8'} /> Regras & Automação
+  </button>
  </div>
  </div>
 

@@ -5,6 +5,7 @@ import React, { useRef, useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCloudUploadAlt, faFileCode, faSpinner, faPaste, faFileCsv, faFilePdf, faRobot } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
+import SparklesIcon from '@/components/shared/SparklesIcon';
 
 export default function ExtratoUploader({ onFileLoaded }) {
  const fileInputRef = useRef(null);
@@ -143,7 +144,7 @@ export default function ExtratoUploader({ onFileLoaded }) {
  <div className="flex flex-col items-center animate-pulse">
  <div className="relative">
  <FontAwesomeIcon icon={faSpinner} spin className="text-5xl text-blue-500 mb-3" />
- <FontAwesomeIcon icon={faRobot} className="text-xl text-purple-500 absolute -bottom-1 -right-1 bg-white rounded-full p-1 border border-purple-200" />
+ <div className="absolute -bottom-1 -right-1 bg-white rounded-full p-1 border border-orange-200 flex items-center justify-center w-6 h-6"><SparklesIcon className="w-4 h-4" active={true} /></div>
  </div>
  <p className="text-gray-600 font-bold mt-2">{loadingMessage}</p>
  <p className="text-xs text-gray-400">Isso pode levar alguns segundos...</p>

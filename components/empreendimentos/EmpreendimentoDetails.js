@@ -22,6 +22,7 @@ import {
 import { createClient } from '@/utils/supabase/client';
 import { toast } from 'sonner';
 import imageCompression from 'browser-image-compression';
+import SparklesIcon from '@/components/shared/SparklesIcon';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useDebounce } from 'use-debounce'; // <-- IMPORTANTE: Adicionado para persistência
 import dynamic from 'next/dynamic';
@@ -429,21 +430,21 @@ const DossieEditorComponent = ({ empreendimento, organizacaoId }) => {
 
  return (
   <div className="space-y-6 animate-fade-in mt-6">
-   <div className="bg-purple-50 p-6 rounded-lg border border-purple-100 shadow-sm">
+   <div className="bg-orange-50/50 p-6 rounded-lg border border-orange-100 shadow-sm">
     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
      <div>
-      <h3 className="text-xl font-bold text-purple-900 flex items-center gap-2">
-       <FontAwesomeIcon icon={faRobot} className="text-purple-600" /> Cérebro de Vendas (Dossiê da IA)
+      <h3 className="text-xl font-bold text-orange-950 flex items-center gap-2">
+       <SparklesIcon className="w-5 h-5" active={true} /> Cérebro de Vendas (Dossiê da IA)
       </h3>
-      <p className="text-sm text-purple-700 mt-1">Este texto é injetado no cérebro da Stella. Formate como preferir, a inteligência entende textos estruturados, listas e destaques.</p>
+      <p className="text-sm text-orange-700 mt-1">Este texto é injetado no cérebro da Stella. Formate como preferir, a inteligência entende textos estruturados, listas e destaques.</p>
      </div>
-     <button onClick={handleSaveDossie} disabled={isSaving} className="px-5 py-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors shadow-sm font-bold flex items-center gap-2 disabled:bg-purple-400 shrink-0">
+     <button onClick={handleSaveDossie} disabled={isSaving} className="px-5 py-2.5 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors shadow-sm font-bold flex items-center gap-2 disabled:bg-orange-400 shrink-0">
       {isSaving ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faSave} />}
       Salvar Cérebro
      </button>
     </div>
     
-    <div className="border border-purple-200 rounded-md overflow-hidden bg-white shadow-inner flex flex-col min-h-[500px]">
+    <div className="border border-orange-200 rounded-md overflow-hidden bg-white shadow-inner flex flex-col min-h-[500px]">
      {editor && <TipTapMenuBar editor={editor} />}
      <EditorContent editor={editor} className="p-4 flex-grow overflow-y-auto prose max-w-none prose-sm editor-styles" />
     </div>

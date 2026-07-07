@@ -8,6 +8,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faRobot, faCheckCircle, faTimesCircle, faExclamationTriangle, faSearch, faSpinner, faFileInvoiceDollar, faEye } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
+import SparklesIcon from '@/components/shared/SparklesIcon';
 
 // Importação do Sidebar
 import LancamentoDetalhesSidebar from './LancamentoDetalhesSidebar';
@@ -100,7 +101,7 @@ export default function AuditoriaFinanceira() {
  <div className="bg-blue-600 text-white to-indigo-700 rounded-xl p-6 text-white shadow-lg">
  <div className="flex items-center gap-4">
  <div className="p-3 bg-white/20 rounded-lg backdrop-blur-sm">
- <FontAwesomeIcon icon={faRobot} size="2x" />
+ <SparklesIcon className="w-10 h-10" active={true} colorOverride="#FFFFFF" />
  </div>
  <div>
  <h2 className="text-2xl font-bold">Auditoria Inteligente (IA)</h2>
@@ -181,7 +182,7 @@ export default function AuditoriaFinanceira() {
  {auditandoId === lancamento.id ? (
  <><FontAwesomeIcon icon={faSpinner} spin /> Analisando...</>
  ) : (
- <><FontAwesomeIcon icon={faRobot} /> Auditar</>
+ <div className="flex items-center gap-1.5 justify-center"><SparklesIcon className="w-3.5 h-3.5" active={true} colorOverride="#FFFFFF" /> Auditar</div>
  )}
  </button>
  )}

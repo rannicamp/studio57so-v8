@@ -4,6 +4,7 @@ import { useState, useRef } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSpinner, faCheckCircle, faTimesCircle, faRobot, faFileLines, faUpload } from '@fortawesome/free-solid-svg-icons';
 import UppyFileImporter from '@/components/ui/UppyFileImporter';
+import SparklesIcon from '@/components/shared/SparklesIcon';
 
 export default function FileUploadWithAI({ onAnalysisComplete, analysisEndpoint, prompt }) {
  const [file, setFile] = useState(null);
@@ -65,17 +66,17 @@ export default function FileUploadWithAI({ onAnalysisComplete, analysisEndpoint,
  case 'error':
  return <FontAwesomeIcon icon={faTimesCircle} className="text-red-500" />;
  default:
- return <FontAwesomeIcon icon={faRobot} className="text-blue-600" />;
+ return <SparklesIcon className="w-5 h-5" active={true} />;
  }
  };
 
  return (
- <div className="p-4 border-2 border-dashed border-purple-300 bg-purple-50 rounded-lg">
- <h4 className="font-bold text-purple-800 flex items-center gap-2 mb-2">
+ <div className="p-4 border-2 border-dashed border-orange-200 bg-orange-50/50 rounded-lg">
+ <h4 className="font-bold text-orange-950 flex items-center gap-2 mb-2">
  {getStatusIcon()}
  Assistente de IA para Documentos
  </h4>
- <p className="text-xs text-purple-700 mb-3">
+ <p className="text-xs text-orange-750 mb-3">
  Faça o upload de um documento (como a Matrícula do Imóvel) e a IA tentará preencher os campos relevantes para você.
  </p>
 

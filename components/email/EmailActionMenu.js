@@ -8,6 +8,7 @@ import { faEllipsisV, faEnvelope, faEnvelopeOpen, faArchive, faTrash, faFolderOp
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { createPortal } from 'react-dom';
 import { toast } from 'sonner';
+import SparklesIcon from '@/components/shared/SparklesIcon';
 
 export default function EmailActionMenu({ email, onAction, showCreateActivity = false, isOpen: controlledIsOpen, onToggle, accountId }) {
  const [internalIsOpen, setInternalIsOpen] = useState(false);
@@ -179,8 +180,8 @@ export default function EmailActionMenu({ email, onAction, showCreateActivity = 
 
  <div className="h-px bg-gray-100 my-1"></div>
 
- <button onClick={() => handleClick('createRule')} className="w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-purple-50 hover:text-purple-700 flex items-center gap-3">
- <FontAwesomeIcon icon={faRobot} className="w-3" /> Criar Regra
+ <button onClick={() => handleClick('createRule')} className="w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-orange-50 hover:text-orange-700 flex items-center gap-3">
+ <SparklesIcon className="w-3 h-3" active={true} /> Criar Regra
  </button>
 
  <div className="relative"

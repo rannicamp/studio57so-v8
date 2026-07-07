@@ -8,6 +8,7 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import { toast } from 'sonner';
 import AutomacaoModal from './AutomacaoModal';
+import SparklesIcon from '@/components/shared/SparklesIcon';
 
 // --- FETCHERS ---
 const fetchAutomations = async (supabase, organizacaoId) => {
@@ -225,7 +226,7 @@ export default function AutomacoesListModal({ isOpen, onClose, organizacaoId, cu
         {/* Header (Cinza escuro/Preto sóbrio) */}
         <div className="bg-gray-900 px-6 py-4 flex justify-between items-center text-white shrink-0">
           <h3 className="text-lg font-bold flex items-center gap-2">
-            <FontAwesomeIcon icon={faRobot} />
+            <SparklesIcon className="w-5 h-5" active={true} colorOverride="#FFFFFF" />
             Automações & Roteamento
           </h3>
           <button onClick={onClose} className="text-white/70 hover:text-white transition-colors p-1 rounded-md hover:bg-white/10" title="Fechar">
@@ -243,7 +244,7 @@ export default function AutomacoesListModal({ isOpen, onClose, organizacaoId, cu
                 : 'border-transparent text-gray-500 hover:text-gray-700'
             }`}
           >
-            <FontAwesomeIcon icon={faRobot} />
+            <SparklesIcon className="w-4 h-4" active={activeTab === 'whatsapp'} colorOverride={activeTab === 'whatsapp' ? '#F97316' : '#94a3b8'} />
             Mensagens de WhatsApp
           </button>
           <button
@@ -286,7 +287,7 @@ export default function AutomacoesListModal({ isOpen, onClose, organizacaoId, cu
                   </div>
                 ) : automations.length === 0 ? (
                   <div className="p-12 text-center text-gray-500 flex flex-col items-center gap-3">
-                    <FontAwesomeIcon icon={faRobot} className="text-4xl text-gray-300" />
+                    <SparklesIcon className="w-12 h-12 text-gray-300" active={false} />
                     <p className="text-base font-medium">Nenhuma automação cadastrada.</p>
                     <p className="text-sm">Crie regras para disparar mensagens de boas-vindas, envio de propostas ou lembretes.</p>
                   </div>
@@ -376,7 +377,7 @@ export default function AutomacoesListModal({ isOpen, onClose, organizacaoId, cu
                 {isFormRoteamentoOpen && (
                   <div className="border border-gray-200 rounded-xl p-4 bg-gray-50/50 space-y-4 animate-in slide-in-from-top-2 duration-200">
                     <h5 className="font-bold text-gray-800 text-sm flex items-center gap-2">
-                      <FontAwesomeIcon icon={faRobot} className="text-gray-900" />
+                      <SparklesIcon className="w-4 h-4" active={true} colorOverride="#111827" />
                       Nova Regra de Roteamento
                     </h5>
                     

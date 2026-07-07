@@ -6,7 +6,8 @@ import { useAuditoriaKanban } from '../../hooks/financeiro/useAuditoriaKanban';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faRobot, faCheckCircle, faExclamationTriangle, faSpinner, faEye, faPlayCircle, faPauseCircle, faStopCircle, faBolt, faSync, faCalendarDay
 } from '@fortawesome/free-solid-svg-icons';
-import { toast } from 'sonner';
+import toast from 'sonner';
+import SparklesIcon from '@/components/shared/SparklesIcon';
 import LancamentoDetalhesSidebar from './LancamentoDetalhesSidebar';
 
 // --- HELPER: FORMATADOR VISUAL ABSOLUTO ---
@@ -48,7 +49,7 @@ const KanbanCard = ({ item, onClick, colorBorder, showAuditButton, showReauditBu
  disabled={isAuditing}
  className={`p-1 rounded transition-colors flex items-center gap-1 font-bold ${isAuditing ? 'text-indigo-400' : 'text-indigo-600 hover:bg-indigo-50'}`}
  >
- {isAuditing ? <FontAwesomeIcon icon={faSpinner} spin /> : <FontAwesomeIcon icon={faRobot} />} <span className="hidden group-hover:inline">{isAuditing ? '...' : 'Auditar'}</span>
+ {isAuditing ? <FontAwesomeIcon icon={faSpinner} spin /> : <SparklesIcon className="w-3.5 h-3.5" active={true} colorOverride="#4f46e5" />} <span className="hidden group-hover:inline">{isAuditing ? '...' : 'Auditar'}</span>
  </button>
  )}
 
