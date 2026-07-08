@@ -564,7 +564,10 @@ case 'OVERDUE':
                                                         const parcelVal = Number((finalPriceTotal / num).toFixed(2));
                                                         return (
                                                             <option key={num} value={num}>
-                                                                {num}x de R$ {parcelVal.toFixed(2).replace('.', ',')} {num > 1 ? 'sem juros' : '(À vista)'}
+                                                                {num === 1 
+                                                                    ? `1x de R$ ${parcelVal.toFixed(2).replace('.', ',')} (À vista no Pix, Boleto ou Cartão)`
+                                                                    : `${num}x de R$ ${parcelVal.toFixed(2).replace('.', ',')} sem juros (Apenas Cartão)`
+                                                                }
                                                             </option>
                                                         );
                                                     })}

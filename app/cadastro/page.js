@@ -319,7 +319,15 @@ function CadastroForm() {
  />
  </div>
 
- <form onSubmit={handleSubmit} className="space-y-6 mt-4">
+  <form 
+    onSubmit={handleSubmit} 
+    onKeyDown={(e) => {
+      if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
+        e.preventDefault();
+      }
+    }} 
+    className="space-y-6 mt-4"
+  >
 
  {/* PASSO 1: Natureza Jurídica */}
  {step === 1 && (
@@ -806,7 +814,10 @@ function CadastroForm() {
                   const parcelVal = Number((finalPriceTotal / num).toFixed(2));
                   return (
                     <option key={num} value={num}>
-                      {num}x de R$ {parcelVal.toFixed(2).replace('.', ',')} {num > 1 ? 'sem juros' : '(À vista)'}
+                      {num === 1 
+                        ? `1x de R$ ${parcelVal.toFixed(2).replace('.', ',')} (À vista no Pix, Boleto ou Cartão)`
+                        : `${num}x de R$ ${parcelVal.toFixed(2).replace('.', ',')} sem juros (Apenas Cartão)`
+                      }
                     </option>
                   );
                 })}
