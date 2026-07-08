@@ -266,28 +266,34 @@ function CadastroForm() {
  }
  });
 
- const result = await signUpAction(formDataPayload);
+ try {
+    const result = await signUpAction(formDataPayload);
 
- if (result.error) {
-   const msg = result.error.message || '';
-   if (msg.toLowerCase().includes('already registered') || msg.toLowerCase().includes('ja cadastrado')) {
-     setError(
-       <span>
-         Este e-mail já está cadastrado.{' '}
-         <a href="/login" className="underline font-bold text-red-900 hover:text-red-800">
-           Clique aqui para fazer login e concluir sua assinatura.
-         </a>
-       </span>
-     );
-   } else {
-     setError(msg || 'Erro inesperado ao criar a conta.');
-   }
-   setLoading(false);
- } else if (result.paymentUrl) {
-   window.location.href = result.paymentUrl;
- } else {
-   router.push('/login?message=Organização criada com sucesso! Verifique seu e-mail para validar o acesso da administração.');
- }
+    if (result.error) {
+      const msg = result.error.message || '';
+      if (msg.toLowerCase().includes('already registered') || msg.toLowerCase().includes('ja cadastrado')) {
+        setError(
+          <span>
+            Este e-mail já está cadastrado.{' '}
+            <a href="/login" className="underline font-bold text-red-900 hover:text-red-800">
+              Clique aqui para fazer login e concluir sua assinatura.
+            </a>
+          </span>
+        );
+      } else {
+        setError(msg || 'Erro inesperado ao criar a conta.');
+      }
+      setLoading(false);
+    } else if (result.paymentUrl) {
+      window.location.href = result.paymentUrl;
+    } else {
+      router.push('/login?message=Organização criada com sucesso! Verifique seu e-mail para validar o acesso da administração.');
+    }
+  } catch (err) {
+    console.error("Erro ao enviar cadastro:", err);
+    setError("Erro de conexão ou faturamento. Por favor, tente novamente.");
+    setLoading(false);
+  }
  };
 
  return (

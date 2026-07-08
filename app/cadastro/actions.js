@@ -332,7 +332,7 @@ export async function signUpAction(formData) {
   return { error: { message: error.message } };
   }
 
-  return { data, paymentUrl };
+  return { success: true, paymentUrl };
  } catch(err) {
   console.error('Edge crash prevent', err)
   return { error: { message: 'Falha grave no Edge DB Connect.' } }
