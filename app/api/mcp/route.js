@@ -1334,7 +1334,7 @@ async function executeTool(name, args, supabase, user) {
 
     case 'listar_colunas_funil': {
       const { data, error } = await supabase
-        .from('funil_colunas')
+        .from('colunas_funil')
         .select('id, nome, ordem, funil_id')
         .order('ordem');
 
@@ -1576,9 +1576,9 @@ async function executeTool(name, args, supabase, user) {
         .from('orcamentos')
         .select(`
           id, 
-          nome, 
-          custo_estimado_total, 
-          custo_real_total, 
+          nome_orcamento, 
+          custo_total_previsto, 
+          status, 
           empreendimento:empreendimentos(id, nome)
         `);
 
@@ -2254,7 +2254,7 @@ async function executeTool(name, args, supabase, user) {
     case 'listar_empreendimentos': {
       const { data, error } = await supabase
         .from('empreendimentos')
-        .select('id, nome, codigo, status, created_at')
+        .select('id, nome, status, created_at')
         .order('nome');
 
       if (error) throw new Error(error.message);
