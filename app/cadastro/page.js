@@ -237,6 +237,11 @@ function CadastroForm() {
  e.preventDefault();
  setError('');
 
+ if (step < 4) {
+   nextStep();
+   return;
+ }
+
  if (formData.admin_senha.length < 6) {
  return setError('A senha deve ter no mínimo 6 caracteres.');
  }
