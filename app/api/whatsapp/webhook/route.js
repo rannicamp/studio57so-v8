@@ -84,41 +84,66 @@ export async function POST(request) {
       const { data: updatedMsg } = await supabaseAdmin.from('whatsapp_messages')
         .update(updatePayload)
         .eq('message_id', statusUpdate.id)
-        .select('contato_id, organizacao_id')
+        .select('contato_id, organizacao_id, content')
         .maybeSingle();
 
       if (statusUpdate.status === 'failed' && updatedMsg) {
-        const { contato_id, organizacao_id } = updatedMsg;
+        const { contato_id, organizacao_id, content: msgContent } = updatedMsg;
         console.log(`[Webhook Status] Detetada falha de envio para o contato ${contato_id} na org ${organizacao_id}. Erro: ${errorMessage}`);
         
         try {
-          await supabaseAdmin.from('contatos')
-            .update({ ia_atendimento_ativo: false })
-            .eq('id', contato_id);
+          const isTemplateMsg = msgContent && (
+            msgContent.includes('(Automação) Template:') || 
+            msgContent.includes('Template:')
+          );
 
-          const { data: funil } = await supabaseAdmin.from('contatos_no_funil')
-            .select('id, coluna_id')
-            .eq('contato_id', contato_id)
-            .limit(1);
+          if (isTemplateMsg) {
+            console.log(`[Webhook Status] Falha detectada em mensagem de template automática. Mantendo piloto automático ativo e não movendo para FALHAS.`);
+            const { data: funil } = await supabaseAdmin.from('contatos_no_funil')
+              .select('id')
+              .eq('contato_id', contato_id)
+              .limit(1);
 
-          const funilRecord = funil?.[0];
-          const colunaFalhasId = '2b975bc0-b96c-456d-ac30-48ab6f6dddca'; // Coluna FALHAS
+            const funilRecord = funil?.[0];
+            if (funilRecord) {
+              const erroFormatado = errorMessage || 'Erro desconhecido no envio da Meta';
+              await supabaseAdmin.from('crm_notas')
+                .insert({
+                  contato_id: contato_id,
+                  contato_no_funil_id: funilRecord.id,
+                  conteudo: `⚠️ [Template Falhou] O envio do template automático falhou (Erro: ${erroFormatado}). O piloto automático foi mantido ativo para aguardar respostas do lead.`,
+                  organizacao_id: organizacao_id
+                });
+            }
+          } else {
+            await supabaseAdmin.from('contatos')
+              .update({ ia_atendimento_ativo: false })
+              .eq('id', contato_id);
 
-          if (funilRecord && funilRecord.coluna_id !== colunaFalhasId) {
-            await supabaseAdmin.from('contatos_no_funil')
-              .update({ coluna_id: colunaFalhasId, updated_at: new Date().toISOString() })
-              .eq('id', funilRecord.id);
+            const { data: funil } = await supabaseAdmin.from('contatos_no_funil')
+              .select('id, coluna_id')
+              .eq('contato_id', contato_id)
+              .limit(1);
 
-            const erroFormatado = errorMessage || 'Erro desconhecido no envio da Meta';
-            await supabaseAdmin.from('crm_notas')
-              .insert({
-                contato_id: contato_id,
-                contato_no_funil_id: funilRecord.id,
-                conteudo: `🤖 [Piloto Automático Stella] Envio de mensagem falhou no WhatsApp (Erro: ${erroFormatado}). Lead movido automaticamente para a coluna FALHAS e piloto automático desativado.`,
-                organizacao_id: organizacao_id
-              });
-            
-            console.log(`[Webhook Status] Lead ${contato_id} movido com sucesso para a coluna FALHAS por erro de entrega.`);
+            const funilRecord = funil?.[0];
+            const colunaFalhasId = '2b975bc0-b96c-456d-ac30-48ab6f6dddca'; // Coluna FALHAS
+
+            if (funilRecord && funilRecord.coluna_id !== colunaFalhasId) {
+              await supabaseAdmin.from('contatos_no_funil')
+                .update({ coluna_id: colunaFalhasId, updated_at: new Date().toISOString() })
+                .eq('id', funilRecord.id);
+
+              const erroFormatado = errorMessage || 'Erro desconhecido no envio da Meta';
+              await supabaseAdmin.from('crm_notas')
+                .insert({
+                  contato_id: contato_id,
+                  contato_no_funil_id: funilRecord.id,
+                  conteudo: `🤖 [Piloto Automático Stella] Envio de mensagem falhou no WhatsApp (Erro: ${erroFormatado}). Lead movido automaticamente para a coluna FALHAS e piloto automático desativado.`,
+                  organizacao_id: organizacao_id
+                });
+              
+              console.log(`[Webhook Status] Lead ${contato_id} movido com sucesso para a coluna FALHAS por erro de entrega.`);
+            }
           }
         } catch (errHook) {
           console.error('[Webhook Status Error] Erro ao tratar falha de envio no funil:', errHook.message);

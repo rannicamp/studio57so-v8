@@ -643,6 +643,7 @@ function CadastroForm() {
  : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
  }`}
  placeholder="Repita a senha"
+
  />
  {formData.admin_senha_confirmacao.length > 0 && formData.admin_senha === formData.admin_senha_confirmacao && formData.admin_senha.length >= 6 && (
  <CheckCircle2 className="absolute right-3 top-8 h-4 w-4 text-green-500" />
