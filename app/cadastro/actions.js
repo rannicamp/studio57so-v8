@@ -387,7 +387,7 @@ export async function verificarCnpjStatusAction(cnpj) {
     
     const { data: empresa, error: empresaErr } = await supabaseAdmin
       .from('cadastro_empresa')
-      .select('id, organizacao_id, razao_social, email')
+      .select('*')
       .eq('cnpj', cleanCnpj)
       .maybeSingle();
       
@@ -445,7 +445,20 @@ export async function verificarCnpjStatusAction(cnpj) {
           status: 'pending',
           razao_social: empresa.razao_social,
           email: empresa.email,
-          checkoutUrl
+          checkoutUrl,
+          empresaDetails: {
+            razao_social: empresa.razao_social,
+            nome_fantasia: empresa.nome_fantasia || '',
+            cep: empresa.cep || '',
+            address_street: empresa.address_street || '',
+            address_number: empresa.address_number || '',
+            address_complement: empresa.address_complement || '',
+            neighborhood: empresa.neighborhood || '',
+            city: empresa.city || '',
+            state: empresa.state || '',
+            telefone: empresa.telefone || '',
+            responsavel_legal: empresa.responsavel_legal || ''
+          }
         };
       } else {
         return {

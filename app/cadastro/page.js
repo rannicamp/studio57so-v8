@@ -39,6 +39,7 @@ function CadastroForm() {
  // Estados de Busca Externa
  const [buscandoCNPJ, setBuscandoCNPJ] = useState(false);
  const [buscandoCEP, setBuscandoCEP] = useState(false);
+ const [ignorePendingCnpj, setIgnorePendingCnpj] = useState(false);
 
  // Payload Completo do Formulário
  const [formData, setFormData] = useState({
@@ -67,10 +68,12 @@ function CadastroForm() {
 
  const updateForm = (e) => {
  const { name, value } = e.target;
+ if (name === 'cnpj') setIgnorePendingCnpj(false);
  setFormData((prev) => ({ ...prev, [name]: value }));
  };
 
  const updateFormDirectly = (name, value) => {
+ if (name === 'cnpj') setIgnorePendingCnpj(false);
  setFormData((prev) => ({ ...prev, [name]: value }));
  }
 
@@ -189,31 +192,33 @@ function CadastroForm() {
   setError('');
   setPendingCnpjData(null);
 
-  // 1. Verificar se CNPJ já existe no banco e qual o status dele
-  try {
-    const statusRes = await verificarCnpjStatusAction(formData.cnpj);
-    if (statusRes.error) {
-      setError(statusRes.error);
-      setBuscandoCNPJ(false);
-      return;
-    }
-    if (statusRes.exists) {
-      if (statusRes.status === 'pending') {
-        setPendingCnpjData(statusRes);
-        setBuscandoCNPJ(false);
-        return;
-      } else {
-        setError('Este CNPJ já está cadastrado em uma conta ativa. Por favor, realize o login.');
-        setFormData(prev => ({ ...prev, cnpj: '' }));
+  // 1. Verificar se CNPJ já existe no banco e qual o status dele (se não estivermos ignorando)
+  if (!ignorePendingCnpj) {
+    try {
+      const statusRes = await verificarCnpjStatusAction(formData.cnpj);
+      if (statusRes.error) {
+        setError(statusRes.error);
         setBuscandoCNPJ(false);
         return;
       }
+      if (statusRes.exists) {
+        if (statusRes.status === 'pending') {
+          setPendingCnpjData(statusRes);
+          setBuscandoCNPJ(false);
+          return;
+        } else {
+          setError('Este CNPJ já está cadastrado em uma conta ativa. Por favor, realize o login.');
+          setFormData(prev => ({ ...prev, cnpj: '' }));
+          setBuscandoCNPJ(false);
+          return;
+        }
+      }
+    } catch (err) {
+      console.error("Erro ao verificar status do CNPJ no banco:", err);
     }
-  } catch (err) {
-    console.error("Erro ao verificar status do CNPJ no banco:", err);
   }
 
-  // 2. Se não existir, busca os dados da Receita Federal
+  // 2. Se não existir ou se ignorado, busca os dados da Receita Federal
   const { data, error } = await buscarCNPJ(formData.cnpj);
 
   if (error) {
@@ -444,7 +449,10 @@ function CadastroForm() {
         ) : (
           <button
             type="button"
-            onClick={() => setPendingCnpjData(null)}
+            onClick={() => {
+              setIgnorePendingCnpj(true);
+              setPendingCnpjData(null);
+            }}
             className="inline-flex justify-center items-center px-6 py-2.5 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-md transition-all"
           >
             🔄 Continuar Cadastro do Zero
@@ -453,6 +461,21 @@ function CadastroForm() {
         <button
           type="button"
           onClick={() => {
+            if (pendingCnpjData.empresaDetails) {
+              setFormData(prev => ({
+                ...prev,
+                razao_social: pendingCnpjData.empresaDetails.razao_social || '',
+                nome_fantasia: pendingCnpjData.empresaDetails.nome_fantasia || '',
+                cep: pendingCnpjData.empresaDetails.cep || '',
+                address_street: pendingCnpjData.empresaDetails.address_street || '',
+                address_number: pendingCnpjData.empresaDetails.address_number || '',
+                address_complement: pendingCnpjData.empresaDetails.address_complement || '',
+                neighborhood: pendingCnpjData.empresaDetails.neighborhood || '',
+                city: pendingCnpjData.empresaDetails.city || '',
+                state: pendingCnpjData.empresaDetails.state || '',
+              }));
+            }
+            setIgnorePendingCnpj(true);
             setPendingCnpjData(null);
           }}
           className="inline-flex justify-center items-center px-4 py-2.5 text-sm font-medium text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 rounded-lg transition-colors"
