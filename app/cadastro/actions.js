@@ -173,6 +173,62 @@ export async function signUpAction(formData) {
     }
   }
 
+  // 2.7. Verificar se o e-mail digitado já existe em conta pendente ou órfã
+  try {
+    const { data: usersList } = await supabaseAdmin.auth.admin.listUsers();
+    if (usersList?.users) {
+      const existingAuthUser = usersList.users.find(u => u.email?.toLowerCase() === admin_email.toLowerCase().trim());
+      if (existingAuthUser) {
+        // Encontrou usuário com o mesmo email. Vamos verificar se pertence a uma org pendente ou órfã
+        const orgId = existingAuthUser.user_metadata?.organizacao_id;
+        let shouldDelete = false;
+        
+        if (orgId) {
+          const { data: orgCheck } = await supabaseAdmin
+            .from('organizacoes')
+            .select('subscription_status')
+            .eq('id', orgId)
+            .maybeSingle();
+            
+          if (!orgCheck || orgCheck.subscription_status === 'pending') {
+            shouldDelete = true;
+          }
+        } else {
+          // Sem organizacao_id no metadata: usuário órfão de teste, limpar
+          shouldDelete = true;
+        }
+        
+        if (shouldDelete) {
+          console.log(`[Cadastro Actions] E-mail ${admin_email} pertence a uma conta pendente ou órfã. Limpando registros antigos para liberar o e-mail...`);
+          
+          // Deleta usuário do Auth
+          await supabaseAdmin.auth.admin.deleteUser(existingAuthUser.id);
+          
+          if (orgId) {
+            // Deleta empresa vinculada
+            await supabaseAdmin
+              .from('cadastro_empresa')
+              .delete()
+              .eq('organizacao_id', orgId);
+              
+            // Desvincula e deleta organização
+            await supabaseAdmin
+              .from('organizacoes')
+              .update({ entidade_principal_id: null })
+              .eq('id', orgId);
+              
+            await supabaseAdmin
+              .from('organizacoes')
+              .delete()
+              .eq('id', orgId);
+          }
+        }
+      }
+    }
+  } catch (emailErr) {
+    console.error("Erro ao verificar/limpar e-mail existente no Auth:", emailErr);
+  }
+
   // 3. Criar a Organização
   const nomeOrganizacao = tipoPessoa === 'PJ' ? razao_social : admin_nome;
 
