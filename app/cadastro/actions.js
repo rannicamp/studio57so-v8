@@ -374,3 +374,91 @@ export async function validarCupomAction(cupomCodigo) {
     return { error: 'Erro de conexão com o banco.' };
   }
 }
+
+export async function verificarCnpjStatusAction(cnpj) {
+  try {
+    const supabaseAdmin = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY,
+      { cookies: { get(name) { return null; } } }
+    );
+    
+    const cleanCnpj = cnpj.replace(/\D/g, '');
+    
+    const { data: empresa, error: empresaErr } = await supabaseAdmin
+      .from('cadastro_empresa')
+      .select('id, organizacao_id, razao_social, email')
+      .eq('cnpj', cleanCnpj)
+      .maybeSingle();
+      
+    if (empresaErr) {
+      console.error("Erro ao verificar CNPJ existente:", empresaErr);
+      return { error: 'Erro ao verificar CNPJ.' };
+    }
+    
+    if (empresa) {
+      const { data: org, error: orgErr } = await supabaseAdmin
+        .from('organizacoes')
+        .select('subscription_status, asaas_subscription_id')
+        .eq('id', empresa.organizacao_id)
+        .maybeSingle();
+        
+      if (orgErr) {
+        console.error("Erro ao buscar organização existente:", orgErr);
+        return { error: 'Erro ao verificar status da organização.' };
+      }
+      
+      const status = org?.subscription_status || 'pending';
+      
+      if (status === 'pending') {
+        let checkoutUrl = '';
+        if (org.asaas_subscription_id) {
+          const id = org.asaas_subscription_id;
+          try {
+            const asaasKey = process.env.ASAAS_API_KEY;
+            const asaasUrl = process.env.ASAAS_API_URL || 'https://api.asaas.com/v3';
+            if (id.startsWith('pay_')) {
+              const res = await fetch(`${asaasUrl}/payments/${id}`, {
+                headers: { 'access_token': asaasKey }
+              });
+              if (res.ok) {
+                const data = await res.json();
+                checkoutUrl = data.invoiceUrl;
+              }
+            } else if (id.startsWith('sub_')) {
+              const res = await fetch(`${asaasUrl}/subscriptions/${id}/payments`, {
+                headers: { 'access_token': asaasKey }
+              });
+              if (res.ok) {
+                const data = await res.json();
+                const pendingPayment = data.data?.find(p => p.status === 'PENDING');
+                checkoutUrl = pendingPayment?.invoiceUrl || '';
+              }
+            }
+          } catch (err) {
+            console.error("Erro ao obter checkout do Asaas para CNPJ existente:", err);
+          }
+        }
+        
+        return {
+          exists: true,
+          status: 'pending',
+          razao_social: empresa.razao_social,
+          email: empresa.email,
+          checkoutUrl
+        };
+      } else {
+        return {
+          exists: true,
+          status: 'active',
+          razao_social: empresa.razao_social
+        };
+      }
+    }
+    
+    return { exists: false };
+  } catch (err) {
+    console.error("Erro no verificarCnpjStatusAction:", err);
+    return { error: 'Erro de conexão com o banco.' };
+  }
+}
