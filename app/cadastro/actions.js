@@ -201,20 +201,22 @@ export async function signUpAction(formData) {
       paymentUrl = await obterLinkPagamentoAssinatura(subscriptionId);
     } else {
       // FLUXO SEM CUPOM (Pagamento Imediato): Cobrança parcelada única
+      const parcelasInput = Number(formData.get('parcelas'));
       const parcelasMax = periodicidade === 'semestral' ? 3 : 6;
+      const parcelasFinal = (parcelasInput >= 1 && parcelasInput <= parcelasMax) ? parcelasInput : parcelasMax;
       const valorMensal = Number(planoRecord.valor_mensal);
       const valorTotal = valorMensal * meses;
       const valorTotalComDesconto = Number((valorTotal * (1 - descontoPercentual / 100)).toFixed(2));
       const descPlano = `Plano Elo 57 - ${planoRecord.nome} ${periodicidade === 'semestral' ? 'Semestral' : 'Anual'} (${nomeOrganizacao})`;
 
-      console.log(`[Cadastro Actions] Criando cobrança parcelada de R$ ${valorTotalComDesconto} em ${parcelasMax}x...`);
+      console.log(`[Cadastro Actions] Criando cobrança parcelada de R$ ${valorTotalComDesconto} em ${parcelasFinal}x...`);
       const pagamento = await criarPagamento({
         clienteId: customerId,
         valor: valorTotalComDesconto,
         formaPagamento: 'UNDEFINED',
         dataVencimento: dataVencimentoStr,
         descricao: descPlano,
-        parcelas: parcelasMax,
+        parcelas: parcelasFinal,
         externalReference: organizacaoId
       });
       subscriptionId = pagamento.id;

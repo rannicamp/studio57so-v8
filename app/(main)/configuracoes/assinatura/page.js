@@ -51,6 +51,11 @@ export default function AssinaturaPage() {
     const [validatingCoupon, setValidatingCoupon] = useState(false);
     const [couponMessage, setCouponMessage] = useState('');
     const [periodicidade, setPeriodicidade] = useState('anual'); // 'semestral' ou 'anual'
+    const [selectedInstallments, setSelectedInstallments] = useState(6);
+
+    useEffect(() => {
+        setSelectedInstallments(periodicidade === 'semestral' ? 3 : 6);
+    }, [periodicidade]);
 
     const handleApplyCoupon = async (codeToApply = couponCode) => {
         if (!codeToApply.trim()) return;
@@ -110,14 +115,14 @@ export default function AssinaturaPage() {
 
     // 2. Mutation para gerar o Link de Checkout do Asaas (Assinar plano pela primeira vez)
     const checkoutMutation = useMutation({
-        mutationFn: async ({ plano_codigo, cupom, periodicidade } = {}) => {
+        mutationFn: async ({ plano_codigo, cupom, periodicidade, parcelas } = {}) => {
             setLoadingCheckout(true);
             setErrorCheckout(null);
 
             const res = await fetch('/api/subscriptions/checkout', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ plano_codigo, cupom, periodicidade })
+                body: JSON.stringify({ plano_codigo, cupom, periodicidade, parcelas })
             });
 
             const data = await res.json();
@@ -182,7 +187,7 @@ export default function AssinaturaPage() {
     });
 
     const handleAssinar = () => {
-        checkoutMutation.mutate({ plano_codigo: selectedPlan, cupom: couponCode, periodicidade });
+        checkoutMutation.mutate({ plano_codigo: selectedPlan, cupom: couponCode, periodicidade, parcelas: selectedInstallments });
     };
 
     // Máscara para número do cartão (0000 0000 0000 0000)
@@ -283,7 +288,7 @@ export default function AssinaturaPage() {
     const basePriceTotal = valorMensalBase * meses;
     const discountValueTotal = basePriceTotal * (couponDiscount / 100);
     const finalPriceTotal = basePriceTotal - discountValueTotal;
-    const valorParcela = finalPriceTotal / parcelasMax;
+    const valorParcela = finalPriceTotal / selectedInstallments;
 
     const calculateFirstPaymentDate = () => {
         const d = new Date();
@@ -542,10 +547,30 @@ case 'OVERDUE':
                                             <span>Valor Líquido Total:</span>
                                             <span>R$ {finalPriceTotal.toFixed(2).replace('.', ',')}</span>
                                         </div>
-                                        <div className="flex justify-between text-[11px] text-slate-500 font-medium pt-0.5">
-                                            <span>Opção de parcelamento no cartão:</span>
-                                            <span>Até {parcelasMax}x de R$ {valorParcela.toFixed(2).replace('.', ',')}</span>
-                                        </div>
+                                        {couponDiscount > 0 ? (
+                                            <div className="flex justify-between text-[11px] text-slate-500 font-medium pt-0.5">
+                                                <span>Opção de parcelamento no cartão:</span>
+                                                <span>Até {parcelasMax}x de R$ {valorParcela.toFixed(2).replace('.', ',')}</span>
+                                            </div>
+                                        ) : (
+                                            <div className="flex justify-between items-center text-[11px] text-slate-700 font-medium pt-1.5 border-t border-dashed border-blue-100 mt-1">
+                                                <span>Opção de parcelamento:</span>
+                                                <select
+                                                    value={selectedInstallments}
+                                                    onChange={(e) => setSelectedInstallments(Number(e.target.value))}
+                                                    className="border border-blue-200 rounded px-1.5 py-0.5 text-[11px] bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 font-semibold text-slate-800"
+                                                >
+                                                    {Array.from({ length: parcelasMax }, (_, i) => i + 1).map((num) => {
+                                                        const parcelVal = Number((finalPriceTotal / num).toFixed(2));
+                                                        return (
+                                                            <option key={num} value={num}>
+                                                                {num}x de R$ {parcelVal.toFixed(2).replace('.', ',')} {num > 1 ? 'sem juros' : '(À vista)'}
+                                                            </option>
+                                                        );
+                                                    })}
+                                                </select>
+                                            </div>
+                                        )}
                                     </div>
                                     
                                     {couponDiscount > 0 ? (

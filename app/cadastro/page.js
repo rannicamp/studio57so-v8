@@ -29,6 +29,11 @@ function CadastroForm() {
  const [validatingCoupon, setValidatingCoupon] = useState(false);
  const [couponMessage, setCouponMessage] = useState('');
  const [periodicidade, setPeriodicidade] = useState('anual'); // 'semestral' ou 'anual'
+ const [selectedInstallments, setSelectedInstallments] = useState(6);
+
+ useEffect(() => {
+   setSelectedInstallments(periodicidade === 'semestral' ? 3 : 6);
+ }, [periodicidade]);
 
  // Estados de Busca Externa
  const [buscandoCNPJ, setBuscandoCNPJ] = useState(false);
@@ -168,7 +173,7 @@ function CadastroForm() {
   const basePriceTotal = valorMensalBase * meses;
   const discountValueTotal = basePriceTotal * (couponDiscount / 100);
   const finalPriceTotal = basePriceTotal - discountValueTotal;
-  const valorParcela = finalPriceTotal / parcelasMax;
+  const valorParcela = finalPriceTotal / selectedInstallments;
 
  const calculateFirstPaymentDate = () => {
    const d = new Date();
@@ -247,6 +252,7 @@ function CadastroForm() {
  formDataPayload.append('plano_codigo', selectedPlan);
  formDataPayload.append('cupom', couponCode);
  formDataPayload.append('periodicidade', periodicidade);
+ formDataPayload.append('parcelas', String(selectedInstallments));
 
  // Envia tudo pro action (ignorando o campo de confirmação de senha pois o backend n precisa)
  Object.keys(formData).forEach(key => {
@@ -778,11 +784,31 @@ function CadastroForm() {
            <span>Valor Líquido Total:</span>
            <span>R$ {finalPriceTotal.toFixed(2).replace('.', ',')}</span>
          </div>
-         <div className="flex justify-between text-[11px] text-slate-500 font-medium pt-0.5">
-           <span>Opção de parcelamento no cartão:</span>
-           <span>Até {parcelasMax}x de R$ {valorParcela.toFixed(2).replace('.', ',')}</span>
-         </div>
-       </div>
+          {couponDiscount > 0 ? (
+            <div className="flex justify-between text-[11px] text-slate-500 font-medium pt-0.5">
+              <span>Opção de parcelamento no cartão:</span>
+              <span>Até {parcelasMax}x de R$ {valorParcela.toFixed(2).replace('.', ',')}</span>
+            </div>
+          ) : (
+            <div className="flex justify-between items-center text-[11px] text-slate-700 font-medium pt-1.5 border-t border-dashed border-blue-100 mt-1">
+              <span>Opção de parcelamento:</span>
+              <select
+                value={selectedInstallments}
+                onChange={(e) => setSelectedInstallments(Number(e.target.value))}
+                className="border border-blue-200 rounded px-1.5 py-0.5 text-[11px] bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 font-semibold text-slate-800"
+              >
+                {Array.from({ length: parcelasMax }, (_, i) => i + 1).map((num) => {
+                  const parcelVal = Number((finalPriceTotal / num).toFixed(2));
+                  return (
+                    <option key={num} value={num}>
+                      {num}x de R$ {parcelVal.toFixed(2).replace('.', ',')} {num > 1 ? 'sem juros' : '(À vista)'}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+          )}
+        </div>
        
        {couponDiscount > 0 ? (
          <div className="text-[11px] text-emerald-800 bg-emerald-100/40 p-2.5 rounded-lg font-medium leading-relaxed mt-2">

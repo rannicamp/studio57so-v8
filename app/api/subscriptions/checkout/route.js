@@ -41,6 +41,7 @@ export async function POST(request) {
         const planoCodigo = body.plano_codigo || 'essencial';
         const cupom = body.cupom || '';
         const periodicidade = body.periodicidade || 'anual'; // 'semestral' ou 'anual'
+        const parcelas = body.parcelas ? Number(body.parcelas) : null;
 
         // 5. Buscar plano e cupom no banco
         const { data: planoRecord, error: planoQueryError } = await supabase
@@ -174,20 +175,21 @@ export async function POST(request) {
             // FLUXO DE PAGAMENTO IMEDIATO/EFETIVO (Sem Cupom ou Pós-Trial): Criamos uma cobrança parcelada única
             const meses = periodicidade === 'semestral' ? 6 : 12;
             const parcelasMax = periodicidade === 'semestral' ? 3 : 6;
+            const parcelasFinal = (parcelas && parcelas >= 1 && parcelas <= parcelasMax) ? parcelas : parcelasMax;
             const valorMensal = Number(planoRecord.valor_mensal);
             const valorTotal = valorMensal * meses;
             
             const valorTotalComDesconto = Number((valorTotal * (1 - descontoPercentual / 100)).toFixed(2));
             const descPlano = `Plano Elo 57 - ${planoRecord.nome} ${periodicidade === 'semestral' ? 'Semestral' : 'Anual'} (${org.nome})`;
 
-            console.log(`[Checkout API] Criando cobrança parcelada de R$ ${valorTotalComDesconto} em ${parcelasMax}x no Asaas...`);
+            console.log(`[Checkout API] Criando cobrança parcelada de R$ ${valorTotalComDesconto} em ${parcelasFinal}x no Asaas...`);
             const pagamento = await criarPagamento({
                 clienteId: asaasCustomerId,
                 valor: valorTotalComDesconto,
                 formaPagamento: 'UNDEFINED', // PIX, Boleto ou Cartão
                 dataVencimento: dataVencimentoStr,
                 descricao: descPlano,
-                parcelas: parcelasMax,
+                parcelas: parcelasFinal,
                 externalReference: orgId
             });
 
