@@ -6,7 +6,7 @@ import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Building2, User, ChevronRight, ChevronLeft, CheckCircle2, Factory, Loader2 } from 'lucide-react';
 import { IMaskInput } from 'react-imask';
-import { signUpAction, validarCupomAction, verificarCnpjStatusAction } from './actions';
+import { signUpAction, validarCupomAction, verificarCnpjStatusAction, deletarCadastroPendenteAction } from './actions';
 import { buscarCNPJ, buscarCEP } from '@/utils/apiConsultas';
 
 function CadastroForm() {
@@ -21,6 +21,7 @@ function CadastroForm() {
  const [loading, setLoading] = useState(false);
  const [error, setError] = useState('');
  const [pendingCnpjData, setPendingCnpjData] = useState(null);
+ const [deletandoPendente, setDeletandoPendente] = useState(false);
 
  // Estados da Assinatura (Passo 4)
  const [selectedPlan, setSelectedPlan] = useState(planParam);
@@ -441,46 +442,85 @@ function CadastroForm() {
       <div className="pt-2 flex flex-col sm:flex-row gap-3 justify-center">
         {pendingCnpjData.checkoutUrl ? (
           <a
-            href={pendingCnpjData.checkoutUrl}
-            className="inline-flex justify-center items-center px-6 py-2.5 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-md transition-all"
+            href={deletandoPendente ? "#" : pendingCnpjData.checkoutUrl}
+            onClick={(e) => { if (deletandoPendente) e.preventDefault(); }}
+            className={`inline-flex justify-center items-center px-6 py-2.5 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-md transition-all ${deletandoPendente ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
             💳 Concluir Assinatura no Asaas
           </a>
         ) : (
           <button
             type="button"
-            onClick={() => {
-              setIgnorePendingCnpj(true);
-              setPendingCnpjData(null);
+            disabled={deletandoPendente}
+            onClick={async () => {
+              setDeletandoPendente(true);
+              setError('');
+              try {
+                const res = await deletarCadastroPendenteAction(formData.cnpj);
+                if (res.error) {
+                  setError(res.error);
+                } else {
+                  setIgnorePendingCnpj(true);
+                  setPendingCnpjData(null);
+                }
+              } catch (err) {
+                console.error("Erro ao deletar cadastro:", err);
+                setError("Erro ao limpar cadastro anterior.");
+              } finally {
+                setDeletandoPendente(false);
+              }
             }}
-            className="inline-flex justify-center items-center px-6 py-2.5 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-md transition-all"
+            className="inline-flex justify-center items-center px-6 py-2.5 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-md transition-all disabled:opacity-50"
           >
-            🔄 Continuar Cadastro do Zero
+            {deletandoPendente ? (
+              <><Loader2 className="animate-spin mr-2 h-4 w-4" /> Limpando...</>
+            ) : (
+              "🔄 Continuar Cadastro do Zero"
+            )}
           </button>
         )}
         <button
           type="button"
-          onClick={() => {
-            if (pendingCnpjData.empresaDetails) {
-              setFormData(prev => ({
-                ...prev,
-                razao_social: pendingCnpjData.empresaDetails.razao_social || '',
-                nome_fantasia: pendingCnpjData.empresaDetails.nome_fantasia || '',
-                cep: pendingCnpjData.empresaDetails.cep || '',
-                address_street: pendingCnpjData.empresaDetails.address_street || '',
-                address_number: pendingCnpjData.empresaDetails.address_number || '',
-                address_complement: pendingCnpjData.empresaDetails.address_complement || '',
-                neighborhood: pendingCnpjData.empresaDetails.neighborhood || '',
-                city: pendingCnpjData.empresaDetails.city || '',
-                state: pendingCnpjData.empresaDetails.state || '',
-              }));
+          disabled={deletandoPendente}
+          onClick={async () => {
+            setDeletandoPendente(true);
+            setError('');
+            try {
+              const res = await deletarCadastroPendenteAction(formData.cnpj);
+              if (res.error) {
+                setError(res.error);
+              } else {
+                if (pendingCnpjData.empresaDetails) {
+                  setFormData(prev => ({
+                    ...prev,
+                    razao_social: pendingCnpjData.empresaDetails.razao_social || '',
+                    nome_fantasia: pendingCnpjData.empresaDetails.nome_fantasia || '',
+                    cep: pendingCnpjData.empresaDetails.cep || '',
+                    address_street: pendingCnpjData.empresaDetails.address_street || '',
+                    address_number: pendingCnpjData.empresaDetails.address_number || '',
+                    address_complement: pendingCnpjData.empresaDetails.address_complement || '',
+                    neighborhood: pendingCnpjData.empresaDetails.neighborhood || '',
+                    city: pendingCnpjData.empresaDetails.city || '',
+                    state: pendingCnpjData.empresaDetails.state || '',
+                  }));
+                }
+                setIgnorePendingCnpj(true);
+                setPendingCnpjData(null);
+              }
+            } catch (err) {
+              console.error("Erro ao deletar cadastro:", err);
+              setError("Erro ao limpar cadastro anterior.");
+            } finally {
+              setDeletandoPendente(false);
             }
-            setIgnorePendingCnpj(true);
-            setPendingCnpjData(null);
           }}
-          className="inline-flex justify-center items-center px-4 py-2.5 text-sm font-medium text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 rounded-lg transition-colors"
+          className="inline-flex justify-center items-center px-4 py-2.5 text-sm font-medium text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 rounded-lg transition-colors disabled:opacity-50"
         >
-          Refazer Cadastro do Zero
+          {deletandoPendente ? (
+            <><Loader2 className="animate-spin mr-2 h-4 w-4" /> Deletando...</>
+          ) : (
+            "Refazer Cadastro do Zero"
+          )}
         </button>
       </div>
     </div>

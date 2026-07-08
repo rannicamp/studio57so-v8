@@ -98,7 +98,7 @@ export async function signUpAction(formData) {
   if (docValue) {
     const { data: existingEmpresa } = await supabaseAdmin
       .from('cadastro_empresa')
-      .select('id, organizacao_id')
+      .select('id, organizacao_id, email')
       .eq(docFieldName, docValue)
       .maybeSingle();
 
@@ -116,6 +116,33 @@ export async function signUpAction(formData) {
         // Registro pendente/abortado: limpar dados antigos para permitir novo cadastro
         console.log(`[Cadastro Actions] CNPJ/CPF ${docValue} já existe em conta pendente. Limpando dados antigos para permitir re-cadastro...`);
         
+        // Deletar usuários associados no Auth
+        try {
+          const { data: usuarios } = await supabaseAdmin
+            .from('usuarios')
+            .select('id')
+            .eq('organizacao_id', existingEmpresa.organizacao_id);
+            
+          const idsToDelete = new Set(usuarios?.map(u => u.id) || []);
+          
+          if (existingEmpresa.email) {
+            const { data: usersList } = await supabaseAdmin.auth.admin.listUsers();
+            if (usersList?.users) {
+              const matchedUser = usersList.users.find(u => u.email?.toLowerCase() === existingEmpresa.email?.toLowerCase());
+              if (matchedUser) {
+                idsToDelete.add(matchedUser.id);
+              }
+            }
+          }
+          
+          for (const id of idsToDelete) {
+            console.log(`[Cadastro Actions] Excluindo usuário auth em loop de limpeza: ${id}`);
+            await supabaseAdmin.auth.admin.deleteUser(id);
+          }
+        } catch (authErr) {
+          console.error("Erro ao deletar usuários do Auth no re-cadastro:", authErr);
+        }
+
         // Remove referências de chaves estrangeiras
         await supabaseAdmin
           .from('organizacoes')
@@ -473,5 +500,95 @@ export async function verificarCnpjStatusAction(cnpj) {
   } catch (err) {
     console.error("Erro no verificarCnpjStatusAction:", err);
     return { error: 'Erro de conexão com o banco.' };
+  }
+}
+
+export async function deletarCadastroPendenteAction(cnpj) {
+  try {
+    const supabaseAdmin = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY,
+      { cookies: { get(name) { return null; } } }
+    );
+    
+    const cleanCnpj = cnpj.replace(/\D/g, '');
+    
+    const { data: empresa, error: empresaErr } = await supabaseAdmin
+      .from('cadastro_empresa')
+      .select('*')
+      .eq('cnpj', cleanCnpj)
+      .maybeSingle();
+      
+    if (empresaErr) {
+      console.error("Erro ao buscar empresa para deleção:", empresaErr);
+      return { error: 'Erro ao buscar dados do CNPJ.' };
+    }
+    
+    if (empresa) {
+      const { data: org } = await supabaseAdmin
+        .from('organizacoes')
+        .select('subscription_status')
+        .eq('id', empresa.organizacao_id)
+        .maybeSingle();
+        
+      const status = org?.subscription_status || 'pending';
+      
+      if (status === 'pending') {
+        console.log(`[Cadastro Actions] Iniciando deleção imediata de cadastro pendente para CNPJ: ${cleanCnpj}`);
+        
+        // 1. Deletar usuários do Auth
+        try {
+          // Deleta pela tabela public.usuarios primeiro
+          const { data: usuarios } = await supabaseAdmin
+            .from('usuarios')
+            .select('id')
+            .eq('organizacao_id', empresa.organizacao_id);
+            
+          const idsToDelete = new Set(usuarios?.map(u => u.id) || []);
+          
+          // Deleta procurando por email
+          if (empresa.email) {
+            const { data: usersList } = await supabaseAdmin.auth.admin.listUsers();
+            if (usersList?.users) {
+              const matchedUser = usersList.users.find(u => u.email?.toLowerCase() === empresa.email?.toLowerCase());
+              if (matchedUser) {
+                idsToDelete.add(matchedUser.id);
+              }
+            }
+          }
+          
+          for (const id of idsToDelete) {
+            console.log(`[Cadastro Actions] Excluindo usuário auth: ${id}`);
+            await supabaseAdmin.auth.admin.deleteUser(id);
+          }
+        } catch (authErr) {
+          console.error("Erro ao deletar usuários do Auth:", authErr);
+        }
+        
+        // 2. Desvincular e Deletar Empresa e Organização
+        await supabaseAdmin
+          .from('organizacoes')
+          .update({ entidade_principal_id: null })
+          .eq('id', empresa.organizacao_id);
+          
+        await supabaseAdmin
+          .from('cadastro_empresa')
+          .delete()
+          .eq('id', empresa.id);
+          
+        await supabaseAdmin
+          .from('organizacoes')
+          .delete()
+          .eq('id', empresa.organizacao_id);
+          
+        console.log(`[Cadastro Actions] Deleção concluída com sucesso para CNPJ: ${cleanCnpj}`);
+        return { success: true };
+      }
+    }
+    
+    return { success: true };
+  } catch (err) {
+    console.error("Erro no deletarCadastroPendenteAction:", err);
+    return { error: 'Falha ao deletar cadastro pendente.' };
   }
 }
