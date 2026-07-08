@@ -89,6 +89,63 @@ export async function signUpAction(formData) {
     }
   }
 
+  // 2.5. Verificar se já existe um cadastro com este CNPJ ou CPF
+  const cleanCnpj = (tipoPessoa === 'PJ' && cnpj) ? cnpj.replace(/\D/g, '') : null;
+  const cleanCpf = (tipoPessoa === 'PF' && cpf) ? cpf.replace(/\D/g, '') : null;
+  const docValue = cleanCnpj || cleanCpf;
+  const docFieldName = cleanCnpj ? 'cnpj' : 'cpf';
+
+  if (docValue) {
+    const { data: existingEmpresa } = await supabaseAdmin
+      .from('cadastro_empresa')
+      .select('id, organizacao_id')
+      .eq(docFieldName, docValue)
+      .maybeSingle();
+
+    if (existingEmpresa) {
+      // Buscar status da assinatura da organização existente
+      const { data: existingOrg } = await supabaseAdmin
+        .from('organizacoes')
+        .select('subscription_status')
+        .eq('id', existingEmpresa.organizacao_id)
+        .maybeSingle();
+
+      const status = existingOrg?.subscription_status || 'pending';
+
+      if (status === 'pending') {
+        // Registro pendente/abortado: limpar dados antigos para permitir novo cadastro
+        console.log(`[Cadastro Actions] CNPJ/CPF ${docValue} já existe em conta pendente. Limpando dados antigos para permitir re-cadastro...`);
+        
+        // Remove referências de chaves estrangeiras
+        await supabaseAdmin
+          .from('organizacoes')
+          .update({ entidade_principal_id: null })
+          .eq('id', existingEmpresa.organizacao_id);
+          
+        // Deleta empresa
+        await supabaseAdmin
+          .from('cadastro_empresa')
+          .delete()
+          .eq('id', existingEmpresa.id);
+          
+        // Deleta organização
+        await supabaseAdmin
+          .from('organizacoes')
+          .delete()
+          .eq('id', existingEmpresa.organizacao_id);
+
+        console.log(`[Cadastro Actions] Limpeza concluída com sucesso para CNPJ/CPF ${docValue}.`);
+      } else {
+        // Conta ativa ou em trial legítimo: barrar duplicidade
+        return { 
+          error: { 
+            message: `Este ${cleanCnpj ? 'CNPJ' : 'CPF'} já está cadastrado em uma conta ativa. Caso já possua acesso, realize o login.` 
+          } 
+        };
+      }
+    }
+  }
+
   // 3. Criar a Organização
   const nomeOrganizacao = tipoPessoa === 'PJ' ? razao_social : admin_nome;
 
