@@ -224,7 +224,8 @@ export async function signUpAction(formData) {
     }
   } catch (asaasError) {
     console.error("Erro no processamento Asaas durante cadastro:", asaasError.message);
-    // Rollback do banco
+    // Rollback do banco (removendo FK primeiro)
+    await supabaseAdmin.from('organizacoes').update({ entidade_principal_id: null }).eq('id', organizacaoId);
     await supabaseAdmin.from('cadastro_empresa').delete().eq('id', empresaData.id);
     await supabaseAdmin.from('organizacoes').delete().eq('id', organizacaoId);
     return { error: { message: `Falha no faturamento Asaas: ${asaasError.message}` } };
@@ -247,7 +248,8 @@ export async function signUpAction(formData) {
 
   if (updateBillingError) {
     console.error("Erro ao salvar faturamento na organização:", updateBillingError.message);
-    // Rollback
+    // Rollback (removendo FK primeiro)
+    await supabaseAdmin.from('organizacoes').update({ entidade_principal_id: null }).eq('id', organizacaoId);
     await supabaseAdmin.from('cadastro_empresa').delete().eq('id', empresaData.id);
     await supabaseAdmin.from('organizacoes').delete().eq('id', organizacaoId);
     return { error: { message: 'Erro ao registrar informações de faturamento.' } };
