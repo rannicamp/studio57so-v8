@@ -344,6 +344,35 @@ async function handleMcpRequest(rpcRequest, supabase, user) {
               }
             },
             {
+              name: 'criar_conta_financeira',
+              description: 'Cria uma nova conta bancária ou cartão de crédito na organização.',
+              inputSchema: {
+                type: 'object',
+                properties: {
+                  nome: { type: 'string', description: 'Nome de exibição da conta (ex: Sicoob Corrente, Inter Cartão).' },
+                  tipo: { type: 'string', description: 'Tipo da conta.', enum: ['Conta Corrente', 'Cartão de Crédito', 'Poupança', 'Investimento', 'Conta de Passivo'] },
+                  saldo_inicial: { type: 'number', description: 'Saldo inicial da conta.', default: 0 },
+                  instituicao: { type: 'string', description: 'Nome do banco/instituição financeira.' },
+                  agencia: { type: 'string', description: 'Agência bancária.' },
+                  numero_conta: { type: 'string', description: 'Número da conta.' }
+                },
+                required: ['nome', 'tipo']
+              }
+            },
+            {
+              name: 'criar_categoria_financeira',
+              description: 'Cria uma nova categoria financeira para receitas ou despesas.',
+              inputSchema: {
+                type: 'object',
+                properties: {
+                  nome: { type: 'string', description: 'Nome da categoria (ex: Moradia, Alimentação).' },
+                  tipo: { type: 'string', description: 'Tipo da categoria.', enum: ['Despesa', 'Receita'] },
+                  parent_id: { type: 'integer', description: 'ID da categoria pai (opcional).' }
+                },
+                required: ['nome', 'tipo']
+              }
+            },
+            {
               name: 'listar_categorias_financeiras',
               description: 'Lista o plano de categorias financeiras.',
               inputSchema: {
@@ -852,6 +881,8 @@ function getToolSecurity(toolName) {
     
     // Financeiro
     'listar_contas_financeiras': { recurso: 'financeiro', acao: 'ver' },
+    'criar_conta_financeira': { recurso: 'financeiro', acao: 'criar' },
+    'criar_categoria_financeira': { recurso: 'financeiro', acao: 'criar' },
     'listar_categorias_financeiras': { recurso: 'financeiro', acao: 'ver' },
     'buscar_lancamentos_financeiros': { recurso: 'financeiro', acao: 'ver' },
     'lancar_despesa': { recurso: 'financeiro', acao: 'criar' },
@@ -1423,6 +1454,26 @@ async function executeTool(name, args, supabase, user) {
       return data;
     }
 
+    case 'criar_conta_financeira': {
+      const { nome, tipo, saldo_inicial = 0, instituicao, agencia, numero_conta } = args;
+      const { data, error } = await supabase
+        .from('contas_financeiras')
+        .insert({
+          nome,
+          tipo,
+          saldo_inicial,
+          instituicao: instituicao || null,
+          agencia: agencia || null,
+          numero_conta: numero_conta || null,
+          organizacao_id: user.organizacao_id
+        })
+        .select('id, nome, tipo')
+        .single();
+
+      if (error) throw new Error(error.message);
+      return data;
+    }
+
     case 'listar_categorias_financeiras': {
       const { tipo } = args;
       let query = supabase
@@ -1435,6 +1486,23 @@ async function executeTool(name, args, supabase, user) {
       }
 
       const { data, error } = await query;
+      if (error) throw new Error(error.message);
+      return data;
+    }
+
+    case 'criar_categoria_financeira': {
+      const { nome, tipo, parent_id } = args;
+      const { data, error } = await supabase
+        .from('categorias_financeiras')
+        .insert({
+          nome,
+          tipo,
+          parent_id: parent_id || null,
+          organizacao_id: user.organizacao_id
+        })
+        .select('id, nome, tipo')
+        .single();
+
       if (error) throw new Error(error.message);
       return data;
     }
