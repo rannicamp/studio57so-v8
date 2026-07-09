@@ -354,7 +354,9 @@ async function handleMcpRequest(rpcRequest, supabase, user) {
                   saldo_inicial: { type: 'number', description: 'Saldo inicial da conta.', default: 0 },
                   instituicao: { type: 'string', description: 'Nome do banco/instituição financeira.' },
                   agencia: { type: 'string', description: 'Agência bancária.' },
-                  numero_conta: { type: 'string', description: 'Número da conta.' }
+                  numero_conta: { type: 'string', description: 'Número da conta.' },
+                  dia_fechamento_fatura: { type: 'integer', description: 'Dia de fechamento da fatura (apenas para cartão).' },
+                  dia_pagamento_fatura: { type: 'integer', description: 'Dia de vencimento da fatura (apenas para cartão).' }
                 },
                 required: ['nome', 'tipo']
               }
@@ -1455,7 +1457,7 @@ async function executeTool(name, args, supabase, user) {
     }
 
     case 'criar_conta_financeira': {
-      const { nome, tipo, saldo_inicial = 0, instituicao, agencia, numero_conta } = args;
+      const { nome, tipo, saldo_inicial = 0, instituicao, agencia, numero_conta, dia_fechamento_fatura, dia_pagamento_fatura } = args;
       const { data, error } = await supabase
         .from('contas_financeiras')
         .insert({
@@ -1465,6 +1467,8 @@ async function executeTool(name, args, supabase, user) {
           instituicao: instituicao || null,
           agencia: agencia || null,
           numero_conta: numero_conta || null,
+          dia_fechamento_fatura: dia_fechamento_fatura || null,
+          dia_pagamento_fatura: dia_pagamento_fatura || null,
           organizacao_id: user.organizacao_id
         })
         .select('id, nome, tipo')
