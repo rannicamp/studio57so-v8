@@ -1,6 +1,6 @@
 import { createClient } from '@/utils/supabase/server';
 import { NextResponse } from 'next/server';
-import { obterDetalhesAssinatura, listarPagamentos } from '@/lib/asaas';
+import { obterDetalhesAssinatura, listarPagamentos, listarNotasFiscais } from '@/lib/asaas';
 
 export async function GET(request) {
     const supabase = await createClient();
@@ -76,6 +76,15 @@ export async function GET(request) {
 
                 // Obter histórico de faturas do cliente
                 const faturasAsaas = await listarPagamentos(org.asaas_customer_id, 10);
+
+                // Obter histórico de notas fiscais do cliente
+                const notasAsaas = await listarNotasFiscais(org.asaas_customer_id);
+                const notasPorPagamento = {};
+                notasAsaas.forEach(n => {
+                    if (n.payment && n.status === 'AUTHORIZED') {
+                        notasPorPagamento[n.payment] = n.pdfUrl;
+                    }
+                });
                 
                 // Mapear faturas para um formato limpo
                 responseData.faturas = faturasAsaas.map(f => ({
@@ -87,7 +96,8 @@ export async function GET(request) {
                     status: f.status, // PENDING, RECEIVED, CONFIRMED, OVERDUE, etc.
                     billingType: f.billingType, // CREDIT_CARD, BOLETO, PIX
                     invoiceUrl: f.invoiceUrl, // Link para pagar/ver fatura
-                    confirmedBillingUrl: f.confirmedBillingUrl || null // PDF do comprovante
+                    confirmedBillingUrl: f.confirmedBillingUrl || null, // PDF do comprovante
+                    notaFiscalUrl: notasPorPagamento[f.id] || null // PDF da NFS-e
                 }));
 
                 // Opcional: Atualizar status local com o do Asaas em caso de divergência

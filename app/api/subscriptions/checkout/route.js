@@ -89,7 +89,7 @@ export async function POST(request) {
         console.log(`[Checkout API] Buscando dados cadastrais da empresa para a Org ${orgId}...`);
         const { data: empresa } = await supabase
             .from('cadastro_empresa')
-            .select('cnpj, cep, address_number, telefone, email, razao_social')
+            .select('cnpj, cep, address_number, telefone, email, razao_social, address_street, neighborhood, state')
             .eq('organizacao_id', orgId)
             .order('created_at', { ascending: false})
             .limit(1)
@@ -101,7 +101,10 @@ export async function POST(request) {
             cpfCnpj: empresa?.cnpj ? empresa.cnpj.replace(/\D/g, '') : null,
             phone: empresa?.telefone ? empresa.telefone.replace(/\D/g, '') : null,
             postalCode: empresa?.cep ? empresa.cep.replace(/\D/g, '') : null,
-            addressNumber: empresa?.address_number || 'S/N'
+            addressNumber: empresa?.address_number || 'S/N',
+            address: empresa?.address_street || null,
+            province: empresa?.neighborhood || null,
+            state: empresa?.state || null
         };
 
         if (!dadosCadastro.cpfCnpj) {

@@ -28,3 +28,10 @@
 1. Sempre que for solicitada a criação, modificação ou expansão de ferramentas do Servidor MCP ou lógicas que envolvam operações no banco de dados, você **deve** obrigatoriamente consultar o arquivo `functions.json` e as migrações em `supabase/migrations/` para verificar se já existe uma função (RPC) ou trigger correspondente criada.
 2. Dê preferência absoluta a chamar a RPC nativa do banco de dados (ex: `auto_merge_contacts_and_relink`, `agendar_vale`, `marcar_pedido_entregue`) em vez de recriar a lógica com inserts/updates manuais no JavaScript do Next.js. Isso garante que a integridade das triggers e regras do banco seja preservada.
 
+## 🔒 Restrição de Acesso a Credenciais e Banco de Dados (Segurança de Escopo)
+1. **PROIBIÇÃO de Leitura do `.env.local`:** O agente está terminantemente proibido de ler o arquivo `.env.local` e de extrair qualquer credencial, segredo ou token do projeto (incluindo chaves do Supabase, como `SUPABASE_SERVICE_ROLE_KEY` ou `SUPABASE_SECRET_KEY`).
+2. **PROIBIÇÃO de Consultas Diretas ao Banco de Dados (Bypass de RLS):** O agente não pode criar scripts, comandos ou conexões locais diretas para ler ou escrever no banco de dados Supabase usando chaves de serviço ou privilégios elevados.
+3. **Uso Exclusivo do Servidor MCP:** Toda e qualquer consulta, listagem ou alteração de dados de finanças, estoque, CRM, empreendimentos, etc. do sistema Elo 57 deve ser realizada estritamente através do **servidor MCP `elo57`**.
+4. **Isolamento de Organização:** O agente deve interagir apenas com os dados e contas associados à organização pessoal do usuário (`rannierecampos1@gmail.com`), respeitando o escopo restrito de sua chave de API pessoal e nunca acessando ou expondo dados de outras organizações (como a Organização 2).
+
+

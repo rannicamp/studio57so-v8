@@ -95,7 +95,7 @@ export default function PricingSection() {
               {/* Preço */}
               <div className="mb-6 flex items-baseline gap-1">
                 <span className="text-slate-400 text-xs font-bold">R$</span>
-                <span className="text-5xl font-black text-slate-950 tracking-tight">297</span>
+                <span className="text-5xl font-black text-slate-950 tracking-tight">497</span>
                 <span className="text-slate-400 text-xs font-semibold">/ usuário / mês</span>
               </div>
 
@@ -151,7 +151,7 @@ export default function PricingSection() {
               {/* Preço */}
               <div className="mb-6 flex items-baseline gap-1">
                 <span className="text-slate-400 text-xs font-bold">R$</span>
-                <span className="text-4xl font-extrabold text-slate-950 tracking-tight">497</span>
+                <span className="text-4xl font-extrabold text-slate-950 tracking-tight">797</span>
                 <span className="text-slate-400 text-xs font-semibold">/ usuário / mês</span>
               </div>
 

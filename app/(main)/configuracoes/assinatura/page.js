@@ -19,7 +19,8 @@ import {
     faReceipt,
     faTimes,
     faCalendarAlt,
-    faUser
+    faUser,
+    faFileInvoice
 } from '@fortawesome/free-solid-svg-icons';
 
 export default function AssinaturaPage() {
@@ -744,30 +745,52 @@ case 'OVERDUE':
                                             {renderFaturaStatus(fatura.status)}
                                         </td>
                                         <td className="py-3.5 px-4 text-right">
-                                            {/* Exibe botão de comprovante se pago, ou botão de pagamento se pendente */}
-                                            {['RECEIVED', 'CONFIRMED'].includes(fatura.status) && fatura.confirmedBillingUrl ? (
-                                                <a 
-                                                    href={fatura.confirmedBillingUrl}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="inline-flex items-center gap-1 text-xs font-bold text-gray-500 hover:text-black transition-all bg-gray-50 hover:bg-gray-100 py-1.5 px-3 rounded-lg border border-gray-100"
-                                                >
-                                                    <FontAwesomeIcon icon={faReceipt} size="xs" />
-                                                    <span>Comprovante</span>
-                                                </a>
-                                            ) : ['PENDING', 'OVERDUE'].includes(fatura.status) && fatura.invoiceUrl ? (
-                                                <a 
-                                                    href={fatura.invoiceUrl}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="inline-flex items-center gap-1 text-xs font-bold text-blue-600 hover:text-blue-800 transition-all bg-blue-50 hover:bg-blue-100 py-1.5 px-3 rounded-lg border border-blue-100"
-                                                >
-                                                    <span>Pagar Fatura</span>
-                                                    <FontAwesomeIcon icon={faExternalLinkAlt} size="2xs" />
-                                                </a>
-                                            ) : (
-                                                <span className="text-xs text-gray-400">Sem link disponível</span>
-                                            )}
+                                            <div className="inline-flex gap-2 justify-end items-center">
+                                                {/* Exibe botão de comprovante se pago */}
+                                                {['RECEIVED', 'CONFIRMED'].includes(fatura.status) && (
+                                                    <>
+                                                        {fatura.confirmedBillingUrl && (
+                                                            <a 
+                                                                href={fatura.confirmedBillingUrl}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="inline-flex items-center gap-1 text-xs font-bold text-gray-500 hover:text-black transition-all bg-gray-50 hover:bg-gray-100 py-1.5 px-3 rounded-lg border border-gray-100"
+                                                            >
+                                                                <FontAwesomeIcon icon={faReceipt} size="xs" />
+                                                                <span>Comprovante</span>
+                                                            </a>
+                                                        )}
+                                                        {fatura.notaFiscalUrl && (
+                                                            <a 
+                                                                href={fatura.notaFiscalUrl}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="inline-flex items-center gap-1 text-xs font-bold text-emerald-600 hover:text-emerald-800 transition-all bg-emerald-50 hover:bg-emerald-100 py-1.5 px-3 rounded-lg border border-emerald-100"
+                                                            >
+                                                                <FontAwesomeIcon icon={faFileInvoice} size="xs" className="text-emerald-500" />
+                                                                <span>Nota Fiscal</span>
+                                                            </a>
+                                                        )}
+                                                    </>
+                                                )}
+                                                
+                                                {/* Botão de Pagar Fatura se pendente */}
+                                                {['PENDING', 'OVERDUE'].includes(fatura.status) && fatura.invoiceUrl && (
+                                                    <a 
+                                                        href={fatura.invoiceUrl}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="inline-flex items-center gap-1 text-xs font-bold text-blue-600 hover:text-blue-800 transition-all bg-blue-50 hover:bg-blue-100 py-1.5 px-3 rounded-lg border border-blue-100"
+                                                    >
+                                                        <span>Pagar Fatura</span>
+                                                        <FontAwesomeIcon icon={faExternalLinkAlt} size="2xs" />
+                                                    </a>
+                                                )}
+                                                
+                                                {!['RECEIVED', 'CONFIRMED'].includes(fatura.status) && !['PENDING', 'OVERDUE'].includes(fatura.status) && (
+                                                    <span className="text-xs text-gray-400">Sem link disponível</span>
+                                                )}
+                                            </div>
                                         </td>
                                     </tr>
                                 ))}
