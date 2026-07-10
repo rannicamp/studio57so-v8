@@ -245,7 +245,11 @@ async function handleMcpRequest(rpcRequest, supabase, user) {
                   email: { type: 'string' },
                   celular: { type: 'string', description: 'Celular com DDD (ex: 5533991912291).' },
                   origem: { type: 'string', description: 'Origem do lead (ex: Meta Ads, Indicação).' },
-                  status: { type: 'string', description: 'Fase inicial do contato.' }
+                  status: { type: 'string', description: 'Fase inicial do contato.' },
+                  cnpj: { type: 'string', description: 'CNPJ apenas números ou formatado.' },
+                  razao_social: { type: 'string' },
+                  nome_fantasia: { type: 'string' },
+                  personalidade_juridica: { type: 'string', enum: ['Fisica', 'Juridica'] }
                 },
                 required: ['nome']
               }
@@ -417,7 +421,8 @@ async function handleMcpRequest(rpcRequest, supabase, user) {
                   empreendimento_id: { type: 'integer' },
                   data_pagamento: { type: 'string', description: 'Se pago, passe a data de pagamento YYYY-MM-DD' },
                   status: { type: 'string', enum: ['Pago', 'Pendente'], default: 'Pendente' },
-                  observacao: { type: 'string' }
+                  observacao: { type: 'string' },
+                  favorecido_contato_id: { type: 'integer', description: 'ID do contato do favorecido.' }
                 },
                 required: ['descricao', 'valor', 'data_vencimento', 'conta_financeira_id', 'categoria_id']
               }
@@ -436,7 +441,8 @@ async function handleMcpRequest(rpcRequest, supabase, user) {
                   empreendimento_id: { type: 'integer' },
                   data_pagamento: { type: 'string', description: 'Se recebido, passe a data YYYY-MM-DD' },
                   status: { type: 'string', enum: ['Pago', 'Pendente'], default: 'Pendente' },
-                  observacao: { type: 'string' }
+                  observacao: { type: 'string' },
+                  favorecido_contato_id: { type: 'integer', description: 'ID do contato do favorecido.' }
                 },
                 required: ['descricao', 'valor', 'data_vencimento', 'conta_financeira_id', 'categoria_id']
               }
@@ -1262,7 +1268,7 @@ async function executeTool(name, args, supabase, user) {
     }
 
     case 'criar_contato_crm': {
-      const { nome, email, celular, origem, status } = args;
+      const { nome, email, celular, origem, status, cnpj, razao_social, nome_fantasia, personalidade_juridica } = args;
       
       // 1. Insere o contato
       const { data: contato, error } = await supabase
@@ -1271,7 +1277,11 @@ async function executeTool(name, args, supabase, user) {
           nome,
           origem: origem || null,
           status: status || 'Novo Lead',
-          organizacao_id: user.organizacao_id
+          organizacao_id: user.organizacao_id,
+          cnpj: cnpj || null,
+          razao_social: razao_social || null,
+          nome_fantasia: nome_fantasia || null,
+          personalidade_juridica: personalidade_juridica || null
         })
         .select('id, nome, status')
         .single();
@@ -1548,7 +1558,7 @@ async function executeTool(name, args, supabase, user) {
     }
 
     case 'lancar_despesa': {
-      const { descricao, valor, data_vencimento, conta_financeira_id, categoria_id, empreendimento_id, data_pagamento, status = 'Pendente', observacao } = args;
+      const { descricao, valor, data_vencimento, conta_financeira_id, categoria_id, empreendimento_id, data_pagamento, status = 'Pendente', observacao, favorecido_contato_id } = args;
 
       const valorFormatado = -Math.abs(Number(valor));
 
@@ -1568,7 +1578,8 @@ async function executeTool(name, args, supabase, user) {
           criado_por_usuario_id: user.id,
           organizacao_id: user.organizacao_id,
           origem_criacao: 'MCP API',
-          observacao: observacao || null
+          observacao: observacao || null,
+          favorecido_contato_id: favorecido_contato_id || null
         })
         .select('id, descricao, valor, status')
         .single();
@@ -1578,7 +1589,7 @@ async function executeTool(name, args, supabase, user) {
     }
 
     case 'lancar_receita': {
-      const { descricao, valor, data_vencimento, conta_financeira_id, categoria_id, empreendimento_id, data_pagamento, status = 'Pendente', observacao } = args;
+      const { descricao, valor, data_vencimento, conta_financeira_id, categoria_id, empreendimento_id, data_pagamento, status = 'Pendente', observacao, favorecido_contato_id } = args;
 
       const valorFormatado = Math.abs(Number(valor));
 
@@ -1598,7 +1609,8 @@ async function executeTool(name, args, supabase, user) {
           criado_por_usuario_id: user.id,
           organizacao_id: user.organizacao_id,
           origem_criacao: 'MCP API',
-          observacao: observacao || null
+          observacao: observacao || null,
+          favorecido_contato_id: favorecido_contato_id || null
         })
         .select('id, descricao, valor, status')
         .single();
