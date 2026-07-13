@@ -20,10 +20,15 @@ const fetchPlanoPagamento = async (supabase, contratoId, organizacaoId) => {
  })
  .single();
 
- if (error) {
- toast.error('Falha ao carregar o plano de pagamento: ' + error.message);
- throw new Error(error.message);
- }
+  if (error) {
+    const isAbortError = error.message?.includes('AbortError') || error.message?.includes('Lock broken') || error.message?.includes('abort');
+    if (isAbortError) {
+      console.warn('Requisição de plano de pagamento abortada concorrentemente pelo navegador:', error.message);
+    } else {
+      toast.error('Falha ao carregar o plano de pagamento: ' + error.message);
+    }
+    throw new Error(error.message);
+  }
  return data;
 };
 

@@ -53,6 +53,8 @@ export default function CronogramaFinanceiro({ contrato, onUpdate }) {
   const [selectedSignatoryId, setSelectedSignatoryId] = useState('');
   const [geradoPor, setGeradoPor] = useState('');
   const isUserProprietario = userData?.funcoes?.nome_funcao === 'Proprietário';
+  const [contas, setContas] = useState([]);
+  const [selectedContaId, setSelectedContaId] = useState('');
 
   useEffect(() => {
     const fetchInitialData = async () => {
@@ -62,6 +64,16 @@ export default function CronogramaFinanceiro({ contrato, onUpdate }) {
       if (isUserProprietario && user) setSelectedSignatoryId(user.id);
       else if (proprietariosData?.length > 0) setSelectedSignatoryId(proprietariosData[0].id);
       if (userData) setGeradoPor(`${userData.nome} ${userData.sobrenome}`);
+
+      // Carrega contas financeiras ativas da organização
+      const { data: contasData } = await supabase.from('contas_financeiras').select('id, nome').eq('organizacao_id', organizacaoId);
+      setContas(contasData || []);
+      const contaReceberPadrao = contasData?.find(c => c.nome.toLowerCase().includes('contas a receber'));
+      if (contaReceberPadrao) {
+        setSelectedContaId(contaReceberPadrao.id);
+      } else if (contasData?.length > 0) {
+        setSelectedContaId(contasData[0].id);
+      }
     };
     fetchInitialData();
   }, [supabase, user, userData, isUserProprietario, organizacaoId]);
@@ -145,8 +157,13 @@ export default function CronogramaFinanceiro({ contrato, onUpdate }) {
 
   // --- LÓGICA DE PROVISIONAMENTO (Inalterada) ---
   const handleProvisionarLancamentos = async () => {
+    if (!selectedContaId) return toast.error("Selecione a conta financeira de destino.");
     setIsProvisioning(true);
-    const promise = supabase.rpc('provisionar_parcelas_contrato', { p_contrato_id: contratoId, p_organizacao_id: organizacaoId });
+    const promise = supabase.rpc('provisionar_parcelas_contrato', { 
+      p_contrato_id: contratoId, 
+      p_organizacao_id: organizacaoId,
+      p_conta_id: selectedContaId
+    });
     toast.promise(promise, {
       loading: 'Provisionando lançamentos...',
       success: (rpcResult) => {
@@ -172,7 +189,11 @@ export default function CronogramaFinanceiro({ contrato, onUpdate }) {
     const { data: insertedData, error: insertError } = await supabase.from('contrato_parcelas').insert({ contrato_id: contratoId, ...newParcela, valor_parcela: valorNumerico, organizacao_id: organizacaoId }).select().single();
     if (insertError) { toast.error("Erro: " + insertError.message); setLoading(false); return; }
     toast.success("Parcela adicionada!");
-    const { error: syncError } = await supabase.rpc('sincronizar_parcela_com_lancamento', { p_parcela_id: insertedData.id, p_organizacao_id: organizacaoId });
+    const { error: syncError } = await supabase.rpc('sincronizar_parcela_com_lancamento', { 
+      p_parcela_id: insertedData.id, 
+      p_organizacao_id: organizacaoId,
+      p_conta_id: selectedContaId
+    });
     if (syncError) toast.warning("Erro ao criar lançamento: " + syncError.message); else toast.success("Lançamento criado!");
     setNewParcela({ descricao: '', tipo: 'Adicional', data_vencimento: '', valor_parcela: '' });
     onUpdate(); setLoading(false);
@@ -208,7 +229,11 @@ export default function CronogramaFinanceiro({ contrato, onUpdate }) {
     }
 
     toast.success("Parcela atualizada!");
-    const { error: syncError } = await supabase.rpc('sincronizar_parcela_com_lancamento', { p_parcela_id: targetParcelaId, p_organizacao_id: organizacaoId });
+    const { error: syncError } = await supabase.rpc('sincronizar_parcela_com_lancamento', { 
+      p_parcela_id: targetParcelaId, 
+      p_organizacao_id: organizacaoId,
+      p_conta_id: selectedContaId
+    });
     if (syncError) toast.warning("Erro ao sincronizar: " + syncError.message); else toast.success("Lançamento atualizado!");
     setEditingParcelaId(null); onUpdate(); setLoading(false);
   };
@@ -328,6 +353,10 @@ export default function CronogramaFinanceiro({ contrato, onUpdate }) {
               <select value={selectedSignatoryId} onChange={(e) => setSelectedSignatoryId(e.target.value)} className="p-2 bg-white border border-gray-300 rounded-md text-sm font-medium text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500 flex-grow md:flex-grow-0">
                 <option value="" disabled>Assinatura do Responsável</option>
                 {proprietarios.map(p => <option key={p.id} value={p.id}>{p.nome} {p.sobrenome}</option>)}
+              </select>
+              <select value={selectedContaId} onChange={(e) => setSelectedContaId(e.target.value)} className="p-2 bg-white border border-gray-300 rounded-md text-sm font-medium text-gray-700 focus:outline-none focus:ring-1 focus:ring-blue-500 flex-grow md:flex-grow-0" title="Conta de destino do financeiro">
+                <option value="" disabled>Conta Financeira de Destino</option>
+                {contas.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
               </select>
               <button onClick={() => window.print()} disabled={!selectedSignatoryId} className="bg-white border border-gray-300 text-gray-600 px-4 py-2 rounded-md font-bold hover:bg-gray-50 disabled:opacity-50 transition-colors flex items-center justify-center gap-2 flex-grow md:flex-grow-0 text-xs"><FontAwesomeIcon icon={faPrint} /> Imprimir</button>
               <button onClick={handleProvisionarLancamentos} disabled={!hasPendingParcelsToProvision || isProvisioning} className="bg-green-600 text-white px-4 py-2 rounded-md font-bold hover:bg-green-700 disabled:bg-gray-300 disabled:text-gray-500 transition-colors flex items-center justify-center gap-2 flex-grow md:flex-grow-0 text-xs"><FontAwesomeIcon icon={isProvisioning ? faSpinner : faLink} spin={isProvisioning} />{isProvisioning ? 'Sincronizando...' : 'Sincronizar'}</button>
