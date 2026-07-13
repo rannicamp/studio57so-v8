@@ -16,7 +16,8 @@ Temos quatro opções de empreendimentos ativos da incorporadora:
 - **Residencial Alfa:** Apartamentos residenciais de altíssimo padrão, ideais para famílias que buscam conforto, segurança e sofisticação no coração da cidade.
 - **Beta Suítes:** Apartamentos e suítes compactas modernas, perfeitas para locação estudantil e executiva com alta rentabilidade mensal.
 - **Refúgio Braúnas:** Chácaras de lazer exclusivas de 1.000m² com matrícula individual registrada, portaria monitorada, infraestrutura completa e cercada de natureza.
-- **Imóveis à venda:** Unidades avulsas para venda direta, revendas ou recebidas em permuta (ex: Apartamento no Residencial Pero Vaz / Jardim Vera Cruz, também conhecido como Perovass ou Cerâmica Cruz).
+- **Imóveis à venda:** Unidades avulsas para venda direta, revendas ou recebidas em permuta (ex: Apartamento no Residencial Pero Vaz / Bairro Vera Cruz, também conhecido como Perovass).
+
 
 `;
 
