@@ -1,0 +1,5122 @@
+[
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-01-02",
+    "real_date": "2026-01-02",
+    "amount": -22.5,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix 02.104.236 0200-48",
+    "fitid": "2026010222501"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-01-02",
+    "real_date": "2026-01-02",
+    "amount": -22.62,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix 01.928.075 0001-08",
+    "fitid": "2026010222621"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-01-02",
+    "real_date": "2026-01-02",
+    "amount": -44.0,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix 86.608.171 0001-13",
+    "fitid": "2026010244001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-01-02",
+    "real_date": "2026-01-02",
+    "amount": -220.91,
+    "desc": "DÉB.TIT.COMPE EFETIVADO",
+    "fitid": "20260102220911"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-01-02",
+    "real_date": "2026-01-02",
+    "amount": -215.0,
+    "desc": "DÉB.TIT.COMPE EFETIVADO",
+    "fitid": "20260102215001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-01-02",
+    "real_date": "2026-01-02",
+    "amount": -74.0,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix 27.215.345 0001-19",
+    "fitid": "2026010274001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-01-02",
+    "real_date": "2026-01-02",
+    "amount": -5.0,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix 19.121.816 0001-00",
+    "fitid": "202601025001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-01-02",
+    "real_date": "2026-01-02",
+    "amount": -44.0,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix 19.121.816 0001-00",
+    "fitid": "2026010244002"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-01-05",
+    "real_date": "2026-01-05",
+    "amount": -27.99,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix 41.930.199 0001-34",
+    "fitid": "2026010527991"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-01-05",
+    "real_date": "2026-01-05",
+    "amount": -110.0,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix ***.110.836-**",
+    "fitid": "20260105110001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-01-05",
+    "real_date": "2026-01-05",
+    "amount": -35.0,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix ***.809.376-**",
+    "fitid": "2026010535001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-01-05",
+    "real_date": "2026-01-05",
+    "amount": -101.31,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix ***.808.426-**",
+    "fitid": "20260105101311"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-01-05",
+    "real_date": "2026-01-05",
+    "amount": -38.5,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix 14.380.200 0001-21",
+    "fitid": "2026010538501"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-01-05",
+    "real_date": "2026-01-05",
+    "amount": -400.0,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix ***.193.476-**",
+    "fitid": "20260105400001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-01-05",
+    "real_date": "2026-01-05",
+    "amount": -133.5,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix 19.845.386 0001-60",
+    "fitid": "20260105133501"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-01-06",
+    "real_date": "2026-01-06",
+    "amount": -114.54,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix 20.382.127 0001-20",
+    "fitid": "20260106114541"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-01-07",
+    "real_date": "2026-01-07",
+    "amount": -34.2,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix 41.930.199 0001-34",
+    "fitid": "2026010734201"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-01-07",
+    "real_date": "2025-12-01",
+    "amount": 2713.29,
+    "desc": "PAGAMENTO DE FATURA -",
+    "fitid": "INT_CARD_2026-01_2025-12-01_271329"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-01-07",
+    "real_date": "2025-10-13",
+    "amount": -514.88,
+    "desc": "AMERICAN AIR*captureRe (Parcela 03 de 06)",
+    "fitid": "INT_CARD_2026-01_2025-10-13_-51488"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-01-07",
+    "real_date": "2025-10-19",
+    "amount": -70.8,
+    "desc": "CP PARC DUO GOURMET (Parcela 03 de 10)",
+    "fitid": "INT_CARD_2026-01_2025-10-19_-708"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-01-07",
+    "real_date": "2025-11-12",
+    "amount": -49.0,
+    "desc": "AMAZONMKTPLC*ITXTECNOL (Parcela 02 de 06)",
+    "fitid": "INT_CARD_2026-01_2025-11-12_-490"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-01-07",
+    "real_date": "2025-12-02",
+    "amount": -28.5,
+    "desc": "BANETTON ATELIE DOS P",
+    "fitid": "INT_CARD_2026-01_2025-12-02_-285"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-01-07",
+    "real_date": "2025-12-02",
+    "amount": -23.7,
+    "desc": "GilsonPeixoto",
+    "fitid": "INT_CARD_2026-01_2025-12-02_-237"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-01-07",
+    "real_date": "2025-12-02",
+    "amount": -50.0,
+    "desc": "GAUCHAO DO FABINHO",
+    "fitid": "INT_CARD_2026-01_2025-12-02_-500"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-01-07",
+    "real_date": "2025-12-02",
+    "amount": -10.0,
+    "desc": "EMPRESA B DE ESTAC",
+    "fitid": "INT_CARD_2026-01_2025-12-02_-100"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-01-07",
+    "real_date": "2025-12-03",
+    "amount": -4.5,
+    "desc": "Direcao",
+    "fitid": "INT_CARD_2026-01_2025-12-03_-45"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-01-07",
+    "real_date": "2025-12-03",
+    "amount": -49.9,
+    "desc": "LOJAS RENNER FL 437",
+    "fitid": "INT_CARD_2026-01_2025-12-03_-499"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-01-07",
+    "real_date": "2025-12-03",
+    "amount": -32.78,
+    "desc": "SUP EPA CENTO E DEZENO",
+    "fitid": "INT_CARD_2026-01_2025-12-03_-3278"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-01-07",
+    "real_date": "2025-12-04",
+    "amount": -35.75,
+    "desc": "GilsonPeixoto",
+    "fitid": "INT_CARD_2026-01_2025-12-04_-3575"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-01-07",
+    "real_date": "2025-12-04",
+    "amount": -236.69,
+    "desc": "SUPER COELHO DINIZ",
+    "fitid": "INT_CARD_2026-01_2025-12-04_-23669"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-01-07",
+    "real_date": "2025-12-04",
+    "amount": -62.09,
+    "desc": "FARMACIA INDIANA 38 IL",
+    "fitid": "INT_CARD_2026-01_2025-12-04_-6209"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-01-07",
+    "real_date": "2025-12-04",
+    "amount": -96.99,
+    "desc": "DL*GOOGLE Google",
+    "fitid": "INT_CARD_2026-01_2025-12-04_-9699"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-01-07",
+    "real_date": "2025-12-05",
+    "amount": -18.3,
+    "desc": "GilsonPeixoto",
+    "fitid": "INT_CARD_2026-01_2025-12-05_-183"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-01-07",
+    "real_date": "2025-12-06",
+    "amount": -55.42,
+    "desc": "SUPER COELHO DINIZ",
+    "fitid": "INT_CARD_2026-01_2025-12-06_-5542"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-01-07",
+    "real_date": "2025-12-06",
+    "amount": -58.53,
+    "desc": "REST MARIA HELENA",
+    "fitid": "INT_CARD_2026-01_2025-12-06_-5853"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-01-07",
+    "real_date": "2025-12-06",
+    "amount": -102.38,
+    "desc": "IFD*WERNECK CIA DE NEG",
+    "fitid": "INT_CARD_2026-01_2025-12-06_-10238"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-01-07",
+    "real_date": "2025-12-07",
+    "amount": -59.41,
+    "desc": "SUPER COELHO DINIZ",
+    "fitid": "INT_CARD_2026-01_2025-12-07_-5941"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-01-07",
+    "real_date": "2025-12-07",
+    "amount": -269.87,
+    "desc": "BoutiqueDeCarnes",
+    "fitid": "INT_CARD_2026-01_2025-12-07_-26987"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-01-07",
+    "real_date": "2025-12-08",
+    "amount": -68.38,
+    "desc": "SUPER COELHO DINIZ",
+    "fitid": "INT_CARD_2026-01_2025-12-08_-6838"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-01-07",
+    "real_date": "2025-12-10",
+    "amount": -31.32,
+    "desc": "SUPER COELHO DINIZ",
+    "fitid": "INT_CARD_2026-01_2025-12-10_-3132"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-01-07",
+    "real_date": "2025-12-11",
+    "amount": -100.0,
+    "desc": "POSTO TNE ILHA LTDA",
+    "fitid": "INT_CARD_2026-01_2025-12-11_-1000"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-01-07",
+    "real_date": "2025-12-11",
+    "amount": -117.59,
+    "desc": "HAUSMALTE ILHA",
+    "fitid": "INT_CARD_2026-01_2025-12-11_-11759"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-01-07",
+    "real_date": "2025-12-12",
+    "amount": -4.98,
+    "desc": "SUPER COELHO DINIZ",
+    "fitid": "INT_CARD_2026-01_2025-12-12_-498"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-01-07",
+    "real_date": "2025-12-12",
+    "amount": -18.95,
+    "desc": "GilsonPeixoto",
+    "fitid": "INT_CARD_2026-01_2025-12-12_-1895"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-01-07",
+    "real_date": "2025-12-13",
+    "amount": -104.28,
+    "desc": "HAUSMALTE",
+    "fitid": "INT_CARD_2026-01_2025-12-13_-10428"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-01-07",
+    "real_date": "2025-12-14",
+    "amount": -263.89,
+    "desc": "BUTECO LAGOA GRILL",
+    "fitid": "INT_CARD_2026-01_2025-12-14_-26389"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-01-07",
+    "real_date": "2025-12-14",
+    "amount": -14.19,
+    "desc": "BUTECO LAGOA GRILL",
+    "fitid": "INT_CARD_2026-01_2025-12-14_-1419"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-01-07",
+    "real_date": "2025-12-14",
+    "amount": -42.0,
+    "desc": "CHIQUINHO SORVERTES",
+    "fitid": "INT_CARD_2026-01_2025-12-14_-420"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-01-07",
+    "real_date": "2025-12-15",
+    "amount": -30.2,
+    "desc": "GilsonPeixoto",
+    "fitid": "INT_CARD_2026-01_2025-12-15_-302"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-01-07",
+    "real_date": "2025-12-15",
+    "amount": -27.87,
+    "desc": "KI SABOR ILHA",
+    "fitid": "INT_CARD_2026-01_2025-12-15_-2787"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-01-07",
+    "real_date": "2025-12-17",
+    "amount": -100.0,
+    "desc": "POSTO TNE ILHA LTDA",
+    "fitid": "INT_CARD_2026-01_2025-12-17_-1000"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-01-07",
+    "real_date": "2025-12-17",
+    "amount": -23.7,
+    "desc": "GilsonPeixoto",
+    "fitid": "INT_CARD_2026-01_2025-12-17_-237"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-01-07",
+    "real_date": "2025-12-18",
+    "amount": -79.59,
+    "desc": "EBN*SONYPLAYSTATN",
+    "fitid": "INT_CARD_2026-01_2025-12-18_-7959"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-01-07",
+    "real_date": "2025-12-18",
+    "amount": -69.7,
+    "desc": "HAUSMALTE ILHA",
+    "fitid": "INT_CARD_2026-01_2025-12-18_-697"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-01-07",
+    "real_date": "2025-12-20",
+    "amount": -12.0,
+    "desc": "MP *NEIABOLOS",
+    "fitid": "INT_CARD_2026-01_2025-12-20_-120"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-01-07",
+    "real_date": "2025-12-20",
+    "amount": -179.3,
+    "desc": "ASSIM ASSADO BAR E CHU",
+    "fitid": "INT_CARD_2026-01_2025-12-20_-1793"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-01-08",
+    "real_date": "2026-01-08",
+    "amount": -50.0,
+    "desc": "TRANSF.REALIZADA PIX SICOOB - FAV.: RAFAEL CAMPOS MENDES Trans",
+    "fitid": "2026010850001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-01-08",
+    "real_date": "2026-01-08",
+    "amount": 1351.02,
+    "desc": "PIX RECEBIDO - OUTRA IF - Recebimento Pix STUDIO 57 ARQUIT",
+    "fitid": "202601081351021"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-01-08",
+    "real_date": "2026-01-08",
+    "amount": -3549.02,
+    "desc": "DÉB.TIT.COMPE EFETIVADO",
+    "fitid": "202601083549021"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-01-08",
+    "real_date": "2026-01-08",
+    "amount": -60.0,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix ***.232.261-**",
+    "fitid": "2026010860001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-01-09",
+    "real_date": "2026-01-09",
+    "amount": 0.3,
+    "desc": "CREDITO REPASSE PAGTO POR SERV.PRESTADOS",
+    "fitid": "202601090301"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-01-11",
+    "real_date": "2025-10-01",
+    "amount": -12.0,
+    "desc": "ANUIDADE VISA C      (1160) 03/12",
+    "fitid": "SIC_CARD_2026-01_2025100112001"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-01-11",
+    "real_date": "2025-12-11",
+    "amount": 455.39,
+    "desc": "PAGAMENTO DEBITO EM CONTA",
+    "fitid": "SIC_CARD_2026-01_20251211455391"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-01-11",
+    "real_date": "2025-12-26",
+    "amount": -34.0,
+    "desc": "GAUCHAO DO FABINHO            GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-01_2025122634001"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-01-11",
+    "real_date": "2025-12-26",
+    "amount": -18.2,
+    "desc": "GilsonPeixoto                 GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-01_2025122618201"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-01-11",
+    "real_date": "2025-12-26",
+    "amount": -3.0,
+    "desc": "Direcao                       GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-01_202512263001"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-01-11",
+    "real_date": "2025-12-26",
+    "amount": -28.63,
+    "desc": "SUPER COELHO DINIZ            GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-01_2025122628631"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-01-11",
+    "real_date": "2025-12-26",
+    "amount": -100.0,
+    "desc": "POSTO TNE ILHA LTDA           GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-01_20251226100001"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-01-11",
+    "real_date": "2025-12-26",
+    "amount": -60.6,
+    "desc": "NATURA PAY            01/02   Governador Va",
+    "fitid": "SIC_CARD_2026-01_2025122660601"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-01-11",
+    "real_date": "2025-12-27",
+    "amount": -67.0,
+    "desc": "BAR DO VALDIR                 GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-01_2025122767001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-01-12",
+    "real_date": "2026-01-12",
+    "amount": -15.0,
+    "desc": "DÉBITO PACOTE SERVIÇOS",
+    "fitid": "2026011215001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-01-12",
+    "real_date": "2026-01-12",
+    "amount": 3547.38,
+    "desc": "PIX RECEBIDO - OUTRA IF - Recebimento Pix SC IMOVEIS LTDA",
+    "fitid": "202601123547381"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-01-12",
+    "real_date": "2026-01-12",
+    "amount": -1933.52,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix ***.110.836-**",
+    "fitid": "202601121933521"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-01-12",
+    "real_date": "2026-01-12",
+    "amount": -14.0,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix ***.700.698-**",
+    "fitid": "2026011214001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-01-12",
+    "real_date": "2026-01-12",
+    "amount": -4.0,
+    "desc": "TRANSF.REALIZADA PIX SICOOB - FAV.: JC PARK ESTACIONAMENTO LTD",
+    "fitid": "202601124001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-01-12",
+    "real_date": "2026-01-12",
+    "amount": 323.43,
+    "desc": "ESTORNO DÉB.CONV.DEMAIS EMPRESAS",
+    "fitid": "20260112323431"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-01-12",
+    "real_date": "2026-01-12",
+    "amount": -323.43,
+    "desc": "DÉB. PAGAMENTO DE BOLETO INTERCREDIS",
+    "fitid": "20260112323432"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-01-12",
+    "real_date": "2026-01-12",
+    "amount": -41.16,
+    "desc": "DÉB. CONV. SEGUROS",
+    "fitid": "2026011241161"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-01-12",
+    "real_date": "2026-01-12",
+    "amount": -323.43,
+    "desc": "DÉB.CONV.DEMAIS EMPRESAS",
+    "fitid": "20260112323433"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-01-13",
+    "real_date": "2026-01-13",
+    "amount": -242.81,
+    "desc": "DÉBITO PLANO DE SAÚDE - COPARTICIPACAO JAN - RANNIERE",
+    "fitid": "20260113242811"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-01-13",
+    "real_date": "2026-01-13",
+    "amount": -448.61,
+    "desc": "DÉBITO PLANO DE SAÚDE - MENSALIDADE JAN - RANNIERE",
+    "fitid": "20260113448611"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-01-13",
+    "real_date": "2026-01-13",
+    "amount": -101.84,
+    "desc": "DÉBITO PLANO DE SAÚDE - TAXA ADMINISTRACAO JAN - RANNIER",
+    "fitid": "20260113101841"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-01-14",
+    "real_date": "2026-01-14",
+    "amount": -110.0,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix ***.110.836-**",
+    "fitid": "20260114110001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-01-15",
+    "real_date": "2026-01-15",
+    "amount": -2.1,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix ***.777.156-**",
+    "fitid": "202601152101"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-01-15",
+    "real_date": "2026-01-15",
+    "amount": -7.5,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix ***.842.266-**",
+    "fitid": "202601157501"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-01-15",
+    "real_date": "2026-01-15",
+    "amount": -800.0,
+    "desc": "TRANSF.REALIZADA PIX SICOOB - FAV.: IGOR MONTE ALTO REZENDE Tr",
+    "fitid": "20260115800001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-01-16",
+    "real_date": "2026-01-16",
+    "amount": -24.0,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix ***.779.306-**",
+    "fitid": "2026011624001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-01-19",
+    "real_date": "2026-01-19",
+    "amount": -10.0,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix ***.616.676-**",
+    "fitid": "2026011910001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-01-21",
+    "real_date": "2026-01-21",
+    "amount": -20.0,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix ***.628.086-**",
+    "fitid": "2026012120001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-01-26",
+    "real_date": "2026-01-26",
+    "amount": -102.43,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix 07.729.358 0001-07",
+    "fitid": "20260126102431"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-01-26",
+    "real_date": "2026-01-26",
+    "amount": -96.51,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix 06.981.180 0001-16",
+    "fitid": "2026012696511"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-01-26",
+    "real_date": "2026-01-26",
+    "amount": -89.71,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix 06.981.180 0001-16",
+    "fitid": "2026012689711"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-01-27",
+    "real_date": "2026-01-27",
+    "amount": -100.0,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix 14.093.138 0001-97",
+    "fitid": "20260127100001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-01-29",
+    "real_date": "2026-01-29",
+    "amount": -35.99,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix 14.380.200 0001-21",
+    "fitid": "2026012935991"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-02-02",
+    "real_date": "2026-02-02",
+    "amount": -47.99,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix 14.380.200 0001-21",
+    "fitid": "2026020247991"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-02-02",
+    "real_date": "2026-02-02",
+    "amount": -26.9,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix ***.705.526-**",
+    "fitid": "2026020226901"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-02-05",
+    "real_date": "2026-02-05",
+    "amount": -92.4,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix 20.382.127 0001-20",
+    "fitid": "2026020592401"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-02-05",
+    "real_date": "2026-02-05",
+    "amount": -40.0,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix 53.968.739 0001-58",
+    "fitid": "2026020540001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-02-05",
+    "real_date": "2026-02-05",
+    "amount": -3006.17,
+    "desc": "DÉB.TIT.COMPE EFETIVADO",
+    "fitid": "202602053006171"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-02-06",
+    "real_date": "2026-02-06",
+    "amount": -39.0,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix 63.807.018 0001-10",
+    "fitid": "2026020639001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-02-06",
+    "real_date": "2026-02-06",
+    "amount": -14.04,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix 41.930.199 0001-34",
+    "fitid": "2026020614041"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-02-07",
+    "real_date": "2026-01-07",
+    "amount": 106.18,
+    "desc": "DEB AUT PARCIAL -",
+    "fitid": "INT_CARD_2026-02_2026-01-07_10618"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-02-07",
+    "real_date": "2026-01-07",
+    "amount": -106.18,
+    "desc": "EST DEB AUTOM PARCIAL M",
+    "fitid": "INT_CARD_2026-02_2026-01-07_-10618"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-02-07",
+    "real_date": "2026-01-08",
+    "amount": 3549.02,
+    "desc": "PAGAMENTO DE FATURA -",
+    "fitid": "INT_CARD_2026-02_2026-01-08_354902"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-02-07",
+    "real_date": "2026-01-30",
+    "amount": -67.59,
+    "desc": "MULTA POR ATRASO",
+    "fitid": "INT_CARD_2026-02_2026-01-30_-6759"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-02-07",
+    "real_date": "2026-01-31",
+    "amount": -19.25,
+    "desc": "ENCARGOS ROTATIVO",
+    "fitid": "INT_CARD_2026-02_2026-01-31_-1925"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-02-07",
+    "real_date": "2026-01-31",
+    "amount": -13.1,
+    "desc": "IOF",
+    "fitid": "INT_CARD_2026-02_2026-01-31_-131"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-02-07",
+    "real_date": "2026-01-31",
+    "amount": -1.12,
+    "desc": "JUROS DE MORA",
+    "fitid": "INT_CARD_2026-02_2026-01-31_-112"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-02-07",
+    "real_date": "2025-10-13",
+    "amount": -514.88,
+    "desc": "AMERICAN AIR*captureRe (Parcela 04 de 06)",
+    "fitid": "INT_CARD_2026-02_2025-10-13_-51488"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-02-07",
+    "real_date": "2025-10-19",
+    "amount": -70.8,
+    "desc": "CP PARC DUO GOURMET (Parcela 04 de 10)",
+    "fitid": "INT_CARD_2026-02_2025-10-19_-708"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-02-07",
+    "real_date": "2025-11-11",
+    "amount": 63.25,
+    "desc": "EBN *TikTok Shop -",
+    "fitid": "INT_CARD_2026-02_2025-11-11_6325"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-02-07",
+    "real_date": "2025-11-12",
+    "amount": -49.0,
+    "desc": "AMAZONMKTPLC*ITXTECNOL (Parcela 03 de 06)",
+    "fitid": "INT_CARD_2026-02_2025-11-12_-490"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-02-07",
+    "real_date": "2026-01-04",
+    "amount": -96.99,
+    "desc": "DL*GOOGLE Google",
+    "fitid": "INT_CARD_2026-02_2026-01-04_-9699"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-02-07",
+    "real_date": "2026-01-08",
+    "amount": -94.93,
+    "desc": "SUPER COELHO DINIZ",
+    "fitid": "INT_CARD_2026-02_2026-01-08_-9493"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-02-07",
+    "real_date": "2026-01-08",
+    "amount": -48.97,
+    "desc": "BIG MAIS SUPERM LJ 4",
+    "fitid": "INT_CARD_2026-02_2026-01-08_-4897"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-02-07",
+    "real_date": "2026-01-09",
+    "amount": -100.0,
+    "desc": "POSTO TNE ILHA LTDA",
+    "fitid": "INT_CARD_2026-02_2026-01-09_-1000"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-02-07",
+    "real_date": "2026-01-09",
+    "amount": -48.0,
+    "desc": "PASTEL CARIOCA F.B O N",
+    "fitid": "INT_CARD_2026-02_2026-01-09_-480"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-02-07",
+    "real_date": "2026-01-09",
+    "amount": -6.47,
+    "desc": "KI SABOR ILHA",
+    "fitid": "INT_CARD_2026-02_2026-01-09_-647"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-02-07",
+    "real_date": "2026-01-09",
+    "amount": -7.95,
+    "desc": "IFD*IFOOD CLUB",
+    "fitid": "INT_CARD_2026-02_2026-01-09_-795"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-02-07",
+    "real_date": "2026-01-09",
+    "amount": -147.86,
+    "desc": "SUPER COELHO DINIZ",
+    "fitid": "INT_CARD_2026-02_2026-01-09_-14786"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-02-07",
+    "real_date": "2026-01-10",
+    "amount": -57.96,
+    "desc": "REST MARIA HELENA",
+    "fitid": "INT_CARD_2026-02_2026-01-10_-5796"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-02-07",
+    "real_date": "2026-01-10",
+    "amount": -800.4,
+    "desc": "Hotel at Booking.com",
+    "fitid": "INT_CARD_2026-02_2026-01-10_-8004"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-02-07",
+    "real_date": "2026-01-12",
+    "amount": -26.47,
+    "desc": "SUPER COELHO DINIZ",
+    "fitid": "INT_CARD_2026-02_2026-01-12_-2647"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-02-07",
+    "real_date": "2026-01-12",
+    "amount": -28.36,
+    "desc": "IFD*MARIA APARECIDA CA",
+    "fitid": "INT_CARD_2026-02_2026-01-12_-2836"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-02-07",
+    "real_date": "2026-01-13",
+    "amount": -40.0,
+    "desc": "CarlaLucianeDa",
+    "fitid": "INT_CARD_2026-02_2026-01-13_-400"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-02-07",
+    "real_date": "2026-01-13",
+    "amount": -6.0,
+    "desc": "FARMA MINAS",
+    "fitid": "INT_CARD_2026-02_2026-01-13_-60"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-02-07",
+    "real_date": "2026-01-13",
+    "amount": -154.88,
+    "desc": "16.850.476 WANDERSON C",
+    "fitid": "INT_CARD_2026-02_2026-01-13_-15488"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-02-07",
+    "real_date": "2026-01-14",
+    "amount": -28.91,
+    "desc": "SUPER COELHO DINIZ",
+    "fitid": "INT_CARD_2026-02_2026-01-14_-2891"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-02-07",
+    "real_date": "2026-01-15",
+    "amount": -159.0,
+    "desc": "EC *2PRODUTOS",
+    "fitid": "INT_CARD_2026-02_2026-01-15_-1590"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-02-07",
+    "real_date": "2026-01-16",
+    "amount": -100.0,
+    "desc": "POSTO TNE ILHA LTDA",
+    "fitid": "INT_CARD_2026-02_2026-01-16_-1000"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-02-07",
+    "real_date": "2026-01-16",
+    "amount": -35.0,
+    "desc": "GAUCHAO DO FABINHO",
+    "fitid": "INT_CARD_2026-02_2026-01-16_-350"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-02-07",
+    "real_date": "2026-01-16",
+    "amount": -22.0,
+    "desc": "KI DELICIA PASTEL E CA",
+    "fitid": "INT_CARD_2026-02_2026-01-16_-220"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-02-07",
+    "real_date": "2026-01-16",
+    "amount": -79.2,
+    "desc": "HAUSMALTE",
+    "fitid": "INT_CARD_2026-02_2026-01-16_-792"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-02-07",
+    "real_date": "2026-01-18",
+    "amount": -79.59,
+    "desc": "EBN*SONYPLAYSTATN",
+    "fitid": "INT_CARD_2026-02_2026-01-18_-7959"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-02-07",
+    "real_date": "2026-01-18",
+    "amount": 800.4,
+    "desc": "Hotel at Booking.com -",
+    "fitid": "INT_CARD_2026-02_2026-01-18_8004"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-02-07",
+    "real_date": "2026-01-19",
+    "amount": -70.15,
+    "desc": "SUPER COELHO DINIZ",
+    "fitid": "INT_CARD_2026-02_2026-01-19_-7015"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-02-07",
+    "real_date": "2026-01-20",
+    "amount": -23.9,
+    "desc": "DM*Spotify",
+    "fitid": "INT_CARD_2026-02_2026-01-20_-239"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-02-07",
+    "real_date": "2026-01-21",
+    "amount": -28.28,
+    "desc": "KI SABOR ILHA",
+    "fitid": "INT_CARD_2026-02_2026-01-21_-2828"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-02-07",
+    "real_date": "2026-01-22",
+    "amount": -66.41,
+    "desc": "BIG MAIS SUPERM LJ 4",
+    "fitid": "INT_CARD_2026-02_2026-01-22_-6641"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-02-07",
+    "real_date": "2026-01-23",
+    "amount": -24.0,
+    "desc": "PASTEL CARIOCA F.B O N",
+    "fitid": "INT_CARD_2026-02_2026-01-23_-240"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-02-07",
+    "real_date": "2026-01-23",
+    "amount": -42.94,
+    "desc": "SUPER COELHO DINIZ",
+    "fitid": "INT_CARD_2026-02_2026-01-23_-4294"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-02-07",
+    "real_date": "2026-01-23",
+    "amount": -28.38,
+    "desc": "BUTECO LAGOA GRILL",
+    "fitid": "INT_CARD_2026-02_2026-01-23_-2838"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-02-07",
+    "real_date": "2026-01-23",
+    "amount": -35.0,
+    "desc": "GAUCHAO DO FABINHO",
+    "fitid": "INT_CARD_2026-02_2026-01-23_-350"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-02-07",
+    "real_date": "2026-01-23",
+    "amount": -39.6,
+    "desc": "SF PAGA*MARIA LUZIA S",
+    "fitid": "INT_CARD_2026-02_2026-01-23_-396"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-02-07",
+    "real_date": "2026-01-23",
+    "amount": -21.0,
+    "desc": "VanessaLessa",
+    "fitid": "INT_CARD_2026-02_2026-01-23_-210"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-02-07",
+    "real_date": "2026-01-24",
+    "amount": -42.77,
+    "desc": "SUPER COELHO DINIZ",
+    "fitid": "INT_CARD_2026-02_2026-01-24_-4277"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-02-07",
+    "real_date": "2026-01-25",
+    "amount": -48.88,
+    "desc": "IFD*MR GRELHADOS HAMBU",
+    "fitid": "INT_CARD_2026-02_2026-01-25_-4888"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-02-07",
+    "real_date": "2026-01-26",
+    "amount": -26.28,
+    "desc": "SUPER COELHO DINIZ",
+    "fitid": "INT_CARD_2026-02_2026-01-26_-2628"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-02-07",
+    "real_date": "2026-01-28",
+    "amount": -2.62,
+    "desc": "MariaAuxiliadora",
+    "fitid": "INT_CARD_2026-02_2026-01-28_-262"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-02-07",
+    "real_date": "2026-01-28",
+    "amount": -33.22,
+    "desc": "SUPER COELHO DINIZ",
+    "fitid": "INT_CARD_2026-02_2026-01-28_-3322"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-02-09",
+    "real_date": "2026-02-09",
+    "amount": -800.0,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix ***.193.476-**",
+    "fitid": "20260209800001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-02-09",
+    "real_date": "2026-02-09",
+    "amount": 1442.69,
+    "desc": "PIX RECEBIDO - OUTRA IF - Recebimento Pix STUDIO 57 ARQUIT",
+    "fitid": "202602091442691"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-02-09",
+    "real_date": "2026-02-09",
+    "amount": -86.57,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix 41.930.199 0001-34",
+    "fitid": "2026020986571"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-02-09",
+    "real_date": "2026-02-09",
+    "amount": -4.0,
+    "desc": "TRANSF.REALIZADA PIX SICOOB - FAV.: JC PARK ESTACIONAMENTO LTD",
+    "fitid": "202602094001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-02-09",
+    "real_date": "2026-02-09",
+    "amount": -54.47,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix ***.808.426-**",
+    "fitid": "2026020954471"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-02-09",
+    "real_date": "2026-02-09",
+    "amount": -12.5,
+    "desc": "DÉB.TRANSF.CONTAS DIF.TIT. INTERCREDIS - FAV.: DAMASCENO RHIS PADARIA E C",
+    "fitid": "2026020912501"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-02-10",
+    "real_date": "2026-02-10",
+    "amount": -15.0,
+    "desc": "DÉBITO PACOTE SERVIÇOS",
+    "fitid": "2026021015001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-02-10",
+    "real_date": "2026-02-10",
+    "amount": -14.08,
+    "desc": "DÉB.TRANSF.CONTAS DIF.TIT. INTERCREDIS - FAV.: DAMASCENO RHIS PADARIA E C",
+    "fitid": "2026021014081"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-02-10",
+    "real_date": "2026-02-10",
+    "amount": -900.0,
+    "desc": "DÉBITO SAQUE INTERCREDIS",
+    "fitid": "20260210900001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-02-10",
+    "real_date": "2026-02-10",
+    "amount": -25.7,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix ***.516.476-**",
+    "fitid": "2026021025701"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-02-10",
+    "real_date": "2026-02-10",
+    "amount": -101.84,
+    "desc": "DÉBITO PLANO DE SAÚDE - TAXA ADMINISTRACAO FEV - RANNIER",
+    "fitid": "20260210101841"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-02-10",
+    "real_date": "2026-02-10",
+    "amount": -386.85,
+    "desc": "DÉBITO PLANO DE SAÚDE - MENSALIDADE FEV - RANNIERE",
+    "fitid": "20260210386851"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-02-10",
+    "real_date": "2026-02-10",
+    "amount": -100.0,
+    "desc": "DÉB.TRANSF.CONTAS DIF.TIT. INTERCREDIS - FAV.: POSTO TNE ILHA LTDA Transf",
+    "fitid": "20260210100001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-02-10",
+    "real_date": "2026-02-10",
+    "amount": -41.16,
+    "desc": "DÉB. CONV. SEGUROS",
+    "fitid": "2026021041161"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-02-11",
+    "real_date": "2026-02-11",
+    "amount": -21.11,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix 41.930.199 0001-34",
+    "fitid": "2026021121111"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-02-11",
+    "real_date": "2026-02-11",
+    "amount": -50.0,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix ***.918.796-**",
+    "fitid": "2026021150001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-02-11",
+    "real_date": "2026-02-11",
+    "amount": 1.2,
+    "desc": "CREDITO REPASSE PAGTO POR SERV.PRESTADOS",
+    "fitid": "202602111201"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-02-11",
+    "real_date": "2026-02-11",
+    "amount": -72.59,
+    "desc": "DÉB.CONV.DEMAIS EMPRESAS",
+    "fitid": "2026021172591"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-02-11",
+    "real_date": "2025-10-01",
+    "amount": -12.0,
+    "desc": "ANUIDADE VISA C      (1160) 04/12",
+    "fitid": "SIC_CARD_2026-02_2025100112001"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-02-11",
+    "real_date": "2026-01-08",
+    "amount": -3.2,
+    "desc": "PROTEÇÃO PERDA OU ROUBO",
+    "fitid": "SIC_CARD_2026-02_202601083201"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-02-11",
+    "real_date": "2026-01-08",
+    "amount": 3.2,
+    "desc": "CRÉDITO PROMOÇÃO SEGURO",
+    "fitid": "SIC_CARD_2026-02_202601083202"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-02-11",
+    "real_date": "2026-01-12",
+    "amount": 323.43,
+    "desc": "PAGAMENTO-BOLETO BANCARIO",
+    "fitid": "SIC_CARD_2026-02_20260112323431"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-02-11",
+    "real_date": "2025-12-26",
+    "amount": -60.59,
+    "desc": "NATURA PAY            02/02   Governador Va",
+    "fitid": "SIC_CARD_2026-02_2025122660591"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-02-12",
+    "real_date": "2026-02-12",
+    "amount": -150.0,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix ***.918.796-**",
+    "fitid": "20260212150001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-02-12",
+    "real_date": "2026-02-12",
+    "amount": -21.85,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix ***.516.476-**",
+    "fitid": "2026021221851"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-02-13",
+    "real_date": "2026-02-13",
+    "amount": -42.5,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix 63.807.018 0001-10",
+    "fitid": "2026021342501"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-02-13",
+    "real_date": "2026-02-13",
+    "amount": -14.65,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix ***.516.476-**",
+    "fitid": "2026021314651"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-02-18",
+    "real_date": "2026-02-18",
+    "amount": -11.0,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix ***.616.676-**",
+    "fitid": "2026021811001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-02-18",
+    "real_date": "2026-02-18",
+    "amount": -47.99,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix 31.485.509 0001-03",
+    "fitid": "2026021847991"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-02-18",
+    "real_date": "2026-02-18",
+    "amount": -41.52,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix 04.688.975 0001-05",
+    "fitid": "2026021841521"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-02-18",
+    "real_date": "2026-02-18",
+    "amount": -100.0,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix ***.193.476-**",
+    "fitid": "20260218100001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-02-23",
+    "real_date": "2026-02-23",
+    "amount": -130.0,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix ***.203.046-**",
+    "fitid": "20260223130001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-02-24",
+    "real_date": "2026-02-24",
+    "amount": -4.0,
+    "desc": "TRANSF.REALIZADA PIX SICOOB - FAV.: JC PARK ESTACIONAMENTO LTD",
+    "fitid": "202602244001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-02-24",
+    "real_date": "2026-02-24",
+    "amount": -10.0,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix ***.817.826-**",
+    "fitid": "2026022410001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-02-25",
+    "real_date": "2026-02-25",
+    "amount": -102.39,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix 07.729.358 0001-07",
+    "fitid": "20260225102391"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-03-02",
+    "real_date": "2026-03-02",
+    "amount": -1.47,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix ***.777.156-**",
+    "fitid": "202603021471"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-03-02",
+    "real_date": "2026-03-02",
+    "amount": -2.0,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix ***.844.876-**",
+    "fitid": "202603022001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-03-02",
+    "real_date": "2026-03-02",
+    "amount": -20.0,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix ***.305.347-**",
+    "fitid": "2026030220001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-03-04",
+    "real_date": "2026-03-04",
+    "amount": -60.0,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix ***.758.486-**",
+    "fitid": "2026030460001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-03-04",
+    "real_date": "2026-03-04",
+    "amount": -500.0,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix ***.758.486-**",
+    "fitid": "20260304500001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-03-05",
+    "real_date": "2026-03-05",
+    "amount": -100.0,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix ***.628.086-**",
+    "fitid": "20260305100001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-03-06",
+    "real_date": "2026-03-06",
+    "amount": 0.3,
+    "desc": "CREDITO REPASSE PAGTO POR SERV.PRESTADOS",
+    "fitid": "202603060301"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-03-07",
+    "real_date": "2026-02-05",
+    "amount": 3006.17,
+    "desc": "PAGAMENTO DE FATURA -",
+    "fitid": "INT_CARD_2026-03_2026-02-05_300617"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-03-07",
+    "real_date": "2025-10-13",
+    "amount": -514.88,
+    "desc": "AMERICAN AIR*captureRe (Parcela 05 de 06)",
+    "fitid": "INT_CARD_2026-03_2025-10-13_-51488"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-03-07",
+    "real_date": "2025-10-19",
+    "amount": -70.8,
+    "desc": "CP PARC DUO GOURMET (Parcela 05 de 10)",
+    "fitid": "INT_CARD_2026-03_2025-10-19_-708"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-03-07",
+    "real_date": "2025-11-12",
+    "amount": -49.0,
+    "desc": "AMAZONMKTPLC*ITXTECNOL (Parcela 04 de 06)",
+    "fitid": "INT_CARD_2026-03_2025-11-12_-490"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-03-07",
+    "real_date": "2026-01-30",
+    "amount": -88.0,
+    "desc": "ESTETICA NUNES",
+    "fitid": "INT_CARD_2026-03_2026-01-30_-880"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-03-07",
+    "real_date": "2026-01-30",
+    "amount": -127.83,
+    "desc": "SUPER COELHO DINIZ",
+    "fitid": "INT_CARD_2026-03_2026-01-30_-12783"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-03-07",
+    "real_date": "2026-01-30",
+    "amount": -18.5,
+    "desc": "KI SABOR ILHA",
+    "fitid": "INT_CARD_2026-03_2026-01-30_-185"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-03-07",
+    "real_date": "2026-01-31",
+    "amount": -200.0,
+    "desc": "PUNTO *POSTO OASIS",
+    "fitid": "INT_CARD_2026-03_2026-01-31_-2000"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-03-07",
+    "real_date": "2026-01-31",
+    "amount": -136.55,
+    "desc": "BRUTUS RECREACOES",
+    "fitid": "INT_CARD_2026-03_2026-01-31_-13655"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-03-07",
+    "real_date": "2026-02-01",
+    "amount": -16.98,
+    "desc": "SUPER COELHO DINIZ",
+    "fitid": "INT_CARD_2026-03_2026-02-01_-1698"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-03-07",
+    "real_date": "2026-02-03",
+    "amount": -79.33,
+    "desc": "SUPER COELHO DINIZ",
+    "fitid": "INT_CARD_2026-03_2026-02-03_-7933"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-03-07",
+    "real_date": "2026-02-04",
+    "amount": -2.3,
+    "desc": "MariaAuxiliadora",
+    "fitid": "INT_CARD_2026-03_2026-02-04_-23"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-03-07",
+    "real_date": "2026-02-04",
+    "amount": -96.99,
+    "desc": "DL*GOOGLE Google",
+    "fitid": "INT_CARD_2026-03_2026-02-04_-9699"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-03-07",
+    "real_date": "2026-02-09",
+    "amount": -7.95,
+    "desc": "IFD*IFOOD CLUB",
+    "fitid": "INT_CARD_2026-03_2026-02-09_-795"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-03-07",
+    "real_date": "2026-02-17",
+    "amount": -36.23,
+    "desc": "EBN*SONYPLAYSTATN (Parcela 01 de 04)",
+    "fitid": "INT_CARD_2026-03_2026-02-17_-3623"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-03-07",
+    "real_date": "2026-02-18",
+    "amount": -79.59,
+    "desc": "EBN *SONYPLAYSTATN",
+    "fitid": "INT_CARD_2026-03_2026-02-18_-7959"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-03-07",
+    "real_date": "2026-02-20",
+    "amount": -23.9,
+    "desc": "DM*Spotify",
+    "fitid": "INT_CARD_2026-03_2026-02-20_-239"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-03-09",
+    "real_date": "2026-03-09",
+    "amount": 1442.69,
+    "desc": "PIX RECEBIDO - OUTRA IF - Recebimento Pix STUDIO 57 ARQUIT",
+    "fitid": "202603091442691"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-03-09",
+    "real_date": "2026-03-09",
+    "amount": -60.0,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix 65.194.076 0001-40",
+    "fitid": "2026030960001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-03-09",
+    "real_date": "2026-03-09",
+    "amount": -210.0,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix ***.203.046-**",
+    "fitid": "20260309210001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-03-09",
+    "real_date": "2026-03-09",
+    "amount": 210.0,
+    "desc": "ESTORNO PIX EMITIDO - Estorno Pix ***.203.046-**",
+    "fitid": "20260309210002"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-03-09",
+    "real_date": "2026-03-09",
+    "amount": -8.0,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix ***.203.526-**",
+    "fitid": "202603098001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-03-09",
+    "real_date": "2026-03-09",
+    "amount": -210.0,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix ***.203.046-**",
+    "fitid": "20260309210003"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-03-10",
+    "real_date": "2026-03-10",
+    "amount": -15.0,
+    "desc": "DÉBITO PACOTE SERVIÇOS",
+    "fitid": "2026031015001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-03-10",
+    "real_date": "2026-03-10",
+    "amount": -880.0,
+    "desc": "DÉBITO SAQUE INTERCREDIS",
+    "fitid": "20260310880001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-03-10",
+    "real_date": "2026-03-10",
+    "amount": -386.85,
+    "desc": "DÉBITO PLANO DE SAÚDE - MENSALIDADE MAR - RANNIERE",
+    "fitid": "20260310386851"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-03-10",
+    "real_date": "2026-03-10",
+    "amount": -101.84,
+    "desc": "DÉBITO PLANO DE SAÚDE - TAXA ADMINISTRACAO MAR - RANNIER",
+    "fitid": "20260310101841"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-03-10",
+    "real_date": "2026-03-10",
+    "amount": -41.16,
+    "desc": "DÉB. CONV. SEGUROS",
+    "fitid": "2026031041161"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-03-11",
+    "real_date": "2026-03-11",
+    "amount": -10.0,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix ***.326.576-**",
+    "fitid": "2026031110001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-03-11",
+    "real_date": "2026-03-11",
+    "amount": -1205.05,
+    "desc": "DÉB.CONV.DEMAIS EMPRESAS",
+    "fitid": "202603111205051"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-03-11",
+    "real_date": "2025-10-01",
+    "amount": -12.0,
+    "desc": "ANUIDADE VISA C      (1160) 05/12",
+    "fitid": "SIC_CARD_2026-03_2025100112001"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-03-11",
+    "real_date": "2025-10-01",
+    "amount": 6.0,
+    "desc": "DESC ANUIDADE POR USO VIS",
+    "fitid": "SIC_CARD_2026-03_202510016001"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-03-11",
+    "real_date": "2026-02-08",
+    "amount": -3.2,
+    "desc": "PROTEÇÃO PERDA OU ROUBO",
+    "fitid": "SIC_CARD_2026-03_202602083201"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-03-11",
+    "real_date": "2026-02-08",
+    "amount": 3.2,
+    "desc": "CRÉDITO PROMOÇÃO SEGURO",
+    "fitid": "SIC_CARD_2026-03_202602083202"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-03-11",
+    "real_date": "2026-02-11",
+    "amount": 72.59,
+    "desc": "PAGAMENTO DEBITO EM CONTA",
+    "fitid": "SIC_CARD_2026-03_2026021172591"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-03-11",
+    "real_date": "2026-02-15",
+    "amount": -73.5,
+    "desc": "MP*RYAMRAMALHO                LINHARES",
+    "fitid": "SIC_CARD_2026-03_2026021573501"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-03-11",
+    "real_date": "2026-02-16",
+    "amount": -99.9,
+    "desc": "SUPER COELHO DINIZ            GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-03_2026021699901"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-03-11",
+    "real_date": "2026-02-16",
+    "amount": -7.05,
+    "desc": "KI SABOR ILHA                 GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-03_202602167051"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-03-11",
+    "real_date": "2026-02-17",
+    "amount": -27.5,
+    "desc": "29363119MaisaDe               GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-03_2026021727501"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-03-11",
+    "real_date": "2026-02-18",
+    "amount": -32.99,
+    "desc": "J L DE ANDRADE HAMBU          GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-03_2026021832991"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-03-11",
+    "real_date": "2026-02-18",
+    "amount": -30.0,
+    "desc": "STB*MARIAHELENACHURR          G VALADARES",
+    "fitid": "SIC_CARD_2026-03_2026021830001"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-03-11",
+    "real_date": "2026-02-19",
+    "amount": -16.8,
+    "desc": "GilsonPeixoto                 GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-03_2026021916801"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-03-11",
+    "real_date": "2026-02-19",
+    "amount": -6.13,
+    "desc": "KI SABOR ILHA                 GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-03_202602196131"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-03-11",
+    "real_date": "2026-02-20",
+    "amount": -17.7,
+    "desc": "GilsonPeixoto                 GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-03_2026022017701"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-03-11",
+    "real_date": "2026-02-20",
+    "amount": -130.4,
+    "desc": "SUPER COELHO DINIZ            GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-03_20260220130401"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-03-11",
+    "real_date": "2026-02-20",
+    "amount": -19.8,
+    "desc": "KI SABOR ILHA                 GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-03_2026022019801"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-03-11",
+    "real_date": "2026-02-21",
+    "amount": -31.0,
+    "desc": "MAZINHO BURGUER               GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-03_2026022131001"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-03-11",
+    "real_date": "2026-02-22",
+    "amount": -13.13,
+    "desc": "SUPER COELHO DINIZ            GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-03_2026022213131"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-03-11",
+    "real_date": "2026-02-22",
+    "amount": -8.4,
+    "desc": "JIM.COM 40026297 KEV          GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-03_202602228401"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-03-11",
+    "real_date": "2026-02-23",
+    "amount": -100.0,
+    "desc": "POSTO TNE ILHA LTDA           GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-03_20260223100001"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-03-11",
+    "real_date": "2026-02-23",
+    "amount": -6.42,
+    "desc": "KI SABOR ILHA                 GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-03_202602236421"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-03-11",
+    "real_date": "2026-02-23",
+    "amount": -21.75,
+    "desc": "GilsonPeixoto                 GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-03_2026022321751"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-03-11",
+    "real_date": "2026-02-24",
+    "amount": -2.6,
+    "desc": "MariaAuxiliadora              GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-03_202602242601"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-03-11",
+    "real_date": "2026-02-24",
+    "amount": -40.98,
+    "desc": "MARIA HELENA                  GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-03_2026022440981"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-03-11",
+    "real_date": "2026-02-25",
+    "amount": -18.55,
+    "desc": "GilsonPeixoto                 GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-03_2026022518551"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-03-11",
+    "real_date": "2026-02-25",
+    "amount": -50.28,
+    "desc": "SUPER COELHO DINIZ            GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-03_2026022550281"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-03-11",
+    "real_date": "2026-02-26",
+    "amount": -154.11,
+    "desc": "RESTAURANTE DA VILMA          GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-03_20260226154111"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-03-11",
+    "real_date": "2026-02-26",
+    "amount": -21.75,
+    "desc": "GilsonPeixoto                 GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-03_2026022621751"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-03-11",
+    "real_date": "2026-02-27",
+    "amount": -35.0,
+    "desc": "GAUCHAO DO FABINHO            GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-03_2026022735001"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-03-11",
+    "real_date": "2026-02-27",
+    "amount": -22.17,
+    "desc": "SUPER COELHO DINIZ            GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-03_2026022722171"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-03-11",
+    "real_date": "2026-02-27",
+    "amount": -15.3,
+    "desc": "GilsonPeixoto                 GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-03_2026022715301"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-03-11",
+    "real_date": "2026-02-28",
+    "amount": -151.87,
+    "desc": "SUPER COELHO DINIZ            GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-03_20260228151871"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-03-11",
+    "real_date": "2026-02-28",
+    "amount": -6.47,
+    "desc": "KI SABOR ILHA                 GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-03_202602286471"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-03-11",
+    "real_date": "2026-02-28",
+    "amount": -22.5,
+    "desc": "MAZINHO BURGUER               GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-03_2026022822501"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-03-11",
+    "real_date": "2026-02-28",
+    "amount": -15.0,
+    "desc": "POSTO TNE ILHA LTDA           GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-03_2026022815001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-03-13",
+    "real_date": "2026-03-13",
+    "amount": -13.0,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix ***.203.526-**",
+    "fitid": "2026031313001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-03-13",
+    "real_date": "2026-03-13",
+    "amount": -219.6,
+    "desc": "DÉB.TIT.COMPE EFETIVADO",
+    "fitid": "20260313219601"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-03-16",
+    "real_date": "2026-03-16",
+    "amount": -80.0,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix ***.203.046-**",
+    "fitid": "2026031680001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-03-18",
+    "real_date": "2026-03-18",
+    "amount": -1692.86,
+    "desc": "DÉB.TIT.COMPE EFETIVADO",
+    "fitid": "202603181692861"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-03-20",
+    "real_date": "2026-03-20",
+    "amount": -80.0,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix ***.203.046-**",
+    "fitid": "2026032080001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-03-23",
+    "real_date": "2026-03-23",
+    "amount": -29.5,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix ***.293.006-**",
+    "fitid": "2026032329501"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-03-25",
+    "real_date": "2026-03-25",
+    "amount": -102.39,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix 07.729.358 0001-07",
+    "fitid": "20260325102391"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-03-30",
+    "real_date": "2026-03-30",
+    "amount": -3.0,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix 09.568.313 0001-15",
+    "fitid": "202603303001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-03-30",
+    "real_date": "2026-03-30",
+    "amount": -8.0,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix ***.963.757-**",
+    "fitid": "202603308001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-03-30",
+    "real_date": "2026-03-30",
+    "amount": -80.0,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix ***.203.046-**",
+    "fitid": "2026033080001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-03-30",
+    "real_date": "2026-03-30",
+    "amount": -6.5,
+    "desc": "TRANSF.REALIZADA PIX SICOOB - FAV.: JC PARK ESTACIONAMENTO LTD",
+    "fitid": "202603306501"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-03-30",
+    "real_date": "2026-03-30",
+    "amount": -4.0,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix ***.230.326-**",
+    "fitid": "202603304001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-03-31",
+    "real_date": "2026-03-31",
+    "amount": 1300.0,
+    "desc": "PIX RECEBIDO - OUTRA IF - Recebimento Pix SC IMOVEIS LTDA",
+    "fitid": "202603311300001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-03-31",
+    "real_date": "2026-03-31",
+    "amount": -85.24,
+    "desc": "DÉB.CONV.EN.ELÉTRICA E GÁS",
+    "fitid": "2026033185241"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-04-01",
+    "real_date": "2026-04-01",
+    "amount": 4236.4,
+    "desc": "CRED.TRANSF.CONTAS INTERCREDIS - REM.: STUDIO 57 INCORPORACOES LT",
+    "fitid": "202604014236401"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-04-06",
+    "real_date": "2026-04-06",
+    "amount": 1442.69,
+    "desc": "PIX RECEBIDO - OUTRA IF - Recebimento Pix STUDIO 57 ARQUIT",
+    "fitid": "202604061442691"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-04-06",
+    "real_date": "2026-04-06",
+    "amount": -223.01,
+    "desc": "DÉB.TIT.COMPE EFETIVADO",
+    "fitid": "20260406223011"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-04-06",
+    "real_date": "2026-04-06",
+    "amount": -12.0,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix ***.616.676-**",
+    "fitid": "2026040612001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-04-06",
+    "real_date": "2026-04-06",
+    "amount": -80.0,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix ***.203.046-**",
+    "fitid": "2026040680001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-04-07",
+    "real_date": "2026-04-07",
+    "amount": -10.5,
+    "desc": "TRANSF.REALIZADA PIX SICOOB - FAV.: JC PARK ESTACIONAMENTO LTD",
+    "fitid": "2026040710501"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-04-07",
+    "real_date": "2026-04-07",
+    "amount": -32.0,
+    "desc": "DÉB.TRANSF.CONTAS DIF.TIT. INTERCREDIS - FAV.: MINAS GERAIS PASTELARIA LT",
+    "fitid": "2026040732001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-04-07",
+    "real_date": "2026-04-07",
+    "amount": -1521.94,
+    "desc": "DÉB. PAGAMENTO DE BOLETO INTERCREDIS - Pagamento de cartão de crédito",
+    "fitid": "202604071521941"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-04-07",
+    "real_date": "2026-04-07",
+    "amount": -35.0,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix ***.705.526-**",
+    "fitid": "2026040735001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-04-07",
+    "real_date": "2026-04-07",
+    "amount": -60.0,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix ***.758.486-**",
+    "fitid": "2026040760001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-04-07",
+    "real_date": "2026-04-07",
+    "amount": -500.0,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix ***.758.486-**",
+    "fitid": "20260407500001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-04-07",
+    "real_date": "2026-04-07",
+    "amount": -20.0,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix ***.628.086-**",
+    "fitid": "2026040720001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-04-07",
+    "real_date": "2026-04-07",
+    "amount": -1758.09,
+    "desc": "DÉB.TIT.COMPE EFETIVADO",
+    "fitid": "202604071758091"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-04-07",
+    "real_date": "2026-03-03",
+    "amount": -164.54,
+    "desc": "JIM.COM* CONSULTORIO (Parcela 01 de 03)",
+    "fitid": "INT_CARD_2026-04_2026-03-03_-16454"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-04-07",
+    "real_date": "2026-03-06",
+    "amount": -57.0,
+    "desc": "HAUSMALTE",
+    "fitid": "INT_CARD_2026-04_2026-03-06_-570"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-04-07",
+    "real_date": "2026-03-08",
+    "amount": -100.35,
+    "desc": "SUPER COELHO DINIZ",
+    "fitid": "INT_CARD_2026-04_2026-03-08_-10035"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-04-07",
+    "real_date": "2026-03-08",
+    "amount": -32.9,
+    "desc": "FARMACIA INDIANA 38 IL",
+    "fitid": "INT_CARD_2026-04_2026-03-08_-329"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-04-07",
+    "real_date": "2026-03-09",
+    "amount": 106.18,
+    "desc": "DEB AUT PARCIAL -",
+    "fitid": "INT_CARD_2026-04_2026-03-09_10618"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-04-07",
+    "real_date": "2026-03-09",
+    "amount": -22.3,
+    "desc": "GilsonPeixoto",
+    "fitid": "INT_CARD_2026-04_2026-03-09_-223"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-04-07",
+    "real_date": "2026-03-11",
+    "amount": -53.98,
+    "desc": "SUPER COELHO DINIZ",
+    "fitid": "INT_CARD_2026-04_2026-03-11_-5398"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-04-07",
+    "real_date": "2026-03-11",
+    "amount": -25.45,
+    "desc": "GilsonPeixoto",
+    "fitid": "INT_CARD_2026-04_2026-03-11_-2545"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-04-07",
+    "real_date": "2026-03-18",
+    "amount": 1692.86,
+    "desc": "PAGAMENTO DE FATURA -",
+    "fitid": "INT_CARD_2026-04_2026-03-18_169286"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-04-07",
+    "real_date": "2026-03-28",
+    "amount": -24.0,
+    "desc": "Bareeventossistem",
+    "fitid": "INT_CARD_2026-04_2026-03-28_-240"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-04-07",
+    "real_date": "2026-03-30",
+    "amount": -31.73,
+    "desc": "MULTA POR ATRASO",
+    "fitid": "INT_CARD_2026-04_2026-03-30_-3173"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-04-07",
+    "real_date": "2026-03-30",
+    "amount": -4.19,
+    "desc": "ROTATIVO SALDO FINANCIA",
+    "fitid": "INT_CARD_2026-04_2026-03-30_-419"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-04-07",
+    "real_date": "2026-03-30",
+    "amount": -100.33,
+    "desc": "ENCARGOS ROTATIVO",
+    "fitid": "INT_CARD_2026-04_2026-03-30_-10033"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-04-07",
+    "real_date": "2026-03-30",
+    "amount": -7.45,
+    "desc": "IOF",
+    "fitid": "INT_CARD_2026-04_2026-03-30_-745"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-04-07",
+    "real_date": "2026-03-30",
+    "amount": -5.74,
+    "desc": "JUROS DE MORA",
+    "fitid": "INT_CARD_2026-04_2026-03-30_-574"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-04-07",
+    "real_date": "2025-10-13",
+    "amount": -514.88,
+    "desc": "AMERICAN AIR*captureRe (Parcela 06 de 06)",
+    "fitid": "INT_CARD_2026-04_2025-10-13_-51488"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-04-07",
+    "real_date": "2025-10-19",
+    "amount": -70.8,
+    "desc": "CP PARC DUO GOURMET (Parcela 06 de 10)",
+    "fitid": "INT_CARD_2026-04_2025-10-19_-708"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-04-07",
+    "real_date": "2025-11-12",
+    "amount": -49.0,
+    "desc": "AMAZONMKTPLC*ITXTECNOL (Parcela 05 de 06)",
+    "fitid": "INT_CARD_2026-04_2025-11-12_-490"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-04-07",
+    "real_date": "2026-02-17",
+    "amount": -36.21,
+    "desc": "EBN*SONYPLAYSTATN (Parcela 02 de 04)",
+    "fitid": "INT_CARD_2026-04_2026-02-17_-3621"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-04-07",
+    "real_date": "2026-02-28",
+    "amount": -25.98,
+    "desc": "IFD*MARIA APARECIDA CA",
+    "fitid": "INT_CARD_2026-04_2026-02-28_-2598"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-04-07",
+    "real_date": "2026-03-02",
+    "amount": -140.0,
+    "desc": "OTICA AVENIDA (Parcela 01 de 02)",
+    "fitid": "INT_CARD_2026-04_2026-03-02_-1400"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-04-07",
+    "real_date": "2026-03-04",
+    "amount": -96.99,
+    "desc": "DL*GOOGLE Google",
+    "fitid": "INT_CARD_2026-04_2026-03-04_-9699"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-04-07",
+    "real_date": "2026-03-09",
+    "amount": -7.95,
+    "desc": "IFD*IFOOD CLUB",
+    "fitid": "INT_CARD_2026-04_2026-03-09_-795"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-04-07",
+    "real_date": "2026-03-19",
+    "amount": -79.59,
+    "desc": "EBN *PLAYSTATION",
+    "fitid": "INT_CARD_2026-04_2026-03-19_-7959"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-04-07",
+    "real_date": "2026-03-20",
+    "amount": -23.9,
+    "desc": "DM*Spotify",
+    "fitid": "INT_CARD_2026-04_2026-03-20_-239"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-04-07",
+    "real_date": "2026-03-22",
+    "amount": -44.98,
+    "desc": "IFD*J L DE ANDRADE HAM",
+    "fitid": "INT_CARD_2026-04_2026-03-22_-4498"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-04-08",
+    "real_date": "2026-04-08",
+    "amount": -50.0,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix ***.918.796-**",
+    "fitid": "2026040850001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-04-08",
+    "real_date": "2026-04-08",
+    "amount": -4.0,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix 13.347.016 0001-17",
+    "fitid": "202604084001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-04-09",
+    "real_date": "2026-04-09",
+    "amount": 0.9,
+    "desc": "CREDITO REPASSE PAGTO POR SERV.PRESTADOS",
+    "fitid": "202604090901"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-04-10",
+    "real_date": "2026-04-10",
+    "amount": -15.0,
+    "desc": "DÉBITO PACOTE SERVIÇOS",
+    "fitid": "2026041015001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-04-10",
+    "real_date": "2026-04-10",
+    "amount": -150.0,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix ***.918.796-**",
+    "fitid": "20260410150001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-04-10",
+    "real_date": "2026-04-10",
+    "amount": -900.0,
+    "desc": "DÉBITO SAQUE INTERCREDIS",
+    "fitid": "20260410900001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-04-10",
+    "real_date": "2026-04-10",
+    "amount": -386.85,
+    "desc": "DÉBITO PLANO DE SAÚDE - MENSALIDADE ABR - RANNIERE",
+    "fitid": "20260410386851"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-04-10",
+    "real_date": "2026-04-10",
+    "amount": -101.84,
+    "desc": "DÉBITO PLANO DE SAÚDE - TAXA ADMINISTRACAO ABR - RANNIER",
+    "fitid": "20260410101841"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-04-10",
+    "real_date": "2026-04-10",
+    "amount": -41.16,
+    "desc": "DÉB. CONV. SEGUROS",
+    "fitid": "2026041041161"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-04-10",
+    "real_date": "2026-04-10",
+    "amount": -99.9,
+    "desc": "DÉB.TIT.COMPE EFETIVADO",
+    "fitid": "2026041099901"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-04-10",
+    "real_date": "2026-04-10",
+    "amount": -215.0,
+    "desc": "DÉB.TIT.COMPE EFETIVADO",
+    "fitid": "20260410215001"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-04-11",
+    "real_date": "2025-10-01",
+    "amount": -12.0,
+    "desc": "ANUIDADE VISA C      (1160) 06/12",
+    "fitid": "SIC_CARD_2026-04_2025100112001"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-04-11",
+    "real_date": "2025-10-01",
+    "amount": 12.0,
+    "desc": "DESC ANUIDADE POR USO VIS",
+    "fitid": "SIC_CARD_2026-04_2025100112002"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-04-11",
+    "real_date": "2026-03-08",
+    "amount": -3.2,
+    "desc": "PROTEÇÃO PERDA OU ROUBO",
+    "fitid": "SIC_CARD_2026-04_202603083201"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-04-11",
+    "real_date": "2026-03-08",
+    "amount": 3.2,
+    "desc": "CRÉDITO PROMOÇÃO SEGURO",
+    "fitid": "SIC_CARD_2026-04_202603083202"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-04-11",
+    "real_date": "2026-03-11",
+    "amount": 1205.05,
+    "desc": "PAGAMENTO DEBITO EM CONTA",
+    "fitid": "SIC_CARD_2026-04_202603111205051"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-04-11",
+    "real_date": "2026-03-02",
+    "amount": -22.1,
+    "desc": "GilsonPeixoto                 GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-04_2026030222101"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-04-11",
+    "real_date": "2026-03-03",
+    "amount": -20.5,
+    "desc": "GilsonPeixoto                 GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-04_2026030320501"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-04-11",
+    "real_date": "2026-03-03",
+    "amount": -13.29,
+    "desc": "KI SABOR ILHA                 GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-04_2026030313291"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-04-11",
+    "real_date": "2026-03-03",
+    "amount": -18.0,
+    "desc": "JIM.COM R CAMPOS MEN          ALPERCATA",
+    "fitid": "SIC_CARD_2026-04_2026030318001"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-04-11",
+    "real_date": "2026-03-04",
+    "amount": -24.47,
+    "desc": "FARMACIA INDIANA 38           TEOFILO OTONI",
+    "fitid": "SIC_CARD_2026-04_2026030424471"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-04-11",
+    "real_date": "2026-03-04",
+    "amount": -16.2,
+    "desc": "GilsonPeixoto                 GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-04_2026030416201"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-04-11",
+    "real_date": "2026-03-05",
+    "amount": -20.83,
+    "desc": "KI SABOR ILHA                 GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-04_2026030520831"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-04-11",
+    "real_date": "2026-03-06",
+    "amount": -17.55,
+    "desc": "GilsonPeixoto                 GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-04_2026030617551"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-04-11",
+    "real_date": "2026-03-07",
+    "amount": -152.67,
+    "desc": "SUPER COELHO DINIZ            GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-04_20260307152671"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-04-11",
+    "real_date": "2026-03-13",
+    "amount": -51.15,
+    "desc": "BAR AMP RESTAURANTE           GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-04_2026031351151"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-04-11",
+    "real_date": "2026-03-13",
+    "amount": -50.0,
+    "desc": "BAR AMP RESTAURANTE           GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-04_2026031350001"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-04-11",
+    "real_date": "2026-03-13",
+    "amount": -453.35,
+    "desc": "ZP     *BRUNA BAT588          Governador Va",
+    "fitid": "SIC_CARD_2026-04_20260313453351"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-04-11",
+    "real_date": "2026-03-14",
+    "amount": -15.0,
+    "desc": "POSTO TNE ILHA LTDA           GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-04_2026031415001"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-04-11",
+    "real_date": "2026-03-14",
+    "amount": -35.0,
+    "desc": "MAZINHO BURGUER               GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-04_2026031435001"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-04-11",
+    "real_date": "2026-03-14",
+    "amount": -27.42,
+    "desc": "KI SABOR ILHA                 GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-04_2026031427421"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-04-11",
+    "real_date": "2026-03-15",
+    "amount": -67.34,
+    "desc": "BOA MESA RESTAURANTE          GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-04_2026031567341"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-04-11",
+    "real_date": "2026-03-16",
+    "amount": -40.0,
+    "desc": "53968739Adalton               GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-04_2026031640001"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-04-11",
+    "real_date": "2026-03-16",
+    "amount": -75.81,
+    "desc": "SUPER COELHO DINIZ            GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-04_2026031675811"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-04-11",
+    "real_date": "2026-03-18",
+    "amount": -1.15,
+    "desc": "MariaAuxiliadora              GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-04_202603181151"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-04-11",
+    "real_date": "2026-03-20",
+    "amount": -34.53,
+    "desc": "KI SABOR ILHA                 GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-04_2026032034531"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-04-11",
+    "real_date": "2026-03-22",
+    "amount": -80.56,
+    "desc": "BAR DA ILHA                   GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-04_2026032280561"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-04-11",
+    "real_date": "2026-03-23",
+    "amount": -60.96,
+    "desc": "SUPER COELHO DINIZ            GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-04_2026032360961"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-04-11",
+    "real_date": "2026-03-24",
+    "amount": -25.54,
+    "desc": "SUPER COELHO DINIZ            GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-04_2026032425541"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-04-11",
+    "real_date": "2026-03-24",
+    "amount": -42.13,
+    "desc": "SUPER COELHO DINIZ            GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-04_2026032442131"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-04-11",
+    "real_date": "2026-03-25",
+    "amount": -21.0,
+    "desc": "PadariaRamon                  GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-04_2026032521001"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-04-11",
+    "real_date": "2026-03-26",
+    "amount": -10.0,
+    "desc": "ESTACIONAMENTO TODA           GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-04_2026032610001"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-04-11",
+    "real_date": "2026-03-27",
+    "amount": -43.5,
+    "desc": "J L DE ANDRADE HAMBU          GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-04_2026032743501"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-04-11",
+    "real_date": "2026-03-27",
+    "amount": -2.77,
+    "desc": "ITAMAR CONRADO SAMPA          GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-04_202603272771"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-04-11",
+    "real_date": "2026-03-27",
+    "amount": -15.0,
+    "desc": "MP*EMPORIO                    GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-04_2026032715001"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-04-11",
+    "real_date": "2026-03-28",
+    "amount": -64.12,
+    "desc": "STB*MARIAHELENACHURR          G VALADARES",
+    "fitid": "SIC_CARD_2026-04_2026032864121"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-04-13",
+    "real_date": "2026-04-13",
+    "amount": -100.0,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix ***.203.046-**",
+    "fitid": "20260413100001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-04-13",
+    "real_date": "2026-04-13",
+    "amount": -1521.94,
+    "desc": "DÉB.CONV.DEMAIS EMPRESAS",
+    "fitid": "202604131521941"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-04-14",
+    "real_date": "2026-04-14",
+    "amount": -44.0,
+    "desc": "DÉB.TRANSF.CONTAS DIF.TIT. INTERCREDIS - FAV.: MINAS GERAIS PASTELARIA LT",
+    "fitid": "2026041444001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-04-15",
+    "real_date": "2026-04-15",
+    "amount": 1442.69,
+    "desc": "PIX RECEBIDO - OUTRA IF - Recebimento Pix STUDIO 57 INCORP",
+    "fitid": "202604151442691"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-04-22",
+    "real_date": "2026-04-22",
+    "amount": -80.0,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix ***.203.046-**",
+    "fitid": "2026042280001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-04-23",
+    "real_date": "2026-04-23",
+    "amount": -222.97,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix ***.110.836-**",
+    "fitid": "20260423222971"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-04-27",
+    "real_date": "2026-04-27",
+    "amount": -80.0,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix ***.203.046-**",
+    "fitid": "2026042780001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-05-04",
+    "real_date": "2026-05-04",
+    "amount": -0.1,
+    "desc": "JUROS CHEQUE ESPECIAL",
+    "fitid": "202605040101"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-05-04",
+    "real_date": "2026-05-04",
+    "amount": -0.17,
+    "desc": "DÉB.IOF",
+    "fitid": "202605040171"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-05-04",
+    "real_date": "2026-05-04",
+    "amount": -130.0,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix ***.203.046-**",
+    "fitid": "20260504130001"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-05-07",
+    "real_date": "2026-03-03",
+    "amount": -164.52,
+    "desc": "JIM.COM* CONSULTORIO (Parcela 02 de 03)",
+    "fitid": "INT_CARD_2026-05_2026-03-03_-16452"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-05-07",
+    "real_date": "2026-04-01",
+    "amount": -94.95,
+    "desc": "SUPER COELHO DINIZ",
+    "fitid": "INT_CARD_2026-05_2026-04-01_-9495"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-05-07",
+    "real_date": "2026-04-02",
+    "amount": -43.5,
+    "desc": "J L DE ANDRADE HAMBUR",
+    "fitid": "INT_CARD_2026-05_2026-04-02_-435"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-05-07",
+    "real_date": "2026-04-03",
+    "amount": -43.5,
+    "desc": "J L DE ANDRADE HAMBUR",
+    "fitid": "INT_CARD_2026-05_2026-04-03_-435"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-05-07",
+    "real_date": "2026-04-04",
+    "amount": -20.69,
+    "desc": "KI SABOR ILHA",
+    "fitid": "INT_CARD_2026-05_2026-04-04_-2069"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-05-07",
+    "real_date": "2026-04-05",
+    "amount": -20.0,
+    "desc": "POSTO TNE ILHA LTDA",
+    "fitid": "INT_CARD_2026-05_2026-04-05_-200"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-05-07",
+    "real_date": "2026-04-05",
+    "amount": -51.5,
+    "desc": "TELE CERVEJA DA ILHA",
+    "fitid": "INT_CARD_2026-05_2026-04-05_-515"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-05-07",
+    "real_date": "2026-04-06",
+    "amount": -25.98,
+    "desc": "SUPER COELHO DINIZ",
+    "fitid": "INT_CARD_2026-05_2026-04-06_-2598"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-05-07",
+    "real_date": "2026-04-06",
+    "amount": -72.28,
+    "desc": "SUPER COELHO DINIZ",
+    "fitid": "INT_CARD_2026-05_2026-04-06_-7228"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-05-07",
+    "real_date": "2026-04-07",
+    "amount": 1758.09,
+    "desc": "PAGAMENTO DE FATURA -",
+    "fitid": "INT_CARD_2026-05_2026-04-07_175809"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-05-07",
+    "real_date": "2026-04-15",
+    "amount": -474.95,
+    "desc": "ZP *BRUNA BAT58859",
+    "fitid": "INT_CARD_2026-05_2026-04-15_-47495"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-05-07",
+    "real_date": "2026-04-16",
+    "amount": -35.99,
+    "desc": "Google Tinder Dating",
+    "fitid": "INT_CARD_2026-05_2026-04-16_-3599"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-05-07",
+    "real_date": "2026-04-20",
+    "amount": -54.95,
+    "desc": "SUPER COELHO DINIZ",
+    "fitid": "INT_CARD_2026-05_2026-04-20_-5495"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-05-07",
+    "real_date": "2026-04-20",
+    "amount": -8.4,
+    "desc": "MP *LUDMILLA",
+    "fitid": "INT_CARD_2026-05_2026-04-20_-84"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-05-07",
+    "real_date": "2026-04-21",
+    "amount": -70.25,
+    "desc": "STB*MARIAHELENACHURRAS",
+    "fitid": "INT_CARD_2026-05_2026-04-21_-7025"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-05-07",
+    "real_date": "2026-04-21",
+    "amount": -53.14,
+    "desc": "SUPER COELHO DINIZ",
+    "fitid": "INT_CARD_2026-05_2026-04-21_-5314"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-05-07",
+    "real_date": "2025-10-19",
+    "amount": -70.8,
+    "desc": "CP PARC DUO GOURMET (Parcela 07 de 10)",
+    "fitid": "INT_CARD_2026-05_2025-10-19_-708"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-05-07",
+    "real_date": "2025-11-12",
+    "amount": -49.0,
+    "desc": "AMAZONMKTPLC*ITXTECNOL (Parcela 06 de 06)",
+    "fitid": "INT_CARD_2026-05_2025-11-12_-490"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-05-07",
+    "real_date": "2026-02-17",
+    "amount": -36.21,
+    "desc": "EBN*SONYPLAYSTATN (Parcela 03 de 04)",
+    "fitid": "INT_CARD_2026-05_2026-02-17_-3621"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-05-07",
+    "real_date": "2026-03-02",
+    "amount": -140.0,
+    "desc": "OTICA AVENIDA (Parcela 02 de 02)",
+    "fitid": "INT_CARD_2026-05_2026-03-02_-1400"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-05-07",
+    "real_date": "2026-04-02",
+    "amount": -72.94,
+    "desc": "MERCADO*ARTEMADESIVOS",
+    "fitid": "INT_CARD_2026-05_2026-04-02_-7294"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-05-07",
+    "real_date": "2026-04-04",
+    "amount": -96.99,
+    "desc": "DL*GOOGLE Google",
+    "fitid": "INT_CARD_2026-05_2026-04-04_-9699"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-05-07",
+    "real_date": "2026-04-05",
+    "amount": -76.74,
+    "desc": "MERCADOLIVRE*MERCADOLI",
+    "fitid": "INT_CARD_2026-05_2026-04-05_-7674"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-05-07",
+    "real_date": "2026-04-09",
+    "amount": -38.98,
+    "desc": "IFD*J L DE ANDRADE HAM",
+    "fitid": "INT_CARD_2026-05_2026-04-09_-3898"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-05-07",
+    "real_date": "2026-04-09",
+    "amount": -7.95,
+    "desc": "IFD*IFOOD CLUB",
+    "fitid": "INT_CARD_2026-05_2026-04-09_-795"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-05-07",
+    "real_date": "2026-04-10",
+    "amount": -38.98,
+    "desc": "IFD*J L DE ANDRADE HAM",
+    "fitid": "INT_CARD_2026-05_2026-04-10_-3898"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-05-07",
+    "real_date": "2026-04-11",
+    "amount": -30.54,
+    "desc": "MERCADO*MERCADOLIVRE (Parcela 01 de 06)",
+    "fitid": "INT_CARD_2026-05_2026-04-11_-3054"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-05-07",
+    "real_date": "2026-04-15",
+    "amount": -102.41,
+    "desc": "MERCADOLIVRE*MERCADOL",
+    "fitid": "INT_CARD_2026-05_2026-04-15_-10241"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-05-07",
+    "real_date": "2026-04-18",
+    "amount": -79.59,
+    "desc": "EBN*PLAYSTATI",
+    "fitid": "INT_CARD_2026-05_2026-04-18_-7959"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-05-07",
+    "real_date": "2026-04-19",
+    "amount": -36.98,
+    "desc": "IFD*J L DE ANDRADE HAM",
+    "fitid": "INT_CARD_2026-05_2026-04-19_-3698"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-05-07",
+    "real_date": "2026-04-20",
+    "amount": -23.9,
+    "desc": "DM*Spotify",
+    "fitid": "INT_CARD_2026-05_2026-04-20_-239"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-05-07",
+    "real_date": "2026-04-20",
+    "amount": -35.48,
+    "desc": "IFD*J L DE ANDRADE HAM",
+    "fitid": "INT_CARD_2026-05_2026-04-20_-3548"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-05-07",
+    "real_date": "2026-04-25",
+    "amount": -50.48,
+    "desc": "IFD*J L DE ANDRADE HAM",
+    "fitid": "INT_CARD_2026-05_2026-04-25_-5048"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-05-07",
+    "real_date": "2026-04-26",
+    "amount": -50.48,
+    "desc": "IFD*J L DE ANDRADE HAM",
+    "fitid": "INT_CARD_2026-05_2026-04-26_-5048"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-05-07",
+    "real_date": "2026-04-29",
+    "amount": -67.07,
+    "desc": "MERCADOLIVRE*MERCADOL",
+    "fitid": "INT_CARD_2026-05_2026-04-29_-6707"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-05-07",
+    "real_date": "2026-04-29",
+    "amount": -21.98,
+    "desc": "IFD*J L DE ANDRADE HAM",
+    "fitid": "INT_CARD_2026-05_2026-04-29_-2198"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-05-08",
+    "real_date": "2026-05-08",
+    "amount": -300.0,
+    "desc": "PIX EMITIDO OUTRA IF - MESMA TIT. - Pagamento Pix ***.705.566-**",
+    "fitid": "20260508300001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-05-11",
+    "real_date": "2026-05-11",
+    "amount": 1.5,
+    "desc": "CREDITO REPASSE PAGTO POR SERV.PRESTADOS",
+    "fitid": "202605111501"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-05-11",
+    "real_date": "2026-05-11",
+    "amount": -15.0,
+    "desc": "DÉBITO PACOTE SERVIÇOS",
+    "fitid": "2026051115001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-05-11",
+    "real_date": "2026-05-11",
+    "amount": -6.5,
+    "desc": "TRANSF.REALIZADA PIX SICOOB - FAV.: JC PARK ESTACIONAMENTO LTD",
+    "fitid": "202605116501"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-05-11",
+    "real_date": "2026-05-11",
+    "amount": -386.85,
+    "desc": "DÉBITO PLANO DE SAÚDE - MENSALIDADE MAI - RANNIERE",
+    "fitid": "20260511386851"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-05-11",
+    "real_date": "2026-05-11",
+    "amount": -101.84,
+    "desc": "DÉBITO PLANO DE SAÚDE - TAXA ADMINISTRACAO MAI - RANNIER",
+    "fitid": "20260511101841"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-05-11",
+    "real_date": "2026-05-11",
+    "amount": -80.0,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix ***.203.046-**",
+    "fitid": "2026051180001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-05-11",
+    "real_date": "2026-05-11",
+    "amount": -900.0,
+    "desc": "PIX EMITIDO OUTRA IF - MESMA TIT. - Pagamento Pix ***.705.566-**",
+    "fitid": "20260511900001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-05-11",
+    "real_date": "2026-05-11",
+    "amount": -41.16,
+    "desc": "DÉB. CONV. SEGUROS",
+    "fitid": "2026051141161"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-05-11",
+    "real_date": "2025-10-01",
+    "amount": -12.0,
+    "desc": "ANUIDADE VISA C      (1160) 07/12",
+    "fitid": "SIC_CARD_2026-05_2025100112001"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-05-11",
+    "real_date": "2025-10-01",
+    "amount": 6.0,
+    "desc": "DESC ANUIDADE POR USO VIS",
+    "fitid": "SIC_CARD_2026-05_202510016001"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-05-11",
+    "real_date": "2026-04-07",
+    "amount": 1521.94,
+    "desc": "PAGAMENTO-BOLETO BANCARIO",
+    "fitid": "SIC_CARD_2026-05_202604071521941"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-05-11",
+    "real_date": "2026-04-13",
+    "amount": 1521.94,
+    "desc": "PAGAMENTO DEBITO EM CONTA",
+    "fitid": "SIC_CARD_2026-05_202604131521941"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-05-11",
+    "real_date": "2026-04-07",
+    "amount": -22.84,
+    "desc": "DL *GOOGLE CLOUD N6P          Sao Pablo",
+    "fitid": "SIC_CARD_2026-05_2026040722841"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-05-11",
+    "real_date": "2026-04-08",
+    "amount": -100.0,
+    "desc": "POSTO TNE ILHA LTDA           GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-05_20260408100001"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-05-11",
+    "real_date": "2026-04-09",
+    "amount": -10.0,
+    "desc": "ESTACIONAMENTO TODA           GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-05_2026040910001"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-05-11",
+    "real_date": "2026-04-11",
+    "amount": -162.93,
+    "desc": "SUPER COELHO DINIZ            GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-05_20260411162931"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-05-11",
+    "real_date": "2026-04-11",
+    "amount": -65.98,
+    "desc": "CACAU SHOW                    GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-05_2026041165981"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-05-11",
+    "real_date": "2026-04-11",
+    "amount": -54.5,
+    "desc": "STB*MARIAHELENACHURR          G VALADARES",
+    "fitid": "SIC_CARD_2026-05_2026041154501"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-05-11",
+    "real_date": "2026-04-11",
+    "amount": -24.99,
+    "desc": "CACAU SHOW                    GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-05_2026041124991"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-05-11",
+    "real_date": "2026-04-13",
+    "amount": -6.2,
+    "desc": "MariaAuxiliadora              GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-05_202604136201"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-05-11",
+    "real_date": "2026-04-14",
+    "amount": -13.5,
+    "desc": "JIM.COM RAQUEL APARE          GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-05_2026041413501"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-05-11",
+    "real_date": "2026-04-16",
+    "amount": -122.3,
+    "desc": "RESTAURANTE DA VILMA          GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-05_20260416122301"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-05-11",
+    "real_date": "2026-04-17",
+    "amount": -155.47,
+    "desc": "SUPER COELHO DINIZ            GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-05_20260417155471"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-05-11",
+    "real_date": "2026-04-17",
+    "amount": -10.58,
+    "desc": "SUPER COELHO DINIZ            GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-05_2026041710581"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-05-11",
+    "real_date": "2026-04-18",
+    "amount": -36.87,
+    "desc": "FARMACIA INDIANA 38           TEOFILO OTONI",
+    "fitid": "SIC_CARD_2026-05_2026041836871"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-05-11",
+    "real_date": "2026-04-18",
+    "amount": -69.87,
+    "desc": "BOA MESA RESTAURANTE          GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-05_2026041869871"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-05-11",
+    "real_date": "2026-04-19",
+    "amount": -92.62,
+    "desc": "BOA MESA RESTAURANTE          GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-05_2026041992621"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-05-11",
+    "real_date": "2026-04-22",
+    "amount": -20.25,
+    "desc": "GilsonPeixoto                 GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-05_2026042220251"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-05-11",
+    "real_date": "2026-04-23",
+    "amount": -10.0,
+    "desc": "ESTACIONAMENTO TODA           GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-05_2026042310001"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-05-11",
+    "real_date": "2026-04-23",
+    "amount": -100.0,
+    "desc": "POSTO TNE ILHA LTDA           GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-05_20260423100001"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-05-11",
+    "real_date": "2026-04-25",
+    "amount": -13.16,
+    "desc": "SUPER COELHO DINIZ            GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-05_2026042513161"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-05-11",
+    "real_date": "2026-04-26",
+    "amount": -8.4,
+    "desc": "RAPIDAO                       GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-05_202604268401"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-05-11",
+    "real_date": "2026-04-27",
+    "amount": -10.99,
+    "desc": "MADEIREIRA CACIQUE            GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-05_2026042710991"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-05-11",
+    "real_date": "2026-04-28",
+    "amount": -25.65,
+    "desc": "GilsonPeixoto                 GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-05_2026042825651"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-05-12",
+    "real_date": "2026-05-12",
+    "amount": 1442.69,
+    "desc": "PIX RECEBIDO - OUTRA IF - Recebimento Pix STUDIO 57 INCORP",
+    "fitid": "202605121442691"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-05-18",
+    "real_date": "2026-05-18",
+    "amount": -80.0,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix ***.203.046-**",
+    "fitid": "2026051880001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-05-20",
+    "real_date": "2026-05-20",
+    "amount": 1442.69,
+    "desc": "PIX RECEBIDO - OUTRA IF - Recebimento Pix STUDIO 57 ARQUIT",
+    "fitid": "202605201442691"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-05-20",
+    "real_date": "2026-05-20",
+    "amount": -65.0,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix 65.194.076 0001-40",
+    "fitid": "2026052065001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-05-21",
+    "real_date": "2026-05-21",
+    "amount": -60.0,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix ***.758.486-**",
+    "fitid": "2026052160001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-05-21",
+    "real_date": "2026-05-21",
+    "amount": -500.0,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix ***.758.486-**",
+    "fitid": "20260521500001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-05-22",
+    "real_date": "2026-05-22",
+    "amount": -100.0,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix ***.131.656-**",
+    "fitid": "20260522100001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-05-22",
+    "real_date": "2026-05-22",
+    "amount": -200.0,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix ***.918.796-**",
+    "fitid": "20260522200001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-05-25",
+    "real_date": "2026-05-25",
+    "amount": -8.0,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix ***.203.526-**",
+    "fitid": "202605258001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-05-25",
+    "real_date": "2026-05-25",
+    "amount": -80.0,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix ***.203.046-**",
+    "fitid": "2026052580001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-05-28",
+    "real_date": "2026-05-28",
+    "amount": -80.0,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix ***.203.046-**",
+    "fitid": "2026052880001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-06-01",
+    "real_date": "2026-06-01",
+    "amount": -2.2,
+    "desc": "JUROS CHEQUE ESPECIAL",
+    "fitid": "202606012201"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-06-01",
+    "real_date": "2026-06-01",
+    "amount": -3.59,
+    "desc": "DÉB.IOF",
+    "fitid": "202606013591"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-06-01",
+    "real_date": "2026-06-01",
+    "amount": -0.08,
+    "desc": "DÉB.IOF",
+    "fitid": "202606010081"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-06-01",
+    "real_date": "2026-06-01",
+    "amount": -35.0,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix ***.809.376-**",
+    "fitid": "2026060135001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-06-03",
+    "real_date": "2026-06-03",
+    "amount": -102.53,
+    "desc": "DÉB.TIT.COMPE EFETIVADO",
+    "fitid": "20260603102531"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-06-03",
+    "real_date": "2026-06-03",
+    "amount": -221.37,
+    "desc": "DÉB.TIT.COMPE EFETIVADO",
+    "fitid": "20260603221371"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-06-03",
+    "real_date": "2026-06-03",
+    "amount": -2510.35,
+    "desc": "DÉB.TIT.COMPE EFETIVADO",
+    "fitid": "202606032510351"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-06-03",
+    "real_date": "2026-06-03",
+    "amount": 1442.69,
+    "desc": "PIX RECEBIDO - OUTRA IF - Recebimento Pix STUDIO 57 ARQUIT",
+    "fitid": "202606031442691"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-06-03",
+    "real_date": "2026-06-03",
+    "amount": 1442.69,
+    "desc": "CRED.TRANSF.CONTAS INTERCREDIS - REM.: STUDIO 57 INCORPORACOES LT",
+    "fitid": "202606031442692"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-06-07",
+    "real_date": "2026-03-03",
+    "amount": -164.52,
+    "desc": "JIM.COM* CONSULTORIO (Parcela 03 de 03)",
+    "fitid": "INT_CARD_2026-06_2026-03-03_-16452"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-06-07",
+    "real_date": "2026-04-30",
+    "amount": -100.0,
+    "desc": "POSTO TNE ILHA LTDA",
+    "fitid": "INT_CARD_2026-06_2026-04-30_-1000"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-06-07",
+    "real_date": "2026-04-30",
+    "amount": -152.66,
+    "desc": "ARMAZEM VARGAS BUTIQUI",
+    "fitid": "INT_CARD_2026-06_2026-04-30_-15266"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-06-07",
+    "real_date": "2026-04-30",
+    "amount": -35.0,
+    "desc": "GAUCHAO DO FABINHO",
+    "fitid": "INT_CARD_2026-06_2026-04-30_-350"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-06-07",
+    "real_date": "2026-05-07",
+    "amount": 320.0,
+    "desc": "DEB AUT PARCIAL -",
+    "fitid": "INT_CARD_2026-06_2026-05-07_3200"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-06-07",
+    "real_date": "2026-05-08",
+    "amount": -285.21,
+    "desc": "SUPER COELHO DINIZ",
+    "fitid": "INT_CARD_2026-06_2026-05-08_-28521"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-06-07",
+    "real_date": "2026-05-10",
+    "amount": -120.23,
+    "desc": "IOF CREDITO PARCELADO",
+    "fitid": "INT_CARD_2026-06_2026-05-10_-12023"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-06-07",
+    "real_date": "2026-05-10",
+    "amount": -67.16,
+    "desc": "CACAU SHOW",
+    "fitid": "INT_CARD_2026-06_2026-05-10_-6716"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-06-07",
+    "real_date": "2026-05-10",
+    "amount": -26.84,
+    "desc": "SUPER COELHO DINIZ",
+    "fitid": "INT_CARD_2026-06_2026-05-10_-2684"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-06-07",
+    "real_date": "2026-05-11",
+    "amount": -7.0,
+    "desc": "PostosPerim",
+    "fitid": "INT_CARD_2026-06_2026-05-11_-70"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-06-07",
+    "real_date": "2026-05-12",
+    "amount": -24.3,
+    "desc": "GilsonPeixoto",
+    "fitid": "INT_CARD_2026-06_2026-05-12_-243"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-06-07",
+    "real_date": "2026-05-12",
+    "amount": -32.0,
+    "desc": "JIM.COM* YONE RODRIGU",
+    "fitid": "INT_CARD_2026-06_2026-05-12_-320"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-06-07",
+    "real_date": "2026-05-13",
+    "amount": -100.0,
+    "desc": "POSTO TNE ILHA LTDA",
+    "fitid": "INT_CARD_2026-06_2026-05-13_-1000"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-06-07",
+    "real_date": "2026-05-14",
+    "amount": -40.19,
+    "desc": "KI SABOR ILHA",
+    "fitid": "INT_CARD_2026-06_2026-05-14_-4019"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-06-07",
+    "real_date": "2026-05-16",
+    "amount": -37.0,
+    "desc": "GilsonPeixoto",
+    "fitid": "INT_CARD_2026-06_2026-05-16_-370"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-06-07",
+    "real_date": "2026-05-16",
+    "amount": -35.99,
+    "desc": "Google Tinder Dating",
+    "fitid": "INT_CARD_2026-06_2026-05-16_-3599"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-06-07",
+    "real_date": "2026-05-16",
+    "amount": -100.0,
+    "desc": "POSTO SECULO XXI LTDA",
+    "fitid": "INT_CARD_2026-06_2026-05-16_-1000"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-06-07",
+    "real_date": "2026-05-16",
+    "amount": -234.96,
+    "desc": "SUSHI HOUSE",
+    "fitid": "INT_CARD_2026-06_2026-05-16_-23496"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-06-07",
+    "real_date": "2026-05-16",
+    "amount": -31.5,
+    "desc": "ACAI FRUIT BERRY",
+    "fitid": "INT_CARD_2026-06_2026-05-16_-315"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-06-07",
+    "real_date": "2026-05-17",
+    "amount": -88.0,
+    "desc": "ESTETICA NUNES",
+    "fitid": "INT_CARD_2026-06_2026-05-17_-880"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-06-07",
+    "real_date": "2026-05-18",
+    "amount": -8.4,
+    "desc": "MP *RYAMRAMALHO",
+    "fitid": "INT_CARD_2026-06_2026-05-18_-84"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-06-07",
+    "real_date": "2026-05-20",
+    "amount": -200.0,
+    "desc": "RESTAURANTE E SPETARI",
+    "fitid": "INT_CARD_2026-06_2026-05-20_-2000"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-06-07",
+    "real_date": "2026-05-21",
+    "amount": -8.0,
+    "desc": "ESTACIONAMENTO TODA HO",
+    "fitid": "INT_CARD_2026-06_2026-05-21_-80"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-06-07",
+    "real_date": "2026-05-22",
+    "amount": -17.0,
+    "desc": "ARMAZEM VARGAS BUTIQUI",
+    "fitid": "INT_CARD_2026-06_2026-05-22_-170"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-06-07",
+    "real_date": "2026-05-22",
+    "amount": -40.0,
+    "desc": "GAUCHO LANCHES",
+    "fitid": "INT_CARD_2026-06_2026-05-22_-400"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-06-07",
+    "real_date": "2026-05-23",
+    "amount": -15.9,
+    "desc": "BUTECO LAGOA GRILL",
+    "fitid": "INT_CARD_2026-06_2026-05-23_-159"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-06-07",
+    "real_date": "2026-05-23",
+    "amount": -120.89,
+    "desc": "BUTECO LAGOA GRILL",
+    "fitid": "INT_CARD_2026-06_2026-05-23_-12089"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-06-07",
+    "real_date": "2026-05-23",
+    "amount": -56.5,
+    "desc": "LOPES E SENA COSMETICO (Parcela 01 de 02)",
+    "fitid": "INT_CARD_2026-06_2026-05-23_-565"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-06-07",
+    "real_date": "2026-05-24",
+    "amount": -42.0,
+    "desc": "GAUCHO LANCHES",
+    "fitid": "INT_CARD_2026-06_2026-05-24_-420"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-06-07",
+    "real_date": "2026-05-25",
+    "amount": -38.83,
+    "desc": "SUPER COELHO DINIZ",
+    "fitid": "INT_CARD_2026-06_2026-05-25_-3883"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-06-07",
+    "real_date": "2026-05-27",
+    "amount": -24.35,
+    "desc": "FARMACIA INDIANA 38 IL",
+    "fitid": "INT_CARD_2026-06_2026-05-27_-2435"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-06-07",
+    "real_date": "2026-05-27",
+    "amount": -8.4,
+    "desc": "ESTETICA NUNES",
+    "fitid": "INT_CARD_2026-06_2026-05-27_-84"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-06-07",
+    "real_date": "2026-05-29",
+    "amount": -43.72,
+    "desc": "MULTA POR ATRASO",
+    "fitid": "INT_CARD_2026-06_2026-05-29_-4372"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-06-07",
+    "real_date": "2026-05-30",
+    "amount": -38.24,
+    "desc": "ENCARGOS ROTATIVO",
+    "fitid": "INT_CARD_2026-06_2026-05-30_-3824"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-06-07",
+    "real_date": "2026-05-30",
+    "amount": -8.85,
+    "desc": "IOF",
+    "fitid": "INT_CARD_2026-06_2026-05-30_-885"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-06-07",
+    "real_date": "2026-05-30",
+    "amount": -2.16,
+    "desc": "JUROS DE MORA",
+    "fitid": "INT_CARD_2026-06_2026-05-30_-216"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-06-07",
+    "real_date": "2025-10-19",
+    "amount": -212.4,
+    "desc": "ANTECIPACAO SHOPPING IN",
+    "fitid": "INT_CARD_2026-06_2025-10-19_-2124"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-06-07",
+    "real_date": "2025-01-22",
+    "amount": 10.54,
+    "desc": "AMORTIZACAO DE JUROS -",
+    "fitid": "INT_CARD_2026-06_2025-01-22_1054"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-06-07",
+    "real_date": "2026-02-17",
+    "amount": -36.21,
+    "desc": "EBN*SONYPLAYSTATN (Parcela 04 de 04)",
+    "fitid": "INT_CARD_2026-06_2026-02-17_-3621"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-06-07",
+    "real_date": "2026-04-11",
+    "amount": -30.49,
+    "desc": "MERCADO*MERCADOLIVRE (Parcela 02 de 06)",
+    "fitid": "INT_CARD_2026-06_2026-04-11_-3049"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-06-07",
+    "real_date": "2026-04-11",
+    "amount": -30.49,
+    "desc": "MERCADO*MERCADOLIVRE (Parcela 03 de 06)",
+    "fitid": "INT_CARD_2026-06_2026-04-11_-3049"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-06-07",
+    "real_date": "2026-04-11",
+    "amount": -30.49,
+    "desc": "MERCADO*MERCADOLIVRE (Parcela 04 de 06)",
+    "fitid": "INT_CARD_2026-06_2026-04-11_-3049"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-06-07",
+    "real_date": "2026-04-11",
+    "amount": -30.49,
+    "desc": "MERCADO*MERCADOLIVRE (Parcela 05 de 06)",
+    "fitid": "INT_CARD_2026-06_2026-04-11_-3049"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-06-07",
+    "real_date": "2026-04-11",
+    "amount": -30.49,
+    "desc": "MERCADO*MERCADOLIVRE (Parcela 06 de 06)",
+    "fitid": "INT_CARD_2026-06_2026-04-11_-3049"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-06-07",
+    "real_date": "2026-04-29",
+    "amount": -28.73,
+    "desc": "IFD*M B GOURMET LANCHE",
+    "fitid": "INT_CARD_2026-06_2026-04-29_-2873"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-06-07",
+    "real_date": "2026-05-03",
+    "amount": -33.48,
+    "desc": "IFD*M B GOURMET LANCHE",
+    "fitid": "INT_CARD_2026-06_2026-05-03_-3348"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-06-07",
+    "real_date": "2026-05-03",
+    "amount": -34.75,
+    "desc": "MERCADO*MERCADOLIVRE (Parcela 01 de 05)",
+    "fitid": "INT_CARD_2026-06_2026-05-03_-3475"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-06-07",
+    "real_date": "2026-05-03",
+    "amount": -39.99,
+    "desc": "IFD*38.233.906 FELIPE",
+    "fitid": "INT_CARD_2026-06_2026-05-03_-3999"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-06-07",
+    "real_date": "2026-05-03",
+    "amount": -34.72,
+    "desc": "MERCADO*MERCADOLIVRE (Parcela 02 de 05)",
+    "fitid": "INT_CARD_2026-06_2026-05-03_-3472"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-06-07",
+    "real_date": "2026-05-03",
+    "amount": -34.72,
+    "desc": "MERCADO*MERCADOLIVRE (Parcela 03 de 05)",
+    "fitid": "INT_CARD_2026-06_2026-05-03_-3472"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-06-07",
+    "real_date": "2026-05-03",
+    "amount": -34.72,
+    "desc": "MERCADO*MERCADOLIVRE (Parcela 04 de 05)",
+    "fitid": "INT_CARD_2026-06_2026-05-03_-3472"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-06-07",
+    "real_date": "2026-05-03",
+    "amount": -34.72,
+    "desc": "MERCADO*MERCADOLIVRE (Parcela 05 de 05)",
+    "fitid": "INT_CARD_2026-06_2026-05-03_-3472"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-06-07",
+    "real_date": "2026-05-04",
+    "amount": -96.99,
+    "desc": "DL*GOOGLE Google",
+    "fitid": "INT_CARD_2026-06_2026-05-04_-9699"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-06-07",
+    "real_date": "2026-05-09",
+    "amount": -7.95,
+    "desc": "IFD*IFOOD CLUB",
+    "fitid": "INT_CARD_2026-06_2026-05-09_-795"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-06-07",
+    "real_date": "2026-05-10",
+    "amount": 300.0,
+    "desc": "PG ENT PST -",
+    "fitid": "INT_CARD_2026-06_2026-05-10_3000"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-06-07",
+    "real_date": "2026-05-10",
+    "amount": 3565.79,
+    "desc": "VALOR PST -",
+    "fitid": "INT_CARD_2026-06_2026-05-10_356579"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-06-07",
+    "real_date": "2026-05-15",
+    "amount": -397.99,
+    "desc": "ZP *BRUNA BAT58859",
+    "fitid": "INT_CARD_2026-06_2026-05-15_-39799"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-06-07",
+    "real_date": "2026-05-18",
+    "amount": -19.9,
+    "desc": "AmazonPrimeBR",
+    "fitid": "INT_CARD_2026-06_2026-05-18_-199"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-06-07",
+    "real_date": "2026-05-18",
+    "amount": -79.59,
+    "desc": "EBN *PLAYSTATION",
+    "fitid": "INT_CARD_2026-06_2026-05-18_-7959"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-06-07",
+    "real_date": "2026-05-20",
+    "amount": -23.9,
+    "desc": "DM*Spotify",
+    "fitid": "INT_CARD_2026-06_2026-05-20_-239"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-06-07",
+    "real_date": "2026-05-25",
+    "amount": -3.9,
+    "desc": "DL*GOOGLE YouTub",
+    "fitid": "INT_CARD_2026-06_2026-05-25_-39"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-06-08",
+    "real_date": "2026-06-08",
+    "amount": -80.0,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix ***.203.046-**",
+    "fitid": "2026060880001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-06-09",
+    "real_date": "2026-06-09",
+    "amount": -6.5,
+    "desc": "TRANSF.REALIZADA PIX SICOOB - FAV.: JC PARK ESTACIONAMENTO LTD",
+    "fitid": "202606096501"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-06-10",
+    "real_date": "2026-06-10",
+    "amount": -15.0,
+    "desc": "DÉBITO PACOTE SERVIÇOS",
+    "fitid": "2026061015001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-06-10",
+    "real_date": "2026-06-10",
+    "amount": -386.85,
+    "desc": "DÉBITO PLANO DE SAÚDE - MENSALIDADE JUN - RANNIERE",
+    "fitid": "20260610386851"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-06-10",
+    "real_date": "2026-06-10",
+    "amount": -101.84,
+    "desc": "DÉBITO PLANO DE SAÚDE - TAXA ADMINISTRACAO JUN - RANNIER",
+    "fitid": "20260610101841"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-06-10",
+    "real_date": "2026-06-10",
+    "amount": -215.0,
+    "desc": "DÉB.TIT.COMPE EFETIVADO",
+    "fitid": "20260610215001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-06-10",
+    "real_date": "2026-06-10",
+    "amount": -99.9,
+    "desc": "DÉB.TIT.COMPE EFETIVADO",
+    "fitid": "2026061099901"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-06-10",
+    "real_date": "2026-06-10",
+    "amount": -41.16,
+    "desc": "DÉB. CONV. SEGUROS",
+    "fitid": "2026061041161"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-06-11",
+    "real_date": "2026-06-11",
+    "amount": -30.0,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix ***.447.056-**",
+    "fitid": "2026061130001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-06-11",
+    "real_date": "2026-06-11",
+    "amount": -674.49,
+    "desc": "DÉB.CONV.DEMAIS EMPRESAS",
+    "fitid": "20260611674491"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-06-11",
+    "real_date": "2025-10-01",
+    "amount": -12.0,
+    "desc": "ANUIDADE VISA C      (1160) 08/12",
+    "fitid": "SIC_CARD_2026-06_2025100112001"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-06-11",
+    "real_date": "2025-10-01",
+    "amount": 6.0,
+    "desc": "DESC ANUIDADE POR USO VIS",
+    "fitid": "SIC_CARD_2026-06_202510016001"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-06-11",
+    "real_date": "2026-05-01",
+    "amount": -38.45,
+    "desc": "DL *GOOGLE CLOUD XW2          Sao Pablo",
+    "fitid": "SIC_CARD_2026-06_2026050138451"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-06-11",
+    "real_date": "2026-05-01",
+    "amount": -332.25,
+    "desc": "SUPER COELHO DINIZ            GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-06_20260501332251"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-06-11",
+    "real_date": "2026-05-01",
+    "amount": -8.4,
+    "desc": "JIM.COM 40026297 KEV          GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-06_202605018401"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-06-11",
+    "real_date": "2026-05-02",
+    "amount": -15.0,
+    "desc": "POSTO TNE ILHA LTDA           GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-06_2026050215001"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-06-11",
+    "real_date": "2026-05-04",
+    "amount": -65.24,
+    "desc": "ALVARENGA MEAT HOUSE          GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-06_2026050465241"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-06-11",
+    "real_date": "2026-05-06",
+    "amount": -8.0,
+    "desc": "NatanaelMarcelino             GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-06_202605068001"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-06-11",
+    "real_date": "2026-05-07",
+    "amount": -10.0,
+    "desc": "ESTACIONAMENTO TODA           GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-06_2026050710001"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-06-11",
+    "real_date": "2026-05-08",
+    "amount": -113.5,
+    "desc": "ARMAZEM VARGAS BUTIQ          GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-06_20260508113501"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-06-11",
+    "real_date": "2026-05-22",
+    "amount": -89.9,
+    "desc": "GRAFFITE                      GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-06_2026052289901"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-06-11",
+    "real_date": "2026-05-28",
+    "amount": -36.47,
+    "desc": "SUPER COELHO DINIZ            GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-06_2026052836471"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-06-11",
+    "real_date": "2026-05-29",
+    "amount": -200.0,
+    "desc": "Google CLOUD 67PTSGV          SAO PAULO",
+    "fitid": "SIC_CARD_2026-06_20260529200001"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-06-11",
+    "real_date": "2026-05-30",
+    "amount": -39.2,
+    "desc": "MarquinhosBurguer             GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-06_2026053039201"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-06-11",
+    "real_date": "2026-05-31",
+    "amount": -90.92,
+    "desc": "STB*MARIAHELENACHURR          G VALADARES",
+    "fitid": "SIC_CARD_2026-06_2026053190921"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-06-15",
+    "real_date": "2026-06-15",
+    "amount": -10.0,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix ***.751.346-**",
+    "fitid": "2026061510001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-06-15",
+    "real_date": "2026-06-15",
+    "amount": -130.0,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix ***.203.046-**",
+    "fitid": "20260615130001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-06-15",
+    "real_date": "2026-06-15",
+    "amount": 500.0,
+    "desc": "PIX RECEBIDO - OUTRA IF - Recebimento Pix SONIA MARIA CAMP",
+    "fitid": "20260615500001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-06-16",
+    "real_date": "2026-06-16",
+    "amount": -1500.0,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix 20.625.141 0001-07",
+    "fitid": "202606161500001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-06-16",
+    "real_date": "2026-06-16",
+    "amount": 1442.69,
+    "desc": "CRED.TRANSF.CONTAS INTERCREDIS - REM.: STUDIO 57 INCORPORACOES LT",
+    "fitid": "202606161442691"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-06-16",
+    "real_date": "2026-06-16",
+    "amount": 1442.69,
+    "desc": "CRED.TRANSF.CONTAS INTERCREDIS - REM.: STUDIO 57 INCORPORACOES LT",
+    "fitid": "202606161442692"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-06-18",
+    "real_date": "2026-06-18",
+    "amount": -12.0,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix ***.653.766-**",
+    "fitid": "2026061812001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-06-22",
+    "real_date": "2026-06-22",
+    "amount": -80.0,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix ***.203.046-**",
+    "fitid": "2026062280001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-06-24",
+    "real_date": "2026-06-24",
+    "amount": -205.0,
+    "desc": "DÉB.TRANSF.CONTAS DIF.TIT. INTERCREDIS - FAV.: ZAQUEU PEREIRA DO VALE Tra",
+    "fitid": "20260624205001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-06-25",
+    "real_date": "2026-06-25",
+    "amount": -100.0,
+    "desc": "DÉB.TRANSF.CONTAS DIF.TIT. INTERCREDIS - FAV.: RANNIERE CAMPOS MENDES ARQ",
+    "fitid": "20260625100001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-06-26",
+    "real_date": "2026-06-26",
+    "amount": -130.0,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix 35.160.205 0001-19",
+    "fitid": "20260626130001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-06-29",
+    "real_date": "2026-06-29",
+    "amount": -126.0,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix 24.996.155 0001-98",
+    "fitid": "20260629126001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-06-29",
+    "real_date": "2026-06-29",
+    "amount": -10.0,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix ***.751.346-**",
+    "fitid": "2026062910001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-06-29",
+    "real_date": "2026-06-29",
+    "amount": -20.0,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix ***.727.106-**",
+    "fitid": "2026062920001"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-06-29",
+    "real_date": "2026-06-29",
+    "amount": -10.0,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix ***.727.106-**",
+    "fitid": "2026062910002"
+  },
+  {
+    "conta": "Sicoob Corrente",
+    "date": "2026-06-29",
+    "real_date": "2026-06-29",
+    "amount": -80.0,
+    "desc": "PIX EMITIDO OUTRA IF - Pagamento Pix ***.203.046-**",
+    "fitid": "2026062980001"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-07-07",
+    "real_date": "2026-05-23",
+    "amount": -56.5,
+    "desc": "LOPES E SENA COSMETICO (Parcela 02 de 02)",
+    "fitid": "INT_CARD_2026-07_2026-05-23_-565"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-07-07",
+    "real_date": "2026-05-29",
+    "amount": -3.68,
+    "desc": "ROTATIVO SALDO FINANCIA",
+    "fitid": "INT_CARD_2026-07_2026-05-29_-368"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-07-07",
+    "real_date": "2026-05-29",
+    "amount": -15.0,
+    "desc": "POSTO TNE ILHA LTDA",
+    "fitid": "INT_CARD_2026-07_2026-05-29_-150"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-07-07",
+    "real_date": "2026-05-30",
+    "amount": -164.82,
+    "desc": "BAR DO FRED",
+    "fitid": "INT_CARD_2026-07_2026-05-30_-16482"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-07-07",
+    "real_date": "2026-06-03",
+    "amount": 2510.35,
+    "desc": "PAGAMENTO DE FATURA -",
+    "fitid": "INT_CARD_2026-07_2026-06-03_251035"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-07-07",
+    "real_date": "2026-06-04",
+    "amount": -73.87,
+    "desc": "ZAMBEV",
+    "fitid": "INT_CARD_2026-07_2026-06-04_-7387"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-07-07",
+    "real_date": "2026-06-07",
+    "amount": -168.58,
+    "desc": "SUPER COELHO DINIZ",
+    "fitid": "INT_CARD_2026-07_2026-06-07_-16858"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-07-07",
+    "real_date": "2026-06-07",
+    "amount": -57.89,
+    "desc": "FARMACIA INDIANA 38 IL",
+    "fitid": "INT_CARD_2026-07_2026-06-07_-5789"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-07-07",
+    "real_date": "2026-06-07",
+    "amount": -57.24,
+    "desc": "FARMACIA INDIANA 38 IL",
+    "fitid": "INT_CARD_2026-07_2026-06-07_-5724"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-07-07",
+    "real_date": "2026-06-07",
+    "amount": -27.9,
+    "desc": "KI SABOR ILHA",
+    "fitid": "INT_CARD_2026-07_2026-06-07_-279"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-07-07",
+    "real_date": "2026-06-09",
+    "amount": -38.45,
+    "desc": "GilsonPeixoto",
+    "fitid": "INT_CARD_2026-07_2026-06-09_-3845"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-07-07",
+    "real_date": "2026-06-09",
+    "amount": -129.0,
+    "desc": "SUPER COELHO DINIZ",
+    "fitid": "INT_CARD_2026-07_2026-06-09_-1290"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-07-07",
+    "real_date": "2026-06-11",
+    "amount": -26.35,
+    "desc": "GilsonPeixoto",
+    "fitid": "INT_CARD_2026-07_2026-06-11_-2635"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-07-07",
+    "real_date": "2026-06-11",
+    "amount": -18.0,
+    "desc": "ECOVILLE GOVERNADOR VA",
+    "fitid": "INT_CARD_2026-07_2026-06-11_-180"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-07-07",
+    "real_date": "2026-06-11",
+    "amount": -6.0,
+    "desc": "ESPACO DE SOBRIEDADE E",
+    "fitid": "INT_CARD_2026-07_2026-06-11_-60"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-07-07",
+    "real_date": "2026-06-12",
+    "amount": -40.0,
+    "desc": "PASTEL CARIOCA F.B O N",
+    "fitid": "INT_CARD_2026-07_2026-06-12_-400"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-07-07",
+    "real_date": "2026-06-12",
+    "amount": -160.09,
+    "desc": "SUPER COELHO DINIZ",
+    "fitid": "INT_CARD_2026-07_2026-06-12_-16009"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-07-07",
+    "real_date": "2026-06-13",
+    "amount": -36.82,
+    "desc": "HNA*OBOTICARIO (Parcela 01 de 03)",
+    "fitid": "INT_CARD_2026-07_2026-06-13_-3682"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-07-07",
+    "real_date": "2026-06-13",
+    "amount": -74.14,
+    "desc": "BOA MESA RESTAURANTE",
+    "fitid": "INT_CARD_2026-07_2026-06-13_-7414"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-07-07",
+    "real_date": "2026-06-14",
+    "amount": -88.0,
+    "desc": "RAPIDAO",
+    "fitid": "INT_CARD_2026-07_2026-06-14_-880"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-07-07",
+    "real_date": "2026-06-14",
+    "amount": -59.39,
+    "desc": "FARMACIA INDIANA 229 A",
+    "fitid": "INT_CARD_2026-07_2026-06-14_-5939"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-07-07",
+    "real_date": "2026-06-15",
+    "amount": -100.0,
+    "desc": "POSTO TNE ILHA LTDA",
+    "fitid": "INT_CARD_2026-07_2026-06-15_-1000"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-07-07",
+    "real_date": "2026-06-15",
+    "amount": -68.95,
+    "desc": "SUPER COELHO DINIZ",
+    "fitid": "INT_CARD_2026-07_2026-06-15_-6895"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-07-07",
+    "real_date": "2026-06-15",
+    "amount": -8.8,
+    "desc": "MP *LUDMILLA",
+    "fitid": "INT_CARD_2026-07_2026-06-15_-88"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-07-07",
+    "real_date": "2026-06-15",
+    "amount": -58.0,
+    "desc": "ESPETTOS STEAKHOUSE LT",
+    "fitid": "INT_CARD_2026-07_2026-06-15_-580"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-07-07",
+    "real_date": "2026-06-16",
+    "amount": -35.99,
+    "desc": "Google Tinder Dating",
+    "fitid": "INT_CARD_2026-07_2026-06-16_-3599"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-07-07",
+    "real_date": "2026-06-23",
+    "amount": -12.0,
+    "desc": "ASA*STUDIO 57 INCORPOR",
+    "fitid": "INT_CARD_2026-07_2026-06-23_-120"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-07-07",
+    "real_date": "2026-05-29",
+    "amount": -9.9,
+    "desc": "MP *MELIMAIS",
+    "fitid": "INT_CARD_2026-07_2026-05-29_-99"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-07-07",
+    "real_date": "2026-05-30",
+    "amount": -34.99,
+    "desc": "IFD*M B GOURMET LANCHE",
+    "fitid": "INT_CARD_2026-07_2026-05-30_-3499"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-07-07",
+    "real_date": "2026-05-31",
+    "amount": -41.0,
+    "desc": "IFD*38.233.906 FELIPE",
+    "fitid": "INT_CARD_2026-07_2026-05-31_-410"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-07-07",
+    "real_date": "2026-06-05",
+    "amount": -96.99,
+    "desc": "Google One",
+    "fitid": "INT_CARD_2026-07_2026-06-05_-9699"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-07-07",
+    "real_date": "2026-06-05",
+    "amount": -48.11,
+    "desc": "EBN *PLAYSTATION (Parcela 01 de 04)",
+    "fitid": "INT_CARD_2026-07_2026-06-05_-4811"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-07-07",
+    "real_date": "2026-06-05",
+    "amount": -35.67,
+    "desc": "IFD*M B GOURMET LANCHE",
+    "fitid": "INT_CARD_2026-07_2026-06-05_-3567"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-07-07",
+    "real_date": "2026-06-07",
+    "amount": -73.9,
+    "desc": "MERCADOLIVRE*ROGINI",
+    "fitid": "INT_CARD_2026-07_2026-06-07_-739"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-07-07",
+    "real_date": "2026-06-08",
+    "amount": -34.34,
+    "desc": "MERCADO*MERCADOLIVRE (Parcela 01 de 06)",
+    "fitid": "INT_CARD_2026-07_2026-06-08_-3434"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-07-07",
+    "real_date": "2026-06-09",
+    "amount": -7.95,
+    "desc": "IFD*IFOOD CLUB",
+    "fitid": "INT_CARD_2026-07_2026-06-09_-795"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-07-07",
+    "real_date": "2026-06-11",
+    "amount": -21.99,
+    "desc": "MERCADOLIVRE*MERCADOL",
+    "fitid": "INT_CARD_2026-07_2026-06-11_-2199"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-07-07",
+    "real_date": "2026-06-11",
+    "amount": -38.2,
+    "desc": "AMAZONMKTPLC*AFCCOMERC (Parcela 01 de 06)",
+    "fitid": "INT_CARD_2026-07_2026-06-11_-382"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-07-07",
+    "real_date": "2026-06-18",
+    "amount": -76.9,
+    "desc": "EBN *PLAYSTATION",
+    "fitid": "INT_CARD_2026-07_2026-06-18_-769"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-07-07",
+    "real_date": "2026-06-18",
+    "amount": -19.9,
+    "desc": "AmazonPrimeBR",
+    "fitid": "INT_CARD_2026-07_2026-06-18_-199"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-07-07",
+    "real_date": "2026-06-20",
+    "amount": -23.9,
+    "desc": "DM*Spotify",
+    "fitid": "INT_CARD_2026-07_2026-06-20_-239"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-07-07",
+    "real_date": "2026-06-21",
+    "amount": -41.0,
+    "desc": "IFD*38.233.906 FELIPE",
+    "fitid": "INT_CARD_2026-07_2026-06-21_-410"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-07-07",
+    "real_date": "2026-06-27",
+    "amount": -37.5,
+    "desc": "MERCADOLIVRE*MERCADOL",
+    "fitid": "INT_CARD_2026-07_2026-06-27_-375"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-07-07",
+    "real_date": "2026-06-27",
+    "amount": -42.67,
+    "desc": "MERCADOLIVRE*MERCADOL",
+    "fitid": "INT_CARD_2026-07_2026-06-27_-4267"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-07-07",
+    "real_date": "2026-06-28",
+    "amount": -38.98,
+    "desc": "IFD*M B GOURMET LANCHE",
+    "fitid": "INT_CARD_2026-07_2026-06-28_-3898"
+  },
+  {
+    "conta": "Inter Cartão",
+    "date": "2026-07-07",
+    "real_date": "2026-06-28",
+    "amount": -9.9,
+    "desc": "EC *MELIMAIS",
+    "fitid": "INT_CARD_2026-07_2026-06-28_-99"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-07-11",
+    "real_date": "2025-10-01",
+    "amount": -12.0,
+    "desc": "ANUIDADE VISA C      (1160) 09/12",
+    "fitid": "SIC_CARD_2026-07_2025100112001"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-07-11",
+    "real_date": "2025-10-01",
+    "amount": 12.0,
+    "desc": "DESC ANUIDADE POR USO VIS",
+    "fitid": "SIC_CARD_2026-07_2025100112002"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-07-11",
+    "real_date": "2026-06-11",
+    "amount": 674.49,
+    "desc": "PAGAMENTO DEBITO EM CONTA",
+    "fitid": "SIC_CARD_2026-07_20260611674491"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-07-11",
+    "real_date": "2026-06-01",
+    "amount": -76.55,
+    "desc": "SUPER COELHO DINIZ            GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-07_2026060176551"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-07-11",
+    "real_date": "2026-06-01",
+    "amount": -5.12,
+    "desc": "DL *GOOGLE CLOUD DNL          Sao Pablo",
+    "fitid": "SIC_CARD_2026-07_202606015121"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-07-11",
+    "real_date": "2026-06-02",
+    "amount": -14.7,
+    "desc": "ESTETICA NUNES                Governador Va",
+    "fitid": "SIC_CARD_2026-07_2026060214701"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-07-11",
+    "real_date": "2026-06-02",
+    "amount": -10.0,
+    "desc": "ESTACIONAMENTO TODA           GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-07_2026060210001"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-07-11",
+    "real_date": "2026-06-03",
+    "amount": -32.9,
+    "desc": "GilsonPeixoto                 GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-07_2026060332901"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-07-11",
+    "real_date": "2026-06-16",
+    "amount": -375.78,
+    "desc": "ZP     *BRUNA BAT588          Governador Va",
+    "fitid": "SIC_CARD_2026-07_20260616375781"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-07-11",
+    "real_date": "2026-06-17",
+    "amount": -98.45,
+    "desc": "CHURRASQUINHO SP LAG          GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-07_2026061798451"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-07-11",
+    "real_date": "2026-06-18",
+    "amount": -91.0,
+    "desc": "ErasmoPaulo                   GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-07_2026061891001"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-07-11",
+    "real_date": "2026-06-18",
+    "amount": -8.0,
+    "desc": "ESTACIONAMENTO TODA           GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-07_202606188001"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-07-11",
+    "real_date": "2026-06-19",
+    "amount": -9.0,
+    "desc": "PadariaRamon                  GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-07_202606199001"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-07-11",
+    "real_date": "2026-06-19",
+    "amount": -25.94,
+    "desc": "FARMACIA INDIANA 38           TEOFILO OTONI",
+    "fitid": "SIC_CARD_2026-07_2026061925941"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-07-11",
+    "real_date": "2026-06-19",
+    "amount": -56.7,
+    "desc": "JIM.COM 55333183 GLE          CARLOS CHAGAS",
+    "fitid": "SIC_CARD_2026-07_2026061956701"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-07-11",
+    "real_date": "2026-06-20",
+    "amount": -328.9,
+    "desc": "CWS RESTAURANTE LTDA          GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-07_20260620328901"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-07-11",
+    "real_date": "2026-06-20",
+    "amount": -6.3,
+    "desc": "MP*LUDMILLA                   ALPERCATA",
+    "fitid": "SIC_CARD_2026-07_202606206301"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-07-11",
+    "real_date": "2026-06-20",
+    "amount": -100.0,
+    "desc": "POSTO TNE ILHA LTDA           GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-07_20260620100001"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-07-11",
+    "real_date": "2026-06-21",
+    "amount": -8.4,
+    "desc": "MP*RYAMRAMALHO                LINHARES",
+    "fitid": "SIC_CARD_2026-07_202606218401"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-07-11",
+    "real_date": "2026-06-22",
+    "amount": -101.67,
+    "desc": "SUPER COELHO DINIZ            GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-07_20260622101671"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-07-11",
+    "real_date": "2026-06-23",
+    "amount": -46.55,
+    "desc": "SUPER COELHO DINIZ            GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-07_2026062346551"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-07-11",
+    "real_date": "2026-06-24",
+    "amount": -75.6,
+    "desc": "JIM.COM 40026297 KEV          GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-07_2026062475601"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-07-11",
+    "real_date": "2026-06-25",
+    "amount": -56.98,
+    "desc": "SUPER COELHO DINIZ            GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-07_2026062556981"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-07-11",
+    "real_date": "2026-06-25",
+    "amount": -8.4,
+    "desc": "JIM.COM 55333183 GLE          CARLOS CHAGAS",
+    "fitid": "SIC_CARD_2026-07_202606258401"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-07-11",
+    "real_date": "2026-06-26",
+    "amount": -120.7,
+    "desc": "CHURRASQUINHO SP LAG          GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-07_20260626120701"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-07-11",
+    "real_date": "2026-06-27",
+    "amount": -15.0,
+    "desc": "POSTO TNE ILHA LTDA           GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-07_2026062715001"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-07-11",
+    "real_date": "2026-06-27",
+    "amount": -38.0,
+    "desc": "GAUCHAO DO FABINHO            GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-07_2026062738001"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-07-11",
+    "real_date": "2026-06-27",
+    "amount": -58.45,
+    "desc": "JIM.COM BAR E RESTAU          GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-07_2026062758451"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-07-11",
+    "real_date": "2026-06-28",
+    "amount": -53.39,
+    "desc": "FARMACIA INDIANA 38           TEOFILO OTONI",
+    "fitid": "SIC_CARD_2026-07_2026062853391"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-07-11",
+    "real_date": "2026-06-28",
+    "amount": -58.93,
+    "desc": "SUPER COELHO DINIZ            GOVERNADOR VA",
+    "fitid": "SIC_CARD_2026-07_2026062858931"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-07-11",
+    "real_date": "2026-06-28",
+    "amount": -8.0,
+    "desc": "JIM.COM R CAMPOS MEN          ALPERCATA",
+    "fitid": "SIC_CARD_2026-07_202606288001"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-07-11",
+    "real_date": "2026-06-28",
+    "amount": -13.0,
+    "desc": "JIM.COM R CAMPOS MEN          ALPERCATA",
+    "fitid": "SIC_CARD_2026-07_2026062813001"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-07-11",
+    "real_date": "2026-06-28",
+    "amount": -36.0,
+    "desc": "JIM.COM R CAMPOS MEN          ALPERCATA",
+    "fitid": "SIC_CARD_2026-07_2026062836001"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-07-11",
+    "real_date": "2026-06-28",
+    "amount": -36.0,
+    "desc": "JIM.COM R CAMPOS MEN          ALPERCATA",
+    "fitid": "SIC_CARD_2026-07_2026062836002"
+  },
+  {
+    "conta": "Sicoob Cartão",
+    "date": "2026-07-11",
+    "real_date": "2026-06-29",
+    "amount": -75.0,
+    "desc": "MP*LUDMILLA                   ALPERCATA",
+    "fitid": "SIC_CARD_2026-07_2026062975001"
+  }
+]

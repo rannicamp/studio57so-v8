@@ -422,7 +422,8 @@ async function handleMcpRequest(rpcRequest, supabase, user) {
                   data_pagamento: { type: 'string', description: 'Se pago, passe a data de pagamento YYYY-MM-DD' },
                   status: { type: 'string', enum: ['Pago', 'Pendente'], default: 'Pendente' },
                   observacao: { type: 'string' },
-                  favorecido_contato_id: { type: 'integer', description: 'ID do contato do favorecido.' }
+                  favorecido_contato_id: { type: 'integer', description: 'ID do contato do favorecido.' },
+                  transferencia_id: { type: 'string', description: 'UUID compartilhado para transferências próprias.' }
                 },
                 required: ['descricao', 'valor', 'data_vencimento', 'conta_financeira_id', 'categoria_id']
               }
@@ -442,7 +443,8 @@ async function handleMcpRequest(rpcRequest, supabase, user) {
                   data_pagamento: { type: 'string', description: 'Se recebido, passe a data YYYY-MM-DD' },
                   status: { type: 'string', enum: ['Pago', 'Pendente'], default: 'Pendente' },
                   observacao: { type: 'string' },
-                  favorecido_contato_id: { type: 'integer', description: 'ID do contato do favorecido.' }
+                  favorecido_contato_id: { type: 'integer', description: 'ID do contato do favorecido.' },
+                  transferencia_id: { type: 'string', description: 'UUID compartilhado para transferências próprias.' }
                 },
                 required: ['descricao', 'valor', 'data_vencimento', 'conta_financeira_id', 'categoria_id']
               }
@@ -1558,7 +1560,7 @@ async function executeTool(name, args, supabase, user) {
     }
 
     case 'lancar_despesa': {
-      const { descricao, valor, data_vencimento, conta_financeira_id, categoria_id, empreendimento_id, data_pagamento, status = 'Pendente', observacao, favorecido_contato_id } = args;
+      const { descricao, valor, data_vencimento, conta_financeira_id, categoria_id, empreendimento_id, data_pagamento, status = 'Pendente', observacao, favorecido_contato_id, transferencia_id, data_transacao } = args;
 
       const valorFormatado = -Math.abs(Number(valor));
 
@@ -1573,13 +1575,14 @@ async function executeTool(name, args, supabase, user) {
           categoria_id,
           empreendimento_id: empreendimento_id || null,
           data_vencimento,
-          data_transacao: data_pagamento || data_vencimento,
+          data_transacao: data_transacao || data_pagamento || data_vencimento,
           data_pagamento: data_pagamento || null,
           criado_por_usuario_id: user.id,
           organizacao_id: user.organizacao_id,
           origem_criacao: 'MCP API',
           observacao: observacao || null,
-          favorecido_contato_id: favorecido_contato_id || null
+          favorecido_contato_id: favorecido_contato_id || null,
+          transferencia_id: transferencia_id || null
         })
         .select('id, descricao, valor, status')
         .single();
@@ -1589,7 +1592,7 @@ async function executeTool(name, args, supabase, user) {
     }
 
     case 'lancar_receita': {
-      const { descricao, valor, data_vencimento, conta_financeira_id, categoria_id, empreendimento_id, data_pagamento, status = 'Pendente', observacao, favorecido_contato_id } = args;
+      const { descricao, valor, data_vencimento, conta_financeira_id, categoria_id, empreendimento_id, data_pagamento, status = 'Pendente', observacao, favorecido_contato_id, transferencia_id, data_transacao } = args;
 
       const valorFormatado = Math.abs(Number(valor));
 
@@ -1604,13 +1607,14 @@ async function executeTool(name, args, supabase, user) {
           categoria_id,
           empreendimento_id: empreendimento_id || null,
           data_vencimento,
-          data_transacao: data_pagamento || data_vencimento,
+          data_transacao: data_transacao || data_pagamento || data_vencimento,
           data_pagamento: data_pagamento || null,
           criado_por_usuario_id: user.id,
           organizacao_id: user.organizacao_id,
           origem_criacao: 'MCP API',
           observacao: observacao || null,
-          favorecido_contato_id: favorecido_contato_id || null
+          favorecido_contato_id: favorecido_contato_id || null,
+          transferencia_id: transferencia_id || null
         })
         .select('id, descricao, valor, status')
         .single();

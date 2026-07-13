@@ -2,19 +2,26 @@
 
 import { useState } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faBookOpen, faBell, faChevronRight, faChevronLeft } from '@fortawesome/free-solid-svg-icons';
+import { faBookOpen, faBell, faChevronRight, faChevronLeft, faCreditCard } from '@fortawesome/free-solid-svg-icons';
 import Link from 'next/link';
 import TutorialNotificacoes from './tutoriais_textos/TutorialNotificacoes';
+import TutorialCartaoCredito from './tutoriais_textos/TutorialCartaoCredito';
 
 const tutoriaisData = [
- {
- id: 'notificacoes',
- titulo: 'Gestão de Notificações',
- descricao: 'Aprenda a ativar alertas e direcioná-los aos cargos corretos.',
- icone: faBell,
- componente: <TutorialNotificacoes />
- }
- // Futuros tutoriais podem ser adicionados aqui
+  {
+    id: 'notificacoes',
+    titulo: 'Gestão de Notificações',
+    descricao: 'Aprenda a ativar alertas e direcioná-los aos cargos corretos.',
+    icone: faBell,
+    componente: <TutorialNotificacoes />
+  },
+  {
+    id: 'cartao_credito',
+    titulo: 'Faturas e Cartões de Crédito',
+    descricao: 'Entenda os ciclos de fechamento, vencimentos e conciliações de cartão.',
+    icone: faCreditCard,
+    componente: <TutorialCartaoCredito />
+  }
 ];
 
 export default function TutoriaisManager() {

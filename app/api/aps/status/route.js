@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { AuthenticationClient, Scopes } from '@aps_sdk/authentication';
 import { ModelDerivativeClient } from '@aps_sdk/model-derivative';
 import { SdkManagerBuilder } from '@aps_sdk/autodesk-sdkmanager';
+import { createAdminClient } from '@/utils/supabase/server';
 
 const sdk = SdkManagerBuilder.create().build();
 const authenticationClient = new AuthenticationClient(sdk);
@@ -70,10 +71,36 @@ export async function POST(request) {
             console.log(`[APS STATUS API] Tradução automática disparada com sucesso para: ${urn}`);
             return NextResponse.json({ status: 'inprogress', progress: '0% complete' });
           } else {
-            console.error(`[APS STATUS API] Falha ao disparar tradução automática: ${await translateRes.text()}`);
+            const errorText = await translateRes.text();
+            console.error(`[APS STATUS API] Falha ao disparar tradução automática: ${errorText}`);
+            
+            // Se for erro de créditos (403), atualizamos o status do projeto no banco de dados para Erro
+            let statusText = 'Erro ao disparar tradução';
+            if (errorText.includes('ProductAccessRequiresCapacity') || errorText.includes('Token exchange denied')) {
+              statusText = 'Erro (Autodesk sem créditos)';
+              
+              try {
+                const supabaseAdmin = createAdminClient();
+                const { error: dbError } = await supabaseAdmin
+                  .from('projetos_bim')
+                  .update({ status: statusText })
+                  .or(`urn_autodesk.eq.${urn},urn_autodesk.eq.urn:${urn}`);
+                
+                if (dbError) {
+                  console.error('[APS STATUS API] Erro ao atualizar status no banco:', dbError);
+                } else {
+                  console.log(`[APS STATUS API] Status atualizado no banco para "${statusText}" para a URN ${urn}`);
+                }
+              } catch (dbEx) {
+                console.error('[APS STATUS API] Falha ao instanciar admin client ou rodar update:', dbEx);
+              }
+            }
+            
+            return NextResponse.json({ status: 'failed', error: statusText, details: errorText }, { status: 403 });
           }
         } catch (translateError) {
           console.error("[APS STATUS API] Erro ao tentar iniciar tradução automatizada:", translateError);
+          return NextResponse.json({ status: 'failed', error: translateError.message }, { status: 500 });
         }
       }
     }
