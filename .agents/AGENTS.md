@@ -28,3 +28,5 @@
 1. Sempre que for solicitada a criação, modificação ou expansão de ferramentas do Servidor MCP ou lógicas que envolvam operações no banco de dados, você **deve** obrigatoriamente consultar o arquivo `functions.json` e as migrações em `supabase/migrations/` para verificar se já existe uma função (RPC) ou trigger correspondente criada.
 2. Dê preferência absoluta a chamar a RPC nativa do banco de dados (ex: `auto_merge_contacts_and_relink`, `agendar_vale`, `marcar_pedido_entregue`) em vez de recriar a lógica com inserts/updates manuais no JavaScript do Next.js. Isso garante que a integridade das triggers e regras do banco seja preservada.
 
+## ☁️ Gestão e Suporte de APIs Autodesk APS
+1. Sempre que houver algum travamento no processamento de modelos 3D ou erros de cota (ex: "API quota reached"), consulte e siga o manual de gestão técnica em [.agents/workflows/manual-autodesk-aps.md](file:///c:/Projetos/studio57so-v8/.agents/workflows/manual-autodesk-aps.md).
