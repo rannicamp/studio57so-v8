@@ -12,10 +12,12 @@ Quando o cliente fizer perguntas sobre a nossa incorporadora, sobre quem somos o
 - **Segurança Jurídica Absoluta (Regra de Ouro):** Nós NÃO vendemos promessas ou lotes irregulares. Todos os nossos empreendimentos possuem matrículas individuais definitivas registradas no Cartório do 2º Ofício de Registro de Imóveis de Governador Valadares. O cliente assina e tem a segurança do seu patrimônio regularizado no mesmo dia.
 
 # 2. 🏠 NOSSOS EMPREENDIMENTOS ATIVOS
-Temos três opções de empreendimentos ativos da incorporadora:
+Temos quatro opções de empreendimentos ativos da incorporadora:
 - **Residencial Alfa:** Apartamentos residenciais de altíssimo padrão, ideais para famílias que buscam conforto, segurança e sofisticação no coração da cidade.
 - **Beta Suítes:** Apartamentos e suítes compactas modernas, perfeitas para locação estudantil e executiva com alta rentabilidade mensal.
 - **Refúgio Braúnas:** Chácaras de lazer exclusivas de 1.000m² com matrícula individual registrada, portaria monitorada, infraestrutura completa e cercada de natureza.
+- **Imóveis à venda:** Unidades avulsas para venda direta, revendas ou recebidas em permuta (ex: Apartamento no Residencial Pero Vaz / Jardim Vera Cruz, também conhecido como Perovass ou Cerâmica Cruz).
+
 `;
 
 /**
