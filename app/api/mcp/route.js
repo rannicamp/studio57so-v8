@@ -188,7 +188,9 @@ async function handleMcpRequest(rpcRequest, supabase, user) {
                     enum: ['Ligação', 'Reunião', 'Mensagem', 'Visita', 'Tarefa']
                   },
                   data_inicio: { type: 'string', description: 'Data/Hora de início prevista (ISO 8601).' },
-                  duracao_minutos: { type: 'integer', description: 'Duração da atividade em minutos (padrão 30).' }
+                  duracao_minutos: { type: 'integer', description: 'Duração da atividade em minutos (padrão 30).' },
+                  empreendimento_id: { type: 'integer', description: 'ID do empreendimento/obra vinculado (opcional).' },
+                  empresa_id: { type: 'integer', description: 'ID da empresa vinculada (opcional).' }
                 },
                 required: ['contato_id', 'titulo', 'tipo', 'data_inicio']
               }
@@ -200,14 +202,19 @@ async function handleMcpRequest(rpcRequest, supabase, user) {
                 type: 'object',
                 properties: {
                   id: { type: 'integer', description: 'ID da atividade.' },
-                  titulo: { type: 'string' },
-                  descricao: { type: 'string' },
+                  titulo: { type: 'string', description: 'Título/Nome da atividade (opcional).' },
+                  nome: { type: 'string', description: 'Nome/Título da atividade (opcional).' },
+                  descricao: { type: 'string', description: 'Descrição da atividade (opcional).' },
                   status: {
                     type: 'string',
-                    enum: ['Não iniciado', 'Em andamento', 'Concluído', 'Cancelado']
+                    enum: ['Não iniciado', 'Em andamento', 'Em Andamento', 'Não Iniciado', 'Concluído', 'Cancelado', 'Pausado', 'Aguardando Material']
                   },
                   data_inicio_prevista: { type: 'string', description: 'Data de início YYYY-MM-DD.' },
-                  hora_inicio: { type: 'string', description: 'Hora de início HH:MM:SS.' }
+                  hora_inicio: { type: 'string', description: 'Hora de início HH:MM:SS.' },
+                  empreendimento_id: { type: 'integer', description: 'ID do empreendimento/obra vinculado (opcional).' },
+                  empresa_id: { type: 'integer', description: 'ID da empresa vinculada (opcional).' },
+                  contato_id: { type: 'integer', description: 'ID do contato/cliente vinculado (opcional).' },
+                  funcionario_id: { type: 'integer', description: 'ID do funcionário executor (opcional).' }
                 },
                 required: ['id']
               }
@@ -1150,7 +1157,17 @@ async function executeTool(name, args, supabase, user) {
     }
 
     case 'criar_atividade': {
-      const { contato_id, funcionario_id, titulo, descricao, tipo, data_inicio, duracao_minutos = 30 } = args;
+      const { 
+        contato_id, 
+        funcionario_id, 
+        titulo, 
+        descricao, 
+        tipo, 
+        data_inicio, 
+        duracao_minutos = 30,
+        empreendimento_id,
+        empresa_id
+      } = args;
 
       const startDateTime = new Date(data_inicio);
       const dataInicioPrevista = data_inicio.split('T')[0];
@@ -1158,6 +1175,24 @@ async function executeTool(name, args, supabase, user) {
       const duracaoHoras = Number((duracao_minutos / 60).toFixed(2));
       const endDateTime = new Date(startDateTime.getTime() + duracao_minutos * 60 * 1000);
       const dataFimPrevista = endDateTime.toISOString().split('T')[0];
+
+      let finalEmpresaId = empresa_id || null;
+
+      // Se temos o empreendimento_id e a empresa_id está ausente, vamos buscar a empresa do empreendimento
+      if (empreendimento_id && !finalEmpresaId) {
+        try {
+          const { data: empData } = await supabase
+            .from('empreendimentos')
+            .select('empresa_proprietaria_id')
+            .eq('id', empreendimento_id)
+            .maybeSingle();
+          if (empData?.empresa_proprietaria_id) {
+            finalEmpresaId = empData.empresa_proprietaria_id;
+          }
+        } catch (err) {
+          console.error("Erro ao herdar empresa no MCP:", err);
+        }
+      }
 
       const { data, error } = await supabase
         .from('activities')
@@ -1172,6 +1207,8 @@ async function executeTool(name, args, supabase, user) {
           duracao_horas: duracaoHoras,
           data_fim_prevista: dataFimPrevista,
           status: 'Não iniciado',
+          empreendimento_id: empreendimento_id || null,
+          empresa_id: finalEmpresaId,
           criado_por_usuario_id: user.id,
           organizacao_id: user.organizacao_id
         })
@@ -1184,6 +1221,29 @@ async function executeTool(name, args, supabase, user) {
 
     case 'atualizar_atividade': {
       const { id, ...fields } = args;
+
+      // Tratamento especial para mapear 'titulo' para a coluna 'nome' no banco
+      if (fields.hasOwnProperty('titulo')) {
+        fields.nome = fields.titulo;
+        delete fields.titulo;
+      }
+
+      // Herança inteligente de empresa se mudar o empreendimento e a empresa for omitida
+      if (fields.hasOwnProperty('empreendimento_id') && fields.empreendimento_id && !fields.empresa_id) {
+        try {
+          const { data: empData } = await supabase
+            .from('empreendimentos')
+            .select('empresa_proprietaria_id')
+            .eq('id', fields.empreendimento_id)
+            .maybeSingle();
+          if (empData?.empresa_proprietaria_id) {
+            fields.empresa_id = empData.empresa_proprietaria_id;
+          }
+        } catch (err) {
+          console.error("Erro ao herdar empresa no MCP update:", err);
+        }
+      }
+
       const { data, error } = await supabase
         .from('activities')
         .update(fields)

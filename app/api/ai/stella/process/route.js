@@ -1,6 +1,6 @@
 // app/api/ai/stella/process/route.js
 export const dynamic = 'force-dynamic';
-import { NextResponse, after } from 'next/server';
+import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { processarAnaliseStella } from '../../chat-analysis/route';
 import { executarMovimentacaoCRMStella } from '../processor';
@@ -121,10 +121,9 @@ export async function POST(request) {
     const host = request.headers.get('host');
 
     // -------------------------------------------------------------
-    // ENCAPSULA A LOGICA PESADA NO AFTER() PARA EXECUÇÃO EM BACKGROUND
+    // EXECUTA A LOGICA PESADA SINCRONAMENTE (Aguardado pelo after do webhook)
     // -------------------------------------------------------------
-    after(async () => {
-      let config = null;
+    let config = null;
       let stellaUserId = null;
       try {
         // 2. DEBOUNCE CONTRA ENVIOS EM RAJADA PICADOS (4 segundos)
@@ -450,10 +449,9 @@ export async function POST(request) {
         console.error('[Stella Background Process Inner Error]', innerErr);
         await executarTransbordoEmergencia(supabaseAdmin, contatoId, config, cleanPhone, stellaUserId, protocol, host, innerErr.message);
       }
-    });
 
-    // Retorna HTTP 200 de imediato para fechar a conexão com a Meta/Fila em menos de 100ms
-    return NextResponse.json({ status: 'processing_in_background' });
+    // Retorna HTTP 200 de sucesso quando todo o processamento terminar
+    return NextResponse.json({ status: 'processed_successfully' });
 
   } catch (err) {
     console.error('[Stella Background Process Fatal Error]', err);
