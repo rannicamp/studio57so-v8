@@ -30,3 +30,8 @@
 
 ## ☁️ Gestão e Suporte de APIs Autodesk APS
 1. Sempre que houver algum travamento no processamento de modelos 3D ou erros de cota (ex: "API quota reached"), consulte e siga o manual de gestão técnica em [.agents/workflows/manual-autodesk-aps.md](file:///c:/Projetos/studio57so-v8/.agents/workflows/manual-autodesk-aps.md).
+
+## 📦 Isolamento de Repositórios Git (Regra de Ouro)
+1. **TRABALHE EXCLUSIVAMENTE NO STUDIO 57 V8:** Todo o desenvolvimento, commits e pushes devem ser feitos **única e exclusivamente** no repositório `studio57so-v8` (remoto `origin`).
+2. **PROIBIDO push para elo57-lab-saas:** Nunca adicione ou faça push de atualizações para o repositório `elo57-lab-saas` (remotos antigos como `lab` ou `elo`), a menos que o usuário solicite explicitamente. Os dois ambientes são completamente separados e não devem ser misturados.
+
