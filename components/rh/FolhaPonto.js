@@ -88,7 +88,7 @@ const calculateTotalHoursForEmployee = (dayData, employee) => {
  return `${String(totalHours).padStart(2, '0')}:${String(totalMinutes).padStart(2, '0')}`;
 };
 
-export default function FolhaPonto({ employeeId, month, canEdit }) {
+export default function FolhaPonto({ employeeId, month, canEdit, showKpis = false }) {
  const supabase = createClient();
  const { user } = useAuth();
  const [employee, setEmployee] = useState(null);
@@ -670,6 +670,15 @@ export default function FolhaPonto({ employeeId, month, canEdit }) {
  </div>
  </div>
  </div>
+ )}
+
+ {showKpis && kpiData && (
+   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 no-print mb-6">
+     <KpiCard title="Valor a Pagar (Mês)" value={kpiData.valorAPagar} icon={faDollarSign} color="purple" />
+     <KpiCard title="Dias (Trab. / Úteis)" value={kpiData.dias} icon={faCalendarCheck} color="blue" />
+     <KpiCard title="Horas (Trab. / Prev.)" value={kpiData.horas} icon={faBusinessTime} color="green" />
+     <KpiCard title="Faltas (no período)" value={kpiData.faltas} icon={faCalendarXmark} color="red" />
+   </div>
  )}
 
  <div className="print-header hidden">

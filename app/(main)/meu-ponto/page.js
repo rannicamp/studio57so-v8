@@ -49,7 +49,7 @@ export default function MeuPontoPage() {
 
       {funcionarioId ? (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 overflow-hidden">
-          <FolhaPonto employeeId={funcionarioId} month={selectedMonthForPonto} canEdit={true} />
+          <FolhaPonto employeeId={funcionarioId} month={selectedMonthForPonto} canEdit={true} showKpis={true} />
         </div>
       ) : (
         <div className="bg-white rounded-3xl p-12 text-center border border-gray-200 w-full shadow-sm max-w-2xl mx-auto mt-8 no-print">
