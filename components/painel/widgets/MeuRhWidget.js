@@ -315,17 +315,17 @@ export default function MeuRhWidget({ funcionario_id }) {
  };
 
  // Renderiza o widget principal (agora sem os comentários errados)
- return (
- <div className="bg-white shadow-lg rounded-xl p-6 border border-gray-100">
- <div className="flex justify-between items-center mb-4">
- <h3 className="text-lg font-semibold text-gray-800">Meu Resumo RH</h3>
- {/* Link só aparece se os dados foram carregados */}
- {!isLoading && !isError && rhData && (
- <Link href="/recursos-humanos" className="text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors">
- Ver Folha Completa
- </Link>
- )}
- </div>
+  return (
+  <div className="bg-white shadow-lg rounded-xl p-6 border border-gray-100">
+  <div className="flex justify-between items-center mb-4">
+  <h3 className="text-lg font-semibold text-gray-800">Meu Resumo RH</h3>
+  {/* Link só aparece se os dados foram carregados */}
+  {!isLoading && !isError && rhData && (
+  <Link href="/meu-ponto" className="text-sm font-medium text-blue-600 hover:text-blue-700 transition-colors">
+  Ver Folha Completa
+  </Link>
+  )}
+  </div>
  {renderContent()}
  </div>
  );

@@ -712,16 +712,23 @@ export default function FichaCompletaFuncionario({ employee, allDocuments, allPo
  .eq('organizacao_id', organizacaoId)
  .order('data_vencimento', { ascending: false });
 
- setLancamentos(data || []);
+setLancamentos(data || []);
  }, [employee, supabase, organizacaoId]);
 
  useEffect(() => { if (activeTab === 'financeiro') { fetchLancamentos(); } }, [activeTab, fetchLancamentos]);
 
- const TabButton = ({ tabName, label, icon }) => (
- <button onClick={() => setActiveTab(tabName)} className={`px-4 py-2 text-sm font-medium rounded-md flex items-center gap-2 transition-colors ${activeTab === tabName ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-600 hover:bg-gray-100'}`}>
- <FontAwesomeIcon icon={icon} /> {label}
- </button>
- );
+  const TabButton = ({ tabName, label, icon }) => (
+    <button
+      onClick={() => setActiveTab(tabName)}
+      className={`whitespace-nowrap py-4 px-4 border-b-2 font-medium text-sm flex items-center gap-2 transition-all -mb-[1px] ${
+        activeTab === tabName
+          ? 'border-blue-500 text-blue-600 font-bold'
+          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+      }`}
+    >
+      <FontAwesomeIcon icon={icon} /> {label}
+    </button>
+  );
 
  const formatCurrency = (value) => value != null ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value) : 'N/A';
 
@@ -774,16 +781,16 @@ export default function FichaCompletaFuncionario({ employee, allDocuments, allPo
  </div>
 
  <div className="border-t pt-6">
- <div className="flex items-center border-b mb-6 no-print">
- <nav className="flex space-x-2" aria-label="Tabs">
- <TabButton tabName="pessoal" label="Dados Pessoais" icon={faAddressCard} />
- <TabButton tabName="contracheque" label="Contracheque" icon={faFileInvoiceDollar} />
- <TabButton tabName="documentos" label="Documentos" icon={faFileLines} />
- <TabButton tabName="financeiro" label="Financeiro" icon={faDollarSign} />
- <TabButton tabName="checklist" label="Checklist" icon={faCheckCircle} />
- <TabButton tabName="folha_ponto" label="Folha de Ponto" icon={faCalendarCheck} />
- </nav>
- </div>
+  <div className="border-b border-gray-200 mb-6 no-print">
+    <nav className="-mb-px flex space-x-6 overflow-x-auto" aria-label="Tabs">
+      <TabButton tabName="pessoal" label="Dados Pessoais" icon={faAddressCard} />
+      <TabButton tabName="contracheque" label="Contracheque" icon={faFileInvoiceDollar} />
+      <TabButton tabName="documentos" label="Documentos" icon={faFileLines} />
+      <TabButton tabName="financeiro" label="Financeiro" icon={faDollarSign} />
+      <TabButton tabName="checklist" label="Checklist" icon={faCheckCircle} />
+      <TabButton tabName="folha_ponto" label="Folha de Ponto" icon={faCalendarCheck} />
+    </nav>
+  </div>
  <div className="p-4 bg-gray-50 rounded-lg">
  {activeTab === 'pessoal' && (
  <dl className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
