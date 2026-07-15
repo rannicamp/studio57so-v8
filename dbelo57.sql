@@ -37,7 +37,7 @@ CREATE TABLE public.activities (
     data_fim_prevista date,
     data_inicio_real date,
     data_fim_real date,
-    status character varying DEFAULT 'Não iniciado'::character varying,
+    status character varying DEFAULT 'Não Iniciado'::character varying,
     responsavel_texto text,
     dependencies text,
     custom_class text,

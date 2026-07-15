@@ -1,7 +1,7 @@
 // Caminho: components/atividades/form/ActivityModalRoot.js
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -60,6 +60,7 @@ export default function ActivityModalRoot({
  } = useActivityFormOptions(organizacaoId, { allEmpresas, empreendimentos, funcionarios });
 
  const isEditing = Boolean(activityToEdit);
+ const hasInitialized = useRef(false);
 
  const [formData, setFormData] = useState({
  nome: '',
@@ -89,33 +90,41 @@ export default function ActivityModalRoot({
  const [isSaving, setIsSaving] = useState(false);
 
  useEffect(() => {
- if (isOpen) {
- if (isEditing && activityToEdit) {
- setFormData(prev => ({ ...prev, ...activityToEdit }));
- } else if (initialData) {
- let empresaPreenchida = initialData.empresa_id;
- if (!empresaPreenchida && initialData.empreendimento_id && optionsObras?.length > 0) {
- const obra = optionsObras.find(o => o.id === initialData.empreendimento_id);
- if (obra) empresaPreenchida = obra.empresa_proprietaria_id;
- }
+  if (!isOpen) {
+    hasInitialized.current = false;
+    return;
+  }
 
- setFormData(prev => ({
- ...prev,
- ...initialData,
- empresa_id: empresaPreenchida || prev.empresa_id,
- duracao_dias: initialData.duracao_dias || 1,
- status: initialData.status || 'Não Iniciado'
- }));
- } else {
- setFormData({
- nome: '', descricao: '', status: 'Não Iniciado', tipo_atividade: 'Tarefa',
- empresa_id: null, empreendimento_id: null, etapa_id: null, subetapa_id: null, atividade_pai_id: null,
- data_inicio_prevista: '', data_fim_prevista: '', duracao_dias: 1,
- is_recorrente: false, recorrencia_tipo: 'diaria', recorrencia_intervalo: 1,
- funcionario_id: null, contato_id: null, responsavel_texto: ''
- });
- }
- }
+  if (isOpen && !hasInitialized.current) {
+    if (isEditing && activityToEdit) {
+      setFormData(prev => ({ ...prev, ...activityToEdit }));
+      hasInitialized.current = true;
+    } else if (initialData) {
+      let empresaPreenchida = initialData.empresa_id;
+      if (!empresaPreenchida && initialData.empreendimento_id && optionsObras?.length > 0) {
+        const obra = optionsObras.find(o => o.id === initialData.empreendimento_id);
+        if (obra) empresaPreenchida = obra.empresa_proprietaria_id;
+      }
+
+      setFormData(prev => ({
+        ...prev,
+        ...initialData,
+        empresa_id: empresaPreenchida || prev.empresa_id,
+        duracao_dias: initialData.duracao_dias || 1,
+        status: initialData.status || 'Não Iniciado'
+      }));
+      hasInitialized.current = true;
+    } else {
+      setFormData({
+        nome: '', descricao: '', status: 'Não Iniciado', tipo_atividade: 'Tarefa',
+        empresa_id: null, empreendimento_id: null, etapa_id: null, subetapa_id: null, atividade_pai_id: null,
+        data_inicio_prevista: '', data_fim_prevista: '', duracao_dias: 1,
+        is_recorrente: false, recorrencia_tipo: 'diaria', recorrencia_intervalo: 1,
+        funcionario_id: null, contato_id: null, responsavel_texto: ''
+      });
+      hasInitialized.current = true;
+    }
+  }
  }, [isOpen, isEditing, activityToEdit, initialData, optionsObras]);
 
  const handleSubmit = async (e) => {

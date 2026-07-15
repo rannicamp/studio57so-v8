@@ -207,7 +207,7 @@ async function handleMcpRequest(rpcRequest, supabase, user) {
                   descricao: { type: 'string', description: 'Descrição da atividade (opcional).' },
                   status: {
                     type: 'string',
-                    enum: ['Não iniciado', 'Em andamento', 'Em Andamento', 'Não Iniciado', 'Concluído', 'Cancelado', 'Pausado', 'Aguardando Material']
+                    enum: ['Não Iniciado', 'Em Andamento', 'Pausado', 'Aguardando Material', 'Concluído', 'Cancelado']
                   },
                   data_inicio_prevista: { type: 'string', description: 'Data de início YYYY-MM-DD.' },
                   hora_inicio: { type: 'string', description: 'Hora de início HH:MM:SS.' },
@@ -1206,7 +1206,7 @@ async function executeTool(name, args, supabase, user) {
           hora_inicio: horaInicio,
           duracao_horas: duracaoHoras,
           data_fim_prevista: dataFimPrevista,
-          status: 'Não iniciado',
+          status: 'Não Iniciado',
           empreendimento_id: empreendimento_id || null,
           empresa_id: finalEmpresaId,
           criado_por_usuario_id: user.id,

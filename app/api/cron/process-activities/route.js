@@ -45,11 +45,11 @@ export async function GET(request) {
     }
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
-    // 3. Buscar todas as atividades da Stella que estão "Não iniciado"
+    // 3. Buscar todas as atividades da Stella que estão "Não Iniciado"
     const { data: pendentes, error: queryError } = await supabaseAdmin
       .from('activities')
       .select('*')
-      .eq('status', 'Não iniciado')
+      .eq('status', 'Não Iniciado')
       .eq('tipo_atividade', 'Evento')
       .eq('responsavel_texto', 'Stella IA');
 
@@ -99,7 +99,7 @@ export async function GET(request) {
           .from('activities')
           .update({ status: 'Processando', updated_at: new Date().toISOString() })
           .eq('id', act.id)
-          .eq('status', 'Não iniciado')
+          .eq('status', 'Não Iniciado')
           .select('id');
 
         if (lockError || !lockResult || lockResult.length === 0) {
@@ -489,7 +489,7 @@ Observação: Se o template escolhido não possuir variáveis no corpo, retorne 
                 tipo_atividade: 'Evento',
                 duracao_horas: 1.0,
                 duracao_dias: 0,
-                status: 'Não iniciado',
+                status: 'Não Iniciado',
                 responsavel_texto: 'Stella IA'
               };
 
@@ -590,11 +590,11 @@ Observação: Se o template escolhido não possuir variáveis no corpo, retorne 
           await supabaseAdmin
             .from('activities')
             .update({ 
-              status: 'Não iniciado', 
+              status: 'Não Iniciado', 
               updated_at: new Date().toISOString() 
             })
             .eq('id', act.id);
-          console.log(`[CRON Stella] Status da atividade ID ${act.id} revertido para 'Não iniciado' após falha.`);
+          console.log(`[CRON Stella] Status da atividade ID ${act.id} revertido para 'Não Iniciado' após falha.`);
         } catch (revertErr) {
           console.error(`[CRON Stella Error] Falha ao reverter status da atividade ID ${act.id}:`, revertErr.message);
         }

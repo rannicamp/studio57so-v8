@@ -125,10 +125,12 @@ export default function AtividadesPage() {
  }, [activeTab, showFilters, sortConfig, debouncedFilters]);
 
  const { data: allActivities = [], isLoading: isLoadingActivities } = useQuery({
- queryKey: ['atividades', organizacaoId],
- queryFn: () => fetchAllActivities(supabase, organizacaoId),
- enabled: !!organizacaoId && canViewPage,
- });
+    queryKey: ['atividades', organizacaoId],
+    queryFn: () => fetchAllActivities(supabase, organizacaoId),
+    enabled: !!organizacaoId && canViewPage,
+    staleTime: 60000,
+    refetchOnWindowFocus: false,
+  });
 
  const { data: auxiliaryData } = useQuery({
  queryKey: ['atividadesAuxData', organizacaoId],

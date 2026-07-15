@@ -48,7 +48,7 @@ export default function GanttChart({ activities, onEditActivity }) {
  const [columnWidth, setColumnWidth] = useState(40); // Estado de Collapse (Quais nós estão colapsados/fechados)
  const [collapsedTasks, setCollapsedTasks] = useState(new Set());
  // Filtro Múltiplo
- const STATUS_OPTIONS = ['Atrasados', 'Em Andamento', 'Pausado', 'Aguardando Material', 'Não iniciado', 'Concluído'];
+ const STATUS_OPTIONS = ['Atrasados', 'Em Andamento', 'Pausado', 'Aguardando Material', 'Não Iniciado', 'Concluído'];
  const [selectedStatuses, setSelectedStatuses] = useState([]); const [isStatusDropdownOpen, setIsStatusDropdownOpen] = useState(false);
  const dropdownRef = useRef(null);
 

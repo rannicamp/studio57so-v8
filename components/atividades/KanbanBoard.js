@@ -46,26 +46,33 @@ export default function KanbanBoard({ activities, onEditActivity, // Renomeado p
  };
 
  const groupedData = useMemo(() => {
- const groups = {};
- statusColumns.forEach(col => { groups[col.id] = activities.filter(a => a.status === col.id); });
- return groups;
- }, [activities, statusColumns]);
+    const groups = {};
+    statusColumns.forEach(col => {
+      groups[col.id] = activities.filter(a => {
+        if (!a.status) return false;
+        return a.status.trim().toLowerCase() === col.id.trim().toLowerCase();
+      });
+    });
+    return groups;
+  }, [activities, statusColumns]);
 
- const handleDragStart = (e, item, type) => {
- e.stopPropagation();
- setDraggedItem({ item, type });
- if (type === 'card') { e.dataTransfer.setData("activityId", item.id); }
- };
+  const handleDragStart = (e, item, type) => {
+    e.stopPropagation();
+    setDraggedItem({ item, type });
+    if (type === 'card') { e.dataTransfer.setData("activityId", item.id); }
+  };
 
- const handleDragOver = (e) => { if (canEdit) e.preventDefault(); };
+  const handleDragOver = (e) => { if (canEdit) e.preventDefault(); };
 
- const handleDrop = (e, newStatus) => {
- if (!canEdit) return;
- e.preventDefault();
- const activityId = parseInt(e.dataTransfer.getData('activityId'), 10);
- const currentStatus = activities.find(a => a.id === activityId)?.status;
- if (activityId && currentStatus !== newStatus) { onStatusChange(activityId, newStatus); }
- };
+  const handleDrop = (e, newStatus) => {
+    if (!canEdit) return;
+    e.preventDefault();
+    const activityId = parseInt(e.dataTransfer.getData('activityId'), 10);
+    const currentStatus = activities.find(a => a.id === activityId)?.status;
+    if (activityId && currentStatus?.trim().toLowerCase() !== newStatus.trim().toLowerCase()) {
+      onStatusChange(activityId, newStatus);
+    }
+  };
 
  return (
  <div ref={scrollContainerRef}
