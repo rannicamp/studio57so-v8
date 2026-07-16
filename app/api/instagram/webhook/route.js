@@ -255,7 +255,7 @@ async function saveInstaMessage(supabase, { senderIgId, recipientIgId, messageId
   }
 
   // 3. Buscar dados do remetente via Graph API (com fallback gracioso)
-  let senderName = `Usuário ${String(senderIgId).slice(-6)}`;
+  let senderName = null;
   let senderUsername = null;
   let senderPicUrl = null;
 
@@ -273,7 +273,7 @@ async function saveInstaMessage(supabase, { senderIgId, recipientIgId, messageId
       if (profileRes.ok) {
         const profileData = await profileRes.json();
         if (!profileData.error) {
-          senderName = profileData.name || senderName;
+          senderName = profileData.name || null;
           senderUsername = profileData.username || null;
           senderPicUrl = profileData.profile_pic || null;
           console.log(`[Instagram Webhook] Perfil obtido: ${senderName} @${senderUsername}`);
@@ -283,6 +283,9 @@ async function saveInstaMessage(supabase, { senderIgId, recipientIgId, messageId
       console.warn('[Instagram Webhook] Perfil não obtido:', e.message);
     }
   }
+
+  // Determinar o nome final de exibição: prioriza Nome real, depois @Username, e por fim o ID mascarado
+  const displayName = senderName || (senderUsername ? `@${senderUsername}` : `Usuário ${String(senderIgId).slice(-6)}`);
 
   // 4. Montar a thread_id composta: conta_instagram + id_do_remetente
   const threadId = `${recipientIgId}_${senderIgId}`;
@@ -298,7 +301,7 @@ async function saveInstaMessage(supabase, { senderIgId, recipientIgId, messageId
       thread_id: threadId,
       instagram_account_id: recipientIgId,
       participant_id: senderIgId,
-      participant_name: senderName,
+      participant_name: displayName,
       participant_username: senderUsername,
       participant_profile_pic: senderPicUrl,
       snippet: (snippetText || messageText || '').substring(0, 100),
@@ -336,7 +339,7 @@ async function saveInstaMessage(supabase, { senderIgId, recipientIgId, messageId
       const { data: newContact, error: contactError } = await supabase
         .from('contatos')
         .insert({
-          nome: senderName || (senderUsername ? `@${senderUsername}` : 'Lead Instagram'),
+          nome: displayName,
           origem: 'Instagram Direct',
           tipo_contato: 'Lead',
           personalidade_juridica: 'Pessoa Fisica',
@@ -409,7 +412,7 @@ async function saveInstaMessage(supabase, { senderIgId, recipientIgId, messageId
       conversation_id: conversation.id,
       message_id: messageId,
       from_id: senderIgId,
-      from_name: senderName,
+      from_name: displayName,
       content: messageText,
       message_type: messageType,
       direction: 'inbound',

@@ -113,7 +113,7 @@ export async function POST(request) {
       instagram_account_id: igAccountId,
       instagram_conversation_id: conv.id,
       participant_id: participant.id,
-      participant_name: participant.name || `Usuário ${String(participant.id).slice(-6)}`,
+      participant_name: participant.name || (participant.username ? `@${participant.username}` : `Usuário ${String(participant.id).slice(-6)}`),
       participant_username: participant.username || null,
       snippet: snippet,
       last_message_at: lastMessageAt,
