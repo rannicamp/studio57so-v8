@@ -35,9 +35,9 @@ export async function POST(request) {
  return NextResponse.json({ error: 'Integração não configurada.' }, { status: 404 });
  }
 
- // 2. Enviar via Instagram API (graph.instagram.com)
+ // 2. Enviar via Instagram API (graph.facebook.com)
  // POST /me/messages com recipient.id e message.text
- const sendUrl = `https://graph.instagram.com/v21.0/me/messages`;
+ const sendUrl = `https://graph.facebook.com/v21.0/me/messages`;
  const sendResponse = await fetch(sendUrl, {
  method: 'POST',
  headers: { 'Content-Type': 'application/json' },
