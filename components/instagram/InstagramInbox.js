@@ -115,8 +115,9 @@ function MessagePanel({ conv, organizacaoId, onBack, showProfile, onToggleProfil
  return res.json();
  },
  enabled: !!conv.id,
- staleTime: 1000 * 30, // Considera dados válidos por 30s (Realtime cobre o resto)
- refetchOnWindowFocus: true, // Atualiza se o usuário voltar a focar a janela
+ staleTime: 1000 * 2,
+ refetchInterval: 3000, // Polling mágico de segurança de 3 segundos para gravação sem F5
+ refetchOnWindowFocus: true,
  });
 
  // Scroll automático ao chegar mensagem nova
@@ -367,17 +368,18 @@ export default function InstagramInbox({ onChangeTab }) {
  }, [debouncedUiState]);
 
  // Busca as conversas salvas no banco
- const { data: conversations = [], isLoading } = useQuery({
- queryKey: ['instagramConversations', organizacaoId],
- queryFn: async () => {
- const res = await fetch(`/api/instagram/conversations?organizacao_id=${organizacaoId}`);
- if (!res.ok) throw new Error('Falha ao buscar conversas');
- return res.json();
- },
- enabled: !!organizacaoId,
- staleTime: 1000 * 30,
- refetchOnWindowFocus: true,
- });
+  const { data: conversations = [], isLoading } = useQuery({
+  queryKey: ['instagramConversations', organizacaoId],
+  queryFn: async () => {
+  const res = await fetch(`/api/instagram/conversations?organizacao_id=${organizacaoId}`);
+  if (!res.ok) throw new Error('Falha ao buscar conversas');
+  return res.json();
+  },
+  enabled: !!organizacaoId,
+  staleTime: 1000 * 2,
+  refetchInterval: 3000, // Polling de 3 segundos para atualizar a lista lateral em tempo real
+  refetchOnWindowFocus: true,
+  });
 
  // ⚡ REALTIME PRINCIPAL: Escutar instagram_conversations (igual ao WhatsApp)
  // Quando o webhook insere ou atualiza uma conversa, a lista atualiza instantaneamente
