@@ -125,36 +125,34 @@ function MessagePanel({ conv, organizacaoId, onBack, showProfile, onToggleProfil
  messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
  }, [messages]);
 
- // ⚡ REALTIME: Escutar novas mensagens desta conversa ESPECÍFICA
- // (Igual ao WhatsApp — `postgres_changes` dispara instantaneamente)
- useEffect(() => {
- if (!conv.id) return;
+ // ⚡ REALTIME: Escutar novas mensagens do Instagram (Estilo WhatsApp, unificado por organização)
+  useEffect(() => {
+    if (!conv.id || !organizacaoId) return;
 
- const channel = supabase
- .channel(`instagram-messages-${conv.id}`)
- .on('postgres_changes',
- {
- event: 'INSERT',
- schema: 'public',
- table: 'instagram_messages',
- filter: `conversation_id=eq.${conv.id}`,
- },
- (payload) => {
- console.log('[Instagram MessagePanel] Nova mensagem via Realtime!', payload.new?.id);
- // Adiciona a mensagem direto no cache sem precisar refetch completo
- queryClient.setQueryData(['instagramMessages', conv.id], (old = []) => {
- const alreadyExists = old.some(m => m.id === payload.new.id);
- if (alreadyExists) return old;
- return [...old, payload.new];
- });
- // Atualiza também o snippet da lista de conversas
- queryClient.invalidateQueries({ queryKey: ['instagramConversations', organizacaoId] });
- }
- )
- .subscribe();
+    const channel = supabase
+      .channel(`instagram_messages_org_${organizacaoId}`)
+      .on('postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'instagram_messages',
+          filter: `organizacao_id=eq.${organizacaoId}`,
+        },
+        (payload) => {
+          console.log('[Instagram MessagePanel] Nova alteração em mensagens!', payload.new?.id);
+          const isRelevant = payload.new?.conversation_id === conv.id;
+          if (isRelevant) {
+            queryClient.invalidateQueries({ queryKey: ['instagramMessages', conv.id] });
+          }
+          queryClient.invalidateQueries({ queryKey: ['instagramConversations', organizacaoId] });
+        }
+      )
+      .subscribe();
 
- return () => supabase.removeChannel(channel);
- }, [conv.id, organizacaoId, queryClient, supabase]);
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [conv.id, organizacaoId, queryClient, supabase]);
 
  // Marcar como lidas ao abrir a conversa
  useEffect(() => {
@@ -392,44 +390,6 @@ export default function InstagramInbox({ onChangeTab }) {
  {
  event: '*',
  schema: 'public',
- table: 'instagram_conversations',
- filter: `organizacao_id=eq.${organizacaoId}`,
- },
- (payload) => {
- console.log('[Instagram Inbox] Conversa atualizada via Realtime!', payload.eventType);
- queryClient.invalidateQueries({ queryKey: ['instagramConversations', organizacaoId] });
- }
- )
- .on('postgres_changes',
- {
- event: 'INSERT',
- schema: 'public',
- table: 'instagram_messages',
- filter: `organizacao_id=eq.${organizacaoId}`,
- },
- (payload) => {
- console.log('[Instagram Inbox] Nova mensagem via Realtime (Global)!', payload.new?.id);
- // Invalida a lista de conversas (para atualizar snippet e unread_count)
- queryClient.invalidateQueries({ queryKey: ['instagramConversations', organizacaoId] });
- // Invalida o painel de mensagens da conversa afetada
- if (payload.new?.conversation_id) {
- queryClient.invalidateQueries({
- queryKey: ['instagramMessages', payload.new.conversation_id]
- });
- }
- }
- )
- .subscribe((status) => {
- setRealtimeStatus(status);
- if (status === 'SUBSCRIBED') {
- console.log('[Instagram Inbox] ✅ Realtime conectado! Mensagens chegarão instantaneamente.');
- } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
- console.warn('[Instagram Inbox] ⚠️ Realtime com problema:', status);
- }
- });
-
- return () => {
- supabase.removeChannel(channel);
  setRealtimeStatus('connecting');
  };
  }, [organizacaoId, queryClient, supabase]);

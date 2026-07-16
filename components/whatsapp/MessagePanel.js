@@ -183,7 +183,7 @@ export default function MessagePanel({ contact, onBack }) {
  if (!recipientPhone) throw new Error("Número do destinatário não encontrado.");
  const response = await fetch('/api/whatsapp/send', {
  method: 'POST', headers: { 'Content-Type': 'application/json' },
- body: JSON.stringify({ to: cleanPhoneNumber(recipientPhone), type: 'text', text: messageContent, contact_id: contact.contato_id, organizacao_id: organizacaoId }),
+ body: JSON.stringify({ to: cleanPhoneNumber(recipientPhone), type: 'text', text: messageContent, contact_id: contact.contato_id, organizacao_id: organizacaoId, usuario_id: user?.id }),
  });
  if (!response.ok) throw new Error('Falha ao enviar mensagem');
  return response.json();
@@ -217,7 +217,7 @@ export default function MessagePanel({ contact, onBack }) {
  method: 'POST', headers: { 'Content-Type': 'application/json' },
  body: JSON.stringify({
  to: targetPhone, type: getAttachmentType(file.type), link: urlData.publicUrl, filename: cleanName, caption: caption || '',
- contact_id: contact.contato_id, organizacao_id: organizacaoId
+ contact_id: contact.contato_id, organizacao_id: organizacaoId, usuario_id: user?.id
  }),
  });
  const apiResult = await response.json();
@@ -289,7 +289,8 @@ export default function MessagePanel({ contact, onBack }) {
  components: templateData.components || [],
  custom_content: templateData.fullText || `Template: ${templateData.name}`,
  contact_id: contact.contato_id,
- organizacao_id: organizacaoId
+ organizacao_id: organizacaoId,
+ usuario_id: user?.id
  }),
  });
 

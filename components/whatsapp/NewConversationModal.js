@@ -173,7 +173,8 @@ export default function NewConversationModal({ isOpen, onClose, onConversationCr
  components: components,
  contact_id: selectedContact.id,
  custom_content: fullText,
- organizacao_id: organizacaoId
+ organizacao_id: organizacaoId,
+ usuario_id: user?.id
  })
  });
 

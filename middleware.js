@@ -46,7 +46,8 @@ export async function middleware(req) {
     '/politicas',
     '/sitemap.xml',
     '/robots.txt',
-    '/planejamento-cobranca'
+    '/planejamento-cobranca',
+    '/proposta-504'
   ]
 
   const publicPrefixes = [

@@ -607,7 +607,7 @@ export default function ContactProfile({ contact }) {
   method: 'POST', headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
    to: targetPhone, type: fileType, link: anexo.public_url, filename: anexo.nome_arquivo, caption: '',
-   contact_id: displayContact.contato_id || contact?.contato_id, organizacao_id: organizacaoId
+   contact_id: displayContact.contato_id || contact?.contato_id, organizacao_id: organizacaoId, usuario_id: user?.id
   }),
   });
   const apiResult = await response.json();
@@ -827,7 +827,8 @@ export default function ContactProfile({ contact }) {
           filename: anexo.nome_arquivo,
           caption: '',
           contact_id: contact.contato_id,
-          organizacao_id: organizacaoId
+          organizacao_id: organizacaoId,
+          usuario_id: user?.id
         })
       });
 
