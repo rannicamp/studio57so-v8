@@ -755,6 +755,17 @@ async function handleMcpRequest(rpcRequest, supabase, user) {
               }
             },
             {
+              name: 'listar_contratos',
+              description: 'Consulta contratos de venda cadastrados no sistema, com detalhes de valores, clientes e produtos vinculados.',
+              inputSchema: {
+                type: 'object',
+                properties: {
+                  empreendimento_id: { type: 'integer', description: 'ID opcional do empreendimento para filtrar contratos específicos de uma obra.' },
+                  contrato_id: { type: 'integer', description: 'ID opcional de um único contrato para obter sua ficha detalhada.' }
+                }
+              }
+            },
+            {
               name: 'listar_empreendimentos',
               description: 'Lista os empreendimentos ativos da construtora.',
               inputSchema: {
@@ -1000,6 +1011,7 @@ function getToolSecurity(toolName) {
     'listar_empreendimentos': { recurso: 'empreendimentos', acao: 'ver' },
     'listar_unidades_empreendimento': { recurso: 'empreendimentos', acao: 'ver' },
     'atualizar_unidade_empreendimento': { recurso: 'empreendimentos', acao: 'editar' },
+    'listar_contratos': { recurso: 'contratos', acao: 'ver' },
 
     // Anexos / Tipos
     'listar_documento_tipos': { recurso: 'painel', acao: 'ver' }
@@ -2491,6 +2503,65 @@ async function executeTool(name, args, supabase, user) {
 
       if (error) throw new Error(error.message);
       return { message: 'Novo empreendimento/obra criado com sucesso!', empreendimento: data };
+    }
+
+    case 'listar_contratos': {
+      const { empreendimento_id, contrato_id } = args;
+
+      let query = supabase
+        .from('contratos')
+        .select(`
+          id,
+          numero_contrato,
+          data_venda,
+          valor_final_venda,
+          status_contrato,
+          tipo_documento,
+          observacoes_contrato,
+          created_at,
+          empreendimento:empreendimentos(id, nome),
+          cliente:contatos!contratos_contato_id_fkey(id, nome, cpf),
+          corretor:contatos!contratos_corretor_id_fkey(id, nome),
+          contrato_produtos(
+            produto:produtos_empreendimento(id, unidade, tipo, valor_base, valor_venda_calculado)
+          )
+        `)
+        .eq('lixeira', false)
+        .order('numero_contrato');
+
+      if (empreendimento_id) {
+        query = query.eq('empreendimento_id', empreendimento_id);
+      }
+
+      if (contrato_id) {
+        query = query.eq('id', contrato_id);
+      }
+
+      const { data, error } = await query;
+      if (error) throw new Error(error.message);
+
+      const mappedData = data.map(c => {
+        const produtos = (c.contrato_produtos || [])
+          .map(cp => cp.produto)
+          .filter(Boolean);
+
+        return {
+          id: c.id,
+          numero_contrato: c.numero_contrato,
+          data_venda: c.data_venda,
+          valor_final_venda: c.valor_final_venda,
+          status_contrato: c.status_contrato,
+          tipo_documento: c.tipo_documento,
+          observacoes_contrato: c.observacoes_contrato,
+          created_at: c.created_at,
+          empreendimento: c.empreendimento,
+          cliente: c.cliente,
+          corretor: c.corretor,
+          produtos: produtos
+        };
+      });
+
+      return contrato_id ? (mappedData[0] || null) : mappedData;
     }
 
     case 'listar_empreendimentos': {
