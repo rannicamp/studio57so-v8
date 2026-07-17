@@ -690,6 +690,71 @@ async function handleMcpRequest(rpcRequest, supabase, user) {
 
             // ==================== EMPREENDIMENTOS / VENDAS ====================
             {
+              name: 'listar_empresas',
+              description: 'Lista as empresas cadastradas no sistema (incorporadoras, construtoras e proprietárias).',
+              inputSchema: {
+                type: 'object',
+                properties: {}
+              }
+            },
+            {
+              name: 'criar_empreendimento',
+              description: 'Cria um novo empreendimento imobiliário/obra com todos os dados técnicos e cadastrais.',
+              inputSchema: {
+                type: 'object',
+                properties: {
+                  nome: { type: 'string', description: 'Nome fantasia do empreendimento/obra.' },
+                  empresa_proprietaria_id: { type: 'integer', description: 'ID da empresa proprietária (tabela cadastro_empresa).' },
+                  nome_empreendimento: { type: 'string', description: 'Razão social ou nome de registro do empreendimento.' },
+                  status: {
+                    type: 'string',
+                    enum: ['Em Planejamento', 'Em Andamento', 'Concluído', 'Suspenso'],
+                    description: 'Status atual da obra.'
+                  },
+                  categoria: {
+                    type: 'string',
+                    enum: ['Vertical', 'Loteamento', 'Condomínio', 'Comercial'],
+                    description: 'Categoria construtiva do empreendimento.'
+                  },
+                  cep: { type: 'string', description: 'CEP da obra (formato 00000-000).' },
+                  address_street: { type: 'string', description: 'Logradouro / Rua.' },
+                  address_number: { type: 'string', description: 'Número do endereço.' },
+                  address_complement: { type: 'string', description: 'Complemento do endereço.' },
+                  neighborhood: { type: 'string', description: 'Bairro.' },
+                  city: { type: 'string', description: 'Cidade.' },
+                  state: { type: 'string', description: 'Estado (sigla UF de 2 letras).' },
+                  terreno_area_total: { type: 'string', description: 'Área total do terreno (ex: 5000m²).' },
+                  data_inicio: { type: 'string', description: 'Data de início da obra (formato YYYY-MM-DD).' },
+                  data_fim_prevista: { type: 'string', description: 'Data prevista de conclusão (formato YYYY-MM-DD).' },
+                  prazo_entrega: { type: 'string', description: 'Prazo ou mês de entrega estipulado.' },
+                  incorporadora_id: { type: 'integer', description: 'ID da empresa incorporadora (tabela cadastro_empresa).' },
+                  construtora_id: { type: 'integer', description: 'ID da empresa construtora (tabela cadastro_empresa).' },
+                  matricula_numero: { type: 'string', description: 'Número da matrícula do terreno no cartório.' },
+                  matricula_cartorio: { type: 'string', description: 'Nome do Cartório de Registro de Imóveis.' },
+                  estrutura_tipo: { type: 'string', description: 'Tipo de estrutura (ex: Concreto Armado, Alvenaria Estrutural).' },
+                  alvenaria_tipo: { type: 'string', description: 'Tipo de alvenaria (ex: Bloco Cerâmico, Bloco de Concreto).' },
+                  cobertura_detalhes: { type: 'string', description: 'Detalhes da cobertura.' },
+                  dados_contrato: { type: 'string', description: 'Dados ou observações específicas do contrato.' },
+                  indice_reajuste: { type: 'string', description: 'Índice de reajuste (ex: INCC, IGP-M).' },
+                  inscricao_imobiliaria: { type: 'string', description: 'Inscrição imobiliária (IPTU).' },
+                  lote: { type: 'string', description: 'Lote.' },
+                  quadra: { type: 'string', description: 'Quadra.' },
+                  area_total_construcao: { type: 'string', description: 'Área total de construção da obra.' },
+                  uso_edificacao: { type: 'string', description: 'Uso da edificação (ex: Residencial, Comercial).' },
+                  numero_pavimentos: { type: 'string', description: 'Número de pavimentos/andares.' },
+                  alvara_construcao_numero: { type: 'string', description: 'Número do Alvará de Construção.' },
+                  alvara_construcao_data: { type: 'string', description: 'Data de emissão do Alvará (formato YYYY-MM-DD).' },
+                  processo_administrativo: { type: 'string', description: 'Número do processo administrativo da prefeitura.' },
+                  registro_incorporacao: { type: 'string', description: 'Registro do Memorial de Incorporação.' },
+                  patrimonio_afetacao: { type: 'boolean', description: 'Indica se possui patrimônio de afetação instituído.' },
+                  resp_tecnico_projeto: { type: 'string', description: 'Responsável técnico pelo projeto (CREA/CAU).' },
+                  resp_tecnico_obra: { type: 'string', description: 'Responsável técnico pela obra (CREA/CAU).' },
+                  observacoes: { type: 'string', description: 'Observações ou notas adicionais.' }
+                },
+                required: ['nome', 'empresa_proprietaria_id']
+              }
+            },
+            {
               name: 'listar_empreendimentos',
               description: 'Lista os empreendimentos ativos da construtora.',
               inputSchema: {
@@ -930,6 +995,8 @@ function getToolSecurity(toolName) {
     'consultar_horas_trabalhadas': { recurso: 'funcionarios', acao: 'ver' },
     
     // Empreendimentos / Unidades
+    'listar_empresas': { recurso: 'painel', acao: 'ver' },
+    'criar_empreendimento': { recurso: 'empreendimentos', acao: 'criar' },
     'listar_empreendimentos': { recurso: 'empreendimentos', acao: 'ver' },
     'listar_unidades_empreendimento': { recurso: 'empreendimentos', acao: 'ver' },
     'atualizar_unidade_empreendimento': { recurso: 'empreendimentos', acao: 'editar' },
@@ -2399,6 +2466,33 @@ async function executeTool(name, args, supabase, user) {
     }
 
     // ==================== EMPREENDIMENTOS / VENDAS ====================
+    case 'listar_empresas': {
+      const { data, error } = await supabase
+        .from('cadastro_empresa')
+        .select('id, razao_social, nome_fantasia, cnpj')
+        .eq('organizacao_id', user.organizacao_id)
+        .order('razao_social');
+
+      if (error) throw new Error(error.message);
+      return data;
+    }
+
+    case 'criar_empreendimento': {
+      const insertData = {
+        ...args,
+        organizacao_id: user.organizacao_id
+      };
+
+      const { data, error } = await supabase
+        .from('empreendimentos')
+        .insert(insertData)
+        .select()
+        .single();
+
+      if (error) throw new Error(error.message);
+      return { message: 'Novo empreendimento/obra criado com sucesso!', empreendimento: data };
+    }
+
     case 'listar_empreendimentos': {
       const { data, error } = await supabase
         .from('empreendimentos')
