@@ -2496,7 +2496,25 @@ async function executeTool(name, args, supabase, user) {
     case 'listar_empreendimentos': {
       const { data, error } = await supabase
         .from('empreendimentos')
-        .select('id, nome, status, created_at')
+        .select(`
+          id, 
+          nome, 
+          nome_empreendimento, 
+          status, 
+          categoria, 
+          vgv_total_projetado, 
+          patrimonio_vgv_construido, 
+          orcamento_previsto, 
+          orcamento_executado, 
+          orcamento_percentual, 
+          data_inicio, 
+          data_fim_prevista, 
+          prazo_entrega, 
+          city, 
+          state, 
+          cep, 
+          created_at
+        `)
         .order('nome');
 
       if (error) throw new Error(error.message);
