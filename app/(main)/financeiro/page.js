@@ -230,16 +230,34 @@ export default function FinanceiroPage() {
  <div className="flex flex-col md:flex-row items-start md:items-center gap-4 w-full xl:w-auto">
  <h1 className="text-3xl font-bold text-gray-800">Financeiro</h1>
  <div className="flex items-center gap-2 w-full md:w-auto flex-grow">
- <button
- onClick={toggleCompetenciaView}
- className={`flex-shrink-0 w-10 h-[42px] border rounded-lg flex items-center justify-center transition-all ${filters.useCompetencia
- ? 'bg-purple-100 border-purple-300 text-purple-700 hover:bg-purple-200'
- : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50 hover:text-blue-600'
- }`}
- title={filters.useCompetencia ? "Visualizando por Competência (Transação). Clique para voltar ao Caixa." : "Visualizar por Competência (Data da Transação)"}
- >
- <FontAwesomeIcon icon={filters.useCompetencia ? faHistory : faCalendarDay} />
- </button>
+  <div className="flex-shrink-0 bg-gray-100 p-1 rounded-lg flex items-center h-[42px] border border-gray-200 select-none">
+    <button
+      type="button"
+      onClick={() => filters.useCompetencia && toggleCompetenciaView()}
+      className={`px-3.5 h-full flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-wider rounded-md transition-all ${
+        !filters.useCompetencia 
+          ? 'bg-white text-blue-600 shadow-sm border border-gray-200/50' 
+          : 'text-gray-500 hover:text-gray-700'
+      }`}
+      title="Visualizar por Regime de Caixa (Data de Vencimento/Pagamento)"
+    >
+      <FontAwesomeIcon icon={faCalendarDay} />
+      <span>Caixa</span>
+    </button>
+    <button
+      type="button"
+      onClick={() => !filters.useCompetencia && toggleCompetenciaView()}
+      className={`px-3.5 h-full flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-wider rounded-md transition-all ${
+        filters.useCompetencia 
+          ? 'bg-white text-purple-700 shadow-sm border border-gray-200/50' 
+          : 'text-gray-500 hover:text-gray-700'
+      }`}
+      title="Visualizar por Regime de Competência (Data de Transação)"
+    >
+      <FontAwesomeIcon icon={faHistory} />
+      <span>Competência</span>
+    </button>
+  </div>
 
  <div className="relative flex-grow min-w-[200px]">
  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><FontAwesomeIcon icon={faSearch} className="text-gray-400" /></div>

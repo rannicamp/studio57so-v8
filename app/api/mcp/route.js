@@ -522,48 +522,56 @@ async function handleMcpRequest(rpcRequest, supabase, user) {
             // ==================== PEDIDOS / COMPRAS ====================
             {
               name: 'listar_pedidos_compra',
-              description: 'Consulta os pedidos de compra de insumos do almoxarifado.',
+              description: 'Consulta os pedidos de compra de insumos do almoxarifado com filtros opcionais.',
               inputSchema: {
                 type: 'object',
-                properties: {}
+                properties: {
+                  empreendimento_id: { type: 'integer', description: 'ID opcional do empreendimento para filtrar.' },
+                  status: { type: 'string', description: 'Status opcional do pedido para filtrar.' },
+                  fase_id: { type: 'string', description: 'ID da fase (UUID) opcional do Kanban para filtrar.' }
+                }
               }
             },
             {
               name: 'criar_pedido_compra',
-              description: 'Abre um novo pedido de compras em fase inicial.',
+              description: 'Abre um novo pedido de compras / solicitação em fase inicial.',
               inputSchema: {
                 type: 'object',
                 properties: {
-                  empreendimento_id: { type: 'integer' },
-                  fornecedor_id: { type: 'integer', description: 'ID do contato do fornecedor.' },
-                  fase_id: { type: 'integer', description: 'ID da fase do funil de compras.' },
-                  data_pedido: { type: 'string', description: 'Data YYYY-MM-DD.' },
-                  condicao_pagamento: { type: 'string' }
+                  empreendimento_id: { type: 'integer', description: 'ID do empreendimento/obra.' },
+                  titulo: { type: 'string', description: 'Título ou resumo do pedido (ex: Gradil - Madeiras e Dobradiças).' },
+                  fase_id: { type: 'string', description: 'ID da fase inicial (UUID). Se omitido, usará a primeira fase da organização.' },
+                  justificativa: { type: 'string', description: 'Justificativa para a compra.' },
+                  data_entrega_prevista: { type: 'string', description: 'Data de entrega prevista (formato YYYY-MM-DD).' },
+                  turno_entrega: { type: 'string', description: 'Turno de entrega (ex: Manhã, Tarde).' },
+                  observacoes: { type: 'string', description: 'Observações adicionais.' }
                 },
-                required: ['empreendimento_id', 'fornecedor_id', 'fase_id', 'data_pedido']
+                required: ['empreendimento_id', 'titulo']
               }
             },
             {
               name: 'listar_itens_pedido_compra',
-              description: 'Exibe a listagem de itens de um pedido de compras.',
+              description: 'Exibe a listagem de itens de pedidos de compras, com filtros opcionais para relatórios por obra ou material.',
               inputSchema: {
                 type: 'object',
                 properties: {
-                  pedido_compra_id: { type: 'integer' }
-                },
-                required: ['pedido_compra_id']
+                  pedido_compra_id: { type: 'integer', description: 'ID opcional de um pedido específico.' },
+                  empreendimento_id: { type: 'integer', description: 'ID opcional de empreendimento para ver todos os materiais pedidos de uma obra.' },
+                  material_id: { type: 'integer', description: 'ID opcional de um material para ver o histórico de compras e preços dele.' }
+                }
               }
             },
             {
               name: 'adicionar_item_pedido_compra',
-              description: 'Adiciona material e valor cotado a um pedido de compra.',
+              description: 'Adiciona material e valor cotado a um pedido de compra, garantindo a associação correta de produto.',
               inputSchema: {
                 type: 'object',
                 properties: {
-                  pedido_compra_id: { type: 'integer' },
-                  material_id: { type: 'integer' },
-                  quantidade: { type: 'number' },
-                  valor_unitario: { type: 'number' }
+                  pedido_compra_id: { type: 'integer', description: 'ID do pedido de compra.' },
+                  material_id: { type: 'integer', description: 'ID do material cadastrado no sistema.' },
+                  quantidade: { type: 'number', description: 'Quantidade solicitada.' },
+                  valor_unitario: { type: 'number', description: 'Preço unitário cotado real.' },
+                  descricao_item: { type: 'string', description: 'Descrição textual personalizada para o item. Se omitida, usará o nome do material.' }
                 },
                 required: ['pedido_compra_id', 'material_id', 'quantidade', 'valor_unitario']
               }
@@ -590,7 +598,63 @@ async function handleMcpRequest(rpcRequest, supabase, user) {
                 required: ['pedido_compra_id']
               }
             },
-
+            {
+              name: 'buscar_materiais',
+              description: 'Busca materiais cadastrados no sistema para evitar duplicidades antes de adicionar itens ou criar novos.',
+              inputSchema: {
+                type: 'object',
+                properties: {
+                  busca: { type: 'string', description: 'Termo de busca textual para encontrar materiais existentes.' }
+                },
+                required: ['busca']
+              }
+            },
+            {
+              name: 'listar_fases_pedido',
+              description: 'Lista as colunas (fases) do Kanban de compras da organização.',
+              inputSchema: {
+                type: 'object',
+                properties: {}
+              }
+            },
+            {
+              name: 'criar_fase_pedido',
+              description: 'Cria uma nova coluna (fase) personalizada para o Kanban de compras.',
+              inputSchema: {
+                type: 'object',
+                properties: {
+                  nome: { type: 'string', description: 'Nome da fase (ex: Em Cotação).' },
+                  ordem: { type: 'integer', description: 'Posição da coluna no Kanban (ex: 1, 2, 3).' },
+                  finalizado: { type: 'boolean', description: 'Define se pedidos nesta fase são considerados entregues/concluídos.' }
+                },
+                required: ['nome', 'ordem']
+              }
+            },
+            {
+              name: 'atualizar_fase_pedido',
+              description: 'Atualiza uma fase do Kanban de compras.',
+              inputSchema: {
+                type: 'object',
+                properties: {
+                  id: { type: 'string', description: 'ID (UUID) da fase.' },
+                  nome: { type: 'string', description: 'Nome da fase.' },
+                  ordem: { type: 'integer', description: 'Posição da coluna.' },
+                  finalizado: { type: 'boolean', description: 'Define se finalizado.' }
+                },
+                required: ['id']
+              }
+            },
+            {
+              name: 'deletar_fase_pedido',
+              description: 'Deleta uma fase do Kanban de compras.',
+              inputSchema: {
+                type: 'object',
+                properties: {
+                  id: { type: 'string', description: 'ID (UUID) da fase.' }
+                },
+                required: ['id']
+              }
+            },
             // ==================== RECURSOS HUMANOS ====================
             {
               name: 'listar_funcionarios',
@@ -995,6 +1059,11 @@ function getToolSecurity(toolName) {
     'adicionar_item_pedido_compra': { recurso: 'pedidos', acao: 'criar' },
     'deletar_item_pedido_compra': { recurso: 'pedidos', acao: 'excluir' },
     'marcar_pedido_entregue': { recurso: 'pedidos', acao: 'editar' },
+    'buscar_materiais': { recurso: 'pedidos', acao: 'ver' },
+    'listar_fases_pedido': { recurso: 'pedidos', acao: 'ver' },
+    'criar_fase_pedido': { recurso: 'pedidos', acao: 'criar' },
+    'atualizar_fase_pedido': { recurso: 'pedidos', acao: 'editar' },
+    'deletar_fase_pedido': { recurso: 'pedidos', acao: 'excluir' },
     
     // Funcionários / RH
     'listar_funcionarios': { recurso: 'funcionarios', acao: 'ver' },
@@ -1849,75 +1918,175 @@ async function executeTool(name, args, supabase, user) {
 
     // ==================== PEDIDOS / COMPRAS ====================
     case 'listar_pedidos_compra': {
-      const { data, error } = await supabase
+      const { empreendimento_id, status, fase_id } = args;
+
+      let query = supabase
         .from('pedidos_compra')
         .select(`
-          id, 
-          data_pedido, 
-          status, 
-          condicao_pagamento, 
-          fornecedor:contatos!fornecedor_id(id, nome), 
-          empreendimento:empreendimentos(id, nome)
+          id,
+          titulo,
+          data_solicitacao,
+          data_entrega_prevista,
+          data_entrega_real,
+          status,
+          justificativa,
+          valor_total_estimado,
+          turno_entrega,
+          observacoes,
+          fase_id,
+          empreendimento:empreendimentos(id, nome),
+          solicitante:usuarios!solicitante_id(id, nome, sobrenome)
         `)
+        .eq('organizacao_id', user.organizacao_id)
         .order('id', { ascending: false });
 
+      if (empreendimento_id) {
+        query = query.eq('empreendimento_id', empreendimento_id);
+      }
+      if (status) {
+        query = query.eq('status', status);
+      }
+      if (fase_id) {
+        query = query.eq('fase_id', fase_id);
+      }
+
+      const { data, error } = await query;
       if (error) throw new Error(error.message);
       return data;
     }
 
     case 'criar_pedido_compra': {
-      const { empreendimento_id, fornecedor_id, fase_id, data_pedido, condicao_pagamento } = args;
+      const { empreendimento_id, titulo, fase_id, justificativa, data_entrega_prevista, turno_entrega, observacoes } = args;
+
+      let targetFaseId = fase_id;
+      let targetStatus = 'Pendente';
+
+      if (!targetFaseId) {
+        const { data: fasesData, error: fasesErr } = await supabase
+          .from('pedidos_fases')
+          .select('id, nome')
+          .eq('organizacao_id', user.organizacao_id)
+          .order('ordem', { ascending: true })
+          .limit(1);
+
+        if (!fasesErr && fasesData && fasesData.length > 0) {
+          targetFaseId = fasesData[0].id;
+          targetStatus = fasesData[0].nome;
+        }
+      } else {
+        const { data: faseData } = await supabase
+          .from('pedidos_fases')
+          .select('nome')
+          .eq('id', targetFaseId)
+          .single();
+        if (faseData) {
+          targetStatus = faseData.nome;
+        }
+      }
+
       const { data, error } = await supabase
         .from('pedidos_compra')
         .insert({
           empreendimento_id,
-          fornecedor_id,
-          coluna_fase_id: fase_id,
-          data_pedido,
-          condicao_pagamento: condicao_pagamento || null,
-          status: 'Pendente',
-          organizacao_id: user.organizacao_id,
-          criado_por_usuario_id: user.id
+          titulo,
+          fase_id: targetFaseId || null,
+          status: targetStatus,
+          justificativa: justificativa || null,
+          data_entrega_prevista: data_entrega_prevista || null,
+          turno_entrega: turno_entrega || null,
+          observacoes: observacoes || null,
+          solicitante_id: user.id,
+          organizacao_id: user.organizacao_id
         })
-        .select('id, status')
+        .select('id, titulo, status')
         .single();
 
       if (error) throw new Error(error.message);
-      return { message: 'Pedido de compras criado!', pedido: data };
+      return { message: 'Pedido de compras / solicitação criado com sucesso!', pedido: data };
     }
 
     case 'listar_itens_pedido_compra': {
-      const { pedido_compra_id } = args;
-      const { data, error } = await supabase
+      const { pedido_compra_id, empreendimento_id, material_id } = args;
+
+      let query = supabase
         .from('pedidos_compra_itens')
         .select(`
-          id, 
-          quantidade, 
-          preco_unitario_real, 
-          material:materiais(id, nome, unidade_medida)
+          id,
+          pedido_compra_id,
+          quantidade_solicitada,
+          preco_unitario_real,
+          custo_total_real,
+          descricao_item,
+          unidade_medida,
+          tipo_operacao,
+          material:materiais(id, nome, unidade_medida),
+          fornecedor:contatos!fornecedor_id(id, nome),
+          pedido:pedidos_compra!pedido_compra_id(
+            id,
+            titulo,
+            status,
+            data_solicitacao,
+            empreendimento:empreendimentos(id, nome)
+          )
         `)
-        .eq('pedido_compra_id', pedido_compra_id);
+        .eq('organizacao_id', user.organizacao_id)
+        .order('id', { ascending: false });
 
+      if (pedido_compra_id) {
+        query = query.eq('pedido_compra_id', pedido_compra_id);
+      }
+      if (empreendimento_id) {
+        query = query.eq('pedido.empreendimento_id', empreendimento_id);
+      }
+      if (material_id) {
+        query = query.eq('material_id', material_id);
+      }
+
+      const { data, error } = await query;
       if (error) throw new Error(error.message);
-      return data;
+
+      let filteredData = data;
+      if (empreendimento_id) {
+        filteredData = data.filter(item => item.pedido && item.pedido.empreendimento && item.pedido.empreendimento.id === empreendimento_id);
+      }
+
+      return filteredData;
     }
 
     case 'adicionar_item_pedido_compra': {
-      const { pedido_compra_id, material_id, quantidade, valor_unitario } = args;
+      const { pedido_compra_id, material_id, quantidade, valor_unitario, descricao_item } = args;
+
+      let finalDescricao = descricao_item;
+      let finalUnidade = null;
+
+      const { data: materialData } = await supabase
+        .from('materiais')
+        .select('nome, unidade_medida')
+        .eq('id', material_id)
+        .single();
+
+      if (materialData) {
+        if (!finalDescricao) finalDescricao = materialData.nome;
+        finalUnidade = materialData.unidade_medida;
+      }
+
       const { data, error } = await supabase
         .from('pedidos_compra_itens')
         .insert({
           pedido_compra_id,
           material_id,
-          quantidade,
+          quantidade_solicitada: quantidade,
           preco_unitario_real: valor_unitario,
+          custo_total_real: Number(quantidade) * Number(valor_unitario),
+          descricao_item: finalDescricao || 'Insumo',
+          unidade_medida: finalUnidade,
           organizacao_id: user.organizacao_id
         })
-        .select('id, pedido_compra_id, quantidade')
+        .select('id, pedido_compra_id, quantidade_solicitada, preco_unitario_real')
         .single();
 
       if (error) throw new Error(error.message);
-      return { message: 'Item adicionado ao pedido de compra!', dados: data };
+      return { message: 'Item adicionado ao pedido de compra com sucesso!', dados: data };
     }
 
     case 'deletar_item_pedido_compra': {
@@ -1925,7 +2094,8 @@ async function executeTool(name, args, supabase, user) {
       const { error } = await supabase
         .from('pedidos_compra_itens')
         .delete()
-        .eq('id', id);
+        .eq('id', id)
+        .eq('organizacao_id', user.organizacao_id);
 
       if (error) throw new Error(error.message);
       return { message: 'Item do pedido de compra excluído.' };
@@ -1934,14 +2104,92 @@ async function executeTool(name, args, supabase, user) {
     case 'marcar_pedido_entregue': {
       const { pedido_compra_id } = args;
 
-      // Executa a RPC do Postgres de recebimento automático de mercadorias
       const { error } = await supabase.rpc('marcar_pedido_entregue', {
         p_pedido_id: pedido_compra_id,
-        p_usuario_id: user.id
+        p_usuario_id: user.id,
+        p_organizacao_id: user.organizacao_id
       });
 
       if (error) throw new Error(error.message);
       return { message: 'Pedido marcado como Entregue! Todos os materiais cotados deram entrada automática no estoque do almoxarifado.' };
+    }
+
+    case 'buscar_materiais': {
+      const { busca } = args;
+      const { data, error } = await supabase
+        .from('materiais')
+        .select('id, nome, descricao, unidade_medida, preco_unitario, classificacao')
+        .eq('organizacao_id', user.organizacao_id)
+        .ilike('nome', `%${busca}%`)
+        .limit(20);
+
+      if (error) throw new Error(error.message);
+      return data;
+    }
+
+    case 'listar_fases_pedido': {
+      const { data, error } = await supabase
+        .from('pedidos_fases')
+        .select('id, nome, slug, ordem, finalizado')
+        .eq('organizacao_id', user.organizacao_id)
+        .order('ordem', { ascending: true });
+
+      if (error) throw new Error(error.message);
+      return data;
+    }
+
+    case 'criar_fase_pedido': {
+      const { nome, ordem, finalizado } = args;
+      const slug = nome.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+
+      const { data, error } = await supabase
+        .from('pedidos_fases')
+        .insert({
+          nome,
+          slug,
+          ordem,
+          finalizado: finalizado || false,
+          organizacao_id: user.organizacao_id
+        })
+        .select()
+        .single();
+
+      if (error) throw new Error(error.message);
+      return { message: 'Nova fase do Kanban criada com sucesso!', fase: data };
+    }
+
+    case 'atualizar_fase_pedido': {
+      const { id, nome, ordem, finalizado } = args;
+      const updates = {};
+      if (nome !== undefined) {
+        updates.nome = nome;
+        updates.slug = nome.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+      }
+      if (ordem !== undefined) updates.ordem = ordem;
+      if (finalizado !== undefined) updates.finalizado = finalizado;
+
+      const { data, error } = await supabase
+        .from('pedidos_fases')
+        .update(updates)
+        .eq('id', id)
+        .eq('organizacao_id', user.organizacao_id)
+        .select()
+        .single();
+
+      if (error) throw new Error(error.message);
+      return { message: 'Fase do Kanban atualizada com sucesso!', fase: data };
+    }
+
+    case 'deletar_fase_pedido': {
+      const { id } = args;
+      const { error } = await supabase
+        .from('pedidos_fases')
+        .delete()
+        .eq('id', id)
+        .eq('organizacao_id', user.organizacao_id);
+
+      if (error) throw new Error(error.message);
+      return { message: 'Fase do Kanban excluída com sucesso.' };
     }
 
     // ==================== RECURSOS HUMANOS ====================
