@@ -379,20 +379,40 @@ export default function InstagramInbox({ onChangeTab }) {
   refetchOnWindowFocus: true,
   });
 
- // ⚡ REALTIME PRINCIPAL: Escutar instagram_conversations (igual ao WhatsApp)
- // Quando o webhook insere ou atualiza uma conversa, a lista atualiza instantaneamente
- useEffect(() => {
- if (!organizacaoId) return;
+  // ⚡ REALTIME PRINCIPAL: Escutar instagram_conversations (igual ao WhatsApp)
+  // Quando o webhook insere ou atualiza uma conversa, a lista atualiza instantaneamente
+  useEffect(() => {
+    if (!organizacaoId) return;
 
- const channel = supabase
- .channel('instagram-inbox-realtime')
- .on('postgres_changes',
- {
- event: '*',
- schema: 'public',
- setRealtimeStatus('connecting');
- };
- }, [organizacaoId, queryClient, supabase]);
+    setRealtimeStatus('connecting');
+
+    const channel = supabase
+      .channel('instagram-inbox-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'instagram_conversations',
+          filter: `organizacao_id=eq.${organizacaoId}`
+        },
+        (payload) => {
+          console.log('[Instagram Realtime] Mudança na conversa detectada:', payload);
+          queryClient.invalidateQueries({ queryKey: ['instagramConversations', organizacaoId] });
+        }
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          setRealtimeStatus('SUBSCRIBED');
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          setRealtimeStatus('error');
+        }
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [organizacaoId, queryClient, supabase]);
 
  // Sincronizar com a Meta manualmente (botão de backup)
  const handleSync = async () => {

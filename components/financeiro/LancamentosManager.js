@@ -42,10 +42,185 @@ const AnalysisModal = ({ isOpen, onClose, analysisText, isLoading }) => {
  </div>
  );
 };
+const BatchUpdateModal = ({ isOpen, onClose, onConfirm, fields, allData }) => {
+  const supabase = createClient();
+  const { user } = useAuth();
+  const organizacaoId = user?.organizacao_id;
 
-const BatchUpdateModal = ({ isOpen, onClose, onConfirm, fields, allData }) => {
- const [selectedField, setSelectedField] = useState(''); const [selectedValue, setSelectedValue] = useState(''); if (!isOpen) return null; const currentField = fields.find(f => f.key === selectedField);
- return (<div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4"> <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-lg"> <h3 className="text-xl font-bold mb-4">Alterar Campo em Lote</h3> <div className="space-y-4"> <div> <label className="block text-sm font-medium">1. Campo para alterar</label> <select value={selectedField} onChange={(e) => { setSelectedField(e.target.value); setSelectedValue(''); }} className="mt-1 w-full p-2 border rounded-md"> <option value="">Selecione um campo...</option> {fields.map(f => <option key={f.key} value={f.key}>{f.label}</option>)} </select> </div> {selectedField && currentField && (<div> <label className="block text-sm font-medium">2. Novo valor para &quot;{currentField.label}&quot;</label> {currentField.type === 'select' ? (<select value={selectedValue} onChange={(e) => setSelectedValue(e.target.value)} className="mt-1 w-full p-2 border rounded-md"> <option value="">Selecione um valor...</option> {allData[currentField.optionsKey]?.map(opt => <option key={opt.id} value={opt.id}>{opt.nome || opt.razao_social || opt.nome_etapa || opt.full_name}</option>)} </select>) : (<input type={currentField.type || 'text'} value={selectedValue} onChange={(e) => setSelectedValue(e.target.value)} className="mt-1 w-full p-2 border rounded-md" />)} </div>)} </div> <div className="flex justify-end gap-4 pt-6 mt-4 border-t"> <button onClick={onClose} className="bg-gray-200 px-4 py-2 rounded-md">Cancelar</button> <button onClick={() => onConfirm(selectedField, selectedValue)} disabled={!selectedField || !selectedValue} className="bg-blue-600 text-white px-4 py-2 rounded-md disabled:bg-gray-400">Confirmar Alteração</button> </div> </div> </div>);
+  const [selectedField, setSelectedField] = useState('');
+  const [selectedValue, setSelectedValue] = useState('');
+
+  // Estados para busca de favorecido
+  const [favorecidoSearchTerm, setFavorecidoSearchTerm] = useState('');
+  const [favorecidoSearchResults, setFavorecidoSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+
+  // Efeito de busca de favorecidos/contatos
+  useEffect(() => {
+    if (selectedField !== 'favorecido_contato_id') return;
+    if (favorecidoSearchTerm.length < 2) {
+      setFavorecidoSearchResults([]);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      if (!organizacaoId) return;
+      setIsSearching(true);
+      try {
+        const { data, error } = await supabase.from('contatos')
+          .select('id, nome, razao_social')
+          .or(`nome.ilike.%${favorecidoSearchTerm}%,razao_social.ilike.%${favorecidoSearchTerm}%`)
+          .limit(5);
+        if (error) throw error;
+        setFavorecidoSearchResults(data || []);
+      } catch (error) {
+        console.error("Erro busca favorecido em lote:", error);
+        setFavorecidoSearchResults([]);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [favorecidoSearchTerm, selectedField, supabase, organizacaoId]);
+
+  if (!isOpen) return null;
+
+  const currentField = fields.find(f => f.key === selectedField);
+
+  const handleSelectFavorecido = (contato) => {
+    setSelectedValue(contato.id);
+    setFavorecidoSearchTerm(contato.nome || contato.razao_social);
+    setFavorecidoSearchResults([]);
+  };
+
+  const handleClearFavorecido = () => {
+    setSelectedValue('');
+    setFavorecidoSearchTerm('');
+    setFavorecidoSearchResults([]);
+  };
+
+  const handleFieldChange = (e) => {
+    setSelectedField(e.target.value);
+    setSelectedValue('');
+    setFavorecidoSearchTerm('');
+    setFavorecidoSearchResults([]);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-lg">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-xl font-bold text-gray-800">Alterar Campo em Lote</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors text-2xl font-bold">&times;</button>
+        </div>
+        
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1">1. Campo para alterar</label>
+            <select
+              value={selectedField}
+              onChange={handleFieldChange}
+              className="w-full p-2.5 bg-white border border-gray-300 rounded-md text-sm text-gray-800 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-colors"
+            >
+              <option value="">Selecione um campo...</option>
+              {fields.map(f => <option key={f.key} value={f.key}>{f.label}</option>)}
+            </select>
+          </div>
+
+          {selectedField && currentField && (
+            <div className="animate-fade-in">
+              <label className="block text-sm font-semibold text-gray-700 mb-1">
+                2. Novo valor para &quot;{currentField.label}&quot;
+              </label>
+
+              {currentField.key === 'favorecido_contato_id' ? (
+                // Sistema de busca assíncrona idêntico ao do FiltroFinanceiro.js
+                <div className="relative">
+                  {selectedValue ? (
+                    <div className="flex items-center justify-between p-2.5 border border-blue-200 bg-blue-50 text-blue-800 rounded-md h-[40px] animate-fade-in">
+                      <span className="text-sm font-semibold truncate">{favorecidoSearchTerm}</span>
+                      <button
+                        type="button"
+                        onClick={handleClearFavorecido}
+                        className="text-blue-400 hover:text-blue-600 p-1 rounded-full hover:bg-blue-100 transition-colors"
+                      >
+                        <FontAwesomeIcon icon={faTimes} className="text-xs" />
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <input
+                        type="text"
+                        placeholder="Buscar favorecido..."
+                        value={favorecidoSearchTerm}
+                        onChange={(e) => setFavorecidoSearchTerm(e.target.value)}
+                        className="w-full p-2.5 border border-gray-300 rounded-md text-sm text-gray-800 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-colors h-[40px]"
+                      />
+                      {(isSearching || favorecidoSearchResults.length > 0) && (
+                        <ul className="absolute z-20 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto mt-1">
+                          {isSearching && (
+                            <li className="p-3 text-center text-gray-500 text-xs">
+                              <FontAwesomeIcon icon={faSpinner} spin className="mr-2" />
+                              Buscando...
+                            </li>
+                          )}
+                          {!isSearching && favorecidoSearchResults.map(c => (
+                            <li
+                              key={c.id}
+                              onClick={() => handleSelectFavorecido(c)}
+                              className="p-2.5 hover:bg-blue-50 hover:text-blue-800 cursor-pointer text-xs text-gray-700 border-b border-gray-100 last:border-0 transition-colors"
+                            >
+                              <HighlightedText text={c.nome || c.razao_social} highlight={favorecidoSearchTerm} />
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </>
+                  )}
+                </div>
+              ) : currentField.type === 'select' ? (
+                // Seletor padrão para as outras opções normais
+                <select
+                  value={selectedValue}
+                  onChange={(e) => setSelectedValue(e.target.value)}
+                  className="w-full p-2.5 bg-white border border-gray-300 rounded-md text-sm text-gray-800 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-colors"
+                >
+                  <option value="">Selecione um valor...</option>
+                  {allData[currentField.optionsKey]?.map(opt => (
+                    <option key={opt.id} value={opt.id}>
+                      {opt.nome || opt.razao_social || opt.nome_etapa || opt.full_name}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type={currentField.type || 'text'}
+                  value={selectedValue}
+                  onChange={(e) => setSelectedValue(e.target.value)}
+                  className="w-full p-2.5 border border-gray-300 rounded-md text-sm text-gray-800 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-colors"
+                />
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="flex justify-end gap-3 pt-4 mt-6 border-t border-gray-100">
+          <button
+            onClick={onClose}
+            className="bg-gray-100 text-gray-700 hover:bg-gray-200 px-5 py-2 rounded-md font-semibold text-sm transition-colors"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={() => onConfirm(selectedField, selectedValue)}
+            disabled={!selectedField || !selectedValue}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-md font-semibold text-sm disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed transition-all shadow-sm"
+          >
+            Confirmar Alteração
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 };
 
 export default function LancamentosManager({

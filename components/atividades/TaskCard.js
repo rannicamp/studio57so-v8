@@ -63,7 +63,7 @@ export default function TaskCard({ activity, onEditActivity, onDeleteActivity, o
  <div
  draggable="true"
  onDragStart={handleDragStart}
- className={`bg-white rounded-md shadow p-3 border-l-4 ${isOverdue ? 'border-red-500' : 'border-blue-500'} hover:shadow-lg transition-shadow duration-200 cursor-pointer kanban-card flex flex-col justify-between min-h-[160px] relative`}
+ className={`bg-white rounded-md shadow p-3 border-l-4 ${isOverdue ? 'border-red-500' : 'border-blue-500'} hover:shadow-lg transition-shadow duration-200 cursor-pointer kanban-card flex flex-col justify-between min-h-[160px] relative ${isMenuOpen ? 'z-50' : 'z-0'}`}
  onClick={() => onEditActivity(activity)}
  >
  <div>
@@ -116,7 +116,7 @@ export default function TaskCard({ activity, onEditActivity, onDeleteActivity, o
  <FontAwesomeIcon icon={faEllipsisV} />
  </button>
  {isMenuOpen && (
- <div ref={menuRef} className="absolute right-0 bottom-full mb-1 w-48 bg-white rounded-md shadow-lg z-20 border">
+ <div ref={menuRef} className="absolute right-0 top-full mt-1 w-48 bg-white rounded-md shadow-lg z-50 border">
  <p className="p-2 font-semibold text-xs text-gray-500 border-b">Mover para...</p>
  {allColumns.map(status => (
  <button key={status.id} onClick={(e) => handleActionClick(e, () => onStatusChange(activity.id, status.id))} className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
