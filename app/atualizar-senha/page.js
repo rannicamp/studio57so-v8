@@ -16,21 +16,36 @@ export default function AtualizarSenhaPage() {
  const router = useRouter();
  const supabase = createClient();
 
- // --- NOVA LOGO ATUALIZADA ---
- const logoUrl = "https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empresa-anexos/4/LOGO-P_1765565958716.PNG";
+  // --- NOVA LOGO ATUALIZADA ---
+  const logoUrl = "/marca/logo-elo57-horizontal.svg";
 
- useEffect(() => {
- const checkSession = async () => {
- const { data: { session } } = await supabase.auth.getSession();
- if (!session) {
- toast.error("Link inválido ou expirado.", {
- description: "Por favor, solicite uma nova recuperação de senha."
- });
- setTimeout(() => router.push('/recuperar-senha'), 3000);
- }
- };
- checkSession();
- }, [supabase, router]);
+  useEffect(() => {
+    // 1. Escuta mudanças de estado (Supabase trata a hash da URL de forma assíncrona)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log("[Atualizar Senha] Evento de Auth:", event, !!session);
+      if (session) {
+        // Se a sessão foi recuperada com sucesso, o usuário está apto a redefinir a senha
+        return;
+      }
+    });
+
+    // 2. Aguarda um pequeno delay de 1.5s para dar tempo ao SDK de processar os tokens da URL.
+    // Se após esse delay ainda não houver sessão ativa, aí sim tratamos o link como inválido.
+    const checkTimeout = setTimeout(async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast.error("Link inválido ou expirado.", {
+          description: "Por favor, solicite uma nova recuperação de senha."
+        });
+        router.push('/recuperar-senha');
+      }
+    }, 1500);
+
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(checkTimeout);
+    };
+  }, [supabase, router]);
 
  const handleUpdatePassword = async (e) => {
  e.preventDefault();
