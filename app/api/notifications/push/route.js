@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 
 // Configura Web Push
 webpush.setVapidDetails(
- 'mailto:suporte@studio57.com.br',
+ 'mailto:suporte@studio57.arq.br',
  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
  process.env.VAPID_PRIVATE_KEY
 );

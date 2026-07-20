@@ -139,7 +139,7 @@ export default function RecuperarSenhaPage() {
  value={email}
  onChange={(e) => setEmail(e.target.value)}
  className="block w-full pl-10 p-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 outline-none transition-colors"
- placeholder="exemplo@studio57.com.br"
+ placeholder="exemplo@studio57.arq.br"
  />
  </div>
  </div>

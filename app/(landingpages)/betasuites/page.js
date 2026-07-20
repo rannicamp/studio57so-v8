@@ -10,7 +10,7 @@ export const metadata = {
  openGraph: {
  title: 'Beta Suítes - O Futuro do Morar em GV',
  description: 'Conheça o empreendimento mais moderno do Alto Esplanada. Studios inteligentes para investidores exigentes.',
- url: 'https://www.studio57.com.br/betasuites',
+ url: 'https://www.studio57.arq.br/betasuites',
  images: [
  {
  url: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/5/anexos/beta_sunset_fachada.jpeg', // Usa a foto da fachada como capa do link

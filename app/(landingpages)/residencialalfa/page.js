@@ -10,7 +10,7 @@ export const metadata = {
  openGraph: {
  title: 'Residencial Alfa | O Futuro do seu Investimento',
  description: 'Transforme seu dinheiro em renda passiva. Apartamentos otimizados no bairro que mais valoriza em GV.',
- url: 'https://www.studio57.com.br/residencialalfa',
+ url: 'https://www.studio57.arq.br/residencialalfa',
  images: [
  {
  url: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/1/IMG_1759018648180.png',

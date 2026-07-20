@@ -10,7 +10,7 @@ export const metadata = {
  openGraph: {
  title: 'Refúgio Braúnas | Seu paraíso particular',
  description: 'Lotes de 1.000m² com infraestrutura completa a 10 min do centro. Clique e veja!',
- url: 'https://www.studio57.com.br/refugiobraunas',
+ url: 'https://www.studio57.arq.br/refugiobraunas',
  images: [
  {
  url: 'https://vhuvnutzklhskkwbpxdz.supabase.co/storage/v1/object/public/empreendimento-anexos/6/IMG_1760619077139.png', // Imagem que peguei do seu arquivo anterior
