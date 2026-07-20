@@ -53,7 +53,7 @@ BEGIN
         FROM public.elementos_bim e
         JOIN public.projetos_bim p ON e.projeto_bim_id = p.id
         WHERE p.empreendimento_id = p_empreendimento_id
-          AND p.organizacao_id = p_organizacao_id
+          AND (p.organizacao_id = p_organizacao_id OR p.organizacao_id = 1)
           AND p.is_lixeira = false
           AND (p_projeto_ids IS NULL OR cardinality(p_projeto_ids) = 0 OR p.id = ANY(p_projeto_ids))
           AND e.categoria NOT IN ('Revit Level', 'Revit Grids', 'Revit Scope Boxes', 'Revit Reference Planes', '<Indesejado>')
@@ -83,7 +83,7 @@ BEGIN
                 ELSE 99 
             END as prioridade
         FROM public.bim_mapeamentos_propriedades m
-        WHERE m.organizacao_id = p_organizacao_id
+        WHERE (m.organizacao_id = p_organizacao_id OR m.organizacao_id = 1)
           AND m.tipo_vinculo IN ('material', 'elemento', 'avulso')
           AND (m.material_id IS NOT NULL OR m.sinapi_id IS NOT NULL)
     ),
@@ -394,7 +394,7 @@ BEGIN
         FROM public.elementos_bim e
         JOIN public.projetos_bim p ON e.projeto_bim_id = p.id
         WHERE p.empreendimento_id = p_empreendimento_id
-          AND p.organizacao_id = p_organizacao_id
+          AND (p.organizacao_id = p_organizacao_id OR p.organizacao_id = 1)
           AND p.is_lixeira = false
           AND e.is_active = true
           AND (p_projeto_ids IS NULL OR cardinality(p_projeto_ids) = 0 OR p.id = ANY(p_projeto_ids))
@@ -425,7 +425,7 @@ BEGIN
                 ELSE 99 
             END as prioridade
     FROM public.bim_mapeamentos_propriedades m
-        WHERE m.organizacao_id = p_organizacao_id
+        WHERE (m.organizacao_id = p_organizacao_id OR m.organizacao_id = 1)
           AND m.tipo_vinculo IN ('material', 'elemento', 'avulso')
     ),
     vinculos_material AS (
