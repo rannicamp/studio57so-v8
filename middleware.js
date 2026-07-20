@@ -63,6 +63,8 @@ export async function middleware(req) {
     '/migracao',
     '/sobre-nos',
     '/cadastrocliente',
+    '/elo57',                 // Landing page do Elo 57 pública
+    '/apresentacaoelo',       // Apresentação antiga/alternativa do Elo 57 pública
     '/auth/'                  // Callbacks de autenticação
   ]
 

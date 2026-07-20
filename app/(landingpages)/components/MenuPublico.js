@@ -19,7 +19,8 @@ export default function MenuPublico() {
  <Link href="/" className="text-gray-600 hover:text-primary transition-colors font-medium">Início</Link>
  <Link href="/sobre-nos" className="text-gray-600 hover:text-primary transition-colors font-medium">Sobre Nós</Link>
  <Link href="/empreendimentosstudio" className="text-gray-600 hover:text-primary transition-colors font-medium">Empreendimentos</Link>
- <Link href="/login" className="bg-primary text-white font-bold py-2 px-6 rounded-full hover:opacity-90 transition-opacity">Entrar</Link>
+ <Link href="/elo57" className="text-gray-600 hover:text-primary transition-colors font-medium">Elo 57</Link>
+ <Link href="/login" className="bg-primary text-white font-bold py-2 px-6 rounded-full hover:opacity-90 transition-opacity">Elo 57</Link>
  </div>
  <div className="md:hidden">
  <button onClick={() => setIsOpen(!isOpen)} className="text-gray-800 focus:outline-none">
@@ -34,8 +35,9 @@ export default function MenuPublico() {
  <Link href="/" className="block text-center py-2 text-gray-800 hover:bg-gray-100" onClick={() => setIsOpen(false)}>Início</Link>
  <Link href="/sobre-nos" className="block text-center py-2 text-gray-800 hover:bg-gray-100" onClick={() => setIsOpen(false)}>Sobre Nós</Link>
  <Link href="/empreendimentosstudio" className="block text-center py-2 text-gray-800 hover:bg-gray-100" onClick={() => setIsOpen(false)}>Empreendimentos</Link>
+ <Link href="/elo57" className="block text-center py-2 text-gray-800 hover:bg-gray-100" onClick={() => setIsOpen(false)}>Elo 57</Link>
  <div className="mt-4 text-center">
- <Link href="/login" className="inline-block bg-primary text-white font-bold py-2 px-6 rounded-full hover:opacity-90" onClick={() => setIsOpen(false)}>Entrar</Link>
+ <Link href="/login" className="inline-block bg-primary text-white font-bold py-2 px-6 rounded-full hover:opacity-90" onClick={() => setIsOpen(false)}>Elo 57</Link>
  </div>
  </div>
  )}
