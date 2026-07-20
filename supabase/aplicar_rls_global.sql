@@ -10,9 +10,24 @@ SET search_path = public
 AS $$
 DECLARE
   v_org_id bigint;
+  v_email text;
 BEGIN
+  -- 1. Tenta buscar pelo ID direto (auth.uid())
   SELECT organizacao_id INTO v_org_id FROM public.usuarios WHERE id = auth.uid();
-  RETURN v_org_id;
+  IF v_org_id IS NOT NULL THEN
+    RETURN v_org_id;
+  END IF;
+
+  -- 2. Fallback resiliente: Busca pelo e-mail extraído das claims do JWT
+  v_email := auth.jwt() ->> 'email';
+  IF v_email IS NOT NULL THEN
+    SELECT organizacao_id INTO v_org_id FROM public.usuarios WHERE email = v_email LIMIT 1;
+    IF v_org_id IS NOT NULL THEN
+      RETURN v_org_id;
+    END IF;
+  END IF;
+
+  RETURN NULL;
 END;
 $$;
 
@@ -435,6 +450,41 @@ WITH CHECK (organizacao_id = public.get_auth_user_org());
 
 -- POLICY DE EXCLUSÃO (DELETE): Só pode excluir dados da própria organização
 CREATE POLICY "rls_delete_org_policy" ON public.banco_transacoes_ofx
+FOR DELETE
+TO authenticated
+USING (organizacao_id = public.get_auth_user_org());
+
+-- Tabela: bim_mapeamentos_propriedades
+ALTER TABLE public.bim_mapeamentos_propriedades ENABLE ROW LEVEL SECURITY;
+
+-- Limpa políticas antigas se existirem
+DROP POLICY IF EXISTS "rls_select_org_policy" ON public.bim_mapeamentos_propriedades;
+DROP POLICY IF EXISTS "rls_insert_org_policy" ON public.bim_mapeamentos_propriedades;
+DROP POLICY IF EXISTS "rls_update_org_policy" ON public.bim_mapeamentos_propriedades;
+DROP POLICY IF EXISTS "rls_delete_org_policy" ON public.bim_mapeamentos_propriedades;
+DROP POLICY IF EXISTS "rls_org_policy" ON public.bim_mapeamentos_propriedades;
+
+-- POLICY DE LEITURA (SELECT): Pode ver os dados da própria organização OU dados da Org 1 (Público)
+CREATE POLICY "rls_select_org_policy" ON public.bim_mapeamentos_propriedades
+FOR SELECT
+TO authenticated
+USING (organizacao_id = public.get_auth_user_org() OR organizacao_id = 1);
+
+-- POLICY DE INSERÇÃO (INSERT): Só pode inserir dados para a própria organização
+CREATE POLICY "rls_insert_org_policy" ON public.bim_mapeamentos_propriedades
+FOR INSERT
+TO authenticated
+WITH CHECK (organizacao_id = public.get_auth_user_org());
+
+-- POLICY DE ATUALIZAÇÃO (UPDATE): Só pode alterar dados da própria organização
+CREATE POLICY "rls_update_org_policy" ON public.bim_mapeamentos_propriedades
+FOR UPDATE
+TO authenticated
+USING (organizacao_id = public.get_auth_user_org())
+WITH CHECK (organizacao_id = public.get_auth_user_org());
+
+-- POLICY DE EXCLUSÃO (DELETE): Só pode excluir dados da própria organização
+CREATE POLICY "rls_delete_org_policy" ON public.bim_mapeamentos_propriedades
 FOR DELETE
 TO authenticated
 USING (organizacao_id = public.get_auth_user_org());
@@ -1419,6 +1469,41 @@ FOR DELETE
 TO authenticated
 USING (organizacao_id = public.get_auth_user_org());
 
+-- Tabela: crm_config_atividades
+ALTER TABLE public.crm_config_atividades ENABLE ROW LEVEL SECURITY;
+
+-- Limpa políticas antigas se existirem
+DROP POLICY IF EXISTS "rls_select_org_policy" ON public.crm_config_atividades;
+DROP POLICY IF EXISTS "rls_insert_org_policy" ON public.crm_config_atividades;
+DROP POLICY IF EXISTS "rls_update_org_policy" ON public.crm_config_atividades;
+DROP POLICY IF EXISTS "rls_delete_org_policy" ON public.crm_config_atividades;
+DROP POLICY IF EXISTS "rls_org_policy" ON public.crm_config_atividades;
+
+-- POLICY DE LEITURA (SELECT): Pode ver os dados da própria organização OU dados da Org 1 (Público)
+CREATE POLICY "rls_select_org_policy" ON public.crm_config_atividades
+FOR SELECT
+TO authenticated
+USING (organizacao_id = public.get_auth_user_org() OR organizacao_id = 1);
+
+-- POLICY DE INSERÇÃO (INSERT): Só pode inserir dados para a própria organização
+CREATE POLICY "rls_insert_org_policy" ON public.crm_config_atividades
+FOR INSERT
+TO authenticated
+WITH CHECK (organizacao_id = public.get_auth_user_org());
+
+-- POLICY DE ATUALIZAÇÃO (UPDATE): Só pode alterar dados da própria organização
+CREATE POLICY "rls_update_org_policy" ON public.crm_config_atividades
+FOR UPDATE
+TO authenticated
+USING (organizacao_id = public.get_auth_user_org())
+WITH CHECK (organizacao_id = public.get_auth_user_org());
+
+-- POLICY DE EXCLUSÃO (DELETE): Só pode excluir dados da própria organização
+CREATE POLICY "rls_delete_org_policy" ON public.crm_config_atividades
+FOR DELETE
+TO authenticated
+USING (organizacao_id = public.get_auth_user_org());
+
 -- Tabela: crm_notas
 ALTER TABLE public.crm_notas ENABLE ROW LEVEL SECURITY;
 
@@ -1450,6 +1535,41 @@ WITH CHECK (organizacao_id = public.get_auth_user_org());
 
 -- POLICY DE EXCLUSÃO (DELETE): Só pode excluir dados da própria organização
 CREATE POLICY "rls_delete_org_policy" ON public.crm_notas
+FOR DELETE
+TO authenticated
+USING (organizacao_id = public.get_auth_user_org());
+
+-- Tabela: crm_rodizio_config
+ALTER TABLE public.crm_rodizio_config ENABLE ROW LEVEL SECURITY;
+
+-- Limpa políticas antigas se existirem
+DROP POLICY IF EXISTS "rls_select_org_policy" ON public.crm_rodizio_config;
+DROP POLICY IF EXISTS "rls_insert_org_policy" ON public.crm_rodizio_config;
+DROP POLICY IF EXISTS "rls_update_org_policy" ON public.crm_rodizio_config;
+DROP POLICY IF EXISTS "rls_delete_org_policy" ON public.crm_rodizio_config;
+DROP POLICY IF EXISTS "rls_org_policy" ON public.crm_rodizio_config;
+
+-- POLICY DE LEITURA (SELECT): Pode ver os dados da própria organização OU dados da Org 1 (Público)
+CREATE POLICY "rls_select_org_policy" ON public.crm_rodizio_config
+FOR SELECT
+TO authenticated
+USING (organizacao_id = public.get_auth_user_org() OR organizacao_id = 1);
+
+-- POLICY DE INSERÇÃO (INSERT): Só pode inserir dados para a própria organização
+CREATE POLICY "rls_insert_org_policy" ON public.crm_rodizio_config
+FOR INSERT
+TO authenticated
+WITH CHECK (organizacao_id = public.get_auth_user_org());
+
+-- POLICY DE ATUALIZAÇÃO (UPDATE): Só pode alterar dados da própria organização
+CREATE POLICY "rls_update_org_policy" ON public.crm_rodizio_config
+FOR UPDATE
+TO authenticated
+USING (organizacao_id = public.get_auth_user_org())
+WITH CHECK (organizacao_id = public.get_auth_user_org());
+
+-- POLICY DE EXCLUSÃO (DELETE): Só pode excluir dados da própria organização
+CREATE POLICY "rls_delete_org_policy" ON public.crm_rodizio_config
 FOR DELETE
 TO authenticated
 USING (organizacao_id = public.get_auth_user_org());
@@ -2224,6 +2344,76 @@ FOR DELETE
 TO authenticated
 USING (organizacao_id = public.get_auth_user_org());
 
+-- Tabela: historico_elementos_bim
+ALTER TABLE public.historico_elementos_bim ENABLE ROW LEVEL SECURITY;
+
+-- Limpa políticas antigas se existirem
+DROP POLICY IF EXISTS "rls_select_org_policy" ON public.historico_elementos_bim;
+DROP POLICY IF EXISTS "rls_insert_org_policy" ON public.historico_elementos_bim;
+DROP POLICY IF EXISTS "rls_update_org_policy" ON public.historico_elementos_bim;
+DROP POLICY IF EXISTS "rls_delete_org_policy" ON public.historico_elementos_bim;
+DROP POLICY IF EXISTS "rls_org_policy" ON public.historico_elementos_bim;
+
+-- POLICY DE LEITURA (SELECT): Pode ver os dados da própria organização OU dados da Org 1 (Público)
+CREATE POLICY "rls_select_org_policy" ON public.historico_elementos_bim
+FOR SELECT
+TO authenticated
+USING (organizacao_id = public.get_auth_user_org() OR organizacao_id = 1);
+
+-- POLICY DE INSERÇÃO (INSERT): Só pode inserir dados para a própria organização
+CREATE POLICY "rls_insert_org_policy" ON public.historico_elementos_bim
+FOR INSERT
+TO authenticated
+WITH CHECK (organizacao_id = public.get_auth_user_org());
+
+-- POLICY DE ATUALIZAÇÃO (UPDATE): Só pode alterar dados da própria organização
+CREATE POLICY "rls_update_org_policy" ON public.historico_elementos_bim
+FOR UPDATE
+TO authenticated
+USING (organizacao_id = public.get_auth_user_org())
+WITH CHECK (organizacao_id = public.get_auth_user_org());
+
+-- POLICY DE EXCLUSÃO (DELETE): Só pode excluir dados da própria organização
+CREATE POLICY "rls_delete_org_policy" ON public.historico_elementos_bim
+FOR DELETE
+TO authenticated
+USING (organizacao_id = public.get_auth_user_org());
+
+-- Tabela: historico_lancamentos_financeiros
+ALTER TABLE public.historico_lancamentos_financeiros ENABLE ROW LEVEL SECURITY;
+
+-- Limpa políticas antigas se existirem
+DROP POLICY IF EXISTS "rls_select_org_policy" ON public.historico_lancamentos_financeiros;
+DROP POLICY IF EXISTS "rls_insert_org_policy" ON public.historico_lancamentos_financeiros;
+DROP POLICY IF EXISTS "rls_update_org_policy" ON public.historico_lancamentos_financeiros;
+DROP POLICY IF EXISTS "rls_delete_org_policy" ON public.historico_lancamentos_financeiros;
+DROP POLICY IF EXISTS "rls_org_policy" ON public.historico_lancamentos_financeiros;
+
+-- POLICY DE LEITURA (SELECT): Pode ver os dados da própria organização OU dados da Org 1 (Público)
+CREATE POLICY "rls_select_org_policy" ON public.historico_lancamentos_financeiros
+FOR SELECT
+TO authenticated
+USING (organizacao_id = public.get_auth_user_org() OR organizacao_id = 1);
+
+-- POLICY DE INSERÇÃO (INSERT): Só pode inserir dados para a própria organização
+CREATE POLICY "rls_insert_org_policy" ON public.historico_lancamentos_financeiros
+FOR INSERT
+TO authenticated
+WITH CHECK (organizacao_id = public.get_auth_user_org());
+
+-- POLICY DE ATUALIZAÇÃO (UPDATE): Só pode alterar dados da própria organização
+CREATE POLICY "rls_update_org_policy" ON public.historico_lancamentos_financeiros
+FOR UPDATE
+TO authenticated
+USING (organizacao_id = public.get_auth_user_org())
+WITH CHECK (organizacao_id = public.get_auth_user_org());
+
+-- POLICY DE EXCLUSÃO (DELETE): Só pode excluir dados da própria organização
+CREATE POLICY "rls_delete_org_policy" ON public.historico_lancamentos_financeiros
+FOR DELETE
+TO authenticated
+USING (organizacao_id = public.get_auth_user_org());
+
 -- Tabela: historico_movimentacao_funil
 ALTER TABLE public.historico_movimentacao_funil ENABLE ROW LEVEL SECURITY;
 
@@ -2294,6 +2484,41 @@ FOR DELETE
 TO authenticated
 USING (organizacao_id = public.get_auth_user_org());
 
+-- Tabela: historico_vgv
+ALTER TABLE public.historico_vgv ENABLE ROW LEVEL SECURITY;
+
+-- Limpa políticas antigas se existirem
+DROP POLICY IF EXISTS "rls_select_org_policy" ON public.historico_vgv;
+DROP POLICY IF EXISTS "rls_insert_org_policy" ON public.historico_vgv;
+DROP POLICY IF EXISTS "rls_update_org_policy" ON public.historico_vgv;
+DROP POLICY IF EXISTS "rls_delete_org_policy" ON public.historico_vgv;
+DROP POLICY IF EXISTS "rls_org_policy" ON public.historico_vgv;
+
+-- POLICY DE LEITURA (SELECT): Pode ver os dados da própria organização OU dados da Org 1 (Público)
+CREATE POLICY "rls_select_org_policy" ON public.historico_vgv
+FOR SELECT
+TO authenticated
+USING (organizacao_id = public.get_auth_user_org() OR organizacao_id = 1);
+
+-- POLICY DE INSERÇÃO (INSERT): Só pode inserir dados para a própria organização
+CREATE POLICY "rls_insert_org_policy" ON public.historico_vgv
+FOR INSERT
+TO authenticated
+WITH CHECK (organizacao_id = public.get_auth_user_org());
+
+-- POLICY DE ATUALIZAÇÃO (UPDATE): Só pode alterar dados da própria organização
+CREATE POLICY "rls_update_org_policy" ON public.historico_vgv
+FOR UPDATE
+TO authenticated
+USING (organizacao_id = public.get_auth_user_org())
+WITH CHECK (organizacao_id = public.get_auth_user_org());
+
+-- POLICY DE EXCLUSÃO (DELETE): Só pode excluir dados da própria organização
+CREATE POLICY "rls_delete_org_policy" ON public.historico_vgv
+FOR DELETE
+TO authenticated
+USING (organizacao_id = public.get_auth_user_org());
+
 -- Tabela: indices_financeiros
 ALTER TABLE public.indices_financeiros ENABLE ROW LEVEL SECURITY;
 
@@ -2325,6 +2550,111 @@ WITH CHECK (organizacao_id = public.get_auth_user_org());
 
 -- POLICY DE EXCLUSÃO (DELETE): Só pode excluir dados da própria organização
 CREATE POLICY "rls_delete_org_policy" ON public.indices_financeiros
+FOR DELETE
+TO authenticated
+USING (organizacao_id = public.get_auth_user_org());
+
+-- Tabela: indices_governamentais
+ALTER TABLE public.indices_governamentais ENABLE ROW LEVEL SECURITY;
+
+-- Limpa políticas antigas se existirem
+DROP POLICY IF EXISTS "rls_select_org_policy" ON public.indices_governamentais;
+DROP POLICY IF EXISTS "rls_insert_org_policy" ON public.indices_governamentais;
+DROP POLICY IF EXISTS "rls_update_org_policy" ON public.indices_governamentais;
+DROP POLICY IF EXISTS "rls_delete_org_policy" ON public.indices_governamentais;
+DROP POLICY IF EXISTS "rls_org_policy" ON public.indices_governamentais;
+
+-- POLICY DE LEITURA (SELECT): Pode ver os dados da própria organização OU dados da Org 1 (Público)
+CREATE POLICY "rls_select_org_policy" ON public.indices_governamentais
+FOR SELECT
+TO authenticated
+USING (organizacao_id = public.get_auth_user_org() OR organizacao_id = 1);
+
+-- POLICY DE INSERÇÃO (INSERT): Só pode inserir dados para a própria organização
+CREATE POLICY "rls_insert_org_policy" ON public.indices_governamentais
+FOR INSERT
+TO authenticated
+WITH CHECK (organizacao_id = public.get_auth_user_org());
+
+-- POLICY DE ATUALIZAÇÃO (UPDATE): Só pode alterar dados da própria organização
+CREATE POLICY "rls_update_org_policy" ON public.indices_governamentais
+FOR UPDATE
+TO authenticated
+USING (organizacao_id = public.get_auth_user_org())
+WITH CHECK (organizacao_id = public.get_auth_user_org());
+
+-- POLICY DE EXCLUSÃO (DELETE): Só pode excluir dados da própria organização
+CREATE POLICY "rls_delete_org_policy" ON public.indices_governamentais
+FOR DELETE
+TO authenticated
+USING (organizacao_id = public.get_auth_user_org());
+
+-- Tabela: instagram_conversations
+ALTER TABLE public.instagram_conversations ENABLE ROW LEVEL SECURITY;
+
+-- Limpa políticas antigas se existirem
+DROP POLICY IF EXISTS "rls_select_org_policy" ON public.instagram_conversations;
+DROP POLICY IF EXISTS "rls_insert_org_policy" ON public.instagram_conversations;
+DROP POLICY IF EXISTS "rls_update_org_policy" ON public.instagram_conversations;
+DROP POLICY IF EXISTS "rls_delete_org_policy" ON public.instagram_conversations;
+DROP POLICY IF EXISTS "rls_org_policy" ON public.instagram_conversations;
+
+-- POLICY DE LEITURA (SELECT): Pode ver os dados da própria organização OU dados da Org 1 (Público)
+CREATE POLICY "rls_select_org_policy" ON public.instagram_conversations
+FOR SELECT
+TO authenticated
+USING (organizacao_id = public.get_auth_user_org() OR organizacao_id = 1);
+
+-- POLICY DE INSERÇÃO (INSERT): Só pode inserir dados para a própria organização
+CREATE POLICY "rls_insert_org_policy" ON public.instagram_conversations
+FOR INSERT
+TO authenticated
+WITH CHECK (organizacao_id = public.get_auth_user_org());
+
+-- POLICY DE ATUALIZAÇÃO (UPDATE): Só pode alterar dados da própria organização
+CREATE POLICY "rls_update_org_policy" ON public.instagram_conversations
+FOR UPDATE
+TO authenticated
+USING (organizacao_id = public.get_auth_user_org())
+WITH CHECK (organizacao_id = public.get_auth_user_org());
+
+-- POLICY DE EXCLUSÃO (DELETE): Só pode excluir dados da própria organização
+CREATE POLICY "rls_delete_org_policy" ON public.instagram_conversations
+FOR DELETE
+TO authenticated
+USING (organizacao_id = public.get_auth_user_org());
+
+-- Tabela: instagram_messages
+ALTER TABLE public.instagram_messages ENABLE ROW LEVEL SECURITY;
+
+-- Limpa políticas antigas se existirem
+DROP POLICY IF EXISTS "rls_select_org_policy" ON public.instagram_messages;
+DROP POLICY IF EXISTS "rls_insert_org_policy" ON public.instagram_messages;
+DROP POLICY IF EXISTS "rls_update_org_policy" ON public.instagram_messages;
+DROP POLICY IF EXISTS "rls_delete_org_policy" ON public.instagram_messages;
+DROP POLICY IF EXISTS "rls_org_policy" ON public.instagram_messages;
+
+-- POLICY DE LEITURA (SELECT): Pode ver os dados da própria organização OU dados da Org 1 (Público)
+CREATE POLICY "rls_select_org_policy" ON public.instagram_messages
+FOR SELECT
+TO authenticated
+USING (organizacao_id = public.get_auth_user_org() OR organizacao_id = 1);
+
+-- POLICY DE INSERÇÃO (INSERT): Só pode inserir dados para a própria organização
+CREATE POLICY "rls_insert_org_policy" ON public.instagram_messages
+FOR INSERT
+TO authenticated
+WITH CHECK (organizacao_id = public.get_auth_user_org());
+
+-- POLICY DE ATUALIZAÇÃO (UPDATE): Só pode alterar dados da própria organização
+CREATE POLICY "rls_update_org_policy" ON public.instagram_messages
+FOR UPDATE
+TO authenticated
+USING (organizacao_id = public.get_auth_user_org())
+WITH CHECK (organizacao_id = public.get_auth_user_org());
+
+-- POLICY DE EXCLUSÃO (DELETE): Só pode excluir dados da própria organização
+CREATE POLICY "rls_delete_org_policy" ON public.instagram_messages
 FOR DELETE
 TO authenticated
 USING (organizacao_id = public.get_auth_user_org());
@@ -2574,6 +2904,76 @@ FOR DELETE
 TO authenticated
 USING (organizacao_id = public.get_auth_user_org());
 
+-- Tabela: logs_erros_ui
+ALTER TABLE public.logs_erros_ui ENABLE ROW LEVEL SECURITY;
+
+-- Limpa políticas antigas se existirem
+DROP POLICY IF EXISTS "rls_select_org_policy" ON public.logs_erros_ui;
+DROP POLICY IF EXISTS "rls_insert_org_policy" ON public.logs_erros_ui;
+DROP POLICY IF EXISTS "rls_update_org_policy" ON public.logs_erros_ui;
+DROP POLICY IF EXISTS "rls_delete_org_policy" ON public.logs_erros_ui;
+DROP POLICY IF EXISTS "rls_org_policy" ON public.logs_erros_ui;
+
+-- POLICY DE LEITURA (SELECT): Pode ver os dados da própria organização OU dados da Org 1 (Público)
+CREATE POLICY "rls_select_org_policy" ON public.logs_erros_ui
+FOR SELECT
+TO authenticated
+USING (organizacao_id = public.get_auth_user_org() OR organizacao_id = 1);
+
+-- POLICY DE INSERÇÃO (INSERT): Só pode inserir dados para a própria organização
+CREATE POLICY "rls_insert_org_policy" ON public.logs_erros_ui
+FOR INSERT
+TO authenticated
+WITH CHECK (organizacao_id = public.get_auth_user_org());
+
+-- POLICY DE ATUALIZAÇÃO (UPDATE): Só pode alterar dados da própria organização
+CREATE POLICY "rls_update_org_policy" ON public.logs_erros_ui
+FOR UPDATE
+TO authenticated
+USING (organizacao_id = public.get_auth_user_org())
+WITH CHECK (organizacao_id = public.get_auth_user_org());
+
+-- POLICY DE EXCLUSÃO (DELETE): Só pode excluir dados da própria organização
+CREATE POLICY "rls_delete_org_policy" ON public.logs_erros_ui
+FOR DELETE
+TO authenticated
+USING (organizacao_id = public.get_auth_user_org());
+
+-- Tabela: logs_exclusao_organizacoes
+ALTER TABLE public.logs_exclusao_organizacoes ENABLE ROW LEVEL SECURITY;
+
+-- Limpa políticas antigas se existirem
+DROP POLICY IF EXISTS "rls_select_org_policy" ON public.logs_exclusao_organizacoes;
+DROP POLICY IF EXISTS "rls_insert_org_policy" ON public.logs_exclusao_organizacoes;
+DROP POLICY IF EXISTS "rls_update_org_policy" ON public.logs_exclusao_organizacoes;
+DROP POLICY IF EXISTS "rls_delete_org_policy" ON public.logs_exclusao_organizacoes;
+DROP POLICY IF EXISTS "rls_org_policy" ON public.logs_exclusao_organizacoes;
+
+-- POLICY DE LEITURA (SELECT): Pode ver os dados da própria organização OU dados da Org 1 (Público)
+CREATE POLICY "rls_select_org_policy" ON public.logs_exclusao_organizacoes
+FOR SELECT
+TO authenticated
+USING (organizacao_id = public.get_auth_user_org() OR organizacao_id = 1);
+
+-- POLICY DE INSERÇÃO (INSERT): Só pode inserir dados para a própria organização
+CREATE POLICY "rls_insert_org_policy" ON public.logs_exclusao_organizacoes
+FOR INSERT
+TO authenticated
+WITH CHECK (organizacao_id = public.get_auth_user_org());
+
+-- POLICY DE ATUALIZAÇÃO (UPDATE): Só pode alterar dados da própria organização
+CREATE POLICY "rls_update_org_policy" ON public.logs_exclusao_organizacoes
+FOR UPDATE
+TO authenticated
+USING (organizacao_id = public.get_auth_user_org())
+WITH CHECK (organizacao_id = public.get_auth_user_org());
+
+-- POLICY DE EXCLUSÃO (DELETE): Só pode excluir dados da própria organização
+CREATE POLICY "rls_delete_org_policy" ON public.logs_exclusao_organizacoes
+FOR DELETE
+TO authenticated
+USING (organizacao_id = public.get_auth_user_org());
+
 -- Tabela: marcas_uploads
 ALTER TABLE public.marcas_uploads ENABLE ROW LEVEL SECURITY;
 
@@ -2745,6 +3145,41 @@ WITH CHECK (organizacao_id = public.get_auth_user_org());
 
 -- POLICY DE EXCLUSÃO (DELETE): Só pode excluir dados da própria organização
 CREATE POLICY "rls_delete_org_policy" ON public.meta_adsets
+FOR DELETE
+TO authenticated
+USING (organizacao_id = public.get_auth_user_org());
+
+-- Tabela: meta_ativos
+ALTER TABLE public.meta_ativos ENABLE ROW LEVEL SECURITY;
+
+-- Limpa políticas antigas se existirem
+DROP POLICY IF EXISTS "rls_select_org_policy" ON public.meta_ativos;
+DROP POLICY IF EXISTS "rls_insert_org_policy" ON public.meta_ativos;
+DROP POLICY IF EXISTS "rls_update_org_policy" ON public.meta_ativos;
+DROP POLICY IF EXISTS "rls_delete_org_policy" ON public.meta_ativos;
+DROP POLICY IF EXISTS "rls_org_policy" ON public.meta_ativos;
+
+-- POLICY DE LEITURA (SELECT): Pode ver os dados da própria organização OU dados da Org 1 (Público)
+CREATE POLICY "rls_select_org_policy" ON public.meta_ativos
+FOR SELECT
+TO authenticated
+USING (organizacao_id = public.get_auth_user_org() OR organizacao_id = 1);
+
+-- POLICY DE INSERÇÃO (INSERT): Só pode inserir dados para a própria organização
+CREATE POLICY "rls_insert_org_policy" ON public.meta_ativos
+FOR INSERT
+TO authenticated
+WITH CHECK (organizacao_id = public.get_auth_user_org());
+
+-- POLICY DE ATUALIZAÇÃO (UPDATE): Só pode alterar dados da própria organização
+CREATE POLICY "rls_update_org_policy" ON public.meta_ativos
+FOR UPDATE
+TO authenticated
+USING (organizacao_id = public.get_auth_user_org())
+WITH CHECK (organizacao_id = public.get_auth_user_org());
+
+-- POLICY DE EXCLUSÃO (DELETE): Só pode excluir dados da própria organização
+CREATE POLICY "rls_delete_org_policy" ON public.meta_ativos
 FOR DELETE
 TO authenticated
 USING (organizacao_id = public.get_auth_user_org());
@@ -3414,6 +3849,41 @@ FOR DELETE
 TO authenticated
 USING (organizacao_id = public.get_auth_user_org());
 
+-- Tabela: planos
+ALTER TABLE public.planos ENABLE ROW LEVEL SECURITY;
+
+-- Limpa políticas antigas se existirem
+DROP POLICY IF EXISTS "rls_select_org_policy" ON public.planos;
+DROP POLICY IF EXISTS "rls_insert_org_policy" ON public.planos;
+DROP POLICY IF EXISTS "rls_update_org_policy" ON public.planos;
+DROP POLICY IF EXISTS "rls_delete_org_policy" ON public.planos;
+DROP POLICY IF EXISTS "rls_org_policy" ON public.planos;
+
+-- POLICY DE LEITURA (SELECT): Pode ver os dados da própria organização OU dados da Org 1 (Público)
+CREATE POLICY "rls_select_org_policy" ON public.planos
+FOR SELECT
+TO authenticated
+USING (organizacao_id = public.get_auth_user_org() OR organizacao_id = 1);
+
+-- POLICY DE INSERÇÃO (INSERT): Só pode inserir dados para a própria organização
+CREATE POLICY "rls_insert_org_policy" ON public.planos
+FOR INSERT
+TO authenticated
+WITH CHECK (organizacao_id = public.get_auth_user_org());
+
+-- POLICY DE ATUALIZAÇÃO (UPDATE): Só pode alterar dados da própria organização
+CREATE POLICY "rls_update_org_policy" ON public.planos
+FOR UPDATE
+TO authenticated
+USING (organizacao_id = public.get_auth_user_org())
+WITH CHECK (organizacao_id = public.get_auth_user_org());
+
+-- POLICY DE EXCLUSÃO (DELETE): Só pode excluir dados da própria organização
+CREATE POLICY "rls_delete_org_policy" ON public.planos
+FOR DELETE
+TO authenticated
+USING (organizacao_id = public.get_auth_user_org());
+
 -- Tabela: pontos
 ALTER TABLE public.pontos ENABLE ROW LEVEL SECURITY;
 
@@ -3515,6 +3985,111 @@ WITH CHECK (organizacao_id = public.get_auth_user_org());
 
 -- POLICY DE EXCLUSÃO (DELETE): Só pode excluir dados da própria organização
 CREATE POLICY "rls_delete_org_policy" ON public.projetos_bim
+FOR DELETE
+TO authenticated
+USING (organizacao_id = public.get_auth_user_org());
+
+-- Tabela: projetos_bim_versoes
+ALTER TABLE public.projetos_bim_versoes ENABLE ROW LEVEL SECURITY;
+
+-- Limpa políticas antigas se existirem
+DROP POLICY IF EXISTS "rls_select_org_policy" ON public.projetos_bim_versoes;
+DROP POLICY IF EXISTS "rls_insert_org_policy" ON public.projetos_bim_versoes;
+DROP POLICY IF EXISTS "rls_update_org_policy" ON public.projetos_bim_versoes;
+DROP POLICY IF EXISTS "rls_delete_org_policy" ON public.projetos_bim_versoes;
+DROP POLICY IF EXISTS "rls_org_policy" ON public.projetos_bim_versoes;
+
+-- POLICY DE LEITURA (SELECT): Pode ver os dados da própria organização OU dados da Org 1 (Público)
+CREATE POLICY "rls_select_org_policy" ON public.projetos_bim_versoes
+FOR SELECT
+TO authenticated
+USING (organizacao_id = public.get_auth_user_org() OR organizacao_id = 1);
+
+-- POLICY DE INSERÇÃO (INSERT): Só pode inserir dados para a própria organização
+CREATE POLICY "rls_insert_org_policy" ON public.projetos_bim_versoes
+FOR INSERT
+TO authenticated
+WITH CHECK (organizacao_id = public.get_auth_user_org());
+
+-- POLICY DE ATUALIZAÇÃO (UPDATE): Só pode alterar dados da própria organização
+CREATE POLICY "rls_update_org_policy" ON public.projetos_bim_versoes
+FOR UPDATE
+TO authenticated
+USING (organizacao_id = public.get_auth_user_org())
+WITH CHECK (organizacao_id = public.get_auth_user_org());
+
+-- POLICY DE EXCLUSÃO (DELETE): Só pode excluir dados da própria organização
+CREATE POLICY "rls_delete_org_policy" ON public.projetos_bim_versoes
+FOR DELETE
+TO authenticated
+USING (organizacao_id = public.get_auth_user_org());
+
+-- Tabela: projetos_bim_vistas
+ALTER TABLE public.projetos_bim_vistas ENABLE ROW LEVEL SECURITY;
+
+-- Limpa políticas antigas se existirem
+DROP POLICY IF EXISTS "rls_select_org_policy" ON public.projetos_bim_vistas;
+DROP POLICY IF EXISTS "rls_insert_org_policy" ON public.projetos_bim_vistas;
+DROP POLICY IF EXISTS "rls_update_org_policy" ON public.projetos_bim_vistas;
+DROP POLICY IF EXISTS "rls_delete_org_policy" ON public.projetos_bim_vistas;
+DROP POLICY IF EXISTS "rls_org_policy" ON public.projetos_bim_vistas;
+
+-- POLICY DE LEITURA (SELECT): Pode ver os dados da própria organização OU dados da Org 1 (Público)
+CREATE POLICY "rls_select_org_policy" ON public.projetos_bim_vistas
+FOR SELECT
+TO authenticated
+USING (organizacao_id = public.get_auth_user_org() OR organizacao_id = 1);
+
+-- POLICY DE INSERÇÃO (INSERT): Só pode inserir dados para a própria organização
+CREATE POLICY "rls_insert_org_policy" ON public.projetos_bim_vistas
+FOR INSERT
+TO authenticated
+WITH CHECK (organizacao_id = public.get_auth_user_org());
+
+-- POLICY DE ATUALIZAÇÃO (UPDATE): Só pode alterar dados da própria organização
+CREATE POLICY "rls_update_org_policy" ON public.projetos_bim_vistas
+FOR UPDATE
+TO authenticated
+USING (organizacao_id = public.get_auth_user_org())
+WITH CHECK (organizacao_id = public.get_auth_user_org());
+
+-- POLICY DE EXCLUSÃO (DELETE): Só pode excluir dados da própria organização
+CREATE POLICY "rls_delete_org_policy" ON public.projetos_bim_vistas
+FOR DELETE
+TO authenticated
+USING (organizacao_id = public.get_auth_user_org());
+
+-- Tabela: promocoes
+ALTER TABLE public.promocoes ENABLE ROW LEVEL SECURITY;
+
+-- Limpa políticas antigas se existirem
+DROP POLICY IF EXISTS "rls_select_org_policy" ON public.promocoes;
+DROP POLICY IF EXISTS "rls_insert_org_policy" ON public.promocoes;
+DROP POLICY IF EXISTS "rls_update_org_policy" ON public.promocoes;
+DROP POLICY IF EXISTS "rls_delete_org_policy" ON public.promocoes;
+DROP POLICY IF EXISTS "rls_org_policy" ON public.promocoes;
+
+-- POLICY DE LEITURA (SELECT): Pode ver os dados da própria organização OU dados da Org 1 (Público)
+CREATE POLICY "rls_select_org_policy" ON public.promocoes
+FOR SELECT
+TO authenticated
+USING (organizacao_id = public.get_auth_user_org() OR organizacao_id = 1);
+
+-- POLICY DE INSERÇÃO (INSERT): Só pode inserir dados para a própria organização
+CREATE POLICY "rls_insert_org_policy" ON public.promocoes
+FOR INSERT
+TO authenticated
+WITH CHECK (organizacao_id = public.get_auth_user_org());
+
+-- POLICY DE ATUALIZAÇÃO (UPDATE): Só pode alterar dados da própria organização
+CREATE POLICY "rls_update_org_policy" ON public.promocoes
+FOR UPDATE
+TO authenticated
+USING (organizacao_id = public.get_auth_user_org())
+WITH CHECK (organizacao_id = public.get_auth_user_org());
+
+-- POLICY DE EXCLUSÃO (DELETE): Só pode excluir dados da própria organização
+CREATE POLICY "rls_delete_org_policy" ON public.promocoes
 FOR DELETE
 TO authenticated
 USING (organizacao_id = public.get_auth_user_org());
@@ -3729,6 +4304,251 @@ FOR DELETE
 TO authenticated
 USING (organizacao_id = public.get_auth_user_org());
 
+-- Tabela: sync_queue
+ALTER TABLE public.sync_queue ENABLE ROW LEVEL SECURITY;
+
+-- Limpa políticas antigas se existirem
+DROP POLICY IF EXISTS "rls_select_org_policy" ON public.sync_queue;
+DROP POLICY IF EXISTS "rls_insert_org_policy" ON public.sync_queue;
+DROP POLICY IF EXISTS "rls_update_org_policy" ON public.sync_queue;
+DROP POLICY IF EXISTS "rls_delete_org_policy" ON public.sync_queue;
+DROP POLICY IF EXISTS "rls_org_policy" ON public.sync_queue;
+
+-- POLICY DE LEITURA (SELECT): Pode ver os dados da própria organização OU dados da Org 1 (Público)
+CREATE POLICY "rls_select_org_policy" ON public.sync_queue
+FOR SELECT
+TO authenticated
+USING (organizacao_id = public.get_auth_user_org() OR organizacao_id = 1);
+
+-- POLICY DE INSERÇÃO (INSERT): Só pode inserir dados para a própria organização
+CREATE POLICY "rls_insert_org_policy" ON public.sync_queue
+FOR INSERT
+TO authenticated
+WITH CHECK (organizacao_id = public.get_auth_user_org());
+
+-- POLICY DE ATUALIZAÇÃO (UPDATE): Só pode alterar dados da própria organização
+CREATE POLICY "rls_update_org_policy" ON public.sync_queue
+FOR UPDATE
+TO authenticated
+USING (organizacao_id = public.get_auth_user_org())
+WITH CHECK (organizacao_id = public.get_auth_user_org());
+
+-- POLICY DE EXCLUSÃO (DELETE): Só pode excluir dados da própria organização
+CREATE POLICY "rls_delete_org_policy" ON public.sync_queue
+FOR DELETE
+TO authenticated
+USING (organizacao_id = public.get_auth_user_org());
+
+-- Tabela: sys_chat_broadcast_lists
+ALTER TABLE public.sys_chat_broadcast_lists ENABLE ROW LEVEL SECURITY;
+
+-- Limpa políticas antigas se existirem
+DROP POLICY IF EXISTS "rls_select_org_policy" ON public.sys_chat_broadcast_lists;
+DROP POLICY IF EXISTS "rls_insert_org_policy" ON public.sys_chat_broadcast_lists;
+DROP POLICY IF EXISTS "rls_update_org_policy" ON public.sys_chat_broadcast_lists;
+DROP POLICY IF EXISTS "rls_delete_org_policy" ON public.sys_chat_broadcast_lists;
+DROP POLICY IF EXISTS "rls_org_policy" ON public.sys_chat_broadcast_lists;
+
+-- POLICY DE LEITURA (SELECT): Pode ver os dados da própria organização OU dados da Org 1 (Público)
+CREATE POLICY "rls_select_org_policy" ON public.sys_chat_broadcast_lists
+FOR SELECT
+TO authenticated
+USING (organizacao_id = public.get_auth_user_org() OR organizacao_id = 1);
+
+-- POLICY DE INSERÇÃO (INSERT): Só pode inserir dados para a própria organização
+CREATE POLICY "rls_insert_org_policy" ON public.sys_chat_broadcast_lists
+FOR INSERT
+TO authenticated
+WITH CHECK (organizacao_id = public.get_auth_user_org());
+
+-- POLICY DE ATUALIZAÇÃO (UPDATE): Só pode alterar dados da própria organização
+CREATE POLICY "rls_update_org_policy" ON public.sys_chat_broadcast_lists
+FOR UPDATE
+TO authenticated
+USING (organizacao_id = public.get_auth_user_org())
+WITH CHECK (organizacao_id = public.get_auth_user_org());
+
+-- POLICY DE EXCLUSÃO (DELETE): Só pode excluir dados da própria organização
+CREATE POLICY "rls_delete_org_policy" ON public.sys_chat_broadcast_lists
+FOR DELETE
+TO authenticated
+USING (organizacao_id = public.get_auth_user_org());
+
+-- Tabela: sys_chat_conversations
+ALTER TABLE public.sys_chat_conversations ENABLE ROW LEVEL SECURITY;
+
+-- Limpa políticas antigas se existirem
+DROP POLICY IF EXISTS "rls_select_org_policy" ON public.sys_chat_conversations;
+DROP POLICY IF EXISTS "rls_insert_org_policy" ON public.sys_chat_conversations;
+DROP POLICY IF EXISTS "rls_update_org_policy" ON public.sys_chat_conversations;
+DROP POLICY IF EXISTS "rls_delete_org_policy" ON public.sys_chat_conversations;
+DROP POLICY IF EXISTS "rls_org_policy" ON public.sys_chat_conversations;
+
+-- POLICY DE LEITURA (SELECT): Pode ver os dados da própria organização OU dados da Org 1 (Público)
+CREATE POLICY "rls_select_org_policy" ON public.sys_chat_conversations
+FOR SELECT
+TO authenticated
+USING (organizacao_id = public.get_auth_user_org() OR organizacao_id = 1);
+
+-- POLICY DE INSERÇÃO (INSERT): Só pode inserir dados para a própria organização
+CREATE POLICY "rls_insert_org_policy" ON public.sys_chat_conversations
+FOR INSERT
+TO authenticated
+WITH CHECK (organizacao_id = public.get_auth_user_org());
+
+-- POLICY DE ATUALIZAÇÃO (UPDATE): Só pode alterar dados da própria organização
+CREATE POLICY "rls_update_org_policy" ON public.sys_chat_conversations
+FOR UPDATE
+TO authenticated
+USING (organizacao_id = public.get_auth_user_org())
+WITH CHECK (organizacao_id = public.get_auth_user_org());
+
+-- POLICY DE EXCLUSÃO (DELETE): Só pode excluir dados da própria organização
+CREATE POLICY "rls_delete_org_policy" ON public.sys_chat_conversations
+FOR DELETE
+TO authenticated
+USING (organizacao_id = public.get_auth_user_org());
+
+-- Tabela: sys_chat_mural_posts
+ALTER TABLE public.sys_chat_mural_posts ENABLE ROW LEVEL SECURITY;
+
+-- Limpa políticas antigas se existirem
+DROP POLICY IF EXISTS "rls_select_org_policy" ON public.sys_chat_mural_posts;
+DROP POLICY IF EXISTS "rls_insert_org_policy" ON public.sys_chat_mural_posts;
+DROP POLICY IF EXISTS "rls_update_org_policy" ON public.sys_chat_mural_posts;
+DROP POLICY IF EXISTS "rls_delete_org_policy" ON public.sys_chat_mural_posts;
+DROP POLICY IF EXISTS "rls_org_policy" ON public.sys_chat_mural_posts;
+
+-- POLICY DE LEITURA (SELECT): Pode ver os dados da própria organização OU dados da Org 1 (Público)
+CREATE POLICY "rls_select_org_policy" ON public.sys_chat_mural_posts
+FOR SELECT
+TO authenticated
+USING (organizacao_id = public.get_auth_user_org() OR organizacao_id = 1);
+
+-- POLICY DE INSERÇÃO (INSERT): Só pode inserir dados para a própria organização
+CREATE POLICY "rls_insert_org_policy" ON public.sys_chat_mural_posts
+FOR INSERT
+TO authenticated
+WITH CHECK (organizacao_id = public.get_auth_user_org());
+
+-- POLICY DE ATUALIZAÇÃO (UPDATE): Só pode alterar dados da própria organização
+CREATE POLICY "rls_update_org_policy" ON public.sys_chat_mural_posts
+FOR UPDATE
+TO authenticated
+USING (organizacao_id = public.get_auth_user_org())
+WITH CHECK (organizacao_id = public.get_auth_user_org());
+
+-- POLICY DE EXCLUSÃO (DELETE): Só pode excluir dados da própria organização
+CREATE POLICY "rls_delete_org_policy" ON public.sys_chat_mural_posts
+FOR DELETE
+TO authenticated
+USING (organizacao_id = public.get_auth_user_org());
+
+-- Tabela: sys_notification_templates
+ALTER TABLE public.sys_notification_templates ENABLE ROW LEVEL SECURITY;
+
+-- Limpa políticas antigas se existirem
+DROP POLICY IF EXISTS "rls_select_org_policy" ON public.sys_notification_templates;
+DROP POLICY IF EXISTS "rls_insert_org_policy" ON public.sys_notification_templates;
+DROP POLICY IF EXISTS "rls_update_org_policy" ON public.sys_notification_templates;
+DROP POLICY IF EXISTS "rls_delete_org_policy" ON public.sys_notification_templates;
+DROP POLICY IF EXISTS "rls_org_policy" ON public.sys_notification_templates;
+
+-- POLICY DE LEITURA (SELECT): Pode ver os dados da própria organização OU dados da Org 1 (Público)
+CREATE POLICY "rls_select_org_policy" ON public.sys_notification_templates
+FOR SELECT
+TO authenticated
+USING (organizacao_id = public.get_auth_user_org() OR organizacao_id = 1);
+
+-- POLICY DE INSERÇÃO (INSERT): Só pode inserir dados para a própria organização
+CREATE POLICY "rls_insert_org_policy" ON public.sys_notification_templates
+FOR INSERT
+TO authenticated
+WITH CHECK (organizacao_id = public.get_auth_user_org());
+
+-- POLICY DE ATUALIZAÇÃO (UPDATE): Só pode alterar dados da própria organização
+CREATE POLICY "rls_update_org_policy" ON public.sys_notification_templates
+FOR UPDATE
+TO authenticated
+USING (organizacao_id = public.get_auth_user_org())
+WITH CHECK (organizacao_id = public.get_auth_user_org());
+
+-- POLICY DE EXCLUSÃO (DELETE): Só pode excluir dados da própria organização
+CREATE POLICY "rls_delete_org_policy" ON public.sys_notification_templates
+FOR DELETE
+TO authenticated
+USING (organizacao_id = public.get_auth_user_org());
+
+-- Tabela: sys_org_notification_settings
+ALTER TABLE public.sys_org_notification_settings ENABLE ROW LEVEL SECURITY;
+
+-- Limpa políticas antigas se existirem
+DROP POLICY IF EXISTS "rls_select_org_policy" ON public.sys_org_notification_settings;
+DROP POLICY IF EXISTS "rls_insert_org_policy" ON public.sys_org_notification_settings;
+DROP POLICY IF EXISTS "rls_update_org_policy" ON public.sys_org_notification_settings;
+DROP POLICY IF EXISTS "rls_delete_org_policy" ON public.sys_org_notification_settings;
+DROP POLICY IF EXISTS "rls_org_policy" ON public.sys_org_notification_settings;
+
+-- POLICY DE LEITURA (SELECT): Pode ver os dados da própria organização OU dados da Org 1 (Público)
+CREATE POLICY "rls_select_org_policy" ON public.sys_org_notification_settings
+FOR SELECT
+TO authenticated
+USING (organizacao_id = public.get_auth_user_org() OR organizacao_id = 1);
+
+-- POLICY DE INSERÇÃO (INSERT): Só pode inserir dados para a própria organização
+CREATE POLICY "rls_insert_org_policy" ON public.sys_org_notification_settings
+FOR INSERT
+TO authenticated
+WITH CHECK (organizacao_id = public.get_auth_user_org());
+
+-- POLICY DE ATUALIZAÇÃO (UPDATE): Só pode alterar dados da própria organização
+CREATE POLICY "rls_update_org_policy" ON public.sys_org_notification_settings
+FOR UPDATE
+TO authenticated
+USING (organizacao_id = public.get_auth_user_org())
+WITH CHECK (organizacao_id = public.get_auth_user_org());
+
+-- POLICY DE EXCLUSÃO (DELETE): Só pode excluir dados da própria organização
+CREATE POLICY "rls_delete_org_policy" ON public.sys_org_notification_settings
+FOR DELETE
+TO authenticated
+USING (organizacao_id = public.get_auth_user_org());
+
+-- Tabela: sys_user_notification_prefs
+ALTER TABLE public.sys_user_notification_prefs ENABLE ROW LEVEL SECURITY;
+
+-- Limpa políticas antigas se existirem
+DROP POLICY IF EXISTS "rls_select_org_policy" ON public.sys_user_notification_prefs;
+DROP POLICY IF EXISTS "rls_insert_org_policy" ON public.sys_user_notification_prefs;
+DROP POLICY IF EXISTS "rls_update_org_policy" ON public.sys_user_notification_prefs;
+DROP POLICY IF EXISTS "rls_delete_org_policy" ON public.sys_user_notification_prefs;
+DROP POLICY IF EXISTS "rls_org_policy" ON public.sys_user_notification_prefs;
+
+-- POLICY DE LEITURA (SELECT): Pode ver os dados da própria organização OU dados da Org 1 (Público)
+CREATE POLICY "rls_select_org_policy" ON public.sys_user_notification_prefs
+FOR SELECT
+TO authenticated
+USING (organizacao_id = public.get_auth_user_org() OR organizacao_id = 1);
+
+-- POLICY DE INSERÇÃO (INSERT): Só pode inserir dados para a própria organização
+CREATE POLICY "rls_insert_org_policy" ON public.sys_user_notification_prefs
+FOR INSERT
+TO authenticated
+WITH CHECK (organizacao_id = public.get_auth_user_org());
+
+-- POLICY DE ATUALIZAÇÃO (UPDATE): Só pode alterar dados da própria organização
+CREATE POLICY "rls_update_org_policy" ON public.sys_user_notification_prefs
+FOR UPDATE
+TO authenticated
+USING (organizacao_id = public.get_auth_user_org())
+WITH CHECK (organizacao_id = public.get_auth_user_org());
+
+-- POLICY DE EXCLUSÃO (DELETE): Só pode excluir dados da própria organização
+CREATE POLICY "rls_delete_org_policy" ON public.sys_user_notification_prefs
+FOR DELETE
+TO authenticated
+USING (organizacao_id = public.get_auth_user_org());
+
 -- Tabela: tabelas_sistema
 ALTER TABLE public.tabelas_sistema ENABLE ROW LEVEL SECURITY;
 
@@ -3900,6 +4720,41 @@ WITH CHECK (organizacao_id = public.get_auth_user_org());
 
 -- POLICY DE EXCLUSÃO (DELETE): Só pode excluir dados da própria organização
 CREATE POLICY "rls_delete_org_policy" ON public.termos_uso
+FOR DELETE
+TO authenticated
+USING (organizacao_id = public.get_auth_user_org());
+
+-- Tabela: user_api_keys
+ALTER TABLE public.user_api_keys ENABLE ROW LEVEL SECURITY;
+
+-- Limpa políticas antigas se existirem
+DROP POLICY IF EXISTS "rls_select_org_policy" ON public.user_api_keys;
+DROP POLICY IF EXISTS "rls_insert_org_policy" ON public.user_api_keys;
+DROP POLICY IF EXISTS "rls_update_org_policy" ON public.user_api_keys;
+DROP POLICY IF EXISTS "rls_delete_org_policy" ON public.user_api_keys;
+DROP POLICY IF EXISTS "rls_org_policy" ON public.user_api_keys;
+
+-- POLICY DE LEITURA (SELECT): Pode ver os dados da própria organização OU dados da Org 1 (Público)
+CREATE POLICY "rls_select_org_policy" ON public.user_api_keys
+FOR SELECT
+TO authenticated
+USING (organizacao_id = public.get_auth_user_org() OR organizacao_id = 1);
+
+-- POLICY DE INSERÇÃO (INSERT): Só pode inserir dados para a própria organização
+CREATE POLICY "rls_insert_org_policy" ON public.user_api_keys
+FOR INSERT
+TO authenticated
+WITH CHECK (organizacao_id = public.get_auth_user_org());
+
+-- POLICY DE ATUALIZAÇÃO (UPDATE): Só pode alterar dados da própria organização
+CREATE POLICY "rls_update_org_policy" ON public.user_api_keys
+FOR UPDATE
+TO authenticated
+USING (organizacao_id = public.get_auth_user_org())
+WITH CHECK (organizacao_id = public.get_auth_user_org());
+
+-- POLICY DE EXCLUSÃO (DELETE): Só pode excluir dados da própria organização
+CREATE POLICY "rls_delete_org_policy" ON public.user_api_keys
 FOR DELETE
 TO authenticated
 USING (organizacao_id = public.get_auth_user_org());

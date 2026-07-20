@@ -36,9 +36,24 @@ SET search_path = public
 AS $$
 DECLARE
   v_org_id bigint;
+  v_email text;
 BEGIN
+  -- 1. Tenta buscar pelo ID direto (auth.uid())
   SELECT organizacao_id INTO v_org_id FROM public.usuarios WHERE id = auth.uid();
-  RETURN v_org_id;
+  IF v_org_id IS NOT NULL THEN
+    RETURN v_org_id;
+  END IF;
+
+  -- 2. Fallback resiliente: Busca pelo e-mail extraído das claims do JWT
+  v_email := auth.jwt() ->> 'email';
+  IF v_email IS NOT NULL THEN
+    SELECT organizacao_id INTO v_org_id FROM public.usuarios WHERE email = v_email LIMIT 1;
+    IF v_org_id IS NOT NULL THEN
+      RETURN v_org_id;
+    END IF;
+  END IF;
+
+  RETURN NULL;
 END;
 $$;
 
