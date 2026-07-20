@@ -14,31 +14,38 @@ export default function AtualizarSenhaPage() {
  const [password, setPassword] = useState('');
  const [confirmPassword, setConfirmPassword] = useState('');
  const [isLoading, setIsLoading] = useState(false);
- const router = useRouter();
- const supabase = createClient();
+  const [verificando, setVerificando] = useState(true);
+  const router = useRouter();
+  const supabase = createClient();
 
   // --- NOVA LOGO ATUALIZADA ---
   const logoUrl = "/marca/logo-elo57-horizontal.svg";
 
   useEffect(() => {
+    let sessionEstablished = false;
+
     // 1. Escuta mudanças de estado (Supabase trata a hash da URL de forma assíncrona)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log("[Atualizar Senha] Evento de Auth:", event, !!session);
       if (session) {
-        // Se a sessão foi recuperada com sucesso, o usuário está apto a redefinir a senha
-        return;
+        sessionEstablished = true;
+        setVerificando(false);
       }
     });
 
     // 2. Aguarda um pequeno delay de 1.5s para dar tempo ao SDK de processar os tokens da URL.
     // Se após esse delay ainda não houver sessão ativa, aí sim tratamos o link como inválido.
     const checkTimeout = setTimeout(async () => {
+      if (sessionEstablished) return;
+
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         toast.error("Link inválido ou expirado.", {
           description: "Por favor, solicite uma nova recuperação de senha."
         });
         router.push('/recuperar-senha');
+      } else {
+        setVerificando(false);
       }
     }, 1500);
 
@@ -48,39 +55,51 @@ export default function AtualizarSenhaPage() {
     };
   }, [supabase, router]);
 
- const handleUpdatePassword = async (e) => {
- e.preventDefault();
- if (password !== confirmPassword) {
- toast.error("Erro de validação", { description: "As senhas não coincidem." });
- return;
- }
+  const handleUpdatePassword = async (e) => {
+    e.preventDefault();
+    if (password !== confirmPassword) {
+      toast.error("Erro de validação", { description: "As senhas não coincidem." });
+      return;
+    }
 
- if (password.length < 6) {
- toast.error("Senha muito curta", { description: "A senha deve ter no mínimo 6 caracteres." });
- return;
- }
+    if (password.length < 6) {
+      toast.error("Senha muito curta", { description: "A senha deve ter no mínimo 6 caracteres." });
+      return;
+    }
 
- setIsLoading(true);
+    setIsLoading(true);
 
- try {
- const response = await updatePasswordAction(password);
+    try {
+      const response = await updatePasswordAction(password);
 
- if (response?.error) {
- toast.error("Erro ao atualizar", { description: response.error });
- setIsLoading(false);
- } else {
- toast.success("Senha atualizada!", { description: "Você já pode acessar o sistema." });
- setTimeout(() => {
- router.push('/painel'); }, 1500);
- }
- } catch (err) {
- console.error(err);
- toast.error("Erro de conexão", { description: "Não foi possível comunicar o servidor." });
- setIsLoading(false);
- }
- };
+      if (response?.error) {
+        toast.error("Erro ao atualizar", { description: response.error });
+        setIsLoading(false);
+      } else {
+        toast.success("Senha atualizada!", { description: "Você já pode acessar o sistema." });
+        setTimeout(() => {
+          router.push('/painel');
+        }, 1500);
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Erro de conexão", { description: "Não foi possível comunicar o servidor." });
+      setIsLoading(false);
+    }
+  };
 
- return (
+  if (verificando) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-gray-50 p-4">
+        <div className="text-center">
+          <FontAwesomeIcon icon={faSpinner} spin className="text-4xl text-blue-600 mb-4" />
+          <p className="text-gray-600 font-medium">Verificando link de segurança...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
  <div className="flex min-h-screen flex-col items-center justify-center bg-gray-50 p-4">
  <div className="w-full max-w-md">
  <div className="bg-white p-8 rounded-lg shadow-md">
