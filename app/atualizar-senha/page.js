@@ -8,6 +8,7 @@ import { createClient } from '../../utils/supabase/client';
 import { toast } from 'sonner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faLock, faSpinner, faCheckCircle } from '@fortawesome/free-solid-svg-icons';
+import { updatePasswordAction } from './actions';
 
 export default function AtualizarSenhaPage() {
  const [password, setPassword] = useState('');
@@ -62,7 +63,6 @@ export default function AtualizarSenhaPage() {
  setIsLoading(true);
 
  try {
- const { updatePasswordAction } = await import('./actions');
  const response = await updatePasswordAction(password);
 
  if (response?.error) {
