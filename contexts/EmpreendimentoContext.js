@@ -18,7 +18,12 @@ export function EmpreendimentoProvider({ children }) {
     // Carrega o empreendimento selecionado do localStorage ao iniciar
     const storedEmpreendimentoId = localStorage.getItem('selectedEmpreendimentoId');
     if (storedEmpreendimentoId) {
-      setSelectedEmpreendimento(parseInt(storedEmpreendimentoId));
+      if (storedEmpreendimentoId === 'all') {
+        setSelectedEmpreendimento('all');
+      } else {
+        const parsed = parseInt(storedEmpreendimentoId);
+        setSelectedEmpreendimento(isNaN(parsed) ? 'all' : parsed);
+      }
     }
 
     // Função para buscar todos os empreendimentos
