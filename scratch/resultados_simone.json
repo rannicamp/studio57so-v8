@@ -1,0 +1,345 @@
+{
+  "empreendimentos": [
+    {
+      "id": "1",
+      "nome": "Residencial Alfa ",
+      "nome_empreendimento": "Condomínio Residencial Alfa",
+      "organizacao_id": "2"
+    },
+    {
+      "id": "2",
+      "nome": "Reforma Apartamento Sônia ",
+      "nome_empreendimento": null,
+      "organizacao_id": "2"
+    },
+    {
+      "id": "3",
+      "nome": "TATTOO ARTE VIDA",
+      "nome_empreendimento": null,
+      "organizacao_id": "2"
+    },
+    {
+      "id": "4",
+      "nome": "Studio 57 -  Escritório",
+      "nome_empreendimento": "",
+      "organizacao_id": "2"
+    },
+    {
+      "id": "5",
+      "nome": "Beta Suítes",
+      "nome_empreendimento": "",
+      "organizacao_id": "2"
+    },
+    {
+      "id": "6",
+      "nome": "Refúgio Braúnas ",
+      "nome_empreendimento": "",
+      "organizacao_id": "2"
+    },
+    {
+      "id": "8",
+      "nome": "ARMAZEM VARGAS BUTIQUIM",
+      "nome_empreendimento": "",
+      "organizacao_id": "17"
+    },
+    {
+      "id": "10",
+      "nome": "Imóveis à venda",
+      "nome_empreendimento": "",
+      "organizacao_id": "2"
+    },
+    {
+      "id": "14",
+      "nome": "Residencial Vista Parque",
+      "nome_empreendimento": "Residencial Vista Parque",
+      "organizacao_id": "57"
+    },
+    {
+      "id": "16",
+      "nome": "Elo57",
+      "nome_empreendimento": null,
+      "organizacao_id": "2"
+    }
+  ],
+  "beta": [
+    {
+      "id": "1140",
+      "atividade_nome": "[Beta Suítes] Atualizar Book de Vendas",
+      "descricao": "Planejar e preparar a atualização do book de vendas do Beta Suítes. Nota: O projeto está na prefeitura, mas é necessário iniciar essa atividade de planejamento.",
+      "atividade_status": "Não Iniciado",
+      "data_inicio_prevista": "2026-07-20T03:00:00.000Z",
+      "data_fim_prevista": "2026-07-20T03:00:00.000Z",
+      "funcionario_id": "96",
+      "empreendimento_id": null,
+      "empreendimento_nome": null
+    },
+    {
+      "id": "1151",
+      "atividade_nome": "[Beta Suítes] Comprar copo Stanley com marca do Studio 57",
+      "descricao": "Efetuar a compra e personalização (tudo integrado no mesmo fornecedor) dos copos Stanley com a gravação da marca do Studio 57 para brindes da campanha do Beta Suítes.",
+      "atividade_status": "Não Iniciado",
+      "data_inicio_prevista": "2026-07-20T03:00:00.000Z",
+      "data_fim_prevista": "2026-07-20T03:00:00.000Z",
+      "funcionario_id": "96",
+      "empreendimento_id": null,
+      "empreendimento_nome": null
+    },
+    {
+      "id": "1147",
+      "atividade_nome": "[Beta Suítes / Refúgio Braúnas] Gravação de Roteiros de Vídeos",
+      "descricao": "Dia de gravação dedicado para produzir todos os 14 vídeos institucionais e comerciais mapeados.\n\n[Beta Suítes (5 vídeos)]\n1. Reel - Beta Suits está chegando a Governador Valadares (Imagine morar/investir modernidade perto da UFJF)\n2. Reel - Onde o Beta Suits será construído? (Destacar proximidades como UFJF, Hospital São Lucas, etc.)\n3. Reel - Studio inteligente: por que ele é tendência? (Rentabilidade, facilidade de locação, liquidez)\n4. Reel - Como funciona o pagamento? (Entrada 20%, 40% durante a obra, 40% na entrega/financiamento)\n5. Reel - Perguntas frequentes (Respostas sobre início da obra, prazo de entrega, garagens, preços)\n\n[Refúgio Braúnas (9 vídeos)]\n1. Reels - Imagine morar aqui (Imagens de drone, natureza, terrenos)\n2. Reels - Pronto para construir (Pavimentação, iluminação, rede de água prontas)\n3. Reels - Perto de tudo (Vídeo animado Google Earth mostrando o trajeto até o centro)\n4. Reels - Construa sem esperar (Roteiro de 4 cenas - liberação imediata após entrada)\n5. Reels - Segurança para investir (Roteiro de 6 cenas - segurança jurídica e escritura)\n6. Reels - Valorização (Roteiro de 5 cenas - crescimento patrimonial e infraestrutura)\n7. Reels - Quanto custa viver perto da natureza? (Custo-benefício da qualidade de vida)\n8. Reels - Perguntas Frequentes (Sobre guarita sem taxa de condomínio, parcelamento, etc.)\n9. Reels - Tour Completo (Visita guiada mostrando espaço, infraestrutura, natureza e localização)",
+      "atividade_status": "Não Iniciado",
+      "data_inicio_prevista": "2026-07-21T03:00:00.000Z",
+      "data_fim_prevista": "2026-07-21T03:00:00.000Z",
+      "funcionario_id": "96",
+      "empreendimento_id": null,
+      "empreendimento_nome": null
+    },
+    {
+      "id": "1141",
+      "atividade_nome": "[Beta Suítes] Desenvolver Book de Vendas A5 (Livreto)",
+      "descricao": "Criação e diagramação do book de vendas do Beta Suítes em formato A5 (livreto) para fins de distribuição física rápida.",
+      "atividade_status": "Não Iniciado",
+      "data_inicio_prevista": "2026-07-22T03:00:00.000Z",
+      "data_fim_prevista": "2026-07-22T03:00:00.000Z",
+      "funcionario_id": "96",
+      "empreendimento_id": null,
+      "empreendimento_nome": null
+    },
+    {
+      "id": "1142",
+      "atividade_nome": "[Beta Suítes] Produzir Panfleto (Sem Dobra)",
+      "descricao": "Criação do panfleto de divulgação rápida (sem dobra) do Beta Suítes. Esta é a primeira prioridade de material gráfico de divulgação rápida.",
+      "atividade_status": "Não Iniciado",
+      "data_inicio_prevista": "2026-07-24T03:00:00.000Z",
+      "data_fim_prevista": "2026-07-24T03:00:00.000Z",
+      "funcionario_id": "96",
+      "empreendimento_id": null,
+      "empreendimento_nome": null
+    },
+    {
+      "id": "1143",
+      "atividade_nome": "[Beta Suítes] Produzir Folder (Com Dobra)",
+      "descricao": "Criação do folder com dobra para o Beta Suítes. Nota: Esta atividade deve ser executada após o panfleto sem dobra.",
+      "atividade_status": "Não Iniciado",
+      "data_inicio_prevista": "2026-07-28T03:00:00.000Z",
+      "data_fim_prevista": "2026-07-28T03:00:00.000Z",
+      "funcionario_id": "96",
+      "empreendimento_id": null,
+      "empreendimento_nome": null
+    },
+    {
+      "id": "1144",
+      "atividade_nome": "[Refúgio Braúnas] Alinhamento com Maria Amelia: Oferta de Beta Suítes",
+      "descricao": "Conversar com Maria Amelia (Maria Emília) para verificar se ela permite a equipe de vendas oferecer o Beta Suítes caso o cliente do evento não tenha interesse ou perfil para o Refúgio Braúnas.",
+      "atividade_status": "Não Iniciado",
+      "data_inicio_prevista": "2026-07-29T03:00:00.000Z",
+      "data_fim_prevista": "2026-07-29T03:00:00.000Z",
+      "funcionario_id": "96",
+      "empreendimento_id": null,
+      "empreendimento_nome": null
+    }
+  ],
+  "elo": [
+    {
+      "id": "1161",
+      "atividade_nome": "Confirmar disponibilidade do auditório da FIEMG para o evento do Elo",
+      "descricao": "Confirmar a disponibilidade do auditório da FIEMG para quarta-feira, dia 19 de agosto de 2026, para a realização do evento de apresentação do Elo para construtoras parceiras. O evento visa colher feedbacks para estruturar o lançamento oficial em até 3 meses após.",
+      "atividade_status": "Não Iniciado",
+      "data_inicio_prevista": "2026-07-17T03:00:00.000Z",
+      "data_fim_prevista": "2026-07-17T03:00:00.000Z",
+      "funcionario_id": "96",
+      "empreendimento_id": "16",
+      "empreendimento_nome": "Elo57"
+    },
+    {
+      "id": "1171",
+      "atividade_nome": "Evento Elo57",
+      "descricao": "Atividade pai que agrupa todas as sub-tarefas e reuniões de planejamento e execução do evento Elo57 no auditório da FIEMG.",
+      "atividade_status": "Em Andamento",
+      "data_inicio_prevista": "2026-07-17T03:00:00.000Z",
+      "data_fim_prevista": "2026-07-17T03:00:00.000Z",
+      "funcionario_id": "96",
+      "empreendimento_id": "16",
+      "empreendimento_nome": "Elo57"
+    },
+    {
+      "id": "1198",
+      "atividade_nome": "1 - Criar perfil oficial Elo57 no Instagram",
+      "descricao": "Configurar a conta comercial, criar a bio institucional, link tree de contato e aplicar a identidade visual do sistema.",
+      "atividade_status": "Não Iniciado",
+      "data_inicio_prevista": "2026-07-20T03:00:00.000Z",
+      "data_fim_prevista": "2026-07-20T03:00:00.000Z",
+      "funcionario_id": "96",
+      "empreendimento_id": "16",
+      "empreendimento_nome": "Elo57"
+    },
+    {
+      "id": "1199",
+      "atividade_nome": "Planejar linha editorial e calendário de posts do Instagram",
+      "descricao": "Estruturar o calendário de 3 publicações semanais até 19/08 (expectativa, o que é o sistema, dores resolvidas, bastidores).",
+      "atividade_status": "Não Iniciado",
+      "data_inicio_prevista": "2026-07-21T03:00:00.000Z",
+      "data_fim_prevista": "2026-07-21T03:00:00.000Z",
+      "funcionario_id": "96",
+      "empreendimento_id": "16",
+      "empreendimento_nome": "Elo57"
+    },
+    {
+      "id": "1200",
+      "atividade_nome": "Produção e agendamento de posts - Semana 1 (Instagram Elo57)",
+      "descricao": "Criação de criativos e textos para os 3 posts iniciais de expectativa e conceito do sistema.",
+      "atividade_status": "Não Iniciado",
+      "data_inicio_prevista": "2026-07-23T03:00:00.000Z",
+      "data_fim_prevista": "2026-07-23T03:00:00.000Z",
+      "funcionario_id": "96",
+      "empreendimento_id": "16",
+      "empreendimento_nome": "Elo57"
+    },
+    {
+      "id": "1163",
+      "atividade_nome": "Elaborar e enviar convites para as construtoras parceiras (Elo)",
+      "descricao": "Criar a identidade visual do convite digital e iniciar os disparos de forma personalizada (WhatsApp/E-mail). Acompanhar as confirmações de presença (RSVP). A produção gráfica pode contar com o suporte de Simone.",
+      "atividade_status": "Não Iniciado",
+      "data_inicio_prevista": "2026-07-27T03:00:00.000Z",
+      "data_fim_prevista": "2026-07-27T03:00:00.000Z",
+      "funcionario_id": "96",
+      "empreendimento_id": "16",
+      "empreendimento_nome": "Elo57"
+    },
+    {
+      "id": "1204",
+      "atividade_nome": "Post 4: Gestão de Leads e CRM Kanban",
+      "descricao": "Publicação explicando como o Elo57 resolve o problema de perda de leads através do Kanban integrado ao CRM. Texto e arte detalhados no planejamento do Instagram.",
+      "atividade_status": "Não Iniciado",
+      "data_inicio_prevista": "2026-07-28T03:00:00.000Z",
+      "data_fim_prevista": "2026-07-28T03:00:00.000Z",
+      "funcionario_id": "96",
+      "empreendimento_id": "16",
+      "empreendimento_nome": "Elo57"
+    },
+    {
+      "id": "1201",
+      "atividade_nome": "Produção e agendamento de posts - Semana 2 (Instagram Elo57)",
+      "descricao": "Criação de criativos e textos para os posts sobre as principais dores resolvidas e funcionalidades do sistema.",
+      "atividade_status": "Não Iniciado",
+      "data_inicio_prevista": "2026-07-30T03:00:00.000Z",
+      "data_fim_prevista": "2026-07-30T03:00:00.000Z",
+      "funcionario_id": "96",
+      "empreendimento_id": "16",
+      "empreendimento_nome": "Elo57"
+    },
+    {
+      "id": "1205",
+      "atividade_nome": "Post 5: Diário de Obra Digital (RDO)",
+      "descricao": "Publicação sobre a digitalização do RDO (Relatório Diário de Obra) pelo Elo57, permitindo fotos e equipe registradas pelo celular. Texto e arte detalhados no planejamento do Instagram.",
+      "atividade_status": "Não Iniciado",
+      "data_inicio_prevista": "2026-07-30T03:00:00.000Z",
+      "data_fim_prevista": "2026-07-30T03:00:00.000Z",
+      "funcionario_id": "96",
+      "empreendimento_id": "16",
+      "empreendimento_nome": "Elo57"
+    },
+    {
+      "id": "1206",
+      "atividade_nome": "Post 6: Controle de Estoque e Almoxarifado",
+      "descricao": "Publicação sobre o controle integrado de almoxarifado no Elo57, reduzindo custos inesperados. Texto e arte detalhados no planejamento do Instagram.",
+      "atividade_status": "Não Iniciado",
+      "data_inicio_prevista": "2026-08-02T03:00:00.000Z",
+      "data_fim_prevista": "2026-08-02T03:00:00.000Z",
+      "funcionario_id": "96",
+      "empreendimento_id": "16",
+      "empreendimento_nome": "Elo57"
+    },
+    {
+      "id": "1202",
+      "atividade_nome": "Produção e agendamento de posts - Semana 3 (Instagram Elo57)",
+      "descricao": "Criação de criativos e textos para posts técnicos demonstrando a interface do Elo57.",
+      "atividade_status": "Não Iniciado",
+      "data_inicio_prevista": "2026-08-06T03:00:00.000Z",
+      "data_fim_prevista": "2026-08-06T03:00:00.000Z",
+      "funcionario_id": "96",
+      "empreendimento_id": "16",
+      "empreendimento_nome": "Elo57"
+    },
+    {
+      "id": "1165",
+      "atividade_nome": "Preparar sandbox e formulário de feedbacks (Elo)",
+      "descricao": "Garantir que o sistema Elo tenha contas de teste configuradas com dados fictícios prontos para simulação no evento. Estruturar a pesquisa digital de satisfação e usabilidade (acessível via QR Code).",
+      "atividade_status": "Não Iniciado",
+      "data_inicio_prevista": "2026-08-10T03:00:00.000Z",
+      "data_fim_prevista": "2026-08-10T03:00:00.000Z",
+      "funcionario_id": "96",
+      "empreendimento_id": "16",
+      "empreendimento_nome": "Elo57"
+    },
+    {
+      "id": "1203",
+      "atividade_nome": "Produção e agendamento de posts - Semana 4 (Instagram Elo57)",
+      "descricao": "Criação de criativos e textos para a contagem regressiva para a homologação presencial na FIEMG.",
+      "atividade_status": "Não Iniciado",
+      "data_inicio_prevista": "2026-08-13T03:00:00.000Z",
+      "data_fim_prevista": "2026-08-13T03:00:00.000Z",
+      "funcionario_id": "96",
+      "empreendimento_id": "16",
+      "empreendimento_nome": "Elo57"
+    },
+    {
+      "id": "1166",
+      "atividade_nome": "Check de infraestrutura e coffee break (FIEMG - Elo)",
+      "descricao": "Confirmar internet wi-fi liberada e estável no auditório da FIEMG (essencial para os testes online). Testar sonorização/projetor e fechar o cardápio de coffee break para recepção e networking.",
+      "atividade_status": "Não Iniciado",
+      "data_inicio_prevista": "2026-08-17T03:00:00.000Z",
+      "data_fim_prevista": "2026-08-17T03:00:00.000Z",
+      "funcionario_id": "96",
+      "empreendimento_id": "16",
+      "empreendimento_nome": "Elo57"
+    }
+  ],
+  "outras": [
+    {
+      "id": "1148",
+      "atividade_nome": "[Refúgio Braúnas] Campanha Refúgio Braúnas",
+      "descricao": "Campanha Geral de Marketing e Vendas - Refúgio Braúnas. Coordenação geral das ativações de marketing, tráfego, produção de materiais e plantão de vendas na Arena.",
+      "atividade_status": "Em Andamento",
+      "data_inicio_prevista": "2026-07-16T03:00:00.000Z",
+      "data_fim_prevista": "2026-07-16T03:00:00.000Z",
+      "funcionario_id": "96",
+      "empreendimento_id": null,
+      "empreendimento_nome": null
+    },
+    {
+      "id": "1139",
+      "atividade_nome": "[Studio 57] Verificar brindes com a marca",
+      "descricao": "Pesquisar e selecionar opções de brindes corporativos personalizados com a identidade visual do Estúdio 57.",
+      "atividade_status": "Não Iniciado",
+      "data_inicio_prevista": "2026-07-17T03:00:00.000Z",
+      "data_fim_prevista": "2026-07-17T03:00:00.000Z",
+      "funcionario_id": "96",
+      "empreendimento_id": null,
+      "empreendimento_nome": null
+    },
+    {
+      "id": "1145",
+      "atividade_nome": "[Refúgio Braúnas] Folders e Campanha de Ativação - Arena",
+      "descricao": "Criação de folders para o estande de ativação do Refúgio Braúnas e estruturação da campanha de ativação para o evento de patrocínio na Arena.",
+      "atividade_status": "Não Iniciado",
+      "data_inicio_prevista": "2026-08-03T03:00:00.000Z",
+      "data_fim_prevista": "2026-08-03T03:00:00.000Z",
+      "funcionario_id": "96",
+      "empreendimento_id": null,
+      "empreendimento_nome": null
+    },
+    {
+      "id": "1146",
+      "atividade_nome": "[Refúgio Braúnas] Estande de Ativação e Plantão de Vendas - Arena",
+      "descricao": "Presença e atendimento comercial no estande do Refúgio Braúnas na Arena (14, 15 e 16 de agosto). Revezamento de escala entre Simone, Ludmila, Raniere e Igor. Nota importante: Presença presencial obrigatória de Simone e Ludmila no dia 15 de agosto para atendimento e esclarecimento de dúvidas de potenciais compradores.",
+      "atividade_status": "Não Iniciado",
+      "data_inicio_prevista": "2026-08-14T03:00:00.000Z",
+      "data_fim_prevista": "2026-08-17T03:00:00.000Z",
+      "funcionario_id": "96",
+      "empreendimento_id": null,
+      "empreendimento_nome": null
+    }
+  ]
+}

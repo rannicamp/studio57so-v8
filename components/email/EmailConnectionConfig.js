@@ -110,24 +110,30 @@ export default function EmailConnectionConfig({ onClose }) {
  };
 
  const saveMutation = useMutation({
- mutationFn: async (data) => {
- const payload = {
- user_id: user.id,
- organizacao_id: organizacao_id,
- ...data,
- imap_user: data.email,
- smtp_user: data.email
- };
+    mutationFn: async (data) => {
+      // Limpa espaços em branco invisíveis (leading/trailing) que podem quebrar a conexão DNS ou de login
+      const trimmedData = {};
+      Object.keys(data).forEach(key => {
+        trimmedData[key] = typeof data[key] === 'string' ? data[key].trim() : data[key];
+      });
 
- let result;
- if (editingId) {
- result = await supabase.from('email_configuracoes').update(payload).eq('id', editingId);
- } else {
- result = await supabase.from('email_configuracoes').insert(payload);
- }
+      const payload = {
+        user_id: user.id,
+        organizacao_id: organizacao_id,
+        ...trimmedData,
+        imap_user: trimmedData.email,
+        smtp_user: trimmedData.email
+      };
 
- if (result.error) throw result.error;
- },
+      let result;
+      if (editingId) {
+        result = await supabase.from('email_configuracoes').update(payload).eq('id', editingId);
+      } else {
+        result = await supabase.from('email_configuracoes').insert(payload);
+      }
+
+      if (result.error) throw result.error;
+    },
  onSuccess: () => {
  toast.success(editingId ? "Conta atualizada!" : "Conta conectada!");
  queryClient.invalidateQueries(['emailAccounts']);

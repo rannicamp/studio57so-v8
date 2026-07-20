@@ -218,7 +218,7 @@ export default function FinanceiroPage() {
  );
 
  if (authLoading || isLoadingInitialData) return <div className="text-center p-10"><FontAwesomeIcon icon={faSpinner} spin size="2x" /> Carregando...</div>;
- if (!canViewPage) return <div className="text-center p-10 bg-red-50 border border-red-200 rounded-lg"><FontAwesomeIcon icon={faLock} size="3x" className="text-red-400 mb-4"><h2 className="text-2xl font-bold text-red-700">Acesso Negado</h2></FontAwesomeIcon></div>;
+ if (!canViewPage) return <div className="text-center p-10 bg-red-50 border border-red-200 rounded-lg"><FontAwesomeIcon icon={faLock} size="3x" className="text-red-400 mb-4" /><h2 className="text-2xl font-bold text-red-700">Acesso Negado</h2></div>;
 
  return (
  <div className="space-y-6">
