@@ -65,6 +65,13 @@ export function AuthProvider({ children }) {
             return;
         }
 
+        if (typeof window !== 'undefined' && window.location.pathname.startsWith('/atualizar-senha')) {
+            console.log("AuthContext: Ignorando busca de perfil no /atualizar-senha para evitar conflito de sessão.");
+            setUser(currentUser);
+            setLoading(false);
+            return;
+        }
+
         setLoading(true);
 
         const { data: profileData, error } = await supabase
