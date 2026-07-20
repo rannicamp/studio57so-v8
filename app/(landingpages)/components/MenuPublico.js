@@ -67,7 +67,6 @@ export default function MenuPublico() {
           <Link href="/" className="text-gray-600 hover:text-primary transition-colors font-medium">Início</Link>
           <Link href="/sobre-nos" className="text-gray-600 hover:text-primary transition-colors font-medium">Sobre Nós</Link>
           <Link href="/empreendimentosstudio" className="text-gray-600 hover:text-primary transition-colors font-medium">Empreendimentos</Link>
-          <Link href="/elo57" className="text-gray-600 hover:text-primary transition-colors font-medium">Elo 57</Link>
           
           {/* Lado Direito: Logo Elo 57 como botão de login */}
           <Link href="/login" className="hover:opacity-80 transition-opacity flex items-center" aria-label="Entrar no Elo 57">
@@ -98,7 +97,6 @@ export default function MenuPublico() {
           <Link href="/" className="block text-center py-2 text-gray-800 hover:bg-gray-100 font-medium" onClick={() => setIsOpen(false)}>Início</Link>
           <Link href="/sobre-nos" className="block text-center py-2 text-gray-800 hover:bg-gray-100 font-medium" onClick={() => setIsOpen(false)}>Sobre Nós</Link>
           <Link href="/empreendimentosstudio" className="block text-center py-2 text-gray-800 hover:bg-gray-100 font-medium" onClick={() => setIsOpen(false)}>Empreendimentos</Link>
-          <Link href="/elo57" className="block text-center py-2 text-gray-800 hover:bg-gray-100 font-medium" onClick={() => setIsOpen(false)}>Elo 57</Link>
           <div className="mt-4 flex justify-center">
             <Link href="/login" className="hover:opacity-80 transition-opacity" onClick={() => setIsOpen(false)} aria-label="Entrar no Elo 57">
               <Image 
