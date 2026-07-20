@@ -928,6 +928,93 @@ async function handleMcpRequest(rpcRequest, supabase, user) {
                 },
                 required: ['conteudo_base64', 'nome_arquivo', 'recurso_tipo', 'recurso_id']
               }
+            },
+            // ==================== BIM E ORÇAMENTAÇÃO ====================
+            {
+              name: 'listar_modelos_bim',
+              description: 'Lista todos os modelos BIM ativos de um empreendimento/obra.',
+              inputSchema: {
+                type: 'object',
+                properties: {
+                  empreendimento_id: { type: 'integer', description: 'ID do empreendimento.' }
+                },
+                required: ['empreendimento_id']
+              }
+            },
+            {
+              name: 'obter_kpis_bim',
+              description: 'Retorna estatísticas consolidadas (KPIs) físicas e estimadas de custo de modelos BIM.',
+              inputSchema: {
+                type: 'object',
+                properties: {
+                  empreendimento_id: { type: 'integer', description: 'ID do empreendimento.' },
+                  projeto_ids: { type: 'array', items: { type: 'integer' }, description: 'IDs opcionais de modelos específicos.' }
+                },
+                required: ['empreendimento_id']
+              }
+            },
+            {
+              name: 'listar_elementos_por_categoria',
+              description: 'Lista os elementos do Revit de projetos BIM agrupados por categoria e família com detalhamento de áreas/volumes.',
+              inputSchema: {
+                type: 'object',
+                properties: {
+                  projeto_ids: { type: 'array', items: { type: 'integer' }, description: 'IDs dos modelos BIM.' },
+                  categoria: { type: 'string', description: 'Nome opcional da categoria (ex: Walls, Floors).' }
+                },
+                required: ['projeto_ids']
+              }
+            },
+            {
+              name: 'listar_materiais_projeto',
+              description: 'Lista os quantitativos e custos consolidados por insumo/material de um empreendimento.',
+              inputSchema: {
+                type: 'object',
+                properties: {
+                  empreendimento_id: { type: 'integer', description: 'ID do empreendimento.' },
+                  projeto_ids: { type: 'array', items: { type: 'integer' }, description: 'IDs opcionais de modelos específicos.' }
+                },
+                required: ['empreendimento_id']
+              }
+            },
+            {
+              name: 'consultar_quantitativo_propriedades',
+              description: 'Realiza a busca flexível de elementos BIM por palavra-chave (ex: tubo, pilar, concreto) e calcula o somatório de uma propriedade física (ex: Comprimento, Volume, Área, Quantidade).',
+              inputSchema: {
+                type: 'object',
+                properties: {
+                  empreendimento_id: { type: 'integer', description: 'ID do empreendimento.' },
+                  termo_busca: { type: 'string', description: 'Termo para pesquisar (tipo, família ou propriedades).' },
+                  propriedade_soma: { type: 'string', description: 'Nome da propriedade do Revit a ser somada (ex: Comprimento, Volume, Área).' },
+                  projeto_ids: { type: 'array', items: { type: 'integer' }, description: 'IDs opcionais de modelos específicos.' }
+                },
+                required: ['empreendimento_id', 'termo_busca', 'propriedade_soma']
+              }
+            },
+            {
+              name: 'adicionar_projeto_bim',
+              description: 'Cadastra um novo arquivo de projeto BIM com o ID do empreendimento, disciplina e URN da Autodesk.',
+              inputSchema: {
+                type: 'object',
+                properties: {
+                  empreendimento_id: { type: 'integer', description: 'ID do empreendimento.' },
+                  disciplina_id: { type: 'integer', description: 'ID da disciplina de projeto.' },
+                  nome_arquivo: { type: 'string', description: 'Nome do arquivo RVT.' },
+                  urn_autodesk: { type: 'string', description: 'URN descriptografada da Autodesk.' }
+                },
+                required: ['empreendimento_id', 'disciplina_id', 'nome_arquivo', 'urn_autodesk']
+              }
+            },
+            {
+              name: 'disparar_extracao_bim',
+              description: 'Dispara a rotina de extração assíncrona de metadados da Autodesk para popular a tabela elementos_bim.',
+              inputSchema: {
+                type: 'object',
+                properties: {
+                  projeto_id: { type: 'integer', description: 'ID do projeto cadastrado.' }
+                },
+                required: ['projeto_id']
+              }
             }
           ]
         },
@@ -2723,6 +2810,289 @@ async function executeTool(name, args, supabase, user) {
         default:
           throw new Error(`Tipo de recurso desconhecido: ${recurso_tipo}`);
       }
+    }
+
+    // ==================== BIM E ORÇAMENTAÇÃO ====================
+    case 'listar_modelos_bim': {
+      const { empreendimento_id } = args;
+      const { data, error } = await supabase
+        .from('projetos_bim')
+        .select(`
+          id, 
+          nome_arquivo, 
+          status, 
+          versao, 
+          criado_em, 
+          urn_autodesk, 
+          disciplinas_projetos:disciplina_id(nome)
+        `)
+        .eq('empreendimento_id', empreendimento_id)
+        .eq('is_lixeira', false)
+        .order('criado_em', { ascending: false });
+
+      if (error) throw new Error(error.message);
+      return data;
+    }
+
+    case 'obter_kpis_bim': {
+      const { empreendimento_id, projeto_ids } = args;
+      
+      let ids = projeto_ids;
+      if (!ids || ids.length === 0) {
+        const { data: projData, error: projErr } = await supabase
+          .from('projetos_bim')
+          .select('id')
+          .eq('empreendimento_id', empreendimento_id)
+          .eq('is_lixeira', false)
+          .neq('status', 'Erro');
+        if (projErr) throw new Error(projErr.message);
+        ids = (projData || []).map(p => p.id);
+      }
+
+      if (ids.length === 0) {
+        return { total_elementos: 0, total_categorias: 0, custo_estimado: 0 };
+      }
+
+      // 1. Contagem total de elementos ativos
+      const { count: totalElementos, error: countErr } = await supabase
+        .from('elementos_bim')
+        .select('*', { count: 'exact', head: true })
+        .in('projeto_bim_id', ids)
+        .eq('is_active', true);
+      if (countErr) throw new Error(countErr.message);
+
+      // 2. Total de categorias distintas
+      const { data: catData, error: catErr } = await supabase
+        .rpc('get_categorias_projeto', { p_projeto_ids: ids });
+      if (catErr) throw new Error(catErr.message);
+      const totalCategorias = catData?.length || 0;
+
+      // 3. Custo estimado total (Chamando RPC consolidada)
+      const { data: orcData, error: orcErr } = await supabase
+        .rpc('get_quantitativos_orcamentacao_bim', { 
+          p_organizacao_id: user.organizacao_id,
+          p_projeto_ids: ids,
+          p_empreendimento_id: empreendimento_id
+        });
+      if (orcErr) throw new Error(orcErr.message);
+      const custoEstimado = (orcData || []).reduce((acc, row) => acc + Number(row.custo_total || 0), 0);
+
+      return {
+        total_elementos: totalElementos || 0,
+        total_categorias: totalCategorias,
+        custo_estimado: custoEstimado,
+        projetos_analisados: ids
+      };
+    }
+
+    case 'listar_elementos_por_categoria': {
+      const { projeto_ids, categoria } = args;
+      if (!projeto_ids || projeto_ids.length === 0) throw new Error('projeto_ids é obrigatório.');
+
+      let query = supabase
+        .from('elementos_bim')
+        .select('id, external_id, categoria, familia, tipo, propriedades')
+        .in('projeto_bim_id', projeto_ids)
+        .eq('is_active', true);
+
+      if (categoria) {
+        query = query.ilike('categoria', `%${categoria}%`);
+      }
+
+      // Limita a 500 para evitar exceder buffers de payload do JSON-RPC
+      const { data, error } = await query.limit(500);
+      if (error) throw new Error(error.message);
+      return data;
+    }
+
+    case 'listar_materiais_projeto': {
+      const { empreendimento_id, projeto_ids } = args;
+      
+      let ids = projeto_ids;
+      if (!ids || ids.length === 0) {
+        const { data: projData, error: projErr } = await supabase
+          .from('projetos_bim')
+          .select('id')
+          .eq('empreendimento_id', empreendimento_id)
+          .eq('is_lixeira', false)
+          .neq('status', 'Erro');
+        if (projErr) throw new Error(projErr.message);
+        ids = (projData || []).map(p => p.id);
+      }
+
+      if (ids.length === 0) return [];
+
+      const { data, error } = await supabase
+        .rpc('get_quantitativos_orcamentacao_bim', {
+          p_organizacao_id: user.organizacao_id,
+          p_projeto_ids: ids,
+          p_empreendimento_id: empreendimento_id
+        });
+
+      if (error) throw new Error(error.message);
+      return data;
+    }
+
+    case 'consultar_quantitativo_propriedades': {
+      const { empreendimento_id, termo_busca, propriedade_soma, projeto_ids } = args;
+
+      let ids = projeto_ids;
+      if (!ids || ids.length === 0) {
+        const { data: projData, error: projErr } = await supabase
+          .from('projetos_bim')
+          .select('id')
+          .eq('empreendimento_id', empreendimento_id)
+          .eq('is_lixeira', false)
+          .neq('status', 'Erro');
+        if (projErr) throw new Error(projErr.message);
+        ids = (projData || []).map(p => p.id);
+      }
+
+      if (ids.length === 0) {
+        return { total_elementos_encontrados: 0, soma_total: 0, unidade: 'UN', mensagem: 'Nenhum projeto ativo encontrado.' };
+      }
+
+      // Faz a busca na tabela elementos_bim
+      const { data: elementos, error } = await supabase
+        .from('elementos_bim')
+        .select('id, tipo, familia, categoria, propriedades')
+        .in('projeto_bim_id', ids)
+        .eq('is_active', true)
+        .or(`tipo.ilike.%${termo_busca}%,familia.ilike.%${termo_busca}%,categoria.ilike.%${termo_busca}%`);
+
+      if (error) throw new Error(error.message);
+
+      let somaTotal = 0;
+      let totalElementos = elementos?.length || 0;
+      const agrupados = {};
+      let unidadeDetectada = '';
+
+      elementos.forEach(el => {
+        const valRaw = el.propriedades?.[propriedade_soma];
+        if (valRaw !== undefined && valRaw !== null) {
+          const strVal = String(valRaw).replace(',', '.');
+          const numMatch = strVal.match(/^([0-9]+(?:\.[0-9]+)?)/);
+          const valNum = numMatch ? parseFloat(numMatch[1]) : 0;
+          somaTotal += valNum;
+
+          if (!unidadeDetectada) {
+            const unitMatch = strVal.match(/[a-zA-Z²³]+$/);
+            if (unitMatch) unidadeDetectada = unitMatch[0];
+          }
+
+          const chave = `${el.categoria} | ${el.familia} | ${el.tipo}`;
+          if (!agrupados[chave]) {
+            agrupados[chave] = { quantidade: 0, soma: 0 };
+          }
+          agrupados[chave].quantidade++;
+          agrupados[chave].soma += valNum;
+        }
+      });
+
+      const detalhes = Object.entries(agrupados).map(([tipo, info]) => ({
+        tipo_elemento: tipo,
+        total_elementos: info.quantidade,
+        soma_propriedade: Number(info.soma.toFixed(3))
+      }));
+
+      return {
+        termo_busca,
+        propriedade_soma,
+        total_elementos_encontrados: totalElementos,
+        soma_total: Number(somaTotal.toFixed(3)),
+        unidade: unidadeDetectada || 'UN',
+        detalhamento_por_tipo: detalhes.slice(0, 50)
+      };
+    }
+
+    case 'adicionar_projeto_bim': {
+      const { empreendimento_id, disciplina_id, nome_arquivo, urn_autodesk } = args;
+      
+      const { data, error } = await supabase
+        .from('projetos_bim')
+        .insert({
+          empreendimento_id,
+          disciplina_id,
+          nome_arquivo,
+          urn_autodesk,
+          status: 'Pendente',
+          versao: 1,
+          organizacao_id: user.organizacao_id
+        })
+        .select()
+        .single();
+
+      if (error) throw new Error(error.message);
+      return { message: 'Projeto BIM cadastrado com sucesso!', projeto: data };
+    }
+
+    case 'disparar_extracao_bim': {
+      const { projeto_id } = args;
+      
+      const { data: modelo, error: modErr } = await supabase
+        .from('projetos_bim')
+        .select('id, urn_autodesk, status')
+        .eq('id', projeto_id)
+        .single();
+
+      if (modErr) throw new Error(modErr.message);
+      if (!modelo.urn_autodesk) throw new Error('Projeto não possui URN Autodesk associada.');
+
+      // 1. Chamar a API Derivative da Autodesk para disparar o Translate
+      const APS_CLIENT_ID = process.env.APS_CLIENT_ID;
+      const APS_CLIENT_SECRET = process.env.APS_CLIENT_SECRET;
+
+      const authUrl = 'https://developer.api.autodesk.com/authentication/v2/token';
+      const authParams = new URLSearchParams();
+      authParams.append('client_id', APS_CLIENT_ID);
+      authParams.append('client_secret', APS_CLIENT_SECRET);
+      authParams.append('grant_type', 'client_credentials');
+      authParams.append('scope', 'data:read data:write bucket:create bucket:read');
+
+      const authRes = await fetch(authUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: authParams
+      });
+
+      if (!authRes.ok) throw new Error('Falha de autenticação Autodesk APS.');
+      const credentials = await authRes.json();
+      const accessToken = credentials.access_token;
+
+      const derivativeUrl = 'https://developer.api.autodesk.com/modelderivative/v2/designdata/job';
+      const translateRes = await fetch(derivativeUrl, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json', 'x-ads-force': 'true' },
+        body: JSON.stringify({ 
+          input: { urn: modelo.urn_autodesk }, 
+          output: { 
+            formats: [
+              { type: 'svf', views: ['2d', '3d'] },
+              { type: 'ifc' }
+            ] 
+          } 
+        })
+      });
+
+      if (!translateRes.ok) {
+        const errorText = await translateRes.text();
+        throw new Error(`Erro na tradução APS: ${errorText}`);
+      }
+
+      // 2. Colocar status do projeto como 'Pendente' para que o navegador processe a extração de dados
+      const { error: updErr } = await supabase
+        .from('projetos_bim')
+        .update({ status: 'Pendente' })
+        .eq('id', projeto_id);
+
+      if (updErr) throw new Error(updErr.message);
+
+      return { 
+        message: 'Tradução 3D Autodesk APS disparada com sucesso!', 
+        projeto_id, 
+        status: 'Pendente',
+        aviso: 'O modelo está sendo traduzido na Autodesk. A extração dos elementos BIM para a base de dados do Supabase será executada automaticamente pelo navegador na próxima abertura do visualizador 3D pelo usuário.'
+      };
     }
 
     // ==================== EMPREENDIMENTOS / VENDAS ====================
