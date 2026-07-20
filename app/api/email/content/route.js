@@ -275,13 +275,33 @@ export async function GET(request) {
     const source = messages[0].parts.find(part => part.which === '')?.body;
     const parsed = await simpleParser(source);
 
-    // Sanitização de anexos
-    const attachmentsMeta = parsed.attachments.map(att => ({
-      filename: att.filename,
-      contentType: att.contentType,
-      size: att.size,
-      content: null
-    }));
+    // Sanitização de anexos e identificação de convites de calendário (iCalendar/ICS)
+    let meetingHtml = null;
+    const attachmentsMeta = parsed.attachments.map(att => {
+      let filename = att.filename;
+      if (!filename && (att.contentType?.includes('calendar') || att.contentType?.includes('ics'))) {
+        filename = 'convite.ics';
+      }
+
+      if (att.content && (att.contentType?.includes('calendar') || filename?.endsWith('.ics'))) {
+        try {
+          const icsText = att.content.toString('utf8');
+          const eventDetails = parseICS(icsText);
+          if (eventDetails && eventDetails.summary) {
+            meetingHtml = generateMeetingHtml(eventDetails);
+          }
+        } catch (icsErr) {
+          console.error('Erro ao processar anexo de calendário:', icsErr);
+        }
+      }
+
+      return {
+        filename: filename || 'Anexo sem nome',
+        contentType: att.contentType,
+        size: att.size,
+        content: null
+      };
+    });
 
     const emailDataForDb = {
       id: uid,
@@ -290,7 +310,7 @@ export async function GET(request) {
       to: parsed.to?.text,
       cc: parsed.cc?.text,
       date: parsed.date,
-      html: parsed.html || parsed.textAsHtml || '',
+      html: meetingHtml || parsed.html || parsed.textAsHtml || '',
       text: parsed.text || '',
       attachments: attachmentsMeta
     };
@@ -316,4 +336,144 @@ export async function GET(request) {
     console.error('Erro ao baixar conteúdo:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+}
+
+// ─── PARSEADORES AUXILIARES DE CONVITE DE REUNIÃO (iCalendar / ICS) ────────────────
+function parseICS(icsText) {
+  // Desdobra linhas longas (RFC 5545 especifica que linhas continuadas começam com espaço ou tab)
+  const unfolded = icsText.replace(/\r?\n[ \t]/g, '');
+
+  // Pega apenas a parte do evento VEVENT
+  const veventMatch = unfolded.match(/BEGIN:VEVENT([\s\S]*?)END:VEVENT/i);
+  if (!veventMatch) return null;
+  const eventBody = veventMatch[1];
+
+  const getVal = (key) => {
+    const regex = new RegExp(`^${key}[^:]*:(.*)$`, 'im');
+    const match = eventBody.match(regex);
+    return match ? match[1].trim() : '';
+  };
+
+  const getCN = (key) => {
+    const regex = new RegExp(`^${key};[^:]*CN=([^:;]+)`, 'im');
+    const match = eventBody.match(regex);
+    return match ? match[1].trim() : '';
+  };
+
+  let summary = getVal('SUMMARY');
+  let organizerCN = getCN('ORGANIZER');
+  let organizerEmail = getVal('ORGANIZER').replace(/mailto:/i, '');
+  let location = getVal('LOCATION');
+  let description = getVal('DESCRIPTION');
+  let dtstartRaw = getVal('DTSTART');
+  let dtendRaw = getVal('DTEND');
+
+  // Fallbacks de chaves sem parâmetros complexos
+  if (!summary) {
+    const simpleSummary = eventBody.match(/^SUMMARY:(.*)$/im);
+    summary = simpleSummary ? simpleSummary[1].trim() : '(Sem Título)';
+  }
+  if (!organizerCN) {
+    const simpleOrg = eventBody.match(/^ORGANIZER:(.*)$/im);
+    organizerCN = simpleOrg ? simpleOrg[1].replace(/mailto:/i, '').trim() : '';
+  }
+
+  // Parse de datas do formato iCalendar YYYYMMDDTHHMMSS
+  const parseIcalDate = (raw) => {
+    if (!raw) return null;
+    const match = raw.match(/(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})/);
+    if (!match) return null;
+    return new Date(match[1], match[2] - 1, match[3], match[4], match[5], match[6]);
+  };
+
+  const dtstart = parseIcalDate(dtstartRaw);
+  const dtend = parseIcalDate(dtendRaw);
+
+  return {
+    summary,
+    organizer: organizerCN || organizerEmail,
+    organizerEmail,
+    location,
+    description: description.replace(/\\n/g, '\n').replace(/\\,/g, ','),
+    dtstart,
+    dtend
+  };
+}
+
+function generateMeetingHtml(event) {
+  const weekdays = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
+  const months = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+  const monthsShort = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+
+  const formatDate = (date) => {
+    if (!date) return '';
+    const day = date.getDate();
+    const month = months[date.getMonth()];
+    const year = date.getFullYear();
+    const weekday = weekdays[date.getDay()];
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${weekday}, ${day} de ${month} de ${year} às ${hours}:${minutes}`;
+  };
+
+  const startStr = formatDate(event.dtstart);
+  let timeRange = startStr;
+  
+  if (event.dtstart && event.dtend) {
+    const endHours = String(event.dtend.getHours()).padStart(2, '0');
+    const endMinutes = String(event.dtend.getMinutes()).padStart(2, '0');
+    timeRange = `${startStr} – ${endHours}:${endMinutes}`;
+  }
+
+  const monthShort = event.dtstart ? monthsShort[event.dtstart.getMonth()] : 'AGENDA';
+  const dayNum = event.dtstart ? event.dtstart.getDate() : '?';
+
+  return `
+    <div style="font-family: sans-serif; max-width: 600px; margin: 20px auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); background-color: #ffffff;">
+      <div style="background-color: #f8fafc; border-bottom: 1px solid #e2e8f0; padding: 20px; display: flex; align-items: center; gap: 15px;">
+        <div style="background-color: #2563eb; color: white; padding: 12px; border-radius: 8px; width: 48px; height: 48px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-weight: bold; font-size: 14px; box-sizing: border-box;">
+          <span style="font-size: 9px; text-transform: uppercase; line-height: 1;">${monthShort}</span>
+          <span style="font-size: 18px; line-height: 1.1; margin-top: 2px;">${dayNum}</span>
+        </div>
+        <div>
+          <h3 style="margin: 0; color: #0f172a; font-size: 16px; font-weight: bold;">Convite de Reunião</h3>
+          <p style="margin: 3px 0 0 0; color: #64748b; font-size: 13px;">Recebido via agendador de calendário</p>
+        </div>
+      </div>
+      
+      <div style="padding: 24px; color: #334155; font-size: 14px; line-height: 1.6;">
+        <h4 style="margin: 0 0 16px 0; color: #1e3a8a; font-size: 18px; font-weight: bold; line-height: 1.3;">
+          ${event.summary}
+        </h4>
+        
+        <div style="background-color: #f1f5f9; border-radius: 8px; padding: 16px; margin-bottom: 20px;">
+          <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+            <tr style="vertical-align: top;">
+              <td style="padding: 4px 0; color: #64748b; font-weight: bold; width: 100px;">Quando:</td>
+              <td style="padding: 4px 0; color: #0f172a; font-weight: 500;">${timeRange}</td>
+            </tr>
+            ${event.location ? `
+            <tr style="vertical-align: top;">
+              <td style="padding: 4px 0; color: #64748b; font-weight: bold;">Onde:</td>
+              <td style="padding: 4px 0; color: #0f172a; font-weight: 500;">${event.location}</td>
+            </tr>` : ''}
+            <tr style="vertical-align: top;">
+              <td style="padding: 4px 0; color: #64748b; font-weight: bold;">Organizador:</td>
+              <td style="padding: 4px 0; color: #0f172a; font-weight: 500;">${event.organizer} ${event.organizerEmail ? `&lt;${event.organizerEmail}&gt;` : ''}</td>
+            </tr>
+          </table>
+        </div>
+        
+        ${event.description ? `
+        <div style="margin-top: 16px;">
+          <h5 style="margin: 0 0 8px 0; color: #475569; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;">Descrição / Mensagem:</h5>
+          <div style="white-space: pre-wrap; color: #334155; background-color: #fafafa; border: 1px solid #f1f5f9; border-radius: 6px; padding: 12px; font-family: monospace; font-size: 12px;">${event.description}</div>
+        </div>` : ''}
+      </div>
+      
+      <div style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 12px 24px; font-size: 11px; color: #94a3b8; text-align: center;">
+        Arquivo de convite associado (.ics) disponível nos anexos abaixo.
+      </div>
+    </div>
+  `;
 }
