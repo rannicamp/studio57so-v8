@@ -193,7 +193,7 @@ export function useBimMapeamentos({ organizacaoId, empreendimentoId, modelosIds 
   };
 
   // ─── Calcular quantitativos consolidados por material (Via Banco / RPC) ────
-  const { data: quantitativoPorMaterial = [], isLoading: carregandoQuantitativoPorMaterial } = useQuery({
+  const { data: quantitativoPorMaterial = [], isLoading: carregandoQuantitativoPorMaterial, isFetching: buscandoQuantitativoPorMaterial } = useQuery({
     queryKey: ['bim_quantitativos_orcamentacao', organizacaoId, empreendimentoId, [...modelosIds].sort().join(',')],
     queryFn: async () => {
       if (!empreendimentoId || !organizacaoId) return [];
@@ -285,10 +285,11 @@ export function useBimMapeamentos({ organizacaoId, empreendimentoId, modelosIds 
     },
     enabled: !!organizacaoId && !!empreendimentoId,
     staleTime: 1000 * 60 * 5,
+    placeholderData: (prev) => prev,
   });
 
   // ─── Calcular quantitativos consolidados por categoria (Via Banco / RPC) ────
-  const { data: quantitativoPorCategoria = [], isLoading: carregandoQuantitativoPorCategoria } = useQuery({
+  const { data: quantitativoPorCategoria = [], isLoading: carregandoQuantitativoPorCategoria, isFetching: buscandoQuantitativoPorCategoria } = useQuery({
     queryKey: ['bim_quantitativos_categoria', organizacaoId, empreendimentoId, [...modelosIds].sort().join(',')],
     queryFn: async () => {
       if (!empreendimentoId || !organizacaoId) return [];
@@ -380,6 +381,7 @@ export function useBimMapeamentos({ organizacaoId, empreendimentoId, modelosIds 
     },
     enabled: !!organizacaoId && !!empreendimentoId,
     staleTime: 1000 * 60 * 5,
+    placeholderData: (prev) => prev,
   });
 
   // ─── Calcular quantitativos consolidados por entregas (Via Supabase) ───────
@@ -445,9 +447,9 @@ export function useBimMapeamentos({ organizacaoId, empreendimentoId, modelosIds 
     atualizandoFator,
     resolverMapeamento,
     quantitativoPorMaterial,
-    carregandoQuantitativoPorMaterial,
+    carregandoQuantitativoPorMaterial: carregandoQuantitativoPorMaterial || buscandoQuantitativoPorMaterial,
     quantitativoPorCategoria,
-    carregandoQuantitativoPorCategoria,
+    carregandoQuantitativoPorCategoria: carregandoQuantitativoPorCategoria || buscandoQuantitativoPorCategoria,
     entregasPorMaterial,
     carregandoEntregas,
     propriedadesMapeadas,

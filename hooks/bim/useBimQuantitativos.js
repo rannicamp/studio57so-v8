@@ -210,7 +210,7 @@ export function useBimQuantitativos({ organizacaoId }) {
 
   // ─── Query 3: Esqueleto de Categorias do Modelo (Banda ultraleve) ───
   const elementosQueryKey = ['bimQuant_esqueleto_categorias', [...modelosSelecionadosIds].sort().join(','), organizacaoId];
-  const { data: esqueletoCategorias = [], isLoading: carregandoElementos } = useQuery({
+  const { data: esqueletoCategorias = [], isLoading: carregandoElementos, isFetching: buscandoElementos } = useQuery({
     queryKey: elementosQueryKey,
     queryFn: async () => {
       if (modelosSelecionadosIds.length === 0 || !organizacaoId) return [];
@@ -224,6 +224,7 @@ export function useBimQuantitativos({ organizacaoId }) {
     },
     enabled: modelosSelecionadosIds.length > 0 && !!organizacaoId,
     staleTime: 3 * 60 * 1000,
+    placeholderData: (prev) => prev,
   });
 
   // Função assíncrona para buscar as famílias de uma categoria sob demanda
@@ -494,7 +495,7 @@ export function useBimQuantitativos({ organizacaoId }) {
     // Elementos do modelo selecionado
     grupos,
     todosElementos,              // flat do modelo selecionado (vazio)
-    carregandoElementos,
+    carregandoElementos: carregandoElementos || buscandoElementos,
     carregandoTodosElementos,
     kpis,
     // Elementos do empreendimento inteiro (Por Material)
