@@ -2,7 +2,7 @@
 
 "use client";
 
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { createClient } from '../utils/supabase/client';
 import { useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
@@ -19,6 +19,11 @@ export function AuthProvider({ children }) {
     const [isProprietario, setIsProprietario] = useState(false);
     const [permissions, setPermissions] = useState({});
     const [organizacao_id, setOrganizacaoId] = useState(null);
+
+    const userRef = useRef(null);
+    useEffect(() => {
+        userRef.current = user;
+    }, [user]);
 
     const forceLogout = useCallback(async () => {
         if (typeof window !== 'undefined') {
@@ -55,13 +60,19 @@ export function AuthProvider({ children }) {
         router.push('/login?error=Sessão inválida ou usuário não encontrado.');
     }, [supabase, router, queryClient]);
 
-    const fetchProfileAndPermissions = useCallback(async (currentUser) => {
+    const fetchProfileAndPermissions = useCallback(async (currentUser, forceRefresh = false) => {
         if (!currentUser) {
             setUser(null);
             setPermissions({});
             setIsProprietario(false);
             setOrganizacaoId(null);
             setLoading(false);
+            return;
+        }
+
+        // Se já temos o usuário carregado em cache com o mesmo ID, evita consultas de revalidação redundantes ao banco (ex: no window focus)
+        if (!forceRefresh && userRef.current && userRef.current.id === currentUser.id) {
+            console.log("AuthContext: Evitando revalidação automática de sessão redundante.");
             return;
         }
 
@@ -202,7 +213,7 @@ export function AuthProvider({ children }) {
     const refreshAuthUser = useCallback(async () => {
         const { data: { user: currentUser } } = await supabase.auth.getUser();
         if (currentUser) {
-            await fetchProfileAndPermissions(currentUser);
+            await fetchProfileAndPermissions(currentUser, true);
         }
     }, [supabase, fetchProfileAndPermissions]);
 
