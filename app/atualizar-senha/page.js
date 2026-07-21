@@ -22,37 +22,79 @@ export default function AtualizarSenhaPage() {
   const logoUrl = "/marca/logo-elo57-horizontal.svg";
 
   useEffect(() => {
-    let sessionEstablished = false;
+    async function handleAuthRedirect() {
+      try {
+        console.log("[Atualizar Senha] Iniciando validação do link...");
+        
+        // 1. Verifica se existem parâmetros de erro ou tokens no hash da URL (lado do cliente)
+        const hash = window.location.hash;
+        if (hash) {
+          console.log("[Atualizar Senha] Hash encontrado na URL. Processando...");
+          const params = new URLSearchParams(hash.substring(1));
+          
+          const accessToken = params.get('access_token');
+          const refreshToken = params.get('refresh_token');
+          const errorDescription = params.get('error_description');
 
-    // 1. Escuta mudanças de estado (Supabase trata a hash da URL de forma assíncrona)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log("[Atualizar Senha] Evento de Auth:", event, !!session);
-      if (session) {
-        sessionEstablished = true;
-        setVerificando(false);
-      }
-    });
+          // Se o Supabase retornou um erro (ex: link expirado ou inválido)
+          if (errorDescription) {
+            const decodedError = decodeURIComponent(errorDescription).replace(/\+/g, ' ');
+            console.error("[Atualizar Senha] Erro retornado pelo Supabase no hash:", decodedError);
+            toast.error("Link inválido ou expirado.", {
+              description: decodedError
+            });
+            router.push('/recuperar-senha');
+            return;
+          }
 
-    // 2. Aguarda um pequeno delay de 1.5s para dar tempo ao SDK de processar os tokens da URL.
-    // Se após esse delay ainda não houver sessão ativa, aí sim tratamos o link como inválido.
-    const checkTimeout = setTimeout(async () => {
-      if (sessionEstablished) return;
+          // Se temos os tokens, estabelecemos a sessão de forma explícita e imediata
+          if (accessToken && refreshToken) {
+            console.log("[Atualizar Senha] Definindo sessão de forma explícita no cliente...");
+            const { data, error: setSessionError } = await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken
+            });
 
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        toast.error("Link inválido ou expirado.", {
-          description: "Por favor, solicite uma nova recuperação de senha."
+            if (setSessionError) {
+              console.error("[Atualizar Senha] Erro ao registrar sessão:", setSessionError.message);
+              toast.error("Erro de autenticação", {
+                description: "Não foi possível iniciar a sessão de segurança."
+              });
+              router.push('/recuperar-senha');
+              return;
+            }
+
+            if (data?.session) {
+              console.log("[Atualizar Senha] Sessão de segurança estabelecida com sucesso!");
+              setVerificando(false);
+              return;
+            }
+          }
+        }
+
+        // 2. Fallback: Se não há hash ou o processamento já ocorreu, valida se existe uma sessão ativa
+        console.log("[Atualizar Senha] Verificando sessão ativa atual...");
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          console.log("[Atualizar Senha] Sessão encontrada ativa.");
+          setVerificando(false);
+        } else {
+          console.warn("[Atualizar Senha] Nenhuma sessão ativa ou tokens encontrados no link.");
+          toast.error("Link inválido ou expirado.", {
+            description: "Por favor, solicite uma nova recuperação de senha."
+          });
+          router.push('/recuperar-senha');
+        }
+      } catch (err) {
+        console.error("[Atualizar Senha] Erro crítico no fluxo de redefinição:", err);
+        toast.error("Erro interno", {
+          description: "Ocorreu uma falha ao verificar sua redefinição de senha."
         });
         router.push('/recuperar-senha');
-      } else {
-        setVerificando(false);
       }
-    }, 1500);
+    }
 
-    return () => {
-      subscription.unsubscribe();
-      clearTimeout(checkTimeout);
-    };
+    handleAuthRedirect();
   }, [supabase, router]);
 
   const handleUpdatePassword = async (e) => {

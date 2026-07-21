@@ -27,7 +27,7 @@ export async function inviteUser({ email, nome, sobrenome, cargoId, organizacaoI
  sobrenome,
  // Dica do Devonildo: Passamos o cargo aqui nos metadados também por segurança
  cargo_inicial_id: cargoId },
- redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/atualizar-senha`
+ redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/auth/callback?next=/atualizar-senha`
  });
 
  if (inviteError) {
