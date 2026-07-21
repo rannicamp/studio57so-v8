@@ -21,7 +21,17 @@ export async function updatePasswordAction(password) {
 
         if (error) {
             console.error("Server Action erro ao atualizar senha:", error);
-            return { error: error.message };
+            let errorMessage = "Ocorreu um erro ao atualizar sua senha.";
+            
+            if (error.message.includes("New password should be different")) {
+                errorMessage = "A nova senha deve ser diferente da senha atual.";
+            } else if (error.message.includes("Password should be at least")) {
+                errorMessage = "A senha deve ter no mínimo 6 caracteres.";
+            } else {
+                errorMessage = error.message;
+            }
+
+            return { error: errorMessage };
         }
 
         return { success: true };
