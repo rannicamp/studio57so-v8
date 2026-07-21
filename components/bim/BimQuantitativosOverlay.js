@@ -10,7 +10,7 @@ import {
  faTriangleExclamation, faBoxOpen, faExpand, faCompress,
  faSearch, faBarcode, faLink, faBan, faRuler as faRulerIcon,
  faDollarSign, faExclamationTriangle, faChevronRight as faChevRight, faFileInvoiceDollar, faCube,
- faShoppingCart, faFilter
+ faShoppingCart, faFilter, faColumns
 } from '@fortawesome/free-solid-svg-icons';
 import { useBimQuantitativos } from '@/hooks/bim/useBimQuantitativos';
 import { useBimMapeamentos } from '@/hooks/bim/useBimMapeamentos';
@@ -1576,7 +1576,11 @@ export default function BimQuantitativosOverlay({ viewer, onClose, onShowInModel
  {(modelosSelecionados && modelosSelecionados.length > 0) && (
  <div className="flex items-center justify-between border-b border-gray-200 bg-white px-5 flex-shrink-0 pt-2">
  <div className="flex gap-2">
- {[{ v: 'elementos', label: 'Elementos BIM', icon: faCubes }, { v: 'por-material', label: `Orçamentação${kpisMaterial.totalMapeados > 0 ? ` (${kpisMaterial.totalMapeados})` : ''}`, icon: faFileInvoiceDollar }]
+ {[
+   { v: 'elementos', label: 'Elementos BIM', icon: faCubes }, 
+   { v: 'por-material', label: `Orçamentação${kpisMaterial.totalMapeados > 0 ? ` (${kpisMaterial.totalMapeados})` : ''}`, icon: faFileInvoiceDollar },
+   { v: 'lado-a-lado', label: 'Tela Dividida', icon: faColumns }
+ ]
  .map(tab => (
  <button
  key={tab.v}
@@ -1611,7 +1615,7 @@ export default function BimQuantitativosOverlay({ viewer, onClose, onShowInModel
  className="pl-7 pr-3 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-400 w-52 transition-all"
  />
  </div>
- {abaAtiva === 'elementos' && (
+ {(abaAtiva === 'elementos' || abaAtiva === 'lado-a-lado') && (
   <>
   <button
     onClick={() => setApenasNaoMapeados(!apenasNaoMapeados)}
@@ -1633,7 +1637,7 @@ export default function BimQuantitativosOverlay({ viewer, onClose, onShowInModel
   </button>
   </>
  )}
- {abaAtiva === 'por-material' && (
+ {(abaAtiva === 'por-material' || abaAtiva === 'lado-a-lado') && (
  <button
  onClick={() => setInsumoAvulsoModalOpen(true)}
  className="flex items-center gap-2 px-3 py-1.5 ml-auto bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-xs rounded border border-emerald-200 transition-colors shadow-sm"
@@ -1648,7 +1652,7 @@ export default function BimQuantitativosOverlay({ viewer, onClose, onShowInModel
  )}
 
   {/* Gaveta Colapsável de Filtros Avançados Unificado (Mesmo BimFilterPanel do 3D) */}
-  {modelosSelecionados && modelosSelecionados.length > 0 && abaAtiva === 'elementos' && (
+  {modelosSelecionados && modelosSelecionados.length > 0 && (abaAtiva === 'elementos' || abaAtiva === 'lado-a-lado') && (
     <div className="bg-white border-b border-gray-200 shrink-0">
       <div 
         className="px-4 py-2 bg-gray-50 flex items-center justify-between cursor-pointer border-b hover:bg-gray-100/80 transition-colors"
@@ -1688,7 +1692,7 @@ export default function BimQuantitativosOverlay({ viewer, onClose, onShowInModel
   )}
 
   {/* Banner Informativo de Prova Visual de Filtro Ativo do Motor BIM */}
-  {elementosFiltradosDb !== null && abaAtiva === 'elementos' && (
+  {elementosFiltradosDb !== null && (abaAtiva === 'elementos' || abaAtiva === 'lado-a-lado') && (
     <div className="bg-blue-50/90 border-b border-blue-200 px-5 py-2 text-xs text-blue-900 flex items-center justify-between flex-shrink-0">
       <div className="flex items-center gap-2">
         <span className="w-2 h-2 rounded-full bg-blue-600 animate-ping"></span>
@@ -1717,10 +1721,10 @@ export default function BimQuantitativosOverlay({ viewer, onClose, onShowInModel
   )}
 
  {/* Tabela de Elementos */}
- <div className="flex-1 overflow-y-auto">
+ <div className={`flex-1 ${abaAtiva === 'lado-a-lado' ? 'grid grid-cols-2 divide-x divide-gray-200 overflow-hidden bg-white' : 'overflow-y-auto'}`}>
  {/* ─── ABA: POR MATERIAL ─── */}
- {abaAtiva === 'por-material' && (
- <div className="p-5">
+ {(abaAtiva === 'por-material' || abaAtiva === 'lado-a-lado') && (
+ <div className={abaAtiva === 'lado-a-lado' ? "order-2 h-full overflow-y-auto p-5" : "p-5"}>
  {(!modelosSelecionadosIds || modelosSelecionadosIds.length === 0) ? (
  <div className="flex flex-col items-center justify-center py-20 text-gray-400 gap-3">
  <FontAwesomeIcon icon={faCubes} className="text-5xl text-gray-200" />
@@ -2032,8 +2036,8 @@ export default function BimQuantitativosOverlay({ viewer, onClose, onShowInModel
  )}
 
  {/* ─── ABA: ELEMENTOS BIM (original) ─── */}
- {(abaAtiva === 'elementos' || !modelosSelecionadosIds || modelosSelecionadosIds.length === 0) && (
- <>
+ {((abaAtiva === 'elementos' || abaAtiva === 'lado-a-lado') || !modelosSelecionadosIds || modelosSelecionadosIds.length === 0) && (
+ <div className={abaAtiva === 'lado-a-lado' ? "order-1 h-full overflow-y-auto p-5" : ""}>
  {carregandoElementos ? (
   <div className="flex flex-col items-center justify-center h-full text-blue-400 gap-3">
   <FontAwesomeIcon icon={faSpinner} spin size="2x" />
@@ -2570,7 +2574,7 @@ export default function BimQuantitativosOverlay({ viewer, onClose, onShowInModel
    </table>
  </div>
  )}
- </>
+ </div>
  )}
  </div>
  </main>
