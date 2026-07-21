@@ -4,13 +4,13 @@ import { useState, useMemo, useRef, useEffect, Fragment, useCallback } from 'rea
 import { useAuth } from '@/contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
- faCubes, faChevronDown, faChevronRight, faSpinner, faHome,
+ faCubes, faChevronDown, faChevronUp, faChevronRight, faSpinner, faHome,
  faBuilding, faCheck, faLayerGroup, faRuler, faRulerCombined,
  faFileExport, faArrowRight, faAngleDown, faAngleRight,
  faTriangleExclamation, faBoxOpen, faExpand, faCompress,
  faSearch, faBarcode, faLink, faBan, faRuler as faRulerIcon,
  faDollarSign, faExclamationTriangle, faChevronRight as faChevRight, faFileInvoiceDollar, faCube,
- faShoppingCart,
+ faShoppingCart, faFilter
 } from '@fortawesome/free-solid-svg-icons';
 import { useBimQuantitativos } from '@/hooks/bim/useBimQuantitativos';
 import { useBimMapeamentos } from '@/hooks/bim/useBimMapeamentos';
@@ -22,6 +22,7 @@ import BimGerenciarVinculosModal from '@/components/bim/BimGerenciarVinculosModa
 import BimInsumoAvulsoModal from '@/components/bim/BimInsumoAvulsoModal';
 import BimElementPropertiesModal from '@/components/bim/BimElementPropertiesModal';
 import BimSolicitarCompraModal from '@/components/bim/BimSolicitarCompraModal';
+import BimFilterPanel from '@/components/bim/BimFilterPanel';
 import { useQuery } from '@tanstack/react-query';
 import { createClient } from '@/utils/supabase/client';
 
@@ -93,16 +94,20 @@ const BadgeStatus = ({ status }) => {
 
 // ─── Componente Principal ─────────────────────────────────────────────────────
 
-export default function BimQuantitativosOverlay({ onClose, onShowInModel, empreendimentoContextId, modelosContextIds, isSidebarVisible = true }) {
+export default function BimQuantitativosOverlay({ viewer, onClose, onShowInModel, empreendimentoContextId, modelosContextIds, isSidebarVisible = true }) {
  const supabase = createClient();
  const { organizacao_id, user } = useAuth();
 
+ const [elementosFiltradosDb, setElementosFiltradosDb] = useState(null);
  const [isDropdownEmpAberto, setIsDropdownEmpAberto] = useState(false);
  const [isBimModalAberto, setIsBimModalAberto] = useState(false);
  const [buscaElemento, setBuscaElemento] = useState('');
  const [medidasSelecionadas, setMedidasSelecionadas] = useState({});
  const [abaAtiva, setAbaAtiva] = useState('elementos'); // 'elementos' | 'por-material'
  const [apenasNaoMapeados, setApenasNaoMapeados] = useState(false);
+ const [categoriaFiltro, setCategoriaFiltro] = useState('');
+ const [regrasFiltro, setRegrasFiltro] = useState([]);
+ const [isDrawerExpanded, setIsDrawerExpanded] = useState(false);
  const [tipoVisualizacao, setTipoVisualizacao] = useState('etapa'); // 'etapa' | 'categoria' | 'material'
  const [ordenacaoCampo, setOrdenacaoCampo] = useState(null); // 'nome' | 'quantidade' | 'preco' | 'custo' | null
  const [ordenacaoDirecao, setOrdenacaoDirecao] = useState('asc'); // 'asc' | 'desc'
@@ -134,7 +139,7 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
  modelos, carregandoModelos,
  modelosSelecionadosIds, modelosSelecionados, handleSelectModelos,
  grupos, carregandoElementos, kpis,
- categoriasExpandidas, toggleCategoria, expandirTodas, recolherTodas,
+ categoriasExpandidas, setCategoriasExpandidas, toggleCategoria, expandirTodas, recolherTodas,
  todosElementos, // flat do modelo selecionado (para o modal de preview)
  todosElementosEmpreendimento, // flat de TODOS os modelos do empreendimento (para Por Material)
  carregandoElementosEmp,
@@ -1155,9 +1160,52 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
     };
   }, [mapeamentos]);
 
-  // Filtra grupos por busca e toggle não mapeados — agora com estrutura 3 níveis
+  // O estado elementosFiltradosDb é gerenciado diretamente pelo componente unificado BimFilterPanel (onFilterApplied / onFilterCleared)
+
+  // Set de IDs compatíveis para busca rápida O(1)
+  const matchingIdsSet = useMemo(() => {
+    if (!elementosFiltradosDb) return null;
+    const set = new Set();
+    elementosFiltradosDb.forEach(e => {
+      if (e.external_id) set.add(String(e.external_id));
+      if (e.id) set.add(String(e.id));
+    });
+    return set;
+  }, [elementosFiltradosDb]);
+
+  // Efeito que carrega automaticamente famílias e detalhes dos elementos que bateram na busca no DB
+  useEffect(() => {
+    if (elementosFiltradosDb && elementosFiltradosDb.length > 0) {
+      const catFamSet = new Set();
+      elementosFiltradosDb.forEach(el => {
+        if (el.categoria && el.familia) {
+          catFamSet.add(`${el.categoria}|||${el.familia}`);
+          carregarFamiliasDaCategoria(el.categoria);
+        }
+      });
+
+      catFamSet.forEach(catFamKey => {
+        const [c, f] = catFamKey.split('|||');
+        carregarDetalhesFamilia(c, f);
+      });
+
+      setCategoriasExpandidas(prev => {
+        const next = new Set(prev);
+        elementosFiltradosDb.forEach(el => {
+          if (el.categoria) next.add(el.categoria);
+        });
+        return next;
+      });
+    }
+  }, [elementosFiltradosDb, carregarFamiliasDaCategoria, carregarDetalhesFamilia]);
+
+  // Filtra grupos por busca e toggle não mapeados — agora com estrutura 3 níveis e suporte a regras do DB
   const gruposFiltrados = useMemo(() => {
     let resultado = grupos;
+
+    if (categoriaFiltro) {
+      resultado = resultado.filter(cat => cat.categoria === categoriaFiltro);
+    }
 
     if (apenasNaoMapeados) {
       resultado = resultado
@@ -1168,7 +1216,98 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
               ...f,
               tipos: f.tipos.filter(t => !tipoTemMapeamento(cat.categoria, f.familia, t))
             }))
-            .filter(f => f.familias.length > 0)
+            .filter(f => f.tipos.length > 0)
+        }))
+        .filter(cat => cat.familias.length > 0);
+    }
+
+    // Regras Dinâmicas de Filtro (Filtragem por resultado do Banco Supabase)
+    if (elementosFiltradosDb !== null && matchingIdsSet) {
+      const familiasMatchingSet = new Set(elementosFiltradosDb.map(e => `${e.categoria}|||${e.familia}`));
+      const tiposMatchingSet = new Set(elementosFiltradosDb.map(e => `${e.categoria}|||${e.familia}|||${e.tipo}`));
+
+      const MEDIDAS_CONFIG = [
+        { chave: 'Volume',           unidade: 'm³',  label: 'Volume' },
+        { chave: 'Área',             unidade: 'm²',  label: 'Área' },
+        { chave: 'Area',             unidade: 'm²',  label: 'Área' },
+        { chave: 'Comprimento',      unidade: 'm',   label: 'Comprimento' },
+        { chave: 'Espessura',        unidade: 'm',   label: 'Espessura' },
+        { chave: 'Largura',          unidade: 'm',   label: 'Largura' },
+        { chave: 'Diâmetro',         unidade: 'mm',  label: 'Diâmetro' },
+        { chave: 'Diâmetro interno', unidade: 'mm',  label: 'Diâm. Interno' },
+        { chave: 'DN',               unidade: 'mm',  label: 'DN' },
+      ];
+
+      const buildMedidasFiltradas = (elementos) => {
+        const acumuladores = {};
+        elementos.forEach(el => {
+          const props = el.propriedades || {};
+          MEDIDAS_CONFIG.forEach(({ chave }) => {
+            const val = parseFloat(props[chave]);
+            if (isNaN(val) || val <= 0) return;
+            if (!acumuladores[chave]) acumuladores[chave] = { soma: 0, qtd_com_valor: 0 };
+            acumuladores[chave].soma += val;
+            acumuladores[chave].qtd_com_valor += 1;
+          });
+
+          // Concreto AltoQi/Eberick
+          Object.entries(props).forEach(([chave, valor]) => {
+            const val = parseFloat(valor);
+            if (isNaN(val) || val <= 0) return;
+            if (chave.toLowerCase().startsWith('concreto -') || chave.toLowerCase().includes('concreto - c')) {
+              const chaveAcum = 'Volume';
+              if (!acumuladores[chaveAcum]) acumuladores[chaveAcum] = { soma: 0, qtd_com_valor: 0 };
+              acumuladores[chaveAcum].soma += val;
+              acumuladores[chaveAcum].qtd_com_valor += 1;
+            }
+          });
+        });
+
+        return MEDIDAS_CONFIG
+          .filter(cfg => acumuladores[cfg.chave]?.qtd_com_valor > 0)
+          .reduce((acc, cfg) => {
+            const acum = acumuladores[cfg.chave];
+            if (!acc.find(m => m.unidade === cfg.unidade && m.label === cfg.label)) {
+              acc.push({
+                chave: cfg.chave,
+                label: cfg.label,
+                unidade: cfg.unidade,
+                valor: acum.soma,
+                qtd_com_valor: acum.qtd_com_valor
+              });
+            }
+            return acc;
+          }, [])
+          .sort((a, b) => b.qtd_com_valor - a.qtd_com_valor);
+      };
+
+      resultado = resultado
+        .map(cat => ({
+          ...cat,
+          familias: (cat.familias || [])
+            .filter(f => familiasMatchingSet.has(`${cat.categoria}|||${f.familia}`))
+            .map(f => ({
+              ...f,
+              tipos: (f.tipos || [])
+                .filter(t => tiposMatchingSet.has(`${cat.categoria}|||${f.familia}|||${t.tipo}`))
+                .map(t => {
+                  const elementosFiltrados = (t.elementos || []).filter(el => 
+                    matchingIdsSet.has(String(el.id)) || matchingIdsSet.has(String(el.external_id))
+                  );
+                  const medidasFiltradas = buildMedidasFiltradas(elementosFiltrados);
+
+                  return {
+                    ...t,
+                    elementos: elementosFiltrados,
+                    medidas: medidasFiltradas,
+                    medida_padrao: medidasFiltradas[0]?.chave || null,
+                    qtd_total: elementosFiltrados.length,
+                    external_ids: elementosFiltrados.map(e => e.external_id)
+                  };
+                })
+                .filter(t => t.elementos.length > 0)
+            }))
+            .filter(f => f.tipos.length > 0)
         }))
         .filter(cat => cat.familias.length > 0);
     }
@@ -1193,7 +1332,23 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
     }
 
     return resultado;
-  }, [grupos, buscaElemento, apenasNaoMapeados, tipoTemMapeamento]);
+  }, [grupos, categoriaFiltro, elementosFiltradosDb, matchingIdsSet, buscaElemento, apenasNaoMapeados, tipoTemMapeamento]);
+
+  // Lista de categorias únicas extraídas dos grupos para o select de filtro
+  const listaCategoriasUnicas = useMemo(() => {
+    return (grupos || []).map(cat => cat.categoria).filter(Boolean);
+  }, [grupos]);
+
+  // Propriedades disponíveis para busca customizada extraídas dos elementos carregados
+  const propriedadesDisponiveis = useMemo(() => {
+    const propsSet = new Set();
+    (todosElementos || []).forEach(el => {
+      if (el.propriedades) {
+        Object.keys(el.propriedades).forEach(k => propsSet.add(k));
+      }
+    });
+    return Array.from(propsSet);
+  }, [todosElementos]);
 
  // Helper: soma medidas de uma lista de tipos
  const somarMedidas = (tipos) => {
@@ -1491,6 +1646,75 @@ export default function BimQuantitativosOverlay({ onClose, onShowInModel, empree
  </div>
  </div>
  )}
+
+  {/* Gaveta Colapsável de Filtros Avançados Unificado (Mesmo BimFilterPanel do 3D) */}
+  {modelosSelecionados && modelosSelecionados.length > 0 && abaAtiva === 'elementos' && (
+    <div className="bg-white border-b border-gray-200 shrink-0">
+      <div 
+        className="px-4 py-2 bg-gray-50 flex items-center justify-between cursor-pointer border-b hover:bg-gray-100/80 transition-colors"
+        onClick={() => setIsDrawerExpanded(!isDrawerExpanded)}
+      >
+        <div className="flex items-center gap-2">
+          <FontAwesomeIcon icon={faFilter} className="text-blue-600 text-xs" />
+          <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+            Filtro Avançado do Motor BIM
+          </span>
+          {elementosFiltradosDb !== null && (
+            <span className="text-[10px] bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full font-bold">
+              {elementosFiltradosDb.length.toLocaleString('pt-BR')} resultado(s)
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] text-gray-500 font-medium">
+            {isDrawerExpanded ? 'Ocultar Painel de Regras' : 'Abrir Painel de Regras'}
+          </span>
+          <FontAwesomeIcon icon={isDrawerExpanded ? faChevronUp : faChevronDown} className="text-gray-400 text-xs" />
+        </div>
+      </div>
+
+      {isDrawerExpanded && (
+        <div className="max-h-[350px] overflow-y-auto bg-gray-50/50">
+          <BimFilterPanel 
+            viewer={viewer}
+            projetoBimId={modelosSelecionadosIds[0]}
+            loadedProjectIds={modelosSelecionadosIds}
+            onFilterApplied={(data) => setElementosFiltradosDb(data)}
+            onFilterCleared={() => setElementosFiltradosDb(null)}
+          />
+        </div>
+      )}
+    </div>
+  )}
+
+  {/* Banner Informativo de Prova Visual de Filtro Ativo do Motor BIM */}
+  {elementosFiltradosDb !== null && abaAtiva === 'elementos' && (
+    <div className="bg-blue-50/90 border-b border-blue-200 px-5 py-2 text-xs text-blue-900 flex items-center justify-between flex-shrink-0">
+      <div className="flex items-center gap-2">
+        <span className="w-2 h-2 rounded-full bg-blue-600 animate-ping"></span>
+        <span className="font-bold flex items-center gap-2">
+          <FontAwesomeIcon icon={faFilter} className="text-blue-600" />
+          <span>
+            Filtro do Motor BIM Ativo: <strong>{elementosFiltradosDb.length.toLocaleString('pt-BR')}</strong> instância(s) correspondente(s) encontrada(s) no modelo 3D
+          </span>
+        </span>
+      </div>
+      <div className="flex items-center gap-3">
+        <span className="text-[11px] font-bold text-blue-800 bg-blue-100/90 px-2.5 py-1 rounded-full border border-blue-300 shadow-xs">
+          {gruposFiltrados.length} categoria(s) no resultado
+        </span>
+        <button
+          onClick={() => {
+            setRegrasFiltro([]);
+            setCategoriaFiltro('');
+          }}
+          className="text-[11px] font-bold text-red-600 hover:text-red-800 hover:underline cursor-pointer"
+        >
+          Limpar Filtro
+        </button>
+      </div>
+    </div>
+  )}
 
  {/* Tabela de Elementos */}
  <div className="flex-1 overflow-y-auto">

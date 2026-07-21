@@ -7,7 +7,7 @@ import {
   faClipboardList, faAddressBook, faDollarSign, faShoppingCart,
   faInbox, faBullseye, faFileSignature, faCalculator,
   faBoxOpen, faFileInvoiceDollar, faTags, faCube, faCubes, faChartLine,
-  faPercent
+  faPercent, faGraduationCap
 } from '@fortawesome/free-solid-svg-icons';
 import { faMeta } from '@fortawesome/free-brands-svg-icons';
 // CORREÇÃO: Usando @/ para o contexto
@@ -24,6 +24,7 @@ export default function Sidebar({ isOpen, closeSidebar }) {
  title: 'Administrativo',
  items: [
  { href: '/painel', label: 'Painel', icon: faTachometerAlt, recurso: 'painel' },
+ { href: '/workshop-antigravity', label: 'Workshop Antigravity', icon: faGraduationCap, recurso: 'painel' },
  { href: '/financeiro', label: 'Financeiro', icon: faDollarSign, recurso: 'financeiro' },
  { href: '/recursos-humanos', label: 'Recursos Humanos', icon: faUsers, recurso: 'recursos_humanos' },
  { href: '/empresas', label: 'Empresas', icon: faBuilding, recurso: 'empresas' },

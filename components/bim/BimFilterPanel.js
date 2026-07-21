@@ -38,7 +38,7 @@ const FILTER_TYPES = [
 
 const STANDARD_FIELDS = ['familia', 'tipo', 'categoria', 'nivel', 'status_execucao', 'sistema'];
 
-export default function BimFilterPanel({ viewer, projetoBimId, loadedProjectIds = [] }) {
+export default function BimFilterPanel({ viewer, projetoBimId, loadedProjectIds = [], onFilterApplied, onFilterCleared }) {
   const supabase = createClient();
   const { organizacao_id } = useAuth();
   
@@ -189,11 +189,6 @@ export default function BimFilterPanel({ viewer, projetoBimId, loadedProjectIds 
 
   // Aplicar filtros com restrição ao projeto BIM ativo e isolamento visual por Ghosting
   const applyFilters = async () => {
-    if (!viewer) {
-      toast.error("Visualizador 3D indisponível.");
-      return;
-    }
-
     const activeFilters = filters.filter(f => {
       if (f.type === 'custom') {
         return f.customField && f.customField.trim() !== '' && f.value && f.value.trim() !== '';
@@ -208,41 +203,82 @@ export default function BimFilterPanel({ viewer, projetoBimId, loadedProjectIds 
 
     setIsSearching(true);
     try {
-      viewer.clearSelection();
-      viewer.clearThemingColors();
+      if (viewer) {
+        viewer.clearSelection();
+        viewer.clearThemingColors();
+      }
 
-      // Monta consulta SQL restringindo aos projetos BIM ativos
-      let query = supabase.from('elementos_bim').select('external_id');
+      // Monta consulta SQL restringindo aos projetos BIM ativos (apenas colunas nativas do banco)
+      let query = supabase.from('elementos_bim').select('id, external_id, categoria, familia, tipo, nivel, status_execucao, propriedades');
       query = query.eq('organizacao_id', Number(organizacao_id));
+      query = query.eq('is_active', true);
       
-      const ids = loadedProjectIds && loadedProjectIds.length > 0 ? loadedProjectIds : [projetoBimId];
-      query = query.in('projeto_bim_id', ids.map(Number));
+      const rawIds = loadedProjectIds && loadedProjectIds.length > 0 ? loadedProjectIds : [projetoBimId];
+      const ids = rawIds.map(Number).filter(id => !isNaN(id) && id > 0);
+      if (ids.length > 0) {
+        query = query.in('projeto_bim_id', ids);
+      }
+
+      const STD_FIELDS_MAP = {
+        'categoria': 'categoria',
+        'familia': 'familia',
+        'família': 'familia',
+        'tipo': 'tipo',
+        'nivel': 'nivel',
+        'nível': 'nivel',
+        'status': 'status_execucao',
+        'status_execucao': 'status_execucao'
+      };
 
       activeFilters.forEach(f => {
         let targetField = '';
         let isStandard = false;
+        let stdCol = '';
 
         if (f.type === 'custom') {
-          targetField = f.customField.trim();
-          isStandard = STANDARD_FIELDS.includes(targetField);
+          targetField = (f.customField || '').trim();
+          const lowerKey = targetField.toLowerCase();
+          if (STD_FIELDS_MAP[lowerKey]) {
+            isStandard = true;
+            stdCol = STD_FIELDS_MAP[lowerKey];
+          }
+        } else if (f.type === 'sistema') {
+          targetField = 'sistema';
+          isStandard = false;
         } else {
-          targetField = f.type === 'status' ? 'status_execucao' : f.type;
-          isStandard = true;
+          const typeKey = f.type === 'status' ? 'status_execucao' : f.type;
+          const lowerKey = typeKey.toLowerCase();
+          if (STD_FIELDS_MAP[lowerKey]) {
+            isStandard = true;
+            stdCol = STD_FIELDS_MAP[lowerKey];
+          } else {
+            targetField = typeKey;
+          }
         }
 
-        if (isStandard) {
-          query = query.ilike(targetField, `%${f.value}%`);
-        } else {
-          query = query.ilike(`propriedades->>${targetField}`, `%${f.value}%`);
+        if (isStandard && stdCol) {
+          query = query.ilike(stdCol, `%${f.value.trim()}%`);
+        } else if (targetField) {
+          query = query.ilike(`propriedades->>${targetField}`, `%${f.value.trim()}%`);
         }
       });
 
       const { data, error } = await query;
       if (error) throw error;
 
+      // Dispara o callback para atualizar a tabela de Elementos BIM do Orçamento
+      if (onFilterApplied) {
+        onFilterApplied(data || [], activeFilters);
+      }
+
       if (!data || data.length === 0) {
         toast.warning("Nenhum elemento correspondente encontrado.");
-        viewer.showAll();
+        if (viewer) viewer.showAll();
+        return;
+      }
+
+      if (!viewer) {
+        toast.success(`${data.length} elemento(s) localizado(s) no banco!`);
         return;
       }
 
@@ -257,14 +293,64 @@ export default function BimFilterPanel({ viewer, projetoBimId, loadedProjectIds 
         viewer.impl.setGhostingBrightness(0.12);
       }
 
+      const extrairSufixoRevit = (id) => {
+        if (!id) return null;
+        const partes = String(id).split(/[-/\\:_]/);
+        if (partes.length > 0) {
+          const ultimo = partes[partes.length - 1];
+          if (ultimo && ultimo.match(/^[0-9a-fA-F]+$/)) {
+            return ultimo.toLowerCase();
+          }
+        }
+        return null;
+      };
+
       const allModels = viewer.impl.modelQueue().getModels();
       const searchPromises = allModels.map(model => {
         return new Promise((resolve) => {
           model.getExternalIdMapping((mapping) => {
+            if (!mapping) {
+              resolve();
+              return;
+            }
+
             const foundDbIds = [];
-            targetExternalIds.forEach(extId => {
-              if (mapping[extId]) {
-                foundDbIds.push(mapping[extId]);
+            let lowercaseMap = null;
+            let sufixoMap = null;
+
+            targetExternalIds.forEach(eid => {
+              const cleanEid = String(eid).trim();
+              
+              // 1. Match exato
+              if (mapping[cleanEid] !== undefined) {
+                foundDbIds.push(mapping[cleanEid]);
+              } else {
+                // 2. Match case-insensitive
+                if (!lowercaseMap) {
+                  lowercaseMap = {};
+                  for (const key in mapping) {
+                    lowercaseMap[key.toLowerCase()] = mapping[key];
+                  }
+                }
+                const lowerEid = cleanEid.toLowerCase();
+                if (lowercaseMap[lowerEid] !== undefined) {
+                  foundDbIds.push(lowercaseMap[lowerEid]);
+                } else {
+                  // 3. Match por sufixo Revit
+                  const sufixoEid = extrairSufixoRevit(cleanEid);
+                  if (sufixoEid) {
+                    if (!sufixoMap) {
+                      sufixoMap = {};
+                      for (const key in mapping) {
+                        const suf = extrairSufixoRevit(key);
+                        if (suf) sufixoMap[suf] = mapping[key];
+                      }
+                    }
+                    if (sufixoMap[sufixoEid] !== undefined) {
+                      foundDbIds.push(sufixoMap[sufixoEid]);
+                    }
+                  }
+                }
               }
             });
 
@@ -322,6 +408,9 @@ export default function BimFilterPanel({ viewer, projetoBimId, loadedProjectIds 
         viewer.clearThemingColors(model);
       });
       viewer.fitToView();
+    }
+    if (onFilterCleared) {
+      onFilterCleared();
     }
     toast.info("Todos os filtros foram limpos.");
   };

@@ -288,6 +288,7 @@ export function useBimQuantitativos({ organizacaoId }) {
           .in('projeto_bim_id', modelosSelecionadosIds.map(Number))
           .eq('categoria', categoria)
           .eq('familia', familia)
+          .eq('is_active', true)
           .range(fromRange, toRange);
 
         if (error) throw error;
@@ -467,13 +468,21 @@ export function useBimQuantitativos({ organizacaoId }) {
   const toggleCategoria = (categoria) => {
     setCategoriasExpandidas(prev => {
       const next = new Set(prev);
-      if (next.has(categoria)) next.delete(categoria);
-      else next.add(categoria);
+      if (next.has(categoria)) {
+        next.delete(categoria);
+      } else {
+        next.add(categoria);
+        carregarFamiliasDaCategoria(categoria);
+      }
       return next;
     });
   };
 
-  const expandirTodas = () => setCategoriasExpandidas(new Set(grupos.map(g => g.categoria)));
+  const expandirTodas = () => {
+    const todasCats = (grupos || []).map(g => g.categoria);
+    setCategoriasExpandidas(new Set(todasCats));
+    todasCats.forEach(cat => carregarFamiliasDaCategoria(cat));
+  };
   const recolherTodas = () => setCategoriasExpandidas(new Set());
 
   return {
@@ -503,6 +512,7 @@ export function useBimQuantitativos({ organizacaoId }) {
     carregandoElementosEmp,
     // UI
     categoriasExpandidas,
+    setCategoriasExpandidas,
     toggleCategoria,
     expandirTodas,
     recolherTodas,

@@ -99,7 +99,8 @@ export function useBimModels(viewerInstance, setIsGanttOpen, activeFiles) {
     // Carregar/Descarregar Único Modelo
     const handleToggleModel = async (file) => {
         if (!viewerInstance) {
-            console.error("❌ Devonildo diz: O Viewer ainda não foi iniciado!");
+            console.warn("⚠️ Devonildo aviso: O Viewer ainda não foi iniciado!");
+            toast.info("O visualizador 3D ainda está inicializando. Por favor, aguarde uns segundos e tente novamente.");
             return;
         }
 

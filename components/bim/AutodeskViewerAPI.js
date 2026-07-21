@@ -63,43 +63,57 @@ function AutodeskViewerAPI({ urn, onViewerReady, onSelectionChange }) { const vi
  }
  };
 
- Autodesk.Viewing.Initializer(options, () => {
- const div = viewerContainerRef.current;
- if (!div || viewerInstanceRef.current) return;
+  Autodesk.Viewing.Initializer(options, () => {
+    const div = viewerContainerRef.current;
+    if (!div || viewerInstanceRef.current) return;
 
- const config3d = {}; // Removido Autodesk.MemoryLimited para evitar crash em arquivos de 50MB+
- const viewer = new Autodesk.Viewing.GuiViewer3D(div, config3d);
- const startedCode = viewer.start();
- if (startedCode > 0) {
- console.error("❌ Falha ao iniciar o container do Viewer");
- return;
- }
+    const startInstance = () => {
+      const currentDiv = viewerContainerRef.current;
+      if (!currentDiv || viewerInstanceRef.current) return;
 
- viewerInstanceRef.current = viewer;
- viewer.setQualityLevel(false, false);
- viewer.setGhosting(false);
- viewer.setBackgroundColor(240, 242, 245, 240, 242, 245);
+      if (currentDiv.clientWidth === 0 || currentDiv.clientHeight === 0) {
+        requestAnimationFrame(startInstance);
+        return;
+      }
 
- // --- LISTENER DE SELEÇÃO ---
- viewer.addEventListener(Autodesk.Viewing.SELECTION_CHANGED_EVENT, (event) => {
- if (onSelectionChange) {
- const dbIdArray = event.dbIdArray;
- const model = event.model; if (dbIdArray.length > 0 && model) {
- const modelUrn = model.getData()?.urn?.replace('urn:', '');
- onSelectionChange(dbIdArray, modelUrn, model);
- } else {
- onSelectionChange([], null, null);
- }
- }
- });
+      const config3d = {}; // Removido Autodesk.MemoryLimited para evitar crash em arquivos de 50MB+
+      const viewer = new Autodesk.Viewing.GuiViewer3D(currentDiv, config3d);
+      const startedCode = viewer.start();
+      if (startedCode > 0) {
+        console.error("❌ Falha ao iniciar o container do Viewer");
+        return;
+      }
 
- // O SEGREDO: Avisar que está pronto apenas AGORA
- setIsInitialized(true);
- if (onViewerReady) {
- console.log("✅ Devonildo informa: Palco pronto! Viewer inicializado.");
- onViewerReady(viewer);
- }
- });
+      viewerInstanceRef.current = viewer;
+      viewer.setQualityLevel(false, false);
+      viewer.setGhosting(false);
+      viewer.setBackgroundColor(240, 242, 245, 240, 242, 245);
+      viewer.resize();
+
+      // --- LISTENER DE SELEÇÃO ---
+      viewer.addEventListener(Autodesk.Viewing.SELECTION_CHANGED_EVENT, (event) => {
+        if (onSelectionChange) {
+          const dbIdArray = event.dbIdArray;
+          const model = event.model;
+          if (dbIdArray.length > 0 && model) {
+            const modelUrn = model.getData()?.urn?.replace('urn:', '');
+            onSelectionChange(dbIdArray, modelUrn, model);
+          } else {
+            onSelectionChange([], null, null);
+          }
+        }
+      });
+
+      // O SEGREDO: Avisar que está pronto apenas AGORA
+      setIsInitialized(true);
+      if (onViewerReady) {
+        console.log("✅ Devonildo informa: Palco pronto! Viewer inicializado.");
+        onViewerReady(viewer);
+      }
+    };
+
+    startInstance();
+  });
 
  // Cleanup para evitar duplicidade em Re-renders do Next.js 15
  return () => {

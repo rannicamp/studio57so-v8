@@ -812,6 +812,7 @@ export default function BimManagerPage() {
     {activeMainTab === 'orcamento' && (
       <div className="flex-1 w-full h-full bg-gray-50 overflow-hidden">
         <BimQuantitativosOverlay 
+          viewer={viewerInstance}
           onClose={() => setActiveMainTab('viewer')} 
           onShowInModel={handleShowQuantitativos} 
           empreendimentoContextId={fileInUse?.empreendimento_id}

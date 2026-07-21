@@ -6,7 +6,7 @@ import { useAuditoriaKanban } from '../../hooks/financeiro/useAuditoriaKanban';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCheckCircle, faExclamationTriangle, faSpinner, faEye, faPlayCircle, faPauseCircle, faStopCircle, faBolt, faSync, faCalendarDay
 } from '@fortawesome/free-solid-svg-icons';
-import toast from 'sonner';
+import { toast } from 'sonner';
 import SparklesIcon from '@/components/shared/SparklesIcon';
 import LancamentoDetalhesSidebar from './LancamentoDetalhesSidebar';
 
