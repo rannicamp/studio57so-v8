@@ -678,56 +678,42 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
  });
  };
 
-const STATUS_PRIORITY = {
-  'em andamento': 1,
-  'não iniciado': 2,
-  'aguardando material': 3,
-  'pausado': 4,
-  'concluído': 5,
-  'cancelado': 6
-};
-
-function getStatusWeight(status) {
-  const norm = (status || 'não iniciado').trim().toLowerCase();
-  return STATUS_PRIORITY[norm] || 99;
+function getStatusIndex(status) {
+  if (!status) return 1;
+  const norm = status.trim().toLowerCase();
+  if (norm === 'em andamento') return 0;
+  if (norm === 'não iniciado') return 1;
+  if (norm === 'pausado') return 2;
+  if (norm === 'aguardando material') return 3;
+  if (norm === 'concluído') return 4;
+  if (norm === 'cancelado') return 5;
+  return 99;
 }
 
 function organizeRdoActivities(activitiesList) {
   if (!activitiesList || !Array.isArray(activitiesList) || activitiesList.length === 0) return [];
 
-  // Ordenar lista de entrada primeiro pelo Peso do Status, depois pelo Código WBS / Nome (03, 03.1, 04)
-  const sortedList = [...activitiesList].sort((a, b) => {
-    const weightA = getStatusWeight(a.status);
-    const weightB = getStatusWeight(b.status);
-    if (weightA !== weightB) return weightA - weightB;
+  const map = new Map();
+  activitiesList.forEach(act => {
+    map.set(act.id, act);
+  });
+
+  const listWithDepth = activitiesList.map(act => {
+    let depth = 0;
+    let curr = act;
+    while (curr && curr.atividade_pai_id && map.has(curr.atividade_pai_id) && depth < 10) {
+      depth++;
+      curr = map.get(curr.atividade_pai_id);
+    }
+    return { ...act, depth };
+  });
+
+  return listWithDepth.sort((a, b) => {
+    const idxA = getStatusIndex(a.status);
+    const idxB = getStatusIndex(b.status);
+    if (idxA !== idxB) return idxA - idxB;
     return (a.nome || '').localeCompare(b.nome || '', undefined, { numeric: true, sensitivity: 'base' });
   });
-
-  const map = new Map();
-  sortedList.forEach(act => {
-    map.set(act.id, { ...act, children: [] });
-  });
-
-  const roots = [];
-  sortedList.forEach(act => {
-    const node = map.get(act.id);
-    if (act.atividade_pai_id && map.has(act.atividade_pai_id)) {
-      map.get(act.atividade_pai_id).children.push(node);
-    } else {
-      roots.push(node);
-    }
-  });
-
-  const flatResult = [];
-  function traverse(node, depth) {
-    flatResult.push({ ...node, depth });
-    if (node.children && node.children.length > 0) {
-      node.children.forEach(child => traverse(child, depth + 1));
-    }
-  }
-
-  roots.forEach(root => traverse(root, 0));
-  return flatResult;
 }
 
   const sortedActivityStatuses = useMemo(() => {
