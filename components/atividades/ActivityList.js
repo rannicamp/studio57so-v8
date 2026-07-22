@@ -31,7 +31,34 @@ const calculateBusinessDays = (d1, d2) => {
  return count > 0 ? count - 1 : 0;
 };
 
-export default function ActivityList({ activities, empreendimentos, requestSort, sortConfig, onEditClick, onDeleteClick, onDuplicateClick, onStatusChange, canEdit, canDelete, canCreate }) {
+export default function ActivityList({ activities, allActivitiesSummary = [], empreendimentos, requestSort, sortConfig, onEditClick, onDeleteClick, onDuplicateClick, onStatusChange, canEdit, canDelete, canCreate }) {
+
+  // Calcula a profundidade global de cada ID usando o resumo de atividades da organização
+  const globalDepths = useMemo(() => {
+    const depths = new Map();
+    if (!allActivitiesSummary || allActivitiesSummary.length === 0) return depths;
+
+    const parentMap = new Map();
+    allActivitiesSummary.forEach(act => parentMap.set(act.id, act.atividade_pai_id));
+
+    const getDepth = (id) => {
+      if (depths.has(id)) return depths.get(id);
+      
+      const parentId = parentMap.get(id);
+      if (!parentId) {
+        depths.set(id, 0);
+        return 0;
+      }
+      
+      const parentDepth = getDepth(parentId);
+      const currentDepth = parentDepth + 1;
+      depths.set(id, currentDepth);
+      return currentDepth;
+    };
+
+    allActivitiesSummary.forEach(act => getDepth(act.id));
+    return depths;
+  }, [allActivitiesSummary]);
 
  // Lógica para Organizar Pai -> Filhos
  const organizedActivities = useMemo(() => {
@@ -126,23 +153,24 @@ export default function ActivityList({ activities, empreendimentos, requestSort,
  const isCompletedLate = activity.data_fim_real && activity.data_fim_prevista && activity.data_fim_real > activity.data_fim_prevista;
  const delayInDays = isCompletedLate ? calculateBusinessDays(activity.data_fim_prevista, activity.data_fim_real) : 0;
 
- // Estilo de Indentação
- const paddingLeft = activity.depth > 0 ? `${activity.depth * 30 + 16}px` : '16px';
- const isSubtask = activity.depth > 0;
+  // Estilo de Indentação
+  const depth = globalDepths.get(activity.id) !== undefined ? globalDepths.get(activity.id) : (activity.depth || 0);
+  const paddingLeft = depth > 0 ? `${depth * 30 + 16}px` : '16px';
+  const isSubtask = depth > 0;
 
- return (
- <tr key={activity.id} className={`hover:bg-gray-50 ${isSubtask ? 'bg-gray-50/50' : ''}`}>
- <td className="px-4 py-3 whitespace-nowrap font-medium text-gray-900 max-w-[320px]" style={{ paddingLeft }}>
- <div className="flex items-center gap-2 min-w-0 w-full">
- {isSubtask && <FontAwesomeIcon icon={faLevelUpAlt} className="text-gray-400 rotate-90 fa-xs flex-shrink-0" />}
- <div className="flex flex-col min-w-0 w-full">
- <span className="text-sm font-semibold truncate" title={activity.nome}>{activity.nome}</span>
- {/* Se for um "órfão" (tem pai ID mas o pai não ta na lista), mostra quem é o pai */}
- {activity.atividade_pai && activity.depth === 0 && (
- <span className="text-[10px] text-gray-400 flex items-center gap-1 truncate" title={`Subtarefa de: ${activity.atividade_pai.nome}`}>
- <FontAwesomeIcon icon={faSitemap} className="flex-shrink-0" /> Subtarefa de: {activity.atividade_pai.nome}
- </span>
- )}
+  return (
+  <tr key={activity.id} className={`hover:bg-gray-50 ${isSubtask ? 'bg-gray-50/50' : ''}`}>
+  <td className="px-4 py-3 whitespace-nowrap font-medium text-gray-900 max-w-[320px]" style={{ paddingLeft }}>
+  <div className="flex items-center gap-2 min-w-0 w-full">
+  {isSubtask && <FontAwesomeIcon icon={faLevelUpAlt} className="text-gray-400 rotate-90 fa-xs flex-shrink-0" />}
+  <div className="flex flex-col min-w-0 w-full">
+  <span className="text-sm font-semibold truncate" title={activity.nome}>{activity.nome}</span>
+  {/* Se for um "órfão" (tem pai ID mas o pai não ta na lista atual), mostra quem é o pai */}
+  {activity.atividade_pai && !activities.some(a => a.id === activity.atividade_pai_id) && (
+  <span className="text-[10px] text-gray-400 flex items-center gap-1 truncate" title={`Subtarefa de: ${activity.atividade_pai.nome}`}>
+  <FontAwesomeIcon icon={faSitemap} className="flex-shrink-0" /> Subtarefa de: {activity.atividade_pai.nome}
+  </span>
+  )}
  </div>
  </div>
  </td>

@@ -538,7 +538,7 @@ export default function AtividadesPage() {
       </div>
     ) : (
       <>
-        <ActivityList activities={paginatedActivities} empreendimentos={empreendimentos} requestSort={requestSort} sortConfig={sortConfig} onEditClick={handleEditClick} onDeleteClick={handleDeleteClick} onDuplicateClick={handleDuplicateActivity} onStatusChange={handleStatusChange} canEdit={canEdit} canDelete={canDelete} canCreate={canCreate} />
+        <ActivityList activities={paginatedActivities} allActivitiesSummary={allActivitiesSummary} empreendimentos={empreendimentos} requestSort={requestSort} sortConfig={sortConfig} onEditClick={handleEditClick} onDeleteClick={handleDeleteClick} onDuplicateClick={handleDuplicateActivity} onStatusChange={handleStatusChange} canEdit={canEdit} canDelete={canDelete} canCreate={canCreate} />
         
         {/* Controles de Paginação */}
         {totalPages > 1 && (
