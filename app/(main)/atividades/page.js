@@ -131,7 +131,7 @@ export default function AtividadesPage() {
  }
  }, [activeTab, showFilters, sortConfig, debouncedFilters]);
 
-  const { data: allActivities = [], isLoading: isLoadingAllActivities, refetch: refetchAllActivities } = useQuery({
+  const { data: allActivities = [], isLoading: isLoadingAllActivities, refetch: refetchAllActivities, isRefetching: isRefetchingActivities } = useQuery({
     queryKey: ['atividades', organizacaoId],
     queryFn: () => fetchAllActivities(supabase, organizacaoId),
     enabled: !!organizacaoId && canViewPage,
@@ -284,7 +284,7 @@ export default function AtividadesPage() {
  };
 
  const handleStatusChange = (id, status) => {
- const act = allActivitiesSummary.find(a => a.id === id);
+  const act = allActivities.find(a => a.id === id);
  if (act) statusMutation.mutate({ activityId: id, newStatus: status, activity: act });
  };
 
@@ -307,8 +307,7 @@ export default function AtividadesPage() {
  const handleManualRefresh = async () => {
     toast.promise(
       Promise.all([
-        refetchSummary(),
-        refetchPaginated(),
+        refetchAllActivities(),
         refetchAuxiliaryData()
       ]),
       {
@@ -370,12 +369,12 @@ export default function AtividadesPage() {
  />
  </div>
 
-  <button onClick={handleManualRefresh} disabled={isRefetchingSummary || isRefetchingPaginated} className="bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium py-2 px-4 rounded-lg shadow-sm flex items-center transition duration-200 disabled:opacity-75 disabled:cursor-not-allowed"
-  title="Atualizar dados do painel"
-  >
-  <FontAwesomeIcon icon={faSync} className={`mr-2 ${(isRefetchingSummary || isRefetchingPaginated) ? 'animate-spin' : ''}`} />
-  Atualizar
-  </button>
+   <button onClick={handleManualRefresh} disabled={isRefetchingActivities} className="bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium py-2 px-4 rounded-lg shadow-sm flex items-center transition duration-200 disabled:opacity-75 disabled:cursor-not-allowed"
+   title="Atualizar dados do painel"
+   >
+   <FontAwesomeIcon icon={faSync} className={`mr-2 ${isRefetchingActivities ? 'animate-spin' : ''}`} />
+   Atualizar
+   </button>
 
   <button onClick={() => setShowFilters(!showFilters)} className={`border font-medium py-2 px-4 rounded-lg shadow-sm flex items-center transition duration-200 ${showFilters ? 'bg-blue-50 border-blue-300 text-blue-700' : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'}`}
   title="Filtros Avançados"
