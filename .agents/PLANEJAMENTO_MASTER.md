@@ -577,6 +577,20 @@ O **Studio 57** é o ambiente de desenvolvimento e laboratório central. O **Elo
   - Estudar bibliotecas como `SIP.js` ou `JsSIP` para implementar um softphone baseado em WebRTC dentro da Caixa de Entrada do Elo 57.
   - Desenvolver componentes visuais (discador, painel de chamada recebida, controle de mudo e encerramento de chamada) integrados ao design premium do sistema.
   - Garantir tratamento correto de permissões de áudio (microfone) no navegador e suporte mobile.
+### 18. 🔐 Monitoramento de Dispositivos Conectados e Sessões - *A FAZER*
+- [ ] **Interface de Sessões Ativas:** Criar uma tela ou aba dentro de Configurações (ex: Configurações > Segurança) no padrão de duas colunas (Família A), exibindo todos os dispositivos atualmente conectados à conta do usuário.
+- [ ] **Identificação Inteligente de Dispositivos (User Agent Parser):** Mapear o campo `user_agent` da tabela `auth.sessions` do Supabase para exibir ícones e textos amigáveis (ex: "Chrome no Windows", "Safari no iPhone").
+- [ ] **Histórico e Geolocalização Aproximada:** Exibir a data de login, última atividade e localização estimada (a partir do IP de origem da sessão).
+- [ ] **Revogação de Sessão (Logout Remoto):** Implementar botão para o usuário poder encerrar uma sessão específica remotamente, invalidando o token no Supabase Auth (ex: `supabase.auth.admin.signOut(session_id)`) ou oferecendo a opção de "Sair de todos os outros dispositivos".
+
+### 19. 🎨 Reformulação Visual do BIM Manager (Design Amigável) - *A FAZER*
+- [ ] **Diagnóstico Estético:** Analisar o layout atual do BIM Manager (`app/(bim)/bim-manager/page.js`) para torná-lo mais intuitivo, leve e visualmente atraente para os engenheiros e projetistas.
+- [ ] **Preservação de Funcionalidades:** Garantir que nenhuma alteração afete os fluxos operacionais, orçamentação ou manipulação de elementos 3D da API da Autodesk. Apenas a casca visual e a experiência de uso (UX/UI) devem ser refinadas.
+- [ ] **Melhoria da Usabilidade:**
+  - Facilitar a leitura da árvore de componentes e a tabela de quantitativos integrados.
+  - Otimizar o espaço do visualizador 3D com painéis flutuantes (glassmorphism/semi-transparentes) e recolhimento dinâmico e suave de menus laterais.
+  - Implementar transições e micro-animações nas abas de navegação (Gantt, Evolução, Marcações).
+- [ ] **Alinhamento ao Design System:** Garantir conformidade estrita com o `DESIGN_SYSTEM.md`, adotando tipografia elegante (Inter/Outfit), cores sóbrias (Preto e tons de cinza) e botões com a altura padrão do cockpit.
 
 ---
 *Assinado: Devonildo (Seu Mentor Técnico)*

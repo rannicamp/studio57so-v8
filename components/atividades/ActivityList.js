@@ -2,7 +2,7 @@
 "use client";
 
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSort, faSortUp, faSortDown, faLevelUpAlt, faSitemap, faTasks, faSearch } from '@fortawesome/free-solid-svg-icons';
+import { faSort, faSortUp, faSortDown, faLevelUpAlt, faSitemap, faTasks, faSearch, faEdit, faTrash, faCopy } from '@fortawesome/free-solid-svg-icons';
 import { useMemo } from 'react';
 
 // Função auxiliar de datas
@@ -31,7 +31,7 @@ const calculateBusinessDays = (d1, d2) => {
  return count > 0 ? count - 1 : 0;
 };
 
-export default function ActivityList({ activities, requestSort, sortConfig, onEditClick, onDeleteClick, onStatusChange, canEdit, canDelete }) {
+export default function ActivityList({ activities, requestSort, sortConfig, onEditClick, onDeleteClick, onDuplicateClick, onStatusChange, canEdit, canDelete, canCreate }) {
 
  // Lógica para Organizar Pai -> Filhos
  const organizedActivities = useMemo(() => {
@@ -111,12 +111,13 @@ export default function ActivityList({ activities, requestSort, sortConfig, onEd
  <table className="min-w-full divide-y divide-gray-200">
  <thead className="bg-gray-50">
  <tr>
- <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider"><SortableHeader sortKey="nome">Atividade</SortableHeader></th>
- <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider"><SortableHeader sortKey="status">Status</SortableHeader></th>
- <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider"><SortableHeader sortKey="data_inicio_prevista">Início</SortableHeader></th>
- <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider"><SortableHeader sortKey="data_fim_prevista">Fim Previsto</SortableHeader></th>
- <th className="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider"><SortableHeader sortKey="data_fim_real">Fim Real</SortableHeader></th>
- <th className="px-4 py-3 text-center text-xs font-medium uppercase tracking-wider">Ações</th>
+ <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-[40%] min-w-[280px]"><SortableHeader sortKey="nome">Atividade</SortableHeader></th>
+ <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-[20%] min-w-[150px]"><SortableHeader sortKey="responsavel_texto">Responsável</SortableHeader></th>
+ <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-[180px] min-w-[160px]"><SortableHeader sortKey="status">Status</SortableHeader></th>
+ <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-[110px]"><SortableHeader sortKey="data_inicio_prevista">Início</SortableHeader></th>
+ <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-[110px]"><SortableHeader sortKey="data_fim_prevista">Fim Previsto</SortableHeader></th>
+ <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-[110px]"><SortableHeader sortKey="data_fim_real">Fim Real</SortableHeader></th>
+ <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider w-[100px]">Ações</th>
  </tr>
  </thead>
  <tbody className="bg-white divide-y divide-gray-200">
@@ -130,11 +131,11 @@ export default function ActivityList({ activities, requestSort, sortConfig, onEd
 
  return (
  <tr key={activity.id} className={`hover:bg-gray-50 ${isSubtask ? 'bg-gray-50/50' : ''}`}>
- <td className="py-4 whitespace-nowrap font-medium text-gray-900" style={{ paddingLeft }}>
+ <td className="px-4 py-3 whitespace-nowrap font-medium text-gray-900" style={{ paddingLeft }}>
  <div className="flex items-center gap-2">
  {isSubtask && <FontAwesomeIcon icon={faLevelUpAlt} className="text-gray-400 rotate-90 fa-xs" />}
  <div className="flex flex-col">
- <span>{activity.nome}</span>
+ <span className="text-sm font-semibold">{activity.nome}</span>
  {/* Se for um "órfão" (tem pai ID mas o pai não ta na lista), mostra quem é o pai */}
  {activity.atividade_pai && activity.depth === 0 && (
  <span className="text-[10px] text-gray-400 flex items-center gap-1">
@@ -144,34 +145,57 @@ export default function ActivityList({ activities, requestSort, sortConfig, onEd
  </div>
  </div>
  </td>
- <td className="px-4 py-4 whitespace-nowrap">
+ <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 w-[20%] min-w-[150px]">
+ {activity.responsavel_texto || <span className="text-gray-400 italic">Sem responsável</span>}
+ </td>
+ <td className="px-4 py-3 whitespace-nowrap w-[180px] min-w-[160px]">
  <select
  value={activity.status}
  onChange={(e) => onStatusChange(activity.id, e.target.value)}
  disabled={!canEdit}
- className={`w-full p-1 border rounded-md text-xs focus:ring-blue-500 focus:border-blue-500 ${statusColors[activity.status] || ''} ${!canEdit ? 'cursor-not-allowed' : ''}`}
+ className={`w-full p-1 border rounded-md text-xs focus:ring-blue-500 focus:border-blue-500 max-w-[155px] ${statusColors[activity.status] || ''} ${!canEdit ? 'cursor-not-allowed' : ''}`}
  onClick={(e) => e.stopPropagation()}
  >
  <option>Não Iniciado</option><option>Em Andamento</option><option>Concluído</option><option>Pausado</option><option>Aguardando Material</option><option>Cancelado</option>
  </select>
  </td>
- <td className="px-4 py-4 whitespace-nowrap">{formatDate(activity.data_inicio_prevista)}</td>
- <td className="px-4 py-4 whitespace-nowrap">{formatDate(activity.data_fim_prevista)}</td>
- <td className="px-4 py-4 whitespace-nowrap">
+ <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 w-[110px]">{formatDate(activity.data_inicio_prevista)}</td>
+ <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 w-[110px]">{formatDate(activity.data_fim_prevista)}</td>
+ <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 w-[110px]">
  <span className={isCompletedLate ? 'text-red-600 font-bold' : ''}>{formatDate(activity.data_fim_real)}</span>
  {isCompletedLate && <span className="block text-red-600 font-bold text-xs">({delayInDays} dias atraso)</span>}
  </td>
- <td className="px-4 py-4 text-center space-x-2">
- {canEdit && (
- <button onClick={() => onEditClick(activity)} className="bg-gray-200 text-gray-800 px-3 py-1 rounded-md text-xs font-medium hover:bg-gray-300">Editar</button>
- )}
- {canDelete && (
- <button onClick={() => onDeleteClick(activity.id)} className="text-red-500 hover:text-red-700 px-2"><FontAwesomeIcon icon={faSort} transform={{ rotate: 45 }} className="hidden" /> Excluir</button>
- )}
- {canDelete && (
- <button onClick={() => onDeleteClick(activity.id)} className="bg-red-100 text-red-600 px-2 py-1 rounded hover:bg-red-200 text-xs">✕</button>
- )}
- </td>
+ <td className="px-4 py-3 text-center w-[100px]">
+    <div className="flex items-center justify-center gap-3">
+      {canEdit && (
+        <button 
+          onClick={() => onEditClick(activity)} 
+          className="text-blue-600 hover:text-blue-800 p-1 transition-colors" 
+          title="Editar Atividade"
+        >
+          <FontAwesomeIcon icon={faEdit} className="w-4 h-4" />
+        </button>
+      )}
+      {canCreate && onDuplicateClick && (
+        <button 
+          onClick={() => onDuplicateClick(activity)} 
+          className="text-gray-500 hover:text-gray-700 p-1 transition-colors" 
+          title="Duplicar Atividade"
+        >
+          <FontAwesomeIcon icon={faCopy} className="w-4 h-4" />
+        </button>
+      )}
+      {canDelete && (
+        <button 
+          onClick={() => onDeleteClick(activity.id)} 
+          className="text-red-500 hover:text-red-700 p-1 transition-colors" 
+          title="Excluir Atividade"
+        >
+          <FontAwesomeIcon icon={faTrash} className="w-4 h-4" />
+        </button>
+      )}
+    </div>
+  </td>
  </tr>
  );
  })}

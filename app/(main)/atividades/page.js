@@ -414,7 +414,7 @@ export default function AtividadesPage() {
  <KanbanBoard activities={filteredActivities} onEditActivity={handleCardClick} onStatusChange={handleStatusChange} canEdit={canEdit} onDeleteActivity={handleDeleteClick} onDuplicateActivity={handleDuplicateActivity} />
  )}
  {activeTab === 'list' && (
- <ActivityList activities={filteredActivities} requestSort={requestSort} sortConfig={sortConfig} onEditClick={handleEditClick} onDeleteClick={handleDeleteClick} onStatusChange={handleStatusChange} canEdit={canEdit} canDelete={canDelete} />
+ <ActivityList activities={filteredActivities} requestSort={requestSort} sortConfig={sortConfig} onEditClick={handleEditClick} onDeleteClick={handleDeleteClick} onDuplicateClick={handleDuplicateActivity} onStatusChange={handleStatusChange} canEdit={canEdit} canDelete={canDelete} canCreate={canCreate} />
  )}
  {activeTab === 'gantt' && (
  <GanttChart activities={filteredActivities} onEditActivity={handleEditClick} />
