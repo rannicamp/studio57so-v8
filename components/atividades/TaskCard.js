@@ -4,15 +4,18 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faExclamationTriangle, faCalendarAlt, faUser, faEllipsisV, faEdit, faTrash, faCopy, faClock, faSitemap } from '@fortawesome/free-solid-svg-icons';
+import { faExclamationTriangle, faCalendarAlt, faUser, faEllipsisV, faEdit, faTrash, faCopy, faClock, faSitemap, faBuilding } from '@fortawesome/free-solid-svg-icons';
 
-export default function TaskCard({ activity, onEditActivity, onDeleteActivity, onDuplicateActivity, allColumns, onStatusChange }) {
+export default function TaskCard({ activity, empreendimentos, onEditActivity, onDeleteActivity, onDuplicateActivity, allColumns, onStatusChange }) {
  const [isMenuOpen, setIsMenuOpen] = useState(false);
  const menuRef = useRef(null);
 
  const todayStr = new Date().toLocaleDateString('en-CA'); // Formato YYYY-MM-DD
  const prazoStr = activity.data_fim_prevista;
  const isOverdue = prazoStr && prazoStr < todayStr && activity.status !== 'Concluído';
+
+ const empObjeto = empreendimentos?.find(e => e.id == activity.empreendimento_id);
+ const empNome = empObjeto ? empObjeto.nome : null;
 
  const formatDate = (dateStr) => {
  if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return 'N/A';
@@ -67,13 +70,23 @@ export default function TaskCard({ activity, onEditActivity, onDeleteActivity, o
  onClick={() => onEditActivity(activity)}
  >
  <div>
+ <div className="flex flex-wrap gap-1.5 mb-2">
  {/* Tag de Subtarefa - BEM VISÍVEL NO TOPO */}
  {activity.atividade_pai && (
- <div className="mb-2 bg-blue-50 border border-blue-100 text-blue-600 text-[10px] px-2 py-1 rounded flex items-center gap-1.5 w-fit max-w-full">
+ <div className="bg-blue-50 border border-blue-100 text-blue-600 text-[10px] px-2 py-1 rounded flex items-center gap-1.5 w-fit max-w-full">
  <FontAwesomeIcon icon={faSitemap} className="flex-shrink-0" />
  <span className="truncate font-medium">Sub: {activity.atividade_pai.nome}</span>
  </div>
  )}
+
+ {/* Tag de Empreendimento */}
+ {empNome && (
+ <div className="bg-purple-50 border border-purple-100 text-purple-600 text-[10px] px-2 py-1 rounded flex items-center gap-1.5 w-fit max-w-full">
+ <FontAwesomeIcon icon={faBuilding} className="flex-shrink-0" />
+ <span className="truncate font-medium">{empNome}</span>
+ </div>
+ )}
+ </div>
 
  <div className="flex justify-between items-start mb-2">
  <p className="text-sm font-bold text-gray-800 truncate pr-2" title={activity.nome}>{activity.nome}</p>

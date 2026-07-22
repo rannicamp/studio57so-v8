@@ -4,7 +4,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPlus, faEdit, faTrash } from '@fortawesome/free-solid-svg-icons';
 import TaskCard from './TaskCard';
 
-export default function KanbanBoard({ activities, onEditActivity, // Renomeado para onCardClick na passagem para o TaskCard
+export default function KanbanBoard({ activities, empreendimentos, onEditActivity, // Renomeado para onCardClick na passagem para o TaskCard
  onStatusChange, canEdit,
  onDeleteActivity,
  onDuplicateActivity
@@ -98,11 +98,13 @@ export default function KanbanBoard({ activities, onEditActivity, // Renomeado p
  >
  <TaskCard
  activity={activity}
- onEditActivity={onEditActivity} // Passando a função de clique
+ empreendimentos={empreendimentos}
+ onEditActivity={onEditActivity}
  onDeleteActivity={onDeleteActivity}
  onDuplicateActivity={onDuplicateActivity}
  allColumns={statusColumns}
  onStatusChange={onStatusChange}
+ canEdit={canEdit}
  />
  </div>
  ))}

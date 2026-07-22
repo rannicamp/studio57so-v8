@@ -10,7 +10,8 @@ import { faExclamationTriangle, faCheckCircle, faTasks, faUserClock, faHistory, 
  faSearch,
  faFilter,
  faPlus,
- faSync
+ faSync,
+ faClipboardList
 } from '@fortawesome/free-solid-svg-icons';
 
 import { createClient } from '@/utils/supabase/client';
@@ -100,6 +101,15 @@ export default function AtividadesPage() {
  const [selectedActivityForSidebar, setSelectedActivityForSidebar] = useState(null);
 
  const [debouncedFilters] = useDebounce(filters, 500);
+
+ // Sincroniza o empreendimento global com o filtro local
+ useEffect(() => {
+   if (selectedEmpreendimento && selectedEmpreendimento !== 'all') {
+     setFilters(prev => ({ ...prev, empreendimento: selectedEmpreendimento }));
+   } else if (selectedEmpreendimento === 'all') {
+     setFilters(prev => ({ ...prev, empreendimento: '' }));
+   }
+ }, [selectedEmpreendimento]);
 
  useEffect(() => {
  if (!authLoading && !canViewPage) router.push('/');
@@ -198,35 +208,34 @@ export default function AtividadesPage() {
  });
 
  const filteredActivities = useMemo(() => {
- return allActivities
- .filter(act => {
- if (selectedEmpreendimento !== 'all' && act.empreendimento_id != selectedEmpreendimento) return false;
- if (filters.searchTerm) {
- const term = filters.searchTerm.toLowerCase();
- const matchesName = act.nome?.toLowerCase().includes(term);
- const matchesId = act.id.toString().includes(term);
- const matchesParent = act.atividade_pai?.nome?.toLowerCase().includes(term);
- if (!matchesName && !matchesId && !matchesParent) return false;
- }
- if (filters.empresa && (!act.empreendimentos || act.empreendimentos.empresa_proprietaria_id != filters.empresa)) return false;
- if (filters.empreendimento && act.empreendimento_id != filters.empreendimento) return false;
- if (filters.responsavel && act.funcionario_id != filters.responsavel) return false;
- if (filters.status.length > 0 && !filters.status.includes(act.status)) return false;
- if (filters.startDate || filters.endDate) {
- if (!act.data_inicio_prevista) return false;
- const actStart = act.data_inicio_prevista;
- const actEnd = act.data_fim_prevista || act.data_inicio_prevista;
- if (filters.startDate && actEnd < filters.startDate) return false;
- if (filters.endDate && actStart > filters.endDate) return false;
- }
- return true;
- })
- .sort((a, b) => {
- if (a[sortConfig.key] < b[sortConfig.key]) return sortConfig.direction === 'ascending' ? -1 : 1;
- if (a[sortConfig.key] > b[sortConfig.key]) return sortConfig.direction === 'ascending' ? 1 : -1;
- return 0;
- });
- }, [selectedEmpreendimento, allActivities, filters, sortConfig]);
+   return allActivities
+   .filter(act => {
+   if (filters.searchTerm) {
+   const term = filters.searchTerm.toLowerCase();
+   const matchesName = act.nome?.toLowerCase().includes(term);
+   const matchesId = act.id.toString().includes(term);
+   const matchesParent = act.atividade_pai?.nome?.toLowerCase().includes(term);
+   if (!matchesName && !matchesId && !matchesParent) return false;
+   }
+   if (filters.empresa && (!act.empreendimentos || act.empreendimentos.empresa_proprietaria_id != filters.empresa)) return false;
+   if (filters.empreendimento && act.empreendimento_id != filters.empreendimento) return false;
+   if (filters.responsavel && act.funcionario_id != filters.responsavel) return false;
+   if (filters.status.length > 0 && !filters.status.includes(act.status)) return false;
+   if (filters.startDate || filters.endDate) {
+   if (!act.data_inicio_prevista) return false;
+   const actStart = act.data_inicio_prevista;
+   const actEnd = act.data_fim_prevista || act.data_inicio_prevista;
+   if (filters.startDate && actEnd < filters.startDate) return false;
+   if (filters.endDate && actStart > filters.endDate) return false;
+   }
+   return true;
+   })
+   .sort((a, b) => {
+   if (a[sortConfig.key] < b[sortConfig.key]) return sortConfig.direction === 'ascending' ? -1 : 1;
+   if (a[sortConfig.key] > b[sortConfig.key]) return sortConfig.direction === 'ascending' ? 1 : -1;
+   return 0;
+   });
+   }, [allActivities, filters, sortConfig]);
 
  const kpiData = useMemo(() => {
  const today = new Date();
@@ -383,7 +392,8 @@ export default function AtividadesPage() {
  <AtividadeFiltros filters={filters} onChange={handleFilterChange} onClear={clearFilters} listas={{ funcionarios, allEmpresas, empreendimentos }} />
  )}
 
- <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+ <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+ <KpiCard title="Todas as Atividades" value={allActivities.length} icon={faClipboardList} />
  <KpiCard title="Atrasadas" value={kpiData.atrasadas} icon={faExclamationTriangle} color="red" />
  <KpiCard title="Ativas" value={kpiData.ativas} icon={faTasks} color="blue" />
  <KpiCard title="Concluídas no Mês" value={kpiData.concluidasNoMes} icon={faCheckCircle} color="green" />
@@ -407,10 +417,10 @@ export default function AtividadesPage() {
  ) : (
  <>
  {activeTab === 'kanban' && (
- <KanbanBoard activities={filteredActivities} onEditActivity={handleCardClick} onStatusChange={handleStatusChange} canEdit={canEdit} onDeleteActivity={handleDeleteClick} onDuplicateActivity={handleDuplicateActivity} />
+ <KanbanBoard activities={filteredActivities} empreendimentos={empreendimentos} onEditActivity={handleCardClick} onStatusChange={handleStatusChange} canEdit={canEdit} onDeleteActivity={handleDeleteClick} onDuplicateActivity={handleDuplicateActivity} />
  )}
  {activeTab === 'list' && (
- <ActivityList activities={filteredActivities} requestSort={requestSort} sortConfig={sortConfig} onEditClick={handleEditClick} onDeleteClick={handleDeleteClick} onDuplicateClick={handleDuplicateActivity} onStatusChange={handleStatusChange} canEdit={canEdit} canDelete={canDelete} canCreate={canCreate} />
+ <ActivityList activities={filteredActivities} empreendimentos={empreendimentos} requestSort={requestSort} sortConfig={sortConfig} onEditClick={handleEditClick} onDeleteClick={handleDeleteClick} onDuplicateClick={handleDuplicateActivity} onStatusChange={handleStatusChange} canEdit={canEdit} canDelete={canDelete} canCreate={canCreate} />
  )}
  {activeTab === 'gantt' && (
  <GanttChart activities={filteredActivities} onEditActivity={handleEditClick} />

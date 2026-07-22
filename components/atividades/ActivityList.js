@@ -31,7 +31,7 @@ const calculateBusinessDays = (d1, d2) => {
  return count > 0 ? count - 1 : 0;
 };
 
-export default function ActivityList({ activities, requestSort, sortConfig, onEditClick, onDeleteClick, onDuplicateClick, onStatusChange, canEdit, canDelete, canCreate }) {
+export default function ActivityList({ activities, empreendimentos, requestSort, sortConfig, onEditClick, onDeleteClick, onDuplicateClick, onStatusChange, canEdit, canDelete, canCreate }) {
 
  // Lógica para Organizar Pai -> Filhos
  const organizedActivities = useMemo(() => {
@@ -107,19 +107,20 @@ export default function ActivityList({ activities, requestSort, sortConfig, onEd
  );
 
  return (
- <div className="overflow-x-auto bg-white rounded-lg shadow">
- <table className="min-w-full divide-y divide-gray-200">
- <thead className="bg-gray-50">
- <tr>
- <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-[40%] min-w-[280px] max-w-[320px]"><SortableHeader sortKey="nome">Atividade</SortableHeader></th>
- <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-[20%] min-w-[150px] max-w-[180px]"><SortableHeader sortKey="responsavel_texto">Responsável</SortableHeader></th>
- <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-[180px] min-w-[160px]"><SortableHeader sortKey="status">Status</SortableHeader></th>
- <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-[110px]"><SortableHeader sortKey="data_inicio_prevista">Início</SortableHeader></th>
- <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-[110px]"><SortableHeader sortKey="data_fim_prevista">Fim Previsto</SortableHeader></th>
- <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-[110px]"><SortableHeader sortKey="data_fim_real">Fim Real</SortableHeader></th>
- <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider w-[100px]">Ações</th>
- </tr>
- </thead>
+    <div className="overflow-x-auto bg-white rounded-lg shadow">
+      <table className="min-w-full divide-y divide-gray-200">
+        <thead className="bg-gray-50">
+          <tr>
+            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-[30%] min-w-[200px] max-w-[250px]"><SortableHeader sortKey="nome">Atividade</SortableHeader></th>
+            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-[15%] min-w-[120px] max-w-[150px]"><SortableHeader sortKey="responsavel_texto">Responsável</SortableHeader></th>
+            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-[15%] min-w-[120px] max-w-[150px]"><SortableHeader sortKey="empreendimento_id">Empreendimento</SortableHeader></th>
+            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-[150px] min-w-[130px]"><SortableHeader sortKey="status">Status</SortableHeader></th>
+            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-[110px]"><SortableHeader sortKey="data_inicio_prevista">Início</SortableHeader></th>
+            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-[110px]"><SortableHeader sortKey="data_fim_prevista">Fim Previsto</SortableHeader></th>
+            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-[110px]"><SortableHeader sortKey="data_fim_real">Fim Real</SortableHeader></th>
+            <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider w-[100px]">Ações</th>
+          </tr>
+        </thead>
  <tbody className="bg-white divide-y divide-gray-200">
  {organizedActivities.map((activity) => {
  const isCompletedLate = activity.data_fim_real && activity.data_fim_prevista && activity.data_fim_real > activity.data_fim_prevista;
@@ -145,22 +146,33 @@ export default function ActivityList({ activities, requestSort, sortConfig, onEd
  </div>
  </div>
  </td>
- <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 w-[20%] min-w-[150px] max-w-[180px]">
- <span className="block truncate" title={activity.responsavel_texto || 'Sem responsável'}>
- {activity.responsavel_texto || <span className="text-gray-400 italic">Sem responsável</span>}
- </span>
- </td>
- <td className="px-4 py-3 whitespace-nowrap w-[180px] min-w-[160px]">
- <select
- value={activity.status}
- onChange={(e) => onStatusChange(activity.id, e.target.value)}
- disabled={!canEdit}
- className={`w-full p-1 border rounded-md text-xs focus:ring-blue-500 focus:border-blue-500 max-w-[155px] ${statusColors[activity.status] || ''} ${!canEdit ? 'cursor-not-allowed' : ''}`}
- onClick={(e) => e.stopPropagation()}
- >
- <option>Não Iniciado</option><option>Em Andamento</option><option>Concluído</option><option>Pausado</option><option>Aguardando Material</option><option>Cancelado</option>
- </select>
- </td>
+            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 w-[15%] min-w-[120px] max-w-[150px]">
+              <span className="block truncate" title={activity.responsavel_texto || 'Sem responsável'}>
+                {activity.responsavel_texto || <span className="text-gray-400 italic">Sem responsável</span>}
+              </span>
+            </td>
+            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 w-[15%] min-w-[120px] max-w-[150px]">
+              <span className="block truncate font-semibold text-purple-700 bg-purple-50 border border-purple-100 rounded px-2 py-0.5 w-fit max-w-full" title={(() => {
+                const emp = empreendimentos?.find(e => e.id == activity.empreendimento_id);
+                return emp ? emp.nome : '-';
+              })()}>
+                {(() => {
+                  const emp = empreendimentos?.find(e => e.id == activity.empreendimento_id);
+                  return emp ? emp.nome : '-';
+                })()}
+              </span>
+            </td>
+            <td className="px-4 py-3 whitespace-nowrap w-[150px] min-w-[130px]">
+              <select
+                value={activity.status}
+                onChange={(e) => onStatusChange(activity.id, e.target.value)}
+                disabled={!canEdit}
+                className={`w-full p-1 border rounded-md text-xs focus:ring-blue-500 focus:border-blue-500 max-w-[155px] ${statusColors[activity.status] || ''} ${!canEdit ? 'cursor-not-allowed' : ''}`}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <option>Não Iniciado</option><option>Em Andamento</option><option>Concluído</option><option>Pausado</option><option>Aguardando Material</option><option>Cancelado</option>
+              </select>
+            </td>
  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 w-[110px]">{formatDate(activity.data_inicio_prevista)}</td>
  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 w-[110px]">{formatDate(activity.data_fim_prevista)}</td>
  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 w-[110px]">
