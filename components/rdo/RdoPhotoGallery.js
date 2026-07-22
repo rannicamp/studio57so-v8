@@ -1,12 +1,12 @@
 //components\RdoPhotoGallery.js
 "use client";
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { createClient } from '../../utils/supabase/client';
 import Link from 'next/link';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faTimes, faChevronLeft, faChevronRight, faExternalLinkAlt } from '@fortawesome/free-solid-svg-icons';
+import { faTimes, faChevronLeft, faChevronRight, faExternalLinkAlt, faCamera } from '@fortawesome/free-solid-svg-icons';
 
 const formatBytes = (bytes, decimals = 2) => {
  if (!+bytes) return '0 Bytes';
@@ -87,21 +87,83 @@ export default function RdoPhotoGallery({ photos }) {
  return () => window.removeEventListener('keydown', handleKeyDown);
  }, [selectedImageIndex, photos.length, goToPrevious, goToNext, closeLightbox]);
 
- return (
- <div>
- {photos.length === 0 ? (
- <p className="text-center text-gray-500">Nenhuma foto encontrada nos Relatórios Diários de Obra.</p>
- ) : (
- <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
- {photos.map((photo, index) => (
- <div key={photo.id} className="relative aspect-square group bg-gray-100 rounded-lg overflow-hidden shadow-sm">
- <ImageThumbnail photo={photo} onClick={() => openLightbox(index)} />
- {photo.tamanho_arquivo && (<span className="absolute top-1 right-1 bg-black bg-opacity-60 text-white text-xs font-bold px-1.5 py-0.5 rounded-md">{formatBytes(photo.tamanho_arquivo)}</span>)}
- <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-60 text-white text-xs p-2 truncate">{photo.descricao || 'Sem descrição'}</div>
- </div>
- ))}
- </div>
- )}
+  const photosGroupedByDate = useMemo(() => {
+    if (!photos || !Array.isArray(photos) || photos.length === 0) return {};
+
+    const groups = {};
+    photos.forEach((photo, globalIndex) => {
+      const rawDate = photo.diarios_obra?.data_relatorio || photo.created_at;
+      let dateStr = 'Sem data';
+      if (rawDate) {
+        if (typeof rawDate === 'string' && rawDate.includes('-') && rawDate.length === 10) {
+          const [yyyy, mm, dd] = rawDate.split('-');
+          dateStr = `${dd}/${mm}/${yyyy}`;
+        } else {
+          const d = new Date(rawDate);
+          if (!isNaN(d.getTime())) {
+            dateStr = d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+          }
+        }
+      }
+
+      if (!groups[dateStr]) {
+        groups[dateStr] = {
+          dateLabel: dateStr,
+          rdoNumero: photo.diarios_obra?.rdo_numero,
+          items: []
+        };
+      }
+      groups[dateStr].items.push({ photo, globalIndex });
+    });
+
+    return groups;
+  }, [photos]);
+
+  return (
+    <div>
+      {Object.keys(photosGroupedByDate).length === 0 ? (
+        <p className="text-center text-gray-500 py-10">Nenhuma foto encontrada nos Relatórios Diários de Obra.</p>
+      ) : (
+        <div className="space-y-8">
+          {Object.entries(photosGroupedByDate).map(([dateStr, group]) => (
+            <div key={dateStr} className="space-y-3">
+              {/* Linha / Divisor de Seção por Data */}
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 bg-blue-50 text-blue-800 text-xs font-bold px-3 py-1.5 rounded-lg border border-blue-200 shadow-2xs">
+                  <FontAwesomeIcon icon={faCamera} className="text-blue-600" />
+                  <span>{group.dateLabel}</span>
+                  {group.rdoNumero && (
+                    <span className="bg-blue-200/60 text-blue-900 px-2 py-0.5 rounded text-[10px] font-semibold">
+                      RDO #{group.rdoNumero}
+                    </span>
+                  )}
+                </div>
+                <div className="flex-grow h-px bg-gray-200" />
+                <span className="text-xs text-gray-400 font-medium">
+                  {group.items.length} {group.items.length === 1 ? 'foto' : 'fotos'}
+                </span>
+              </div>
+
+              {/* Grid de Fotos desta Data */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+                {group.items.map(({ photo, globalIndex }) => (
+                  <div key={photo.id} className="relative aspect-square group bg-gray-100 rounded-xl overflow-hidden shadow-xs hover:shadow-md transition-shadow">
+                    <ImageThumbnail photo={photo} onClick={() => openLightbox(globalIndex)} />
+                    {photo.tamanho_arquivo && (
+                      <span className="absolute top-1.5 right-1.5 bg-black/60 backdrop-blur-xs text-white text-[10px] font-bold px-2 py-0.5 rounded-md">
+                        {formatBytes(photo.tamanho_arquivo)}
+                      </span>
+                    )}
+                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/50 to-transparent text-white text-xs p-2 pt-4 truncate" title={photo.descricao}>
+                      {photo.descricao || 'Sem descrição'}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
  {selectedImageIndex !== null && currentPhoto && (
  <div className="fixed inset-0 bg-black bg-opacity-80 flex flex-col items-center justify-center z-50 animate-fade-in">
