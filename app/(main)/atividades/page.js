@@ -42,98 +42,17 @@ const getCachedUiState = () => {
  }
 };
 
-const fetchAllActivitiesSummary = async (supabase, organizacaoId) => {
+const fetchAllActivities = async (supabase, organizacaoId) => {
   if (!organizacaoId) return [];
-  const { data, error } = await supabase
-    .from('activities')
-    .select('id, nome, status, data_inicio_prevista, data_fim_prevista, data_inicio_real, data_fim_real, data_fim_original, funcionario_id, empreendimento_id, responsavel_texto, atividade_pai_id')
-    .eq('organizacao_id', organizacaoId);
+  const { data, error } = await supabase.rpc('obter_todas_atividades_json', {
+    p_organizacao_id: organizacaoId
+  });
 
   if (error) {
-    console.error("Erro ao buscar resumo de atividades:", error);
+    console.error("Erro ao buscar todas as atividades:", error);
     throw new Error(error.message);
   }
   return data || [];
-};
-
-const fetchPaginatedActivities = async (supabase, organizacaoId, filters, sortConfig, page, limit = 50) => {
-  if (!organizacaoId) return { data: [], count: 0 };
-
-  let query = supabase
-    .from('activities')
-    .select(`
-      *,
-      empreendimentos(empresa_proprietaria_id, nome),
-      anexos:activity_anexos(*),
-      atividade_pai:atividade_pai_id(id, nome)
-    `, { count: 'exact' })
-    .eq('organizacao_id', organizacaoId);
-
-  // Filtro de Empresa (via relacionamento)
-  if (filters.empresa) {
-    query = query.filter('empreendimentos.empresa_proprietaria_id', 'eq', filters.empresa);
-  }
-
-  // Filtro de Empreendimento
-  if (filters.empreendimento) {
-    query = query.eq('empreendimento_id', filters.empreendimento);
-  }
-
-  // Filtro de Responsável
-  if (filters.responsavel) {
-    query = query.eq('funcionario_id', filters.responsavel);
-  }
-
-  // Filtro de Status
-  if (filters.status && filters.status.length > 0) {
-    query = query.in('status', filters.status);
-  }
-
-  // Filtros de Data
-  if (filters.startDate) {
-    query = query.gte('data_inicio_prevista', filters.startDate);
-  }
-  if (filters.endDate) {
-    query = query.lte('data_inicio_prevista', filters.endDate);
-  }
-
-  // Termo de Busca (Nome ou ID)
-  if (filters.searchTerm) {
-    const term = filters.searchTerm.trim();
-    if (term.startsWith('#')) {
-      const idSearch = parseInt(term.replace('#', ''), 10);
-      if (!isNaN(idSearch)) {
-        query = query.eq('id', idSearch);
-      }
-    } else {
-      query = query.ilike('nome', `%${term}%`);
-    }
-  }
-
-  // Ordenação
-  if (sortConfig && sortConfig.key) {
-    const ascending = sortConfig.direction === 'ascending';
-    query = query.order(sortConfig.key, { ascending });
-  } else {
-    query = query.order('data_inicio_prevista', { ascending: true });
-  }
-
-  // Paginação
-  const from = (page - 1) * limit;
-  const to = from + limit - 1;
-  query = query.range(from, to);
-
-  const { data, error, count } = await query;
-
-  if (error) {
-    console.error("Erro ao buscar atividades paginadas:", error);
-    throw new Error(error.message);
-  }
-
-  return {
-    data: data || [],
-    count: count || 0
-  };
 };
 
 const fetchAuxiliaryData = async (supabase, organizacaoId) => {
@@ -175,18 +94,13 @@ export default function AtividadesPage() {
  const [sortConfig, setSortConfig] = useState(cachedState?.sortConfig || { key: 'data_inicio_prevista', direction: 'ascending' });
  const defaultFilters = { searchTerm: '', empresa: '', empreendimento: '', responsavel: '', status: [], startDate: '', endDate: '' };
  const [filters, setFilters] = useState(cachedState?.filters || defaultFilters);
+ const [debouncedFilters] = useDebounce(filters, 500);
 
  // Estados dos Modais e Sidebars
  const [isModalOpen, setIsModalOpen] = useState(false);
  const [editingActivity, setEditingActivity] = useState(null);
  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
  const [selectedActivityForSidebar, setSelectedActivityForSidebar] = useState(null);
-
- // Estados de Paginação
- const [page, setPage] = useState(1);
- const limit = 50;
-
- const [debouncedFilters] = useDebounce(filters, 500);
 
  // Sincroniza o empreendimento global com o filtro local
  useEffect(() => {
@@ -196,11 +110,6 @@ export default function AtividadesPage() {
      setFilters(prev => ({ ...prev, empreendimento: '' }));
    }
  }, [selectedEmpreendimento]);
-
- // Reseta para a página 1 ao alterar qualquer filtro
- useEffect(() => {
-   setPage(1);
- }, [filters]);
 
  useEffect(() => {
  if (!authLoading && !canViewPage) router.push('/');
@@ -222,26 +131,15 @@ export default function AtividadesPage() {
  }
  }, [activeTab, showFilters, sortConfig, debouncedFilters]);
 
-   const { data: allActivitiesSummary = [], isLoading: isLoadingSummary, refetch: refetchSummary, isRefetching: isRefetchingSummary } = useQuery({
-      queryKey: ['atividadesSummary', organizacaoId],
-      queryFn: () => fetchAllActivitiesSummary(supabase, organizacaoId),
-      enabled: !!organizacaoId && canViewPage,
-      staleTime: Infinity,
-      refetchOnWindowFocus: false,
-    });
+  const { data: allActivities = [], isLoading: isLoadingAllActivities, refetch: refetchAllActivities } = useQuery({
+    queryKey: ['atividades', organizacaoId],
+    queryFn: () => fetchAllActivities(supabase, organizacaoId),
+    enabled: !!organizacaoId && canViewPage,
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
+  });
 
-   const { data: paginatedData = { data: [], count: 0 }, isLoading: isLoadingPaginated, refetch: refetchPaginated, isRefetching: isRefetchingPaginated } = useQuery({
-      queryKey: ['atividadesPaginated', organizacaoId, debouncedFilters, sortConfig, page],
-      queryFn: () => fetchPaginatedActivities(supabase, organizacaoId, debouncedFilters, sortConfig, page, limit),
-      enabled: !!organizacaoId && canViewPage && activeTab === 'list',
-      staleTime: Infinity,
-      refetchOnWindowFocus: false,
-    });
-   const paginatedActivities = paginatedData.data;
-   const totalCount = paginatedData.count;
-   const totalPages = Math.ceil(totalCount / limit);
-
-   const { data: auxiliaryData, refetch: refetchAuxiliaryData } = useQuery({
+  const { data: auxiliaryData, refetch: refetchAuxiliaryData } = useQuery({
    queryKey: ['atividadesAuxData', organizacaoId],
    queryFn: () => fetchAuxiliaryData(supabase, organizacaoId),
    enabled: !!organizacaoId && canViewPage,
@@ -266,10 +164,9 @@ export default function AtividadesPage() {
   organizacaoId: organizacaoId,
   canal: 'operacional'
   });
-  toast.success('Atividade deletada com sucesso!');
-  queryClient.invalidateQueries({ queryKey: ['atividadesSummary', organizacaoId] });
-  queryClient.invalidateQueries({ queryKey: ['atividadesPaginated'] });
-  setIsSidebarOpen(false);
+   toast.success('Atividade deletada com sucesso!');
+   queryClient.invalidateQueries({ queryKey: ['atividades', organizacaoId] });
+   setIsSidebarOpen(false);
   },
   onError: (error) => toast.error(`Erro ao deletar: ${error.message}`)
   });
@@ -286,10 +183,9 @@ export default function AtividadesPage() {
   const { error } = await supabase.from('activities').insert(newActivityData);
   if (error) throw new Error(error.message);
   },
-  onSuccess: () => {
-  toast.success("Atividade duplicada com sucesso!");
-  queryClient.invalidateQueries({ queryKey: ['atividadesSummary', organizacaoId] });
-  queryClient.invalidateQueries({ queryKey: ['atividadesPaginated'] });
+   onSuccess: () => {
+   toast.success("Atividade duplicada com sucesso!");
+   queryClient.invalidateQueries({ queryKey: ['atividades', organizacaoId] });
   },
   onError: (error) => toast.error(`Erro ao duplicar: ${error.message}`)
   });
@@ -305,24 +201,23 @@ export default function AtividadesPage() {
   if (error) throw new Error(error.message);
   return { activity, newStatus };
   },
-  onSuccess: async (data) => {
-  queryClient.invalidateQueries({ queryKey: ['atividadesSummary', organizacaoId] });
-  queryClient.invalidateQueries({ queryKey: ['atividadesPaginated'] });
+   onSuccess: async (data) => {
+   queryClient.invalidateQueries({ queryKey: ['atividades', organizacaoId] });
   },
   onError: (error) => toast.error(`Erro ao atualizar status: ${error.message}`)
   });
 
- const filteredActivities = useMemo(() => {
-   return allActivitiesSummary
-   .filter(act => {
-   if (filters.searchTerm) {
-   const term = filters.searchTerm.toLowerCase();
-   const matchesName = act.nome?.toLowerCase().includes(term);
-   const matchesId = act.id.toString().includes(term);
-   const parentName = act.atividade_pai_id ? allActivitiesSummary.find(p => p.id === act.atividade_pai_id)?.nome?.toLowerCase() : null;
-   const matchesParent = parentName?.includes(term);
-   if (!matchesName && !matchesId && !matchesParent) return false;
-   }
+  const filteredActivities = useMemo(() => {
+    return allActivities
+    .filter(act => {
+    if (filters.searchTerm) {
+    const term = filters.searchTerm.toLowerCase();
+    const matchesName = act.nome?.toLowerCase().includes(term);
+    const matchesId = act.id.toString().includes(term);
+    const parentName = act.atividade_pai_id ? allActivities.find(p => p.id === act.atividade_pai_id)?.nome?.toLowerCase() : null;
+    const matchesParent = parentName?.includes(term);
+    if (!matchesName && !matchesId && !matchesParent) return false;
+    }
    if (filters.empresa) {
    const emp = empreendimentos.find(e => e.id == act.empreendimento_id);
    if (!emp || emp.empresa_proprietaria_id != filters.empresa) return false;
@@ -337,14 +232,14 @@ export default function AtividadesPage() {
    if (filters.startDate && actEnd < filters.startDate) return false;
    if (filters.endDate && actStart > filters.endDate) return false;
    }
-   return true;
-   })
-   .sort((a, b) => {
-   if (a[sortConfig.key] < b[sortConfig.key]) return sortConfig.direction === 'ascending' ? -1 : 1;
-   if (a[sortConfig.key] > b[sortConfig.key]) return sortConfig.direction === 'ascending' ? 1 : -1;
-   return 0;
-   });
-   }, [allActivitiesSummary, filters, sortConfig, empreendimentos]);
+    return true;
+    })
+    .sort((a, b) => {
+    if (a[sortConfig.key] < b[sortConfig.key]) return sortConfig.direction === 'ascending' ? -1 : 1;
+    if (a[sortConfig.key] > b[sortConfig.key]) return sortConfig.direction === 'ascending' ? 1 : -1;
+    return 0;
+    });
+    }, [allActivities, filters, sortConfig, empreendimentos]);
 
  const kpiData = useMemo(() => {
  const today = new Date();
@@ -503,7 +398,7 @@ export default function AtividadesPage() {
  )}
 
  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
- <KpiCard title="Todas as Atividades" value={allActivitiesSummary.length} icon={faClipboardList} />
+ <KpiCard title="Todas as Atividades" value={allActivities.length} icon={faClipboardList} />
  <KpiCard title="Atrasadas" value={kpiData.atrasadas} icon={faExclamationTriangle} color="red" />
  <KpiCard title="Em Andamento" value={kpiData.ativas} icon={faTasks} color="blue" />
  <KpiCard title="Concluídas no Mês" value={kpiData.concluidasNoMes} icon={faCheckCircle} color="green" />
@@ -522,7 +417,7 @@ export default function AtividadesPage() {
  </div>
 
  <div className="p-4 bg-gray-50 min-h-[500px]">
-  {(isLoadingSummary && !allActivitiesSummary.length) ? (
+  {(isLoadingAllActivities && !allActivities.length) ? (
   <div className="text-center p-10"><FontAwesomeIcon icon={faSpinner} spin /> Carregando...</div>
   ) : (
   <>
@@ -530,48 +425,7 @@ export default function AtividadesPage() {
   <KanbanBoard activities={filteredActivities} empreendimentos={empreendimentos} onEditActivity={handleCardClick} onStatusChange={handleStatusChange} canEdit={canEdit} onDeleteActivity={handleDeleteClick} onDuplicateActivity={handleDuplicateActivity} />
   )}
   {activeTab === 'list' && (
-  <div className="space-y-4">
-    {isLoadingPaginated && !paginatedActivities.length ? (
-      <div className="text-center py-20 bg-white rounded-lg shadow-sm border border-gray-100 flex flex-col items-center justify-center text-gray-500">
-        <FontAwesomeIcon icon={faSpinner} spin size="2x" className="mb-4 text-blue-500" />
-        Carregando página...
-      </div>
-    ) : (
-      <>
-        <ActivityList activities={paginatedActivities} allActivitiesSummary={allActivitiesSummary} empreendimentos={empreendimentos} requestSort={requestSort} sortConfig={sortConfig} onEditClick={handleEditClick} onDeleteClick={handleDeleteClick} onDuplicateClick={handleDuplicateActivity} onStatusChange={handleStatusChange} canEdit={canEdit} canDelete={canDelete} canCreate={canCreate} />
-        
-        {/* Controles de Paginação */}
-        {totalPages > 1 && (
-          <div className="flex flex-col sm:flex-row justify-between items-center bg-white p-4 rounded-lg shadow-sm border border-gray-200 gap-4">
-            <span className="text-sm text-gray-600">
-              Mostrando <span className="font-semibold">{(page - 1) * limit + 1}</span> a{' '}
-              <span className="font-semibold">{Math.min(page * limit, totalCount)}</span> de{' '}
-              <span className="font-semibold">{totalCount}</span> atividades
-            </span>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={() => setPage(p => Math.max(p - 1, 1))}
-                disabled={page === 1}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-semibold text-gray-700 bg-white hover:bg-gray-50 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Anterior
-              </button>
-              <span className="text-sm font-semibold text-gray-700">
-                Página {page} de {totalPages}
-              </span>
-              <button
-                onClick={() => setPage(p => Math.min(p + 1, totalPages))}
-                disabled={page === totalPages}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-semibold text-gray-700 bg-white hover:bg-gray-50 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Próximo
-              </button>
-            </div>
-          </div>
-        )}
-      </>
-    )}
-  </div>
+  <ActivityList activities={filteredActivities} allActivitiesSummary={allActivities} empreendimentos={empreendimentos} requestSort={requestSort} sortConfig={sortConfig} onEditClick={handleEditClick} onDeleteClick={handleDeleteClick} onDuplicateClick={handleDuplicateActivity} onStatusChange={handleStatusChange} canEdit={canEdit} canDelete={canDelete} canCreate={canCreate} />
   )}
   {activeTab === 'gantt' && (
   <GanttChart activities={filteredActivities} onEditActivity={handleEditClick} />
@@ -585,7 +439,7 @@ export default function AtividadesPage() {
  </div>
 
  {isModalOpen && (
- <AtividadeModal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); setEditingActivity(null); }} onActivityAdded={() => { queryClient.invalidateQueries({ queryKey: ['atividadesSummary', organizacaoId] }); queryClient.invalidateQueries({ queryKey: ['atividadesPaginated'] }); }} activityToEdit={editingActivity} selectedEmpreendimento={selectedEmpreendimentoObj} funcionarios={funcionarios} allEmpreendimentos={empreendimentos}
+ <AtividadeModal isOpen={isModalOpen} onClose={() => { setIsModalOpen(false); setEditingActivity(null); }} onActivityAdded={() => { queryClient.invalidateQueries({ queryKey: ['atividades', organizacaoId] }); }} activityToEdit={editingActivity} selectedEmpreendimento={selectedEmpreendimentoObj} funcionarios={funcionarios} allEmpreendimentos={empreendimentos}
  allEmpresas={allEmpresas}
  />
  )}

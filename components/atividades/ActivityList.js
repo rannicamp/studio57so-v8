@@ -3,7 +3,7 @@
 
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faSort, faSortUp, faSortDown, faLevelUpAlt, faSitemap, faTasks, faSearch, faEdit, faTrash, faCopy } from '@fortawesome/free-solid-svg-icons';
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 
 // Função auxiliar de datas
 const formatDate = (dateStr) => {
@@ -60,6 +60,14 @@ export default function ActivityList({ activities, allActivitiesSummary = [], em
     return depths;
   }, [allActivitiesSummary]);
 
+  const [page, setPage] = useState(1);
+  const limit = 50;
+
+  // Reseta para a página 1 sempre que a lista filtrada de atividades mudar
+  useEffect(() => {
+    setPage(1);
+  }, [activities]);
+
  // Lógica para Organizar Pai -> Filhos
  const organizedActivities = useMemo(() => {
  if (!activities) return [];
@@ -105,6 +113,17 @@ export default function ActivityList({ activities, allActivitiesSummary = [], em
  return flatten(roots);
  }, [activities, sortConfig]);
 
+  // Calcula contadores de paginação local
+  const totalCount = organizedActivities.length;
+  const totalPages = Math.ceil(totalCount / limit);
+
+  // Fatiamento local de atividades para exibição leve
+  const paginatedActivities = useMemo(() => {
+    const from = (page - 1) * limit;
+    const to = page * limit;
+    return organizedActivities.slice(from, to);
+  }, [organizedActivities, page]);
+
 
  const getSortIcon = (key) => {
  if (!sortConfig || sortConfig.key !== key) return <FontAwesomeIcon icon={faSort} className="text-gray-400" />;
@@ -134,7 +153,8 @@ export default function ActivityList({ activities, allActivitiesSummary = [], em
  );
 
  return (
-    <div className="overflow-x-auto bg-white rounded-lg shadow">
+    <>
+     <div className="overflow-x-auto bg-white rounded-lg shadow">
       <table className="min-w-full divide-y divide-gray-200">
         <thead className="bg-gray-50">
           <tr>
@@ -149,7 +169,7 @@ export default function ActivityList({ activities, allActivitiesSummary = [], em
           </tr>
         </thead>
  <tbody className="bg-white divide-y divide-gray-200">
- {organizedActivities.map((activity) => {
+ {paginatedActivities.map((activity) => {
  const isCompletedLate = activity.data_fim_real && activity.data_fim_prevista && activity.data_fim_real > activity.data_fim_prevista;
  const delayInDays = isCompletedLate ? calculateBusinessDays(activity.data_fim_prevista, activity.data_fim_real) : 0;
 
@@ -244,5 +264,36 @@ export default function ActivityList({ activities, allActivitiesSummary = [], em
  </tbody>
  </table>
  </div>
+
+  {/* Controles de Paginação Local */}
+  {totalPages > 1 && (
+    <div className="flex flex-col sm:flex-row justify-between items-center bg-white p-4 rounded-b-lg border-t border-gray-200 gap-4 mt-1">
+      <span className="text-sm text-gray-600">
+        Mostrando <span className="font-semibold">{(page - 1) * limit + 1}</span> a{' '}
+        <span className="font-semibold">{Math.min(page * limit, totalCount)}</span> de{' '}
+        <span className="font-semibold">{totalCount}</span> atividades
+      </span>
+      <div className="flex items-center gap-3">
+        <button
+          onClick={() => setPage(p => Math.max(p - 1, 1))}
+          disabled={page === 1}
+          className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-semibold text-gray-700 bg-white hover:bg-gray-50 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          Anterior
+        </button>
+        <span className="text-sm font-semibold text-gray-700">
+          Página {page} de {totalPages}
+        </span>
+        <button
+          onClick={() => setPage(p => Math.min(p + 1, totalPages))}
+          disabled={page === totalPages}
+          className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-semibold text-gray-700 bg-white hover:bg-gray-50 transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          Próximo
+        </button>
+      </div>
+    </div>
+  )}
+  </>
  );
 }
