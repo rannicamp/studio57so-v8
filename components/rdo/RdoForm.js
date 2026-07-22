@@ -261,9 +261,9 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
 
  const todayFormatted = new Date().toISOString().split('T')[0];
  const isTodayRdo = rdoData.data_relatorio === todayFormatted;
- const snapshot = rdoData.snapshot_dados;
+ const snapshot = isTodayRdo ? null : rdoData.snapshot_dados;
 
- // Se já possui snapshot congelado, lê Mão de Obra do snapshot estático
+ // Se for RDO antigo e possui snapshot congelado, lê Mão de Obra do snapshot estático
  if (snapshot && snapshot.mao_de_obra) {
  setEmployeePresences(snapshot.mao_de_obra);
  } else {
@@ -274,7 +274,7 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
  }));
  }
 
- // Se já possui snapshot congelado, lê Atividades do snapshot estático imutável
+ // Se for RDO antigo e possui snapshot congelado, lê Atividades do snapshot estático imutável
  if (snapshot && snapshot.status_atividades) {
  setActivityStatuses(snapshot.status_atividades.map(sa => ({
  id: sa.id,
