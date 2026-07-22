@@ -63,20 +63,24 @@ const RdoPrintView = React.forwardRef(({ rdoData, atividades, maoDeObra, ocorren
  <table className="w-full border-collapse border border-gray-300 text-xs">
  <thead>
  <tr className="bg-gray-100 print:bg-gray-100">
- <th className="border border-gray-300 p-2 text-left w-1/2">Atividade</th>
+ <th className="border border-gray-300 p-2 text-left w-3/4">Atividade</th>
  <th className="border border-gray-300 p-2 text-center w-1/4">Status</th>
- <th className="border border-gray-300 p-2 text-left w-1/4">Obs.</th>
  </tr>
  </thead>
  <tbody>
- {atividades && atividades.length > 0 ? atividades.map(act => (
- <tr key={act.id}>
- <td className="border border-gray-300 p-2">{act.nome}</td>
- <td className="border border-gray-300 p-2 text-center font-medium">{act.status}</td>
- <td className="border border-gray-300 p-2 italic text-gray-600">{act.observacao}</td>
- </tr>
- )) : (
- <tr><td colSpan="3" className="border p-4 text-center text-gray-500">Nenhuma atividade registrada.</td></tr>
+ {atividades && atividades.length > 0 ? atividades.map(act => {
+   const depth = act.depth || 0;
+   return (
+     <tr key={act.id}>
+       <td className="border border-gray-300 p-2" style={{ paddingLeft: `${depth * 14 + 8}px` }}>
+         {depth > 0 && <span className="text-gray-500 font-mono font-bold mr-1">↳ </span>}
+         <span className={depth === 0 ? 'font-bold text-gray-900' : 'text-gray-700'}>{act.nome}</span>
+       </td>
+       <td className="border border-gray-300 p-2 text-center font-medium">{act.status}</td>
+     </tr>
+   );
+ }) : (
+ <tr><td colSpan="2" className="border p-4 text-center text-gray-500">Nenhuma atividade registrada.</td></tr>
  )}
  </tbody>
  </table>

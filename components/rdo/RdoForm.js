@@ -236,7 +236,7 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
 
  const { data: activitiesData } = await supabase
  .from('activities')
- .select('id, nome, status, tipo_atividade, data_inicio_prevista, data_fim_real, exibe_rdo')
+ .select('id, nome, status, tipo_atividade, data_inicio_prevista, data_fim_real, exibe_rdo, atividade_pai_id')
  .eq('empreendimento_id', empreendimentoId)
  .eq('organizacao_id', organizacaoId);
 
@@ -280,15 +280,14 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
  id: sa.id,
  nome: sa.nome,
  status: sa.status,
- observacao: sa.observacao || ''
+ atividade_pai_id: sa.atividade_pai_id || null
  })));
  } else {
  const savedStatusAtividades = rdoData.status_atividades || [];
  setActivityStatuses(filteredActivities.map(dbAct => {
  const rdoActivity = savedStatusAtividades.find(sa => sa.id === dbAct.id);
  const status = isTodayRdo ? dbAct.status : (rdoActivity?.status || dbAct.status);
- const observacao = rdoActivity?.observacao || '';
- return { id: dbAct.id, nome: dbAct.nome, status, observacao };
+ return { id: dbAct.id, nome: dbAct.nome, status, atividade_pai_id: dbAct.atividade_pai_id || null };
  }));
  }
 
@@ -679,18 +678,42 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
  });
  };
 
- const sortedActivityStatuses = useMemo(() => {
- if (!Array.isArray(activityStatuses)) {
- return [];
- }
- return [...activityStatuses].sort((a, b) => {
- const statusA = (a?.status || 'Não Iniciado').trim().toLowerCase();
- const statusB = (b?.status || 'Não Iniciado').trim().toLowerCase();
- const orderA = STATUS_CONFIG[statusA]?.order || 99;
- const orderB = STATUS_CONFIG[statusB]?.order || 99;
- return orderA - orderB;
- });
- }, [activityStatuses]);
+function organizeRdoActivities(activitiesList) {
+  if (!activitiesList || !Array.isArray(activitiesList) || activitiesList.length === 0) return [];
+
+  const map = new Map();
+  activitiesList.forEach(act => {
+    map.set(act.id, { ...act, children: [] });
+  });
+
+  const roots = [];
+  activitiesList.forEach(act => {
+    const node = map.get(act.id);
+    if (act.atividade_pai_id && map.has(act.atividade_pai_id)) {
+      map.get(act.atividade_pai_id).children.push(node);
+    } else {
+      roots.push(node);
+    }
+  });
+
+  const flatResult = [];
+  function traverse(node, depth) {
+    flatResult.push({ ...node, depth });
+    if (node.children && node.children.length > 0) {
+      node.children.forEach(child => traverse(child, depth + 1));
+    }
+  }
+
+  roots.forEach(root => traverse(root, 0));
+  return flatResult;
+}
+
+  const sortedActivityStatuses = useMemo(() => {
+    if (!Array.isArray(activityStatuses)) {
+      return [];
+    }
+    return organizeRdoActivities(activityStatuses);
+  }, [activityStatuses]);
 
  if (loadingForm) {
  return <p className="text-center mt-10">Carregando dados do RDO...</p>;
@@ -828,28 +851,70 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
  <p className="text-sm text-gray-500">Nenhuma entrega de material prevista para hoje.</p>
  )}
  </div>
- <div className="border-b border-gray-200 pb-4">
- <h3 className="text-xl font-semibold text-gray-800 mb-3">Status das Atividades</h3>
- <ul className="divide-y divide-gray-200">
- {sortedActivityStatuses.map((activity) => {
- const currentStatus = (activity.status || 'Não Iniciado').trim().toLowerCase();
- const config = STATUS_CONFIG[currentStatus] || { colorClass: 'border-l-4 border-gray-200' };
 
- return (
- <li key={activity.id} className={`pl-4 pr-2 py-3 flex flex-col md:flex-row md:items-center gap-2 ${config.colorClass}`}>
- <span className="font-medium w-full md:w-2/5">{activity.nome}</span>
- <select value={activity.status || 'Não Iniciado'} onChange={(e) => handleActivityStatusChange(activity.id, e.target.value, activity.observacao)} disabled={isRdoLocked} className="p-1 border border-gray-300 rounded-md text-sm w-full md:w-1/5 disabled:bg-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500">
- <option>Não Iniciado</option><option>Em Andamento</option><option>Concluído</option><option>Pausado</option><option>Aguardando Material</option><option>Cancelado</option>
- </select>
- <input type="text" placeholder="Observação..." value={activity.observacao || ''} onChange={(e) => handleActivityStatusChange(activity.id, activity.status, e.target.value)} disabled={isRdoLocked} className="block w-full md:w-2/5 p-2 border border-gray-300 rounded-md text-sm disabled:bg-gray-100 focus:outline-none focus:ring-1 focus:ring-blue-500" />
- </li>
- );
- })}
- {sortedActivityStatuses.length === 0 && (
- <p className="text-sm text-gray-500 py-2">Nenhuma atividade de obra para hoje.</p>
- )}
- </ul>
- </div>
+  <div className="border-b border-gray-200 pb-6">
+    <div className="flex items-center justify-between mb-3">
+      <h3 className="text-xl font-semibold text-gray-800">Status das Atividades</h3>
+      <span className="text-xs text-gray-500 font-medium bg-gray-100 px-2.5 py-1 rounded-full">
+        {sortedActivityStatuses.length} {sortedActivityStatuses.length === 1 ? 'atividade' : 'atividades'}
+      </span>
+    </div>
+    
+    <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-xs">
+      <ul className="divide-y divide-gray-100">
+        {sortedActivityStatuses.map((activity) => {
+          const depth = activity.depth || 0;
+          return (
+            <li key={activity.id} className="py-3 px-4 flex items-center justify-between hover:bg-gray-50/80 transition-colors">
+              <div className="flex items-center gap-2 flex-grow min-w-0 pr-4" style={{ paddingLeft: `${depth * 24}px` }}>
+                {depth > 0 && (
+                  <span className="text-gray-400 font-mono text-sm font-semibold select-none">↳</span>
+                )}
+                <span className={`text-sm truncate ${depth === 0 ? 'font-semibold text-gray-900' : 'text-gray-700 font-medium'}`}>
+                  {activity.nome}
+                </span>
+              </div>
+
+              <div className="flex-shrink-0 w-44">
+                <select
+                  value={activity.status || 'Não Iniciado'}
+                  onChange={(e) => handleActivityStatusChange(activity.id, e.target.value)}
+                  disabled={isRdoLocked}
+                  className={`w-full text-xs font-semibold py-1.5 px-3 rounded-lg border transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-75 disabled:cursor-not-allowed ${
+                    activity.status === 'Concluído'
+                      ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                      : activity.status === 'Em Andamento'
+                      ? 'bg-blue-50 text-blue-800 border-blue-300'
+                      : activity.status === 'Pausado'
+                      ? 'bg-amber-50 text-amber-800 border-amber-300'
+                      : activity.status === 'Aguardando Material'
+                      ? 'bg-purple-50 text-purple-800 border-purple-300'
+                      : activity.status === 'Cancelado'
+                      ? 'bg-red-50 text-red-800 border-red-300'
+                      : 'bg-gray-50 text-gray-700 border-gray-200'
+                  }`}
+                >
+                  <option value="Não Iniciado">Não Iniciado</option>
+                  <option value="Em Andamento">Em Andamento</option>
+                  <option value="Concluído">Concluído</option>
+                  <option value="Pausado">Pausado</option>
+                  <option value="Aguardando Material">Aguardando Material</option>
+                  <option value="Cancelado">Cancelado</option>
+                </select>
+              </div>
+            </li>
+          );
+        })}
+        {sortedActivityStatuses.length === 0 && (
+          <div className="p-8 text-center bg-gray-50">
+            <p className="text-sm text-gray-500 font-medium">Nenhuma atividade de obra selecionada para hoje.</p>
+            <p className="text-xs text-gray-400 mt-1">Ligue o botão de RDO nas atividades desejadas no painel de Atividades.</p>
+          </div>
+        )}
+      </ul>
+    </div>
+  </div>
+
  <div className="border-b border-gray-200 pb-4">
  <h3 className="text-xl font-semibold text-gray-800 mb-3">Mão de Obra</h3>
  <ul className="divide-y divide-gray-200">
