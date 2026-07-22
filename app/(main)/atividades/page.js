@@ -395,7 +395,7 @@ export default function AtividadesPage() {
  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
  <KpiCard title="Todas as Atividades" value={allActivities.length} icon={faClipboardList} />
  <KpiCard title="Atrasadas" value={kpiData.atrasadas} icon={faExclamationTriangle} color="red" />
- <KpiCard title="Ativas" value={kpiData.ativas} icon={faTasks} color="blue" />
+ <KpiCard title="Em Andamento" value={kpiData.ativas} icon={faTasks} color="blue" />
  <KpiCard title="Concluídas no Mês" value={kpiData.concluidasNoMes} icon={faCheckCircle} color="green" />
  <KpiCard title="Sem Responsável" value={kpiData.semResponsavel} icon={faUserClock} color="yellow" />
  <KpiCard title="Reprogramadas" value={kpiData.reprogramadas} icon={faHistory} color="purple" />
