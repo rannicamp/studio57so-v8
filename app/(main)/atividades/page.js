@@ -457,9 +457,9 @@ export default function AtividadesPage() {
   {activeTab === 'list' && (
   <ActivityList activities={filteredActivities} allActivitiesSummary={allActivities} empreendimentos={empreendimentos} requestSort={requestSort} sortConfig={sortConfig} onEditClick={handleEditClick} onDeleteClick={handleDeleteClick} onDuplicateClick={handleDuplicateActivity} onStatusChange={handleStatusChange} onToggleRdo={handleToggleRdo} canEdit={canEdit} canDelete={canDelete} canCreate={canCreate} />
   )}
-  {activeTab === 'gantt' && (
-  <GanttChart activities={filteredActivities} onEditActivity={handleEditClick} />
-  )}
+   {activeTab === 'gantt' && (
+   <GanttChart activities={filteredActivities} onEditActivity={handleEditClick} hideInternalStatusFilter={true} />
+   )}
   {activeTab === 'calendar' && (
   <ActivityCalendar activities={filteredActivities} onActivityClick={handleCardClick} />
   )}

@@ -43,80 +43,70 @@ const GanttLegend = () => (
  </div>
 );
 
-export default function GanttChart({ activities, onEditActivity }) {
- // --- ESTADO DO ZOOM E FILTRO ---
- const [columnWidth, setColumnWidth] = useState(40); // Estado de Collapse (Quais nós estão colapsados/fechados)
- const [collapsedTasks, setCollapsedTasks] = useState(new Set());
- // Filtro Múltiplo
- const STATUS_OPTIONS = ['Atrasados', 'Em Andamento', 'Pausado', 'Aguardando Material', 'Não Iniciado', 'Concluído'];
- const [selectedStatuses, setSelectedStatuses] = useState([]); const [isStatusDropdownOpen, setIsStatusDropdownOpen] = useState(false);
- const dropdownRef = useRef(null);
+export default function GanttChart({ activities, onEditActivity, hideInternalStatusFilter = false }) {
+  // --- ESTADO DO ZOOM E FILTRO ---
+  const [columnWidth, setColumnWidth] = useState(40); // Estado de Collapse (Quais nós estão colapsados/fechados)
+  const [collapsedTasks, setCollapsedTasks] = useState(new Set());
+  // Filtro Múltiplo (6 Status Oficiais Legítimos)
+  const STATUS_OPTIONS = ['Não Iniciado', 'Em Andamento', 'Concluído', 'Pausado', 'Aguardando Material', 'Cancelado'];
+  const [selectedStatuses, setSelectedStatuses] = useState([]); 
+  const [isStatusDropdownOpen, setIsStatusDropdownOpen] = useState(false);
+  const dropdownRef = useRef(null);
 
- // Refs para sincronizar scroll
- const taskListRef = useRef(null);
- const scrollContainerRef = useRef(null);
+  // Fechar dropdown ao clicar fora
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsStatusDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
- // Fechar dropdown ao clicar fora
- useEffect(() => {
- function handleClickOutside(event) {
- if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
- setIsStatusDropdownOpen(false);
- }
- }
- document.addEventListener("mousedown", handleClickOutside);
- return () => document.removeEventListener("mousedown", handleClickOutside);
- }, []);
+  const toggleStatus = (status) => {
+    setSelectedStatuses(prev => prev.includes(status) ? prev.filter(s => s !== status)
+      : [...prev, status]
+    );
+  };
 
- const toggleStatus = (status) => {
- setSelectedStatuses(prev => prev.includes(status) ? prev.filter(s => s !== status)
- : [...prev, status]
- );
- };
+  const handleSelectAll = () => {
+    if (selectedStatuses.length === STATUS_OPTIONS.length) {
+      setSelectedStatuses([]);
+    } else {
+      setSelectedStatuses([...STATUS_OPTIONS]);
+    }
+  };
 
- const handleSelectAll = () => {
- if (selectedStatuses.length === STATUS_OPTIONS.length) {
- setSelectedStatuses([]);
- } else {
- setSelectedStatuses([...STATUS_OPTIONS]);
- }
- };
+  // --- FUNÇÕES DE ZOOM ---
+  const zoomIn = () => setColumnWidth(prev => Math.min(prev + 10, 120));
+  const zoomOut = () => setColumnWidth(prev => Math.max(prev - 5, 20));
 
- // --- FUNÇÕES DE ZOOM ---
- const zoomIn = () => setColumnWidth(prev => Math.min(prev + 10, 120));
- const zoomOut = () => setColumnWidth(prev => Math.max(prev - 5, 20));
+  // --- SINCRONIA DE SCROLL VERTICAL ---
+  const taskListRef = useRef(null);
+  const scrollContainerRef = useRef(null);
 
- // --- SINCRONIA DE SCROLL VERTICAL ---
- const handleScrollRight = (e) => {
- if (taskListRef.current) taskListRef.current.scrollTop = e.target.scrollTop;
- };
+  const handleScrollRight = (e) => {
+    if (taskListRef.current) taskListRef.current.scrollTop = e.target.scrollTop;
+  };
 
- const handleWheelLeft = (e) => {
- if (scrollContainerRef.current) scrollContainerRef.current.scrollTop += e.deltaY;
- };
+  const handleWheelLeft = (e) => {
+    if (scrollContainerRef.current) scrollContainerRef.current.scrollTop += e.deltaY;
+  };
 
- // Helper para uniformizar nomes das propriedades de data (BIM vs Atividades)
- const getStartDate = (act) => act.start_date || act.data_inicio_prevista || act.data_inicio_real || new Date();
- const getEndDate = (act) => act.end_date || act.data_fim_prevista || act.data_fim_real || getStartDate(act);
+  // Helper para uniformizar nomes das propriedades de data (BIM vs Atividades)
+  const getStartDate = (act) => act.start_date || act.data_inicio_prevista || act.data_inicio_real || new Date();
+  const getEndDate = (act) => act.end_date || act.data_fim_prevista || act.data_fim_real || getStartDate(act);
 
- // 0. Filtragem Prévia por Status Múltiplo
- const filteredActivities = useMemo(() => {
- if (!activities) return [];
- // Se nenhum filtro estiver marcado, ou todos estiverem marcados, mostra tudo.
- if (selectedStatuses.length === 0 || selectedStatuses.length === STATUS_OPTIONS.length) return activities;
+  // 0. Filtragem por Status (Ou herda do pai quando hideInternalStatusFilter é true)
+  const filteredActivities = useMemo(() => {
+    if (!activities) return [];
+    if (hideInternalStatusFilter) return activities;
+    // Se nenhum filtro estiver marcado no BIM, ou todos estiverem marcados, mostra tudo.
+    if (selectedStatuses.length === 0 || selectedStatuses.length === STATUS_OPTIONS.length) return activities;
 
- const today = new Date();
- today.setHours(0, 0, 0, 0);
-
- return activities.filter(act => {
- let visualStatus = act.status;
- // Atrasado tem prioridade no visual (mesmo em tela cheia)
- const actEndStr = getEndDate(act);
- if (actEndStr && new Date(actEndStr) < today && act.status !== 'Concluído') {
- visualStatus = 'Atrasados';
- }
- return selectedStatuses.includes(visualStatus);
- });
- }, [activities, selectedStatuses]);
+    return activities.filter(act => selectedStatuses.includes(act.status));
+  }, [activities, selectedStatuses, hideInternalStatusFilter]);
 
  // 1. Range de Datas
  const { startDate, endDate, totalDays } = useMemo(() => {
@@ -331,6 +321,7 @@ export default function GanttChart({ activities, onEditActivity }) {
  </div>
 
  {/* NOVO: DROPDOWN DE FILTRO MÚLTIPLO */}
+ {!hideInternalStatusFilter && (
  <div className="flex items-center gap-1 border-l pl-3 ml-1 relative" ref={dropdownRef}>
  <span className="text-[10px] uppercase font-bold text-gray-400">Status:</span>
  <button
@@ -364,6 +355,7 @@ export default function GanttChart({ activities, onEditActivity }) {
  </div>
  )}
  </div>
+ )}
  </div>
  {/* Controles de Zoom */}
  <div className="flex items-center gap-2">
