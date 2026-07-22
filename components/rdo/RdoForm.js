@@ -1074,7 +1074,9 @@ function organizeRdoActivities(activitiesList) {
  )}
  </div>
 
- {/* ================================================================================== */}
+  {message && <p className="text-center mt-4 text-sm font-medium">{message}</p>}
+  </form>
+
  {/* ÁREA DE IMPRESSÃO / GERAÇÃO DE PDF (O HÍBRIDO) */}
  {/* ================================================================================== */}
 
