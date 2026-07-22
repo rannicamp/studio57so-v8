@@ -326,7 +326,7 @@ export default function AtividadesPage() {
  </button>
  );
 
- if (authLoading || (isLoadingSummary && !allActivitiesSummary.length)) {
+  if (authLoading || (isLoadingAllActivities && !allActivities.length)) {
  return (
  <div className="flex flex-col items-center justify-center h-64 text-gray-500">
  <FontAwesomeIcon icon={faSpinner} spin size="2x" className="mb-4 text-blue-500" /> <p>Carregando atividades...</p>
