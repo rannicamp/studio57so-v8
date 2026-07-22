@@ -71,7 +71,8 @@ export default function AtividadeFiltros({ filters, onChange, onClear, listas })
  <label className="text-xs font-semibold text-gray-500 uppercase">Responsável</label>
  <select value={filters.responsavel || ''} onChange={e => onChange('responsavel', e.target.value)} className="w-full p-2 border rounded-md text-sm bg-gray-50 focus:bg-white"
  >
- <option value="">Todos</option>
+ <option value="">Todos os Responsáveis</option>
+ <option value="sem_responsavel">⚠️ Sem Responsável</option>
  {funcionarios.map(f => <option key={f.id} value={f.id}>{f.full_name}</option>)}
  </select>
  </div>

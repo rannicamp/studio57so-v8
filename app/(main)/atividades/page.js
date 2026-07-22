@@ -223,7 +223,11 @@ export default function AtividadesPage() {
    if (!emp || emp.empresa_proprietaria_id != filters.empresa) return false;
    }
    if (filters.empreendimento && act.empreendimento_id != filters.empreendimento) return false;
-   if (filters.responsavel && act.funcionario_id != filters.responsavel) return false;
+   if (filters.responsavel === 'sem_responsavel') {
+     if (act.funcionario_id) return false;
+   } else if (filters.responsavel) {
+     if (String(act.funcionario_id) !== String(filters.responsavel)) return false;
+   }
    if (filters.rdo === 'sim' && act.exibe_rdo !== true) return false;
    if (filters.rdo === 'nao' && act.exibe_rdo === true) return false;
    if (filters.status.length > 0 && !filters.status.includes(act.status)) return false;

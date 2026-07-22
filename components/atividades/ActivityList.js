@@ -68,75 +68,43 @@ export default function ActivityList({ activities, allActivitiesSummary = [], em
     setPage(1);
   }, [activities]);
 
-  // Garante a inclusão de toda a cadeia de ancestrais (pais, avós, etc.) para que nenhuma subatividade fique sem seu pai visível
-  const effectiveActivities = useMemo(() => {
+  // Lógica para Organizar Pai -> Filhos
+  const organizedActivities = useMemo(() => {
     if (!activities || activities.length === 0) return [];
-    if (!allActivitiesSummary || allActivitiesSummary.length === 0) return activities;
 
-    const parentMap = new Map();
-    allActivitiesSummary.forEach(act => parentMap.set(act.id, act));
+    const map = new Map();
+    const roots = [];
 
-    const includedIds = new Set();
+    activities.forEach(act => map.set(act.id, { ...act, children: [] }));
 
     activities.forEach(act => {
-      let current = act;
-      while (current) {
-        includedIds.add(current.id);
-        if (current.atividade_pai_id && parentMap.has(current.atividade_pai_id)) {
-          current = parentMap.get(current.atividade_pai_id);
-        } else {
-          current = null;
-        }
+      if (act.atividade_pai_id && map.has(act.atividade_pai_id)) {
+        map.get(act.atividade_pai_id).children.push(map.get(act.id));
+      } else {
+        roots.push(map.get(act.id));
       }
     });
 
-    return Array.from(includedIds).map(id => parentMap.get(id));
-  }, [activities, allActivitiesSummary]);
+    const flatten = (nodes, depth = 0) => {
+      let flatList = [];
+      const sortedNodes = [...nodes].sort((a, b) => {
+        if (!sortConfig || !sortConfig.key) return 0;
+        if (a[sortConfig.key] < b[sortConfig.key]) return sortConfig.direction === 'ascending' ? -1 : 1;
+        if (a[sortConfig.key] > b[sortConfig.key]) return sortConfig.direction === 'ascending' ? 1 : -1;
+        return 0;
+      });
 
- // Lógica para Organizar Pai -> Filhos
- const organizedActivities = useMemo(() => {
- if (!effectiveActivities || effectiveActivities.length === 0) return [];
+      sortedNodes.forEach(node => {
+        flatList.push({ ...node, depth });
+        if (node.children && node.children.length > 0) {
+          flatList = flatList.concat(flatten(node.children, depth + 1));
+        }
+      });
+      return flatList;
+    };
 
- // 1. Separar quem é Pai (ou órfão na lista atual) e quem é Filho
- const map = new Map();
- const roots = [];
-
- // Mapeia todas as atividades para acesso rápido
- effectiveActivities.forEach(act => map.set(act.id, { ...act, children: [] }));
-
- // Organiza a hierarquia
- effectiveActivities.forEach(act => {
- if (act.atividade_pai_id && map.has(act.atividade_pai_id)) {
- // Se tem pai e o pai está nesta lista, adiciona como filho
- map.get(act.atividade_pai_id).children.push(map.get(act.id));
- } else {
- // Se não tem pai na lista, vira raiz
- roots.push(map.get(act.id));
- }
- });
-
- // Função recursiva para "achatar" a lista na ordem correta para a tabela
- const flatten = (nodes, depth = 0) => {
- let flatList = [];
- // Ordena os nós atuais baseados na config de sort (se houver)
- const sortedNodes = [...nodes].sort((a, b) => {
- if (!sortConfig || !sortConfig.key) return 0;
- if (a[sortConfig.key] < b[sortConfig.key]) return sortConfig.direction === 'ascending' ? -1 : 1;
- if (a[sortConfig.key] > b[sortConfig.key]) return sortConfig.direction === 'ascending' ? 1 : -1;
- return 0;
- });
-
- sortedNodes.forEach(node => {
- flatList.push({ ...node, depth }); // Adiciona profundidade para indentação
- if (node.children.length > 0) {
- flatList = [...flatList, ...flatten(node.children, depth + 1)];
- }
- });
- return flatList;
- };
-
- return flatten(roots);
- }, [effectiveActivities, sortConfig]);
+    return flatten(roots);
+  }, [activities, sortConfig]);
 
   // Calcula contadores de paginação local
   const totalCount = organizedActivities.length;
