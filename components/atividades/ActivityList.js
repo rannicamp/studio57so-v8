@@ -68,24 +68,49 @@ export default function ActivityList({ activities, allActivitiesSummary = [], em
     setPage(1);
   }, [activities]);
 
+  // Garante a inclusão de toda a cadeia de ancestrais (pais, avós, etc.) para que nenhuma subatividade fique sem seu pai visível
+  const effectiveActivities = useMemo(() => {
+    if (!activities || activities.length === 0) return [];
+    if (!allActivitiesSummary || allActivitiesSummary.length === 0) return activities;
+
+    const parentMap = new Map();
+    allActivitiesSummary.forEach(act => parentMap.set(act.id, act));
+
+    const includedIds = new Set();
+
+    activities.forEach(act => {
+      let current = act;
+      while (current) {
+        includedIds.add(current.id);
+        if (current.atividade_pai_id && parentMap.has(current.atividade_pai_id)) {
+          current = parentMap.get(current.atividade_pai_id);
+        } else {
+          current = null;
+        }
+      }
+    });
+
+    return Array.from(includedIds).map(id => parentMap.get(id));
+  }, [activities, allActivitiesSummary]);
+
  // Lógica para Organizar Pai -> Filhos
  const organizedActivities = useMemo(() => {
- if (!activities) return [];
+ if (!effectiveActivities || effectiveActivities.length === 0) return [];
 
  // 1. Separar quem é Pai (ou órfão na lista atual) e quem é Filho
  const map = new Map();
  const roots = [];
 
  // Mapeia todas as atividades para acesso rápido
- activities.forEach(act => map.set(act.id, { ...act, children: [] }));
+ effectiveActivities.forEach(act => map.set(act.id, { ...act, children: [] }));
 
  // Organiza a hierarquia
- activities.forEach(act => {
+ effectiveActivities.forEach(act => {
  if (act.atividade_pai_id && map.has(act.atividade_pai_id)) {
- // Se tem pai e o pai está nesta lista filtrada, adiciona como filho
+ // Se tem pai e o pai está nesta lista, adiciona como filho
  map.get(act.atividade_pai_id).children.push(map.get(act.id));
  } else {
- // Se não tem pai OU o pai foi filtrado (não está na lista visível), vira raiz
+ // Se não tem pai na lista, vira raiz
  roots.push(map.get(act.id));
  }
  });
@@ -111,7 +136,7 @@ export default function ActivityList({ activities, allActivitiesSummary = [], em
  };
 
  return flatten(roots);
- }, [activities, sortConfig]);
+ }, [effectiveActivities, sortConfig]);
 
   // Calcula contadores de paginação local
   const totalCount = organizedActivities.length;
@@ -173,9 +198,9 @@ export default function ActivityList({ activities, allActivitiesSummary = [], em
  const isCompletedLate = activity.data_fim_real && activity.data_fim_prevista && activity.data_fim_real > activity.data_fim_prevista;
  const delayInDays = isCompletedLate ? calculateBusinessDays(activity.data_fim_prevista, activity.data_fim_real) : 0;
 
-  // Estilo de Indentação
-  const depth = globalDepths.get(activity.id) !== undefined ? globalDepths.get(activity.id) : (activity.depth || 0);
-  const paddingLeft = depth > 0 ? `${depth * 30 + 16}px` : '16px';
+  // Estilo de Indentação (Infinita de acordo com a profundidade real na árvore)
+  const depth = activity.depth !== undefined ? activity.depth : (globalDepths.get(activity.id) || 0);
+  const paddingLeft = depth > 0 ? `${depth * 28 + 16}px` : '16px';
   const isSubtask = depth > 0;
 
   return (
@@ -185,12 +210,6 @@ export default function ActivityList({ activities, allActivitiesSummary = [], em
   {isSubtask && <FontAwesomeIcon icon={faLevelUpAlt} className="text-gray-400 rotate-90 fa-xs flex-shrink-0" />}
   <div className="flex flex-col min-w-0 w-full">
   <span className="text-sm font-semibold truncate" title={activity.nome}>{activity.nome}</span>
-  {/* Se for um "órfão" (tem pai ID mas o pai não ta na lista atual), mostra quem é o pai */}
-  {activity.atividade_pai && !activities.some(a => a.id === activity.atividade_pai_id) && (
-  <span className="text-[10px] text-gray-400 flex items-center gap-1 truncate" title={`Subtarefa de: ${activity.atividade_pai.nome}`}>
-  <FontAwesomeIcon icon={faSitemap} className="flex-shrink-0" /> Subtarefa de: {activity.atividade_pai.nome}
-  </span>
-  )}
  </div>
  </div>
  </td>
