@@ -181,29 +181,61 @@ const RdoPrintView = React.forwardRef(({ rdoData, atividades, maoDeObra, ocorren
  </section>
  )}
 
- {/* FOTOS (GRID) */}
- {fotos && fotos.length > 0 && (
- <section className="mb-6 break-inside-avoid">
- <h3 className="font-bold text-sm bg-gray-200 print:bg-gray-200 p-1 mb-2 border-l-4 border-gray-800 pl-2">REGISTRO FOTOGRÁFICO</h3>
- <div className="grid grid-cols-3 gap-3">
- {fotos.map(foto => (
- <div key={foto.id} className="border border-gray-200 p-2 text-center bg-white break-inside-avoid">
- <div className="h-36 w-full mb-1 bg-gray-100 flex items-center justify-center overflow-hidden">
- {/* eslint-disable-next-line @next/next/no-img-element */}
- <img
- src={foto.signedUrl}
- alt="RDO"
- className="w-full h-full object-cover"
- loading="eager"
- crossOrigin="anonymous"
- />
- </div>
- <p className="text-[10px] text-gray-600 truncate px-1">{foto.descricao || ''}</p>
- </div>
- ))}
- </div>
- </section>
- )}
+  {/* FOTOS (GRID AGRUPADA POR DATA) */}
+  {fotos && fotos.length > 0 && (() => {
+    const pdfPhotoGroups = {};
+    fotos.forEach(foto => {
+      const rawDate = foto.created_at || foto.data_upload || rdoData?.data_relatorio;
+      let dateStr = 'Registros';
+      if (rawDate) {
+        const d = new Date(rawDate);
+        if (!isNaN(d.getTime())) {
+          dateStr = d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        } else {
+          dateStr = String(rawDate).split('T')[0];
+        }
+      }
+      if (!pdfPhotoGroups[dateStr]) pdfPhotoGroups[dateStr] = [];
+      pdfPhotoGroups[dateStr].push(foto);
+    });
+
+    return (
+      <section className="mb-6 break-inside-avoid">
+        <h3 className="font-bold text-sm bg-gray-200 print:bg-gray-200 p-1 mb-3 border-l-4 border-gray-800 pl-2 uppercase tracking-wide">
+          REGISTRO FOTOGRÁFICO
+        </h3>
+        <div className="space-y-4">
+          {Object.entries(pdfPhotoGroups).map(([dateStr, groupPhotos]) => (
+            <div key={dateStr} className="space-y-2">
+              <div className="flex items-center gap-2 border-b border-gray-300 pb-1">
+                <span className="font-bold text-xs text-gray-800">Data: {dateStr}</span>
+                <span className="text-[10px] text-gray-500">({groupPhotos.length} {groupPhotos.length === 1 ? 'imagem' : 'imagens'})</span>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                {groupPhotos.map(foto => (
+                  <div key={foto.id} className="border border-gray-200 p-1.5 text-center bg-white break-inside-avoid rounded">
+                    <div className="h-36 w-full mb-1 bg-gray-100 flex items-center justify-center overflow-hidden rounded-sm">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={foto.signedUrl}
+                        alt="RDO"
+                        className="w-full h-full object-cover"
+                        loading="eager"
+                        crossOrigin="anonymous"
+                      />
+                    </div>
+                    {foto.descricao && (
+                      <p className="text-[10px] text-gray-700 font-medium truncate leading-tight px-1">{foto.descricao}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+    );
+  })()}
 
  {/* ASSINATURAS */}
  <footer className="mt-16 break-inside-avoid print:mt-12">

@@ -6,7 +6,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { createClient } from '../../utils/supabase/client';
 import { useAuth } from '../../contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faTruck, faCheckCircle, faPrint, faFilePdf, faSpinner, faLock, faDownload } from '@fortawesome/free-solid-svg-icons';
+import { faTruck, faCheckCircle, faPrint, faFilePdf, faSpinner, faLock, faDownload, faCamera, faCalendarAlt } from '@fortawesome/free-solid-svg-icons';
 import imageCompression from 'browser-image-compression';
 import { toast } from 'sonner';
 import { notificarGrupo } from '@/utils/notificacoes';
@@ -723,6 +723,30 @@ function organizeRdoActivities(activitiesList) {
     return organizeRdoActivities(activityStatuses);
   }, [activityStatuses]);
 
+  const photosGroupedByDate = useMemo(() => {
+    if (!allPhotosMetadata || !Array.isArray(allPhotosMetadata) || allPhotosMetadata.length === 0) return {};
+
+    const groups = {};
+    allPhotosMetadata.forEach(photo => {
+      const rawDate = photo.created_at || photo.data_upload || rdoFormData?.data_relatorio;
+      let dateStr = 'Sem data';
+      if (rawDate) {
+        const d = new Date(rawDate);
+        if (!isNaN(d.getTime())) {
+          dateStr = d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        } else {
+          dateStr = String(rawDate).split('T')[0];
+        }
+      }
+      if (!groups[dateStr]) {
+        groups[dateStr] = [];
+      }
+      groups[dateStr].push(photo);
+    });
+
+    return groups;
+  }, [allPhotosMetadata, rdoFormData?.data_relatorio]);
+
  if (loadingForm) {
  return <p className="text-center mt-10">Carregando dados do RDO...</p>;
  }
@@ -965,51 +989,6 @@ function organizeRdoActivities(activitiesList) {
  onChange={(e) => handleOccurrenceChange(occ.id, e.target.value)}
  onBlur={(e) => handleSaveOccurrence(occ.id, e.target.value)}
  disabled={isRdoLocked}
- className="flex-grow p-1 border border-gray-300 rounded-md disabled:bg-gray-100 disabled:border-transparent w-full"
- />
- <span className="text-xs text-gray-500 whitespace-nowrap">({new Date(occ.created_at).toLocaleString('pt-BR')})</span>
- </div>
- {hasPermission('rdo', 'pode_excluir') && !isRdoLocked && (
- <button type="button" onClick={() => handleRemoveOccurrence(occ.id)} className="text-red-500 hover:text-red-700 disabled:opacity-50 text-xl font-bold">&times;</button>
- )}
- </li>
- ))}
- </ul>
- </div>
- <div>
- <h3 className="text-xl font-semibold text-gray-800 mb-3">Fotos do Dia</h3>
- {hasPermission('rdo', 'pode_criar') && !isRdoLocked && (
- <div className="flex flex-col md:flex-row gap-4 mb-3 items-end">
- <div className="flex-1">
- <label className="block text-sm font-medium text-gray-700">Arquivo</label>
- <input type="file" id="photo-file-input" accept="image/*" onChange={handlePhotoFileSelect} disabled={isUploading} className="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:bg-blue-50 hover:file:bg-blue-100 disabled:opacity-50" />
- </div>
- <div className="flex-1">
- <label className="block text-sm font-medium text-gray-700">Descrição</label>
- <input type="text" value={currentPhotoDescription} onChange={(e) => setCurrentPhotoDescription(e.target.value)} placeholder="Descrição da foto..." disabled={isUploading} className="mt-1 block w-full p-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500" />
- </div>
- <button type="button" onClick={handleAddPhoto} disabled={!currentPhotoFile || isUploading} className="bg-blue-600 text-white font-bold px-4 py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 transition-colors">{isUploading ? 'Enviando...' : 'Adicionar Foto'}</button>
- </div>
- )}
- <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
- {allPhotosMetadata.map((photo) => (
- <div key={photo.id} className="relative group border rounded-lg overflow-hidden shadow-sm">
- {photo.signedUrl ? (
- <img src={photo.signedUrl} alt={photo.descricao || 'Foto do RDO'} className="object-cover w-full h-32" />
- ) : (
- <div className="w-full h-32 bg-gray-200 flex items-center justify-center text-xs text-red-500">Erro ao carregar</div>
- )}
- <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-60 text-white text-xs p-1 truncate" title={photo.descricao}>
- {photo.descricao || "Sem descrição"}
- </div>
- {hasPermission('rdo', 'pode_excluir') && !isRdoLocked && (
- <button type="button" onClick={() => handleRemovePhoto(photo.id, photo.caminho_arquivo)} disabled={isUploading} className="absolute top-1 right-1 bg-red-600 text-white rounded-full h-5 w-5 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 disabled:opacity-50">&times;</button>
- )}
- </div>
- ))}
- </div>
- </div>
-
  {message && <p className="text-center mt-4 text-sm font-medium">{message}</p>}
  </form>
 
