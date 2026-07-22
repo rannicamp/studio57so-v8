@@ -92,7 +92,7 @@ export default function AtividadesPage() {
  const [activeTab, setActiveTab] = useState(cachedState?.activeTab || 'kanban');
  const [showFilters, setShowFilters] = useState(cachedState?.showFilters || false);
  const [sortConfig, setSortConfig] = useState(cachedState?.sortConfig || { key: 'data_inicio_prevista', direction: 'ascending' });
- const defaultFilters = { searchTerm: '', empresa: '', empreendimento: '', responsavel: '', status: [], startDate: '', endDate: '' };
+ const defaultFilters = { searchTerm: '', empresa: '', empreendimento: '', responsavel: '', rdo: '', status: [], startDate: '', endDate: '' };
  const [filters, setFilters] = useState(cachedState?.filters || defaultFilters);
  const [debouncedFilters] = useDebounce(filters, 500);
 
@@ -224,6 +224,8 @@ export default function AtividadesPage() {
    }
    if (filters.empreendimento && act.empreendimento_id != filters.empreendimento) return false;
    if (filters.responsavel && act.funcionario_id != filters.responsavel) return false;
+   if (filters.rdo === 'sim' && act.exibe_rdo !== true) return false;
+   if (filters.rdo === 'nao' && act.exibe_rdo === true) return false;
    if (filters.status.length > 0 && !filters.status.includes(act.status)) return false;
    if (filters.startDate || filters.endDate) {
    if (!act.data_inicio_prevista) return false;

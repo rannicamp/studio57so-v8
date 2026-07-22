@@ -241,30 +241,11 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
  .eq('organizacao_id', organizacaoId);
 
  const filteredActivities = (activitiesData || []).filter(act => {
- if (act.exibe_rdo === false) {
- return false;
- }
- if (act.tipo_atividade === 'Entrega de Pedido' || act.nome.startsWith('Entrega Pedido')) {
- return false;
- }
-
- const dataInicioPrevistaStr = act.data_inicio_prevista;
- const dataFimRealStr = act.data_fim_real;
-
- if (act.status === 'Em Andamento') {
- return true;
- }
-
- if (act.status === 'Concluído' && dataFimRealStr === dataRelatorioStr) {
- return true;
- }
-
- if (act.status !== 'Concluído' && dataInicioPrevistaStr && dataInicioPrevistaStr <= dataRelatorioStr) {
- return true;
- }
-
- return false;
- });
+  if (act.tipo_atividade === 'Entrega de Pedido' || (act.nome && act.nome.startsWith('Entrega Pedido'))) {
+  return false;
+  }
+  return act.exibe_rdo === true;
+  });
 
  const { data: employeesData } = await supabase
  .from('funcionarios')

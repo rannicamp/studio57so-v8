@@ -67,7 +67,7 @@ export default function ActivityModalRoot({
   descricao: '',
   status: 'Não Iniciado',
   tipo_atividade: 'Tarefa',
-  exibe_rdo: true,
+  exibe_rdo: false,
   empresa_id: null,
   empreendimento_id: null,
   etapa_id: null,
@@ -117,7 +117,7 @@ export default function ActivityModalRoot({
       hasInitialized.current = true;
     } else {
       setFormData({
-        nome: '', descricao: '', status: 'Não Iniciado', tipo_atividade: 'Tarefa',
+        nome: '', descricao: '', status: 'Não Iniciado', tipo_atividade: 'Tarefa', exibe_rdo: false,
         empresa_id: null, empreendimento_id: null, etapa_id: null, subetapa_id: null, atividade_pai_id: null,
         data_inicio_prevista: '', data_fim_prevista: '', duracao_dias: 1,
         is_recorrente: false, recorrencia_tipo: 'diaria', recorrencia_intervalo: 1,

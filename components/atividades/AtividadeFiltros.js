@@ -42,7 +42,7 @@ export default function AtividadeFiltros({ filters, onChange, onClear, listas })
  </div>
 
  {/* GRID DE FILTROS AVANÇADOS */}
- <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3 items-end">
+ <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-3 items-end">
  {/* Filtro de Empresa */}
  <div className="space-y-1">
  <label className="text-xs font-semibold text-gray-500 uppercase">Empresa</label>
@@ -73,6 +73,17 @@ export default function AtividadeFiltros({ filters, onChange, onClear, listas })
  >
  <option value="">Todos</option>
  {funcionarios.map(f => <option key={f.id} value={f.id}>{f.full_name}</option>)}
+ </select>
+ </div>
+
+ {/* Filtro de RDO */}
+ <div className="space-y-1">
+ <label className="text-xs font-semibold text-gray-500 uppercase">RDO</label>
+ <select value={filters.rdo || ''} onChange={e => onChange('rdo', e.target.value)} className="w-full p-2 border rounded-md text-sm bg-gray-50 focus:bg-white font-medium"
+ >
+ <option value="">Todos</option>
+ <option value="sim">Sim</option>
+ <option value="nao">Não</option>
  </select>
  </div>
 
