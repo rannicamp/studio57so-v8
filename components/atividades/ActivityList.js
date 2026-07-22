@@ -111,8 +111,8 @@ export default function ActivityList({ activities, requestSort, sortConfig, onEd
  <table className="min-w-full divide-y divide-gray-200">
  <thead className="bg-gray-50">
  <tr>
- <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-[40%] min-w-[280px]"><SortableHeader sortKey="nome">Atividade</SortableHeader></th>
- <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-[20%] min-w-[150px]"><SortableHeader sortKey="responsavel_texto">Responsável</SortableHeader></th>
+ <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-[40%] min-w-[280px] max-w-[320px]"><SortableHeader sortKey="nome">Atividade</SortableHeader></th>
+ <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-[20%] min-w-[150px] max-w-[180px]"><SortableHeader sortKey="responsavel_texto">Responsável</SortableHeader></th>
  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-[180px] min-w-[160px]"><SortableHeader sortKey="status">Status</SortableHeader></th>
  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-[110px]"><SortableHeader sortKey="data_inicio_prevista">Início</SortableHeader></th>
  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-[110px]"><SortableHeader sortKey="data_fim_prevista">Fim Previsto</SortableHeader></th>
@@ -131,22 +131,24 @@ export default function ActivityList({ activities, requestSort, sortConfig, onEd
 
  return (
  <tr key={activity.id} className={`hover:bg-gray-50 ${isSubtask ? 'bg-gray-50/50' : ''}`}>
- <td className="px-4 py-3 whitespace-nowrap font-medium text-gray-900" style={{ paddingLeft }}>
- <div className="flex items-center gap-2">
- {isSubtask && <FontAwesomeIcon icon={faLevelUpAlt} className="text-gray-400 rotate-90 fa-xs" />}
- <div className="flex flex-col">
- <span className="text-sm font-semibold">{activity.nome}</span>
+ <td className="px-4 py-3 whitespace-nowrap font-medium text-gray-900 max-w-[320px]" style={{ paddingLeft }}>
+ <div className="flex items-center gap-2 min-w-0 w-full">
+ {isSubtask && <FontAwesomeIcon icon={faLevelUpAlt} className="text-gray-400 rotate-90 fa-xs flex-shrink-0" />}
+ <div className="flex flex-col min-w-0 w-full">
+ <span className="text-sm font-semibold truncate" title={activity.nome}>{activity.nome}</span>
  {/* Se for um "órfão" (tem pai ID mas o pai não ta na lista), mostra quem é o pai */}
  {activity.atividade_pai && activity.depth === 0 && (
- <span className="text-[10px] text-gray-400 flex items-center gap-1">
- <FontAwesomeIcon icon={faSitemap} /> Subtarefa de: {activity.atividade_pai.nome}
+ <span className="text-[10px] text-gray-400 flex items-center gap-1 truncate" title={`Subtarefa de: ${activity.atividade_pai.nome}`}>
+ <FontAwesomeIcon icon={faSitemap} className="flex-shrink-0" /> Subtarefa de: {activity.atividade_pai.nome}
  </span>
  )}
  </div>
  </div>
  </td>
- <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 w-[20%] min-w-[150px]">
+ <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600 w-[20%] min-w-[150px] max-w-[180px]">
+ <span className="block truncate" title={activity.responsavel_texto || 'Sem responsável'}>
  {activity.responsavel_texto || <span className="text-gray-400 italic">Sem responsável</span>}
+ </span>
  </td>
  <td className="px-4 py-3 whitespace-nowrap w-[180px] min-w-[160px]">
  <select
