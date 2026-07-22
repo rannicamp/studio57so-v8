@@ -865,17 +865,17 @@ function organizeRdoActivities(activitiesList) {
         {sortedActivityStatuses.map((activity) => {
           const depth = activity.depth || 0;
           return (
-            <li key={activity.id} className="py-3 px-4 flex items-center justify-between hover:bg-gray-50/80 transition-colors">
-              <div className="flex items-center gap-2 flex-grow min-w-0 pr-4" style={{ paddingLeft: `${depth * 24}px` }}>
+            <li key={activity.id} className="py-3 px-3 sm:px-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2 hover:bg-gray-50/80 transition-colors">
+              <div className="flex items-start sm:items-center gap-1.5 flex-grow min-w-0 pr-2" style={{ paddingLeft: `${Math.min(depth, 4) * 12}px` }}>
                 {depth > 0 && (
-                  <span className="text-gray-400 font-mono text-sm font-semibold select-none">↳</span>
+                  <span className="text-gray-400 font-mono text-xs sm:text-sm font-semibold select-none flex-shrink-0 mt-0.5 sm:mt-0">↳</span>
                 )}
-                <span className={`text-sm truncate ${depth === 0 ? 'font-semibold text-gray-900' : 'text-gray-700 font-medium'}`}>
+                <span className={`text-xs sm:text-sm leading-snug break-words ${depth === 0 ? 'font-semibold text-gray-900' : 'text-gray-700 font-medium'}`}>
                   {activity.nome}
                 </span>
               </div>
 
-              <div className="flex-shrink-0 w-44">
+              <div className="flex-shrink-0 w-full sm:w-44 pl-3 sm:pl-0">
                 <select
                   value={activity.status || 'Não Iniciado'}
                   onChange={(e) => handleActivityStatusChange(activity.id, e.target.value)}
