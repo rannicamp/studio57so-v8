@@ -127,17 +127,12 @@ export default function RdoPhotoGallery({ photos }) {
         <div className="space-y-8">
           {Object.entries(photosGroupedByDate).map(([dateStr, group]) => (
             <div key={dateStr} className="space-y-3">
-              {/* Linha / Divisor de Seção por Data */}
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2 bg-blue-50 text-blue-800 text-xs font-bold px-3 py-1.5 rounded-lg border border-blue-200 shadow-2xs">
-                  <FontAwesomeIcon icon={faCamera} className="text-blue-600" />
-                  <span>{group.dateLabel}</span>
-                  {group.rdoNumero && (
-                    <span className="bg-blue-200/60 text-blue-900 px-2 py-0.5 rounded text-[10px] font-semibold">
-                      RDO #{group.rdoNumero}
-                    </span>
-                  )}
-                </div>
+              <div className="flex items-center gap-2.5 pt-2">
+                <FontAwesomeIcon icon={faCamera} className="text-gray-400 text-xs" />
+                <span className="text-sm font-bold text-gray-900 tracking-tight">
+                  {group.dateLabel}
+                  {group.rdoNumero && <span className="text-gray-400 font-normal ml-2.5">• RDO #{group.rdoNumero}</span>}
+                </span>
                 <div className="flex-grow h-px bg-gray-200" />
                 <span className="text-xs text-gray-400 font-medium">
                   {group.items.length} {group.items.length === 1 ? 'foto' : 'fotos'}
@@ -149,11 +144,6 @@ export default function RdoPhotoGallery({ photos }) {
                 {group.items.map(({ photo, globalIndex }) => (
                   <div key={photo.id} className="relative aspect-square group bg-gray-100 rounded-xl overflow-hidden shadow-xs hover:shadow-md transition-shadow">
                     <ImageThumbnail photo={photo} onClick={() => openLightbox(globalIndex)} />
-                    {photo.tamanho_arquivo && (
-                      <span className="absolute top-1.5 right-1.5 bg-black/60 backdrop-blur-xs text-white text-[10px] font-bold px-2 py-0.5 rounded-md">
-                        {formatBytes(photo.tamanho_arquivo)}
-                      </span>
-                    )}
                     <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/50 to-transparent text-white text-xs p-2 pt-4 truncate" title={photo.descricao}>
                       {photo.descricao || 'Sem descrição'}
                     </div>
@@ -172,7 +162,6 @@ export default function RdoPhotoGallery({ photos }) {
  <div className="w-full text-center text-white p-4 bg-black bg-opacity-50 rounded-t-lg flex-shrink-0">
  <div className="flex flex-col items-center justify-center gap-2">
  <p className="font-bold text-lg">{currentPhoto.descricao || 'Sem descrição'}</p>
- {currentPhoto.tamanho_arquivo && (<span className="text-sm bg-gray-700 px-2 py-0.5 rounded-full">{formatBytes(currentPhoto.tamanho_arquivo)}</span>)}
  <Link href={`/rdo/${currentPhoto.diarios_obra.id}`} className="text-base text-blue-300 hover:text-blue-200 hover:underline inline-flex items-center mt-1">
  RDO {currentPhoto.diarios_obra.rdo_numero} - {new Date(currentPhoto.diarios_obra.data_relatorio + 'T00:00:00').toLocaleDateString('pt-BR')}
  <FontAwesomeIcon icon={faExternalLinkAlt} className="ml-2 w-4 h-4"/>

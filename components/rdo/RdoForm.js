@@ -1031,14 +1031,14 @@ function organizeRdoActivities(activitiesList) {
  <div className="space-y-6">
  {Object.entries(photosGroupedByDate).map(([dateStr, photos]) => (
  <div key={dateStr} className="space-y-3">
- {/* Linha / Divisor de Sessão por Data */}
- <div className="flex items-center gap-3">
- <div className="flex items-center gap-2 bg-blue-50 text-blue-800 text-xs font-bold px-3 py-1.5 rounded-lg border border-blue-200">
- <FontAwesomeIcon icon={faCamera} className="text-blue-600" />
- <span>{dateStr}</span>
- </div>
+ {/* Linha / Divisor de Seção por Data (Minimalista Solto) */}
+ <div className="flex items-center gap-2.5 pt-2">
+ <FontAwesomeIcon icon={faCamera} className="text-gray-400 text-xs" />
+ <span className="text-sm font-bold text-gray-900 tracking-tight">
+ {dateStr}
+ </span>
  <div className="flex-grow h-px bg-gray-200" />
- <span className="text-[11px] text-gray-400 font-medium">{photos.length} {photos.length === 1 ? 'imagem' : 'imagens'}</span>
+ <span className="text-xs text-gray-400 font-medium">{photos.length} {photos.length === 1 ? 'imagem' : 'imagens'}</span>
  </div>
 
  {/* Grid de Fotos desta Data */}
