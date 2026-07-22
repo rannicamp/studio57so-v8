@@ -298,10 +298,44 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
  });
  setAllPhotosMetadata(await Promise.all(photoPromises));
 
- // LÓGICA DE BLOQUEIO ATUALIZADA
- const isOldDate = rdoData.data_relatorio !== todayFormatted;
- const isFinalized = !!rdoData.pdf_url;
- setIsRdoLocked(isOldDate || isFinalized);
+  // LÓGICA DE BLOQUEIO E CONGELAMENTO IMUTÁVEL NA VIRADA DA DATA
+  const isOldDate = rdoData.data_relatorio !== todayFormatted;
+  const isFinalized = !!rdoData.pdf_url;
+  const isLocked = isOldDate || isFinalized;
+  setIsRdoLocked(isLocked);
+
+  // Se a data virou (isOldDate) e ainda não possuía snapshot congelado, gera e salva o snapshot_dados estático agora
+  if (isOldDate && !rdoData.snapshot_dados && organizacaoId) {
+  const autoSnapshot = {
+  congelado_em: new Date().toISOString(),
+  rdo_id: rdoData.id,
+  rdo_numero: rdoData.rdo_numero,
+  data_relatorio: rdoData.data_relatorio,
+  responsavel_rdo: rdoData.responsavel_rdo || 'Não identificado',
+  condicoes_climaticas: rdoData.condicoes_climaticas || 'Normal',
+  condicoes_trabalho: rdoData.condicoes_trabalho || 'Normal',
+  status_atividades: filteredActivities.map(dbAct => ({
+  id: dbAct.id,
+  nome: dbAct.nome,
+  status: dbAct.status,
+  observacao: '',
+  responsavel_texto: dbAct.responsavel_texto || 'Não informado',
+  data_inicio_prevista: dbAct.data_inicio_prevista,
+  data_fim_prevista: dbAct.data_fim_prevista,
+  data_fim_real: dbAct.data_fim_real,
+  exibe_rdo: dbAct.exibe_rdo
+  })),
+  mao_de_obra: activeEmployees.map(emp => ({
+  id: emp.id,
+  name: emp.full_name,
+  present: true,
+  observacao: ''
+  })),
+  ocorrencias_do_dia: rdoData.ocorrencias || [],
+  fotos_do_dia: rdoData.rdo_fotos_uploads || []
+  };
+  supabase.from('diarios_obra').update({ snapshot_dados: autoSnapshot }).eq('id', rdoData.id).then();
+  }
 
  } catch (error) {
  console.error("Erro ao carregar dados do RDO:", error);
