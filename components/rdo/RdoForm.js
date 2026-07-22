@@ -678,16 +678,38 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
  });
  };
 
+const STATUS_PRIORITY = {
+  'em andamento': 1,
+  'não iniciado': 2,
+  'aguardando material': 3,
+  'pausado': 4,
+  'concluído': 5,
+  'cancelado': 6
+};
+
+function getStatusWeight(status) {
+  const norm = (status || 'não iniciado').trim().toLowerCase();
+  return STATUS_PRIORITY[norm] || 99;
+}
+
 function organizeRdoActivities(activitiesList) {
   if (!activitiesList || !Array.isArray(activitiesList) || activitiesList.length === 0) return [];
 
+  // Ordenar lista de entrada primeiro pelo Peso do Status, depois pelo Código WBS / Nome (03, 03.1, 04)
+  const sortedList = [...activitiesList].sort((a, b) => {
+    const weightA = getStatusWeight(a.status);
+    const weightB = getStatusWeight(b.status);
+    if (weightA !== weightB) return weightA - weightB;
+    return (a.nome || '').localeCompare(b.nome || '', undefined, { numeric: true, sensitivity: 'base' });
+  });
+
   const map = new Map();
-  activitiesList.forEach(act => {
+  sortedList.forEach(act => {
     map.set(act.id, { ...act, children: [] });
   });
 
   const roots = [];
-  activitiesList.forEach(act => {
+  sortedList.forEach(act => {
     const node = map.get(act.id);
     if (act.atividade_pai_id && map.has(act.atividade_pai_id)) {
       map.get(act.atividade_pai_id).children.push(node);

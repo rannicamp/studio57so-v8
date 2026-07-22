@@ -10,6 +10,23 @@ const RdoPrintView = React.forwardRef(({ rdoData, atividades, maoDeObra, ocorren
  // Logo do Elo 57
  const logoUrl = "/marca/logo-elo57-horizontal.svg";
 
+  const STATUS_PRIORITY = {
+    'em andamento': 1,
+    'não iniciado': 2,
+    'aguardando material': 3,
+    'pausado': 4,
+    'concluído': 5,
+    'cancelado': 6
+  };
+  const getStatusWeight = (st) => STATUS_PRIORITY[(st || 'não iniciado').trim().toLowerCase()] || 99;
+
+  const sortedAtividadesPdf = atividades && atividades.length > 0 ? [...atividades].sort((a, b) => {
+    const wA = getStatusWeight(a.status);
+    const wB = getStatusWeight(b.status);
+    if (wA !== wB) return wA - wB;
+    return (a.nome || '').localeCompare(b.nome || '', undefined, { numeric: true, sensitivity: 'base' });
+  }) : [];
+
  return (
  <div
  ref={ref}
@@ -68,7 +85,7 @@ const RdoPrintView = React.forwardRef(({ rdoData, atividades, maoDeObra, ocorren
  </tr>
  </thead>
  <tbody>
- {atividades && atividades.length > 0 ? atividades.map(act => {
+ {sortedAtividadesPdf && sortedAtividadesPdf.length > 0 ? sortedAtividadesPdf.map(act => {
    const depth = act.depth || 0;
    return (
      <tr key={act.id}>
