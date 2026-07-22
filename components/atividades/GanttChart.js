@@ -35,12 +35,15 @@ const DayColumn = ({ date, width }) => {
 
 // Legenda
 const GanttLegend = () => (
- <div className="flex gap-4 p-2 bg-gray-50 border-t text-[10px] text-gray-600 justify-end shrink-0">
- <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-blue-500"></div> Planejado</div>
- <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-green-500"></div> Realizado</div>
- <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-red-500"></div> Atrasado</div>
- <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-yellow-400"></div> Hoje</div>
- </div>
+  <div className="flex gap-4 p-2 bg-gray-50 border-t text-[10px] text-gray-600 justify-end shrink-0 flex-wrap">
+    <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#d1d5db' }}></div> Não Iniciado</div>
+    <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#2563eb' }}></div> Em Andamento</div>
+    <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#8b5cf6' }}></div> Aguardando Material</div>
+    <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#eab308' }}></div> Pausado</div>
+    <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#22c55e' }}></div> Concluído</div>
+    <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#ef4444' }}></div> Cancelado</div>
+    <div className="flex items-center gap-1 ml-2 border-l pl-2"><div className="w-[1px] h-3 bg-red-500"></div> Linha de Hoje</div>
+  </div>
 );
 
 export default function GanttChart({ activities, onEditActivity, hideInternalStatusFilter = false }) {
@@ -52,6 +55,11 @@ export default function GanttChart({ activities, onEditActivity, hideInternalSta
   const [selectedStatuses, setSelectedStatuses] = useState([]); 
   const [isStatusDropdownOpen, setIsStatusDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Fechar dropdown ao clicar fora
   useEffect(() => {
@@ -252,54 +260,76 @@ export default function GanttChart({ activities, onEditActivity, hideInternalSta
  }, [startDate, endDate, columnWidth]);
 
  // --- FUNÇÃO PARA ROLAR ATÉ "HOJE" ---
- const scrollToToday = () => {
- if (scrollContainerRef.current && todayMarkerPosition) {
- const containerWidth = scrollContainerRef.current.clientWidth;
- scrollContainerRef.current.scrollTo({
- left: todayMarkerPosition - (containerWidth / 2),
- behavior: 'smooth'
- });
- }
- };
+// --- FUNÇÃO PARA ROLAR ATÉ "HOJE" ---
+  const scrollToToday = () => {
+    if (scrollContainerRef.current && todayMarkerPosition) {
+      const containerWidth = scrollContainerRef.current.clientWidth;
+      scrollContainerRef.current.scrollTo({
+        left: todayMarkerPosition - (containerWidth / 2),
+        behavior: 'smooth'
+      });
+    }
+  };
 
- useEffect(() => {
- const timer = setTimeout(() => {
- scrollToToday();
- }, 100);
- return () => clearTimeout(timer);
- }, [todayMarkerPosition]);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      scrollToToday();
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [todayMarkerPosition]);
 
- // Renderização da Barra
- const renderTaskBar = (task) => {
- const left = task.startDiff * columnWidth;
- const width = task.duration * columnWidth;
- let barColor = 'bg-blue-500';
- let progressColor = 'bg-blue-700';
- if (task.status === 'Concluído') { barColor = 'bg-green-500'; progressColor = 'bg-green-700'; }
- else if (task.status === 'Atrasado') { barColor = 'bg-red-500'; progressColor = 'bg-red-700'; }
- else if (task.status === 'Pausado') { barColor = 'bg-yellow-400'; progressColor = 'bg-yellow-600'; }
+  const getStatusStyles = (status) => {
+    switch (status) {
+      case 'Não Iniciado':
+        return { bg: '#e5e7eb', text: '#374151', progress: '#9ca3af' };
+      case 'Em Andamento':
+        return { bg: '#2563eb', text: '#ffffff', progress: '#1d4ed8' };
+      case 'Aguardando Material':
+        return { bg: '#8b5cf6', text: '#ffffff', progress: '#6d28d9' };
+      case 'Pausado':
+        return { bg: '#eab308', text: '#ffffff', progress: '#a16207' };
+      case 'Concluído':
+        return { bg: '#22c55e', text: '#ffffff', progress: '#15803d' };
+      case 'Cancelado':
+        return { bg: '#ef4444', text: '#ffffff', progress: '#b91c1c' };
+      default:
+        return { bg: '#2563eb', text: '#ffffff', progress: '#1d4ed8' };
+    }
+  };
 
- const actEndStr = getEndDate(task);
- const isLate = actEndStr && new Date(actEndStr) < new Date() && task.status !== 'Concluído';
- if (isLate) { barColor = 'bg-red-400'; }
+  // Renderização da Barra
+  const renderTaskBar = (task) => {
+     const left = task.startDiff * columnWidth;
+     const width = task.duration * columnWidth;
+     
+     const styles = getStatusStyles(task.status);
 
- return (
- <div className={`absolute top-1 bottom-1 rounded shadow-sm ${barColor} cursor-pointer hover:brightness-110 transition-all flex items-center`}
- style={{ left: `${left}px`, width: `${width}px` }}
- onClick={() => onEditActivity(task)}
- title={`${task.nome} (${task.status})`}
- >
- {task.progresso > 0 && (
- <div className={`h-full rounded-l ${progressColor} opacity-50`} style={{ width: `${task.progresso}%` }}
- ></div>
- )}
- {/* Nome flutuante se a barra for pequena */}
- <span className={`text-[9px] font-bold text-white px-2 truncate sticky left-0 ${width < 40 ? 'hidden group-hover:block absolute -top-5 bg-gray-800 text-white z-50 rounded p-1 w-max' : ''}`}>
- {task.nome}
- </span>
- </div>
- );
- };
+     return (
+       <div className="absolute top-1 bottom-1 rounded shadow-sm cursor-pointer hover:brightness-105 transition-all flex items-center overflow-hidden"
+         style={{ left: `${left}px`, width: `${width}px`, backgroundColor: styles.bg, color: styles.text }}
+         onClick={() => onEditActivity(task)}
+         title={`${task.nome} (${task.status})`}
+       >
+         {task.progresso > 0 && (
+           <div className="absolute top-0 left-0 bottom-0 opacity-50" 
+             style={{ width: `${task.progresso}%`, backgroundColor: styles.progress }}
+           ></div>
+         )}
+         {/* Nome flutuante se a barra for pequena */}
+         <span className={`text-[9px] font-bold px-2 truncate sticky left-0 z-10 ${width < 40 ? 'hidden group-hover:block absolute -top-5 bg-gray-800 text-white z-50 rounded p-1 w-max' : ''}`}>
+           {task.nome}
+         </span>
+       </div>
+     );
+  };
+
+ if (!mounted) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 text-gray-500 bg-white border border-gray-200 rounded-lg shadow-sm">
+        <span className="font-medium text-xs">Carregando visualização do Gantt...</span>
+      </div>
+    );
+  }
 
  return (
  <div className="flex flex-col h-full border border-gray-200 rounded-lg bg-white shadow-sm overflow-hidden text-xs">

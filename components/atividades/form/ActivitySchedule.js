@@ -33,50 +33,60 @@ function addBusinessDaysSafe(startDate, days) {
 }
 
 export default function ActivitySchedule({ formData, setFormData }) {
- const supabase = createClient();
- const { user } = useAuth();
- // Estado para data calculada pelo servidor (considerando feriados)
- const [serverEndDate, setServerEndDate] = useState(null);
- const [isCalculating, setIsCalculating] = useState(false);
+  const supabase = createClient();
+  const { user, organizacao_id } = useAuth();
+  const orgId = organizacao_id || user?.organizacao_id;
 
- // Identifica se é Evento (Horas) ou Atividade (Dias)
- const isEvent = formData.tipo_atividade === 'Evento';
+  // Estado para data calculada pelo servidor (considerando feriados)
+  const [serverEndDate, setServerEndDate] = useState(null);
+  const [isCalculating, setIsCalculating] = useState(false);
 
- // --- CÁLCULO PRECISO NO SERVIDOR (RPC) ---
- const calculateEndDate = useCallback(async () => {
- // Se for evento, data fim = data inicio
- if (isEvent) {
- setServerEndDate(formData.data_inicio_prevista);
- return;
- }
+  // Identifica se é Evento (Horas) ou Atividade (Dias)
+  const isEvent = formData.tipo_atividade === 'Evento';
 
- if (!formData.data_inicio_prevista || !formData.duracao_dias || !user?.organizacao_id) {
- setServerEndDate(null);
- return;
- }
+  // --- CÁLCULO PRECISO NO SERVIDOR (RPC) ---
+  const calculateEndDate = useCallback(async () => {
+    // Se for evento, data fim = data inicio
+    if (isEvent) {
+      const targetDate = formData.data_inicio_prevista || '';
+      setServerEndDate(targetDate);
+      if (formData.data_fim_prevista !== targetDate) {
+        setFormData(prev => ({ ...prev, data_fim_prevista: targetDate }));
+      }
+      return;
+    }
 
- setIsCalculating(true);
- try {
- const { data, error } = await supabase.rpc('calcular_termino_atividade', {
- p_data_inicio: formData.data_inicio_prevista,
- p_dias_uteis: formData.duracao_dias,
- p_organizacao_id: user.organizacao_id
- });
+    if (!formData.data_inicio_prevista || !formData.duracao_dias || !orgId) {
+      setServerEndDate(null);
+      return;
+    }
 
- if (!error && data) {
- setServerEndDate(data);
- // Opcional: Atualizar o formData automaticamente? // Por enquanto deixamos apenas visual para não causar loops, // mas você pode descomentar abaixo se quiser salvar a data calculada:
- // setFormData(prev => ({ ...prev, data_fim_prevista: data }));
- } else {
- // Fallback para JS se der erro
- setServerEndDate(addBusinessDaysSafe(formData.data_inicio_prevista, formData.duracao_dias));
- }
- } catch (e) {
- console.error(e);
- } finally {
- setIsCalculating(false);
- }
- }, [formData.data_inicio_prevista, formData.duracao_dias, isEvent, user?.organizacao_id, supabase]);
+    setIsCalculating(true);
+    try {
+      const { data, error } = await supabase.rpc('calcular_termino_atividade', {
+        p_data_inicio: formData.data_inicio_prevista,
+        p_dias_uteis: formData.duracao_dias,
+        p_organizacao_id: orgId
+      });
+
+      let finalDate = null;
+      if (!error && data) {
+        finalDate = data;
+      } else {
+        // Fallback para JS se der erro
+        finalDate = addBusinessDaysSafe(formData.data_inicio_prevista, formData.duracao_dias);
+      }
+
+      setServerEndDate(finalDate);
+      if (finalDate && formData.data_fim_prevista !== finalDate) {
+        setFormData(prev => ({ ...prev, data_fim_prevista: finalDate }));
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsCalculating(false);
+    }
+  }, [formData.data_inicio_prevista, formData.duracao_dias, isEvent, orgId, supabase, formData.data_fim_prevista, setFormData]);
 
  // Dispara cálculo quando muda data ou duração (com debounce nativo do useEffect)
  useEffect(() => {

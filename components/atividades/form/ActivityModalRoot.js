@@ -21,19 +21,22 @@ import ActivityAssignment from './ActivityAssignment';
 
 // Utilitário local para garantir data fim correta no submit
 function addBusinessDays(startDate, days) {
- if (!startDate) return null;
- const numDays = parseFloat(days);
- if (isNaN(numDays) || numDays <= 1) return startDate;
- let currentDate = new Date(startDate.replace(/-/g, '/'));
- let daysToAdd = Math.ceil(numDays) - 1;
- while (daysToAdd > 0) {
- currentDate.setDate(currentDate.getDate() + 1);
- if (currentDate.getDay() !== 0 && currentDate.getDay() !== 6) daysToAdd--;
- }
- while (currentDate.getDay() === 0 || currentDate.getDay() === 6) {
- currentDate.setDate(currentDate.getDate() + 1);
- }
- return currentDate.toISOString().split('T')[0];
+  if (!startDate) return null;
+  const numDays = parseFloat(days);
+  if (isNaN(numDays) || numDays <= 1) return startDate;
+  let currentDate = new Date(startDate.replace(/-/g, '/'));
+  let daysToAdd = Math.ceil(numDays) - 1;
+  while (daysToAdd > 0) {
+    currentDate.setDate(currentDate.getDate() + 1);
+    if (currentDate.getDay() !== 0 && currentDate.getDay() !== 6) daysToAdd--;
+  }
+  while (currentDate.getDay() === 0 || currentDate.getDay() === 6) {
+    currentDate.setDate(currentDate.getDate() + 1);
+  }
+  const yyyy = currentDate.getFullYear();
+  const mm = String(currentDate.getMonth() + 1).padStart(2, '0');
+  const dd = String(currentDate.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
 }
 
 import { createPortal } from 'react-dom';
@@ -159,7 +162,7 @@ export default function ActivityModalRoot({
  diario_obra_id: formData.diario_obra_id || null,
  organizacao_id: organizacaoId,
  data_inicio_prevista: formData.data_inicio_prevista || null,
- data_fim_prevista: dataFimCalculada || null,
+ data_fim_prevista: formData.data_fim_prevista || dataFimCalculada || null,
  duracao_dias: (formData.duracao_dias !== '' && formData.duracao_dias !== null) ? Number(formData.duracao_dias) : null,
  hora_inicio: formData.hora_inicio || null,
  duracao_horas: (formData.duracao_horas !== '' && formData.duracao_horas !== null) ? Number(formData.duracao_horas) : null,
