@@ -355,9 +355,9 @@ export default function AtividadesPage() {
         <h2 className="text-xl font-bold text-gray-800">
           {selectedEmpreendimentoObj?.nome || 'Todas as Atividades'}
         </h2>
-        <span className="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded-full flex items-center gap-2">
-          {activeTab === 'list' ? `${paginatedActivities.length} de ${totalCount}` : `${filteredActivities.length} de ${allActivitiesSummary.length}`} atividades
-        </span>
+         <span className="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded-full flex items-center gap-2">
+           {`${filteredActivities.length} de ${allActivities.length}`} atividades
+         </span>
  </div>
 
  <div className="flex flex-wrap gap-2 items-center w-full xl:w-auto">
