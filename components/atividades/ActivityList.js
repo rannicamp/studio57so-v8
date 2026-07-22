@@ -210,15 +210,16 @@ export default function ActivityList({ activities, allActivitiesSummary = [], em
     <button
       type="button"
       onClick={() => onToggleRdo && onToggleRdo(activity.id, activity.exibe_rdo)}
-      title={activity.exibe_rdo !== false ? "Exibida no Diário de Obras (RDO) - Clique para ocultar" : "Oculta do Diário de Obras (RDO) - Clique para exibir no RDO"}
-      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all ${
-        activity.exibe_rdo !== false
-          ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200 border border-emerald-300 shadow-sm'
-          : 'bg-gray-100 text-gray-400 hover:bg-gray-200 border border-gray-200 opacity-60'
+      title={activity.exibe_rdo !== false ? "Exibida no Diário de Obras (RDO) - Clique para alternar" : "Oculta do Diário de Obras (RDO) - Clique para alternar"}
+      className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+        activity.exibe_rdo !== false ? 'bg-emerald-500' : 'bg-gray-300 hover:bg-gray-400'
       }`}
     >
-      <FontAwesomeIcon icon={activity.exibe_rdo !== false ? faClipboardCheck : faClipboardList} className={activity.exibe_rdo !== false ? 'text-emerald-600' : 'text-gray-400'} />
-      <span className="hidden md:inline">{activity.exibe_rdo !== false ? 'Sim' : 'Não'}</span>
+      <span
+        className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
+          activity.exibe_rdo !== false ? 'translate-x-4' : 'translate-x-0'
+        }`}
+      />
     </button>
   </td>
   <td className="px-4 py-3 whitespace-nowrap font-medium text-gray-900 max-w-[320px]" style={{ paddingLeft }}>

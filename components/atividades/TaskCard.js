@@ -87,22 +87,28 @@ export default function TaskCard({ activity, empreendimentos, onEditActivity, on
  </div>
  )}
 
- {/* Tag / Botão de RDO */}
+ {/* Tag / Interruptor de RDO */}
  <button
    type="button"
    onClick={(e) => {
      e.stopPropagation();
      onToggleRdo && onToggleRdo(activity.id, activity.exibe_rdo);
    }}
-   title={activity.exibe_rdo !== false ? "Exibida no Diário de Obras (RDO) - Clique para ocultar" : "Oculta do Diário de Obras (RDO) - Clique para exibir no RDO"}
-   className={`text-[10px] px-2 py-0.5 rounded border font-medium flex items-center gap-1 transition-all ${
-     activity.exibe_rdo !== false
-       ? 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100'
-       : 'bg-gray-50 border-gray-200 text-gray-400 hover:bg-gray-100 opacity-75'
-   }`}
+   title={activity.exibe_rdo !== false ? "Exibida no Diário de Obras (RDO) - Clique para alternar" : "Oculta do Diário de Obras (RDO) - Clique para alternar"}
+   className="flex items-center gap-1 cursor-pointer group ml-auto"
  >
-   <FontAwesomeIcon icon={activity.exibe_rdo !== false ? faClipboardCheck : faClipboardList} className={activity.exibe_rdo !== false ? 'text-emerald-600' : 'text-gray-400'} />
-   <span>RDO: {activity.exibe_rdo !== false ? 'Sim' : 'Não'}</span>
+   <span className="text-[10px] text-gray-400 font-semibold group-hover:text-gray-600">RDO</span>
+   <span
+     className={`relative inline-flex h-4 w-7 flex-shrink-0 rounded-full border border-transparent transition-colors duration-200 ease-in-out ${
+       activity.exibe_rdo !== false ? 'bg-emerald-500' : 'bg-gray-300'
+     }`}
+   >
+     <span
+       className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow-xs ring-0 transition duration-200 ease-in-out ${
+         activity.exibe_rdo !== false ? 'translate-x-3' : 'translate-x-0'
+       }`}
+     />
+   </span>
  </button>
  </div>
 
