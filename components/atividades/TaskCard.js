@@ -4,9 +4,9 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faExclamationTriangle, faCalendarAlt, faUser, faEllipsisV, faEdit, faTrash, faCopy, faClock, faSitemap, faBuilding } from '@fortawesome/free-solid-svg-icons';
+import { faExclamationTriangle, faCalendarAlt, faUser, faEllipsisV, faEdit, faTrash, faCopy, faClock, faSitemap, faBuilding, faClipboardCheck, faClipboardList } from '@fortawesome/free-solid-svg-icons';
 
-export default function TaskCard({ activity, empreendimentos, onEditActivity, onDeleteActivity, onDuplicateActivity, allColumns, onStatusChange }) {
+export default function TaskCard({ activity, empreendimentos, onEditActivity, onDeleteActivity, onDuplicateActivity, allColumns, onStatusChange, onToggleRdo }) {
  const [isMenuOpen, setIsMenuOpen] = useState(false);
  const menuRef = useRef(null);
 
@@ -70,7 +70,7 @@ export default function TaskCard({ activity, empreendimentos, onEditActivity, on
  onClick={() => onEditActivity(activity)}
  >
  <div>
- <div className="flex flex-wrap gap-1.5 mb-2">
+ <div className="flex flex-wrap gap-1.5 mb-2 items-center">
  {/* Tag de Subtarefa - BEM VISÍVEL NO TOPO */}
  {activity.atividade_pai && (
  <div className="bg-blue-50 border border-blue-100 text-blue-600 text-[10px] px-2 py-1 rounded flex items-center gap-1.5 w-fit max-w-full">
@@ -86,6 +86,24 @@ export default function TaskCard({ activity, empreendimentos, onEditActivity, on
  <span className="truncate font-medium">{empNome}</span>
  </div>
  )}
+
+ {/* Tag / Botão de RDO */}
+ <button
+   type="button"
+   onClick={(e) => {
+     e.stopPropagation();
+     onToggleRdo && onToggleRdo(activity.id, activity.exibe_rdo);
+   }}
+   title={activity.exibe_rdo !== false ? "Exibida no Diário de Obras (RDO) - Clique para ocultar" : "Oculta do Diário de Obras (RDO) - Clique para exibir no RDO"}
+   className={`text-[10px] px-2 py-0.5 rounded border font-medium flex items-center gap-1 transition-all ${
+     activity.exibe_rdo !== false
+       ? 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100'
+       : 'bg-gray-50 border-gray-200 text-gray-400 hover:bg-gray-100 opacity-75'
+   }`}
+ >
+   <FontAwesomeIcon icon={activity.exibe_rdo !== false ? faClipboardCheck : faClipboardList} className={activity.exibe_rdo !== false ? 'text-emerald-600' : 'text-gray-400'} />
+   <span>RDO: {activity.exibe_rdo !== false ? 'Sim' : 'Não'}</span>
+ </button>
  </div>
 
  <div className="flex justify-between items-start mb-2">

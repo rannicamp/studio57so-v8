@@ -236,11 +236,14 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
 
  const { data: activitiesData } = await supabase
  .from('activities')
- .select('id, nome, status, tipo_atividade, data_inicio_prevista, data_fim_real')
+ .select('id, nome, status, tipo_atividade, data_inicio_prevista, data_fim_real, exibe_rdo')
  .eq('empreendimento_id', empreendimentoId)
  .eq('organizacao_id', organizacaoId);
 
  const filteredActivities = (activitiesData || []).filter(act => {
+ if (act.exibe_rdo === false) {
+ return false;
+ }
  if (act.tipo_atividade === 'Entrega de Pedido' || act.nome.startsWith('Entrega Pedido')) {
  return false;
  }
@@ -275,22 +278,38 @@ export default function RdoForm({ initialRdoData, selectedEmpreendimento }) {
  return admissionDate && dataRelatorio >= admissionDate && (!demissionDate || dataRelatorio < demissionDate);
  });
 
+ const todayFormatted = new Date().toISOString().split('T')[0];
+ const isTodayRdo = rdoData.data_relatorio === todayFormatted;
+ const snapshot = rdoData.snapshot_dados;
+
+ // Se já possui snapshot congelado, lê Mão de Obra do snapshot estático
+ if (snapshot && snapshot.mao_de_obra) {
+ setEmployeePresences(snapshot.mao_de_obra);
+ } else {
  const savedMaoDeObra = rdoData.mao_de_obra || [];
  setEmployeePresences(activeEmployees.map(emp => {
  const savedStatus = savedMaoDeObra.find(s => s.id === emp.id);
  return { id: emp.id, name: emp.full_name, present: savedStatus?.present ?? true, observacao: savedStatus?.observacao || '' };
  }));
+ }
 
+ // Se já possui snapshot congelado, lê Atividades do snapshot estático imutável
+ if (snapshot && snapshot.status_atividades) {
+ setActivityStatuses(snapshot.status_atividades.map(sa => ({
+ id: sa.id,
+ nome: sa.nome,
+ status: sa.status,
+ observacao: sa.observacao || ''
+ })));
+ } else {
  const savedStatusAtividades = rdoData.status_atividades || [];
- const todayFormatted = new Date().toISOString().split('T')[0];
- const isTodayRdo = rdoData.data_relatorio === todayFormatted;
-
  setActivityStatuses(filteredActivities.map(dbAct => {
  const rdoActivity = savedStatusAtividades.find(sa => sa.id === dbAct.id);
  const status = isTodayRdo ? dbAct.status : (rdoActivity?.status || dbAct.status);
  const observacao = rdoActivity?.observacao || '';
  return { id: dbAct.id, nome: dbAct.nome, status, observacao };
  }));
+ }
 
  const photoPromises = (rdoData.rdo_fotos_uploads || []).map(async (photo) => {
  const { data } = await supabase.storage.from('rdo-fotos').createSignedUrl(photo.caminho_arquivo, 3600);

@@ -7,7 +7,8 @@ import TaskCard from './TaskCard';
 export default function KanbanBoard({ activities, empreendimentos, onEditActivity, // Renomeado para onCardClick na passagem para o TaskCard
  onStatusChange, canEdit,
  onDeleteActivity,
- onDuplicateActivity
+ onDuplicateActivity,
+ onToggleRdo
 }) { const [editingColumnId, setEditingColumnId] = useState(null);
  const [editedColumnName, setEditedColumnName] = useState("");
  const [draggedItem, setDraggedItem] = useState(null);
@@ -105,6 +106,7 @@ export default function KanbanBoard({ activities, empreendimentos, onEditActivit
  allColumns={statusColumns}
  onStatusChange={onStatusChange}
  canEdit={canEdit}
+ onToggleRdo={onToggleRdo}
  />
  </div>
  ))}

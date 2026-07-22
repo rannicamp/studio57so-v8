@@ -2,7 +2,7 @@
 "use client";
 
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faSort, faSortUp, faSortDown, faLevelUpAlt, faSitemap, faTasks, faSearch, faEdit, faTrash, faCopy } from '@fortawesome/free-solid-svg-icons';
+import { faSort, faSortUp, faSortDown, faLevelUpAlt, faSitemap, faTasks, faSearch, faEdit, faTrash, faCopy, faClipboardCheck, faClipboardList } from '@fortawesome/free-solid-svg-icons';
 import { useMemo, useState, useEffect } from 'react';
 
 // Função auxiliar de datas
@@ -31,7 +31,7 @@ const calculateBusinessDays = (d1, d2) => {
  return count > 0 ? count - 1 : 0;
 };
 
-export default function ActivityList({ activities, allActivitiesSummary = [], empreendimentos, requestSort, sortConfig, onEditClick, onDeleteClick, onDuplicateClick, onStatusChange, canEdit, canDelete, canCreate }) {
+export default function ActivityList({ activities, allActivitiesSummary = [], empreendimentos, requestSort, sortConfig, onEditClick, onDeleteClick, onDuplicateClick, onStatusChange, onToggleRdo, canEdit, canDelete, canCreate }) {
 
   // Calcula a profundidade global de cada ID usando o resumo de atividades da organização
   const globalDepths = useMemo(() => {
@@ -140,7 +140,7 @@ export default function ActivityList({ activities, allActivitiesSummary = [], em
 
   // Calcula contadores de paginação local
   const totalCount = organizedActivities.length;
-  const totalPages = Math.ceil(totalCount / limit);
+  const totalPages = Math.ceil(totalCount / limit) || 1;
 
   // Fatiamento local de atividades para exibição leve
   const paginatedActivities = useMemo(() => {
@@ -183,6 +183,7 @@ export default function ActivityList({ activities, allActivitiesSummary = [], em
       <table className="min-w-full divide-y divide-gray-200">
         <thead className="bg-gray-50">
           <tr>
+            <th className="px-3 py-3 text-center text-xs font-semibold uppercase tracking-wider w-[65px]">RDO</th>
             <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-[30%] min-w-[200px] max-w-[250px]"><SortableHeader sortKey="nome">Atividade</SortableHeader></th>
             <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-[15%] min-w-[120px] max-w-[150px]"><SortableHeader sortKey="responsavel_texto">Responsável</SortableHeader></th>
             <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider w-[15%] min-w-[120px] max-w-[150px]"><SortableHeader sortKey="empreendimento_id">Empreendimento</SortableHeader></th>
@@ -205,6 +206,21 @@ export default function ActivityList({ activities, allActivitiesSummary = [], em
 
   return (
   <tr key={activity.id} className={`hover:bg-gray-50 ${isSubtask ? 'bg-gray-50/50' : ''}`}>
+  <td className="px-3 py-3 text-center whitespace-nowrap">
+    <button
+      type="button"
+      onClick={() => onToggleRdo && onToggleRdo(activity.id, activity.exibe_rdo)}
+      title={activity.exibe_rdo !== false ? "Exibida no Diário de Obras (RDO) - Clique para ocultar" : "Oculta do Diário de Obras (RDO) - Clique para exibir no RDO"}
+      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all ${
+        activity.exibe_rdo !== false
+          ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200 border border-emerald-300 shadow-sm'
+          : 'bg-gray-100 text-gray-400 hover:bg-gray-200 border border-gray-200 opacity-60'
+      }`}
+    >
+      <FontAwesomeIcon icon={activity.exibe_rdo !== false ? faClipboardCheck : faClipboardList} className={activity.exibe_rdo !== false ? 'text-emerald-600' : 'text-gray-400'} />
+      <span className="hidden md:inline">{activity.exibe_rdo !== false ? 'Sim' : 'Não'}</span>
+    </button>
+  </td>
   <td className="px-4 py-3 whitespace-nowrap font-medium text-gray-900 max-w-[320px]" style={{ paddingLeft }}>
   <div className="flex items-center gap-2 min-w-0 w-full">
   {isSubtask && <FontAwesomeIcon icon={faLevelUpAlt} className="text-gray-400 rotate-90 fa-xs flex-shrink-0" />}

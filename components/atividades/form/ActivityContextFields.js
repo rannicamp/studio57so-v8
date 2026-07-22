@@ -5,7 +5,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { toast } from 'sonner';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faPlus, faSpinner } from '@fortawesome/free-solid-svg-icons';
+import { faPlus, faSpinner, faClipboardCheck, faClipboardList } from '@fortawesome/free-solid-svg-icons';
 
 // Pequeno componente auxiliar para destacar texto na busca de subetapas
 const HighlightedText = ({ text = '', highlight = '' }) => {
@@ -243,6 +243,35 @@ export default function ActivityContextFields({ formData, setFormData, options, 
  </div>
  )}
  </div>
+
+  {/* 5. VISIBILIDADE NO DIÁRIO DE OBRAS (RDO) */}
+  <div className="col-span-1 md:col-span-2 bg-emerald-50/60 border border-emerald-200 rounded-lg p-3 flex items-center justify-between mt-1">
+    <div className="flex items-center gap-2.5">
+      <div className={`p-2 rounded-lg ${formData.exibe_rdo !== false ? 'bg-emerald-600 text-white' : 'bg-gray-300 text-gray-600'}`}>
+        <FontAwesomeIcon icon={formData.exibe_rdo !== false ? faClipboardCheck : faClipboardList} className="fa-lg" />
+      </div>
+      <div>
+        <label className="text-sm font-bold text-gray-800 cursor-pointer block" htmlFor="switch-exibe-rdo">
+          Exibir no Diário de Obras (RDO)
+        </label>
+        <span className="text-xs text-gray-500">
+          {formData.exibe_rdo !== false 
+            ? 'Esta atividade será enviada e exibida no Diário de Obras do Empreendimento.' 
+            : 'Atividade estritamente administrativa/estúdio. Oculta do Diário de Obras.'}
+        </span>
+      </div>
+    </div>
+    <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
+      <input
+        id="switch-exibe-rdo"
+        type="checkbox"
+        checked={formData.exibe_rdo !== false}
+        onChange={(e) => setFormData(prev => ({ ...prev, exibe_rdo: e.target.checked }))}
+        className="sr-only peer"
+      />
+      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+    </label>
+  </div>
 
  </div>
  );

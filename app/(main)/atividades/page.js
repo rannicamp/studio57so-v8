@@ -283,10 +283,35 @@ export default function AtividadesPage() {
  });
  };
 
- const handleStatusChange = (id, status) => {
-  const act = allActivities.find(a => a.id === id);
- if (act) statusMutation.mutate({ activityId: id, newStatus: status, activity: act });
- };
+  const handleStatusChange = (id, status) => {
+   const act = allActivities.find(a => a.id === id);
+  if (act) statusMutation.mutate({ activityId: id, newStatus: status, activity: act });
+  };
+
+  const toggleRdoMutation = useMutation({
+    mutationFn: async ({ activityId, currentExibeRdo }) => {
+      const newExibeRdo = !currentExibeRdo;
+      const { error } = await supabase
+        .from('activities')
+        .update({ exibe_rdo: newExibeRdo })
+        .eq('id', activityId)
+        .eq('organizacao_id', organizacaoId);
+      if (error) throw error;
+      return { activityId, newExibeRdo };
+    },
+    onSuccess: ({ newExibeRdo }) => {
+      toast.success(newExibeRdo ? "Atividade incluída no Diário de Obras (RDO)!" : "Atividade removida do Diário de Obras (RDO)!");
+      queryClient.invalidateQueries(['atividades', organizacaoId]);
+    },
+    onError: (err) => {
+      toast.error("Erro ao alterar visibilidade no RDO: " + err.message);
+    }
+  });
+
+  const handleToggleRdo = (id, currentExibeRdo) => {
+    if (!canEdit) { toast.error("Sem permissão para editar."); return; }
+    toggleRdoMutation.mutate({ activityId: id, currentExibeRdo: currentExibeRdo !== false });
+  };
 
  const handleCardClick = (act) => { setSelectedActivityForSidebar(act); setIsSidebarOpen(true); };
  const handleEditClick = (act) => { setEditingActivity(act); setIsModalOpen(true); setIsSidebarOpen(false); };
@@ -421,10 +446,10 @@ export default function AtividadesPage() {
   ) : (
   <>
   {activeTab === 'kanban' && (
-  <KanbanBoard activities={filteredActivities} empreendimentos={empreendimentos} onEditActivity={handleCardClick} onStatusChange={handleStatusChange} canEdit={canEdit} onDeleteActivity={handleDeleteClick} onDuplicateActivity={handleDuplicateActivity} />
+  <KanbanBoard activities={filteredActivities} empreendimentos={empreendimentos} onEditActivity={handleCardClick} onStatusChange={handleStatusChange} canEdit={canEdit} onDeleteActivity={handleDeleteClick} onDuplicateActivity={handleDuplicateActivity} onToggleRdo={handleToggleRdo} />
   )}
   {activeTab === 'list' && (
-  <ActivityList activities={filteredActivities} allActivitiesSummary={allActivities} empreendimentos={empreendimentos} requestSort={requestSort} sortConfig={sortConfig} onEditClick={handleEditClick} onDeleteClick={handleDeleteClick} onDuplicateClick={handleDuplicateActivity} onStatusChange={handleStatusChange} canEdit={canEdit} canDelete={canDelete} canCreate={canCreate} />
+  <ActivityList activities={filteredActivities} allActivitiesSummary={allActivities} empreendimentos={empreendimentos} requestSort={requestSort} sortConfig={sortConfig} onEditClick={handleEditClick} onDeleteClick={handleDeleteClick} onDuplicateClick={handleDuplicateActivity} onStatusChange={handleStatusChange} onToggleRdo={handleToggleRdo} canEdit={canEdit} canDelete={canDelete} canCreate={canCreate} />
   )}
   {activeTab === 'gantt' && (
   <GanttChart activities={filteredActivities} onEditActivity={handleEditClick} />
