@@ -989,8 +989,90 @@ function organizeRdoActivities(activitiesList) {
  onChange={(e) => handleOccurrenceChange(occ.id, e.target.value)}
  onBlur={(e) => handleSaveOccurrence(occ.id, e.target.value)}
  disabled={isRdoLocked}
- {message && <p className="text-center mt-4 text-sm font-medium">{message}</p>}
- </form>
+ className="flex-grow p-1 border border-gray-300 rounded-md disabled:bg-gray-100 disabled:border-transparent w-full"
+ />
+ <span className="text-xs text-gray-500 whitespace-nowrap">({new Date(occ.created_at).toLocaleString('pt-BR')})</span>
+ </div>
+ {hasPermission('rdo', 'pode_excluir') && !isRdoLocked && (
+ <button type="button" onClick={() => handleRemoveOccurrence(occ.id)} className="text-red-500 hover:text-red-700 disabled:opacity-50 text-xl font-bold">&times;</button>
+ )}
+ </li>
+ ))}
+ </ul>
+ </div>
+
+ {/* GALERIA DE FOTOS DO RDO AGRUPADA POR DATA */}
+ <div className="pt-2">
+ <div className="flex items-center justify-between mb-4">
+ <h3 className="text-xl font-semibold text-gray-800">Galeria de Fotos do RDO</h3>
+ <span className="text-xs text-gray-500 font-medium bg-gray-100 px-2.5 py-1 rounded-full">
+ {allPhotosMetadata.length} {allPhotosMetadata.length === 1 ? 'foto' : 'fotos'} no total
+ </span>
+ </div>
+
+ {hasPermission('rdo', 'pode_criar') && !isRdoLocked && (
+ <div className="flex flex-col md:flex-row gap-4 mb-6 items-end bg-gray-50 p-4 rounded-xl border border-gray-200">
+ <div className="flex-1 w-full">
+ <label className="block text-xs font-semibold text-gray-600 uppercase mb-1">Selecione a Imagem</label>
+ <input type="file" id="photo-file-input" accept="image/*" onChange={handlePhotoFileSelect} disabled={isUploading} className="block w-full text-xs text-gray-600 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700 disabled:opacity-50 cursor-pointer" />
+ </div>
+ <div className="flex-1 w-full">
+ <label className="block text-xs font-semibold text-gray-600 uppercase mb-1">Descrição / Legenda</label>
+ <input type="text" value={currentPhotoDescription} onChange={(e) => setCurrentPhotoDescription(e.target.value)} placeholder="Ex: Armação dos pilares do 2º pavimento..." disabled={isUploading} className="block w-full p-2 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
+ </div>
+ <button type="button" onClick={handleAddPhoto} disabled={!currentPhotoFile || isUploading} className="w-full md:w-auto bg-emerald-600 text-white font-semibold text-sm px-5 py-2.5 rounded-lg hover:bg-emerald-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors shadow-xs">
+ {isUploading ? 'Enviando Foto...' : 'Enviar Foto'}
+ </button>
+ </div>
+ )}
+
+ {/* EXIBIÇÃO AGRUPADA POR DATA */}
+ {Object.keys(photosGroupedByDate).length > 0 ? (
+ <div className="space-y-6">
+ {Object.entries(photosGroupedByDate).map(([dateStr, photos]) => (
+ <div key={dateStr} className="space-y-3">
+ {/* Linha / Divisor de Sessão por Data */}
+ <div className="flex items-center gap-3">
+ <div className="flex items-center gap-2 bg-blue-50 text-blue-800 text-xs font-bold px-3 py-1.5 rounded-lg border border-blue-200">
+ <FontAwesomeIcon icon={faCamera} className="text-blue-600" />
+ <span>{dateStr}</span>
+ </div>
+ <div className="flex-grow h-px bg-gray-200" />
+ <span className="text-[11px] text-gray-400 font-medium">{photos.length} {photos.length === 1 ? 'imagem' : 'imagens'}</span>
+ </div>
+
+ {/* Grid de Fotos desta Data */}
+ <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+ {photos.map((photo) => (
+ <div key={photo.id} className="relative group border border-gray-200 rounded-xl overflow-hidden shadow-xs hover:shadow-md transition-shadow bg-gray-900">
+ {photo.signedUrl ? (
+ <img src={photo.signedUrl} alt={photo.descricao || 'Foto do RDO'} className="object-cover w-full h-36 group-hover:scale-105 transition-transform duration-300" />
+ ) : (
+ <div className="w-full h-36 bg-gray-100 flex items-center justify-center text-xs text-red-500 font-medium">Erro ao carregar</div>
+ )}
+ 
+ {/* Legenda na parte inferior */}
+ <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/50 to-transparent text-white text-xs p-2 pt-4 truncate" title={photo.descricao}>
+ <p className="font-medium truncate">{photo.descricao || "Sem descrição"}</p>
+ </div>
+
+ {/* Botão Deletar no hover */}
+ {hasPermission('rdo', 'pode_excluir') && !isRdoLocked && (
+ <button type="button" onClick={() => handleRemovePhoto(photo.id, photo.caminho_arquivo)} disabled={isUploading} className="absolute top-2 right-2 bg-red-600/90 hover:bg-red-600 text-white rounded-full h-6 w-6 flex items-center justify-center text-xs shadow-md opacity-0 group-hover:opacity-100 transition-opacity disabled:opacity-50">&times;</button>
+ )}
+ </div>
+ ))}
+ </div>
+ </div>
+ ))}
+ </div>
+ ) : (
+ <div className="p-8 text-center bg-gray-50 border border-gray-200 rounded-xl">
+ <p className="text-sm text-gray-500 font-medium">Nenhuma foto registrada para este Diário de Obra.</p>
+ <p className="text-xs text-gray-400 mt-1">Use o campo acima para adicionar fotos do progresso da obra.</p>
+ </div>
+ )}
+ </div>
 
  {/* ================================================================================== */}
  {/* ÁREA DE IMPRESSÃO / GERAÇÃO DE PDF (O HÍBRIDO) */}
