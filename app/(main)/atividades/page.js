@@ -42,19 +42,15 @@ const getCachedUiState = () => {
 };
 
 const fetchAllActivities = async (supabase, organizacaoId) => {
- if (!organizacaoId) return [];
- const { data, error } = await supabase
- .from('activities')
- .select(`
- *, empreendimentos(empresa_proprietaria_id), anexos:activity_anexos(*), atividade_pai:atividade_pai_id(id, nome)
- `)
- .eq('organizacao_id', organizacaoId);
+  if (!organizacaoId) return [];
+  const { data, error } = await supabase
+    .rpc('obter_todas_atividades_json', { p_organizacao_id: organizacaoId });
 
- if (error) {
- console.error("Erro ao buscar atividades:", error);
- throw new Error(error.message);
- }
- return data || [];
+  if (error) {
+    console.error("Erro ao buscar atividades via RPC:", error);
+    throw new Error(error.message);
+  }
+  return data || [];
 };
 
 const fetchAuxiliaryData = async (supabase, organizacaoId) => {
@@ -342,12 +338,12 @@ export default function AtividadesPage() {
 
  <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 bg-white p-6 rounded-lg shadow-sm">
  <div className="flex items-center gap-3">
- <h2 className="text-xl font-bold text-gray-800">
- {selectedEmpreendimentoObj?.nome || 'Todas as Atividades'}
- </h2>
- <span className="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded-full flex items-center gap-2">
- {filteredActivities.length} atividades
- </span>
+        <h2 className="text-xl font-bold text-gray-800">
+          {selectedEmpreendimentoObj?.nome || 'Todas as Atividades'}
+        </h2>
+        <span className="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded-full flex items-center gap-2">
+          {filteredActivities.length} de {allActivities.length} atividades
+        </span>
  </div>
 
  <div className="flex flex-wrap gap-2 items-center w-full xl:w-auto">
