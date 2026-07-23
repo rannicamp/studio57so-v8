@@ -35,3 +35,8 @@
 1. **TRABALHE EXCLUSIVAMENTE NO STUDIO 57 V8:** Todo o desenvolvimento, commits e pushes devem ser feitos **única e exclusivamente** no repositório `studio57so-v8` (remoto `origin`).
 2. **PROIBIDO push para elo57-lab-saas:** Nunca adicione ou faça push de atualizações para o repositório `elo57-lab-saas` (remotos antigos como `lab` ou `elo`), a menos que o usuário solicite explicitamente. Os dois ambientes são completamente separados e não devem ser misturados.
 
+## 📓 Histórico de Telas e Prevenção de Regressão (Regra de Ouro)
+1. **LEITURA E ATUALIZAÇÃO OBRIGATÓRIA:** Antes de realizar qualquer alteração em telas, componentes visuais ou regras de interface, o desenvolvedor (IA ou Humano) deve consultar o arquivo [.agents/HISTORICO_TELAS_ERP.md](file:///c:/Projetos/studio57so-v8/.agents/HISTORICO_TELAS_ERP.md) para verificar o mapeamento de funcionalidades ativas a fim de evitar regressões de código (quebras de recursos que já funcionavam).
+2. **REGISTRO DE MODIFICAÇÕES:** Após qualquer alteração bem-sucedida e testada localmente, deve-se atualizar o manual [.agents/HISTORICO_TELAS_ERP.md](file:///c:/Projetos/studio57so-v8/.agents/HISTORICO_TELAS_ERP.md) descrevendo o arquivo alterado, o problema resolvido, o porquê da mudança e as regras mapeadas para o futuro.
+
+
