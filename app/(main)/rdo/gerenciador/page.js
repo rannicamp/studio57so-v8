@@ -28,11 +28,13 @@ export default function RdoGerenciadorPage() {
  // Estados da Galeria
  const [photos, setPhotos] = useState([]);
  const [loadingPhotos, setLoadingPhotos] = useState(false);
+ const [loadingMorePhotos, setLoadingMorePhotos] = useState(false);
+ const [hasMorePhotos, setHasMorePhotos] = useState(true);
+
+ const PHOTOS_PAGE_SIZE = 50;
 
  // Controle de Abas
  const [activeTab, setActiveTab] = useState('lista'); // 'lista' ou 'galeria'
-
-
 
  // --- BUSCA RDOs ---
  const fetchRdos = useCallback(async () => {
@@ -56,7 +58,7 @@ export default function RdoGerenciadorPage() {
  }
  }, [supabase]);
 
- // --- BUSCA FOTOS (Para a aba Galeria) ---
+ // --- BUSCA FOTOS (Para a aba Galeria - Lote Inicial) ---
  const fetchPhotos = useCallback(async () => {
  setLoadingPhotos(true);
  try {
@@ -71,10 +73,12 @@ export default function RdoGerenciadorPage() {
  data_relatorio
  )
  `)
- .order('created_at', { ascending: false });
+ .order('created_at', { ascending: false })
+ .range(0, PHOTOS_PAGE_SIZE - 1);
 
  if (error) throw error;
  setPhotos(data || []);
+ setHasMorePhotos((data || []).length === PHOTOS_PAGE_SIZE);
  } catch (error) {
  console.error("Erro ao buscar fotos:", error);
  toast.error("Erro ao carregar galeria de fotos.");
@@ -82,6 +86,43 @@ export default function RdoGerenciadorPage() {
  setLoadingPhotos(false);
  }
  }, [supabase]);
+
+ // --- CARREGA MAIS FOTOS (Fotos mais antigas) ---
+ const fetchMorePhotos = async () => {
+   if (loadingMorePhotos) return;
+   setLoadingMorePhotos(true);
+   try {
+     const from = photos.length;
+     const to = from + PHOTOS_PAGE_SIZE - 1;
+
+     const { data, error } = await supabase
+       .from('rdo_fotos_uploads')
+       .select(`
+         *,
+         diarios_obra (
+           id,
+           rdo_numero,
+           data_relatorio
+         )
+       `)
+       .order('created_at', { ascending: false })
+       .range(from, to);
+
+     if (error) throw error;
+
+     if (data && data.length > 0) {
+       setPhotos(prev => [...prev, ...data]);
+       setHasMorePhotos(data.length === PHOTOS_PAGE_SIZE);
+     } else {
+       setHasMorePhotos(false);
+     }
+   } catch (error) {
+     console.error("Erro ao buscar mais fotos:", error);
+     toast.error("Erro ao carregar fotos mais antigas.");
+   } finally {
+     setLoadingMorePhotos(false);
+   }
+ };
 
  // Carregamento Inicial
  useEffect(() => {
@@ -246,16 +287,37 @@ export default function RdoGerenciadorPage() {
  </>
  ) : (
  // ================= ABA GALERIA =================
- <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
- {loadingPhotos ? (
- <div className="p-10 text-center text-gray-500">
- <FontAwesomeIcon icon={faSpinner} spin size="2x" className="mb-2" />
- <p>Carregando galeria...</p>
- </div>
- ) : (
- <RdoPhotoGallery photos={photos} />
- )}
- </div>
+ <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 space-y-6">
+    {loadingPhotos ? (
+      <div className="p-10 text-center text-gray-500">
+        <FontAwesomeIcon icon={faSpinner} spin size="2x" className="mb-2" />
+        <p>Carregando galeria...</p>
+      </div>
+    ) : (
+      <>
+        <RdoPhotoGallery photos={photos} />
+
+        {hasMorePhotos && (
+          <div className="flex justify-center pt-6 border-t border-gray-100">
+            <button
+              onClick={fetchMorePhotos}
+              disabled={loadingMorePhotos}
+              className="bg-white border border-gray-300 hover:border-gray-400 text-gray-700 font-semibold text-sm px-6 py-2.5 rounded-lg shadow-2xs hover:shadow-xs active:bg-gray-50 transition-all flex items-center gap-2 disabled:opacity-60 cursor-pointer"
+            >
+              {loadingMorePhotos ? (
+                <>
+                  <FontAwesomeIcon icon={faSpinner} spin className="text-gray-400" />
+                  Carregando fotos antigas...
+                </>
+              ) : (
+                'Ver mais antigo'
+              )}
+            </button>
+          </div>
+        )}
+      </>
+    )}
+  </div>
  )}
  </div>
  </div>
