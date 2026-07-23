@@ -82,13 +82,21 @@ Este documento funciona como a base de conhecimento viva e guia de integridade d
   * Chave de alternância RDO em formato de interruptor pílula minimalista cinza/verde (sem textos "Sim/Não") em todas as listagens.
 * **Filtros Avançados**:
   * Filtro RDO (Sim, Não, Todos) que funciona em paralelo com filtros de empresa e empreendimento.
-  * **Filtro de Responsável Estrito**: Ao filtrar por um funcionário, apenas tarefas cujo responsável seja ele são retornadas na lista da árvore de árvore. Ancestrais ou tarefas pai sem responsável são omitidos do layout achatado para evitar "vazamento" de linhas que não pertencem ao profissional.
+  * **Filtro de Responsável Estrito**: Ao filtrar por um funcionário, apenas tarefas cujo responsável seja ele são retornadas na lista da árvore. Ancestrais ou tarefas pai sem responsável são omitidos do layout achatado para evitar o "vazamento" de linhas e cabeçalhos de outros responsáveis.
   * **Opção Sem Responsável**: Seleciona expressamente apenas as tarefas pendentes de alocação de equipe (`⚠️ Sem Responsável`).
-* **Cronograma Gantt**:
+* **Cronograma Gantt (Unificação de Cores e Bypass)**:
   * **Sincronia Dupla**: Na tela `/atividades`, o componente de Gantt recebe os dados filtrados pela barra de filtros superior da página principal e oculta seu seletor de status interno (`hideInternalStatusFilter={true}`).
   * **Gantt no BIM**: No gerenciador BIM (`/bim-manager`), o Gantt exibe o seletor de status próprio com os **6 status oficiais do sistema** (eliminada a opção fictícia "Atrasados", que agora é tratada apenas como um cálculo visual de datas).
+  * **Unificação de Cores via Style Inline (Bypass Tailwind)**: Para resolver o problema em que classes dinâmicas do Tailwind (como `bg-blue-500`) não eram compiladas em build de produção ou geravam cores fora da paleta do ERP, as cores foram fixadas em hexadecimal no objeto `getStatusStyles` e injetadas via style inline no JSX (`style={{ backgroundColor: styles.bg }}`). As cores oficiais preservadas são:
+    * ⚪ **Não Iniciado**: `#e5e7eb` (Cinza)
+    * 🔵 **Em Andamento**: `#2563eb` (Azul)
+    * 🟣 **Aguardando Material**: `#8b5cf6` (Roxo)
+    * 🟡 **Pausado**: `#eab308` (Amarelo)
+    * 🟢 **Concluído**: `#22c55e` (Verde)
+    * 🔴 **Cancelado**: `#ef4444` (Vermelho)
 
 #### ⏱️ Histórico de Atualizações:
+* **22/07/2026 (Unificação de Cores & Gantt)**: Resolvido o "problema da cor" no Gantt/Atividades. As cores dinâmicas foram substituídas por estilos inline estritos (Bypass Tailwind) e alinhadas aos 6 status legítimos do banco, corrigindo a visualização e datas no Gantt.
 * **22/07/2026 (Gantt Integrado)**: Sincronizado o Gantt de atividades com a barra superior de filtros e limpeza de status fictícios no painel BIM.
 * **22/07/2026 (Filtro Estrito)**: Reformulado o fluxo de exibição da lista de atividades para obedecer estritamente ao responsável selecionado e inclusão do filtro de tarefas sem responsável.
 * **22/07/2026 (Switch Pill RDO)**: Adicionado o toggle slider minimalista de RDO e os filtros de inclusão de RDO no painel de Atividades.
