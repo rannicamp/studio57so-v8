@@ -5,17 +5,17 @@ import Link from 'next/link';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faArrowRight } from '@fortawesome/free-solid-svg-icons';
 
-export default function CtaSection() {
+export default function CtaSection({ onOpenForm }) {
   // Imagem do engenheiro na obra
   const ENGINEER_IMAGE = "https://images.unsplash.com/photo-1541888946425-d81bb19240f5?q=80&w=1000&auto=format&fit=crop";
 
   return (
     <section 
       id="cta" 
-      className="snap-start min-h-screen md:h-screen flex flex-col md:flex-row bg-white relative overflow-hidden"
+      className="relative min-h-screen flex flex-col md:flex-row bg-white overflow-hidden"
     >
       {/* --- LADO ESQUERDO: TEXTO E CHAMADA --- */}
-      <div className="w-full md:w-1/2 min-h-[50vh] md:h-full flex flex-col justify-center px-6 md:px-24 py-16 md:py-0 relative z-20 bg-white order-2 md:order-1">
+      <div className="w-full md:w-1/2 min-h-[50vh] md:min-h-screen flex flex-col justify-center px-6 md:px-24 py-16 md:py-0 relative z-20 bg-white order-2 md:order-1">
         <div className="max-w-xl">
           <span className="text-slate-400 font-bold tracking-widest uppercase text-sm mb-4 block">
             Próximo Passo
@@ -25,14 +25,15 @@ export default function CtaSection() {
             começa <span className="font-bold text-slate-950">agora.</span>
           </h2>
           <p className="text-base md:text-xl text-slate-500 mb-8 md:mb-12 font-light leading-relaxed">
-            Não é apenas sobre software. É sobre ter o controle financeiro total, planejamento físico-financeiro inteligente e segurança operacional em todas as suas SPEs. Acesse o ecossistema <strong>Elo 57</strong> e experimente a transformação.
+            Não é apenas sobre software. É sobre ter o controle financeiro total, planejamento físico-financeiro inteligente e segurança operacional em todas as suas SPEs. Faça seu pré-cadastro na Lista de Espera exclusiva e participe do evento de testes do **dia 19 de Agosto**.
           </p>
-          <Link href="/painel" className="inline-block">
-            <button className="group bg-slate-950 text-white px-8 py-4.5 md:px-10 md:py-5 rounded-xl font-bold text-base md:text-lg hover:bg-[#f25a2f] hover:text-white transition-all duration-300 flex items-center gap-4 shadow-xl hover:shadow-orange-500/20 hover:-translate-y-0.5 cursor-pointer">
-              Acessar Sistema
-              <FontAwesomeIcon icon={faArrowRight} className="w-4 h-4 md:w-5 md:h-5 transform group-hover:translate-x-1 transition-transform" />
-            </button>
-          </Link>
+          <button 
+            onClick={onOpenForm}
+            className="group bg-slate-950 text-white px-8 py-4.5 md:px-10 md:py-5 rounded-xl font-bold text-base md:text-lg hover:bg-[#f25a2f] hover:text-white transition-all duration-300 flex items-center gap-4 shadow-xl hover:shadow-orange-500/20 hover:-translate-y-0.5 cursor-pointer border-none outline-none"
+          >
+            Quero Me Cadastrar
+            <FontAwesomeIcon icon={faArrowRight} className="w-4 h-4 md:w-5 md:h-5 transform group-hover:translate-x-1 transition-transform" />
+          </button>
         </div>
 
         {/* Footer Minimalista */}

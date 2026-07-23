@@ -56,7 +56,7 @@ export default function TechSection() {
   return (
     <section 
       id="modulos" 
-      className="snap-start min-h-screen md:h-screen flex flex-col justify-center py-16 md:py-0 bg-white px-6 overflow-y-auto"
+      className="relative min-h-screen flex flex-col justify-center py-16 md:py-24 bg-white px-6"
     >
       <div className="max-w-7xl mx-auto w-full">
         

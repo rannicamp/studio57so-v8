@@ -6,28 +6,29 @@ import { useState, useEffect } from 'react';
 import HeroSection from './components/HeroSection';
 import PainelDoresSection from './components/PainelDoresSection';
 import PainelIntegradoSection from './components/PainelIntegradoSection';
-import OriginSection from './components/OriginSection';
 import TechSection from './components/TechSection';
 
 import InboxSection from './components/InboxSection';
 import OrcamentoBimSection from './components/OrcamentoBimSection';
 import PwaSection from './components/PwaSection';
 import RelatoriosSection from './components/RelatoriosSection';
+import McpSection from './components/McpSection';
 import PricingSection from './components/PricingSection';
 import PricingTableSection from './components/PricingTableSection';
 import CtaSection from './components/CtaSection';
+import FormularioElo57 from './components/FormularioElo57';
 
 const SECTIONS = [
   { id: 'hero', label: 'Início' },
   { id: 'dores', label: 'Desafios' },
   { id: 'gestao-integrada', label: 'Gestão Unificada' },
-  { id: 'origem', label: 'Manifesto' },
   { id: 'modulos', label: 'Ecossistema' },
 
   { id: 'inbox', label: 'Caixa de Entrada' },
   { id: 'orcamentobim', label: 'Orçamento BIM' },
   { id: 'mobile', label: 'Mobilidade' },
   { id: 'relatorios', label: 'Resultados em Tempo Real' },
+  { id: 'mcp', label: 'Integração IA (MCP)' },
   { id: 'pricing', label: 'Planos e Preços' },
   { id: 'pricing-details', label: 'Módulos dos Planos' },
   { id: 'cta', label: 'Começar' }
@@ -35,6 +36,7 @@ const SECTIONS = [
 
 export default function ApresentacaoElo() {
   const [activeSection, setActiveSection] = useState('hero');
+  const [isFormOpen, setIsFormOpen] = useState(false);
 
   useEffect(() => {
     const observerOptions = {
@@ -72,8 +74,8 @@ export default function ApresentacaoElo() {
   };
 
   return (
-    // Container Principal: Scroll Snap no Desktop, scroll contínuo e responsivo no Mobile
-    <div className="relative bg-white font-sans md:snap-y md:snap-mandatory h-auto md:h-screen overflow-y-auto md:overflow-y-scroll scroll-smooth">
+    // Container Principal: Scroll Fluido e contínuo em todos os dispositivos
+    <div className="relative bg-white font-sans h-auto scroll-smooth">
       
       {/* Indicadores Laterais Flutuantes (Dots) - Ocultos em telas pequenas (mobile) para melhorar UX */}
       <nav className="fixed right-4 md:right-6 top-1/2 -translate-y-1/2 z-50 hidden sm:flex flex-col gap-3 pointer-events-auto bg-black/25 backdrop-blur-md p-3 rounded-full border border-white/10 shadow-lg">
@@ -104,13 +106,11 @@ export default function ApresentacaoElo() {
 
       {/* Renderização das Seções */}
       {/* 1. Capa */}
-      <HeroSection />
+      <HeroSection onOpenForm={() => setIsFormOpen(true)} />
       {/* 2. Dores */}
       <PainelDoresSection />
       {/* 2.5. Gestão Centralizada (Painel) */}
       <PainelIntegradoSection />
-      {/* 3. História / Manifesto */}
-      <OriginSection />
       {/* 4. Módulos/Sistema */}
       <TechSection />
 
@@ -122,13 +122,16 @@ export default function ApresentacaoElo() {
       <PwaSection />
       {/* 8. Relatórios consolidados */}
       <RelatoriosSection />
+      {/* 8.5. Protocolo MCP e Agente IA */}
+      <McpSection />
       {/* 9. Planos e Preços */}
       <PricingSection />
       {/* 9.5. Comparativo de Módulos (Tabela Interativa) */}
       <PricingTableSection />
       {/* 10. Conclusão / CTA */}
-      <CtaSection />
+      <CtaSection onOpenForm={() => setIsFormOpen(true)} />
 
+      {isFormOpen && <FormularioElo57 onClose={() => setIsFormOpen(false)} />}
     </div>
   );
 }

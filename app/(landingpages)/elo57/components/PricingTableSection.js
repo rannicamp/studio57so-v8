@@ -8,7 +8,7 @@ import {
   faClipboardList, faAddressBook, faDollarSign, faShoppingCart,
   faInbox, faBullseye, faFileSignature, faCalculator,
   faBoxOpen, faFileInvoiceDollar, faTags, faChartLine,
-  faPercent, faCubes, faUndo
+  faPercent, faCubes
 } from '@fortawesome/free-solid-svg-icons';
 
 const CATEGORIES = [
@@ -52,77 +52,47 @@ const CATEGORIES = [
   }
 ];
 
-const INITIAL_STATE = {
+const PLAN_DATA = {
   // Administrativo
-  'financeiro': { essencial: true, pro: true, ia: true },
-  'recursos-humanos': { essencial: false, pro: true, ia: true },
-  'empresas': { essencial: true, pro: true, ia: true },
-  'empreendimentos': { essencial: true, pro: true, ia: true },
-  'contratos': { essencial: false, pro: true, ia: true },
-  'relatorios': { essencial: false, pro: true, ia: true },
-  'indices-financeiros': { essencial: false, pro: false, ia: true },
+  'financeiro': { essencial: true, pro: true, ultra: true },
+  'recursos-humanos': { essencial: false, pro: true, ultra: true },
+  'empresas': { essencial: true, pro: true, ultra: true },
+  'empreendimentos': { essencial: true, pro: true, ultra: true },
+  'contratos': { essencial: false, pro: true, ultra: true },
+  'relatorios': { essencial: false, pro: true, ultra: true },
+  'indices-financeiros': { essencial: false, pro: false, ultra: true },
 
   // Comercial
-  'caixa-entrada': { essencial: false, pro: true, ia: true },
-  'funil-vendas': { essencial: false, pro: true, ia: true },
-  'tabela-vendas': { essencial: false, pro: true, ia: true },
-  'contatos': { essencial: true, pro: true, ia: true },
-  'simulador': { essencial: true, pro: true, ia: true },
+  'caixa-entrada': { essencial: false, pro: true, ultra: true },
+  'funil-vendas': { essencial: false, pro: true, ultra: true },
+  'tabela-vendas': { essencial: false, pro: true, ultra: true },
+  'contatos': { essencial: true, pro: true, ultra: true },
+  'simulador': { essencial: true, pro: true, ultra: true },
 
   // Obra
-  'orcamentacao': { essencial: false, pro: false, ia: true },
-  'pedidos-compra': { essencial: false, pro: true, ia: true },
-  'almoxarifado': { essencial: false, pro: true, ia: true },
-  'diario-obra': { essencial: false, pro: true, ia: true },
-  'atividades': { essencial: true, pro: true, ia: true },
+  'orcamentacao': { essencial: false, pro: false, ultra: true },
+  'pedidos-compra': { essencial: false, pro: true, ultra: true },
+  'almoxarifado': { essencial: false, pro: true, ultra: true },
+  'diario-obra': { essencial: false, pro: true, ultra: true },
+  'atividades': { essencial: true, pro: true, ultra: true },
 
   // Coordenação BIM
-  'bim-manager': { essencial: false, pro: true, ia: true },
+  'bim-manager': { essencial: false, pro: true, ultra: true },
 };
 
 export default function PricingTableSection() {
-  const [planMatrix, setPlanMatrix] = useState({});
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
-    // Recupera dados salvos ou inicializa
-    const saved = localStorage.getItem('elo57_planos_comparativo');
-    if (saved) {
-      try {
-        setPlanMatrix(JSON.parse(saved));
-      } catch (e) {
-        setPlanMatrix(INITIAL_STATE);
-      }
-    } else {
-      setPlanMatrix(INITIAL_STATE);
-    }
   }, []);
-
-  const handleToggle = (moduleId, planKey) => {
-    const currentModule = planMatrix[moduleId] || { essencial: false, pro: false, ia: false };
-    const newState = {
-      ...planMatrix,
-      [moduleId]: {
-        ...currentModule,
-        [planKey]: !currentModule[planKey]
-      }
-    };
-    setPlanMatrix(newState);
-    localStorage.setItem('elo57_planos_comparativo', JSON.stringify(newState));
-  };
-
-  const handleReset = () => {
-    setPlanMatrix(INITIAL_STATE);
-    localStorage.setItem('elo57_planos_comparativo', JSON.stringify(INITIAL_STATE));
-  };
 
   if (!mounted) return null;
 
   return (
     <section 
       id="pricing-details" 
-      className="snap-start min-h-screen flex flex-col justify-center bg-white px-6 py-16 md:py-8 overflow-y-auto"
+      className="relative min-h-screen flex flex-col justify-start bg-white px-6 py-16 md:py-24"
     >
       <div className="max-w-4xl mx-auto w-full py-6">
         
@@ -133,23 +103,15 @@ export default function PricingTableSection() {
               Comparativo de Módulos
             </span>
             <h2 className="text-2xl md:text-3xl font-light text-slate-900 tracking-tight">
-              Personalize o escopo dos <span className="font-bold text-slate-950">Planos.</span>
+              Comparativo completo dos <span className="font-bold text-slate-950">Planos.</span>
             </h2>
             <p className="text-slate-500 text-xs font-light mt-1 max-w-xl">
-              Clique nos checkboxes para simular a distribuição dos módulos. A configuração salva automaticamente no seu navegador.
+              Compare os recursos e a cobertura de módulos inclusos em cada um dos nossos planos.
             </p>
           </div>
-          
-          <button 
-            onClick={handleReset}
-            className="flex items-center justify-center gap-2 py-2 px-4 border border-slate-200 rounded-xl text-xs font-bold text-slate-650 hover:bg-slate-50 hover:text-slate-950 transition-colors shadow-sm self-start md:self-end"
-          >
-            <FontAwesomeIcon icon={faUndo} className="w-3.5 h-3.5" />
-            Resetar Módulos
-          </button>
         </div>
 
-        {/* Tabela Interativa */}
+        {/* Tabela Estática */}
         <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-sm bg-white">
           <table className="w-full text-left border-collapse">
             <thead>
@@ -164,7 +126,7 @@ export default function PricingTableSection() {
                   Elo Pro
                 </th>
                 <th className="py-4 px-4 text-center text-xs font-bold text-slate-950 w-1/6">
-                  Elo IA
+                  Elo Ultra
                 </th>
               </tr>
             </thead>
@@ -180,7 +142,7 @@ export default function PricingTableSection() {
                   
                   {/* Linhas dos Módulos */}
                   {category.modules.map((module) => {
-                    const status = planMatrix[module.id] || { essencial: false, pro: false, ia: false };
+                    const status = PLAN_DATA[module.id] || { essencial: false, pro: false, ultra: false };
                     
                     return (
                       <tr 
@@ -201,30 +163,21 @@ export default function PricingTableSection() {
                         {/* Coluna Essencial */}
                         <td className="py-3 px-4 text-center">
                           <div className="flex justify-center">
-                            <InteractiveCheckbox 
-                              checked={status.essencial} 
-                              onChange={() => handleToggle(module.id, 'essencial')} 
-                            />
+                            <StatusIndicator included={status.essencial} />
                           </div>
                         </td>
 
                         {/* Coluna Pro */}
                         <td className="py-3 px-4 text-center">
                           <div className="flex justify-center">
-                            <InteractiveCheckbox 
-                              checked={status.pro} 
-                              onChange={() => handleToggle(module.id, 'pro')} 
-                            />
+                            <StatusIndicator included={status.pro} />
                           </div>
                         </td>
 
-                        {/* Coluna IA */}
+                        {/* Coluna Ultra */}
                         <td className="py-3 px-4 text-center">
                           <div className="flex justify-center">
-                            <InteractiveCheckbox 
-                              checked={status.ia} 
-                              onChange={() => handleToggle(module.id, 'ia')} 
-                            />
+                            <StatusIndicator included={status.ultra} />
                           </div>
                         </td>
                       </tr>
@@ -241,19 +194,16 @@ export default function PricingTableSection() {
   );
 }
 
-// Checkbox Interativo Personalizado
-function InteractiveCheckbox({ checked, onChange }) {
+// Indicador Estático de Disponibilidade do Módulo
+function StatusIndicator({ included }) {
+  if (included) {
+    return (
+      <span className="text-slate-900 font-bold text-sm bg-slate-100 w-6 h-6 rounded-full flex items-center justify-center">
+        ✓
+      </span>
+    );
+  }
   return (
-    <button
-      onClick={onChange}
-      className={`w-5 h-5 rounded-md border flex items-center justify-center cursor-pointer transition-all duration-200 select-none text-[10px] ${
-        checked 
-          ? 'bg-slate-950 border-slate-950 text-white font-bold scale-[1.05] shadow-sm shadow-slate-950/10' 
-          : 'border-slate-350 bg-white hover:bg-slate-100/50 hover:border-slate-500 text-transparent'
-      }`}
-      aria-label={checked ? "Remover recurso do plano" : "Adicionar recurso ao plano"}
-    >
-      ✓
-    </button>
+    <span className="text-slate-300 text-xs">—</span>
   );
 }

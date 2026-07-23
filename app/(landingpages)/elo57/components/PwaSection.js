@@ -5,7 +5,7 @@ export default function PwaSection() {
   return (
     <section 
       id="mobile" 
-      className="snap-start min-h-screen md:h-screen flex flex-col justify-center bg-white overflow-hidden relative py-16 md:py-0"
+      className="relative min-h-screen flex flex-col justify-center bg-white overflow-hidden py-16 md:py-24"
     >
       <div className="max-w-7xl mx-auto px-6 w-full grid md:grid-cols-2 gap-12 items-center relative z-10">
         

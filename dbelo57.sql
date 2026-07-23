@@ -1829,7 +1829,9 @@ CREATE TABLE public.regras_roteamento_funil (
     funil_destino_id text NOT NULL,
     ativo boolean NOT NULL DEFAULT true,
     ordem integer NOT NULL DEFAULT 0,
-    created_at timestamp with time zone NOT NULL DEFAULT now()
+    created_at timestamp with time zone NOT NULL DEFAULT now(),
+    origem text,
+    country_code text
 );
 
 CREATE TABLE public.saldos_diarios_ponto (

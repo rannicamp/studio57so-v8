@@ -18,6 +18,7 @@ O **Studio 57** é o ambiente de desenvolvimento e laboratório central. O **Elo
 - [x] **RLS Global Aplicado no Banco de Dados (07/03) — 121 tabelas protegidas.**
 - [x] **Padronizar o Sistema de Upload (07/03) — CONCLUÍDO.** `UppyAvatarUploader`, `UppyFileImporter` e todo o sistema reescritos no padrão nativo.
 - [ ] **Manuais do Sistema:** Desenvolver o manual de instrução/documentação detalhada para CADA módulo do sistema (para onboarding de clientes SaaS).
+- [ ] **Revisão da Importação CSV do Financeiro:** Reformular o importador CSV de lançamentos financeiros para sincronia com as atualizações de multitenancy e preenchimento dinâmico de contas.
 
 ## 🏗️ Módulos Críticos para o Lançamento
 ### 1. Compliance e Segurança (95%)
@@ -64,6 +65,7 @@ O **Studio 57** é o ambiente de desenvolvimento e laboratório central. O **Elo
 - [ ] Bloqueio de funcionalidades por status de pagamento (Inadimplência).
 - [ ] **Auditoria de VGV:** Desenvolver interface/relatório no front-end para consumir e exibir o histórico inteligente da tabela `historico_vgv` (linha do tempo de valorização dos empreendimentos).
 - [ ] **Flexibilização do Motor de Reajuste (Contratos):** Corrigir a aba de correção do INCC no Extrato do Cliente para possibilitar edição manual do início, meio e fim da incidência das correções. Adicionar opção de "Negociação Personalizada", permitindo selecionar manualmente em quais parcelas específicas a correção monetária será aplicada sobre o saldo devedor (ao invés de seguir estritamente o ordinal trimestral/anual).
+- [ ] **Revisão e Reformulação da Importação CSV do Financeiro:** Revisar o assistente de importação de lançamentos financeiros via CSV para garantir que esteja alinhado com as novas regras do core financeiro (preenchimento obrigatório de `organizacao_id`, `conta_id` dinâmico e formatação automática de sinais financeiros).
 
 ### 6. Branding e Identidade Visual (Transição Elo 57)
 - [x] **Rename:** Substituir ocorrências de "Studio 57" por "Elo 57" na interface.

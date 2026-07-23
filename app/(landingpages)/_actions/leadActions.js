@@ -9,7 +9,7 @@ import { sendMetaEvent } from '../../../utils/metaCapi';
  * Função Universal para Salvar Leads + API de Conversões do Facebook
  * VERSÃO FINAL: Grava dados financeiros nas colunas específicas do banco
  */
-export async function processarLeadUniversal(formData, redirectUrl, origemPadrao) {
+export async function processarLeadUniversal(formData, redirectUrl, origemPadrao, forcedOrganizacaoId = null) {
  // 1. Conexão Mestre (Service Role)
  const supabase = createClient(
  process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -25,6 +25,15 @@ export async function processarLeadUniversal(formData, redirectUrl, origemPadrao
  const nome = formData.get('nome');
  const email = formData.get('email');
  const origem = formData.get('origem') || origemPadrao || 'Landing Page - Genérica';
+ 
+ // --- CAMPOS CRM ADICIONAIS ---
+ const personalidadeJuridica = formData.get('personalidade_juridica') || 'Pessoa Física';
+ const cpf = formData.get('cpf') || null;
+ const cnpj = formData.get('cnpj') || null;
+ const razaoSocial = formData.get('razao_social') || null;
+ const cargo = formData.get('cargo') || null;
+ const pessoaContato = formData.get('pessoa_contato') || null;
+ 
  // --- TRATAMENTO DE DADOS FINANCEIROS (CAIXA) ---
  const rawRenda = formData.get('renda');
  let rendaFamiliar = null;
@@ -72,7 +81,7 @@ export async function processarLeadUniversal(formData, redirectUrl, origemPadrao
  .single();
 
  if (orgError || !orgData) throw new Error('Nenhuma organização padrão encontrada.');
- const organizacaoId = orgData.id;
+ const organizacaoId = forcedOrganizacaoId ? forcedOrganizacaoId : orgData.id;
 
  // 4. INVESTIGAÇÃO (Deduplicação)
  let contatoId = null;
@@ -82,6 +91,7 @@ export async function processarLeadUniversal(formData, redirectUrl, origemPadrao
  .from('telefones')
  .select('contato_id')
  .eq('telefone', telefoneCompleto)
+ .eq('organizacao_id', organizacaoId)
  .limit(1)
  .single();
  if (telData) contatoId = telData.contato_id;
@@ -92,6 +102,7 @@ export async function processarLeadUniversal(formData, redirectUrl, origemPadrao
  .from('emails')
  .select('contato_id')
  .eq('email', email)
+ .eq('organizacao_id', organizacaoId)
  .limit(1)
  .single();
  if (mailData) contatoId = mailData.contato_id;
@@ -105,9 +116,14 @@ export async function processarLeadUniversal(formData, redirectUrl, origemPadrao
  nome: nome,
  origem: origem,
  tipo_contato: 'Lead',
- personalidade_juridica: 'Pessoa Física',
+ personalidade_juridica: personalidadeJuridica,
  organizacao_id: organizacaoId,
- status: 'Ativo'
+ status: 'Ativo',
+ cpf: cpf,
+ cnpj: cnpj,
+ razao_social: razaoSocial,
+ cargo: cargo,
+ pessoa_contato: pessoaContato
  };
 
  // Se for formulário financeiro, adiciona os dados nas colunas específicas
@@ -148,82 +164,112 @@ export async function processarLeadUniversal(formData, redirectUrl, origemPadrao
  });
 
  } else {
- // --- LEAD RECORRENTE (Update) ---
- console.log(`[LeadActions] Lead recorrente (ID: ${contatoId}). Atualizando dados.`);
- const updateData = { updated_at: new Date() };
+    // --- LEAD RECORRENTE (Update) ---
+    console.log(`[LeadActions] Lead recorrente (ID: ${contatoId}). Atualizando dados.`);
+    const updateData = {};
 
- // Só atualizamos os campos financeiros se eles vieram nesse formulário
- // Isso evita zerar dados se o cliente preencher um formulário simples depois
- if (isFinancialForm) {
- updateData.renda_familiar = rendaFamiliar;
- updateData.fgts = fgts;
- updateData.mais_de_3_anos_clt = maisDe3AnosClt;
- }
+    if (nome) updateData.nome = nome;
+    if (origem) updateData.origem = origem;
+    if (formData.get('personalidade_juridica')) updateData.personalidade_juridica = personalidadeJuridica;
+    if (cpf) updateData.cpf = cpf;
+    if (cnpj) updateData.cnpj = cnpj;
+    if (razaoSocial) updateData.razao_social = razaoSocial;
+    if (cargo) updateData.cargo = cargo;
+    if (pessoaContato) updateData.pessoa_contato = pessoaContato;
 
- await supabase
- .from('contatos')
- .update(updateData)
- .eq('id', contatoId);
+    // Só atualizamos os campos financeiros se eles vieram nesse formulário
+    // Isso evita zerar dados se o cliente preencher um formulário simples depois
+    if (isFinancialForm) {
+      updateData.renda_familiar = rendaFamiliar;
+      updateData.fgts = fgts;
+      updateData.mais_de_3_anos_clt = maisDe3AnosClt;
+    }
 
- await sendMetaEvent('Contact', {
- email: email,
- telefone: telefoneCompleto,
- }, {
- content_name: origem
- });
- }
+    await supabase
+      .from('contatos')
+      .update(updateData)
+      .eq('id', contatoId);
 
- // 6. GESTÃO DO FUNIL (Mantida)
- const funilId = await ensureFunilExists(supabase, organizacaoId);
- const colunaId = await getEntradaColumnId(supabase, funilId, organizacaoId);
+    await sendMetaEvent('Contact', {
+      email: email,
+      telefone: telefoneCompleto,
+    }, {
+      content_name: origem
+    });
+  }
 
- const { data: cardExistente } = await supabase
- .from('contatos_no_funil')
- .select('id, coluna_id')
- .eq('contato_id', contatoId)
- .single();
+  // 6. GESTÃO DO FUNIL (Mantida)
+  const funilId = await ensureFunilExists(supabase, organizacaoId, origem);
+  const colunaId = await getEntradaColumnId(supabase, funilId, organizacaoId, origem);
 
- if (cardExistente) {
- if (cardExistente.coluna_id !== colunaId) {
- await supabase
- .from('contatos_no_funil')
- .update({ coluna_id: colunaId, updated_at: new Date() })
- .eq('id', cardExistente.id);
- }
- } else {
- await supabase.from('contatos_no_funil').insert({
- contato_id: contatoId,
- coluna_id: colunaId,
- organizacao_id: organizacaoId,
- numero_card: 1 });
- }
+  let cardId;
+  const { data: cardExistente } = await supabase
+    .from('contatos_no_funil')
+    .select('id, coluna_id')
+    .eq('contato_id', contatoId)
+    .maybeSingle();
 
- } catch (error) {
- console.error('[LeadActions] Erro crítico:', error.message);
- }
+  if (cardExistente) {
+    cardId = cardExistente.id;
+    if (cardExistente.coluna_id !== colunaId) {
+      await supabase
+        .from('contatos_no_funil')
+        .update({ coluna_id: colunaId, updated_at: new Date() })
+        .eq('id', cardExistente.id);
+    }
+  } else {
+    const { data: newCard, error: insertCardErr } = await supabase
+      .from('contatos_no_funil')
+      .insert({
+        contato_id: contatoId,
+        coluna_id: colunaId,
+        organizacao_id: organizacaoId,
+        numero_card: 1
+      })
+      .select('id')
+      .single();
+    if (insertCardErr) throw insertCardErr;
+    cardId = newCard.id;
+  }
 
- redirect(redirectUrl);
+  // DISPARAR AUTOMACAO DE ROTEAMENTO (fn_rotear_lead)
+  if (cardId) {
+    console.log(`[LeadActions] Disparando roteamento automático para o card ID: ${cardId}`);
+    const { data: routeRes, error: routeErr } = await supabase
+      .rpc('fn_rotear_lead', { p_contato_no_funil_id: cardId });
+    if (routeErr) {
+      console.error('[LeadActions] Erro ao executar rpc fn_rotear_lead:', routeErr.message);
+    } else {
+      console.log('[LeadActions] Resultado do roteamento:', routeRes);
+    }
+  }
+
+  } catch (error) {
+    console.error('[LeadActions] Erro crítico:', error.message);
+  }
+
+  redirect(redirectUrl);
 }
 
 // --- FUNÇÕES AUXILIARES ---
-async function ensureFunilExists(supabase, organizacaoId) {
- const FUNIL_ID_FIXO = 'c0dd9026-6ede-4789-a77e-ec0e7fe8fa66';
- let { data: funil } = await supabase.from('funis').select('id').eq('id', FUNIL_ID_FIXO).single();
- if (!funil) {
- const { data: funilPorNome } = await supabase.from('funis').select('id').eq('nome', 'Funil de Vendas').eq('organizacao_id', organizacaoId).single();
- if (funilPorNome) return funilPorNome.id;
- const { data: newFunil } = await supabase.from('funis').insert({ nome: 'Funil de Vendas', organizacao_id: organizacaoId }).select('id').single();
- funil = newFunil;
- }
- return funil.id;
+async function ensureFunilExists(supabase, organizacaoId, origem) {
+  const FUNIL_ID_FIXO = '8dfe1533-d397-4c70-8f3c-36e989b1502d';
+  let { data: funil } = await supabase.from('funis').select('id').eq('id', FUNIL_ID_FIXO).single();
+  if (!funil) {
+    const { data: funilPorNome } = await supabase.from('funis').select('id').eq('nome', 'Funil de Entrada').eq('organizacao_id', organizacaoId).single();
+    if (funilPorNome) return funilPorNome.id;
+    const { data: newFunil } = await supabase.from('funis').insert({ nome: 'Funil de Entrada', organizacao_id: organizacaoId, is_sistema: true }).select('id').single();
+    funil = newFunil;
+  }
+  return funil.id;
 }
 
-async function getEntradaColumnId(supabase, funilId, organizacaoId) {
- const ID_COLUNA_ENTRADA = 'e8e88027-c7be-4e8c-9667-e17fa4e06ce5';
- let { data: coluna } = await supabase.from('colunas_funil').select('id').eq('id', ID_COLUNA_ENTRADA).single();
- if (coluna) return coluna.id;
- const { data: colunaPorNome } = await supabase.from('colunas_funil').select('id').eq('funil_id', funilId).eq('nome', 'ENTRADA').single();
- if (colunaPorNome) return colunaPorNome.id;
- const { data: newColuna } = await supabase.from('colunas_funil').insert({ funil_id: funilId, nome: 'ENTRADA', ordem: 0, organizacao_id: organizacaoId, cor: 'bg-gray-100' }).select('id').single();
- return newColuna.id;
+async function getEntradaColumnId(supabase, funilId, organizacaoId, origem) {
+  const ID_COLUNA_ENTRADA = '902f7707-1f11-4fa6-89c3-b15735acfe1d';
+  let { data: coluna } = await supabase.from('colunas_funil').select('id').eq('id', ID_COLUNA_ENTRADA).single();
+  if (coluna) return coluna.id;
+  const { data: colunaPorNome } = await supabase.from('colunas_funil').select('id').eq('funil_id', funilId).eq('nome', 'ENTRADA').single();
+  if (colunaPorNome) return colunaPorNome.id;
+  const { data: newColuna } = await supabase.from('colunas_funil').insert({ funil_id: funilId, nome: 'ENTRADA', ordem: 0, organizacao_id: organizacaoId, cor: 'bg-gray-100', tipo_coluna: 'entrada' }).select('id').single();
+  return newColuna.id;
 }

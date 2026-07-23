@@ -14,7 +14,7 @@ export default function InboxSection() {
   return (
     <section 
       id="inbox" 
-      className="snap-start min-h-screen md:h-screen flex flex-col justify-center bg-white px-6 py-16 md:py-0 overflow-hidden relative"
+      className="relative min-h-screen flex flex-col justify-center bg-white px-6 py-16 md:py-24 overflow-hidden"
     >
       <div className="max-w-7xl mx-auto w-full relative z-10">
         
@@ -71,40 +71,44 @@ export default function InboxSection() {
               </div>
             </div>
 
-            {/* Bloco 2: Stella IA nos E-mails */}
+            {/* Bloco 2: WhatsApp API Oficial */}
             <div 
               onClick={() => setActiveTab('whatsapp')}
-              className={`border rounded-3xl p-6 md:p-8 flex flex-col justify-between transition-all duration-300 group shadow-lg flex-1 cursor-pointer ${
+              className={`border rounded-3xl p-6 md:p-8 flex flex-col justify-between transition-all duration-300 group shadow-sm flex-1 cursor-pointer ${
                 activeTab === 'whatsapp'
-                  ? 'bg-slate-950 border-slate-800 ring-1 ring-slate-800'
-                  : 'bg-slate-900 border-slate-850 hover:border-slate-700'
+                  ? 'bg-emerald-50/40 border-emerald-600 ring-1 ring-emerald-600'
+                  : 'bg-slate-50/60 border-slate-100 hover:border-emerald-300'
               }`}
             >
               <div>
                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center border transition-all duration-300 mb-6 ${
-                  activeTab === 'whatsapp' ? 'bg-white text-slate-950 border-white' : 'bg-slate-900 text-slate-100 border-slate-800 group-hover:border-slate-600'
+                  activeTab === 'whatsapp' ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white text-slate-900 border-slate-200 group-hover:border-emerald-600 group-hover:bg-emerald-50/40'
                 }`}>
                   <svg className="w-5 h-5 fill-none stroke-current stroke-2" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 21l-1.81-5.096L2.096 14.19 7.19 13.38l.813-5.096.814 5.096 5.096.813-5.096 1.813zM19.125 12.75L18.75 15l-.375-2.25L16.125 12.375 18.375 12l.375-2.25.375 2.25 2.25.375-2.25.375zM16.875 5.25L16.5 7.5l-.375-2.25L13.875 4.875 16.125 4.5l.375-2.25.375 2.25 2.25.375-2.25.375z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                   </svg>
                 </div>
                 <div className="flex items-center gap-3 mb-3">
-                  <h3 className={`text-xl font-bold tracking-tight ${activeTab === 'whatsapp' ? 'text-white' : 'text-slate-100'}`}>
-                    Stella IA 24/7
+                  <h3 className="text-xl font-bold tracking-tight text-slate-950">
+                    WhatsApp Meta API
                   </h3>
-                  <span className="text-[10px] font-bold tracking-widest uppercase px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
-                    Em Desenvolvimento
+                  <span className={`text-[10px] font-bold tracking-widest uppercase px-2.5 py-0.5 rounded-full border ${
+                    activeTab === 'whatsapp' 
+                      ? 'bg-emerald-100 text-emerald-800 border-emerald-200' 
+                      : 'bg-slate-100 text-slate-500 border-slate-200'
+                  }`}>
+                    Conexão Direta
                   </span>
                 </div>
-                <p className={`text-sm font-light leading-relaxed ${activeTab === 'whatsapp' ? 'text-slate-400' : 'text-slate-500'}`}>
-                  A nossa Inteligência Artificial atuará diretamente na sua caixa de entrada de e-mails em tempo integral. Ela qualificará intenções de compra, classificará urgências técnicas de clientes pós-obra e sugerirá rascunhos de resposta totalmente formatados no tom da sua marca.
+                <p className="text-sm text-slate-650 font-light leading-relaxed">
+                  Nossa integração utiliza exclusivamente a API oficial de nuvem da Meta (Cloud API). Fornecemos todo o tutorial técnico e instruções guiadas para que sua holding obtenha e configure suas chaves oficiais da Meta, garantindo máxima estabilidade e segurança.
                 </p>
               </div>
               <div className={`mt-6 pt-4 border-t flex items-center gap-2 text-xs font-semibold ${
-                activeTab === 'whatsapp' ? 'border-slate-900 text-slate-400' : 'border-slate-850 text-slate-500'
+                activeTab === 'whatsapp' ? 'border-emerald-100 text-slate-800' : 'border-slate-200/60 text-slate-800'
               }`}>
-                <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
-                Automação e triagem cognitiva inteligente
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                Conexão estável homologada pela Meta
               </div>
             </div>
 

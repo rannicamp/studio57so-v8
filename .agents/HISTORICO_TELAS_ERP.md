@@ -100,3 +100,31 @@ Este documento funciona como a base de conhecimento viva e guia de integridade d
 * **22/07/2026 (Gantt Integrado)**: Sincronizado o Gantt de atividades com a barra superior de filtros e limpeza de status fictícios no painel BIM.
 * **22/07/2026 (Filtro Estrito)**: Reformulado o fluxo de exibição da lista de atividades para obedecer estritamente ao responsável selecionado e inclusão do filtro de tarefas sem responsável.
 * **22/07/2026 (Switch Pill RDO)**: Adicionado o toggle slider minimalista de RDO e os filtros de inclusão de RDO no painel de Atividades.
+
+---
+
+### 4. Painel de Automações & Roteamento
+* **Caminho da Rota**: `/crm/automacao` e modal do Kanban comercial `/crm`
+* **Arquivos Principais**:
+  * [page.js](file:///c:/Projetos/studio57so-v8/app/(main)/crm/automacao/page.js)
+  * [AutomacoesListModal.js](file:///c:/Projetos/studio57so-v8/components/crm/AutomacoesListModal.js)
+
+#### 📋 Funcionalidades Ativas a Preservar:
+* **Construtor Dinâmico de Condições**:
+  * O formulário aceita adicionar N condições sob a lógica do operador lógico "E" (AND). O usuário pode escolher os campos: **Campanha Meta**, **Anúncio Meta**, **Origem do Lead** ou **Código do País (DDI)** e seus respectivos valores.
+* **Otimização de Performance e Sincronia**:
+  * Dropdowns de Campanha e Anúncio leem diretamente das tabelas integradas `meta_campaigns` e `meta_ads` em vez de varrer a tabela de `contatos` por completo, acelerando o tempo de resposta e permitindo configurar roteamento preventivo para novas campanhas.
+  * O campo de Origem faz uma leitura rápida `limit(1000)` para obter os registros existentes.
+* **Validação SQL Avançada (`fn_rotear_lead`)**:
+  * A RPC do banco `fn_rotear_lead` (com assinatura `uuid`) foi totalmente reestruturada para validar o campo `origem` e o `country_code` (resolvido por subquery na tabela `telefones`). A prioridade de execução calcula a especificidade somando pesos (`Anúncio=16, Campanha=8, Origem=4, DDI=2, Página=1`).
+  * O seletor de coluna destino possui um fallback inteligente que busca por tipo `'entrada'`, nome `'ENTRADA'`, ou a primeira coluna por ordem cronológica caso nenhuma esteja configurada.
+* **Edição de Regras**:
+  * O botão de lápis permite carregar as regras configuradas de volta no construtor de condições dinâmicas para edição simples via `.update()`.
+* **Controle de Prioridades**:
+  * Setas de prioridade (Up/Down) permitem reorganizar as regras de roteamento no painel. O clique faz um upsert ordenado atualizando a coluna `ordem` sequencialmente de todas as regras da organização.
+* **Unificação de Telas**:
+  * Tanto a página standalone quanto o modal comercial possuem o mesmo painel de abas com gerenciador global da Stella IA, mensagens automáticas de WhatsApp e roteamento de leads.
+
+#### ⏱️ Histórico de Atualizações:
+* **23/07/2026 (Construtor Dinâmico & Performance)**: Desenvolvido o novo fluxo de condições flexíveis para o roteamento de leads, incluindo DDI e origem no banco de dados e otimização das listagens de Meta Ads.
+

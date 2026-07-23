@@ -62,3 +62,8 @@ Sempre que iniciarmos um novo dia de trabalho ou uma nova conversa do zero, siga
 
 13. **Cristalização de Conhecimento Autônomo (Meta-Skill):**
     - Lembre-se firmemente: Você é capaz de aprender dinamicamente. Existe uma "Skill Mãe" (Protocolo Gênesis) em `.agents/skills/mapeamento_operacional/SKILL.md`. Sempre que o Ranniere pedir para "cristalizar" ou "fazer a skill" do que vocês construíram no dia, leia esta Meta-Skill e extraia o conhecimento da conversa para gerar um novo manual definitivo sem alucinações.
+
+14. **Inicialização do Servidor de Desenvolvimento:**
+    - Para rodar o servidor Next.js localmente no Windows sem que a execução bloqueie as conversas do chat ou falhe pelas políticas do PowerShell, o Ranniere deve rodar o seguinte comando unificado:
+      `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass; cd c:\Projetos\studio57so-v8; npm run dev`
+    - Consulte a skill correspondente em [.agents/skills/iniciar_servidor_seguro/SKILL.md](file:///c:/Projetos/studio57so-v8/.agents/skills/iniciar_servidor_seguro/SKILL.md).

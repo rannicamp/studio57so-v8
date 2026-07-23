@@ -13,7 +13,7 @@ export default function PricingSection() {
   return (
     <section 
       id="pricing" 
-      className="snap-start min-h-screen md:h-screen flex flex-col justify-center bg-white px-6 py-16 md:py-0 overflow-y-auto relative"
+      className="relative min-h-screen flex flex-col justify-start bg-white px-6 py-16 md:py-24"
     >
       <div className="max-w-7xl mx-auto w-full relative z-10 py-8 md:py-0">
         

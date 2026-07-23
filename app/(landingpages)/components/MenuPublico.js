@@ -2,7 +2,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 
@@ -13,8 +13,65 @@ export default function MenuPublico() {
   // Define qual marca está ativa baseado na rota atual
   const isElo57Active = pathname ? (pathname.startsWith('/elo57') || pathname.startsWith('/apresentacaoelo')) : false;
 
+  const [isVisible, setIsVisible] = useState(true);
+  const lastScrollTop = useRef(0);
+
+  useEffect(() => {
+    if (!isElo57Active) {
+      setIsVisible(true);
+      return;
+    }
+
+    const handleScroll = (e) => {
+      // Captura o target correto do scroll (pode ser o container div ou a própria janela/documento)
+      const target = e.target === document ? document.documentElement : e.target;
+      const scrollTop = target.scrollTop || window.scrollY || 0;
+      
+      // Evita oscilação nas proximidades do topo (menor que 80px)
+      if (scrollTop < 80) {
+        setIsVisible(true);
+        lastScrollTop.current = scrollTop;
+        return;
+      }
+
+      // Direção do scroll
+      if (scrollTop > lastScrollTop.current) {
+        // Rolando para baixo -> Oculta o menu
+        setIsVisible(false);
+      } else {
+        // Rolando para cima -> Exibe o menu
+        setIsVisible(true);
+      }
+      
+      lastScrollTop.current = scrollTop;
+    };
+
+    // Ouvinte padrão para a janela global
+    window.addEventListener('scroll', handleScroll, { passive: true });
+
+    // Ouvinte específico para o container de snap-scroll do Elo 57
+    const elo57Container = document.getElementById('elo57-scroll-container');
+    if (elo57Container) {
+      elo57Container.addEventListener('scroll', handleScroll, { passive: true });
+    }
+
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      if (elo57Container) {
+        elo57Container.removeEventListener('scroll', handleScroll);
+      }
+    };
+  }, [pathname, isElo57Active]);
+
+  // Define as classes dinamicamente: fixed + translate para Elo 57; sticky padrão para as demais
+  const headerClass = isElo57Active
+    ? `bg-white shadow-md fixed top-0 left-0 w-full z-50 transition-transform duration-300 ease-in-out ${
+        isVisible ? 'translate-y-0' : '-translate-y-full'
+      }`
+    : 'bg-white shadow-md sticky top-0 z-50';
+
   return (
-    <header className="bg-white shadow-md sticky top-0 z-50">
+    <header className={headerClass}>
       <nav className="w-full px-6 py-3 flex justify-between items-center">
         {/* Lado Esquerdo: Brand Switcher (Toggle Button Studio 57 x Elo 57) */}
         <div className="flex items-center space-x-3 bg-neutral-50 p-1 rounded-2xl border border-neutral-100">
@@ -73,8 +130,8 @@ export default function MenuPublico() {
             <Image 
               src="/marca/logo-elo57-horizontal.svg" 
               alt="Elo 57" 
-              width={110} 
-              height={35} 
+              width={65} 
+              height={20} 
               className="object-contain" 
               priority 
             />
@@ -102,8 +159,8 @@ export default function MenuPublico() {
               <Image 
                 src="/marca/logo-elo57-horizontal.svg" 
                 alt="Elo 57" 
-                width={110} 
-                height={35} 
+                width={65} 
+                height={20} 
                 className="object-contain" 
               />
             </Link>

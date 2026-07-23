@@ -8,7 +8,7 @@ export default function PainelDoresSection() {
   return (
     <section 
       id="dores" 
-      className="snap-start min-h-screen md:h-screen flex flex-col justify-center bg-white px-6 py-16 md:py-0 overflow-hidden relative"
+      className="relative min-h-screen flex flex-col justify-center bg-white px-6 py-16 md:py-24 overflow-hidden"
     >
       <div className="max-w-7xl mx-auto w-full relative z-10">
         <div className="text-center mb-12 md:mb-16">
