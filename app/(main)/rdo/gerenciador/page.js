@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { createClient } from '../../../../utils/supabase/client';
 import Link from 'next/link';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -124,12 +124,41 @@ export default function RdoGerenciadorPage() {
    }
  };
 
- // Carregamento Inicial
- useEffect(() => {
- fetchRdos();
- // Carregamos as fotos também no início ou poderíamos carregar apenas ao clicar na aba
- fetchPhotos();
- }, [fetchRdos, fetchPhotos]);
+  // Carregamento Inicial
+  useEffect(() => {
+    fetchRdos();
+    // Carregamos as fotos também no início ou poderíamos carregar apenas ao clicar na aba
+    fetchPhotos();
+  }, [fetchRdos, fetchPhotos]);
+
+  // Sentinela e Observer para Scroll Infinito (Igual ao Google Fotos)
+  const sentinelRef = useRef(null);
+
+  useEffect(() => {
+    if (activeTab !== 'galeria' || !hasMorePhotos) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && !loadingMorePhotos) {
+          fetchMorePhotos();
+        }
+      },
+      {
+        rootMargin: '300px', // Dispara o carregamento 300px antes de atingir o fim da tela
+      }
+    );
+
+    const currentSentinel = sentinelRef.current;
+    if (currentSentinel) {
+      observer.observe(currentSentinel);
+    }
+
+    return () => {
+      if (currentSentinel) {
+        observer.unobserve(currentSentinel);
+      }
+    };
+  }, [activeTab, hasMorePhotos, loadingMorePhotos, photos.length]);
 
 
 
@@ -297,24 +326,18 @@ export default function RdoGerenciadorPage() {
       <>
         <RdoPhotoGallery photos={photos} />
 
-        {hasMorePhotos && (
-          <div className="flex justify-center pt-6 border-t border-gray-100">
-            <button
-              onClick={fetchMorePhotos}
-              disabled={loadingMorePhotos}
-              className="bg-white border border-gray-300 hover:border-gray-400 text-gray-700 font-semibold text-sm px-6 py-2.5 rounded-lg shadow-2xs hover:shadow-xs active:bg-gray-50 transition-all flex items-center gap-2 disabled:opacity-60 cursor-pointer"
-            >
-              {loadingMorePhotos ? (
-                <>
-                  <FontAwesomeIcon icon={faSpinner} spin className="text-gray-400" />
-                  Carregando fotos antigas...
-                </>
-              ) : (
-                'Ver mais antigo'
-              )}
-            </button>
-          </div>
-        )}
+        {/* Sentinela invisível para disparar o carregamento infinito */}
+        <div ref={sentinelRef} className="h-16 w-full flex items-center justify-center pt-4">
+          {hasMorePhotos && (
+            <div className="flex items-center gap-2 text-sm text-gray-400 font-medium">
+              <FontAwesomeIcon icon={faSpinner} spin className="text-gray-400" />
+              <span>Carregando mais fotos antigas...</span>
+            </div>
+          )}
+          {!hasMorePhotos && photos.length > 0 && (
+            <span className="text-xs text-gray-400 font-medium">Você chegou ao fim da galeria.</span>
+          )}
+        </div>
       </>
     )}
   </div>
