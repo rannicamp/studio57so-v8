@@ -1,55 +1,46 @@
-# 🏡 Transição de Contexto: WhatsApp & CRM (Para Continuar de Casa)
+# 🏡 Transição de Contexto: Roteamento de Leads & Correções no CRM (Para Continuar de Casa)
 
-Este documento foi gerado pelo seu mentor técnico **Devonildo** para garantir que você e qualquer IA assistente em sua casa possam retomar os trabalhos exatamente de onde paramos, sem perder nenhum detalhe estratégico.
+Este documento foi gerado pelo seu mentor técnico **Devonildo** para garantir que você possa retomar os trabalhos em casa exatamente de onde paramos, mantendo o histórico de progresso 100% alinhado.
 
 ---
 
 ## 🚀 1. Resumo do que foi Consertado Hoje
 
-### A. Correção dos IDs da Meta (Fim das Mensagens Fantasmas)
-*   **O Erro**: O sistema estava usando um App ID de desenvolvimento da Meta (`14599...`). O token associado a ele causava erros de permissão ao tentar enviar templates e travava o webhook.
-*   **A Correção**: 
-    *   Atualizamos o ID do telefone comercial oficial para **`690198827516149`** atrelado ao App ID oficial de produção **`2052352668968564`** (início 2).
-    *   Substituímos o token permanente na tabela `public.configuracoes_whatsapp` da Org 2 (Studio 57) no Supabase.
-    *   **Resultado**: Envio de templates oficiais (`saudacao_entrada_v3` e `reativar_contato`) com variáveis dinâmicas homologado com sucesso absoluto (HTTP 200) e sincronização instantânea de status de leitura (`read`) e clique nos botões interativos.
+### A. Roteamento de Leads por Origem (`origem`)
+* **Banco de Dados**:
+  * Adicionamos a coluna `origem` (`text`) na tabela `regras_roteamento_funil`.
+  * Reformulamos a RPC `fn_rotear_lead` para considerar o campo `origem` do lead e ordenar pela especificidade dos filtros (anúncio > campanha > página > origem).
+  * **Busca de Colunas Inteligente**: Atualizamos a RPC para buscar de forma robusta a coluna de destino do funil, priorizando o `tipo_coluna = 'entrada'`, caindo para o nome `ENTRADA` (case-insensitive) e finalmente usando a primeira coluna do funil por ordem (`ordem ASC`) caso não encontre. Isso resolveu falhas em funis que tinham a primeira etapa marcada erroneamente como `'etapa'` em vez de `'entrada'`.
 
-### B. Resolução de Duplicidade de Contatos (Caso Amanda)
-*   **O Erro**: Mensagens de números novos criavam contatos temporários `"Lead (Telefone)"`. Ao preencher o telefone no contato real, as conversas não se vinculavam automaticamente.
-*   **A Correção**: 
-    *   Realizada a mesclagem manual do Lead temporário `5775` com a Amanda Real (`5226`) no banco.
-    *   Mergidos: 49 mensagens, conversa do WhatsApp e posicionamento no funil.
-    *   O contato temporário foi deletado. A caixa de entrada exibe agora o nome completo da Amanda normalmente.
+### B. Bug do Funil Trocado na Landing Page (Elo 57)
+* **O Erro**: O processador de leads (`leadActions.js`) estava inserindo leads novos no funil customizado `"Funil de Vendas"` (ID `c0dd9026...`), enquanto a tela visual do CRM utiliza o funil de sistema global **`Funil de Entrada`** (ID `8dfe1533-d397-4c70-8f3c-36e989b1502d`).
+* **A Correção**: Atualizamos as constantes de fallback em `leadActions.js` para apontarem para o ID e nome corretos do **`Funil de Entrada`** e sua respectiva coluna **`ENTRADA`** (ID `902f7707...`).
+* **Resgate**: Rodamos um script que resgatou os leads de teste de Ranniere (`Ranniere Campos Mendes Teste 3`) e os moveu para a coluna `ENTRADA` correta no banco.
 
-### C. Resolução de Duplicidade de Conversas (Caso Ranniere - 9º Dígito)
-*   **O Erro**: A Meta envia mensagens inbound sem o 9º dígito. Envios outbound usavam o 9º dígito. Isso criava duas conversas no chat para a mesma pessoa.
-*   **A Correção**:
-    *   Unificadas todas as mensagens do Ranniere na conversa padrão (`19589`) e deletada a conversa duplicada com o 9 (`19733`).
-    *   **Blindagem de Código**: Alterada a rota `app/api/whatsapp/send/route.js` para realizar uma busca inteligente pré-upsert. Se já existir uma conversa ativa com o número (com ou sem o 9), o sistema atualiza ela, impedindo duplicações de tela.
+### C. Bug de Multi-Tenancy (Deduplicação de Telefone/Email)
+* **O Erro**: A busca de contato existente pelo telefone ou e-mail na Landing Page não filtrava pela organização do lead. Por conta disso, contatos de teste antigos cadastrados na **Organização 57** eram encontrados e atualizados, movendo o card no funil da Org 57 (invisível para a sua conta atual da Org 2).
+* **A Correção**: Adicionamos a cláusula `.eq('organizacao_id', organizacaoId)` na deduplicação de telefone e e-mail no arquivo `leadActions.js`. Agora cada tenant é 100% isolado.
+
+### D. Novo Construtor de Automações Dinâmico
+* **O que mudou**: Implementamos tanto no modal de Kanban quanto na página de CRM o Construtor Dinâmico de Condições, permitindo filtros combinados (E/AND) de Campanha, Anúncio, Origem e DDI de País. Também incluímos a capacidade de reordenar a prioridade (setas Up/Down) e editar regras (botão Lápis).
 
 ---
 
 ## 📦 2. Estado do Deploy e Repositório Git
-*   **Commit e Push**: Todas as alterações locais foram comitadas e enviadas para o GitHub na branch `main`.
-*   **Netlify**: O deploy foi concluído com sucesso (status `ready`) e a última versão já está ativamente servindo a produção.
-*   **Variáveis de Ambiente**: As chaves `NEXT_PUBLIC_FACEBOOK_APP_ID`, `NEXT_PUBLIC_FACEBOOK_APP_ID_WA` e `FACEBOOK_CLIENT_SECRET` estão devidamente salvas no Netlify apontando para o App início 2.
+* **Commit e Push**: Todas as alterações locais foram comitadas e enviadas para o GitHub na branch `main` com sucesso (`To https://github.com/rannicamp/studio57so-v8.git`).
+* **Netlify**: O deploy automático é acionado a cada push e a versão de produção é atualizada automaticamente.
 
 ---
 
 ## 🎯 3. Onde Paramos & Próximos Passos (Para Fazer de Casa)
 
-Quando você abrir o projeto em casa, as seguintes frentes estão prontas para desenvolvimento:
-
-1. **Testes do Embedded Signup**:
-   * Testar a conexão de WhatsApp em uma nova organização de testes (com um de seus amigos) para garantir que a geração do token permanente e a gravação no banco fluem 100% de forma transparente.
-2. **Integração do Asaas (Recebimento de Assinaturas)**:
-   * **Objetivo**: Implementar o Asaas como gateway de pagamento para receber as mensalidades e assinaturas do Elo 57 dos clientes parceiros/amigos.
-   * **Referência**: Consulte o `PLANEJAMENTO_MASTER.md` na pasta `.agents` para ver os requisitos de assinatura e meios de pagamento mapeados.
-3. **Trigger de Auto-Mesclagem (Opcional)**:
-   * Implementar a trigger no banco de dados (`AFTER INSERT OR UPDATE ON public.telefones`) para automatizar em definitivo a mesclagem de leads temporários com contatos reais atualizados (conforme desenhado na conversa de hoje).
-
----
-
-### 🔑 Configurações Ativas em Produção
-*   **App ID Meta**: `2052352668968564`
-*   **Phone ID Matriz (Org 2)**: `690198827516149`
-*   **Banco de Dados**: Ativo no Supabase.
+Quando você abrir o projeto em casa, tudo estará pronto para uso:
+1. **Comando de Inicialização Rápida (PowerShell)**:
+   Se o PowerShell externo travar ou bloquear o script do `npm` na sua máquina de casa, use a nossa nova skill rodando este comando unificado:
+   ```powershell
+   Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass; cd c:\Projetos\studio57so-v8; npm run dev
+   ```
+   * Detalhes na nova skill em: [.agents/skills/iniciar_servidor_seguro/SKILL.md](file:///c:/Projetos/studio57so-v8/.agents/skills/iniciar_servidor_seguro/SKILL.md)
+2. **Criação de Regras e Testes**:
+   * Crie uma regra de automação no painel associando a origem `"Landing Page - Elo 57 (Pré-Lançamento)"` para direcionar para o funil customizado `"Elo 57"`.
+   * Faça novas submissões do formulário no site e verifique o roteamento dinâmico funcionando em tempo real.
