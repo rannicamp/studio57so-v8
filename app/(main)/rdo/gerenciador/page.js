@@ -31,6 +31,11 @@ export default function RdoGerenciadorPage() {
  const [loadingMorePhotos, setLoadingMorePhotos] = useState(false);
  const [hasMorePhotos, setHasMorePhotos] = useState(true);
 
+ // Estados de Linha do Tempo da Galeria (Navegação por Data Estilo Google Fotos)
+ const [availableMonths, setAvailableMonths] = useState([]);
+ const [selectedMonth, setSelectedMonth] = useState(null);
+ const [dataLimiteSuperior, setDataLimiteSuperior] = useState(null);
+
  const PHOTOS_PAGE_SIZE = 50;
 
  // Controle de Abas
@@ -58,36 +63,70 @@ export default function RdoGerenciadorPage() {
  }
  }, [supabase]);
 
- // --- BUSCA FOTOS (Para a aba Galeria - Lote Inicial) ---
- const fetchPhotos = useCallback(async () => {
- setLoadingPhotos(true);
- try {
- // Busca as fotos e faz o join com a tabela de diarios_obra para pegar o número e data
- const { data, error } = await supabase
- .from('rdo_fotos_uploads')
- .select(`
- *,
- diarios_obra (
- id,
- rdo_numero,
- data_relatorio
- )
- `)
- .order('created_at', { ascending: false })
- .range(0, PHOTOS_PAGE_SIZE - 1);
+ // --- BUSCA MESES DISPONÍVEIS COM FOTOS NO BANCO ---
+ const fetchAvailableMonths = useCallback(async () => {
+   try {
+     const { data, error } = await supabase
+       .from('rdo_fotos_uploads')
+       .select(`
+         diarios_obra!inner (
+           data_relatorio
+         )
+       `);
 
- if (error) throw error;
- setPhotos(data || []);
- setHasMorePhotos((data || []).length === PHOTOS_PAGE_SIZE);
- } catch (error) {
- console.error("Erro ao buscar fotos:", error);
- toast.error("Erro ao carregar galeria de fotos.");
- } finally {
- setLoadingPhotos(false);
- }
+     if (error) throw error;
+
+     const monthsSet = new Set();
+     data.forEach(item => {
+       const rawDate = item.diarios_obra?.data_relatorio;
+       if (rawDate && rawDate.length === 10) {
+         const [yyyy, mm, dd] = rawDate.split('-');
+         monthsSet.add(`${yyyy}-${mm}`);
+       }
+     });
+
+     // Ordena de forma decrescente (mais recente primeiro)
+     const sortedMonths = Array.from(monthsSet).sort().reverse();
+     setAvailableMonths(sortedMonths);
+   } catch (e) {
+     console.error("Erro ao buscar meses disponíveis na galeria:", e);
+   }
  }, [supabase]);
 
- // --- CARREGA MAIS FOTOS (Fotos mais antigas) ---
+ // --- BUSCA FOTOS (Para a aba Galeria - Lote Inicial com limite de data) ---
+ const fetchPhotos = useCallback(async () => {
+   setLoadingPhotos(true);
+   try {
+     let query = supabase
+       .from('rdo_fotos_uploads')
+       .select(`
+         *,
+         diarios_obra!inner (
+           id,
+           rdo_numero,
+           data_relatorio
+         )
+       `)
+       .order('created_at', { ascending: false });
+
+     if (dataLimiteSuperior) {
+       query = query.lte('diarios_obra.data_relatorio', dataLimiteSuperior);
+     }
+
+     const { data, error } = await query.range(0, PHOTOS_PAGE_SIZE - 1);
+
+     if (error) throw error;
+     setPhotos(data || []);
+     setHasMorePhotos((data || []).length === PHOTOS_PAGE_SIZE);
+   } catch (error) {
+     console.error("Erro ao buscar fotos:", error);
+     toast.error("Erro ao carregar galeria de fotos.");
+   } finally {
+     setLoadingPhotos(false);
+   }
+ }, [supabase, dataLimiteSuperior]);
+
+ // --- CARREGA MAIS FOTOS (Fotos mais antigas com limite de data) ---
  const fetchMorePhotos = async () => {
    if (loadingMorePhotos) return;
    setLoadingMorePhotos(true);
@@ -95,18 +134,23 @@ export default function RdoGerenciadorPage() {
      const from = photos.length;
      const to = from + PHOTOS_PAGE_SIZE - 1;
 
-     const { data, error } = await supabase
+     let query = supabase
        .from('rdo_fotos_uploads')
        .select(`
          *,
-         diarios_obra (
+         diarios_obra!inner (
            id,
            rdo_numero,
            data_relatorio
          )
        `)
-       .order('created_at', { ascending: false })
-       .range(from, to);
+       .order('created_at', { ascending: false });
+
+     if (dataLimiteSuperior) {
+       query = query.lte('diarios_obra.data_relatorio', dataLimiteSuperior);
+     }
+
+     const { data, error } = await query.range(from, to);
 
      if (error) throw error;
 
@@ -124,17 +168,36 @@ export default function RdoGerenciadorPage() {
    }
  };
 
-  // Carregamento Inicial
-  useEffect(() => {
-    fetchRdos();
-    // Carregamos as fotos também no início ou poderíamos carregar apenas ao clicar na aba
-    fetchPhotos();
-  }, [fetchRdos, fetchPhotos]);
+ // --- FUNÇÃO PARA SALTO TEMPORAL NA LINHA DO TEMPO ---
+ const handleTimeJump = (monthStr) => {
+   setSelectedMonth(monthStr);
+   if (!monthStr) {
+     setDataLimiteSuperior(null);
+   } else {
+     const [yyyy, mm] = monthStr.split('-');
+     // Pega o último dia do mês para filtrar tudo até esse dia
+     const lastDay = new Date(yyyy, mm, 0).getDate();
+     setDataLimiteSuperior(`${yyyy}-${mm}-${lastDay}`);
+   }
+   setPhotos([]);
+   setHasMorePhotos(true);
+ };
 
-  // Sentinela e Observer para Scroll Infinito (Igual ao Google Fotos)
-  const sentinelRef = useRef(null);
+ // Carregamento Inicial
+ useEffect(() => {
+   fetchRdos();
+   fetchAvailableMonths();
+ }, [fetchRdos, fetchAvailableMonths]);
 
-  useEffect(() => {
+ // Busca fotos sempre que a data limite superior for atualizada (filtro por linha do tempo)
+ useEffect(() => {
+   fetchPhotos();
+ }, [fetchPhotos]);
+
+ // Sentinela e Observer para Scroll Infinito (Igual ao Google Fotos)
+ const sentinelRef = useRef(null);
+
+ useEffect(() => {
     if (activeTab !== 'galeria' || !hasMorePhotos) return;
 
     const observer = new IntersectionObserver(
@@ -315,30 +378,73 @@ export default function RdoGerenciadorPage() {
  </div>
  </>
  ) : (
- // ================= ABA GALERIA =================
- <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 space-y-6">
+  // ================= ABA GALERIA =================
+  <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
     {loadingPhotos ? (
       <div className="p-10 text-center text-gray-500">
         <FontAwesomeIcon icon={faSpinner} spin size="2x" className="mb-2" />
         <p>Carregando galeria...</p>
       </div>
     ) : (
-      <>
-        <RdoPhotoGallery photos={photos} />
+      <div className="flex gap-6 items-start">
+        {/* Grid de fotos principal */}
+        <div className="flex-grow min-w-0 space-y-6">
+          <RdoPhotoGallery photos={photos} />
 
-        {/* Sentinela invisível para disparar o carregamento infinito */}
-        <div ref={sentinelRef} className="h-16 w-full flex items-center justify-center pt-4">
-          {hasMorePhotos && (
-            <div className="flex items-center gap-2 text-sm text-gray-400 font-medium">
-              <FontAwesomeIcon icon={faSpinner} spin className="text-gray-400" />
-              <span>Carregando mais fotos antigas...</span>
-            </div>
-          )}
-          {!hasMorePhotos && photos.length > 0 && (
-            <span className="text-xs text-gray-400 font-medium">Você chegou ao fim da galeria.</span>
-          )}
+          {/* Sentinela invisível para disparar o carregamento infinito */}
+          <div ref={sentinelRef} className="h-16 w-full flex items-center justify-center pt-4">
+            {hasMorePhotos && (
+              <div className="flex items-center gap-2 text-sm text-gray-400 font-medium">
+                <FontAwesomeIcon icon={faSpinner} spin className="text-gray-400" />
+                <span>Carregando mais fotos antigas...</span>
+              </div>
+            )}
+            {!hasMorePhotos && photos.length > 0 && (
+              <span className="text-xs text-gray-400 font-medium text-center block">Você chegou ao fim da galeria.</span>
+            )}
+          </div>
         </div>
-      </>
+
+        {/* Régua vertical de Linha do Tempo (Estilo Google Fotos) */}
+        {availableMonths.length > 0 && (
+          <div className="hidden md:flex flex-col gap-1 sticky top-6 max-h-[calc(100vh-200px)] w-28 overflow-y-auto pl-4 border-l border-gray-200 text-xs shrink-0 select-none custom-scrollbar pb-4">
+            <span className="text-[10px] uppercase font-bold text-gray-400 mb-2.5 tracking-wider">Linha do Tempo</span>
+            <button
+              onClick={() => handleTimeJump(null)}
+              className={`text-left px-2 py-1.5 rounded transition-all text-[11px] font-semibold ${
+                selectedMonth === null
+                  ? 'bg-blue-50 text-blue-600 font-bold border-l-2 border-blue-600 pl-1.5'
+                  : 'text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              Recentes
+            </button>
+            {availableMonths.map((monthStr) => {
+              const [yyyy, mm] = monthStr.split('-');
+              // Formata nome do mês curto
+              const dateObj = new Date(parseInt(yyyy), parseInt(mm) - 1, 1);
+              const rawMonthName = dateObj.toLocaleDateString('pt-BR', { month: 'short' });
+              // Limpa ponto do nome do mês abreviado se houver (ex: "set." -> "Set")
+              const cleanMonth = rawMonthName.replace('.', '');
+              const label = `${cleanMonth.charAt(0).toUpperCase() + cleanMonth.slice(1)}/${yyyy.slice(2)}`;
+
+              return (
+                <button
+                  key={monthStr}
+                  onClick={() => handleTimeJump(monthStr)}
+                  className={`text-left px-2 py-1.5 rounded transition-all text-[11px] font-semibold ${
+                    selectedMonth === monthStr
+                      ? 'bg-blue-50 text-blue-600 font-bold border-l-2 border-blue-600 pl-1.5'
+                      : 'text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
     )}
   </div>
  )}

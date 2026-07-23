@@ -24,14 +24,18 @@ Este documento funciona como a base de conhecimento viva e guia de integridade d
 * **Aba Lista de RDOs**:
   * Tabela com busca integrada por empreendimento, número ou responsável do RDO.
   * Links diretos para visualização e download de PDFs de RDOs assinados e botão de edição.
-* **Aba Galeria de Fotos (Infinite Scroll & Agrupamento)**:
-  * **Agrupamento por Datas**: Fotos organizadas visualmente por pílula/seção da data do RDO (`DD/MM/YYYY • RDO #XXX`) em fundo branco minimalista com linha divisora cinza clara e contador de imagens.
+* **Aba Galeria de Fotos (Infinite Scroll, Agrupamento e Linha do Tempo)**:
+  * **Agrupamento por Datas**: Fotos organizadas visualmente por pílula/seção da data do RDO (`DD/MM/YYYY`) em fundo branco minimalista com linha divisora cinza clara e contador de imagens.
   * **Infinite Scroll (Rolagem Infinita de Metadados)**: Busca as fotos sob demanda no banco Supabase em lotes de 50 registros por vez via `.range(from, to)`. Um elemento sentinela no rodapé (`IntersectionObserver`) detecta a rolagem da página a 300px do fim e puxa automaticamente as próximas 50 fotos. Isso impede o estouro de limite de registros do Supabase/PostgREST e garante excelente performance no navegador.
+  * **Linha do Tempo Lateral (Time Jump)**: Barra lateral direita discreta com a lista ordenada dos meses/anos que contêm fotos no banco (ex: `Out/25`, `Set/25`, `Jul/25`...). 
+    * Ao clicar em um mês, o sistema realiza o **Salto Temporal**: limpa a memória local das fotos, redefine a data limite superior da busca para o último dia do mês clicado e executa a query do Supabase usando `diarios_obra!inner` com filtro `.lte('diarios_obra.data_relatorio', ...)`. A partir desse ponto, o scroll infinito continua carregando as fotos anteriores ao mês selecionado.
+    * A opção **"Recentes"** no topo da régua de tempo restabelece a busca a partir das fotos de hoje.
   * **Lazy Loading de Imagens Físicas**: As fotos reais só fazem download e geram a URL assinada quando entram no campo de visão do usuário na tela (evita sobrecarga de tráfego de dados).
   * **Remoção de Badge de KB**: A exibição dos tamanhos de arquivo (KB/MB) no canto superior direito das thumbnails foi removida a pedido do usuário (visual limpo e focado no progresso).
   * **Lightbox Integrado**: Clique na imagem abre modal completo com navegação por teclado (Seta Esquerda/Direita) e link direto para o RDO correspondente da foto.
 
 #### ⏱️ Histórico de Atualizações:
+* **23/07/2026 (Linha do Tempo Estilo Google Fotos)**: Desenvolvemos a régua de meses lateral direita integrada com consulta agrupada e a função de Salto Temporal (`handleTimeJump`) que reconstrói a query no Supabase de forma otimizada usando `!inner` join.
 * **23/07/2026 (Paginação e Scroll Infinito)**: O banco atingiu limites de requisição padrão que bloqueavam o carregamento de fotos antigas (anteriores a 16/04). Implementamos a busca paginada no Supabase e acoplamos o carregamento automático por rolagem infinita invisível via `IntersectionObserver`.
 * **22/07/2026 (Visual Minimalista)**: Retirados os fundos azuis e badges de tamanho em KB da galeria de fotos do RDO, adotando fundo branco e textos pretos discretos integrados à linha divisora.
 * **22/07/2026 (Seções de Data)**: Criado o agrupamento de fotos por dia no gerenciador de RDOs.
