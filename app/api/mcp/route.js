@@ -1483,6 +1483,7 @@ async function executeTool(name, args, supabase, user) {
         .from('activities')
         .update(fields)
         .eq('id', id)
+        .eq('organizacao_id', user.organizacao_id)
         .select('id, nome, status')
         .single();
 
@@ -1495,7 +1496,8 @@ async function executeTool(name, args, supabase, user) {
       const { error } = await supabase
         .from('activities')
         .delete()
-        .eq('id', id);
+        .eq('id', id)
+        .eq('organizacao_id', user.organizacao_id);
 
       if (error) throw new Error(error.message);
       return { message: 'Atividade deletada com sucesso.' };
@@ -1628,13 +1630,13 @@ async function executeTool(name, args, supabase, user) {
       if (status !== undefined) updateData.status = status;
 
       if (Object.keys(updateData).length > 0) {
-        const { error } = await supabase.from('contatos').update(updateData).eq('id', id);
+        const { error } = await supabase.from('contatos').update(updateData).eq('id', id).eq('organizacao_id', user.organizacao_id);
         if (error) throw new Error(error.message);
       }
 
       // 2. Atualizar celular se passado
       if (celular !== undefined) {
-        await supabase.from('telefones').delete().eq('contato_id', id);
+        await supabase.from('telefones').delete().eq('contato_id', id).eq('organizacao_id', user.organizacao_id);
         if (celular) {
           await supabase.from('telefones').insert({
             contato_id: id,
@@ -1646,7 +1648,7 @@ async function executeTool(name, args, supabase, user) {
 
       // 3. Atualizar email se passado
       if (email !== undefined) {
-        await supabase.from('emails').delete().eq('contato_id', id);
+        await supabase.from('emails').delete().eq('contato_id', id).eq('organizacao_id', user.organizacao_id);
         if (email) {
           await supabase.from('emails').insert({
             contato_id: id,
@@ -1923,7 +1925,7 @@ async function executeTool(name, args, supabase, user) {
       
       // Auto-formatar o sinal se o valor for editado
       if (fields.valor) {
-        const { data: lanc } = await supabase.from('lancamentos').select('tipo').eq('id', id).single();
+        const { data: lanc } = await supabase.from('lancamentos').select('tipo').eq('id', id).eq('organizacao_id', user.organizacao_id).single();
         if (lanc?.tipo === 'Despesa') {
           fields.valor = -Math.abs(fields.valor);
         } else if (lanc?.tipo === 'Receita') {
@@ -1935,6 +1937,7 @@ async function executeTool(name, args, supabase, user) {
         .from('lancamentos')
         .update(fields)
         .eq('id', id)
+        .eq('organizacao_id', user.organizacao_id)
         .select('id, descricao, valor, status')
         .single();
 
@@ -1947,7 +1950,8 @@ async function executeTool(name, args, supabase, user) {
       const { error } = await supabase
         .from('lancamentos')
         .delete()
-        .eq('id', id);
+        .eq('id', id)
+        .eq('organizacao_id', user.organizacao_id);
 
       if (error) throw new Error(error.message);
       return { message: 'Lançamento financeiro deletado com sucesso.' };
@@ -2337,6 +2341,7 @@ async function executeTool(name, args, supabase, user) {
         .from('funcionarios')
         .update(fields)
         .eq('id', id)
+        .eq('organizacao_id', user.organizacao_id)
         .select('id, full_name, status')
         .single();
 
@@ -3232,6 +3237,7 @@ async function executeTool(name, args, supabase, user) {
         .from('produtos_empreendimento')
         .update(fields)
         .eq('id', id)
+        .eq('organizacao_id', user.organizacao_id)
         .select('id, unidade, status, valor_base')
         .single();
 
