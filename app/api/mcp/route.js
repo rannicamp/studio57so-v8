@@ -1072,6 +1072,25 @@ async function handleMcpRequest(rpcRequest, supabase, user) {
           id
         };
       } catch (err) {
+        if (err.name === 'EntityNotFoundError') {
+          return {
+            jsonrpc,
+            result: {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify({
+                    success: false,
+                    error_type: 'ENTITY_NOT_FOUND',
+                    message: err.message,
+                    details: err.details
+                  })
+                }
+              ]
+            },
+            id
+          };
+        }
         return {
           jsonrpc,
           error: {
@@ -1239,6 +1258,64 @@ async function verificarPermissao(supabase, usuarioId, recurso, acao) {
     console.error('[MCP Permissões] Erro inesperado ao validar permissão:', err);
     return false;
   }
+}
+
+/**
+ * Utilitário para resolver IDs que podem ter sido passados como nomes de texto.
+ * Ex: Se um usuário envia "Banco Sicoob" em conta_financeira_id, busca o ID da conta por nome.
+ * Se não for encontrado, lança EntityNotFoundError contendo os detalhes.
+ */
+async function resolveEntityId(supabase, tableName, nameColumns, textValue, orgId) {
+  if (textValue === null || textValue === undefined || textValue === '') {
+    return null;
+  }
+
+  // Se já for um ID numérico ou UUID, retorna diretamente
+  const valueStr = String(textValue).trim();
+  const isNumber = /^\d+$/.test(valueStr);
+  const isUuid = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(valueStr);
+
+  if (isNumber || isUuid) {
+    return isUuid ? valueStr : Number(valueStr);
+  }
+
+  // Se for texto, busca pelo nome
+  const cols = Array.isArray(nameColumns) ? nameColumns : [nameColumns];
+  
+  for (const col of cols) {
+    let query = supabase
+      .from(tableName)
+      .select('id')
+      .ilike(col, `%${valueStr}%`);
+
+    // Multitenancy e dados da Org 1 (Padrão e Global)
+    if (['cadastro_empresa', 'contas_financeiras', 'categorias_financeiras', 'empreendimentos', 'contatos', 'pedidos_fases'].includes(tableName)) {
+      query = query.or(`organizacao_id.eq.${orgId},organizacao_id.eq.1`);
+    } else {
+      query = query.eq('organizacao_id', orgId);
+    }
+
+    const { data, error } = await query.limit(1);
+    if (!error && data && data.length > 0) {
+      return data[0].id;
+    }
+  }
+
+  // Lança o erro se não encontrou o ID correspondente ao nome
+  const friendlyNames = {
+    'cadastro_empresa': 'empresa',
+    'contas_financeiras': 'conta financeira',
+    'categorias_financeiras': 'categoria financeira',
+    'empreendimentos': 'empreendimento/obra',
+    'contatos': 'contato',
+    'materiais': 'material/insumo',
+    'pedidos_fases': 'fase do pedido'
+  };
+  const entityType = friendlyNames[tableName] || tableName;
+  const err = new Error(`Não foi possível encontrar o ID para a entidade ${entityType} com nome '${valueStr}'.`);
+  err.name = 'EntityNotFoundError';
+  err.details = { tableName, textValue: valueStr };
+  throw err;
 }
 
 /**
@@ -1859,6 +1936,11 @@ async function executeTool(name, args, supabase, user) {
     case 'lancar_despesa': {
       const { descricao, valor, data_vencimento, conta_financeira_id, categoria_id, empreendimento_id, data_pagamento, status = 'Pendente', observacao, favorecido_contato_id, transferencia_id, data_transacao } = args;
 
+      const resolvedContaId = await resolveEntityId(supabase, 'contas_financeiras', 'nome', conta_financeira_id, user.organizacao_id);
+      const resolvedCategoriaId = await resolveEntityId(supabase, 'categorias_financeiras', 'nome', categoria_id, user.organizacao_id);
+      const resolvedEmpreendimentoId = await resolveEntityId(supabase, 'empreendimentos', 'nome', empreendimento_id, user.organizacao_id);
+      const resolvedContatoId = await resolveEntityId(supabase, 'contatos', 'nome', favorecido_contato_id, user.organizacao_id);
+
       const valorFormatado = -Math.abs(Number(valor));
 
       const { data, error } = await supabase
@@ -1868,9 +1950,9 @@ async function executeTool(name, args, supabase, user) {
           valor: valorFormatado,
           tipo: 'Despesa',
           status: status,
-          conta_id: conta_financeira_id,
-          categoria_id,
-          empreendimento_id: empreendimento_id || null,
+          conta_id: resolvedContaId,
+          categoria_id: resolvedCategoriaId,
+          empreendimento_id: resolvedEmpreendimentoId || null,
           data_vencimento,
           data_transacao: data_transacao || data_pagamento || data_vencimento,
           data_pagamento: data_pagamento || null,
@@ -1878,7 +1960,7 @@ async function executeTool(name, args, supabase, user) {
           organizacao_id: user.organizacao_id,
           origem_criacao: 'MCP API',
           observacao: observacao || null,
-          favorecido_contato_id: favorecido_contato_id || null,
+          favorecido_contato_id: resolvedContatoId || null,
           transferencia_id: transferencia_id || null
         })
         .select('id, descricao, valor, status')
@@ -1891,6 +1973,11 @@ async function executeTool(name, args, supabase, user) {
     case 'lancar_receita': {
       const { descricao, valor, data_vencimento, conta_financeira_id, categoria_id, empreendimento_id, data_pagamento, status = 'Pendente', observacao, favorecido_contato_id, transferencia_id, data_transacao } = args;
 
+      const resolvedContaId = await resolveEntityId(supabase, 'contas_financeiras', 'nome', conta_financeira_id, user.organizacao_id);
+      const resolvedCategoriaId = await resolveEntityId(supabase, 'categorias_financeiras', 'nome', categoria_id, user.organizacao_id);
+      const resolvedEmpreendimentoId = await resolveEntityId(supabase, 'empreendimentos', 'nome', empreendimento_id, user.organizacao_id);
+      const resolvedContatoId = await resolveEntityId(supabase, 'contatos', 'nome', favorecido_contato_id, user.organizacao_id);
+
       const valorFormatado = Math.abs(Number(valor));
 
       const { data, error } = await supabase
@@ -1900,9 +1987,9 @@ async function executeTool(name, args, supabase, user) {
           valor: valorFormatado,
           tipo: 'Receita',
           status: status,
-          conta_id: conta_financeira_id,
-          categoria_id,
-          empreendimento_id: empreendimento_id || null,
+          conta_id: resolvedContaId,
+          categoria_id: resolvedCategoriaId,
+          empreendimento_id: resolvedEmpreendimentoId || null,
           data_vencimento,
           data_transacao: data_transacao || data_pagamento || data_vencimento,
           data_pagamento: data_pagamento || null,
@@ -1910,7 +1997,7 @@ async function executeTool(name, args, supabase, user) {
           organizacao_id: user.organizacao_id,
           origem_criacao: 'MCP API',
           observacao: observacao || null,
-          favorecido_contato_id: favorecido_contato_id || null,
+          favorecido_contato_id: resolvedContatoId || null,
           transferencia_id: transferencia_id || null
         })
         .select('id, descricao, valor, status')
@@ -2049,7 +2136,10 @@ async function executeTool(name, args, supabase, user) {
     case 'criar_pedido_compra': {
       const { empreendimento_id, titulo, fase_id, justificativa, data_entrega_prevista, turno_entrega, observacoes } = args;
 
-      let targetFaseId = fase_id;
+      const resolvedEmpreendimentoId = await resolveEntityId(supabase, 'empreendimentos', 'nome', empreendimento_id, user.organizacao_id);
+      const resolvedFaseId = await resolveEntityId(supabase, 'pedidos_fases', 'nome', fase_id, user.organizacao_id);
+
+      let targetFaseId = resolvedFaseId;
       let targetStatus = 'Pendente';
 
       if (!targetFaseId) {
@@ -2078,7 +2168,7 @@ async function executeTool(name, args, supabase, user) {
       const { data, error } = await supabase
         .from('pedidos_compra')
         .insert({
-          empreendimento_id,
+          empreendimento_id: resolvedEmpreendimentoId,
           titulo,
           fase_id: targetFaseId || null,
           status: targetStatus,
@@ -2147,13 +2237,15 @@ async function executeTool(name, args, supabase, user) {
     case 'adicionar_item_pedido_compra': {
       const { pedido_compra_id, material_id, quantidade, valor_unitario, descricao_item } = args;
 
+      const resolvedMaterialId = await resolveEntityId(supabase, 'materiais', 'nome', material_id, user.organizacao_id);
+
       let finalDescricao = descricao_item;
       let finalUnidade = null;
 
       const { data: materialData } = await supabase
         .from('materiais')
         .select('nome, unidade_medida')
-        .eq('id', material_id)
+        .eq('id', resolvedMaterialId)
         .single();
 
       if (materialData) {
@@ -2165,7 +2257,7 @@ async function executeTool(name, args, supabase, user) {
         .from('pedidos_compra_itens')
         .insert({
           pedido_compra_id,
-          material_id,
+          material_id: resolvedMaterialId,
           quantidade_solicitada: quantidade,
           preco_unitario_real: valor_unitario,
           custo_total_real: Number(quantidade) * Number(valor_unitario),
@@ -3113,8 +3205,17 @@ async function executeTool(name, args, supabase, user) {
     }
 
     case 'criar_empreendimento': {
+      const { empresa_proprietaria_id, incorporadora_id, construtora_id, ...rest } = args;
+
+      const resolvedProprietaria = await resolveEntityId(supabase, 'cadastro_empresa', ['razao_social', 'nome_fantasia'], empresa_proprietaria_id, user.organizacao_id);
+      const resolvedIncorporadora = await resolveEntityId(supabase, 'cadastro_empresa', ['razao_social', 'nome_fantasia'], incorporadora_id, user.organizacao_id);
+      const resolvedConstrutora = await resolveEntityId(supabase, 'cadastro_empresa', ['razao_social', 'nome_fantasia'], construtora_id, user.organizacao_id);
+
       const insertData = {
-        ...args,
+        ...rest,
+        empresa_proprietaria_id: resolvedProprietaria,
+        incorporadora_id: resolvedIncorporadora,
+        construtora_id: resolvedConstrutora,
         organizacao_id: user.organizacao_id
       };
 
