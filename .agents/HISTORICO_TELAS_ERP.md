@@ -128,3 +128,59 @@ Este documento funciona como a base de conhecimento viva e guia de integridade d
 #### ⏱️ Histórico de Atualizações:
 * **23/07/2026 (Construtor Dinâmico & Performance)**: Desenvolvido o novo fluxo de condições flexíveis para o roteamento de leads, incluindo DDI e origem no banco de dados e otimização das listagens de Meta Ads.
 
+---
+
+### 5. Design System & Styleguide
+* **Caminho da Rota**: `/design-system`
+* **Arquivos Principais**:
+  * [page.js](file:///c:/Projetos/studio57so-v8/app/(main)/design-system/page.js)
+
+#### 📋 Funcionalidades Ativas a Preservar:
+* **Layout de Documentação em Duas Colunas**:
+  * O visual é limpo e explora toda a largura horizontal da tela (`w-full px-6 py-6`), evitando o estreitamento da interface.
+  * O cabeçalho é simples, contendo apenas o título da página e sua descrição em negrito sóbrio, sem caixas pretas de logo (`57` ad-hoc) ou fontes estilizadas fora do padrão.
+* **Sidebar Lateral de Navegação (Design Oficial)**:
+  * O menu esquerdo replica a identidade e as classes exatas da Sidebar do ERP: títulos de seção em `text-xs font-bold text-gray-400 uppercase tracking-wider mb-3` e itens em `text-sm font-medium`.
+  * O item ativo recebe a **borda vertical esquerda preta** de 4px (`border-l-4 border-black bg-gray-100 text-black font-semibold`). O Laranja Elo ficou restrito estritamente a elementos e automações baseadas em IA (Stella IA).
+  * Integração com **Scroll Spy** (ilumina dinamicamente o item ativo na rolagem) e **Smooth Scroll** ao clicar nos links de ancoragem.
+* **Preservação Absoluta de Metadados nos Cards do Kanban (CRM e Compras)**:
+  * **Card de Pedido de Compra (Seção 03):** Deve manter a faixa vermelha de atraso à esquerda, badge de atraso (`⚠️ +3 dias`), botão de copiar ID (`faClone`), metadados do solicitante, obra, data solicitada, pílula de status financeiro (`📂 Pendente Fin.`), valor monetário destacado em verde (`$ R$ 0,00`), status da coluna e menu de 3 pontos verticais.
+  * **Card do CRM (Seção 03):** Deve manter a faixa preta à esquerda, cabeçalho com ID/Nome, badge de tarefas no topo (`📋 1 TAREFAS (CONCLUÍDAS)`), telefone com ícone, seção de unidades de interesse com o texto e botão interativo (`+ Adicionar Unidade`), seção de corretor responsável com as ações rápidas (`Adicionar` ou `✕ Trocar`), badge de origem da campanha (`🌐 Landing Page - Elo 57`), data e hora completa de criação no rodapé e botão de WhatsApp verde.
+* **Cores da Marca e Manual Supremo**:
+  * O **Laranja Elo (`#FF6700`)** é a cor de sotaque oficial reservada exclusivamente para Inteligência Artificial (Stella IA). O layout e navegação padrão usam Preto Absoluto (`#000000`) e Branco Puro (`#FFFFFF`).
+  * A tipografia oficial é a **Roboto** (slogans, textos) e a **Montserrat** (UI, botões, cabeçalhos e navegação).
+* **Biblioteca de Ícones Padrão (Dicionário único)**:
+  * Catalogados todos os ícones válidos do ERP por finalidade: CRUD (`faEdit`, `faTrash`, `faPlus`, `faSave`, `faTimes`, `faCopy`), Navegação (`faSearch`, `faFilter`, `faEye`, `faChevronDown`, `faChevronUp`), e Mensagens (`faWhatsapp`, `faPhone`, `faCheckCircle`, `faExclamationTriangle`, `faInfoCircle`, `faSpinner`).
+  * Estão explicitamente descritos os ícones proibidos no sistema (`faPen`, `faPenToSquare`, `faTrashAlt`, `faXmark`), garantindo a consistência das ações CRUD.
+  * Snippets de código do Next.js integrados para cópia rápida com 1 clique.
+
+#### ⏱️ Histórico de Atualizações:
+* **23/07/2026 (Restabelecimento do Laranja Elo e Biblioteca de Ícones)**: Reintroduzido o Laranja Elo (`#FF6700`) como cor de sotaque oficial e adicionada a seção 06 com a biblioteca/dicionário completo de ícones CRUD, navegação e status, além de ajustar o layout de Sidebar do ERP e a largura total da página.
+* **23/07/2026 (Restauração Completa dos Cards Reais)**: Reconstruídos os layouts dos cards de Kanban para CRM e Compras, mapeando e restabelecendo 100% dos campos, botões de ação e dados de produção a partir dos prints reais do ERP (SLA, tarefas, WhatsApp, corretores e unidades).
+
+### 6. Gestão de Empresas & SPEs
+* **Caminho da Rota**: `/empresas`
+* **Arquivos Principais**:
+  * [page.js](file:///c:/Projetos/studio57so-v8/app/(main)/empresas/page.js)
+  * [EmpresaManager.js](file:///c:/Projetos/studio57so-v8/components/empresas/EmpresaManager.js)
+  * [EmpresaDetails.js](file:///c:/Projetos/studio57so-v8/components/empresas/EmpresaDetails.js)
+  * [EmpresaFormModal.js](file:///c:/Projetos/studio57so-v8/components/empresas/EmpresaFormModal.js)
+
+#### 📋 Funcionalidades Ativas a Preservar:
+* **Lista Master-Detail Sóbria**:
+  * A listagem master à esquerda usa cantos `rounded-lg` (8px). O item selecionado destaca-se sem cores extravagantes, adotando cinza-claro (`bg-gray-100 border-gray-200 text-black font-semibold`). O avatar sem imagem da empresa adota fundo preto absoluto `#000000` se selecionado.
+  * O input de pesquisa da lista master adota cantos `rounded-lg` e anel de foco em preto sóbrio (`focus:ring-black focus:border-black`).
+* **KPIs de Auditoria de Documentos**:
+  * Os cartões de KPIs em `EmpresaDetails.js` usam o design padrão ouro unificado: contornos finos em cinza (`border-gray-200 rounded-lg shadow-sm`), ícone em caixa azul claro (`bg-blue-50 text-black`), e o valor em destaque preto `text-xl font-black text-gray-900`.
+* **Abas de Divisão Corporativa**:
+  * O botão de aba (`TabButton`) adota borda inferior e texto pretos se ativo (`border-black text-black font-semibold`).
+  * O corpo da ficha cadastral envolve as seções em caixas brancas minimalistas com borda lateral esquerda de destaque preta (`border-l-4 border-black`) e títulos discretos em Montserrat uppercase.
+  * Os rótulos de dados (`InfoField`) utilizam legendas menores `text-[10px] font-black text-gray-400 uppercase tracking-wider` e os valores em `text-sm font-semibold text-gray-800`.
+* **Modais e Botões CRUD Unificados**:
+  * O cabeçalho do `EmpresaFormModal` adota o padrão de cor sólida preta (`bg-black text-white px-5 py-4`) com título reduzido em negrito e botão de fechar branco minimalista (`text-white/70 hover:text-white`).
+  * Todos os botões de ação e confirmação adotam Preto Sóbrio (`bg-black hover:bg-gray-900 text-white font-bold rounded-lg shadow-sm`) e cantos `rounded-lg`. O ícone de editar foi corrigido de `faPen` para `faEdit` (padrão ouro).
+  * Todos os inputs do modal usam cantos `rounded-lg` (8px) e foco preto sóbrio, com legendas uppercase.
+
+#### ⏱️ Histórico de Atualizações:
+* **23/07/2026 (Refatoração de Design Unificado - Padrão Ouro)**: Remodelada toda a experiência visual da rota `/empresas` (Lista Master, Ficha de Detalhes, KPIs de Anexos, Guias e Modais de Cadastro) para erradicar border-radius inconsistentes (`rounded-xl` em inputs/botões), substituir ícones CRUD proibidos (`faPen` -> `faEdit`), remover destaques azuis estilo bootstrap e alinhar o layout ao manual do Design System.
+

@@ -179,17 +179,25 @@ A estética deve ser elegante, sem bordas pesadas e com labels legíveis.
 ```
 
 ### 4. Tabelas Padrão Ouro
-> Veja a implementação referência em `/contatos/page.js`
+Todas as listagens e tabelas administrativas do sistema devem, sem exceção, adotar a estrutura de contêineres e estilizações descrita abaixo:
+
+**Cabeçalho da Seção de Tabela:**
+* Título alinhado à esquerda: `text-sm font-bold text-gray-900 uppercase tracking-wider` (Montserrat).
+* Link ou controle secundário de ação à direita extrema: `text-xs font-bold text-gray-550 hover:text-black transition-colors`.
 
 **Classes Estruturais da Tabela:**
-| Elemento | Padrão Correto |
-|----------|----------------|
-| Container da tabela | `bg-white border border-gray-200 rounded-md overflow-hidden shadow-sm` |
-| Cabeçalho `<th>` | `px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider` |
-| Hover da linha `<tr>` | `hover:bg-blue-50/20 transition-colors group cursor-pointer` |
-| Célula principal `<td>` | `px-6 py-3 font-semibold text-gray-700` |
-| Célula Secundária | `text-sm text-gray-500 font-medium` |
-| Células de Valor (R$) | `text-right font-bold text-gray-800` |
+| Elemento | Padrão Correto | Descrição Técnica |
+|----------|----------------|-------------------|
+| Container Envelopador (`div`) | `overflow-hidden border border-gray-200 rounded-lg shadow-sm bg-white` | Garante cantos arredondados (`rounded-lg` de 8px) nas quinas externas das tabelas HTML. |
+| Tag Tabela (`table`) | `min-w-full divide-y divide-gray-200 table-auto` | Ocupa largura total com divisória sutil abaixo do cabeçalho. |
+| Cabeçalho `<thead>` | `bg-gray-50/75 border-b border-gray-200 select-none` | Tom cinza claro semitransparente contrastante para leitura. |
+| Célula do Cabeçalho `<th>` | `px-6 py-3.5 text-left text-[10px] font-black text-gray-500 uppercase tracking-widest hover:text-black transition-colors cursor-pointer` | Fontes Montserrat caps-lockizadas extremamente discretas e interativas para ordenação. |
+| Ícones de Ordenação | `flex items-center gap-1.5` com ícone `faSort` (opacidade 40%) ou `faChevronUp`/`faChevronDown` em preto se ordenado. | Ícones discretos em cinza médio/claro ao lado do título da coluna. |
+| Linha do Corpo `<tr>` | `hover:bg-gray-50/75 border-b border-gray-150 transition-colors cursor-pointer` | Resposta visual suave de hover ao passar o cursor sobre as linhas. |
+| Célula de Texto `<td>` | `px-6 py-4 text-xs font-semibold text-gray-700` | Peso de fonte médio com leitura confortável. |
+| Célula de Código/ID/Número | `px-6 py-4 text-xs font-black text-gray-900 font-mono` | Uso da fonte mono para números, metros quadrados e códigos. |
+| Célula de Valor Financeiro (R$) | `px-6 py-4 text-xs font-black text-gray-900 font-mono text-right` | Valores numéricos de dinheiro devem ser alinhados à direita. |
+
 
 ### 5. Tipografia Padrão
 Nos títulos, use `font-bold` ou `font-extrabold`. Em tabelas e dados, prefira `text-sm font-semibold` ou `font-medium`.
