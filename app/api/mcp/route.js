@@ -1689,8 +1689,8 @@ async function executeTool(name, args, supabase, user) {
         .from('contatos_no_funil')
         .select(`
           id,
-          contato:contatos(id, nome, celular, status),
-          coluna:funil_colunas(id, nome, ordem),
+          contato:contatos!contato_id(id, nome, status),
+          coluna:colunas_funil!coluna_id(id, nome, ordem),
           created_at
         `);
 
@@ -1980,7 +1980,7 @@ async function executeTool(name, args, supabase, user) {
         .select(`
           id, 
           quantidade, 
-          custo_unitario, 
+          preco_unitario, 
           material:materiais(id, nome, unidade_medida)
         `)
         .eq('orcamento_id', orcamento_id);
@@ -1997,7 +1997,7 @@ async function executeTool(name, args, supabase, user) {
           orcamento_id,
           material_id,
           quantidade,
-          custo_unitario: valor_unitario,
+          preco_unitario: valor_unitario,
           organizacao_id: user.organizacao_id
         })
         .select('id, orcamento_id, quantidade')
@@ -3219,7 +3219,7 @@ async function executeTool(name, args, supabase, user) {
       const { empreendimento_id } = args;
       let query = supabase
         .from('produtos_empreendimento')
-        .select('id, unidade, bloco, area_m2, valor_base, valor_venda_calculado, status, empreendimento_id')
+        .select('id, unidade, area_m2, valor_base, valor_venda_calculado, status, empreendimento_id')
         .order('unidade');
 
       if (empreendimento_id) {
