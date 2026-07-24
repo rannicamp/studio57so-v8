@@ -8,23 +8,48 @@
 
 const { Client } = require('pg');
 const fs = require('fs');
+const path = require('path');
 
-const PASS = 'REMOVED_PASSWORD';
-const STUDIO_URL = `postgresql://postgres:${PASS}@db.vhuvnutzklhskkwbpxdz.supabase.co:5432/postgres`;
-const ELO_URL = `postgresql://postgres:${PASS}@db.alqzomckjnefsmhusnfu.supabase.co:5432/postgres`;
+// Carregar .env.local
+const envPath = path.resolve(__dirname, '../.env.local');
+if (fs.existsSync(envPath)) {
+  const lines = fs.readFileSync(envPath, 'utf-8').split('\n');
+  for (const line of lines) {
+    const match = line.match(/^\s*([\w.-]+)\s*=\s*(.*)?\s*$/);
+    if (match) {
+      const key = match[1];
+      let val = (match[2] || '').trim();
+      if (val.startsWith('"') && val.endsWith('"')) val = val.substring(1, val.length - 1);
+      process.env[key] = val;
+    }
+  }
+}
+
 const SSL = { rejectUnauthorized: false };
 const MIGRATION_FILE = 'supabase/migrations/20260309_full_sync.sql';
 
-async function getClient(url, nome) {
-    const c = new Client({ connectionString: decodeURIComponent(url), ssl: SSL });
-    await c.connect();
-    console.log(`✅ Conectado: ${nome}`);
-    return c;
-}
-
 async function main() {
-    const studio = await getClient(STUDIO_URL, 'Studio 57 (origem)');
-    const elo = await getClient(ELO_URL, 'Elo 57    (destino)');
+    const studio = new Client({
+        user: 'postgres',
+        host: 'db.vhuvnutzklhskkwbpxdz.supabase.co',
+        database: 'postgres',
+        password: process.env.SUPABASE_DB_PASSWORD || process.env.DB_PASSWORD,
+        port: 5432,
+        ssl: SSL
+    });
+    const elo = new Client({
+        user: 'postgres',
+        host: 'db.alqzomckjnefsmhusnfu.supabase.co',
+        database: 'postgres',
+        password: process.env.ELO_SUPABASE_DB_PASSWORD,
+        port: 5432,
+        ssl: SSL
+    });
+
+    await studio.connect();
+    console.log(`✅ Conectado: Studio 57 (origem)`);
+    await elo.connect();
+    console.log(`✅ Conectado: Elo 57    (destino)`);
 
     let sqlOut = [];
     let ok = 0, erros = 0;

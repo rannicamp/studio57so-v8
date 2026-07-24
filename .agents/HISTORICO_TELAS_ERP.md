@@ -184,3 +184,28 @@ Este documento funciona como a base de conhecimento viva e guia de integridade d
 #### ⏱️ Histórico de Atualizações:
 * **23/07/2026 (Refatoração de Design Unificado - Padrão Ouro)**: Remodelada toda a experiência visual da rota `/empresas` (Lista Master, Ficha de Detalhes, KPIs de Anexos, Guias e Modais de Cadastro) para erradicar border-radius inconsistentes (`rounded-xl` em inputs/botões), substituir ícones CRUD proibidos (`faPen` -> `faEdit`), remover destaques azuis estilo bootstrap e alinhar o layout ao manual do Design System.
 
+---
+
+### 7. Hub de Criativos e Publicações de Mídias
+* **Caminho da Rota**: `/elo57/publicacoes`
+* **Arquivos Principais**:
+  * [page.js](file:///c:/Projetos/studio57so-v8/app/(landingpages)/elo57/publicacoes/page.js)
+
+#### 📋 Funcionalidades Ativas a Preservar:
+* **Sidebar de Campanhas**:
+  * Seleção dinâmica de campanhas: `Elo 57 (ERP)`, `Beta Suítes (Lançamento de Luxo)` e `Residencial Alfa (Acompanhamento de Obra)` com ícones e status ativos.
+* **Seletor de Formatos e Aspect Ratio**:
+  * Alternador de proporção no preview e exportação: **Feed Quadrado (1:1 - 1080x1080px)** e **Stories Vertical (9:16 - 1080x1920px)**.
+* **Escala Vetorial Automática (`scale()`)**:
+  * Ajuste de visualização em tempo real que escala o canvas do criativo proporcionalmente com base na largura da janela e no formato selecionado, mantendo a proporção 1:1 ou 9:16 intacta em qualquer tamanho de monitor.
+* **Layouts Híbridos (Mídias e Negócio)**:
+  * **Layout de Produto (Elo 57):** Renderiza mockups reais de desktop (Financeiro e BIM 5D) e celular (RDO) emoldurados.
+  * **Layout Imobiliário (Beta/Alfa):** Aplica design split editorial luxo (imagem 60% topo, ficha de texto branca 40% base) com tipografia Montserrat e Roboto elegante.
+* **Exportação em Lote**:
+  * Botão de "Exportar Todos os Slides" que percorre de forma assíncrona todas as páginas da campanha, aguarda o renderizador React pintar o DOM e gera múltiplos downloads de PNG em alta resolução limpos de botões.
+
+#### ⏱️ Histórico de Atualizações:
+* **24/07/2026 (Hub de Publicações & Stories 9:16)**: Expandida a página para acomodar o Hub de Criativos contendo sidebar, campanhas adicionais (Beta Suítes e Residencial Alfa) com layouts imobiliários dedicados e suporte total ao formato de Stories (1080x1920).
+* **24/07/2026 (Carrossel Interativo e Exportação)**: Desenvolvida a navegação lateral com bolinhas do Instagram e motor html2canvas com clonagem de DOM.
+
+
