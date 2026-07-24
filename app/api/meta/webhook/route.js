@@ -12,9 +12,21 @@ const getSupabaseAdmin = () => {
 
 // --- FUNÇÕES AUXILIARES ---
 
-function sanitizePhone(phone) {
+function sanitizePhone(phone, campaignName = '') {
   if (!phone) return null;
   let clean = phone.replace(/\D/g, '');
+  
+  // Se vier com o DDI dos EUA (1) ou já tiver 11 dígitos começando com 1
+  if (clean.length === 11 && clean.startsWith('1')) {
+    return clean;
+  }
+  
+  // Se for uma campanha internacional/EUA e o número tiver 10 dígitos (padrão US sem DDI)
+  const isUSCampaign = campaignName.toUpperCase().includes('EUA') || campaignName.toUpperCase().includes('USA');
+  if (clean.length === 10 && isUSCampaign) {
+    return '1' + clean; // Preponde o DDI dos EUA (1)
+  }
+
   if (clean.length === 10 || clean.length === 11) {
     if (!(clean.startsWith('1') && clean.length === 11 && clean[2] !== '9')) {
       clean = '55' + clean;
@@ -358,7 +370,7 @@ async function processWebhook(body, request) {
     // 3c. Anti-Duplicação Inteligente: Busca se já existe contato com esse telefone
     let finalPhone = null;
     if (phoneLead) {
-      finalPhone = sanitizePhone(phoneLead);
+      finalPhone = sanitizePhone(phoneLead, leadDetails.campaign_name || '');
     }
 
     let contactIdToUse = null;

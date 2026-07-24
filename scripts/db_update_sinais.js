@@ -2,7 +2,7 @@ const { Client } = require('pg');
 require('dotenv').config({ path: '.env.local' });
 
 async function updateDatabase() {
-    const password = process.env.SUPABASE_DB_PASSWORD || 'Srbr19010720@';
+    const password = process.env.SUPABASE_DB_PASSWORD || 'REMOVED_PASSWORD';
     const encodedPassword = encodeURIComponent(password);
     const DEV_URL_DIRECT = `postgresql://postgres:${encodedPassword}@db.vhuvnutzklhskkwbpxdz.supabase.co:6543/postgres`;
 

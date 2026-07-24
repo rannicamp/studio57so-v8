@@ -5,7 +5,7 @@
 
 const { Client } = require('pg');
 
-const PROD_URL = 'postgresql://postgres:Srbr19010720%40@db.vhuvnutzklhskkwbpxdz.supabase.co:5432/postgres';
+const PROD_URL = `postgresql://postgres:${process.env.SUPABASE_DB_PASSWORD ? encodeURIComponent(process.env.SUPABASE_DB_PASSWORD) : 'REMOVED_PASSWORD'}@db.vhuvnutzklhskkwbpxdz.supabase.co:5432/postgres`;
 
 // SQL seguro para aplicar — apenas ADD COLUMN IF NOT EXISTS
 // (nunca apaga dados, nunca altera dados existentes)

@@ -1,7 +1,7 @@
 const { Client } = require('pg');
 
 async function main() {
-  const password = "Srbr19010720@";
+  const password = "REMOVED_PASSWORD";
   const host = "db.vhuvnutzklhskkwbpxdz.supabase.co";
   const connStr = `postgres://postgres:${encodeURIComponent(password)}@${host}:6543/postgres`;
   const client = new Client({ connectionString: connStr, ssl: { rejectUnauthorized: false } });

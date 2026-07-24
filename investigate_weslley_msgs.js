@@ -1,6 +1,6 @@
 const { Client } = require('pg');
 async function main() {
-  const client = new Client({ connectionString: 'postgresql://postgres:Srbr19010720%40@db.vhuvnutzklhskkwbpxdz.supabase.co:5432/postgres', ssl: { rejectUnauthorized: false } });
+  const client = new Client({ connectionString: `postgresql://postgres:${process.env.SUPABASE_DB_PASSWORD ? encodeURIComponent(process.env.SUPABASE_DB_PASSWORD) : 'REMOVED_PASSWORD'}@db.vhuvnutzklhskkwbpxdz.supabase.co:5432/postgres`, ssl: { rejectUnauthorized: false } });
   await client.connect();
 
   const msgs = await client.query("SELECT id, created_at, status, error_message, direction FROM whatsapp_messages WHERE conversation_record_id = 16705 ORDER BY created_at DESC LIMIT 10");

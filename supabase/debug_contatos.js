@@ -1,6 +1,6 @@
 const { Client } = require('pg');
 
-const PASS = 'Srbr19010720%40';
+const PASS = 'REMOVED_PASSWORD';
 const STUDIO_URL = `postgresql://postgres:${PASS}@db.vhuvnutzklhskkwbpxdz.supabase.co:5432/postgres`;
 const SSL = { rejectUnauthorized: false };
 

@@ -1,6 +1,6 @@
 const { Client } = require('pg');
 async function main() {
-  const client = new Client({ connectionString: 'postgresql://postgres:Srbr19010720%40@db.vhuvnutzklhskkwbpxdz.supabase.co:5432/postgres', ssl: { rejectUnauthorized: false } });
+  const client = new Client({ connectionString: `postgresql://postgres:${process.env.SUPABASE_DB_PASSWORD ? encodeURIComponent(process.env.SUPABASE_DB_PASSWORD) : 'REMOVED_PASSWORD'}@db.vhuvnutzklhskkwbpxdz.supabase.co:5432/postgres`, ssl: { rejectUnauthorized: false } });
   await client.connect();
   const res = await client.query("SELECT prosrc FROM pg_proc WHERE proname = 'find_contact_smart'");
   console.log(res.rows[0]?.prosrc);

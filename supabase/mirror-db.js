@@ -2,7 +2,7 @@ const { Client } = require('pg');
 const fs = require('fs');
 
 // --- CONFIGURAÇÃO ---
-const PASS = 'Srbr19010720%40';
+const PASS = 'REMOVED_PASSWORD';
 const ORIGEM_URL = `postgresql://postgres:${PASS}@db.vhuvnutzklhskkwbpxdz.supabase.co:5432/postgres`;
 const DESTINO_URL = `postgresql://postgres:${PASS}@db.alqzomckjnefsmhusnfu.supabase.co:5432/postgres`;
 

@@ -1,7 +1,7 @@
 const { Client } = require('pg');
 
 async function main() {
-  const client = new Client({ connectionString: 'postgresql://postgres:Srbr19010720%40@db.vhuvnutzklhskkwbpxdz.supabase.co:5432/postgres', ssl: { rejectUnauthorized: false } });
+  const client = new Client({ connectionString: `postgresql://postgres:${process.env.SUPABASE_DB_PASSWORD ? encodeURIComponent(process.env.SUPABASE_DB_PASSWORD) : 'REMOVED_PASSWORD'}@db.vhuvnutzklhskkwbpxdz.supabase.co:5432/postgres`, ssl: { rejectUnauthorized: false } });
   await client.connect();
 
   const contatos = await client.query("SELECT id, nome, meta_form_data FROM contatos WHERE nome ILIKE '%Marcyana%'");

@@ -3,7 +3,7 @@ const fs = require('fs');
 require('dotenv').config({ path: '.env.local' });
 
 async function deployFunction() {
-    const password = process.env.SUPABASE_DB_PASSWORD || 'Srbr19010720@';
+    const password = process.env.SUPABASE_DB_PASSWORD || 'REMOVED_PASSWORD';
     const devUrl = `postgresql://postgres:${encodeURIComponent(password)}@db.vhuvnutzklhskkwbpxdz.supabase.co:6543/postgres`;
     const client = new Client({ connectionString: devUrl, ssl: { rejectUnauthorized: false } });
     

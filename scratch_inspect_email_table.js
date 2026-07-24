@@ -3,7 +3,7 @@ const { Client } = require('pg');
 require('dotenv').config({ path: '.env.local' });
 
 async function runSQL() {
-  const password = 'Srbr19010720@';
+  const password = 'REMOVED_PASSWORD';
   const baseHost = process.env.NEXT_PUBLIC_SUPABASE_URL.replace('https://', '').split('/')[0];
   const projectId = baseHost.split('.')[0];
   const host = `db.${projectId}.supabase.co`;

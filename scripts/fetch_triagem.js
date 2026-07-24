@@ -2,7 +2,7 @@ require('dotenv').config({ path: '.env.local' });
 const { Client } = require('pg');
 
 async function fetchTriagem() {
-  const STUDIO_URL = 'postgresql://postgres:Srbr19010720%40@db.vhuvnutzklhskkwbpxdz.supabase.co:5432/postgres';
+  const STUDIO_URL = `postgresql://postgres:${process.env.SUPABASE_DB_PASSWORD ? encodeURIComponent(process.env.SUPABASE_DB_PASSWORD) : 'REMOVED_PASSWORD'}@db.vhuvnutzklhskkwbpxdz.supabase.co:5432/postgres`;
   const SSL = { rejectUnauthorized: false };
   const client = new Client({
     connectionString: decodeURIComponent(STUDIO_URL),

@@ -36,8 +36,26 @@ async function run() {
   dataCorte.setDate(dataCorte.getDate() - days);
   const dataCorteISO = dataCorte.toISOString();
 
-  // 1. Buscar todos os leads criados no período ou que interagiram
-  console.log('1. Coletando dados de leads vinculados à Stella no CRM...');
+  // 1. Buscar todas as mensagens das conversas no período
+  console.log('\n1. Analisando volumetria de mensagens e status de entrega...');
+  const { data: mensagens, error: msgsErr } = await supabase
+    .from('whatsapp_messages')
+    .select('id, contato_id, direction, status, created_at, content, error_message')
+    .eq('organizacao_id', ORGANIZACAO_ID)
+    .gte('created_at', dataCorteISO)
+    .order('created_at', { ascending: true });
+
+  if (msgsErr) {
+    console.error('Erro ao buscar mensagens:', msgsErr.message);
+    return;
+  }
+
+  console.log(` -> Processadas ${mensagens.length} mensagens no período total da organização.`);
+
+  const msgContactIds = [...new Set(mensagens.map(m => m.contato_id).filter(Boolean))];
+
+  // 2. Coletando dados de leads vinculados à Stella no CRM...
+  console.log('2. Coletando dados de leads vinculados à Stella no CRM...');
   
   // Buscar leads no funil comercial atribuídos à Stella
   const { data: leadsFunil, error: funilErr } = await supabase
@@ -53,15 +71,39 @@ async function run() {
 
   const leadsIdsFunil = (leadsFunil || []).map(l => l.contato_id);
 
-  // Buscar todos os contatos que possuem ia_atendimento_ativo = true ou estão na lista do funil
-  const { data: contatos, error: contatosErr } = await supabase
+  // Buscar apenas os contatos relevantes (ativos com mensagens ou no funil da Stella ou com IA ativa)
+  // Para evitar limite de paginação (1000 registros), fazemos uma busca cirúrgica
+  const activeIdsSet = new Set([
+    ...msgContactIds, 
+    ...leadsIdsFunil.filter(id => msgContactIds.includes(id)), 
+  ]);
+  
+  // Também vamos incluir contatos criados no período
+  const { data: contatosRecentes } = await supabase
     .from('contatos')
     .select('id, nome, ia_atendimento_ativo, created_at, ai_analysis')
-    .eq('organizacao_id', ORGANIZACAO_ID);
+    .eq('organizacao_id', ORGANIZACAO_ID)
+    .gte('created_at', dataCorteISO);
 
-  if (contatosErr) {
-    console.error('Erro ao buscar contatos:', contatosErr.message);
-    return;
+  if (contatosRecentes) {
+    contatosRecentes.forEach(c => activeIdsSet.add(c.id));
+  }
+
+  const activeIdsArr = [...activeIdsSet];
+  
+  let contatos = [];
+  if (activeIdsArr.length > 0) {
+    const { data: contatosData, error: contatosErr } = await supabase
+      .from('contatos')
+      .select('id, nome, ia_atendimento_ativo, created_at, ai_analysis, cpf, fgts, estado_civil, renda_familiar, mais_de_3_anos_clt')
+      .eq('organizacao_id', ORGANIZACAO_ID)
+      .in('id', activeIdsArr);
+
+    if (contatosErr) {
+      console.error('Erro ao buscar contatos:', contatosErr.message);
+      return;
+    }
+    contatos = contatosData || [];
   }
 
   // Filtrar contatos da Stella criados ou ativos no período
@@ -70,23 +112,6 @@ async function run() {
   );
 
   console.log(` -> Encontrados ${contatosStella.length} leads sob gestão da Stella.`);
-
-  // 2. Analisar mensagens das conversas desses leads no período
-  console.log('\n2. Analisando volumetria de mensagens e status de entrega...');
-  
-  const { data: mensagens, error: msgsErr } = await supabase
-    .from('whatsapp_messages')
-    .select('id, contato_id, direction, status, created_at, content, error_message')
-    .eq('organizacao_id', ORGANIZACAO_ID)
-    .gte('created_at', dataCorteISO)
-    .order('created_at', { ascending: true });
-
-  if (msgsErr) {
-    console.error('Erro ao buscar mensagens:', msgsErr.message);
-    return;
-  }
-
-  console.log(` -> Processadas ${mensagens.length} mensagens no período total da organização.`);
 
   // 3. Analisar custos da API do Gemini
   console.log('\n3. Calculando telemetria de custos de IA (Gemini API)...');

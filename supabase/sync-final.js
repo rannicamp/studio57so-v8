@@ -9,8 +9,8 @@
 
 const { Client } = require('pg');
 
-const STUDIO_URL = 'postgresql://postgres:Srbr19010720%40@db.vhuvnutzklhskkwbpxdz.supabase.co:5432/postgres';
-const ELO_URL = 'postgresql://postgres:Srbr19010720%40@db.alqzomckjnefsmhusnfu.supabase.co:5432/postgres';
+const STUDIO_URL = `postgresql://postgres:${process.env.SUPABASE_DB_PASSWORD ? encodeURIComponent(process.env.SUPABASE_DB_PASSWORD) : 'REMOVED_PASSWORD'}@db.vhuvnutzklhskkwbpxdz.supabase.co:5432/postgres`;
+const ELO_URL = 'postgresql://postgres:REMOVED_PASSWORD@db.alqzomckjnefsmhusnfu.supabase.co:5432/postgres';
 const SSL = { rejectUnauthorized: false };
 
 // Email do super admin a ser inserido NO ELO 57

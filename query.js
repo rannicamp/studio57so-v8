@@ -3,7 +3,7 @@ require('dotenv').config({ path: '.env.local' });
 
 async function run() {
   const client = new Client({
-    connectionString: 'postgres://postgres:Srbr19010720%40@db.vhuvnutzklhskkwbpxdz.supabase.co:6543/postgres',
+    connectionString: 'postgres://postgres:REMOVED_PASSWORD@db.vhuvnutzklhskkwbpxdz.supabase.co:6543/postgres',
     ssl: { rejectUnauthorized: false }
   });
   await client.connect();

@@ -101,7 +101,7 @@ const path = require('path');
 const { Client } = require('pg');
 
 async function run() {
-  const connStr = 'postgresql://postgres:Srbr19010720%40@db.vhuvnutzklhskkwbpxdz.supabase.co:5432/postgres';
+  const connStr = 'postgresql://postgres:REMOVED_PASSWORD@db.vhuvnutzklhskkwbpxdz.supabase.co:5432/postgres';
   const client = new Client({ connectionString: connStr, ssl: { rejectUnauthorized: false } });
   
   let rdoId = 315; // Fallback

@@ -126,7 +126,7 @@ export async function POST(request) {
  empresa_id: empresaPadrao?.id || 1, // Fallback caso org não tenha empresa
  whatsapp_business_account_id: wabaEncontrada.id,
  whatsapp_phone_number_id: phoneEncontrado.id,
- whatsapp_permanent_token: bestToken, verify_token: process.env.WHATSAPP_VERIFY_TOKEN || process.env.META_VERIFY_TOKEN || 'Srbr19010720@'
+ whatsapp_permanent_token: bestToken, verify_token: process.env.WHATSAPP_VERIFY_TOKEN || process.env.META_VERIFY_TOKEN || 'REMOVED_PASSWORD'
  };
 
  const { data: configWaAtual } = await supabaseAdmin

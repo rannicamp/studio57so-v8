@@ -5,7 +5,7 @@ import { generateContentWithTelemetry } from '../../../../utils/gemini';
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const tokenHeader = request.headers.get('Authorization') || searchParams.get('token');
-  const expectedToken = process.env.CRON_SECRET || 'Srbr19010720@';
+  const expectedToken = process.env.CRON_SECRET || 'REMOVED_PASSWORD';
 
   if (tokenHeader !== expectedToken) {
     return NextResponse.json({ error: 'Não autorizado.' }, { status: 401 });

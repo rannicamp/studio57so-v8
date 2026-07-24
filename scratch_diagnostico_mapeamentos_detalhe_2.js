@@ -12,7 +12,7 @@ function getPassword() {
       if (match) return match[1].trim();
     }
   } catch {}
-  return 'Srbr19010720@'; // Fallback
+  return 'REMOVED_PASSWORD'; // Fallback
 }
 
 const envFile = fs.readFileSync('.env.local', 'utf8');

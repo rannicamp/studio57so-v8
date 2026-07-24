@@ -6,7 +6,7 @@ const crypto = require('crypto');
 
 const ELO_MCP_URL = 'http://localhost:3000/api/mcp';
 const TOKEN = 'elo57_usr_key_f6858678bbb6946ac8a7795a3218f47d7a0b250af4c84209';
-const PG_CONN = 'postgresql://postgres:Srbr19010720%40@db.vhuvnutzklhskkwbpxdz.supabase.co:5432/postgres';
+const PG_CONN = `postgresql://postgres:${process.env.SUPABASE_DB_PASSWORD ? encodeURIComponent(process.env.SUPABASE_DB_PASSWORD) : 'REMOVED_PASSWORD'}@db.vhuvnutzklhskkwbpxdz.supabase.co:5432/postgres`;
 
 async function callMcpTool(methodName, args) {
   try {

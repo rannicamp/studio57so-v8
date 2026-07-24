@@ -1,7 +1,7 @@
 const { Client } = require('pg');
 const fs = require('fs');
 
-const PASS = encodeURIComponent('Srbr19010720@');
+const PASS = encodeURIComponent('REMOVED_PASSWORD');
 // Escrevendo no Elo 57 (Produção)
 const DESTINO_URL = `postgresql://postgres:${PASS}@db.alqzomckjnefsmhusnfu.supabase.co:5432/postgres`;
 

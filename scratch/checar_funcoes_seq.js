@@ -1,5 +1,5 @@
 const { Client } = require('pg');
-const ELO_URL = 'postgresql://postgres:Srbr19010720%40@db.alqzomckjnefsmhusnfu.supabase.co:5432/postgres';
+const ELO_URL = 'postgresql://postgres:REMOVED_PASSWORD@db.alqzomckjnefsmhusnfu.supabase.co:5432/postgres';
 const SSL = { rejectUnauthorized: false };
 
 async function run() {

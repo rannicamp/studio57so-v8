@@ -1,7 +1,7 @@
 const { Client } = require('pg');
 const fs = require('fs');
 
-const PASS = encodeURIComponent('Srbr19010720@');
+const PASS = encodeURIComponent('REMOVED_PASSWORD');
 // Lendo do Studio 57 (Laboratório)
 const ORIGEM_URL = `postgresql://postgres:${PASS}@db.vhuvnutzklhskkwbpxdz.supabase.co:5432/postgres`;
 

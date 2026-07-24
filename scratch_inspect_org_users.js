@@ -1,5 +1,5 @@
 const { Client } = require('pg');
-const connStr = 'postgres://postgres:Srbr19010720%40@db.vhuvnutzklhskkwbpxdz.supabase.co:6543/postgres';
+const connStr = 'postgres://postgres:REMOVED_PASSWORD@db.vhuvnutzklhskkwbpxdz.supabase.co:6543/postgres';
 
 async function run() {
   const client = new Client({ connectionString: connStr });

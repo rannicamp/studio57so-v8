@@ -2,7 +2,7 @@ const { Client } = require('pg');
 require('dotenv').config({ path: '.env.local' });
 
 async function createRPC() {
-    const password = process.env.SUPABASE_DB_PASSWORD || 'Srbr19010720@';
+    const password = process.env.SUPABASE_DB_PASSWORD || 'REMOVED_PASSWORD';
     const encodedPassword = encodeURIComponent(password);
 
     // Conectando no banco via porta 5432 ou 6543

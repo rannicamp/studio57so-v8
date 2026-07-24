@@ -3,7 +3,7 @@ import pg from 'pg';
 const { Client } = pg;
 
 const client = new Client({
-    connectionString: `postgresql://postgres.vhuvnutzklhskkwbpxdz:Srbr19010720%40@aws-0-sa-east-1.pooler.supabase.com:6543/postgres`,
+    connectionString: `postgresql://postgres.vhuvnutzklhskkwbpxdz:REMOVED_PASSWORD@aws-0-sa-east-1.pooler.supabase.com:6543/postgres`,
     ssl: { rejectUnauthorized: false }
 });
 

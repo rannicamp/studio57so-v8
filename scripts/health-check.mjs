@@ -1,6 +1,6 @@
 async function run() {
-  const url1 = 'https://studio57.arq.br/api/whatsapp/webhook?hub.mode=subscribe&hub.verify_token=Srbr19010720@&hub.challenge=teste';
-  const url2 = 'https://studio57.netlify.app/api/whatsapp/webhook?hub.mode=subscribe&hub.verify_token=Srbr19010720@&hub.challenge=teste';
+  const url1 = 'https://studio57.arq.br/api/whatsapp/webhook?hub.mode=subscribe&hub.verify_token=REMOVED_PASSWORD&hub.challenge=teste';
+  const url2 = 'https://studio57.netlify.app/api/whatsapp/webhook?hub.mode=subscribe&hub.verify_token=REMOVED_PASSWORD&hub.challenge=teste';
 
   console.log("Testando URL 1:", url1);
   try {

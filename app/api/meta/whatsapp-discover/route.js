@@ -170,7 +170,7 @@ export async function POST(request) {
  whatsapp_business_account_id: waba_id,
  whatsapp_phone_number_id: phone_number_id,
  whatsapp_permanent_token: wToken, // Usa o token mais confiável disponível
- verify_token: process.env.WHATSAPP_VERIFY_TOKEN || process.env.META_VERIFY_TOKEN || 'Srbr19010720@',
+ verify_token: process.env.WHATSAPP_VERIFY_TOKEN || process.env.META_VERIFY_TOKEN || 'REMOVED_PASSWORD',
  organizacao_id: userData.organizacao_id,
  empresa_id: empresaPadrao?.id
  };

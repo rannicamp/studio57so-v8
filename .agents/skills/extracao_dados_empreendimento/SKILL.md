@@ -24,7 +24,7 @@ require('dotenv').config({ path: '.env.local' });
 const { Client } = require('pg');
 
 // Utilizamos a URL de banco espelhada nos scripts de exportação (dbelo57)
-const STUDIO_URL = 'postgresql://postgres:Srbr19010720%40@db.vhuvnutzklhskkwbpxdz.supabase.co:5432/postgres';
+const STUDIO_URL = 'postgresql://postgres:REMOVED_PASSWORD@db.vhuvnutzklhskkwbpxdz.supabase.co:5432/postgres';
 // Caso seja pelo Pgbouncer (6543), substitua a porta conforme a .env
 const SSL = { rejectUnauthorized: false };
 

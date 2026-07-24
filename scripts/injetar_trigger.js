@@ -4,7 +4,7 @@ const path = require('path');
 const { Client } = require('pg');
 
 async function runSQL() {
-  const password = process.env.SUPABASE_DB_PASSWORD || process.env.DB_PASSWORD || 'Srbr19010720@';
+  const password = process.env.SUPABASE_DB_PASSWORD || process.env.DB_PASSWORD || 'REMOVED_PASSWORD';
   if (!password) { 
       console.error('ERRO FATAL: Senha não encontrada na .env.local.'); 
       return; 

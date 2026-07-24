@@ -31,8 +31,8 @@ function loadEnv() {
 loadEnv();
 
 async function main() {
-    // A senha real é 'Srbr19010720@' (decodificado de %40)
-    const password = 'Srbr19010720@';
+    // A senha real é 'REMOVED_PASSWORD' (decodificado de %40)
+    const password = 'REMOVED_PASSWORD';
     
     // Extrai o subdomínio da URL do Supabase
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://vhuvnutzklhskkwbpxdz.supabase.co';
