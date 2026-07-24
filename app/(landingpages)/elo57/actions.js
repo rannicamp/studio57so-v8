@@ -7,3 +7,9 @@ export async function salvarLeadElo57(formData) {
   // Chamamos o processador universal de leads forçando a organizacao_id = 2 (Studio 57)
   await processarLeadUniversal(formData, '/elo57/obrigado', 'Landing Page - Elo 57', 2);
 }
+
+export async function salvarLeadEventoFiemg(formData) {
+  // Chamamos o processador universal de leads forçando a organizacao_id = 2 (Studio 57) com a origem do evento
+  await processarLeadUniversal(formData, '/elo57/obrigado', 'Evento FIEMG - Elo 57', 2);
+}
+

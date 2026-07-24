@@ -17,4 +17,6 @@
   for = "/manifest.json"
   [headers.values]
     Content-Type = "application/manifest+json"
-    Cache-Control = "no-cache"
+    Cache-Control = "no-cache"
+
+

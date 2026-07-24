@@ -4,12 +4,11 @@
 import { useState, useEffect } from 'react';
 // Importando todos os componentes (Slides)
 import HeroSection from '../components/HeroSection';
-import PainelDoresSection from '../components/PainelDoresSection'; // Novo
+import PainelDoresSection from '../components/PainelDoresSection';
 import PainelIntegradoSection from '../components/PainelIntegradoSection';
-import OriginSection from '../components/OriginSection';
 import TechSection from '../components/TechSection';
-import StellaSection from '../components/StellaSection'; // Novo
-import OrcamentoBimSection from '../components/OrcamentoBimSection'; // Novo
+import StellaSection from '../components/StellaSection';
+import OrcamentoBimSection from '../components/OrcamentoBimSection';
 import PwaSection from '../components/PwaSection';
 import CtaSection from '../components/CtaSection';
 
@@ -17,7 +16,6 @@ const SECTIONS = [
   { id: 'hero', label: 'Início' },
   { id: 'dores', label: 'Dores de Gestão' },
   { id: 'gestao-integrada', label: 'Gestão Centralizada' },
-  { id: 'origem', label: 'Manifesto' },
   { id: 'modulos', label: 'Ecossistema' },
   { id: 'stella', label: 'SDR Stella IA' },
   { id: 'orcamentobim', label: 'BIM 5D Integrado' },
@@ -104,9 +102,6 @@ export default function ApresentacaoCompletaElo() {
       
       {/* 2.5. Gestão Centralizada (Painel) */}
       <PainelIntegradoSection />
-      
-      {/* 3. Nosso Manifesto */}
-      <OriginSection />
       
       {/* 4. Módulos / Ecossistema Completo */}
       <TechSection />
